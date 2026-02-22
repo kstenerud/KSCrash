@@ -37,6 +37,14 @@
 extern "C" {
 #endif
 
+/** Scope of a sidecar file being stitched into a report. */
+typedef enum {
+    /** Per-report sidecar: one file per report, stored in Sidecars/<monitorId>/<reportID>.ksscr */
+    KSCrashSidecarScopeReport = 0,
+    /** Per-run sidecar: one file per process run, stored in RunSidecars/<runID>/<monitorId>.ksscr */
+    KSCrashSidecarScopeRun = 1,
+} KSCrashSidecarScope;
+
 /**
  * Monitor API.
  * WARNING: All functions MUST be idempotent!
@@ -102,8 +110,8 @@ typedef struct KSCrashMonitorAPI {
      * sidecar data into the report before delivery.
      *
      * @param report The NULL-terminated JSON report string.
-     * @param reportID The ID of the report being stitched.
      * @param sidecarPath The full path to the sidecar file for this report.
+     * @param scope Whether this is a per-report or per-run sidecar.
      * @param context The monitor's opaque context pointer.
      *
      * @return A malloc'd NULL-terminated string with the stitched report,
@@ -112,7 +120,7 @@ typedef struct KSCrashMonitorAPI {
      * @note This callback is optional. If NULL, no stitching is performed.
      *       This runs at normal app startup time, not during crash handling.
      */
-    char *(*stitchReport)(const char *report, int64_t reportID, const char *sidecarPath, void *context);
+    char *(*stitchReport)(const char *report, const char *sidecarPath, KSCrashSidecarScope scope, void *context);
 } KSCrashMonitorAPI;
 
 /**

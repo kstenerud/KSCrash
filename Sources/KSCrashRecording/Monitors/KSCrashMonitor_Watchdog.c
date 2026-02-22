@@ -203,11 +203,11 @@ static const char *monitorId(__unused void *context);
 
 static KSHangSidecar *sidecar_open(KSHangMonitor *monitor, int64_t reportID)
 {
-    if (!g_callbacks.getSidecarReportPath) {
+    if (!g_callbacks.getReportSidecarPath) {
         return NULL;
     }
 
-    if (!g_callbacks.getSidecarReportPath(monitorId(NULL), reportID, monitor->sidecarPath,
+    if (!g_callbacks.getReportSidecarPath(monitorId(NULL), reportID, monitor->sidecarPath,
                                           sizeof(monitor->sidecarPath))) {
         monitor->sidecarPath[0] = '\0';
         return NULL;
@@ -845,8 +845,8 @@ const char *kscm_stringFromRole(int /*task_role_t*/ role)
 }
 
 /** Implemented in KSCrashMonitor_WatchdogStitch.m */
-extern char *kscm_watchdog_stitchReport(const char *report, int64_t reportID, const char *sidecarPath,
-                                        __unused void *context);
+extern char *kscm_watchdog_stitchReport(const char *report, const char *sidecarPath, KSCrashSidecarScope scope,
+                                        void *context);
 
 KSCrashMonitorAPI *kscm_watchdog_getAPI(void)
 {

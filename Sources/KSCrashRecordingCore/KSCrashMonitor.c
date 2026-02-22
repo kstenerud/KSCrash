@@ -361,16 +361,22 @@ const KSCrashMonitorAPI *kscm_getMonitor(const char *monitorId)
     return kscmr_getMonitor(&g_state.monitors, monitorId);
 }
 
-void kscm_setSidecarFilePathProvider(KSCrashSidecarFilePathProviderFunc provider)
+void kscm_setReportSidecarFilePathProvider(KSCrashReportSidecarFilePathProviderFunc provider)
 {
     init();
-    g_exceptionCallbacks.getSidecarFilePath = provider;
+    g_exceptionCallbacks.getReportSidecarFilePath = provider;
 }
 
-void kscm_setSidecarReportPathProvider(KSCrashSidecarReportPathProviderFunc provider)
+void kscm_setReportSidecarPathProvider(KSCrashReportSidecarPathProviderFunc provider)
 {
     init();
-    g_exceptionCallbacks.getSidecarReportPath = provider;
+    g_exceptionCallbacks.getReportSidecarPath = provider;
+}
+
+void kscm_setRunSidecarPathProvider(KSCrashSidecarRunPathProviderFunc provider)
+{
+    init();
+    g_exceptionCallbacks.getRunSidecarPath = provider;
 }
 
 // ============================================================================

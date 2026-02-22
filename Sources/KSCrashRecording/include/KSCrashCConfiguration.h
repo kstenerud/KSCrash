@@ -62,11 +62,17 @@ typedef struct {
      */
     const char *reportsPath;
 
-    /** The directory path for storing monitor sidecar files.
-     * Each monitor that uses sidecars gets a subdirectory named after its monitorId.
+    /** The directory path for storing per-report sidecar files.
+     * Layout: <reportSidecarsPath>/<monitorId>/<reportID>.ksscr
      * If NULL, defaults to a "Sidecars" sibling directory alongside reportsPath.
      */
-    const char *sidecarsPath;
+    const char *reportSidecarsPath;
+
+    /** The directory path for storing per-run sidecar files.
+     * Layout: <runSidecarsPath>/<runID>/<monitorId>.ksscr
+     * If NULL, defaults to a "RunSidecars" sibling directory alongside reportsPath.
+     */
+    const char *runSidecarsPath;
 
     /** The maximum number of crash reports to retain on disk.
      *
@@ -83,7 +89,8 @@ static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_
     return (KSCrashReportStoreCConfiguration) {
         .appName = NULL,
         .reportsPath = NULL,
-        .sidecarsPath = NULL,
+        .reportSidecarsPath = NULL,
+        .runSidecarsPath = NULL,
         .maxReportCount = 5,
     };
 }
@@ -94,7 +101,8 @@ static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_
     return (KSCrashReportStoreCConfiguration) {
         .appName = configuration->appName ? strdup(configuration->appName) : NULL,
         .reportsPath = configuration->reportsPath ? strdup(configuration->reportsPath) : NULL,
-        .sidecarsPath = configuration->sidecarsPath ? strdup(configuration->sidecarsPath) : NULL,
+        .reportSidecarsPath = configuration->reportSidecarsPath ? strdup(configuration->reportSidecarsPath) : NULL,
+        .runSidecarsPath = configuration->runSidecarsPath ? strdup(configuration->runSidecarsPath) : NULL,
         .maxReportCount = configuration->maxReportCount,
     };
 }
@@ -103,7 +111,8 @@ static inline void KSCrashReportStoreCConfiguration_Release(KSCrashReportStoreCC
 {
     free((void *)configuration->appName);
     free((void *)configuration->reportsPath);
-    free((void *)configuration->sidecarsPath);
+    free((void *)configuration->reportSidecarsPath);
+    free((void *)configuration->runSidecarsPath);
 }
 
 /** Configuration for KSCrash settings.

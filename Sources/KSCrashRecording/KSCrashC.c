@@ -327,16 +327,23 @@ static void handleConfiguration(KSCrashCConfiguration *configuration)
         kscm_enableSwapCxaThrow();
     }
 }
-static bool getSidecarFilePathCallback(const char *monitorId, const char *name, const char *extension, char *pathBuffer,
-                                       size_t pathBufferLength)
+static bool getReportSidecarFilePathCallback(const char *monitorId, const char *name, const char *extension,
+                                             char *pathBuffer, size_t pathBufferLength)
 {
-    return kscrs_getSidecarFilePath(monitorId, name, extension, pathBuffer, pathBufferLength, &g_reportStoreConfig);
+    return kscrs_getReportSidecarFilePath(monitorId, name, extension, pathBuffer, pathBufferLength,
+                                          &g_reportStoreConfig);
 }
 
-static bool getSidecarReportPathCallback(const char *monitorId, int64_t reportID, char *pathBuffer,
+static bool getReportSidecarPathCallback(const char *monitorId, int64_t reportID, char *pathBuffer,
                                          size_t pathBufferLength)
 {
-    return kscrs_getSidecarFilePathForReport(monitorId, reportID, pathBuffer, pathBufferLength, &g_reportStoreConfig);
+    return kscrs_getReportSidecarFilePathForReport(monitorId, reportID, pathBuffer, pathBufferLength,
+                                                   &g_reportStoreConfig);
+}
+
+static bool getRunSidecarPathCallback(const char *monitorId, char *pathBuffer, size_t pathBufferLength)
+{
+    return kscrs_getRunSidecarFilePath(monitorId, pathBuffer, pathBufferLength, &g_reportStoreConfig);
 }
 
 // ============================================================================
@@ -378,17 +385,26 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
         g_reportStoreConfig.reportsPath = strdup(path);
     }
 
-    if (g_reportStoreConfig.sidecarsPath == NULL) {
+    if (g_reportStoreConfig.reportSidecarsPath == NULL) {
         if (snprintf(path, sizeof(path), "%s/Sidecars", installPath) >= (int)sizeof(path)) {
             KSLOG_ERROR("Sidecars path is too long.");
             return KSCrashInstallErrorPathTooLong;
         }
-        g_reportStoreConfig.sidecarsPath = strdup(path);
+        g_reportStoreConfig.reportSidecarsPath = strdup(path);
+    }
+
+    if (g_reportStoreConfig.runSidecarsPath == NULL) {
+        if (snprintf(path, sizeof(path), "%s/RunSidecars", installPath) >= (int)sizeof(path)) {
+            KSLOG_ERROR("RunSidecars path is too long.");
+            return KSCrashInstallErrorPathTooLong;
+        }
+        g_reportStoreConfig.runSidecarsPath = strdup(path);
     }
 
     kscrs_initialize(&g_reportStoreConfig);
-    kscm_setSidecarFilePathProvider(getSidecarFilePathCallback);
-    kscm_setSidecarReportPathProvider(getSidecarReportPathCallback);
+    kscm_setReportSidecarFilePathProvider(getReportSidecarFilePathCallback);
+    kscm_setReportSidecarPathProvider(getReportSidecarPathCallback);
+    kscm_setRunSidecarPathProvider(getRunSidecarPathCallback);
 
     if (snprintf(path, sizeof(path), "%s/Data", installPath) >= (int)sizeof(path)) {
         KSLOG_ERROR("Data path is too long.");

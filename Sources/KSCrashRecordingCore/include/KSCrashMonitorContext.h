@@ -323,8 +323,8 @@ typedef struct KSCrash_ReportResult {
  * @param pathBufferLength The size of pathBuffer in bytes.
  * @return true if the path was successfully written, false on failure.
  */
-typedef bool (*KSCrashSidecarFilePathProviderFunc)(const char *monitorId, const char *name, const char *extension,
-                                                   char *pathBuffer, size_t pathBufferLength);
+typedef bool (*KSCrashReportSidecarFilePathProviderFunc)(const char *monitorId, const char *name, const char *extension,
+                                                         char *pathBuffer, size_t pathBufferLength);
 
 /**
  * Function type for obtaining a sidecar file path for a given monitor and report.
@@ -335,8 +335,21 @@ typedef bool (*KSCrashSidecarFilePathProviderFunc)(const char *monitorId, const 
  * @param pathBufferLength The size of pathBuffer in bytes.
  * @return true if the path was successfully written, false on failure.
  */
-typedef bool (*KSCrashSidecarReportPathProviderFunc)(const char *monitorId, int64_t reportID, char *pathBuffer,
+typedef bool (*KSCrashReportSidecarPathProviderFunc)(const char *monitorId, int64_t reportID, char *pathBuffer,
                                                      size_t pathBufferLength);
+
+/**
+ * Function type for obtaining a run-scoped sidecar file path.
+ *
+ * Run sidecars are written once per process run and stitched into all reports from that run.
+ * Layout: <runSidecarsPath>/<runID>/<monitorId>.ksscr
+ *
+ * @param monitorId The calling monitor's unique identifier.
+ * @param pathBuffer Buffer to receive the sidecar file path.
+ * @param pathBufferLength The size of pathBuffer in bytes.
+ * @return true if the path was successfully written, false on failure.
+ */
+typedef bool (*KSCrashSidecarRunPathProviderFunc)(const char *monitorId, char *pathBuffer, size_t pathBufferLength);
 
 /**
  * Callbacks to be used by monitors.
@@ -386,10 +399,13 @@ typedef struct {
     void (*handle)(KSCrash_MonitorContext *context);
 
     /** Get a sidecar file path with custom name and extension. */
-    KSCrashSidecarFilePathProviderFunc getSidecarFilePath;
+    KSCrashReportSidecarFilePathProviderFunc getReportSidecarFilePath;
 
     /** Get a sidecar file path for storing auxiliary monitor data alongside a report. */
-    KSCrashSidecarReportPathProviderFunc getSidecarReportPath;
+    KSCrashReportSidecarPathProviderFunc getReportSidecarPath;
+
+    /** Get a run-scoped sidecar file path for storing data shared across all reports in a run. */
+    KSCrashSidecarRunPathProviderFunc getRunSidecarPath;
 } KSCrash_ExceptionHandlerCallbacks;
 
 #ifdef __cplusplus

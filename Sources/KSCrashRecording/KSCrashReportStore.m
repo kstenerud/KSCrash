@@ -32,7 +32,7 @@
 #import "KSCrashReport.h"
 #import "KSCrashReportFields.h"
 #import "KSCrashReportFilter.h"
-#import "KSCrashReportStoreC.h"
+#import "KSCrashReportStoreC+Private.h"
 #import "KSJSONCodecObjC.h"
 #import "KSNSErrorHelper.h"
 
@@ -119,16 +119,22 @@ const KSCrashReportID KSCrashReportNoID = 0;
     __weak __typeof(self) weakSelf = self;
     [self sendReports:reports
          onCompletion:^(NSArray *filteredReports, NSError *error) {
+             __strong __typeof(weakSelf) strongSelf = weakSelf;
+             if (strongSelf == nil) {
+                 kscrash_callCompletion(onCompletion, filteredReports, error);
+                 return;
+             }
              KSLOG_DEBUG(@"Process finished");
              if (error != nil) {
                  KSLOG_ERROR(@"Failed to send reports: %@", error);
              }
-             if ((self.reportCleanupPolicy == KSCrashReportCleanupPolicyOnSuccess && error == nil) ||
-                 self.reportCleanupPolicy == KSCrashReportCleanupPolicyAlways) {
+             if ((strongSelf.reportCleanupPolicy == KSCrashReportCleanupPolicyOnSuccess && error == nil) ||
+                 strongSelf.reportCleanupPolicy == KSCrashReportCleanupPolicyAlways) {
                  for (NSNumber *reportID in sentIDs) {
-                     [weakSelf deleteReportWithID:reportID.longLongValue];
+                     [strongSelf deleteReportWithID:reportID.longLongValue];
                  }
              }
+             kscrs_cleanupOrphanedRunSidecars(&strongSelf->_cConfig);
              kscrash_callCompletion(onCompletion, filteredReports, error);
          }];
 }
@@ -168,12 +174,17 @@ const KSCrashReportID KSCrashReportNoID = 0;
     __weak __typeof(self) weakSelf = self;
     [self sendReports:@[ report ]
          onCompletion:^(NSArray *filteredReports, NSError *error) {
+             __strong __typeof(weakSelf) strongSelf = weakSelf;
+             if (strongSelf == nil) {
+                 kscrash_callCompletion(onCompletion, filteredReports, error);
+                 return;
+             }
              if (error != nil) {
                  KSLOG_ERROR(@"Failed to send report: %@", error);
              }
-             if ((self.reportCleanupPolicy == KSCrashReportCleanupPolicyOnSuccess && error == nil) ||
-                 self.reportCleanupPolicy == KSCrashReportCleanupPolicyAlways) {
-                 [weakSelf deleteReportWithID:reportID];
+             if ((strongSelf.reportCleanupPolicy == KSCrashReportCleanupPolicyOnSuccess && error == nil) ||
+                 strongSelf.reportCleanupPolicy == KSCrashReportCleanupPolicyAlways) {
+                 [strongSelf deleteReportWithID:reportID];
              }
              kscrash_callCompletion(onCompletion, filteredReports, error);
          }];
@@ -187,6 +198,11 @@ const KSCrashReportID KSCrashReportNoID = 0;
 - (void)deleteReportWithID:(int64_t)reportID
 {
     kscrs_deleteReportWithID(reportID, &_cConfig);
+}
+
+- (void)cleanupOrphanedRunSidecars
+{
+    kscrs_cleanupOrphanedRunSidecars(&_cConfig);
 }
 
 #pragma mark - Private API

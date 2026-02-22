@@ -31,6 +31,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "KSCrashMonitorAPI.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -63,18 +65,19 @@ _Static_assert(sizeof(KSHangSidecar) == 24, "KSHangSidecar size changed — upda
 
 /** Stitch watchdog sidecar data into a crash report.
  *
- * Called at report delivery time (next app launch) to merge the mmap'd
+ * Called at report delivery time (next app launch) to merge the
  * sidecar data into the JSON report. This function uses ObjC/Foundation
  * for JSON parsing, which is safe because it runs at normal startup.
  *
  * @param report The NULL-terminated JSON report string.
- * @param reportID The report ID (unused, for API conformance).
- * @param sidecarPath Path to the mmap'd KSHangSidecar file.
+ * @param sidecarPath Path to the KSHangSidecar file.
+ * @param scope The sidecar scope (report or run).
+ * @param context The monitor's opaque context pointer (unused).
  *
  * @return A malloc'd NULL-terminated string with the updated report,
  *         or NULL to leave the report unchanged. Caller frees the buffer.
  */
-char *kscm_watchdog_stitchReport(const char *report, int64_t reportID, const char *sidecarPath, void *context);
+char *kscm_watchdog_stitchReport(const char *report, const char *sidecarPath, KSCrashSidecarScope scope, void *context);
 
 #ifdef __cplusplus
 }

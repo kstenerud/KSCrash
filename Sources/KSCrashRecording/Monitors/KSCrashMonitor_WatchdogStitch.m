@@ -37,10 +37,9 @@
 
 #import "KSLogger.h"
 
-char *kscm_watchdog_stitchReport(const char *report, int64_t reportID, const char *sidecarPath, __unused void *context)
+char *kscm_watchdog_stitchReport(const char *report, const char *sidecarPath, __unused KSCrashSidecarScope scope,
+                                 __unused void *context)
 {
-    (void)reportID;
-
     if (!report || !sidecarPath) {
         return NULL;
     }

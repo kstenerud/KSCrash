@@ -125,7 +125,7 @@ const KSCrashMonitorAPI *kscm_getMonitor(const char *monitorId);
  *
  * @param provider The callback function, or NULL to disable sidecar support.
  */
-void kscm_setSidecarFilePathProvider(KSCrashSidecarFilePathProviderFunc provider);
+void kscm_setReportSidecarFilePathProvider(KSCrashReportSidecarFilePathProviderFunc provider);
 
 /**
  * Sets the callback used by monitors to obtain sidecar file paths for report-specific files.
@@ -135,7 +135,17 @@ void kscm_setSidecarFilePathProvider(KSCrashSidecarFilePathProviderFunc provider
  *
  * @param provider The callback function, or NULL to disable sidecar support.
  */
-void kscm_setSidecarReportPathProvider(KSCrashSidecarReportPathProviderFunc provider);
+void kscm_setReportSidecarPathProvider(KSCrashReportSidecarPathProviderFunc provider);
+
+/**
+ * Sets the callback used by monitors to obtain run-scoped sidecar file paths.
+ *
+ * Run sidecars are written once per process run and stitched into all reports from that run.
+ * This must be called before monitors are activated.
+ *
+ * @param provider The callback function, or NULL to disable run sidecar support.
+ */
+void kscm_setRunSidecarPathProvider(KSCrashSidecarRunPathProviderFunc provider);
 
 #ifdef __cplusplus
 }
