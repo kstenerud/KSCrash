@@ -247,6 +247,12 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
     if (kscm_system_getSystemData(&sd)) {
 #define COPY_SYS_STR(FIELD, KEY) \
     if (sd.FIELD[0] != '\0') dict[@KEY] = [NSString stringWithUTF8String:sd.FIELD]
+#define COPY_SYS_TIMESTAMP(FIELD, KEY)                                                     \
+    if (sd.FIELD > 0) {                                                                    \
+        char buf_##FIELD[KSDATE_BUFFERSIZE];                                               \
+        ksdate_utcStringFromTimestamp((time_t)sd.FIELD, buf_##FIELD, sizeof(buf_##FIELD)); \
+        dict[@KEY] = [NSString stringWithUTF8String:buf_##FIELD];                          \
+    }
         COPY_SYS_STR(systemName, "systemName");
         COPY_SYS_STR(systemVersion, "systemVersion");
         COPY_SYS_STR(machine, "machine");
@@ -255,7 +261,7 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
         COPY_SYS_STR(osVersion, "osVersion");
         dict[@"isJailbroken"] = @(sd.isJailbroken);
         dict[@"procTranslated"] = @(sd.procTranslated);
-        COPY_SYS_STR(appStartTime, "appStartTime");
+        COPY_SYS_TIMESTAMP(appStartTimestamp, "appStartTime");
         COPY_SYS_STR(executablePath, "executablePath");
         COPY_SYS_STR(executableName, "executableName");
         COPY_SYS_STR(bundleID, "bundleID");
@@ -279,11 +285,7 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
         dict[@"memorySize"] = @(sd.memorySize);
         dict[@"freeMemory"] = @(sd.freeMemory);
         dict[@"usableMemory"] = @(sd.usableMemory);
-        if (sd.bootTimestamp > 0) {
-            char bootTimeBuf[KSDATE_BUFFERSIZE];
-            ksdate_utcStringFromTimestamp((time_t)sd.bootTimestamp, bootTimeBuf, sizeof(bootTimeBuf));
-            dict[@"bootTime"] = [NSString stringWithUTF8String:bootTimeBuf];
-        }
+        COPY_SYS_TIMESTAMP(bootTimestamp, "bootTime");
         if (sd.storageSize > 0) {
             dict[@"storageSize"] = @(sd.storageSize);
         }
@@ -291,6 +293,7 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
             dict[@"freeStorageSize"] = @(sd.freeStorageSize);
         }
 #undef COPY_SYS_STR
+#undef COPY_SYS_TIMESTAMP
     }
 
     return [dict copy];
