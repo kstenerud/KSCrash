@@ -37,7 +37,7 @@
 extern "C" {
 #endif
 
-#define KSCRS_MAX_PATH_LENGTH 500
+#define KSCRS_MAX_PATH_LENGTH 1024
 
 /** The default name of a folder (inside the KSCrash install path) that is used for report store.
  */
