@@ -160,13 +160,25 @@ static void rotateRunID(const char *installPath)
             KSLOG_ERROR("last_run_id is not a valid UUID, ignoring");
             g_lastRunID[0] = '\0';
         }
+    } else if (n < 0) {
+        KSLOG_ERROR("Failed to read last_run_id: %s", strerror(errno));
+        g_lastRunID[0] = '\0';
     } else if (n > 0) {
         KSLOG_ERROR("last_run_id has unexpected length %zd (expected %d), ignoring", n, KSC_UUID_STRING_LENGTH);
         g_lastRunID[0] = '\0';
     }
+    // n == 0: empty file (first run), g_lastRunID already cleared above.
 
-    ftruncate(fd, 0);
-    lseek(fd, 0, SEEK_SET);
+    if (ftruncate(fd, 0) != 0) {
+        KSLOG_ERROR("Failed to truncate %s: %s", path, strerror(errno));
+        close(fd);
+        return;
+    }
+    if (lseek(fd, 0, SEEK_SET) == (off_t)-1) {
+        KSLOG_ERROR("Failed to seek in %s: %s", path, strerror(errno));
+        close(fd);
+        return;
+    }
     if (!ksfu_writeBytesToFD(fd, g_runID, KSC_UUID_STRING_LENGTH)) {
         KSLOG_ERROR("Failed to write new run ID to %s", path);
     }
