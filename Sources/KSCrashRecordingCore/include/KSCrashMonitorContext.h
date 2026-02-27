@@ -167,46 +167,6 @@ typedef struct KSCrash_MonitorContext {
         const char *customStackTrace;
     } userException;
 
-    struct {
-        /** Total active time elapsed since the last crash. */
-        double activeDurationSinceLastCrash;
-
-        /** Total time backgrounded elapsed since the last crash. */
-        double backgroundDurationSinceLastCrash;
-
-        /** Number of app launches since the last crash. */
-        int launchesSinceLastCrash;
-
-        /** Number of sessions (launch, resume from suspend) since last crash. */
-        int sessionsSinceLastCrash;
-
-        /** Total active time elapsed since launch. */
-        double activeDurationSinceLaunch;
-
-        /** Total time backgrounded elapsed since launch. */
-        double backgroundDurationSinceLaunch;
-
-        /** Number of sessions (launch, resume from suspend) since app launch. */
-        int sessionsSinceLaunch;
-
-        /** If true, the application crashed on the previous launch. */
-        bool crashedLastLaunch;
-
-        /** If true, the application crashed on this launch. */
-        bool crashedThisLaunch;
-
-        /** Timestamp for when the app state was last changed (active<->inactive,
-         * background<->foreground) */
-        double appStateTransitionTime;
-
-        /** If true, the application is currently active. */
-        bool applicationIsActive;
-
-        /** If true, the application is currently in the foreground. */
-        bool applicationIsInForeground;
-
-    } AppState;
-
     /* Misc system information.
      * All system fields (device, OS, bundle, CPU, memory, storage, boot time, etc.)
      * are now in the system monitor's mmap'd run sidecar and stitched at delivery time.
@@ -320,6 +280,21 @@ typedef bool (*KSCrashReportSidecarPathProviderFunc)(const char *monitorId, int6
 typedef bool (*KSCrashSidecarRunPathProviderFunc)(const char *monitorId, char *pathBuffer, size_t pathBufferLength);
 
 /**
+ * Function type for obtaining a run-scoped sidecar file path for a specific run ID.
+ *
+ * Same layout as KSCrashSidecarRunPathProviderFunc but takes an explicit run ID
+ * instead of using the current process run. Does NOT create directories (read-only).
+ *
+ * @param monitorId The calling monitor's unique identifier.
+ * @param runID The run ID to look up.
+ * @param pathBuffer Buffer to receive the sidecar file path.
+ * @param pathBufferLength The size of pathBuffer in bytes.
+ * @return true if the path was successfully written, false on failure.
+ */
+typedef bool (*KSCrashSidecarRunPathForRunIDProviderFunc)(const char *monitorId, const char *runID, char *pathBuffer,
+                                                          size_t pathBufferLength);
+
+/**
  * Callbacks to be used by monitors.
  * In general, exception handling will follow a similar process:
  * - Do the minimum amount of work necessary to call the notify callback.
@@ -374,6 +349,9 @@ typedef struct {
 
     /** Get a run-scoped sidecar file path for storing data shared across all reports in a run. */
     KSCrashSidecarRunPathProviderFunc getRunSidecarPath;
+
+    /** Get a run-scoped sidecar file path for a specific (e.g. previous) run ID. Read-only — no directory creation. */
+    KSCrashSidecarRunPathForRunIDProviderFunc getRunSidecarPathForRunID;
 } KSCrash_ExceptionHandlerCallbacks;
 
 #ifdef __cplusplus

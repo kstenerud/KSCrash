@@ -30,8 +30,7 @@
 #import "KSCompilerDefines.h"
 #import "KSCrashC.h"
 #import "KSCrashConfiguration+Private.h"
-#import "KSCrashMonitorContext.h"
-#import "KSCrashMonitor_AppState.h"
+#import "KSCrashMonitor_Lifecycle.h"
 #import "KSCrashMonitor_Memory.h"
 #import "KSCrashMonitor_System.h"
 #import "KSCrashReport.h"
@@ -39,15 +38,11 @@
 #import "KSDate.h"
 #import "KSJSONCodecObjC.h"
 #import "KSNSErrorHelper.h"
-#import "KSSystemCapabilities.h"
 
 // #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
 
 #include <inttypes.h>
-#if KSCRASH_HAS_UIKIT
-#import <UIKit/UIKit.h>
-#endif
 
 // ============================================================================
 #pragma mark - Globals -
@@ -145,18 +140,6 @@ static void currentSnapshotUserReportedExceptionHandler(NSException *exception)
 // ============================================================================
 #pragma mark - Lifecycle -
 // ============================================================================
-
-+ (void)load
-{
-    [[self class] classDidBecomeLoaded];
-}
-
-+ (void)initialize
-{
-    if (self == [KSCrash class]) {
-        [[self class] subscribeToNotifications];
-    }
-}
 
 + (instancetype)sharedInstance
 {
@@ -431,86 +414,6 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
     return [NSError errorWithDomain:KSCrashErrorDomain
                                code:errorCode
                            userInfo:@{ NSLocalizedDescriptionKey : errorDescription }];
-}
-
-// ============================================================================
-#pragma mark - Notifications -
-// ============================================================================
-
-+ (void)subscribeToNotifications
-{
-#if KSCRASH_HAS_UIAPPLICATION
-    NSNotificationCenter *nCenter = [NSNotificationCenter defaultCenter];
-    [nCenter addObserver:self
-                selector:@selector(applicationDidBecomeActive)
-                    name:UIApplicationDidBecomeActiveNotification
-                  object:nil];
-    [nCenter addObserver:self
-                selector:@selector(applicationWillResignActive)
-                    name:UIApplicationWillResignActiveNotification
-                  object:nil];
-    [nCenter addObserver:self
-                selector:@selector(applicationDidEnterBackground)
-                    name:UIApplicationDidEnterBackgroundNotification
-                  object:nil];
-    [nCenter addObserver:self
-                selector:@selector(applicationWillEnterForeground)
-                    name:UIApplicationWillEnterForegroundNotification
-                  object:nil];
-    [nCenter addObserver:self
-                selector:@selector(applicationWillTerminate)
-                    name:UIApplicationWillTerminateNotification
-                  object:nil];
-#endif
-#if KSCRASH_HAS_NSEXTENSION
-    NSNotificationCenter *nCenter = [NSNotificationCenter defaultCenter];
-    [nCenter addObserver:self
-                selector:@selector(applicationDidBecomeActive)
-                    name:NSExtensionHostDidBecomeActiveNotification
-                  object:nil];
-    [nCenter addObserver:self
-                selector:@selector(applicationWillResignActive)
-                    name:NSExtensionHostWillResignActiveNotification
-                  object:nil];
-    [nCenter addObserver:self
-                selector:@selector(applicationDidEnterBackground)
-                    name:NSExtensionHostDidEnterBackgroundNotification
-                  object:nil];
-    [nCenter addObserver:self
-                selector:@selector(applicationWillEnterForeground)
-                    name:NSExtensionHostWillEnterForegroundNotification
-                  object:nil];
-#endif
-}
-
-+ (void)classDidBecomeLoaded
-{
-    kscrash_notifyObjCLoad();
-}
-
-+ (void)applicationDidBecomeActive
-{
-    kscrash_notifyAppActive(true);
-}
-
-+ (void)applicationWillResignActive
-{
-    kscrash_notifyAppActive(false);
-}
-
-+ (void)applicationDidEnterBackground
-{
-    kscrash_notifyAppInForeground(false);
-}
-
-+ (void)applicationWillEnterForeground
-{
-    kscrash_notifyAppInForeground(true);
-}
-
-+ (void)applicationWillTerminate
-{
-    kscrash_notifyAppTerminate();
 }
 
 @end

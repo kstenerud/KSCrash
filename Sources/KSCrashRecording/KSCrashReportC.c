@@ -31,9 +31,9 @@
 #include "KSCrashC.h"
 #include "KSCrashExceptionHandlingPlan+Private.h"
 #include "KSCrashMonitorHelper.h"
-#include "KSCrashMonitor_AppState.h"
 #include "KSCrashMonitor_CPPException.h"
 #include "KSCrashMonitor_Deadlock.h"
+#include "KSCrashMonitor_Lifecycle.h"
 #include "KSCrashMonitor_MachException.h"
 #include "KSCrashMonitor_Memory.h"
 #include "KSCrashMonitor_NSException.h"
@@ -1461,7 +1461,7 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
             }
             writer->endContainer(writer);
         } else if (isCrashOfMonitorType(crash, kscm_system_getAPI()) ||
-                   isCrashOfMonitorType(crash, kscm_appstate_getAPI()) ||
+                   isCrashOfMonitorType(crash, kscm_lifecycle_getAPI()) ||
                    isCrashOfMonitorType(crash, kscm_zombie_getAPI())) {
             KSLOG_ERROR("Crash monitor type %s shouldn't be able to cause events!", crash->monitorId);
         } else {
@@ -1476,41 +1476,6 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
                 writer->endContainer(writer);
             }
         }
-    }
-    writer->endContainer(writer);
-}
-
-/** Write information about app runtime, etc to the report.
- *
- * @param writer The writer.
- *
- * @param key The object key, if needed.
- *
- * @param monitorContext The event monitor context.
- */
-static void writeAppStats(const KSCrashReportWriter *const writer, const char *const key,
-                          const KSCrash_MonitorContext *const monitorContext)
-{
-    writer->beginObject(writer, key);
-    {
-        writer->addBooleanElement(writer, KSCrashField_AppActive, monitorContext->AppState.applicationIsActive);
-        writer->addBooleanElement(writer, KSCrashField_AppInFG, monitorContext->AppState.applicationIsInForeground);
-
-        writer->addIntegerElement(writer, KSCrashField_LaunchesSinceCrash,
-                                  monitorContext->AppState.launchesSinceLastCrash);
-        writer->addIntegerElement(writer, KSCrashField_SessionsSinceCrash,
-                                  monitorContext->AppState.sessionsSinceLastCrash);
-        writer->addFloatingPointElement(writer, KSCrashField_ActiveTimeSinceCrash,
-                                        monitorContext->AppState.activeDurationSinceLastCrash);
-        writer->addFloatingPointElement(writer, KSCrashField_BGTimeSinceCrash,
-                                        monitorContext->AppState.backgroundDurationSinceLastCrash);
-
-        writer->addIntegerElement(writer, KSCrashField_SessionsSinceLaunch,
-                                  monitorContext->AppState.sessionsSinceLaunch);
-        writer->addFloatingPointElement(writer, KSCrashField_ActiveTimeSinceLaunch,
-                                        monitorContext->AppState.activeDurationSinceLaunch);
-        writer->addFloatingPointElement(writer, KSCrashField_BGTimeSinceLaunch,
-                                        monitorContext->AppState.backgroundDurationSinceLaunch);
     }
     writer->endContainer(writer);
 }
@@ -1697,7 +1662,6 @@ static void writeSystemInfo(const KSCrashReportWriter *const writer, const char 
 {
     writer->beginObject(writer, key);
     {
-        writeAppStats(writer, KSCrashField_AppStats, monitorContext);
         writeAppMemoryInfo(writer, KSCrashField_AppMemory, monitorContext);
     }
     writer->endContainer(writer);

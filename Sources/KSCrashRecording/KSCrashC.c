@@ -32,9 +32,9 @@
 #include "KSCrashMonitor.h"
 #include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorType.h"
-#include "KSCrashMonitor_AppState.h"
 #include "KSCrashMonitor_CPPException.h"
 #include "KSCrashMonitor_Deadlock.h"
+#include "KSCrashMonitor_Lifecycle.h"
 #include "KSCrashMonitor_MachException.h"
 #include "KSCrashMonitor_Memory.h"
 #include "KSCrashMonitor_NSException.h"
@@ -65,15 +65,6 @@
 #define KSC_MAX_APP_NAME_LENGTH 100
 #define KSC_MAX_PLUGINS 64
 
-typedef enum {
-    KSApplicationStateNone,
-    KSApplicationStateDidBecomeActive,
-    KSApplicationStateWillResignActiveActive,
-    KSApplicationStateDidEnterBackground,
-    KSApplicationStateWillEnterForeground,
-    KSApplicationStateWillTerminate
-} KSApplicationState;
-
 static const struct KSCrashMonitorMapping {
     KSCrashMonitorType type;
     KSCrashMonitorAPI *(*getAPI)(void);
@@ -87,7 +78,7 @@ g_monitorMappings[] = { { KSCrashMonitorTypeMachException, kscm_machexception_ge
                         { KSCrashMonitorTypeMainThreadDeadlock, kscm_deadlock_getAPI },
                         { KSCrashMonitorTypeUserReported, kscm_user_getAPI },
                         { KSCrashMonitorTypeSystem, kscm_system_getAPI },
-                        { KSCrashMonitorTypeApplicationState, kscm_appstate_getAPI },
+                        { KSCrashMonitorTypeApplicationState, kscm_lifecycle_getAPI },
                         { KSCrashMonitorTypeZombie, kscm_zombie_getAPI },
                         { KSCrashMonitorTypeMemoryTermination, kscm_memory_getAPI },
                         { KSCrashMonitorTypeWatchdog, kscm_watchdog_getAPI } };
@@ -117,13 +108,16 @@ static KSReportWrittenCallback g_legacyReportWrittenCallback;
 static KSCrashWillWriteReportCallback g_willWriteReportCallback;
 static KSCrashIsWritingReportCallback g_isWritingReportCallback;
 static KSCrashDidWriteReportCallback g_didWriteReportCallback;
-static KSApplicationState g_lastApplicationState = KSApplicationStateNone;
 static KSCrashMonitorAPI g_plugins[KSC_MAX_PLUGINS];
 static int g_pluginCount = 0;
 
 // Run ID: a UUID generated once during kscrash_install().
 // Read-only after that, so safe to access from crash handlers.
 static char g_runID[37];
+
+// Previous run's ID, read from Data/last_run_id during install.
+// Used by the Lifecycle monitor to find the previous sidecar.
+static char g_lastRunID[37];
 
 // ============================================================================
 #pragma mark - Utility -
@@ -174,25 +168,6 @@ static void legacyReportWrittenCallbackAdapter(__unused const KSCrash_ExceptionH
     }
 }
 
-static void notifyOfBeforeInstallationState(void)
-{
-    KSLOG_DEBUG("Notifying of pre-installation state");
-    switch (g_lastApplicationState) {
-        case KSApplicationStateDidBecomeActive:
-            return kscrash_notifyAppActive(true);
-        case KSApplicationStateWillResignActiveActive:
-            return kscrash_notifyAppActive(false);
-        case KSApplicationStateDidEnterBackground:
-            return kscrash_notifyAppInForeground(false);
-        case KSApplicationStateWillEnterForeground:
-            return kscrash_notifyAppInForeground(true);
-        case KSApplicationStateWillTerminate:
-            return kscrash_notifyAppTerminate();
-        default:
-            return;
-    }
-}
-
 // ============================================================================
 #pragma mark - Callbacks -
 // ============================================================================
@@ -215,10 +190,6 @@ static void onExceptionEvent(struct KSCrash_MonitorContext *monitorContext, KSCr
         return;
     }
 
-    if (monitorContext->currentSnapshotUserReported == false) {
-        KSLOG_DEBUG("Updating application state to note crash.");
-        kscrashstate_notifyAppCrash();
-    }
     monitorContext->consoleLogPath = g_shouldAddConsoleLogToReport ? g_consoleLogPath : NULL;
 
     if (monitorContext->requirements.crashedDuringExceptionHandling) {
@@ -346,6 +317,12 @@ static bool getRunSidecarPathCallback(const char *monitorId, char *pathBuffer, s
     return kscrs_getRunSidecarFilePath(monitorId, pathBuffer, pathBufferLength, &g_reportStoreConfig);
 }
 
+static bool getRunSidecarPathForRunIDCallback(const char *monitorId, const char *runID, char *pathBuffer,
+                                              size_t pathBufferLength)
+{
+    return kscrs_getRunSidecarFilePathForRunID(monitorId, runID, pathBuffer, pathBufferLength, &g_reportStoreConfig);
+}
+
 // ============================================================================
 #pragma mark - API -
 // ============================================================================
@@ -367,7 +344,9 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
 
     handleConfiguration(configuration);
 
-    // Generate run ID now so it's available async-signal-safe from crash handlers.
+    // Run ID rotation: read previous run ID before generating the new one.
+    // This must happen after Data directory is not yet created, but the install path
+    // structure is set up. We read it early and generate before needing the Data dir.
     uuid_t uuid;
     uuid_generate(uuid);
     uuid_unparse_lower(uuid, g_runID);
@@ -405,6 +384,7 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     kscm_setReportSidecarFilePathProvider(getReportSidecarFilePathCallback);
     kscm_setReportSidecarPathProvider(getReportSidecarPathCallback);
     kscm_setRunSidecarPathProvider(getRunSidecarPathCallback);
+    kscm_setRunSidecarPathForRunIDProvider(getRunSidecarPathForRunIDCallback);
 
     if (snprintf(path, sizeof(path), "%s/Data", installPath) >= (int)sizeof(path)) {
         KSLOG_ERROR("Data path is too long.");
@@ -416,11 +396,31 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     }
     ksmemory_initialize(path);
 
-    if (snprintf(path, sizeof(path), "%s/Data/CrashState.json", installPath) >= (int)sizeof(path)) {
-        KSLOG_ERROR("Crash state path is too long.");
-        return KSCrashInstallErrorPathTooLong;
+    // Run ID rotation: read previous run's ID, then persist the new one.
+    // Simple C-only file I/O — fast enough for the startup path.
+    {
+        char lastRunIdPath[KSFU_MAX_PATH_LENGTH];
+        if (snprintf(lastRunIdPath, sizeof(lastRunIdPath), "%s/Data/last_run_id", installPath) <
+            (int)sizeof(lastRunIdPath)) {
+            g_lastRunID[0] = '\0';
+            int rfd = open(lastRunIdPath, O_RDONLY);
+            if (rfd >= 0) {
+                ssize_t n = read(rfd, g_lastRunID, 36);
+                close(rfd);
+                if (n == 36) {
+                    g_lastRunID[36] = '\0';
+                } else {
+                    g_lastRunID[0] = '\0';
+                }
+            }
+            // Write new run ID
+            int wfd = open(lastRunIdPath, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+            if (wfd >= 0) {
+                ksfu_writeBytesToFD(wfd, g_runID, 36);
+                close(wfd);
+            }
+        }
     }
-    kscrashstate_initialize(path);
 
     if (snprintf(g_consoleLogPath, sizeof(g_consoleLogPath), "%s/Data/ConsoleLog.txt", installPath) >=
         (int)sizeof(g_consoleLogPath)) {
@@ -449,7 +449,6 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     g_installed = true;
     KSLOG_DEBUG("Installation complete.");
 
-    notifyOfBeforeInstallationState();
     return KSCrashInstallErrorNone;
 }
 
@@ -468,35 +467,6 @@ void kscrash_reportUserException(const char *name, const char *reason, const cha
     KS_THWART_TAIL_CALL_OPTIMISATION
 }
 
-void kscrash_notifyObjCLoad(void) { kscrashstate_notifyObjCLoad(); }
-
-void kscrash_notifyAppActive(bool isActive)
-{
-    if (g_installed) {
-        kscrashstate_notifyAppActive(isActive);
-    }
-    g_lastApplicationState = isActive ? KSApplicationStateDidBecomeActive : KSApplicationStateWillResignActiveActive;
-}
-
-void kscrash_notifyAppInForeground(bool isInForeground)
-{
-    if (g_installed) {
-        kscrashstate_notifyAppInForeground(isInForeground);
-    }
-    g_lastApplicationState =
-        isInForeground ? KSApplicationStateWillEnterForeground : KSApplicationStateDidEnterBackground;
-}
-
-void kscrash_notifyAppTerminate(void)
-{
-    if (g_installed) {
-        kscrashstate_notifyAppTerminate();
-    }
-    g_lastApplicationState = KSApplicationStateWillTerminate;
-}
-
-void kscrash_notifyAppCrash(void) { kscrashstate_notifyAppCrash(); }
-
 int64_t kscrash_addUserReport(const char *report, int reportLength)
 {
     return kscrs_addUserReport(report, reportLength, &g_reportStoreConfig);
@@ -504,4 +474,21 @@ int64_t kscrash_addUserReport(const char *report, int reportLength)
 
 const char *kscrash_getRunID(void) { return g_runID; }
 
+const char *kscrash_getLastRunID(void) { return g_lastRunID; }
+
 const char *kscrash_namespaceIdentifier(void) { return KSCRASH_NS_STRING("KSCrash"); }
+
+// ============================================================================
+#pragma mark - Testing API -
+// ============================================================================
+
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+void kscrash_testcode_setLastRunID(const char *runID)
+{
+    if (runID != NULL) {
+        strncpy(g_lastRunID, runID, sizeof(g_lastRunID) - 1);
+        g_lastRunID[sizeof(g_lastRunID) - 1] = '\0';
+    } else {
+        g_lastRunID[0] = '\0';
+    }
+}

@@ -34,6 +34,10 @@
 #import <UIKit/UIKit.h>
 #endif
 
+#if KSCRASH_HAS_NSEXTENSION
+#import <WatchKit/WatchKit.h>
+#endif
+
 const char *ksapp_transitionStateToString(KSCrashAppTransitionState state)
 {
     switch (state) {
@@ -308,6 +312,21 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
                 { [weakMe _setTransitionState:KSCrashAppTransitionStateBackground]; }),
         OBSERVE(_center, UIApplicationWillTerminateNotification,
                 { [weakMe _setTransitionState:KSCrashAppTransitionStateTerminating]; }),
+    ];
+
+#elif KSCRASH_HAS_NSEXTENSION
+
+    // watchOS extensions use NSExtensionHost* notifications for lifecycle.
+    // No Terminating equivalent exists — atexit_b above handles Exiting.
+    _registrations = @[
+        OBSERVE(_center, NSExtensionHostDidBecomeActiveNotification,
+                { [weakMe _setTransitionState:KSCrashAppTransitionStateActive]; }),
+        OBSERVE(_center, NSExtensionHostWillResignActiveNotification,
+                { [weakMe _setTransitionState:KSCrashAppTransitionStateDeactivating]; }),
+        OBSERVE(_center, NSExtensionHostDidEnterBackgroundNotification,
+                { [weakMe _setTransitionState:KSCrashAppTransitionStateBackground]; }),
+        OBSERVE(_center, NSExtensionHostWillEnterForegroundNotification,
+                { [weakMe _setTransitionState:KSCrashAppTransitionStateForegrounding]; }),
     ];
 
 #else

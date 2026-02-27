@@ -628,6 +628,27 @@ bool kscrs_getRunSidecarFilePath(const char *monitorId, char *pathBuffer, size_t
     return getRunSidecarFilePath(configuration->runSidecarsPath, monitorId, pathBuffer, pathBufferLength);
 }
 
+bool kscrs_getRunSidecarFilePathForRunID(const char *monitorId, const char *runID, char *pathBuffer,
+                                         size_t pathBufferLength,
+                                         const KSCrashReportStoreCConfiguration *const configuration)
+{
+    if (configuration == NULL || monitorId == NULL || runID == NULL || runID[0] == '\0' || pathBuffer == NULL ||
+        pathBufferLength == 0) {
+        return false;
+    }
+    const char *runSidecarsPath = configuration->runSidecarsPath;
+    if (runSidecarsPath == NULL) {
+        return false;
+    }
+    // Build: <runSidecarsPath>/<runID>/<monitorId>.ksscr
+    // Do NOT create directories — this is for reading a previous run's sidecar.
+    if (snprintf(pathBuffer, pathBufferLength, "%s/%s/%s.ksscr", runSidecarsPath, runID, monitorId) >=
+        (int)pathBufferLength) {
+        return false;
+    }
+    return true;
+}
+
 void kscrs_cleanupOrphanedRunSidecars(const KSCrashReportStoreCConfiguration *const configuration)
 {
     pthread_mutex_lock(&g_mutex);

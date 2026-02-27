@@ -132,33 +132,6 @@ const char *kscrash_getUserInfoJSON(void);
 void kscrash_reportUserException(const char *name, const char *reason, const char *language, const char *lineOfCode,
                                  const char *stackTrace, bool logAllThreads, bool terminateProgram);
 
-#pragma mark-- Notifications --
-
-/** Notify the crash reporter of KSCrash being added to Objective-C runtime system.
- */
-void kscrash_notifyObjCLoad(void);
-
-/** Notify the crash reporter of the application active state.
- *
- * @param isActive true if the application is active, otherwise false.
- */
-void kscrash_notifyAppActive(bool isActive);
-
-/** Notify the crash reporter of the application foreground/background state.
- *
- * @param isInForeground true if the application is in the foreground, false if
- *                 it is in the background.
- */
-void kscrash_notifyAppInForeground(bool isInForeground);
-
-/** Notify the crash reporter that the application is terminating.
- */
-void kscrash_notifyAppTerminate(void);
-
-/** Notify the crash reporter that the application has crashed.
- */
-void kscrash_notifyAppCrash(void);
-
 #pragma mark-- Reporting --
 
 /** Add a custom report to the store.
@@ -180,6 +153,18 @@ int64_t kscrash_addUserReport(const char *report, int reportLength);
  *         The returned pointer is valid for the lifetime of the process.
  */
 const char *kscrash_getRunID(void);
+
+/** Get the run ID from the previous process run.
+ *
+ * Returns the UUID string that was saved during the previous call to
+ * kscrash_install(). Used by the Lifecycle monitor to locate the previous
+ * run's sidecar and determine crashedLastLaunch.
+ *
+ * @return A null-terminated UUID string, or an empty string if this is
+ *         the first run or the previous ID could not be read.
+ *         The returned pointer is valid for the lifetime of the process.
+ */
+const char *kscrash_getLastRunID(void);
 
 /** Get the namespaced KSCrash name.
  *

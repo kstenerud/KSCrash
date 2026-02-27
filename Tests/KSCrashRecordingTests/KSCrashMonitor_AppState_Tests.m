@@ -24,533 +24,314 @@
 // THE SOFTWARE.
 //
 
-#import "FileBasedTestCase.h"
+#import <XCTest/XCTest.h>
 
-#import "KSCrashMonitor_AppState.h"
+#import "KSCrashMonitorContext.h"
+#import "KSCrashMonitor_Lifecycle.h"
+#import "KSFileUtils.h"
+
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wfloat-equal"
 
-@interface KSCrashMonitor_AppState_Tests : FileBasedTestCase
+// Test helpers declared extern (defined in production code with __attribute__((unused)))
+extern void kscm_testcode_resetState(void);
+extern void kscrash_testcode_setLastRunID(const char *runID);
+
+// Global test directory for path callbacks
+static char g_testDir[1024];
+
+static bool testGetRunSidecarPath(const char *monitorId, char *pathBuffer, size_t pathBufferLength)
+{
+    char dir[1024];
+    snprintf(dir, sizeof(dir), "%s/current", g_testDir);
+    mkdir(dir, 0755);
+    return snprintf(pathBuffer, pathBufferLength, "%s/%s.ksscr", dir, monitorId) < (int)pathBufferLength;
+}
+
+static bool testGetRunSidecarPathForRunID(const char *monitorId, const char *runID, char *pathBuffer,
+                                          size_t pathBufferLength)
+{
+    return snprintf(pathBuffer, pathBufferLength, "%s/%s/%s.ksscr", g_testDir, runID, monitorId) <
+           (int)pathBufferLength;
+}
+
+/** Write a KSCrash_LifecycleData struct to a file at the given path. */
+static bool writeSidecar(const char *path, const KSCrash_LifecycleData *data)
+{
+    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd == -1) return false;
+    ssize_t written = write(fd, data, sizeof(*data));
+    close(fd);
+    return written == (ssize_t)sizeof(*data);
+}
+
+@interface KSCrashMonitor_AppState_Tests : XCTestCase
+@property(nonatomic, copy) NSString *tempPath;
 @end
 
 @implementation KSCrashMonitor_AppState_Tests
 
-- (void)initializeCrashState
+- (void)setUp
 {
-    NSString *stateFile = [self.tempPath stringByAppendingPathComponent:@"state.json"];
-    kscrashstate_initialize([stateFile cStringUsingEncoding:NSUTF8StringEncoding]);
-    kscm_appstate_getAPI()->setEnabled(false, NULL);
-    kscm_appstate_getAPI()->setEnabled(true, NULL);
+    [super setUp];
+    NSString *tempDir = [NSTemporaryDirectory() stringByAppendingPathComponent:[[NSUUID UUID] UUIDString]];
+    [[NSFileManager defaultManager] createDirectoryAtPath:tempDir
+                              withIntermediateDirectories:YES
+                                               attributes:nil
+                                                    error:nil];
+    self.tempPath = tempDir;
+    strncpy(g_testDir, [tempDir UTF8String], sizeof(g_testDir) - 1);
+    g_testDir[sizeof(g_testDir) - 1] = '\0';
+
+    // Reset the monitor infrastructure and provide test callbacks
+    kscm_testcode_resetState();
+    kscm_setRunSidecarPathProvider(testGetRunSidecarPath);
+    kscm_setRunSidecarPathForRunIDProvider(testGetRunSidecarPathForRunID);
+
+    // No previous run by default
+    kscrash_testcode_setLastRunID(NULL);
 }
 
-- (void)testInitRelaunch
+- (void)tearDown
 {
-    [self initializeCrashState];
-    KSCrash_AppState context = *kscrashstate_currentState();
-
-    XCTAssertTrue(context.applicationIsInForeground, @"");
-    XCTAssertFalse(context.applicationIsActive, @"");
-
-    XCTAssertEqual(context.activeDurationSinceLastCrash, 0.0, @"");
-    XCTAssertEqual(context.backgroundDurationSinceLastCrash, 0.0, @"");
-    XCTAssertEqual(context.launchesSinceLastCrash, 1, @"");
-    XCTAssertEqual(context.sessionsSinceLastCrash, 1, @"");
-
-    XCTAssertEqual(context.activeDurationSinceLaunch, 0.0, @"");
-    XCTAssertEqual(context.backgroundDurationSinceLaunch, 0.0, @"");
-    XCTAssertEqual(context.sessionsSinceLaunch, 1, @"");
-
-    XCTAssertFalse(context.crashedThisLaunch, @"");
-    XCTAssertFalse(context.crashedLastLaunch, @"");
-
-    [self initializeCrashState];
-    context = *kscrashstate_currentState();
-
-    XCTAssertTrue(context.applicationIsInForeground, @"");
-    XCTAssertFalse(context.applicationIsActive, @"");
-
-    XCTAssertEqual(context.activeDurationSinceLastCrash, 0.0, @"");
-    XCTAssertEqual(context.backgroundDurationSinceLastCrash, 0.0, @"");
-    XCTAssertEqual(context.launchesSinceLastCrash, 2, @"");
-    XCTAssertEqual(context.sessionsSinceLastCrash, 2, @"");
-
-    XCTAssertEqual(context.activeDurationSinceLaunch, 0.0, @"");
-    XCTAssertEqual(context.backgroundDurationSinceLaunch, 0.0, @"");
-    XCTAssertEqual(context.sessionsSinceLaunch, 1, @"");
-
-    XCTAssertFalse(context.crashedThisLaunch, @"");
-    XCTAssertFalse(context.crashedLastLaunch, @"");
+    KSCrashMonitorAPI *api = kscm_lifecycle_getAPI();
+    if (api->isEnabled(api->context)) {
+        api->setEnabled(false, api->context);
+    }
+    kscrash_testcode_setLastRunID(NULL);
+    [[NSFileManager defaultManager] removeItemAtPath:self.tempPath error:nil];
+    [super tearDown];
 }
 
-- (void)testInitCrash
+/** Initialize the Lifecycle monitor via the monitor API. */
+- (void)enableMonitor
 {
-    [self initializeCrashState];
-    KSCrash_AppState context = *kscrashstate_currentState();
-
-    KSCrash_AppState checkpoint0 = *kscrashstate_currentState();
-
-    usleep(1);
-    kscrashstate_notifyAppCrash();
-    KSCrash_AppState checkpointC = *kscrashstate_currentState();
-
-    XCTAssertTrue(checkpointC.applicationIsInForeground == checkpoint0.applicationIsInForeground, @"");
-    XCTAssertTrue(checkpointC.applicationIsActive == checkpoint0.applicationIsActive, @"");
-
-    XCTAssertTrue(checkpointC.activeDurationSinceLastCrash == checkpoint0.activeDurationSinceLastCrash, @"");
-    XCTAssertTrue(checkpointC.backgroundDurationSinceLastCrash == checkpoint0.backgroundDurationSinceLastCrash, @"");
-    XCTAssertTrue(checkpointC.launchesSinceLastCrash == checkpoint0.launchesSinceLastCrash, @"");
-    XCTAssertTrue(checkpointC.sessionsSinceLastCrash == checkpoint0.sessionsSinceLastCrash, @"");
-
-    XCTAssertTrue(checkpointC.activeDurationSinceLaunch == checkpoint0.activeDurationSinceLaunch, @"");
-    XCTAssertTrue(checkpointC.backgroundDurationSinceLaunch == checkpoint0.backgroundDurationSinceLaunch, @"");
-    XCTAssertTrue(checkpointC.sessionsSinceLaunch == checkpoint0.sessionsSinceLaunch, @"");
-
-    XCTAssertTrue(checkpointC.crashedThisLaunch, @"");
-    XCTAssertFalse(checkpointC.crashedLastLaunch, @"");
-
-    [self initializeCrashState];
-    context = *kscrashstate_currentState();
-
-    XCTAssertTrue(context.applicationIsInForeground, @"");
-    XCTAssertFalse(context.applicationIsActive, @"");
-
-    XCTAssertEqual(context.activeDurationSinceLastCrash, 0.0, @"");
-    XCTAssertEqual(context.backgroundDurationSinceLastCrash, 0.0, @"");
-    XCTAssertEqual(context.launchesSinceLastCrash, 1, @"");
-    XCTAssertEqual(context.sessionsSinceLastCrash, 1, @"");
-
-    XCTAssertEqual(context.activeDurationSinceLaunch, 0.0, @"");
-    XCTAssertEqual(context.backgroundDurationSinceLaunch, 0.0, @"");
-    XCTAssertEqual(context.sessionsSinceLaunch, 1, @"");
-
-    XCTAssertFalse(context.crashedThisLaunch, @"");
-    XCTAssertTrue(context.crashedLastLaunch, @"");
+    KSCrashMonitorAPI *api = kscm_lifecycle_getAPI();
+    KSCrash_ExceptionHandlerCallbacks callbacks = { 0 };
+    callbacks.getRunSidecarPath = testGetRunSidecarPath;
+    callbacks.getRunSidecarPathForRunID = testGetRunSidecarPathForRunID;
+    api->init(&callbacks, api->context);
+    api->setEnabled(true, api->context);
 }
 
-- (void)testActRelaunch
+- (void)disableMonitor
 {
-    [self initializeCrashState];
-    KSCrash_AppState context = *kscrashstate_currentState();
-
-    KSCrash_AppState checkpoint0 = *kscrashstate_currentState();
-
-    usleep(1);
-    kscrashstate_notifyAppActive(true);
-
-    KSCrash_AppState checkpoint1 = *kscrashstate_currentState();
-
-    XCTAssertTrue(checkpoint1.applicationIsInForeground == checkpoint0.applicationIsInForeground, @"");
-    XCTAssertTrue(checkpoint1.applicationIsActive != checkpoint0.applicationIsActive, @"");
-    XCTAssertTrue(checkpoint1.applicationIsActive, @"");
-
-    XCTAssertTrue(checkpoint1.activeDurationSinceLastCrash == checkpoint0.activeDurationSinceLastCrash, @"");
-    XCTAssertTrue(checkpoint1.backgroundDurationSinceLastCrash == checkpoint0.backgroundDurationSinceLastCrash, @"");
-    XCTAssertTrue(checkpoint1.launchesSinceLastCrash == checkpoint0.launchesSinceLastCrash, @"");
-    XCTAssertTrue(checkpoint1.sessionsSinceLastCrash == checkpoint0.sessionsSinceLastCrash, @"");
-
-    XCTAssertTrue(checkpoint1.activeDurationSinceLaunch == checkpoint0.activeDurationSinceLaunch, @"");
-    XCTAssertTrue(checkpoint1.backgroundDurationSinceLaunch == checkpoint0.backgroundDurationSinceLaunch, @"");
-    XCTAssertTrue(checkpoint1.sessionsSinceLaunch == checkpoint0.sessionsSinceLaunch, @"");
-
-    XCTAssertFalse(checkpoint1.crashedThisLaunch, @"");
-    XCTAssertFalse(checkpoint1.crashedLastLaunch, @"");
-
-    usleep(1);
-    [self initializeCrashState];
-    context = *kscrashstate_currentState();
-
-    XCTAssertTrue(context.applicationIsInForeground, @"");
-    XCTAssertFalse(context.applicationIsActive, @"");
-
-    XCTAssertEqual(context.activeDurationSinceLastCrash, 0.0, @"");
-    XCTAssertEqual(context.backgroundDurationSinceLastCrash, 0.0, @"");
-    XCTAssertEqual(context.launchesSinceLastCrash, 2, @"");
-    XCTAssertEqual(context.sessionsSinceLastCrash, 2, @"");
-
-    XCTAssertEqual(context.activeDurationSinceLaunch, 0.0, @"");
-    XCTAssertEqual(context.backgroundDurationSinceLaunch, 0.0, @"");
-    XCTAssertEqual(context.sessionsSinceLaunch, 1, @"");
-
-    XCTAssertFalse(context.crashedThisLaunch, @"");
-    XCTAssertFalse(context.crashedLastLaunch, @"");
+    KSCrashMonitorAPI *api = kscm_lifecycle_getAPI();
+    api->setEnabled(false, api->context);
 }
 
-- (void)testActCrash
+/** Write a previous sidecar with the given settings, set last run ID, then re-enable. */
+- (void)simulateRelaunchWithPreviousSidecar:(KSCrash_LifecycleData)prev
 {
-    [self initializeCrashState];
-    usleep(1);
-    kscrashstate_notifyAppActive(true);
-    KSCrash_AppState checkpoint0 = *kscrashstate_currentState();
+    NSString *prevRunID = @"prev-run";
+    NSString *prevDir = [NSString stringWithFormat:@"%@/%@", self.tempPath, prevRunID];
+    [[NSFileManager defaultManager] createDirectoryAtPath:prevDir
+                              withIntermediateDirectories:YES
+                                               attributes:nil
+                                                    error:nil];
+    char prevPath[1024];
+    snprintf(prevPath, sizeof(prevPath), "%s/%s/Lifecycle.ksscr", g_testDir, [prevRunID UTF8String]);
+    writeSidecar(prevPath, &prev);
 
-    usleep(1);
-    kscrashstate_notifyAppCrash();
-    KSCrash_AppState checkpointC = *kscrashstate_currentState();
+    kscrash_testcode_setLastRunID([prevRunID UTF8String]);
 
-    XCTAssertTrue(checkpointC.applicationIsInForeground == checkpoint0.applicationIsInForeground, @"");
-    XCTAssertTrue(checkpointC.applicationIsActive == checkpoint0.applicationIsActive, @"");
+    // Remove current sidecar so the new run starts fresh
+    [[NSFileManager defaultManager] removeItemAtPath:[NSString stringWithFormat:@"%@/current", self.tempPath]
+                                               error:nil];
 
-    XCTAssertTrue(checkpointC.activeDurationSinceLastCrash > checkpoint0.activeDurationSinceLastCrash, @"");
-    XCTAssertTrue(checkpointC.backgroundDurationSinceLastCrash == checkpoint0.backgroundDurationSinceLastCrash, @"");
-    XCTAssertTrue(checkpointC.launchesSinceLastCrash == checkpoint0.launchesSinceLastCrash, @"");
-    XCTAssertTrue(checkpointC.sessionsSinceLastCrash == checkpoint0.sessionsSinceLastCrash, @"");
-
-    XCTAssertTrue(checkpointC.activeDurationSinceLaunch > checkpoint0.activeDurationSinceLaunch, @"");
-    XCTAssertTrue(checkpointC.backgroundDurationSinceLaunch == checkpoint0.backgroundDurationSinceLaunch, @"");
-    XCTAssertTrue(checkpointC.sessionsSinceLaunch == checkpoint0.sessionsSinceLaunch, @"");
-
-    XCTAssertTrue(checkpointC.crashedThisLaunch, @"");
-    XCTAssertFalse(checkpointC.crashedLastLaunch, @"");
-
-    [self initializeCrashState];
-    KSCrash_AppState context = *kscrashstate_currentState();
-
-    XCTAssertTrue(context.applicationIsInForeground, @"");
-    XCTAssertFalse(context.applicationIsActive, @"");
-
-    XCTAssertEqual(context.activeDurationSinceLastCrash, 0.0, @"");
-    XCTAssertEqual(context.backgroundDurationSinceLastCrash, 0.0, @"");
-    XCTAssertEqual(context.launchesSinceLastCrash, 1, @"");
-    XCTAssertEqual(context.sessionsSinceLastCrash, 1, @"");
-
-    XCTAssertEqual(context.activeDurationSinceLaunch, 0.0, @"");
-    XCTAssertEqual(context.backgroundDurationSinceLaunch, 0.0, @"");
-    XCTAssertEqual(context.sessionsSinceLaunch, 1, @"");
-
-    XCTAssertFalse(context.crashedThisLaunch, @"");
-    XCTAssertTrue(context.crashedLastLaunch, @"");
+    [self enableMonitor];
 }
 
-- (void)testActDeactRelaunch
+/** Build a valid previous sidecar struct with clean or crash state. */
+- (KSCrash_LifecycleData)makePreviousSidecarWithCleanShutdown:(bool)clean
+                                       launchesSinceLastCrash:(int32_t)launches
+                                       sessionsSinceLastCrash:(int32_t)sessions
+                               activeDurationSinceLastCrashNs:(uint64_t)activeNs
+                           backgroundDurationSinceLastCrashNs:(uint64_t)bgNs
 {
-    [self initializeCrashState];
-    usleep(1);
-    kscrashstate_notifyAppActive(true);
-    KSCrash_AppState checkpoint0 = *kscrashstate_currentState();
-
-    usleep(1);
-    kscrashstate_notifyAppActive(false);
-    KSCrash_AppState checkpoint1 = *kscrashstate_currentState();
-
-    XCTAssertTrue(checkpoint1.applicationIsInForeground == checkpoint0.applicationIsInForeground, @"");
-    XCTAssertTrue(checkpoint1.applicationIsActive != checkpoint0.applicationIsActive, @"");
-    XCTAssertFalse(checkpoint1.applicationIsActive, @"");
-
-    XCTAssertTrue(checkpoint1.activeDurationSinceLastCrash > checkpoint0.activeDurationSinceLastCrash, @"");
-    XCTAssertTrue(checkpoint1.backgroundDurationSinceLastCrash == checkpoint0.backgroundDurationSinceLastCrash, @"");
-    XCTAssertTrue(checkpoint1.launchesSinceLastCrash == checkpoint0.launchesSinceLastCrash, @"");
-    XCTAssertTrue(checkpoint1.sessionsSinceLastCrash == checkpoint0.sessionsSinceLastCrash, @"");
-
-    XCTAssertTrue(checkpoint1.activeDurationSinceLaunch > checkpoint0.activeDurationSinceLaunch, @"");
-    XCTAssertTrue(checkpoint1.backgroundDurationSinceLaunch == checkpoint0.backgroundDurationSinceLaunch, @"");
-    XCTAssertTrue(checkpoint1.sessionsSinceLaunch == checkpoint0.sessionsSinceLaunch, @"");
-
-    XCTAssertFalse(checkpoint1.crashedThisLaunch, @"");
-    XCTAssertFalse(checkpoint1.crashedLastLaunch, @"");
-
-    usleep(1);
-    [self initializeCrashState];
-    KSCrash_AppState checkpointR = *kscrashstate_currentState();
-
-    XCTAssertTrue(checkpointR.applicationIsInForeground, @"");
-    XCTAssertFalse(checkpointR.applicationIsActive, @"");
-
-    // We don't save after going inactive, so this will still be 0.
-    XCTAssertEqual(checkpointR.activeDurationSinceLastCrash, 0.0, @"");
-    XCTAssertEqual(checkpointR.backgroundDurationSinceLastCrash, 0.0, @"");
-    XCTAssertEqual(checkpointR.launchesSinceLastCrash, 2, @"");
-    XCTAssertEqual(checkpointR.sessionsSinceLastCrash, 2, @"");
-
-    XCTAssertEqual(checkpointR.activeDurationSinceLaunch, 0.0, @"");
-    XCTAssertEqual(checkpointR.backgroundDurationSinceLaunch, 0.0, @"");
-    XCTAssertEqual(checkpointR.sessionsSinceLaunch, 1, @"");
-
-    XCTAssertFalse(checkpointR.crashedThisLaunch, @"");
-    XCTAssertFalse(checkpointR.crashedLastLaunch, @"");
+    KSCrash_LifecycleData prev = { 0 };
+    prev.magic = KSLIFECYCLE_MAGIC;
+    prev.version = KSCrash_Lifecycle_CurrentVersion;
+    prev.cleanShutdown = clean;
+    prev.launchesSinceLastCrash = launches;
+    prev.sessionsSinceLastCrash = sessions;
+    prev.activeDurationSinceLastCrashNs = activeNs;
+    prev.backgroundDurationSinceLastCrashNs = bgNs;
+    prev.activeDurationSinceLaunchNs = 500000000ULL;      // 0.5s per-launch active
+    prev.backgroundDurationSinceLaunchNs = 200000000ULL;  // 0.2s per-launch bg
+    prev.sessionsSinceLaunch = 1;
+    return prev;
 }
 
-- (void)testActDeactCrash
+#pragma mark - Tests -
+
+- (void)testFirstLaunchState
 {
-    [self initializeCrashState];
-    KSCrash_AppState context = *kscrashstate_currentState();
-    usleep(1);
-    kscrashstate_notifyAppActive(true);
-    usleep(1);
-    kscrashstate_notifyAppActive(false);
-    KSCrash_AppState checkpoint0 = *kscrashstate_currentState();
+    [self enableMonitor];
+    const KSCrash_AppState *state = kscrashstate_currentState();
 
-    usleep(1);
-    kscrashstate_notifyAppCrash();
-    KSCrash_AppState checkpointC = *kscrashstate_currentState();
-
-    XCTAssertTrue(checkpointC.applicationIsInForeground == checkpoint0.applicationIsInForeground, @"");
-    XCTAssertTrue(checkpointC.applicationIsActive == checkpoint0.applicationIsActive, @"");
-
-    XCTAssertTrue(checkpointC.activeDurationSinceLastCrash == checkpoint0.activeDurationSinceLastCrash, @"");
-    XCTAssertTrue(checkpointC.backgroundDurationSinceLastCrash == checkpoint0.backgroundDurationSinceLastCrash, @"");
-    XCTAssertTrue(checkpointC.launchesSinceLastCrash == checkpoint0.launchesSinceLastCrash, @"");
-    XCTAssertTrue(checkpointC.sessionsSinceLastCrash == checkpoint0.sessionsSinceLastCrash, @"");
-
-    XCTAssertTrue(checkpointC.activeDurationSinceLaunch == checkpoint0.activeDurationSinceLaunch, @"");
-    XCTAssertTrue(checkpointC.backgroundDurationSinceLaunch == checkpoint0.backgroundDurationSinceLaunch, @"");
-    XCTAssertTrue(checkpointC.sessionsSinceLaunch == checkpoint0.sessionsSinceLaunch, @"");
-
-    XCTAssertTrue(checkpointC.crashedThisLaunch, @"");
-    XCTAssertFalse(checkpointC.crashedLastLaunch, @"");
-
-    [self initializeCrashState];
-    context = *kscrashstate_currentState();
-
-    XCTAssertTrue(context.applicationIsInForeground, @"");
-    XCTAssertFalse(context.applicationIsActive, @"");
-
-    XCTAssertEqual(context.activeDurationSinceLastCrash, 0.0, @"");
-    XCTAssertEqual(context.backgroundDurationSinceLastCrash, 0.0, @"");
-    XCTAssertEqual(context.launchesSinceLastCrash, 1, @"");
-    XCTAssertEqual(context.sessionsSinceLastCrash, 1, @"");
-
-    XCTAssertEqual(context.activeDurationSinceLaunch, 0.0, @"");
-    XCTAssertEqual(context.backgroundDurationSinceLaunch, 0.0, @"");
-    XCTAssertEqual(context.sessionsSinceLaunch, 1, @"");
-
-    XCTAssertFalse(context.crashedThisLaunch, @"");
-    XCTAssertTrue(context.crashedLastLaunch, @"");
+    XCTAssertFalse(state->crashedLastLaunch);
+    XCTAssertEqual(state->launchesSinceLastCrash, 1);
+    XCTAssertEqual(state->sessionsSinceLastCrash, 1);
+    XCTAssertEqual(state->sessionsSinceLaunch, 1);
+    // Durations may be slightly > 0 due to time elapsed since enable
+    XCTAssertTrue(state->activeDurationSinceLastCrash >= 0.0);
+    XCTAssertTrue(state->activeDurationSinceLaunch >= 0.0);
 }
 
-- (void)testActDeactBGRelaunch
+- (void)testCurrentStateBeforeEnable
 {
-    [self initializeCrashState];
-    usleep(1);
-    kscrashstate_notifyAppActive(true);
-    usleep(1);
-    kscrashstate_notifyAppActive(false);
-    KSCrash_AppState checkpoint0 = *kscrashstate_currentState();
-
-    usleep(1);
-    kscrashstate_notifyAppInForeground(false);
-    KSCrash_AppState checkpoint1 = *kscrashstate_currentState();
-
-    XCTAssertTrue(checkpoint1.applicationIsInForeground != checkpoint0.applicationIsInForeground, @"");
-    XCTAssertTrue(checkpoint1.applicationIsActive == checkpoint0.applicationIsActive, @"");
-    XCTAssertFalse(checkpoint1.applicationIsInForeground, @"");
-
-    XCTAssertTrue(checkpoint1.activeDurationSinceLastCrash == checkpoint0.activeDurationSinceLastCrash, @"");
-    XCTAssertTrue(checkpoint1.backgroundDurationSinceLastCrash == checkpoint0.backgroundDurationSinceLastCrash, @"");
-    XCTAssertTrue(checkpoint1.launchesSinceLastCrash == checkpoint0.launchesSinceLastCrash, @"");
-    XCTAssertTrue(checkpoint1.sessionsSinceLastCrash == checkpoint0.sessionsSinceLastCrash, @"");
-
-    XCTAssertTrue(checkpoint1.activeDurationSinceLaunch == checkpoint0.activeDurationSinceLaunch, @"");
-    XCTAssertTrue(checkpoint1.backgroundDurationSinceLaunch == checkpoint0.backgroundDurationSinceLaunch, @"");
-    XCTAssertTrue(checkpoint1.sessionsSinceLaunch == checkpoint0.sessionsSinceLaunch, @"");
-
-    XCTAssertFalse(checkpoint1.crashedThisLaunch, @"");
-    XCTAssertFalse(checkpoint1.crashedLastLaunch, @"");
-
-    usleep(1);
-    [self initializeCrashState];
-    KSCrash_AppState checkpointR = *kscrashstate_currentState();
-
-    XCTAssertTrue(checkpointR.applicationIsInForeground, @"");
-    XCTAssertFalse(checkpointR.applicationIsActive, @"");
-
-    XCTAssertTrue(checkpointR.activeDurationSinceLastCrash > 0, @"");
-    XCTAssertEqual(checkpointR.backgroundDurationSinceLastCrash, 0.0, @"");
-    XCTAssertEqual(checkpointR.launchesSinceLastCrash, 2, @"");
-    XCTAssertEqual(checkpointR.sessionsSinceLastCrash, 2, @"");
-
-    XCTAssertEqual(checkpointR.activeDurationSinceLaunch, 0.0, @"");
-    XCTAssertEqual(checkpointR.backgroundDurationSinceLaunch, 0.0, @"");
-    XCTAssertEqual(checkpointR.sessionsSinceLaunch, 1, @"");
-
-    XCTAssertFalse(checkpointR.crashedThisLaunch, @"");
-    XCTAssertFalse(checkpointR.crashedLastLaunch, @"");
+    const KSCrash_AppState *state = kscrashstate_currentState();
+    XCTAssertFalse(state->crashedLastLaunch);
+    XCTAssertFalse(state->applicationIsActive);
+    XCTAssertFalse(state->applicationIsInForeground);
+    XCTAssertEqual(state->activeDurationSinceLaunch, 0.0);
+    XCTAssertEqual(state->backgroundDurationSinceLaunch, 0.0);
+    XCTAssertEqual(state->launchesSinceLastCrash, 0);
+    XCTAssertEqual(state->sessionsSinceLastCrash, 0);
 }
 
-- (void)testActDeactBGTerminate
+- (void)testLifecycleDataStructLayout
 {
-    [self initializeCrashState];
-    usleep(1);
-    kscrashstate_notifyAppActive(true);
-    usleep(1);
-    kscrashstate_notifyAppActive(false);
-    usleep(1);
-    kscrashstate_notifyAppInForeground(false);
-    KSCrash_AppState checkpoint0 = *kscrashstate_currentState();
-    usleep(1);
-    kscrashstate_notifyAppTerminate();
-
-    usleep(1);
-    [self initializeCrashState];
-    KSCrash_AppState checkpointR = *kscrashstate_currentState();
-
-    XCTAssertTrue(checkpointR.applicationIsInForeground, @"");
-    XCTAssertFalse(checkpointR.applicationIsActive, @"");
-
-    XCTAssertTrue(checkpointR.backgroundDurationSinceLastCrash > checkpoint0.backgroundDurationSinceLastCrash, @"");
-    XCTAssertEqual(checkpointR.launchesSinceLastCrash, 2, @"");
-    XCTAssertEqual(checkpointR.sessionsSinceLastCrash, 2, @"");
-
-    XCTAssertEqual(checkpointR.activeDurationSinceLaunch, 0.0, @"");
-    XCTAssertEqual(checkpointR.backgroundDurationSinceLaunch, 0.0, @"");
-    XCTAssertEqual(checkpointR.sessionsSinceLaunch, 1, @"");
-
-    XCTAssertFalse(checkpointR.crashedThisLaunch, @"");
-    XCTAssertFalse(checkpointR.crashedLastLaunch, @"");
+    XCTAssertEqual(sizeof(KSCrash_LifecycleData), 72u);
+    XCTAssertEqual(KSLIFECYCLE_MAGIC, (int32_t)0x6B736C63);
 }
 
-- (void)testActDeactBGCrash
+- (void)testRelaunchAfterCrash
 {
-    [self initializeCrashState];
-    KSCrash_AppState context = *kscrashstate_currentState();
-    usleep(1);
-    kscrashstate_notifyAppActive(true);
-    usleep(1);
-    kscrashstate_notifyAppActive(false);
-    usleep(1);
-    kscrashstate_notifyAppInForeground(false);
-    KSCrash_AppState checkpoint0 = *kscrashstate_currentState();
+    // Previous run did NOT shut down cleanly → crash
+    KSCrash_LifecycleData prev = [self makePreviousSidecarWithCleanShutdown:false
+                                                     launchesSinceLastCrash:5
+                                                     sessionsSinceLastCrash:10
+                                             activeDurationSinceLastCrashNs:1000000000ULL
+                                         backgroundDurationSinceLastCrashNs:2000000000ULL];
+    [self simulateRelaunchWithPreviousSidecar:prev];
 
-    usleep(1);
-    kscrashstate_notifyAppCrash();
-    KSCrash_AppState checkpointC = *kscrashstate_currentState();
-
-    XCTAssertTrue(checkpointC.applicationIsInForeground == checkpoint0.applicationIsInForeground, @"");
-    XCTAssertTrue(checkpointC.applicationIsActive == checkpoint0.applicationIsActive, @"");
-
-    XCTAssertTrue(checkpointC.activeDurationSinceLastCrash == checkpoint0.activeDurationSinceLastCrash, @"");
-    XCTAssertTrue(checkpointC.backgroundDurationSinceLastCrash > checkpoint0.backgroundDurationSinceLastCrash, @"");
-    XCTAssertTrue(checkpointC.launchesSinceLastCrash == checkpoint0.launchesSinceLastCrash, @"");
-    XCTAssertTrue(checkpointC.sessionsSinceLastCrash == checkpoint0.sessionsSinceLastCrash, @"");
-
-    XCTAssertTrue(checkpointC.activeDurationSinceLaunch == checkpoint0.activeDurationSinceLaunch, @"");
-    XCTAssertTrue(checkpointC.backgroundDurationSinceLaunch > checkpoint0.backgroundDurationSinceLaunch, @"");
-    XCTAssertTrue(checkpointC.sessionsSinceLaunch == checkpoint0.sessionsSinceLaunch, @"");
-
-    XCTAssertTrue(checkpointC.crashedThisLaunch, @"");
-    XCTAssertFalse(checkpointC.crashedLastLaunch, @"");
-
-    [self initializeCrashState];
-    context = *kscrashstate_currentState();
-
-    XCTAssertTrue(context.applicationIsInForeground, @"");
-    XCTAssertFalse(context.applicationIsActive, @"");
-
-    XCTAssertEqual(context.activeDurationSinceLastCrash, 0.0, @"");
-    XCTAssertEqual(context.backgroundDurationSinceLastCrash, 0.0, @"");
-    XCTAssertEqual(context.launchesSinceLastCrash, 1, @"");
-    XCTAssertEqual(context.sessionsSinceLastCrash, 1, @"");
-
-    XCTAssertEqual(context.activeDurationSinceLaunch, 0.0, @"");
-    XCTAssertEqual(context.backgroundDurationSinceLaunch, 0.0, @"");
-    XCTAssertEqual(context.sessionsSinceLaunch, 1, @"");
-
-    XCTAssertFalse(context.crashedThisLaunch, @"");
-    XCTAssertTrue(context.crashedLastLaunch, @"");
+    const KSCrash_AppState *state = kscrashstate_currentState();
+    XCTAssertTrue(state->crashedLastLaunch);
+    // After a crash, cumulative counters reset to 0 + this launch
+    XCTAssertEqual(state->launchesSinceLastCrash, 1);
+    XCTAssertEqual(state->sessionsSinceLastCrash, 1);
+    XCTAssertEqual(state->sessionsSinceLaunch, 1);
 }
 
-- (void)testActDeactBGFGRelaunch
+- (void)testRelaunchAfterCleanShutdown
 {
-    [self initializeCrashState];
-    usleep(1);
-    kscrashstate_notifyAppActive(true);
-    usleep(1);
-    kscrashstate_notifyAppActive(false);
-    usleep(1);
-    kscrashstate_notifyAppInForeground(false);
-    usleep(1);
-    KSCrash_AppState checkpoint0 = *kscrashstate_currentState();
+    // Previous run shut down cleanly → no crash
+    KSCrash_LifecycleData prev = [self makePreviousSidecarWithCleanShutdown:true
+                                                     launchesSinceLastCrash:3
+                                                     sessionsSinceLastCrash:7
+                                             activeDurationSinceLastCrashNs:1000000000ULL
+                                         backgroundDurationSinceLastCrashNs:2000000000ULL];
+    [self simulateRelaunchWithPreviousSidecar:prev];
 
-    usleep(1);
-    kscrashstate_notifyAppInForeground(true);
-    KSCrash_AppState checkpoint1 = *kscrashstate_currentState();
+    const KSCrash_AppState *state = kscrashstate_currentState();
+    XCTAssertFalse(state->crashedLastLaunch);
+    // Cumulative = previous cumulatives + previous per-launch, plus this launch
+    // launches: 3 + 1 = 4
+    XCTAssertEqual(state->launchesSinceLastCrash, 4);
+    // sessions: 7 + 1 = 8 (previous cumulatives + previous per-launch sessions carried forward, plus this launch)
+    XCTAssertEqual(state->sessionsSinceLastCrash, 8);
+    // Per-launch resets
+    XCTAssertEqual(state->sessionsSinceLaunch, 1);
 
-    XCTAssertTrue(checkpoint1.applicationIsInForeground != checkpoint0.applicationIsInForeground, @"");
-    XCTAssertTrue(checkpoint1.applicationIsActive == checkpoint0.applicationIsActive, @"");
-    XCTAssertTrue(checkpoint1.applicationIsInForeground, @"");
-
-    XCTAssertTrue(checkpoint1.activeDurationSinceLastCrash == checkpoint0.activeDurationSinceLastCrash, @"");
-    XCTAssertTrue(checkpoint1.backgroundDurationSinceLastCrash > checkpoint0.backgroundDurationSinceLastCrash, @"");
-    XCTAssertTrue(checkpoint1.launchesSinceLastCrash == checkpoint0.launchesSinceLastCrash, @"");
-    XCTAssertTrue(checkpoint1.sessionsSinceLastCrash == checkpoint0.sessionsSinceLastCrash + 1, @"");
-
-    XCTAssertTrue(checkpoint1.activeDurationSinceLaunch == checkpoint0.activeDurationSinceLaunch, @"");
-    XCTAssertTrue(checkpoint1.backgroundDurationSinceLaunch > checkpoint0.backgroundDurationSinceLaunch, @"");
-    XCTAssertTrue(checkpoint1.sessionsSinceLaunch == checkpoint0.sessionsSinceLaunch + 1, @"");
-
-    XCTAssertFalse(checkpoint1.crashedThisLaunch, @"");
-    XCTAssertFalse(checkpoint1.crashedLastLaunch, @"");
-
-    usleep(1);
-    [self initializeCrashState];
-    KSCrash_AppState checkpointR = *kscrashstate_currentState();
-
-    XCTAssertTrue(checkpointR.applicationIsInForeground, @"");
-    XCTAssertFalse(checkpointR.applicationIsActive, @"");
-
-    XCTAssertTrue(checkpointR.activeDurationSinceLastCrash > 0, @"");
-    // We don't save after going to FG, so this will still be 0.
-    XCTAssertEqual(checkpointR.backgroundDurationSinceLastCrash, 0.0, @"");
-    XCTAssertEqual(checkpointR.launchesSinceLastCrash, 2, @"");
-    XCTAssertEqual(checkpointR.sessionsSinceLastCrash, 2, @"");
-
-    XCTAssertEqual(checkpointR.activeDurationSinceLaunch, 0.0, @"");
-    XCTAssertEqual(checkpointR.backgroundDurationSinceLaunch, 0.0, @"");
-    XCTAssertEqual(checkpointR.sessionsSinceLaunch, 1, @"");
-
-    XCTAssertFalse(checkpointR.crashedThisLaunch, @"");
-    XCTAssertFalse(checkpointR.crashedLastLaunch, @"");
+    // Active duration: previous cumulative (1.0s) + previous per-launch (0.5s) = 1.5s base
+    // Plus a tiny amount of time elapsed since enable
+    XCTAssertTrue(state->activeDurationSinceLastCrash >= 1.5);
+    // Background duration: 2.0s + 0.2s = 2.2s base
+    XCTAssertTrue(state->backgroundDurationSinceLastCrash >= 2.2);
 }
 
-- (void)testActDeactBGFGCrash
+- (void)testRelaunchCrashThenClean
 {
-    [self initializeCrashState];
-    KSCrash_AppState context = *kscrashstate_currentState();
-    usleep(1);
-    kscrashstate_notifyAppActive(true);
-    usleep(1);
-    kscrashstate_notifyAppActive(false);
-    usleep(1);
-    kscrashstate_notifyAppInForeground(false);
-    usleep(1);
-    kscrashstate_notifyAppInForeground(true);
-    KSCrash_AppState checkpoint0 = *kscrashstate_currentState();
+    // First: crash relaunch
+    KSCrash_LifecycleData crashed = [self makePreviousSidecarWithCleanShutdown:false
+                                                        launchesSinceLastCrash:10
+                                                        sessionsSinceLastCrash:20
+                                                activeDurationSinceLastCrashNs:5000000000ULL
+                                            backgroundDurationSinceLastCrashNs:3000000000ULL];
+    [self simulateRelaunchWithPreviousSidecar:crashed];
 
-    usleep(1);
-    kscrashstate_notifyAppCrash();
-    KSCrash_AppState checkpointC = *kscrashstate_currentState();
+    const KSCrash_AppState *state = kscrashstate_currentState();
+    XCTAssertTrue(state->crashedLastLaunch);
+    XCTAssertEqual(state->launchesSinceLastCrash, 1);  // Reset after crash
 
-    XCTAssertTrue(checkpointC.applicationIsInForeground == checkpoint0.applicationIsInForeground, @"");
-    XCTAssertTrue(checkpointC.applicationIsActive == checkpoint0.applicationIsActive, @"");
+    [self disableMonitor];
 
-    XCTAssertTrue(checkpointC.activeDurationSinceLastCrash == checkpoint0.activeDurationSinceLastCrash, @"");
-    XCTAssertTrue(checkpointC.backgroundDurationSinceLastCrash == checkpoint0.backgroundDurationSinceLastCrash, @"");
-    XCTAssertTrue(checkpointC.launchesSinceLastCrash == checkpoint0.launchesSinceLastCrash, @"");
-    XCTAssertTrue(checkpointC.sessionsSinceLastCrash == checkpoint0.sessionsSinceLastCrash, @"");
+    // Second: clean shutdown relaunch — read the sidecar we just wrote
+    // Manually patch the current sidecar to mark it as clean
+    char currentPath[1024];
+    snprintf(currentPath, sizeof(currentPath), "%s/current/Lifecycle.ksscr", g_testDir);
+    KSCrash_LifecycleData current = { 0 };
+    int fd = open(currentPath, O_RDONLY);
+    XCTAssertTrue(fd >= 0);
+    read(fd, &current, sizeof(current));
+    close(fd);
 
-    XCTAssertTrue(checkpointC.activeDurationSinceLaunch == checkpoint0.activeDurationSinceLaunch, @"");
-    XCTAssertTrue(checkpointC.backgroundDurationSinceLaunch == checkpoint0.backgroundDurationSinceLaunch, @"");
-    XCTAssertTrue(checkpointC.sessionsSinceLaunch == checkpoint0.sessionsSinceLaunch, @"");
+    // Verify it was a valid sidecar
+    XCTAssertEqual(current.magic, KSLIFECYCLE_MAGIC);
+    XCTAssertTrue(current.crashedLastLaunch);
 
-    XCTAssertTrue(checkpointC.crashedThisLaunch, @"");
-    XCTAssertFalse(checkpointC.crashedLastLaunch, @"");
+    // Mark it as clean shutdown
+    current.cleanShutdown = true;
 
-    [self initializeCrashState];
-    context = *kscrashstate_currentState();
+    // Write as previous
+    NSString *prevDir = [NSString stringWithFormat:@"%@/prev2", self.tempPath];
+    [[NSFileManager defaultManager] createDirectoryAtPath:prevDir
+                              withIntermediateDirectories:YES
+                                               attributes:nil
+                                                    error:nil];
+    char prevPath[1024];
+    snprintf(prevPath, sizeof(prevPath), "%s/prev2/Lifecycle.ksscr", g_testDir);
+    writeSidecar(prevPath, &current);
 
-    XCTAssertTrue(context.applicationIsInForeground, @"");
-    XCTAssertFalse(context.applicationIsActive, @"");
+    kscrash_testcode_setLastRunID("prev2");
+    [[NSFileManager defaultManager] removeItemAtPath:[NSString stringWithFormat:@"%@/current", self.tempPath]
+                                               error:nil];
 
-    XCTAssertEqual(context.activeDurationSinceLastCrash, 0.0, @"");
-    XCTAssertEqual(context.backgroundDurationSinceLastCrash, 0.0, @"");
-    XCTAssertEqual(context.launchesSinceLastCrash, 1, @"");
-    XCTAssertEqual(context.sessionsSinceLastCrash, 1, @"");
+    [self enableMonitor];
+    state = kscrashstate_currentState();
+    XCTAssertFalse(state->crashedLastLaunch);
+    XCTAssertEqual(state->launchesSinceLastCrash, 2);  // Carried forward from first crash reset
+}
 
-    XCTAssertEqual(context.activeDurationSinceLaunch, 0.0, @"");
-    XCTAssertEqual(context.backgroundDurationSinceLaunch, 0.0, @"");
-    XCTAssertEqual(context.sessionsSinceLaunch, 1, @"");
+- (void)testNoPreviousSidecarMeansNoCrash
+{
+    // Set a last run ID but don't create a sidecar file for it
+    kscrash_testcode_setLastRunID("nonexistent-run");
+    [self enableMonitor];
 
-    XCTAssertFalse(context.crashedThisLaunch, @"");
-    XCTAssertTrue(context.crashedLastLaunch, @"");
+    const KSCrash_AppState *state = kscrashstate_currentState();
+    // No previous sidecar found → treated as first launch
+    XCTAssertFalse(state->crashedLastLaunch);
+    XCTAssertEqual(state->launchesSinceLastCrash, 1);
+}
+
+- (void)testCorruptPreviousSidecarIgnored
+{
+    // Write garbage data as a previous sidecar
+    NSString *prevDir = [NSString stringWithFormat:@"%@/corrupt-run", self.tempPath];
+    [[NSFileManager defaultManager] createDirectoryAtPath:prevDir
+                              withIntermediateDirectories:YES
+                                               attributes:nil
+                                                    error:nil];
+    char prevPath[1024];
+    snprintf(prevPath, sizeof(prevPath), "%s/corrupt-run/Lifecycle.ksscr", g_testDir);
+    char garbage[72] = { 0xFF };
+    int fd = open(prevPath, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    write(fd, garbage, sizeof(garbage));
+    close(fd);
+
+    kscrash_testcode_setLastRunID("corrupt-run");
+    [self enableMonitor];
+
+    const KSCrash_AppState *state = kscrashstate_currentState();
+    XCTAssertFalse(state->crashedLastLaunch);
+    XCTAssertEqual(state->launchesSinceLastCrash, 1);
 }
 
 @end
