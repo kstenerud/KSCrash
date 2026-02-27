@@ -241,11 +241,12 @@ static bool writeSidecar(const char *path, const KSCrash_LifecycleData *data)
     // Per-launch resets
     XCTAssertEqual(state->sessionsSinceLaunch, 1);
 
-    // Active duration: previous cumulative (1.0s) + previous per-launch (0.5s) = 1.5s base
-    // Plus a tiny amount of time elapsed since enable
-    XCTAssertTrue(state->activeDurationSinceLastCrash >= 1.5);
-    // Background duration: 2.0s + 0.2s = 2.2s base
-    XCTAssertTrue(state->backgroundDurationSinceLastCrash >= 2.2);
+    // sinceLastCrashNs already includes the previous run's per-launch durations
+    // (updateSidecarDurations adds elapsed to both fields), so we just carry it forward.
+    // Active: previous cumulative 1.0s, plus a tiny amount since enable
+    XCTAssertTrue(state->activeDurationSinceLastCrash >= 1.0);
+    // Background: previous cumulative 2.0s
+    XCTAssertTrue(state->backgroundDurationSinceLastCrash >= 2.0);
 }
 
 - (void)testRelaunchCrashThenClean

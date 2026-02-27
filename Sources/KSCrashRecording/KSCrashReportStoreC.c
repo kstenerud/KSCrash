@@ -640,8 +640,11 @@ bool kscrs_getRunSidecarFilePathForRunID(const char *monitorId, const char *runI
     if (runSidecarsPath == NULL) {
         return false;
     }
-    // Build: <runSidecarsPath>/<runID>/<monitorId>.ksscr
-    // Do NOT create directories — this is for reading a previous run's sidecar.
+    // Reject non-UUID runIDs to prevent path traversal.
+    uuid_t parsed;
+    if (uuid_parse(runID, parsed) != 0) {
+        return false;
+    }
     if (snprintf(pathBuffer, pathBufferLength, "%s/%s/%s.ksscr", runSidecarsPath, runID, monitorId) >=
         (int)pathBufferLength) {
         return false;

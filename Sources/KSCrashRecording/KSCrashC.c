@@ -54,10 +54,13 @@
 #include "KSThreadCache.h"
 
 // #define KSLogger_LocalLevel TRACE
+#include <errno.h>
+#include <fcntl.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <uuid/uuid.h>
 
 #include "KSLogger.h"

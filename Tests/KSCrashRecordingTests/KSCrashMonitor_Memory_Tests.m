@@ -265,9 +265,6 @@ static KSCrashAppMemory *Memory(uint64_t footprint)
 
 - (void)testAppStateTrackerNoPrewarm
 {
-#if KSCRASH_HAS_UIAPPLICATION
-    NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
-#endif
     setenv("ActivePrewarm", "0", 1);
     __block KSCrashAppTransitionState state;
 
@@ -281,6 +278,7 @@ static KSCrashAppMemory *Memory(uint64_t footprint)
     [tracker start];
 
 #if KSCRASH_HAS_UIAPPLICATION
+    NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
     [center postNotificationName:UIApplicationDidFinishLaunchingNotification object:nil];
     XCTAssertEqual(tracker.transitionState, KSCrashAppTransitionStateLaunching);
     XCTAssertEqual(tracker.transitionState, state);
@@ -307,6 +305,23 @@ static KSCrashAppMemory *Memory(uint64_t footprint)
 
     [center postNotificationName:UIApplicationWillTerminateNotification object:nil];
     XCTAssertEqual(tracker.transitionState, KSCrashAppTransitionStateTerminating);
+    XCTAssertEqual(tracker.transitionState, state);
+#elif KSCRASH_HAS_NSEXTENSION
+    NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
+    [center postNotificationName:NSExtensionHostDidBecomeActiveNotification object:nil];
+    XCTAssertEqual(tracker.transitionState, KSCrashAppTransitionStateActive);
+    XCTAssertEqual(tracker.transitionState, state);
+
+    [center postNotificationName:NSExtensionHostWillResignActiveNotification object:nil];
+    XCTAssertEqual(tracker.transitionState, KSCrashAppTransitionStateDeactivating);
+    XCTAssertEqual(tracker.transitionState, state);
+
+    [center postNotificationName:NSExtensionHostDidEnterBackgroundNotification object:nil];
+    XCTAssertEqual(tracker.transitionState, KSCrashAppTransitionStateBackground);
+    XCTAssertEqual(tracker.transitionState, state);
+
+    [center postNotificationName:NSExtensionHostWillEnterForegroundNotification object:nil];
+    XCTAssertEqual(tracker.transitionState, KSCrashAppTransitionStateForegrounding);
     XCTAssertEqual(tracker.transitionState, state);
 #else
     XCTAssertEqual(tracker.transitionState, KSCrashAppTransitionStateActive);

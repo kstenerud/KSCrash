@@ -175,25 +175,31 @@ static void onTransitionState(KSCrashAppTransitionState transitionState)
 
 const KSCrash_AppState *kscrashstate_currentState(void)
 {
-    static KSCrash_AppState state;
+    static _Thread_local KSCrash_AppState state;
     memset(&state, 0, sizeof(state));
 
     ks_spinlock_lock(&g_sidecarLock);
     KSCrash_LifecycleData *sc = g_sidecar;
-    if (sc != NULL) {
-        // Compute up-to-date durations without modifying the sidecar
+    KSCrash_LifecycleData snapshot;
+    bool hasData = (sc != NULL);
+    if (hasData) {
+        snapshot = *sc;
+    }
+    ks_spinlock_unlock(&g_sidecarLock);
+
+    if (hasData) {
         uint64_t now = monotonicTimeNs();
-        uint64_t elapsed = now - sc->appStateTransitionTimeNs;
+        uint64_t elapsed = now - snapshot.appStateTransitionTimeNs;
 
-        uint64_t activeSinceLaunchNs = sc->activeDurationSinceLaunchNs;
-        uint64_t bgSinceLaunchNs = sc->backgroundDurationSinceLaunchNs;
-        uint64_t activeSinceCrashNs = sc->activeDurationSinceLastCrashNs;
-        uint64_t bgSinceCrashNs = sc->backgroundDurationSinceLastCrashNs;
+        uint64_t activeSinceLaunchNs = snapshot.activeDurationSinceLaunchNs;
+        uint64_t bgSinceLaunchNs = snapshot.backgroundDurationSinceLaunchNs;
+        uint64_t activeSinceCrashNs = snapshot.activeDurationSinceLastCrashNs;
+        uint64_t bgSinceCrashNs = snapshot.backgroundDurationSinceLastCrashNs;
 
-        if (sc->applicationIsActive) {
+        if (snapshot.applicationIsActive) {
             activeSinceLaunchNs += elapsed;
             activeSinceCrashNs += elapsed;
-        } else if (!sc->applicationIsInForeground) {
+        } else if (!snapshot.applicationIsInForeground) {
             bgSinceLaunchNs += elapsed;
             bgSinceCrashNs += elapsed;
         }
@@ -202,15 +208,14 @@ const KSCrash_AppState *kscrashstate_currentState(void)
         state.backgroundDurationSinceLaunch = nsToSeconds(bgSinceLaunchNs);
         state.activeDurationSinceLastCrash = nsToSeconds(activeSinceCrashNs);
         state.backgroundDurationSinceLastCrash = nsToSeconds(bgSinceCrashNs);
-        state.sessionsSinceLaunch = sc->sessionsSinceLaunch;
-        state.sessionsSinceLastCrash = sc->sessionsSinceLastCrash;
-        state.launchesSinceLastCrash = sc->launchesSinceLastCrash;
-        state.crashedLastLaunch = sc->crashedLastLaunch;
-        state.applicationIsActive = sc->applicationIsActive;
-        state.applicationIsInForeground = sc->applicationIsInForeground;
-        state.appStateTransitionTime = nsToSeconds(sc->appStateTransitionTimeNs);
+        state.sessionsSinceLaunch = snapshot.sessionsSinceLaunch;
+        state.sessionsSinceLastCrash = snapshot.sessionsSinceLastCrash;
+        state.launchesSinceLastCrash = snapshot.launchesSinceLastCrash;
+        state.crashedLastLaunch = snapshot.crashedLastLaunch;
+        state.applicationIsActive = snapshot.applicationIsActive;
+        state.applicationIsInForeground = snapshot.applicationIsInForeground;
+        state.appStateTransitionTime = nsToSeconds(snapshot.appStateTransitionTimeNs);
     }
-    ks_spinlock_unlock(&g_sidecarLock);
 
     return &state;
 }
@@ -226,6 +231,73 @@ static void monitorInit(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused v
     g_callbacks = *callbacks;
 }
 
+/** Carry forward cumulative counters from the previous run's sidecar into the new one. */
+static void carryForwardFromPreviousRun(KSCrash_LifecycleData *sc)
+{
+    const char *lastRunID = kscrash_getLastRunID();
+    KSCrash_LifecycleData prev = {};
+    if (!readPreviousSidecar(lastRunID, &prev)) {
+        return;
+    }
+
+    sc->crashedLastLaunch = !prev.cleanShutdown;
+    if (!sc->crashedLastLaunch) {
+        // sinceLastCrashNs already includes the previous run's per-launch durations
+        // (updateSidecarDurations adds elapsed to both fields), so just carry it forward.
+        sc->activeDurationSinceLastCrashNs = prev.activeDurationSinceLastCrashNs;
+        sc->backgroundDurationSinceLastCrashNs = prev.backgroundDurationSinceLastCrashNs;
+        sc->launchesSinceLastCrash = prev.launchesSinceLastCrash;
+        sc->sessionsSinceLastCrash = prev.sessionsSinceLastCrash;
+    }
+}
+
+/** Create and initialize the mmap'd sidecar for the current run. Returns NULL on failure. */
+static KSCrash_LifecycleData *createSidecar(void)
+{
+    char sidecarPath[KSFU_MAX_PATH_LENGTH];
+    if (!g_callbacks.getRunSidecarPath ||
+        !g_callbacks.getRunSidecarPath("Lifecycle", sidecarPath, sizeof(sidecarPath))) {
+        KSLOG_ERROR(@"Failed to get run sidecar path for Lifecycle monitor");
+        return NULL;
+    }
+
+    void *ptr = ksfu_mmap(sidecarPath, sizeof(KSCrash_LifecycleData));
+    if (!ptr) {
+        KSLOG_ERROR(@"Failed to mmap lifecycle sidecar at %s", sidecarPath);
+        return NULL;
+    }
+
+    KSCrash_LifecycleData *sc = (KSCrash_LifecycleData *)ptr;
+    sc->sessionsSinceLaunch = 1;
+    sc->appStateTransitionTimeNs = monotonicTimeNs();
+
+    carryForwardFromPreviousRun(sc);
+
+    sc->launchesSinceLastCrash++;
+    sc->sessionsSinceLastCrash++;
+
+    KSCrashAppTransitionState ts = KSCrashAppStateTracker.sharedInstance.transitionState;
+    sc->transitionState = (uint8_t)ts;
+    sc->applicationIsActive = (ts == KSCrashAppTransitionStateActive);
+    sc->applicationIsInForeground = ksapp_transitionStateIsUserPerceptible(ts);
+
+    sc->magic = KSLIFECYCLE_MAGIC;
+    sc->version = KSCrash_Lifecycle_CurrentVersion;
+    return sc;
+}
+
+static void releaseSidecar(void)
+{
+    ks_spinlock_lock(&g_sidecarLock);
+    KSCrash_LifecycleData *old = g_sidecar;
+    g_sidecar = NULL;
+    ks_spinlock_unlock(&g_sidecarLock);
+
+    if (old) {
+        ksfu_munmap(old, sizeof(KSCrash_LifecycleData));
+    }
+}
+
 static void setEnabled(bool isEnabled, __unused void *context)
 {
     bool expectEnabled = !isEnabled;
@@ -234,78 +306,16 @@ static void setEnabled(bool isEnabled, __unused void *context)
     }
 
     if (isEnabled) {
-        // Read previous run's sidecar to determine crashedLastLaunch and carry forward counters
-        const char *lastRunID = kscrash_getLastRunID();
-        KSCrash_LifecycleData prev = {};
-        bool hasPrev = readPreviousSidecar(lastRunID, &prev);
-
-        bool crashedLastLaunch = false;
-        uint64_t activeSinceLastCrashNs = 0;
-        uint64_t bgSinceLastCrashNs = 0;
-        int32_t launchesSinceLastCrash = 0;
-        int32_t sessionsSinceLastCrash = 0;
-
-        if (hasPrev) {
-            crashedLastLaunch = !prev.cleanShutdown;
-            if (crashedLastLaunch) {
-                // Previous run crashed: reset cumulative counters
-                activeSinceLastCrashNs = 0;
-                bgSinceLastCrashNs = 0;
-                launchesSinceLastCrash = 0;
-                sessionsSinceLastCrash = 0;
-            } else {
-                // Clean shutdown: carry forward cumulatives + per-launch durations
-                activeSinceLastCrashNs = prev.activeDurationSinceLastCrashNs + prev.activeDurationSinceLaunchNs;
-                bgSinceLastCrashNs = prev.backgroundDurationSinceLastCrashNs + prev.backgroundDurationSinceLaunchNs;
-                launchesSinceLastCrash = prev.launchesSinceLastCrash;
-                sessionsSinceLastCrash = prev.sessionsSinceLastCrash;
-            }
-        }
-
-        // mmap new sidecar for current run
-        char sidecarPath[KSFU_MAX_PATH_LENGTH];
-        if (!g_callbacks.getRunSidecarPath ||
-            !g_callbacks.getRunSidecarPath("Lifecycle", sidecarPath, sizeof(sidecarPath))) {
-            KSLOG_ERROR(@"Failed to get run sidecar path for Lifecycle monitor");
+        KSCrash_LifecycleData *sc = createSidecar();
+        if (!sc) {
             atomic_store(&g_isEnabled, false);
             return;
         }
-
-        void *ptr = ksfu_mmap(sidecarPath, sizeof(KSCrash_LifecycleData));
-        if (!ptr) {
-            KSLOG_ERROR(@"Failed to mmap lifecycle sidecar at %s", sidecarPath);
-            atomic_store(&g_isEnabled, false);
-            return;
-        }
-        KSCrash_LifecycleData *sc = (KSCrash_LifecycleData *)ptr;
-
-        // Populate
-        sc->cleanShutdown = false;
-        sc->crashedLastLaunch = crashedLastLaunch;
-        sc->activeDurationSinceLaunchNs = 0;
-        sc->backgroundDurationSinceLaunchNs = 0;
-        sc->sessionsSinceLaunch = 1;
-        sc->appStateTransitionTimeNs = monotonicTimeNs();
-        sc->activeDurationSinceLastCrashNs = activeSinceLastCrashNs;
-        sc->backgroundDurationSinceLastCrashNs = bgSinceLastCrashNs;
-        sc->launchesSinceLastCrash = launchesSinceLastCrash + 1;
-        sc->sessionsSinceLastCrash = sessionsSinceLastCrash + 1;
-
-        // Set initial state from AppStateTracker
-        KSCrashAppTransitionState ts = KSCrashAppStateTracker.sharedInstance.transitionState;
-        sc->transitionState = (uint8_t)ts;
-        sc->applicationIsActive = (ts == KSCrashAppTransitionStateActive);
-        sc->applicationIsInForeground = ksapp_transitionStateIsUserPerceptible(ts);
-
-        // Write magic/version last, then publish under spinlock
-        sc->magic = KSLIFECYCLE_MAGIC;
-        sc->version = KSCrash_Lifecycle_CurrentVersion;
 
         ks_spinlock_lock(&g_sidecarLock);
         g_sidecar = sc;
         ks_spinlock_unlock(&g_sidecarLock);
 
-        // Subscribe to AppStateTracker
         g_appStateObserver =
             [KSCrashAppStateTracker.sharedInstance addObserverWithBlock:^(KSCrashAppTransitionState transitionState) {
                 onTransitionState(transitionState);
@@ -314,13 +324,7 @@ static void setEnabled(bool isEnabled, __unused void *context)
         [KSCrashAppStateTracker.sharedInstance removeObserver:g_appStateObserver];
         g_appStateObserver = nil;
 
-        ks_spinlock_lock(&g_sidecarLock);
-        KSCrash_LifecycleData *old = g_sidecar;
-        g_sidecar = NULL;
-        ks_spinlock_unlock(&g_sidecarLock);
-        if (old) {
-            ksfu_munmap(old, sizeof(KSCrash_LifecycleData));
-        }
+        releaseSidecar();
     }
 }
 

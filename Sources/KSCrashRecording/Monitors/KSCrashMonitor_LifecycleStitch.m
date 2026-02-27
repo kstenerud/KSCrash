@@ -33,6 +33,8 @@
 #import <Foundation/Foundation.h>
 #import <errno.h>
 #import <fcntl.h>
+#import <string.h>
+#import <unistd.h>
 
 #import "KSLogger.h"
 
