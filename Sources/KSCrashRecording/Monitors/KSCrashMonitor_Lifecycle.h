@@ -141,6 +141,11 @@ const KSCrash_AppState *kscrashstate_currentState(void);
 #pragma mark - Monitor API -
 // ============================================================================
 
+/** Read and validate a KSCrash_LifecycleData struct from a file.
+ *  Returns true if the struct was read and passed magic/version checks.
+ */
+bool kslifecycle_readData(const char *path, KSCrash_LifecycleData *out);
+
 /** Access the Lifecycle Monitor API.
  */
 KSCrashMonitorAPI *kscm_lifecycle_getAPI(void);

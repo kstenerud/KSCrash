@@ -36,14 +36,14 @@ NS_ASSUME_NONNULL_BEGIN
  * from launch to termination. One reason why this is useful is that when a user
  * brings a running process to the foreground, it goes through an animation from
  * background to foreground that is not accounted for in UIApplicationState but
- * is still visible to users. If the app crashes or is temrinated during that time, the
+ * is still visible to users. If the app crashes or is terminated during that time, the
  * application state is `UIApplicationStateBackground` which is usually not
  * accounted for in crash systems. This newer method with transitions included in
  * the state is much more complete and allows products to be much more reliable
  * and handle areas of the app that are very important to users but rarely handled
  * by apps.
  *
- * We'll keep it private for now until it is integrated with `KSCrashMonitor_AppState`.
+ * We'll keep it private for now until it is integrated with `KSCrashMonitor_Lifecycle`.
  */
 
 typedef void (^KSCrashAppStateTrackerObserverBlock)(KSCrashAppTransitionState transitionState)

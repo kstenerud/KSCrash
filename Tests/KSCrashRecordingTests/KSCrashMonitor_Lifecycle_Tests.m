@@ -1,5 +1,5 @@
 //
-//  KSCrashMonitor_AppState_Tests.m
+//  KSCrashMonitor_Lifecycle_Tests.m
 //
 //  Created by Karl Stenerud on 2012-02-05.
 //
@@ -29,7 +29,6 @@
 #import "KSCrashAppTransitionState.h"
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitor_Lifecycle.h"
-#import "KSFileUtils.h"
 
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -87,11 +86,11 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     return bytesRead == (ssize_t)sizeof(*outData);
 }
 
-@interface KSCrashMonitor_AppState_Tests : XCTestCase
+@interface KSCrashMonitor_Lifecycle_Tests : XCTestCase
 @property(nonatomic, copy) NSString *tempPath;
 @end
 
-@implementation KSCrashMonitor_AppState_Tests
+@implementation KSCrashMonitor_Lifecycle_Tests
 
 - (void)setUp
 {
@@ -489,6 +488,19 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     // Should have accumulated at least 40ms of active duration (allowing for timing variance)
     XCTAssertTrue(state->activeDurationSinceLaunch >= 0.04);
     XCTAssertTrue(state->activeDurationSinceLastCrash >= 0.04);
+}
+
+- (void)testAddContextualInfoWithNullEventContext
+{
+    [self enableMonitor];
+    KSCrashMonitorAPI *api = kscm_lifecycle_getAPI();
+
+    // Should not crash — exercises the NULL guard in addContextualInfoToEvent
+    api->addContextualInfoToEvent(NULL, api->context);
+
+    // Verify the monitor is still functional after the NULL call
+    const KSCrash_AppState *state = kscrashstate_currentState();
+    XCTAssertEqual(state->launchesSinceLastCrash, 1);
 }
 
 - (void)testBackgroundDurationAccumulates

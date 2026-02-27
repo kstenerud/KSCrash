@@ -338,10 +338,10 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
 
 - (void)stop
 {
-    NSArray<id<NSObject>> *registraions = [_registrations copy];
+    NSArray<id<NSObject>> *registrations = [_registrations copy];
     _registrations = nil;
-    for (id<NSObject> registraion in registraions) {
-        [_center removeObserver:registraion];
+    for (id<NSObject> registration in registrations) {
+        [_center removeObserver:registration];
     }
 }
 

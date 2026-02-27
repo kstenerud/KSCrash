@@ -80,9 +80,28 @@ static void updateSidecarDurations(KSCrash_LifecycleData *sc)
     }
 }
 
-/** Read a previous run's sidecar from disk into a stack-allocated struct.
- *  Returns true if the struct was successfully read and validated.
- */
+bool kslifecycle_readData(const char *path, KSCrash_LifecycleData *out)
+{
+    if (!path || !out) {
+        return false;
+    }
+
+    int fd = open(path, O_RDONLY);
+    if (fd == -1) {
+        return false;
+    }
+
+    memset(out, 0, sizeof(*out));
+    bool ok = ksfu_readBytesFromFD(fd, (char *)out, (int)sizeof(*out));
+    close(fd);
+
+    if (!ok || out->magic != KSLIFECYCLE_MAGIC || out->version == 0 ||
+        out->version > KSCrash_Lifecycle_CurrentVersion) {
+        return false;
+    }
+    return true;
+}
+
 static bool readPreviousSidecar(const char *lastRunID, KSCrash_LifecycleData *out)
 {
     if (lastRunID == NULL || lastRunID[0] == '\0') {
@@ -95,22 +114,7 @@ static bool readPreviousSidecar(const char *lastRunID, KSCrash_LifecycleData *ou
         return false;
     }
 
-    int fd = open(sidecarPath, O_RDONLY);
-    if (fd == -1) {
-        KSLOG_DEBUG(@"No previous lifecycle sidecar at %s (expected on first run)", sidecarPath);
-        return false;
-    }
-
-    memset(out, 0, sizeof(*out));
-    bool ok = ksfu_readBytesFromFD(fd, (char *)out, (int)sizeof(*out));
-    close(fd);
-
-    if (!ok || out->magic != KSLIFECYCLE_MAGIC || out->version == 0 ||
-        out->version > KSCrash_Lifecycle_CurrentVersion) {
-        KSLOG_ERROR(@"Invalid previous lifecycle sidecar at %s", sidecarPath);
-        return false;
-    }
-    return true;
+    return kslifecycle_readData(sidecarPath, out);
 }
 
 // ============================================================================

@@ -27,14 +27,9 @@
 #import "KSCrashMonitor_Lifecycle.h"
 
 #import "KSCrashReportFields.h"
-#import "KSFileUtils.h"
 #import "KSJSONCodecObjC.h"
 
 #import <Foundation/Foundation.h>
-#import <errno.h>
-#import <fcntl.h>
-#import <string.h>
-#import <unistd.h>
 
 #import "KSLogger.h"
 
@@ -47,22 +42,9 @@ char *kscm_lifecycle_stitchReport(const char *report, const char *sidecarPath, _
         return NULL;
     }
 
-    // Read the binary struct from disk
     KSCrash_LifecycleData lc = {};
-    int fd = open(sidecarPath, O_RDONLY);
-    if (fd == -1) {
-        KSLOG_ERROR(@"Failed to open lifecycle sidecar at %s: %s", sidecarPath, strerror(errno));
-        return NULL;
-    }
-    if (!ksfu_readBytesFromFD(fd, (char *)&lc, (int)sizeof(lc))) {
+    if (!kslifecycle_readData(sidecarPath, &lc)) {
         KSLOG_ERROR(@"Failed to read lifecycle sidecar at %s", sidecarPath);
-        close(fd);
-        return NULL;
-    }
-    close(fd);
-
-    if (lc.magic != KSLIFECYCLE_MAGIC || lc.version == 0 || lc.version > KSCrash_Lifecycle_CurrentVersion) {
-        KSLOG_ERROR(@"Invalid lifecycle sidecar at %s (magic=0x%x version=%d)", sidecarPath, lc.magic, lc.version);
         return NULL;
     }
 
