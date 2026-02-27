@@ -71,6 +71,22 @@ static bool writeSidecar(const char *path, const KSCrash_LifecycleData *data)
     return written == (ssize_t)sizeof(*data);
 }
 
+static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
+{
+    if (outData == NULL) {
+        return false;
+    }
+    char sidecarPath[1024];
+    snprintf(sidecarPath, sizeof(sidecarPath), "%s/current/Lifecycle.ksscr", g_testDir);
+    int fd = open(sidecarPath, O_RDONLY);
+    if (fd < 0) {
+        return false;
+    }
+    ssize_t bytesRead = read(fd, outData, sizeof(*outData));
+    close(fd);
+    return bytesRead == (ssize_t)sizeof(*outData);
+}
+
 @interface KSCrashMonitor_AppState_Tests : XCTestCase
 @property(nonatomic, copy) NSString *tempPath;
 @end
@@ -129,7 +145,7 @@ static bool writeSidecar(const char *path, const KSCrash_LifecycleData *data)
 /** Write a previous sidecar with the given settings, set last run ID, then re-enable. */
 - (void)simulateRelaunchWithPreviousSidecar:(KSCrash_LifecycleData)prev
 {
-    NSString *prevRunID = @"prev-run";
+    NSString *prevRunID = @"00000000-0000-0000-0000-000000000001";
     NSString *prevDir = [NSString stringWithFormat:@"%@/%@", self.tempPath, prevRunID];
     [[NSFileManager defaultManager] createDirectoryAtPath:prevDir
                               withIntermediateDirectories:YES
@@ -137,7 +153,7 @@ static bool writeSidecar(const char *path, const KSCrash_LifecycleData *data)
                                                     error:nil];
     char prevPath[1024];
     snprintf(prevPath, sizeof(prevPath), "%s/%s/Lifecycle.ksscr", g_testDir, [prevRunID UTF8String]);
-    writeSidecar(prevPath, &prev);
+    XCTAssertTrue(writeSidecar(prevPath, &prev));
 
     kscrash_testcode_setLastRunID([prevRunID UTF8String]);
 
@@ -272,8 +288,9 @@ static bool writeSidecar(const char *path, const KSCrash_LifecycleData *data)
     KSCrash_LifecycleData current = { 0 };
     int fd = open(currentPath, O_RDONLY);
     XCTAssertTrue(fd >= 0);
-    read(fd, &current, sizeof(current));
+    ssize_t bytesRead = read(fd, &current, sizeof(current));
     close(fd);
+    XCTAssertEqual(bytesRead, (ssize_t)sizeof(current));
 
     // Verify it was a valid sidecar
     XCTAssertEqual(current.magic, KSLIFECYCLE_MAGIC);
@@ -283,16 +300,17 @@ static bool writeSidecar(const char *path, const KSCrash_LifecycleData *data)
     current.cleanShutdown = true;
 
     // Write as previous
-    NSString *prevDir = [NSString stringWithFormat:@"%@/prev2", self.tempPath];
+    NSString *prevRunID2 = @"00000000-0000-0000-0000-000000000002";
+    NSString *prevDir = [NSString stringWithFormat:@"%@/%@", self.tempPath, prevRunID2];
     [[NSFileManager defaultManager] createDirectoryAtPath:prevDir
                               withIntermediateDirectories:YES
                                                attributes:nil
                                                     error:nil];
     char prevPath[1024];
-    snprintf(prevPath, sizeof(prevPath), "%s/prev2/Lifecycle.ksscr", g_testDir);
-    writeSidecar(prevPath, &current);
+    snprintf(prevPath, sizeof(prevPath), "%s/%s/Lifecycle.ksscr", g_testDir, [prevRunID2 UTF8String]);
+    XCTAssertTrue(writeSidecar(prevPath, &current));
 
-    kscrash_testcode_setLastRunID("prev2");
+    kscrash_testcode_setLastRunID([prevRunID2 UTF8String]);
     [[NSFileManager defaultManager] removeItemAtPath:[NSString stringWithFormat:@"%@/current", self.tempPath]
                                                error:nil];
 
@@ -305,7 +323,7 @@ static bool writeSidecar(const char *path, const KSCrash_LifecycleData *data)
 - (void)testNoPreviousSidecarMeansNoCrash
 {
     // Set a last run ID but don't create a sidecar file for it
-    kscrash_testcode_setLastRunID("nonexistent-run");
+    kscrash_testcode_setLastRunID("AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE");
     [self enableMonitor];
 
     const KSCrash_AppState *state = kscrashstate_currentState();
@@ -317,19 +335,22 @@ static bool writeSidecar(const char *path, const KSCrash_LifecycleData *data)
 - (void)testCorruptPreviousSidecarIgnored
 {
     // Write garbage data as a previous sidecar
-    NSString *prevDir = [NSString stringWithFormat:@"%@/corrupt-run", self.tempPath];
+    NSString *corruptRunID = @"11111111-2222-3333-4444-555555555555";
+    NSString *prevDir = [NSString stringWithFormat:@"%@/%@", self.tempPath, corruptRunID];
     [[NSFileManager defaultManager] createDirectoryAtPath:prevDir
                               withIntermediateDirectories:YES
                                                attributes:nil
                                                     error:nil];
     char prevPath[1024];
-    snprintf(prevPath, sizeof(prevPath), "%s/corrupt-run/Lifecycle.ksscr", g_testDir);
+    snprintf(prevPath, sizeof(prevPath), "%s/%s/Lifecycle.ksscr", g_testDir, [corruptRunID UTF8String]);
     char garbage[72] = { 0xFF };
     int fd = open(prevPath, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    write(fd, garbage, sizeof(garbage));
+    XCTAssertTrue(fd >= 0);
+    ssize_t written = write(fd, garbage, sizeof(garbage));
     close(fd);
+    XCTAssertEqual(written, (ssize_t)sizeof(garbage));
 
-    kscrash_testcode_setLastRunID("corrupt-run");
+    kscrash_testcode_setLastRunID([corruptRunID UTF8String]);
     [self enableMonitor];
 
     const KSCrash_AppState *state = kscrashstate_currentState();
@@ -413,15 +434,45 @@ static bool writeSidecar(const char *path, const KSCrash_LifecycleData *data)
     kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateBackground);
     kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateTerminating);
 
-    // Read the sidecar file directly to verify cleanShutdown
-    char sidecarPath[1024];
-    snprintf(sidecarPath, sizeof(sidecarPath), "%s/current/Lifecycle.ksscr", g_testDir);
     KSCrash_LifecycleData data = { 0 };
-    int fd = open(sidecarPath, O_RDONLY);
-    XCTAssertTrue(fd >= 0);
-    read(fd, &data, sizeof(data));
-    close(fd);
+    XCTAssertTrue(readCurrentSidecar(&data));
     XCTAssertTrue(data.cleanShutdown);
+}
+
+- (void)testNonFatalEventDoesNotClearCleanShutdown
+{
+    [self enableMonitor];
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateDeactivating);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateBackground);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateTerminating);
+
+    KSCrashMonitorAPI *api = kscm_lifecycle_getAPI();
+    KSCrash_MonitorContext eventContext = { 0 };
+    eventContext.requirements.isFatal = false;
+    api->addContextualInfoToEvent(&eventContext, api->context);
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    XCTAssertTrue(data.cleanShutdown);
+}
+
+- (void)testFatalEventClearsCleanShutdown
+{
+    [self enableMonitor];
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateDeactivating);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateBackground);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateTerminating);
+
+    KSCrashMonitorAPI *api = kscm_lifecycle_getAPI();
+    KSCrash_MonitorContext eventContext = { 0 };
+    eventContext.requirements.isFatal = true;
+    api->addContextualInfoToEvent(&eventContext, api->context);
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    XCTAssertFalse(data.cleanShutdown);
 }
 
 - (void)testActiveDurationAccumulates

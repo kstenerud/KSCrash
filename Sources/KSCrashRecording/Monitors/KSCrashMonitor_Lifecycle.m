@@ -332,13 +332,14 @@ static bool isEnabled_func(__unused void *context) { return g_isEnabled; }
 
 static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext, __unused void *context)
 {
+    bool isFatal = eventContext != NULL && eventContext->requirements.isFatal;
     if (!ks_spinlock_lock_bounded(&g_sidecarLock)) {
         return;
     }
     if (g_sidecar != NULL) {
         updateSidecarDurations(g_sidecar);
         // A fatal crash overrides any prior clean-shutdown signal (e.g., crash during termination handlers).
-        if (eventContext->requirements.isFatal) {
+        if (isFatal) {
             g_sidecar->cleanShutdown = false;
         }
     }

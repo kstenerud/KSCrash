@@ -276,6 +276,7 @@
 #define kscrash_namespaceIdentifier KSCRASH_NS(kscrash_namespaceIdentifier)
 #define kscrash_reportUserException KSCRASH_NS(kscrash_reportUserException)
 #define kscrash_setUserInfoJSON KSCRASH_NS(kscrash_setUserInfoJSON)
+#define kscrash_testcode_setLastRunID KSCRASH_NS(kscrash_testcode_setLastRunID)
 #define kscrashreport_getUserInfoJSON KSCRASH_NS(kscrashreport_getUserInfoJSON)
 #define kscrashreport_setCompactBinaryImages KSCRASH_NS(kscrashreport_setCompactBinaryImages)
 #define kscrashreport_setDoNotIntrospectClasses KSCRASH_NS(kscrashreport_setDoNotIntrospectClasses)
