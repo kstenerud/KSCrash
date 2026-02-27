@@ -189,32 +189,32 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
 - (void)testFirstLaunchState
 {
     [self enableMonitor];
-    const KSCrash_AppState *state = kscrashstate_currentState();
+    KSCrash_AppState state = kscrashstate_lifecycleAppState();
 
-    XCTAssertFalse(state->crashedLastLaunch);
-    XCTAssertEqual(state->launchesSinceLastCrash, 1);
-    XCTAssertEqual(state->sessionsSinceLastCrash, 1);
-    XCTAssertEqual(state->sessionsSinceLaunch, 1);
+    XCTAssertFalse(state.crashedLastLaunch);
+    XCTAssertEqual(state.launchesSinceLastCrash, 1);
+    XCTAssertEqual(state.sessionsSinceLastCrash, 1);
+    XCTAssertEqual(state.sessionsSinceLaunch, 1);
     // Durations may be slightly > 0 due to time elapsed since enable
-    XCTAssertTrue(state->activeDurationSinceLastCrash >= 0.0);
-    XCTAssertTrue(state->activeDurationSinceLaunch >= 0.0);
+    XCTAssertTrue(state.activeDurationSinceLastCrash >= 0.0);
+    XCTAssertTrue(state.activeDurationSinceLaunch >= 0.0);
 }
 
 - (void)testCurrentStateBeforeEnable
 {
-    const KSCrash_AppState *state = kscrashstate_currentState();
-    XCTAssertFalse(state->crashedLastLaunch);
-    XCTAssertFalse(state->applicationIsActive);
-    XCTAssertFalse(state->applicationIsInForeground);
-    XCTAssertEqual(state->activeDurationSinceLaunch, 0.0);
-    XCTAssertEqual(state->backgroundDurationSinceLaunch, 0.0);
-    XCTAssertEqual(state->launchesSinceLastCrash, 0);
-    XCTAssertEqual(state->sessionsSinceLastCrash, 0);
+    KSCrash_AppState state = kscrashstate_lifecycleAppState();
+    XCTAssertFalse(state.crashedLastLaunch);
+    XCTAssertFalse(state.applicationIsActive);
+    XCTAssertFalse(state.applicationIsInForeground);
+    XCTAssertEqual(state.activeDurationSinceLaunch, 0.0);
+    XCTAssertEqual(state.backgroundDurationSinceLaunch, 0.0);
+    XCTAssertEqual(state.launchesSinceLastCrash, 0);
+    XCTAssertEqual(state.sessionsSinceLastCrash, 0);
 }
 
 - (void)testLifecycleDataStructLayout
 {
-    XCTAssertEqual(sizeof(KSCrash_LifecycleData), 72u);
+    XCTAssertEqual(sizeof(KSCrash_LifecycleData), 64u);
     XCTAssertEqual(KSLIFECYCLE_MAGIC, (int32_t)0x6B736C63);
 }
 
@@ -228,12 +228,12 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
                                          backgroundDurationSinceLastCrashNs:2000000000ULL];
     [self simulateRelaunchWithPreviousSidecar:prev];
 
-    const KSCrash_AppState *state = kscrashstate_currentState();
-    XCTAssertTrue(state->crashedLastLaunch);
+    KSCrash_AppState state = kscrashstate_lifecycleAppState();
+    XCTAssertTrue(state.crashedLastLaunch);
     // After a crash, cumulative counters reset to 0 + this launch
-    XCTAssertEqual(state->launchesSinceLastCrash, 1);
-    XCTAssertEqual(state->sessionsSinceLastCrash, 1);
-    XCTAssertEqual(state->sessionsSinceLaunch, 1);
+    XCTAssertEqual(state.launchesSinceLastCrash, 1);
+    XCTAssertEqual(state.sessionsSinceLastCrash, 1);
+    XCTAssertEqual(state.sessionsSinceLaunch, 1);
 }
 
 - (void)testRelaunchAfterCleanShutdown
@@ -246,22 +246,22 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
                                          backgroundDurationSinceLastCrashNs:2000000000ULL];
     [self simulateRelaunchWithPreviousSidecar:prev];
 
-    const KSCrash_AppState *state = kscrashstate_currentState();
-    XCTAssertFalse(state->crashedLastLaunch);
+    KSCrash_AppState state = kscrashstate_lifecycleAppState();
+    XCTAssertFalse(state.crashedLastLaunch);
     // Cumulative = previous cumulatives + previous per-launch, plus this launch
     // launches: 3 + 1 = 4
-    XCTAssertEqual(state->launchesSinceLastCrash, 4);
+    XCTAssertEqual(state.launchesSinceLastCrash, 4);
     // sessions: 7 + 1 = 8 (previous cumulatives + previous per-launch sessions carried forward, plus this launch)
-    XCTAssertEqual(state->sessionsSinceLastCrash, 8);
+    XCTAssertEqual(state.sessionsSinceLastCrash, 8);
     // Per-launch resets
-    XCTAssertEqual(state->sessionsSinceLaunch, 1);
+    XCTAssertEqual(state.sessionsSinceLaunch, 1);
 
     // sinceLastCrashNs already includes the previous run's per-launch durations
     // (updateSidecarDurations adds elapsed to both fields), so we just carry it forward.
     // Active: previous cumulative 1.0s, plus a tiny amount since enable
-    XCTAssertTrue(state->activeDurationSinceLastCrash >= 1.0);
+    XCTAssertTrue(state.activeDurationSinceLastCrash >= 1.0);
     // Background: previous cumulative 2.0s
-    XCTAssertTrue(state->backgroundDurationSinceLastCrash >= 2.0);
+    XCTAssertTrue(state.backgroundDurationSinceLastCrash >= 2.0);
 }
 
 - (void)testRelaunchCrashThenClean
@@ -274,9 +274,9 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
                                             backgroundDurationSinceLastCrashNs:3000000000ULL];
     [self simulateRelaunchWithPreviousSidecar:crashed];
 
-    const KSCrash_AppState *state = kscrashstate_currentState();
-    XCTAssertTrue(state->crashedLastLaunch);
-    XCTAssertEqual(state->launchesSinceLastCrash, 1);  // Reset after crash
+    KSCrash_AppState state = kscrashstate_lifecycleAppState();
+    XCTAssertTrue(state.crashedLastLaunch);
+    XCTAssertEqual(state.launchesSinceLastCrash, 1);  // Reset after crash
 
     [self disableMonitor];
 
@@ -314,9 +314,9 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
                                                error:nil];
 
     [self enableMonitor];
-    state = kscrashstate_currentState();
-    XCTAssertFalse(state->crashedLastLaunch);
-    XCTAssertEqual(state->launchesSinceLastCrash, 2);  // Carried forward from first crash reset
+    state = kscrashstate_lifecycleAppState();
+    XCTAssertFalse(state.crashedLastLaunch);
+    XCTAssertEqual(state.launchesSinceLastCrash, 2);  // Carried forward from first crash reset
 }
 
 - (void)testNoPreviousSidecarMeansNoCrash
@@ -325,10 +325,10 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     kscrash_testcode_setLastRunID("AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE");
     [self enableMonitor];
 
-    const KSCrash_AppState *state = kscrashstate_currentState();
+    KSCrash_AppState state = kscrashstate_lifecycleAppState();
     // No previous sidecar found → treated as first launch
-    XCTAssertFalse(state->crashedLastLaunch);
-    XCTAssertEqual(state->launchesSinceLastCrash, 1);
+    XCTAssertFalse(state.crashedLastLaunch);
+    XCTAssertEqual(state.launchesSinceLastCrash, 1);
 }
 
 - (void)testCorruptPreviousSidecarIgnored
@@ -342,7 +342,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
                                                     error:nil];
     char prevPath[1024];
     snprintf(prevPath, sizeof(prevPath), "%s/%s/Lifecycle.ksscr", g_testDir, [corruptRunID UTF8String]);
-    char garbage[72] = { 0xFF };
+    char garbage[sizeof(KSCrash_LifecycleData)] = { 0xFF };
     int fd = open(prevPath, O_WRONLY | O_CREAT | O_TRUNC, 0644);
     XCTAssertTrue(fd >= 0);
     ssize_t written = write(fd, garbage, sizeof(garbage));
@@ -352,9 +352,9 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     kscrash_testcode_setLastRunID([corruptRunID UTF8String]);
     [self enableMonitor];
 
-    const KSCrash_AppState *state = kscrashstate_currentState();
-    XCTAssertFalse(state->crashedLastLaunch);
-    XCTAssertEqual(state->launchesSinceLastCrash, 1);
+    KSCrash_AppState state = kscrashstate_lifecycleAppState();
+    XCTAssertFalse(state.crashedLastLaunch);
+    XCTAssertEqual(state.launchesSinceLastCrash, 1);
 }
 
 #pragma mark - Transition Tests -
@@ -364,9 +364,9 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     [self enableMonitor];
     kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
 
-    const KSCrash_AppState *state = kscrashstate_currentState();
-    XCTAssertTrue(state->applicationIsActive);
-    XCTAssertTrue(state->applicationIsInForeground);
+    KSCrash_AppState state = kscrashstate_lifecycleAppState();
+    XCTAssertTrue(state.applicationIsActive);
+    XCTAssertTrue(state.applicationIsInForeground);
 }
 
 - (void)testDeactivatingTransitionClearsActiveFlag
@@ -375,10 +375,10 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
     kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateDeactivating);
 
-    const KSCrash_AppState *state = kscrashstate_currentState();
-    XCTAssertFalse(state->applicationIsActive);
+    KSCrash_AppState state = kscrashstate_lifecycleAppState();
+    XCTAssertFalse(state.applicationIsActive);
     // Still in foreground after deactivating
-    XCTAssertTrue(state->applicationIsInForeground);
+    XCTAssertTrue(state.applicationIsInForeground);
 }
 
 - (void)testBackgroundTransitionClearsForegroundFlag
@@ -388,9 +388,9 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateDeactivating);
     kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateBackground);
 
-    const KSCrash_AppState *state = kscrashstate_currentState();
-    XCTAssertFalse(state->applicationIsActive);
-    XCTAssertFalse(state->applicationIsInForeground);
+    KSCrash_AppState state = kscrashstate_lifecycleAppState();
+    XCTAssertFalse(state.applicationIsActive);
+    XCTAssertFalse(state.applicationIsInForeground);
 }
 
 - (void)testForegroundingTransitionSetsFlagAndIncrementsSession
@@ -402,11 +402,11 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateBackground);
     kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateForegrounding);
 
-    const KSCrash_AppState *state = kscrashstate_currentState();
-    XCTAssertTrue(state->applicationIsInForeground);
+    KSCrash_AppState state = kscrashstate_lifecycleAppState();
+    XCTAssertTrue(state.applicationIsInForeground);
     // Session count: 1 (initial) + 1 (foregrounding) = 2
-    XCTAssertEqual(state->sessionsSinceLaunch, 2);
-    XCTAssertEqual(state->sessionsSinceLastCrash, 2);
+    XCTAssertEqual(state.sessionsSinceLaunch, 2);
+    XCTAssertEqual(state.sessionsSinceLastCrash, 2);
 }
 
 - (void)testMultipleForegroundCyclesIncrementSessions
@@ -420,9 +420,9 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
         kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateForegrounding);
     }
 
-    const KSCrash_AppState *state = kscrashstate_currentState();
+    KSCrash_AppState state = kscrashstate_lifecycleAppState();
     // 1 (initial) + 3 (foregroundings) = 4
-    XCTAssertEqual(state->sessionsSinceLaunch, 4);
+    XCTAssertEqual(state.sessionsSinceLaunch, 4);
 }
 
 - (void)testTerminatingTransitionSetsCleanShutdown
@@ -484,10 +484,10 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
 
     kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateDeactivating);
 
-    const KSCrash_AppState *state = kscrashstate_currentState();
+    KSCrash_AppState state = kscrashstate_lifecycleAppState();
     // Should have accumulated at least 40ms of active duration (allowing for timing variance)
-    XCTAssertTrue(state->activeDurationSinceLaunch >= 0.04);
-    XCTAssertTrue(state->activeDurationSinceLastCrash >= 0.04);
+    XCTAssertTrue(state.activeDurationSinceLaunch >= 0.04);
+    XCTAssertTrue(state.activeDurationSinceLastCrash >= 0.04);
 }
 
 - (void)testAddContextualInfoWithNullEventContext
@@ -499,8 +499,8 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     api->addContextualInfoToEvent(NULL, api->context);
 
     // Verify the monitor is still functional after the NULL call
-    const KSCrash_AppState *state = kscrashstate_currentState();
-    XCTAssertEqual(state->launchesSinceLastCrash, 1);
+    KSCrash_AppState state = kscrashstate_lifecycleAppState();
+    XCTAssertEqual(state.launchesSinceLastCrash, 1);
 }
 
 - (void)testBackgroundDurationAccumulates
@@ -515,9 +515,9 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
 
     kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateForegrounding);
 
-    const KSCrash_AppState *state = kscrashstate_currentState();
-    XCTAssertTrue(state->backgroundDurationSinceLaunch >= 0.04);
-    XCTAssertTrue(state->backgroundDurationSinceLastCrash >= 0.04);
+    KSCrash_AppState state = kscrashstate_lifecycleAppState();
+    XCTAssertTrue(state.backgroundDurationSinceLaunch >= 0.04);
+    XCTAssertTrue(state.backgroundDurationSinceLastCrash >= 0.04);
 }
 
 @end

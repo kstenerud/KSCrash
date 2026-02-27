@@ -169,15 +169,15 @@ static void rotateRunID(const char *installPath)
     }
     // n == 0: empty file (first run), g_lastRunID already cleared above.
 
+    // Always attempt to write the new run ID, even if truncate/seek fail.
+    // A partial failure here leaves a malformed file that UUID validation
+    // will reject on next launch — better than leaving a stale ID that
+    // points to the wrong sidecar.
     if (ftruncate(fd, 0) != 0) {
         KSLOG_ERROR("Failed to truncate %s: %s", path, strerror(errno));
-        close(fd);
-        return;
     }
     if (lseek(fd, 0, SEEK_SET) == (off_t)-1) {
         KSLOG_ERROR("Failed to seek in %s: %s", path, strerror(errno));
-        close(fd);
-        return;
     }
     if (!ksfu_writeBytesToFD(fd, g_runID, KSC_UUID_STRING_LENGTH)) {
         KSLOG_ERROR("Failed to write new run ID to %s", path);

@@ -286,6 +286,7 @@
 #define kscrashreport_writeRecrashReport KSCRASH_NS(kscrashreport_writeRecrashReport)
 #define kscrashreport_writeStandardReport KSCRASH_NS(kscrashreport_writeStandardReport)
 #define kscrashstate_currentState KSCRASH_NS(kscrashstate_currentState)
+#define kscrashstate_lifecycleAppState KSCRASH_NS(kscrashstate_lifecycleAppState)
 #define kscrf_fixupCrashReport KSCRASH_NS(kscrf_fixupCrashReport)
 #define kscrs_addUserReport KSCRASH_NS(kscrs_addUserReport)
 #define kscrs_cleanupOrphanedRunSidecars KSCRASH_NS(kscrs_cleanupOrphanedRunSidecars)

@@ -57,9 +57,14 @@ extern "C" {
 
 static const uint8_t KSCrash_Lifecycle_CurrentVersion = 1;
 
+static inline double kslifecycle_nsToSeconds(uint64_t ns) { return (double)ns / 1000000000.0; }
+
 /** mmap'd struct written to a run sidecar per process.
  *  No pointers — all data is inline so it survives across launches.
  *  Fixed-width types only so the on-disk layout is stable.
+ *
+ *  Fields are ordered by alignment (8-byte, 4-byte, 1-byte) so there
+ *  is no implicit compiler padding anywhere in the struct.
  */
 typedef struct {
     int32_t magic;
@@ -69,17 +74,15 @@ typedef struct {
     uint8_t applicationIsActive;
     uint8_t applicationIsInForeground;
 
-    // Per-launch durations in nanoseconds (monotonic)
+    // Durations in nanoseconds (monotonic). 8-byte aligned fields grouped together.
     uint64_t activeDurationSinceLaunchNs;
     uint64_t backgroundDurationSinceLaunchNs;
-    int32_t sessionsSinceLaunch;
-
-    // Transition timestamp in nanoseconds (monotonic)
     uint64_t appStateTransitionTimeNs;
-
-    // Cumulative durations in nanoseconds (carried forward from previous runs)
     uint64_t activeDurationSinceLastCrashNs;
     uint64_t backgroundDurationSinceLastCrashNs;
+
+    // 4-byte fields grouped together — no padding between them or before/after.
+    int32_t sessionsSinceLaunch;
     int32_t launchesSinceLastCrash;
     int32_t sessionsSinceLastCrash;
 
@@ -88,7 +91,7 @@ typedef struct {
     uint8_t _pad[2];
 } KSCrash_LifecycleData;
 
-_Static_assert(sizeof(KSCrash_LifecycleData) == 72, "KSCrash_LifecycleData size changed — bump version");
+_Static_assert(sizeof(KSCrash_LifecycleData) == 64, "KSCrash_LifecycleData size changed — bump version");
 
 // ============================================================================
 #pragma mark - Public State (computed from sidecar) -
@@ -132,10 +135,15 @@ typedef struct {
 } KSCrash_AppState;
 
 /** Read-only access into the current state.
+ *  @deprecated Use kscrashstate_lifecycleAppState() instead.
+ */
+const KSCrash_AppState *kscrashstate_currentState(void) KSCRASH_DEPRECATED("Use kscrashstate_lifecycleAppState()");
+
+/** Snapshot the current app state.
  *  Computes values on the fly from the mmap'd sidecar.
  *  Returns zeroed defaults if the monitor is not enabled.
  */
-const KSCrash_AppState *kscrashstate_currentState(void);
+KSCrash_AppState kscrashstate_lifecycleAppState(void);
 
 // ============================================================================
 #pragma mark - Monitor API -

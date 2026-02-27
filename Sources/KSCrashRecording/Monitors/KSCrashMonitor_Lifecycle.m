@@ -60,8 +60,6 @@ static atomic_bool g_isEnabled = false;
 
 static uint64_t monotonicTimeNs(void) { return clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW); }
 
-static double nsToSeconds(uint64_t ns) { return (double)ns / 1000000000.0; }
-
 /** Update the sidecar's transition duration for the current state.
  *  Call under the sidecar lock or when single-threaded.
  */
@@ -177,10 +175,9 @@ static void onTransitionState(KSCrashAppTransitionState transitionState)
 #pragma mark - kscrashstate_currentState -
 // ============================================================================
 
-const KSCrash_AppState *kscrashstate_currentState(void)
+KSCrash_AppState kscrashstate_lifecycleAppState(void)
 {
-    static _Thread_local KSCrash_AppState state;
-    memset(&state, 0, sizeof(state));
+    KSCrash_AppState state = { 0 };
 
     ks_spinlock_lock(&g_sidecarLock);
     KSCrash_LifecycleData *sc = g_sidecar;
@@ -208,21 +205,31 @@ const KSCrash_AppState *kscrashstate_currentState(void)
             bgSinceCrashNs += elapsed;
         }
 
-        state.activeDurationSinceLaunch = nsToSeconds(activeSinceLaunchNs);
-        state.backgroundDurationSinceLaunch = nsToSeconds(bgSinceLaunchNs);
-        state.activeDurationSinceLastCrash = nsToSeconds(activeSinceCrashNs);
-        state.backgroundDurationSinceLastCrash = nsToSeconds(bgSinceCrashNs);
+        state.activeDurationSinceLaunch = kslifecycle_nsToSeconds(activeSinceLaunchNs);
+        state.backgroundDurationSinceLaunch = kslifecycle_nsToSeconds(bgSinceLaunchNs);
+        state.activeDurationSinceLastCrash = kslifecycle_nsToSeconds(activeSinceCrashNs);
+        state.backgroundDurationSinceLastCrash = kslifecycle_nsToSeconds(bgSinceCrashNs);
         state.sessionsSinceLaunch = snapshot.sessionsSinceLaunch;
         state.sessionsSinceLastCrash = snapshot.sessionsSinceLastCrash;
         state.launchesSinceLastCrash = snapshot.launchesSinceLastCrash;
         state.crashedLastLaunch = snapshot.crashedLastLaunch;
         state.applicationIsActive = snapshot.applicationIsActive;
         state.applicationIsInForeground = snapshot.applicationIsInForeground;
-        state.appStateTransitionTime = nsToSeconds(snapshot.appStateTransitionTimeNs);
+        state.appStateTransitionTime = kslifecycle_nsToSeconds(snapshot.appStateTransitionTimeNs);
     }
 
+    return state;
+}
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+const KSCrash_AppState *kscrashstate_currentState(void)
+{
+    static _Thread_local KSCrash_AppState state;
+    state = kscrashstate_lifecycleAppState();
     return &state;
 }
+#pragma clang diagnostic pop
 
 // ============================================================================
 #pragma mark - Monitor API -
@@ -337,15 +344,19 @@ static bool isEnabled_func(__unused void *context) { return g_isEnabled; }
 static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext, __unused void *context)
 {
     bool isFatal = eventContext != NULL && eventContext->requirements.isFatal;
+    // For fatal crashes, clear cleanShutdown before acquiring the lock. This is a
+    // single-byte store to mmap'd memory that must succeed unconditionally — if the
+    // bounded lock times out we still need the next launch to see an unclean shutdown.
+    // In practice, fatal events run with other threads suspended so lock contention
+    // is unlikely, but this is defense-in-depth.
+    if (isFatal && g_sidecar != NULL) {
+        g_sidecar->cleanShutdown = false;
+    }
     if (!ks_spinlock_lock_bounded(&g_sidecarLock)) {
         return;
     }
     if (g_sidecar != NULL) {
         updateSidecarDurations(g_sidecar);
-        // A fatal crash overrides any prior clean-shutdown signal (e.g., crash during termination handlers).
-        if (isFatal) {
-            g_sidecar->cleanShutdown = false;
-        }
     }
     ks_spinlock_unlock(&g_sidecarLock);
 }

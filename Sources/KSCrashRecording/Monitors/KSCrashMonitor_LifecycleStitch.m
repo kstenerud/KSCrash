@@ -33,12 +33,10 @@
 
 #import "KSLogger.h"
 
-static double nsToSeconds(uint64_t ns) { return (double)ns / 1000000000.0; }
-
-char *kscm_lifecycle_stitchReport(const char *report, const char *sidecarPath, __unused KSCrashSidecarScope scope,
+char *kscm_lifecycle_stitchReport(const char *report, const char *sidecarPath, KSCrashSidecarScope scope,
                                   __unused void *context)
 {
-    if (!report || !sidecarPath) {
+    if (!report || !sidecarPath || scope != KSCrashSidecarScopeRun) {
         return NULL;
     }
 
@@ -72,11 +70,11 @@ char *kscm_lifecycle_stitchReport(const char *report, const char *sidecarPath, _
     statsDict[KSCrashField_AppInFG] = @((BOOL)lc.applicationIsInForeground);
     statsDict[KSCrashField_LaunchesSinceCrash] = @(lc.launchesSinceLastCrash);
     statsDict[KSCrashField_SessionsSinceCrash] = @(lc.sessionsSinceLastCrash);
-    statsDict[KSCrashField_ActiveTimeSinceCrash] = @(nsToSeconds(lc.activeDurationSinceLastCrashNs));
-    statsDict[KSCrashField_BGTimeSinceCrash] = @(nsToSeconds(lc.backgroundDurationSinceLastCrashNs));
+    statsDict[KSCrashField_ActiveTimeSinceCrash] = @(kslifecycle_nsToSeconds(lc.activeDurationSinceLastCrashNs));
+    statsDict[KSCrashField_BGTimeSinceCrash] = @(kslifecycle_nsToSeconds(lc.backgroundDurationSinceLastCrashNs));
     statsDict[KSCrashField_SessionsSinceLaunch] = @(lc.sessionsSinceLaunch);
-    statsDict[KSCrashField_ActiveTimeSinceLaunch] = @(nsToSeconds(lc.activeDurationSinceLaunchNs));
-    statsDict[KSCrashField_BGTimeSinceLaunch] = @(nsToSeconds(lc.backgroundDurationSinceLaunchNs));
+    statsDict[KSCrashField_ActiveTimeSinceLaunch] = @(kslifecycle_nsToSeconds(lc.activeDurationSinceLaunchNs));
+    statsDict[KSCrashField_BGTimeSinceLaunch] = @(kslifecycle_nsToSeconds(lc.backgroundDurationSinceLaunchNs));
 
     systemDict[KSCrashField_AppStats] = statsDict;
     dict[KSCrashField_System] = systemDict;
