@@ -26,6 +26,7 @@
 
 #import <XCTest/XCTest.h>
 
+#import "KSCrashAppTransitionState.h"
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitor_Lifecycle.h"
 #import "KSFileUtils.h"
@@ -40,6 +41,7 @@
 // Test helpers declared extern (defined in production code with __attribute__((unused)))
 extern void kscm_testcode_resetState(void);
 extern void kscrash_testcode_setLastRunID(const char *runID);
+extern void kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionState state);
 
 // Global test directory for path callbacks
 static char g_testDir[1024];
@@ -332,6 +334,126 @@ static bool writeSidecar(const char *path, const KSCrash_LifecycleData *data)
     const KSCrash_AppState *state = kscrashstate_currentState();
     XCTAssertFalse(state->crashedLastLaunch);
     XCTAssertEqual(state->launchesSinceLastCrash, 1);
+}
+
+#pragma mark - Transition Tests -
+
+- (void)testActiveTransitionSetsFlag
+{
+    [self enableMonitor];
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+
+    const KSCrash_AppState *state = kscrashstate_currentState();
+    XCTAssertTrue(state->applicationIsActive);
+    XCTAssertTrue(state->applicationIsInForeground);
+}
+
+- (void)testDeactivatingTransitionClearsActiveFlag
+{
+    [self enableMonitor];
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateDeactivating);
+
+    const KSCrash_AppState *state = kscrashstate_currentState();
+    XCTAssertFalse(state->applicationIsActive);
+    // Still in foreground after deactivating
+    XCTAssertTrue(state->applicationIsInForeground);
+}
+
+- (void)testBackgroundTransitionClearsForegroundFlag
+{
+    [self enableMonitor];
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateDeactivating);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateBackground);
+
+    const KSCrash_AppState *state = kscrashstate_currentState();
+    XCTAssertFalse(state->applicationIsActive);
+    XCTAssertFalse(state->applicationIsInForeground);
+}
+
+- (void)testForegroundingTransitionSetsFlagAndIncrementsSession
+{
+    [self enableMonitor];
+    // Simulate a full background → foreground cycle
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateDeactivating);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateBackground);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateForegrounding);
+
+    const KSCrash_AppState *state = kscrashstate_currentState();
+    XCTAssertTrue(state->applicationIsInForeground);
+    // Session count: 1 (initial) + 1 (foregrounding) = 2
+    XCTAssertEqual(state->sessionsSinceLaunch, 2);
+    XCTAssertEqual(state->sessionsSinceLastCrash, 2);
+}
+
+- (void)testMultipleForegroundCyclesIncrementSessions
+{
+    [self enableMonitor];
+
+    for (int i = 0; i < 3; i++) {
+        kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+        kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateDeactivating);
+        kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateBackground);
+        kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateForegrounding);
+    }
+
+    const KSCrash_AppState *state = kscrashstate_currentState();
+    // 1 (initial) + 3 (foregroundings) = 4
+    XCTAssertEqual(state->sessionsSinceLaunch, 4);
+}
+
+- (void)testTerminatingTransitionSetsCleanShutdown
+{
+    [self enableMonitor];
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateDeactivating);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateBackground);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateTerminating);
+
+    // Read the sidecar file directly to verify cleanShutdown
+    char sidecarPath[1024];
+    snprintf(sidecarPath, sizeof(sidecarPath), "%s/current/Lifecycle.ksscr", g_testDir);
+    KSCrash_LifecycleData data = { 0 };
+    int fd = open(sidecarPath, O_RDONLY);
+    XCTAssertTrue(fd >= 0);
+    read(fd, &data, sizeof(data));
+    close(fd);
+    XCTAssertTrue(data.cleanShutdown);
+}
+
+- (void)testActiveDurationAccumulates
+{
+    [self enableMonitor];
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+
+    // Small delay to accumulate measurable active duration
+    usleep(50000);  // 50ms
+
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateDeactivating);
+
+    const KSCrash_AppState *state = kscrashstate_currentState();
+    // Should have accumulated at least 40ms of active duration (allowing for timing variance)
+    XCTAssertTrue(state->activeDurationSinceLaunch >= 0.04);
+    XCTAssertTrue(state->activeDurationSinceLastCrash >= 0.04);
+}
+
+- (void)testBackgroundDurationAccumulates
+{
+    [self enableMonitor];
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateDeactivating);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateBackground);
+
+    // Small delay to accumulate measurable background duration
+    usleep(50000);  // 50ms
+
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateForegrounding);
+
+    const KSCrash_AppState *state = kscrashstate_currentState();
+    XCTAssertTrue(state->backgroundDurationSinceLaunch >= 0.04);
+    XCTAssertTrue(state->backgroundDurationSinceLastCrash >= 0.04);
 }
 
 @end

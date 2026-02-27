@@ -342,6 +342,12 @@ static void addContextualInfoToEvent(__unused KSCrash_MonitorContext *eventConte
 extern char *kscm_lifecycle_stitchReport(const char *report, const char *sidecarPath, KSCrashSidecarScope scope,
                                          void *context);
 
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+void kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionState state)
+{
+    onTransitionState(state);
+}
+
 KSCrashMonitorAPI *kscm_lifecycle_getAPI(void)
 {
     static KSCrashMonitorAPI api = { 0 };

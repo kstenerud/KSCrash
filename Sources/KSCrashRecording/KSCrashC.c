@@ -64,6 +64,8 @@
 
 #define KSC_MAX_APP_NAME_LENGTH 100
 #define KSC_MAX_PLUGINS 64
+#define KSC_UUID_STRING_LENGTH 36
+#define KSC_RUN_ID_FILE_MODE 0644
 
 static const struct KSCrashMonitorMapping {
     KSCrashMonitorType type;
@@ -113,15 +115,60 @@ static int g_pluginCount = 0;
 
 // Run ID: a UUID generated once during kscrash_install().
 // Read-only after that, so safe to access from crash handlers.
-static char g_runID[37];
+static char g_runID[KSC_UUID_STRING_LENGTH + 1];
 
 // Previous run's ID, read from Data/last_run_id during install.
 // Used by the Lifecycle monitor to find the previous sidecar.
-static char g_lastRunID[37];
+static char g_lastRunID[KSC_UUID_STRING_LENGTH + 1];
 
 // ============================================================================
 #pragma mark - Utility -
 // ============================================================================
+
+/** Generate a new run ID, read the previous run's ID from disk, and persist the new one.
+ *  After this call both g_runID and g_lastRunID are available.
+ *  Must be called after the Data directory exists.
+ */
+static void rotateRunID(const char *installPath)
+{
+    uuid_t uuid;
+    uuid_generate(uuid);
+    uuid_unparse_lower(uuid, g_runID);
+
+    char path[KSFU_MAX_PATH_LENGTH];
+    if (snprintf(path, sizeof(path), "%s/Data/last_run_id", installPath) >= (int)sizeof(path)) {
+        KSLOG_ERROR("last_run_id path too long");
+        return;
+    }
+
+    g_lastRunID[0] = '\0';
+    int fd = open(path, O_RDWR | O_CREAT, KSC_RUN_ID_FILE_MODE);
+    if (fd < 0) {
+        KSLOG_ERROR("Could not open %s: %s", path, strerror(errno));
+        return;
+    }
+
+    ssize_t n = read(fd, g_lastRunID, KSC_UUID_STRING_LENGTH);
+    if (n == KSC_UUID_STRING_LENGTH) {
+        g_lastRunID[KSC_UUID_STRING_LENGTH] = '\0';
+        // Reject non-UUID values to prevent path traversal via crafted file.
+        uuid_t parsed;
+        if (uuid_parse(g_lastRunID, parsed) != 0) {
+            KSLOG_ERROR("last_run_id is not a valid UUID, ignoring");
+            g_lastRunID[0] = '\0';
+        }
+    } else if (n > 0) {
+        KSLOG_ERROR("last_run_id has unexpected length %zd (expected %d), ignoring", n, KSC_UUID_STRING_LENGTH);
+        g_lastRunID[0] = '\0';
+    }
+
+    ftruncate(fd, 0);
+    lseek(fd, 0, SEEK_SET);
+    if (!ksfu_writeBytesToFD(fd, g_runID, KSC_UUID_STRING_LENGTH)) {
+        KSLOG_ERROR("Failed to write new run ID to %s", path);
+    }
+    close(fd);
+}
 
 static void printPreviousLog(const char *filePath)
 {
@@ -344,18 +391,24 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
 
     handleConfiguration(configuration);
 
-    // Run ID rotation: read previous run ID before generating the new one.
-    // This must happen after Data directory is not yet created, but the install path
-    // structure is set up. We read it early and generate before needing the Data dir.
-    uuid_t uuid;
-    uuid_generate(uuid);
-    uuid_unparse_lower(uuid, g_runID);
+    // Create Data directory early so run IDs and memory tracking are available
+    // before report store initialization.
+    char path[KSFU_MAX_PATH_LENGTH];
+    if (snprintf(path, sizeof(path), "%s/Data", installPath) >= (int)sizeof(path)) {
+        KSLOG_ERROR("Data path is too long.");
+        return KSCrashInstallErrorPathTooLong;
+    }
+    if (ksfu_makePath(path) == false) {
+        KSLOG_ERROR("Could not create path: %s", path);
+        return KSCrashInstallErrorCouldNotCreatePath;
+    }
+    ksmemory_initialize(path);
+    rotateRunID(installPath);
 
     if (g_reportStoreConfig.appName == NULL) {
         g_reportStoreConfig.appName = strdup(appName);
     }
 
-    char path[KSFU_MAX_PATH_LENGTH];
     if (g_reportStoreConfig.reportsPath == NULL) {
         if (snprintf(path, sizeof(path), "%s/" KSCRS_DEFAULT_REPORTS_FOLDER, installPath) >= (int)sizeof(path)) {
             KSLOG_ERROR("Reports path is too long.");
@@ -385,42 +438,6 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     kscm_setReportSidecarPathProvider(getReportSidecarPathCallback);
     kscm_setRunSidecarPathProvider(getRunSidecarPathCallback);
     kscm_setRunSidecarPathForRunIDProvider(getRunSidecarPathForRunIDCallback);
-
-    if (snprintf(path, sizeof(path), "%s/Data", installPath) >= (int)sizeof(path)) {
-        KSLOG_ERROR("Data path is too long.");
-        return KSCrashInstallErrorPathTooLong;
-    }
-    if (ksfu_makePath(path) == false) {
-        KSLOG_ERROR("Could not create path: %s", path);
-        return KSCrashInstallErrorCouldNotCreatePath;
-    }
-    ksmemory_initialize(path);
-
-    // Run ID rotation: read previous run's ID, then persist the new one.
-    // Simple C-only file I/O — fast enough for the startup path.
-    {
-        char lastRunIdPath[KSFU_MAX_PATH_LENGTH];
-        if (snprintf(lastRunIdPath, sizeof(lastRunIdPath), "%s/Data/last_run_id", installPath) <
-            (int)sizeof(lastRunIdPath)) {
-            g_lastRunID[0] = '\0';
-            int rfd = open(lastRunIdPath, O_RDONLY);
-            if (rfd >= 0) {
-                ssize_t n = read(rfd, g_lastRunID, 36);
-                close(rfd);
-                if (n == 36) {
-                    g_lastRunID[36] = '\0';
-                } else {
-                    g_lastRunID[0] = '\0';
-                }
-            }
-            // Write new run ID
-            int wfd = open(lastRunIdPath, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-            if (wfd >= 0) {
-                ksfu_writeBytesToFD(wfd, g_runID, 36);
-                close(wfd);
-            }
-        }
-    }
 
     if (snprintf(g_consoleLogPath, sizeof(g_consoleLogPath), "%s/Data/ConsoleLog.txt", installPath) >=
         (int)sizeof(g_consoleLogPath)) {
