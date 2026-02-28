@@ -109,10 +109,13 @@ import os.log
                 .appendingPathComponent("kscrash-metrickit-\(UUID().uuidString).json")
             let tempPath = tempURL.path
 
+            // Use isFatal=0 for the skeleton so that Lifecycle's addContextualInfoToEvent
+            // doesn't mark the current run as unclean — MetricKit diagnostics describe a
+            // previous run. We set isFatal/isCleanExit on the final report in post-processing.
             let requirements = KSCrash_ExceptionHandlingRequirements(
                 shouldRecordAllThreads: 0,
                 shouldWriteReport: 1,
-                isFatal: 1,
+                isFatal: 0,
                 isCleanExit: 0,
                 asyncSafety: 0,
                 asyncSafetyBecauseThreadsSuspended: 0,
@@ -220,7 +223,9 @@ import os.log
                 signal: signalError,
                 type: errorType,
                 exitReason: exitReason,
-                reason: reason
+                reason: reason,
+                isFatal: true,
+                isCleanExit: false
             )
 
             let newCrash = BasicCrashReport.Crash(

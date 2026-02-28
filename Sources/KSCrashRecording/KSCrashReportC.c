@@ -1477,7 +1477,9 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
             }
         }
         writer->addBooleanElement(writer, KSCrashField_IsFatal, crash->requirements.isFatal);
-        writer->addBooleanElement(writer, KSCrashField_IsCleanExit, crash->requirements.isCleanExit);
+        if (crash->requirements.isFatal) {
+            writer->addBooleanElement(writer, KSCrashField_IsCleanExit, crash->requirements.isCleanExit);
+        }
     }
     writer->endContainer(writer);
 }
