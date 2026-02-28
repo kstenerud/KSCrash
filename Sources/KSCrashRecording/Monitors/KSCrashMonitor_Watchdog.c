@@ -568,11 +568,12 @@ static void *watchdog_thread_main(void *arg)
 
     CFRunLoopRun();
 
+    // Read selfFreeOnExit before signaling — once we signal, watchdog_destroy
+    // may free the monitor immediately, so we must not touch it after.
+    bool shouldSelfFree = atomic_load_explicit(&monitor->selfFreeOnExit, memory_order_acquire);
     dispatch_semaphore_signal(monitor->threadExitSemaphore);
 
-    // If watchdog_destroy timed out waiting for us, it set selfFreeOnExit
-    // and returned without freeing.  We own the cleanup in that case.
-    if (atomic_load_explicit(&monitor->selfFreeOnExit, memory_order_acquire)) {
+    if (shouldSelfFree) {
         sidecar_delete(monitor);
         free(monitor);
     }
