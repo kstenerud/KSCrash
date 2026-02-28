@@ -223,6 +223,7 @@ static KSCRASH_NOINLINE void *__kscrash_threadcrumb_start__(void *arg) KSCRASH_K
         pthread_attr_t attr = { 0 };
         pthread_attr_init(&attr);
         pthread_attr_setstacksize(&attr, stackSize);
+        pthread_attr_set_qos_class_np(&attr, QOS_CLASS_USER_INTERACTIVE, 0);
         _threadCreationFailed =
             (pthread_create(&_thread, &attr, __kscrash_threadcrumb_start__, (__bridge void *)self) != 0);
         pthread_attr_destroy(&attr);
