@@ -109,10 +109,12 @@ char *kscm_watchdog_stitchReport(const char *report, const char *sidecarPath, __
         // Change the error type to "hang"
         errorDict[KSCrashField_Type] = KSCrashField_Hang;
 
-        // Remove signal, mach, and exit reason since this is a recovered hang, not a crash
+        // Remove crash-only fields since this is a recovered hang, not a crash
         [errorDict removeObjectForKey:KSCrashField_Signal];
         [errorDict removeObjectForKey:KSCrashField_Mach];
         [errorDict removeObjectForKey:KSCrashField_ExitReason];
+        errorDict[KSCrashField_IsFatal] = @NO;
+        [errorDict removeObjectForKey:KSCrashField_IsCleanExit];
     } else {
         // Unrecovered hang: the OS killed the process, so mark as fatal.
         errorDict[KSCrashField_IsFatal] = @YES;

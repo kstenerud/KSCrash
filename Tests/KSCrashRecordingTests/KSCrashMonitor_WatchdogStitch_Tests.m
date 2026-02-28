@@ -66,6 +66,8 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, NSString *startR
                 @"signal" : @ { @"name" : @"SIGKILL" },
                 @"mach" : @ { @"exception" : @(5) },
                 @"exit_reason" : @ { @"code" : @(0x8badf00d) },
+                @"is_fatal" : @YES,
+                @"is_clean_exit" : @NO,
             },
         },
     };
@@ -326,7 +328,7 @@ static NSDictionary *dictFromCString(const char *json)
     XCTAssertEqualObjects(hang[@"hang_recovered"], @YES);
 }
 
-- (void)testRecoveredHangDoesNotSetIsFatal
+- (void)testRecoveredHangIsNonFatal
 {
     KSHangSidecar sc = {
         .magic = KSHANG_SIDECAR_MAGIC,
@@ -347,7 +349,7 @@ static NSDictionary *dictFromCString(const char *json)
     free(result);
 
     NSDictionary *error = stitched[@"crash"][@"error"];
-    XCTAssertNil(error[@"is_fatal"]);
+    XCTAssertEqualObjects(error[@"is_fatal"], @NO);
     XCTAssertNil(error[@"is_clean_exit"]);
 }
 
