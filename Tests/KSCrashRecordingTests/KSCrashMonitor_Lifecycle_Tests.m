@@ -474,6 +474,41 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     XCTAssertFalse(data.cleanShutdown);
 }
 
+- (void)testFatalCleanExitSetsCleanShutdown
+{
+    [self enableMonitor];
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+
+    KSCrashMonitorAPI *api = kscm_lifecycle_getAPI();
+    KSCrash_MonitorContext eventContext = { 0 };
+    eventContext.requirements.isFatal = true;
+    eventContext.requirements.isCleanExit = true;
+    api->addContextualInfoToEvent(&eventContext, api->context);
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    XCTAssertTrue(data.cleanShutdown);
+}
+
+- (void)testFatalCrashExitClearsCleanShutdown
+{
+    [self enableMonitor];
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateDeactivating);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateBackground);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateTerminating);
+
+    KSCrashMonitorAPI *api = kscm_lifecycle_getAPI();
+    KSCrash_MonitorContext eventContext = { 0 };
+    eventContext.requirements.isFatal = true;
+    eventContext.requirements.isCleanExit = false;
+    api->addContextualInfoToEvent(&eventContext, api->context);
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    XCTAssertFalse(data.cleanShutdown);
+}
+
 - (void)testActiveDurationAccumulates
 {
     [self enableMonitor];

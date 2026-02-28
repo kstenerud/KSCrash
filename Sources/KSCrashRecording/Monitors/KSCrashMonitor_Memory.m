@@ -409,6 +409,8 @@ static void kscm_memory_check_for_oom_in_previous_session(void)
                         KSCrashField_Signal : @(SIGKILL),
                         KSCrashField_Name : @"SIGKILL",
                     };
+                    json[KSCrashField_Crash][KSCrashField_Error][KSCrashField_IsFatal] = @YES;
+                    json[KSCrashField_Crash][KSCrashField_Error][KSCrashField_IsCleanExit] = @NO;
 
                     data = [NSJSONSerialization dataWithJSONObject:json options:NSJSONWritingPrettyPrinted error:nil];
                     kscrash_addUserReport((const char *)data.bytes, (int)data.length);

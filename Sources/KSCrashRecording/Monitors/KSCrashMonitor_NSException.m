@@ -131,6 +131,7 @@ static KS_NOINLINE void handleException(NSException *exception, BOOL isUserRepor
             thisThread, (KSCrash_ExceptionHandlingRequirements) { .asyncSafety = false,
                                                                   // User-reported exceptions are not considered fatal.
                                                                   .isFatal = !isUserReported,
+                                                                  .isCleanExit = false,
                                                                   .shouldRecordAllThreads = logAllThreads != NO,
                                                                   .shouldWriteReport = true });
         if (crashContext->requirements.shouldExitImmediately) {

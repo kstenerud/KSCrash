@@ -113,6 +113,10 @@ char *kscm_watchdog_stitchReport(const char *report, const char *sidecarPath, __
         [errorDict removeObjectForKey:KSCrashField_Signal];
         [errorDict removeObjectForKey:KSCrashField_Mach];
         [errorDict removeObjectForKey:KSCrashField_ExitReason];
+    } else {
+        // Unrecovered hang: the OS killed the process, so mark as fatal.
+        errorDict[KSCrashField_IsFatal] = @YES;
+        errorDict[KSCrashField_IsCleanExit] = @NO;
     }
 
     // Write mutable copies back into their parents

@@ -251,6 +251,31 @@ static NSDictionary *dictFromCString(const char *json)
     XCTAssertNotNil(error[@"exit_reason"]);
 }
 
+- (void)testFatalHangSetsIsFatalAndIsCleanExit
+{
+    KSHangSidecar sc = {
+        .magic = KSHANG_SIDECAR_MAGIC,
+        .version = KSHANG_SIDECAR_VERSION_1_0,
+        .endTimestamp = 2000,
+        .endRole = TASK_DEFAULT_APPLICATION,
+        .recovered = false,
+    };
+    NSString *path = writeSidecar(self.tempDir, sc);
+
+    NSDictionary *report = makeMinimalHangReport(1000, @"foreground");
+    NSString *json = jsonString(report);
+
+    char *result = kscm_watchdog_stitchReport(json.UTF8String, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result != NULL);
+
+    NSDictionary *stitched = dictFromCString(result);
+    free(result);
+
+    NSDictionary *error = stitched[@"crash"][@"error"];
+    XCTAssertEqualObjects(error[@"is_fatal"], @YES);
+    XCTAssertEqualObjects(error[@"is_clean_exit"], @NO);
+}
+
 - (void)testFatalHangDoesNotSetRecovered
 {
     KSHangSidecar sc = {
@@ -299,6 +324,31 @@ static NSDictionary *dictFromCString(const char *json)
 
     NSDictionary *hang = stitched[@"crash"][@"error"][@"hang"];
     XCTAssertEqualObjects(hang[@"hang_recovered"], @YES);
+}
+
+- (void)testRecoveredHangDoesNotSetIsFatal
+{
+    KSHangSidecar sc = {
+        .magic = KSHANG_SIDECAR_MAGIC,
+        .version = KSHANG_SIDECAR_VERSION_1_0,
+        .endTimestamp = 5000,
+        .endRole = TASK_DEFAULT_APPLICATION,
+        .recovered = true,
+    };
+    NSString *path = writeSidecar(self.tempDir, sc);
+
+    NSDictionary *report = makeMinimalHangReport(1000, @"foreground");
+    NSString *json = jsonString(report);
+
+    char *result = kscm_watchdog_stitchReport(json.UTF8String, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result != NULL);
+
+    NSDictionary *stitched = dictFromCString(result);
+    free(result);
+
+    NSDictionary *error = stitched[@"crash"][@"error"];
+    XCTAssertNil(error[@"is_fatal"]);
+    XCTAssertNil(error[@"is_clean_exit"]);
 }
 
 - (void)testRecoveredHangChangesTypeToHang

@@ -32,6 +32,7 @@
 
 #include "KSCrashMonitorAPI.h"
 #include "KSCrashNamespace.h"
+#include "KSSystemCapabilities.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -42,11 +43,13 @@ extern "C" {
 KSCrashMonitorAPI *kscm_signal_getAPI(void);
 
 /** Enables or disables SIGTERM monitoring.
- *  Default to false.
  *
- * @param enabled if true, SIGTERM signals will be monitored and reported.
+ * @deprecated SIGTERM is now always reported as fatal with isCleanExit=true. This function is a no-op.
+ *
+ * @param enabled Ignored.
  */
-void kscm_signal_sigterm_setMonitoringEnabled(bool enabled);
+void kscm_signal_sigterm_setMonitoringEnabled(bool enabled)
+    KSCRASH_DEPRECATED("SIGTERM is now always reported as fatal with isCleanExit. This is a no-op.");
 
 #ifdef __cplusplus
 }

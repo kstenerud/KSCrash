@@ -320,7 +320,10 @@ static void handleConfiguration(KSCrashCConfiguration *configuration)
 #endif
     kstc_setSearchQueueNames(configuration->enableQueueNameSearch);
     kscrashreport_setIntrospectMemory(configuration->enableMemoryIntrospection);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     kscm_signal_sigterm_setMonitoringEnabled(configuration->enableSigTermMonitoring);
+#pragma clang diagnostic pop
 
     if (configuration->doNotIntrospectClasses.strings != NULL) {
         kscrashreport_setDoNotIntrospectClasses(configuration->doNotIntrospectClasses.strings,

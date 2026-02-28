@@ -112,7 +112,8 @@ import os.log
             let requirements = KSCrash_ExceptionHandlingRequirements(
                 shouldRecordAllThreads: 0,
                 shouldWriteReport: 1,
-                isFatal: 0,
+                isFatal: 1,
+                isCleanExit: 0,
                 asyncSafety: 0,
                 asyncSafetyBecauseThreadsSuspended: 0,
                 crashedDuringExceptionHandling: 0,

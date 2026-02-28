@@ -368,6 +368,7 @@ static atomic_int g_counter = 0;
     XCTAssertTrue(ctx->requirements.crashedDuringExceptionHandling,
                   @"The second exception should be detected as a recrash.");
     XCTAssertTrue(ctx->requirements.isFatal, @"A recrash should set isFatal");
+    XCTAssertFalse(ctx->requirements.isCleanExit, @"A recrash should set isCleanExit to false");
     XCTAssertTrue(ctx->requirements.asyncSafety, @"A recrash should set requiresAsyncSafety");
     XCTAssertFalse(ctx->requirements.shouldExitImmediately);
     XCTAssertFalse(ctx->requirements.shouldRecordAllThreads, @"A recrash should clear shouldRecordThreads");
@@ -401,6 +402,7 @@ static atomic_int g_counter = 0;
     XCTAssertTrue(ctx->requirements.crashedDuringExceptionHandling,
                   @"The second exception should be detected as a recrash.");
     XCTAssertTrue(ctx->requirements.isFatal, @"A recrash should set isFatal");
+    XCTAssertFalse(ctx->requirements.isCleanExit, @"A recrash should set isCleanExit to false");
     XCTAssertTrue(ctx->requirements.asyncSafety, @"A recrash should set requiresAsyncSafety");
     XCTAssertFalse(ctx->requirements.shouldExitImmediately);
     XCTAssertFalse(ctx->requirements.shouldRecordAllThreads, @"A recrash should clear shouldRecordThreads");

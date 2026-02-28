@@ -300,6 +300,26 @@ final class CrashReportEncodingTests: XCTestCase {
         XCTAssertEqual(roundTripped.crash.threads?[0].backtrace?.contents[0].symbolName, "handleUncaughtException")
     }
 
+    func testRoundTripIsFatal() throws {
+        let fatal = BasicCrashReport(
+            crash: BasicCrashReport.Crash(
+                error: CrashError(type: .signal, isFatal: true)
+            ),
+            report: ReportInfo(id: "fatal-test")
+        )
+        let (_, roundTrippedFatal) = try roundTrip(fatal)
+        XCTAssertEqual(roundTrippedFatal.crash.error.isFatal, true)
+
+        let nonFatal = BasicCrashReport(
+            crash: BasicCrashReport.Crash(
+                error: CrashError(type: .signal, isFatal: false)
+            ),
+            report: ReportInfo(id: "non-fatal-test")
+        )
+        let (_, roundTrippedNonFatal) = try roundTrip(nonFatal)
+        XCTAssertEqual(roundTrippedNonFatal.crash.error.isFatal, false)
+    }
+
     func testRoundTripMinimalReport() throws {
         let report = BasicCrashReport(
             crash: BasicCrashReport.Crash(
@@ -512,6 +532,62 @@ final class CrashReportEncodingTests: XCTestCase {
         let reportInfo = json["report"] as! [String: Any]
         XCTAssertNotNil(reportInfo["process_name"])
         XCTAssertNotNil(reportInfo["monitor_id"])
+
+        // Error keys
+        let error = crash["error"] as! [String: Any]
+        XCTAssertNil(error["isFatal"], "isFatal should be encoded as is_fatal, not isFatal")
+        XCTAssertNil(error["isCleanExit"], "isCleanExit should be encoded as is_clean_exit, not isCleanExit")
+    }
+
+    func testRoundTripIsCleanExit() throws {
+        let clean = BasicCrashReport(
+            crash: BasicCrashReport.Crash(
+                error: CrashError(type: .signal, isFatal: true, isCleanExit: true)
+            ),
+            report: ReportInfo(id: "clean-exit-test")
+        )
+        let (_, roundTrippedClean) = try roundTrip(clean)
+        XCTAssertEqual(roundTrippedClean.crash.error.isCleanExit, true)
+
+        let crash = BasicCrashReport(
+            crash: BasicCrashReport.Crash(
+                error: CrashError(type: .signal, isFatal: true, isCleanExit: false)
+            ),
+            report: ReportInfo(id: "crash-exit-test")
+        )
+        let (_, roundTrippedCrash) = try roundTrip(crash)
+        XCTAssertEqual(roundTrippedCrash.crash.error.isCleanExit, false)
+    }
+
+    func testEncodingIsCleanExitUsesSnakeCaseKey() throws {
+        let report = BasicCrashReport(
+            crash: BasicCrashReport.Crash(
+                error: CrashError(type: .signal, isFatal: true, isCleanExit: true)
+            ),
+            report: ReportInfo(id: "key-test")
+        )
+
+        let data = try JSONEncoder().encode(report)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        let crashDict = json["crash"] as! [String: Any]
+        let error = crashDict["error"] as! [String: Any]
+        XCTAssertEqual(error["is_clean_exit"] as? Bool, true)
+        XCTAssertNil(error["isCleanExit"], "isCleanExit should be encoded as is_clean_exit, not isCleanExit")
+    }
+
+    func testEncodingIsFatalUsesSnakeCaseKey() throws {
+        let report = BasicCrashReport(
+            crash: BasicCrashReport.Crash(
+                error: CrashError(type: .signal, isFatal: true)
+            ),
+            report: ReportInfo(id: "key-test")
+        )
+
+        let data = try JSONEncoder().encode(report)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        let crash = json["crash"] as! [String: Any]
+        let error = crash["error"] as! [String: Any]
+        XCTAssertEqual(error["is_fatal"] as? Bool, true)
     }
 
     // MARK: - Helpers
