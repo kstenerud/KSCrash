@@ -61,11 +61,6 @@ typedef struct KSCrash_MonitorContext {
     thread_act_array_t suspendedThreads;
     mach_msg_type_number_t suspendedThreadsCount;
 
-    /**
-     If true, so reported user exception will have the current snapshot.
-     */
-    bool currentSnapshotUserReported;
-
     /** If true, the registers contain valid information about the crash. */
     bool registersAreValid;
 

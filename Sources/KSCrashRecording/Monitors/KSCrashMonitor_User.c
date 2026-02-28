@@ -77,7 +77,6 @@ void kscm_reportUserException(const char *name, const char *reason, const char *
     ctx->userException.lineOfCode = lineOfCode;
     ctx->userException.customStackTrace = stackTrace;
     ctx->stackCursor = &stackCursor;
-    ctx->currentSnapshotUserReported = true;
 
     g_callbacks.handle(ctx);
 

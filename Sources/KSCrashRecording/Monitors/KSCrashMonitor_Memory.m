@@ -607,7 +607,6 @@ static void ksmemory_write_possible_oom(void)
     kscm_fillMonitorContext(ctx, kscm_memory_getAPI());
     ctx->registersAreValid = false;
     ctx->offendingMachineContext = &machineContext;
-    ctx->currentSnapshotUserReported = true;
 
     // we don't need all the images, we have no stack
     ctx->omitBinaryImages = true;
