@@ -27,7 +27,7 @@
 import Foundation
 
 /// App memory information at crash time.
-public struct AppMemoryInfo: Codable, Sendable {
+public struct AppMemoryInfo: Codable, Sendable, Equatable {
     /// Memory footprint of the app in bytes.
     public let memoryFootprint: UInt64?
 

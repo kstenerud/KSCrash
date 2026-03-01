@@ -27,7 +27,7 @@
 import Foundation
 
 /// Memory termination details (OOM kills).
-public struct MemoryTerminationInfo: Codable, Sendable {
+public struct MemoryTerminationInfo: Codable, Sendable, Equatable {
     /// Memory pressure level at termination.
     public let memoryPressure: String?
 

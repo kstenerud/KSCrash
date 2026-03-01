@@ -27,4 +27,4 @@
 import Foundation
 
 /// Object referenced in an exception.
-public struct ReferencedObject: Codable, Sendable {}
+public struct ReferencedObject: Codable, Sendable, Equatable {}

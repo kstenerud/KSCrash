@@ -27,7 +27,7 @@
 import Foundation
 
 /// A single frame in a stack trace.
-public struct StackFrame: Codable, Sendable {
+public struct StackFrame: Codable, Sendable, Equatable {
     /// Instruction pointer address.
     public let instructionAddr: UInt64
 

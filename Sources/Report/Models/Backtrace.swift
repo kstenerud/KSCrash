@@ -27,7 +27,7 @@
 import Foundation
 
 /// Stack backtrace information.
-public struct Backtrace: Codable, Sendable {
+public struct Backtrace: Codable, Sendable, Equatable {
     /// Stack frames in the backtrace.
     public let contents: [StackFrame]
 

@@ -27,7 +27,7 @@
 import Foundation
 
 /// Raw stack memory dump.
-public struct StackDump: Codable, Sendable {
+public struct StackDump: Codable, Sendable, Equatable {
     /// Hexadecimal string of stack contents.
     public let contents: String?
 

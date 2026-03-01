@@ -27,7 +27,7 @@
 import Foundation
 
 /// Information about a hang detected by the watchdog monitor.
-public struct HangInfo: Codable, Sendable {
+public struct HangInfo: Codable, Sendable, Equatable {
     /// Timestamp when the hang started (in nanoseconds).
     public let hangStartNanos: UInt64
 
@@ -40,10 +40,14 @@ public struct HangInfo: Codable, Sendable {
     /// The app's role when the hang ended.
     public let hangEndRole: String
 
+    /// Whether this hang resolved on its own (true) or led to a termination (false/nil).
+    public let hangRecovered: Bool?
+
     enum CodingKeys: String, CodingKey {
         case hangStartNanos = "hang_start_nanos"
         case hangStartRole = "hang_start_role"
         case hangEndNanos = "hang_end_nanos"
         case hangEndRole = "hang_end_role"
+        case hangRecovered = "hang_recovered"
     }
 }
