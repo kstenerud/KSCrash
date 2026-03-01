@@ -219,7 +219,11 @@ static bool growStorage(KSKeyValueStore *store, uint32_t minCapacity)
 /** Append a record to the log. NOT thread-safe. */
 static void appendRecord(KSKeyValueStore *store, const char *key, uint8_t type, const void *value, uint16_t valueLen)
 {
-    if (store == NULL || store->storage == NULL || key == NULL) {
+    if (store == NULL || store->storage == NULL) {
+        KSLOG_DEBUG("KVS appendRecord called with NULL store (not yet installed?)");
+        return;
+    }
+    if (key == NULL) {
         return;
     }
 
@@ -402,6 +406,10 @@ void kskvs_destroy(KSKeyValueStore *store)
 
 void kskvs_setString(KSKeyValueStore *store, const char *key, const char *value)
 {
+    if (store == NULL) {
+        KSLOG_DEBUG("KVS setString called with NULL store (not yet installed?)");
+        return;
+    }
     if (value == NULL) {
         kskvs_removeValue(store, key);
         return;
@@ -463,7 +471,7 @@ void kskvs_iterate(const KSKeyValueStore *store, const KSKVSCallbacks *callbacks
     }
 
     // Two-pass approach: first pass determines which records are live
-    // (last-write-wins, tombstones excluded), second pass dispatches callbacks.
+    // (last-write-wins), second pass dispatches callbacks.
     // We track which records are superseded using the same forward-scan approach.
 
     uint32_t pos = KSKVS_HEADER_SIZE;
@@ -495,50 +503,56 @@ void kskvs_iterate(const KSKeyValueStore *store, const KSKVSCallbacks *callbacks
             scanPos += scanSize;
         }
 
-        if (!superseded && rec->type != KSKVSTypeRemoved) {
-            const uint8_t *valueBytes = store->storage + pos + KSKVS_RECORD_HEADER_SIZE + keyLen;
+        if (!superseded) {
+            if (rec->type == KSKVSTypeRemoved) {
+                if (callbacks->onRemoved) {
+                    callbacks->onRemoved(key, keyLen, context);
+                }
+            } else {
+                const uint8_t *valueBytes = store->storage + pos + KSKVS_RECORD_HEADER_SIZE + keyLen;
 
-            switch (rec->type) {
-                case KSKVSTypeString:
-                    if (callbacks->onString) {
-                        callbacks->onString(key, keyLen, (const char *)valueBytes, rec->valueLen, context);
-                    }
-                    break;
-                case KSKVSTypeInt64:
-                    if (callbacks->onInt64 && rec->valueLen == sizeof(int64_t)) {
-                        int64_t val;
-                        memcpy(&val, valueBytes, sizeof(val));
-                        callbacks->onInt64(key, keyLen, val, context);
-                    }
-                    break;
-                case KSKVSTypeUInt64:
-                    if (callbacks->onUInt64 && rec->valueLen == sizeof(uint64_t)) {
-                        uint64_t val;
-                        memcpy(&val, valueBytes, sizeof(val));
-                        callbacks->onUInt64(key, keyLen, val, context);
-                    }
-                    break;
-                case KSKVSTypeDouble:
-                    if (callbacks->onDouble && rec->valueLen == sizeof(double)) {
-                        double val;
-                        memcpy(&val, valueBytes, sizeof(val));
-                        callbacks->onDouble(key, keyLen, val, context);
-                    }
-                    break;
-                case KSKVSTypeBool:
-                    if (callbacks->onBool && rec->valueLen == sizeof(uint8_t)) {
-                        callbacks->onBool(key, keyLen, valueBytes[0] != 0, context);
-                    }
-                    break;
-                case KSKVSTypeDate:
-                    if (callbacks->onDate && rec->valueLen == sizeof(uint64_t)) {
-                        uint64_t val;
-                        memcpy(&val, valueBytes, sizeof(val));
-                        callbacks->onDate(key, keyLen, val, context);
-                    }
-                    break;
-                default:
-                    break;
+                switch (rec->type) {
+                    case KSKVSTypeString:
+                        if (callbacks->onString) {
+                            callbacks->onString(key, keyLen, (const char *)valueBytes, rec->valueLen, context);
+                        }
+                        break;
+                    case KSKVSTypeInt64:
+                        if (callbacks->onInt64 && rec->valueLen == sizeof(int64_t)) {
+                            int64_t val;
+                            memcpy(&val, valueBytes, sizeof(val));
+                            callbacks->onInt64(key, keyLen, val, context);
+                        }
+                        break;
+                    case KSKVSTypeUInt64:
+                        if (callbacks->onUInt64 && rec->valueLen == sizeof(uint64_t)) {
+                            uint64_t val;
+                            memcpy(&val, valueBytes, sizeof(val));
+                            callbacks->onUInt64(key, keyLen, val, context);
+                        }
+                        break;
+                    case KSKVSTypeDouble:
+                        if (callbacks->onDouble && rec->valueLen == sizeof(double)) {
+                            double val;
+                            memcpy(&val, valueBytes, sizeof(val));
+                            callbacks->onDouble(key, keyLen, val, context);
+                        }
+                        break;
+                    case KSKVSTypeBool:
+                        if (callbacks->onBool && rec->valueLen == sizeof(uint8_t)) {
+                            callbacks->onBool(key, keyLen, valueBytes[0] != 0, context);
+                        }
+                        break;
+                    case KSKVSTypeDate:
+                        if (callbacks->onDate && rec->valueLen == sizeof(uint64_t)) {
+                            uint64_t val;
+                            memcpy(&val, valueBytes, sizeof(val));
+                            callbacks->onDate(key, keyLen, val, context);
+                        }
+                        break;
+                    default:
+                        break;
+                }
             }
         }
 

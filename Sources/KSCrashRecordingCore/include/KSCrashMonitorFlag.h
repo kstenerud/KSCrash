@@ -44,6 +44,11 @@ typedef enum {
      * Monitors without this flag are considered unsafe for asynchronous operations by default. */
     KSCrashMonitorFlagAsyncSafe = 1 << 1,
 
+    /** Plugin monitor — not registered through the type system.
+     * Plugin monitors do not count toward the "any active monitor"
+     * check during activation. */
+    KSCrashMonitorFlagPlugin = 1 << 2,
+
 } KSCrashMonitorFlag;
 
 #ifdef __cplusplus

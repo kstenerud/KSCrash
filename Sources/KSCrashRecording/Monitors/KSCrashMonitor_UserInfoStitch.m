@@ -96,6 +96,19 @@ static void onDate(const char *key, uint16_t keyLen, uint64_t nanosecondsSince19
 }
 
 // ============================================================================
+#pragma mark - Tombstone Callback -
+// ============================================================================
+
+static void onRemoved(const char *key, uint16_t keyLen, void *ctx)
+{
+    NSMutableDictionary *dict = (__bridge NSMutableDictionary *)ctx;
+    NSString *nsKey = [[NSString alloc] initWithBytes:key length:keyLen encoding:NSUTF8StringEncoding];
+    if (nsKey) {
+        [dict removeObjectForKey:nsKey];
+    }
+}
+
+// ============================================================================
 #pragma mark - Stitch -
 // ============================================================================
 
@@ -112,33 +125,17 @@ char *kscm_userinfo_stitchReport(const char *report, const char *sidecarPath, __
         return NULL;
     }
 
-    NSMutableDictionary *sidecarDict = [NSMutableDictionary dictionary];
-    KSKVSCallbacks callbacks = {
-        .onString = onString,
-        .onInt64 = onInt64,
-        .onUInt64 = onUInt64,
-        .onDouble = onDouble,
-        .onBool = onBool,
-        .onDate = onDate,
-    };
-    kskvs_iterate(store, &callbacks, (__bridge void *)sidecarDict);
-    kskvs_destroy(store);
-
-    if ([sidecarDict count] == 0) {
-        return NULL;
-    }
-
-    // Decode the report
+    // Decode the report first so we can iterate directly into the user section.
     NSData *reportData = [NSData dataWithBytesNoCopy:(void *)report length:strlen(report) freeWhenDone:NO];
     NSDictionary *decoded = [KSJSONCodec decode:reportData options:KSJSONDecodeOptionNone error:nil];
     if (![decoded isKindOfClass:[NSDictionary class]]) {
         KSLOG_ERROR(@"Failed to decode report JSON for UserInfo stitch");
+        kskvs_destroy(store);
         return NULL;
     }
     NSMutableDictionary *dict = [decoded mutableCopy];
 
-    // Merge into the "user" section.
-    // If report["user"] already exists (from old kscrash_setUserInfoJSON), merge on top.
+    // Start from the existing user section (if any).
     NSMutableDictionary *userSection;
     id existing = dict[KSCrashField_User];
     if ([existing isKindOfClass:[NSDictionary class]]) {
@@ -146,8 +143,30 @@ char *kscm_userinfo_stitchReport(const char *report, const char *sidecarPath, __
     } else {
         userSection = [NSMutableDictionary dictionary];
     }
+    // Iterate sidecar directly into userSection: live values overwrite, tombstones remove.
+    KSKVSCallbacks callbacks = {
+        .onString = onString,
+        .onInt64 = onInt64,
+        .onUInt64 = onUInt64,
+        .onDouble = onDouble,
+        .onBool = onBool,
+        .onDate = onDate,
+        .onRemoved = onRemoved,
+    };
+    kskvs_iterate(store, &callbacks, (__bridge void *)userSection);
+    kskvs_destroy(store);
 
-    [userSection addEntriesFromDictionary:sidecarDict];
+    // If nothing changed, leave the report untouched.
+    bool noChange;
+    if ([existing isKindOfClass:[NSDictionary class]]) {
+        noChange = [userSection isEqualToDictionary:existing];
+    } else {
+        noChange = ([userSection count] == 0);
+    }
+    if (noChange) {
+        return NULL;
+    }
+
     dict[KSCrashField_User] = userSection;
 
     // Encode back to JSON

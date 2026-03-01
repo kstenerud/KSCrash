@@ -164,7 +164,6 @@
 #define Namespace KSCRASH_NS(Namespace)
 #define ReportType KSCRASH_NS(ReportType)
 #define ReportWriter KSCRASH_NS(ReportWriter)
-#define UserInfo KSCRASH_NS(UserInfo)
 #define i_kslog_logC KSCRASH_NS(i_kslog_logC)
 #define i_kslog_logCBasic KSCRASH_NS(i_kslog_logCBasic)
 #define i_kslog_logObjC KSCRASH_NS(i_kslog_logObjC)
