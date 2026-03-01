@@ -65,8 +65,11 @@ NS_ASSUME_NONNULL_BEGIN
  *
  * This JSON string contains user-specific data that will be included in
  * the crash report. If NULL is passed, any existing user data will be deleted.
+ *
+ * @deprecated Use the per-key API on KSCrash (-setUserInfo:forKey: variants) instead.
  */
-@property(nonatomic, copy, nullable) NSDictionary<NSString *, id> *userInfoJSON;
+@property(nonatomic, copy, nullable) NSDictionary<NSString *, id> *userInfoJSON KSCRASH_DEPRECATED(
+    "Use the per-key API on KSCrash (-setUserInfo:forKey: variants) instead");
 
 /** The maximum time to allow the main thread to run without returning.
  *

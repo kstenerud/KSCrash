@@ -40,6 +40,8 @@
         _installPath = nil;
         _monitors = cConfig.monitors;
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         if (cConfig.userInfoJSON != NULL) {
             NSData *data = [NSData dataWithBytes:cConfig.userInfoJSON length:strlen(cConfig.userInfoJSON)];
             NSError *error = nil;
@@ -50,6 +52,7 @@
         } else {
             _userInfoJSON = nil;
         }
+#pragma clang diagnostic pop
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -98,7 +101,10 @@
 
     config.reportStoreConfiguration = [self.reportStoreConfiguration toCConfiguration];
     config.monitors = self.monitors;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     config.userInfoJSON = self.userInfoJSON ? [self jsonStringFromDictionary:self.userInfoJSON] : NULL;
+#pragma clang diagnostic pop
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
     config.deadlockWatchdogInterval = self.deadlockWatchdogInterval;
@@ -189,7 +195,10 @@
 
     copy.installPath = [self.installPath copyWithZone:zone];
     copy.monitors = self.monitors;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     copy.userInfoJSON = [self.userInfoJSON copyWithZone:zone];
+#pragma clang diagnostic pop
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
     copy.deadlockWatchdogInterval = self.deadlockWatchdogInterval;

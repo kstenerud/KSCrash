@@ -131,8 +131,10 @@ typedef struct {
      *
      * This JSON string contains user-specific data that will be included in
      * the crash report. If NULL is passed, any existing user data will be deleted.
+     *
+     * @deprecated Use the per-key API (kscrash_setUserInfoString, etc.) instead.
      */
-    const char *userInfoJSON;
+    const char *userInfoJSON KSCRASH_DEPRECATED("Use the per-key API (kscrash_setUserInfoString, etc.) instead");
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -345,7 +347,10 @@ static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
     return (KSCrashCConfiguration) {
         .reportStoreConfiguration = KSCrashReportStoreCConfiguration_Default(),
         .monitors = KSCrashMonitorTypeProductionSafeMinimal,
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         .userInfoJSON = NULL,
+#pragma clang diagnostic pop
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
         .deadlockWatchdogInterval = 0.0,
@@ -378,7 +383,10 @@ static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
 static inline void KSCrashCConfiguration_Release(KSCrashCConfiguration *configuration)
 {
     KSCrashReportStoreCConfiguration_Release(&configuration->reportStoreConfiguration);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     free((void *)configuration->userInfoJSON);
+#pragma clang diagnostic pop
     for (int idx = 0; idx < configuration->doNotIntrospectClasses.length; ++idx) {
         free((void *)(configuration->doNotIntrospectClasses.strings[idx]));
     }
