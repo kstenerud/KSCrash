@@ -129,7 +129,13 @@ static void setEnabled(bool isEnabled, __unused void *context)
     }
 
     if (!isEnabled) {
+        os_unfair_lock_lock(&g_lock);
+        if (g_store != NULL) {
+            kskvs_destroy(g_store);
+            g_store = NULL;
+        }
         g_isEnabled = false;
+        os_unfair_lock_unlock(&g_lock);
         return;
     }
 
