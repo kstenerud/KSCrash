@@ -79,6 +79,16 @@ extern "C" {
  */
 KSCrashMonitorAPI *kscm_watchdog_getAPI(void);
 
+/** Controls whether resolved hangs are kept as reports.
+ *
+ * When false (default), hangs that resolve on their own are discarded.
+ * When true, they are preserved as non-fatal reports with duration and
+ * stack trace information.
+ *
+ * Must be called before the monitor is enabled.
+ */
+void kscm_watchdog_setReportsHangs(bool enabled);
+
 /** Returns a human-readable string for a task role.
  *
  * @param role The task_role_t value to convert.

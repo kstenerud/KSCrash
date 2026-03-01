@@ -190,6 +190,18 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic, assign) BOOL enableSigTermMonitoring KSCRASH_DEPRECATED(
     "SIGTERM is now always reported as fatal with isCleanExit. This property is ignored.");
 
+/** If true, resolved hangs are kept as non-fatal reports.
+ *
+ * When enabled, hangs that resolve on their own are preserved as reports
+ * with duration and stack trace information. When disabled (default),
+ * resolved hangs are discarded.
+ *
+ * Only applies when `KSCrashMonitorTypeWatchdog` is included in `monitors`.
+ *
+ * **Default**: false
+ */
+@property(nonatomic, assign) BOOL enableHangReporting;
+
 /** If true, use compact binary image reporting.
  *
  * When enabled, the `binary_images` array is filtered to only include

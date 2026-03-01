@@ -263,6 +263,18 @@ typedef struct {
     bool enableSigTermMonitoring
         KSCRASH_DEPRECATED("SIGTERM is now always reported as fatal with isCleanExit. This field is ignored.");
 
+    /** If true, resolved hangs are kept as non-fatal reports.
+     *
+     * When enabled, hangs that resolve on their own are preserved as reports
+     * with duration and stack trace information. When disabled (default),
+     * resolved hangs are discarded.
+     *
+     * Only applies when `KSCrashMonitorTypeWatchdog` is included in `monitors`.
+     *
+     * **Default**: false
+     */
+    bool enableHangReporting;
+
     /** If true, use compact binary image reporting.
      *
      * When enabled, the `binary_images` array is filtered to only include
@@ -353,6 +365,7 @@ static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
         .addConsoleLogToReport = false,
         .printPreviousLogOnStartup = false,
         .enableSwapCxaThrow = true,
+        .enableHangReporting = false,
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
         .enableSigTermMonitoring = false,
