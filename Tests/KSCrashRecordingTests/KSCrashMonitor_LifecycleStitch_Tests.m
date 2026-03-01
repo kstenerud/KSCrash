@@ -46,7 +46,9 @@ static NSString *writeLifecycleSidecar(NSString *dir, KSCrash_LifecycleData lc)
 {
     NSString *path = [dir stringByAppendingPathComponent:@"lifecycle.ksscr"];
     int fd = open(path.UTF8String, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    write(fd, &lc, sizeof(lc));
+    NSCAssert(fd >= 0, @"Failed to open sidecar for writing: %s", path.UTF8String);
+    ssize_t written = write(fd, &lc, sizeof(lc));
+    NSCAssert(written == (ssize_t)sizeof(lc), @"Short write to sidecar");
     close(fd);
     return path;
 }

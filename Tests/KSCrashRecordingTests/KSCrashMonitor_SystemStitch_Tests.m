@@ -49,7 +49,9 @@ static NSString *writeSidecar(NSString *dir, KSCrash_SystemData sc)
 {
     NSString *path = [dir stringByAppendingPathComponent:@"system.ksscr"];
     int fd = open(path.UTF8String, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    write(fd, &sc, sizeof(sc));
+    NSCAssert(fd >= 0, @"Failed to open sidecar for writing: %s", path.UTF8String);
+    ssize_t written = write(fd, &sc, sizeof(sc));
+    NSCAssert(written == (ssize_t)sizeof(sc), @"Short write to sidecar");
     close(fd);
     return path;
 }
@@ -143,7 +145,8 @@ static NSDictionary *dictFromCString(const char *json)
 
 - (void)testMissingSidecarFileReturnsNull
 {
-    char *result = kscm_system_stitchReport("{}", "/tmp/nonexistent.ksscr", KSCrashSidecarScopeReport, NULL);
+    NSString *missingPath = [self.tempDir stringByAppendingPathComponent:[[NSUUID UUID] UUIDString]];
+    char *result = kscm_system_stitchReport("{}", missingPath.UTF8String, KSCrashSidecarScopeReport, NULL);
     XCTAssertTrue(result == NULL);
 }
 
