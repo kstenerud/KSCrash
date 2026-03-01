@@ -31,6 +31,7 @@
 #import "KSCrashReportFilter.h"
 #import "KSCrashReportStore.h"
 #import "KSCrashReportWriter.h"
+#import "KSSystemCapabilities.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
