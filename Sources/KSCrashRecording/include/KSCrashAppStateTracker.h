@@ -26,6 +26,7 @@
 #import <Foundation/Foundation.h>
 #import "KSCrashAppTransitionState.h"
 #include "KSCrashNamespace.h"
+#import "KSSystemCapabilities.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -65,33 +66,39 @@ NS_SWIFT_NAME(AppStateTracker)
 @property(atomic, readonly) KSCrashAppTransitionState transitionState;
 
 /**
- * Adds an observer that implements the _KSCrashAppStateTrackerObserving_ protocol.
- * You do not need to remove the observer as it is held weakly.
- */
-- (void)addObserver:(id<KSCrashAppStateTrackerObserving>)observer;
-
-/**
  * Adds a block based observer.
  *
- *@return An object you must hold on to in order to remove the observation at a later point.
+ *@return An object that when set to nil will remove the observer.
  */
-- (id<KSCrashAppStateTrackerObserving>)addObserverWithBlock:(KSCrashAppStateTrackerObserverBlock)block;
-
-/** Removes an observer */
-- (void)removeObserver:(id<KSCrashAppStateTrackerObserving>)observer;
+- (id)addObserverWithBlock:(KSCrashAppStateTrackerObserverBlock)block;
 
 /**
- * Start/Stop
+ * Start the tracker.
  *
- * WARNING: Don't call these on the shared tracker.
+ * @warning Don't call this on the shared tracker.
  */
 - (void)start;
+
+/**
+ * Stop the tracker.
+ *
+ * @warning Don't call this on the shared tracker.
+ */
 - (void)stop;
+
+/** @deprecated Use `addObserverWithBlock:` instead. */
+- (void)addObserver:(id<KSCrashAppStateTrackerObserving>)observer
+    KSCRASH_DEPRECATED("Use -addObserverWithBlock: instead");
+
+/** @deprecated Use `addObserverWithBlock:` instead. */
+- (void)removeObserver:(id<KSCrashAppStateTrackerObserving>)observer
+    KSCRASH_DEPRECATED("Use -addObserverWithBlock: instead");
 
 @end
 
-/** Implement this and add yourself to a tracker to observer transitions */
+/** @deprecated Use `addObserverWithBlock:` instead. */
 NS_SWIFT_NAME(AppStateTrackerObserving)
+KSCRASH_DEPRECATED("Use -addObserverWithBlock: instead")
 @protocol KSCrashAppStateTrackerObserving <NSObject>
 - (void)appStateTracker:(KSCrashAppStateTracker *)tracker didTransitionToState:(KSCrashAppTransitionState)state;
 @end

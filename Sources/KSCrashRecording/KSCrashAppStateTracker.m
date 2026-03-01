@@ -84,40 +84,6 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
     }
 }
 
-@interface KSCrashAppStateTrackerBlockObserver : NSObject <KSCrashAppStateTrackerObserving>
-
-@property(nonatomic, copy) KSCrashAppStateTrackerObserverBlock block;
-@property(nonatomic, weak) id<KSCrashAppStateTrackerObserving> object;
-
-@property(nonatomic, weak) KSCrashAppStateTracker *tracker;
-
-- (BOOL)shouldReap;
-
-@end
-
-@implementation KSCrashAppStateTrackerBlockObserver
-
-- (void)appStateTracker:(nonnull KSCrashAppStateTracker *)tracker
-    didTransitionToState:(KSCrashAppTransitionState)transitionState
-{
-    KSCrashAppStateTrackerObserverBlock block = self.block;
-    if (block) {
-        block(transitionState);
-    }
-
-    id<KSCrashAppStateTrackerObserving> object = self.object;
-    if (object) {
-        [object appStateTracker:self.tracker didTransitionToState:transitionState];
-    }
-}
-
-- (BOOL)shouldReap
-{
-    return self.block == nil && self.object == nil;
-}
-
-@end
-
 @interface KSCrashAppStateTracker () {
     NSNotificationCenter *_center;
     NSArray<id<NSObject>> *_registrations;
@@ -125,7 +91,9 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
     // transition state and observers protected by the lock
     os_unfair_lock _lock;
     KSCrashAppTransitionState _transitionState;
-    NSMutableArray<id<KSCrashAppStateTrackerObserving>> *_observers;
+
+    // weak objects are `KSCrashAppStateTrackerObserverBlock`'s
+    NSPointerArray *_observers;
 }
 @end
 
@@ -157,7 +125,7 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
 {
     if ((self = [super init])) {
         _lock = OS_UNFAIR_LOCK_INIT;
-        _observers = [NSMutableArray array];
+        _observers = [NSPointerArray weakObjectsPointerArray];
         _center = notificationCenter;
         _registrations = nil;
 
@@ -172,72 +140,37 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
     [self stop];
 }
 
-// Observers are either an object passed in that
-// implements `KSCrashAppStateTrackerObserving` or a block.
-// Both will be wrapped in a `KSCrashAppStateTrackerBlockObserver`.
-// if a block, then it'll simply call the block.
-// If the object, we'll keep a weak reference to it.
-// Objects will be reaped when their block and their object
-// is nil.
-// We'll reap on add and removal or any type of observer.
-- (void)_locked_reapObserversOrObject:(id)object
+- (id)addObserverWithBlock:(KSCrashAppStateTrackerObserverBlock)block
 {
-    NSMutableArray *toRemove = [NSMutableArray array];
-    for (KSCrashAppStateTrackerBlockObserver *obj in _observers) {
-        id<KSCrashAppStateTrackerObserving> strongObject = obj.object;
-        if ((strongObject != nil && strongObject == object) || [obj shouldReap]) {
-            [toRemove addObject:obj];
-            obj.object = nil;
-            obj.block = nil;
-        }
+    if (!block) {
+        return nil;
     }
-    [_observers removeObjectsInArray:toRemove];
+    id heapBlock = [block copy];
+    os_unfair_lock_lock(&_lock);
+    [_observers addPointer:(__bridge void *_Nullable)(heapBlock)];
+    os_unfair_lock_unlock(&_lock);
+    return heapBlock;
 }
 
-- (void)_addObserver:(KSCrashAppStateTrackerBlockObserver *)observer
-{
-    os_unfair_lock_lock(&_lock);
-    [_observers addObject:observer];
-    [self _locked_reapObserversOrObject:nil];
-    os_unfair_lock_unlock(&_lock);
-}
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-implementations"
 
 - (void)addObserver:(id<KSCrashAppStateTrackerObserving>)observer
 {
-    KSCrashAppStateTrackerBlockObserver *obs = [[KSCrashAppStateTrackerBlockObserver alloc] init];
-    obs.object = observer;
-    obs.tracker = self;
-    [self _addObserver:obs];
+    // Deprecated: wrap the protocol observer into a block observer.
+    __weak id<KSCrashAppStateTrackerObserving> weakObserver = observer;
+    __weak typeof(self) weakSelf = self;
+    [self addObserverWithBlock:^(KSCrashAppTransitionState transitionState) {
+        [weakObserver appStateTracker:weakSelf didTransitionToState:transitionState];
+    }];
 }
 
-- (id<KSCrashAppStateTrackerObserving>)addObserverWithBlock:(KSCrashAppStateTrackerObserverBlock)block
+- (void)removeObserver:(__unused id<KSCrashAppStateTrackerObserving>)observer
 {
-    KSCrashAppStateTrackerBlockObserver *obs = [[KSCrashAppStateTrackerBlockObserver alloc] init];
-    obs.block = [block copy];
-    obs.tracker = self;
-    [self _addObserver:obs];
-    return obs;
+    // Deprecated: block-based observers are removed automatically when set to nil.
 }
 
-- (void)removeObserver:(id<KSCrashAppStateTrackerObserving>)observer
-{
-    os_unfair_lock_lock(&_lock);
-
-    // Observers added with a block
-    if ([observer isKindOfClass:KSCrashAppStateTrackerBlockObserver.class]) {
-        KSCrashAppStateTrackerBlockObserver *obs = (KSCrashAppStateTrackerBlockObserver *)observer;
-        obs.block = nil;
-        obs.object = nil;
-        [self _locked_reapObserversOrObject:nil];
-    }
-
-    // observers added with an object
-    else {
-        [self _locked_reapObserversOrObject:observer];
-    }
-
-    os_unfair_lock_unlock(&_lock);
-}
+#pragma clang diagnostic pop
 
 - (KSCrashAppTransitionState)transitionState
 {
@@ -252,18 +185,19 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
 
 - (void)_setTransitionState:(KSCrashAppTransitionState)transitionState
 {
-    NSArray<id<KSCrashAppStateTrackerObserving>> *observers = nil;
+    NSArray<KSCrashAppStateTrackerObserverBlock> *observers = nil;
     {
         os_unfair_lock_lock(&_lock);
         if (_transitionState != transitionState) {
             _transitionState = transitionState;
-            observers = [_observers copy];
+            [_observers compact];
+            observers = [_observers allObjects];
         }
         os_unfair_lock_unlock(&_lock);
     }
 
-    for (id<KSCrashAppStateTrackerObserving> obs in observers) {
-        [obs appStateTracker:self didTransitionToState:transitionState];
+    for (KSCrashAppStateTrackerObserverBlock obs in observers) {
+        obs(transitionState);
     }
 }
 

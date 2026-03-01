@@ -197,8 +197,8 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
 
 #if TARGET_OS_SIMULATOR
     // in simulator, remaining is always 0. So let's fake it.
-    // How about a limit of 6GB.
-    uint64_t limit = 6000000000;
+    // How about a limit of 3GB.
+    uint64_t limit = 3000000000;
     uint64_t remaining = limit < info.phys_footprint ? 0 : limit - info.phys_footprint;
 #elif KSCRASH_HOST_MAC
     // macOS doesn't limit memory usage the same way as it's implemented for other OSs.

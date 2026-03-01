@@ -50,7 +50,7 @@
 static KSCrash_LifecycleData *g_sidecar = NULL;
 static KSSpinLock g_sidecarLock = KSSPINLOCK_INIT;
 static KSCrash_ExceptionHandlerCallbacks g_callbacks = { 0 };
-static id<KSCrashAppStateTrackerObserving> g_appStateObserver = nil;
+static id g_appStateObserver = nil;
 
 static atomic_bool g_isEnabled = false;
 
@@ -332,7 +332,6 @@ static void setEnabled(bool isEnabled, __unused void *context)
                 onTransitionState(transitionState);
             }];
     } else {
-        [KSCrashAppStateTracker.sharedInstance removeObserver:g_appStateObserver];
         g_appStateObserver = nil;
 
         releaseSidecar();

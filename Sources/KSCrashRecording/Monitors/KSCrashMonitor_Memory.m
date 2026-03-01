@@ -106,7 +106,7 @@ static NSURL *g_memoryURL = nil;
 static KSCrashMonitor_MemoryTracker *g_memoryTracker = nil;
 
 // Observer token for app state transitions.
-static id<KSCrashAppStateTrackerObserving> g_appStateObserver = nil;
+static id g_appStateObserver = nil;
 
 static KSCrash_ExceptionHandlerCallbacks g_callbacks;
 
@@ -318,7 +318,6 @@ static void setEnabled(bool isEnabled, __unused void *context)
             }];
 
     } else {
-        [KSCrashAppStateTracker.sharedInstance removeObserver:g_appStateObserver];
         g_appStateObserver = nil;
         g_memoryTracker = nil;
         ksmemory_unmap();
