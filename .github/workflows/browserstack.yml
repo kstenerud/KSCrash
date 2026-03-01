@@ -211,9 +211,9 @@ jobs:
                     \"values\": [\"KSJSONCodecBenchmarks\", \"KSThreadBenchmarks\", \"KSProfilerBenchmarks\"]
                   },
                   {
-                    \"name\": \"Shard 3 - CrashReport, CxaThrow, CxaThrowCold\",
+                    \"name\": \"Shard 3 - CrashReport, CxaThrow, CxaThrowCold, KVS\",
                     \"strategy\": \"only-testing\",
-                    \"values\": [\"KSCrashReportBenchmarks\", \"KSCxaThrowBenchmarks\", \"KSCxaThrowColdBenchmarks\"]
+                    \"values\": [\"KSCrashReportBenchmarks\", \"KSCxaThrowBenchmarks\", \"KSCxaThrowColdBenchmarks\", \"KSKeyValueStoreBenchmarks\"]
                   }
                 ]
               }
