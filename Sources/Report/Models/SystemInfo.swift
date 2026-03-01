@@ -388,12 +388,12 @@ public struct SystemInfo: Codable, Sendable, Equatable {
 
         if let appStartTime {
             let formatter = ISO8601DateFormatter()
-            formatter.formatOptions = [.withInternetDateTime]
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
             try c.encode(formatter.string(from: appStartTime), forKey: .appStartTime)
         }
         if let bootTime {
             let formatter = ISO8601DateFormatter()
-            formatter.formatOptions = [.withInternetDateTime]
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
             try c.encode(formatter.string(from: bootTime), forKey: .bootTime)
         }
     }
