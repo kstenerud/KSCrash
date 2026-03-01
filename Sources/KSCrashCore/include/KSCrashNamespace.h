@@ -223,7 +223,6 @@
 #define kscm_setRunSidecarPathForRunIDProvider KSCRASH_NS(kscm_setRunSidecarPathForRunIDProvider)
 #define kscm_setRunSidecarPathProvider KSCRASH_NS(kscm_setRunSidecarPathProvider)
 #define kscm_signal_getAPI KSCRASH_NS(kscm_signal_getAPI)
-#define kscm_signal_sigterm_setMonitoringEnabled KSCRASH_NS(kscm_signal_sigterm_setMonitoringEnabled)
 #define kscm_stringFromRole KSCRASH_NS(kscm_stringFromRole)
 #define kscm_system_getAPI KSCRASH_NS(kscm_system_getAPI)
 #define kscm_system_getSystemData KSCRASH_NS(kscm_system_getSystemData)

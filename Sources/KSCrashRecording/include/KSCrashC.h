@@ -208,6 +208,28 @@ const char *kscrash_applicationSupportPath(void);
  */
 const char *kscrash_cachesPath(void);
 
+#pragma mark-- Deprecated --
+
+/** @deprecated The Lifecycle monitor observes state transitions directly. */
+void kscrash_notifyObjCLoad(void)
+    KSCRASH_DEPRECATED("No longer needed. The Lifecycle monitor observes state directly.");
+
+/** @deprecated The Lifecycle monitor observes state transitions directly. */
+void kscrash_notifyAppActive(bool isActive)
+    KSCRASH_DEPRECATED("No longer needed. The Lifecycle monitor observes state directly.");
+
+/** @deprecated The Lifecycle monitor observes state transitions directly. */
+void kscrash_notifyAppInForeground(bool isInForeground)
+    KSCRASH_DEPRECATED("No longer needed. The Lifecycle monitor observes state directly.");
+
+/** @deprecated The Lifecycle monitor observes state transitions directly. */
+void kscrash_notifyAppTerminate(void)
+    KSCRASH_DEPRECATED("No longer needed. The Lifecycle monitor observes state directly.");
+
+/** @deprecated The Lifecycle monitor observes state transitions directly. */
+void kscrash_notifyAppCrash(void)
+    KSCRASH_DEPRECATED("No longer needed. The Lifecycle monitor observes state directly.");
+
 #ifdef __cplusplus
 }
 #endif

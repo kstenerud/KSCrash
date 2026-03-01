@@ -261,8 +261,6 @@ static void init(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused void *co
 
 #endif /* KSCRASH_HAS_SIGNAL */
 
-void kscm_signal_sigterm_setMonitoringEnabled(__unused bool enabled) {}
-
 KSCrashMonitorAPI *kscm_signal_getAPI(void)
 {
     static KSCrashMonitorAPI api = { 0 };

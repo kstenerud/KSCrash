@@ -320,11 +320,6 @@ static void handleConfiguration(KSCrashCConfiguration *configuration)
 #endif
     kstc_setSearchQueueNames(configuration->enableQueueNameSearch);
     kscrashreport_setIntrospectMemory(configuration->enableMemoryIntrospection);
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    kscm_signal_sigterm_setMonitoringEnabled(configuration->enableSigTermMonitoring);
-#pragma clang diagnostic pop
-
     if (configuration->doNotIntrospectClasses.strings != NULL) {
         kscrashreport_setDoNotIntrospectClasses(configuration->doNotIntrospectClasses.strings,
                                                 configuration->doNotIntrospectClasses.length);
@@ -512,6 +507,26 @@ const char *kscrash_getRunID(void) { return g_runID; }
 const char *kscrash_getLastRunID(void) { return g_lastRunID; }
 
 const char *kscrash_namespaceIdentifier(void) { return KSCRASH_NS_STRING("KSCrash"); }
+
+// ============================================================================
+#pragma mark - Deprecated -
+// ============================================================================
+
+void kscrash_notifyObjCLoad(void) { KSLOG_DEBUG("kscrash_notifyObjCLoad is deprecated and does nothing."); }
+
+void kscrash_notifyAppActive(__unused bool isActive)
+{
+    KSLOG_DEBUG("kscrash_notifyAppActive is deprecated and does nothing.");
+}
+
+void kscrash_notifyAppInForeground(__unused bool isInForeground)
+{
+    KSLOG_DEBUG("kscrash_notifyAppInForeground is deprecated and does nothing.");
+}
+
+void kscrash_notifyAppTerminate(void) { KSLOG_DEBUG("kscrash_notifyAppTerminate is deprecated and does nothing."); }
+
+void kscrash_notifyAppCrash(void) { KSLOG_DEBUG("kscrash_notifyAppCrash is deprecated and does nothing."); }
 
 // ============================================================================
 #pragma mark - Testing API -

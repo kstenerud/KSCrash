@@ -54,7 +54,7 @@ extern "C" {
 #pragma mark - Sidecar Struct -
 // ============================================================================
 
-#define KSLIFECYCLE_MAGIC ((int32_t)0x6B736C63)  // 'kslc'
+#define KSLIFECYCLE_MAGIC ((int32_t)'kslc')
 
 static const uint8_t KSCrash_Lifecycle_CurrentVersion = 1;
 
