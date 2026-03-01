@@ -88,7 +88,8 @@ g_monitorMappings[] = { { KSCrashMonitorTypeMachException, kscm_machexception_ge
                         { KSCrashMonitorTypeApplicationState, kscm_lifecycle_getAPI },
                         { KSCrashMonitorTypeZombie, kscm_zombie_getAPI },
                         { KSCrashMonitorTypeMemoryTermination, kscm_memory_getAPI },
-                        { KSCrashMonitorTypeWatchdog, kscm_watchdog_getAPI } };
+                        { KSCrashMonitorTypeWatchdog, kscm_watchdog_getAPI },
+                        { KSCrashMonitorTypeUserInfo, kscm_userinfo_getAPI } };
 #pragma clang diagnostic pop
 
 static const size_t g_monitorMappingCount = sizeof(g_monitorMappings) / sizeof(g_monitorMappings[0]);

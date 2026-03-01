@@ -142,7 +142,9 @@ bool kscmr_activateMonitors(KSCrashMonitorAPIList *monitorList)
 
         api->setEnabled(shouldEnable, api->context);
         bool isEnabled = api->isEnabled(api->context);
-        anyMonitorActive |= isEnabled;
+        if (!(flags & KSCrashMonitorFlagPlugin)) {
+            anyMonitorActive |= isEnabled;
+        }
         KSLOG_DEBUG("Monitor %s is now %sabled.", api->monitorId(api->context), isEnabled ? "en" : "dis");
     }
 

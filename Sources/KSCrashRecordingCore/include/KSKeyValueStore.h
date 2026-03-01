@@ -102,9 +102,12 @@ typedef struct {
     void (*onDouble)(const char *key, uint16_t keyLen, double value, void *ctx);
     void (*onBool)(const char *key, uint16_t keyLen, bool value, void *ctx);
     void (*onDate)(const char *key, uint16_t keyLen, uint64_t nanosecondsSince1970, void *ctx);
+    /** Called for keys whose final resolved state is a tombstone (removal).
+     *  Allows callers to actively delete keys from a pre-existing dictionary. */
+    void (*onRemoved)(const char *key, uint16_t keyLen, void *ctx);
 } KSKVSCallbacks;
 
-/** Iterate resolved (last-write-wins, tombstones excluded) records.
+/** Iterate resolved (last-write-wins) records and tombstones.
  *  Works on any store (file-backed writable or read-only).
  */
 void kskvs_iterate(const KSKeyValueStore *store, const KSKVSCallbacks *callbacks, void *context);

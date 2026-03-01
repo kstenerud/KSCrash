@@ -93,7 +93,10 @@ enum
     
     /** Tracks hangs as well as hangs that cause a termination (watchdog terminations) */
     KSCrashMonitorTypeWatchdog           = 1 << 10,
-    
+
+    /** Track per-key user data that survives crashes. */
+    KSCrashMonitorTypeUserInfo           = 1 << 11,
+
     /** Enable all monitoring options. */
     KSCrashMonitorTypeAll = (
                              KSCrashMonitorTypeMachException |
@@ -105,7 +108,8 @@ enum
                              KSCrashMonitorTypeApplicationState |
                              KSCrashMonitorTypeZombie |
                              KSCrashMonitorTypeMemoryTermination |
-                             KSCrashMonitorTypeWatchdog
+                             KSCrashMonitorTypeWatchdog |
+                             KSCrashMonitorTypeUserInfo
                              ),
 
     /** Fatal monitors track exceptions that lead to error termination of the process. */
@@ -145,7 +149,8 @@ enum
     KSCrashMonitorTypeRequired = (
                                   KSCrashMonitorTypeSystem |
                                   KSCrashMonitorTypeApplicationState |
-                                  KSCrashMonitorTypeMemoryTermination
+                                  KSCrashMonitorTypeMemoryTermination |
+                                  KSCrashMonitorTypeUserInfo
                                   ),
 
     /** Disable automatic reporting; only manual reports are allowed. */

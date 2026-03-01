@@ -294,6 +294,25 @@ static NSString *writeRawSidecar(NSString *dir, NSData *data)
     XCTAssertNil(stitched[KSCrashField_User][@"remove_me"]);
 }
 
+- (void)testTombstoneRemovesPreExistingReportKey
+{
+    // Sidecar only has a removal for "old_key" which exists in the report.
+    NSString *path = buildSidecarFile(self.tempDir, ^(KSKeyValueStore *store) {
+        kskvs_removeValue(store, "old_key");
+    });
+
+    NSDictionary *report = makeReportWithUserSection(@{ @"old_key" : @"old_val", @"keep" : @"yes" });
+    char *result =
+        kscm_userinfo_stitchReport(jsonString(report).UTF8String, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != NULL);
+
+    NSDictionary *stitched = dictFromCString(result);
+    free(result);
+
+    XCTAssertNil(stitched[KSCrashField_User][@"old_key"]);
+    XCTAssertEqualObjects(stitched[KSCrashField_User][@"keep"], @"yes");
+}
+
 #pragma mark - Merge With Existing User Section
 
 - (void)testMergeWithExistingUserSection

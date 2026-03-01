@@ -122,16 +122,14 @@ static void monitorInit(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused v
 
 static const char *monitorId(__unused void *context) { return KSUSERINFO_MONITOR_ID; }
 
-static KSCrashMonitorFlag monitorFlags(__unused void *context) { return KSCrashMonitorFlagNone; }
-
 static void setEnabled(bool isEnabled, __unused void *context)
 {
     if (isEnabled == g_isEnabled) {
         return;
     }
-    g_isEnabled = isEnabled;
 
     if (!isEnabled) {
+        g_isEnabled = false;
         return;
     }
 
@@ -153,6 +151,9 @@ static void setEnabled(bool isEnabled, __unused void *context)
         KSLOG_ERROR("Failed to create UserInfo mmap store");
     }
 
+    // Only report enabled after successful store creation.
+    g_isEnabled = (g_store != NULL);
+
     os_unfair_lock_unlock(&g_lock);
 }
 
@@ -164,17 +165,12 @@ KSCrashMonitorAPI *kscm_userinfo_getAPI(void)
     if (kscma_initAPI(&api)) {
         api.init = monitorInit;
         api.monitorId = monitorId;
-        api.monitorFlags = monitorFlags;
         api.setEnabled = setEnabled;
         api.isEnabled = isEnabled;
         api.stitchReport = kscm_userinfo_stitchReport;
     }
     return &api;
 }
-
-// Self-register on library load so no changes to KSCrashMonitorType.h
-// or g_monitorMappings[] are needed.
-__attribute__((constructor)) static void registerUserInfoMonitor(void) { kscm_addMonitor(kscm_userinfo_getAPI()); }
 
 // ============================================================================
 #pragma mark - Testing Support -
