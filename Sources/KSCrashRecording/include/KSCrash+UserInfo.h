@@ -31,7 +31,8 @@ NS_ASSUME_NONNULL_BEGIN
 @interface KSCrash (UserInfo)
 
 /** Set a string value for the given key in the crash report's user section.
- *  Passing nil for value removes the key. Usable before or after install.
+ *  Passing nil for value removes the key.
+ *  Values are only recorded once KSCrash has been installed.
  */
 - (void)setUserInfoString:(nullable NSString *)value forKey:(NSString *)key NS_SWIFT_NAME(setUserInfo(_:forKey:));
 

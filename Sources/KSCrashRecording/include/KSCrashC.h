@@ -117,7 +117,7 @@ const char *kscrash_getUserInfoJSON(void) KSCRASH_DEPRECATED("Use the per-key AP
 /** Set a string value for the given key.
  *  Passing NULL for value removes the key.
  *  Strings longer than 1024 bytes are truncated.
- *  Usable before or after kscrash_install().
+ *  Requires kscrash_install() to have completed successfully before use.
  */
 void kscrash_setUserInfoString(const char *key, const char *value);
 
