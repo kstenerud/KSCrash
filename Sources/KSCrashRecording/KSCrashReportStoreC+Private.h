@@ -75,6 +75,22 @@ bool kscrs_getReportSidecarFilePathForReport(const char *monitorId, int64_t repo
 bool kscrs_getRunSidecarFilePath(const char *monitorId, char *pathBuffer, size_t pathBufferLength,
                                  const KSCrashReportStoreCConfiguration *const configuration);
 
+/** Get a run-scoped sidecar file path for a specific run ID.
+ *
+ * Like kscrs_getRunSidecarFilePath, but uses the given runID instead of
+ * the current process run ID. Does NOT create the directory (read-only use).
+ *
+ * @param monitorId The unique identifier of the monitor.
+ * @param runID The run ID to look up.
+ * @param pathBuffer Buffer to receive the sidecar file path.
+ * @param pathBufferLength The size of the path buffer.
+ *
+ * @return true if the path was successfully written, false on failure.
+ */
+bool kscrs_getRunSidecarFilePathForRunID(const char *monitorId, const char *runID, char *pathBuffer,
+                                         size_t pathBufferLength,
+                                         const KSCrashReportStoreCConfiguration *const configuration);
+
 /** Extract the run_id from a JSON crash report.
  *
  * Parses report["report"]["run_id"] from the JSON string.

@@ -152,9 +152,11 @@ static void CPPExceptionTerminate(void)
         thread_t thisThread = (thread_t)ksthread_self();
         // This requires async-safety because the environment is suspended.
         KSCrash_MonitorContext *crashContext = g_state.callbacks.notify(
-            thisThread,
-            (KSCrash_ExceptionHandlingRequirements) {
-                .shouldRecordAllThreads = true, .shouldWriteReport = true, .isFatal = true, .asyncSafety = true });
+            thisThread, (KSCrash_ExceptionHandlingRequirements) { .shouldRecordAllThreads = true,
+                                                                  .shouldWriteReport = true,
+                                                                  .isFatal = true,
+                                                                  .isCleanExit = false,
+                                                                  .asyncSafety = true });
         if (crashContext->requirements.shouldExitImmediately) {
             goto skip_handling;
         }

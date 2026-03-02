@@ -57,7 +57,6 @@
 static struct {
     _Atomic(KSCM_InstalledState) installedState;
     atomic_bool isEnabled;
-    bool sigtermMonitoringEnabled;
 
 #if KSCRASH_HAS_SIGNAL_STACK
     /** Our custom signal stack. The signal handler will use this as its stack. */
@@ -77,7 +76,6 @@ static bool isEnabled(__unused void *context) { return g_state.isEnabled && g_st
 // ============================================================================
 
 static void uninstall(void);
-static bool shouldWriteReport(int sigNum) { return !(sigNum == SIGTERM && !g_state.sigtermMonitoringEnabled); }
 
 // ============================================================================
 #pragma mark - Callbacks -
@@ -103,8 +101,9 @@ static void handleSignal(int sigNum, siginfo_t *signalInfo, void *userContext)
         KSCrash_MonitorContext *crashContext = g_state.callbacks.notify(
             thisThread, (KSCrash_ExceptionHandlingRequirements) { .asyncSafety = true,
                                                                   .isFatal = true,
+                                                                  .isCleanExit = (sigNum == SIGTERM),
                                                                   .shouldRecordAllThreads = true,
-                                                                  .shouldWriteReport = shouldWriteReport(sigNum) });
+                                                                  .shouldWriteReport = true });
         if (crashContext->requirements.shouldExitImmediately) {
             goto exit_immediately;
         }
@@ -261,12 +260,6 @@ static void init(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused void *co
 }
 
 #endif /* KSCRASH_HAS_SIGNAL */
-
-#if KSCRASH_HAS_SIGNAL
-void kscm_signal_sigterm_setMonitoringEnabled(bool enabled) { g_state.sigtermMonitoringEnabled = enabled; }
-#else
-void kscm_signal_sigterm_setMonitoringEnabled(__unused bool enabled) {}
-#endif
 
 KSCrashMonitorAPI *kscm_signal_getAPI(void)
 {

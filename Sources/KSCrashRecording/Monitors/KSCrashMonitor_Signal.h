@@ -32,6 +32,7 @@
 
 #include "KSCrashMonitorAPI.h"
 #include "KSCrashNamespace.h"
+#include "KSSystemCapabilities.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -40,13 +41,6 @@ extern "C" {
 /** Access the Monitor API.
  */
 KSCrashMonitorAPI *kscm_signal_getAPI(void);
-
-/** Enables or disables SIGTERM monitoring.
- *  Default to false.
- *
- * @param enabled if true, SIGTERM signals will be monitored and reported.
- */
-void kscm_signal_sigterm_setMonitoringEnabled(bool enabled);
 
 #ifdef __cplusplus
 }

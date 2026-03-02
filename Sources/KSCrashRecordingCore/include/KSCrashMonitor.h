@@ -147,6 +147,16 @@ void kscm_setReportSidecarPathProvider(KSCrashReportSidecarPathProviderFunc prov
  */
 void kscm_setRunSidecarPathProvider(KSCrashSidecarRunPathProviderFunc provider);
 
+/**
+ * Sets the callback used by monitors to obtain run-scoped sidecar file paths for a specific run ID.
+ *
+ * This allows monitors to read a previous run's sidecar. Does NOT create directories (read-only).
+ * This must be called before monitors are activated.
+ *
+ * @param provider The callback function, or NULL to disable.
+ */
+void kscm_setRunSidecarPathForRunIDProvider(KSCrashSidecarRunPathForRunIDProviderFunc provider);
+
 #ifdef __cplusplus
 }
 #endif

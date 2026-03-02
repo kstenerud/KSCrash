@@ -114,6 +114,13 @@ public struct CrashError: Codable, Sendable {
     /// Profile information (for profiling reports).
     public let profile: ProfileInfo?
 
+    /// Whether this error was fatal to the process.
+    public let isFatal: Bool?
+
+    /// Whether the exit was expected and not a crash (e.g., SIGTERM).
+    /// Only meaningful when `isFatal` is true.
+    public let isCleanExit: Bool?
+
     public init(
         address: UInt64? = nil,
         mach: MachError? = nil,
@@ -126,7 +133,9 @@ public struct CrashError: Codable, Sendable {
         hang: HangInfo? = nil,
         exitReason: ExitReasonInfo? = nil,
         reason: String? = nil,
-        profile: ProfileInfo? = nil
+        profile: ProfileInfo? = nil,
+        isFatal: Bool? = nil,
+        isCleanExit: Bool? = nil
     ) {
         self.address = address
         self.mach = mach
@@ -140,6 +149,8 @@ public struct CrashError: Codable, Sendable {
         self.exitReason = exitReason
         self.reason = reason
         self.profile = profile
+        self.isFatal = isFatal
+        self.isCleanExit = isCleanExit
     }
 
     enum CodingKeys: String, CodingKey {
@@ -155,5 +166,7 @@ public struct CrashError: Codable, Sendable {
         case exitReason = "exit_reason"
         case reason
         case profile
+        case isFatal = "is_fatal"
+        case isCleanExit = "is_clean_exit"
     }
 }

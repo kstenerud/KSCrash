@@ -258,14 +258,10 @@ typedef struct {
 
     /** If true, enables monitoring for SIGTERM signals.
      *
-     * A SIGTERM is usually sent to the application by the OS during a graceful shutdown,
-     * but it can also happen on some Watchdog events.
-     * Enabling this can provide more insights into the cause of the SIGTERM, but
-     * it can also generate many false-positive crash reports.
-     *
-     * **Default**: false
+     * @deprecated SIGTERM is now always reported as fatal with isCleanExit=true. This field is ignored.
      */
-    bool enableSigTermMonitoring;
+    bool enableSigTermMonitoring
+        KSCRASH_DEPRECATED("SIGTERM is now always reported as fatal with isCleanExit. This field is ignored.");
 
     /** If true, use compact binary image reporting.
      *
@@ -357,7 +353,10 @@ static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
         .addConsoleLogToReport = false,
         .printPreviousLogOnStartup = false,
         .enableSwapCxaThrow = true,
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         .enableSigTermMonitoring = false,
+#pragma clang diagnostic pop
         .enableCompactBinaryImages = false,
         .plugins = { .apis = NULL, .length = 0, .release = NULL },
     };

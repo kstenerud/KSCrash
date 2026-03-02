@@ -240,7 +240,7 @@
             </BuildableReference>
             <SkippedTests>
                <Test
-                  Identifier = "KSCrashMonitor_AppState_Tests">
+                  Identifier = "KSCrashMonitor_Lifecycle_Tests">
                </Test>
             </SkippedTests>
          </TestableReference>

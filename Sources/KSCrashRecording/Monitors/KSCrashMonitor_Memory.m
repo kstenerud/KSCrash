@@ -106,7 +106,7 @@ static NSURL *g_memoryURL = nil;
 static KSCrashMonitor_MemoryTracker *g_memoryTracker = nil;
 
 // Observer token for app state transitions.
-static id<KSCrashAppStateTrackerObserving> g_appStateObserver = nil;
+static id g_appStateObserver = nil;
 
 static KSCrash_ExceptionHandlerCallbacks g_callbacks;
 
@@ -318,7 +318,6 @@ static void setEnabled(bool isEnabled, __unused void *context)
             }];
 
     } else {
-        [KSCrashAppStateTracker.sharedInstance removeObserver:g_appStateObserver];
         g_appStateObserver = nil;
         g_memoryTracker = nil;
         ksmemory_unmap();
@@ -409,6 +408,8 @@ static void kscm_memory_check_for_oom_in_previous_session(void)
                         KSCrashField_Signal : @(SIGKILL),
                         KSCrashField_Name : @"SIGKILL",
                     };
+                    json[KSCrashField_Crash][KSCrashField_Error][KSCrashField_IsFatal] = @YES;
+                    json[KSCrashField_Crash][KSCrashField_Error][KSCrashField_IsCleanExit] = @NO;
 
                     data = [NSJSONSerialization dataWithJSONObject:json options:NSJSONWritingPrettyPrinted error:nil];
                     kscrash_addUserReport((const char *)data.bytes, (int)data.length);
@@ -607,7 +608,6 @@ static void ksmemory_write_possible_oom(void)
     kscm_fillMonitorContext(ctx, kscm_memory_getAPI());
     ctx->registersAreValid = false;
     ctx->offendingMachineContext = &machineContext;
-    ctx->currentSnapshotUserReported = true;
 
     // we don't need all the images, we have no stack
     ctx->omitBinaryImages = true;

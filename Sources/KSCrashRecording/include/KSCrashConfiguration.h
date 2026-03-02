@@ -185,14 +185,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 /** If true, enables monitoring for SIGTERM signals.
  *
- * A SIGTERM is usually sent to the application by the OS during a graceful shutdown,
- * but it can also happen on some Watchdog events.
- * Enabling this can provide more insights into the cause of the SIGTERM, but
- * it can also generate many false-positive crash reports.
- *
- * **Default**: false
+ * @deprecated SIGTERM is now always reported as fatal with isCleanExit=true. This property is ignored.
  */
-@property(nonatomic, assign) BOOL enableSigTermMonitoring;
+@property(nonatomic, assign) BOOL enableSigTermMonitoring KSCRASH_DEPRECATED(
+    "SIGTERM is now always reported as fatal with isCleanExit. This property is ignored.");
 
 /** If true, use compact binary image reporting.
  *

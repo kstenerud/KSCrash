@@ -104,6 +104,8 @@ KSCRF_DEFINE_CONSTANT(KSCrashField, UUID, uuid, "uuid")
 KSCRF_DEFINE_CONSTANT(KSCrashField, Value, value, "value")
 KSCRF_DEFINE_CONSTANT(KSCrashField, MemoryLimit, memoryLimit, "memory_limit")
 KSCRF_DEFINE_CONSTANT(KSCrashField, Error, error, "error")
+KSCRF_DEFINE_CONSTANT(KSCrashField, IsFatal, isFatal, "is_fatal")
+KSCRF_DEFINE_CONSTANT(KSCrashField, IsCleanExit, isCleanExit, "is_clean_exit")
 KSCRF_DEFINE_CONSTANT(KSCrashField, JSONData, jsonData, "json_data")
 
 #pragma mark - Notable Address -

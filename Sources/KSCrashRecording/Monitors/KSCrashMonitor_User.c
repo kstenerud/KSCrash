@@ -56,6 +56,7 @@ void kscm_reportUserException(const char *name, const char *reason, const char *
     KSCrash_MonitorContext *ctx = g_callbacks.notify(
         thisThread, (KSCrash_ExceptionHandlingRequirements) { .asyncSafety = false,
                                                               .isFatal = terminateProgram,
+                                                              .isCleanExit = false,
                                                               .shouldRecordAllThreads = logAllThreads,
                                                               .shouldWriteReport = true });
     if (ctx->requirements.shouldExitImmediately) {
@@ -77,7 +78,6 @@ void kscm_reportUserException(const char *name, const char *reason, const char *
     ctx->userException.lineOfCode = lineOfCode;
     ctx->userException.customStackTrace = stackTrace;
     ctx->stackCursor = &stackCursor;
-    ctx->currentSnapshotUserReported = true;
 
     g_callbacks.handle(ctx);
 

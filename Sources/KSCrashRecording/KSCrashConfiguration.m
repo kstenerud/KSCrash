@@ -63,7 +63,10 @@
         _addConsoleLogToReport = cConfig.addConsoleLogToReport ? YES : NO;
         _printPreviousLogOnStartup = cConfig.printPreviousLogOnStartup ? YES : NO;
         _enableSwapCxaThrow = cConfig.enableSwapCxaThrow ? YES : NO;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         _enableSigTermMonitoring = cConfig.enableSigTermMonitoring ? YES : NO;
+#pragma clang diagnostic pop
         _enableCompactBinaryImages = cConfig.enableCompactBinaryImages ? YES : NO;
         _plugins = nil;
         _willWriteReportCallback = cConfig.willWriteReportCallback;
@@ -128,7 +131,10 @@
     config.addConsoleLogToReport = self.addConsoleLogToReport;
     config.printPreviousLogOnStartup = self.printPreviousLogOnStartup;
     config.enableSwapCxaThrow = self.enableSwapCxaThrow;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     config.enableSigTermMonitoring = self.enableSigTermMonitoring;
+#pragma clang diagnostic pop
     config.enableCompactBinaryImages = self.enableCompactBinaryImages;
     config.willWriteReportCallback = self.willWriteReportCallback;
 
@@ -203,7 +209,10 @@
     copy.addConsoleLogToReport = self.addConsoleLogToReport;
     copy.printPreviousLogOnStartup = self.printPreviousLogOnStartup;
     copy.enableSwapCxaThrow = self.enableSwapCxaThrow;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     copy.enableSigTermMonitoring = self.enableSigTermMonitoring;
+#pragma clang diagnostic pop
     copy.enableCompactBinaryImages = self.enableCompactBinaryImages;
     copy.plugins = [self.plugins copy];
     return copy;

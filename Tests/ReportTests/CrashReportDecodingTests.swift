@@ -733,6 +733,124 @@ final class CrashReportDecodingTests: XCTestCase {
         XCTAssertEqual(profile?.frames[1].objectName, "App")
     }
 
+    func testDecodeIsFatalTrue() throws {
+        let json = """
+            {
+                "binary_images": [],
+                "crash": {
+                    "error": {
+                        "type": "signal",
+                        "is_fatal": true
+                    },
+                    "threads": []
+                },
+                "report": { "id": "test" },
+                "system": {}
+            }
+            """
+
+        let report = try CrashReport.decode(from: json)
+        XCTAssertEqual(report.crash.error.isFatal, true)
+    }
+
+    func testDecodeIsFatalFalse() throws {
+        let json = """
+            {
+                "binary_images": [],
+                "crash": {
+                    "error": {
+                        "type": "signal",
+                        "is_fatal": false
+                    },
+                    "threads": []
+                },
+                "report": { "id": "test" },
+                "system": {}
+            }
+            """
+
+        let report = try CrashReport.decode(from: json)
+        XCTAssertEqual(report.crash.error.isFatal, false)
+    }
+
+    func testDecodeIsFatalAbsent() throws {
+        let json = """
+            {
+                "binary_images": [],
+                "crash": {
+                    "error": {
+                        "type": "signal"
+                    },
+                    "threads": []
+                },
+                "report": { "id": "test" },
+                "system": {}
+            }
+            """
+
+        let report = try CrashReport.decode(from: json)
+        XCTAssertNil(report.crash.error.isFatal)
+    }
+
+    func testDecodeIsCleanExitTrue() throws {
+        let json = """
+            {
+                "binary_images": [],
+                "crash": {
+                    "error": {
+                        "type": "signal",
+                        "is_clean_exit": true
+                    },
+                    "threads": []
+                },
+                "report": { "id": "test" },
+                "system": {}
+            }
+            """
+
+        let report = try CrashReport.decode(from: json)
+        XCTAssertEqual(report.crash.error.isCleanExit, true)
+    }
+
+    func testDecodeIsCleanExitFalse() throws {
+        let json = """
+            {
+                "binary_images": [],
+                "crash": {
+                    "error": {
+                        "type": "signal",
+                        "is_clean_exit": false
+                    },
+                    "threads": []
+                },
+                "report": { "id": "test" },
+                "system": {}
+            }
+            """
+
+        let report = try CrashReport.decode(from: json)
+        XCTAssertEqual(report.crash.error.isCleanExit, false)
+    }
+
+    func testDecodeIsCleanExitAbsent() throws {
+        let json = """
+            {
+                "binary_images": [],
+                "crash": {
+                    "error": {
+                        "type": "signal"
+                    },
+                    "threads": []
+                },
+                "report": { "id": "test" },
+                "system": {}
+            }
+            """
+
+        let report = try CrashReport.decode(from: json)
+        XCTAssertNil(report.crash.error.isCleanExit)
+    }
+
     func testAllExampleReportsDecodeWithKnownErrorType() throws {
         let resourceURL = Bundle.module.resourceURL!
         let jsonFiles = try FileManager.default.contentsOfDirectory(at: resourceURL, includingPropertiesForKeys: nil)

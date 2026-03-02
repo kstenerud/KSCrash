@@ -268,6 +268,7 @@ static KSCrash_MonitorContext *notifyException(const mach_port_t offendingThread
         requirements.asyncSafety = true;
         requirements.shouldRecordAllThreads = false;
         requirements.isFatal = true;
+        requirements.isCleanExit = false;
     } else if (wasHandlingFatalException) {
         // This is an incidental exception that happened while we were handling a fatal
         // exception. Pause this handler to allow the other handler to finish.
@@ -377,6 +378,12 @@ void kscm_setRunSidecarPathProvider(KSCrashSidecarRunPathProviderFunc provider)
 {
     init();
     g_exceptionCallbacks.getRunSidecarPath = provider;
+}
+
+void kscm_setRunSidecarPathForRunIDProvider(KSCrashSidecarRunPathForRunIDProviderFunc provider)
+{
+    init();
+    g_exceptionCallbacks.getRunSidecarPathForRunID = provider;
 }
 
 // ============================================================================

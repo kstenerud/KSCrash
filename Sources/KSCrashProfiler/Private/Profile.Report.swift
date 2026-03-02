@@ -75,6 +75,7 @@ extension Profile {
             shouldRecordAllThreads: 0,
             shouldWriteReport: 1,
             isFatal: 0,
+            isCleanExit: 0,
             asyncSafety: 0,
             asyncSafetyBecauseThreadsSuspended: 0,
             crashedDuringExceptionHandling: 0,

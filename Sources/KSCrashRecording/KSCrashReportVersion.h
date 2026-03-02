@@ -27,6 +27,6 @@
 #ifndef HDR_KSCrashReportVersion_h
 #define HDR_KSCrashReportVersion_h
 
-#define KSCRASH_REPORT_VERSION "3.8.0"
+#define KSCRASH_REPORT_VERSION "3.9.0"
 
 #endif /* HDR_KSCrashReportVersion_h */

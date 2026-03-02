@@ -131,6 +131,7 @@ static KS_NOINLINE void handleException(NSException *exception, BOOL isUserRepor
             thisThread, (KSCrash_ExceptionHandlingRequirements) { .asyncSafety = false,
                                                                   // User-reported exceptions are not considered fatal.
                                                                   .isFatal = !isUserReported,
+                                                                  .isCleanExit = false,
                                                                   .shouldRecordAllThreads = logAllThreads != NO,
                                                                   .shouldWriteReport = true });
         if (crashContext->requirements.shouldExitImmediately) {
@@ -148,7 +149,6 @@ static KS_NOINLINE void handleException(NSException *exception, BOOL isUserRepor
         crashContext->NSException.userInfo = userInfo;
         crashContext->exceptionName = exceptionName;
         crashContext->crashReason = exceptionReason;
-        crashContext->currentSnapshotUserReported = isUserReported;
 
         // The handler backtrace goes into stackCursor (shown as the crashed thread's backtrace).
         // The exception's origin backtrace goes into exceptionStackCursor (last_exception_backtrace).
