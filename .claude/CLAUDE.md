@@ -56,6 +56,8 @@ KSCrash is a layered crash reporting framework:
 - **Installations**: Pre-configured setups
 - **Monitors**: Crash detection mechanisms (see `.claude/rules/monitors.md` for details)
 
+Public modules (API surface): KSCrashRecording, KSCrashFilters, KSCrashSinks, KSCrashInstallations, KSCrashDiscSpaceMonitor, KSCrashBootTimeMonitor, KSCrashDemangleFilter. Public headers: `Sources/[ModuleName]/include/*.h`.
+
 ### Watchdog Monitor
 
 Fixed 250ms threshold for main thread hang detection. Not configurable — aligns with Apple's definition. See `KSCrashMonitor_Watchdog.h`.
