@@ -49,7 +49,7 @@ import XCTest
         func testMonitorFlags() {
             let api = monitor.api.pointee
             let flags = api.monitorFlags(api.context)
-            XCTAssertEqual(flags.rawValue, 0)
+            XCTAssertEqual(flags, KSCrashMonitorFlagPlugin)
         }
 
         func testEnableDisable() {

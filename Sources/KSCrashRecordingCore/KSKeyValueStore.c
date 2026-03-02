@@ -166,7 +166,7 @@ static void compact(KSKeyValueStore *store)
             scanPos += scanSize;
         }
 
-        if (!superseded && rec->type != KSKVSTypeRemoved) {
+        if (!superseded) {
             memcpy(temp + tempWritePos, store->storage + readPos, recordSize);
             tempWritePos += recordSize;
         }
@@ -479,6 +479,9 @@ void kskvs_iterate(const KSKeyValueStore *store, const KSKVSCallbacks *callbacks
         const KSKVSRecordHeader *rec = (const KSKVSRecordHeader *)(store->storage + pos);
         uint32_t recordSize = KSKVS_RECORD_HEADER_SIZE + rec->keyLen + rec->valueLen;
 
+        // Bounds check: keyLen and valueLen are uint16_t (max 65535 each), so
+        // recordSize cannot overflow uint32_t. This also guarantees all bytes
+        // passed to callbacks are within the buffer.
         if (pos + recordSize > endPos) {
             break;
         }
