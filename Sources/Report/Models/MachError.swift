@@ -27,7 +27,7 @@
 import Foundation
 
 /// Mach exception details.
-public struct MachError: Codable, Sendable {
+public struct MachError: Codable, Sendable, Equatable {
     /// Mach exception code.
     public let code: UInt64
 

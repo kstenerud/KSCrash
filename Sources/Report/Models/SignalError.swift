@@ -27,7 +27,7 @@
 import Foundation
 
 /// Unix signal details.
-public struct SignalError: Codable, Sendable {
+public struct SignalError: Codable, Sendable, Equatable {
     /// Signal code providing additional context.
     public let code: UInt64
 

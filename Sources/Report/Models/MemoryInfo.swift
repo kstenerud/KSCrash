@@ -27,7 +27,7 @@
 import Foundation
 
 /// System memory information.
-public struct MemoryInfo: Codable, Sendable {
+public struct MemoryInfo: Codable, Sendable, Equatable {
     /// Free memory in bytes.
     public let free: UInt64?
 

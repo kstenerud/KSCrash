@@ -57,6 +57,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -96,7 +97,7 @@ static const size_t g_monitorMappingCount = sizeof(g_monitorMappings) / sizeof(g
 // ============================================================================
 
 /** True if KSCrash has been installed. */
-static volatile bool g_installed = 0;
+static atomic_bool g_installed = false;
 
 static bool g_shouldAddConsoleLogToReport = false;
 static bool g_shouldPrintPreviousLog = false;
@@ -349,6 +350,7 @@ static void handleConfiguration(KSCrashCConfiguration *configuration)
     }
 
     kscrashreport_setIsWritingReportCallback(g_isWritingReportCallback);
+    kscm_watchdog_setReportsHangs(configuration->enableHangReporting);
     kscrashreport_setCompactBinaryImages(configuration->enableCompactBinaryImages);
     g_shouldAddConsoleLogToReport = configuration->addConsoleLogToReport;
     g_shouldPrintPreviousLog = configuration->printPreviousLogOnStartup;

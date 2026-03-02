@@ -75,7 +75,7 @@ static bool isEnabled(__unused void *context) { return g_state.isEnabled && g_st
 #pragma mark - Private -
 // ============================================================================
 
-static void uninstall(void);
+static void restoreHandlers(void);
 
 // ============================================================================
 #pragma mark - Callbacks -
@@ -128,7 +128,9 @@ static void handleSignal(int sigNum, siginfo_t *signalInfo, void *userContext)
 
     KSLOG_DEBUG("Re-raising signal for regular handlers to catch.");
 exit_immediately:
-    uninstall();
+    // Restore original handlers only — don't free the signal stack while we're
+    // executing on it, and don't call free() which isn't async-signal-safe.
+    restoreHandlers();
     raise(sigNum);
 }
 
@@ -201,13 +203,14 @@ failed:
     g_state.installedState = KSCM_FailedInstall;
 }
 
-static void uninstall(void)
+/// Restore original signal handlers. Async-signal-safe — no heap operations.
+static void restoreHandlers(void)
 {
     KSCM_InstalledState expectedState = KSCM_Installed;
     if (!atomic_compare_exchange_strong(&g_state.installedState, &expectedState, KSCM_Uninstalled)) {
         return;
     }
-    KSLOG_DEBUG("Uninstalling signal handlers.");
+    KSLOG_DEBUG("Restoring signal handlers.");
 
     const int *fatalSignals = kssignal_fatalSignals();
     int fatalSignalsCount = kssignal_numFatalSignals();
@@ -216,12 +219,6 @@ static void uninstall(void)
         KSLOG_DEBUG("Restoring original handler for signal %d", fatalSignals[i]);
         sigaction(fatalSignals[i], &g_state.previousSignalHandlers[i], NULL);
     }
-
-#if KSCRASH_HAS_SIGNAL_STACK
-    free(g_state.signalStack.ss_sp);
-    g_state.signalStack = (stack_t) { 0 };
-#endif
-    KSLOG_DEBUG("Signal handlers uninstalled.");
 }
 
 static const char *monitorId(__unused void *context) { return "Signal"; }

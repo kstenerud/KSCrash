@@ -28,6 +28,7 @@
 
 #import "KSCrashMonitor.h"
 #import "KSCrashMonitorContext.h"
+#import "KSCrashMonitorFlag.h"
 #import "KSCrashMonitor_CPPException.h"
 
 @interface KSCrashMonitor_CPPException_Tests : XCTestCase
@@ -82,6 +83,26 @@
 
     // Calling again should be idempotent
     kscm_enableSwapCxaThrow();
+
+    api->setEnabled(false, NULL);
+}
+
+- (void)testMonitorFlags
+{
+    KSCrashMonitorAPI *api = kscm_cppexception_getAPI();
+    KSCrashMonitorFlag flags = api->monitorFlags(NULL);
+    // CPPException is NOT async-safe (uses ObjC runtime internals)
+    XCTAssertEqual(flags & KSCrashMonitorFlagAsyncSafe, 0);
+}
+
+- (void)testAddContextualInfoToEvent
+{
+    KSCrashMonitorAPI *api = kscm_cppexception_getAPI();
+    api->setEnabled(true, NULL);
+
+    // Should not crash when called with a zeroed context
+    KSCrash_MonitorContext context = { 0 };
+    api->addContextualInfoToEvent(&context, NULL);
 
     api->setEnabled(false, NULL);
 }

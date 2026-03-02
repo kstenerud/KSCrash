@@ -53,7 +53,7 @@ public enum ReportType: RawRepresentable, Codable, Sendable, Equatable {
 }
 
 /// Metadata about the crash report itself.
-public struct ReportInfo: Codable, Sendable {
+public struct ReportInfo: Codable, Sendable, Equatable {
     /// Unique identifier for this report.
     public let id: String
 
@@ -148,7 +148,7 @@ public struct ReportInfo: Codable, Sendable {
 /// Handles two formats:
 /// - Legacy (v2.x): Dictionary with `major` and `minor` keys
 /// - Current (v3.x+): Semantic version string like "3.6.0"
-public struct ReportVersion: Codable, Sendable {
+public struct ReportVersion: Codable, Sendable, Equatable {
     /// Major version number.
     public let major: Int
 

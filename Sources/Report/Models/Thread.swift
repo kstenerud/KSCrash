@@ -28,7 +28,7 @@ import Foundation
 
 extension CrashReport {
     /// Information about a thread at the time of crash.
-    public struct Thread: Codable, Sendable {
+    public struct Thread: Codable, Sendable, Equatable {
         /// Stack backtrace for this thread.
         public let backtrace: Backtrace?
 

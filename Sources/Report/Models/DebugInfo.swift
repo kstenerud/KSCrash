@@ -27,7 +27,7 @@
 import Foundation
 
 /// Debug information included in crash reports.
-public struct DebugInfo: Codable, Sendable {
+public struct DebugInfo: Codable, Sendable, Equatable {
     /// Console log lines captured before the crash.
     public let consoleLog: [String]?
 

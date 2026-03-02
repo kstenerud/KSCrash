@@ -142,9 +142,8 @@ typedef struct KSHangMonitor {
     // avoiding a use-after-free if destroy returns before the thread stops.
     _Atomic bool selfFreeOnExit;
 
-    // When false (current default), recovered hang reports are deleted.
+    // When false (default), recovered hang reports are deleted.
     // When true, they're preserved with the sidecar marking them as recovered.
-    // TODO: expose through KSCrashCConfiguration.
     bool reportsHangs;
 
     // Protects: hang, sidecar, sidecarPath, observers, observerCount.
@@ -170,6 +169,7 @@ typedef struct KSHangMonitor {
 // ============================================================================
 
 static atomic_bool g_isEnabled = false;
+static atomic_bool g_reportsHangs = false;
 static KSHangMonitor *g_watchdog = NULL;
 static KSCrash_ExceptionHandlerCallbacks g_callbacks = { 0 };
 
@@ -584,14 +584,14 @@ static void *watchdog_thread_main(void *arg)
 #pragma mark - Monitor create / destroy -
 // ============================================================================
 
-static KSHangMonitor *watchdog_create(CFRunLoopRef runLoop, double threshold)
+static KSHangMonitor *watchdog_create(CFRunLoopRef runLoop, double threshold, bool reportsHangs)
 {
     KSHangMonitor *monitor = (KSHangMonitor *)calloc(1, sizeof(KSHangMonitor));
     if (!monitor) {
         return NULL;
     }
 
-    monitor->reportsHangs = false;
+    monitor->reportsHangs = reportsHangs;
     monitor->lock = OS_UNFAIR_LOCK_INIT;
     monitor->runLoop = runLoop;
     monitor->threshold = threshold;
@@ -762,7 +762,7 @@ static void setEnabled(bool isEnabled, __unused void *context)
     }
 
     if (isEnabled) {
-        g_watchdog = watchdog_create(CFRunLoopGetMain(), KSHANG_THRESHOLD_SECONDS);
+        g_watchdog = watchdog_create(CFRunLoopGetMain(), KSHANG_THRESHOLD_SECONDS, atomic_load(&g_reportsHangs));
         if (!g_watchdog) {
             atomic_store(&g_isEnabled, false);
             return;
@@ -848,6 +848,8 @@ const char *kscm_stringFromRole(int /*task_role_t*/ role)
 /** Implemented in KSCrashMonitor_WatchdogStitch.m */
 extern char *kscm_watchdog_stitchReport(const char *report, const char *sidecarPath, KSCrashSidecarScope scope,
                                         void *context);
+
+void kscm_watchdog_setReportsHangs(bool enabled) { atomic_store(&g_reportsHangs, enabled); }
 
 KSCrashMonitorAPI *kscm_watchdog_getAPI(void)
 {

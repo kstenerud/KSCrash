@@ -28,7 +28,7 @@ import Foundation
 
 extension CrashReport {
     /// Information about the crash event.
-    public struct Crash: Codable, Sendable {
+    public struct Crash: Codable, Sendable, Equatable {
         /// Human-readable diagnosis of the crash.
         public let diagnosis: String?
 

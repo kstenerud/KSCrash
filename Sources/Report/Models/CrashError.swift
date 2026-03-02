@@ -77,7 +77,7 @@ public enum CrashErrorType: RawRepresentable, Codable, Sendable, Equatable {
 }
 
 /// The error that caused the crash.
-public struct CrashError: Codable, Sendable {
+public struct CrashError: Codable, Sendable, Equatable {
     /// Memory address involved in the crash (if applicable).
     public let address: UInt64?
 

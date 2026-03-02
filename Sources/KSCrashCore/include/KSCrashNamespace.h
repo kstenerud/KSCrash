@@ -233,6 +233,7 @@
 #define kscm_testcode_resetState KSCRASH_NS(kscm_testcode_resetState)
 #define kscm_user_getAPI KSCRASH_NS(kscm_user_getAPI)
 #define kscm_watchdog_getAPI KSCRASH_NS(kscm_watchdog_getAPI)
+#define kscm_watchdog_setReportsHangs KSCRASH_NS(kscm_watchdog_setReportsHangs)
 #define kscm_watchdog_stitchReport KSCRASH_NS(kscm_watchdog_stitchReport)
 #define kscm_zombie_getAPI KSCRASH_NS(kscm_zombie_getAPI)
 #define kscma_initAPI KSCRASH_NS(kscma_initAPI)

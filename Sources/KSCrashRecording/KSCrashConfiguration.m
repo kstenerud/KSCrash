@@ -67,6 +67,7 @@
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
         _enableSigTermMonitoring = cConfig.enableSigTermMonitoring ? YES : NO;
 #pragma clang diagnostic pop
+        _enableHangReporting = cConfig.enableHangReporting ? YES : NO;
         _enableCompactBinaryImages = cConfig.enableCompactBinaryImages ? YES : NO;
         _plugins = nil;
         _willWriteReportCallback = cConfig.willWriteReportCallback;
@@ -135,6 +136,7 @@
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
     config.enableSigTermMonitoring = self.enableSigTermMonitoring;
 #pragma clang diagnostic pop
+    config.enableHangReporting = self.enableHangReporting;
     config.enableCompactBinaryImages = self.enableCompactBinaryImages;
     config.willWriteReportCallback = self.willWriteReportCallback;
 
@@ -213,6 +215,7 @@
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
     copy.enableSigTermMonitoring = self.enableSigTermMonitoring;
 #pragma clang diagnostic pop
+    copy.enableHangReporting = self.enableHangReporting;
     copy.enableCompactBinaryImages = self.enableCompactBinaryImages;
     copy.plugins = [self.plugins copy];
     return copy;

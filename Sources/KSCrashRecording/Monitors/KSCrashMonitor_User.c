@@ -33,13 +33,14 @@
 
 // #define KSLogger_LocalLevel TRACE
 #include <memory.h>
+#include <stdatomic.h>
 #include <stdlib.h>
 
 #include "KSLogger.h"
 
 /** Context to fill with crash information. */
 
-static volatile bool g_isEnabled = false;
+static atomic_bool g_isEnabled = false;
 
 static KSCrash_ExceptionHandlerCallbacks g_callbacks;
 

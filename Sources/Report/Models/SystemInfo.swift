@@ -59,7 +59,7 @@ public enum BuildType: RawRepresentable, Codable, Sendable, Equatable {
 }
 
 /// System information at the time of crash.
-public struct SystemInfo: Codable, Sendable {
+public struct SystemInfo: Codable, Sendable, Equatable {
     /// Bundle executable name.
     public let cfBundleExecutable: String?
 
@@ -79,7 +79,7 @@ public struct SystemInfo: Codable, Sendable {
     public let cfBundleVersion: String?
 
     /// Timestamp when the app was started.
-    public let appStartTime: String?
+    public let appStartTime: Date?
 
     /// UUID of the app binary.
     public let appUUID: String?
@@ -88,7 +88,7 @@ public struct SystemInfo: Codable, Sendable {
     public let applicationStats: ApplicationStats?
 
     /// System boot time.
-    public let bootTime: String?
+    public let bootTime: Date?
 
     /// CPU architecture string (e.g., "arm64", "x86_64").
     public let cpuArch: String?
@@ -178,10 +178,10 @@ public struct SystemInfo: Codable, Sendable {
         cfBundleName: String? = nil,
         cfBundleShortVersionString: String? = nil,
         cfBundleVersion: String? = nil,
-        appStartTime: String? = nil,
+        appStartTime: Date? = nil,
         appUUID: String? = nil,
         applicationStats: ApplicationStats? = nil,
-        bootTime: String? = nil,
+        bootTime: Date? = nil,
         cpuArch: String? = nil,
         cpuType: Int? = nil,
         cpuSubtype: Int? = nil,
@@ -287,5 +287,114 @@ public struct SystemInfo: Codable, Sendable {
         case clangVersion = "clang_version"
         case appMemory = "app_memory"
         case lowPowerModeEnabled = "low_power_mode_enabled"
+    }
+
+    private static func parseISO8601(_ string: String) -> Date? {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = formatter.date(from: string) { return date }
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter.date(from: string)
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        cfBundleExecutable = try c.decodeIfPresent(String.self, forKey: .cfBundleExecutable)
+        cfBundleExecutablePath = try c.decodeIfPresent(String.self, forKey: .cfBundleExecutablePath)
+        cfBundleIdentifier = try c.decodeIfPresent(String.self, forKey: .cfBundleIdentifier)
+        cfBundleName = try c.decodeIfPresent(String.self, forKey: .cfBundleName)
+        cfBundleShortVersionString = try c.decodeIfPresent(String.self, forKey: .cfBundleShortVersionString)
+        cfBundleVersion = try c.decodeIfPresent(String.self, forKey: .cfBundleVersion)
+        appUUID = try c.decodeIfPresent(String.self, forKey: .appUUID)
+        applicationStats = try c.decodeIfPresent(ApplicationStats.self, forKey: .applicationStats)
+        cpuArch = try c.decodeIfPresent(String.self, forKey: .cpuArch)
+        cpuType = try c.decodeIfPresent(Int.self, forKey: .cpuType)
+        cpuSubtype = try c.decodeIfPresent(Int.self, forKey: .cpuSubtype)
+        binaryArch = try c.decodeIfPresent(String.self, forKey: .binaryArch)
+        binaryCPUType = try c.decodeIfPresent(Int.self, forKey: .binaryCPUType)
+        binaryCPUSubtype = try c.decodeIfPresent(Int.self, forKey: .binaryCPUSubtype)
+        deviceAppHash = try c.decodeIfPresent(String.self, forKey: .deviceAppHash)
+        jailbroken = try c.decodeIfPresent(Bool.self, forKey: .jailbroken)
+        procTranslated = try c.decodeIfPresent(Bool.self, forKey: .procTranslated)
+        kernelVersion = try c.decodeIfPresent(String.self, forKey: .kernelVersion)
+        machine = try c.decodeIfPresent(String.self, forKey: .machine)
+        memory = try c.decodeIfPresent(MemoryInfo.self, forKey: .memory)
+        model = try c.decodeIfPresent(String.self, forKey: .model)
+        osVersion = try c.decodeIfPresent(String.self, forKey: .osVersion)
+        parentProcessID = try c.decodeIfPresent(Int.self, forKey: .parentProcessID)
+        parentProcessName = try c.decodeIfPresent(String.self, forKey: .parentProcessName)
+        processID = try c.decodeIfPresent(Int.self, forKey: .processID)
+        processName = try c.decodeIfPresent(String.self, forKey: .processName)
+        systemName = try c.decodeIfPresent(String.self, forKey: .systemName)
+        systemVersion = try c.decodeIfPresent(String.self, forKey: .systemVersion)
+        timeZone = try c.decodeIfPresent(String.self, forKey: .timeZone)
+        storage = try c.decodeIfPresent(Int64.self, forKey: .storage)
+        freeStorage = try c.decodeIfPresent(Int64.self, forKey: .freeStorage)
+        buildType = try c.decodeIfPresent(BuildType.self, forKey: .buildType)
+        clangVersion = try c.decodeIfPresent(String.self, forKey: .clangVersion)
+        appMemory = try c.decodeIfPresent(AppMemoryInfo.self, forKey: .appMemory)
+        lowPowerModeEnabled = try c.decodeIfPresent(Bool.self, forKey: .lowPowerModeEnabled)
+
+        // Dates arrive as ISO 8601 strings from the system stitch
+        if let str = try c.decodeIfPresent(String.self, forKey: .appStartTime) {
+            appStartTime = Self.parseISO8601(str)
+        } else {
+            appStartTime = nil
+        }
+        if let str = try c.decodeIfPresent(String.self, forKey: .bootTime) {
+            bootTime = Self.parseISO8601(str)
+        } else {
+            bootTime = nil
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(cfBundleExecutable, forKey: .cfBundleExecutable)
+        try c.encodeIfPresent(cfBundleExecutablePath, forKey: .cfBundleExecutablePath)
+        try c.encodeIfPresent(cfBundleIdentifier, forKey: .cfBundleIdentifier)
+        try c.encodeIfPresent(cfBundleName, forKey: .cfBundleName)
+        try c.encodeIfPresent(cfBundleShortVersionString, forKey: .cfBundleShortVersionString)
+        try c.encodeIfPresent(cfBundleVersion, forKey: .cfBundleVersion)
+        try c.encodeIfPresent(appUUID, forKey: .appUUID)
+        try c.encodeIfPresent(applicationStats, forKey: .applicationStats)
+        try c.encodeIfPresent(cpuArch, forKey: .cpuArch)
+        try c.encodeIfPresent(cpuType, forKey: .cpuType)
+        try c.encodeIfPresent(cpuSubtype, forKey: .cpuSubtype)
+        try c.encodeIfPresent(binaryArch, forKey: .binaryArch)
+        try c.encodeIfPresent(binaryCPUType, forKey: .binaryCPUType)
+        try c.encodeIfPresent(binaryCPUSubtype, forKey: .binaryCPUSubtype)
+        try c.encodeIfPresent(deviceAppHash, forKey: .deviceAppHash)
+        try c.encodeIfPresent(jailbroken, forKey: .jailbroken)
+        try c.encodeIfPresent(procTranslated, forKey: .procTranslated)
+        try c.encodeIfPresent(kernelVersion, forKey: .kernelVersion)
+        try c.encodeIfPresent(machine, forKey: .machine)
+        try c.encodeIfPresent(memory, forKey: .memory)
+        try c.encodeIfPresent(model, forKey: .model)
+        try c.encodeIfPresent(osVersion, forKey: .osVersion)
+        try c.encodeIfPresent(parentProcessID, forKey: .parentProcessID)
+        try c.encodeIfPresent(parentProcessName, forKey: .parentProcessName)
+        try c.encodeIfPresent(processID, forKey: .processID)
+        try c.encodeIfPresent(processName, forKey: .processName)
+        try c.encodeIfPresent(systemName, forKey: .systemName)
+        try c.encodeIfPresent(systemVersion, forKey: .systemVersion)
+        try c.encodeIfPresent(timeZone, forKey: .timeZone)
+        try c.encodeIfPresent(storage, forKey: .storage)
+        try c.encodeIfPresent(freeStorage, forKey: .freeStorage)
+        try c.encodeIfPresent(buildType, forKey: .buildType)
+        try c.encodeIfPresent(clangVersion, forKey: .clangVersion)
+        try c.encodeIfPresent(appMemory, forKey: .appMemory)
+        try c.encodeIfPresent(lowPowerModeEnabled, forKey: .lowPowerModeEnabled)
+
+        if let appStartTime {
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            try c.encode(formatter.string(from: appStartTime), forKey: .appStartTime)
+        }
+        if let bootTime {
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            try c.encode(formatter.string(from: bootTime), forKey: .bootTime)
+        }
     }
 }

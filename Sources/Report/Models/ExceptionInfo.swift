@@ -27,7 +27,7 @@
 import Foundation
 
 /// NSException details (Objective-C/Swift exceptions).
-public struct ExceptionInfo: Codable, Sendable {
+public struct ExceptionInfo: Codable, Sendable, Equatable {
     /// Exception name (e.g., "NSInvalidArgumentException").
     public let name: String
 

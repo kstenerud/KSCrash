@@ -27,7 +27,7 @@
 import Foundation
 
 /// Information about a loaded binary image (executable, framework, or dylib).
-public struct BinaryImage: Codable, Sendable {
+public struct BinaryImage: Codable, Sendable, Equatable {
     /// CPU subtype of the binary.
     public let cpuSubtype: Int
 

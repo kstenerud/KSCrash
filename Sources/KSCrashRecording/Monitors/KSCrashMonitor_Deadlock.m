@@ -52,8 +52,6 @@ static atomic_bool g_isEnabled = false;
 /** Thread which monitors other threads. */
 static KSCrashDeadlockMonitor *g_monitor;
 
-static KSThread g_mainQueueThread;
-
 /** Interval between watchdog pulses. */
 static _Atomic(NSTimeInterval) g_watchdogInterval = 0;
 
@@ -117,7 +115,7 @@ static KSCrash_ExceptionHandlerCallbacks g_callbacks;
     }
 
     KSMachineContext machineContext = { 0 };
-    ksmc_getContextForThread(g_mainQueueThread, &machineContext, false);
+    ksmc_getContextForThread(ksthread_main(), &machineContext, false);
     KSStackCursor stackCursor;
     kssc_initWithUnwind(&stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
 
@@ -168,17 +166,6 @@ exit_immediately:
 #pragma mark - API -
 // ============================================================================
 
-static void initialize(void)
-{
-    static bool isInitialized = false;
-    if (!isInitialized) {
-        isInitialized = true;
-        dispatch_async(dispatch_get_main_queue(), ^{
-            g_mainQueueThread = ksthread_self();
-        });
-    }
-}
-
 static const char *monitorId(__unused void *context) { return "MainThreadDeadlock"; }
 
 static KSCrashMonitorFlag monitorFlags(__unused void *context) { return KSCrashMonitorFlagNone; }
@@ -193,7 +180,6 @@ static void setEnabled(bool isEnabled, __unused void *context)
 
     if (isEnabled) {
         KSLOG_DEBUG(@"Creating new deadlock monitor.");
-        initialize();
         g_monitor = [[KSCrashDeadlockMonitor alloc] init];
     } else {
         KSLOG_DEBUG(@"Stopping deadlock monitor.");

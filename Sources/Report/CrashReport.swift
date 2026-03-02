@@ -53,6 +53,12 @@ public final class RecrashReport<UserData: Codable & Sendable>: Codable, Sendabl
     }
 }
 
+extension RecrashReport: Equatable where UserData: Equatable {
+    public static func == (lhs: RecrashReport, rhs: RecrashReport) -> Bool {
+        lhs.report == rhs.report
+    }
+}
+
 /// The root structure representing a complete KSCrash report.
 ///
 /// The generic parameter `UserData` represents the type of user-defined custom data
@@ -132,3 +138,5 @@ public struct CrashReport<UserData: Codable & Sendable>: Codable, Sendable {
         case incomplete
     }
 }
+
+extension CrashReport: Equatable where UserData: Equatable {}
