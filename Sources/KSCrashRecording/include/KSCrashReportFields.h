@@ -260,6 +260,16 @@ KSCRF_DEFINE_CONSTANT(KSCrashField, MemoryPressure, memoryPressure, "memory_pres
 KSCRF_DEFINE_CONSTANT(KSCrashField, MemoryLevel, memoryLevel, "memory_level")
 KSCRF_DEFINE_CONSTANT(KSCrashField, AppTransitionState, appTransitionState, "app_transition_state")
 
+KSCRF_DEFINE_CONSTANT(KSCrashField, BatteryLevel, batteryLevel, "battery_level")
+KSCRF_DEFINE_CONSTANT(KSCrashField, BatteryState, batteryState, "battery_state")
+KSCRF_DEFINE_CONSTANT(KSCrashField, LowPowerModeEnabled, lowPowerModeEnabled, "low_power_mode_enabled")
+KSCRF_DEFINE_CONSTANT(KSCrashField, CPUCoreCount, cpuCoreCount, "cpu_core_count")
+KSCRF_DEFINE_CONSTANT(KSCrashField, CPUUsageUser, cpuUsageUser, "cpu_usage_user")
+KSCRF_DEFINE_CONSTANT(KSCrashField, CPUUsageSystem, cpuUsageSystem, "cpu_usage_system")
+KSCRF_DEFINE_CONSTANT(KSCrashField, ThermalState, thermalState, "thermal_state")
+KSCRF_DEFINE_CONSTANT(KSCrashField, ThreadCount, threadCount, "thread_count")
+KSCRF_DEFINE_CONSTANT(KSCrashField, DataProtectionActive, dataProtectionActive, "data_protection_active")
+
 KSCRF_DEFINE_CONSTANT(KSCrashField, HangStartNanoseconds, hangStartNanoseconds, "hang_start_nanos")
 KSCRF_DEFINE_CONSTANT(KSCrashField, HangStartRole, hangStartRole, "hang_start_role")
 KSCRF_DEFINE_CONSTANT(KSCrashField, HangEndNanoseconds, hangEndNanoseconds, "hang_end_nanos")
