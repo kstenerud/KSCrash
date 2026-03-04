@@ -97,6 +97,9 @@ enum
     /** Track per-key user data that survives crashes. */
     KSCrashMonitorTypeUserInfo           = 1 << 11,
 
+    /** Passive resource snapshots (memory, battery, CPU, thermal). */
+    KSCrashMonitorTypeResource           = 1 << 12,
+
     /** Enable all monitoring options. */
     KSCrashMonitorTypeAll = (
                              KSCrashMonitorTypeMachException |
@@ -109,7 +112,8 @@ enum
                              KSCrashMonitorTypeZombie |
                              KSCrashMonitorTypeMemoryTermination |
                              KSCrashMonitorTypeWatchdog |
-                             KSCrashMonitorTypeUserInfo
+                             KSCrashMonitorTypeUserInfo |
+                             KSCrashMonitorTypeResource
                              ),
 
     /** Fatal monitors track exceptions that lead to error termination of the process. */
@@ -118,6 +122,7 @@ enum
                                KSCrashMonitorTypeSignal |
                                KSCrashMonitorTypeCPPException |
                                KSCrashMonitorTypeNSException |
+                               KSCrashMonitorTypeMemoryTermination |
                                KSCrashMonitorTypeWatchdog
                                ),
 
@@ -149,8 +154,8 @@ enum
     KSCrashMonitorTypeRequired = (
                                   KSCrashMonitorTypeSystem |
                                   KSCrashMonitorTypeApplicationState |
-                                  KSCrashMonitorTypeMemoryTermination |
-                                  KSCrashMonitorTypeUserInfo
+                                  KSCrashMonitorTypeUserInfo |
+                                  KSCrashMonitorTypeResource
                                   ),
 
     /** Disable automatic reporting; only manual reports are allowed. */
