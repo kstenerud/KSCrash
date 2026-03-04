@@ -278,7 +278,7 @@ jobs:
           LEAK_BYTES: ${{ steps.leaks.outputs.leak_bytes }}
 
       - name: Upload Leaks Output
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: leaks-output
           path: leaks_output.txt
