@@ -97,9 +97,12 @@ static dispatch_source_t g_cpuTimer = NULL;
 
 static id g_powerStateObserver = nil;
 
-#if KSCRASH_HAS_UIAPPLICATION
+#if KSCRASH_HOST_IOS
 static id g_batteryLevelObserver = nil;
 static id g_batteryStateObserver = nil;
+#endif
+
+#if KSCRASH_HAS_UIAPPLICATION
 static id g_thermalStateObserver = nil;
 static id g_protectedDataAvailableObserver = nil;
 static id g_protectedDataUnavailableObserver = nil;
@@ -248,10 +251,10 @@ static void startMemoryObserver(void)
 static void stopMemoryObserver(void) { g_memoryObserver = nil; }
 
 // ============================================================================
-#pragma mark - Battery / Power / Thermal / Data Protection (iOS) -
+#pragma mark - Battery (iOS only) -
 // ============================================================================
 
-#if KSCRASH_HAS_UIAPPLICATION
+#if KSCRASH_HOST_IOS
 
 static void updateBattery(KSCrash_ResourceData *res)
 {
@@ -317,6 +320,14 @@ static void stopBatteryObservers(void)
     }
     UIDevice.currentDevice.batteryMonitoringEnabled = NO;
 }
+
+#endif  // KSCRASH_HOST_IOS
+
+// ============================================================================
+#pragma mark - Thermal / Data Protection (UIApplication) -
+// ============================================================================
+
+#if KSCRASH_HAS_UIAPPLICATION
 
 static uint8_t thermalStateToUInt8(NSProcessInfoThermalState state)
 {
@@ -521,8 +532,10 @@ static void setEnabled(bool isEnabled, __unused void *context)
         startMemoryObserver();
         startCPUTimer();
         startPowerObserver();
-#if KSCRASH_HAS_UIAPPLICATION
+#if KSCRASH_HOST_IOS
         startBatteryObservers();
+#endif
+#if KSCRASH_HAS_UIAPPLICATION
         startThermalObserver();
         startDataProtectionObservers();
 #endif
@@ -531,8 +544,10 @@ static void setEnabled(bool isEnabled, __unused void *context)
         stopMemoryObserver();
         stopCPUTimer();
         stopPowerObserver();
-#if KSCRASH_HAS_UIAPPLICATION
+#if KSCRASH_HOST_IOS
         stopBatteryObservers();
+#endif
+#if KSCRASH_HAS_UIAPPLICATION
         stopThermalObserver();
         stopDataProtectionObservers();
 #endif
