@@ -35,7 +35,9 @@
 #import "KSSystemCapabilities.h"
 
 #import <Foundation/Foundation.h>
+#import <fcntl.h>
 #import <stdatomic.h>
+#import <unistd.h>
 
 // proc_pidinfo is available on all Apple platforms but libproc.h
 // is only in the macOS SDK.  Forward-declare what we need.
@@ -186,8 +188,10 @@ static void pollCPUAndThreads(void)
         uint64_t wallDelta = nowNs - s_prevWallNs;
         uint64_t userDelta = taskInfo.pti_total_user - s_prevUserNs;
         uint64_t systemDelta = taskInfo.pti_total_system - s_prevSystemNs;
-        userUsage = (uint16_t)((userDelta * 1000) / wallDelta);
-        systemUsage = (uint16_t)((systemDelta * 1000) / wallDelta);
+        uint64_t userPermil = (userDelta * 1000) / wallDelta;
+        uint64_t systemPermil = (systemDelta * 1000) / wallDelta;
+        userUsage = (uint16_t)(userPermil > UINT16_MAX ? UINT16_MAX : userPermil);
+        systemUsage = (uint16_t)(systemPermil > UINT16_MAX ? UINT16_MAX : systemPermil);
     }
 
     s_prevUserNs = taskInfo.pti_total_user;
@@ -450,7 +454,7 @@ bool ksresource_getSnapshot(KSCrash_ResourceData *outData)
 
     bool ok = false;
     if (ks_spinlock_lock_bounded(&g_resourceLock)) {
-        if (g_resource && g_resource->magic == KSRESOURCE_MAGIC) {
+        if (g_resource && validateResourceData(g_resource)) {
             *outData = *g_resource;
             ok = true;
         }

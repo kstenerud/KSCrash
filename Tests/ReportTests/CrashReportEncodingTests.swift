@@ -452,6 +452,73 @@ final class CrashReportEncodingTests: XCTestCase {
         }
     }
 
+    func testRoundTripResourceFields() throws {
+        let report = BasicCrashReport(
+            crash: BasicCrashReport.Crash(
+                error: CrashError(type: .mach)
+            ),
+            report: ReportInfo(id: "resource-test"),
+            system: SystemInfo(
+                batteryLevel: 85,
+                batteryState: .charging,
+                cpuCoreCount: 8,
+                cpuUsageUser: 2500,
+                cpuUsageSystem: 300,
+                thermalState: .serious,
+                threadCount: 55,
+                dataProtectionActive: true
+            )
+        )
+
+        let (_, roundTripped) = try roundTrip(report)
+
+        XCTAssertEqual(roundTripped.system?.batteryLevel, 85)
+        XCTAssertEqual(roundTripped.system?.batteryState, .charging)
+        XCTAssertEqual(roundTripped.system?.cpuCoreCount, 8)
+        XCTAssertEqual(roundTripped.system?.cpuUsageUser, 2500)
+        XCTAssertEqual(roundTripped.system?.cpuUsageSystem, 300)
+        XCTAssertEqual(roundTripped.system?.thermalState, .serious)
+        XCTAssertEqual(roundTripped.system?.threadCount, 55)
+        XCTAssertEqual(roundTripped.system?.dataProtectionActive, true)
+    }
+
+    func testRoundTripLowPowerMode() throws {
+        let report = BasicCrashReport(
+            crash: BasicCrashReport.Crash(
+                error: CrashError(type: .mach)
+            ),
+            report: ReportInfo(id: "lpm-test"),
+            system: SystemInfo(lowPowerModeEnabled: true)
+        )
+
+        let (_, roundTripped) = try roundTrip(report)
+        XCTAssertEqual(roundTripped.system?.lowPowerModeEnabled, true)
+    }
+
+    func testRoundTripAllBatteryStates() throws {
+        for state: BatteryState in [.unknown, .unplugged, .charging, .full] {
+            let report = BasicCrashReport(
+                crash: BasicCrashReport.Crash(error: CrashError(type: .mach)),
+                report: ReportInfo(id: "battery-\(state)"),
+                system: SystemInfo(batteryState: state)
+            )
+            let (_, roundTripped) = try roundTrip(report)
+            XCTAssertEqual(roundTripped.system?.batteryState, state, "\(state)")
+        }
+    }
+
+    func testRoundTripAllThermalStates() throws {
+        for state: ThermalState in [.nominal, .fair, .serious, .critical] {
+            let report = BasicCrashReport(
+                crash: BasicCrashReport.Crash(error: CrashError(type: .mach)),
+                report: ReportInfo(id: "thermal-\(state)"),
+                system: SystemInfo(thermalState: state)
+            )
+            let (_, roundTripped) = try roundTrip(report)
+            XCTAssertEqual(roundTripped.system?.thermalState, state, "\(state)")
+        }
+    }
+
     // MARK: - Encoding Key Verification
 
     func testEncodingUsesSnakeCaseKeys() throws {
@@ -573,6 +640,51 @@ final class CrashReportEncodingTests: XCTestCase {
         let error = crashDict["error"] as! [String: Any]
         XCTAssertEqual(error["is_clean_exit"] as? Bool, true)
         XCTAssertNil(error["isCleanExit"], "isCleanExit should be encoded as is_clean_exit, not isCleanExit")
+    }
+
+    func testEncodingResourceFieldsUseSnakeCaseKeys() throws {
+        let report = BasicCrashReport(
+            crash: BasicCrashReport.Crash(
+                error: CrashError(type: .mach)
+            ),
+            report: ReportInfo(id: "key-test"),
+            system: SystemInfo(
+                lowPowerModeEnabled: false,
+                batteryLevel: 50,
+                batteryState: .unplugged,
+                cpuCoreCount: 4,
+                cpuUsageUser: 1000,
+                cpuUsageSystem: 100,
+                thermalState: .nominal,
+                threadCount: 10,
+                dataProtectionActive: false
+            )
+        )
+
+        let data = try JSONEncoder().encode(report)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        let system = json["system"] as! [String: Any]
+
+        XCTAssertEqual(system["battery_level"] as? Int, 50)
+        XCTAssertEqual(system["battery_state"] as? Int, 1)
+        XCTAssertEqual(system["low_power_mode_enabled"] as? Bool, false)
+        XCTAssertEqual(system["cpu_core_count"] as? Int, 4)
+        XCTAssertEqual(system["cpu_usage_user"] as? Int, 1000)
+        XCTAssertEqual(system["cpu_usage_system"] as? Int, 100)
+        XCTAssertEqual(system["thermal_state"] as? Int, 0)
+        XCTAssertEqual(system["thread_count"] as? Int, 10)
+        XCTAssertEqual(system["data_protection_active"] as? Bool, false)
+
+        // Ensure no camelCase variants leak through
+        XCTAssertNil(system["batteryLevel"])
+        XCTAssertNil(system["batteryState"])
+        XCTAssertNil(system["lowPowerModeEnabled"])
+        XCTAssertNil(system["cpuCoreCount"])
+        XCTAssertNil(system["cpuUsageUser"])
+        XCTAssertNil(system["cpuUsageSystem"])
+        XCTAssertNil(system["thermalState"])
+        XCTAssertNil(system["threadCount"])
+        XCTAssertNil(system["dataProtectionActive"])
     }
 
     func testEncodingIsFatalUsesSnakeCaseKey() throws {
