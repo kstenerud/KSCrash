@@ -64,6 +64,7 @@ FUNCTION_NAME_IGNORED = [
                             re.compile("^CF_.*"),
                             re.compile("^KSCRASH_DEPRECATED$"),
                             re.compile("^NS_.*"),
+                            re.compile("^proc_pidinfo$"),
                         ]
 
 # Make sure libc functions don't get swept up
