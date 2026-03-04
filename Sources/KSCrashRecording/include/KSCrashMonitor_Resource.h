@@ -55,42 +55,45 @@ static const uint8_t KSCrash_Resource_CurrentVersion = 1;
 
 /** Resource snapshot persisted via mmap to RunSidecars/<runID>/Resource.ksscr.
  *
- *  Packed so the on-disk layout matches the struct definition exactly.
+ *  Explicit padding ensures natural alignment for all fields without
+ *  relying on __attribute__((packed)).
  *  Fixed-width types only — no pointers.
  */
-typedef struct __attribute__((packed)) {
+typedef struct {
     int32_t magic;
-    uint8_t version;
 
-    // Memory (from KSCrashAppMemoryTracker)
+    uint8_t version;
     uint8_t memoryPressure;  // KSCrashAppMemoryState
     uint8_t memoryLevel;     // KSCrashAppMemoryState
+    uint8_t _pad0;           // align to 8-byte boundary
 
+    // Memory (from KSCrashAppMemoryTracker)
     uint64_t memoryFootprint;  // bytes used by app
     uint64_t memoryRemaining;  // bytes until limit
     uint64_t memoryLimit;      // footprint + remaining
+
+    // CPU (from proc_pidinfo PROC_PIDTASKINFO, polled)
+    uint16_t cpuUsageUser;    // user-space permil of one core: 0–N*1000
+    uint16_t cpuUsageSystem;  // kernel-space permil of one core: 0–N*1000
+
+    // Threads
+    uint16_t threadCount;  // process thread count
 
     // Battery
     uint8_t batteryLevel;  // 0–100, or 255 if unavailable
     uint8_t batteryState;  // 0=unknown, 1=unplugged, 2=charging, 3=full
     uint8_t lowPowerMode;  // 0 or 1
 
-    // CPU (from proc_pidinfo PROC_PIDTASKINFO, polled)
-    uint8_t cpuCoreCount;     // active CPU cores (set once at enable time)
-    uint16_t cpuUsageUser;    // user-space permil of one core: 0–N*1000
-    uint16_t cpuUsageSystem;  // kernel-space permil of one core: 0–N*1000
+    uint8_t cpuCoreCount;  // active CPU cores (set once at enable time)
 
     // Thermal
     uint8_t thermalState;  // 0=nominal, 1=fair, 2=serious, 3=critical
-
-    // Threads
-    uint16_t threadCount;  // process thread count
 
     // Data Protection
     uint8_t dataProtectionActive;  // 1 = protected data available (device unlocked)
 
     // Reserved for future fields without changing mmap size.
-    uint8_t _reserved[21];
+    uint8_t _reserved[20];
 } KSCrash_ResourceData;
 
 _Static_assert(sizeof(KSCrash_ResourceData) == 64, "KSCrash_ResourceData size changed — bump version");
@@ -100,7 +103,8 @@ _Static_assert(sizeof(KSCrash_ResourceData) == 64, "KSCrash_ResourceData size ch
 // ============================================================================
 
 /** Copies the latest resource snapshot into *outData.
- *  Async-signal-safe via bounded spinlock. Returns false if unavailable.
+ *  NOT async-signal-safe — call only from normal (non-signal) context.
+ *  Returns false if unavailable.
  */
 bool ksresource_getSnapshot(KSCrash_ResourceData *outData);
 

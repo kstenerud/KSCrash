@@ -26,12 +26,12 @@
 
 #import "KSCrashMonitor_Resource.h"
 
+#import <os/lock.h>
 #import "KSCrashAppMemory.h"
 #import "KSCrashAppMemoryTracker.h"
 #import "KSCrashC.h"
 #import "KSCrashMonitorHelper.h"
 #import "KSFileUtils.h"
-#import "KSSpinLock.h"
 #import "KSSystemCapabilities.h"
 
 #import <Foundation/Foundation.h>
@@ -90,7 +90,7 @@ static const NSTimeInterval kCPUPollingInterval = 5.0;
 static atomic_bool g_isEnabled = false;
 static KSCrash_ExceptionHandlerCallbacks g_callbacks = { 0 };
 
-static KSSpinLock g_resourceLock = KSSPINLOCK_INIT;
+static os_unfair_lock g_resourceLock = OS_UNFAIR_LOCK_INIT;
 static KSCrash_ResourceData *g_resource = NULL;
 
 // Observers / timers
@@ -114,25 +114,25 @@ static id g_protectedDataUnavailableObserver = nil;
 #pragma mark - Sidecar Access -
 // ============================================================================
 
-/** Update the mmap'd struct under spinlock (normal context). */
+/** Update the mmap'd struct under lock. */
 static void resourceUpdate(void (^block)(KSCrash_ResourceData *res))
 {
     if (!block) return;
-    ks_spinlock_lock(&g_resourceLock);
+    os_unfair_lock_lock(&g_resourceLock);
     if (g_resource) {
         block(g_resource);
     }
-    ks_spinlock_unlock(&g_resourceLock);
+    os_unfair_lock_unlock(&g_resourceLock);
 }
 
 /** Replace the global resource pointer, unmapping the old one. */
 static void resourceSet(KSCrash_ResourceData *res)
 {
     void *old = NULL;
-    ks_spinlock_lock(&g_resourceLock);
+    os_unfair_lock_lock(&g_resourceLock);
     old = g_resource;
     g_resource = res;
-    ks_spinlock_unlock(&g_resourceLock);
+    os_unfair_lock_unlock(&g_resourceLock);
 
     if (old) {
         ksfu_munmap(old, sizeof(KSCrash_ResourceData));
@@ -250,6 +250,19 @@ static void startMemoryObserver(void)
                 }
             });
         }];
+
+    // Seed with current values so the sidecar isn't all-zero if a crash
+    // happens before the first real change/heartbeat notification.
+    KSCrashAppMemory *current = KSCrashAppMemoryTracker.sharedInstance.currentAppMemory;
+    if (current != nil) {
+        resourceUpdate(^(KSCrash_ResourceData *res) {
+            res->memoryFootprint = current.footprint;
+            res->memoryRemaining = current.remaining;
+            res->memoryLimit = current.limit;
+            res->memoryPressure = (uint8_t)current.pressure;
+            res->memoryLevel = (uint8_t)current.level;
+        });
+    }
 }
 
 static void stopMemoryObserver(void) { g_memoryObserver = nil; }
@@ -260,35 +273,43 @@ static void stopMemoryObserver(void) { g_memoryObserver = nil; }
 
 #if KSCRASH_HOST_IOS
 
-static void updateBattery(KSCrash_ResourceData *res)
+static void readBattery(uint8_t *outLevel, uint8_t *outState)
 {
     UIDevice *device = UIDevice.currentDevice;
     float level = device.batteryLevel;
-    res->batteryLevel = (level < 0) ? 255 : (uint8_t)(level * 100.0f);
+    *outLevel = (level < 0) ? 255 : (uint8_t)(level * 100.0f);
 
     switch (device.batteryState) {
         case UIDeviceBatteryStateUnplugged:
-            res->batteryState = 1;
+            *outState = 1;
             break;
         case UIDeviceBatteryStateCharging:
-            res->batteryState = 2;
+            *outState = 2;
             break;
         case UIDeviceBatteryStateFull:
-            res->batteryState = 3;
+            *outState = 3;
             break;
         default:
-            res->batteryState = 0;
+            *outState = 0;
             break;
     }
+}
+
+static void writeBattery(void)
+{
+    uint8_t level, state;
+    readBattery(&level, &state);
+    resourceUpdate(^(KSCrash_ResourceData *res) {
+        res->batteryLevel = level;
+        res->batteryState = state;
+    });
 }
 
 static void startBatteryObservers(void)
 {
     UIDevice.currentDevice.batteryMonitoringEnabled = YES;
 
-    resourceUpdate(^(KSCrash_ResourceData *res) {
-        updateBattery(res);
-    });
+    writeBattery();
 
     NSNotificationCenter *nc = NSNotificationCenter.defaultCenter;
 
@@ -296,18 +317,14 @@ static void startBatteryObservers(void)
                                              object:nil
                                               queue:nil
                                          usingBlock:^(__unused NSNotification *note) {
-                                             resourceUpdate(^(KSCrash_ResourceData *res) {
-                                                 updateBattery(res);
-                                             });
+                                             writeBattery();
                                          }];
 
     g_batteryStateObserver = [nc addObserverForName:UIDeviceBatteryStateDidChangeNotification
                                              object:nil
                                               queue:nil
                                          usingBlock:^(__unused NSNotification *note) {
-                                             resourceUpdate(^(KSCrash_ResourceData *res) {
-                                                 updateBattery(res);
-                                             });
+                                             writeBattery();
                                          }];
 }
 
@@ -349,21 +366,25 @@ static uint8_t thermalStateToUInt8(NSProcessInfoThermalState state)
     }
 }
 
+static void writeThermalState(void)
+{
+    uint8_t state = thermalStateToUInt8(NSProcessInfo.processInfo.thermalState);
+    resourceUpdate(^(KSCrash_ResourceData *res) {
+        res->thermalState = state;
+    });
+}
+
 static void startThermalObserver(void)
 {
-    resourceUpdate(^(KSCrash_ResourceData *res) {
-        res->thermalState = thermalStateToUInt8(NSProcessInfo.processInfo.thermalState);
-    });
+    writeThermalState();
 
-    g_thermalStateObserver = [NSNotificationCenter.defaultCenter
-        addObserverForName:NSProcessInfoThermalStateDidChangeNotification
-                    object:nil
-                     queue:nil
-                usingBlock:^(__unused NSNotification *note) {
-                    resourceUpdate(^(KSCrash_ResourceData *res) {
-                        res->thermalState = thermalStateToUInt8(NSProcessInfo.processInfo.thermalState);
-                    });
-                }];
+    g_thermalStateObserver =
+        [NSNotificationCenter.defaultCenter addObserverForName:NSProcessInfoThermalStateDidChangeNotification
+                                                        object:nil
+                                                         queue:nil
+                                                    usingBlock:^(__unused NSNotification *note) {
+                                                        writeThermalState();
+                                                    }];
 }
 
 static void stopThermalObserver(void)
@@ -376,8 +397,9 @@ static void stopThermalObserver(void)
 
 static void startDataProtectionObservers(void)
 {
+    uint8_t active = UIApplication.sharedApplication.isProtectedDataAvailable ? 1 : 0;
     resourceUpdate(^(KSCrash_ResourceData *res) {
-        res->dataProtectionActive = UIApplication.sharedApplication.isProtectedDataAvailable ? 1 : 0;
+        res->dataProtectionActive = active;
     });
 
     NSNotificationCenter *nc = NSNotificationCenter.defaultCenter;
@@ -417,22 +439,28 @@ static void stopDataProtectionObservers(void)
 #endif  // KSCRASH_HAS_UIAPPLICATION
 
 // Cross-platform: low power mode
-static void startPowerObserver(void)
+static void writeLowPowerMode(void)
 {
     if (@available(macOS 12.0, iOS 9.0, tvOS 9.0, watchOS 2.0, *)) {
+        uint8_t mode = NSProcessInfo.processInfo.lowPowerModeEnabled ? 1 : 0;
         resourceUpdate(^(KSCrash_ResourceData *res) {
-            res->lowPowerMode = NSProcessInfo.processInfo.lowPowerModeEnabled ? 1 : 0;
+            res->lowPowerMode = mode;
         });
+    }
+}
 
-        g_powerStateObserver = [NSNotificationCenter.defaultCenter
-            addObserverForName:NSProcessInfoPowerStateDidChangeNotification
-                        object:nil
-                         queue:nil
-                    usingBlock:^(__unused NSNotification *note) {
-                        resourceUpdate(^(KSCrash_ResourceData *res) {
-                            res->lowPowerMode = NSProcessInfo.processInfo.lowPowerModeEnabled ? 1 : 0;
-                        });
-                    }];
+static void startPowerObserver(void)
+{
+    writeLowPowerMode();
+
+    if (@available(macOS 12.0, iOS 9.0, tvOS 9.0, watchOS 2.0, *)) {
+        g_powerStateObserver =
+            [NSNotificationCenter.defaultCenter addObserverForName:NSProcessInfoPowerStateDidChangeNotification
+                                                            object:nil
+                                                             queue:nil
+                                                        usingBlock:^(__unused NSNotification *note) {
+                                                            writeLowPowerMode();
+                                                        }];
     }
 }
 
@@ -453,13 +481,12 @@ bool ksresource_getSnapshot(KSCrash_ResourceData *outData)
     if (!outData) return false;
 
     bool ok = false;
-    if (ks_spinlock_lock_bounded(&g_resourceLock)) {
-        if (g_resource && validateResourceData(g_resource)) {
-            *outData = *g_resource;
-            ok = true;
-        }
-        ks_spinlock_unlock(&g_resourceLock);
+    os_unfair_lock_lock(&g_resourceLock);
+    if (g_resource && validateResourceData(g_resource)) {
+        *outData = *g_resource;
+        ok = true;
     }
+    os_unfair_lock_unlock(&g_resourceLock);
     return ok;
 }
 
@@ -522,10 +549,11 @@ static void setEnabled(bool isEnabled, __unused void *context)
 
         resourceSet(ptr);
 
+        uint8_t cpuCores = getActiveCPUCount();
         resourceUpdate(^(KSCrash_ResourceData *res) {
             res->magic = KSRESOURCE_MAGIC;
             res->version = KSCrash_Resource_CurrentVersion;
-            res->cpuCoreCount = getActiveCPUCount();
+            res->cpuCoreCount = cpuCores;
 
             // Defaults for platforms without battery / data protection
             res->batteryLevel = 255;
