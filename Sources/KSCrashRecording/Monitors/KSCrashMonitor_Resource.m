@@ -95,10 +95,11 @@ static KSCrash_ResourceData *g_resource = NULL;
 static id g_memoryObserver = nil;
 static dispatch_source_t g_cpuTimer = NULL;
 
+static id g_powerStateObserver = nil;
+
 #if KSCRASH_HAS_UIAPPLICATION
 static id g_batteryLevelObserver = nil;
 static id g_batteryStateObserver = nil;
-static id g_powerStateObserver = nil;
 static id g_thermalStateObserver = nil;
 static id g_protectedDataAvailableObserver = nil;
 static id g_protectedDataUnavailableObserver = nil;
@@ -314,6 +315,7 @@ static void stopBatteryObservers(void)
         [nc removeObserver:g_batteryStateObserver];
         g_batteryStateObserver = nil;
     }
+    UIDevice.currentDevice.batteryMonitoringEnabled = NO;
 }
 
 static uint8_t thermalStateToUInt8(NSProcessInfoThermalState state)
@@ -359,9 +361,8 @@ static void stopThermalObserver(void)
 
 static void startDataProtectionObservers(void)
 {
-    // Assume available — device is unlocked if we're running.
     resourceUpdate(^(KSCrash_ResourceData *res) {
-        res->dataProtectionActive = 1;
+        res->dataProtectionActive = UIApplication.sharedApplication.isProtectedDataAvailable ? 1 : 0;
     });
 
     NSNotificationCenter *nc = NSNotificationCenter.defaultCenter;
@@ -407,29 +408,25 @@ static void startPowerObserver(void)
         resourceUpdate(^(KSCrash_ResourceData *res) {
             res->lowPowerMode = NSProcessInfo.processInfo.lowPowerModeEnabled ? 1 : 0;
         });
-    }
 
-#if KSCRASH_HAS_UIAPPLICATION
-    g_powerStateObserver = [NSNotificationCenter.defaultCenter
-        addObserverForName:NSProcessInfoPowerStateDidChangeNotification
-                    object:nil
-                     queue:nil
-                usingBlock:^(__unused NSNotification *note) {
-                    resourceUpdate(^(KSCrash_ResourceData *res) {
-                        res->lowPowerMode = NSProcessInfo.processInfo.lowPowerModeEnabled ? 1 : 0;
-                    });
-                }];
-#endif
+        g_powerStateObserver = [NSNotificationCenter.defaultCenter
+            addObserverForName:NSProcessInfoPowerStateDidChangeNotification
+                        object:nil
+                         queue:nil
+                    usingBlock:^(__unused NSNotification *note) {
+                        resourceUpdate(^(KSCrash_ResourceData *res) {
+                            res->lowPowerMode = NSProcessInfo.processInfo.lowPowerModeEnabled ? 1 : 0;
+                        });
+                    }];
+    }
 }
 
 static void stopPowerObserver(void)
 {
-#if KSCRASH_HAS_UIAPPLICATION
     if (g_powerStateObserver) {
         [NSNotificationCenter.defaultCenter removeObserver:g_powerStateObserver];
         g_powerStateObserver = nil;
     }
-#endif
 }
 
 // ============================================================================
@@ -515,11 +512,9 @@ static void setEnabled(bool isEnabled, __unused void *context)
             res->version = KSCrash_Resource_CurrentVersion;
             res->cpuCoreCount = getActiveCPUCount();
 
-            // Defaults for platforms without battery
+            // Defaults for platforms without battery / data protection
             res->batteryLevel = 255;
             res->batteryState = 0;
-
-            // Default: data protection available
             res->dataProtectionActive = 1;
         });
 
