@@ -228,11 +228,16 @@ def generate_report(current_modules, current_sizes, base_sizes=None,
         lines.append(f"> **Coverage change:** {'; '.join(parts)}. "
                       "Delta includes these modules — not purely a source-size change.")
 
-    # Completeness warning
+    # Completeness warnings
     if missing_current:
         lines.append("")
         lines.append(f"> **Warning:** measurement incomplete — missing module(s): "
                       f"{', '.join(missing_current)}")
+    if missing_base:
+        lines.append("")
+        lines.append(f"> **Warning:** base measurement incomplete — missing module(s): "
+                      f"{', '.join(missing_base)}. "
+                      "Deltas may overstate the actual size change.")
 
     lines.append("")
 
