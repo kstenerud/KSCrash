@@ -70,6 +70,8 @@ int proc_pidinfo(int pid, int flavor, uint64_t arg, void *buffer, int buffersize
 #import <sys/sysctl.h>
 #import <time.h>
 
+#import "KSDate.h"
+
 // #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
 
@@ -200,10 +202,12 @@ static void pollCPUAndThreads(void)
 
     uint16_t threadCount = (uint16_t)(taskInfo.pti_threadnum > UINT16_MAX ? UINT16_MAX : taskInfo.pti_threadnum);
 
+    uint64_t now = ksdate_continuousNanoseconds();
     resourceUpdate(^(KSCrash_ResourceData *res) {
         res->cpuUsageUser = userUsage;
         res->cpuUsageSystem = systemUsage;
         res->threadCount = threadCount;
+        res->cpuUpdatedAtNs = now;
     });
 }
 
@@ -236,6 +240,7 @@ static void startMemoryObserver(void)
 {
     g_memoryObserver = [KSCrashAppMemoryTracker.sharedInstance
         addObserverWithBlock:^(KSCrashAppMemory *memory, KSCrashAppMemoryTrackerChangeType changes) {
+            uint64_t now = ksdate_continuousNanoseconds();
             resourceUpdate(^(KSCrash_ResourceData *res) {
                 if (changes & KSCrashAppMemoryTrackerChangeTypeFootprint) {
                     res->memoryFootprint = memory.footprint;
@@ -248,6 +253,7 @@ static void startMemoryObserver(void)
                 if (changes & KSCrashAppMemoryTrackerChangeTypeLevel) {
                     res->memoryLevel = (uint8_t)memory.level;
                 }
+                res->memoryUpdatedAtNs = now;
             });
         }];
 
@@ -255,12 +261,14 @@ static void startMemoryObserver(void)
     // happens before the first real change/heartbeat notification.
     KSCrashAppMemory *current = KSCrashAppMemoryTracker.sharedInstance.currentAppMemory;
     if (current != nil) {
+        uint64_t now = ksdate_continuousNanoseconds();
         resourceUpdate(^(KSCrash_ResourceData *res) {
             res->memoryFootprint = current.footprint;
             res->memoryRemaining = current.remaining;
             res->memoryLimit = current.limit;
             res->memoryPressure = (uint8_t)current.pressure;
             res->memoryLevel = (uint8_t)current.level;
+            res->memoryUpdatedAtNs = now;
         });
     }
 }
@@ -299,9 +307,11 @@ static void writeBattery(void)
 {
     uint8_t level, state;
     readBattery(&level, &state);
+    uint64_t now = ksdate_continuousNanoseconds();
     resourceUpdate(^(KSCrash_ResourceData *res) {
         res->batteryLevel = level;
         res->batteryState = state;
+        res->batteryUpdatedAtNs = now;
     });
 }
 
@@ -369,8 +379,10 @@ static uint8_t thermalStateToUInt8(NSProcessInfoThermalState state)
 static void writeThermalState(void)
 {
     uint8_t state = thermalStateToUInt8(NSProcessInfo.processInfo.thermalState);
+    uint64_t now = ksdate_continuousNanoseconds();
     resourceUpdate(^(KSCrash_ResourceData *res) {
         res->thermalState = state;
+        res->thermalUpdatedAtNs = now;
     });
 }
 
@@ -398,8 +410,10 @@ static void stopThermalObserver(void)
 static void startDataProtectionObservers(void)
 {
     uint8_t active = UIApplication.sharedApplication.isProtectedDataAvailable ? 1 : 0;
+    uint64_t now = ksdate_continuousNanoseconds();
     resourceUpdate(^(KSCrash_ResourceData *res) {
         res->dataProtectionActive = active;
+        res->dataProtectionUpdatedAtNs = now;
     });
 
     NSNotificationCenter *nc = NSNotificationCenter.defaultCenter;
@@ -408,8 +422,10 @@ static void startDataProtectionObservers(void)
                                                        object:nil
                                                         queue:nil
                                                    usingBlock:^(__unused NSNotification *note) {
+                                                       uint64_t ts = ksdate_continuousNanoseconds();
                                                        resourceUpdate(^(KSCrash_ResourceData *res) {
                                                            res->dataProtectionActive = 1;
+                                                           res->dataProtectionUpdatedAtNs = ts;
                                                        });
                                                    }];
 
@@ -417,8 +433,10 @@ static void startDataProtectionObservers(void)
                                                          object:nil
                                                           queue:nil
                                                      usingBlock:^(__unused NSNotification *note) {
+                                                         uint64_t ts = ksdate_continuousNanoseconds();
                                                          resourceUpdate(^(KSCrash_ResourceData *res) {
                                                              res->dataProtectionActive = 0;
+                                                             res->dataProtectionUpdatedAtNs = ts;
                                                          });
                                                      }];
 }
@@ -443,8 +461,10 @@ static void writeLowPowerMode(void)
 {
     if (@available(macOS 12.0, iOS 9.0, tvOS 9.0, watchOS 2.0, *)) {
         uint8_t mode = NSProcessInfo.processInfo.lowPowerModeEnabled ? 1 : 0;
+        uint64_t now = ksdate_continuousNanoseconds();
         resourceUpdate(^(KSCrash_ResourceData *res) {
             res->lowPowerMode = mode;
+            res->lowPowerUpdatedAtNs = now;
         });
     }
 }

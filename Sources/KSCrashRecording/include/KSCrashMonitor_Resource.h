@@ -92,11 +92,21 @@ typedef struct {
     // Data Protection
     uint8_t dataProtectionActive;  // 1 = protected data available (device unlocked)
 
-    // Reserved for future fields without changing mmap size.
-    uint8_t _reserved[20];
+    uint8_t _pad1[4];  // align to 8-byte boundary for timestamps
+
+    // Last-update timestamps (monotonic uptime in nanoseconds).
+    // Used to determine which resource area changed most recently before a crash.
+    uint64_t memoryUpdatedAtNs;
+    uint64_t cpuUpdatedAtNs;
+    uint64_t batteryUpdatedAtNs;
+    uint64_t lowPowerUpdatedAtNs;
+    uint64_t thermalUpdatedAtNs;
+    uint64_t dataProtectionUpdatedAtNs;
+
+    uint8_t _reserved[32];
 } KSCrash_ResourceData;
 
-_Static_assert(sizeof(KSCrash_ResourceData) == 64, "KSCrash_ResourceData size changed — bump version");
+_Static_assert(sizeof(KSCrash_ResourceData) == 128, "KSCrash_ResourceData size changed — bump version");
 
 // ============================================================================
 #pragma mark - Public Snapshot API -
