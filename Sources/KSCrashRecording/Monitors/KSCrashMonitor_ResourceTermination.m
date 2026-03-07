@@ -76,8 +76,9 @@ const char *ksresourcetermination_reasonToString(KSResourceTerminationReason rea
 
 /** Determine whether the previous run was terminated due to resource exhaustion.
  *
- *  Returns None if lifecycle indicates a clean shutdown or a crash handler ran
- *  (not a resource issue), or if no resource thresholds were exceeded.
+ *  Returns None if lifecycle indicates a clean shutdown, a crash handler ran,
+ *  or no resource data is available. Returns Unexplained when the termination
+ *  was abnormal but no specific resource threshold was exceeded.
  *
  *  Priority: memoryLimit > memoryPressure > cpu > thermal > battery.
  *  Memory limit (app exceeded its Jetsam allocation) is the most specific signal.
