@@ -35,9 +35,26 @@ final class CrashReportTests: XCTestCase {
         XCTAssertEqual(CrashErrorType.cppException.rawValue, "cpp_exception")
         XCTAssertEqual(CrashErrorType.deadlock.rawValue, "deadlock")
         XCTAssertEqual(CrashErrorType.user.rawValue, "user")
-        XCTAssertEqual(CrashErrorType.memoryTermination.rawValue, "memory_termination")
+        XCTAssertEqual(CrashErrorType.resourceTermination.rawValue, "resource_termination")
+        XCTAssertEqual(CrashErrorType(rawValue: "memory_termination"), .resourceTermination)
         XCTAssertEqual(CrashErrorType.hang.rawValue, "hang")
         XCTAssertEqual(CrashErrorType.profile.rawValue, "profile")
+    }
+
+    func testTerminationReasonRawValues() {
+        XCTAssertEqual(TerminationReason.lowBattery.rawValue, "low_battery")
+        XCTAssertEqual(TerminationReason.memoryLimit.rawValue, "memory_limit")
+        XCTAssertEqual(TerminationReason.memoryPressure.rawValue, "memory_pressure")
+        XCTAssertEqual(TerminationReason.thermal.rawValue, "thermal")
+        XCTAssertEqual(TerminationReason.cpu.rawValue, "cpu")
+        XCTAssertEqual(TerminationReason.unexplained.rawValue, "unexplained")
+    }
+
+    func testTerminationReasonUnknown() {
+        let unknown = TerminationReason(rawValue: "some_future_reason")
+        XCTAssertEqual(unknown.rawValue, "some_future_reason")
+        XCTAssertTrue(unknown.isUnknown)
+        XCTAssertFalse(TerminationReason.memoryLimit.isUnknown)
     }
 
     func testCrashErrorTypeUnknown() {

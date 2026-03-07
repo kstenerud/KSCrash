@@ -36,9 +36,9 @@
 #include "KSCrashMonitor_Deadlock.h"
 #include "KSCrashMonitor_Lifecycle.h"
 #include "KSCrashMonitor_MachException.h"
-#include "KSCrashMonitor_Memory.h"
 #include "KSCrashMonitor_NSException.h"
 #include "KSCrashMonitor_Resource.h"
+#include "KSCrashMonitor_ResourceTermination.h"
 #include "KSCrashMonitor_Signal.h"
 #include "KSCrashMonitor_System.h"
 #include "KSCrashMonitor_User.h"
@@ -88,7 +88,7 @@ g_monitorMappings[] = { { KSCrashMonitorTypeMachException, kscm_machexception_ge
                         { KSCrashMonitorTypeSystem, kscm_system_getAPI },
                         { KSCrashMonitorTypeApplicationState, kscm_lifecycle_getAPI },
                         { KSCrashMonitorTypeZombie, kscm_zombie_getAPI },
-                        { KSCrashMonitorTypeMemoryTermination, kscm_memory_getAPI },
+                        { KSCrashMonitorTypeResourceTermination, kscm_resourcetermination_getAPI },
                         { KSCrashMonitorTypeWatchdog, kscm_watchdog_getAPI },
                         { KSCrashMonitorTypeUserInfo, kscm_userinfo_getAPI },
                         { KSCrashMonitorTypeResource, kscm_resource_getAPI } };
@@ -413,7 +413,7 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
 
     handleConfiguration(configuration);
 
-    // Create Data directory early so run IDs and memory tracking are available
+    // Create Data directory early so run IDs are available
     // before report store initialization.
     char path[KSFU_MAX_PATH_LENGTH];
     if (snprintf(path, sizeof(path), "%s/Data", installPath) >= (int)sizeof(path)) {
@@ -424,7 +424,6 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
         KSLOG_ERROR("Could not create path: %s", path);
         return KSCrashInstallErrorCouldNotCreatePath;
     }
-    ksmemory_initialize(path);
     rotateRunID(installPath);
 
     if (g_reportStoreConfig.appName == NULL) {

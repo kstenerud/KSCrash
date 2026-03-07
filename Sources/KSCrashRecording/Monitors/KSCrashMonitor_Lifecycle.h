@@ -82,6 +82,12 @@ typedef struct {
     uint64_t activeDurationSinceLastCrashNs;
     uint64_t backgroundDurationSinceLastCrashNs;
 
+    // Reference pair captured once at sidecar creation, used to convert any
+    // CLOCK_MONOTONIC_RAW timestamp to a unix epoch value:
+    //   wallNs = wallClockAtStartNs + (monotonicNs - monotonicAtStartNs)
+    uint64_t wallClockAtStartNs;  // unix epoch nanoseconds at sidecar creation
+    uint64_t monotonicAtStartNs;  // CLOCK_MONOTONIC_RAW nanoseconds at sidecar creation
+
     // 4-byte fields grouped together — no padding between them or before/after.
     int32_t sessionsSinceLaunch;
     int32_t launchesSinceLastCrash;
@@ -89,10 +95,13 @@ typedef struct {
 
     uint8_t crashedLastLaunch;
     uint8_t transitionState;  // KSCrashAppTransitionState at last update
-    uint8_t _pad[2];
+    uint8_t fatalReported;    // true if a crash handler ran (distinguishes crash from OS kill)
+    uint8_t userPerceptible;  // true if the user could perceive the app as part of their
+                              // experience (e.g. active, launching, or even tapping the icon
+                              // while still technically backgrounded)
 } KSCrash_LifecycleData;
 
-_Static_assert(sizeof(KSCrash_LifecycleData) == 64, "KSCrash_LifecycleData size changed — bump version");
+_Static_assert(sizeof(KSCrash_LifecycleData) == 80, "KSCrash_LifecycleData size changed — bump version");
 
 // ============================================================================
 #pragma mark - Public State (computed from sidecar) -
@@ -154,6 +163,11 @@ KSCrash_AppState kscrashstate_lifecycleAppState(void);
  *  Returns true if the struct was read and passed magic/version checks.
  */
 bool kslifecycle_readData(const char *path, KSCrash_LifecycleData *out);
+
+/** Read a lifecycle snapshot from a specific run's sidecar file.
+ *  Returns false if the run ID has no valid sidecar or data fails validation.
+ */
+bool kslifecycle_getSnapshotForRunID(const char *runID, KSCrash_LifecycleData *outData);
 
 /** Access the Lifecycle Monitor API.
  */

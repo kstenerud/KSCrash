@@ -31,7 +31,7 @@
 #import "KSCrashC.h"
 #import "KSCrashConfiguration+Private.h"
 #import "KSCrashMonitor_Lifecycle.h"
-#import "KSCrashMonitor_Memory.h"
+#import "KSCrashMonitor_ResourceTermination.h"
 #import "KSCrashMonitor_System.h"
 #import "KSCrashReport.h"
 #import "KSCrashReportFields.h"
@@ -216,12 +216,13 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
 
 - (BOOL)reportsMemoryTerminations
 {
-    return ksmemory_get_fatal_reports_enabled();
+    KSCrashMonitorAPI *api = kscm_resourcetermination_getAPI();
+    return api->isEnabled(api->context);
 }
 
-- (void)setReportsMemoryTerminations:(BOOL)reportsMemoryTerminations
+- (void)setReportsMemoryTerminations:(__unused BOOL)reportsMemoryTerminations
 {
-    ksmemory_set_fatal_reports_enabled(reportsMemoryTerminations);
+    // No-op: ResourceTermination monitor replaces the old Memory monitor.
 }
 
 - (NSDictionary *)systemInfo

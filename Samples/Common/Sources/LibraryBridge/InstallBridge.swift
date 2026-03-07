@@ -181,7 +181,10 @@ extension InstallBridge {
         (.cppException, "C++ Exception", "Unhandled exceptions in C++ code"),
         (.nsException, "NSException", "Unhandled Objective-C exceptions"),
         (.watchdog, "Watchdog", "Hangs and watchdog timeout terminations"),
-        (.memoryTermination, "Memory Termination", "Termination due to excessive memory usage"),
+        (
+            .resourceTermination, "Resource Termination",
+            "Termination due to resource exhaustion (memory, thermal, CPU, battery)"
+        ),
         (.zombie, "Zombie", "Attempts to access deallocated objects"),
         (.userReported, "User Reported", "Custom crash reports"),
         (.system, "System", "Additional system information added to reports"),
