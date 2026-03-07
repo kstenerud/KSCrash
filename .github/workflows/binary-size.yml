@@ -44,12 +44,6 @@ jobs:
         with:
           xcode-version: latest-stable
 
-      - name: Ensure iOS Platform is Downloaded
-        run: |
-          xcodebuild -runFirstLaunch
-          xcodebuild -downloadPlatform iOS
-          xcodebuild -runFirstLaunch
-
       - name: Build PR (iOS Release)
         run: |
           xcodebuild build \
