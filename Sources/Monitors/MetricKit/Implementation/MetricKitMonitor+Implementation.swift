@@ -58,7 +58,7 @@ extension MetricKitMonitor {
                     monitorId: {
                         MetricKitMonitor.from($0)?.monitorId
                     },
-                    monitorFlags: { _ in KSCrashMonitorFlag(0) },
+                    monitorFlags: { _ in KSCrashMonitorFlagPlugin },
                     setEnabled: metricKitMonitorSetEnabled,
                     isEnabled: { cntxt in
                         MetricKitMonitor.from(cntxt)?.enabled ?? false

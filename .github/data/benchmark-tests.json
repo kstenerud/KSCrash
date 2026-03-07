@@ -33,6 +33,11 @@
       "perCall": true
     },
     {
+      "id": "kvs",
+      "name": "Key-Value Store (KSKeyValueStore)",
+      "thresholds": { "excellent": 0.0005, "good": 0.002, "ok": 0.010 }
+    },
+    {
       "id": "report",
       "name": "Crash Report Writing (KSCrashReport)",
       "thresholds": { "excellent": 0.005, "good": 0.010, "ok": 0.050 }
@@ -114,6 +119,15 @@
     { "name": "ThreadCacheGetQueueName", "category": "thread", "description": "Cache queue name lookup", "iterations": 1000 },
     { "name": "ThreadCacheGetAllThreads", "category": "thread", "description": "Cache get all threads", "iterations": 1000 },
     { "name": "ThreadCacheCrashScenario", "category": "thread", "description": "Cache crash scenario", "iterations": 1 },
+
+    { "name": "WriteStrings", "category": "kvs", "description": "100 string writes", "notes": "Fresh store, unique keys" },
+    { "name": "WriteMixedTypes", "category": "kvs", "description": "100 mixed-type writes", "notes": "String, int64, double, bool, date" },
+    { "name": "Iterate", "category": "kvs", "description": "Iterate 100 records", "notes": "Resolved last-write-wins" },
+    { "name": "OverwriteSameKey", "category": "kvs", "description": "100 overwrites (1 key)", "notes": "Append-only log growth" },
+    { "name": "Compaction", "category": "kvs", "description": "Compaction trigger", "notes": "Small capacity, repeated overwrites" },
+    { "name": "Growth", "category": "kvs", "description": "Multiple growths", "notes": "512B initial, 100 unique keys" },
+    { "name": "CreateDestroy", "category": "kvs", "description": "Create + destroy lifecycle", "notes": "mmap + munmap" },
+    { "name": "ReadOnly", "category": "kvs", "description": "Read-only open + iterate", "notes": "Heap-based read path" },
 
     { "name": "WriteStandardReport", "category": "report", "description": "Write standard report", "notes": "Full report with binary images" },
     { "name": "WriteStandardReportNoBinaryImages", "category": "report", "description": "Write report (no images)", "notes": "Report without binary images" },

@@ -33,6 +33,8 @@
 
 @implementation KSCrash_Tests
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 - (void)testUserInfo
 {
     NSDictionary *userInfo = @{ @"key1" : @"value1", @"key2" : @123 };
@@ -47,5 +49,6 @@
 
     XCTAssertNil([[KSCrash sharedInstance] userInfo]);
 }
+#pragma clang diagnostic pop
 
 @end
