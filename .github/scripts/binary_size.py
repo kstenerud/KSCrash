@@ -150,8 +150,20 @@ def generate_report(current_modules, current_sizes, base_sizes=None):
     if has_base:
         total_base = sum(base_sizes[m]["file_total"] for m in base_sizes)
 
+    # Status indicator
+    if has_base and total_base > 0:
+        pct = (total_current - total_base) / total_base * 100
+        if pct > 5:
+            indicator = "&#x1F534;"  # red circle
+        elif pct > 1:
+            indicator = "&#x1F7E1;"  # yellow circle
+        else:
+            indicator = "&#x1F7E2;"  # green circle
+    else:
+        indicator = "&#x2139;&#xFE0F;"  # info icon
+
     # Summary line
-    lines.append("# Binary Size Report")
+    lines.append(f"# {indicator} Binary Size Report")
     lines.append("")
     summary = f"**Total: {fmt_size(total_current)}**"
     if has_base:
