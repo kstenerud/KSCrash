@@ -82,3 +82,7 @@ uint64_t ksdate_seconds(void)
     uint64_t seconds = (uint64_t)tp.tv_sec;
     return seconds;
 }
+
+uint64_t ksdate_uptimeNanoseconds(void) { return clock_gettime_nsec_np(CLOCK_UPTIME_RAW); }
+
+uint64_t ksdate_continuousNanoseconds(void) { return clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW); }
