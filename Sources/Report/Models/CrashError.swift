@@ -34,7 +34,7 @@ public enum CrashErrorType: RawRepresentable, Codable, Sendable, Equatable {
     case cppException
     case deadlock
     case user
-    @available(*, deprecated, renamed: "resourceTermination")
+    /// Deprecated: use ``resourceTermination`` instead.
     case memoryTermination
     case resourceTermination
     case hang
@@ -103,7 +103,7 @@ public struct CrashError: Codable, Sendable, Equatable {
     public let userReported: UserReportedInfo?
 
     /// Memory termination information (OOM kills).
-    @available(*, deprecated, renamed: "terminationReason")
+    /// Deprecated: use ``terminationReason`` instead.
     public let memoryTermination: MemoryTerminationInfo?
 
     /// Hang information (watchdog timeouts).
