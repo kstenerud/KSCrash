@@ -143,15 +143,26 @@ def generate_report(current_modules, current_sizes, base_sizes=None):
     """Generate the markdown report."""
     has_base = base_sizes is not None
     lines = []
+
+    # Compute totals upfront for the summary
+    total_current = sum(current_sizes[m]["file_total"] for m in current_modules)
+    total_base = 0
+    if has_base:
+        total_base = sum(base_sizes[m]["file_total"] for m in base_sizes)
+
+    # Summary line
     lines.append("# Binary Size Report")
     lines.append("")
-    lines.append(
-        "*iOS arm64 Release — per-module object sizes (upper bound before linker dead-code stripping)*"
-    )
+    summary = f"**Total: {fmt_size(total_current)}**"
+    if has_base:
+        summary += f" ({fmt_delta(total_current, total_base)})"
+    summary += " — iOS arm64 Release, per-module object sizes (upper bound before linker dead-code stripping)"
+    lines.append(summary)
     lines.append("")
 
-    # Per-module table
-    lines.append("## Per-Module Breakdown")
+    # Per-module table (collapsible)
+    lines.append("<details>")
+    lines.append("<summary>Per-Module Breakdown</summary>")
     lines.append("")
     if has_base:
         lines.append("| Module | `__TEXT` | `__DATA` | Total | Delta |")
@@ -160,17 +171,12 @@ def generate_report(current_modules, current_sizes, base_sizes=None):
         lines.append("| Module | `__TEXT` | `__DATA` | Total |")
         lines.append("|--------|---------|---------|-------|")
 
-    total_current = 0
-    total_base = 0
-
     for name in sorted(current_modules):
         cur = current_sizes[name]
-        total_current += cur["file_total"]
         row = f"| {name} | {fmt_size(cur['text'])} | {fmt_size(cur['data'])} | {fmt_size(cur['file_total'])}"
         if has_base:
             base = base_sizes.get(name)
             if base:
-                total_base += base["file_total"]
                 row += f" | {fmt_delta(cur['file_total'], base['file_total'])}"
             else:
                 row += " | *new* "
@@ -181,15 +187,12 @@ def generate_report(current_modules, current_sizes, base_sizes=None):
     if has_base:
         for name in sorted(base_sizes):
             if name not in current_sizes:
-                base = base_sizes[name]
-                total_base += base["file_total"]
                 lines.append(
                     f"| ~~{name}~~ | - | - | - | *removed* |"
                 )
 
     # Total row
     if has_base:
-        # Add base-only modules that weren't counted yet
         lines.append(
             f"| **Total** | | | **{fmt_size(total_current)}** | **{fmt_delta(total_current, total_base)}** |"
         )
@@ -197,9 +200,12 @@ def generate_report(current_modules, current_sizes, base_sizes=None):
         lines.append(f"| **Total** | | | **{fmt_size(total_current)}** |")
 
     lines.append("")
+    lines.append("</details>")
+    lines.append("")
 
-    # User cost by product
-    lines.append("## User Cost by Product")
+    # User cost by product (collapsible)
+    lines.append("<details>")
+    lines.append("<summary>User Cost by Product</summary>")
     lines.append("")
     if has_base:
         lines.append("| Product | Size | Delta |")
@@ -225,7 +231,7 @@ def generate_report(current_modules, current_sizes, base_sizes=None):
 
     # Add-ons
     recording_modules = set(PRODUCTS["Recording"])
-    lines.append("### Optional Add-ons (additional cost on top of Recording)")
+    lines.append("**Optional Add-ons** (additional cost on top of Recording)")
     lines.append("")
     if has_base:
         lines.append("| Add-on | Size | Delta |")
@@ -248,6 +254,8 @@ def generate_report(current_modules, current_sizes, base_sizes=None):
         row += " |"
         lines.append(row)
 
+    lines.append("")
+    lines.append("</details>")
     lines.append("")
     return "\n".join(lines)
 
