@@ -1,3 +1,6 @@
+# NOTE: Every library target in Package.swift must have a corresponding
+# BuildActionEntry in KSCrash-Package.xcscheme, otherwise xcodebuild won't
+# produce a .o for it and it will be missing from the size report.
 name: Binary Size
 
 on:
