@@ -323,7 +323,7 @@ jobs:
 
       - name: Upload Result Bundles as Artifact
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.artifact_name.outputs.name }}
           path: result_bundles/
