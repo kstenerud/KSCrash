@@ -130,9 +130,11 @@ def fmt_delta(current, base):
     if base is None:
         return ""
     diff = current - base
-    if diff == 0:
+    if abs(diff) < 100:
         return "="
-    pct = (diff / base * 100) if base != 0 else 0
+    if base == 0:
+        return "*new*"
+    pct = diff / base * 100
     sign = "+" if diff > 0 else ""
     return f"{sign}{fmt_size(diff)} ({sign}{pct:.1f}%)"
 
