@@ -10,7 +10,6 @@ import argparse
 import csv
 import io
 import os
-import re
 import subprocess
 import sys
 
@@ -72,18 +71,19 @@ def _should_skip(name):
     return False
 
 
-def parse_expected_modules(package_swift_path):
-    """Parse Package.swift Targets struct to get all target names, filtered to library targets."""
-    with open(package_swift_path) as f:
-        content = f.read()
-    # Match: static let foo = "TargetName"
-    names = re.findall(r'static\s+let\s+\w+\s*=\s*"([^"]+)"', content)
-    return {name for name in names if not _should_skip(name)}
+def _reported_modules():
+    """All modules referenced by PRODUCTS and ADDONS — the set we actually report on."""
+    modules = set()
+    for mods in PRODUCTS.values():
+        modules.update(mods)
+    for mods in ADDONS.values():
+        modules.update(mods)
+    return modules
 
 
-def check_completeness(found_modules, expected_modules):
-    """Check if all expected modules were built. Returns list of missing module names."""
-    return sorted(expected_modules - set(found_modules))
+def check_completeness(found_modules):
+    """Check if all reported modules were built. Returns list of missing module names."""
+    return sorted(_reported_modules() - set(found_modules))
 
 
 def measure_module(path):
@@ -364,28 +364,11 @@ def main():
         "--output", default="binary_size.md", help="Output markdown file"
     )
     parser.add_argument(
-        "--package-swift",
-        default=None,
-        help="Path to Package.swift for completeness checking (auto-detected from build-dir if omitted)",
-    )
-    parser.add_argument(
         "--linked-binary",
         default=None,
         help="(Future) Path to a linked binary for actual size measurement",
     )
     args = parser.parse_args()
-
-    # Resolve Package.swift for completeness checking
-    expected_modules = None
-    pkg_path = args.package_swift
-    if not pkg_path:
-        # Auto-detect: build-dir is typically <repo>/DerivedData, so look two levels up
-        candidate = os.path.join(args.build_dir, "..", "Package.swift")
-        if os.path.isfile(candidate):
-            pkg_path = candidate
-    if pkg_path and os.path.isfile(pkg_path):
-        expected_modules = parse_expected_modules(pkg_path)
-        print(f"Expected {len(expected_modules)} library modules (from {pkg_path})")
 
     # Measure current build
     current_modules = find_modules(args.build_dir)
@@ -393,11 +376,9 @@ def main():
         print("Error: no .o modules found", file=sys.stderr)
         sys.exit(1)
 
-    missing_current = None
-    if expected_modules:
-        missing_current = check_completeness(current_modules, expected_modules)
-        if missing_current:
-            print(f"Warning: missing expected module(s): {', '.join(missing_current)}")
+    missing_current = check_completeness(current_modules)
+    if missing_current:
+        print(f"Warning: missing reported module(s): {', '.join(missing_current)}")
 
     print(f"Found {len(current_modules)} modules:")
     for name in sorted(current_modules):
@@ -413,8 +394,7 @@ def main():
     if args.base_build_dir:
         base_modules = find_modules(args.base_build_dir)
         if base_modules:
-            if expected_modules:
-                missing_base = check_completeness(base_modules, expected_modules)
+            missing_base = check_completeness(base_modules)
             base_sizes = {}
             for name, path in base_modules.items():
                 base_sizes[name] = measure_module(path)
