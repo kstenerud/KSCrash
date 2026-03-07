@@ -79,6 +79,11 @@ uint64_t ksdate_uptimeNanoseconds(void);
  */
 uint64_t ksdate_continuousNanoseconds(void);
 
+/** Returns unix epoch wall-clock time in nanoseconds.
+ *
+ */
+uint64_t ksdate_wallClockNanoseconds(void);
+
 #ifdef __cplusplus
 }
 #endif

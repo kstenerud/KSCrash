@@ -86,3 +86,5 @@ uint64_t ksdate_seconds(void)
 uint64_t ksdate_uptimeNanoseconds(void) { return clock_gettime_nsec_np(CLOCK_UPTIME_RAW); }
 
 uint64_t ksdate_continuousNanoseconds(void) { return clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW); }
+
+uint64_t ksdate_wallClockNanoseconds(void) { return clock_gettime_nsec_np(CLOCK_REALTIME); }

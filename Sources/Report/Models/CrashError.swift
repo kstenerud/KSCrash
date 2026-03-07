@@ -34,7 +34,9 @@ public enum CrashErrorType: RawRepresentable, Codable, Sendable, Equatable {
     case cppException
     case deadlock
     case user
+    @available(*, deprecated, renamed: "resourceTermination")
     case memoryTermination
+    case resourceTermination
     case hang
     case profile
     case unknown(String)
@@ -47,7 +49,7 @@ public enum CrashErrorType: RawRepresentable, Codable, Sendable, Equatable {
         case "cpp_exception": self = .cppException
         case "deadlock": self = .deadlock
         case "user": self = .user
-        case "memory_termination": self = .memoryTermination
+        case "memory_termination", "resource_termination": self = .resourceTermination
         case "hang": self = .hang
         case "profile": self = .profile
         default: self = .unknown(rawValue)
@@ -63,6 +65,7 @@ public enum CrashErrorType: RawRepresentable, Codable, Sendable, Equatable {
         case .deadlock: return "deadlock"
         case .user: return "user"
         case .memoryTermination: return "memory_termination"
+        case .resourceTermination: return "resource_termination"
         case .hang: return "hang"
         case .profile: return "profile"
         case .unknown(let value): return value
@@ -100,6 +103,7 @@ public struct CrashError: Codable, Sendable, Equatable {
     public let userReported: UserReportedInfo?
 
     /// Memory termination information (OOM kills).
+    @available(*, deprecated, renamed: "terminationReason")
     public let memoryTermination: MemoryTerminationInfo?
 
     /// Hang information (watchdog timeouts).
@@ -121,6 +125,12 @@ public struct CrashError: Codable, Sendable, Equatable {
     /// Only meaningful when `isFatal` is true.
     public let isCleanExit: Bool?
 
+    /// Termination reason for resource termination reports.
+    public let terminationReason: TerminationReason?
+
+    /// Whether the user could perceive the app as part of their experience at termination time.
+    public let userPerceptible: Bool?
+
     public init(
         address: UInt64? = nil,
         mach: MachError? = nil,
@@ -135,7 +145,9 @@ public struct CrashError: Codable, Sendable, Equatable {
         reason: String? = nil,
         profile: ProfileInfo? = nil,
         isFatal: Bool? = nil,
-        isCleanExit: Bool? = nil
+        isCleanExit: Bool? = nil,
+        terminationReason: TerminationReason? = nil,
+        userPerceptible: Bool? = nil
     ) {
         self.address = address
         self.mach = mach
@@ -151,6 +163,8 @@ public struct CrashError: Codable, Sendable, Equatable {
         self.profile = profile
         self.isFatal = isFatal
         self.isCleanExit = isCleanExit
+        self.terminationReason = terminationReason
+        self.userPerceptible = userPerceptible
     }
 
     enum CodingKeys: String, CodingKey {
@@ -168,5 +182,7 @@ public struct CrashError: Codable, Sendable, Equatable {
         case profile
         case isFatal = "is_fatal"
         case isCleanExit = "is_clean_exit"
+        case terminationReason = "termination_reason"
+        case userPerceptible = "user_perceptible"
     }
 }

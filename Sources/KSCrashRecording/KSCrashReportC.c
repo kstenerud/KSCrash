@@ -35,7 +35,6 @@
 #include "KSCrashMonitor_Deadlock.h"
 #include "KSCrashMonitor_Lifecycle.h"
 #include "KSCrashMonitor_MachException.h"
-#include "KSCrashMonitor_Memory.h"
 #include "KSCrashMonitor_NSException.h"
 #include "KSCrashMonitor_Signal.h"
 #include "KSCrashMonitor_System.h"
@@ -1436,14 +1435,6 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
 #pragma clang diagnostic pop
             writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_Deadlock);
 
-        } else if (isCrashOfMonitorType(crash, kscm_memory_getAPI())) {
-            writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_MemoryTermination);
-            writer->beginObject(writer, KSCrashField_MemoryTermination);
-            {
-                writer->addStringElement(writer, KSCrashField_MemoryPressure, crash->AppMemory.pressure);
-                writer->addStringElement(writer, KSCrashField_MemoryLevel, crash->AppMemory.level);
-            }
-            writer->endContainer(writer);
         } else if (isCrashOfMonitorType(crash, kscm_user_getAPI())) {
             writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_User);
             writer->beginObject(writer, KSCrashField_UserReported);
