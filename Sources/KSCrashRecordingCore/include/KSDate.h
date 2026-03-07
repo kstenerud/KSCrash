@@ -69,6 +69,16 @@ uint64_t ksdate_microseconds(void);
  */
 uint64_t ksdate_seconds(void);
 
+/** Returns monotonic uptime in nanoseconds, excluding device suspend time.
+ *
+ */
+uint64_t ksdate_uptimeNanoseconds(void);
+
+/** Returns monotonic uptime in nanoseconds, including device suspend time.
+ *
+ */
+uint64_t ksdate_continuousNanoseconds(void);
+
 #ifdef __cplusplus
 }
 #endif
