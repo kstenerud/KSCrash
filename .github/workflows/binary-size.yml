@@ -8,6 +8,7 @@ on:
     paths:
       - "Sources/**"
       - "Package.swift"
+      - ".swiftpm/xcode/xcshareddata/xcschemes/**"
       - ".github/workflows/binary-size.yml"
       - ".github/scripts/binary_size.py"
 

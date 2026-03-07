@@ -62,23 +62,36 @@ def find_modules(build_dir):
 
 
 def measure_module(path):
-    """Run bloaty on a .o file and return segment sizes.
+    """Run bloaty on a .o file and return section sizes.
 
     Uses sections (not segments) because .o files don't have segment load commands.
-    Groups __text/__stubs/__stub_helper into TEXT, __data/__bss/__common/__objc_* into DATA.
+    Reports vmsize for sections that map to __TEXT or __DATA in the linked binary.
+    Zero-fill sections (__bss, __common, __thread_bss) are excluded — they cost
+    runtime memory but no file/download size.
     """
     result = {"vm_total": 0, "file_total": 0, "text": 0, "data": 0}
 
-    # Sections whose vmsize counts toward __TEXT
-    TEXT_SECTIONS = {"__text", "__stubs", "__stub_helper", "__cstring", "__const",
-                     "__gcc_except_tab", "__unwind_info", "__compact_unwind"}
-    # Sections whose vmsize counts toward __DATA
-    DATA_SECTIONS = {"__data", "__bss", "__common", "__cfstring",
-                     "__objc_const", "__objc_data", "__objc_classlist",
-                     "__objc_classrefs", "__objc_superrefs", "__objc_protolist",
-                     "__objc_catlist", "__objc_selrefs", "__objc_ivar",
-                     "__objc_methname", "__objc_methtype", "__objc_classname",
-                     "__objc_imageinfo"}
+    # Sections that land in __TEXT segment in the linked binary
+    TEXT_SECTIONS = {
+        "__text", "__stubs", "__stub_helper", "__cstring", "__const",
+        "__constg_swiftt", "__literal8", "__literal16",
+        "__gcc_except_tab", "__unwind_info", "__compact_unwind", "__eh_frame",
+        "__swift5_typeref", "__swift5_reflstr", "__swift5_fieldmd",
+        "__swift5_assocty", "__swift5_proto", "__swift5_protos",
+        "__swift5_types", "__swift5_builtin", "__swift5_capture",
+        "__swift_modhash",
+    }
+    # Sections that land in __DATA segment (initialized data only, not zero-fill)
+    DATA_SECTIONS = {
+        "__data", "__cfstring", "__mod_init_func",
+        "__objc_const", "__objc_data", "__objc_classlist", "__objc_nlclslist",
+        "__objc_classrefs", "__objc_superrefs", "__objc_protolist",
+        "__objc_protorefs", "__objc_catlist", "__objc_clsrolist",
+        "__objc_selrefs", "__objc_ivar",
+        "__objc_methname", "__objc_methtype", "__objc_classname",
+        "__objc_imageinfo",
+        "__thread_vars",
+    }
 
     try:
         proc = subprocess.run(
@@ -101,9 +114,9 @@ def measure_module(path):
             result["vm_total"] += vm
             result["file_total"] += file_sz
             if section in TEXT_SECTIONS:
-                result["text"] += file_sz
+                result["text"] += vm
             elif section in DATA_SECTIONS:
-                result["data"] += file_sz
+                result["data"] += vm
     except FileNotFoundError:
         size = os.path.getsize(path)
         result["vm_total"] = size
