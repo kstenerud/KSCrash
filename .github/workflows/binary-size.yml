@@ -75,10 +75,12 @@ jobs:
             python3 pr/.github/scripts/binary_size.py \
               --build-dir pr/DerivedData \
               --base-build-dir base/DerivedData \
+              --package-swift pr/Package.swift \
               --output binary_size.md
           else
             python3 pr/.github/scripts/binary_size.py \
               --build-dir pr/DerivedData \
+              --package-swift pr/Package.swift \
               --output binary_size.md
           fi
 

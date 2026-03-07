@@ -10,6 +10,7 @@ import argparse
 import csv
 import io
 import os
+import re
 import subprocess
 import sys
 
@@ -36,9 +37,10 @@ ADDONS = {
     "Monitors": ["Monitors", "Report", "SwiftCore"],
 }
 
-# Artifacts to skip (test targets, benchmarks, etc.)
+# Artifacts to skip (test targets, benchmarks, internal-only helpers)
 SKIP_PREFIXES = ("KSCrashBenchmarks", "KSCrashTests", "Tests")
 SKIP_SUFFIXES = ("Tests",)
+SKIP_EXACT = {"KSCrashTestTools", "KSCrashRecordingCoreSwift"}
 
 
 def find_modules(build_dir):
@@ -53,12 +55,35 @@ def find_modules(build_dir):
         if not entry.endswith(".o"):
             continue
         name = entry[:-2]  # strip .o
-        if any(name.startswith(p) for p in SKIP_PREFIXES):
-            continue
-        if any(name.endswith(s) for s in SKIP_SUFFIXES):
+        if _should_skip(name):
             continue
         modules[name] = os.path.join(products_dir, entry)
     return modules
+
+
+def _should_skip(name):
+    """Check if a module name should be excluded from measurement."""
+    if name in SKIP_EXACT:
+        return True
+    if any(name.startswith(p) for p in SKIP_PREFIXES):
+        return True
+    if any(name.endswith(s) for s in SKIP_SUFFIXES):
+        return True
+    return False
+
+
+def parse_expected_modules(package_swift_path):
+    """Parse Package.swift Targets struct to get all target names, filtered to library targets."""
+    with open(package_swift_path) as f:
+        content = f.read()
+    # Match: static let foo = "TargetName"
+    names = re.findall(r'static\s+let\s+\w+\s*=\s*"([^"]+)"', content)
+    return {name for name in names if not _should_skip(name)}
+
+
+def check_completeness(found_modules, expected_modules):
+    """Check if all expected modules were built. Returns list of missing module names."""
+    return sorted(expected_modules - set(found_modules))
 
 
 def measure_module(path):
@@ -152,7 +177,8 @@ def fmt_delta(current, base):
     return f"{sign}{fmt_size(diff)} ({sign}{pct:.1f}%)"
 
 
-def generate_report(current_modules, current_sizes, base_sizes=None):
+def generate_report(current_modules, current_sizes, base_sizes=None,
+                    missing_current=None, missing_base=None):
     """Generate the markdown report."""
     has_base = base_sizes is not None
     lines = []
@@ -162,6 +188,13 @@ def generate_report(current_modules, current_sizes, base_sizes=None):
     total_base = 0
     if has_base:
         total_base = sum(base_sizes[m]["file_total"] for m in base_sizes)
+
+    # Detect coverage changes (modules added/removed between base and PR)
+    added_modules = []
+    removed_modules = []
+    if has_base:
+        added_modules = sorted(set(current_sizes) - set(base_sizes))
+        removed_modules = sorted(set(base_sizes) - set(current_sizes))
 
     # Status indicator
     if has_base and total_base > 0:
@@ -183,20 +216,52 @@ def generate_report(current_modules, current_sizes, base_sizes=None):
         summary += f" ({fmt_delta(total_current, total_base)})"
     summary += " — iOS arm64 Release, per-module object sizes (upper bound before linker dead-code stripping)"
     lines.append(summary)
+
+    # Coverage change note
+    if added_modules or removed_modules:
+        lines.append("")
+        parts = []
+        if added_modules:
+            parts.append(f"+{len(added_modules)} module(s): {', '.join(added_modules)}")
+        if removed_modules:
+            parts.append(f"-{len(removed_modules)} module(s): {', '.join(removed_modules)}")
+        lines.append(f"> **Coverage change:** {'; '.join(parts)}. "
+                      "Delta includes these modules — not purely a source-size change.")
+
+    # Completeness warning
+    if missing_current:
+        lines.append("")
+        lines.append(f"> **Warning:** measurement incomplete — missing module(s): "
+                      f"{', '.join(missing_current)}")
+
     lines.append("")
 
-    # Per-module table (collapsible)
+    # Column labels: __TEXT = code + read-only data (download cost),
+    # __DATA = initialized writable data (download cost)
+    text_col = "Code (`__TEXT`)"
+    data_col = "Data (`__DATA`)"
+
+    # Per-module table (collapsible), sorted by absolute delta when base exists
     lines.append("<details>")
     lines.append("<summary>Per-Module Breakdown</summary>")
     lines.append("")
     if has_base:
-        lines.append("| Module | `__TEXT` | `__DATA` | Total | Delta |")
+        lines.append(f"| Module | {text_col} | {data_col} | File Total | Delta |")
         lines.append("|--------|---------|---------|-------|-------|")
     else:
-        lines.append("| Module | `__TEXT` | `__DATA` | Total |")
+        lines.append(f"| Module | {text_col} | {data_col} | File Total |")
         lines.append("|--------|---------|---------|-------|")
 
-    for name in sorted(current_modules):
+    # Sort by absolute delta (biggest movers first) when base exists, else by name
+    module_names = sorted(current_modules)
+    if has_base:
+        def sort_key(name):
+            cur = current_sizes[name]["file_total"]
+            base = base_sizes.get(name, {}).get("file_total", 0)
+            return -abs(cur - base)
+        module_names = sorted(current_modules, key=sort_key)
+
+    for name in module_names:
         cur = current_sizes[name]
         row = f"| {name} | {fmt_size(cur['text'])} | {fmt_size(cur['data'])} | {fmt_size(cur['file_total'])}"
         if has_base:
@@ -299,17 +364,40 @@ def main():
         "--output", default="binary_size.md", help="Output markdown file"
     )
     parser.add_argument(
+        "--package-swift",
+        default=None,
+        help="Path to Package.swift for completeness checking (auto-detected from build-dir if omitted)",
+    )
+    parser.add_argument(
         "--linked-binary",
         default=None,
         help="(Future) Path to a linked binary for actual size measurement",
     )
     args = parser.parse_args()
 
+    # Resolve Package.swift for completeness checking
+    expected_modules = None
+    pkg_path = args.package_swift
+    if not pkg_path:
+        # Auto-detect: build-dir is typically <repo>/DerivedData, so look two levels up
+        candidate = os.path.join(args.build_dir, "..", "Package.swift")
+        if os.path.isfile(candidate):
+            pkg_path = candidate
+    if pkg_path and os.path.isfile(pkg_path):
+        expected_modules = parse_expected_modules(pkg_path)
+        print(f"Expected {len(expected_modules)} library modules (from {pkg_path})")
+
     # Measure current build
     current_modules = find_modules(args.build_dir)
     if not current_modules:
         print("Error: no .o modules found", file=sys.stderr)
         sys.exit(1)
+
+    missing_current = None
+    if expected_modules:
+        missing_current = check_completeness(current_modules, expected_modules)
+        if missing_current:
+            print(f"Warning: missing expected module(s): {', '.join(missing_current)}")
 
     print(f"Found {len(current_modules)} modules:")
     for name in sorted(current_modules):
@@ -321,9 +409,12 @@ def main():
 
     # Measure base build if provided
     base_sizes = None
+    missing_base = None
     if args.base_build_dir:
         base_modules = find_modules(args.base_build_dir)
         if base_modules:
+            if expected_modules:
+                missing_base = check_completeness(base_modules, expected_modules)
             base_sizes = {}
             for name, path in base_modules.items():
                 base_sizes[name] = measure_module(path)
@@ -331,7 +422,8 @@ def main():
         else:
             print("Warning: no .o modules found in base build, skipping delta")
 
-    report = generate_report(current_modules, current_sizes, base_sizes)
+    report = generate_report(current_modules, current_sizes, base_sizes,
+                             missing_current, missing_base)
 
     with open(args.output, "w") as f:
         f.write(report)
