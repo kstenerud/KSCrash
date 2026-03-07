@@ -348,11 +348,11 @@ static bool isEnabled_func(__unused void *context) { return g_isEnabled; }
 static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext, __unused void *context)
 {
     bool isFatal = eventContext != NULL && eventContext->requirements.isFatal;
-    // For fatal events, write cleanShutdown before acquiring the lock. This is a
-    // single-byte store to mmap'd memory that must succeed unconditionally — if the
-    // bounded lock times out we still need the next launch to see the correct state.
-    // In practice, fatal events run with other threads suspended so lock contention
-    // is unlikely, but this is defense-in-depth.
+    // For fatal events, write cleanShutdown and fatalReported before acquiring the
+    // lock. These are small stores to mmap'd memory that must succeed unconditionally
+    // — if the bounded lock times out we still need the next launch to see the correct
+    // state. In practice, fatal events run with other threads suspended so lock
+    // contention is unlikely, but this is defense-in-depth.
     if (isFatal && g_sidecar != NULL) {
         g_sidecar->cleanShutdown = eventContext->requirements.isCleanExit;
         g_sidecar->fatalReported = true;
