@@ -181,29 +181,6 @@ typedef struct KSCrash_MonitorContext {
     } ZombieException;
 
     struct {
-        /** measurement taken time in microseconds. */
-        uint64_t timestamp;
-
-        /** memory pressure  `KSCrashAppMemoryPressure` */
-        const char *pressure;
-
-        /** amount of app memory used */
-        uint64_t footprint;
-
-        /** amount of app memory remaining */
-        uint64_t remaining;
-
-        /** high water mark for footprint (footprint +  remaining)*/
-        uint64_t limit;
-
-        /** memory level  `KSCrashAppMemoryLevel` (KSCrashAppMemory.level) */
-        const char *level;
-
-        /** transition state of the app */
-        const char *state;
-    } AppMemory;
-
-    struct {
         /** Whether the hang is currently in progress */
         bool inProgress;
 

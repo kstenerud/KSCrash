@@ -1633,31 +1633,15 @@ void kscrashreport_writeRecrashReport(const KSCrash_MonitorContext *const monito
     kstc_unfreeze();
 }
 
-static void writeAppMemoryInfo(const KSCrashReportWriter *const writer, const char *const key,
-                               const KSCrash_MonitorContext *const monitorContext)
-{
-    writer->beginObject(writer, key);
-    {
-        writer->addUIntegerElement(writer, KSCrashField_MemoryFootprint, monitorContext->AppMemory.footprint);
-        writer->addUIntegerElement(writer, KSCrashField_MemoryRemaining, monitorContext->AppMemory.remaining);
-        writer->addStringElement(writer, KSCrashField_MemoryPressure, monitorContext->AppMemory.pressure);
-        writer->addStringElement(writer, KSCrashField_MemoryLevel, monitorContext->AppMemory.level);
-        writer->addUIntegerElement(writer, KSCrashField_MemoryLimit, monitorContext->AppMemory.limit);
-    }
-    writer->endContainer(writer);
-}
-
 /** Write system info that is still populated at crash time by other monitors.
  *  System monitor fields (device, OS, bundle, CPU, memory, etc.) are now in
  *  the mmap'd run sidecar and stitched into the report on next launch.
+ *  App memory is also stitched from the Resource sidecar.
  */
 static void writeSystemInfo(const KSCrashReportWriter *const writer, const char *const key,
-                            const KSCrash_MonitorContext *const monitorContext)
+                            __unused const KSCrash_MonitorContext *const monitorContext)
 {
     writer->beginObject(writer, key);
-    {
-        writeAppMemoryInfo(writer, KSCrashField_AppMemory, monitorContext);
-    }
     writer->endContainer(writer);
 }
 
