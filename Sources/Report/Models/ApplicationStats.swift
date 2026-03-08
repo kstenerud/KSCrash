@@ -77,7 +77,7 @@ public struct ApplicationStats: Codable, Sendable, Equatable {
 }
 
 /// App lifecycle transition state.
-public enum AppTransitionState: String, Codable, Sendable, Equatable {
+public enum AppTransitionState: RawRepresentable, Codable, Sendable, Equatable {
     case startup
     case prewarm
     case launching
@@ -87,5 +87,40 @@ public enum AppTransitionState: String, Codable, Sendable, Equatable {
     case background
     case terminating
     case exiting
-    case unknown
+    case unknown(String)
+
+    public init(rawValue: String) {
+        switch rawValue {
+        case "startup": self = .startup
+        case "prewarm": self = .prewarm
+        case "launching": self = .launching
+        case "foregrounding": self = .foregrounding
+        case "active": self = .active
+        case "deactivating": self = .deactivating
+        case "background": self = .background
+        case "terminating": self = .terminating
+        case "exiting": self = .exiting
+        default: self = .unknown(rawValue)
+        }
+    }
+
+    public var rawValue: String {
+        switch self {
+        case .startup: return "startup"
+        case .prewarm: return "prewarm"
+        case .launching: return "launching"
+        case .foregrounding: return "foregrounding"
+        case .active: return "active"
+        case .deactivating: return "deactivating"
+        case .background: return "background"
+        case .terminating: return "terminating"
+        case .exiting: return "exiting"
+        case .unknown(let value): return value
+        }
+    }
+
+    public var isUnknown: Bool {
+        if case .unknown = self { return true }
+        return false
+    }
 }
