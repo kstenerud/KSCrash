@@ -372,6 +372,9 @@ static bool isEnabled_func(__unused void *context) { return g_isEnabled; }
 // watchdog's g_watchdog pointer doesn't exist yet during setEnabled.
 static void notifyPostSystemEnable(__unused void *context)
 {
+    if (g_hangObserverToken != KSHangObserverTokenNotFound) {
+        return;
+    }
     g_hangObserverToken = kshang_addHangObserver(onHangChange, NULL);
 }
 
