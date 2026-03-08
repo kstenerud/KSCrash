@@ -99,9 +99,12 @@ typedef struct {
     uint8_t userPerceptible;  // true if the user could perceive the app as part of their
                               // experience (e.g. active, launching, or even tapping the icon
                               // while still technically backgrounded)
+    uint8_t hangInProgress;   // true while the watchdog is tracking an active hang;
+                              // if still true on next launch, the app was killed during a hang
+    uint8_t _pad[4];
 } KSCrash_LifecycleData;
 
-_Static_assert(sizeof(KSCrash_LifecycleData) == 80, "KSCrash_LifecycleData size changed — bump version");
+_Static_assert(sizeof(KSCrash_LifecycleData) == 88, "KSCrash_LifecycleData size changed — bump version");
 
 // ============================================================================
 #pragma mark - Public State (computed from sidecar) -

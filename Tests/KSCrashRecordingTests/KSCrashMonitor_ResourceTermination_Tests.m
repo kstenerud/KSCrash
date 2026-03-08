@@ -83,6 +83,18 @@ static KSCrash_ResourceData makeResource(void)
     XCTAssertEqual(kscm_resourcetermination_testcode_determineReason(&lc, &res), KSResourceTerminationReasonNone);
 }
 
+// MARK: - Hang in progress → None
+
+- (void)testHangInProgressReturnsNone
+{
+    KSCrash_LifecycleData lc = makeLifecycle(false, false);
+    lc.hangInProgress = true;
+    KSCrash_ResourceData res = makeResource();
+    res.memoryLevel = KSCrashAppMemoryStateCritical;
+
+    XCTAssertEqual(kscm_resourcetermination_testcode_determineReason(&lc, &res), KSResourceTerminationReasonNone);
+}
+
 // MARK: - NULL resource → None
 
 - (void)testNullResourceReturnsNone

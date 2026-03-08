@@ -28,6 +28,7 @@
 
 #import "KSCrashAppStateTracker.h"
 #import "KSCrashC.h"
+#import "KSCrashHang.h"
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitorHelper.h"
 #import "KSDate.h"
@@ -52,6 +53,7 @@ static KSCrash_LifecycleData *g_sidecar = NULL;
 static KSSpinLock g_sidecarLock = KSSPINLOCK_INIT;
 static KSCrash_ExceptionHandlerCallbacks g_callbacks = { 0 };
 static id g_appStateObserver = nil;
+static KSHangObserverToken g_hangObserverToken = KSHangObserverTokenNotFound;
 
 static atomic_bool g_isEnabled = false;
 
@@ -314,6 +316,20 @@ static void releaseSidecar(void)
     }
 }
 
+static void onHangChange(KSHangChangeType change, __unused uint64_t startTimestamp, __unused uint64_t endTimestamp,
+                         __unused void *context)
+{
+    if (change != KSHangChangeTypeStarted && change != KSHangChangeTypeEnded) {
+        return;
+    }
+    ks_spinlock_lock(&g_sidecarLock);
+    KSCrash_LifecycleData *sc = g_sidecar;
+    if (sc != NULL) {
+        sc->hangInProgress = (change == KSHangChangeTypeStarted);
+    }
+    ks_spinlock_unlock(&g_sidecarLock);
+}
+
 static void setEnabled(bool isEnabled, __unused void *context)
 {
     bool expectEnabled = !isEnabled;
@@ -336,7 +352,14 @@ static void setEnabled(bool isEnabled, __unused void *context)
             [KSCrashAppStateTracker.sharedInstance addObserverWithBlock:^(KSCrashAppTransitionState transitionState) {
                 onTransitionState(transitionState);
             }];
+
+        g_hangObserverToken = kshang_addHangObserver(onHangChange, NULL);
     } else {
+        if (g_hangObserverToken != KSHangObserverTokenNotFound) {
+            kshang_removeHangObserver(g_hangObserverToken);
+            g_hangObserverToken = KSHangObserverTokenNotFound;
+        }
+
         g_appStateObserver = nil;
 
         releaseSidecar();
