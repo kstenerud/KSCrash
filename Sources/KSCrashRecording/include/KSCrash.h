@@ -93,7 +93,9 @@ NS_ASSUME_NONNULL_BEGIN
 /** Number of sessions (launch, resume from suspend) since app launch. */
 @property(nonatomic, readonly, assign) NSInteger sessionsSinceLaunch;
 
-/** If true, the application crashed on the previous launch. */
+/** If true, the previous run terminated in a way that KSCrash reports as an issue.
+ *  This includes crashes, resource terminations (OOM, thermal, CPU, etc.), and unrecovered hangs.
+ *  Non-fatal reports, profiler events, and clean exits do not count. */
 @property(nonatomic, readonly, assign) BOOL crashedLastLaunch;
 
 /** Information about the operating system and environment.
