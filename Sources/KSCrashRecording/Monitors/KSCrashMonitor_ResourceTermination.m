@@ -147,7 +147,7 @@ static uint64_t monotonicToWallClockUs(const KSCrash_LifecycleData *lifecycle, u
 
 /** Build and inject a retroactive report for the terminated previous run. */
 static void injectReport(const char *lastRunID, const KSCrash_LifecycleData *lifecycle,
-                         KSResourceTerminationReason reason, bool userPerceptible, uint64_t mostRecentMonotonicNs)
+                         KSResourceTerminationReason reason, uint64_t mostRecentMonotonicNs)
 {
     NSMutableDictionary *report = [NSMutableDictionary dictionary];
 
@@ -167,7 +167,6 @@ static void injectReport(const char *lastRunID, const KSCrash_LifecycleData *lif
     errorSection[KSCrashField_TerminationReason] = @(ksresourcetermination_reasonToString(reason));
     errorSection[KSCrashField_IsFatal] = @YES;
     errorSection[KSCrashField_IsCleanExit] = @NO;
-    errorSection[KSCrashField_UserPerceptible] = @(userPerceptible);
     errorSection[KSCrashExcType_Signal] = @{
         KSCrashField_Signal : @(SIGKILL),
         KSCrashField_Name : @"SIGKILL",
@@ -247,9 +246,7 @@ static void notifyPostSystemEnable(__unused void *context)
         mostRecentTimestampNs = lifecycle.appStateTransitionTimeNs;
     }
 
-    bool userPerceptible = lifecycle.userPerceptible;
-
-    injectReport(lastRunID, &lifecycle, reason, userPerceptible, mostRecentTimestampNs);
+    injectReport(lastRunID, &lifecycle, reason, mostRecentTimestampNs);
 }
 
 KSCrashMonitorAPI *kscm_resourcetermination_getAPI(void)

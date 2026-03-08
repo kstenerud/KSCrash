@@ -935,7 +935,6 @@ final class CrashReportDecodingTests: XCTestCase {
                         "termination_reason": "memory_limit",
                         "is_fatal": true,
                         "is_clean_exit": false,
-                        "user_perceptible": true,
                         "signal": { "signal": 9, "code": 0, "name": "SIGKILL" }
                     }
                 },
@@ -954,7 +953,6 @@ final class CrashReportDecodingTests: XCTestCase {
         XCTAssertEqual(report.crash.error.terminationReason, .memoryLimit)
         XCTAssertEqual(report.crash.error.isFatal, true)
         XCTAssertEqual(report.crash.error.isCleanExit, false)
-        XCTAssertEqual(report.crash.error.userPerceptible, true)
         XCTAssertEqual(report.crash.error.signal?.signal, 9)
         XCTAssertEqual(report.crash.error.signal?.name, "SIGKILL")
         XCTAssertEqual(report.report.runId, "prev-run-id")
@@ -973,7 +971,6 @@ final class CrashReportDecodingTests: XCTestCase {
 
         let report = try CrashReport.decode(from: json)
         XCTAssertNil(report.crash.error.terminationReason)
-        XCTAssertNil(report.crash.error.userPerceptible)
     }
 
     func testDecodeAllTerminationReasons() throws {

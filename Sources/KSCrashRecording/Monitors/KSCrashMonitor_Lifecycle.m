@@ -399,6 +399,12 @@ void kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionState state)
     onTransitionState(state);
 }
 
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+void kscm_lifecycle_testcode_hangChange(KSHangChangeType change)
+{
+    onHangChange(change, 0, 0, NULL);
+}
+
 KSCrashMonitorAPI *kscm_lifecycle_getAPI(void)
 {
     static KSCrashMonitorAPI api = { 0 };

@@ -206,6 +206,7 @@
 #define kscm_getMonitor KSCRASH_NS(kscm_getMonitor)
 #define kscm_lifecycle_getAPI KSCRASH_NS(kscm_lifecycle_getAPI)
 #define kscm_lifecycle_stitchReport KSCRASH_NS(kscm_lifecycle_stitchReport)
+#define kscm_lifecycle_testcode_hangChange KSCRASH_NS(kscm_lifecycle_testcode_hangChange)
 #define kscm_lifecycle_testcode_transitionState KSCRASH_NS(kscm_lifecycle_testcode_transitionState)
 #define kscm_machexception_getAPI KSCRASH_NS(kscm_machexception_getAPI)
 #define kscm_memory_getAPI KSCRASH_NS(kscm_memory_getAPI)

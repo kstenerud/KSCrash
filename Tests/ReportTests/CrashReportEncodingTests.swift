@@ -695,8 +695,7 @@ final class CrashReportEncodingTests: XCTestCase {
                     type: .resourceTermination,
                     isFatal: true,
                     isCleanExit: false,
-                    terminationReason: .memoryLimit,
-                    userPerceptible: true
+                    terminationReason: .memoryLimit
                 )
             ),
             report: ReportInfo(
@@ -711,7 +710,6 @@ final class CrashReportEncodingTests: XCTestCase {
 
         XCTAssertEqual(roundTripped.crash.error.type, .resourceTermination)
         XCTAssertEqual(roundTripped.crash.error.terminationReason, .memoryLimit)
-        XCTAssertEqual(roundTripped.crash.error.userPerceptible, true)
         XCTAssertEqual(roundTripped.crash.error.isFatal, true)
         XCTAssertEqual(roundTripped.crash.error.isCleanExit, false)
         XCTAssertEqual(roundTripped.crash.error.signal?.signal, 9)
@@ -725,8 +723,7 @@ final class CrashReportEncodingTests: XCTestCase {
             crash: BasicCrashReport.Crash(
                 error: CrashError(
                     type: .resourceTermination,
-                    terminationReason: .thermal,
-                    userPerceptible: false
+                    terminationReason: .thermal
                 )
             ),
             report: ReportInfo(id: "key-test")
@@ -738,9 +735,7 @@ final class CrashReportEncodingTests: XCTestCase {
         let error = crash["error"] as! [String: Any]
 
         XCTAssertEqual(error["termination_reason"] as? String, "thermal")
-        XCTAssertEqual(error["user_perceptible"] as? Bool, false)
         XCTAssertNil(error["terminationReason"])
-        XCTAssertNil(error["userPerceptible"])
     }
 
     func testEncodingIsFatalUsesSnakeCaseKey() throws {

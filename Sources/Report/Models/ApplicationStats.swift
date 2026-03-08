@@ -55,6 +55,12 @@ public struct ApplicationStats: Codable, Sendable, Equatable {
     /// Number of sessions since launch.
     public let sessionsSinceLaunch: Int?
 
+    /// App transition state at the time of the event.
+    public let appTransitionState: AppTransitionState?
+
+    /// Whether the user could perceive the app as part of their experience.
+    public let userPerceptible: Bool?
+
     enum CodingKeys: String, CodingKey {
         case activeTimeSinceLastCrash = "active_time_since_last_crash"
         case activeTimeSinceLaunch = "active_time_since_launch"
@@ -65,5 +71,21 @@ public struct ApplicationStats: Codable, Sendable, Equatable {
         case launchesSinceLastCrash = "launches_since_last_crash"
         case sessionsSinceLastCrash = "sessions_since_last_crash"
         case sessionsSinceLaunch = "sessions_since_launch"
+        case appTransitionState = "app_transition_state"
+        case userPerceptible = "user_perceptible"
     }
+}
+
+/// App lifecycle transition state.
+public enum AppTransitionState: String, Codable, Sendable, Equatable {
+    case startup
+    case prewarm
+    case launching
+    case foregrounding
+    case active
+    case deactivating
+    case background
+    case terminating
+    case exiting
+    case unknown
 }

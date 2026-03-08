@@ -128,9 +128,6 @@ public struct CrashError: Codable, Sendable, Equatable {
     /// Termination reason for resource termination reports.
     public let terminationReason: TerminationReason?
 
-    /// Whether the user could perceive the app as part of their experience at termination time.
-    public let userPerceptible: Bool?
-
     public init(
         address: UInt64? = nil,
         mach: MachError? = nil,
@@ -146,8 +143,7 @@ public struct CrashError: Codable, Sendable, Equatable {
         profile: ProfileInfo? = nil,
         isFatal: Bool? = nil,
         isCleanExit: Bool? = nil,
-        terminationReason: TerminationReason? = nil,
-        userPerceptible: Bool? = nil
+        terminationReason: TerminationReason? = nil
     ) {
         self.address = address
         self.mach = mach
@@ -164,7 +160,6 @@ public struct CrashError: Codable, Sendable, Equatable {
         self.isFatal = isFatal
         self.isCleanExit = isCleanExit
         self.terminationReason = terminationReason
-        self.userPerceptible = userPerceptible
     }
 
     enum CodingKeys: String, CodingKey {
@@ -183,6 +178,5 @@ public struct CrashError: Codable, Sendable, Equatable {
         case isFatal = "is_fatal"
         case isCleanExit = "is_clean_exit"
         case terminationReason = "termination_reason"
-        case userPerceptible = "user_perceptible"
     }
 }

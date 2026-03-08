@@ -26,6 +26,7 @@
 
 #import "KSCrashMonitor_Lifecycle.h"
 
+#import "KSCrashAppTransitionState.h"
 #import "KSCrashReportFields.h"
 #import "KSJSONCodecObjC.h"
 
@@ -75,6 +76,9 @@ char *kscm_lifecycle_stitchReport(const char *report, const char *sidecarPath, K
     statsDict[KSCrashField_SessionsSinceLaunch] = @(lc.sessionsSinceLaunch);
     statsDict[KSCrashField_ActiveTimeSinceLaunch] = @(kslifecycle_nsToSeconds(lc.activeDurationSinceLaunchNs));
     statsDict[KSCrashField_BGTimeSinceLaunch] = @(kslifecycle_nsToSeconds(lc.backgroundDurationSinceLaunchNs));
+    statsDict[KSCrashField_AppTransitionState] =
+        @(ksapp_transitionStateToString((KSCrashAppTransitionState)lc.transitionState));
+    statsDict[KSCrashField_UserPerceptible] = @((BOOL)lc.userPerceptible);
 
     systemDict[KSCrashField_AppStats] = statsDict;
     dict[KSCrashField_System] = systemDict;
