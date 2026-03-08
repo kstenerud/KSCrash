@@ -150,8 +150,6 @@
 #define KSHTTPPostField KSCRASH_NS(KSHTTPPostField)
 #define KSHTTPRequestSender KSCRASH_NS(KSHTTPRequestSender)
 #define KSHangBlockObserver KSCRASH_NS(KSHangBlockObserver)
-#define KSHangObserverToken KSCRASH_NS(KSHangObserverToken)
-#define KSHangObserverTokenNotFound KSCRASH_NS(KSHangObserverTokenNotFound)
 #define KSJSONCodec KSCRASH_NS(KSJSONCodec)
 #define KSNSDictionaryHelper KSCRASH_NS(KSNSDictionaryHelper)
 #define KSNSErrorHelper KSCRASH_NS(KSNSErrorHelper)
