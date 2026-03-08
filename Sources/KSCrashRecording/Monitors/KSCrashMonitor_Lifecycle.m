@@ -28,8 +28,10 @@
 
 #import "KSCrashAppStateTracker.h"
 #import "KSCrashC.h"
+#import "KSCrashHang.h"
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitorHelper.h"
+#import "KSDate.h"
 #import "KSFileUtils.h"
 #import "KSSpinLock.h"
 
@@ -51,6 +53,7 @@ static KSCrash_LifecycleData *g_sidecar = NULL;
 static KSSpinLock g_sidecarLock = KSSPINLOCK_INIT;
 static KSCrash_ExceptionHandlerCallbacks g_callbacks = { 0 };
 static id g_appStateObserver = nil;
+static KSHangObserverToken g_hangObserverToken = KSHangObserverTokenNotFound;
 
 static atomic_bool g_isEnabled = false;
 
@@ -58,14 +61,12 @@ static atomic_bool g_isEnabled = false;
 #pragma mark - Utility -
 // ============================================================================
 
-static uint64_t monotonicTimeNs(void) { return clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW); }
-
 /** Update the sidecar's transition duration for the current state.
  *  Call under the sidecar lock or when single-threaded.
  */
 static void updateSidecarDurations(KSCrash_LifecycleData *sc)
 {
-    uint64_t now = monotonicTimeNs();
+    uint64_t now = ksdate_continuousNanoseconds();
     uint64_t elapsed = now - sc->appStateTransitionTimeNs;
     sc->appStateTransitionTimeNs = now;
 
@@ -100,19 +101,21 @@ bool kslifecycle_readData(const char *path, KSCrash_LifecycleData *out)
     return true;
 }
 
-static bool readPreviousSidecar(const char *lastRunID, KSCrash_LifecycleData *out)
+bool kslifecycle_getSnapshotForRunID(const char *runID, KSCrash_LifecycleData *outData)
 {
-    if (lastRunID == NULL || lastRunID[0] == '\0') {
+    if (!runID || !outData || runID[0] == '\0') {
+        return false;
+    }
+    if (!g_callbacks.getRunSidecarPathForRunID) {
         return false;
     }
 
     char sidecarPath[KSFU_MAX_PATH_LENGTH];
-    if (!g_callbacks.getRunSidecarPathForRunID ||
-        !g_callbacks.getRunSidecarPathForRunID("Lifecycle", lastRunID, sidecarPath, sizeof(sidecarPath))) {
+    if (!g_callbacks.getRunSidecarPathForRunID("Lifecycle", runID, sidecarPath, sizeof(sidecarPath))) {
         return false;
     }
 
-    return kslifecycle_readData(sidecarPath, out);
+    return kslifecycle_readData(sidecarPath, outData);
 }
 
 // ============================================================================
@@ -168,6 +171,7 @@ static void onTransitionState(KSCrashAppTransitionState transitionState)
     }
 
     sc->transitionState = (uint8_t)transitionState;
+    sc->userPerceptible = ksapp_transitionStateIsUserPerceptible(transitionState);
     ks_spinlock_unlock(&g_sidecarLock);
 }
 
@@ -189,7 +193,7 @@ KSCrash_AppState kscrashstate_lifecycleAppState(void)
     ks_spinlock_unlock(&g_sidecarLock);
 
     if (hasData) {
-        uint64_t now = monotonicTimeNs();
+        uint64_t now = ksdate_continuousNanoseconds();
         uint64_t elapsed = now - snapshot.appStateTransitionTimeNs;
 
         uint64_t activeSinceLaunchNs = snapshot.activeDurationSinceLaunchNs;
@@ -247,7 +251,7 @@ static void carryForwardFromPreviousRun(KSCrash_LifecycleData *sc)
 {
     const char *lastRunID = kscrash_getLastRunID();
     KSCrash_LifecycleData prev = {};
-    if (!readPreviousSidecar(lastRunID, &prev)) {
+    if (!kslifecycle_getSnapshotForRunID(lastRunID, &prev)) {
         return;
     }
 
@@ -280,7 +284,9 @@ static KSCrash_LifecycleData *createSidecar(void)
 
     KSCrash_LifecycleData *sc = (KSCrash_LifecycleData *)ptr;
     sc->sessionsSinceLaunch = 1;
-    sc->appStateTransitionTimeNs = monotonicTimeNs();
+    sc->monotonicAtStartNs = ksdate_continuousNanoseconds();
+    sc->wallClockAtStartNs = ksdate_wallClockNanoseconds();
+    sc->appStateTransitionTimeNs = sc->monotonicAtStartNs;
 
     carryForwardFromPreviousRun(sc);
 
@@ -291,6 +297,7 @@ static KSCrash_LifecycleData *createSidecar(void)
     sc->transitionState = (uint8_t)ts;
     sc->applicationIsActive = (ts == KSCrashAppTransitionStateActive);
     sc->applicationIsInForeground = ksapp_transitionStateIsUserPerceptible(ts);
+    sc->userPerceptible = ksapp_transitionStateIsUserPerceptible(ts);
 
     sc->magic = KSLIFECYCLE_MAGIC;
     sc->version = KSCrash_Lifecycle_CurrentVersion;
@@ -307,6 +314,20 @@ static void releaseSidecar(void)
     if (old) {
         ksfu_munmap(old, sizeof(KSCrash_LifecycleData));
     }
+}
+
+static void onHangChange(KSHangChangeType change, __unused uint64_t startTimestamp, __unused uint64_t endTimestamp,
+                         __unused void *context)
+{
+    if (change != KSHangChangeTypeStarted && change != KSHangChangeTypeEnded) {
+        return;
+    }
+    ks_spinlock_lock(&g_sidecarLock);
+    KSCrash_LifecycleData *sc = g_sidecar;
+    if (sc != NULL) {
+        sc->hangInProgress = (change == KSHangChangeTypeStarted);
+    }
+    ks_spinlock_unlock(&g_sidecarLock);
 }
 
 static void setEnabled(bool isEnabled, __unused void *context)
@@ -331,7 +352,14 @@ static void setEnabled(bool isEnabled, __unused void *context)
             [KSCrashAppStateTracker.sharedInstance addObserverWithBlock:^(KSCrashAppTransitionState transitionState) {
                 onTransitionState(transitionState);
             }];
+
+        g_hangObserverToken = kshang_addHangObserver(onHangChange, NULL);
     } else {
+        if (g_hangObserverToken != KSHangObserverTokenNotFound) {
+            kshang_removeHangObserver(g_hangObserverToken);
+            g_hangObserverToken = KSHangObserverTokenNotFound;
+        }
+
         g_appStateObserver = nil;
 
         releaseSidecar();
@@ -343,13 +371,14 @@ static bool isEnabled_func(__unused void *context) { return g_isEnabled; }
 static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext, __unused void *context)
 {
     bool isFatal = eventContext != NULL && eventContext->requirements.isFatal;
-    // For fatal events, write cleanShutdown before acquiring the lock. This is a
-    // single-byte store to mmap'd memory that must succeed unconditionally — if the
-    // bounded lock times out we still need the next launch to see the correct state.
-    // In practice, fatal events run with other threads suspended so lock contention
-    // is unlikely, but this is defense-in-depth.
+    // For fatal events, write cleanShutdown and fatalReported before acquiring the
+    // lock. These are small stores to mmap'd memory that must succeed unconditionally
+    // — if the bounded lock times out we still need the next launch to see the correct
+    // state. In practice, fatal events run with other threads suspended so lock
+    // contention is unlikely, but this is defense-in-depth.
     if (isFatal && g_sidecar != NULL) {
         g_sidecar->cleanShutdown = eventContext->requirements.isCleanExit;
+        g_sidecar->fatalReported = true;
     }
     if (!ks_spinlock_lock_bounded(&g_sidecarLock)) {
         return;

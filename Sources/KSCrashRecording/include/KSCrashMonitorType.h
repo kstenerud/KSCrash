@@ -88,12 +88,21 @@ enum
     /** Track memory issues and last zombie NSException. */
     KSCrashMonitorTypeZombie             = 1 << 8,
 
-    /** Monitor memory to detect OOMs at startup. */
-    KSCrashMonitorTypeMemoryTermination  = 1 << 9,
-    
+    /** Detect terminations caused by resource exhaustion (memory, thermal, CPU, battery). */
+    KSCrashMonitorTypeResourceTermination = 1 << 9,
+
+    /** Alias for KSCrashMonitorTypeResourceTermination (kept for source compat). */
+    KSCrashMonitorTypeMemoryTermination  = KSCrashMonitorTypeResourceTermination,
+
     /** Tracks hangs as well as hangs that cause a termination (watchdog terminations) */
     KSCrashMonitorTypeWatchdog           = 1 << 10,
-    
+
+    /** Track per-key user data that survives crashes. */
+    KSCrashMonitorTypeUserInfo           = 1 << 11,
+
+    /** Passive resource snapshots (memory, battery, CPU, thermal). */
+    KSCrashMonitorTypeResource           = 1 << 12,
+
     /** Enable all monitoring options. */
     KSCrashMonitorTypeAll = (
                              KSCrashMonitorTypeMachException |
@@ -104,8 +113,10 @@ enum
                              KSCrashMonitorTypeSystem |
                              KSCrashMonitorTypeApplicationState |
                              KSCrashMonitorTypeZombie |
-                             KSCrashMonitorTypeMemoryTermination |
-                             KSCrashMonitorTypeWatchdog
+                             KSCrashMonitorTypeResourceTermination |
+                             KSCrashMonitorTypeWatchdog |
+                             KSCrashMonitorTypeUserInfo |
+                             KSCrashMonitorTypeResource
                              ),
 
     /** Fatal monitors track exceptions that lead to error termination of the process. */
@@ -114,6 +125,7 @@ enum
                                KSCrashMonitorTypeSignal |
                                KSCrashMonitorTypeCPPException |
                                KSCrashMonitorTypeNSException |
+                               KSCrashMonitorTypeResourceTermination |
                                KSCrashMonitorTypeWatchdog
                                ),
 
@@ -145,7 +157,8 @@ enum
     KSCrashMonitorTypeRequired = (
                                   KSCrashMonitorTypeSystem |
                                   KSCrashMonitorTypeApplicationState |
-                                  KSCrashMonitorTypeMemoryTermination
+                                  KSCrashMonitorTypeUserInfo |
+                                  KSCrashMonitorTypeResource
                                   ),
 
     /** Disable automatic reporting; only manual reports are allowed. */

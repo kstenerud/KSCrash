@@ -36,11 +36,13 @@
 #include "KSCrashMonitor_Deadlock.h"
 #include "KSCrashMonitor_Lifecycle.h"
 #include "KSCrashMonitor_MachException.h"
-#include "KSCrashMonitor_Memory.h"
 #include "KSCrashMonitor_NSException.h"
+#include "KSCrashMonitor_Resource.h"
+#include "KSCrashMonitor_ResourceTermination.h"
 #include "KSCrashMonitor_Signal.h"
 #include "KSCrashMonitor_System.h"
 #include "KSCrashMonitor_User.h"
+#include "KSCrashMonitor_UserInfo.h"
 #include "KSCrashMonitor_Watchdog.h"
 #include "KSCrashMonitor_Zombie.h"
 #include "KSCrashReportC.h"
@@ -86,8 +88,10 @@ g_monitorMappings[] = { { KSCrashMonitorTypeMachException, kscm_machexception_ge
                         { KSCrashMonitorTypeSystem, kscm_system_getAPI },
                         { KSCrashMonitorTypeApplicationState, kscm_lifecycle_getAPI },
                         { KSCrashMonitorTypeZombie, kscm_zombie_getAPI },
-                        { KSCrashMonitorTypeMemoryTermination, kscm_memory_getAPI },
-                        { KSCrashMonitorTypeWatchdog, kscm_watchdog_getAPI } };
+                        { KSCrashMonitorTypeResourceTermination, kscm_resourcetermination_getAPI },
+                        { KSCrashMonitorTypeWatchdog, kscm_watchdog_getAPI },
+                        { KSCrashMonitorTypeUserInfo, kscm_userinfo_getAPI },
+                        { KSCrashMonitorTypeResource, kscm_resource_getAPI } };
 #pragma clang diagnostic pop
 
 static const size_t g_monitorMappingCount = sizeof(g_monitorMappings) / sizeof(g_monitorMappings[0]);
@@ -310,9 +314,12 @@ static void handleConfiguration(KSCrashCConfiguration *configuration)
 {
     g_reportStoreConfig = KSCrashReportStoreCConfiguration_Copy(&configuration->reportStoreConfiguration);
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     if (configuration->userInfoJSON != NULL) {
         kscrashreport_setUserInfoJSON(configuration->userInfoJSON);
     }
+#pragma clang diagnostic pop
 #if KSCRASH_HAS_OBJC
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -406,7 +413,7 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
 
     handleConfiguration(configuration);
 
-    // Create Data directory early so run IDs and memory tracking are available
+    // Create Data directory early so run IDs are available
     // before report store initialization.
     char path[KSFU_MAX_PATH_LENGTH];
     if (snprintf(path, sizeof(path), "%s/Data", installPath) >= (int)sizeof(path)) {
@@ -417,7 +424,6 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
         KSLOG_ERROR("Could not create path: %s", path);
         return KSCrashInstallErrorCouldNotCreatePath;
     }
-    ksmemory_initialize(path);
     rotateRunID(installPath);
 
     if (g_reportStoreConfig.appName == NULL) {
@@ -484,9 +490,29 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     return KSCrashInstallErrorNone;
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 void kscrash_setUserInfoJSON(const char *const userInfoJSON) { kscrashreport_setUserInfoJSON(userInfoJSON); }
 
 const char *kscrash_getUserInfoJSON(void) { return kscrashreport_getUserInfoJSON(); }
+#pragma clang diagnostic pop
+
+void kscrash_setUserInfoString(const char *key, const char *value) { kscm_userinfo_setString(key, value); }
+
+void kscrash_setUserInfoInt(const char *key, int64_t value) { kscm_userinfo_setInt64(key, value); }
+
+void kscrash_setUserInfoUInt(const char *key, uint64_t value) { kscm_userinfo_setUInt64(key, value); }
+
+void kscrash_setUserInfoDouble(const char *key, double value) { kscm_userinfo_setDouble(key, value); }
+
+void kscrash_setUserInfoBool(const char *key, bool value) { kscm_userinfo_setBool(key, value); }
+
+void kscrash_setUserInfoDate(const char *key, uint64_t nanosecondsSince1970)
+{
+    kscm_userinfo_setDate(key, nanosecondsSince1970);
+}
+
+void kscrash_removeUserInfoValue(const char *key) { kscm_userinfo_removeValue(key); }
 
 void kscrash_reportUserException(const char *name, const char *reason, const char *language, const char *lineOfCode,
                                  const char *stackTrace, bool logAllThreads,

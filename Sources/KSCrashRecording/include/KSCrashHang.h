@@ -102,7 +102,7 @@ typedef void (*KSHangObserverCallback)(KSHangChangeType change, uint64_t startTi
 typedef int KSHangObserverToken;
 
 /** Sentinel value indicating an invalid or failed observer registration. */
-CF_EXPORT const KSHangObserverToken KSHangObserverTokenNotFound;
+enum { KSHangObserverTokenNotFound = -1 };
 
 /** Registers a C observer for hang state changes.
  *

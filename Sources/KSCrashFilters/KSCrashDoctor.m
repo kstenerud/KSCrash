@@ -423,6 +423,11 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
     return [report[KSCrashField_Type] isEqualToString:KSCrashExcType_MemoryTermination];
 }
 
+- (BOOL)isResourceTermination:(NSDictionary *)report
+{
+    return [report[KSCrashField_Type] isEqualToString:KSCrashExcType_ResourceTermination];
+}
+
 - (BOOL)isWatchdogTimeoutTermination:(NSDictionary *)errorReport
 {
     // Watchdog timeout terminations are characterized by:
@@ -546,6 +551,23 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
 
         if ([self isMemoryTermination:errorReport]) {
             return @"The app was terminated due to running out of memory (OOM).";
+        }
+
+        if ([self isResourceTermination:errorReport]) {
+            NSString *reason = errorReport[KSCrashField_TerminationReason];
+            if ([reason isEqualToString:@"memory_limit"]) {
+                return @"The app exceeded its memory limit and was terminated by the OS.";
+            } else if ([reason isEqualToString:@"memory_pressure"]) {
+                return @"The app was terminated due to system-wide memory pressure.";
+            } else if ([reason isEqualToString:@"cpu"]) {
+                return @"The app was terminated due to excessive CPU usage.";
+            } else if ([reason isEqualToString:@"thermal"]) {
+                return @"The app was terminated due to critical thermal state.";
+            } else if ([reason isEqualToString:@"low_battery"]) {
+                return @"The device shut down due to low battery.";
+            } else {
+                return @"The app was terminated for an unknown reason.";
+            }
         }
 
         return nil;

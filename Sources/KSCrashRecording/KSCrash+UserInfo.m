@@ -1,7 +1,7 @@
 //
-//  KSCrashInstallationStandard_Tests.m
+//  KSCrash+UserInfo.m
 //
-//  Created by Karl Stenerud on 2013-03-09.
+//  Created by Alexander Cohen on 2026-03-01.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,33 +24,46 @@
 // THE SOFTWARE.
 //
 
-#import <XCTest/XCTest.h>
+#import "KSCrash+UserInfo.h"
 
-#import "KSCrashInstallationStandard.h"
-#import "KSCrashMonitor.h"
+#import "KSCrashMonitor_UserInfo.h"
 
-@interface KSCrashInstallationStandard_Tests : XCTestCase
-@end
+@implementation KSCrash (UserInfo)
 
-@implementation KSCrashInstallationStandard_Tests
-
-- (void)tearDown
+- (void)setUserInfoString:(NSString *)value forKey:(NSString *)key
 {
-    // Disable all monitors to clean up background threads (exception handlers, etc.)
-    // This prevents ASan from hanging when XCTSkip throws an exception in later tests.
-    kscm_disableAllMonitors();
-    [super tearDown];
+    kscm_userinfo_setString(key.UTF8String, value.UTF8String);
 }
 
-- (void)testInstall
+- (void)setUserInfoInteger:(NSInteger)value forKey:(NSString *)key
 {
-    KSCrashInstallationStandard *installation = [KSCrashInstallationStandard sharedInstance];
-    installation.url = [NSURL URLWithString:@"https://www.google.com"];
-    [installation installWithConfiguration:[KSCrashConfiguration new] error:NULL];
-    [installation sendAllReportsWithCompletion:^(__unused NSArray *filteredReports, NSError *error) {
-        // There are no reports, so this will succeed.
-        XCTAssertNil(error, @"");
-    }];
+    kscm_userinfo_setInt64(key.UTF8String, (int64_t)value);
+}
+
+- (void)setUserInfoUnsignedInteger:(NSUInteger)value forKey:(NSString *)key
+{
+    kscm_userinfo_setUInt64(key.UTF8String, (uint64_t)value);
+}
+
+- (void)setUserInfoDouble:(double)value forKey:(NSString *)key
+{
+    kscm_userinfo_setDouble(key.UTF8String, value);
+}
+
+- (void)setUserInfoBool:(BOOL)value forKey:(NSString *)key
+{
+    kscm_userinfo_setBool(key.UTF8String, (bool)value);
+}
+
+- (void)setUserInfoDate:(NSDate *)value forKey:(NSString *)key
+{
+    uint64_t nanos = (uint64_t)(value.timeIntervalSince1970 * 1e9);
+    kscm_userinfo_setDate(key.UTF8String, nanos);
+}
+
+- (void)removeUserInfoValueForKey:(NSString *)key
+{
+    kscm_userinfo_removeValue(key.UTF8String);
 }
 
 @end

@@ -129,8 +129,8 @@ typedef struct {
 
     /** User-supplied data in JSON format. NULL to delete.
      *
-     * This JSON string contains user-specific data that will be included in
-     * the crash report. If NULL is passed, any existing user data will be deleted.
+     * This JSON string is written into the crash report's "user" section at install time.
+     * After install, use the per-key API (kscrash_setUserInfoString, etc.) to update values.
      */
     const char *userInfoJSON;
 

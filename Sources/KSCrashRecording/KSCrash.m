@@ -31,7 +31,7 @@
 #import "KSCrashC.h"
 #import "KSCrashConfiguration+Private.h"
 #import "KSCrashMonitor_Lifecycle.h"
-#import "KSCrashMonitor_Memory.h"
+#import "KSCrashMonitor_ResourceTermination.h"
 #import "KSCrashMonitor_System.h"
 #import "KSCrashReport.h"
 #import "KSCrashReportFields.h"
@@ -174,6 +174,8 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
 #pragma mark - API -
 // ============================================================================
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 - (NSDictionary *)userInfo
 {
     const char *userInfoJSON = kscrash_getUserInfoJSON();
@@ -210,15 +212,17 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
         userInfoJSON ? [[NSString alloc] initWithData:userInfoJSON encoding:NSUTF8StringEncoding] : nil;
     kscrash_setUserInfoJSON(userInfoString.UTF8String);
 }
+#pragma clang diagnostic pop
 
 - (BOOL)reportsMemoryTerminations
 {
-    return ksmemory_get_fatal_reports_enabled();
+    KSCrashMonitorAPI *api = kscm_resourcetermination_getAPI();
+    return api->isEnabled(api->context);
 }
 
-- (void)setReportsMemoryTerminations:(BOOL)reportsMemoryTerminations
+- (void)setReportsMemoryTerminations:(__unused BOOL)reportsMemoryTerminations
 {
-    ksmemory_set_fatal_reports_enabled(reportsMemoryTerminations);
+    // No-op: ResourceTermination monitor replaces the old Memory monitor.
 }
 
 - (NSDictionary *)systemInfo

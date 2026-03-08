@@ -271,7 +271,7 @@ private func profileMonitorGetId(_ context: UnsafeMutableRawPointer?) -> UnsafeP
 }
 
 private func profileMonitorGetFlags(_ context: UnsafeMutableRawPointer?) -> KSCrashMonitorFlag {
-    .init(0)
+    KSCrashMonitorFlagPlugin
 }
 
 private func profileMonitorSetEnabled(_ enabled: Bool, _ context: UnsafeMutableRawPointer?) {
