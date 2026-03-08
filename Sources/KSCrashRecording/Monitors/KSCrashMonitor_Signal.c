@@ -102,8 +102,8 @@ static void handleSignal(int sigNum, siginfo_t *signalInfo, void *userContext)
             thisThread, (KSCrash_ExceptionHandlingRequirements) { .asyncSafety = true,
                                                                   .isFatal = true,
                                                                   .isCleanExit = (sigNum == SIGTERM),
-                                                                  .shouldRecordAllThreads = true,
-                                                                  .shouldWriteReport = true });
+                                                                  .shouldRecordAllThreads = (sigNum != SIGTERM),
+                                                                  .shouldWriteReport = (sigNum != SIGTERM) });
         if (crashContext->requirements.shouldExitImmediately) {
             goto exit_immediately;
         }
