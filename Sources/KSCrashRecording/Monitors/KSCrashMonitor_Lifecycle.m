@@ -353,7 +353,6 @@ static void setEnabled(bool isEnabled, __unused void *context)
                 onTransitionState(transitionState);
             }];
 
-        g_hangObserverToken = kshang_addHangObserver(onHangChange, NULL);
     } else {
         if (g_hangObserverToken != KSHangObserverTokenNotFound) {
             kshang_removeHangObserver(g_hangObserverToken);
@@ -367,6 +366,14 @@ static void setEnabled(bool isEnabled, __unused void *context)
 }
 
 static bool isEnabled_func(__unused void *context) { return g_isEnabled; }
+
+// Registers the hang observer after all monitors are enabled.
+// Lifecycle is enabled before Watchdog in the mapping order, so the
+// watchdog's g_watchdog pointer doesn't exist yet during setEnabled.
+static void notifyPostSystemEnable(__unused void *context)
+{
+    g_hangObserverToken = kshang_addHangObserver(onHangChange, NULL);
+}
 
 static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext, __unused void *context)
 {
@@ -413,6 +420,7 @@ KSCrashMonitorAPI *kscm_lifecycle_getAPI(void)
         api.monitorId = monitorId;
         api.setEnabled = setEnabled;
         api.isEnabled = isEnabled_func;
+        api.notifyPostSystemEnable = notifyPostSystemEnable;
         api.addContextualInfoToEvent = addContextualInfoToEvent;
         api.stitchReport = kscm_lifecycle_stitchReport;
     }

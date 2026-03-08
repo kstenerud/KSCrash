@@ -154,6 +154,7 @@ static void injectReport(const char *lastRunID, const KSCrash_LifecycleData *lif
     // report section
     uint64_t timestampUs = monotonicToWallClockUs(lifecycle, mostRecentMonotonicNs);
     NSMutableDictionary *reportSection = [NSMutableDictionary dictionary];
+    reportSection[KSCrashField_ID] = [NSUUID UUID].UUIDString;
     reportSection[KSCrashField_Version] = @KSCRASH_REPORT_VERSION;
     reportSection[KSCrashField_RunID] = @(lastRunID);
     reportSection[KSCrashField_Timestamp] = @(timestampUs);
