@@ -110,7 +110,8 @@ static void initHeader(uint8_t *buf)
     hdr->offset = KSKVS_HEADER_SIZE;
 }
 
-/** Discard superseded entries and tombstones in-place.
+/** Discard superseded entries in-place. Final tombstones are preserved
+ *  so removal semantics survive compaction.
  *  NOT thread-safe — caller must synchronize.
  */
 static void compact(KSKeyValueStore *store)
@@ -123,12 +124,11 @@ static void compact(KSKeyValueStore *store)
     uint32_t endPos = hdr->offset;
 
     // Runs under caller's lock but NOT in a crash handler, so malloc is safe.
-    uint8_t *temp = (uint8_t *)malloc(store->capacity);
+    uint8_t *temp = (uint8_t *)calloc(1, store->capacity);
     if (temp == NULL) {
         KSLOG_ERROR("Failed to allocate temp buffer for compaction");
         return;
     }
-    memset(temp, 0, store->capacity);
 
     KSKVSHeader *tempHdr = (KSKVSHeader *)temp;
     tempHdr->magic = KSKVS_MAGIC;
@@ -227,6 +227,13 @@ static void appendRecord(KSKeyValueStore *store, const char *key, uint8_t type, 
         return;
     }
 
+    // Reject records with a payload length but no payload pointer —
+    // writing the header alone would leave garbage in the value region.
+    if (valueLen > 0 && value == NULL) {
+        KSLOG_DEBUG("KVS appendRecord called with NULL value but valueLen %u", valueLen);
+        return;
+    }
+
     uint16_t keyLen = (uint16_t)strlen(key);
     if (keyLen == 0) {
         return;
@@ -283,44 +290,41 @@ KSKeyValueStore *kskvs_create(const char *path, KSKVSMode mode, const KSKVSConfi
             return NULL;
         }
 
+        uint8_t *buf = NULL;
+
         off_t fileSize = lseek(fd, 0, SEEK_END);
         if (fileSize < (off_t)KSKVS_HEADER_SIZE) {
-            close(fd);
-            return NULL;
+            goto read_fail;
         }
         lseek(fd, 0, SEEK_SET);
 
-        uint8_t *buf = (uint8_t *)malloc((size_t)fileSize);
+        buf = (uint8_t *)malloc((size_t)fileSize);
         if (buf == NULL) {
-            close(fd);
-            return NULL;
+            goto read_fail;
         }
 
         ssize_t bytesRead = read(fd, buf, (size_t)fileSize);
         close(fd);
+        fd = -1;
 
         if (bytesRead != fileSize) {
-            free(buf);
-            return NULL;
+            goto read_fail;
         }
 
         // Validate header
         KSKVSHeader *hdr = (KSKVSHeader *)buf;
         if (hdr->magic != KSKVS_MAGIC) {
             KSLOG_ERROR("Invalid KVS magic 0x%x", hdr->magic);
-            free(buf);
-            return NULL;
+            goto read_fail;
         }
         if (hdr->version == 0 || hdr->version > KSKVS_CURRENT_VERSION) {
             KSLOG_ERROR("Unsupported KVS version %u", hdr->version);
-            free(buf);
-            return NULL;
+            goto read_fail;
         }
 
         KSKeyValueStore *store = (KSKeyValueStore *)calloc(1, sizeof(KSKeyValueStore));
         if (store == NULL) {
-            free(buf);
-            return NULL;
+            goto read_fail;
         }
 
         store->storage = buf;
@@ -330,6 +334,13 @@ KSKeyValueStore *kskvs_create(const char *path, KSKVSMode mode, const KSKVSConfi
         store->maxStringLength = (config != NULL && config->maxStringLength > 0) ? config->maxStringLength : 0;
 
         return store;
+
+    read_fail:
+        free(buf);
+        if (fd >= 0) {
+            close(fd);
+        }
+        return NULL;
     }
 
     if (mode == KSKVSModeReadWriteCreate) {
@@ -344,26 +355,23 @@ KSKeyValueStore *kskvs_create(const char *path, KSKVSMode mode, const KSKVSConfi
             return NULL;
         }
 
+        void *mapped = MAP_FAILED;
         uint32_t capacity = config->initialCapacity;
 
         if (ftruncate(fd, (off_t)capacity) != 0) {
             KSLOG_ERROR("Failed to size KVS file: %s", strerror(errno));
-            close(fd);
-            return NULL;
+            goto rw_fail;
         }
 
-        void *mapped = mmap(NULL, capacity, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+        mapped = mmap(NULL, capacity, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
         if (mapped == MAP_FAILED) {
             KSLOG_ERROR("Failed to mmap KVS file: %s", strerror(errno));
-            close(fd);
-            return NULL;
+            goto rw_fail;
         }
 
         KSKeyValueStore *store = (KSKeyValueStore *)calloc(1, sizeof(KSKeyValueStore));
         if (store == NULL) {
-            munmap(mapped, capacity);
-            close(fd);
-            return NULL;
+            goto rw_fail;
         }
 
         store->storage = (uint8_t *)mapped;
@@ -374,6 +382,13 @@ KSKeyValueStore *kskvs_create(const char *path, KSKVSMode mode, const KSKVSConfi
         initHeader(store->storage);
 
         return store;
+
+    rw_fail:
+        if (mapped != MAP_FAILED) {
+            munmap(mapped, capacity);
+        }
+        close(fd);
+        return NULL;
     }
 
     return NULL;
