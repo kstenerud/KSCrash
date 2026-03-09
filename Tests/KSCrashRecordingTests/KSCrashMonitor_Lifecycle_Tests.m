@@ -31,6 +31,8 @@
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitor_Lifecycle.h"
 
+#include <mach/task_policy.h>
+
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -578,6 +580,62 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     KSCrash_LifecycleData data = { 0 };
     XCTAssertTrue(readCurrentSidecar(&data));
     XCTAssertFalse(data.hangInProgress);
+}
+
+#pragma mark - Task Role Tests -
+
+- (void)testTaskRoleSetOnEnable
+{
+    [self enableMonitor];
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    // The role should be set to something valid (not left at zero unless TASK_UNSPECIFIED == 0)
+    int currentRole = kslifecycle_currentTaskRole();
+    XCTAssertEqual(data.taskRole, currentRole);
+}
+
+- (void)testTaskRoleUpdatedOnTransition
+{
+    [self enableMonitor];
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    int currentRole = kslifecycle_currentTaskRole();
+    XCTAssertEqual(data.taskRole, currentRole);
+}
+
+- (void)testCurrentTaskRoleReturnsValidValue
+{
+    int role = kslifecycle_currentTaskRole();
+    // Should be one of the known task_role_t values
+    XCTAssertTrue(role >= TASK_RENICED && role <= TASK_DEFAULT_APPLICATION, @"Unexpected task role: %d", role);
+}
+
+- (void)testStringFromTaskRoleKnownValues
+{
+    XCTAssertEqualObjects(@(kslifecycle_stringFromTaskRole(TASK_FOREGROUND_APPLICATION)), @"FOREGROUND_APPLICATION");
+    XCTAssertEqualObjects(@(kslifecycle_stringFromTaskRole(TASK_BACKGROUND_APPLICATION)), @"BACKGROUND_APPLICATION");
+    XCTAssertEqualObjects(@(kslifecycle_stringFromTaskRole(TASK_UNSPECIFIED)), @"UNSPECIFIED");
+    XCTAssertEqualObjects(@(kslifecycle_stringFromTaskRole(TASK_DEFAULT_APPLICATION)), @"DEFAULT_APPLICATION");
+}
+
+- (void)testStringFromTaskRoleUnknownValue
+{
+    XCTAssertEqualObjects(@(kslifecycle_stringFromTaskRole(9999)), @"UNKNOWN");
+}
+
+- (void)testTaskRoleHeartbeatUpdates
+{
+    [self enableMonitor];
+
+    // Wait for at least one heartbeat cycle (1 second interval)
+    usleep(1500000);  // 1.5s
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    int currentRole = kslifecycle_currentTaskRole();
+    XCTAssertEqual(data.taskRole, currentRole);
 }
 
 @end

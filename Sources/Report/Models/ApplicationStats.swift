@@ -61,6 +61,9 @@ public struct ApplicationStats: Codable, Sendable, Equatable {
     /// Whether the user could perceive the app as part of their experience.
     public let userPerceptible: Bool?
 
+    /// The task role at the time of the event.
+    public let taskRole: TaskRole?
+
     enum CodingKeys: String, CodingKey {
         case activeTimeSinceLastCrash = "active_time_since_last_crash"
         case activeTimeSinceLaunch = "active_time_since_launch"
@@ -73,6 +76,62 @@ public struct ApplicationStats: Codable, Sendable, Equatable {
         case sessionsSinceLaunch = "sessions_since_launch"
         case appTransitionState = "app_transition_state"
         case userPerceptible = "user_perceptible"
+        case taskRole = "task_role"
+    }
+}
+
+/// Mach task role assigned by the kernel.
+public enum TaskRole: RawRepresentable, Codable, Sendable, Equatable {
+    case reniced
+    case unspecified
+    case foregroundApplication
+    case backgroundApplication
+    case controlApplication
+    case graphicsServer
+    case throttleApplication
+    case nonUIApplication
+    case defaultApplication
+    case darwinBGApplication
+    case userInitApplication
+    case unknown(String)
+
+    public init(rawValue: String) {
+        switch rawValue {
+        case "RENICED": self = .reniced
+        case "UNSPECIFIED": self = .unspecified
+        case "FOREGROUND_APPLICATION": self = .foregroundApplication
+        case "BACKGROUND_APPLICATION": self = .backgroundApplication
+        case "CONTROL_APPLICATION": self = .controlApplication
+        case "GRAPHICS_SERVER": self = .graphicsServer
+        case "THROTTLE_APPLICATION": self = .throttleApplication
+        case "NONUI_APPLICATION": self = .nonUIApplication
+        case "DEFAULT_APPLICATION": self = .defaultApplication
+        case "DARWINBG_APPLICATION": self = .darwinBGApplication
+        case "USER_INIT_APPLICATION": self = .userInitApplication
+        default: self = .unknown(rawValue)
+        }
+    }
+
+    public var rawValue: String {
+        switch self {
+        case .reniced: return "RENICED"
+        case .unspecified: return "UNSPECIFIED"
+        case .foregroundApplication: return "FOREGROUND_APPLICATION"
+        case .backgroundApplication: return "BACKGROUND_APPLICATION"
+        case .controlApplication: return "CONTROL_APPLICATION"
+        case .graphicsServer: return "GRAPHICS_SERVER"
+        case .throttleApplication: return "THROTTLE_APPLICATION"
+        case .nonUIApplication: return "NONUI_APPLICATION"
+        case .defaultApplication: return "DEFAULT_APPLICATION"
+        case .darwinBGApplication: return "DARWINBG_APPLICATION"
+        case .userInitApplication: return "USER_INIT_APPLICATION"
+        case .unknown(let value): return value
+        }
+    }
+
+    public var isUnknown: Bool {
+        if case .unknown = self { return true }
+        return false
     }
 }
 

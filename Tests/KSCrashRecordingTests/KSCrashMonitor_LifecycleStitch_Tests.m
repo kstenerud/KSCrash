@@ -29,6 +29,8 @@
 #import "KSCrashAppTransitionState.h"
 #import "KSCrashMonitor_Lifecycle.h"
 #import "KSCrashReportFields.h"
+
+#include <mach/task_policy.h>
 #import "KSJSONCodecObjC.h"
 
 #include <fcntl.h>
@@ -326,6 +328,46 @@ static NSDictionary *dictFromCString(const char *json)
     XCTAssertEqualObjects(system[KSCrashField_SystemName], @"iOS");
     // Also verify stats were added
     XCTAssertNotNil(system[KSCrashField_AppStats]);
+}
+
+#pragma mark - Task Role Stitch
+
+- (void)testTaskRoleStitched
+{
+    KSCrash_LifecycleData lc = makeValidLifecycleData();
+    lc.taskRole = TASK_FOREGROUND_APPLICATION;
+    NSString *path = writeLifecycleSidecar(self.tempDir, lc);
+
+    NSDictionary *report = @{};
+    NSString *json = jsonString(report);
+
+    char *result = kscm_lifecycle_stitchReport(json.UTF8String, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != NULL);
+
+    NSDictionary *stitched = dictFromCString(result);
+    free(result);
+
+    NSDictionary *stats = stitched[KSCrashField_System][KSCrashField_AppStats];
+    XCTAssertEqualObjects(stats[KSCrashField_TaskRole], @"FOREGROUND_APPLICATION");
+}
+
+- (void)testTaskRoleUnspecifiedStitched
+{
+    KSCrash_LifecycleData lc = makeValidLifecycleData();
+    lc.taskRole = TASK_UNSPECIFIED;
+    NSString *path = writeLifecycleSidecar(self.tempDir, lc);
+
+    NSDictionary *report = @{};
+    NSString *json = jsonString(report);
+
+    char *result = kscm_lifecycle_stitchReport(json.UTF8String, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != NULL);
+
+    NSDictionary *stitched = dictFromCString(result);
+    free(result);
+
+    NSDictionary *stats = stitched[KSCrashField_System][KSCrashField_AppStats];
+    XCTAssertEqualObjects(stats[KSCrashField_TaskRole], @"UNSPECIFIED");
 }
 
 @end

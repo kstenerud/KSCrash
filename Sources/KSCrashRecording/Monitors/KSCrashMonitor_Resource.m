@@ -213,7 +213,13 @@ static void pollCPUAndThreads(void)
 
 static void startCPUTimer(void)
 {
-    dispatch_queue_t queue = dispatch_get_global_queue(QOS_CLASS_UTILITY, 0);
+#ifdef KSCRASH_NAMESPACE
+    const char *label = "com.kscrash." KSCRASH_NAMESPACE_STRING ".resource.heartbeat";
+#else
+    const char *label = "com.kscrash.resource.heartbeat";
+#endif
+    dispatch_queue_t queue = dispatch_queue_create_with_target(label, DISPATCH_QUEUE_SERIAL,
+                                                               dispatch_get_global_queue(QOS_CLASS_UTILITY, 0));
     g_cpuTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, queue);
     dispatch_source_set_timer(g_cpuTimer, dispatch_time(DISPATCH_TIME_NOW, 0),
                               (uint64_t)(kCPUPollingInterval * NSEC_PER_SEC), NSEC_PER_SEC);

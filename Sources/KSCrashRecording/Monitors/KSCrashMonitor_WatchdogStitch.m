@@ -26,6 +26,7 @@
 
 #import "KSCrashMonitor_WatchdogSidecar.h"
 
+#import "KSCrashMonitor_Lifecycle.h"
 #import "KSCrashMonitor_Watchdog.h"
 #import "KSCrashReportFields.h"
 #import "KSFileUtils.h"
@@ -100,7 +101,7 @@ char *kscm_watchdog_stitchReport(const char *report, const char *sidecarPath, __
 
     // Update end timestamps from sidecar
     hang[KSCrashField_HangEndNanoseconds] = @(endTimestamp);
-    hang[KSCrashField_HangEndRole] = @(kscm_stringFromRole(endRole));
+    hang[KSCrashField_HangEndRole] = @(kslifecycle_stringFromTaskRole(endRole));
 
     if (recovered) {
         // Mark as recovered hang

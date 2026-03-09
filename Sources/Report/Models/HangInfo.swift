@@ -31,14 +31,14 @@ public struct HangInfo: Codable, Sendable, Equatable {
     /// Timestamp when the hang started (in nanoseconds).
     public let hangStartNanos: UInt64
 
-    /// The app's role when the hang started (e.g., "FOREGROUND_APPLICATION").
-    public let hangStartRole: String
+    /// The app's task role when the hang started.
+    public let hangStartRole: TaskRole
 
     /// Timestamp when the hang ended/was detected (in nanoseconds).
     public let hangEndNanos: UInt64
 
-    /// The app's role when the hang ended.
-    public let hangEndRole: String
+    /// The app's task role when the hang ended.
+    public let hangEndRole: TaskRole
 
     /// Whether this hang resolved on its own (true) or led to a termination (false/nil).
     public let hangRecovered: Bool?

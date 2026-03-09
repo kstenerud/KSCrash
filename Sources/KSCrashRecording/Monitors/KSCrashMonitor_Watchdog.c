@@ -42,6 +42,7 @@
 
 #include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorHelper.h"
+#include "KSCrashMonitor_Lifecycle.h"
 #include "KSCrashMonitor_WatchdogSidecar.h"
 #include "KSCrashNamespace.h"
 #include "KSCrashReportFields.h"
@@ -178,22 +179,6 @@ static KSCrash_ExceptionHandlerCallbacks g_callbacks = { 0 };
 // ============================================================================
 
 static uint64_t monotonicUptime(void) { return clock_gettime_nsec_np(CLOCK_UPTIME_RAW); }
-
-static int currentTaskRole(void)
-{
-#if TARGET_OS_TV || TARGET_OS_WATCH
-    return TASK_UNSPECIFIED;
-#else
-    task_category_policy_data_t policy;
-    mach_msg_type_number_t count = TASK_CATEGORY_POLICY_COUNT;
-    boolean_t getDefault = false;
-
-    kern_return_t kr =
-        task_policy_get(mach_task_self(), TASK_CATEGORY_POLICY, (task_policy_t)&policy, &count, &getDefault);
-
-    return kr == KERN_SUCCESS ? policy.role : TASK_UNSPECIFIED;
-#endif
-}
 
 // ============================================================================
 #pragma mark - Sidecar lifecycle -
@@ -446,7 +431,7 @@ static void watchdogTimerFired(CFRunLoopTimerRef timer, void *info)
         return;
     }
 
-    task_role_t currentRole = currentTaskRole();
+    task_role_t currentRole = kslifecycle_currentTaskRole();
 
     bool shouldStartNewHang = false;
     bool shouldUpdateHang = false;
@@ -515,7 +500,7 @@ static void mainRunLoopActivity(CFRunLoopObserverRef obs, CFRunLoopActivity acti
         }
 
         hang.endTimestamp = monotonicUptime();
-        hang.endRole = currentTaskRole();
+        hang.endRole = kslifecycle_currentTaskRole();
         finalizeResolvedHang(monitor, hang);
 
     } else if (activity == kCFRunLoopAfterWaiting) {
@@ -806,40 +791,6 @@ static void addContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext
 
     if (monitor->hang.path[0] != '\0') {
         unlink(monitor->hang.path);
-    }
-}
-
-const char *kscm_stringFromRole(int /*task_role_t*/ role)
-{
-    switch (role) {
-        case TASK_RENICED:
-            return "RENICED";
-        case TASK_UNSPECIFIED:
-            return "UNSPECIFIED";
-        case TASK_FOREGROUND_APPLICATION:
-            return "FOREGROUND_APPLICATION";
-        case TASK_BACKGROUND_APPLICATION:
-            return "BACKGROUND_APPLICATION";
-        case TASK_CONTROL_APPLICATION:
-            return "CONTROL_APPLICATION";
-        case TASK_GRAPHICS_SERVER:
-            return "GRAPHICS_SERVER";
-        case TASK_THROTTLE_APPLICATION:
-            return "THROTTLE_APPLICATION";
-        case TASK_NONUI_APPLICATION:
-            return "NONUI_APPLICATION";
-        case TASK_DEFAULT_APPLICATION:
-            return "DEFAULT_APPLICATION";
-#if defined(TASK_DARWINBG_APPLICATION)
-        case TASK_DARWINBG_APPLICATION:
-            return "DARWINBG_APPLICATION";
-#endif
-#if defined(TASK_USER_INIT_APPLICATION)
-        case TASK_USER_INIT_APPLICATION:
-            return "USER_INIT_APPLICATION";
-#endif
-        default:
-            return "UNKNOWN";
     }
 }
 
