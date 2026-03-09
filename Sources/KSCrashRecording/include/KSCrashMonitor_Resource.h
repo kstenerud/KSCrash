@@ -55,8 +55,9 @@ static const uint8_t KSCrash_Resource_CurrentVersion = 1;
 
 /** Resource snapshot persisted via mmap to RunSidecars/<runID>/Resource.ksscr.
  *
- *  Explicit padding ensures natural alignment for all fields without
- *  relying on __attribute__((packed)).
+ *  Natural alignment — no packed attribute, no explicit padding.
+ *  All Apple targets (including legacy 32-bit) naturally align up to
+ *  64-bit values, so the layout is stable across architectures.
  *  Fixed-width types only — no pointers.
  */
 typedef struct {
@@ -65,7 +66,6 @@ typedef struct {
     uint8_t version;
     uint8_t memoryPressure;  // KSCrashAppMemoryState
     uint8_t memoryLevel;     // KSCrashAppMemoryState
-    uint8_t _pad0;           // align to 8-byte boundary
 
     // Memory (from KSCrashAppMemoryTracker)
     uint64_t memoryFootprint;  // bytes used by app
@@ -92,8 +92,6 @@ typedef struct {
     // Data Protection
     uint8_t dataProtectionActive;  // 1 = protected data available (device unlocked)
 
-    uint8_t _pad1[4];  // align to 8-byte boundary for timestamps
-
     // Last-update timestamps (monotonic uptime in nanoseconds).
     // Used to determine which resource area changed most recently before a crash.
     uint64_t memoryUpdatedAtNs;
@@ -102,11 +100,9 @@ typedef struct {
     uint64_t lowPowerUpdatedAtNs;
     uint64_t thermalUpdatedAtNs;
     uint64_t dataProtectionUpdatedAtNs;
-
-    uint8_t _reserved[32];
 } KSCrash_ResourceData;
 
-_Static_assert(sizeof(KSCrash_ResourceData) == 128, "KSCrash_ResourceData size changed — bump version");
+_Static_assert(sizeof(KSCrash_ResourceData) == 96, "KSCrash_ResourceData size changed — bump version");
 
 // ============================================================================
 #pragma mark - Public Snapshot API -
