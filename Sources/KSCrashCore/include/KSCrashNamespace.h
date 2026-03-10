@@ -339,6 +339,7 @@
 #define ksdwarf_buildCFIRow KSCRASH_NS(ksdwarf_buildCFIRow)
 #define ksdwarf_findFDE KSCRASH_NS(ksdwarf_findFDE)
 #define ksdwarf_unwind KSCRASH_NS(ksdwarf_unwind)
+#define ksfu_applyNoFileProtection KSCRASH_NS(ksfu_applyNoFileProtection)
 #define ksfu_closeBufferedReader KSCRASH_NS(ksfu_closeBufferedReader)
 #define ksfu_closeBufferedWriter KSCRASH_NS(ksfu_closeBufferedWriter)
 #define ksfu_deleteContentsOfPath KSCRASH_NS(ksfu_deleteContentsOfPath)

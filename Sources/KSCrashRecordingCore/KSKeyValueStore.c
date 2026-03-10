@@ -34,6 +34,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+#include "KSFileUtils.h"
 #include "KSLogger.h"
 
 // ============================================================================
@@ -209,11 +210,51 @@ static bool growStorage(KSKeyValueStore *store, uint32_t minCapacity)
         KSLOG_ERROR("Failed to remap KVS file: %s", strerror(errno));
         return false;
     }
+
+    // Zero the extended region so TSan shadow state from a prior virtual
+    // address doesn't cause false positives.  The existing file content
+    // (0..oldCapacity) is already valid from the MAP_SHARED mapping.
+    if (newCapacity > store->capacity) {
+        memset((uint8_t *)newMap + store->capacity, 0, newCapacity - store->capacity);
+    }
+
     munmap(store->storage, store->capacity);
     store->storage = (uint8_t *)newMap;
     store->capacity = newCapacity;
 
     return true;
+}
+
+/** Assumes buf[0..original_strlen) is valid UTF-8.
+ *  Returns the largest prefix length <= len that does not end in a partial codepoint.
+ */
+static uint16_t utf8SafeTruncate(const char *buf, uint16_t len)
+{
+    if (buf == NULL || len == 0) {
+        return 0;
+    }
+
+    uint16_t start = len - 1;
+    while (start > 0 && (((uint8_t)buf[start]) & 0xC0) == 0x80) {
+        start--;
+    }
+
+    uint8_t lead = (uint8_t)buf[start];
+    uint16_t width = 0;
+
+    if ((lead & 0x80) == 0x00) {
+        width = 1;
+    } else if ((lead & 0xE0) == 0xC0) {
+        width = 2;
+    } else if ((lead & 0xF0) == 0xE0) {
+        width = 3;
+    } else if ((lead & 0xF8) == 0xF0) {
+        width = 4;
+    } else {
+        return start;
+    }
+
+    return (uint16_t)(start + width <= len ? len : start);
 }
 
 /** Append a record to the log. NOT thread-safe. */
@@ -240,7 +281,10 @@ static void appendRecord(KSKeyValueStore *store, const char *key, uint8_t type, 
     }
     if (keyLen > store->maxKeyLength) {
         KSLOG_ERROR("KVS key too long (%u > %u), truncating", keyLen, store->maxKeyLength);
-        keyLen = store->maxKeyLength;
+        keyLen = utf8SafeTruncate(key, store->maxKeyLength);
+        if (keyLen == 0) {
+            return;
+        }
     }
 
     uint32_t recordSize = KSKVS_RECORD_HEADER_SIZE + keyLen + valueLen;
@@ -369,6 +413,13 @@ KSKeyValueStore *kskvs_create(const char *path, KSKVSMode mode, const KSKVSConfi
             goto rw_fail;
         }
 
+        // Zero-init so TSan shadow state from a prior virtual address doesn't
+        // cause false positives (same rationale as ksfu_mmap).
+        memset(mapped, 0, capacity);
+
+        // Ensure the file is readable before first unlock (iOS data protection).
+        ksfu_applyNoFileProtection(path);
+
         KSKeyValueStore *store = (KSKeyValueStore *)calloc(1, sizeof(KSKeyValueStore));
         if (store == NULL) {
             goto rw_fail;
@@ -432,7 +483,7 @@ void kskvs_setString(KSKeyValueStore *store, const char *key, const char *value)
     uint16_t len = (uint16_t)strlen(value);
     if (store->maxStringLength > 0 && len > store->maxStringLength) {
         KSLOG_ERROR("KVS string value too long (%u > %u), truncating", len, store->maxStringLength);
-        len = store->maxStringLength;
+        len = utf8SafeTruncate(value, store->maxStringLength);
     }
     appendRecord(store, key, KSKVSTypeString, value, len);
 }
