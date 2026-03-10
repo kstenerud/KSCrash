@@ -403,7 +403,12 @@ static KSCrash_LifecycleData *createSidecar(void)
     KSCrashAppTransitionState ts = KSCrashAppStateTracker.sharedInstance.transitionState;
     sc->transitionState = (uint8_t)ts;
     sc->applicationIsActive = (ts == KSCrashAppTransitionStateActive);
-    sc->applicationIsInForeground = ksapp_transitionStateIsUserPerceptible(ts);
+    // Foreground means the app has actually entered the foreground (Active,
+    // Deactivating, Foregrounding).  Startup/Launching are pre-foreground and
+    // must not be counted — userPerceptible is intentionally broader.
+    sc->applicationIsInForeground =
+        (ts == KSCrashAppTransitionStateActive || ts == KSCrashAppTransitionStateDeactivating ||
+         ts == KSCrashAppTransitionStateForegrounding);
     sc->userPerceptible = ksapp_transitionStateIsUserPerceptible(ts);
 
     sc->taskRole = (int32_t)kslifecycle_currentTaskRole();
