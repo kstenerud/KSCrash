@@ -96,7 +96,7 @@ static void freeCache(KSThreadCacheData *cache)
     free(cache);
 }
 
-static KSThreadCacheData *createCache(bool searchQueueNames)
+__attribute__((no_sanitize("thread"))) static KSThreadCacheData *createCache(bool searchQueueNames)
 {
     const task_t thisTask = mach_task_self();
     mach_msg_type_number_t threadCount;
