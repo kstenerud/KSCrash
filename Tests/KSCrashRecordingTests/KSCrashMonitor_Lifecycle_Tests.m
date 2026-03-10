@@ -45,6 +45,7 @@ extern void kscm_testcode_resetState(void);
 extern void kscrash_testcode_setLastRunID(const char *runID);
 extern void kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionState state);
 extern void kscm_lifecycle_testcode_hangChange(KSHangChangeType change);
+extern void kscm_lifecycle_testcode_setTaskRole(int32_t role);
 
 // Global test directory for path callbacks
 static char g_testDir[1024];
@@ -608,8 +609,10 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
 - (void)testCurrentTaskRoleReturnsValidValue
 {
     int role = kslifecycle_currentTaskRole();
-    // Should be one of the known task_role_t values
-    XCTAssertTrue(role >= TASK_RENICED && role <= TASK_DEFAULT_APPLICATION, @"Unexpected task role: %d", role);
+    // The string conversion returns "UNKNOWN" for unrecognized values.
+    // A valid role must produce a known string.
+    const char *str = kslifecycle_stringFromTaskRole(role);
+    XCTAssertTrue(strcmp(str, "UNKNOWN") != 0, @"Unexpected task role: %d", role);
 }
 
 - (void)testStringFromTaskRoleKnownValues
@@ -629,13 +632,34 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
 {
     [self enableMonitor];
 
-    // Wait for at least one heartbeat cycle (1 second interval)
-    usleep(1500000);  // 1.5s
-
+    // Write a sentinel value into the sidecar's taskRole so we can verify
+    // the heartbeat overwrites it.  readCurrentSidecar reads via mmap path,
+    // so we need to corrupt the live sidecar directly.
     KSCrash_LifecycleData data = { 0 };
     XCTAssertTrue(readCurrentSidecar(&data));
-    int currentRole = kslifecycle_currentTaskRole();
-    XCTAssertEqual(data.taskRole, currentRole);
+    int32_t sentinel = -999;
+    XCTAssertNotEqual(kslifecycle_currentTaskRole(), sentinel);
+
+    // Poke the sentinel through the test helper.
+    kscm_lifecycle_testcode_setTaskRole(sentinel);
+
+    // Verify it took.
+    XCTAssertTrue(readCurrentSidecar(&data));
+    XCTAssertEqual(data.taskRole, sentinel);
+
+    // Poll until the heartbeat corrects it (up to 5 s).
+    NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:5.0];
+    bool corrected = false;
+    while ([deadline timeIntervalSinceNow] > 0) {
+        [NSThread sleepForTimeInterval:0.1];
+        XCTAssertTrue(readCurrentSidecar(&data));
+        if (data.taskRole != sentinel) {
+            corrected = true;
+            break;
+        }
+    }
+    XCTAssertTrue(corrected, @"Heartbeat did not update taskRole within 5 seconds");
+    XCTAssertEqual(data.taskRole, kslifecycle_currentTaskRole());
 }
 
 @end

@@ -532,6 +532,16 @@ void kscm_lifecycle_testcode_hangChange(KSHangChangeType change)
     onHangChange(change, 0, 0, NULL);
 }
 
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+void kscm_lifecycle_testcode_setTaskRole(int32_t role)
+{
+    ks_spinlock_lock(&g_sidecarLock);
+    if (g_sidecar != NULL) {
+        g_sidecar->taskRole = role;
+    }
+    ks_spinlock_unlock(&g_sidecarLock);
+}
+
 KSCrashMonitorAPI *kscm_lifecycle_getAPI(void)
 {
     static KSCrashMonitorAPI api = { 0 };
