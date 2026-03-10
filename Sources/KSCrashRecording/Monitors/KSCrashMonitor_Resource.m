@@ -182,7 +182,7 @@ static void pollCPUAndThreads(void)
     static uint64_t s_prevSystemNs = 0;
     static uint64_t s_prevWallNs = 0;
 
-    uint64_t nowNs = clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW);
+    uint64_t nowNs = ksdate_continuousNanoseconds();
 
     uint16_t userUsage = 0;
     uint16_t systemUsage = 0;

@@ -46,6 +46,7 @@
 #include "KSCrashMonitor_WatchdogSidecar.h"
 #include "KSCrashNamespace.h"
 #include "KSCrashReportFields.h"
+#include "KSDate.h"
 #include "KSDebug.h"
 #include "KSFileUtils.h"
 #include "KSHang.h"
@@ -173,12 +174,6 @@ static atomic_bool g_isEnabled = false;
 static atomic_bool g_reportsHangs = false;
 static KSHangMonitor *g_watchdog = NULL;
 static KSCrash_ExceptionHandlerCallbacks g_callbacks = { 0 };
-
-// ============================================================================
-#pragma mark - Utilities -
-// ============================================================================
-
-static uint64_t monotonicUptime(void) { return clock_gettime_nsec_np(CLOCK_UPTIME_RAW); }
 
 // ============================================================================
 #pragma mark - Sidecar lifecycle -
@@ -424,7 +419,7 @@ static void watchdogTimerFired(CFRunLoopTimerRef timer, void *info)
     // if the main thread briefly woke between the two reads, causing us to
     // initialize the hang with the wrong start timestamp.
     uint64_t enter = atomic_load_explicit(&monitor->enterTime, memory_order_relaxed);
-    uint64_t now = monotonicUptime();
+    uint64_t now = ksdate_uptimeNanoseconds();
     uint64_t hangTime = now - enter;
 
     if (hangTime < monitor->thresholdNs) {
@@ -458,7 +453,7 @@ static void watchdogTimerFired(CFRunLoopTimerRef timer, void *info)
 
 static void schedulePings(KSHangMonitor *monitor)
 {
-    atomic_store_explicit(&monitor->enterTime, monotonicUptime(), memory_order_relaxed);
+    atomic_store_explicit(&monitor->enterTime, ksdate_uptimeNanoseconds(), memory_order_relaxed);
 
     CFRunLoopTimerContext timerCtx = {
         .version = 0, .info = monitor, .retain = NULL, .release = NULL, .copyDescription = NULL
@@ -499,7 +494,7 @@ static void mainRunLoopActivity(CFRunLoopObserverRef obs, CFRunLoopActivity acti
             return;
         }
 
-        hang.endTimestamp = monotonicUptime();
+        hang.endTimestamp = ksdate_uptimeNanoseconds();
         hang.endRole = kslifecycle_currentTaskRole();
         finalizeResolvedHang(monitor, hang);
 

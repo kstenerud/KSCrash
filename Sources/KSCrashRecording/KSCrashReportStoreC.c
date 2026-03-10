@@ -41,6 +41,7 @@
 #include "KSCrashMonitorRegistry.h"
 #include "KSCrashReportFixer.h"
 #include "KSCrashReportStoreC+Private.h"
+#include "KSDate.h"
 #include "KSFileUtils.h"
 #include "KSLogger.h"
 
@@ -436,8 +437,7 @@ static void pruneReports(const KSCrashReportStoreCConfiguration *const config)
 // clang-format off
 static void initializeIDs(void)
 {
-    time_t rawTime;
-    time(&rawTime);
+    time_t rawTime = (time_t)ksdate_seconds();
     struct tm time;
     gmtime_r(&rawTime, &time);
     int64_t baseID = (int64_t)time.tm_sec
