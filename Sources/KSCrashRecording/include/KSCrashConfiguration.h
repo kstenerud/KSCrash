@@ -63,8 +63,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 /** User-supplied data in JSON format. NULL to delete.
  *
- * This JSON string contains user-specific data that will be included in
- * the crash report. If NULL is passed, any existing user data will be deleted.
+ * This dictionary is written into the crash report's "user" section at install time.
+ * After install, use the per-key API in KSCrash+UserInfo.h to update values.
+ *
+ * **Default**: nil
  */
 @property(nonatomic, copy, nullable) NSDictionary<NSString *, id> *userInfoJSON;
 

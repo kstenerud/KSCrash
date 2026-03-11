@@ -1,7 +1,7 @@
 //
-//  KSCrashMonitorProperty.h
+//  KSCrash+UserInfo.m
 //
-//  Created by Gleb Linnik on 29.05.2024.
+//  Created by Alexander Cohen on 2026-03-01.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,35 +24,46 @@
 // THE SOFTWARE.
 //
 
-#ifndef KSCrashMonitorProperty_h
-#define KSCrashMonitorProperty_h
+#import "KSCrash+UserInfo.h"
 
-#include "KSCrashNamespace.h"
+#import "KSCrashMonitor_UserInfo.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+@implementation KSCrash (UserInfo)
 
-typedef enum {
-    /** Indicates that no flags are set. */
-    KSCrashMonitorFlagNone = 0,
-
-    /** Indicates that the monitor with this flag will not be enabled if a debugger is attached. */
-    KSCrashMonitorFlagDebuggerUnsafe = 1 << 0,
-
-    /** Indicates that the monitor is safe to be used in an asynchronous environment.
-     * Monitors without this flag are considered unsafe for asynchronous operations by default. */
-    KSCrashMonitorFlagAsyncSafe = 1 << 1,
-
-    /** Plugin monitor — not registered through the type system.
-     * Plugin monitors do not count toward the "any active monitor"
-     * check during activation. */
-    KSCrashMonitorFlagPlugin = 1 << 2,
-
-} KSCrashMonitorFlag;
-
-#ifdef __cplusplus
+- (void)setUserInfoString:(NSString *)value forKey:(NSString *)key
+{
+    kscm_userinfo_setString(key.UTF8String, value.UTF8String);
 }
-#endif
 
-#endif /* KSCrashMonitorProperty_h */
+- (void)setUserInfoInteger:(NSInteger)value forKey:(NSString *)key
+{
+    kscm_userinfo_setInt64(key.UTF8String, (int64_t)value);
+}
+
+- (void)setUserInfoUnsignedInteger:(NSUInteger)value forKey:(NSString *)key
+{
+    kscm_userinfo_setUInt64(key.UTF8String, (uint64_t)value);
+}
+
+- (void)setUserInfoDouble:(double)value forKey:(NSString *)key
+{
+    kscm_userinfo_setDouble(key.UTF8String, value);
+}
+
+- (void)setUserInfoBool:(BOOL)value forKey:(NSString *)key
+{
+    kscm_userinfo_setBool(key.UTF8String, (bool)value);
+}
+
+- (void)setUserInfoDate:(NSDate *)value forKey:(NSString *)key
+{
+    uint64_t nanos = (uint64_t)(value.timeIntervalSince1970 * 1e9);
+    kscm_userinfo_setDate(key.UTF8String, nanos);
+}
+
+- (void)removeUserInfoValueForKey:(NSString *)key
+{
+    kscm_userinfo_removeValue(key.UTF8String);
+}
+
+@end

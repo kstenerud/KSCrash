@@ -181,8 +181,9 @@ VARIABLE_NAME_IGNORED = [
                             re.compile("^uintptr_t$"),
                         ]
 
-# Ignore any objective-c classes, protocols, categries etc that match any of these:
+# Ignore any objective-c classes, protocols, categories etc that match any of these:
 OBJC_NAME_IGNORED = [
+                        re.compile("^UserInfo$"),
                     ]
 
 # Ignore any C++ names or templates that match any of these:

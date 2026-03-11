@@ -1,7 +1,7 @@
 //
-//  KSCrashMonitorProperty.h
+//  KSFileUtilsObjC.m
 //
-//  Created by Gleb Linnik on 29.05.2024.
+//  Created by Alexander Cohen on 2026-03-09.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,35 +24,22 @@
 // THE SOFTWARE.
 //
 
-#ifndef KSCrashMonitorProperty_h
-#define KSCrashMonitorProperty_h
+#import "KSFileUtils.h"
 
-#include "KSCrashNamespace.h"
+#import <Foundation/Foundation.h>
 
-#ifdef __cplusplus
-extern "C" {
+void ksfu_applyNoFileProtection(const char *path)
+{
+    if (!path) {
+        return;
+    }
+
+#if TARGET_OS_IOS || TARGET_OS_WATCH || TARGET_OS_TV
+    NSString *nsPath = [[NSString alloc] initWithUTF8String:path];
+    if (!nsPath) {
+        return;
+    }
+    NSDictionary *attrs = @ { NSFileProtectionKey : NSFileProtectionNone };
+    [[NSFileManager defaultManager] setAttributes:attrs ofItemAtPath:nsPath error:nil];
 #endif
-
-typedef enum {
-    /** Indicates that no flags are set. */
-    KSCrashMonitorFlagNone = 0,
-
-    /** Indicates that the monitor with this flag will not be enabled if a debugger is attached. */
-    KSCrashMonitorFlagDebuggerUnsafe = 1 << 0,
-
-    /** Indicates that the monitor is safe to be used in an asynchronous environment.
-     * Monitors without this flag are considered unsafe for asynchronous operations by default. */
-    KSCrashMonitorFlagAsyncSafe = 1 << 1,
-
-    /** Plugin monitor — not registered through the type system.
-     * Plugin monitors do not count toward the "any active monitor"
-     * check during activation. */
-    KSCrashMonitorFlagPlugin = 1 << 2,
-
-} KSCrashMonitorFlag;
-
-#ifdef __cplusplus
 }
-#endif
-
-#endif /* KSCrashMonitorProperty_h */

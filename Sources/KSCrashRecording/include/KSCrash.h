@@ -31,6 +31,7 @@
 #import "KSCrashReportFilter.h"
 #import "KSCrashReportStore.h"
 #import "KSCrashReportWriter.h"
+#import "KSSystemCapabilities.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -50,9 +51,14 @@ NS_ASSUME_NONNULL_BEGIN
  * contain only JSON-safe data: NSString for keys, and NSDictionary, NSArray,
  * NSString, NSDate, and NSNumber for values.
  *
+ * @deprecated Use the per-key API in KSCrash+UserInfo.h instead
+ * (e.g. -setUserInfoString:forKey:, -setUserInfoInteger:forKey:).
+ * The per-key API is backed by an mmap'd sidecar with zero crash-time cost.
+ *
  * Default: nil
  */
-@property(atomic, readwrite, strong, nullable) NSDictionary<NSString *, id> *userInfo;
+@property(atomic, readwrite, strong, nullable) NSDictionary<NSString *, id> *userInfo KSCRASH_DEPRECATED(
+    "Use per-key API in KSCrash+UserInfo.h (e.g. -setUserInfoString:forKey:) instead");
 
 #pragma mark - Information -
 

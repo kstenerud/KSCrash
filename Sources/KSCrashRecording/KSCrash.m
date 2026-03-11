@@ -174,6 +174,8 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
 #pragma mark - API -
 // ============================================================================
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 - (NSDictionary *)userInfo
 {
     const char *userInfoJSON = kscrash_getUserInfoJSON();
@@ -210,6 +212,7 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
         userInfoJSON ? [[NSString alloc] initWithData:userInfoJSON encoding:NSUTF8StringEncoding] : nil;
     kscrash_setUserInfoJSON(userInfoString.UTF8String);
 }
+#pragma clang diagnostic pop
 
 - (BOOL)reportsMemoryTerminations
 {

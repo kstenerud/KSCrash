@@ -285,6 +285,14 @@ bool ksfu_readBufferedReaderUntilChar(KSBufferedReader *reader, int ch, char *ds
  */
 void *ksfu_mmap(const char *path, size_t size);
 
+/** Apply NSFileProtectionNone to a file so it remains accessible
+ *  before first unlock and while protected data is unavailable.
+ *  No-op on platforms without data protection (macOS).
+ *
+ * @param path The path to the file.
+ */
+void ksfu_applyNoFileProtection(const char *path);
+
 /** Unmaps a memory-mapped region previously created by ksfu_mmap.
  *
  * @param ptr The pointer returned by ksfu_mmap.

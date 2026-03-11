@@ -70,8 +70,7 @@ extern "C" {
  * ```
  * KSCrashCConfiguration config = KSCrashCConfiguration_Default();
  * config.monitors = KSCrashMonitorTypeAll;
- * config.userInfoJSON = "{ \"user\": \"example\" }";
- * KSCrashInstallErrorCode result = kscrash_install("MyApp", "/path/to/install", config);
+ * KSCrashInstallErrorCode result = kscrash_install("MyApp", "/path/to/install", &config);
  * if (result != 0) {
  *     // Handle installation error
  * }
@@ -88,15 +87,21 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
 
 /** Set the user-supplied data in JSON format.
  *
+ * @deprecated Use the per-key API (kscrash_setUserInfoString, etc.) instead.
+ * The per-key API is backed by an mmap'd run sidecar with zero crash-time cost.
+ *
  * This function is thread-safe. Under extreme contention, the update
  * may be skipped (very unlikely in practice).
  *
  * @param userInfoJSON Pre-baked JSON containing user-supplied information.
  *                     NULL = delete.
  */
-void kscrash_setUserInfoJSON(const char *const userInfoJSON);
+void kscrash_setUserInfoJSON(const char *const userInfoJSON)
+    KSCRASH_DEPRECATED("Use the per-key API (kscrash_setUserInfoString, etc.) instead");
 
 /** Get a copy of the user-supplied data in JSON format.
+ *
+ * @deprecated Use the per-key API instead.
  *
  * This function is thread-safe. Under extreme contention, may return
  * NULL even if information is set (very unlikely in practice).
@@ -105,7 +110,35 @@ void kscrash_setUserInfoJSON(const char *const userInfoJSON);
  *         or NULL if no information is set.
  *         The caller is responsible for freeing the returned string.
  */
-const char *kscrash_getUserInfoJSON(void);
+const char *kscrash_getUserInfoJSON(void) KSCRASH_DEPRECATED("Use the per-key API instead");
+
+#pragma mark-- Per-Key User Info --
+
+/** Set a string value for the given key.
+ *  Passing NULL for value removes the key.
+ *  Strings longer than 1024 bytes are truncated.
+ *  Requires kscrash_install() to have completed successfully before use.
+ *  To set initial user info before install, use KSCrashConfiguration.userInfoJSON.
+ */
+void kscrash_setUserInfoString(const char *key, const char *value);
+
+/** Set a signed 64-bit integer value for the given key. */
+void kscrash_setUserInfoInt(const char *key, int64_t value);
+
+/** Set an unsigned 64-bit integer value for the given key. */
+void kscrash_setUserInfoUInt(const char *key, uint64_t value);
+
+/** Set a double-precision floating-point value for the given key. */
+void kscrash_setUserInfoDouble(const char *key, double value);
+
+/** Set a boolean value for the given key. */
+void kscrash_setUserInfoBool(const char *key, bool value);
+
+/** Set a date value for the given key (nanoseconds since 1970-01-01 00:00:00 UTC). */
+void kscrash_setUserInfoDate(const char *key, uint64_t nanosecondsSince1970);
+
+/** Remove the value for the given key. */
+void kscrash_removeUserInfoValue(const char *key);
 
 /** Report a custom, user defined exception.
  * This can be useful when dealing with scripting languages.
