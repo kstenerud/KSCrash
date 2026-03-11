@@ -58,6 +58,22 @@ public enum BuildType: RawRepresentable, Codable, Sendable, Equatable {
     }
 }
 
+/// Battery charging state.
+public enum BatteryState: Int, Codable, Sendable, Equatable {
+    case unknown = 0
+    case unplugged = 1
+    case charging = 2
+    case full = 3
+}
+
+/// Device thermal state.
+public enum ThermalState: Int, Codable, Sendable, Equatable {
+    case nominal = 0
+    case fair = 1
+    case serious = 2
+    case critical = 3
+}
+
 /// System information at the time of crash.
 public struct SystemInfo: Codable, Sendable, Equatable {
     /// Bundle executable name.
@@ -171,6 +187,30 @@ public struct SystemInfo: Codable, Sendable, Equatable {
     /// Whether Low Power Mode was enabled at the time of the event.
     public let lowPowerModeEnabled: Bool?
 
+    /// Battery level (0–100), nil if unavailable.
+    public let batteryLevel: Int?
+
+    /// Battery charging state.
+    public let batteryState: BatteryState?
+
+    /// Number of active CPU cores.
+    public let cpuCoreCount: Int?
+
+    /// App user-space CPU usage in permil of one core (e.g., 1500 = 1.5 cores worth of user time).
+    public let cpuUsageUser: Int?
+
+    /// App kernel-space CPU usage in permil of one core (e.g., 200 = 0.2 cores worth of kernel time).
+    public let cpuUsageSystem: Int?
+
+    /// Device thermal state.
+    public let thermalState: ThermalState?
+
+    /// Process thread count.
+    public let threadCount: Int?
+
+    /// Whether protected data was available (device unlocked).
+    public let dataProtectionActive: Bool?
+
     public init(
         cfBundleExecutable: String? = nil,
         cfBundleExecutablePath: String? = nil,
@@ -208,7 +248,15 @@ public struct SystemInfo: Codable, Sendable, Equatable {
         buildType: BuildType? = nil,
         clangVersion: String? = nil,
         appMemory: AppMemoryInfo? = nil,
-        lowPowerModeEnabled: Bool? = nil
+        lowPowerModeEnabled: Bool? = nil,
+        batteryLevel: Int? = nil,
+        batteryState: BatteryState? = nil,
+        cpuCoreCount: Int? = nil,
+        cpuUsageUser: Int? = nil,
+        cpuUsageSystem: Int? = nil,
+        thermalState: ThermalState? = nil,
+        threadCount: Int? = nil,
+        dataProtectionActive: Bool? = nil
     ) {
         self.cfBundleExecutable = cfBundleExecutable
         self.cfBundleExecutablePath = cfBundleExecutablePath
@@ -247,6 +295,14 @@ public struct SystemInfo: Codable, Sendable, Equatable {
         self.clangVersion = clangVersion
         self.appMemory = appMemory
         self.lowPowerModeEnabled = lowPowerModeEnabled
+        self.batteryLevel = batteryLevel
+        self.batteryState = batteryState
+        self.cpuCoreCount = cpuCoreCount
+        self.cpuUsageUser = cpuUsageUser
+        self.cpuUsageSystem = cpuUsageSystem
+        self.thermalState = thermalState
+        self.threadCount = threadCount
+        self.dataProtectionActive = dataProtectionActive
     }
 
     enum CodingKeys: String, CodingKey {
@@ -287,6 +343,14 @@ public struct SystemInfo: Codable, Sendable, Equatable {
         case clangVersion = "clang_version"
         case appMemory = "app_memory"
         case lowPowerModeEnabled = "low_power_mode_enabled"
+        case batteryLevel = "battery_level"
+        case batteryState = "battery_state"
+        case cpuCoreCount = "cpu_core_count"
+        case cpuUsageUser = "cpu_usage_user"
+        case cpuUsageSystem = "cpu_usage_system"
+        case thermalState = "thermal_state"
+        case threadCount = "thread_count"
+        case dataProtectionActive = "data_protection_active"
     }
 
     private static func parseISO8601(_ string: String) -> Date? {
@@ -334,6 +398,14 @@ public struct SystemInfo: Codable, Sendable, Equatable {
         clangVersion = try c.decodeIfPresent(String.self, forKey: .clangVersion)
         appMemory = try c.decodeIfPresent(AppMemoryInfo.self, forKey: .appMemory)
         lowPowerModeEnabled = try c.decodeIfPresent(Bool.self, forKey: .lowPowerModeEnabled)
+        batteryLevel = try c.decodeIfPresent(Int.self, forKey: .batteryLevel)
+        batteryState = try c.decodeIfPresent(BatteryState.self, forKey: .batteryState)
+        cpuCoreCount = try c.decodeIfPresent(Int.self, forKey: .cpuCoreCount)
+        cpuUsageUser = try c.decodeIfPresent(Int.self, forKey: .cpuUsageUser)
+        cpuUsageSystem = try c.decodeIfPresent(Int.self, forKey: .cpuUsageSystem)
+        thermalState = try c.decodeIfPresent(ThermalState.self, forKey: .thermalState)
+        threadCount = try c.decodeIfPresent(Int.self, forKey: .threadCount)
+        dataProtectionActive = try c.decodeIfPresent(Bool.self, forKey: .dataProtectionActive)
 
         // Dates arrive as ISO 8601 strings from the system stitch
         if let str = try c.decodeIfPresent(String.self, forKey: .appStartTime) {
@@ -385,6 +457,14 @@ public struct SystemInfo: Codable, Sendable, Equatable {
         try c.encodeIfPresent(clangVersion, forKey: .clangVersion)
         try c.encodeIfPresent(appMemory, forKey: .appMemory)
         try c.encodeIfPresent(lowPowerModeEnabled, forKey: .lowPowerModeEnabled)
+        try c.encodeIfPresent(batteryLevel, forKey: .batteryLevel)
+        try c.encodeIfPresent(batteryState, forKey: .batteryState)
+        try c.encodeIfPresent(cpuCoreCount, forKey: .cpuCoreCount)
+        try c.encodeIfPresent(cpuUsageUser, forKey: .cpuUsageUser)
+        try c.encodeIfPresent(cpuUsageSystem, forKey: .cpuUsageSystem)
+        try c.encodeIfPresent(thermalState, forKey: .thermalState)
+        try c.encodeIfPresent(threadCount, forKey: .threadCount)
+        try c.encodeIfPresent(dataProtectionActive, forKey: .dataProtectionActive)
 
         if let appStartTime {
             let formatter = ISO8601DateFormatter()

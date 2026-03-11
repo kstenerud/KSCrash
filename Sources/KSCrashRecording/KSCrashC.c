@@ -38,6 +38,7 @@
 #include "KSCrashMonitor_MachException.h"
 #include "KSCrashMonitor_Memory.h"
 #include "KSCrashMonitor_NSException.h"
+#include "KSCrashMonitor_Resource.h"
 #include "KSCrashMonitor_Signal.h"
 #include "KSCrashMonitor_System.h"
 #include "KSCrashMonitor_User.h"
@@ -89,7 +90,8 @@ g_monitorMappings[] = { { KSCrashMonitorTypeMachException, kscm_machexception_ge
                         { KSCrashMonitorTypeZombie, kscm_zombie_getAPI },
                         { KSCrashMonitorTypeMemoryTermination, kscm_memory_getAPI },
                         { KSCrashMonitorTypeWatchdog, kscm_watchdog_getAPI },
-                        { KSCrashMonitorTypeUserInfo, kscm_userinfo_getAPI } };
+                        { KSCrashMonitorTypeUserInfo, kscm_userinfo_getAPI },
+                        { KSCrashMonitorTypeResource, kscm_resource_getAPI } };
 #pragma clang diagnostic pop
 
 static const size_t g_monitorMappingCount = sizeof(g_monitorMappings) / sizeof(g_monitorMappings[0]);
