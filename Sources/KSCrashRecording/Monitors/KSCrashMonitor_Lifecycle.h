@@ -92,6 +92,7 @@ typedef struct {
     int32_t sessionsSinceLaunch;
     int32_t launchesSinceLastCrash;
     int32_t sessionsSinceLastCrash;
+    int32_t taskRole;  // task_role_t — updated by heartbeat and on lifecycle events
 
     uint8_t crashedLastLaunch;
     uint8_t transitionState;  // KSCrashAppTransitionState at last update
@@ -101,7 +102,6 @@ typedef struct {
                               // while still technically backgrounded)
     uint8_t hangInProgress;   // true while the watchdog is tracking an active hang;
                               // if still true on next launch, the app was killed during a hang
-    uint8_t _pad[4];
 } KSCrash_LifecycleData;
 
 _Static_assert(sizeof(KSCrash_LifecycleData) == 88, "KSCrash_LifecycleData size changed — bump version");
@@ -175,6 +175,20 @@ bool kslifecycle_getSnapshotForRunID(const char *runID, KSCrash_LifecycleData *o
 /** Access the Lifecycle Monitor API.
  */
 KSCrashMonitorAPI *kscm_lifecycle_getAPI(void);
+
+/** Query the current task role from the kernel.
+ *
+ * Returns the task_role_t value (e.g. TASK_FOREGROUND_APPLICATION).
+ * Returns TASK_UNSPECIFIED on tvOS/watchOS or on failure.
+ */
+int kslifecycle_currentTaskRole(void);
+
+/** Returns a human-readable string for a task role.
+ *
+ * @param role The task_role_t value to convert.
+ * @return A string representation of the role (e.g., "FOREGROUND_APPLICATION").
+ */
+const char *kslifecycle_stringFromTaskRole(int /*task_role_t*/ role);
 
 /** Stitch lifecycle sidecar data into a report at delivery time.
  *  Reads the binary struct, converts nanosecond durations to seconds,

@@ -31,6 +31,8 @@
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitor_Lifecycle.h"
 
+#include <mach/task_policy.h>
+
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -43,6 +45,7 @@ extern void kscm_testcode_resetState(void);
 extern void kscrash_testcode_setLastRunID(const char *runID);
 extern void kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionState state);
 extern void kscm_lifecycle_testcode_hangChange(KSHangChangeType change);
+extern void kscm_lifecycle_testcode_setTaskRole(int32_t role);
 
 // Global test directory for path callbacks
 static char g_testDir[1024];
@@ -578,6 +581,85 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     KSCrash_LifecycleData data = { 0 };
     XCTAssertTrue(readCurrentSidecar(&data));
     XCTAssertFalse(data.hangInProgress);
+}
+
+#pragma mark - Task Role Tests -
+
+- (void)testTaskRoleSetOnEnable
+{
+    [self enableMonitor];
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    // The role should be set to something valid (not left at zero unless TASK_UNSPECIFIED == 0)
+    int currentRole = kslifecycle_currentTaskRole();
+    XCTAssertEqual(data.taskRole, currentRole);
+}
+
+- (void)testTaskRoleUpdatedOnTransition
+{
+    [self enableMonitor];
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    int currentRole = kslifecycle_currentTaskRole();
+    XCTAssertEqual(data.taskRole, currentRole);
+}
+
+- (void)testCurrentTaskRoleReturnsValidValue
+{
+    int role = kslifecycle_currentTaskRole();
+    // The string conversion returns "UNKNOWN" for unrecognized values.
+    // A valid role must produce a known string.
+    const char *str = kslifecycle_stringFromTaskRole(role);
+    XCTAssertTrue(strcmp(str, "UNKNOWN") != 0, @"Unexpected task role: %d", role);
+}
+
+- (void)testStringFromTaskRoleKnownValues
+{
+    XCTAssertEqualObjects(@(kslifecycle_stringFromTaskRole(TASK_FOREGROUND_APPLICATION)), @"FOREGROUND_APPLICATION");
+    XCTAssertEqualObjects(@(kslifecycle_stringFromTaskRole(TASK_BACKGROUND_APPLICATION)), @"BACKGROUND_APPLICATION");
+    XCTAssertEqualObjects(@(kslifecycle_stringFromTaskRole(TASK_UNSPECIFIED)), @"UNSPECIFIED");
+    XCTAssertEqualObjects(@(kslifecycle_stringFromTaskRole(TASK_DEFAULT_APPLICATION)), @"DEFAULT_APPLICATION");
+}
+
+- (void)testStringFromTaskRoleUnknownValue
+{
+    XCTAssertEqualObjects(@(kslifecycle_stringFromTaskRole(9999)), @"UNKNOWN");
+}
+
+- (void)testTaskRoleHeartbeatUpdates
+{
+    [self enableMonitor];
+
+    // Write a sentinel value into the sidecar's taskRole so we can verify
+    // the heartbeat overwrites it.  readCurrentSidecar reads via mmap path,
+    // so we need to corrupt the live sidecar directly.
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    int32_t sentinel = -999;
+    XCTAssertNotEqual(kslifecycle_currentTaskRole(), sentinel);
+
+    // Poke the sentinel through the test helper.
+    kscm_lifecycle_testcode_setTaskRole(sentinel);
+
+    // Verify it took.
+    XCTAssertTrue(readCurrentSidecar(&data));
+    XCTAssertEqual(data.taskRole, sentinel);
+
+    // Poll until the heartbeat corrects it (up to 5 s).
+    NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:5.0];
+    bool corrected = false;
+    while ([deadline timeIntervalSinceNow] > 0) {
+        [NSThread sleepForTimeInterval:0.1];
+        XCTAssertTrue(readCurrentSidecar(&data));
+        if (data.taskRole != sentinel) {
+            corrected = true;
+            break;
+        }
+    }
+    XCTAssertTrue(corrected, @"Heartbeat did not update taskRole within 5 seconds");
+    XCTAssertEqual(data.taskRole, kslifecycle_currentTaskRole());
 }
 
 @end

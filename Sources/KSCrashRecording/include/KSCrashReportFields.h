@@ -273,6 +273,7 @@ KSCRF_DEFINE_CONSTANT(KSCrashField, DataProtectionActive, dataProtectionActive, 
 
 KSCRF_DEFINE_CONSTANT(KSCrashField, TerminationReason, terminationReason, "termination_reason")
 KSCRF_DEFINE_CONSTANT(KSCrashField, UserPerceptible, userPerceptible, "user_perceptible")
+KSCRF_DEFINE_CONSTANT(KSCrashField, TaskRole, taskRole, "task_role")
 
 KSCRF_DEFINE_CONSTANT(KSCrashField, HangStartNanoseconds, hangStartNanoseconds, "hang_start_nanos")
 KSCRF_DEFINE_CONSTANT(KSCrashField, HangStartRole, hangStartRole, "hang_start_role")

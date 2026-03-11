@@ -190,7 +190,7 @@ public final class Profiler<T: Sample>: @unchecked Sendable {
     public func beginProfile(named: String) -> ProfileID {
         let id = ProfileID()
         let startTime = Date()
-        let timestamp = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
+        let timestamp = ksdate_uptimeNanoseconds()
         let profile = ActiveProfile(id: id, name: named, startTime: startTime, startTimestampNs: timestamp)
 
         lock.withLock {
@@ -211,7 +211,7 @@ public final class Profiler<T: Sample>: @unchecked Sendable {
     /// - Parameter id: The profile session identifier returned by `beginProfile(named:)`.
     /// - Returns: The completed profile with timing info and samples, or `nil` if the id is invalid.
     public func endProfile(id: ProfileID) -> Profile? {
-        let endTimestamp = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
+        let endTimestamp = ksdate_uptimeNanoseconds()
 
         return lock.withLock {
             guard let activeProfile = activeSessions.removeValue(forKey: id) else {
@@ -329,12 +329,12 @@ extension Profiler {
             let slot = writeIndex
 
             // Capture directly into the ring buffer slot to avoid struct copy overhead
-            samples[slot].metadata.timestampBeginNs = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
+            samples[slot].metadata.timestampBeginNs = ksdate_uptimeNanoseconds()
             samples[slot].capture(
                 thread: machThread,
                 using: captureBacktrace(machThread:addresses:count:isTruncated:)
             )
-            samples[slot].metadata.timestampEndNs = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
+            samples[slot].metadata.timestampEndNs = ksdate_uptimeNanoseconds()
 
             // Advance ring buffer position
             writeIndex = (writeIndex + 1) % capacity

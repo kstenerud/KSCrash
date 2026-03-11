@@ -531,9 +531,9 @@ final class CrashReportDecodingTests: XCTestCase {
         // Verify hang info
         XCTAssertNotNil(report.crash.error.hang)
         XCTAssertEqual(report.crash.error.hang?.hangStartNanos, 896_794_983_811_166)
-        XCTAssertEqual(report.crash.error.hang?.hangStartRole, "FOREGROUND_APPLICATION")
+        XCTAssertEqual(report.crash.error.hang?.hangStartRole, .foregroundApplication)
         XCTAssertEqual(report.crash.error.hang?.hangEndNanos, 896_795_233_899_208)
-        XCTAssertEqual(report.crash.error.hang?.hangEndRole, "FOREGROUND_APPLICATION")
+        XCTAssertEqual(report.crash.error.hang?.hangEndRole, .foregroundApplication)
 
         // Verify exit reason (0x8badf00d = "ate bad food" watchdog termination)
         XCTAssertNotNil(report.crash.error.exitReason)
@@ -548,9 +548,9 @@ final class CrashReportDecodingTests: XCTestCase {
         // Verify hang info
         XCTAssertNotNil(report.crash.error.hang)
         XCTAssertEqual(report.crash.error.hang?.hangStartNanos, 897_133_713_870_375)
-        XCTAssertEqual(report.crash.error.hang?.hangStartRole, "FOREGROUND_APPLICATION")
+        XCTAssertEqual(report.crash.error.hang?.hangStartRole, .foregroundApplication)
         XCTAssertEqual(report.crash.error.hang?.hangEndNanos, 897_141_715_985_666)
-        XCTAssertEqual(report.crash.error.hang?.hangEndRole, "FOREGROUND_APPLICATION")
+        XCTAssertEqual(report.crash.error.hang?.hangEndRole, .foregroundApplication)
     }
 
     func testDecodeExampleProfile() throws {

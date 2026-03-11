@@ -1388,10 +1388,12 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
             writer->beginObject(writer, KSCrashField_Hang);
             {
                 writer->addUIntegerElement(writer, KSCrashField_HangStartNanoseconds, crash->Hang.timestamp);
-                writer->addStringElement(writer, KSCrashField_HangStartRole, kscm_stringFromRole(crash->Hang.role));
+                writer->addStringElement(writer, KSCrashField_HangStartRole,
+                                         kslifecycle_stringFromTaskRole(crash->Hang.role));
 
                 writer->addUIntegerElement(writer, KSCrashField_HangEndNanoseconds, crash->Hang.endTimestamp);
-                writer->addStringElement(writer, KSCrashField_HangEndRole, kscm_stringFromRole(crash->Hang.endRole));
+                writer->addStringElement(writer, KSCrashField_HangEndRole,
+                                         kslifecycle_stringFromTaskRole(crash->Hang.endRole));
             }
             writer->endContainer(writer);
         }

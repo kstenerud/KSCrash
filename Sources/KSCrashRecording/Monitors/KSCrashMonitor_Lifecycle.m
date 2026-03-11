@@ -34,10 +34,14 @@
 #import "KSDate.h"
 #import "KSFileUtils.h"
 #import "KSSpinLock.h"
+#import "KSSystemCapabilities.h"
 
 // #define KSLogger_LocalLevel TRACE
+#import <dispatch/dispatch.h>
 #import <errno.h>
 #import <fcntl.h>
+#import <mach/mach.h>
+#import <mach/task_policy.h>
 #import <stdatomic.h>
 #import <string.h>
 #import <time.h>
@@ -54,8 +58,110 @@ static KSSpinLock g_sidecarLock = KSSPINLOCK_INIT;
 static KSCrash_ExceptionHandlerCallbacks g_callbacks = { 0 };
 static id g_appStateObserver = nil;
 static KSHangObserverToken g_hangObserverToken = KSHangObserverTokenNotFound;
+static dispatch_source_t g_taskRoleHeartbeatTimer = NULL;
 
 static atomic_bool g_isEnabled = false;
+
+// ============================================================================
+#pragma mark - Utility -
+// ============================================================================
+
+int kslifecycle_currentTaskRole(void)
+{
+#if KSCRASH_HOST_TV || KSCRASH_HOST_WATCH
+    return TASK_UNSPECIFIED;
+#else
+    task_category_policy_data_t policy;
+    mach_msg_type_number_t count = TASK_CATEGORY_POLICY_COUNT;
+    boolean_t getDefault = false;
+
+    kern_return_t kr =
+        task_policy_get(mach_task_self(), TASK_CATEGORY_POLICY, (task_policy_t)&policy, &count, &getDefault);
+
+    return kr == KERN_SUCCESS ? policy.role : TASK_UNSPECIFIED;
+#endif
+}
+
+const char *kslifecycle_stringFromTaskRole(int role)
+{
+    switch (role) {
+        case TASK_RENICED:
+            return "RENICED";
+        case TASK_UNSPECIFIED:
+            return "UNSPECIFIED";
+        case TASK_FOREGROUND_APPLICATION:
+            return "FOREGROUND_APPLICATION";
+        case TASK_BACKGROUND_APPLICATION:
+            return "BACKGROUND_APPLICATION";
+        case TASK_CONTROL_APPLICATION:
+            return "CONTROL_APPLICATION";
+        case TASK_GRAPHICS_SERVER:
+            return "GRAPHICS_SERVER";
+        case TASK_THROTTLE_APPLICATION:
+            return "THROTTLE_APPLICATION";
+        case TASK_NONUI_APPLICATION:
+            return "NONUI_APPLICATION";
+        case TASK_DEFAULT_APPLICATION:
+            return "DEFAULT_APPLICATION";
+#if defined(TASK_DARWINBG_APPLICATION)
+        case TASK_DARWINBG_APPLICATION:
+            return "DARWINBG_APPLICATION";
+#endif
+#if defined(TASK_USER_INIT_APPLICATION)
+        case TASK_USER_INIT_APPLICATION:
+            return "USER_INIT_APPLICATION";
+#endif
+        default:
+            return "UNKNOWN";
+    }
+}
+
+/** Write the current task role to the sidecar if it changed.
+ *  Call under the sidecar lock.
+ */
+static void updateSidecarTaskRole(KSCrash_LifecycleData *sc)
+{
+    int32_t role = (int32_t)kslifecycle_currentTaskRole();
+    if (sc->taskRole != role) {
+        sc->taskRole = role;
+    }
+}
+
+// ============================================================================
+#pragma mark - Task Role Heartbeat -
+// ============================================================================
+
+static void startTaskRoleHeartbeat(void)
+{
+#ifdef KSCRASH_NAMESPACE
+    const char *label = "com.kscrash." KSCRASH_NAMESPACE_STRING ".lifecycle.heartbeat";
+#else
+    const char *label = "com.kscrash.lifecycle.heartbeat";
+#endif
+    dispatch_queue_t queue = dispatch_queue_create_with_target(label, DISPATCH_QUEUE_SERIAL,
+                                                               dispatch_get_global_queue(QOS_CLASS_UTILITY, 0));
+    g_taskRoleHeartbeatTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, queue);
+    dispatch_source_set_timer(g_taskRoleHeartbeatTimer, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)),
+                              1 * NSEC_PER_SEC, NSEC_PER_SEC / 2);
+    dispatch_source_set_event_handler(g_taskRoleHeartbeatTimer, ^{
+        if (!atomic_load(&g_isEnabled)) return;
+        ks_spinlock_lock(&g_sidecarLock);
+        KSCrash_LifecycleData *sc = g_sidecar;
+        if (sc != NULL) {
+            updateSidecarTaskRole(sc);
+        }
+        ks_spinlock_unlock(&g_sidecarLock);
+    });
+    dispatch_resume(g_taskRoleHeartbeatTimer);
+}
+
+static void stopTaskRoleHeartbeat(void)
+{
+    if (g_taskRoleHeartbeatTimer) {
+        dispatch_source_cancel(g_taskRoleHeartbeatTimer);
+        g_taskRoleHeartbeatTimer = NULL;
+    }
+}
 
 // ============================================================================
 #pragma mark - Utility -
@@ -172,6 +278,7 @@ static void onTransitionState(KSCrashAppTransitionState transitionState)
 
     sc->transitionState = (uint8_t)transitionState;
     sc->userPerceptible = ksapp_transitionStateIsUserPerceptible(transitionState);
+    updateSidecarTaskRole(sc);
     ks_spinlock_unlock(&g_sidecarLock);
 }
 
@@ -296,9 +403,15 @@ static KSCrash_LifecycleData *createSidecar(void)
     KSCrashAppTransitionState ts = KSCrashAppStateTracker.sharedInstance.transitionState;
     sc->transitionState = (uint8_t)ts;
     sc->applicationIsActive = (ts == KSCrashAppTransitionStateActive);
-    sc->applicationIsInForeground = ksapp_transitionStateIsUserPerceptible(ts);
+    // Foreground means the app has actually entered the foreground (Active,
+    // Deactivating, Foregrounding).  Startup/Launching are pre-foreground and
+    // must not be counted — userPerceptible is intentionally broader.
+    sc->applicationIsInForeground =
+        (ts == KSCrashAppTransitionStateActive || ts == KSCrashAppTransitionStateDeactivating ||
+         ts == KSCrashAppTransitionStateForegrounding);
     sc->userPerceptible = ksapp_transitionStateIsUserPerceptible(ts);
 
+    sc->taskRole = (int32_t)kslifecycle_currentTaskRole();
     sc->magic = KSLIFECYCLE_MAGIC;
     sc->version = KSCrash_Lifecycle_CurrentVersion;
     return sc;
@@ -353,7 +466,11 @@ static void setEnabled(bool isEnabled, __unused void *context)
                 onTransitionState(transitionState);
             }];
 
+        startTaskRoleHeartbeat();
+
     } else {
+        stopTaskRoleHeartbeat();
+
         if (g_hangObserverToken != KSHangObserverTokenNotFound) {
             kshang_removeHangObserver(g_hangObserverToken);
             g_hangObserverToken = KSHangObserverTokenNotFound;
@@ -413,6 +530,16 @@ __attribute__((unused))  // For tests. Declared as extern in TestCase
 void kscm_lifecycle_testcode_hangChange(KSHangChangeType change)
 {
     onHangChange(change, 0, 0, NULL);
+}
+
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+void kscm_lifecycle_testcode_setTaskRole(int32_t role)
+{
+    ks_spinlock_lock(&g_sidecarLock);
+    if (g_sidecar != NULL) {
+        g_sidecar->taskRole = role;
+    }
+    ks_spinlock_unlock(&g_sidecarLock);
 }
 
 KSCrashMonitorAPI *kscm_lifecycle_getAPI(void)

@@ -89,13 +89,6 @@ KSCrashMonitorAPI *kscm_watchdog_getAPI(void);
  */
 void kscm_watchdog_setReportsHangs(bool enabled);
 
-/** Returns a human-readable string for a task role.
- *
- * @param role The task_role_t value to convert.
- * @return A string representation of the role (e.g., "FOREGROUND_APPLICATION").
- */
-const char *kscm_stringFromRole(int /*task_role_t*/ role);
-
 #ifdef __cplusplus
 }
 #endif

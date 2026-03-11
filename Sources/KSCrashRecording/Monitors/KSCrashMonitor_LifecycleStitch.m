@@ -79,6 +79,7 @@ char *kscm_lifecycle_stitchReport(const char *report, const char *sidecarPath, K
     statsDict[KSCrashField_AppTransitionState] =
         @(ksapp_transitionStateToString((KSCrashAppTransitionState)lc.transitionState));
     statsDict[KSCrashField_UserPerceptible] = @((BOOL)lc.userPerceptible);
+    statsDict[KSCrashField_TaskRole] = @(kslifecycle_stringFromTaskRole(lc.taskRole));
 
     systemDict[KSCrashField_AppStats] = statsDict;
     dict[KSCrashField_System] = systemDict;

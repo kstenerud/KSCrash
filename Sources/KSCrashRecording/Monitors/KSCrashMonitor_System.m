@@ -30,6 +30,7 @@
 #import "KSCPU.h"
 #import "KSCrashMonitorContext.h"
 #include "KSCrashMonitorHelper.h"
+#import "KSDate.h"
 #import "KSFileUtils.h"
 #import "KSJailbreak.h"
 #import "KSSpinLock.h"
@@ -423,7 +424,7 @@ static void initialize(void)
     sd->isJailbroken = isJailbroken();
     sd->procTranslated = procTranslated();
 
-    sd->appStartTimestamp = (int64_t)time(NULL);
+    sd->appStartTimestamp = (int64_t)ksdate_seconds();
 
     safeNSStringCopy(sd->executablePath, getExecutablePath(), sizeof(sd->executablePath));
     safeNSStringCopy(sd->executableName, infoDict[@"CFBundleExecutable"], sizeof(sd->executableName));
