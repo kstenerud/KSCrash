@@ -29,7 +29,6 @@
 #include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorHelper.h"
 #include "KSCrashMonitor_MachException.h"
-#include "KSCrashMonitor_Memory.h"
 #include "KSCrashMonitor_Watchdog.h"
 #include "KSID.h"
 #include "KSMachineContext.h"

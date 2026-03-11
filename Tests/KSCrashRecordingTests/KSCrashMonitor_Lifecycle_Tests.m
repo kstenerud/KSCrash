@@ -27,6 +27,7 @@
 #import <XCTest/XCTest.h>
 
 #import "KSCrashAppTransitionState.h"
+#import "KSCrashHang.h"
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitor_Lifecycle.h"
 
@@ -41,6 +42,7 @@
 extern void kscm_testcode_resetState(void);
 extern void kscrash_testcode_setLastRunID(const char *runID);
 extern void kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionState state);
+extern void kscm_lifecycle_testcode_hangChange(KSHangChangeType change);
 
 // Global test directory for path callbacks
 static char g_testDir[1024];
@@ -214,7 +216,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
 
 - (void)testLifecycleDataStructLayout
 {
-    XCTAssertEqual(sizeof(KSCrash_LifecycleData), 64u);
+    XCTAssertEqual(sizeof(KSCrash_LifecycleData), 88u);
     XCTAssertEqual(KSLIFECYCLE_MAGIC, (int32_t)0x6B736C63);
 }
 
@@ -553,6 +555,29 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     KSCrash_AppState state = kscrashstate_lifecycleAppState();
     XCTAssertTrue(state.backgroundDurationSinceLaunch >= 0.04);
     XCTAssertTrue(state.backgroundDurationSinceLastCrash >= 0.04);
+}
+
+#pragma mark - Hang In Progress Tests -
+
+- (void)testHangStartedSetsFlag
+{
+    [self enableMonitor];
+    kscm_lifecycle_testcode_hangChange(KSHangChangeTypeStarted);
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    XCTAssertTrue(data.hangInProgress);
+}
+
+- (void)testHangEndedClearsFlag
+{
+    [self enableMonitor];
+    kscm_lifecycle_testcode_hangChange(KSHangChangeTypeStarted);
+    kscm_lifecycle_testcode_hangChange(KSHangChangeTypeEnded);
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    XCTAssertFalse(data.hangInProgress);
 }
 
 @end

@@ -61,9 +61,9 @@ NS_ASSUME_NONNULL_BEGIN
  */
 @property(nonatomic, assign) KSCrashMonitorType monitors;
 
-/** User-supplied data in JSON format. NULL to delete.
+/** Initial user-supplied data dictionary, written into the crash report's "user" section at install time.
+ * Set to nil to clear.
  *
- * This dictionary is written into the crash report's "user" section at install time.
  * After install, use the per-key API in KSCrash+UserInfo.h to update values.
  *
  * **Default**: nil

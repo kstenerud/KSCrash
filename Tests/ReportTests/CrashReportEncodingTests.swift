@@ -687,6 +687,57 @@ final class CrashReportEncodingTests: XCTestCase {
         XCTAssertNil(system["dataProtectionActive"])
     }
 
+    func testRoundTripResourceTermination() throws {
+        let report = BasicCrashReport(
+            crash: BasicCrashReport.Crash(
+                error: CrashError(
+                    signal: SignalError(code: 0, name: "SIGKILL", signal: 9),
+                    type: .resourceTermination,
+                    isFatal: true,
+                    isCleanExit: false,
+                    terminationReason: .memoryLimit
+                )
+            ),
+            report: ReportInfo(
+                id: "resource-term-test",
+                type: .standard,
+                runId: "prev-run-id",
+                monitorId: "ResourceTermination"
+            )
+        )
+
+        let (_, roundTripped) = try roundTrip(report)
+
+        XCTAssertEqual(roundTripped.crash.error.type, .resourceTermination)
+        XCTAssertEqual(roundTripped.crash.error.terminationReason, .memoryLimit)
+        XCTAssertEqual(roundTripped.crash.error.isFatal, true)
+        XCTAssertEqual(roundTripped.crash.error.isCleanExit, false)
+        XCTAssertEqual(roundTripped.crash.error.signal?.signal, 9)
+        XCTAssertEqual(roundTripped.crash.error.signal?.name, "SIGKILL")
+        XCTAssertEqual(roundTripped.report.runId, "prev-run-id")
+        XCTAssertEqual(roundTripped.report.monitorId, "ResourceTermination")
+    }
+
+    func testEncodingResourceTerminationUsesSnakeCaseKeys() throws {
+        let report = BasicCrashReport(
+            crash: BasicCrashReport.Crash(
+                error: CrashError(
+                    type: .resourceTermination,
+                    terminationReason: .thermal
+                )
+            ),
+            report: ReportInfo(id: "key-test")
+        )
+
+        let data = try JSONEncoder().encode(report)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        let crash = json["crash"] as! [String: Any]
+        let error = crash["error"] as! [String: Any]
+
+        XCTAssertEqual(error["termination_reason"] as? String, "thermal")
+        XCTAssertNil(error["terminationReason"])
+    }
+
     func testEncodingIsFatalUsesSnakeCaseKey() throws {
         let report = BasicCrashReport(
             crash: BasicCrashReport.Crash(

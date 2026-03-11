@@ -926,6 +926,78 @@ final class CrashReportDecodingTests: XCTestCase {
         XCTAssertEqual(report.crash.error.isCleanExit, false)
     }
 
+    func testDecodeResourceTermination() throws {
+        let json = """
+            {
+                "crash": {
+                    "error": {
+                        "type": "resource_termination",
+                        "termination_reason": "memory_limit",
+                        "is_fatal": true,
+                        "is_clean_exit": false,
+                        "signal": { "signal": 9, "code": 0, "name": "SIGKILL" }
+                    }
+                },
+                "report": {
+                    "id": "test-resource-term",
+                    "run_id": "prev-run-id",
+                    "type": "standard",
+                    "monitor_id": "ResourceTermination"
+                }
+            }
+            """
+
+        let report = try CrashReport.decode(from: json)
+
+        XCTAssertEqual(report.crash.error.type, .resourceTermination)
+        XCTAssertEqual(report.crash.error.terminationReason, .memoryLimit)
+        XCTAssertEqual(report.crash.error.isFatal, true)
+        XCTAssertEqual(report.crash.error.isCleanExit, false)
+        XCTAssertEqual(report.crash.error.signal?.signal, 9)
+        XCTAssertEqual(report.crash.error.signal?.name, "SIGKILL")
+        XCTAssertEqual(report.report.runId, "prev-run-id")
+        XCTAssertEqual(report.report.monitorId, "ResourceTermination")
+    }
+
+    func testDecodeResourceTerminationFieldsAbsent() throws {
+        let json = """
+            {
+                "crash": {
+                    "error": { "type": "signal" }
+                },
+                "report": { "id": "test" }
+            }
+            """
+
+        let report = try CrashReport.decode(from: json)
+        XCTAssertNil(report.crash.error.terminationReason)
+    }
+
+    func testDecodeAllTerminationReasons() throws {
+        for (raw, expected): (String, TerminationReason) in [
+            ("low_battery", .lowBattery),
+            ("memory_limit", .memoryLimit),
+            ("memory_pressure", .memoryPressure),
+            ("thermal", .thermal),
+            ("cpu", .cpu),
+            ("unexplained", .unexplained),
+        ] {
+            let json = """
+                {
+                    "crash": {
+                        "error": {
+                            "type": "resource_termination",
+                            "termination_reason": "\(raw)"
+                        }
+                    },
+                    "report": { "id": "test" }
+                }
+                """
+            let report = try CrashReport.decode(from: json)
+            XCTAssertEqual(report.crash.error.terminationReason, expected, "termination_reason \(raw)")
+        }
+    }
+
     func testDecodeIsCleanExitAbsent() throws {
         let json = """
             {

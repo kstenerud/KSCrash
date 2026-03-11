@@ -26,6 +26,7 @@
 
 #import <XCTest/XCTest.h>
 
+#import "KSCrashAppTransitionState.h"
 #import "KSCrashMonitor_Lifecycle.h"
 #import "KSCrashReportFields.h"
 #import "KSJSONCodecObjC.h"
@@ -67,6 +68,8 @@ static KSCrash_LifecycleData makeValidLifecycleData(void)
     lc.backgroundDurationSinceLaunchNs = 30000000000ULL;     // 30 seconds
     lc.activeDurationSinceLastCrashNs = 120000000000ULL;     // 120 seconds
     lc.backgroundDurationSinceLastCrashNs = 45000000000ULL;  // 45 seconds
+    lc.transitionState = (uint8_t)KSCrashAppTransitionStateActive;
+    lc.userPerceptible = 1;
     return lc;
 }
 
@@ -219,6 +222,8 @@ static NSDictionary *dictFromCString(const char *json)
     XCTAssertEqualObjects(stats[KSCrashField_LaunchesSinceCrash], @(5));
     XCTAssertEqualObjects(stats[KSCrashField_SessionsSinceCrash], @(10));
     XCTAssertEqualObjects(stats[KSCrashField_SessionsSinceLaunch], @(3));
+    XCTAssertEqualObjects(stats[KSCrashField_AppTransitionState], @"active");
+    XCTAssertEqualObjects(stats[KSCrashField_UserPerceptible], @YES);
 }
 
 #pragma mark - Valid Stitch — Durations

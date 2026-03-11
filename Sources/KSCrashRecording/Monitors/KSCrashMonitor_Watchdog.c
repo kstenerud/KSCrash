@@ -686,8 +686,6 @@ static void watchdog_destroy(KSHangMonitor *monitor)
 #pragma mark - Observer API -
 // ============================================================================
 
-const KSHangObserverToken KSHangObserverTokenNotFound = -1;
-
 KSHangObserverToken kshang_addHangObserver(KSHangObserverCallback callback, void *context)
 {
     KSHangMonitor *monitor = g_watchdog;

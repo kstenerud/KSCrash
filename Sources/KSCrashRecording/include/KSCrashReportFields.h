@@ -83,6 +83,7 @@ KSCRF_DEFINE_CONSTANT(KSCrashExcType, NSException, nsException, "nsexception")
 KSCRF_DEFINE_CONSTANT(KSCrashExcType, Signal, signal, "signal")
 KSCRF_DEFINE_CONSTANT(KSCrashExcType, User, user, "user")
 KSCRF_DEFINE_CONSTANT(KSCrashExcType, MemoryTermination, memoryTermination, "memory_termination")
+KSCRF_DEFINE_CONSTANT(KSCrashExcType, ResourceTermination, resourceTermination, "resource_termination")
 KSCRF_DEFINE_CONSTANT(KSCrashExcType, Hang, hang, "hang")
 
 #pragma mark - Common -
@@ -269,6 +270,9 @@ KSCRF_DEFINE_CONSTANT(KSCrashField, CPUUsageSystem, cpuUsageSystem, "cpu_usage_s
 KSCRF_DEFINE_CONSTANT(KSCrashField, ThermalState, thermalState, "thermal_state")
 KSCRF_DEFINE_CONSTANT(KSCrashField, ThreadCount, threadCount, "thread_count")
 KSCRF_DEFINE_CONSTANT(KSCrashField, DataProtectionActive, dataProtectionActive, "data_protection_active")
+
+KSCRF_DEFINE_CONSTANT(KSCrashField, TerminationReason, terminationReason, "termination_reason")
+KSCRF_DEFINE_CONSTANT(KSCrashField, UserPerceptible, userPerceptible, "user_perceptible")
 
 KSCRF_DEFINE_CONSTANT(KSCrashField, HangStartNanoseconds, hangStartNanoseconds, "hang_start_nanos")
 KSCRF_DEFINE_CONSTANT(KSCrashField, HangStartRole, hangStartRole, "hang_start_role")

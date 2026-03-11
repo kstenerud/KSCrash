@@ -88,9 +88,12 @@ enum
     /** Track memory issues and last zombie NSException. */
     KSCrashMonitorTypeZombie             = 1 << 8,
 
-    /** Monitor memory to detect OOMs at startup. */
-    KSCrashMonitorTypeMemoryTermination  = 1 << 9,
-    
+    /** Detect terminations caused by resource exhaustion (memory, thermal, CPU, battery). */
+    KSCrashMonitorTypeResourceTermination = 1 << 9,
+
+    /** Alias for KSCrashMonitorTypeResourceTermination (kept for source compat). */
+    KSCrashMonitorTypeMemoryTermination  = KSCrashMonitorTypeResourceTermination,
+
     /** Tracks hangs as well as hangs that cause a termination (watchdog terminations) */
     KSCrashMonitorTypeWatchdog           = 1 << 10,
 
@@ -110,7 +113,7 @@ enum
                              KSCrashMonitorTypeSystem |
                              KSCrashMonitorTypeApplicationState |
                              KSCrashMonitorTypeZombie |
-                             KSCrashMonitorTypeMemoryTermination |
+                             KSCrashMonitorTypeResourceTermination |
                              KSCrashMonitorTypeWatchdog |
                              KSCrashMonitorTypeUserInfo |
                              KSCrashMonitorTypeResource
@@ -122,7 +125,7 @@ enum
                                KSCrashMonitorTypeSignal |
                                KSCrashMonitorTypeCPPException |
                                KSCrashMonitorTypeNSException |
-                               KSCrashMonitorTypeMemoryTermination |
+                               KSCrashMonitorTypeResourceTermination |
                                KSCrashMonitorTypeWatchdog
                                ),
 
