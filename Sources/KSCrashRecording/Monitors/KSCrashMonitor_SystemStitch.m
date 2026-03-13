@@ -28,12 +28,9 @@
 
 #import "KSCrashReportFields.h"
 #import "KSDate.h"
-#import "KSFileUtils.h"
 #import "KSJSONCodecObjC.h"
 
 #import <Foundation/Foundation.h>
-#import <errno.h>
-#import <fcntl.h>
 
 #import "KSLogger.h"
 
@@ -62,20 +59,8 @@ char *kscm_system_stitchReport(const char *report, const char *sidecarPath, __un
 
     // Read the binary struct from disk
     KSCrash_SystemData sc = {};
-    int fd = open(sidecarPath, O_RDONLY);
-    if (fd == -1) {
-        KSLOG_ERROR(@"Failed to open system sidecar at %s: %s", sidecarPath, strerror(errno));
-        return NULL;
-    }
-    if (!ksfu_readBytesFromFD(fd, (char *)&sc, (int)sizeof(sc))) {
+    if (!kscm_system_getSystemDataForPath(sidecarPath, &sc)) {
         KSLOG_ERROR(@"Failed to read system sidecar at %s", sidecarPath);
-        close(fd);
-        return NULL;
-    }
-    close(fd);
-
-    if (sc.magic != KSSYS_MAGIC || sc.version == 0 || sc.version > KSCrash_System_CurrentVersion) {
-        KSLOG_ERROR(@"Invalid system sidecar at %s (magic=0x%x version=%d)", sidecarPath, sc.magic, sc.version);
         return NULL;
     }
 

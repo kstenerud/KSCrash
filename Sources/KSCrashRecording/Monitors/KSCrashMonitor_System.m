@@ -45,6 +45,7 @@
 #if KSCRASH_HAS_UIKIT
 #import <UIKit/UIKit.h>
 #endif
+#include <fcntl.h>
 #include <mach-o/dyld.h>
 #include <mach/mach.h>
 #include <stdatomic.h>
@@ -522,6 +523,38 @@ bool kscm_system_getSystemData(KSCrash_SystemData *dst)
     }
     ks_spinlock_unlock(&g_systemDataLock);
     return ok;
+}
+
+bool kscm_system_getSystemDataForPath(const char *path, KSCrash_SystemData *outData)
+{
+    if (!path || !outData) return false;
+
+    int fd = open(path, O_RDONLY);
+    if (fd == -1) return false;
+
+    KSCrash_SystemData data = { 0 };
+    bool readOK = ksfu_readBytesFromFD(fd, (char *)&data, (int)sizeof(data));
+    close(fd);
+
+    if (!readOK || data.magic != KSSYS_MAGIC || data.version == 0 || data.version > KSCrash_System_CurrentVersion) {
+        return false;
+    }
+
+    *outData = data;
+    return true;
+}
+
+bool kscm_system_getSystemDataForRunID(const char *runID, KSCrash_SystemData *outData)
+{
+    if (!runID || !outData || runID[0] == '\0') return false;
+    if (!g_callbacks.getRunSidecarPathForRunID) return false;
+
+    char sidecarPath[KSFU_MAX_PATH_LENGTH];
+    if (!g_callbacks.getRunSidecarPathForRunID("System", runID, sidecarPath, sizeof(sidecarPath))) {
+        return false;
+    }
+
+    return kscm_system_getSystemDataForPath(sidecarPath, outData);
 }
 
 void kscm_system_setBootTime(int64_t bootTimestamp)
