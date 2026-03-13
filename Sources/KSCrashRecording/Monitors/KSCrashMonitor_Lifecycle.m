@@ -31,6 +31,7 @@
 #import "KSCrashHang.h"
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitorHelper.h"
+#import "KSCrashMonitor_Termination.h"
 #import "KSDate.h"
 #import "KSFileUtils.h"
 #import "KSSpinLock.h"
@@ -323,7 +324,7 @@ KSCrash_AppState kscrashstate_lifecycleAppState(void)
         state.sessionsSinceLaunch = snapshot.sessionsSinceLaunch;
         state.sessionsSinceLastCrash = snapshot.sessionsSinceLastCrash;
         state.launchesSinceLastCrash = snapshot.launchesSinceLastCrash;
-        state.crashedLastLaunch = snapshot.crashedLastLaunch;
+        state.crashedLastLaunch = kstermination_producesReport(kstermination_getReason());
         state.applicationIsActive = snapshot.applicationIsActive;
         state.applicationIsInForeground = snapshot.applicationIsInForeground;
         state.appStateTransitionTime = kslifecycle_nsToSeconds(snapshot.appStateTransitionTimeNs);
@@ -362,8 +363,7 @@ static void carryForwardFromPreviousRun(KSCrash_LifecycleData *sc)
         return;
     }
 
-    sc->crashedLastLaunch = !prev.cleanShutdown;
-    if (!sc->crashedLastLaunch) {
+    if (!kstermination_producesReport(kstermination_getReason())) {
         // sinceLastCrashNs already includes the previous run's per-launch durations
         // (updateSidecarDurations adds elapsed to both fields), so just carry it forward.
         sc->activeDurationSinceLastCrashNs = prev.activeDurationSinceLastCrashNs;

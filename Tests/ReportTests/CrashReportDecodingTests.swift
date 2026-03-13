@@ -926,12 +926,12 @@ final class CrashReportDecodingTests: XCTestCase {
         XCTAssertEqual(report.crash.error.isCleanExit, false)
     }
 
-    func testDecodeResourceTermination() throws {
+    func testDecodeTermination() throws {
         let json = """
             {
                 "crash": {
                     "error": {
-                        "type": "resource_termination",
+                        "type": "termination",
                         "termination_reason": "memory_limit",
                         "is_fatal": true,
                         "is_clean_exit": false,
@@ -939,27 +939,56 @@ final class CrashReportDecodingTests: XCTestCase {
                     }
                 },
                 "report": {
-                    "id": "test-resource-term",
+                    "id": "test-termination",
                     "run_id": "prev-run-id",
                     "type": "standard",
-                    "monitor_id": "ResourceTermination"
+                    "monitor_id": "Termination"
                 }
             }
             """
 
         let report = try CrashReport.decode(from: json)
 
-        XCTAssertEqual(report.crash.error.type, .resourceTermination)
+        XCTAssertEqual(report.crash.error.type, .termination)
         XCTAssertEqual(report.crash.error.terminationReason, .memoryLimit)
         XCTAssertEqual(report.crash.error.isFatal, true)
         XCTAssertEqual(report.crash.error.isCleanExit, false)
         XCTAssertEqual(report.crash.error.signal?.signal, 9)
         XCTAssertEqual(report.crash.error.signal?.name, "SIGKILL")
         XCTAssertEqual(report.report.runId, "prev-run-id")
-        XCTAssertEqual(report.report.monitorId, "ResourceTermination")
+        XCTAssertEqual(report.report.monitorId, "Termination")
     }
 
-    func testDecodeResourceTerminationFieldsAbsent() throws {
+    func testDecodeLegacyResourceTerminationType() throws {
+        let json = """
+            {
+                "crash": {
+                    "error": {
+                        "type": "resource_termination",
+                        "termination_reason": "thermal"
+                    }
+                },
+                "report": { "id": "test" }
+            }
+            """
+        let report = try CrashReport.decode(from: json)
+        XCTAssertEqual(report.crash.error.type, .termination)
+    }
+
+    func testDecodeLegacyMemoryTerminationType() throws {
+        let json = """
+            {
+                "crash": {
+                    "error": { "type": "memory_termination" }
+                },
+                "report": { "id": "test" }
+            }
+            """
+        let report = try CrashReport.decode(from: json)
+        XCTAssertEqual(report.crash.error.type, .termination)
+    }
+
+    func testDecodeTerminationFieldsAbsent() throws {
         let json = """
             {
                 "crash": {
@@ -975,18 +1004,25 @@ final class CrashReportDecodingTests: XCTestCase {
 
     func testDecodeAllTerminationReasons() throws {
         for (raw, expected): (String, TerminationReason) in [
+            ("clean", .clean),
+            ("crash", .crash),
+            ("hang", .hang),
+            ("first_launch", .firstLaunch),
             ("low_battery", .lowBattery),
             ("memory_limit", .memoryLimit),
             ("memory_pressure", .memoryPressure),
             ("thermal", .thermal),
             ("cpu", .cpu),
+            ("os_upgrade", .osUpgrade),
+            ("app_upgrade", .appUpgrade),
+            ("reboot", .reboot),
             ("unexplained", .unexplained),
         ] {
             let json = """
                 {
                     "crash": {
                         "error": {
-                            "type": "resource_termination",
+                            "type": "termination",
                             "termination_reason": "\(raw)"
                         }
                     },

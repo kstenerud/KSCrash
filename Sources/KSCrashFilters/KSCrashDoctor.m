@@ -418,14 +418,9 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
     return [report[KSCrashField_Signal][KSCrashField_Signal] integerValue] == SIGTERM;
 }
 
-- (BOOL)isMemoryTermination:(NSDictionary *)report
+- (BOOL)isTermination:(NSDictionary *)report
 {
-    return [report[KSCrashField_Type] isEqualToString:KSCrashExcType_MemoryTermination];
-}
-
-- (BOOL)isResourceTermination:(NSDictionary *)report
-{
-    return [report[KSCrashField_Type] isEqualToString:KSCrashExcType_ResourceTermination];
+    return [report[KSCrashField_Type] isEqualToString:KSCrashExcType_Termination];
 }
 
 - (BOOL)isWatchdogTimeoutTermination:(NSDictionary *)errorReport
@@ -549,11 +544,7 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
             return @"The OS request the app be gracefully terminated.";
         }
 
-        if ([self isMemoryTermination:errorReport]) {
-            return @"The app was terminated due to running out of memory (OOM).";
-        }
-
-        if ([self isResourceTermination:errorReport]) {
+        if ([self isTermination:errorReport]) {
             NSString *reason = errorReport[KSCrashField_TerminationReason];
             if ([reason isEqualToString:@"memory_limit"]) {
                 return @"The app exceeded its memory limit and was terminated by the OS.";
@@ -565,6 +556,12 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
                 return @"The app was terminated due to critical thermal state.";
             } else if ([reason isEqualToString:@"low_battery"]) {
                 return @"The device shut down due to low battery.";
+            } else if ([reason isEqualToString:@"os_upgrade"]) {
+                return @"The previous run ended due to an OS upgrade.";
+            } else if ([reason isEqualToString:@"app_upgrade"]) {
+                return @"The previous run ended due to an app upgrade.";
+            } else if ([reason isEqualToString:@"reboot"]) {
+                return @"The previous run ended due to a device reboot.";
             } else {
                 return @"The app was terminated for an unknown reason.";
             }

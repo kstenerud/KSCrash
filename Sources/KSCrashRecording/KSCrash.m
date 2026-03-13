@@ -31,8 +31,8 @@
 #import "KSCrashC.h"
 #import "KSCrashConfiguration+Private.h"
 #import "KSCrashMonitor_Lifecycle.h"
-#import "KSCrashMonitor_ResourceTermination.h"
 #import "KSCrashMonitor_System.h"
+#import "KSCrashMonitor_Termination.h"
 #import "KSCrashReport.h"
 #import "KSCrashReportFields.h"
 #import "KSDate.h"
@@ -216,7 +216,7 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
 
 - (BOOL)reportsMemoryTerminations
 {
-    KSCrashMonitorAPI *api = kscm_resourcetermination_getAPI();
+    KSCrashMonitorAPI *api = kscm_termination_getAPI();
     return api->isEnabled(api->context);
 }
 

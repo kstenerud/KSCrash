@@ -34,9 +34,7 @@ public enum CrashErrorType: RawRepresentable, Codable, Sendable, Equatable {
     case cppException
     case deadlock
     case user
-    /// Deprecated: use ``resourceTermination`` instead.
-    case memoryTermination
-    case resourceTermination
+    case termination
     case hang
     case profile
     case unknown(String)
@@ -49,7 +47,7 @@ public enum CrashErrorType: RawRepresentable, Codable, Sendable, Equatable {
         case "cpp_exception": self = .cppException
         case "deadlock": self = .deadlock
         case "user": self = .user
-        case "memory_termination", "resource_termination": self = .resourceTermination
+        case "termination", "memory_termination", "resource_termination": self = .termination
         case "hang": self = .hang
         case "profile": self = .profile
         default: self = .unknown(rawValue)
@@ -64,8 +62,7 @@ public enum CrashErrorType: RawRepresentable, Codable, Sendable, Equatable {
         case .cppException: return "cpp_exception"
         case .deadlock: return "deadlock"
         case .user: return "user"
-        case .memoryTermination: return "memory_termination"
-        case .resourceTermination: return "resource_termination"
+        case .termination: return "termination"
         case .hang: return "hang"
         case .profile: return "profile"
         case .unknown(let value): return value
@@ -102,10 +99,6 @@ public struct CrashError: Codable, Sendable, Equatable {
     /// User-reported crash information.
     public let userReported: UserReportedInfo?
 
-    /// Memory termination information (OOM kills).
-    /// Deprecated: use ``terminationReason`` instead.
-    public let memoryTermination: MemoryTerminationInfo?
-
     /// Hang information (watchdog timeouts).
     public let hang: HangInfo?
 
@@ -136,7 +129,6 @@ public struct CrashError: Codable, Sendable, Equatable {
         type: CrashErrorType,
         cppException: CppExceptionInfo? = nil,
         userReported: UserReportedInfo? = nil,
-        memoryTermination: MemoryTerminationInfo? = nil,
         hang: HangInfo? = nil,
         exitReason: ExitReasonInfo? = nil,
         reason: String? = nil,
@@ -152,7 +144,6 @@ public struct CrashError: Codable, Sendable, Equatable {
         self.type = type
         self.cppException = cppException
         self.userReported = userReported
-        self.memoryTermination = memoryTermination
         self.hang = hang
         self.exitReason = exitReason
         self.reason = reason
@@ -170,7 +161,6 @@ public struct CrashError: Codable, Sendable, Equatable {
         case type
         case cppException = "cpp_exception"
         case userReported = "user_reported"
-        case memoryTermination = "memory_termination"
         case hang
         case exitReason = "exit_reason"
         case reason
