@@ -224,6 +224,8 @@
 #define kscm_signal_getAPI KSCRASH_NS(kscm_signal_getAPI)
 #define kscm_system_getAPI KSCRASH_NS(kscm_system_getAPI)
 #define kscm_system_getSystemData KSCRASH_NS(kscm_system_getSystemData)
+#define kscm_system_getSystemDataForPath KSCRASH_NS(kscm_system_getSystemDataForPath)
+#define kscm_system_getSystemDataForRunID KSCRASH_NS(kscm_system_getSystemDataForRunID)
 #define kscm_system_setBootTime KSCRASH_NS(kscm_system_setBootTime)
 #define kscm_system_setDiscSpace KSCRASH_NS(kscm_system_setDiscSpace)
 #define kscm_system_setFreeStorageSize KSCRASH_NS(kscm_system_setFreeStorageSize)
