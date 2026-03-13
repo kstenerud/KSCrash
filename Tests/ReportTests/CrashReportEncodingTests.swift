@@ -687,42 +687,68 @@ final class CrashReportEncodingTests: XCTestCase {
         XCTAssertNil(system["dataProtectionActive"])
     }
 
-    func testRoundTripResourceTermination() throws {
+    func testRoundTripTermination() throws {
         let report = BasicCrashReport(
             crash: BasicCrashReport.Crash(
                 error: CrashError(
                     signal: SignalError(code: 0, name: "SIGKILL", signal: 9),
-                    type: .resourceTermination,
+                    type: .termination,
                     isFatal: true,
                     isCleanExit: false,
                     terminationReason: .memoryLimit
                 )
             ),
             report: ReportInfo(
-                id: "resource-term-test",
+                id: "termination-test",
                 type: .standard,
                 runId: "prev-run-id",
-                monitorId: "ResourceTermination"
+                monitorId: "Termination"
             )
         )
 
         let (_, roundTripped) = try roundTrip(report)
 
-        XCTAssertEqual(roundTripped.crash.error.type, .resourceTermination)
+        XCTAssertEqual(roundTripped.crash.error.type, .termination)
         XCTAssertEqual(roundTripped.crash.error.terminationReason, .memoryLimit)
         XCTAssertEqual(roundTripped.crash.error.isFatal, true)
         XCTAssertEqual(roundTripped.crash.error.isCleanExit, false)
         XCTAssertEqual(roundTripped.crash.error.signal?.signal, 9)
         XCTAssertEqual(roundTripped.crash.error.signal?.name, "SIGKILL")
         XCTAssertEqual(roundTripped.report.runId, "prev-run-id")
-        XCTAssertEqual(roundTripped.report.monitorId, "ResourceTermination")
+        XCTAssertEqual(roundTripped.report.monitorId, "Termination")
     }
 
-    func testEncodingResourceTerminationUsesSnakeCaseKeys() throws {
+    func testRoundTripSystemChangeTermination() throws {
         let report = BasicCrashReport(
             crash: BasicCrashReport.Crash(
                 error: CrashError(
-                    type: .resourceTermination,
+                    type: .termination,
+                    isFatal: false,
+                    isCleanExit: true,
+                    terminationReason: .osUpgrade
+                )
+            ),
+            report: ReportInfo(
+                id: "os-upgrade-test",
+                type: .standard,
+                monitorId: "Termination"
+            )
+        )
+
+        let (_, roundTripped) = try roundTrip(report)
+
+        XCTAssertEqual(roundTripped.crash.error.type, .termination)
+        XCTAssertEqual(roundTripped.crash.error.terminationReason, .osUpgrade)
+        XCTAssertEqual(roundTripped.crash.error.isFatal, false)
+        XCTAssertEqual(roundTripped.crash.error.isCleanExit, true)
+        XCTAssertNil(roundTripped.crash.error.signal)
+    }
+
+    func testEncodingTerminationUsesSnakeCaseKeys() throws {
+        let report = BasicCrashReport(
+            crash: BasicCrashReport.Crash(
+                error: CrashError(
+                    type: .termination,
                     terminationReason: .thermal
                 )
             ),

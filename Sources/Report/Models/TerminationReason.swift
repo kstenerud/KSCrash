@@ -26,23 +26,41 @@
 
 import Foundation
 
-/// The reason a process was terminated due to resource exhaustion.
+/// The reason a process was terminated.
 public enum TerminationReason: RawRepresentable, Codable, Sendable, Equatable {
+    // Expected exits
+    case clean
+    case crash
+    case hang
+    case firstLaunch
+    // Resource reasons
     case lowBattery
     case memoryLimit
     case memoryPressure
     case thermal
     case cpu
+    // System change reasons
+    case osUpgrade
+    case appUpgrade
+    case reboot
+    // Fallback
     case unexplained
     case unknown(String)
 
     public init(rawValue: String) {
         switch rawValue {
+        case "clean": self = .clean
+        case "crash": self = .crash
+        case "hang": self = .hang
+        case "first_launch": self = .firstLaunch
         case "low_battery": self = .lowBattery
         case "memory_limit": self = .memoryLimit
         case "memory_pressure": self = .memoryPressure
         case "thermal": self = .thermal
         case "cpu": self = .cpu
+        case "os_upgrade": self = .osUpgrade
+        case "app_upgrade": self = .appUpgrade
+        case "reboot": self = .reboot
         case "unexplained": self = .unexplained
         default: self = .unknown(rawValue)
         }
@@ -50,11 +68,18 @@ public enum TerminationReason: RawRepresentable, Codable, Sendable, Equatable {
 
     public var rawValue: String {
         switch self {
+        case .clean: return "clean"
+        case .crash: return "crash"
+        case .hang: return "hang"
+        case .firstLaunch: return "first_launch"
         case .lowBattery: return "low_battery"
         case .memoryLimit: return "memory_limit"
         case .memoryPressure: return "memory_pressure"
         case .thermal: return "thermal"
         case .cpu: return "cpu"
+        case .osUpgrade: return "os_upgrade"
+        case .appUpgrade: return "app_upgrade"
+        case .reboot: return "reboot"
         case .unexplained: return "unexplained"
         case .unknown(let value): return value
         }

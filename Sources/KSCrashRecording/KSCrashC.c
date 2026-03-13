@@ -38,9 +38,9 @@
 #include "KSCrashMonitor_MachException.h"
 #include "KSCrashMonitor_NSException.h"
 #include "KSCrashMonitor_Resource.h"
-#include "KSCrashMonitor_ResourceTermination.h"
 #include "KSCrashMonitor_Signal.h"
 #include "KSCrashMonitor_System.h"
+#include "KSCrashMonitor_Termination.h"
 #include "KSCrashMonitor_User.h"
 #include "KSCrashMonitor_UserInfo.h"
 #include "KSCrashMonitor_Watchdog.h"
@@ -88,7 +88,7 @@ g_monitorMappings[] = { { KSCrashMonitorTypeMachException, kscm_machexception_ge
                         { KSCrashMonitorTypeSystem, kscm_system_getAPI },
                         { KSCrashMonitorTypeApplicationState, kscm_lifecycle_getAPI },
                         { KSCrashMonitorTypeZombie, kscm_zombie_getAPI },
-                        { KSCrashMonitorTypeResourceTermination, kscm_resourcetermination_getAPI },
+                        { KSCrashMonitorTypeTermination, kscm_termination_getAPI },
                         { KSCrashMonitorTypeWatchdog, kscm_watchdog_getAPI },
                         { KSCrashMonitorTypeUserInfo, kscm_userinfo_getAPI },
                         { KSCrashMonitorTypeResource, kscm_resource_getAPI } };
