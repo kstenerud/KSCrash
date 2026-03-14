@@ -363,9 +363,7 @@ static void carryForwardFromPreviousRun(KSCrash_LifecycleData *sc)
         return;
     }
 
-    if (!kstermination_producesReport(kstermination_getReason())) {
-        // sinceLastCrashNs already includes the previous run's per-launch durations
-        // (updateSidecarDurations adds elapsed to both fields), so just carry it forward.
+    if (prev.cleanShutdown) {
         sc->activeDurationSinceLastCrashNs = prev.activeDurationSinceLastCrashNs;
         sc->backgroundDurationSinceLastCrashNs = prev.backgroundDurationSinceLastCrashNs;
         sc->launchesSinceLastCrash = prev.launchesSinceLastCrash;
