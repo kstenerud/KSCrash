@@ -120,21 +120,22 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
 
 // MARK: - First launch
 
-- (void)testNoPrevSystemReturnsFirstLaunch
+- (void)testNoPrevSystemWithLifecycleReturnsUnexplained
 {
     KSCrash_LifecycleData lc = makeLifecycle(false, false);
 
-    XCTAssertEqual(kscm_termination_testcode_determineReason(&lc, NULL, NULL, NULL), KSTerminationReasonFirstLaunch);
+    // Lifecycle exists so we know a prior run happened — missing system is unexplained, not first launch.
+    XCTAssertEqual(kscm_termination_testcode_determineReason(&lc, NULL, NULL, NULL), KSTerminationReasonUnexplained);
 }
 
-- (void)testNoPrevSystemWithResourceStillReturnsFirstLaunch
+- (void)testNoPrevSystemWithResourceStillReturnsUnexplained
 {
     KSCrash_LifecycleData lc = makeLifecycle(false, false);
     KSCrash_ResourceData res = makeResource();
     res.memoryLevel = KSCrashAppMemoryStateCritical;
 
-    // Even with critical memory, no prevSystem means first launch.
-    XCTAssertEqual(kscm_termination_testcode_determineReason(&lc, &res, NULL, NULL), KSTerminationReasonFirstLaunch);
+    // Even with critical memory, no prevSystem means unexplained (lifecycle proves a prior run existed).
+    XCTAssertEqual(kscm_termination_testcode_determineReason(&lc, &res, NULL, NULL), KSTerminationReasonUnexplained);
 }
 
 // MARK: - Individual resource termination reasons
