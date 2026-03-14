@@ -31,6 +31,7 @@
 #import "KSCrashHang.h"
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitorHelper.h"
+#import "KSCrashMonitor_Termination.h"
 #import "KSDate.h"
 #import "KSFileUtils.h"
 #import "KSSpinLock.h"
@@ -352,20 +353,35 @@ static void monitorInit(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused v
     g_callbacks = *callbacks;
 }
 
-/** Carry forward cumulative counters from the previous run's sidecar into the new one. */
-static void carryForwardFromPreviousRun(KSCrash_LifecycleData *sc)
+/** Carry forward cumulative counters from the previous run's sidecar.
+ *
+ *  Called from notifyPostSystemEnable so that the Termination monitor has
+ *  already determined its reason. Counters are preserved when the previous
+ *  run did not produce a crash report (clean shutdown, reboot, OS/app upgrade). */
+static void carryForwardFromPreviousRun(void)
 {
+    KSCrash_LifecycleData *sc = g_sidecar;
+    if (sc == NULL) {
+        return;
+    }
+
     const char *lastRunID = kscrash_getLastRunID();
     KSCrash_LifecycleData prev = {};
     if (!kslifecycle_getSnapshotForRunID(lastRunID, &prev)) {
         return;
     }
 
-    if (prev.cleanShutdown) {
-        sc->activeDurationSinceLastCrashNs = prev.activeDurationSinceLastCrashNs;
-        sc->backgroundDurationSinceLastCrashNs = prev.backgroundDurationSinceLastCrashNs;
-        sc->launchesSinceLastCrash = prev.launchesSinceLastCrash;
-        sc->sessionsSinceLastCrash = prev.sessionsSinceLastCrash;
+    // The Termination monitor has already run by notifyPostSystemEnable time.
+    // Carry forward when the previous run did NOT produce a report — i.e., it
+    // was not a crash, hang, resource kill, or unexplained termination.
+    // Use += because the current launch's increments have already been applied
+    // to the sidecar during createSidecar().
+    KSTerminationReason reason = kstermination_getReason();
+    if (!kstermination_producesReport(reason)) {
+        sc->activeDurationSinceLastCrashNs += prev.activeDurationSinceLastCrashNs;
+        sc->backgroundDurationSinceLastCrashNs += prev.backgroundDurationSinceLastCrashNs;
+        sc->launchesSinceLastCrash += prev.launchesSinceLastCrash;
+        sc->sessionsSinceLastCrash += prev.sessionsSinceLastCrash;
     }
 }
 
@@ -391,7 +407,8 @@ static KSCrash_LifecycleData *createSidecar(void)
     sc->wallClockAtStartNs = ksdate_wallClockNanoseconds();
     sc->appStateTransitionTimeNs = sc->monotonicAtStartNs;
 
-    carryForwardFromPreviousRun(sc);
+    // Counter carry-forward is deferred to notifyPostSystemEnable so the
+    // Termination monitor has already determined its reason by that point.
 
     sc->launchesSinceLastCrash++;
     sc->sessionsSinceLastCrash++;
@@ -480,11 +497,13 @@ static void setEnabled(bool isEnabled, __unused void *context)
 
 static bool isEnabled_func(__unused void *context) { return g_isEnabled; }
 
-// Registers the hang observer after all monitors are enabled.
-// Lifecycle is enabled before Watchdog in the mapping order, so the
-// watchdog's g_watchdog pointer doesn't exist yet during setEnabled.
+// Runs after all monitors have been enabled. The Termination monitor has
+// already determined its reason, so we can now carry forward counters.
+// Also registers the hang observer (Watchdog didn't exist during setEnabled).
 static void notifyPostSystemEnable(__unused void *context)
 {
+    carryForwardFromPreviousRun();
+
     if (g_hangObserverToken != KSHangObserverTokenNotFound) {
         return;
     }
