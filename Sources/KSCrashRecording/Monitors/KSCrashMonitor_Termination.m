@@ -121,23 +121,26 @@ KSTerminationReason kstermination_getReason(void) { return g_reason; }
 
 /** Determine why the previous run was terminated.
  *
- *  Lifecycle guards first: clean shutdown, crash already reported, hang in progress.
- *  Then first-launch detection (no previous system sidecar). Then system changes
+ *  First-launch detection (no lifecycle sidecar). Then lifecycle guards: clean
+ *  shutdown, crash already reported, hang in progress. Then system changes
  *  (OS upgrade > app upgrade > reboot). Then resource checks (memory limit >
  *  memory pressure > CPU > thermal > battery). Falls back to "unexplained" if
- *  resource data exists but nothing matched.
+ *  nothing matched or if resource/system sidecars are missing.
  */
 static KSTerminationReason determineReason(const KSCrash_LifecycleData *prevLifecycle,
                                            const KSCrash_ResourceData *prevResource,
                                            const KSCrash_SystemData *prevSystem, const KSCrash_SystemData *currSystem)
 {
-    // --- First launch (missing any previous sidecar means no prior run to analyze) ---
+    // --- First launch (no lifecycle sidecar means no prior run to analyze) ---
 
-    if (prevLifecycle == NULL || prevResource == NULL || prevSystem == NULL) {
+    if (prevLifecycle == NULL) {
         return KSTerminationReasonFirstLaunch;
     }
 
     // --- Already-handled exits ---
+    // Check these before the missing-sidecar guard: if the lifecycle sidecar
+    // records a crash or hang, that evidence must not be erased by a missing
+    // resource or system sidecar (partial sidecar loss).
 
     if (prevLifecycle->cleanShutdown) {
         return KSTerminationReasonClean;
@@ -147,6 +150,15 @@ static KSTerminationReason determineReason(const KSCrash_LifecycleData *prevLife
     }
     if (prevLifecycle->hangInProgress) {
         return KSTerminationReasonHang;
+    }
+
+    // --- Missing sidecars after lifecycle guards ---
+    // If resource or system data is missing but we got past the lifecycle
+    // guards, we can't classify further. Treat as unexplained rather than
+    // first launch — we know a prior run existed.
+
+    if (prevResource == NULL || prevSystem == NULL) {
+        return KSTerminationReasonUnexplained;
     }
 
     // --- System changes (priority: OS upgrade > app upgrade > reboot) ---
@@ -298,7 +310,7 @@ static void notifyPostSystemEnable(__unused void *context)
     }
 
     // Read all sidecars. Missing ones are passed as NULL — determineReason
-    // treats any NULL previous sidecar as a first launch.
+    // checks lifecycle guards first, then treats missing resource/system as unexplained.
     KSCrash_LifecycleData lifecycle = {};
     bool hasLifecycle = kslifecycle_getSnapshotForRunID(lastRunID, &lifecycle);
 
