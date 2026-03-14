@@ -418,6 +418,7 @@ final class ProfilerTests: XCTestCase {
             }
             group.leave()
         }
+        thread.qualityOfService = .userInteractive
         thread.start()
 
         semaphore.wait()

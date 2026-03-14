@@ -175,7 +175,11 @@ static void *ksunwind_test_thread_main(void *arg)
 
 - (void)start
 {
-    int result = pthread_create(&_pthread, NULL, ksunwind_test_thread_main, &_ctx);
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_set_qos_class_np(&attr, QOS_CLASS_USER_INTERACTIVE, 0);
+    int result = pthread_create(&_pthread, &attr, ksunwind_test_thread_main, &_ctx);
+    pthread_attr_destroy(&attr);
     XCTAssertEqual(result, 0);
     dispatch_semaphore_wait(_ctx.ready, DISPATCH_TIME_FOREVER);
 }
