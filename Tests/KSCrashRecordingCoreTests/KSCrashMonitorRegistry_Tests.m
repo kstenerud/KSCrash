@@ -80,9 +80,10 @@ static bool g_secondDummyEnabledState = false;
 static void secondDummySetEnabled(bool isEnabled, __unused void *context) { g_secondDummyEnabledState = isEnabled; }
 static bool secondDummyIsEnabled(__unused void *context) { return g_secondDummyEnabledState; }
 
+// Uses only AsyncSafe (no DebuggerUnsafe) so the test works under a debugger too.
 static KSCrashMonitorFlag combinedMonitorFlags(__unused void *context)
 {
-    return KSCrashMonitorFlagDebuggerUnsafe | KSCrashMonitorFlagAsyncSafe;
+    return KSCrashMonitorFlagAsyncSafe | KSCrashMonitorFlagPlugin;
 }
 
 static KSCrashMonitorAPI g_dummyMonitor = {};
@@ -426,7 +427,7 @@ static KSCrashMonitorAPI g_secondDummyMonitor = {};
 
 - (void)testDisableAsyncSafeMonitorsWithCombinedFlags
 {
-    // A monitor with both DebuggerUnsafe and AsyncSafe flags should still be disabled
+    // A monitor with multiple flags including AsyncSafe should still be disabled
     KSCrashMonitorAPI combinedMonitor = g_dummyMonitor;
     combinedMonitor.monitorFlags = combinedMonitorFlags;
 
