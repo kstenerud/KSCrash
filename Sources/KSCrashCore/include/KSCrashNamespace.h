@@ -230,6 +230,7 @@
 #define kscm_system_stitchReport KSCRASH_NS(kscm_system_stitchReport)
 #define kscm_termination_getAPI KSCRASH_NS(kscm_termination_getAPI)
 #define kscm_termination_testcode_determineReason KSCRASH_NS(kscm_termination_testcode_determineReason)
+#define kscm_termination_testcode_setReason KSCRASH_NS(kscm_termination_testcode_setReason)
 #define kscm_testcode_resetState KSCRASH_NS(kscm_testcode_resetState)
 #define kscm_user_getAPI KSCRASH_NS(kscm_user_getAPI)
 #define kscm_userinfo_getAPI KSCRASH_NS(kscm_userinfo_getAPI)

@@ -30,6 +30,7 @@
 #import "KSCrashHang.h"
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitor_Lifecycle.h"
+#import "KSCrashMonitor_Termination.h"
 
 #include <mach/task_policy.h>
 
@@ -46,6 +47,7 @@ extern void kscrash_testcode_setLastRunID(const char *runID);
 extern void kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionState state);
 extern void kscm_lifecycle_testcode_hangChange(KSHangChangeType change);
 extern void kscm_lifecycle_testcode_setTaskRole(int32_t role);
+extern void kscm_termination_testcode_setReason(KSTerminationReason reason);
 
 // Global test directory for path callbacks
 static char g_testDir[1024];
@@ -116,6 +118,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
 
     // No previous run by default
     kscrash_testcode_setLastRunID(NULL);
+    kscm_termination_testcode_setReason(KSTerminationReasonNone);
 }
 
 - (void)tearDown
@@ -196,7 +199,6 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     [self enableMonitor];
     KSCrash_AppState state = kscrashstate_lifecycleAppState();
 
-    XCTAssertFalse(state.crashedLastLaunch);
     XCTAssertEqual(state.launchesSinceLastCrash, 1);
     XCTAssertEqual(state.sessionsSinceLastCrash, 1);
     XCTAssertEqual(state.sessionsSinceLaunch, 1);
@@ -208,7 +210,6 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
 - (void)testCurrentStateBeforeEnable
 {
     KSCrash_AppState state = kscrashstate_lifecycleAppState();
-    XCTAssertFalse(state.crashedLastLaunch);
     XCTAssertFalse(state.applicationIsActive);
     XCTAssertFalse(state.applicationIsInForeground);
     XCTAssertEqual(state.activeDurationSinceLaunch, 0.0);
@@ -226,6 +227,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
 - (void)testRelaunchAfterCrash
 {
     // Previous run did NOT shut down cleanly → crash
+    kscm_termination_testcode_setReason(KSTerminationReasonCrash);
     KSCrash_LifecycleData prev = [self makePreviousSidecarWithCleanShutdown:false
                                                      launchesSinceLastCrash:5
                                                      sessionsSinceLastCrash:10
@@ -233,9 +235,9 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
                                          backgroundDurationSinceLastCrashNs:2000000000ULL];
     [self simulateRelaunchWithPreviousSidecar:prev];
 
-    KSCrash_AppState state = kscrashstate_lifecycleAppState();
-    XCTAssertTrue(state.crashedLastLaunch);
+    XCTAssertTrue(kstermination_producesReport(kstermination_getReason()));
     // After a crash, cumulative counters reset to 0 + this launch
+    KSCrash_AppState state = kscrashstate_lifecycleAppState();
     XCTAssertEqual(state.launchesSinceLastCrash, 1);
     XCTAssertEqual(state.sessionsSinceLastCrash, 1);
     XCTAssertEqual(state.sessionsSinceLaunch, 1);
@@ -244,6 +246,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
 - (void)testRelaunchAfterCleanShutdown
 {
     // Previous run shut down cleanly → no crash
+    kscm_termination_testcode_setReason(KSTerminationReasonClean);
     KSCrash_LifecycleData prev = [self makePreviousSidecarWithCleanShutdown:true
                                                      launchesSinceLastCrash:3
                                                      sessionsSinceLastCrash:7
@@ -251,8 +254,8 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
                                          backgroundDurationSinceLastCrashNs:2000000000ULL];
     [self simulateRelaunchWithPreviousSidecar:prev];
 
+    XCTAssertFalse(kstermination_producesReport(kstermination_getReason()));
     KSCrash_AppState state = kscrashstate_lifecycleAppState();
-    XCTAssertFalse(state.crashedLastLaunch);
     // Cumulative = previous cumulatives + previous per-launch, plus this launch
     // launches: 3 + 1 = 4
     XCTAssertEqual(state.launchesSinceLastCrash, 4);
@@ -272,6 +275,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
 - (void)testRelaunchCrashThenClean
 {
     // First: crash relaunch
+    kscm_termination_testcode_setReason(KSTerminationReasonCrash);
     KSCrash_LifecycleData crashed = [self makePreviousSidecarWithCleanShutdown:false
                                                         launchesSinceLastCrash:10
                                                         sessionsSinceLastCrash:20
@@ -279,8 +283,8 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
                                             backgroundDurationSinceLastCrashNs:3000000000ULL];
     [self simulateRelaunchWithPreviousSidecar:crashed];
 
+    XCTAssertTrue(kstermination_producesReport(kstermination_getReason()));
     KSCrash_AppState state = kscrashstate_lifecycleAppState();
-    XCTAssertTrue(state.crashedLastLaunch);
     XCTAssertEqual(state.launchesSinceLastCrash, 1);  // Reset after crash
 
     [self disableMonitor];
@@ -298,7 +302,6 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
 
     // Verify it was a valid sidecar
     XCTAssertEqual(current.magic, KSLIFECYCLE_MAGIC);
-    XCTAssertTrue(current.crashedLastLaunch);
 
     // Mark it as clean shutdown
     current.cleanShutdown = true;
@@ -318,9 +321,10 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     [[NSFileManager defaultManager] removeItemAtPath:[NSString stringWithFormat:@"%@/current", self.tempPath]
                                                error:nil];
 
+    kscm_termination_testcode_setReason(KSTerminationReasonClean);
     [self enableMonitor];
     state = kscrashstate_lifecycleAppState();
-    XCTAssertFalse(state.crashedLastLaunch);
+    XCTAssertFalse(kstermination_producesReport(kstermination_getReason()));
     XCTAssertEqual(state.launchesSinceLastCrash, 2);  // Carried forward from first crash reset
 }
 
@@ -330,9 +334,9 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     kscrash_testcode_setLastRunID("AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE");
     [self enableMonitor];
 
-    KSCrash_AppState state = kscrashstate_lifecycleAppState();
     // No previous sidecar found → treated as first launch
-    XCTAssertFalse(state.crashedLastLaunch);
+    XCTAssertFalse(kstermination_producesReport(kstermination_getReason()));
+    KSCrash_AppState state = kscrashstate_lifecycleAppState();
     XCTAssertEqual(state.launchesSinceLastCrash, 1);
 }
 
@@ -357,8 +361,8 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     kscrash_testcode_setLastRunID([corruptRunID UTF8String]);
     [self enableMonitor];
 
+    XCTAssertFalse(kstermination_producesReport(kstermination_getReason()));
     KSCrash_AppState state = kscrashstate_lifecycleAppState();
-    XCTAssertFalse(state.crashedLastLaunch);
     XCTAssertEqual(state.launchesSinceLastCrash, 1);
 }
 

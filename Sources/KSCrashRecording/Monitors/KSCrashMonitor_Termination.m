@@ -359,3 +359,9 @@ kscm_termination_testcode_determineReason(const KSCrash_LifecycleData *prevLifec
 {
     return determineReason(prevLifecycle, prevResource, prevSystem, currSystem);
 }
+
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+void kscm_termination_testcode_setReason(KSTerminationReason reason)
+{
+    g_reason = reason;
+}
