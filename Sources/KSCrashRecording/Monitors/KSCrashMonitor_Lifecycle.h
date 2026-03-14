@@ -94,7 +94,7 @@ typedef struct {
     int32_t sessionsSinceLastCrash;
     int32_t taskRole;  // task_role_t — updated by heartbeat and on lifecycle events
 
-    uint8_t crashedLastLaunch;
+    uint8_t crashedLastLaunch KSCRASH_DEPRECATED("Use kstermination_getReason()");
     uint8_t transitionState;  // KSCrashAppTransitionState at last update
     uint8_t fatalReported;    // true if a crash handler ran (distinguishes crash from OS kill)
     uint8_t userPerceptible;  // true if the user could perceive the app as part of their
@@ -132,8 +132,9 @@ typedef struct {
     /** Number of sessions (launch, resume from suspend) since app launch. */
     int sessionsSinceLaunch;
 
-    /** If true, the application crashed on the previous launch. */
-    bool crashedLastLaunch;
+    /** If true, the application crashed on the previous launch.
+     *  @deprecated Use kstermination_getReason() from the Termination monitor instead. */
+    bool crashedLastLaunch KSCRASH_DEPRECATED("Use kstermination_getReason()");
 
     /** Timestamp for when the app state was last changed (active<->inactive,
      * background<->foreground). In seconds (derived from monotonic nanoseconds). */

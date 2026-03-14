@@ -43,7 +43,7 @@
     KSCrashReportDictionary *report = [self _crashReportAsJSON:@"oom"];
     KSCrashReportDictionary *resultReport = [self _filteredReport:report];
     NSString *diagnostic = resultReport.value[KSCrashField_Crash][KSCrashField_Diagnosis];
-    XCTAssertEqual(diagnostic, @"The app was terminated due to running out of memory (OOM).");
+    XCTAssertEqualObjects(diagnostic, @"The app exceeded its memory limit and was terminated by the OS.");
 }
 
 - (void)testWatchdogTimeout

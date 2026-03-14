@@ -372,7 +372,10 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(NSInteger, sessionsSinceLastCrash)
 SYNTHESIZE_CRASH_STATE_PROPERTY(NSTimeInterval, activeDurationSinceLaunch)
 SYNTHESIZE_CRASH_STATE_PROPERTY(NSTimeInterval, backgroundDurationSinceLaunch)
 SYNTHESIZE_CRASH_STATE_PROPERTY(NSInteger, sessionsSinceLaunch)
-SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
+- (BOOL)crashedLastLaunch
+{
+    return kstermination_producesReport(kstermination_getReason());
+}
 
 // ============================================================================
 #pragma mark - Utility -

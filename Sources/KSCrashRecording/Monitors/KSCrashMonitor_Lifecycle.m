@@ -31,7 +31,6 @@
 #import "KSCrashHang.h"
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitorHelper.h"
-#import "KSCrashMonitor_Termination.h"
 #import "KSDate.h"
 #import "KSFileUtils.h"
 #import "KSSpinLock.h"
@@ -324,7 +323,6 @@ KSCrash_AppState kscrashstate_lifecycleAppState(void)
         state.sessionsSinceLaunch = snapshot.sessionsSinceLaunch;
         state.sessionsSinceLastCrash = snapshot.sessionsSinceLastCrash;
         state.launchesSinceLastCrash = snapshot.launchesSinceLastCrash;
-        state.crashedLastLaunch = kstermination_producesReport(kstermination_getReason());
         state.applicationIsActive = snapshot.applicationIsActive;
         state.applicationIsInForeground = snapshot.applicationIsInForeground;
         state.appStateTransitionTime = kslifecycle_nsToSeconds(snapshot.appStateTransitionTimeNs);
