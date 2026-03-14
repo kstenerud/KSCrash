@@ -44,9 +44,8 @@
     api->setEnabled(true, NULL);
     XCTAssertTrue(api->isEnabled(NULL));
 
-    // Uninstall doesn't actually work, so it stays enabled
     api->setEnabled(false, NULL);
-    XCTAssertTrue(api->isEnabled(NULL));
+    XCTAssertFalse(api->isEnabled(NULL));
 }
 
 - (void)testMonitorId
