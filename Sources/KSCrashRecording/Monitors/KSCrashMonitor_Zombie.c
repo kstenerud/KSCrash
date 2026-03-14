@@ -29,6 +29,7 @@
 #include <objc/runtime.h>
 #include <stdatomic.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorHelper.h"
@@ -46,6 +47,9 @@ typedef struct {
     const char *className;
 } Zombie;
 
+// g_zombieCacheBuffer is the owned allocation; it is allocated once and never freed.
+// g_zombieCache is the "active" pointer that handleDealloc reads — NULL when disabled.
+static Zombie *g_zombieCacheBuffer;
 static volatile Zombie *g_zombieCache;
 static unsigned g_zombieHashMask;
 
@@ -133,8 +137,14 @@ static inline void handleDealloc(const void *self)
     static void installDealloc_##CLASS(void)                                                         \
     {                                                                                                \
         Method method = class_getInstanceMethod(objc_getClass(#CLASS), sel_registerName("dealloc")); \
-        g_originalDealloc_##CLASS = method_getImplementation(method);                                \
-        method_setImplementation(method, (IMP)handleDealloc_##CLASS);                                \
+        IMP currentIMP = method_getImplementation(method);                                           \
+        /* Only save + swizzle on first install. On re-enable the swizzle is already in place        \
+         * and currentIMP == handleDealloc_##CLASS; overwriting g_originalDealloc would cause        \
+         * infinite recursion. */                                                                    \
+        if (currentIMP != (IMP)handleDealloc_##CLASS) {                                              \
+            g_originalDealloc_##CLASS = currentIMP;                                                  \
+            method_setImplementation(method, (IMP)handleDealloc_##CLASS);                            \
+        }                                                                                            \
     }
 
 CREATE_ZOMBIE_HANDLER_INSTALLER(NSObject)
@@ -142,16 +152,20 @@ CREATE_ZOMBIE_HANDLER_INSTALLER(NSProxy)
 
 static void install(void)
 {
-    if (g_zombieCache == NULL) {
-        unsigned cacheSize = CACHE_SIZE;
-        g_zombieHashMask = cacheSize - 1;
-        g_zombieCache = calloc(cacheSize, sizeof(*g_zombieCache));
-        if (g_zombieCache == NULL) {
+    unsigned cacheSize = CACHE_SIZE;
+    g_zombieHashMask = cacheSize - 1;
+
+    if (g_zombieCacheBuffer == NULL) {
+        g_zombieCacheBuffer = calloc(cacheSize, sizeof(*g_zombieCacheBuffer));
+        if (g_zombieCacheBuffer == NULL) {
             KSLOG_ERROR("Error: Could not allocate %u bytes of memory. KSZombie NOT installed!",
-                        cacheSize * sizeof(*g_zombieCache));
+                        cacheSize * sizeof(*g_zombieCacheBuffer));
             return;
         }
+    } else {
+        memset(g_zombieCacheBuffer, 0, cacheSize * sizeof(*g_zombieCacheBuffer));
     }
+    g_zombieCache = g_zombieCacheBuffer;
 
     g_lastDeallocedException.class = objc_getClass("NSException");
     g_lastDeallocedException.address = NULL;
@@ -189,11 +203,12 @@ static void setEnabled(bool isEnabled, __unused void *context)
     if (isEnabled) {
         install();
     } else {
-        // NULL out cache pointer first — handleDealloc checks this and becomes a no-op.
+        // NULL out the cache pointer — handleDealloc checks this and becomes a no-op.
         // The swizzle stays in place but is harmless: it just chains to original dealloc.
-        volatile Zombie *oldCache = g_zombieCache;
+        // We intentionally do NOT free the buffer here: a concurrent dealloc on another
+        // thread may have already loaded the old pointer. The buffer is reused on re-enable
+        // (install() checks g_zombieCache == NULL before allocating).
         g_zombieCache = NULL;
-        free((void *)oldCache);
     }
 }
 

@@ -86,9 +86,12 @@ g_monitorMappings[] = { { KSCrashMonitorTypeMachException, kscm_machexception_ge
                         { KSCrashMonitorTypeMainThreadDeadlock, kscm_deadlock_getAPI },
                         { KSCrashMonitorTypeUserReported, kscm_user_getAPI },
                         { KSCrashMonitorTypeSystem, kscm_system_getAPI },
+                        // Termination must come before Lifecycle: Lifecycle's
+                        // notifyPostSystemEnable reads the termination reason,
+                        // and the callbacks fire in registration order.
+                        { KSCrashMonitorTypeTermination, kscm_termination_getAPI },
                         { KSCrashMonitorTypeApplicationState, kscm_lifecycle_getAPI },
                         { KSCrashMonitorTypeZombie, kscm_zombie_getAPI },
-                        { KSCrashMonitorTypeTermination, kscm_termination_getAPI },
                         { KSCrashMonitorTypeWatchdog, kscm_watchdog_getAPI },
                         { KSCrashMonitorTypeUserInfo, kscm_userinfo_getAPI },
                         { KSCrashMonitorTypeResource, kscm_resource_getAPI } };

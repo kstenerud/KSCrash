@@ -141,6 +141,9 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     callbacks.getRunSidecarPathForRunID = testGetRunSidecarPathForRunID;
     api->init(&callbacks, api->context);
     api->setEnabled(true, api->context);
+    // Counter carry-forward is deferred to notifyPostSystemEnable (runs after
+    // all monitors are enabled). In tests we call it explicitly.
+    api->notifyPostSystemEnable(api->context);
 }
 
 - (void)disableMonitor
