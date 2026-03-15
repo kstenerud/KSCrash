@@ -204,7 +204,7 @@ final class CppTests: IntegrationTestBase {
             XCTAssertFalse(try hasCrashReport())
 
             // Relaunch to check state — previous run should be classified as clean
-            _ = try launchAndReportCrash()
+            try launchAndInstall()
             let state = try readState()
             XCTAssertFalse(state.crashedLastLaunch)
             XCTAssertEqual(state.terminationReason, .clean)
