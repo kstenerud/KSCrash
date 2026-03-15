@@ -32,7 +32,6 @@
 
 #import <Foundation/Foundation.h>
 #import <fcntl.h>
-#import <stdatomic.h>
 #import <string.h>
 #import <unistd.h>
 
@@ -43,7 +42,6 @@
 // ============================================================================
 
 static KSCrashRunContext g_context = { 0 };
-static _Atomic(KSCrashSidecarRunPathForRunIDProviderFunc) g_pathForRunID = NULL;
 
 // ============================================================================
 #pragma mark - Sidecar Reading -
@@ -164,8 +162,6 @@ static KSTerminationReason determineReason(const KSCrash_LifecycleData *prevLife
 
 void ksruncontext_init(KSCrashSidecarRunPathForRunIDProviderFunc pathForRunID)
 {
-    atomic_store(&g_pathForRunID, pathForRunID);
-
     const char *lastRunID = kscrash_getLastRunID();
     memset(&g_context, 0, sizeof(g_context));
 
@@ -175,12 +171,13 @@ void ksruncontext_init(KSCrashSidecarRunPathForRunIDProviderFunc pathForRunID)
         return;
     }
 
-    ksruncontext_contextForRunID(lastRunID, &g_context);
+    ksruncontext_contextForRunID(lastRunID, pathForRunID, &g_context);
 
     KSLOG_DEBUG(@"Previous run %s: %s", lastRunID, kstermination_reasonToString(g_context.terminationReason));
 }
 
-bool ksruncontext_contextForRunID(const char *runID, KSCrashRunContext *outContext)
+bool ksruncontext_contextForRunID(const char *runID, KSCrashSidecarRunPathForRunIDProviderFunc pathForRunID,
+                                  KSCrashRunContext *outContext)
 {
     if (!outContext) {
         return false;
@@ -195,7 +192,6 @@ bool ksruncontext_contextForRunID(const char *runID, KSCrashRunContext *outConte
 
     strlcpy(outContext->runID, runID, sizeof(outContext->runID));
 
-    KSCrashSidecarRunPathForRunIDProviderFunc pathForRunID = atomic_load(&g_pathForRunID);
     if (!pathForRunID) {
         outContext->terminationReason = KSTerminationReasonUnexplained;
         return false;

@@ -55,7 +55,7 @@ typedef struct {
 } KSCrashMonitorAPIList;
 
 /**
- * Phase 1: Enable all added crash monitors.
+ * Enable all added crash monitors.
  *
  * Enables all monitors that have been added to the system. However, not all
  * monitors may be activated due to certain conditions. Monitors that are
@@ -67,21 +67,12 @@ typedef struct {
 bool kscmr_enableMonitors(KSCrashMonitorAPIList *monitorList);
 
 /**
- * Phase 3: Notify all enabled monitors that the system is fully initialized.
+ * Notify all enabled monitors that the system is fully initialized.
  *
- * Call after ksruncontext_init() so that monitors can read previous-run analysis.
+ * Monitors may use this callback to read previous-run analysis from RunContext.
+ * Must only be called after RunContext has been initialized.
  */
 void kscmr_notifyPostSystemEnable(KSCrashMonitorAPIList *monitorList);
-
-/**
- * Activates all added crash monitors (both phases in one call).
- *
- * Prefer kscmr_enableMonitors() + ksruncontext_init() + kscmr_notifyPostSystemEnable() instead.
- * This function skips previous-run analysis.
- *
- * @return bool True if at least one monitor was successfully activated, false if no monitors were activated.
- */
-bool kscmr_activateMonitors(KSCrashMonitorAPIList *monitorList);
 
 /**
  * Disables all active crash monitors.

@@ -202,12 +202,6 @@ void kscm_notifyPostSystemEnable(void)
     kscmr_notifyPostSystemEnable(&g_state.monitors);
 }
 
-bool kscm_activateMonitors(void)
-{
-    init();
-    return kscmr_activateMonitors(&g_state.monitors);
-}
-
 void kscm_disableAllMonitors(void)
 {
     init();
