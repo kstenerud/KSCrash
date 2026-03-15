@@ -161,8 +161,26 @@ extern void kscm_testcode_resetState(void);
 - (void)testAddingAndActivatingMonitors
 {
     XCTAssertTrue(kscm_addMonitor(&g_dummyMonitor), @"Monitor should be successfully added.");
-    kscm_enableMonitors();  // Activate all monitors
+    kscm_enableMonitors();
     XCTAssertTrue(g_dummyMonitor.isEnabled(NULL), @"The monitor should be enabled after activation.");
+}
+
+- (void)testNotifyPostSystemEnableFiresCallback
+{
+    kscm_addMonitor(&g_dummyMonitor);
+    kscm_enableMonitors();
+    XCTAssertFalse(g_dummyPostSystemEnabled, @"Post-system-enable should not have fired yet.");
+    kscm_notifyPostSystemEnable();
+    XCTAssertTrue(g_dummyPostSystemEnabled, @"Post-system-enable callback should have fired.");
+}
+
+- (void)testNotifyPostSystemEnableSkipsDisabledMonitors
+{
+    kscm_addMonitor(&g_dummyMonitor);
+    // Don't enable — monitor stays disabled
+    XCTAssertFalse(g_dummyEnabledState);
+    kscm_notifyPostSystemEnable();
+    XCTAssertFalse(g_dummyPostSystemEnabled, @"Disabled monitors should not receive post-system-enable.");
 }
 
 - (void)testDisablingAllMonitors
