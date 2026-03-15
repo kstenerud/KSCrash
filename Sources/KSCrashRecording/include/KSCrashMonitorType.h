@@ -127,7 +127,7 @@ enum
                                ),
 
     /** Enable experimental monitoring options. */
-    KSCrashMonitorTypeExperimental = KSCrashMonitorTypeWatchdog,
+    KSCrashMonitorTypeExperimental = KSCrashMonitorTypeNone,
 
     /** Monitor options unsafe for use with a debugger. */
     KSCrashMonitorTypeDebuggerUnsafe = KSCrashMonitorTypeMachException,
