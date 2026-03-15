@@ -30,13 +30,26 @@
 #include <stdbool.h>
 
 #include "KSCrashNamespace.h"
+#ifdef __OBJC__
+#include <Foundation/Foundation.h>
+#endif
+
+#ifndef NS_SWIFT_NAME
+#define NS_SWIFT_NAME(_name)
+#endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+// clang-format off
 /** Reason the previous run was terminated. */
-typedef enum {
+#ifdef __OBJC__
+typedef NS_ENUM(NSInteger, KSTerminationReason)
+#else
+enum
+#endif
+{
     KSTerminationReasonNone = 0,
     // Expected exits
     KSTerminationReasonClean,
@@ -55,7 +68,11 @@ typedef enum {
     KSTerminationReasonReboot,
     // Fallback
     KSTerminationReasonUnexplained,
-} KSTerminationReason;
+} NS_SWIFT_NAME(TerminationReason);
+#ifndef __OBJC__
+typedef int KSTerminationReason;
+#endif
+// clang-format on
 
 /** Returns the string representation of a termination reason. */
 const char *kstermination_reasonToString(KSTerminationReason reason);

@@ -378,6 +378,11 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(NSInteger, sessionsSinceLaunch)
     return ksruncontext_previousRunContext()->producedReport;
 }
 
+- (KSTerminationReason)previousTerminationReason
+{
+    return ksruncontext_previousRunContext()->terminationReason;
+}
+
 // ============================================================================
 #pragma mark - Utility -
 // ============================================================================

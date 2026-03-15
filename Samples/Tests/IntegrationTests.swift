@@ -27,6 +27,7 @@
 import CrashTriggers
 import IntegrationTestsHelper
 import KSCrashDemangleFilter
+import KSCrashRecording
 import Report
 import SampleUI
 import XCTest
@@ -50,6 +51,10 @@ final class NSExceptionTests: IntegrationTestBase {
         XCTAssertTrue(
             appleReport.contains("Last Exception Backtrace:"),
             "Apple format should contain 'Last Exception Backtrace:' section")
+
+        let state = try readState()
+        XCTAssertTrue(state.crashedLastLaunch)
+        XCTAssertEqual(state.terminationReason, .crash)
     }
 
     func testDontRecordAllThreads() throws {
@@ -77,6 +82,10 @@ final class NSExceptionTests: IntegrationTestBase {
         XCTAssertTrue(
             appleReport.contains("Last Exception Backtrace:"),
             "Apple format should contain 'Last Exception Backtrace:' section")
+
+        let state = try readState()
+        XCTAssertTrue(state.crashedLastLaunch)
+        XCTAssertEqual(state.terminationReason, .crash)
     }
 }
 
@@ -98,6 +107,10 @@ final class NSExceptionTests: IntegrationTestBase {
             XCTAssertFalse(
                 appleReport.contains("Last Exception Backtrace:"),
                 "Apple format should not contain 'Last Exception Backtrace:' for mach crashes")
+
+            let state = try readState()
+            XCTAssertTrue(state.crashedLastLaunch)
+            XCTAssertEqual(state.terminationReason, .crash)
         }
     }
 
@@ -124,6 +137,10 @@ final class CppTests: IntegrationTestBase {
         XCTAssertTrue(
             appleReport.contains("Last Exception Backtrace:"),
             "Apple format should contain 'Last Exception Backtrace:' section")
+
+        let state = try readState()
+        XCTAssertTrue(state.crashedLastLaunch)
+        XCTAssertEqual(state.terminationReason, .crash)
     }
 
     func testRuntimeExceptionBackgroundThread() throws {
@@ -150,6 +167,10 @@ final class CppTests: IntegrationTestBase {
         XCTAssertTrue(
             appleReport.contains("Last Exception Backtrace:"),
             "Apple format should contain 'Last Exception Backtrace:' section")
+
+        let state = try readState()
+        XCTAssertTrue(state.crashedLastLaunch)
+        XCTAssertEqual(state.terminationReason, .crash)
     }
 }
 
@@ -169,6 +190,10 @@ final class CppTests: IntegrationTestBase {
 
             let appleReport = try launchAndReportCrash()
             XCTAssertTrue(appleReport.contains("SIGABRT"))
+
+            let state = try readState()
+            XCTAssertTrue(state.crashedLastLaunch)
+            XCTAssertEqual(state.terminationReason, .crash)
         }
 
         func testTermination() throws {
@@ -177,6 +202,12 @@ final class CppTests: IntegrationTestBase {
             try terminate()
 
             XCTAssertFalse(try hasCrashReport())
+
+            // Relaunch to check state — previous run should be classified as clean
+            _ = try launchAndReportCrash()
+            let state = try readState()
+            XCTAssertFalse(state.crashedLastLaunch)
+            XCTAssertEqual(state.terminationReason, .clean)
         }
     }
 
@@ -206,8 +237,28 @@ final class CppTests: IntegrationTestBase {
 
             let appleReport = try launchAndReportCrash()
             XCTAssertTrue(appleReport.contains(KSCrashStacktraceCheckFuncName))
+
+            let state = try readState()
+            XCTAssertTrue(state.crashedLastLaunch)
+            XCTAssertEqual(state.terminationReason, .crash)
         }
     }
+#endif
+
+#if targetEnvironment(simulator)
+
+    final class MemoryTests: IntegrationTestBase {
+        func testOOM() throws {
+            app.launchEnvironment["KSCRASH_SIM_MEMORY_TERMINATION_ENABLED"] = "1"
+            try launchAndCrash(.memory_oom)
+
+            _ = try launchAndReportCrash()
+            let state = try readState()
+            XCTAssertTrue(state.crashedLastLaunch)
+            XCTAssertEqual(state.terminationReason, .memoryLimit)
+        }
+    }
+
 #endif
 
 final class UserReportedTests: IntegrationTestBase {
@@ -257,6 +308,7 @@ final class UserReportedTests: IntegrationTestBase {
 
         let state = try readState()
         XCTAssertFalse(state.crashedLastLaunch)
+        XCTAssertEqual(state.terminationReason, .clean)
     }
 
     func testUserReportedNSException_WithoutStacktrace() throws {
@@ -327,6 +379,7 @@ final class UserReportedTests: IntegrationTestBase {
 
         let state = try readState()
         XCTAssertFalse(state.crashedLastLaunch)
+        XCTAssertEqual(state.terminationReason, .clean)
     }
 }
 

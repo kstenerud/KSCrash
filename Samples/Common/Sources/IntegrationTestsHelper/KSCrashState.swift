@@ -38,6 +38,7 @@ public struct KSCrashState: Codable {
     public var backgroundDurationSinceLastCrash: TimeInterval
 
     public var crashedLastLaunch: Bool
+    public var previousTerminationReason: Int
 }
 
 extension KSCrashState {
@@ -50,8 +51,13 @@ extension KSCrashState {
             sessionsSinceLastCrash: KSCrash.shared.sessionsSinceLastCrash,
             activeDurationSinceLastCrash: KSCrash.shared.activeDurationSinceLastCrash,
             backgroundDurationSinceLastCrash: KSCrash.shared.backgroundDurationSinceLastCrash,
-            crashedLastLaunch: KSCrash.shared.crashedLastLaunch
+            crashedLastLaunch: KSCrash.shared.crashedLastLaunch,
+            previousTerminationReason: KSCrash.shared.previousTerminationReason.rawValue
         )
+    }
+
+    public var terminationReason: TerminationReason {
+        TerminationReason(rawValue: previousTerminationReason) ?? .none
     }
 
     func save(to path: String) throws {

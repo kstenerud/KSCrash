@@ -37,6 +37,7 @@ extern NSString *const KSCrashNSExceptionStacktraceFuncName;
     __PROCESS_GROUP(mach, @"Mach")               \
     __PROCESS_GROUP(signal, @"Signal")           \
     __PROCESS_GROUP(user, @"User")               \
+    __PROCESS_GROUP(memory, @"Memory")           \
     __PROCESS_GROUP(multiple, @"Multiple")       \
     __PROCESS_GROUP(other, @"Other")
 
@@ -77,6 +78,7 @@ extern NSString *const KSCrashNSExceptionStacktraceFuncName;
     __PROCESS_TRIGGER(multiple, user_cpp, @"User + CPP")                                               \
     __PROCESS_TRIGGER(multiple, user_ns, @"User + NSException")                                        \
     __PROCESS_TRIGGER(multiple, user_user, @"User + User")                                             \
+    __PROCESS_TRIGGER(memory, oom, @"OOM (Simulator)")                                                 \
     __PROCESS_TRIGGER(other, manyThreads, @"Many Threads")                                             \
     __PROCESS_TRIGGER(other, stackOverflow, @"Stack overflow")                                         \
     __PROCESS_TRIGGER(other, watchdogTimeoutTermination, @"Watchdog Timeout")                          \
