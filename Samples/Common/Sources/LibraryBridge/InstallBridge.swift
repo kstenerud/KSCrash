@@ -182,7 +182,7 @@ extension InstallBridge {
         (.nsException, "NSException", "Unhandled Objective-C exceptions"),
         (.watchdog, "Watchdog", "Hangs and watchdog timeout terminations"),
         (
-            .resourceTermination, "Resource Termination",
+            .termination, "Termination",
             "Termination due to resource exhaustion (memory, thermal, CPU, battery)"
         ),
         (.zombie, "Zombie", "Attempts to access deallocated objects"),

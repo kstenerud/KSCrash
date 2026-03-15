@@ -187,10 +187,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 /** If true, enables monitoring for SIGTERM signals.
  *
- * @deprecated SIGTERM is now always reported as fatal with isCleanExit=true. This property is ignored.
+ * @deprecated SIGTERM is now always caught to record a clean exit. No crash report is written. This property is
+ * ignored.
  */
 @property(nonatomic, assign) BOOL enableSigTermMonitoring KSCRASH_DEPRECATED(
-    "SIGTERM is now always reported as fatal with isCleanExit. This property is ignored.");
+    "SIGTERM is now always caught to record a clean exit. This property is ignored.");
 
 /** If true, resolved hangs are kept as non-fatal reports.
  *
