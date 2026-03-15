@@ -162,8 +162,6 @@ static void install(void)
                         cacheSize * sizeof(*g_zombieCacheBuffer));
             return;
         }
-    } else {
-        memset(g_zombieCacheBuffer, 0, cacheSize * sizeof(*g_zombieCacheBuffer));
     }
     g_zombieCache = g_zombieCacheBuffer;
 
@@ -207,7 +205,7 @@ static void setEnabled(bool isEnabled, __unused void *context)
         // The swizzle stays in place but is harmless: it just chains to original dealloc.
         // We intentionally do NOT free the buffer here: a concurrent dealloc on another
         // thread may have already loaded the old pointer. The buffer is reused on re-enable
-        // (install() checks g_zombieCache == NULL before allocating).
+        // (install() checks g_zombieCacheBuffer == NULL before allocating).
         g_zombieCache = NULL;
     }
 }

@@ -371,13 +371,18 @@ static void carryForwardFromPreviousRun(void)
         return;
     }
 
-    // The Termination monitor has already run by notifyPostSystemEnable time.
     // Carry forward when the previous run did NOT produce a report — i.e., it
     // was not a crash, hang, resource kill, or unexplained termination.
     // Use += because the current launch's increments have already been applied
     // to the sidecar during createSidecar().
     KSTerminationReason reason = kstermination_getReason();
-    if (!kstermination_producesReport(reason)) {
+    bool previousRunCrashed;
+    if (reason != KSTerminationReasonNone) {
+        previousRunCrashed = kstermination_producesReport(reason);
+    } else {
+        previousRunCrashed = prev.fatalReported;
+    }
+    if (!previousRunCrashed) {
         sc->activeDurationSinceLastCrashNs += prev.activeDurationSinceLastCrashNs;
         sc->backgroundDurationSinceLastCrashNs += prev.backgroundDurationSinceLastCrashNs;
         sc->launchesSinceLastCrash += prev.launchesSinceLastCrash;

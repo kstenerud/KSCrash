@@ -39,6 +39,7 @@
 #import <Foundation/Foundation.h>
 #import <signal.h>
 #import <stdatomic.h>
+#import <string.h>
 
 #import "KSLogger.h"
 

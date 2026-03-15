@@ -420,7 +420,8 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
 
 - (BOOL)isTermination:(NSDictionary *)report
 {
-    return [report[KSCrashField_Type] isEqualToString:KSCrashExcType_Termination];
+    NSString *type = report[KSCrashField_Type];
+    return [type isEqualToString:KSCrashExcType_Termination] || [type isEqualToString:KSCrashExcType_MemoryTermination];
 }
 
 - (BOOL)isWatchdogTimeoutTermination:(NSDictionary *)errorReport
