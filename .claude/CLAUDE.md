@@ -55,7 +55,8 @@ KSCrash is a layered crash reporting framework:
 - **Filters**: Processing crash reports
 - **Sinks**: Handling report destinations
 - **Installations**: Pre-configured setups
-- **Monitors**: Crash detection mechanisms (see `.claude/rules/monitors.md` for details)
+- **Monitors**: Crash detection mechanisms (see `.claude/rules/monitors.md` for the full reference)
+- **RunContext**: Cross-monitor shared state and previous-run analysis (see `.claude/rules/run-context.md`)
 
 Public modules (API surface): KSCrashRecording, KSCrashFilters, KSCrashSinks, KSCrashInstallations, KSCrashDiscSpaceMonitor, KSCrashBootTimeMonitor, KSCrashDemangleFilter, Monitors (Swift), Report (Swift), KSCrashProfiler (Swift). Public headers: `Sources/[ModuleName]/include/*.h`.
 
