@@ -22,6 +22,7 @@ KSCrash prioritizes API stability. A change is **breaking** only if it breaks co
 - **Property changes**: Type changes, nullability changes in either direction, attribute changes (e.g., atomic → nonatomic is an ABI break).
 - **NS_SWIFT_NAME changes**: Adding, modifying, or removing on existing types/methods changes the Swift API.
 - **Struct/enum layout changes**: Field reordering, removal, type changes, or enum value changes break binary compatibility.
+- **Report field constant removal**: Constants like `KSCrashExcType_*` and `KSCrashField_*` are used by consumers to match against on-disk reports. Removing them breaks both compilation and the ability to read existing reports. Keep old constants as deprecated aliases when renaming.
 - **Protocol requirement changes**: Adding required methods or making optional methods required.
 - **C function signature changes**: Parameter or return type changes.
 - **Superclass changes**: Changing inheritance hierarchy.
