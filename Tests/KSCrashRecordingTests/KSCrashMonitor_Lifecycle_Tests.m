@@ -31,6 +31,7 @@
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitor_Lifecycle.h"
 #import "KSCrashMonitor_Termination.h"
+#import "KSCrashRunContext.h"
 
 #include <mach/task_policy.h>
 
@@ -47,7 +48,8 @@ extern void kscrash_testcode_setLastRunID(const char *runID);
 extern void kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionState state);
 extern void kscm_lifecycle_testcode_hangChange(KSHangChangeType change);
 extern void kscm_lifecycle_testcode_setTaskRole(int32_t role);
-extern void kscm_termination_testcode_setReason(KSTerminationReason reason);
+extern void ksruncontext_testcode_setReason(KSTerminationReason reason);
+extern void ksruncontext_testcode_setLifecycleData(const KSCrash_LifecycleData *data);
 
 // Global test directory for path callbacks
 static char g_testDir[1024];
@@ -118,7 +120,8 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
 
     // No previous run by default
     kscrash_testcode_setLastRunID(NULL);
-    kscm_termination_testcode_setReason(KSTerminationReasonNone);
+    ksruncontext_testcode_setReason(KSTerminationReasonNone);
+    ksruncontext_testcode_setLifecycleData(NULL);
 }
 
 - (void)tearDown
@@ -166,6 +169,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     XCTAssertTrue(writeSidecar(prevPath, &prev));
 
     kscrash_testcode_setLastRunID([prevRunID UTF8String]);
+    ksruncontext_testcode_setLifecycleData(&prev);
 
     // Remove current sidecar so the new run starts fresh
     [[NSFileManager defaultManager] removeItemAtPath:[NSString stringWithFormat:@"%@/current", self.tempPath]
@@ -230,7 +234,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
 - (void)testRelaunchAfterCrash
 {
     // Previous run did NOT shut down cleanly → crash
-    kscm_termination_testcode_setReason(KSTerminationReasonCrash);
+    ksruncontext_testcode_setReason(KSTerminationReasonCrash);
     KSCrash_LifecycleData prev = [self makePreviousSidecarWithCleanShutdown:false
                                                      launchesSinceLastCrash:5
                                                      sessionsSinceLastCrash:10
@@ -238,7 +242,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
                                          backgroundDurationSinceLastCrashNs:2000000000ULL];
     [self simulateRelaunchWithPreviousSidecar:prev];
 
-    XCTAssertTrue(kstermination_producesReport(kstermination_getReason()));
+    XCTAssertTrue(ksruncontext_previousRunContext()->producedReport);
     // After a crash, cumulative counters reset to 0 + this launch
     KSCrash_AppState state = kscrashstate_lifecycleAppState();
     XCTAssertEqual(state.launchesSinceLastCrash, 1);
@@ -249,7 +253,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
 - (void)testRelaunchAfterCleanShutdown
 {
     // Previous run shut down cleanly → no crash
-    kscm_termination_testcode_setReason(KSTerminationReasonClean);
+    ksruncontext_testcode_setReason(KSTerminationReasonClean);
     KSCrash_LifecycleData prev = [self makePreviousSidecarWithCleanShutdown:true
                                                      launchesSinceLastCrash:3
                                                      sessionsSinceLastCrash:7
@@ -257,7 +261,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
                                          backgroundDurationSinceLastCrashNs:2000000000ULL];
     [self simulateRelaunchWithPreviousSidecar:prev];
 
-    XCTAssertFalse(kstermination_producesReport(kstermination_getReason()));
+    XCTAssertFalse(ksruncontext_previousRunContext()->producedReport);
     KSCrash_AppState state = kscrashstate_lifecycleAppState();
     // Cumulative = previous cumulatives + previous per-launch, plus this launch
     // launches: 3 + 1 = 4
@@ -278,7 +282,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
 - (void)testRelaunchCrashThenClean
 {
     // First: crash relaunch
-    kscm_termination_testcode_setReason(KSTerminationReasonCrash);
+    ksruncontext_testcode_setReason(KSTerminationReasonCrash);
     KSCrash_LifecycleData crashed = [self makePreviousSidecarWithCleanShutdown:false
                                                         launchesSinceLastCrash:10
                                                         sessionsSinceLastCrash:20
@@ -286,7 +290,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
                                             backgroundDurationSinceLastCrashNs:3000000000ULL];
     [self simulateRelaunchWithPreviousSidecar:crashed];
 
-    XCTAssertTrue(kstermination_producesReport(kstermination_getReason()));
+    XCTAssertTrue(ksruncontext_previousRunContext()->producedReport);
     KSCrash_AppState state = kscrashstate_lifecycleAppState();
     XCTAssertEqual(state.launchesSinceLastCrash, 1);  // Reset after crash
 
@@ -324,10 +328,11 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     [[NSFileManager defaultManager] removeItemAtPath:[NSString stringWithFormat:@"%@/current", self.tempPath]
                                                error:nil];
 
-    kscm_termination_testcode_setReason(KSTerminationReasonClean);
+    ksruncontext_testcode_setReason(KSTerminationReasonClean);
+    ksruncontext_testcode_setLifecycleData(&current);
     [self enableMonitor];
     state = kscrashstate_lifecycleAppState();
-    XCTAssertFalse(kstermination_producesReport(kstermination_getReason()));
+    XCTAssertFalse(ksruncontext_previousRunContext()->producedReport);
     XCTAssertEqual(state.launchesSinceLastCrash, 2);  // Carried forward from first crash reset
 }
 
@@ -338,7 +343,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     [self enableMonitor];
 
     // No previous sidecar found → treated as first launch
-    XCTAssertFalse(kstermination_producesReport(kstermination_getReason()));
+    XCTAssertFalse(ksruncontext_previousRunContext()->producedReport);
     KSCrash_AppState state = kscrashstate_lifecycleAppState();
     XCTAssertEqual(state.launchesSinceLastCrash, 1);
 }
@@ -364,7 +369,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     kscrash_testcode_setLastRunID([corruptRunID UTF8String]);
     [self enableMonitor];
 
-    XCTAssertFalse(kstermination_producesReport(kstermination_getReason()));
+    XCTAssertFalse(ksruncontext_previousRunContext()->producedReport);
     KSCrash_AppState state = kscrashstate_lifecycleAppState();
     XCTAssertEqual(state.launchesSinceLastCrash, 1);
 }
@@ -598,7 +603,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     KSCrash_LifecycleData data = { 0 };
     XCTAssertTrue(readCurrentSidecar(&data));
     // The role should be set to something valid (not left at zero unless TASK_UNSPECIFIED == 0)
-    int currentRole = kslifecycle_currentTaskRole();
+    int currentRole = kstaskrole_current();
     XCTAssertEqual(data.taskRole, currentRole);
 }
 
@@ -609,30 +614,30 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
 
     KSCrash_LifecycleData data = { 0 };
     XCTAssertTrue(readCurrentSidecar(&data));
-    int currentRole = kslifecycle_currentTaskRole();
+    int currentRole = kstaskrole_current();
     XCTAssertEqual(data.taskRole, currentRole);
 }
 
 - (void)testCurrentTaskRoleReturnsValidValue
 {
-    int role = kslifecycle_currentTaskRole();
+    int role = kstaskrole_current();
     // The string conversion returns "UNKNOWN" for unrecognized values.
     // A valid role must produce a known string.
-    const char *str = kslifecycle_stringFromTaskRole(role);
+    const char *str = kstaskrole_toString(role);
     XCTAssertTrue(strcmp(str, "UNKNOWN") != 0, @"Unexpected task role: %d", role);
 }
 
 - (void)testStringFromTaskRoleKnownValues
 {
-    XCTAssertEqualObjects(@(kslifecycle_stringFromTaskRole(TASK_FOREGROUND_APPLICATION)), @"FOREGROUND_APPLICATION");
-    XCTAssertEqualObjects(@(kslifecycle_stringFromTaskRole(TASK_BACKGROUND_APPLICATION)), @"BACKGROUND_APPLICATION");
-    XCTAssertEqualObjects(@(kslifecycle_stringFromTaskRole(TASK_UNSPECIFIED)), @"UNSPECIFIED");
-    XCTAssertEqualObjects(@(kslifecycle_stringFromTaskRole(TASK_DEFAULT_APPLICATION)), @"DEFAULT_APPLICATION");
+    XCTAssertEqualObjects(@(kstaskrole_toString(TASK_FOREGROUND_APPLICATION)), @"FOREGROUND_APPLICATION");
+    XCTAssertEqualObjects(@(kstaskrole_toString(TASK_BACKGROUND_APPLICATION)), @"BACKGROUND_APPLICATION");
+    XCTAssertEqualObjects(@(kstaskrole_toString(TASK_UNSPECIFIED)), @"UNSPECIFIED");
+    XCTAssertEqualObjects(@(kstaskrole_toString(TASK_DEFAULT_APPLICATION)), @"DEFAULT_APPLICATION");
 }
 
 - (void)testStringFromTaskRoleUnknownValue
 {
-    XCTAssertEqualObjects(@(kslifecycle_stringFromTaskRole(9999)), @"UNKNOWN");
+    XCTAssertEqualObjects(@(kstaskrole_toString(9999)), @"UNKNOWN");
 }
 
 - (void)testTaskRoleHeartbeatUpdates
@@ -645,7 +650,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     KSCrash_LifecycleData data = { 0 };
     XCTAssertTrue(readCurrentSidecar(&data));
     int32_t sentinel = -999;
-    XCTAssertNotEqual(kslifecycle_currentTaskRole(), sentinel);
+    XCTAssertNotEqual(kstaskrole_current(), sentinel);
 
     // Poke the sentinel through the test helper.
     kscm_lifecycle_testcode_setTaskRole(sentinel);
@@ -666,7 +671,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
         }
     }
     XCTAssertTrue(corrected, @"Heartbeat did not update taskRole within 5 seconds");
-    XCTAssertEqual(data.taskRole, kslifecycle_currentTaskRole());
+    XCTAssertEqual(data.taskRole, kstaskrole_current());
 }
 
 @end

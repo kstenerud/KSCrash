@@ -1,7 +1,7 @@
 //
-//  KSCrashMonitor_Termination.h
+//  KSTerminationReason.h
 //
-//  Created by Alexander Cohen on 2026-03-07.
+//  Created by Alexander Cohen on 2026-03-15.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,34 +24,47 @@
 // THE SOFTWARE.
 //
 
-/* Termination monitor — retroactive detection of why the previous run ended.
- *
- * On launch, reads the previous run's Lifecycle, Resource, and System sidecars
- * to determine whether the process was killed by the OS (OOM, thermal, CPU,
- * battery depletion) or ended due to a system change (OS upgrade, app upgrade,
- * reboot) without any crash handler having run.  If so, injects a user report
- * attributed to the previous run ID.
- *
- * System changes (OS upgrade, app upgrade, reboot) are checked first because
- * they explain an unclean shutdown without it being a crash. Resource reasons
- * are checked next, falling back to "unexplained" if nothing matches.
- */
+#ifndef KSTerminationReason_h
+#define KSTerminationReason_h
 
-#ifndef KSCrashMonitor_Termination_h
-#define KSCrashMonitor_Termination_h
+#include <stdbool.h>
 
-#include "KSCrashMonitorAPI.h"
-#include "KSCrashRunContext.h"
+#include "KSCrashNamespace.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/** Access the Termination Monitor API. */
-KSCrashMonitorAPI *kscm_termination_getAPI(void);
+/** Reason the previous run was terminated. */
+typedef enum {
+    KSTerminationReasonNone = 0,
+    // Expected exits
+    KSTerminationReasonClean,
+    KSTerminationReasonCrash,
+    KSTerminationReasonHang,
+    KSTerminationReasonFirstLaunch,
+    // Resource reasons
+    KSTerminationReasonLowBattery,
+    KSTerminationReasonMemoryLimit,
+    KSTerminationReasonMemoryPressure,
+    KSTerminationReasonThermal,
+    KSTerminationReasonCPU,
+    // System change reasons
+    KSTerminationReasonOSUpgrade,
+    KSTerminationReasonAppUpgrade,
+    KSTerminationReasonReboot,
+    // Fallback
+    KSTerminationReasonUnexplained,
+} KSTerminationReason;
+
+/** Returns the string representation of a termination reason. */
+const char *kstermination_reasonToString(KSTerminationReason reason);
+
+/** Whether the given termination reason produces a crash report. */
+bool kstermination_producesReport(KSTerminationReason reason);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif  // KSCrashMonitor_Termination_h
+#endif  // KSTerminationReason_h

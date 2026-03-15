@@ -35,6 +35,7 @@
 #import "KSCrashMonitor_Termination.h"
 #import "KSCrashReport.h"
 #import "KSCrashReportFields.h"
+#import "KSCrashRunContext.h"
 #import "KSDate.h"
 #import "KSJSONCodecObjC.h"
 #import "KSNSErrorHelper.h"
@@ -374,17 +375,7 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(NSTimeInterval, backgroundDurationSinceLaunch)
 SYNTHESIZE_CRASH_STATE_PROPERTY(NSInteger, sessionsSinceLaunch)
 - (BOOL)crashedLastLaunch
 {
-    KSTerminationReason reason = kstermination_getReason();
-    if (reason != KSTerminationReasonNone) {
-        return kstermination_producesReport(reason);
-    }
-    // Termination monitor not enabled — fall back to lifecycle sidecar.
-    const char *lastRunID = kscrash_getLastRunID();
-    KSCrash_LifecycleData prev = {};
-    if (lastRunID != NULL && kslifecycle_getSnapshotForRunID(lastRunID, &prev)) {
-        return prev.fatalReported != 0;
-    }
-    return NO;
+    return ksruncontext_previousRunContext()->producedReport;
 }
 
 // ============================================================================

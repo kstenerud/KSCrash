@@ -26,14 +26,11 @@
 
 #import "KSCrashMonitor_Termination.h"
 
-#import "KSCrashAppMemory.h"
 #import "KSCrashC.h"
 #import "KSCrashMonitorHelper.h"
-#import "KSCrashMonitor_Lifecycle.h"
-#import "KSCrashMonitor_Resource.h"
-#import "KSCrashMonitor_System.h"
 #import "KSCrashReportFields.h"
 #import "KSCrashReportVersion.h"
+#import "KSCrashRunContext.h"
 #import "KSJSONCodecObjC.h"
 
 #import <Foundation/Foundation.h>
@@ -50,46 +47,6 @@
 static const char *const kMonitorName = "Termination";
 
 static atomic_bool g_isEnabled = false;
-static _Atomic KSTerminationReason g_reason = KSTerminationReasonNone;
-
-// ============================================================================
-#pragma mark - Termination Reason -
-// ============================================================================
-
-const char *kstermination_reasonToString(KSTerminationReason reason)
-{
-    switch (reason) {
-        case KSTerminationReasonClean:
-            return "clean";
-        case KSTerminationReasonCrash:
-            return "crash";
-        case KSTerminationReasonHang:
-            return "hang";
-        case KSTerminationReasonFirstLaunch:
-            return "first_launch";
-        case KSTerminationReasonLowBattery:
-            return "low_battery";
-        case KSTerminationReasonMemoryLimit:
-            return "memory_limit";
-        case KSTerminationReasonMemoryPressure:
-            return "memory_pressure";
-        case KSTerminationReasonThermal:
-            return "thermal";
-        case KSTerminationReasonCPU:
-            return "cpu";
-        case KSTerminationReasonOSUpgrade:
-            return "os_upgrade";
-        case KSTerminationReasonAppUpgrade:
-            return "app_upgrade";
-        case KSTerminationReasonReboot:
-            return "reboot";
-        case KSTerminationReasonUnexplained:
-            return "unexplained";
-        case KSTerminationReasonNone:
-        default:
-            return "none";
-    }
-}
 
 /** Whether this reason requires stitching an injected report from the Termination monitor. */
 static bool needsStitch(KSTerminationReason reason)
@@ -105,119 +62,6 @@ static bool needsStitch(KSTerminationReason reason)
         default:
             return false;
     }
-}
-
-bool kstermination_producesReport(KSTerminationReason reason)
-{
-    switch (reason) {
-        case KSTerminationReasonCrash:
-        case KSTerminationReasonHang:
-            return true;
-        default:
-            return needsStitch(reason);
-    }
-}
-
-KSTerminationReason kstermination_getReason(void) { return g_reason; }
-
-/** Determine why the previous run was terminated.
- *
- *  First-launch detection (no lifecycle sidecar). Then lifecycle guards: clean
- *  shutdown, crash already reported, hang in progress. Then system changes
- *  (OS upgrade > app upgrade > reboot). Then resource checks (memory limit >
- *  memory pressure > CPU > thermal > battery). Falls back to "unexplained" if
- *  nothing matched or if resource/system sidecars are missing.
- */
-static KSTerminationReason determineReason(const KSCrash_LifecycleData *prevLifecycle,
-                                           const KSCrash_ResourceData *prevResource,
-                                           const KSCrash_SystemData *prevSystem, const KSCrash_SystemData *currSystem)
-{
-    // --- First launch (no lifecycle sidecar means no prior run to analyze) ---
-
-    if (prevLifecycle == NULL) {
-        return KSTerminationReasonFirstLaunch;
-    }
-
-    // --- Already-handled exits ---
-    // Check these before the missing-sidecar guard: if the lifecycle sidecar
-    // records a crash or hang, that evidence must not be erased by a missing
-    // resource or system sidecar (partial sidecar loss).
-
-    if (prevLifecycle->cleanShutdown) {
-        return KSTerminationReasonClean;
-    }
-    if (prevLifecycle->fatalReported) {
-        return KSTerminationReasonCrash;
-    }
-    if (prevLifecycle->hangInProgress) {
-        return KSTerminationReasonHang;
-    }
-
-    // --- Missing sidecars after lifecycle guards ---
-    // If resource or system data is missing but we got past the lifecycle
-    // guards, we can't classify further. Treat as unexplained rather than
-    // first launch — we know a prior run existed.
-
-    if (prevResource == NULL || prevSystem == NULL) {
-        return KSTerminationReasonUnexplained;
-    }
-
-    // --- System changes (priority: OS upgrade > app upgrade > reboot) ---
-
-    if (currSystem != NULL) {
-        // OS upgrade: systemVersion or osVersion changed.
-        if (strcmp(prevSystem->systemVersion, currSystem->systemVersion) != 0 ||
-            strcmp(prevSystem->osVersion, currSystem->osVersion) != 0) {
-            return KSTerminationReasonOSUpgrade;
-        }
-
-        // App upgrade: marketing version or build number changed.
-        if (strcmp(prevSystem->bundleShortVersion, currSystem->bundleShortVersion) != 0 ||
-            strcmp(prevSystem->bundleVersion, currSystem->bundleVersion) != 0) {
-            return KSTerminationReasonAppUpgrade;
-        }
-
-        // Reboot: boot timestamp changed (different boot cycle).
-        // Skip if either is zero (couldn't read it). Allow 30s jitter since
-        // the reported boot time can shift slightly between reads.
-        if (prevSystem->bootTimestamp != 0 && currSystem->bootTimestamp != 0) {
-            int64_t diff = currSystem->bootTimestamp - prevSystem->bootTimestamp;
-            if (diff > 30 || diff < -30) {
-                return KSTerminationReasonReboot;
-            }
-        }
-    }
-
-    // --- Resource-based termination (priority: memory > CPU > thermal > battery) ---
-
-    // Memory limit: app exceeded its per-process allocation (Jetsam).
-    if (prevResource->memoryLevel >= KSCrashAppMemoryStateCritical) {
-        return KSTerminationReasonMemoryLimit;
-    }
-
-    // Memory pressure: system-wide memory pressure killed the app.
-    if (prevResource->memoryPressure >= KSCrashAppMemoryStateCritical) {
-        return KSTerminationReasonMemoryPressure;
-    }
-
-    // CPU: total usage > cpuCoreCount * 800 permil (80% of all cores).
-    uint32_t totalCPU = (uint32_t)prevResource->cpuUsageUser + (uint32_t)prevResource->cpuUsageSystem;
-    uint32_t cpuThreshold = (uint32_t)prevResource->cpuCoreCount * 800;
-    if (cpuThreshold > 0 && totalCPU > cpuThreshold) {
-        return KSTerminationReasonCPU;
-    }
-
-    // Thermal critical.
-    if (prevResource->thermalState >= (uint8_t)NSProcessInfoThermalStateCritical) {
-        return KSTerminationReasonThermal;
-    }
-
-    // Low battery: device powered off while unplugged.
-    if (prevResource->batteryLevel <= 1 && prevResource->batteryState == 1) {
-        return KSTerminationReasonLowBattery;
-    }
-
-    return KSTerminationReasonUnexplained;
 }
 
 // ============================================================================
@@ -303,53 +147,12 @@ static bool isEnabled_func(__unused void *context) { return atomic_load(&g_isEna
 
 static void notifyPostSystemEnable(__unused void *context)
 {
-    const char *lastRunID = kscrash_getLastRunID();
-    if (!lastRunID || lastRunID[0] == '\0') {
-        g_reason = KSTerminationReasonFirstLaunch;
-        KSLOG_DEBUG(@"No previous run ID — first launch");
+    const KSCrashRunContext *ctx = ksruncontext_previousRunContext();
+    if (!needsStitch(ctx->terminationReason) || !ctx->lifecycleValid) {
         return;
     }
 
-    // Read all sidecars. Missing ones are passed as NULL — determineReason
-    // checks lifecycle guards first, then treats missing resource/system as unexplained.
-    KSCrash_LifecycleData lifecycle = {};
-    bool hasLifecycle = kslifecycle_getSnapshotForRunID(lastRunID, &lifecycle);
-
-    KSCrash_SystemData prevSystem = {};
-    KSCrash_SystemData currSystem = {};
-    bool hasPrevSystem = kscm_system_getSystemDataForRunID(lastRunID, &prevSystem);
-    bool hasCurrSystem = kscm_system_getSystemData(&currSystem);
-
-    KSCrash_ResourceData resource = {};
-    bool hasResource = ksresource_getSnapshotForRunID(lastRunID, &resource);
-
-    g_reason = determineReason(hasLifecycle ? &lifecycle : NULL, hasResource ? &resource : NULL,
-                               hasPrevSystem ? &prevSystem : NULL, hasCurrSystem ? &currSystem : NULL);
-
-    KSLOG_DEBUG(@"Previous run %s: %s", lastRunID, kstermination_reasonToString(g_reason));
-
-    if (!needsStitch(g_reason)) {
-        return;
-    }
-
-    // Use the most recent per-group timestamp as the report timestamp.
-    // Fall back to the lifecycle's last state transition if no resource timestamps exist.
-    uint64_t mostRecentTimestampNs = 0;
-    if (hasResource) {
-        uint64_t candidates[] = { resource.memoryUpdatedAtNs,   resource.cpuUpdatedAtNs,
-                                  resource.batteryUpdatedAtNs,  resource.thermalUpdatedAtNs,
-                                  resource.lowPowerUpdatedAtNs, resource.dataProtectionUpdatedAtNs };
-        for (size_t i = 0; i < sizeof(candidates) / sizeof(candidates[0]); i++) {
-            if (candidates[i] > mostRecentTimestampNs) {
-                mostRecentTimestampNs = candidates[i];
-            }
-        }
-    }
-    if (hasLifecycle && mostRecentTimestampNs == 0) {
-        mostRecentTimestampNs = lifecycle.appStateTransitionTimeNs;
-    }
-
-    injectReport(lastRunID, &lifecycle, g_reason, mostRecentTimestampNs);
+    injectReport(ctx->runID, &ctx->lifecycle, ctx->terminationReason, ctx->mostRecentTimestampNs);
 }
 
 KSCrashMonitorAPI *kscm_termination_getAPI(void)
@@ -364,17 +167,3 @@ KSCrashMonitorAPI *kscm_termination_getAPI(void)
     return &api;
 }
 
-__attribute__((unused))  // For tests. Declared as extern in TestCase
-KSTerminationReason
-kscm_termination_testcode_determineReason(const KSCrash_LifecycleData *prevLifecycle,
-                                          const KSCrash_ResourceData *prevResource,
-                                          const KSCrash_SystemData *prevSystem, const KSCrash_SystemData *currSystem)
-{
-    return determineReason(prevLifecycle, prevResource, prevSystem, currSystem);
-}
-
-__attribute__((unused))  // For tests. Declared as extern in TestCase
-void kscm_termination_testcode_setReason(KSTerminationReason reason)
-{
-    g_reason = reason;
-}

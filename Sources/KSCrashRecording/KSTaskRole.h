@@ -1,7 +1,7 @@
 //
-//  KSCrashMonitor_Termination.h
+//  KSTaskRole.h
 //
-//  Created by Alexander Cohen on 2026-03-07.
+//  Created by Alexander Cohen on 2026-03-15.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,34 +24,31 @@
 // THE SOFTWARE.
 //
 
-/* Termination monitor — retroactive detection of why the previous run ended.
- *
- * On launch, reads the previous run's Lifecycle, Resource, and System sidecars
- * to determine whether the process was killed by the OS (OOM, thermal, CPU,
- * battery depletion) or ended due to a system change (OS upgrade, app upgrade,
- * reboot) without any crash handler having run.  If so, injects a user report
- * attributed to the previous run ID.
- *
- * System changes (OS upgrade, app upgrade, reboot) are checked first because
- * they explain an unclean shutdown without it being a crash. Resource reasons
- * are checked next, falling back to "unexplained" if nothing matches.
- */
+#ifndef KSTaskRole_h
+#define KSTaskRole_h
 
-#ifndef KSCrashMonitor_Termination_h
-#define KSCrashMonitor_Termination_h
-
-#include "KSCrashMonitorAPI.h"
-#include "KSCrashRunContext.h"
+#include "KSCrashNamespace.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/** Access the Termination Monitor API. */
-KSCrashMonitorAPI *kscm_termination_getAPI(void);
+/** Query the current task role from the kernel.
+ *
+ * Returns the task_role_t value (e.g. TASK_FOREGROUND_APPLICATION).
+ * Returns TASK_UNSPECIFIED on tvOS/watchOS or on failure.
+ */
+int kstaskrole_current(void);
+
+/** Returns a human-readable string for a task role.
+ *
+ * @param role The task_role_t value to convert.
+ * @return A string representation of the role (e.g., "FOREGROUND_APPLICATION").
+ */
+const char *kstaskrole_toString(int /*task_role_t*/ role);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif  // KSCrashMonitor_Termination_h
+#endif  // KSTaskRole_h

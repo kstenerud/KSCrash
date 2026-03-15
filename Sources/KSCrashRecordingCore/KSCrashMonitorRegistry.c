@@ -109,9 +109,8 @@ const KSCrashMonitorAPI *kscmr_getMonitor(KSCrashMonitorAPIList *monitorList, co
     return NULL;
 }
 
-bool kscmr_activateMonitors(KSCrashMonitorAPIList *monitorList)
+bool kscmr_enableMonitors(KSCrashMonitorAPIList *monitorList)
 {
-    // Check for debugger and async safety
     bool isDebuggerUnsafe = ksdebug_isBeingTraced();
 
     if (isDebuggerUnsafe) {
@@ -125,12 +124,10 @@ bool kscmr_activateMonitors(KSCrashMonitorAPIList *monitorList)
         }
     }
 
-    // Enable or disable monitors
     bool anyMonitorActive = false;
     for (size_t i = 0; i < KSCRASH_MONITOR_API_COUNT; i++) {
         const KSCrashMonitorAPI *api = monitorList->apis[i];
         if (api == NULL) {
-            // Found a hole. Skip it.
             continue;
         }
         KSCrashMonitorFlag flags = api->monitorFlags(api->context);
@@ -148,14 +145,24 @@ bool kscmr_activateMonitors(KSCrashMonitorAPIList *monitorList)
         KSLOG_DEBUG("Monitor %s is now %sabled.", api->monitorId(api->context), isEnabled ? "en" : "dis");
     }
 
+    return anyMonitorActive;
+}
+
+void kscmr_notifyPostSystemEnable(KSCrashMonitorAPIList *monitorList)
+{
     for (size_t i = 0; i < KSCRASH_MONITOR_API_COUNT; i++) {
         const KSCrashMonitorAPI *api = monitorList->apis[i];
         if (api != NULL && api->isEnabled(api->context)) {
             api->notifyPostSystemEnable(api->context);
         }
     }
+}
 
-    return anyMonitorActive;
+bool kscmr_activateMonitors(KSCrashMonitorAPIList *monitorList)
+{
+    bool result = kscmr_enableMonitors(monitorList);
+    kscmr_notifyPostSystemEnable(monitorList);
+    return result;
 }
 
 void kscmr_disableAllMonitors(KSCrashMonitorAPIList *monitorList)

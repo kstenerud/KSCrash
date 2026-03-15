@@ -31,7 +31,7 @@
 #import "KSCrashHang.h"
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitorHelper.h"
-#import "KSCrashMonitor_Termination.h"
+#import "KSCrashRunContext.h"
 #import "KSDate.h"
 #import "KSFileUtils.h"
 #import "KSSpinLock.h"
@@ -63,66 +63,12 @@ static dispatch_source_t g_taskRoleHeartbeatTimer = NULL;
 
 static atomic_bool g_isEnabled = false;
 
-// ============================================================================
-#pragma mark - Utility -
-// ============================================================================
-
-int kslifecycle_currentTaskRole(void)
-{
-#if KSCRASH_HOST_TV || KSCRASH_HOST_WATCH
-    return TASK_UNSPECIFIED;
-#else
-    task_category_policy_data_t policy;
-    mach_msg_type_number_t count = TASK_CATEGORY_POLICY_COUNT;
-    boolean_t getDefault = false;
-
-    kern_return_t kr =
-        task_policy_get(mach_task_self(), TASK_CATEGORY_POLICY, (task_policy_t)&policy, &count, &getDefault);
-
-    return kr == KERN_SUCCESS ? policy.role : TASK_UNSPECIFIED;
-#endif
-}
-
-const char *kslifecycle_stringFromTaskRole(int role)
-{
-    switch (role) {
-        case TASK_RENICED:
-            return "RENICED";
-        case TASK_UNSPECIFIED:
-            return "UNSPECIFIED";
-        case TASK_FOREGROUND_APPLICATION:
-            return "FOREGROUND_APPLICATION";
-        case TASK_BACKGROUND_APPLICATION:
-            return "BACKGROUND_APPLICATION";
-        case TASK_CONTROL_APPLICATION:
-            return "CONTROL_APPLICATION";
-        case TASK_GRAPHICS_SERVER:
-            return "GRAPHICS_SERVER";
-        case TASK_THROTTLE_APPLICATION:
-            return "THROTTLE_APPLICATION";
-        case TASK_NONUI_APPLICATION:
-            return "NONUI_APPLICATION";
-        case TASK_DEFAULT_APPLICATION:
-            return "DEFAULT_APPLICATION";
-#if defined(TASK_DARWINBG_APPLICATION)
-        case TASK_DARWINBG_APPLICATION:
-            return "DARWINBG_APPLICATION";
-#endif
-#if defined(TASK_USER_INIT_APPLICATION)
-        case TASK_USER_INIT_APPLICATION:
-            return "USER_INIT_APPLICATION";
-#endif
-        default:
-            return "UNKNOWN";
-    }
-}
-
 /** Write the current task role to the sidecar if it changed.
  *  Call under the sidecar lock.
  */
 static void updateSidecarTaskRole(KSCrash_LifecycleData *sc)
 {
-    int32_t role = (int32_t)kslifecycle_currentTaskRole();
+    int32_t role = (int32_t)kstaskrole_current();
     if (sc->taskRole != role) {
         sc->taskRole = role;
     }
@@ -353,11 +299,11 @@ static void monitorInit(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused v
     g_callbacks = *callbacks;
 }
 
-/** Carry forward cumulative counters from the previous run's sidecar.
+/** Carry forward cumulative counters from the previous run's lifecycle.
  *
- *  Called from notifyPostSystemEnable so that the Termination monitor has
- *  already determined its reason. Counters are preserved when the previous
- *  run did not produce a crash report (clean shutdown, reboot, OS/app upgrade). */
+ *  Called from notifyPostSystemEnable. RunContext has already computed whether
+ *  the previous run produced a report. Counters are preserved when no report
+ *  was produced (clean shutdown, reboot, OS/app upgrade). */
 static void carryForwardFromPreviousRun(void)
 {
     KSCrash_LifecycleData *sc = g_sidecar;
@@ -365,28 +311,18 @@ static void carryForwardFromPreviousRun(void)
         return;
     }
 
-    const char *lastRunID = kscrash_getLastRunID();
-    KSCrash_LifecycleData prev = {};
-    if (!kslifecycle_getSnapshotForRunID(lastRunID, &prev)) {
+    const KSCrashRunContext *ctx = ksruncontext_previousRunContext();
+    if (!ctx->lifecycleValid) {
         return;
     }
 
-    // Carry forward when the previous run did NOT produce a report — i.e., it
-    // was not a crash, hang, resource kill, or unexplained termination.
     // Use += because the current launch's increments have already been applied
     // to the sidecar during createSidecar().
-    KSTerminationReason reason = kstermination_getReason();
-    bool previousRunCrashed;
-    if (reason != KSTerminationReasonNone) {
-        previousRunCrashed = kstermination_producesReport(reason);
-    } else {
-        previousRunCrashed = prev.fatalReported;
-    }
-    if (!previousRunCrashed) {
-        sc->activeDurationSinceLastCrashNs += prev.activeDurationSinceLastCrashNs;
-        sc->backgroundDurationSinceLastCrashNs += prev.backgroundDurationSinceLastCrashNs;
-        sc->launchesSinceLastCrash += prev.launchesSinceLastCrash;
-        sc->sessionsSinceLastCrash += prev.sessionsSinceLastCrash;
+    if (!ctx->producedReport) {
+        sc->activeDurationSinceLastCrashNs += ctx->lifecycle.activeDurationSinceLastCrashNs;
+        sc->backgroundDurationSinceLastCrashNs += ctx->lifecycle.backgroundDurationSinceLastCrashNs;
+        sc->launchesSinceLastCrash += ctx->lifecycle.launchesSinceLastCrash;
+        sc->sessionsSinceLastCrash += ctx->lifecycle.sessionsSinceLastCrash;
     }
 }
 
@@ -429,7 +365,7 @@ static KSCrash_LifecycleData *createSidecar(void)
          ts == KSCrashAppTransitionStateForegrounding);
     sc->userPerceptible = ksapp_transitionStateIsUserPerceptible(ts);
 
-    sc->taskRole = (int32_t)kslifecycle_currentTaskRole();
+    sc->taskRole = (int32_t)kstaskrole_current();
     sc->magic = KSLIFECYCLE_MAGIC;
     sc->version = KSCrash_Lifecycle_CurrentVersion;
     return sc;

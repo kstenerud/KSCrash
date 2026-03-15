@@ -58,6 +58,7 @@
 #include "KSStackCursor_MachineContext.h"
 #include "KSString.h"
 #include "KSSystemCapabilities.h"
+#include "KSTaskRole.h"
 #include "KSThread.h"
 #include "KSThreadCache.h"
 #include "Unwind/KSStackCursor_Unwind.h"
@@ -1388,12 +1389,10 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
             writer->beginObject(writer, KSCrashField_Hang);
             {
                 writer->addUIntegerElement(writer, KSCrashField_HangStartNanoseconds, crash->Hang.timestamp);
-                writer->addStringElement(writer, KSCrashField_HangStartRole,
-                                         kslifecycle_stringFromTaskRole(crash->Hang.role));
+                writer->addStringElement(writer, KSCrashField_HangStartRole, kstaskrole_toString(crash->Hang.role));
 
                 writer->addUIntegerElement(writer, KSCrashField_HangEndNanoseconds, crash->Hang.endTimestamp);
-                writer->addStringElement(writer, KSCrashField_HangEndRole,
-                                         kslifecycle_stringFromTaskRole(crash->Hang.endRole));
+                writer->addStringElement(writer, KSCrashField_HangEndRole, kstaskrole_toString(crash->Hang.endRole));
             }
             writer->endContainer(writer);
         }
