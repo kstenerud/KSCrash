@@ -28,11 +28,6 @@
  *
  * Monitors never import each other's headers — all cross-cutting reads
  * go through RunContext.
- *
- * Initialization order in kscrash_install():
- *   1. kscm_enableMonitors()          — create sidecars, enable monitors
- *   2. ksruncontext_init(pathCallback) — store resolver, analyze previous run
- *   3. kscm_notifyPostSystemEnable()  — monitors read RunContext
  */
 
 #ifndef KSCrashRunContext_h
@@ -90,9 +85,13 @@ void ksruncontext_init(KSCrashSidecarRunPathForRunIDProviderFunc pathForRunID);
  *  Reads all sidecars for the given run, determines the termination reason
  *  by comparing against the current system state, and populates outContext.
  *
+ *  @param runID      The run ID whose sidecars to read.
+ *  @param pathForRunID  Callback that resolves sidecar file paths for a given run ID.
+ *  @param outContext Populated on return.
  *  @return true if at least one sidecar was successfully read.
  */
-bool ksruncontext_contextForRunID(const char *runID, KSCrashRunContext *outContext);
+bool ksruncontext_contextForRunID(const char *runID, KSCrashSidecarRunPathForRunIDProviderFunc pathForRunID,
+                                  KSCrashRunContext *outContext);
 
 /** Returns the cached previous run context.
  *  Only valid after ksruncontext_init().

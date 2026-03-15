@@ -45,7 +45,7 @@ extern "C" {
 // ============================================================================
 
 /**
- * Phase 1: Enable all added crash monitors.
+ * Enable all added crash monitors.
  *
  * Enables all monitors that have been added to the system. However, not all
  * monitors may be activated due to certain conditions. Monitors that are
@@ -57,21 +57,12 @@ extern "C" {
 bool kscm_enableMonitors(void);
 
 /**
- * Phase 3: Notify all enabled monitors that the system is fully initialized.
+ * Notify all enabled monitors that the system is fully initialized.
  *
- * Call after ksruncontext_init() so that monitors can read previous-run analysis.
+ * Monitors may use this callback to read previous-run analysis from RunContext.
+ * Must only be called after RunContext has been initialized.
  */
 void kscm_notifyPostSystemEnable(void);
-
-/**
- * Activates all added crash monitors (both phases in one call).
- *
- * Prefer kscm_enableMonitors() + ksruncontext_init() + kscm_notifyPostSystemEnable() instead.
- * This function skips previous-run analysis.
- *
- * @return bool True if at least one monitor was successfully activated, false if no monitors were activated.
- */
-bool kscm_activateMonitors(void);
 
 /**
  * Disables all active crash monitors.

@@ -158,13 +158,6 @@ void kscmr_notifyPostSystemEnable(KSCrashMonitorAPIList *monitorList)
     }
 }
 
-bool kscmr_activateMonitors(KSCrashMonitorAPIList *monitorList)
-{
-    bool result = kscmr_enableMonitors(monitorList);
-    kscmr_notifyPostSystemEnable(monitorList);
-    return result;
-}
-
 void kscmr_disableAllMonitors(KSCrashMonitorAPIList *monitorList)
 {
     for (size_t i = 0; i < KSCRASH_MONITOR_API_COUNT; i++) {
