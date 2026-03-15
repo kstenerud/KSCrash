@@ -167,6 +167,30 @@ NSString *const KSCrashNSExceptionStacktraceFuncName = @"exceptionWithStacktrace
     trigger_user_fatal();
 }
 
++ (void)trigger_memory_oom
+{
+    // Allocate memory in 500 MiB chunks on a background queue until the
+    // system kills us. Done off the main thread so the watchdog monitor
+    // doesn't misclassify this as a hang.
+    // Requires KSCRASH_SIM_MEMORY_TERMINATION_ENABLED=1 in the environment
+    // so the simulator OOM simulation fires SIGKILL at terminal level.
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+        const size_t chunkSize = 500 * 1024 * 1024;  // 500 MiB
+        NSMutableArray *chunks = [NSMutableArray array];
+        while (true) {
+            void *chunk = malloc(chunkSize);
+            if (chunk == NULL) {
+                break;
+            }
+            memset(chunk, 0xFF, chunkSize);
+            [chunks addObject:[NSValue valueWithPointer:chunk]];
+        }
+    });
+    // Keep main thread alive and responsive while background allocates.
+    // SIGKILL will terminate the process before this expires.
+    [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:100.0]];
+}
+
 + (void)trigger_other_manyThreads
 {
     NSUInteger const threadsCount = 1005;

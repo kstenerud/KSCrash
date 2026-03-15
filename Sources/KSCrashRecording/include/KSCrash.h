@@ -32,6 +32,7 @@
 #import "KSCrashReportStore.h"
 #import "KSCrashReportWriter.h"
 #import "KSSystemCapabilities.h"
+#import "KSTerminationReason.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -97,6 +98,9 @@ NS_ASSUME_NONNULL_BEGIN
  *  This includes crashes, resource terminations (OOM, thermal, CPU, etc.), and unrecovered hangs.
  *  Non-fatal reports, profiler events, and clean exits do not count. */
 @property(nonatomic, readonly, assign) BOOL crashedLastLaunch;
+
+/** Why the previous run was terminated.  Only valid after install. */
+@property(nonatomic, readonly, assign) KSTerminationReason previousTerminationReason;
 
 /** Information about the operating system and environment.
  *

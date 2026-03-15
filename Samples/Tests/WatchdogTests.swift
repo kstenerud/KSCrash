@@ -25,6 +25,7 @@
 //
 
 import IntegrationTestsHelper
+import KSCrashRecording
 import Report
 import XCTest
 
@@ -63,6 +64,10 @@ import XCTest
 
             // Verify we got a SIGKILL
             XCTAssertEqual(rawReport.crash.error.signal?.signal, 9, "Should be SIGKILL (signal 9)")
+
+            let state = try readState()
+            XCTAssertTrue(state.crashedLastLaunch)
+            XCTAssertEqual(state.terminationReason, .hang)
         }
 
         func testWatchdogTimeoutHasThreads() throws {
@@ -111,6 +116,10 @@ import XCTest
             // Verify hang info is NOT present - the fatal exception takes precedence
             let hangInfo = rawReport.crash.error.hang
             XCTAssertNil(hangInfo, "Hang info should NOT be present when a fatal exception occurred")
+
+            let state = try readState()
+            XCTAssertTrue(state.crashedLastLaunch)
+            XCTAssertEqual(state.terminationReason, .crash)
         }
     }
 

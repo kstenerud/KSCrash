@@ -298,15 +298,13 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
         // NOTE: Some teams might want to do this in prod.
         // For example, we could send a SIGTERM so the system
         // catches a stack trace.
-        static BOOL sIsRunningInTests;
         static BOOL sSimulatorMemoryKillEnabled;
         static dispatch_once_t onceToken;
         dispatch_once(&onceToken, ^{
-            NSDictionary<NSString *, NSString *> *env = NSProcessInfo.processInfo.environment;
-            sIsRunningInTests = env[@"XCTestSessionIdentifier"] != nil;
-            sSimulatorMemoryKillEnabled = [env[@"KSCRASH_SIM_MEMORY_TERMINATION_ENABLED"] boolValue];
+            sSimulatorMemoryKillEnabled =
+                [NSProcessInfo.processInfo.environment[@"KSCRASH_SIM_MEMORY_TERMINATION_ENABLED"] boolValue];
         });
-        if (sSimulatorMemoryKillEnabled && !sIsRunningInTests && newLevel == KSCrashAppMemoryStateTerminal) {
+        if (sSimulatorMemoryKillEnabled && newLevel == KSCrashAppMemoryStateTerminal) {
             kill(getpid(), SIGKILL);
             _exit(0);
         }
