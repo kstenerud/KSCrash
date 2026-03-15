@@ -71,11 +71,6 @@ enum
     /** Monitor uncaught Objective-C NSExceptions. */
     KSCrashMonitorTypeNSException        = 1 << 3,
 
-    /** Detect deadlocks on the main thread.
-     * @note Deprecated. Use KSCrashMonitorTypeWatchdog instead.
-     */
-    KSCrashMonitorTypeMainThreadDeadlock = 1 << 4,
-
     /** Monitor user-reported custom exceptions. */
     KSCrashMonitorTypeUserReported       = 1 << 5,
 
@@ -159,7 +154,13 @@ enum
                                   ),
 
     /** Disable automatic reporting; only manual reports are allowed. */
-    KSCrashMonitorTypeManual = (KSCrashMonitorTypeRequired | KSCrashMonitorTypeUserReported)
+    KSCrashMonitorTypeManual = (KSCrashMonitorTypeRequired | KSCrashMonitorTypeUserReported),
+
+    // Deprecated aliases — kept for source compatibility.
+    /** Deprecated: use KSCrashMonitorTypeWatchdog instead. */
+    KSCrashMonitorTypeMainThreadDeadlock = 1 << 4,
+    /** Deprecated: use KSCrashMonitorTypeTermination instead. */
+    KSCrashMonitorTypeMemoryTermination  = KSCrashMonitorTypeTermination,
 } NS_SWIFT_NAME(MonitorType)
 #ifndef __OBJC__
 KSCrashMonitorType

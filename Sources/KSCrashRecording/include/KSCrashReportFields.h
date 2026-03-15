@@ -83,6 +83,8 @@ KSCRF_DEFINE_CONSTANT(KSCrashExcType, NSException, nsException, "nsexception")
 KSCRF_DEFINE_CONSTANT(KSCrashExcType, Signal, signal, "signal")
 KSCRF_DEFINE_CONSTANT(KSCrashExcType, User, user, "user")
 KSCRF_DEFINE_CONSTANT(KSCrashExcType, Termination, termination, "termination")
+/** @deprecated Use KSCrashExcType_Termination instead. Kept for reading legacy reports. */
+KSCRF_DEFINE_CONSTANT(KSCrashExcType, MemoryTermination, memoryTermination, "memory_termination")
 KSCRF_DEFINE_CONSTANT(KSCrashExcType, Hang, hang, "hang")
 
 #pragma mark - Common -

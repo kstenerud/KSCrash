@@ -15,7 +15,7 @@ The public API surface consists of: **KSCrashRecording**, **KSCrashFilters**, **
 
 ## API Stability
 
-KSCrash prioritizes API stability. The following changes to public headers are **breaking** and need strong justification plus migration guidance:
+KSCrash prioritizes API stability. A change is **breaking** only if it breaks code that compiled against the last tagged release (e.g., 2.5.1), not against unreleased work on master. The following changes to public headers need strong justification plus migration guidance:
 
 - **Method parameter changes**: Any addition, removal, type change, or reordering. ObjC has no default parameters, so even adding a nullable parameter breaks all call sites.
 - **Callback/function pointer signature changes**: Parameter or return type changes.

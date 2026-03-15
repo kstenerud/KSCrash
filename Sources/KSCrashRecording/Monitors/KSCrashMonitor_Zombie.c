@@ -162,8 +162,6 @@ static void install(void)
                         cacheSize * sizeof(*g_zombieCacheBuffer));
             return;
         }
-    } else {
-        memset(g_zombieCacheBuffer, 0, cacheSize * sizeof(*g_zombieCacheBuffer));
     }
     g_zombieCache = g_zombieCacheBuffer;
 
