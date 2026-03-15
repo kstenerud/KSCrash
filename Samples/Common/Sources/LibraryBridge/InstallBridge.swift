@@ -183,7 +183,7 @@ extension InstallBridge {
         (.watchdog, "Watchdog", "Hangs and watchdog timeout terminations"),
         (
             .termination, "Termination",
-            "Termination due to resource exhaustion (memory, thermal, CPU, battery)"
+            "OS terminations from resource exhaustion (OOM, thermal) or maintenance (reboot, app upgrade)"
         ),
         (.zombie, "Zombie", "Attempts to access deallocated objects"),
         (.userReported, "User Reported", "Custom crash reports"),

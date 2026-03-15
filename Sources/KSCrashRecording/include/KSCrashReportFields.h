@@ -272,6 +272,8 @@ KSCRF_DEFINE_CONSTANT(KSCrashField, ThreadCount, threadCount, "thread_count")
 KSCRF_DEFINE_CONSTANT(KSCrashField, DataProtectionActive, dataProtectionActive, "data_protection_active")
 
 KSCRF_DEFINE_CONSTANT(KSCrashField, TerminationReason, terminationReason, "termination_reason")
+/** Deprecated: kept for reading legacy reports that contain a "memory_termination" section. */
+KSCRF_DEFINE_CONSTANT(KSCrashField, MemoryTermination, memoryTermination, "memory_termination")
 KSCRF_DEFINE_CONSTANT(KSCrashField, UserPerceptible, userPerceptible, "user_perceptible")
 KSCRF_DEFINE_CONSTANT(KSCrashField, TaskRole, taskRole, "task_role")
 

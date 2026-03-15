@@ -382,7 +382,7 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(NSInteger, sessionsSinceLaunch)
     const char *lastRunID = kscrash_getLastRunID();
     KSCrash_LifecycleData prev = {};
     if (lastRunID != NULL && kslifecycle_getSnapshotForRunID(lastRunID, &prev)) {
-        return prev.fatalReported;
+        return prev.fatalReported != 0;
     }
     return NO;
 }

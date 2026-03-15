@@ -50,7 +50,7 @@
 static const char *const kMonitorName = "Termination";
 
 static atomic_bool g_isEnabled = false;
-static KSTerminationReason g_reason = KSTerminationReasonNone;
+static _Atomic KSTerminationReason g_reason = KSTerminationReasonNone;
 
 // ============================================================================
 #pragma mark - Termination Reason -

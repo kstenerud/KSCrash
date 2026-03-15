@@ -128,9 +128,8 @@ private func readAndDeleteReports() {
         if let report = reportStore.report(for: reportID.int64Value) {
             print("[LeaksTest] Read report \(reportID)")
             // Access the report data to exercise parsing
-            if let value = report.value as [String: Any]? {
-                print("[LeaksTest] Report has \(value.keys.count) top-level keys")
-            }
+            let value = report.value
+            print("[LeaksTest] Report has \(value.keys.count) top-level keys")
         }
     }
 
