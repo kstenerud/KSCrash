@@ -31,12 +31,13 @@
 #import "KSCrashMonitor_Resource.h"
 #import "KSCrashMonitor_System.h"
 #import "KSCrashMonitor_Termination.h"
+#import "KSCrashRunContext.h"
 
-// Test helper declared extern (defined in production code with __attribute__((unused)))
-extern KSTerminationReason kscm_termination_testcode_determineReason(const KSCrash_LifecycleData *prevLifecycle,
-                                                                     const KSCrash_ResourceData *prevResource,
-                                                                     const KSCrash_SystemData *prevSystem,
-                                                                     const KSCrash_SystemData *currSystem);
+// Test helper declared extern (defined in KSCrashRunContext.m with __attribute__((unused)))
+extern KSTerminationReason ksruncontext_testcode_determineReason(const KSCrash_LifecycleData *prevLifecycle,
+                                                                 const KSCrash_ResourceData *prevResource,
+                                                                 const KSCrash_SystemData *prevSystem,
+                                                                 const KSCrash_SystemData *currSystem);
 
 #pragma mark - Helpers
 
@@ -92,7 +93,7 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     res.memoryLevel = KSCrashAppMemoryStateCritical;
     KSCrash_SystemData sys = sameSystem();
 
-    XCTAssertEqual(kscm_termination_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonClean);
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonClean);
 }
 
 - (void)testFatalReportedReturnsCrash
@@ -102,7 +103,7 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     res.memoryLevel = KSCrashAppMemoryStateCritical;
     KSCrash_SystemData sys = sameSystem();
 
-    XCTAssertEqual(kscm_termination_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonCrash);
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonCrash);
 }
 
 // MARK: - Hang in progress → Hang
@@ -115,7 +116,7 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     res.memoryLevel = KSCrashAppMemoryStateCritical;
     KSCrash_SystemData sys = sameSystem();
 
-    XCTAssertEqual(kscm_termination_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonHang);
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonHang);
 }
 
 // MARK: - First launch
@@ -125,7 +126,7 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     KSCrash_LifecycleData lc = makeLifecycle(false, false);
 
     // Lifecycle exists so we know a prior run happened — missing system is unexplained, not first launch.
-    XCTAssertEqual(kscm_termination_testcode_determineReason(&lc, NULL, NULL, NULL), KSTerminationReasonUnexplained);
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, NULL, NULL, NULL), KSTerminationReasonUnexplained);
 }
 
 - (void)testNoPrevSystemWithResourceStillReturnsUnexplained
@@ -135,7 +136,7 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     res.memoryLevel = KSCrashAppMemoryStateCritical;
 
     // Even with critical memory, no prevSystem means unexplained (lifecycle proves a prior run existed).
-    XCTAssertEqual(kscm_termination_testcode_determineReason(&lc, &res, NULL, NULL), KSTerminationReasonUnexplained);
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, NULL, NULL), KSTerminationReasonUnexplained);
 }
 
 // MARK: - Individual resource termination reasons
@@ -147,7 +148,7 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     res.memoryLevel = KSCrashAppMemoryStateCritical;
     KSCrash_SystemData sys = sameSystem();
 
-    XCTAssertEqual(kscm_termination_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonMemoryLimit);
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonMemoryLimit);
 }
 
 - (void)testMemoryLimitTerminal
@@ -157,7 +158,7 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     res.memoryLevel = KSCrashAppMemoryStateTerminal;
     KSCrash_SystemData sys = sameSystem();
 
-    XCTAssertEqual(kscm_termination_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonMemoryLimit);
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonMemoryLimit);
 }
 
 - (void)testMemoryPressureCritical
@@ -167,7 +168,7 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     res.memoryPressure = KSCrashAppMemoryStateCritical;
     KSCrash_SystemData sys = sameSystem();
 
-    XCTAssertEqual(kscm_termination_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonMemoryPressure);
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonMemoryPressure);
 }
 
 - (void)testCPUExcessive
@@ -180,7 +181,7 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     res.cpuUsageSystem = 800;
     KSCrash_SystemData sys = sameSystem();
 
-    XCTAssertEqual(kscm_termination_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonCPU);
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonCPU);
 }
 
 - (void)testCPUBelowThreshold
@@ -194,7 +195,7 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     KSCrash_SystemData sys = sameSystem();
 
     // Should be unexplained (nothing critical), not CPU
-    XCTAssertEqual(kscm_termination_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonUnexplained);
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonUnexplained);
 }
 
 - (void)testThermalCritical
@@ -204,7 +205,7 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     res.thermalState = 3;  // NSProcessInfoThermalStateCritical
     KSCrash_SystemData sys = sameSystem();
 
-    XCTAssertEqual(kscm_termination_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonThermal);
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonThermal);
 }
 
 - (void)testLowBattery
@@ -215,7 +216,7 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     res.batteryState = 1;  // unplugged
     KSCrash_SystemData sys = sameSystem();
 
-    XCTAssertEqual(kscm_termination_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonLowBattery);
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonLowBattery);
 }
 
 - (void)testLowBatteryWhileChargingIsNotLowBattery
@@ -227,7 +228,7 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     KSCrash_SystemData sys = sameSystem();
 
     // Battery is low but plugged in — not a battery kill
-    XCTAssertEqual(kscm_termination_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonUnexplained);
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonUnexplained);
 }
 
 // MARK: - System change reasons
@@ -239,7 +240,7 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     KSCrash_SystemData prev = makeSystem("17.4", "21E258", "1.0", "100", 1000);
     KSCrash_SystemData curr = makeSystem("17.5", "21F258", "1.0", "100", 2000);
 
-    XCTAssertEqual(kscm_termination_testcode_determineReason(&lc, &res, &prev, &curr), KSTerminationReasonOSUpgrade);
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &prev, &curr), KSTerminationReasonOSUpgrade);
 }
 
 - (void)testAppUpgradeShortVersion
@@ -249,7 +250,7 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     KSCrash_SystemData prev = makeSystem("17.4", "21E258", "1.0", "100", 1000);
     KSCrash_SystemData curr = makeSystem("17.4", "21E258", "1.1", "100", 1000);
 
-    XCTAssertEqual(kscm_termination_testcode_determineReason(&lc, &res, &prev, &curr), KSTerminationReasonAppUpgrade);
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &prev, &curr), KSTerminationReasonAppUpgrade);
 }
 
 - (void)testAppUpgradeBuildVersion
@@ -259,7 +260,7 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     KSCrash_SystemData prev = makeSystem("17.4", "21E258", "1.0", "100", 1000);
     KSCrash_SystemData curr = makeSystem("17.4", "21E258", "1.0", "101", 1000);
 
-    XCTAssertEqual(kscm_termination_testcode_determineReason(&lc, &res, &prev, &curr), KSTerminationReasonAppUpgrade);
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &prev, &curr), KSTerminationReasonAppUpgrade);
 }
 
 - (void)testReboot
@@ -269,7 +270,7 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     KSCrash_SystemData prev = makeSystem("17.4", "21E258", "1.0", "100", 1000);
     KSCrash_SystemData curr = makeSystem("17.4", "21E258", "1.0", "100", 2000);
 
-    XCTAssertEqual(kscm_termination_testcode_determineReason(&lc, &res, &prev, &curr), KSTerminationReasonReboot);
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &prev, &curr), KSTerminationReasonReboot);
 }
 
 - (void)testOSUpgradeTakesPriorityOverReboot
@@ -280,7 +281,7 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     KSCrash_SystemData prev = makeSystem("17.4", "21E258", "1.0", "100", 1000);
     KSCrash_SystemData curr = makeSystem("17.5", "21F258", "1.0", "100", 2000);
 
-    XCTAssertEqual(kscm_termination_testcode_determineReason(&lc, &res, &prev, &curr), KSTerminationReasonOSUpgrade);
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &prev, &curr), KSTerminationReasonOSUpgrade);
 }
 
 - (void)testSystemChangeTakesPriorityOverResource
@@ -292,7 +293,7 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     KSCrash_SystemData prev = makeSystem("17.4", "21E258", "1.0", "100", 1000);
     KSCrash_SystemData curr = makeSystem("17.4", "21E258", "1.0", "100", 2000);
 
-    XCTAssertEqual(kscm_termination_testcode_determineReason(&lc, &res, &prev, &curr), KSTerminationReasonReboot);
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &prev, &curr), KSTerminationReasonReboot);
 }
 
 - (void)testOSVersionOnlyChangeIsOSUpgrade
@@ -303,7 +304,7 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     KSCrash_SystemData prev = makeSystem("17.4", "21E258", "1.0", "100", 1000);
     KSCrash_SystemData curr = makeSystem("17.4", "21E300", "1.0", "100", 1000);
 
-    XCTAssertEqual(kscm_termination_testcode_determineReason(&lc, &res, &prev, &curr), KSTerminationReasonOSUpgrade);
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &prev, &curr), KSTerminationReasonOSUpgrade);
 }
 
 - (void)testNoSystemChangeReturnsUnexplained
@@ -314,7 +315,7 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     KSCrash_SystemData curr = makeSystem("17.4", "21E258", "1.0", "100", 1000);
 
     // No system change, resource data exists but nothing critical → unexplained
-    XCTAssertEqual(kscm_termination_testcode_determineReason(&lc, &res, &prev, &curr), KSTerminationReasonUnexplained);
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &prev, &curr), KSTerminationReasonUnexplained);
 }
 
 - (void)testRebootZeroPrevTimestampIsNotReboot
@@ -325,7 +326,7 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     KSCrash_SystemData prev = makeSystem("17.4", "21E258", "1.0", "100", 0);
     KSCrash_SystemData curr = makeSystem("17.4", "21E258", "1.0", "100", 2000);
 
-    XCTAssertEqual(kscm_termination_testcode_determineReason(&lc, &res, &prev, &curr), KSTerminationReasonUnexplained);
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &prev, &curr), KSTerminationReasonUnexplained);
 }
 
 - (void)testRebootZeroCurrTimestampIsNotReboot
@@ -335,7 +336,7 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     KSCrash_SystemData prev = makeSystem("17.4", "21E258", "1.0", "100", 1000);
     KSCrash_SystemData curr = makeSystem("17.4", "21E258", "1.0", "100", 0);
 
-    XCTAssertEqual(kscm_termination_testcode_determineReason(&lc, &res, &prev, &curr), KSTerminationReasonUnexplained);
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &prev, &curr), KSTerminationReasonUnexplained);
 }
 
 - (void)testRebootWithinJitterIsNotReboot
@@ -346,7 +347,7 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     KSCrash_SystemData prev = makeSystem("17.4", "21E258", "1.0", "100", 1000);
     KSCrash_SystemData curr = makeSystem("17.4", "21E258", "1.0", "100", 1015);
 
-    XCTAssertEqual(kscm_termination_testcode_determineReason(&lc, &res, &prev, &curr), KSTerminationReasonUnexplained);
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &prev, &curr), KSTerminationReasonUnexplained);
 }
 
 - (void)testRebootJustOutsideJitter
@@ -357,7 +358,7 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     KSCrash_SystemData prev = makeSystem("17.4", "21E258", "1.0", "100", 1000);
     KSCrash_SystemData curr = makeSystem("17.4", "21E258", "1.0", "100", 1031);
 
-    XCTAssertEqual(kscm_termination_testcode_determineReason(&lc, &res, &prev, &curr), KSTerminationReasonReboot);
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &prev, &curr), KSTerminationReasonReboot);
 }
 
 // MARK: - Priority ordering (resource)
@@ -370,7 +371,7 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     res.memoryPressure = KSCrashAppMemoryStateCritical;
     KSCrash_SystemData sys = sameSystem();
 
-    XCTAssertEqual(kscm_termination_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonMemoryLimit);
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonMemoryLimit);
 }
 
 - (void)testCPUTakesPriorityOverThermal
@@ -383,7 +384,7 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     res.thermalState = 3;  // critical
     KSCrash_SystemData sys = sameSystem();
 
-    XCTAssertEqual(kscm_termination_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonCPU);
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonCPU);
 }
 
 - (void)testThermalTakesPriorityOverBattery
@@ -395,7 +396,7 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     res.batteryState = 1;
     KSCrash_SystemData sys = sameSystem();
 
-    XCTAssertEqual(kscm_termination_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonThermal);
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonThermal);
 }
 
 // MARK: - Unexplained
@@ -406,7 +407,7 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     KSCrash_ResourceData res = makeResource();
     KSCrash_SystemData sys = sameSystem();
 
-    XCTAssertEqual(kscm_termination_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonUnexplained);
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonUnexplained);
 }
 
 // MARK: - reasonToString

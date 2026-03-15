@@ -190,6 +190,18 @@ void kscm_setEventCallbackWithResult(void (*onEvent)(struct KSCrash_MonitorConte
     g_state.onExceptionEventWithResult = onEvent;
 }
 
+bool kscm_enableMonitors(void)
+{
+    init();
+    return kscmr_enableMonitors(&g_state.monitors);
+}
+
+void kscm_notifyPostSystemEnable(void)
+{
+    init();
+    kscmr_notifyPostSystemEnable(&g_state.monitors);
+}
+
 bool kscm_activateMonitors(void)
 {
     init();

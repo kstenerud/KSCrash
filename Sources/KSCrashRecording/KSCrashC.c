@@ -48,6 +48,7 @@
 #include "KSCrashReportC.h"
 #include "KSCrashReportFixer.h"
 #include "KSCrashReportStoreC+Private.h"
+#include "KSCrashRunContext.h"
 #include "KSDynamicLinker.h"
 #include "KSFileUtils.h"
 #include "KSObjC.h"
@@ -86,9 +87,6 @@ g_monitorMappings[] = { { KSCrashMonitorTypeMachException, kscm_machexception_ge
                         { KSCrashMonitorTypeMainThreadDeadlock, kscm_deadlock_getAPI },
                         { KSCrashMonitorTypeUserReported, kscm_user_getAPI },
                         { KSCrashMonitorTypeSystem, kscm_system_getAPI },
-                        // Termination must come before Lifecycle: Lifecycle's
-                        // notifyPostSystemEnable reads the termination reason,
-                        // and the callbacks fire in registration order.
                         { KSCrashMonitorTypeTermination, kscm_termination_getAPI },
                         { KSCrashMonitorTypeApplicationState, kscm_lifecycle_getAPI },
                         { KSCrashMonitorTypeZombie, kscm_zombie_getAPI },
@@ -482,10 +480,12 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     setMonitors(configuration->monitors);
     setPluginMonitors(configuration->plugins.apis, configuration->plugins.length);
 
-    if (kscm_activateMonitors() == false) {
+    if (kscm_enableMonitors() == false) {
         KSLOG_ERROR("No crash monitors are active");
         return KSCrashInstallErrorNoActiveMonitors;
     }
+    ksruncontext_init(getRunSidecarPathForRunIDCallback);
+    kscm_notifyPostSystemEnable();
 
     g_installed = true;
     KSLOG_DEBUG("Installation complete.");

@@ -94,7 +94,7 @@ typedef struct {
     int32_t sessionsSinceLastCrash;
     int32_t taskRole;  // task_role_t — updated by heartbeat and on lifecycle events
 
-    uint8_t crashedLastLaunch KSCRASH_DEPRECATED("Use kstermination_getReason()");
+    uint8_t crashedLastLaunch KSCRASH_DEPRECATED("Use ksruncontext_previousRunContext()->terminationReason");
     uint8_t transitionState;  // KSCrashAppTransitionState at last update
     uint8_t fatalReported;    // true if a crash handler ran (distinguishes crash from OS kill)
     uint8_t userPerceptible;  // true if the user could perceive the app as part of their
@@ -133,8 +133,8 @@ typedef struct {
     int sessionsSinceLaunch;
 
     /** If true, the application crashed on the previous launch.
-     *  @deprecated Use kstermination_getReason() from the Termination monitor instead. */
-    bool crashedLastLaunch KSCRASH_DEPRECATED("Use kstermination_getReason()");
+     *  @deprecated Use ksruncontext_previousRunContext()->terminationReason from the Termination monitor instead. */
+    bool crashedLastLaunch KSCRASH_DEPRECATED("Use ksruncontext_previousRunContext()->terminationReason");
 
     /** Timestamp for when the app state was last changed (active<->inactive,
      * background<->foreground). In seconds (derived from monotonic nanoseconds). */
@@ -176,20 +176,6 @@ bool kslifecycle_getSnapshotForRunID(const char *runID, KSCrash_LifecycleData *o
 /** Access the Lifecycle Monitor API.
  */
 KSCrashMonitorAPI *kscm_lifecycle_getAPI(void);
-
-/** Query the current task role from the kernel.
- *
- * Returns the task_role_t value (e.g. TASK_FOREGROUND_APPLICATION).
- * Returns TASK_UNSPECIFIED on tvOS/watchOS or on failure.
- */
-int kslifecycle_currentTaskRole(void);
-
-/** Returns a human-readable string for a task role.
- *
- * @param role The task_role_t value to convert.
- * @return A string representation of the role (e.g., "FOREGROUND_APPLICATION").
- */
-const char *kslifecycle_stringFromTaskRole(int /*task_role_t*/ role);
 
 /** Stitch lifecycle sidecar data into a report at delivery time.
  *  Reads the binary struct, converts nanosecond durations to seconds,
