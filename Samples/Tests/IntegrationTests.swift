@@ -172,25 +172,11 @@ final class CppTests: IntegrationTestBase {
         }
 
         func testTermination() throws {
-            // Default (termination monitoring disabled)
+            // SIGTERM is caught to record a clean exit but no crash report is written
             try launchAndInstall()
             try terminate()
 
             XCTAssertFalse(try hasCrashReport())
-
-            // With termination monitoring enabled
-            try launchAndInstall { config in
-                config.isSigTermMonitoringEnabled = true
-            }
-            try terminate()
-
-            let rawReport = try readCrashReport()
-            try rawReport.validate()
-            XCTAssertEqual(rawReport.crash.error.signal?.name, "SIGTERM")
-
-            let appleReport = try launchAndReportCrash()
-            print(appleReport)
-            XCTAssertTrue(appleReport.contains("SIGTERM"))
         }
     }
 

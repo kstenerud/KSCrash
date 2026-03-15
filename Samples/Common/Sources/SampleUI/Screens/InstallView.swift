@@ -76,9 +76,6 @@ struct InstallView: View {
                 Toggle(isOn: bridge.configBinding(for: \.enableSwapCxaThrow)) {
                     Text("Swap __cxa_throw")
                 }
-                Toggle(isOn: bridge.configBinding(for: \.enableSigTermMonitoring)) {
-                    Text("SIGTERM monitoring")
-                }
             }
 
             Section(header: Text("Installations")) {

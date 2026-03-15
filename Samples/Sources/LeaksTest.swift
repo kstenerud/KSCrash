@@ -74,14 +74,10 @@ private func installKSCrash() -> Bool {
 }
 
 private func exerciseKSCrashAPIs() {
-    // Set user info
-    KSCrash.shared.userInfo = [
-        "leaks_test": true,
-        "test_string": "Hello from leaks test",
-        "test_number": 42,
-        "test_array": [1, 2, 3],
-        "test_dict": ["nested": "value"],
-    ]
+    // Set user info using per-key API
+    KSCrash.shared.setUserInfo(true, forKey: "leaks_test")
+    KSCrash.shared.setUserInfo("Hello from leaks test", forKey: "test_string")
+    KSCrash.shared.setUserInfo(42, forKey: "test_number")
     print("[LeaksTest] Set userInfo")
 
     // Access various properties
@@ -109,11 +105,9 @@ private func exerciseKSCrashAPIs() {
     )
     print("[LeaksTest] Reported user exception")
 
-    // Update userInfo again
-    KSCrash.shared.userInfo = [
-        "leaks_test_phase": "exercised",
-        "timestamp": Date().timeIntervalSince1970,
-    ]
+    // Update userInfo again using per-key API
+    KSCrash.shared.setUserInfo("exercised", forKey: "leaks_test_phase")
+    KSCrash.shared.setUserInfo(Date().timeIntervalSince1970, forKey: "timestamp")
     print("[LeaksTest] Updated userInfo")
 }
 
@@ -134,7 +128,7 @@ private func readAndDeleteReports() {
         if let report = reportStore.report(for: reportID.int64Value) {
             print("[LeaksTest] Read report \(reportID)")
             // Access the report data to exercise parsing
-            if let value = report.value as? [String: Any] {
+            if let value = report.value as [String: Any]? {
                 print("[LeaksTest] Report has \(value.keys.count) top-level keys")
             }
         }
