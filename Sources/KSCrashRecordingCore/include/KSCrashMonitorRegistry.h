@@ -55,18 +55,24 @@ typedef struct {
 } KSCrashMonitorAPIList;
 
 /**
- * Activates all added crash monitors.
+ * Enable all added crash monitors.
  *
  * Enables all monitors that have been added to the system. However, not all
  * monitors may be activated due to certain conditions. Monitors that are
  * considered unsafe in a debugging environment or require specific safety
- * measures for asynchronous operations may not be activated. The function
- * checks the current environment and adjusts the activation status of each
- * monitor accordingly.
+ * measures for asynchronous operations may not be activated.
  *
- * @return bool True if at least one monitor was successfully activated, false if no monitors were activated.
+ * @return bool True if at least one monitor was successfully enabled, false if no monitors were enabled.
  */
-bool kscmr_activateMonitors(KSCrashMonitorAPIList *monitorList);
+bool kscmr_enableMonitors(KSCrashMonitorAPIList *monitorList);
+
+/**
+ * Notify all enabled monitors that the system is fully initialized.
+ *
+ * Monitors may use this callback to read previous-run analysis from RunContext.
+ * Must only be called after RunContext has been initialized.
+ */
+void kscmr_notifyPostSystemEnable(KSCrashMonitorAPIList *monitorList);
 
 /**
  * Disables all active crash monitors.

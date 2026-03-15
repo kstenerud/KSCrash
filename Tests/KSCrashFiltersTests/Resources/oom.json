@@ -60,20 +60,12 @@
   "crash" : {
     "error" : {
       "address" : 0,
-      "memory_termination" : {
-        "memory_level" : "terminal",
-        "memory_footprint" : 100,
-        "memory_remaining" : 0,
-        "memory_limit" : 100,
-        "app_transition_state" : "active",
-        "memory_pressure" : "normal",
-        "timestamp" : 1716226564474658
-      },
       "signal" : {
         "name" : "SIGKILL",
         "signal" : 9
       },
-      "type" : "memory_termination"
+      "termination_reason" : "memory_limit",
+      "type" : "termination"
     },
     "threads" : [
 

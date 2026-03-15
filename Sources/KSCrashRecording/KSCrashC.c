@@ -38,9 +38,9 @@
 #include "KSCrashMonitor_MachException.h"
 #include "KSCrashMonitor_NSException.h"
 #include "KSCrashMonitor_Resource.h"
-#include "KSCrashMonitor_ResourceTermination.h"
 #include "KSCrashMonitor_Signal.h"
 #include "KSCrashMonitor_System.h"
+#include "KSCrashMonitor_Termination.h"
 #include "KSCrashMonitor_User.h"
 #include "KSCrashMonitor_UserInfo.h"
 #include "KSCrashMonitor_Watchdog.h"
@@ -48,6 +48,7 @@
 #include "KSCrashReportC.h"
 #include "KSCrashReportFixer.h"
 #include "KSCrashReportStoreC+Private.h"
+#include "KSCrashRunContext.h"
 #include "KSDynamicLinker.h"
 #include "KSFileUtils.h"
 #include "KSObjC.h"
@@ -86,9 +87,9 @@ g_monitorMappings[] = { { KSCrashMonitorTypeMachException, kscm_machexception_ge
                         { KSCrashMonitorTypeMainThreadDeadlock, kscm_deadlock_getAPI },
                         { KSCrashMonitorTypeUserReported, kscm_user_getAPI },
                         { KSCrashMonitorTypeSystem, kscm_system_getAPI },
+                        { KSCrashMonitorTypeTermination, kscm_termination_getAPI },
                         { KSCrashMonitorTypeApplicationState, kscm_lifecycle_getAPI },
                         { KSCrashMonitorTypeZombie, kscm_zombie_getAPI },
-                        { KSCrashMonitorTypeResourceTermination, kscm_resourcetermination_getAPI },
                         { KSCrashMonitorTypeWatchdog, kscm_watchdog_getAPI },
                         { KSCrashMonitorTypeUserInfo, kscm_userinfo_getAPI },
                         { KSCrashMonitorTypeResource, kscm_resource_getAPI } };
@@ -479,10 +480,17 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     setMonitors(configuration->monitors);
     setPluginMonitors(configuration->plugins.apis, configuration->plugins.length);
 
-    if (kscm_activateMonitors() == false) {
+    // Monitor startup is three steps, order matters:
+    //  1. enableMonitors  — installs signal/mach handlers, creates sidecars for the current run.
+    //  2. RunContext init  — reads *previous* run's sidecars and determines the termination reason.
+    //  3. postSystemEnable — tells monitors RunContext is ready so they can act on previous-run data
+    //                        (e.g. Termination injects a report, Memory checks for OOM).
+    if (kscm_enableMonitors() == false) {
         KSLOG_ERROR("No crash monitors are active");
         return KSCrashInstallErrorNoActiveMonitors;
     }
+    ksruncontext_init(getRunSidecarPathForRunIDCallback);
+    kscm_notifyPostSystemEnable();
 
     g_installed = true;
     KSLOG_DEBUG("Installation complete.");

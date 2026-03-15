@@ -161,14 +161,32 @@ extern void kscm_testcode_resetState(void);
 - (void)testAddingAndActivatingMonitors
 {
     XCTAssertTrue(kscm_addMonitor(&g_dummyMonitor), @"Monitor should be successfully added.");
-    kscm_activateMonitors();  // Activate all monitors
+    kscm_enableMonitors();
     XCTAssertTrue(g_dummyMonitor.isEnabled(NULL), @"The monitor should be enabled after activation.");
+}
+
+- (void)testNotifyPostSystemEnableFiresCallback
+{
+    kscm_addMonitor(&g_dummyMonitor);
+    kscm_enableMonitors();
+    XCTAssertFalse(g_dummyPostSystemEnabled, @"Post-system-enable should not have fired yet.");
+    kscm_notifyPostSystemEnable();
+    XCTAssertTrue(g_dummyPostSystemEnabled, @"Post-system-enable callback should have fired.");
+}
+
+- (void)testNotifyPostSystemEnableSkipsDisabledMonitors
+{
+    kscm_addMonitor(&g_dummyMonitor);
+    // Don't enable — monitor stays disabled
+    XCTAssertFalse(g_dummyEnabledState);
+    kscm_notifyPostSystemEnable();
+    XCTAssertFalse(g_dummyPostSystemEnabled, @"Disabled monitors should not receive post-system-enable.");
 }
 
 - (void)testDisablingAllMonitors
 {
     kscm_addMonitor(&g_dummyMonitor);
-    kscm_activateMonitors();
+    kscm_enableMonitors();
     XCTAssertTrue(g_dummyMonitor.isEnabled(NULL), @"The monitor should be enabled before disabling.");
     kscm_disableAllMonitors();  // Disable all monitors
     XCTAssertFalse(g_dummyMonitor.isEnabled(NULL), @"The monitor should be disabled after calling disable all.");
@@ -177,7 +195,7 @@ extern void kscm_testcode_resetState(void);
 - (void)testAddMonitorWithNullAPI
 {
     XCTAssertFalse(kscm_addMonitor(NULL), @"Adding a NULL monitor should return false.");
-    kscm_activateMonitors();
+    kscm_enableMonitors();
     // No assertion needed, just verifying no crash occurred
 }
 
@@ -185,12 +203,12 @@ extern void kscm_testcode_resetState(void);
 {
     // Add the dummy monitor first
     XCTAssertTrue(kscm_addMonitor(&g_dummyMonitor), @"Monitor should be successfully added.");
-    kscm_activateMonitors();
+    kscm_enableMonitors();
     XCTAssertTrue(g_dummyMonitor.isEnabled(NULL), @"The monitor should be enabled after adding.");
 
     // Remove the dummy monitor
     kscm_removeMonitor(&g_dummyMonitor);
-    kscm_activateMonitors();
+    kscm_enableMonitors();
     XCTAssertFalse(g_dummyMonitor.isEnabled(NULL), @"The monitor should be disabled after removal.");
 }
 
@@ -199,7 +217,7 @@ extern void kscm_testcode_resetState(void);
 - (void)testHandlingFatalException
 {
     kscm_addMonitor(&g_dummyMonitor);
-    kscm_activateMonitors();
+    kscm_enableMonitors();
     kscm_setEventCallbackWithResult(myEventCallback);
     KSCrash_MonitorContext *ctx = NULL;
     ctx = dummyExceptionHandlerCallbacks.notify(
@@ -219,7 +237,7 @@ extern void kscm_testcode_resetState(void);
 - (void)testHandlingNonFatalException
 {
     kscm_addMonitor(&g_dummyMonitor);
-    kscm_activateMonitors();
+    kscm_enableMonitors();
     kscm_setEventCallbackWithResult(myEventCallback);
     KSCrash_MonitorContext *ctx = NULL;
     ctx = dummyExceptionHandlerCallbacks.notify(
@@ -239,7 +257,7 @@ extern void kscm_testcode_resetState(void);
 - (void)testHeapAllocAsyncSafety
 {
     kscm_addMonitor(&g_dummyMonitor);
-    kscm_activateMonitors();
+    kscm_enableMonitors();
     kscm_setEventCallbackWithResult(myEventCallback);
     KSCrash_MonitorContext *ctx = NULL;
     ctx = dummyExceptionHandlerCallbacks.notify(
@@ -257,7 +275,7 @@ extern void kscm_testcode_resetState(void);
 - (void)testHeapAllocNoAsyncSafety
 {
     kscm_addMonitor(&g_dummyMonitor);
-    kscm_activateMonitors();
+    kscm_enableMonitors();
     KSCrash_MonitorContext *ctx = NULL;
     ctx = dummyExceptionHandlerCallbacks.notify(
         (thread_t)ksthread_self(),
@@ -284,7 +302,7 @@ static atomic_int g_counter = 0;
 - (void)testThreadsStoppedToCaptureTraces
 {
     kscm_addMonitor(&g_dummyMonitor);
-    kscm_activateMonitors();
+    kscm_enableMonitors();
     KSCrash_MonitorContext *ctx = NULL;
 
     // Reset counter to ensure clean state
@@ -349,7 +367,7 @@ static atomic_int g_counter = 0;
     // - clear shouldRecordThreads
 
     kscm_addMonitor(&g_dummyMonitor);
-    kscm_activateMonitors();
+    kscm_enableMonitors();
     KSCrash_MonitorContext *ctx = NULL;
 
     ctx = dummyExceptionHandlerCallbacks.notify(
@@ -383,7 +401,7 @@ static atomic_int g_counter = 0;
     // - clear shouldRecordThreads
 
     kscm_addMonitor(&g_dummyMonitor);
-    kscm_activateMonitors();
+    kscm_enableMonitors();
     KSCrash_MonitorContext *ctx = NULL;
 
     ctx = dummyExceptionHandlerCallbacks.notify(
@@ -413,7 +431,7 @@ static atomic_int g_counter = 0;
     // Unrelated exceptions after a non-fatal exception should process normally (not be delayed).
 
     kscm_addMonitor(&g_dummyMonitor);
-    kscm_activateMonitors();
+    kscm_enableMonitors();
     __block KSCrash_MonitorContext *ctx = NULL;
 
     ctx = dummyExceptionHandlerCallbacks.notify(
@@ -461,7 +479,7 @@ static atomic_int g_counter = 0;
     // Unrelated exceptions after a fatal exception should be delayed (blocked).
 
     kscm_addMonitor(&g_dummyMonitor);
-    kscm_activateMonitors();
+    kscm_enableMonitors();
     __block KSCrash_MonitorContext *ctx = NULL;
 
     ctx = dummyExceptionHandlerCallbacks.notify(
@@ -513,7 +531,7 @@ static atomic_int g_counter = 0;
     // ignored.
 
     kscm_addMonitor(&g_dummyMonitor);
-    kscm_activateMonitors();
+    kscm_enableMonitors();
     KSCrash_MonitorContext *ctx = NULL;
     __block _Atomic(int) exitImmediatelyCount = 0;
 
@@ -546,7 +564,7 @@ static atomic_int g_counter = 0;
 - (void)testHandleExceptionAddsContextualInfoFatal
 {
     kscm_addMonitor(&g_dummyMonitor);
-    kscm_activateMonitors();
+    kscm_enableMonitors();
     kscm_setEventCallbackWithResult(myEventCallback);
     KSCrash_MonitorContext *ctx = NULL;
 
@@ -562,7 +580,7 @@ static atomic_int g_counter = 0;
 - (void)testHandleExceptionAddsContextualInfoNonFatal
 {
     kscm_addMonitor(&g_dummyMonitor);
-    kscm_activateMonitors();
+    kscm_enableMonitors();
     kscm_setEventCallbackWithResult(myEventCallback);
     KSCrash_MonitorContext *ctx = NULL;
 
@@ -578,7 +596,7 @@ static atomic_int g_counter = 0;
 - (void)testHandleExceptionRestoresOriginalHandlers
 {
     kscm_addMonitor(&g_dummyMonitor);
-    kscm_activateMonitors();
+    kscm_enableMonitors();
     XCTAssertTrue(g_dummyMonitor.isEnabled(NULL), @"The monitor should be enabled after activation.");
     KSCrash_MonitorContext *ctx = NULL;
     ctx = dummyExceptionHandlerCallbacks.notify(
@@ -593,7 +611,7 @@ static atomic_int g_counter = 0;
 - (void)testHandleExceptionReturnsResult
 {
     kscm_addMonitor(&g_dummyMonitor);
-    kscm_activateMonitors();
+    kscm_enableMonitors();
     kscm_setEventCallbackWithResult(myEventCallback);
     KSCrash_MonitorContext *ctx = NULL;
     ctx = dummyExceptionHandlerCallbacks.notify(

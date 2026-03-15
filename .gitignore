@@ -46,3 +46,4 @@ Benchmarks/benchmark_results.md
 infer-out/
 compile_commands.json
 compile_commands_c_only.json
+/Derived

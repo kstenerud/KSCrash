@@ -44,9 +44,8 @@
     api->setEnabled(true, NULL);
     XCTAssertTrue(api->isEnabled(NULL));
 
-    // Uninstall doesn't actually work, so it stays enabled
     api->setEnabled(false, NULL);
-    XCTAssertTrue(api->isEnabled(NULL));
+    XCTAssertFalse(api->isEnabled(NULL));
 }
 
 - (void)testMonitorId
@@ -92,6 +91,29 @@
     const void *fakePtr = (const void *)0xDEADBEEF;
     const char *name = kszombie_className(fakePtr);
     XCTAssertTrue(name == NULL);
+}
+
+- (void)testDisableAndReenableDoesNotRecurse
+{
+    KSCrashMonitorAPI *api = kscm_zombie_getAPI();
+
+    // Enable, disable, re-enable. If the original dealloc IMP was overwritten
+    // with the handler itself, dealloc would recurse and blow the stack.
+    api->setEnabled(true, NULL);
+    api->setEnabled(false, NULL);
+    api->setEnabled(true, NULL);
+    XCTAssertTrue(api->isEnabled(NULL));
+
+    const void *ptr;
+    @autoreleasepool {
+        NSObject *obj = [[NSObject alloc] init];
+        ptr = (__bridge const void *)obj;
+    }
+    // Dealloc must have completed without recursion; verify the cache works.
+    const char *name = kszombie_className(ptr);
+    if (name != NULL) {
+        XCTAssertTrue(strcmp(name, "NSObject") == 0, @"Expected 'NSObject', got '%s'", name);
+    }
 }
 
 @end

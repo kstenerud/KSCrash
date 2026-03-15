@@ -1,7 +1,7 @@
 //
-//  KSCrashMonitor_ResourceTermination.h
+//  KSTerminationReason.h
 //
-//  Created by Alexander Cohen on 2026-03-07.
+//  Created by Alexander Cohen on 2026-03-15.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,48 +24,64 @@
 // THE SOFTWARE.
 //
 
-/* ResourceTermination monitor — retroactive detection of OS-killed runs.
- *
- * On launch, reads the previous run's Lifecycle and Resource sidecars to
- * determine whether the process was killed by the OS (OOM, thermal, CPU,
- * battery depletion) without any crash handler having run.  If so, injects
- * a user report attributed to the previous run ID.
- *
- * This replaces the old Memory monitor's OOM breadcrumb approach.
- */
-
-#ifndef KSCrashMonitor_ResourceTermination_h
-#define KSCrashMonitor_ResourceTermination_h
+#ifndef KSTerminationReason_h
+#define KSTerminationReason_h
 
 #include <stdbool.h>
-#include <stdint.h>
 
-#include "KSCrashMonitorAPI.h"
 #include "KSCrashNamespace.h"
+#ifdef __OBJC__
+#include <Foundation/Foundation.h>
+#endif
+
+#ifndef NS_SWIFT_NAME
+#define NS_SWIFT_NAME(_name)
+#endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/** Reason the OS terminated a previous run. */
-typedef enum {
-    KSResourceTerminationReasonNone = 0,
-    KSResourceTerminationReasonLowBattery,
-    KSResourceTerminationReasonMemoryLimit,
-    KSResourceTerminationReasonMemoryPressure,
-    KSResourceTerminationReasonThermal,
-    KSResourceTerminationReasonCPU,
-    KSResourceTerminationReasonUnexplained,
-} KSResourceTerminationReason;
+// clang-format off
+/** Reason the previous run was terminated. */
+#ifdef __OBJC__
+typedef NS_ENUM(NSInteger, KSTerminationReason)
+#else
+enum
+#endif
+{
+    KSTerminationReasonNone = 0,
+    // Expected exits
+    KSTerminationReasonClean,
+    KSTerminationReasonCrash,
+    KSTerminationReasonHang,
+    KSTerminationReasonFirstLaunch,
+    // Resource reasons
+    KSTerminationReasonLowBattery,
+    KSTerminationReasonMemoryLimit,
+    KSTerminationReasonMemoryPressure,
+    KSTerminationReasonThermal,
+    KSTerminationReasonCPU,
+    // System change reasons
+    KSTerminationReasonOSUpgrade,
+    KSTerminationReasonAppUpgrade,
+    KSTerminationReasonReboot,
+    // Fallback
+    KSTerminationReasonUnexplained,
+} NS_SWIFT_NAME(TerminationReason);
+#ifndef __OBJC__
+typedef int KSTerminationReason;
+#endif
+// clang-format on
 
 /** Returns the string representation of a termination reason. */
-const char *ksresourcetermination_reasonToString(KSResourceTerminationReason reason);
+const char *kstermination_reasonToString(KSTerminationReason reason);
 
-/** Access the ResourceTermination Monitor API. */
-KSCrashMonitorAPI *kscm_resourcetermination_getAPI(void);
+/** Whether the given termination reason produces a crash report. */
+bool kstermination_producesReport(KSTerminationReason reason);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif  // KSCrashMonitor_ResourceTermination_h
+#endif  // KSTerminationReason_h

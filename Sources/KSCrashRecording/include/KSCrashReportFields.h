@@ -82,8 +82,9 @@ KSCRF_DEFINE_CONSTANT(KSCrashExcType, Mach, mach, "mach")
 KSCRF_DEFINE_CONSTANT(KSCrashExcType, NSException, nsException, "nsexception")
 KSCRF_DEFINE_CONSTANT(KSCrashExcType, Signal, signal, "signal")
 KSCRF_DEFINE_CONSTANT(KSCrashExcType, User, user, "user")
+KSCRF_DEFINE_CONSTANT(KSCrashExcType, Termination, termination, "termination")
+/** @deprecated Use KSCrashExcType_Termination instead. Kept for reading legacy reports. */
 KSCRF_DEFINE_CONSTANT(KSCrashExcType, MemoryTermination, memoryTermination, "memory_termination")
-KSCRF_DEFINE_CONSTANT(KSCrashExcType, ResourceTermination, resourceTermination, "resource_termination")
 KSCRF_DEFINE_CONSTANT(KSCrashExcType, Hang, hang, "hang")
 
 #pragma mark - Common -
@@ -207,7 +208,6 @@ KSCRF_DEFINE_CONSTANT(KSCrashField, Report, report, "report")
 KSCRF_DEFINE_CONSTANT(KSCrashField, Timestamp, timestamp, "timestamp")
 KSCRF_DEFINE_CONSTANT(KSCrashField, Version, version, "version")
 KSCRF_DEFINE_CONSTANT(KSCrashField, AppMemory, appMemory, "app_memory")
-KSCRF_DEFINE_CONSTANT(KSCrashField, MemoryTermination, memoryTermination, "memory_termination")
 KSCRF_DEFINE_CONSTANT(KSCrashField, Hang, hang, "hang")
 
 KSCRF_DEFINE_CONSTANT(KSCrashField, CrashedThread, crashedThread, "crashed_thread")
@@ -272,6 +272,8 @@ KSCRF_DEFINE_CONSTANT(KSCrashField, ThreadCount, threadCount, "thread_count")
 KSCRF_DEFINE_CONSTANT(KSCrashField, DataProtectionActive, dataProtectionActive, "data_protection_active")
 
 KSCRF_DEFINE_CONSTANT(KSCrashField, TerminationReason, terminationReason, "termination_reason")
+/** Deprecated: kept for reading legacy reports that contain a "memory_termination" section. */
+KSCRF_DEFINE_CONSTANT(KSCrashField, MemoryTermination, memoryTermination, "memory_termination")
 KSCRF_DEFINE_CONSTANT(KSCrashField, UserPerceptible, userPerceptible, "user_perceptible")
 KSCRF_DEFINE_CONSTANT(KSCrashField, TaskRole, taskRole, "task_role")
 

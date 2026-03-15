@@ -42,10 +42,10 @@
 
 #include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorHelper.h"
-#include "KSCrashMonitor_Lifecycle.h"
 #include "KSCrashMonitor_WatchdogSidecar.h"
 #include "KSCrashNamespace.h"
 #include "KSCrashReportFields.h"
+#include "KSCrashRunContext.h"
 #include "KSDate.h"
 #include "KSDebug.h"
 #include "KSFileUtils.h"
@@ -426,7 +426,7 @@ static void watchdogTimerFired(CFRunLoopTimerRef timer, void *info)
         return;
     }
 
-    task_role_t currentRole = kslifecycle_currentTaskRole();
+    task_role_t currentRole = kstaskrole_current();
 
     bool shouldStartNewHang = false;
     bool shouldUpdateHang = false;
@@ -495,7 +495,7 @@ static void mainRunLoopActivity(CFRunLoopObserverRef obs, CFRunLoopActivity acti
         }
 
         hang.endTimestamp = ksdate_uptimeNanoseconds();
-        hang.endRole = kslifecycle_currentTaskRole();
+        hang.endRole = kstaskrole_current();
         finalizeResolvedHang(monitor, hang);
 
     } else if (activity == kCFRunLoopAfterWaiting) {

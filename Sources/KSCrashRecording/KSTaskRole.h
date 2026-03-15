@@ -1,7 +1,7 @@
 //
-//  MemoryTerminationInfo.swift
+//  KSTaskRole.h
 //
-//  Created by Alexander Cohen on 2024-12-09.
+//  Created by Alexander Cohen on 2026-03-15.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,18 +24,31 @@
 // THE SOFTWARE.
 //
 
-import Foundation
+#ifndef KSTaskRole_h
+#define KSTaskRole_h
 
-/// Memory termination details (OOM kills).
-public struct MemoryTerminationInfo: Codable, Sendable, Equatable {
-    /// Memory pressure level at termination.
-    public let memoryPressure: String?
+#include "KSCrashNamespace.h"
 
-    /// App memory level at termination.
-    public let memoryLevel: String?
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-    enum CodingKeys: String, CodingKey {
-        case memoryPressure = "memory_pressure"
-        case memoryLevel = "memory_level"
-    }
+/** Query the current task role from the kernel.
+ *
+ * Returns the task_role_t value (e.g. TASK_FOREGROUND_APPLICATION).
+ * Returns TASK_UNSPECIFIED on tvOS/watchOS or on failure.
+ */
+int kstaskrole_current(void);
+
+/** Returns a human-readable string for a task role.
+ *
+ * @param role The task_role_t value to convert.
+ * @return A string representation of the role (e.g., "FOREGROUND_APPLICATION").
+ */
+const char *kstaskrole_toString(int /*task_role_t*/ role);
+
+#ifdef __cplusplus
 }
+#endif
+
+#endif  // KSTaskRole_h
