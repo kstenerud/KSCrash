@@ -82,7 +82,8 @@ extern NSString *const KSCrashNSExceptionStacktraceFuncName;
     __PROCESS_TRIGGER(other, manyThreads, @"Many Threads")                                             \
     __PROCESS_TRIGGER(other, stackOverflow, @"Stack overflow")                                         \
     __PROCESS_TRIGGER(other, watchdogTimeoutTermination, @"Watchdog Timeout")                          \
-    __PROCESS_TRIGGER(other, watchdogTimeoutWithException, @"Watchdog Timeout + Exception")
+    __PROCESS_TRIGGER(other, watchdogTimeoutWithException, @"Watchdog Timeout + Exception")            \
+    __PROCESS_TRIGGER(other, sigkill, @"SIGKILL")
 
 NS_SWIFT_NAME(CrashTriggersList)
 @interface KSCrashTriggersList : NSObject

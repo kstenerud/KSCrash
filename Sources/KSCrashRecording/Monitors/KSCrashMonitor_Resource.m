@@ -113,16 +113,37 @@ static id g_protectedDataUnavailableObserver = nil;
 #endif
 
 // ============================================================================
+#pragma mark - Test Overrides -
+// ============================================================================
+
+// Re-apply env-var overrides after every resourceUpdate so polled values
+// don't clobber the faked ones.  getenv() returns NULL immediately in
+// production (no env vars set), so the cost is negligible.
+static void applyResourceTestOverrides(KSCrash_ResourceData *res)
+{
+    const char *val;
+    if ((val = getenv("KSCRASH_TEST_MEMORY_PRESSURE")) != NULL) res->memoryPressure = (uint8_t)atoi(val);
+    if ((val = getenv("KSCRASH_TEST_MEMORY_LEVEL")) != NULL) res->memoryLevel = (uint8_t)atoi(val);
+    if ((val = getenv("KSCRASH_TEST_THERMAL_STATE")) != NULL) res->thermalState = (uint8_t)atoi(val);
+    if ((val = getenv("KSCRASH_TEST_CPU_USER")) != NULL) res->cpuUsageUser = (uint16_t)atoi(val);
+    if ((val = getenv("KSCRASH_TEST_CPU_SYSTEM")) != NULL) res->cpuUsageSystem = (uint16_t)atoi(val);
+    if ((val = getenv("KSCRASH_TEST_CPU_CORES")) != NULL) res->cpuCoreCount = (uint8_t)atoi(val);
+    if ((val = getenv("KSCRASH_TEST_BATTERY_LEVEL")) != NULL) res->batteryLevel = (uint8_t)atoi(val);
+    if ((val = getenv("KSCRASH_TEST_BATTERY_STATE")) != NULL) res->batteryState = (uint8_t)atoi(val);
+}
+
+// ============================================================================
 #pragma mark - Sidecar Access -
 // ============================================================================
 
-/** Update the mmap'd struct under lock. */
+/** Update the mmap'd struct under lock, then re-apply any test overrides. */
 static void resourceUpdate(void (^block)(KSCrash_ResourceData *res))
 {
     if (!block) return;
     os_unfair_lock_lock(&g_resourceLock);
     if (g_resource) {
         block(g_resource);
+        applyResourceTestOverrides(g_resource);
     }
     os_unfair_lock_unlock(&g_resourceLock);
 }

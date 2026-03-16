@@ -459,6 +459,28 @@ static void initialize(void)
     sd->magic = KSSYS_MAGIC;
     sd->version = KSCrash_System_CurrentVersion;
 
+    // Test overrides: env vars let integration tests fake sidecar values
+    // so that the termination-reason logic fires on relaunch.
+    // No env vars set → no overhead beyond a few NULL getenv returns.
+    {
+        const char *val;
+        if ((val = getenv("KSCRASH_TEST_SYSTEM_VERSION")) != NULL) {
+            safeStrlcpy(sd->systemVersion, val, sizeof(sd->systemVersion));
+        }
+        if ((val = getenv("KSCRASH_TEST_OS_VERSION")) != NULL) {
+            safeStrlcpy(sd->osVersion, val, sizeof(sd->osVersion));
+        }
+        if ((val = getenv("KSCRASH_TEST_BUNDLE_VERSION")) != NULL) {
+            safeStrlcpy(sd->bundleVersion, val, sizeof(sd->bundleVersion));
+        }
+        if ((val = getenv("KSCRASH_TEST_BUNDLE_SHORT_VERSION")) != NULL) {
+            safeStrlcpy(sd->bundleShortVersion, val, sizeof(sd->bundleShortVersion));
+        }
+        if ((val = getenv("KSCRASH_TEST_BOOT_TIMESTAMP")) != NULL) {
+            sd->bootTimestamp = strtoll(val, NULL, 10);
+        }
+    }
+
     ks_spinlock_lock(&g_systemDataLock);
     g_systemData = sd;
     ks_spinlock_unlock(&g_systemDataLock);
@@ -559,6 +581,10 @@ bool kscm_system_getSystemDataForRunID(const char *runID, KSCrash_SystemData *ou
 
 void kscm_system_setBootTime(int64_t bootTimestamp)
 {
+    const char *override = getenv("KSCRASH_TEST_BOOT_TIMESTAMP");
+    if (override) {
+        bootTimestamp = strtoll(override, NULL, 10);
+    }
     ks_spinlock_lock(&g_systemDataLock);
     if (g_systemData != NULL) {
         g_systemData->bootTimestamp = bootTimestamp;

@@ -237,6 +237,11 @@ NSString *const KSCrashNSExceptionStacktraceFuncName = @"exceptionWithStacktrace
     [NSThread sleepForTimeInterval:100.0];
 }
 
++ (void)trigger_other_sigkill
+{
+    kill(getpid(), SIGKILL);
+}
+
 + (void)trigger_other_watchdogTimeoutWithException
 {
     // Register a hang observer to throw an exception once a hang is detected.
