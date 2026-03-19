@@ -45,7 +45,7 @@ jobs:
         uses: ./.github/actions/setup-xcode
 
       - name: Setup Mise
-        uses: jdx/mise-action@v3
+        uses: jdx/mise-action@v4
 
       - name: Install xcbeautify
         run: brew install xcbeautify
