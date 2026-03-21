@@ -28,7 +28,7 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
+  checks: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -36,7 +36,6 @@ concurrency:
 
 env:
   INFER_VERSION: "1.2.0"
-  COMMENT_ON_CLEAN: "false"
   INFER_RUNS: "5"
 
 jobs:
@@ -367,27 +366,26 @@ jobs:
           GITHUB_REPO: ${{ github.repository }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
-      # ── PR Comment ────────────────────────────────────────────
-      - name: Comment on PR
-        if: |
-          github.event_name == 'pull_request' &&
-          github.event.pull_request.head.repo.full_name == github.repository &&
-          (steps.report.outputs.has_new_issues == 'true' || env.COMMENT_ON_CLEAN == 'true')
-        uses: thollander/actions-comment-pull-request@v3
+      # ── Check Run ──────────────────────────────────────────────
+      - name: Create Check Run
+        if: always()
+        uses: actions/github-script@v7
         with:
-          file-path: infer-report.md
-          comment-tag: infer-analysis-report
-
-      - name: Remove PR Comment if No Issues
-        if: |
-          github.event_name == 'pull_request' &&
-          github.event.pull_request.head.repo.full_name == github.repository &&
-          steps.report.outputs.has_new_issues != 'true' &&
-          env.COMMENT_ON_CLEAN != 'true'
-        uses: thollander/actions-comment-pull-request@v3
-        with:
-          comment-tag: infer-analysis-report
-          mode: delete
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('infer-report.md', 'utf8');
+            const hasNewIssues = '${{ steps.report.outputs.has_new_issues }}' === 'true';
+            const title = hasNewIssues
+              ? `${report.match(/introduces (\d+)/)?.[1] || 'New'} issue(s) found`
+              : 'No new issues';
+            await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'Infer Static Analysis',
+              head_sha: context.payload.pull_request?.head.sha || context.sha,
+              conclusion: 'neutral',
+              output: { title, summary: report },
+            });
 
       # ── Artifacts ─────────────────────────────────────────────
       - name: Upload Infer Results
