@@ -71,11 +71,6 @@ enum
     /** Monitor uncaught Objective-C NSExceptions. */
     KSCrashMonitorTypeNSException        = 1 << 3,
 
-    /** Detect deadlocks on the main thread.
-     * @note Deprecated. Use KSCrashMonitorTypeWatchdog instead.
-     */
-    KSCrashMonitorTypeMainThreadDeadlock = 1 << 4,
-
     /** Monitor user-reported custom exceptions. */
     KSCrashMonitorTypeUserReported       = 1 << 5,
 
@@ -88,11 +83,8 @@ enum
     /** Track memory issues and last zombie NSException. */
     KSCrashMonitorTypeZombie             = 1 << 8,
 
-    /** Detect terminations caused by resource exhaustion (memory, thermal, CPU, battery). */
-    KSCrashMonitorTypeResourceTermination = 1 << 9,
-
-    /** Alias for KSCrashMonitorTypeResourceTermination (kept for source compat). */
-    KSCrashMonitorTypeMemoryTermination  = KSCrashMonitorTypeResourceTermination,
+    /** Detect terminations caused by resource exhaustion or system changes. */
+    KSCrashMonitorTypeTermination        = 1 << 9,
 
     /** Tracks hangs as well as hangs that cause a termination (watchdog terminations) */
     KSCrashMonitorTypeWatchdog           = 1 << 10,
@@ -113,7 +105,7 @@ enum
                              KSCrashMonitorTypeSystem |
                              KSCrashMonitorTypeApplicationState |
                              KSCrashMonitorTypeZombie |
-                             KSCrashMonitorTypeResourceTermination |
+                             KSCrashMonitorTypeTermination |
                              KSCrashMonitorTypeWatchdog |
                              KSCrashMonitorTypeUserInfo |
                              KSCrashMonitorTypeResource
@@ -125,12 +117,12 @@ enum
                                KSCrashMonitorTypeSignal |
                                KSCrashMonitorTypeCPPException |
                                KSCrashMonitorTypeNSException |
-                               KSCrashMonitorTypeResourceTermination |
+                               KSCrashMonitorTypeTermination |
                                KSCrashMonitorTypeWatchdog
                                ),
 
     /** Enable experimental monitoring options. */
-    KSCrashMonitorTypeExperimental = KSCrashMonitorTypeWatchdog,
+    KSCrashMonitorTypeExperimental = KSCrashMonitorTypeNone,
 
     /** Monitor options unsafe for use with a debugger. */
     KSCrashMonitorTypeDebuggerUnsafe = KSCrashMonitorTypeMachException,
@@ -162,7 +154,13 @@ enum
                                   ),
 
     /** Disable automatic reporting; only manual reports are allowed. */
-    KSCrashMonitorTypeManual = (KSCrashMonitorTypeRequired | KSCrashMonitorTypeUserReported)
+    KSCrashMonitorTypeManual = (KSCrashMonitorTypeRequired | KSCrashMonitorTypeUserReported),
+
+    // Deprecated aliases — kept for source compatibility.
+    /** Deprecated: use KSCrashMonitorTypeWatchdog instead. */
+    KSCrashMonitorTypeMainThreadDeadlock = 1 << 4,
+    /** Deprecated: use KSCrashMonitorTypeTermination instead. */
+    KSCrashMonitorTypeMemoryTermination  = KSCrashMonitorTypeTermination,
 } NS_SWIFT_NAME(MonitorType)
 #ifndef __OBJC__
 KSCrashMonitorType

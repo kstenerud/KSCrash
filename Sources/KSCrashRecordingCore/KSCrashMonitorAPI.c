@@ -16,6 +16,7 @@ static void default_addContextualInfoToEvent(__unused struct KSCrash_MonitorCont
                                              __unused void *context)
 {
 }
+static void default_notifyPostMonitorsEnabled(__unused void *context) {}
 static void default_notifyPostSystemEnable(__unused void *context) {}
 static KSCrashMonitorAPI g_defaultAPI = {
     .context = NULL,
@@ -25,6 +26,7 @@ static KSCrashMonitorAPI g_defaultAPI = {
     .setEnabled = default_setEnabled,
     .isEnabled = default_isEnabled,
     .addContextualInfoToEvent = default_addContextualInfoToEvent,
+    .notifyPostMonitorsEnabled = default_notifyPostMonitorsEnabled,
     .notifyPostSystemEnable = default_notifyPostSystemEnable,
 };
 

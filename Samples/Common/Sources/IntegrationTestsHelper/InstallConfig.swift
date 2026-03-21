@@ -31,7 +31,6 @@ import KSCrashRecording
 public struct InstallConfig: Codable {
     public var installPath: String
     public var isCxaThrowEnabled: Bool?
-    public var isSigTermMonitoringEnabled: Bool?
     public var shouldRecordAllThreads: Bool?
     public var isWatchdogEnabled: Bool?
     public var isCompactBinaryImagesEnabled: Bool?
@@ -47,9 +46,6 @@ extension InstallConfig {
         config.installPath = installPath
         if let isCxaThrowEnabled {
             config.enableSwapCxaThrow = isCxaThrowEnabled
-        }
-        if let isSigTermMonitoringEnabled {
-            config.enableSigTermMonitoring = isSigTermMonitoringEnabled
         }
         if isWatchdogEnabled == true {
             config.monitors = [config.monitors, .watchdog]

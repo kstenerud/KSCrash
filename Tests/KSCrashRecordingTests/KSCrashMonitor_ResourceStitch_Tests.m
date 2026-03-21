@@ -68,7 +68,7 @@ static KSCrash_ResourceData makeValidResourceData(void)
     data.memoryRemaining = 150000000;
     data.memoryLimit = 200000000;
     data.batteryLevel = 72;
-    data.batteryState = 2;  // charging
+    data.batteryState = KSCrashBatteryStateCharging;
     data.lowPowerMode = 0;
     data.cpuCoreCount = 6;
     data.cpuUsageUser = 350;    // 350 permil = 0.35 cores worth of user time

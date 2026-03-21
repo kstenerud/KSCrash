@@ -265,6 +265,20 @@ class IntegrationTestBase: XCTestCase {
         launchAppAndRunScript()
     }
 
+    func launchAndSigkill(
+        env: [String: String] = [:],
+        installOverride: ((inout InstallConfig) throws -> Void)? = nil
+    ) throws {
+        for (key, value) in env {
+            app.launchEnvironment[key] = value
+        }
+        try launchAndCrash(.other_sigkill, installOverride: installOverride)
+        // Clear override env vars so the next launch reads real system/resource values.
+        for key in env.keys {
+            app.launchEnvironment.removeValue(forKey: key)
+        }
+    }
+
     func launchAndReportCrash() throws -> String {
         app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
             report: .init(directoryPath: appleReportsUrl.path),

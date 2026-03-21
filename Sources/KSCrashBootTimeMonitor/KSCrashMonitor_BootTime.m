@@ -55,7 +55,7 @@ static void setEnabled(bool isEnabled, __unused void *context)
 
 static bool isEnabled(__unused void *context) { return g_isEnabled; }
 
-static void notifyPostSystemEnable(__unused void *context)
+static void notifyPostMonitorsEnabled(__unused void *context)
 {
     if (g_isEnabled) {
         struct timeval value = kssysctl_timevalForName("kern.boottime");
@@ -70,7 +70,7 @@ KSCrashMonitorAPI *kscm_boottime_getAPI(void)
         api.monitorId = monitorId;
         api.setEnabled = setEnabled;
         api.isEnabled = isEnabled;
-        api.notifyPostSystemEnable = notifyPostSystemEnable;
+        api.notifyPostMonitorsEnabled = notifyPostMonitorsEnabled;
     }
     return &api;
 }

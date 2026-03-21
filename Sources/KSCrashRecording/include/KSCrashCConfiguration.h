@@ -258,10 +258,11 @@ typedef struct {
 
     /** If true, enables monitoring for SIGTERM signals.
      *
-     * @deprecated SIGTERM is now always reported as fatal with isCleanExit=true. This field is ignored.
+     * @deprecated SIGTERM is now always caught to record a clean exit. No crash report is written. This field is
+     * ignored.
      */
     bool enableSigTermMonitoring
-        KSCRASH_DEPRECATED("SIGTERM is now always reported as fatal with isCleanExit. This field is ignored.");
+        KSCRASH_DEPRECATED("SIGTERM is now always caught to record a clean exit. This field is ignored.");
 
     /** If true, resolved hangs are kept as non-fatal reports.
      *

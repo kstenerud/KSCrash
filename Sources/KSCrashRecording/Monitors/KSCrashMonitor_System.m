@@ -45,6 +45,7 @@
 #if KSCRASH_HAS_UIKIT
 #import <UIKit/UIKit.h>
 #endif
+#include <fcntl.h>
 #include <mach-o/dyld.h>
 #include <mach/mach.h>
 #include <stdatomic.h>
@@ -458,6 +459,28 @@ static void initialize(void)
     sd->magic = KSSYS_MAGIC;
     sd->version = KSCrash_System_CurrentVersion;
 
+    // Test overrides: env vars let integration tests fake sidecar values
+    // so that the termination-reason logic fires on relaunch.
+    // No env vars set → no overhead beyond a few NULL getenv returns.
+    {
+        const char *val;
+        if ((val = getenv("KSCRASH_TEST_SYSTEM_VERSION")) != NULL) {
+            safeStrlcpy(sd->systemVersion, val, sizeof(sd->systemVersion));
+        }
+        if ((val = getenv("KSCRASH_TEST_OS_VERSION")) != NULL) {
+            safeStrlcpy(sd->osVersion, val, sizeof(sd->osVersion));
+        }
+        if ((val = getenv("KSCRASH_TEST_BUNDLE_VERSION")) != NULL) {
+            safeStrlcpy(sd->bundleVersion, val, sizeof(sd->bundleVersion));
+        }
+        if ((val = getenv("KSCRASH_TEST_BUNDLE_SHORT_VERSION")) != NULL) {
+            safeStrlcpy(sd->bundleShortVersion, val, sizeof(sd->bundleShortVersion));
+        }
+        if ((val = getenv("KSCRASH_TEST_BOOT_TIMESTAMP")) != NULL) {
+            sd->bootTimestamp = strtoll(val, NULL, 10);
+        }
+    }
+
     ks_spinlock_lock(&g_systemDataLock);
     g_systemData = sd;
     ks_spinlock_unlock(&g_systemDataLock);
@@ -524,8 +547,44 @@ bool kscm_system_getSystemData(KSCrash_SystemData *dst)
     return ok;
 }
 
+bool kscm_system_getSystemDataForPath(const char *path, KSCrash_SystemData *outData)
+{
+    if (!path || !outData) return false;
+
+    int fd = open(path, O_RDONLY);
+    if (fd == -1) return false;
+
+    KSCrash_SystemData data = { 0 };
+    bool readOK = ksfu_readBytesFromFD(fd, (char *)&data, (int)sizeof(data));
+    close(fd);
+
+    if (!readOK || data.magic != KSSYS_MAGIC || data.version == 0 || data.version > KSCrash_System_CurrentVersion) {
+        return false;
+    }
+
+    *outData = data;
+    return true;
+}
+
+bool kscm_system_getSystemDataForRunID(const char *runID, KSCrash_SystemData *outData)
+{
+    if (!runID || !outData || runID[0] == '\0') return false;
+    if (!g_callbacks.getRunSidecarPathForRunID) return false;
+
+    char sidecarPath[KSFU_MAX_PATH_LENGTH];
+    if (!g_callbacks.getRunSidecarPathForRunID("System", runID, sidecarPath, sizeof(sidecarPath))) {
+        return false;
+    }
+
+    return kscm_system_getSystemDataForPath(sidecarPath, outData);
+}
+
 void kscm_system_setBootTime(int64_t bootTimestamp)
 {
+    const char *override = getenv("KSCRASH_TEST_BOOT_TIMESTAMP");
+    if (override) {
+        bootTimestamp = strtoll(override, NULL, 10);
+    }
     ks_spinlock_lock(&g_systemDataLock);
     if (g_systemData != NULL) {
         g_systemData->bootTimestamp = bootTimestamp;

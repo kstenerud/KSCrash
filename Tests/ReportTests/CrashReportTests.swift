@@ -35,18 +35,26 @@ final class CrashReportTests: XCTestCase {
         XCTAssertEqual(CrashErrorType.cppException.rawValue, "cpp_exception")
         XCTAssertEqual(CrashErrorType.deadlock.rawValue, "deadlock")
         XCTAssertEqual(CrashErrorType.user.rawValue, "user")
-        XCTAssertEqual(CrashErrorType.resourceTermination.rawValue, "resource_termination")
-        XCTAssertEqual(CrashErrorType(rawValue: "memory_termination"), .resourceTermination)
+        XCTAssertEqual(CrashErrorType.termination.rawValue, "termination")
+        XCTAssertEqual(CrashErrorType(rawValue: "memory_termination"), .termination)
+        XCTAssertEqual(CrashErrorType(rawValue: "resource_termination"), .termination)
         XCTAssertEqual(CrashErrorType.hang.rawValue, "hang")
         XCTAssertEqual(CrashErrorType.profile.rawValue, "profile")
     }
 
     func testTerminationReasonRawValues() {
+        XCTAssertEqual(TerminationReason.clean.rawValue, "clean")
+        XCTAssertEqual(TerminationReason.crash.rawValue, "crash")
+        XCTAssertEqual(TerminationReason.hang.rawValue, "hang")
+        XCTAssertEqual(TerminationReason.firstLaunch.rawValue, "first_launch")
         XCTAssertEqual(TerminationReason.lowBattery.rawValue, "low_battery")
         XCTAssertEqual(TerminationReason.memoryLimit.rawValue, "memory_limit")
         XCTAssertEqual(TerminationReason.memoryPressure.rawValue, "memory_pressure")
         XCTAssertEqual(TerminationReason.thermal.rawValue, "thermal")
         XCTAssertEqual(TerminationReason.cpu.rawValue, "cpu")
+        XCTAssertEqual(TerminationReason.osUpgrade.rawValue, "os_upgrade")
+        XCTAssertEqual(TerminationReason.appUpgrade.rawValue, "app_upgrade")
+        XCTAssertEqual(TerminationReason.reboot.rawValue, "reboot")
         XCTAssertEqual(TerminationReason.unexplained.rawValue, "unexplained")
     }
 

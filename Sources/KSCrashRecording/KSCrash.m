@@ -31,10 +31,11 @@
 #import "KSCrashC.h"
 #import "KSCrashConfiguration+Private.h"
 #import "KSCrashMonitor_Lifecycle.h"
-#import "KSCrashMonitor_ResourceTermination.h"
 #import "KSCrashMonitor_System.h"
+#import "KSCrashMonitor_Termination.h"
 #import "KSCrashReport.h"
 #import "KSCrashReportFields.h"
+#import "KSCrashRunContext.h"
 #import "KSDate.h"
 #import "KSJSONCodecObjC.h"
 #import "KSNSErrorHelper.h"
@@ -216,7 +217,7 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
 
 - (BOOL)reportsMemoryTerminations
 {
-    KSCrashMonitorAPI *api = kscm_resourcetermination_getAPI();
+    KSCrashMonitorAPI *api = kscm_termination_getAPI();
     return api->isEnabled(api->context);
 }
 
@@ -372,7 +373,15 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(NSInteger, sessionsSinceLastCrash)
 SYNTHESIZE_CRASH_STATE_PROPERTY(NSTimeInterval, activeDurationSinceLaunch)
 SYNTHESIZE_CRASH_STATE_PROPERTY(NSTimeInterval, backgroundDurationSinceLaunch)
 SYNTHESIZE_CRASH_STATE_PROPERTY(NSInteger, sessionsSinceLaunch)
-SYNTHESIZE_CRASH_STATE_PROPERTY(BOOL, crashedLastLaunch)
+- (BOOL)crashedLastLaunch
+{
+    return ksruncontext_previousRunContext()->producedReport;
+}
+
+- (KSTerminationReason)previousTerminationReason
+{
+    return ksruncontext_previousRunContext()->terminationReason;
+}
 
 // ============================================================================
 #pragma mark - Utility -

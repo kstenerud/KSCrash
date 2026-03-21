@@ -70,7 +70,7 @@ static void setEnabled(bool isEnabled, __unused void *context) { atomic_store(&g
 
 static bool isEnabled_func(__unused void *context) { return atomic_load(&g_isEnabled); }
 
-static void notifyPostSystemEnable(__unused void *context)
+static void notifyPostMonitorsEnabled(__unused void *context)
 {
     if (atomic_load(&g_isEnabled)) {
         kscm_system_setDiscSpace(getStorageSize(), getFreeStorageSize());
@@ -91,7 +91,7 @@ KSCrashMonitorAPI *kscm_discspace_getAPI(void)
         api.monitorId = monitorId;
         api.setEnabled = setEnabled;
         api.isEnabled = isEnabled_func;
-        api.notifyPostSystemEnable = notifyPostSystemEnable;
+        api.notifyPostMonitorsEnabled = notifyPostMonitorsEnabled;
         api.addContextualInfoToEvent = addContextualInfoToEvent;
     }
     return &api;

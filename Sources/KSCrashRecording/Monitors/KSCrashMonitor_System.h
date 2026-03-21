@@ -110,6 +110,17 @@ KSCrashMonitorAPI *kscm_system_getAPI(void);
 /** Copies the current system data into *dst. Returns true if the monitor is enabled and the copy succeeded. */
 bool kscm_system_getSystemData(KSCrash_SystemData *dst);
 
+/** Reads a system snapshot from a sidecar file at the given path.
+ *  Returns false if the file cannot be read or data fails validation.
+ */
+bool kscm_system_getSystemDataForPath(const char *path, KSCrash_SystemData *outData);
+
+/** Reads a system snapshot from a specific run's sidecar file.
+ *  Use with kscrash_getRunID() for current run or kscrash_getLastRunID() for previous.
+ *  Returns false if the run ID has no valid sidecar or data fails validation.
+ */
+bool kscm_system_getSystemDataForRunID(const char *runID, KSCrash_SystemData *outData);
+
 /** Set the boot timestamp (seconds since epoch) on the system monitor's mmap'd struct. */
 void kscm_system_setBootTime(int64_t bootTimestamp);
 

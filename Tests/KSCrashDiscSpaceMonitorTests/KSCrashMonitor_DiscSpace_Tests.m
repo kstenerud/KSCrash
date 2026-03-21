@@ -97,13 +97,13 @@ static bool stubRunSidecarPath(const char *monitorId, char *pathBuffer, size_t p
     KSCrashMonitorAPI *discSpaceMonitor = kscm_discspace_getAPI();
     discSpaceMonitor->setEnabled(true, NULL);
 
-    discSpaceMonitor->notifyPostSystemEnable(NULL);
+    discSpaceMonitor->notifyPostMonitorsEnabled(NULL);
 
     KSCrash_SystemData sd = {};
     XCTAssertTrue(kscm_system_getSystemData(&sd));
-    XCTAssertGreaterThan(sd.storageSize, (uint64_t)0, @"storageSize should be set after notifyPostSystemEnable");
+    XCTAssertGreaterThan(sd.storageSize, (uint64_t)0, @"storageSize should be set after notifyPostMonitorsEnabled");
     XCTAssertGreaterThan(sd.freeStorageSize, (uint64_t)0,
-                         @"freeStorageSize should be set after notifyPostSystemEnable");
+                         @"freeStorageSize should be set after notifyPostMonitorsEnabled");
 }
 
 - (void)testNoDiscSpaceWhenDisabled
@@ -111,7 +111,7 @@ static bool stubRunSidecarPath(const char *monitorId, char *pathBuffer, size_t p
     KSCrashMonitorAPI *discSpaceMonitor = kscm_discspace_getAPI();
     discSpaceMonitor->setEnabled(false, NULL);
 
-    discSpaceMonitor->notifyPostSystemEnable(NULL);
+    discSpaceMonitor->notifyPostMonitorsEnabled(NULL);
 
     KSCrash_SystemData sd = {};
     XCTAssertTrue(kscm_system_getSystemData(&sd));

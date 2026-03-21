@@ -182,8 +182,8 @@ extension InstallBridge {
         (.nsException, "NSException", "Unhandled Objective-C exceptions"),
         (.watchdog, "Watchdog", "Hangs and watchdog timeout terminations"),
         (
-            .resourceTermination, "Resource Termination",
-            "Termination due to resource exhaustion (memory, thermal, CPU, battery)"
+            .termination, "Termination",
+            "OS terminations from resource exhaustion (OOM, thermal) or maintenance (reboot, app upgrade)"
         ),
         (.zombie, "Zombie", "Attempts to access deallocated objects"),
         (.userReported, "User Reported", "Custom crash reports"),

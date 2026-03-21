@@ -34,6 +34,7 @@ make format           # C/C++/ObjC only
 make check-format     # check C/C++/ObjC only
 make swift-format     # Swift only
 make check-swift-format  # check Swift only
+make namespace        # regenerate KSCrashNamespace.h (required after adding/removing C symbols)
 swift format format --in-place --configuration .swift-format <file>  # single Swift file
 ```
 
@@ -54,13 +55,10 @@ KSCrash is a layered crash reporting framework:
 - **Filters**: Processing crash reports
 - **Sinks**: Handling report destinations
 - **Installations**: Pre-configured setups
-- **Monitors**: Crash detection mechanisms (see `.claude/rules/monitors.md` for details)
+- **Monitors**: Crash detection mechanisms (see `.claude/rules/monitors.md` for the full reference)
+- **RunContext**: Cross-monitor shared state and previous-run analysis (see `.claude/rules/run-context.md`)
 
-Public modules (API surface): KSCrashRecording, KSCrashFilters, KSCrashSinks, KSCrashInstallations, KSCrashDiscSpaceMonitor, KSCrashBootTimeMonitor, KSCrashDemangleFilter. Public headers: `Sources/[ModuleName]/include/*.h`.
-
-### Watchdog Monitor
-
-Fixed 250ms threshold for main thread hang detection. Not configurable — aligns with Apple's definition. See `KSCrashMonitor_Watchdog.h`.
+Public modules (API surface): KSCrashRecording, KSCrashFilters, KSCrashSinks, KSCrashInstallations, KSCrashDiscSpaceMonitor, KSCrashBootTimeMonitor, KSCrashDemangleFilter, Monitors (Swift), Report (Swift), KSCrashProfiler (Swift). Public headers: `Sources/[ModuleName]/include/*.h`.
 
 ## Verbose Logging
 

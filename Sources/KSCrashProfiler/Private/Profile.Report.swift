@@ -247,6 +247,7 @@ final private class ProfileMonitor: Sendable {
             setEnabled: profileMonitorSetEnabled,
             isEnabled: profileMonitorIsEnabled,
             addContextualInfoToEvent: profileMonitorAddContextualInfoToEvent,
+            notifyPostMonitorsEnabled: nil,
             notifyPostSystemEnable: profileMonitorNotifyPostSystemEnable,
             writeInReportSection: profileMonitorWriteInReportSection,
             stitchReport: nil
