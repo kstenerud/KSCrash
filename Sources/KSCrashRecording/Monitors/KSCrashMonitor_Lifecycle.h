@@ -181,8 +181,7 @@ KSCrashMonitorAPI *kscm_lifecycle_getAPI(void);
  *  Reads the binary struct, converts nanosecond durations to seconds,
  *  and produces the application_stats JSON section.
  */
-char *kscm_lifecycle_stitchReport(const char *report, const char *sidecarPath, KSCrashSidecarScope scope,
-                                  void *context);
+void *kscm_lifecycle_stitchReport(void *reportDict, const char *sidecarPath, KSCrashSidecarScope scope, void *context);
 
 #ifdef __cplusplus
 }

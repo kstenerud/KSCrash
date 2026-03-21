@@ -38,12 +38,11 @@
 
 static const char *finalizerTestMonitorId(__unused void *context) { return "FinalizerTestMonitor"; }
 
-static char *finalizerTestStitchReport(const char *report, const char *sidecarPath, __unused KSCrashSidecarScope scope,
+static void *finalizerTestStitchReport(void *reportDict, const char *sidecarPath, __unused KSCrashSidecarScope scope,
                                        __unused void *context)
 {
     @autoreleasepool {
-        NSData *reportData = [NSData dataWithBytesNoCopy:(void *)report length:strlen(report) freeWhenDone:NO];
-        NSDictionary *decoded = [KSJSONCodec decode:reportData options:KSJSONDecodeOptionNone error:nil];
+        NSDictionary *decoded = (__bridge NSDictionary *)reportDict;
         if (![decoded isKindOfClass:[NSDictionary class]]) {
             return NULL;
         }
@@ -55,15 +54,7 @@ static char *finalizerTestStitchReport(const char *report, const char *sidecarPa
         }
         NSMutableDictionary *dict = [decoded mutableCopy];
         dict[@"finalizer_test_stitch"] = sidecarContent;
-
-        NSData *encoded = [KSJSONCodec encode:dict options:KSJSONEncodeOptionNone error:nil];
-        if (!encoded) {
-            return NULL;
-        }
-        char *result = (char *)malloc(encoded.length + 1);
-        memcpy(result, encoded.bytes, encoded.length);
-        result[encoded.length] = '\0';
-        return result;
+        return (__bridge_retained void *)dict;
     }
 }
 

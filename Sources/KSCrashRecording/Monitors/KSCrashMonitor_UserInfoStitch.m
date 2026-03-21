@@ -28,7 +28,6 @@
 #import "KSKeyValueStore.h"
 
 #import "KSCrashReportFields.h"
-#import "KSJSONCodecObjC.h"
 
 #import <Foundation/Foundation.h>
 #include <string.h>
@@ -112,10 +111,10 @@ static void onRemoved(const char *key, uint16_t keyLen, void *ctx)
 #pragma mark - Stitch -
 // ============================================================================
 
-char *kscm_userinfo_stitchReport(const char *report, const char *sidecarPath, __unused KSCrashSidecarScope scope,
+void *kscm_userinfo_stitchReport(void *reportDict, const char *sidecarPath, __unused KSCrashSidecarScope scope,
                                  __unused void *context)
 {
-    if (!report || !sidecarPath) {
+    if (!reportDict || !sidecarPath) {
         return NULL;
     }
 
@@ -125,15 +124,7 @@ char *kscm_userinfo_stitchReport(const char *report, const char *sidecarPath, __
         return NULL;
     }
 
-    // Decode the report first so we can iterate directly into the user section.
-    NSData *reportData = [NSData dataWithBytesNoCopy:(void *)report length:strlen(report) freeWhenDone:NO];
-    NSDictionary *decoded = [KSJSONCodec decode:reportData options:KSJSONDecodeOptionNone error:nil];
-    if (![decoded isKindOfClass:[NSDictionary class]]) {
-        KSLOG_ERROR(@"Failed to decode report JSON for UserInfo stitch");
-        kskvs_destroy(store);
-        return NULL;
-    }
-    NSMutableDictionary *dict = [decoded mutableCopy];
+    NSMutableDictionary *dict = [(__bridge NSDictionary *)reportDict mutableCopy];
 
     // Start from the existing user section (if any).
     NSMutableDictionary *userSection;
@@ -170,19 +161,5 @@ char *kscm_userinfo_stitchReport(const char *report, const char *sidecarPath, __
 
     dict[KSCrashField_User] = userSection;
 
-    // Encode back to JSON
-    NSError *error = nil;
-    NSData *newData = [KSJSONCodec encode:dict options:KSJSONEncodeOptionNone error:&error];
-    if (!newData) {
-        KSLOG_ERROR(@"Failed to encode stitched UserInfo report: %@", error);
-        return NULL;
-    }
-
-    char *result = (char *)malloc(newData.length + 1);
-    if (!result) {
-        return NULL;
-    }
-    memcpy(result, newData.bytes, newData.length);
-    result[newData.length] = '\0';
-    return result;
+    return (__bridge_retained void *)dict;
 }

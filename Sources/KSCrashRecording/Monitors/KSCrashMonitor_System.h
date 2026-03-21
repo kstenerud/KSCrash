@@ -130,6 +130,9 @@ void kscm_system_setDiscSpace(uint64_t storageSize, uint64_t freeStorageSize);
 /** Update just the free storage size on the system monitor's mmap'd struct. */
 void kscm_system_setFreeStorageSize(uint64_t freeStorageSize);
 
+/** Stitch system sidecar data into a report at delivery time. */
+void *kscm_system_stitchReport(void *reportDict, const char *sidecarPath, KSCrashSidecarScope scope, void *context);
+
 #ifdef __cplusplus
 }
 #endif

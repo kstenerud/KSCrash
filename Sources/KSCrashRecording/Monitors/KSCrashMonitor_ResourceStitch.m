@@ -29,7 +29,6 @@
 #import "KSCrashAppMemory.h"
 #import "KSCrashReportFields.h"
 #import "KSFileUtils.h"
-#import "KSJSONCodecObjC.h"
 
 #import <Foundation/Foundation.h>
 #import <fcntl.h>
@@ -55,10 +54,10 @@ static bool readResourceData(const char *path, KSCrash_ResourceData *out)
     return true;
 }
 
-char *kscm_resource_stitchReport(const char *report, const char *sidecarPath, KSCrashSidecarScope scope,
+void *kscm_resource_stitchReport(void *reportDict, const char *sidecarPath, KSCrashSidecarScope scope,
                                  __unused void *context)
 {
-    if (!report || !sidecarPath || scope != KSCrashSidecarScopeRun) {
+    if (!reportDict || !sidecarPath || scope != KSCrashSidecarScopeRun) {
         return NULL;
     }
 
@@ -68,14 +67,7 @@ char *kscm_resource_stitchReport(const char *report, const char *sidecarPath, KS
         return NULL;
     }
 
-    // Decode the report JSON
-    NSData *reportData = [NSData dataWithBytesNoCopy:(void *)report length:strlen(report) freeWhenDone:NO];
-    NSDictionary *decoded = [KSJSONCodec decode:reportData options:KSJSONDecodeOptionNone error:nil];
-    if (![decoded isKindOfClass:[NSDictionary class]]) {
-        KSLOG_ERROR(@"Failed to decode report JSON");
-        return NULL;
-    }
-    NSMutableDictionary *dict = [decoded mutableCopy];
+    NSMutableDictionary *dict = [(__bridge NSDictionary *)reportDict mutableCopy];
 
     // Navigate to or create report.system
     NSMutableDictionary *systemDict;
@@ -118,19 +110,5 @@ char *kscm_resource_stitchReport(const char *report, const char *sidecarPath, KS
 
     dict[KSCrashField_System] = systemDict;
 
-    // Encode back to JSON
-    NSError *error = nil;
-    NSData *newData = [KSJSONCodec encode:dict options:KSJSONEncodeOptionNone error:&error];
-    if (!newData) {
-        KSLOG_ERROR(@"Failed to encode stitched report: %@", error);
-        return NULL;
-    }
-
-    char *result = (char *)malloc(newData.length + 1);
-    if (!result) {
-        return NULL;
-    }
-    memcpy(result, newData.bytes, newData.length);
-    result[newData.length] = '\0';
-    return result;
+    return (__bridge_retained void *)dict;
 }

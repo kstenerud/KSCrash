@@ -39,12 +39,11 @@
 static const char *testMonitorId(__unused void *context) { return "TestStitchMonitor"; }
 
 // Reads the sidecar file as UTF-8 text and inserts it under "test_stitch" in the report.
-static char *testStitchReport(const char *report, const char *sidecarPath, __unused KSCrashSidecarScope scope,
+static void *testStitchReport(void *reportDict, const char *sidecarPath, __unused KSCrashSidecarScope scope,
                               __unused void *context)
 {
     @autoreleasepool {
-        NSData *reportData = [NSData dataWithBytesNoCopy:(void *)report length:strlen(report) freeWhenDone:NO];
-        NSDictionary *decoded = [KSJSONCodec decode:reportData options:KSJSONDecodeOptionNone error:nil];
+        NSDictionary *decoded = (__bridge NSDictionary *)reportDict;
         if (![decoded isKindOfClass:[NSDictionary class]]) {
             return NULL;
         }
@@ -56,15 +55,7 @@ static char *testStitchReport(const char *report, const char *sidecarPath, __unu
         }
         NSMutableDictionary *dict = [decoded mutableCopy];
         dict[@"test_stitch"] = sidecarContent;
-
-        NSData *encoded = [KSJSONCodec encode:dict options:KSJSONEncodeOptionNone error:nil];
-        if (!encoded) {
-            return NULL;
-        }
-        char *result = (char *)malloc(encoded.length + 1);
-        memcpy(result, encoded.bytes, encoded.length);
-        result[encoded.length] = '\0';
-        return result;
+        return (__bridge_retained void *)dict;
     }
 }
 
@@ -111,80 +102,6 @@ static char *testStitchReport(const char *report, const char *sidecarPath, __unu
                                                     error:nil];
     NSString *path = [runDir stringByAppendingPathComponent:[NSString stringWithFormat:@"%@.ksscr", monitorId]];
     [contents writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
-}
-
-#pragma mark - kscrs_extractRunIdFromReport
-
-- (void)testExtractRunIdFromValidReport
-{
-    NSString *runId = [[NSUUID UUID] UUIDString];
-    NSString *jsonStr = [NSString stringWithFormat:@"{\"report\":{\"run_id\":\"%@\",\"id\":\"evt1\"}}", runId];
-    char buf[64];
-    bool result = kscrs_extractRunIdFromReport(jsonStr.UTF8String, buf, sizeof(buf));
-    XCTAssertTrue(result);
-    XCTAssertEqualObjects([NSString stringWithUTF8String:buf], runId);
-}
-
-- (void)testExtractRunIdFromReportMissingRunId
-{
-    const char *json = "{\"report\":{\"id\":\"evt1\"}}";
-    char buf[64];
-    bool result = kscrs_extractRunIdFromReport(json, buf, sizeof(buf));
-    XCTAssertFalse(result);
-}
-
-- (void)testExtractRunIdFromReportMissingReportSection
-{
-    const char *json = "{\"crash\":{\"error\":{}}}";
-    char buf[64];
-    bool result = kscrs_extractRunIdFromReport(json, buf, sizeof(buf));
-    XCTAssertFalse(result);
-}
-
-- (void)testExtractRunIdFromInvalidJSON
-{
-    const char *json = "not json";
-    char buf[64];
-    bool result = kscrs_extractRunIdFromReport(json, buf, sizeof(buf));
-    XCTAssertFalse(result);
-}
-
-- (void)testExtractRunIdNullReport
-{
-    char buf[64];
-    bool result = kscrs_extractRunIdFromReport(NULL, buf, sizeof(buf));
-    XCTAssertFalse(result);
-}
-
-- (void)testExtractRunIdNullBuffer
-{
-    const char *json = "{\"report\":{\"run_id\":\"abc\"}}";
-    bool result = kscrs_extractRunIdFromReport(json, NULL, 64);
-    XCTAssertFalse(result);
-}
-
-- (void)testExtractRunIdZeroBufferLength
-{
-    const char *json = "{\"report\":{\"run_id\":\"abc\"}}";
-    char buf[64];
-    bool result = kscrs_extractRunIdFromReport(json, buf, 0);
-    XCTAssertFalse(result);
-}
-
-- (void)testExtractRunIdRejectsNonUUID
-{
-    const char *json = "{\"report\":{\"run_id\":\"../../etc/passwd\",\"id\":\"evt1\"}}";
-    char buf[64];
-    bool result = kscrs_extractRunIdFromReport(json, buf, sizeof(buf));
-    XCTAssertFalse(result);
-}
-
-- (void)testExtractRunIdEmptyRunId
-{
-    const char *json = "{\"report\":{\"run_id\":\"\",\"id\":\"evt1\"}}";
-    char buf[64];
-    bool result = kscrs_extractRunIdFromReport(json, buf, sizeof(buf));
-    XCTAssertFalse(result);
 }
 
 #pragma mark - kscrs_getRunSidecarFilePath

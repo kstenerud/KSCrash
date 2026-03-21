@@ -472,10 +472,6 @@ static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext, __unu
     ks_spinlock_unlock(&g_sidecarLock);
 }
 
-/** Implemented in KSCrashMonitor_LifecycleStitch.m */
-extern char *kscm_lifecycle_stitchReport(const char *report, const char *sidecarPath, KSCrashSidecarScope scope,
-                                         void *context);
-
 __attribute__((unused))  // For tests. Declared as extern in TestCase
 void kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionState state)
 {

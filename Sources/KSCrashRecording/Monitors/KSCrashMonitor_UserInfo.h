@@ -88,7 +88,7 @@ void kscm_userinfo_removeValue(const char *key);
  *
  *  Runs at normal app startup time — ObjC and heap allocation are safe.
  */
-char *kscm_userinfo_stitchReport(const char *report, const char *sidecarPath, KSCrashSidecarScope scope, void *context);
+void *kscm_userinfo_stitchReport(void *reportDict, const char *sidecarPath, KSCrashSidecarScope scope, void *context);
 
 #ifdef __cplusplus
 }

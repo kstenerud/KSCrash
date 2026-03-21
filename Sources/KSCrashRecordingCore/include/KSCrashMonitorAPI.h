@@ -115,19 +115,18 @@ typedef struct KSCrashMonitorAPI {
      * monitor's sidecar directory, it calls this function to let the monitor merge
      * sidecar data into the report before delivery.
      *
-     * @param report The NULL-terminated JSON report string.
+     * @param reportDict An NSDictionary* (as void*) containing the decoded report.
      * @param sidecarPath The full path to the sidecar file for this report.
      * @param scope Whether this is a per-report or per-run sidecar.
      * @param context The monitor's opaque context pointer.
      *
-     * @return A malloc'd NULL-terminated string with the stitched report
-     *         (or a strdup of the original if no changes were needed),
-     *         or NULL on failure. The caller will free the returned buffer.
+     * @return An NSDictionary* (as void*) with the modified report,
+     *         or NULL to leave the report unchanged.
      *
      * @note This callback is optional. If NULL, no stitching is performed.
      *       This runs at normal app startup time, not during crash handling.
      */
-    char *(*stitchReport)(const char *report, const char *sidecarPath, KSCrashSidecarScope scope, void *context);
+    void *(*stitchReport)(void *reportDict, const char *sidecarPath, KSCrashSidecarScope scope, void *context);
 } KSCrashMonitorAPI;
 
 /**

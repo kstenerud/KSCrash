@@ -29,23 +29,16 @@
 
 #include "KSCrashNamespace.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#ifdef __OBJC__
+#import <Foundation/Foundation.h>
 
-/** Fixes up fields in a crash report that could not be fixed up at crash time.
- * Some fields, such a mangled fields and dates, cannot be fixed up at crash time
- * because the function calls needed to do it are not async-safe.
+/** Fixes up fields in a decoded crash report that could not be fixed up at crash time.
+ * Converts numeric timestamps to ISO-8601 date strings.
  *
- * @param crashReport A raw report loaded from disk.
- *
- * @return A fixed up crash report.
- *         MEMORY MANAGEMENT WARNING: User is responsible for calling free() on the returned value.
+ * @param report The decoded report dictionary to fix up.
+ * @return The fixed-up dictionary, or nil on failure.
  */
-char *kscrf_fixupCrashReport(const char *crashReport);
-
-#ifdef __cplusplus
-}
+NSDictionary *kscrf_fixupReportDict(NSDictionary *report);
 #endif
 
 #endif  // HDR_KSCrashReportFixer_h

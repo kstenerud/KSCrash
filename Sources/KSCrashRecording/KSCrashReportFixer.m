@@ -29,8 +29,6 @@
 #import <Foundation/Foundation.h>
 
 #import "KSCrashReportFields.h"
-#import "KSJSONCodecObjC.h"
-#import "KSLogger.h"
 
 #pragma mark - Version Parsing
 
@@ -143,43 +141,11 @@ static void fixupReport(NSMutableDictionary *report)
     }
 }
 
-#pragma mark - Public C API
+#pragma mark - Public API
 
-char *kscrf_fixupCrashReport(const char *crashReport)
+NSDictionary *kscrf_fixupReportDict(NSDictionary *report)
 {
-    if (crashReport == NULL) {
-        return NULL;
-    }
-
-    @autoreleasepool {
-        NSData *jsonData = [NSData dataWithBytesNoCopy:(void *)crashReport length:strlen(crashReport) freeWhenDone:NO];
-
-        NSError *error = nil;
-        NSMutableDictionary *report =
-            [KSJSONCodec decode:jsonData
-                        options:KSJSONDecodeOptionIgnoreNullInArray | KSJSONDecodeOptionIgnoreNullInObject |
-                                KSJSONDecodeOptionKeepPartialObject
-                          error:&error];
-        if (report == nil) {
-            KSLOG_ERROR(@"Could not decode report for fixup: %@", error);
-            return NULL;
-        }
-
-        fixupReport(report);
-
-        NSData *outputData = [KSJSONCodec encode:report options:KSJSONEncodeOptionPretty error:&error];
-        if (outputData == nil) {
-            KSLOG_ERROR(@"Could not encode fixed report: %@", error);
-            return NULL;
-        }
-
-        char *result = malloc(outputData.length + 1);
-        if (result == NULL) {
-            return NULL;
-        }
-        memcpy(result, outputData.bytes, outputData.length);
-        result[outputData.length] = '\0';
-
-        return result;
-    }
+    NSMutableDictionary *mutable = [report mutableCopy];
+    fixupReport(mutable);
+    return mutable;
 }

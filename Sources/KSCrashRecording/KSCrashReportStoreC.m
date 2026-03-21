@@ -1,5 +1,5 @@
 //
-//  KSCrashReportStoreC.c
+//  KSCrashReportStoreC.m
 //
 //  Created by Karl Stenerud on 2012-02-05.
 //
@@ -39,11 +39,15 @@
 #include "KSCrashC.h"
 #include "KSCrashMonitor.h"
 #include "KSCrashMonitorRegistry.h"
-#include "KSCrashReportFixer.h"
 #include "KSCrashReportStoreC+Private.h"
 #include "KSDate.h"
 #include "KSFileUtils.h"
 #include "KSLogger.h"
+
+#import <Foundation/Foundation.h>
+#import "KSCrashReportFields.h"
+#import "KSCrashReportFixer.h"
+#import "KSJSONCodecObjC.h"
 
 // Have to use max 32-bit atomics because of MIPS.
 static _Atomic(uint32_t) g_nextUniqueIDLow;
@@ -88,7 +92,7 @@ static int getReportCount(const KSCrashReportStoreCConfiguration *const config)
     int count = 0;
     DIR *dir = opendir(config->reportsPath);
     if (dir == NULL) {
-        KSLOG_ERROR("Could not open directory %s", config->reportsPath);
+        KSLOG_ERROR(@"Could not open directory %s", config->reportsPath);
         goto done;
     }
     struct dirent *ent;
@@ -110,7 +114,7 @@ static int getReportIDs(int64_t *reportIDs, int count, const KSCrashReportStoreC
     int index = 0;
     DIR *dir = opendir(config->reportsPath);
     if (dir == NULL) {
-        KSLOG_ERROR("Could not open directory %s", config->reportsPath);
+        KSLOG_ERROR(@"Could not open directory %s", config->reportsPath);
         goto done;
     }
 
@@ -201,8 +205,8 @@ static void deleteReportSidecarsForReport(int64_t reportID, const KSCrashReportS
     closedir(dir);
 }
 
-static char *stitchReportSidecarsIntoReport(char *report, int64_t reportID,
-                                            const KSCrashReportStoreCConfiguration *const config, bool *stitchFailed)
+static NSDictionary *stitchReportSidecarsIntoReport(NSDictionary *report, int64_t reportID,
+                                                    const KSCrashReportStoreCConfiguration *const config)
 {
     if (config->reportSidecarsPath == NULL) {
         return report;
@@ -228,32 +232,37 @@ static char *stitchReportSidecarsIntoReport(char *report, int64_t reportID,
         if (access(sidecarPath, F_OK) != 0) {
             continue;
         }
-        char *stitched = api->stitchReport(report, sidecarPath, KSCrashSidecarScopeReport, api->context);
+        void *stitched =
+            api->stitchReport((__bridge void *)report, sidecarPath, KSCrashSidecarScopeReport, api->context);
         if (stitched != NULL) {
-            free(report);
-            report = stitched;
-        } else if (stitchFailed != NULL) {
-            *stitchFailed = true;
+            report = (__bridge_transfer NSDictionary *)stitched;
         }
     }
     closedir(dir);
     return report;
 }
 
-static char *stitchRunSidecarsIntoReport(char *report, const KSCrashReportStoreCConfiguration *const config,
-                                         bool *stitchFailed)
+static NSDictionary *stitchRunSidecarsIntoReport(NSDictionary *report,
+                                                 const KSCrashReportStoreCConfiguration *const config)
 {
     if (config->runSidecarsPath == NULL) {
         return report;
     }
 
-    char runId[64];
-    if (!kscrs_extractRunIdFromReport(report, runId, sizeof(runId))) {
+    // Extract run_id directly from the decoded dict
+    NSString *runIdStr = report[KSCrashField_Report][KSCrashField_RunID];
+    if (![runIdStr isKindOfClass:[NSString class]] || runIdStr.length == 0) {
+        return report;
+    }
+    // Defense-in-depth: reject non-UUID run_ids to prevent path traversal
+    uuid_t unused;
+    if (uuid_parse(runIdStr.UTF8String, unused) != 0) {
         return report;
     }
 
     char runDir[KSCRS_MAX_PATH_LENGTH];
-    if (snprintf(runDir, sizeof(runDir), "%s/%s", config->runSidecarsPath, runId) >= (int)sizeof(runDir)) {
+    if (snprintf(runDir, sizeof(runDir), "%s/%s", config->runSidecarsPath, runIdStr.UTF8String) >=
+        (int)sizeof(runDir)) {
         return report;
     }
 
@@ -290,12 +299,9 @@ static char *stitchRunSidecarsIntoReport(char *report, const KSCrashReportStoreC
             continue;
         }
 
-        char *stitched = api->stitchReport(report, sidecarPath, KSCrashSidecarScopeRun, api->context);
+        void *stitched = api->stitchReport((__bridge void *)report, sidecarPath, KSCrashSidecarScopeRun, api->context);
         if (stitched != NULL) {
-            free(report);
-            report = stitched;
-        } else if (stitchFailed != NULL) {
-            *stitchFailed = true;
+            report = (__bridge_transfer NSDictionary *)stitched;
         }
     }
     closedir(dir);
@@ -464,7 +470,7 @@ KSCrashInstallErrorCode kscrs_initialize(const KSCrashReportStoreCConfiguration 
     KSCrashInstallErrorCode result = KSCrashInstallErrorNone;
     pthread_mutex_lock(&g_mutex);
     if (ksfu_makePath(configuration->reportsPath) == false) {
-        KSLOG_ERROR("Could not create path: %s", configuration->reportsPath);
+        KSLOG_ERROR(@"Could not create path: %s", configuration->reportsPath);
         result = KSCrashInstallErrorCouldNotCreatePath;
     } else {
         if (configuration->reportSidecarsPath != NULL) {
@@ -512,46 +518,78 @@ int kscrs_getReportIDs(int64_t *reportIDs, int count, const KSCrashReportStoreCC
     return count;
 }
 
-static char *readReportAtPath(const char *path, int64_t reportID, const KSCrashReportStoreCConfiguration *const config,
-                              bool *stitchFailed)
+static char *readReportAtPath(const char *path, int64_t reportID, const KSCrashReportStoreCConfiguration *const config)
 {
-    char *rawReport;
-    const size_t maxReportSize = 20000000;
-    ksfu_readEntireFile(path, &rawReport, NULL, maxReportSize);
-    if (rawReport == NULL) {
-        KSLOG_ERROR("Failed to load report at path: %s", path);
-        return NULL;
-    }
-
-    // Finalized reports already went through fixup and stitching at
-    // recovery time, so return them as-is.
-    if (kscrs_isReportFinalized(rawReport)) {
-        return rawReport;
-    }
-
-    char *result = kscrf_fixupCrashReport(rawReport);
-    free(rawReport);
-    if (result == NULL) {
-        KSLOG_ERROR("Failed to fixup report at path: %s", path);
-        return NULL;
-    }
-
-    if (config != NULL) {
-        // Run sidecars first so per-report data can override per-run data
-        result = stitchRunSidecarsIntoReport(result, config, stitchFailed);
-        if (reportID > 0) {
-            result = stitchReportSidecarsIntoReport(result, reportID, config, stitchFailed);
+    @autoreleasepool {
+        char *rawReport;
+        const size_t maxReportSize = 20000000;
+        ksfu_readEntireFile(path, &rawReport, NULL, maxReportSize);
+        if (rawReport == NULL) {
+            KSLOG_ERROR(@"Failed to load report at path: %s", path);
+            return NULL;
         }
-    }
 
-    return result;
+        // Decode once at the top
+        NSData *jsonData = [NSData dataWithBytesNoCopy:rawReport length:strlen(rawReport) freeWhenDone:YES];
+        NSMutableDictionary *dict =
+            [KSJSONCodec decode:jsonData
+                        options:KSJSONDecodeOptionIgnoreNullInArray | KSJSONDecodeOptionIgnoreNullInObject |
+                                KSJSONDecodeOptionKeepPartialObject
+                          error:nil];
+        if (![dict isKindOfClass:[NSDictionary class]]) {
+            KSLOG_ERROR(@"Failed to decode report at path: %s", path);
+            return NULL;
+        }
+
+        // Finalized reports already went through fixup and stitching at
+        // recovery time, so re-encode and return as-is.
+        id finalizedVal = dict[KSCrashField_Report][KSCrashField_Finalized];
+        if ([finalizedVal isKindOfClass:[NSNumber class]] && [finalizedVal boolValue]) {
+            NSData *encoded = [KSJSONCodec encode:dict options:KSJSONEncodeOptionPretty error:nil];
+            if (!encoded) {
+                return NULL;
+            }
+            char *result = (char *)malloc(encoded.length + 1);
+            if (!result) {
+                return NULL;
+            }
+            memcpy(result, encoded.bytes, encoded.length);
+            result[encoded.length] = '\0';
+            return result;
+        }
+
+        // Fixup (timestamp conversion)
+        NSDictionary *report = kscrf_fixupReportDict(dict);
+
+        if (config != NULL) {
+            // Run sidecars first so per-report data can override per-run data
+            report = stitchRunSidecarsIntoReport(report, config);
+            if (reportID > 0) {
+                report = stitchReportSidecarsIntoReport(report, reportID, config);
+            }
+        }
+
+        // Encode once at the bottom
+        NSData *encoded = [KSJSONCodec encode:report options:KSJSONEncodeOptionPretty error:nil];
+        if (!encoded) {
+            KSLOG_ERROR(@"Failed to encode report at path: %s", path);
+            return NULL;
+        }
+        char *result = (char *)malloc(encoded.length + 1);
+        if (!result) {
+            return NULL;
+        }
+        memcpy(result, encoded.bytes, encoded.length);
+        result[encoded.length] = '\0';
+        return result;
+    }
 }
 
 char *kscrs_readReportAtPath(const char *path)
 {
     pthread_mutex_lock(&g_mutex);
     const KSCrashReportStoreCConfiguration *config = g_hasStoredConfig ? &g_storedConfig : NULL;
-    char *result = readReportAtPath(path, 0, config, NULL);
+    char *result = readReportAtPath(path, 0, config);
     pthread_mutex_unlock(&g_mutex);
     return result;
 }
@@ -560,9 +598,18 @@ char *kscrs_readReportByPathAndID(const char *path, int64_t reportID)
 {
     pthread_mutex_lock(&g_mutex);
     const KSCrashReportStoreCConfiguration *config = g_hasStoredConfig ? &g_storedConfig : NULL;
-    char *result = readReportAtPath(path, reportID, config, NULL);
+    char *result = readReportAtPath(path, reportID, config);
     pthread_mutex_unlock(&g_mutex);
     return result;
+}
+
+void kscrs_deleteReportSidecarsForReportID(int64_t reportID)
+{
+    pthread_mutex_lock(&g_mutex);
+    if (g_hasStoredConfig) {
+        deleteReportSidecarsForReport(reportID, &g_storedConfig);
+    }
+    pthread_mutex_unlock(&g_mutex);
 }
 
 bool kscrs_finalizeReport(const char *reportPath, int64_t reportID)
@@ -571,9 +618,9 @@ bool kscrs_finalizeReport(const char *reportPath, int64_t reportID)
         return false;
     }
 
-    // Hold g_mutex for the entire read → stitch → write-back sequence
-    // so that a concurrent deletion cannot create a window where the
-    // write-back resurrects a deleted report.
+    // Hold g_mutex for the entire read → stitch → write-back → sidecar
+    // cleanup sequence so that a concurrent deletion cannot create a
+    // window where the write-back resurrects a deleted report.
     pthread_mutex_lock(&g_mutex);
 
     if (!g_hasStoredConfig) {
@@ -581,67 +628,94 @@ bool kscrs_finalizeReport(const char *reportPath, int64_t reportID)
         return false;
     }
 
-    bool stitchFailed = false;
-    char *stitched = readReportAtPath(reportPath, reportID, &g_storedConfig, &stitchFailed);
-    if (stitched == NULL) {
-        pthread_mutex_unlock(&g_mutex);
-        return false;
-    }
-    if (stitchFailed) {
-        KSLOG_ERROR("Stitching failed for report %lld, skipping finalization to allow retry on next read",
-                    (long long)reportID);
-        free(stitched);
-        pthread_mutex_unlock(&g_mutex);
-        return false;
-    }
+    @autoreleasepool {
+        char *rawReport;
+        const size_t maxReportSize = 20000000;
+        ksfu_readEntireFile(reportPath, &rawReport, NULL, maxReportSize);
+        if (rawReport == NULL) {
+            pthread_mutex_unlock(&g_mutex);
+            return false;
+        }
 
-    char *finalized = kscrs_injectFinalizedFlag(stitched);
-    free(stitched);
-    if (finalized == NULL) {
-        pthread_mutex_unlock(&g_mutex);
-        return false;
-    }
+        // Decode once
+        NSData *jsonData = [NSData dataWithBytesNoCopy:rawReport length:strlen(rawReport) freeWhenDone:YES];
+        NSMutableDictionary *dict =
+            [KSJSONCodec decode:jsonData
+                        options:KSJSONDecodeOptionIgnoreNullInArray | KSJSONDecodeOptionIgnoreNullInObject |
+                                KSJSONDecodeOptionKeepPartialObject
+                          error:nil];
+        if (![dict isKindOfClass:[NSDictionary class]]) {
+            pthread_mutex_unlock(&g_mutex);
+            return false;
+        }
+        // Fixup
+        NSDictionary *report = kscrf_fixupReportDict(dict);
+        report = stitchRunSidecarsIntoReport(report, &g_storedConfig);
+        if (reportID > 0) {
+            report = stitchReportSidecarsIntoReport(report, reportID, &g_storedConfig);
+        }
 
-    // Atomic write: write to .tmp then rename
-    char tmpPath[KSCRS_MAX_PATH_LENGTH];
-    int written = snprintf(tmpPath, sizeof(tmpPath), "%s.tmp", reportPath);
-    if (written < 0 || written >= (int)sizeof(tmpPath)) {
-        KSLOG_ERROR("Report path too long for temp file: %s", reportPath);
-        free(finalized);
-        pthread_mutex_unlock(&g_mutex);
-        return false;
-    }
-    int fd = open(tmpPath, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    if (fd < 0) {
-        KSLOG_ERROR("Failed to open temp file for finalization: %s (%s)", tmpPath, strerror(errno));
-        free(finalized);
-        pthread_mutex_unlock(&g_mutex);
-        return false;
-    }
-    bool writeOk = ksfu_writeBytesToFD(fd, finalized, (int)strlen(finalized));
-    close(fd);
-    free(finalized);
+        // Set finalized flag directly on the dict
+        NSMutableDictionary *finalDict;
+        if ([report isKindOfClass:[NSMutableDictionary class]]) {
+            finalDict = (NSMutableDictionary *)report;
+        } else {
+            finalDict = [report mutableCopy];
+        }
+        NSMutableDictionary *reportSection = finalDict[KSCrashField_Report];
+        if ([reportSection isKindOfClass:[NSDictionary class]] &&
+            ![reportSection isKindOfClass:[NSMutableDictionary class]]) {
+            reportSection = [reportSection mutableCopy];
+        } else if (![reportSection isKindOfClass:[NSDictionary class]]) {
+            reportSection = [NSMutableDictionary dictionary];
+        }
+        reportSection[KSCrashField_Finalized] = @YES;
+        finalDict[KSCrashField_Report] = reportSection;
 
-    if (!writeOk) {
-        KSLOG_ERROR("Failed to write finalized report to %s", tmpPath);
-        unlink(tmpPath);
+        // Encode once
+        NSData *encoded = [KSJSONCodec encode:finalDict options:KSJSONEncodeOptionPretty error:nil];
+        if (!encoded) {
+            KSLOG_ERROR(@"Failed to encode finalized report");
+            pthread_mutex_unlock(&g_mutex);
+            return false;
+        }
+
+        // Atomic write: write to .tmp then rename
+        char tmpPath[KSCRS_MAX_PATH_LENGTH];
+        int written = snprintf(tmpPath, sizeof(tmpPath), "%s.tmp", reportPath);
+        if (written < 0 || written >= (int)sizeof(tmpPath)) {
+            KSLOG_ERROR(@"Report path too long for temp file: %s", reportPath);
+            pthread_mutex_unlock(&g_mutex);
+            return false;
+        }
+        int fd = open(tmpPath, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        if (fd < 0) {
+            KSLOG_ERROR(@"Failed to open temp file for finalization: %s (%s)", tmpPath, strerror(errno));
+            pthread_mutex_unlock(&g_mutex);
+            return false;
+        }
+        bool writeOk = ksfu_writeBytesToFD(fd, (const char *)encoded.bytes, (int)encoded.length);
+        close(fd);
+
+        if (!writeOk) {
+            KSLOG_ERROR(@"Failed to write finalized report to %s", tmpPath);
+            unlink(tmpPath);
+            pthread_mutex_unlock(&g_mutex);
+            return false;
+        }
+
+        if (rename(tmpPath, reportPath) != 0) {
+            KSLOG_ERROR(@"Failed to rename finalized report %s -> %s: %s", tmpPath, reportPath, strerror(errno));
+            unlink(tmpPath);
+            pthread_mutex_unlock(&g_mutex);
+            return false;
+        }
+
+        deleteReportSidecarsForReport(reportID, &g_storedConfig);
+
         pthread_mutex_unlock(&g_mutex);
-        return false;
+        return true;
     }
-
-    if (rename(tmpPath, reportPath) != 0) {
-        KSLOG_ERROR("Failed to rename finalized report %s -> %s: %s", tmpPath, reportPath, strerror(errno));
-        unlink(tmpPath);
-        pthread_mutex_unlock(&g_mutex);
-        return false;
-    }
-
-    // Sidecars are not deleted here — they sit inert on disk (reads
-    // skip stitching for finalized reports) and get cleaned up when
-    // the report itself is deleted after consumption.
-
-    pthread_mutex_unlock(&g_mutex);
-    return true;
 }
 
 char *kscrs_readReport(int64_t reportID, const KSCrashReportStoreCConfiguration *const configuration)
@@ -649,7 +723,7 @@ char *kscrs_readReport(int64_t reportID, const KSCrashReportStoreCConfiguration 
     pthread_mutex_lock(&g_mutex);
     char path[KSCRS_MAX_PATH_LENGTH];
     getCrashReportPathByID(reportID, path, configuration);
-    char *result = readReportAtPath(path, reportID, configuration, NULL);
+    char *result = readReportAtPath(path, reportID, configuration);
     pthread_mutex_unlock(&g_mutex);
     return result;
 }
@@ -664,16 +738,16 @@ int64_t kscrs_addUserReport(const char *report, int reportLength,
 
     int fd = open(crashReportPath, O_WRONLY | O_CREAT, 0644);
     if (fd < 0) {
-        KSLOG_ERROR("Could not open file %s: %s", crashReportPath, strerror(errno));
+        KSLOG_ERROR(@"Could not open file %s: %s", crashReportPath, strerror(errno));
         goto done;
     }
 
     int bytesWritten = (int)write(fd, report, (unsigned)reportLength);
     if (bytesWritten < 0) {
-        KSLOG_ERROR("Could not write to file %s: %s", crashReportPath, strerror(errno));
+        KSLOG_ERROR(@"Could not write to file %s: %s", crashReportPath, strerror(errno));
         goto done;
     } else if (bytesWritten < reportLength) {
-        KSLOG_ERROR("Expected to write %d bytes to file %s, but only wrote %d", crashReportPath, reportLength,
+        KSLOG_ERROR(@"Expected to write %d bytes to file %s, but only wrote %d", crashReportPath, reportLength,
                     bytesWritten);
     }
 

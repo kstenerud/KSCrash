@@ -28,7 +28,6 @@
 
 #import "KSCrashMonitor_WatchdogSidecar.h"
 #import "KSCrashReportFields.h"
-#import "KSJSONCodecObjC.h"
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -75,18 +74,6 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, NSString *startR
     };
 }
 
-static NSString *jsonString(NSDictionary *dict)
-{
-    NSData *data = [KSJSONCodec encode:dict options:KSJSONEncodeOptionNone error:nil];
-    return [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
-}
-
-static NSDictionary *dictFromCString(const char *json)
-{
-    NSData *data = [NSData dataWithBytes:json length:strlen(json)];
-    return [KSJSONCodec decode:data options:KSJSONDecodeOptionNone error:nil];
-}
-
 #pragma mark - Tests
 
 @interface KSCrashMonitor_WatchdogStitch_Tests : XCTestCase
@@ -116,13 +103,14 @@ static NSDictionary *dictFromCString(const char *json)
 
 - (void)testNullSidecarPathReturnsNull
 {
-    XCTAssertTrue(kscm_watchdog_stitchReport("{}", NULL, KSCrashSidecarScopeReport, NULL) == NULL);
+    XCTAssertTrue(kscm_watchdog_stitchReport((__bridge void *)@{}, NULL, KSCrashSidecarScopeReport, NULL) == NULL);
 }
 
 - (void)testMissingSidecarFileReturnsNull
 {
     NSString *missingPath = [self.tempDir stringByAppendingPathComponent:[[NSUUID UUID] UUIDString]];
-    char *result = kscm_watchdog_stitchReport("{}", missingPath.UTF8String, KSCrashSidecarScopeReport, NULL);
+    void *result =
+        kscm_watchdog_stitchReport((__bridge void *)@{}, missingPath.UTF8String, KSCrashSidecarScopeReport, NULL);
     XCTAssertTrue(result == NULL);
 }
 
@@ -140,9 +128,9 @@ static NSDictionary *dictFromCString(const char *json)
     NSString *path = writeSidecar(self.tempDir, sc);
 
     NSDictionary *report = makeMinimalHangReport(500, @"foreground");
-    NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    void *result =
+        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
     XCTAssertTrue(result == NULL);
 }
 
@@ -158,9 +146,9 @@ static NSDictionary *dictFromCString(const char *json)
     NSString *path = writeSidecar(self.tempDir, sc);
 
     NSDictionary *report = makeMinimalHangReport(500, @"foreground");
-    NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    void *result =
+        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
     XCTAssertTrue(result == NULL);
 }
 
@@ -176,9 +164,9 @@ static NSDictionary *dictFromCString(const char *json)
     NSString *path = writeSidecar(self.tempDir, sc);
 
     NSDictionary *report = makeMinimalHangReport(500, @"foreground");
-    NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    void *result =
+        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
     XCTAssertTrue(result == NULL);
 }
 
@@ -196,9 +184,9 @@ static NSDictionary *dictFromCString(const char *json)
     NSString *path = writeSidecar(self.tempDir, sc);
 
     NSDictionary *report = @{ @"crash" : @ { @"error" : @ { @"type" : @"signal" } } };
-    NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    void *result =
+        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
     XCTAssertTrue(result == NULL);
 }
 
@@ -217,13 +205,12 @@ static NSDictionary *dictFromCString(const char *json)
     NSString *path = writeSidecar(self.tempDir, sc);
 
     NSDictionary *report = makeMinimalHangReport(100000000, @"foreground");
-    NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    void *result =
+        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
     XCTAssertTrue(result != NULL);
 
-    NSDictionary *stitched = dictFromCString(result);
-    free(result);
+    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
 
     NSDictionary *hang = stitched[@"crash"][@"error"][@"hang"];
     XCTAssertEqualObjects(hang[@"hang_end_nanos"], @(endTs));
@@ -241,13 +228,12 @@ static NSDictionary *dictFromCString(const char *json)
     NSString *path = writeSidecar(self.tempDir, sc);
 
     NSDictionary *report = makeMinimalHangReport(1000, @"foreground");
-    NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    void *result =
+        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
     XCTAssertTrue(result != NULL);
 
-    NSDictionary *stitched = dictFromCString(result);
-    free(result);
+    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
 
     NSDictionary *error = stitched[@"crash"][@"error"];
     XCTAssertEqualObjects(error[@"type"], @"signal");
@@ -268,13 +254,12 @@ static NSDictionary *dictFromCString(const char *json)
     NSString *path = writeSidecar(self.tempDir, sc);
 
     NSDictionary *report = makeMinimalHangReport(1000, @"foreground");
-    NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    void *result =
+        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
     XCTAssertTrue(result != NULL);
 
-    NSDictionary *stitched = dictFromCString(result);
-    free(result);
+    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
 
     NSDictionary *error = stitched[@"crash"][@"error"];
     XCTAssertEqualObjects(error[@"is_fatal"], @YES);
@@ -293,13 +278,12 @@ static NSDictionary *dictFromCString(const char *json)
     NSString *path = writeSidecar(self.tempDir, sc);
 
     NSDictionary *report = makeMinimalHangReport(1000, @"foreground");
-    NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    void *result =
+        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
     XCTAssertTrue(result != NULL);
 
-    NSDictionary *stitched = dictFromCString(result);
-    free(result);
+    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
 
     NSDictionary *hang = stitched[@"crash"][@"error"][@"hang"];
     XCTAssertNil(hang[@"hang_recovered"]);
@@ -319,13 +303,12 @@ static NSDictionary *dictFromCString(const char *json)
     NSString *path = writeSidecar(self.tempDir, sc);
 
     NSDictionary *report = makeMinimalHangReport(1000, @"foreground");
-    NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    void *result =
+        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
     XCTAssertTrue(result != NULL);
 
-    NSDictionary *stitched = dictFromCString(result);
-    free(result);
+    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
 
     NSDictionary *hang = stitched[@"crash"][@"error"][@"hang"];
     XCTAssertEqualObjects(hang[@"hang_recovered"], @YES);
@@ -343,13 +326,12 @@ static NSDictionary *dictFromCString(const char *json)
     NSString *path = writeSidecar(self.tempDir, sc);
 
     NSDictionary *report = makeMinimalHangReport(1000, @"foreground");
-    NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    void *result =
+        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
     XCTAssertTrue(result != NULL);
 
-    NSDictionary *stitched = dictFromCString(result);
-    free(result);
+    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
 
     NSDictionary *error = stitched[@"crash"][@"error"];
     XCTAssertEqualObjects(error[@"is_fatal"], @NO);
@@ -368,13 +350,12 @@ static NSDictionary *dictFromCString(const char *json)
     NSString *path = writeSidecar(self.tempDir, sc);
 
     NSDictionary *report = makeMinimalHangReport(1000, @"foreground");
-    NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    void *result =
+        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
     XCTAssertTrue(result != NULL);
 
-    NSDictionary *stitched = dictFromCString(result);
-    free(result);
+    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
 
     NSString *type = stitched[@"crash"][@"error"][@"type"];
     XCTAssertEqualObjects(type, @"hang");
@@ -392,13 +373,12 @@ static NSDictionary *dictFromCString(const char *json)
     NSString *path = writeSidecar(self.tempDir, sc);
 
     NSDictionary *report = makeMinimalHangReport(1000, @"foreground");
-    NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    void *result =
+        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
     XCTAssertTrue(result != NULL);
 
-    NSDictionary *stitched = dictFromCString(result);
-    free(result);
+    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
 
     NSDictionary *error = stitched[@"crash"][@"error"];
     XCTAssertNil(error[@"signal"]);
@@ -419,13 +399,12 @@ static NSDictionary *dictFromCString(const char *json)
     NSString *path = writeSidecar(self.tempDir, sc);
 
     NSDictionary *report = makeMinimalHangReport(1000, @"foreground");
-    NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    void *result =
+        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
     XCTAssertTrue(result != NULL);
 
-    NSDictionary *stitched = dictFromCString(result);
-    free(result);
+    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
 
     NSDictionary *hang = stitched[@"crash"][@"error"][@"hang"];
     XCTAssertEqualObjects(hang[@"hang_end_nanos"], @(endTs));
@@ -444,34 +423,16 @@ static NSDictionary *dictFromCString(const char *json)
     NSString *path = writeSidecar(self.tempDir, sc);
 
     NSDictionary *report = makeMinimalHangReport(startNanos, @"foreground");
-    NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    void *result =
+        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
     XCTAssertTrue(result != NULL);
 
-    NSDictionary *stitched = dictFromCString(result);
-    free(result);
+    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
 
     NSDictionary *hang = stitched[@"crash"][@"error"][@"hang"];
     XCTAssertEqualObjects(hang[@"hang_start_nanos"], @(startNanos));
     XCTAssertEqualObjects(hang[@"hang_start_role"], @"foreground");
-}
-
-#pragma mark - Invalid JSON
-
-- (void)testInvalidJSONReturnsNull
-{
-    KSHangSidecar sc = {
-        .magic = KSHANG_SIDECAR_MAGIC,
-        .version = KSHANG_SIDECAR_VERSION_1_0,
-        .endTimestamp = 1000,
-        .endRole = TASK_DEFAULT_APPLICATION,
-        .recovered = false,
-    };
-    NSString *path = writeSidecar(self.tempDir, sc);
-
-    char *result = kscm_watchdog_stitchReport("not json at all", path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result == NULL);
 }
 
 #pragma mark - Truncated Sidecar
@@ -485,9 +446,9 @@ static NSDictionary *dictFromCString(const char *json)
     close(fd);
 
     NSDictionary *report = makeMinimalHangReport(1000, @"foreground");
-    NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    void *result =
+        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
     XCTAssertTrue(result == NULL);
 }
 
@@ -505,9 +466,9 @@ static NSDictionary *dictFromCString(const char *json)
     NSString *path = writeSidecar(self.tempDir, sc);
 
     NSDictionary *report = @{ @"other" : @"value" };
-    NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    void *result =
+        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
     XCTAssertTrue(result == NULL);
 }
 
@@ -523,9 +484,9 @@ static NSDictionary *dictFromCString(const char *json)
     NSString *path = writeSidecar(self.tempDir, sc);
 
     NSDictionary *report = @{ @"crash" : [NSNull null] };
-    NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    void *result =
+        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
     XCTAssertTrue(result == NULL);
 }
 
@@ -541,9 +502,9 @@ static NSDictionary *dictFromCString(const char *json)
     NSString *path = writeSidecar(self.tempDir, sc);
 
     NSDictionary *report = @{ @"crash" : @ { @"error" : [NSNull null] } };
-    NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    void *result =
+        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
     XCTAssertTrue(result == NULL);
 }
 
@@ -559,9 +520,9 @@ static NSDictionary *dictFromCString(const char *json)
     NSString *path = writeSidecar(self.tempDir, sc);
 
     NSDictionary *report = @{ @"crash" : @ { @"error" : @ { @"type" : @"signal", @"hang" : [NSNull null] } } };
-    NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    void *result =
+        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
     XCTAssertTrue(result == NULL);
 }
 
@@ -579,13 +540,12 @@ static NSDictionary *dictFromCString(const char *json)
     NSString *path = writeSidecar(self.tempDir, sc);
 
     NSDictionary *report = makeMinimalHangReport(1000, @"foreground");
-    NSString *json = jsonString(report);
 
-    char *result = kscm_watchdog_stitchReport(json.UTF8String, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    void *result =
+        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
     XCTAssertTrue(result != NULL);
 
-    NSDictionary *stitched = dictFromCString(result);
-    free(result);
+    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
 
     NSDictionary *hang = stitched[@"crash"][@"error"][@"hang"];
     XCTAssertEqualObjects(hang[@"hang_end_role"], @"DEFAULT_APPLICATION");

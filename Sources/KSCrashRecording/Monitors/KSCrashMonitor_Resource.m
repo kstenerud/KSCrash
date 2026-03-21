@@ -637,10 +637,6 @@ static void setEnabled(bool isEnabled, __unused void *context)
 
 static bool isEnabled_func(__unused void *context) { return atomic_load(&g_isEnabled); }
 
-/** Implemented in KSCrashMonitor_ResourceStitch.m */
-extern char *kscm_resource_stitchReport(const char *report, const char *sidecarPath, KSCrashSidecarScope scope,
-                                        void *context);
-
 KSCrashMonitorAPI *kscm_resource_getAPI(void)
 {
     static KSCrashMonitorAPI api = { 0 };
