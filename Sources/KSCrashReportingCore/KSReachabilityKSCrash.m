@@ -111,6 +111,9 @@ static void onReachabilityChanged(SCNetworkReachabilityRef target, SCNetworkReac
             goto failed;
         }
 
+        // Assign before the dispatch so the background block sees the ref.
+        _reachabilityRef = reachabilityRef;
+
         dispatch_async(dispatch_get_global_queue(0, 0), ^{
             @autoreleasepool {
                 SCNetworkReachabilityFlags flags;
@@ -123,8 +126,6 @@ static void onReachabilityChanged(SCNetworkReachabilityRef target, SCNetworkReac
                 }
             }
         });
-
-        _reachabilityRef = reachabilityRef;
 
         return self;
     }
