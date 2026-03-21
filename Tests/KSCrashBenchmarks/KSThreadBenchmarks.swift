@@ -124,6 +124,7 @@ class KSThreadBenchmarks: KSBenchmarkTestCase {
                 Thread.sleep(forTimeInterval: 2.0)  // Keep threads alive during benchmark
                 group.leave()
             }
+            thread.qualityOfService = .userInteractive
             thread.start()
         }
 

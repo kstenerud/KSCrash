@@ -115,9 +115,13 @@ static void *workerThreadMain(void *arg)
     g_workerDoneSemaphore = dispatch_semaphore_create(0);
     g_workerMachThread = MACH_PORT_NULL;
 
-    // Start worker thread
+    // Start worker thread at user-interactive QoS
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_set_qos_class_np(&attr, QOS_CLASS_USER_INTERACTIVE, 0);
     pthread_t workerThread;
-    pthread_create(&workerThread, NULL, workerThreadMain, NULL);
+    pthread_create(&workerThread, &attr, workerThreadMain, NULL);
+    pthread_attr_destroy(&attr);
 
     // Wait for worker to be ready (blocked in workerLevel5)
     dispatch_semaphore_wait(g_workerReadySemaphore, DISPATCH_TIME_FOREVER);
@@ -256,9 +260,13 @@ static void *framelessWorkerThreadMain(void *arg)
     g_workerDoneSemaphore = dispatch_semaphore_create(0);
     g_workerMachThread = MACH_PORT_NULL;
 
-    // Start worker thread
+    // Start worker thread at user-interactive QoS
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_set_qos_class_np(&attr, QOS_CLASS_USER_INTERACTIVE, 0);
     pthread_t workerThread;
-    pthread_create(&workerThread, NULL, framelessWorkerThreadMain, NULL);
+    pthread_create(&workerThread, &attr, framelessWorkerThreadMain, NULL);
+    pthread_attr_destroy(&attr);
 
     // Wait for worker to be ready (blocked in framelessLevel5)
     dispatch_semaphore_wait(g_workerReadySemaphore, DISPATCH_TIME_FOREVER);
