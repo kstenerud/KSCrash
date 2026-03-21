@@ -52,6 +52,10 @@ extern "C" {
 #pragma mark - Run Context -
 // ============================================================================
 
+/** Maximum tolerated difference in boot timestamps (seconds) between
+ *  consecutive runs before we consider it a reboot. */
+#define KSCRASH_REBOOT_JITTER_SECONDS 30
+
 #define KSRUNCONTEXT_RUN_ID_LENGTH 37  // UUID string (36) + null
 
 /** Analyzed snapshot of a single run's sidecar data. */
@@ -75,7 +79,8 @@ typedef struct {
 
 /** Store the sidecar path resolver and analyze the previous run.
  *
- *  Must be called after monitors are enabled and before
+ *  Must be called after kscm_notifyPostMonitorsEnabled() (so that
+ *  current-run sidecar data is populated) and before
  *  kscm_notifyPostSystemEnable().
  */
 void ksruncontext_init(KSCrashSidecarRunPathForRunIDProviderFunc pathForRunID);

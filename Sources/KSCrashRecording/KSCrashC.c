@@ -480,15 +480,19 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     setMonitors(configuration->monitors);
     setPluginMonitors(configuration->plugins.apis, configuration->plugins.length);
 
-    // Monitor startup is three steps, order matters:
-    //  1. enableMonitors  — installs signal/mach handlers, creates sidecars for the current run.
-    //  2. RunContext init  — reads *previous* run's sidecars and determines the termination reason.
-    //  3. postSystemEnable — tells monitors RunContext is ready so they can act on previous-run data
-    //                        (e.g. Termination injects a report, Memory checks for OOM).
+    // Monitor startup is four steps, order matters:
+    //  1. enableMonitors         — installs signal/mach handlers, creates sidecars for the current run.
+    //  2. postMonitorsEnabled    — monitors populate current-run sidecar data that RunContext needs
+    //                              (e.g. BootTime writes kern.boottime so reboot detection works).
+    //  3. RunContext init        — reads *previous* run's sidecars, compares against current, determines
+    //                              the termination reason.
+    //  4. postSystemEnable       — tells monitors RunContext is ready so they can act on previous-run data
+    //                              (e.g. Termination injects a report, Memory checks for OOM).
     if (kscm_enableMonitors() == false) {
         KSLOG_ERROR("No crash monitors are active");
         return KSCrashInstallErrorNoActiveMonitors;
     }
+    kscm_notifyPostMonitorsEnabled();
     ksruncontext_init(getRunSidecarPathForRunIDCallback);
     kscm_notifyPostSystemEnable();
 

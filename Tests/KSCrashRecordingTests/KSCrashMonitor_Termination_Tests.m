@@ -213,7 +213,7 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     KSCrash_LifecycleData lc = makeLifecycle(false, false);
     KSCrash_ResourceData res = makeResource();
     res.batteryLevel = 1;
-    res.batteryState = 1;  // unplugged
+    res.batteryState = KSCrashBatteryStateUnplugged;
     KSCrash_SystemData sys = sameSystem();
 
     XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonLowBattery);
@@ -224,7 +224,7 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     KSCrash_LifecycleData lc = makeLifecycle(false, false);
     KSCrash_ResourceData res = makeResource();
     res.batteryLevel = 1;
-    res.batteryState = 2;  // charging
+    res.batteryState = KSCrashBatteryStateCharging;
     KSCrash_SystemData sys = sameSystem();
 
     // Battery is low but plugged in — not a battery kill
@@ -393,7 +393,7 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     KSCrash_ResourceData res = makeResource();
     res.thermalState = 3;
     res.batteryLevel = 0;
-    res.batteryState = 1;
+    res.batteryState = KSCrashBatteryStateUnplugged;
     KSCrash_SystemData sys = sameSystem();
 
     XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonThermal);

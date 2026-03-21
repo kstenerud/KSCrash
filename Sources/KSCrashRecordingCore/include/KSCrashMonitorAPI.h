@@ -83,7 +83,13 @@ typedef struct KSCrashMonitorAPI {
     /** Called to allow the monitor to add contextual information to an event context. */
     void (*addContextualInfoToEvent)(KSCrash_MonitorContext *eventContext, void *context);
 
-    /** Called after the system monitors have been enabled. */
+    /** Called after all monitors have been enabled but before RunContext
+     *  reads sidecars.  Use this to populate current-run sidecar data that
+     *  RunContext needs for its analysis (e.g. boot time, disc space). */
+    void (*notifyPostMonitorsEnabled)(void *context);
+
+    /** Called after RunContext has been initialized with previous-run data.
+     *  Use this to act on the termination reason (e.g. inject a report). */
     void (*notifyPostSystemEnable)(void *context);
 
     /**

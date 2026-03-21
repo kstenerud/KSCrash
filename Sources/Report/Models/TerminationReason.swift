@@ -28,21 +28,21 @@ import Foundation
 
 /// The reason a process was terminated.
 public enum TerminationReason: RawRepresentable, Codable, Sendable, Equatable {
-    // Expected exits
+    // Definitive
     case clean
     case crash
     case hang
     case firstLaunch
-    // Resource reasons
+    // System changes
+    case osUpgrade
+    case appUpgrade
+    case reboot
+    // Resource heuristics
     case lowBattery
     case memoryLimit
     case memoryPressure
     case thermal
     case cpu
-    // System change reasons
-    case osUpgrade
-    case appUpgrade
-    case reboot
     // Fallback
     case unexplained
     case unknown(String)

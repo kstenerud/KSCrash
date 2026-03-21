@@ -67,6 +67,15 @@ typedef struct {
 bool kscmr_enableMonitors(KSCrashMonitorAPIList *monitorList);
 
 /**
+ * Notify all enabled monitors that monitors have been enabled.
+ *
+ * Called after enableMonitors but before RunContext init.  Monitors that
+ * populate current-run sidecar data needed by RunContext (e.g. boot time)
+ * should do so here.
+ */
+void kscmr_notifyPostMonitorsEnabled(KSCrashMonitorAPIList *monitorList);
+
+/**
  * Notify all enabled monitors that the system is fully initialized.
  *
  * Monitors may use this callback to read previous-run analysis from RunContext.

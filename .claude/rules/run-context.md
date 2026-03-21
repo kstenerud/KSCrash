@@ -17,19 +17,20 @@ On each launch, `ksruncontext_init()` reads the previous run's Lifecycle, Resour
 
 ### Startup Sequence
 
-Monitor startup in `kscrash_install()` is three ordered steps:
+Monitor startup in `kscrash_install()` is four ordered steps:
 
 1. **`kscm_enableMonitors()`** — installs signal/Mach handlers, creates sidecars for the current run.
-2. **`ksruncontext_init(pathForRunID)`** — reads previous run's sidecars and determines the termination reason.
-3. **`kscm_notifyPostSystemEnable()`** — tells monitors RunContext is ready so they can act on previous-run data (e.g., Termination injects a report, Memory checks for OOM).
+2. **`kscm_notifyPostMonitorsEnabled()`** — monitors populate current-run sidecar data that RunContext needs (e.g., BootTime writes `kern.boottime` so reboot detection works, DiscSpace writes storage sizes).
+3. **`ksruncontext_init(pathForRunID)`** — reads previous run's sidecars, compares against the now-complete current system state, and determines the termination reason.
+4. **`kscm_notifyPostSystemEnable()`** — tells monitors RunContext is ready so they can act on previous-run data (e.g., Termination injects a report, Memory checks for OOM).
 
-This order is load-bearing: monitors must be enabled before RunContext reads their sidecars, and RunContext must be populated before monitors try to read it. There is no combined "activate" call — each step is explicit.
+This order is load-bearing: monitors must be enabled before RunContext reads their sidecars, current-run data must be populated before RunContext compares against it, and RunContext must be populated before monitors try to read it. There is no combined "activate" call — each step is explicit.
 
 ### Termination Reasons
 
 `KSTerminationReason` classifies why the previous run ended. The `determineReason()` function in `KSCrashRunContext.m` evaluates them in priority order — lifecycle guards first, then system changes, then resource limits, then fallbacks.
 
-**Lifecycle guards** (checked first — a crash or hang recorded in the Lifecycle sidecar must not be overridden by missing data):
+**Definitive** (checked first — a crash or hang recorded in the Lifecycle sidecar must not be overridden by missing data):
 
 | Reason | Meaning | Produces report? |
 |---|---|---|
@@ -43,17 +44,17 @@ This order is load-bearing: monitors must be enabled before RunContext reads the
 |---|---|---|
 | `OSUpgrade` | OS version changed between runs | No |
 | `AppUpgrade` | App bundle version changed between runs | No |
-| `Reboot` | Device boot time changed (with 30s jitter tolerance) | No |
+| `Reboot` | Device boot time changed (with `KSCRASH_REBOOT_JITTER_SECONDS` tolerance) | No |
 
-**Resource limits** (OS killed the app due to resource exhaustion — these are terminations that cannot be caught at runtime):
+**Resource heuristics** (based on the last observed resource snapshot before the app was killed — the OS does not report a cause for these terminations, so they reflect the best available evidence):
 
 | Reason | Meaning | Produces report? |
 |---|---|---|
-| `MemoryLimit` | App's own memory usage hit the critical level (Jetsam/OOM) | Yes |
-| `MemoryPressure` | System-wide memory pressure reached critical | Yes |
-| `CPU` | CPU usage exceeded 80% of all cores | Yes |
+| `MemoryLimit` | App memory level reached `KSCrashAppMemoryStateCritical` | Yes |
+| `MemoryPressure` | System-wide memory pressure reached `KSCrashAppMemoryStateCritical` | Yes |
+| `CPU` | CPU usage exceeded `KSCRASH_CPU_USAGE_CRITICAL` permil across all cores | Yes |
 | `Thermal` | Device thermal state reached `NSProcessInfoThermalStateCritical` | Yes |
-| `LowBattery` | Battery at 1% or below and unplugged | Yes |
+| `LowBattery` | Battery at or below `KSCRASH_BATTERY_LEVEL_CRITICAL`% and `KSCrashBatteryStateUnplugged` | Yes |
 
 **Fallbacks**:
 
@@ -73,4 +74,4 @@ Loads context for any run ID, not just the previous one. Takes the path resolver
 - `KSTerminationReason.h/.c`: `KSTerminationReason` enum, `kstermination_reasonToString()`, `kstermination_producesReport()`
 - `KSTaskRole.h/.c`: `kstaskrole_current()`, `kstaskrole_toString()` — queries the Mach task role from the kernel
 - `KSCrashMonitor_Termination.h/.m`: The Termination monitor — reads RunContext in `notifyPostSystemEnable` and injects a retroactive report if needed
-- `KSCrashC.c`: Wires the three-step startup sequence in `kscrash_install()`
+- `KSCrashC.c`: Wires the four-step startup sequence in `kscrash_install()`

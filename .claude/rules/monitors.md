@@ -35,10 +35,10 @@ Built-in monitors are registered via `KSCrashMonitorType` flags in `KSCrashC.c`.
 
 **Auto-registered monitors** (registered via `__attribute__((constructor))` when their SPM module is linked):
 
-| Monitor | ID | Module | Detects | postSystemEnable |
-|---|---|---|---|---|
-| BootTime | `"BootTime"` | KSCrashBootTimeMonitor | Adds device boot time to reports | Yes |
-| DiscSpace | `"DiscSpace"` | KSCrashDiscSpaceMonitor | Adds disk space info to reports | Yes |
+| Monitor | ID | Module | Detects | postMonitorsEnabled | postSystemEnable |
+|---|---|---|---|---|---|
+| BootTime | `"BootTime"` | KSCrashBootTimeMonitor | Adds device boot time to reports | Yes | No |
+| DiscSpace | `"DiscSpace"` | KSCrashDiscSpaceMonitor | Adds disk space info to reports | Yes | No |
 
 **Plugin monitors** (registered via `KSCrashConfiguration.plugins`):
 
@@ -96,9 +96,10 @@ Monitors that write sidecar data each have a corresponding `*Stitch.m` file that
 
 ### Monitor Lifecycle Callbacks
 
-Monitors implement two enable-time callbacks:
+Monitors implement three enable-time callbacks:
 
 - **`setEnabled(true)`** — called during `kscm_enableMonitors()`. Install handlers, create sidecars, begin monitoring.
+- **`notifyPostMonitorsEnabled()`** — called during `kscm_notifyPostMonitorsEnabled()`, after all monitors are enabled but before RunContext init. Populate current-run sidecar data that RunContext needs for its analysis (e.g., BootTime writes `kern.boottime`, DiscSpace writes storage sizes). Optional (NULL-safe).
 - **`notifyPostSystemEnable()`** — called during `kscm_notifyPostSystemEnable()`, after RunContext is initialized. Read previous-run analysis and act on it (e.g., Termination injects a retroactive report). Only called for enabled monitors.
 
 ### Watchdog Monitor

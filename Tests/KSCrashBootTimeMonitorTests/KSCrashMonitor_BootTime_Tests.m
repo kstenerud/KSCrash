@@ -99,11 +99,11 @@ static bool stubRunSidecarPath(const char *monitorId, char *pathBuffer, size_t p
     KSCrashMonitorAPI *bootTimeMonitor = kscm_boottime_getAPI();
     bootTimeMonitor->setEnabled(true, NULL);
 
-    bootTimeMonitor->notifyPostSystemEnable(NULL);
+    bootTimeMonitor->notifyPostMonitorsEnabled(NULL);
 
     KSCrash_SystemData sd = {};
     XCTAssertTrue(kscm_system_getSystemData(&sd));
-    XCTAssertGreaterThan(sd.bootTimestamp, (int64_t)0, @"bootTimestamp should be set after notifyPostSystemEnable");
+    XCTAssertGreaterThan(sd.bootTimestamp, (int64_t)0, @"bootTimestamp should be set after notifyPostMonitorsEnabled");
 }
 
 - (void)testBootTimestampProducesValidDate
@@ -111,7 +111,7 @@ static bool stubRunSidecarPath(const char *monitorId, char *pathBuffer, size_t p
     KSCrashMonitorAPI *bootTimeMonitor = kscm_boottime_getAPI();
     bootTimeMonitor->setEnabled(true, NULL);
 
-    bootTimeMonitor->notifyPostSystemEnable(NULL);
+    bootTimeMonitor->notifyPostMonitorsEnabled(NULL);
 
     KSCrash_SystemData sd = {};
     XCTAssertTrue(kscm_system_getSystemData(&sd));
@@ -133,7 +133,7 @@ static bool stubRunSidecarPath(const char *monitorId, char *pathBuffer, size_t p
     KSCrashMonitorAPI *bootTimeMonitor = kscm_boottime_getAPI();
     bootTimeMonitor->setEnabled(false, NULL);
 
-    bootTimeMonitor->notifyPostSystemEnable(NULL);
+    bootTimeMonitor->notifyPostMonitorsEnabled(NULL);
 
     KSCrash_SystemData sd = {};
     XCTAssertTrue(kscm_system_getSystemData(&sd));

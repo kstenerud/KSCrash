@@ -49,6 +49,23 @@ extern "C" {
 #pragma mark - Sidecar Struct -
 // ============================================================================
 
+/** Battery charging state — mirrors UIDeviceBatteryState values. */
+typedef enum {
+    KSCrashBatteryStateUnknown = 0,
+    KSCrashBatteryStateUnplugged = 1,
+    KSCrashBatteryStateCharging = 2,
+    KSCrashBatteryStateFull = 3,
+} KSCrashBatteryState;
+
+/** Battery level at or below which an unplugged device is considered
+ *  a low-battery termination candidate (percent, 0–100). */
+#define KSCRASH_BATTERY_LEVEL_CRITICAL 1
+
+/** CPU usage threshold in permil of one core above which an app is considered
+ *  a CPU termination candidate.  Compared against the sum of user + system
+ *  usage across all cores (i.e. threshold * coreCount). */
+#define KSCRASH_CPU_USAGE_CRITICAL 800
+
 #define KSRESOURCE_MAGIC ((int32_t)'ksrs')
 
 static const uint8_t KSCrash_Resource_CurrentVersion = 1;
@@ -81,7 +98,7 @@ typedef struct {
 
     // Battery
     uint8_t batteryLevel;  // 0–100, or 255 if unavailable
-    uint8_t batteryState;  // 0=unknown, 1=unplugged, 2=charging, 3=full
+    uint8_t batteryState;  // KSCrashBatteryState
     uint8_t lowPowerMode;  // 0 or 1
 
     uint8_t cpuCoreCount;  // active CPU cores (set once at enable time)

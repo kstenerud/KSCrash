@@ -316,16 +316,16 @@ static void readBattery(uint8_t *outLevel, uint8_t *outState)
 
     switch (device.batteryState) {
         case UIDeviceBatteryStateUnplugged:
-            *outState = 1;
+            *outState = KSCrashBatteryStateUnplugged;
             break;
         case UIDeviceBatteryStateCharging:
-            *outState = 2;
+            *outState = KSCrashBatteryStateCharging;
             break;
         case UIDeviceBatteryStateFull:
-            *outState = 3;
+            *outState = KSCrashBatteryStateFull;
             break;
         default:
-            *outState = 0;
+            *outState = KSCrashBatteryStateUnknown;
             break;
     }
 }
@@ -604,7 +604,7 @@ static void setEnabled(bool isEnabled, __unused void *context)
 
             // Defaults for platforms without battery / data protection
             res->batteryLevel = 255;
-            res->batteryState = 0;
+            res->batteryState = KSCrashBatteryStateUnknown;
             res->dataProtectionActive = 1;
         });
 

@@ -119,10 +119,10 @@ static KSTerminationReason determineReason(const KSCrash_LifecycleData *prevLife
             return KSTerminationReasonAppUpgrade;
         }
 
-        // Allow 30s jitter — the reported boot time can shift slightly between reads.
+        // Allow jitter — the reported boot time can shift slightly between reads.
         if (prevSystem->bootTimestamp != 0 && currSystem->bootTimestamp != 0) {
             int64_t diff = currSystem->bootTimestamp - prevSystem->bootTimestamp;
-            if (diff > 30 || diff < -30) {
+            if (diff > KSCRASH_REBOOT_JITTER_SECONDS || diff < -KSCRASH_REBOOT_JITTER_SECONDS) {
                 return KSTerminationReasonReboot;
             }
         }
@@ -138,9 +138,8 @@ static KSTerminationReason determineReason(const KSCrash_LifecycleData *prevLife
         return KSTerminationReasonMemoryPressure;
     }
 
-    // 80% of all cores.
     uint32_t totalCPU = (uint32_t)prevResource->cpuUsageUser + (uint32_t)prevResource->cpuUsageSystem;
-    uint32_t cpuThreshold = (uint32_t)prevResource->cpuCoreCount * 800;
+    uint32_t cpuThreshold = (uint32_t)prevResource->cpuCoreCount * KSCRASH_CPU_USAGE_CRITICAL;
     if (cpuThreshold > 0 && totalCPU > cpuThreshold) {
         return KSTerminationReasonCPU;
     }
@@ -149,7 +148,8 @@ static KSTerminationReason determineReason(const KSCrash_LifecycleData *prevLife
         return KSTerminationReasonThermal;
     }
 
-    if (prevResource->batteryLevel <= 1 && prevResource->batteryState == 1) {
+    if (prevResource->batteryLevel <= KSCRASH_BATTERY_LEVEL_CRITICAL &&
+        prevResource->batteryState == KSCrashBatteryStateUnplugged) {
         return KSTerminationReasonLowBattery;
     }
 

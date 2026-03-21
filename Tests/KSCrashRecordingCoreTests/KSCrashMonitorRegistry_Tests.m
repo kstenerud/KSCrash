@@ -39,6 +39,7 @@
 
 // First monitor
 static bool g_dummyEnabledState = false;
+static bool g_dummyPostMonitorsEnabled = false;
 static bool g_dummyPostSystemEnabled = false;
 static const char *const g_eventID = "TestEventID";
 static const char *g_copiedEventID = NULL;
@@ -63,6 +64,7 @@ static void dummyAddContextualInfoToEvent(struct KSCrash_MonitorContext *eventCo
     }
 }
 
+static void dummyNotifyPostMonitorsEnabled(__unused void *context) { g_dummyPostMonitorsEnabled = true; }
 static void dummyNotifyPostSystemEnable(__unused void *context) { g_dummyPostSystemEnabled = true; }
 
 // Second monitor
@@ -105,8 +107,10 @@ static KSCrashMonitorAPI g_secondDummyMonitor = {};
     g_dummyMonitor.setEnabled = dummySetEnabled;
     g_dummyMonitor.isEnabled = dummyIsEnabled;
     g_dummyMonitor.addContextualInfoToEvent = dummyAddContextualInfoToEvent;
+    g_dummyMonitor.notifyPostMonitorsEnabled = dummyNotifyPostMonitorsEnabled;
     g_dummyMonitor.notifyPostSystemEnable = dummyNotifyPostSystemEnable;
     g_dummyEnabledState = false;
+    g_dummyPostMonitorsEnabled = false;
     g_dummyPostSystemEnabled = false;
     // Second monitor
     memset(&g_secondDummyMonitor, 0, sizeof(g_secondDummyMonitor));
@@ -149,6 +153,39 @@ static KSCrashMonitorAPI g_secondDummyMonitor = {};
     XCTAssertFalse(g_dummyEnabledState);
     kscmr_notifyPostSystemEnable(&list);
     XCTAssertFalse(g_dummyPostSystemEnabled, @"Disabled monitors should not receive post-system-enable.");
+}
+
+- (void)testNotifyPostMonitorsEnabledFiresCallback
+{
+    KSCrashMonitorAPIList list;
+    memset(&list, 0, sizeof(list));
+    kscmr_addMonitor(&list, &g_dummyMonitor);
+    kscmr_enableMonitors(&list);
+    XCTAssertFalse(g_dummyPostMonitorsEnabled, @"Post-monitors-enabled should not have fired yet.");
+    kscmr_notifyPostMonitorsEnabled(&list);
+    XCTAssertTrue(g_dummyPostMonitorsEnabled, @"Post-monitors-enabled callback should have fired.");
+}
+
+- (void)testNotifyPostMonitorsEnabledSkipsDisabledMonitors
+{
+    KSCrashMonitorAPIList list;
+    memset(&list, 0, sizeof(list));
+    kscmr_addMonitor(&list, &g_dummyMonitor);
+    // Don't enable — monitor stays disabled
+    XCTAssertFalse(g_dummyEnabledState);
+    kscmr_notifyPostMonitorsEnabled(&list);
+    XCTAssertFalse(g_dummyPostMonitorsEnabled, @"Disabled monitors should not receive post-monitors-enabled.");
+}
+
+- (void)testNotifyPostMonitorsEnabledSkipsNullCallback
+{
+    KSCrashMonitorAPIList list;
+    memset(&list, 0, sizeof(list));
+    g_dummyMonitor.notifyPostMonitorsEnabled = NULL;
+    kscmr_addMonitor(&list, &g_dummyMonitor);
+    kscmr_enableMonitors(&list);
+    // Should not crash
+    kscmr_notifyPostMonitorsEnabled(&list);
 }
 
 - (void)testDisablingAllMonitors

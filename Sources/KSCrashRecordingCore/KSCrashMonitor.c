@@ -196,6 +196,12 @@ bool kscm_enableMonitors(void)
     return kscmr_enableMonitors(&g_state.monitors);
 }
 
+void kscm_notifyPostMonitorsEnabled(void)
+{
+    init();
+    kscmr_notifyPostMonitorsEnabled(&g_state.monitors);
+}
+
 void kscm_notifyPostSystemEnable(void)
 {
     init();

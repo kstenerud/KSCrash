@@ -50,23 +50,46 @@ typedef NS_ENUM(NSInteger, KSTerminationReason)
 enum
 #endif
 {
+    /** Default/unset value. */
     KSTerminationReasonNone = 0,
-    // Expected exits
+
+    // -- Definitive --
+
+    /** App exited normally through the standard lifecycle. */
     KSTerminationReasonClean,
+    /** A crash handler ran (signal, Mach exception, etc.). */
     KSTerminationReasonCrash,
+    /** The watchdog detected a hang that was not recovered before the app was killed. */
     KSTerminationReasonHang,
+    /** No previous run exists. */
     KSTerminationReasonFirstLaunch,
-    // Resource reasons
-    KSTerminationReasonLowBattery,
-    KSTerminationReasonMemoryLimit,
-    KSTerminationReasonMemoryPressure,
-    KSTerminationReasonThermal,
-    KSTerminationReasonCPU,
-    // System change reasons
+
+    // -- System changes --
+
+    /** The OS version changed between runs. */
     KSTerminationReasonOSUpgrade,
+    /** The app's bundle version changed between runs. */
     KSTerminationReasonAppUpgrade,
+    /** The device rebooted between runs. */
     KSTerminationReasonReboot,
-    // Fallback
+
+    // -- Resource heuristics --
+    // Based on the last observed resource snapshot before the app was killed.
+
+    /** Battery was critically low while the device was unplugged. */
+    KSTerminationReasonLowBattery,
+    /** App memory footprint reached the per-process limit. */
+    KSTerminationReasonMemoryLimit,
+    /** System-wide memory pressure reached a critical level. */
+    KSTerminationReasonMemoryPressure,
+    /** Device thermal state was critical. */
+    KSTerminationReasonThermal,
+    /** CPU usage exceeded the critical threshold across all cores. */
+    KSTerminationReasonCPU,
+
+    // -- Fallback --
+
+    /** The previous run did not exit cleanly but no specific cause was identified. */
     KSTerminationReasonUnexplained,
 } NS_SWIFT_NAME(TerminationReason);
 #ifndef __OBJC__

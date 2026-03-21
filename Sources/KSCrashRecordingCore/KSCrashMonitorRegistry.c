@@ -148,6 +148,16 @@ bool kscmr_enableMonitors(KSCrashMonitorAPIList *monitorList)
     return anyMonitorActive;
 }
 
+void kscmr_notifyPostMonitorsEnabled(KSCrashMonitorAPIList *monitorList)
+{
+    for (size_t i = 0; i < KSCRASH_MONITOR_API_COUNT; i++) {
+        const KSCrashMonitorAPI *api = monitorList->apis[i];
+        if (api != NULL && api->isEnabled(api->context) && api->notifyPostMonitorsEnabled != NULL) {
+            api->notifyPostMonitorsEnabled(api->context);
+        }
+    }
+}
+
 void kscmr_notifyPostSystemEnable(KSCrashMonitorAPIList *monitorList)
 {
     for (size_t i = 0; i < KSCRASH_MONITOR_API_COUNT; i++) {

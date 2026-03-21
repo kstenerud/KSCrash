@@ -64,6 +64,7 @@ extension MetricKitMonitor {
                         MetricKitMonitor.from(cntxt)?.enabled ?? false
                     },
                     addContextualInfoToEvent: { _, _ in },
+                    notifyPostMonitorsEnabled: nil,
                     notifyPostSystemEnable: { _ in },
                     writeInReportSection: nil,
                     stitchReport: nil
