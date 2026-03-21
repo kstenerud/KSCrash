@@ -136,25 +136,21 @@ static inline void handleDealloc(const void *self)
         g_originalDealloc_##CLASS = method_getImplementation(method);                                \
         method_setImplementation(method, (IMP)handleDealloc_##CLASS);                                \
     }
-// TODO: Uninstall doesn't work.
-// static void uninstallDealloc_ ## CLASS() \
-//{ \
-//    method_setImplementation(class_getInstanceMethod(objc_getClass(#CLASS), sel_registerName("dealloc")),
-//    g_originalDealloc_ ## CLASS); \
-//}
 
 CREATE_ZOMBIE_HANDLER_INSTALLER(NSObject)
 CREATE_ZOMBIE_HANDLER_INSTALLER(NSProxy)
 
 static void install(void)
 {
-    unsigned cacheSize = CACHE_SIZE;
-    g_zombieHashMask = cacheSize - 1;
-    g_zombieCache = calloc(cacheSize, sizeof(*g_zombieCache));
     if (g_zombieCache == NULL) {
-        KSLOG_ERROR("Error: Could not allocate %u bytes of memory. KSZombie NOT installed!",
-                    cacheSize * sizeof(*g_zombieCache));
-        return;
+        unsigned cacheSize = CACHE_SIZE;
+        g_zombieHashMask = cacheSize - 1;
+        g_zombieCache = calloc(cacheSize, sizeof(*g_zombieCache));
+        if (g_zombieCache == NULL) {
+            KSLOG_ERROR("Error: Could not allocate %u bytes of memory. KSZombie NOT installed!",
+                        cacheSize * sizeof(*g_zombieCache));
+            return;
+        }
     }
 
     g_lastDeallocedException.class = objc_getClass("NSException");
@@ -165,21 +161,6 @@ static void install(void)
     installDealloc_NSObject();
     installDealloc_NSProxy();
 }
-
-// TODO: Uninstall doesn't work.
-// static void uninstall(void)
-//{
-//    uninstallDealloc_NSObject();
-//    uninstallDealloc_NSProxy();
-//
-//    void* ptr = (void*)g_zombieCache;
-//    g_zombieCache = NULL;
-//    dispatch_time_t tenSeconds = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(10.0 * NSEC_PER_SEC));
-//    dispatch_after(tenSeconds, dispatch_get_main_queue(), ^
-//    {
-//        free(ptr);
-//    });
-//}
 
 const char *kszombie_className(const void *object)
 {
@@ -208,9 +189,11 @@ static void setEnabled(bool isEnabled, __unused void *context)
     if (isEnabled) {
         install();
     } else {
-        // TODO: Uninstall doesn't work.
-        g_isEnabled = true;
-        //            uninstall();
+        // NULL out cache pointer first — handleDealloc checks this and becomes a no-op.
+        // The swizzle stays in place but is harmless: it just chains to original dealloc.
+        volatile Zombie *oldCache = g_zombieCache;
+        g_zombieCache = NULL;
+        free((void *)oldCache);
     }
 }
 

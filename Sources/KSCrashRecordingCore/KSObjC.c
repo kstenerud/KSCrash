@@ -765,6 +765,9 @@ int ksobjc_ivarList(const void *const classPtr, KSObjCIvar *dstIvars, int ivarsC
         count = ivarsCount;
     }
     const struct ivar_list_t *srcIvars = getClassRO(classPtr)->ivars;
+    if (srcIvars == NULL || srcIvars->entsizeAndFlags == 0) {
+        return 0;
+    }
     uintptr_t srcPtr = (uintptr_t)&srcIvars->first;
     const struct ivar_t *src = (void *)srcPtr;
     for (int i = 0; i < count; i++) {
@@ -784,6 +787,9 @@ bool ksobjc_ivarNamed(const void *const classPtr, const char *name, KSObjCIvar *
         return false;
     }
     const struct ivar_list_t *ivars = getClassRO(classPtr)->ivars;
+    if (ivars == NULL || ivars->entsizeAndFlags == 0) {
+        return false;
+    }
     uintptr_t ivarPtr = (uintptr_t)&ivars->first;
     const struct ivar_t *ivar = (void *)ivarPtr;
     for (int i = 0; i < (int)ivars->count; i++) {
@@ -820,7 +826,7 @@ bool ksobjc_ivarValue(const void *const objectPtr, int ivarIndex, void *dst)
 #endif
     const void *const classPtr = getIsaPointer(objectPtr);
     const struct ivar_list_t *ivars = getClassRO(classPtr)->ivars;
-    if (ivarIndex >= (int)ivars->count) {
+    if (ivars == NULL || ivars->entsizeAndFlags == 0 || ivarIndex >= (int)ivars->count) {
         return false;
     }
     uintptr_t ivarPtr = (uintptr_t)&ivars->first;
