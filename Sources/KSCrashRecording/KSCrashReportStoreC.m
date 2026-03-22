@@ -387,16 +387,27 @@ static void cleanupOrphanedRunSidecars(const KSCrashReportStoreCConfiguration *c
     memcpy(activeRunIds[activeCount], currentRunID, KSCRS_UUID_STRING_LENGTH);
     activeRunIds[activeCount][KSCRS_UUID_STRING_LENGTH] = '\0';
     activeCount++;
-    // run_id is in the report header — 2 KB is more than enough
-    const int prefixSize = 2048;
+    // run_id is in the report header, so reading the first 2 KB is
+    // usually enough. If the prefix doesn't contain "report" at all,
+    // fall back to reading the entire file so we don't silently skip
+    // a report with an unusually large preamble.
+    static const char *reportKey = "\"report\":";
     for (int i = 0; i < reportCount; i++) {
         char reportPath[KSCRS_MAX_PATH_LENGTH];
         getCrashReportPathByID(reportIDs[i], reportPath, config);
-        char *buf;
+        char *buf = NULL;
         int bytesRead = 0;
-        ksfu_readEntireFile(reportPath, &buf, &bytesRead, prefixSize);
+        ksfu_readFilePrefix(reportPath, &buf, &bytesRead, 2048);
         if (buf == NULL) {
             continue;
+        }
+        if (strnstr(buf, reportKey, (size_t)bytesRead) == NULL) {
+            free(buf);
+            buf = NULL;
+            ksfu_readEntireFile(reportPath, &buf, &bytesRead, 0);
+            if (buf == NULL) {
+                continue;
+            }
         }
         if (extractRunIdFromBytes(buf, bytesRead, activeRunIds[activeCount], sizeof(activeRunIds[activeCount]))) {
             activeCount++;

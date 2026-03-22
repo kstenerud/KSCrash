@@ -362,6 +362,7 @@
 #define ksfu_readBufferedReaderUntilChar KSCRASH_NS(ksfu_readBufferedReaderUntilChar)
 #define ksfu_readBytesFromFD KSCRASH_NS(ksfu_readBytesFromFD)
 #define ksfu_readEntireFile KSCRASH_NS(ksfu_readEntireFile)
+#define ksfu_readFilePrefix KSCRASH_NS(ksfu_readFilePrefix)
 #define ksfu_readLineFromFD KSCRASH_NS(ksfu_readLineFromFD)
 #define ksfu_removeFile KSCRASH_NS(ksfu_removeFile)
 #define ksfu_writeBufferedWriter KSCRASH_NS(ksfu_writeBufferedWriter)
