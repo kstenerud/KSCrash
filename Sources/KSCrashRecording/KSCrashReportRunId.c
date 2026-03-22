@@ -86,7 +86,16 @@ static int onRunIdEndContainer(void *userData)
     return KSJSON_OK;
 }
 
-static int onRunIdEndData(__unused void *userData) { return KSJSON_OK; }
+// No-op callbacks for element types we don't care about.
+// Every slot must be non-NULL because ksjson_decode dispatches unconditionally.
+// clang-format off
+static int onIgnoreBool(__unused const char *n, __unused bool v, __unused void *u) { return KSJSON_OK; }
+static int onIgnoreFloat(__unused const char *n, __unused double v, __unused void *u) { return KSJSON_OK; }
+static int onIgnoreInt(__unused const char *n, __unused int64_t v, __unused void *u) { return KSJSON_OK; }
+static int onIgnoreUInt(__unused const char *n, __unused uint64_t v, __unused void *u) { return KSJSON_OK; }
+static int onIgnoreName(__unused const char *n, __unused void *u) { return KSJSON_OK; }
+static int onIgnore(__unused void *u) { return KSJSON_OK; }
+// clang-format on
 
 bool kscrs_extractRunIdFromReportFile(const char *reportPath, char *runIdOut, size_t runIdOutLen)
 {
@@ -108,10 +117,16 @@ bool kscrs_extractRunIdFromReportFile(const char *reportPath, char *runIdOut, si
 
     char stringBuffer[512];
     KSJSONDecodeCallbacks callbacks = {
+        .onBooleanElement = onIgnoreBool,
+        .onFloatingPointElement = onIgnoreFloat,
+        .onIntegerElement = onIgnoreInt,
+        .onUnsignedIntegerElement = onIgnoreUInt,
+        .onNullElement = onIgnoreName,
         .onStringElement = onRunIdString,
         .onBeginObject = onRunIdBeginObject,
+        .onBeginArray = onIgnoreName,
         .onEndContainer = onRunIdEndContainer,
-        .onEndData = onRunIdEndData,
+        .onEndData = onIgnore,
     };
     ksjson_decode(rawReport, length, stringBuffer, sizeof(stringBuffer), &callbacks, &ctx, NULL);
     free(rawReport);
