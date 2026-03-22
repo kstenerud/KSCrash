@@ -244,7 +244,7 @@ static void legacyReportWrittenCallbackAdapter(__unused const KSCrash_ExceptionH
  *
  * This function gets passed as a callback to a crash handler.
  */
-static void onExceptionEvent(struct KSCrash_MonitorContext *monitorContext, KSCrash_ReportResult *result, bool finalize)
+static void onExceptionEvent(struct KSCrash_MonitorContext *monitorContext, KSCrash_ReportResult *result)
 {
     // Check if the user wants to modify the plan for this crash.
     if (g_willWriteReportCallback) {
@@ -275,15 +275,16 @@ static void onExceptionEvent(struct KSCrash_MonitorContext *monitorContext, KSCr
             strncpy(result->path, g_lastCrashReportFilePath, sizeof(result->path));
         }
 
-        if (finalize && reportID > 0) {
-            kscrs_finalizeReport(crashReportFilePath, reportID);
-        }
-
         if (g_didWriteReportCallback != NULL) {
             KSCrash_ExceptionHandlingPlan plan = ksexc_monitorContextToPlan(monitorContext);
             g_didWriteReportCallback(&plan, reportID);
         }
     }
+}
+
+static void onFinalizeReport(__unused struct KSCrash_MonitorContext *monitorContext, const KSCrash_ReportResult *result)
+{
+    kscrs_finalizeReport(result->path, result->reportId);
 }
 
 static void setPluginMonitors(KSCrashMonitorAPI *apis, int count)
@@ -480,6 +481,7 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     ksdl_init();
 
     kscm_setEventCallbackWithResult(onExceptionEvent);
+    kscm_setFinalizeReportCallback(onFinalizeReport);
 
     setMonitors(configuration->monitors);
     setPluginMonitors(configuration->plugins.apis, configuration->plugins.length);

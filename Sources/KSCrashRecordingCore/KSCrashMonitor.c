@@ -75,8 +75,10 @@ static struct {
      */
     void (*onExceptionEvent)(struct KSCrash_MonitorContext *monitorContext);
 
-    void (*onExceptionEventWithResult)(struct KSCrash_MonitorContext *monitorContext, KSCrash_ReportResult *result,
-                                       bool finalize);
+    void (*onExceptionEventWithResult)(struct KSCrash_MonitorContext *monitorContext, KSCrash_ReportResult *result);
+
+    /** Called after threads are resumed to finalize a non-fatal report. */
+    void (*onFinalizeReport)(struct KSCrash_MonitorContext *monitorContext, const KSCrash_ReportResult *result);
 } g_state;
 
 static atomic_bool g_initialized;
@@ -185,10 +187,17 @@ void kscm_setEventCallback(void (*onEvent)(struct KSCrash_MonitorContext *monito
 }
 
 void kscm_setEventCallbackWithResult(void (*onEvent)(struct KSCrash_MonitorContext *monitorContext,
-                                                     KSCrash_ReportResult *result, bool finalize))
+                                                     KSCrash_ReportResult *result))
 {
     init();
     g_state.onExceptionEventWithResult = onEvent;
+}
+
+void kscm_setFinalizeReportCallback(void (*onFinalize)(struct KSCrash_MonitorContext *monitorContext,
+                                                       const KSCrash_ReportResult *result))
+{
+    init();
+    g_state.onFinalizeReport = onFinalize;
 }
 
 bool kscm_enableMonitors(void)
@@ -321,11 +330,14 @@ static void handleException(struct KSCrash_MonitorContext *ctx, KSCrash_ReportRe
     // The monitors will decide what they can do based on ctx->requirements.
     kscmr_addContextualInfoToEvent(&g_state.monitors, ctx);
 
-    // Call the exception event handler if it exists
+    KSCrash_ReportResult localResult = { 0 };
     if (g_state.onExceptionEventWithResult) {
-        g_state.onExceptionEventWithResult(ctx, result, finalize);
+        g_state.onExceptionEventWithResult(ctx, &localResult);
     } else if (g_state.onExceptionEvent) {
         g_state.onExceptionEvent(ctx);
+    }
+    if (result) {
+        *result = localResult;
     }
 
     // Resume suspended threads before disabling monitors.
@@ -341,6 +353,13 @@ static void handleException(struct KSCrash_MonitorContext *ctx, KSCrash_ReportRe
     }
 
     endHandlingException(ctx->threadHandlerIndex);
+
+    // Finalize after threads are resumed and the exception slot is freed,
+    // since it involves ObjC/JSON/file I/O.
+    if (finalize && !ctx->requirements.isFatal && localResult.reportId > 0 && g_state.onFinalizeReport) {
+        KSLOG_DEBUG("Finalizing non-fatal report %" PRId64, localResult.reportId);
+        g_state.onFinalizeReport(ctx, &localResult);
+    }
 
     if (ctx->isHeapAllocated) {
         free(ctx);

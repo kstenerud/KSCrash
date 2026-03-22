@@ -309,7 +309,8 @@ typedef struct {
      * @param result Contains the result of handling the exception.
      * @param finalize If true, finalize the report immediately by stitching
      *        in sidecar data. Use this for non-fatal reports where the app
-     *        continues running. Not async-signal-safe.
+     *        continues running. Not async-signal-safe. Ignored when isFatal
+     *        is true or when context->reportPath is set.
      */
     void (*handleWithResult)(KSCrash_MonitorContext *context, KSCrash_ReportResult *result, bool finalize);
 

@@ -112,7 +112,16 @@ void kscm_removeMonitor(const KSCrashMonitorAPI *api);
  * Registers a callback to be invoked when an event occurs.
  */
 void kscm_setEventCallbackWithResult(void (*onEvent)(struct KSCrash_MonitorContext *monitorContext,
-                                                     KSCrash_ReportResult *result, bool finalize));
+                                                     KSCrash_ReportResult *result));
+
+/** Sets the callback for finalizing non-fatal reports.
+ *
+ * Called after threads are resumed and the exception slot is freed.
+ * Not async-signal-safe. Only called for non-fatal reports when
+ * handleWithResult is invoked with finalize=true.
+ */
+void kscm_setFinalizeReportCallback(void (*onFinalize)(struct KSCrash_MonitorContext *monitorContext,
+                                                       const KSCrash_ReportResult *result));
 
 /**
  * Sets the callback for event capture.
