@@ -347,4 +347,61 @@ static CFDictionaryRef testStitchReport(CFDictionaryRef reportDict, const char *
     kscm_removeMonitor(&api);
 }
 
+- (int64_t)writeOversizedReportWithRunId:(NSString *)runId
+{
+    // Build a report where "report" (containing run_id) starts after 2 KB,
+    // exercising the fallback from prefix read to full file read.
+    NSMutableString *padding = [NSMutableString stringWithCapacity:3000];
+    for (int i = 0; i < 150; i++) {
+        [padding appendFormat:@"\"pad_%03d\":\"x\",", i];
+    }
+    NSString *json = [NSString stringWithFormat:@"{%@\"report\":{\"run_id\":\"%@\",\"id\":\"evt1\"}}", padding, runId];
+    XCTAssertTrue(json.length > 2048, @"Report must be larger than prefix size");
+    NSRange reportRange = [json rangeOfString:@"\"report\":"];
+    XCTAssertTrue(reportRange.location > 2048, @"report key must be past the 2 KB prefix");
+    NSData *data = [json dataUsingEncoding:NSUTF8StringEncoding];
+    return kscrs_addUserReport(data.bytes, (int)data.length, &_storeConfig);
+}
+
+#pragma mark - Orphan Cleanup With Large Reports
+
+- (void)testOrphanCleanupPreservesSidecarsForLargeReport
+{
+    [self prepareStoreWithRunSidecars:@"testLargeReportOrphan"];
+    NSString *runId = [[NSUUID UUID] UUIDString];
+    [self writeOversizedReportWithRunId:runId];
+    [self writeRunSidecar:@"System" runId:runId contents:@"system data"];
+
+    NSString *runDir =
+        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:runId];
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir]);
+
+    // Cleanup should find the run_id via fallback full-file read
+    kscrs_cleanupOrphanedRunSidecars(&_storeConfig);
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir],
+                  @"Run sidecar should be preserved for large report where run_id is past 2 KB prefix");
+}
+
+- (void)testOrphanCleanupDeletesOrphanButKeepsLargeReport
+{
+    [self prepareStoreWithRunSidecars:@"testLargeMixed"];
+    NSString *activeRunId = [[NSUUID UUID] UUIDString];
+    NSString *orphanRunId = [[NSUUID UUID] UUIDString];
+
+    [self writeOversizedReportWithRunId:activeRunId];
+    [self writeRunSidecar:@"System" runId:activeRunId contents:@"active"];
+    [self writeRunSidecar:@"System" runId:orphanRunId contents:@"orphan"];
+
+    NSString *activeDir =
+        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:activeRunId];
+    NSString *orphanDir =
+        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:orphanRunId];
+
+    kscrs_cleanupOrphanedRunSidecars(&_storeConfig);
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:activeDir],
+                  @"Active large-report sidecar should be preserved");
+    XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:orphanDir],
+                   @"Orphaned sidecar should still be deleted");
+}
+
 @end
