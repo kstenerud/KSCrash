@@ -24,6 +24,7 @@ concurrency:
 
 jobs:
   leaks:
+    name: Leaks
     runs-on: macos-15
     steps:
       - name: Checkout Code
@@ -298,12 +299,10 @@ jobs:
             const title = hasLeaks
               ? 'Memory leaks detected'
               : 'No memory leaks';
-            await github.rest.checks.create({
+            await github.rest.checks.update({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              name: 'Memory Leaks Results',
-              head_sha: context.payload.pull_request?.head.sha || context.sha,
-              conclusion: 'neutral',
+              check_run_id: ${{ job.check_run_id }},
               output: { title, summary: report },
             });
 

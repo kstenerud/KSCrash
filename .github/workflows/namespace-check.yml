@@ -62,11 +62,9 @@ jobs:
                 '',
                 'Please run `make namespace` locally and commit the updated header.',
               ].join('\n');
-          await github.rest.checks.create({
+          await github.rest.checks.update({
             owner: context.repo.owner,
             repo: context.repo.repo,
-            name: 'Namespace Check Results',
-            head_sha: context.payload.pull_request?.head.sha || context.sha,
-            conclusion: passed ? 'success' : 'failure',
+            check_run_id: ${{ job.check_run_id }},
             output: { title, summary },
           });

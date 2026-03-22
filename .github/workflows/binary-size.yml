@@ -26,6 +26,7 @@ concurrency:
 
 jobs:
   binary-size:
+    name: Binary Size
     runs-on: macos-15
     steps:
       - name: Checkout PR
@@ -95,12 +96,10 @@ jobs:
           script: |
             const fs = require('fs');
             const report = fs.readFileSync('binary_size.md', 'utf8');
-            await github.rest.checks.create({
+            await github.rest.checks.update({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              name: 'Binary Size Results',
-              head_sha: context.payload.pull_request?.head.sha || context.sha,
-              conclusion: 'neutral',
+              check_run_id: ${{ job.check_run_id }},
               output: { title: 'Binary size report', summary: report },
             });
 

@@ -25,6 +25,7 @@ concurrency:
 
 jobs:
   analyze:
+    name: Static Analyzer
     runs-on: macos-15
     timeout-minutes: 30
     steps:
@@ -147,12 +148,10 @@ jobs:
             const title = hasWarnings
               ? `${report.match(/Found (\d+)/)?.[1] || ''} analyzer warning(s)`
               : 'No warnings';
-            await github.rest.checks.create({
+            await github.rest.checks.update({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              name: 'Static Analyzer Results',
-              head_sha: context.payload.pull_request?.head.sha || context.sha,
-              conclusion: 'neutral',
+              check_run_id: ${{ job.check_run_id }},
               output: { title, summary: report },
             });
 

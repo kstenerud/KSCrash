@@ -72,6 +72,7 @@ jobs:
 
   # Parse and post results
   post-results:
+    name: Benchmark Results
     needs: [browserstack-pr, browserstack-main, check-base-branch]
     if: always() && needs.browserstack-pr.result == 'success'
     runs-on: macos-latest
@@ -160,11 +161,9 @@ jobs:
           script: |
             const fs = require('fs');
             const report = fs.readFileSync('benchmark_results.md', 'utf8');
-            await github.rest.checks.create({
+            await github.rest.checks.update({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              name: 'Benchmark Results',
-              head_sha: context.payload.pull_request?.head.sha || context.sha,
-              conclusion: 'neutral',
+              check_run_id: ${{ job.check_run_id }},
               output: { title: 'Benchmark results', summary: report },
             });
