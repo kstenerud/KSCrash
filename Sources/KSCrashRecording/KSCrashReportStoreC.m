@@ -39,10 +39,10 @@
 #include "KSCrashC.h"
 #include "KSCrashMonitor.h"
 #include "KSCrashMonitorRegistry.h"
+#include "KSCrashReportRunId.h"
 #include "KSCrashReportStoreC+Private.h"
 #include "KSDate.h"
 #include "KSFileUtils.h"
-#include "KSJSONCodec.h"
 #include "KSLogger.h"
 
 #import <Foundation/Foundation.h>
@@ -332,91 +332,6 @@ static NSDictionary *stitchRunSidecarsIntoReport(NSDictionary *report,
  * pattern in the raw bytes and validates with uuid_parse. This is safe
  * because run_id is always a UUID written by our own code.
  */
-// State for the streaming run_id extractor.
-typedef struct {
-    char *runIdOut;
-    size_t runIdOutLen;
-    int depth;      // current object nesting depth
-    bool inReport;  // true while inside the "report" object at depth 1
-    bool found;     // true once run_id has been captured
-} RunIdSearchContext;
-
-// Sentinel returned from callbacks to stop decoding early.
-#define KSJSON_STOP 999
-
-static int onRunIdString(const char *name, const char *value, void *userData)
-{
-    RunIdSearchContext *ctx = (RunIdSearchContext *)userData;
-    if (ctx->inReport && ctx->depth == 2 && name != NULL && strcmp(name, "run_id") == 0) {
-        size_t len = strlen(value);
-        if (len == KSCRS_UUID_STRING_LENGTH && len < ctx->runIdOutLen) {
-            uuid_t unused;
-            if (uuid_parse(value, unused) == 0) {
-                memcpy(ctx->runIdOut, value, len);
-                ctx->runIdOut[len] = '\0';
-                ctx->found = true;
-                return KSJSON_STOP;
-            }
-        }
-    }
-    return KSJSON_OK;
-}
-
-static int onRunIdBeginObject(const char *name, void *userData)
-{
-    RunIdSearchContext *ctx = (RunIdSearchContext *)userData;
-    ctx->depth++;
-    if (ctx->depth == 2 && name != NULL && strcmp(name, "report") == 0) {
-        ctx->inReport = true;
-    }
-    return KSJSON_OK;
-}
-
-static int onRunIdEndContainer(void *userData)
-{
-    RunIdSearchContext *ctx = (RunIdSearchContext *)userData;
-    if (ctx->inReport && ctx->depth == 2) {
-        // Leaving the "report" object without finding run_id, stop early.
-        ctx->inReport = false;
-        return KSJSON_STOP;
-    }
-    ctx->depth--;
-    return KSJSON_OK;
-}
-
-/** Extract the run_id from a report file using the streaming C JSON decoder.
- *
- * Streams through the file and stops as soon as report.run_id is found
- * (or the report section ends). No ObjC, no full-file decode.
- */
-static bool extractRunIdFromReportFile(const char *reportPath, char *runIdOut, size_t runIdOutLen)
-{
-    if (runIdOut == NULL || runIdOutLen <= KSCRS_UUID_STRING_LENGTH) {
-        return false;
-    }
-
-    char *rawReport = NULL;
-    int length = 0;
-    ksfu_readEntireFile(reportPath, &rawReport, &length, 0);
-    if (rawReport == NULL) {
-        return false;
-    }
-
-    RunIdSearchContext ctx = {
-        .runIdOut = runIdOut,
-        .runIdOutLen = runIdOutLen,
-    };
-
-    char stringBuffer[512];
-    KSJSONDecodeCallbacks callbacks = {
-        .onStringElement = onRunIdString,
-        .onBeginObject = onRunIdBeginObject,
-        .onEndContainer = onRunIdEndContainer,
-    };
-    ksjson_decode(rawReport, length, stringBuffer, sizeof(stringBuffer), &callbacks, &ctx, NULL);
-    free(rawReport);
-    return ctx.found;
-}
 
 /** Remove run sidecar directories that have no matching reports.
  *
@@ -451,7 +366,8 @@ static void cleanupOrphanedRunSidecars(const KSCrashReportStoreCConfiguration *c
     for (int i = 0; i < reportCount; i++) {
         char reportPath[KSCRS_MAX_PATH_LENGTH];
         getCrashReportPathByID(reportIDs[i], reportPath, config);
-        if (extractRunIdFromReportFile(reportPath, activeRunIds[activeCount], sizeof(activeRunIds[activeCount]))) {
+        if (kscrs_extractRunIdFromReportFile(reportPath, activeRunIds[activeCount],
+                                             sizeof(activeRunIds[activeCount]))) {
             activeCount++;
         }
     }

@@ -312,6 +312,7 @@
 #define kscrs_cleanupOrphanedRunSidecars KSCRASH_NS(kscrs_cleanupOrphanedRunSidecars)
 #define kscrs_deleteAllReports KSCRASH_NS(kscrs_deleteAllReports)
 #define kscrs_deleteReportWithID KSCRASH_NS(kscrs_deleteReportWithID)
+#define kscrs_extractRunIdFromReportFile KSCRASH_NS(kscrs_extractRunIdFromReportFile)
 #define kscrs_finalizeReport KSCRASH_NS(kscrs_finalizeReport)
 #define kscrs_getNextCrashReport KSCRASH_NS(kscrs_getNextCrashReport)
 #define kscrs_getReportCount KSCRASH_NS(kscrs_getReportCount)
