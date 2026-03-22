@@ -310,10 +310,9 @@ static void addJSONElement(const KSCrashReportWriter *const writer, const char *
     int jsonResult =
         ksjson_addJSONElement(getJsonContext(writer), key, jsonElement, (int)strlen(jsonElement), closeLastContainer);
     if (jsonResult != KSJSON_OK) {
-        char errorBuff[100];
-        snprintf(errorBuff, sizeof(errorBuff), "Invalid JSON data: %s", ksjson_stringForError(jsonResult));
         ksjson_beginObject(getJsonContext(writer), key);
-        ksjson_addStringElement(getJsonContext(writer), KSCrashField_Error, errorBuff, KSJSON_SIZE_AUTOMATIC);
+        ksjson_addStringElement(getJsonContext(writer), KSCrashField_Error, ksjson_stringForError(jsonResult),
+                                KSJSON_SIZE_AUTOMATIC);
         ksjson_addStringElement(getJsonContext(writer), KSCrashField_JSONData, jsonElement, KSJSON_SIZE_AUTOMATIC);
         ksjson_endContainer(getJsonContext(writer));
     }
