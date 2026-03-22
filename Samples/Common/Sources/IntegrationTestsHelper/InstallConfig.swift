@@ -33,6 +33,7 @@ public struct InstallConfig: Codable {
     public var isCxaThrowEnabled: Bool?
     public var shouldRecordAllThreads: Bool?
     public var isWatchdogEnabled: Bool?
+    public var isHangReportingEnabled: Bool?
     public var isCompactBinaryImagesEnabled: Bool?
 
     public init(installPath: String) {
@@ -49,6 +50,9 @@ extension InstallConfig {
         }
         if isWatchdogEnabled == true {
             config.monitors = [config.monitors, .watchdog]
+        }
+        if let isHangReportingEnabled {
+            config.enableHangReporting = isHangReportingEnabled
         }
         if let isCompactBinaryImagesEnabled {
             config.enableCompactBinaryImages = isCompactBinaryImagesEnabled

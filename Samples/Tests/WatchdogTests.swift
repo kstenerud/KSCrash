@@ -94,6 +94,57 @@ import XCTest
                 backtrace?.contents.count ?? 0, 0, "Backtrace should have at least one frame")
         }
 
+        func testAppHangFinalizedMidRun() throws {
+            // Trigger a temporary hang that recovers. The watchdog detects
+            // the hang, writes a report, and when the main thread resumes
+            // finalization stitches the report in-place during the same launch.
+            var installConfig = InstallConfig(installPath: installUrl.path)
+            installConfig.isWatchdogEnabled = true
+            installConfig.isHangReportingEnabled = true
+            app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
+                crash: .init(triggerId: .other_appHang),
+                install: installConfig,
+                config: .init(delay: actionDelay, stateSavePath: stateUrl.path)
+            )
+            launchAppAndRunScript()
+
+            // The report file appears as soon as the hang is detected (before
+            // recovery), so wait specifically for the finalized flag.
+            let reportsDirUrl = installUrl.appendingPathComponent("Reports")
+            let finalizedExpectation = XCTNSPredicateExpectation(
+                predicate: NSPredicate { _, _ in
+                    guard let files = try? FileManager.default.contentsOfDirectory(atPath: reportsDirUrl.path),
+                        let fileName = files.first,
+                        let data = try? Data(contentsOf: reportsDirUrl.appendingPathComponent(fileName)),
+                        let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                        let report = json["report"] as? [String: Any]
+                    else { return false }
+                    return report["finalized"] as? Bool == true
+                },
+                object: nil
+            )
+            wait(for: [finalizedExpectation], timeout: actionDelay + 10.0)
+
+            let reportData = try readRawCrashReportData()
+            let report = try decodeCrashReport(reportData: reportData)
+
+            XCTAssertEqual(report.crash.error.type, .hang)
+            XCTAssertEqual(report.crash.error.isFatal, false)
+            XCTAssertNil(report.crash.error.signal, "Recovered hang should not have signal info")
+
+            let hangInfo = report.crash.error.hang
+            XCTAssertNotNil(hangInfo)
+            XCTAssertEqual(hangInfo?.hangRecovered, true)
+            XCTAssertNotNil(hangInfo?.hangStartNanos)
+            XCTAssertNotNil(hangInfo?.hangEndNanos)
+
+            if let hangInfo {
+                let durationSeconds =
+                    Double(hangInfo.hangEndNanos - hangInfo.hangStartNanos) / 1_000_000_000.0
+                XCTAssertGreaterThan(durationSeconds, 0.25, "Hang should exceed the watchdog threshold")
+            }
+        }
+
         func testExceptionDuringHangReportsExceptionNotHang() throws {
             // Trigger a hang, then throw an exception while hung.
             // The fatal exception should be reported, not the hang.

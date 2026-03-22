@@ -237,6 +237,15 @@ NSString *const KSCrashNSExceptionStacktraceFuncName = @"exceptionWithStacktrace
     [NSThread sleepForTimeInterval:100.0];
 }
 
++ (void)trigger_other_appHang
+{
+    // Block the main thread long enough for the watchdog to detect a hang
+    // (threshold is 250ms), then spin the run loop so the BeforeWaiting
+    // observer fires and finalizes the recovered hang report in-place.
+    [NSThread sleepForTimeInterval:2.0];
+    [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:1.0]];
+}
+
 + (void)trigger_other_sigkill
 {
     kill(getpid(), SIGKILL);

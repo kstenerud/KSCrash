@@ -45,6 +45,7 @@
 #include "KSCrashMonitor_WatchdogSidecar.h"
 #include "KSCrashNamespace.h"
 #include "KSCrashReportFields.h"
+#include "KSCrashReportStoreC+Private.h"
 #include "KSCrashRunContext.h"
 #include "KSDate.h"
 #include "KSDebug.h"
@@ -371,6 +372,29 @@ static void finalizeResolvedHang(KSHangMonitor *monitor, KSHangState hang)
     if (hang.path[0] != '\0') {
         if (monitor->reportsHangs) {
             sidecar_finalize(monitor, true);
+
+            // Finalize the report synchronously so the stitched metadata
+            // (lifecycle stats, memory pressure, device state) reflects the
+            // moment of recovery, not whenever a background queue gets around
+            // to it. This runs on the main thread inside the BeforeWaiting
+            // run loop callback, meaning the main thread is about to go idle
+            // anyway and has no pending work.
+            //
+            // Cost: one JSON round-trip plus a file write, and each stitch
+            // callback reads its own sidecar file from disk. With ~5 monitors
+            // that's ~5 small reads + 1 large read + 1 write. Typical total
+            // is ~5-10 ms for a normal-sized report, acceptable in the idle
+            // transition. If the number of monitors or report size grows
+            // significantly, this should be revisited.
+            //
+            // Running this asynchronously would let lifecycle/resource
+            // sidecars keep mutating before the snapshot is taken, defeating
+            // the purpose. It would also race with report deletion (the
+            // background write-back could resurrect a deleted report).
+            if (!kscrs_finalizeReport(hang.path, hang.reportId)) {
+                KSLOG_ERROR("Failed to finalize hang report %" PRIx64 " at %s, will fall back to next-launch stitching",
+                            hang.reportId, hang.path);
+            }
         } else {
             sidecar_delete(monitor);
             if (unlink(hang.path) != 0) {

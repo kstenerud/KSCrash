@@ -270,8 +270,9 @@ static NSString *writeRawSidecar(NSString *dir, NSData *data)
     NSDictionary *report = makeMinimalReport();
     char *result =
         kscm_userinfo_stitchReport(jsonString(report).UTF8String, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    // Sidecar has no live keys -> returns NULL (no changes to report)
-    XCTAssertTrue(result == NULL);
+    // Sidecar has no live keys -> returns unchanged report (not NULL, which signals error)
+    XCTAssertTrue(result != NULL);
+    free(result);
 }
 
 - (void)testTombstoneRemovesExistingUserKey
@@ -409,7 +410,7 @@ static NSString *writeRawSidecar(NSString *dir, NSData *data)
     XCTAssertEqualWithAccuracy([user[@"score"] doubleValue], 9.5, 1e-10);
 }
 
-- (void)testHeaderOnlySidecarReturnsNull
+- (void)testHeaderOnlySidecarReturnsUnchangedReport
 {
     // Create a sidecar with no records.
     NSString *path = buildSidecarFile(self.tempDir, nil);
@@ -417,8 +418,9 @@ static NSString *writeRawSidecar(NSString *dir, NSData *data)
     NSDictionary *report = makeMinimalReport();
     char *result =
         kscm_userinfo_stitchReport(jsonString(report).UTF8String, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    // No records -> NULL
-    XCTAssertTrue(result == NULL);
+    // No records -> returns unchanged report (not NULL, which signals error)
+    XCTAssertTrue(result != NULL);
+    free(result);
 }
 
 @end

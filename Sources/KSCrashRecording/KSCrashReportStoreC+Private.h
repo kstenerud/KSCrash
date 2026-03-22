@@ -104,6 +104,57 @@ bool kscrs_getRunSidecarFilePathForRunID(const char *monitorId, const char *runI
  */
 bool kscrs_extractRunIdFromReport(const char *report, char *runIdBuffer, size_t bufferLength);
 
+/** Read a report by path and ID, applying fixup and all stitch callbacks.
+ *
+ * Like kscrs_readReportAtPath but also stitches per-report sidecars
+ * (which require the report ID). Uses the stored configuration.
+ *
+ * @param path Full path to the report JSON file.
+ * @param reportID The report's ID.
+ *
+ * @return A heap-allocated stitched JSON string, or NULL on failure. Caller must free().
+ */
+char *kscrs_readReportByPathAndID(const char *path, int64_t reportID);
+
+/** Finalize a report in-place by stitching all sidecars and writing back.
+ *
+ * Reads the report from disk, applies fixup and all stitch callbacks
+ * (both run sidecars and per-report sidecars), adds a "finalized" flag
+ * to the report.report section, and atomically writes the result back.
+ * Sidecars are left on disk (reads skip stitching for finalized reports)
+ * and cleaned up when the report is deleted after consumption.
+ *
+ * This allows mid-run finalization (e.g., when a hang recovers) so the
+ * stitched metadata reflects current-run state instead of next-launch state.
+ *
+ * Safe to call from any thread.
+ *
+ * @param reportPath Full path to the report JSON file on disk.
+ * @param reportID The report's ID.
+ * @return true if the report was successfully finalized, false otherwise.
+ */
+bool kscrs_finalizeReport(const char *reportPath, int64_t reportID);
+
+/** Check whether a JSON report has already been finalized.
+ *
+ * Parses the JSON and checks report.report.finalized.
+ * Uses ObjC JSON parsing, not async-signal-safe.
+ *
+ * @param report The NULL-terminated JSON report string.
+ * @return true if the report is marked as finalized.
+ */
+bool kscrs_isReportFinalized(const char *report);
+
+/** Inject a "finalized" flag into a stitched JSON report.
+ *
+ * Decodes the JSON, sets report.report.finalized = true, and re-encodes
+ * with pretty printing. Uses ObjC JSON parsing, not async-signal-safe.
+ *
+ * @param stitchedReport The NULL-terminated stitched JSON report string.
+ * @return A heap-allocated JSON string with the flag injected, or NULL on failure. Caller must free().
+ */
+char *kscrs_injectFinalizedFlag(const char *stitchedReport);
+
 #ifdef __cplusplus
 }
 #endif
