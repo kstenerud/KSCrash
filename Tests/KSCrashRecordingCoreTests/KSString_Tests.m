@@ -26,6 +26,7 @@
 
 #import <XCTest/XCTest.h>
 
+#import "KSID.h"
 #import "KSString.h"
 
 @interface KSString_Tests : XCTestCase
@@ -295,12 +296,44 @@
     XCTAssertEqualObjects(@(buf), @"1234");
 }
 
+- (void)testUint64ToHexBufSizeOne
+{
+    char buf[1];
+    size_t len = ksstring_uint64ToHex(0xFF, buf, sizeof(buf), 1, false);
+    XCTAssertEqual(len, 0u);
+    XCTAssertEqual(buf[0], '\0');
+}
+
+- (void)testUint64ToHexBufSizeTwo
+{
+    char buf[2];
+    size_t len = ksstring_uint64ToHex(0xFF, buf, sizeof(buf), 1, false);
+    XCTAssertEqual(len, 1u);
+    XCTAssertEqualObjects(@(buf), @"f");
+}
+
+- (void)testUint64ToHexExactFit
+{
+    char buf[9];
+    size_t len = ksstring_uint64ToHex(0x12345678, buf, sizeof(buf), 1, false);
+    XCTAssertEqual(len, 8u);
+    XCTAssertEqualObjects(@(buf), @"12345678");
+}
+
 - (void)testUint64ToHexZeroBufSize
 {
     char buf[17] = "untouched";
     size_t len = ksstring_uint64ToHex(0xFF, buf, 0, 1, false);
     XCTAssertEqual(len, 0u);
     XCTAssertEqualObjects(@(buf), @"untouched");
+}
+
+- (void)testUint64ToHexTruncatedWithPadding
+{
+    char buf[4];
+    size_t len = ksstring_uint64ToHex(0xAB, buf, sizeof(buf), 16, true);
+    XCTAssertEqual(len, 3u);
+    XCTAssertEqualObjects(@(buf), @"000");
 }
 
 #pragma mark - intToDecimal
@@ -347,6 +380,14 @@
     XCTAssertEqualObjects(@(buf), expected);
 }
 
+- (void)testIntToDecimalSingleDigit
+{
+    char buf[12];
+    size_t len = ksstring_intToDecimal(7, buf, sizeof(buf));
+    XCTAssertEqual(len, 1u);
+    XCTAssertEqualObjects(@(buf), @"7");
+}
+
 - (void)testIntToDecimalTruncated
 {
     char buf[3];
@@ -355,12 +396,110 @@
     XCTAssertEqualObjects(@(buf), @"12");
 }
 
+- (void)testIntToDecimalNegativeTruncated
+{
+    char buf[3];
+    size_t len = ksstring_intToDecimal(-42, buf, sizeof(buf));
+    XCTAssertEqual(len, 2u);
+    XCTAssertEqualObjects(@(buf), @"-4");
+}
+
+- (void)testIntToDecimalBufSizeOne
+{
+    char buf[1];
+    size_t len = ksstring_intToDecimal(42, buf, sizeof(buf));
+    XCTAssertEqual(len, 0u);
+    XCTAssertEqual(buf[0], '\0');
+}
+
+- (void)testIntToDecimalBufSizeTwo
+{
+    char buf[2];
+    size_t len = ksstring_intToDecimal(42, buf, sizeof(buf));
+    XCTAssertEqual(len, 1u);
+    XCTAssertEqualObjects(@(buf), @"4");
+}
+
+- (void)testIntToDecimalExactFit
+{
+    char buf[3];
+    size_t len = ksstring_intToDecimal(42, buf, sizeof(buf));
+    XCTAssertEqual(len, 2u);
+    XCTAssertEqualObjects(@(buf), @"42");
+}
+
+- (void)testIntToDecimalZeroBufSizeOne
+{
+    char buf[2];
+    size_t len = ksstring_intToDecimal(0, buf, 1);
+    XCTAssertEqual(len, 0u);
+    XCTAssertEqual(buf[0], '\0');
+}
+
+- (void)testIntToDecimalZeroBufSizeTwo
+{
+    char buf[2];
+    size_t len = ksstring_intToDecimal(0, buf, sizeof(buf));
+    XCTAssertEqual(len, 1u);
+    XCTAssertEqualObjects(@(buf), @"0");
+}
+
+- (void)testIntToDecimalIntMaxBufSizeOne
+{
+    char buf[1];
+    size_t len = ksstring_intToDecimal(INT_MAX, buf, sizeof(buf));
+    XCTAssertEqual(len, 0u);
+    XCTAssertEqual(buf[0], '\0');
+}
+
+- (void)testIntToDecimalIntMaxBufSizeTwo
+{
+    char buf[2];
+    size_t len = ksstring_intToDecimal(INT_MAX, buf, sizeof(buf));
+    XCTAssertEqual(len, 1u);
+    XCTAssertEqualObjects(@(buf), @"2");
+}
+
+- (void)testIntToDecimalIntMinBufSizeOne
+{
+    char buf[1];
+    size_t len = ksstring_intToDecimal(INT_MIN, buf, sizeof(buf));
+    XCTAssertEqual(len, 0u);
+    XCTAssertEqual(buf[0], '\0');
+}
+
+- (void)testIntToDecimalIntMinBufSizeTwo
+{
+    char buf[2];
+    size_t len = ksstring_intToDecimal(INT_MIN, buf, sizeof(buf));
+    XCTAssertEqual(len, 1u);
+    XCTAssertEqualObjects(@(buf), @"-");
+}
+
 - (void)testIntToDecimalZeroBufSize
 {
     char buf[12] = "untouched";
     size_t len = ksstring_intToDecimal(42, buf, 0);
     XCTAssertEqual(len, 0u);
     XCTAssertEqualObjects(@(buf), @"untouched");
+}
+
+#pragma mark - ksid_generate
+
+- (void)testKSIDGenerateFormat
+{
+    char buf[37];
+    ksid_generate(buf);
+    NSString *uuid = [NSString stringWithUTF8String:buf];
+    XCTAssertEqual(uuid.length, 36u);
+    XCTAssertEqual([uuid characterAtIndex:8], '-');
+    XCTAssertEqual([uuid characterAtIndex:13], '-');
+    XCTAssertEqual([uuid characterAtIndex:18], '-');
+    XCTAssertEqual([uuid characterAtIndex:23], '-');
+
+    NSCharacterSet *valid = [NSCharacterSet characterSetWithCharactersInString:@"0123456789ABCDEF-"];
+    NSCharacterSet *chars = [NSCharacterSet characterSetWithCharactersInString:uuid];
+    XCTAssertTrue([valid isSupersetOfSet:chars], @"UUID should only contain uppercase hex and hyphens: %@", uuid);
 }
 
 @end
