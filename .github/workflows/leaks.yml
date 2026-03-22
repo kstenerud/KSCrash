@@ -16,7 +16,7 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
+  checks: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -284,15 +284,28 @@ jobs:
           path: leaks_output.txt
           retention-days: 30
 
-      - name: Comment PR with Results
-        if: |
-          github.event_name == 'pull_request' &&
-          github.event.pull_request.head.repo.full_name == github.repository &&
-          steps.report.outputs.has_real_leaks == 'true'
-        uses: thollander/actions-comment-pull-request@v3
+      - name: Create Check Run
+        if: >-
+          always() &&
+          (github.event_name != 'pull_request' ||
+          github.event.pull_request.head.repo.full_name == github.repository)
+        uses: actions/github-script@v7
         with:
-          file-path: leaks_report.md
-          comment-tag: leaks-results
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('leaks_report.md', 'utf8');
+            const hasLeaks = '${{ steps.report.outputs.has_real_leaks }}' === 'true';
+            const title = hasLeaks
+              ? 'Memory leaks detected'
+              : 'No memory leaks';
+            await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'Memory Leaks Results',
+              head_sha: context.payload.pull_request?.head.sha || context.sha,
+              conclusion: 'neutral',
+              output: { title, summary: report },
+            });
 
       - name: Fail if real leaks found
         if: steps.report.outputs.has_real_leaks == 'true'

@@ -368,7 +368,10 @@ jobs:
 
       # ── Check Run ──────────────────────────────────────────────
       - name: Create Check Run
-        if: always()
+        if: >-
+          always() &&
+          (github.event_name != 'pull_request' ||
+          github.event.pull_request.head.repo.full_name == github.repository)
         uses: actions/github-script@v7
         with:
           script: |

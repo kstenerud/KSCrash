@@ -17,7 +17,7 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
+  checks: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -133,25 +133,28 @@ jobs:
           # Also write to job summary
           cat /tmp/analyzer-report.md >> $GITHUB_STEP_SUMMARY
 
-      - name: Check for Warnings
-        if: github.event_name == 'pull_request'
-        id: check-warnings
-        run: |
-          if grep -q ":warning:" /tmp/analyzer-report.md; then
-            echo "has_warnings=true" >> $GITHUB_OUTPUT
-          else
-            echo "has_warnings=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Comment on PR
-        if: |
-          github.event_name == 'pull_request' &&
-          github.event.pull_request.head.repo.full_name == github.repository &&
-          steps.check-warnings.outputs.has_warnings == 'true'
-        uses: thollander/actions-comment-pull-request@v3
+      - name: Create Check Run
+        if: >-
+          always() &&
+          (github.event_name != 'pull_request' ||
+          github.event.pull_request.head.repo.full_name == github.repository)
+        uses: actions/github-script@v7
         with:
-          file-path: /tmp/analyzer-report.md
-          comment-tag: static-analyzer-report
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('/tmp/analyzer-report.md', 'utf8');
+            const hasWarnings = report.includes(':warning:');
+            const title = hasWarnings
+              ? `${report.match(/Found (\d+)/)?.[1] || ''} analyzer warning(s)`
+              : 'No warnings';
+            await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'Static Analyzer Results',
+              head_sha: context.payload.pull_request?.head.sha || context.sha,
+              conclusion: 'neutral',
+              output: { title, summary: report },
+            });
 
       - name: Fail if warnings found
         if: always()
