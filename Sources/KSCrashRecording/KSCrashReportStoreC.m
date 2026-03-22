@@ -326,13 +326,6 @@ static NSDictionary *stitchRunSidecarsIntoReport(NSDictionary *report,
 #define KSCRS_UUID_STRING_LENGTH 36
 #define KSCRS_MAX_REPORT_COUNT 512
 
-/** Extract run_id from raw report bytes using strstr.
- *
- * Avoids JSON parsing entirely — just searches for the "run_id":"<uuid>"
- * pattern in the raw bytes and validates with uuid_parse. This is safe
- * because run_id is always a UUID written by our own code.
- */
-
 /** Remove run sidecar directories that have no matching reports.
  *
  * Scans the RunSidecars directory and collects the set of active run_ids
