@@ -26,6 +26,7 @@
 
 #include "KSCrashMonitor.h"
 
+#include <inttypes.h>
 #include <memory.h>
 #include <stdatomic.h>
 #include <stdlib.h>
