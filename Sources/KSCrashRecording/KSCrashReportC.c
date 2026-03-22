@@ -311,7 +311,17 @@ static void addJSONElement(const KSCrashReportWriter *const writer, const char *
         ksjson_addJSONElement(getJsonContext(writer), key, jsonElement, (int)strlen(jsonElement), closeLastContainer);
     if (jsonResult != KSJSON_OK) {
         char errorBuff[100];
-        snprintf(errorBuff, sizeof(errorBuff), "Invalid JSON data: %s", ksjson_stringForError(jsonResult));
+        const char *errStr = ksjson_stringForError(jsonResult);
+        size_t prefixLen = sizeof("Invalid JSON data: ") - 1;
+        size_t errLen = strlen(errStr);
+        size_t totalLen = prefixLen + errLen;
+        if (totalLen >= sizeof(errorBuff)) {
+            totalLen = sizeof(errorBuff) - 1;
+            errLen = totalLen - prefixLen;
+        }
+        memcpy(errorBuff, "Invalid JSON data: ", prefixLen);
+        memcpy(errorBuff + prefixLen, errStr, errLen);
+        errorBuff[totalLen] = '\0';
         ksjson_beginObject(getJsonContext(writer), key);
         ksjson_addStringElement(getJsonContext(writer), KSCrashField_Error, errorBuff, KSJSON_SIZE_AUTOMATIC);
         ksjson_addStringElement(getJsonContext(writer), KSCrashField_JSONData, jsonElement, KSJSON_SIZE_AUTOMATIC);
@@ -993,13 +1003,24 @@ static void writeNotableStackContents(const KSCrashReportWriter *const writer,
     char nameBuffer[40];
     for (uintptr_t address = lowAddress; address < highAddress; address += sizeof(address)) {
         if (ksmem_copySafely((void *)address, &contentsAsPointer, sizeof(contentsAsPointer))) {
-            snprintf(nameBuffer, sizeof(nameBuffer), "stack@%p", (void *)address);
+            memcpy(nameBuffer, "stack@0x", 8);
+            ksstring_uint64ToHex((uint64_t)address, nameBuffer + 8, sizeof(nameBuffer) - 8, 1, false);
             writeMemoryContentsIfNotable(writer, nameBuffer, contentsAsPointer);
         }
     }
 }
 
 #pragma mark Registers
+
+static const char *fallbackRegisterName(char *buf, size_t bufSize, int reg)
+{
+    if (bufSize < 2) {
+        return "";
+    }
+    buf[0] = 'r';
+    ksstring_intToDecimal(reg, buf + 1, bufSize - 1);
+    return buf;
+}
 
 /** Write the contents of all regular registers to the report.
  *
@@ -1020,8 +1041,7 @@ static void writeBasicRegisters(const KSCrashReportWriter *const writer, const c
         for (int reg = 0; reg < numRegisters; reg++) {
             registerName = kscpu_registerName(reg);
             if (registerName == NULL) {
-                snprintf(registerNameBuff, sizeof(registerNameBuff), "r%d", reg);
-                registerName = registerNameBuff;
+                registerName = fallbackRegisterName(registerNameBuff, sizeof(registerNameBuff), reg);
             }
             writer->addUIntegerElement(writer, registerName, kscpu_registerValue(machineContext, reg));
         }
@@ -1048,8 +1068,7 @@ static void writeExceptionRegisters(const KSCrashReportWriter *const writer, con
         for (int reg = 0; reg < numRegisters; reg++) {
             registerName = kscpu_exceptionRegisterName(reg);
             if (registerName == NULL) {
-                snprintf(registerNameBuff, sizeof(registerNameBuff), "r%d", reg);
-                registerName = registerNameBuff;
+                registerName = fallbackRegisterName(registerNameBuff, sizeof(registerNameBuff), reg);
             }
             writer->addUIntegerElement(writer, registerName, kscpu_exceptionRegisterValue(machineContext, reg));
         }
@@ -1093,8 +1112,7 @@ static void writeNotableRegisters(const KSCrashReportWriter *const writer,
     for (int reg = 0; reg < numRegisters; reg++) {
         registerName = kscpu_registerName(reg);
         if (registerName == NULL) {
-            snprintf(registerNameBuff, sizeof(registerNameBuff), "r%d", reg);
-            registerName = registerNameBuff;
+            registerName = fallbackRegisterName(registerNameBuff, sizeof(registerNameBuff), reg);
         }
         writeMemoryContentsIfNotable(writer, registerName, (uintptr_t)kscpu_registerValue(machineContext, reg));
     }

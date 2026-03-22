@@ -157,3 +157,85 @@ int ksstring_safeStrcmp(const char *str1, const char *str2)
 
     return strcmp(str1, str2);
 }
+
+// clang-format off
+static const char g_hexDigitsLower[] = { '0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f' };
+static const char g_hexDigitsUpper[] = { '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F' };
+// clang-format on
+
+size_t ksstring_uint64ToHex(uint64_t value, char *dst, size_t bufSize, int minDigits, bool uppercase)
+{
+    if (bufSize == 0) {
+        return 0;
+    }
+
+    if (minDigits < 1) {
+        minDigits = 1;
+    } else if (minDigits > 16) {
+        minDigits = 16;
+    }
+
+    const char *digits = uppercase ? g_hexDigitsUpper : g_hexDigitsLower;
+    char buf[16];
+    int pos = 16;
+
+    for (int count = 0; count < 16; count++) {
+        buf[--pos] = digits[value & 0xF];
+        value >>= 4;
+        if (value == 0 && count + 1 >= minDigits) {
+            break;
+        }
+    }
+
+    size_t len = (size_t)(16 - pos);
+    if (len >= bufSize) {
+        len = bufSize - 1;
+    }
+    memcpy(dst, buf + pos, len);
+    dst[len] = '\0';
+    return len;
+}
+
+size_t ksstring_intToDecimal(int value, char *dst, size_t bufSize)
+{
+    if (bufSize == 0) {
+        return 0;
+    }
+
+    if (value == 0) {
+        dst[0] = '0';
+        dst[bufSize > 1 ? 1 : 0] = '\0';
+        return bufSize > 1 ? 1 : 0;
+    }
+
+    char buf[12];
+    int pos = 11;
+    buf[pos] = '\0';
+
+    bool negative = false;
+    unsigned int uval;
+    if (value < 0) {
+        negative = true;
+        // Avoid undefined behavior on INT_MIN
+        uval = (unsigned int)(-(value + 1)) + 1u;
+    } else {
+        uval = (unsigned int)value;
+    }
+
+    while (uval > 0) {
+        buf[--pos] = (char)('0' + (uval % 10));
+        uval /= 10;
+    }
+
+    if (negative) {
+        buf[--pos] = '-';
+    }
+
+    size_t len = (size_t)(11 - pos);
+    if (len >= bufSize) {
+        len = bufSize - 1;
+    }
+    memcpy(dst, buf + pos, len);
+    dst[len] = '\0';
+    return len;
+}
