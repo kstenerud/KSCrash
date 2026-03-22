@@ -282,58 +282,6 @@ done:
     return isSuccessful;
 }
 
-bool ksfu_readFilePrefix(const char *const path, char **data, int *length, int maxLength)
-{
-    bool isSuccessful = false;
-    int bytesRead = 0;
-    char *mem = NULL;
-    int fd = -1;
-
-    struct stat st;
-    if (stat(path, &st) < 0) {
-        KSLOG_ERROR("Could not stat %s: %s", path, strerror(errno));
-        goto done;
-    }
-
-    fd = open(path, O_RDONLY);
-    if (fd < 0) {
-        KSLOG_ERROR("Could not open %s: %s", path, strerror(errno));
-        goto done;
-    }
-
-    int bytesToRead = (maxLength > 0 && maxLength < (int)st.st_size) ? maxLength : (int)st.st_size;
-
-    mem = malloc((unsigned)bytesToRead + 1);
-    if (mem == NULL) {
-        KSLOG_ERROR("Out of memory");
-        goto done;
-    }
-
-    if (!ksfu_readBytesFromFD(fd, mem, bytesToRead)) {
-        goto done;
-    }
-
-    bytesRead = bytesToRead;
-    mem[bytesRead] = '\0';
-    isSuccessful = true;
-
-done:
-    if (fd >= 0) {
-        close(fd);
-    }
-    if (!isSuccessful && mem != NULL) {
-        free(mem);
-        mem = NULL;
-    }
-
-    *data = mem;
-    if (length != NULL) {
-        *length = bytesRead;
-    }
-
-    return isSuccessful;
-}
-
 bool ksfu_writeStringToFD(const int fd, const char *const string)
 {
     if (*string != 0) {

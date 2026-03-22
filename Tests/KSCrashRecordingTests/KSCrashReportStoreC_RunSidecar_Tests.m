@@ -347,18 +347,29 @@ static CFDictionaryRef testStitchReport(CFDictionaryRef reportDict, const char *
     kscm_removeMonitor(&api);
 }
 
-- (int64_t)writeOversizedReportWithRunId:(NSString *)runId
+- (int64_t)writeLargeReportWithRunId:(NSString *)runId reportKeyEarly:(BOOL)reportKeyEarly
 {
-    // Build a report where "report" (containing run_id) starts after 2 KB,
-    // exercising the fallback from prefix read to full file read.
-    NSMutableString *padding = [NSMutableString stringWithCapacity:3000];
-    for (int i = 0; i < 150; i++) {
+    // Build a large report (>4 KB) to exercise orphan cleanup on oversized files.
+    // When reportKeyEarly=YES, "report" appears near the start but run_id is
+    // buried deep inside the report object (past any prefix window).
+    // When reportKeyEarly=NO, the entire "report" section is past 2 KB.
+    NSMutableString *padding = [NSMutableString stringWithCapacity:5000];
+    for (int i = 0; i < 300; i++) {
         [padding appendFormat:@"\"pad_%03d\":\"x\",", i];
     }
-    NSString *json = [NSString stringWithFormat:@"{%@\"report\":{\"run_id\":\"%@\",\"id\":\"evt1\"}}", padding, runId];
-    XCTAssertTrue(json.length > 2048, @"Report must be larger than prefix size");
-    NSRange reportRange = [json rangeOfString:@"\"report\":"];
-    XCTAssertTrue(reportRange.location > 2048, @"report key must be past the 2 KB prefix");
+    NSString *json;
+    if (reportKeyEarly) {
+        // "report" key at offset ~1, but run_id is after 4 KB of padding inside it
+        json = [NSString stringWithFormat:@"{\"report\":{%@\"run_id\":\"%@\",\"id\":\"evt1\"}}", padding, runId];
+        NSRange runIdRange = [json rangeOfString:@"\"run_id\":"];
+        XCTAssertTrue(runIdRange.location > 2048, @"run_id must be past any 2 KB prefix window");
+    } else {
+        // "report" key itself is past 2 KB
+        json = [NSString stringWithFormat:@"{%@\"report\":{\"run_id\":\"%@\",\"id\":\"evt1\"}}", padding, runId];
+        NSRange reportRange = [json rangeOfString:@"\"report\":"];
+        XCTAssertTrue(reportRange.location > 2048, @"report key must be past any 2 KB prefix window");
+    }
+    XCTAssertTrue(json.length > 4096, @"Report must be larger than 4 KB");
     NSData *data = [json dataUsingEncoding:NSUTF8StringEncoding];
     return kscrs_addUserReport(data.bytes, (int)data.length, &_storeConfig);
 }
@@ -369,17 +380,32 @@ static CFDictionaryRef testStitchReport(CFDictionaryRef reportDict, const char *
 {
     [self prepareStoreWithRunSidecars:@"testLargeReportOrphan"];
     NSString *runId = [[NSUUID UUID] UUIDString];
-    [self writeOversizedReportWithRunId:runId];
+    [self writeLargeReportWithRunId:runId reportKeyEarly:NO];
     [self writeRunSidecar:@"System" runId:runId contents:@"system data"];
 
     NSString *runDir =
         [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:runId];
     XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir]);
 
-    // Cleanup should find the run_id via fallback full-file read
     kscrs_cleanupOrphanedRunSidecars(&_storeConfig);
     XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir],
-                  @"Run sidecar should be preserved for large report where run_id is past 2 KB prefix");
+                  @"Run sidecar should be preserved when report section is past 2 KB");
+}
+
+- (void)testOrphanCleanupPreservesSidecarsWhenRunIdIsDeepInsideReportSection
+{
+    [self prepareStoreWithRunSidecars:@"testDeepRunId"];
+    NSString *runId = [[NSUUID UUID] UUIDString];
+    [self writeLargeReportWithRunId:runId reportKeyEarly:YES];
+    [self writeRunSidecar:@"System" runId:runId contents:@"system data"];
+
+    NSString *runDir =
+        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:runId];
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir]);
+
+    kscrs_cleanupOrphanedRunSidecars(&_storeConfig);
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir],
+                  @"Run sidecar should be preserved when run_id is deep inside report section");
 }
 
 - (void)testOrphanCleanupDeletesOrphanButKeepsLargeReport
@@ -388,7 +414,7 @@ static CFDictionaryRef testStitchReport(CFDictionaryRef reportDict, const char *
     NSString *activeRunId = [[NSUUID UUID] UUIDString];
     NSString *orphanRunId = [[NSUUID UUID] UUIDString];
 
-    [self writeOversizedReportWithRunId:activeRunId];
+    [self writeLargeReportWithRunId:activeRunId reportKeyEarly:YES];
     [self writeRunSidecar:@"System" runId:activeRunId contents:@"active"];
     [self writeRunSidecar:@"System" runId:orphanRunId contents:@"orphan"];
 

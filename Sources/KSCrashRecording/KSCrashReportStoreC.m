@@ -42,6 +42,7 @@
 #include "KSCrashReportStoreC+Private.h"
 #include "KSDate.h"
 #include "KSFileUtils.h"
+#include "KSJSONCodec.h"
 #include "KSLogger.h"
 
 #import <Foundation/Foundation.h>
@@ -331,39 +332,98 @@ static NSDictionary *stitchRunSidecarsIntoReport(NSDictionary *report,
  * pattern in the raw bytes and validates with uuid_parse. This is safe
  * because run_id is always a UUID written by our own code.
  */
-static bool extractRunIdFromBytes(const char *buf, int bufLen, char *runIdOut, size_t runIdOutLen)
+// State for the streaming run_id extractor.
+typedef struct {
+    char *runIdOut;
+    size_t runIdOutLen;
+    int depth;      // current object nesting depth
+    bool inReport;  // true while inside the "report" object at depth 1
+    bool found;     // true once run_id has been captured
+} RunIdSearchContext;
+
+// Sentinel returned from callbacks to stop decoding early.
+#define KSJSON_STOP 999
+
+static int onRunIdString(const char *name, const char *value, void *userData)
 {
-    if (buf == NULL || bufLen <= 0 || runIdOut == NULL || runIdOutLen <= KSCRS_UUID_STRING_LENGTH) {
-        return false;
-    }
-    const char *needle = "\"run_id\":\"";
-    const size_t needleLen = strlen(needle);
-    const char *found = NULL;
-    // buf may not be null-terminated, so use memmem-style bounded search
-    for (const char *p = buf; p <= buf + bufLen - needleLen; p++) {
-        if (memcmp(p, needle, needleLen) == 0) {
-            found = p + needleLen;
-            break;
+    RunIdSearchContext *ctx = (RunIdSearchContext *)userData;
+    if (ctx->inReport && ctx->depth == 2 && name != NULL && strcmp(name, "run_id") == 0) {
+        size_t len = strlen(value);
+        if (len == KSCRS_UUID_STRING_LENGTH && len < ctx->runIdOutLen) {
+            uuid_t unused;
+            if (uuid_parse(value, unused) == 0) {
+                memcpy(ctx->runIdOut, value, len);
+                ctx->runIdOut[len] = '\0';
+                ctx->found = true;
+                return KSJSON_STOP;
+            }
         }
     }
-    if (found == NULL || found + KSCRS_UUID_STRING_LENGTH > buf + bufLen) {
+    return KSJSON_OK;
+}
+
+static int onRunIdBeginObject(const char *name, void *userData)
+{
+    RunIdSearchContext *ctx = (RunIdSearchContext *)userData;
+    ctx->depth++;
+    if (ctx->depth == 2 && name != NULL && strcmp(name, "report") == 0) {
+        ctx->inReport = true;
+    }
+    return KSJSON_OK;
+}
+
+static int onRunIdEndContainer(void *userData)
+{
+    RunIdSearchContext *ctx = (RunIdSearchContext *)userData;
+    if (ctx->inReport && ctx->depth == 2) {
+        // Leaving the "report" object without finding run_id, stop early.
+        ctx->inReport = false;
+        return KSJSON_STOP;
+    }
+    ctx->depth--;
+    return KSJSON_OK;
+}
+
+/** Extract the run_id from a report file using the streaming C JSON decoder.
+ *
+ * Streams through the file and stops as soon as report.run_id is found
+ * (or the report section ends). No ObjC, no full-file decode.
+ */
+static bool extractRunIdFromReportFile(const char *reportPath, char *runIdOut, size_t runIdOutLen)
+{
+    if (runIdOut == NULL || runIdOutLen <= KSCRS_UUID_STRING_LENGTH) {
         return false;
     }
-    memcpy(runIdOut, found, KSCRS_UUID_STRING_LENGTH);
-    runIdOut[KSCRS_UUID_STRING_LENGTH] = '\0';
 
-    uuid_t unused;
-    return uuid_parse(runIdOut, unused) == 0;
+    char *rawReport = NULL;
+    int length = 0;
+    ksfu_readEntireFile(reportPath, &rawReport, &length, 0);
+    if (rawReport == NULL) {
+        return false;
+    }
+
+    RunIdSearchContext ctx = {
+        .runIdOut = runIdOut,
+        .runIdOutLen = runIdOutLen,
+    };
+
+    char stringBuffer[512];
+    KSJSONDecodeCallbacks callbacks = {
+        .onStringElement = onRunIdString,
+        .onBeginObject = onRunIdBeginObject,
+        .onEndContainer = onRunIdEndContainer,
+    };
+    ksjson_decode(rawReport, length, stringBuffer, sizeof(stringBuffer), &callbacks, &ctx, NULL);
+    free(rawReport);
+    return ctx.found;
 }
 
 /** Remove run sidecar directories that have no matching reports.
  *
- * Scans the RunSidecars directory and collects the set of active run_ids from
- * existing reports. Any run sidecar directory whose name isn't in the active
- * set is deleted. Runs once at initialization.
- *
- * Uses a lightweight byte scan (no JSON parsing, no ObjC) and reads only
- * the first 2 KB of each report — the run_id is in the report header.
+ * Scans the RunSidecars directory and collects the set of active run_ids
+ * from existing reports by JSON-decoding report["report"]["run_id"].
+ * Any run sidecar directory whose name isn't in the active set is deleted.
+ * Runs once at initialization.
  */
 static void cleanupOrphanedRunSidecars(const KSCrashReportStoreCConfiguration *const config)
 {
@@ -387,32 +447,13 @@ static void cleanupOrphanedRunSidecars(const KSCrashReportStoreCConfiguration *c
     memcpy(activeRunIds[activeCount], currentRunID, KSCRS_UUID_STRING_LENGTH);
     activeRunIds[activeCount][KSCRS_UUID_STRING_LENGTH] = '\0';
     activeCount++;
-    // run_id is in the report header, so reading the first 2 KB is
-    // usually enough. If the prefix doesn't contain "report" at all,
-    // fall back to reading the entire file so we don't silently skip
-    // a report with an unusually large preamble.
-    static const char *reportKey = "\"report\":";
+
     for (int i = 0; i < reportCount; i++) {
         char reportPath[KSCRS_MAX_PATH_LENGTH];
         getCrashReportPathByID(reportIDs[i], reportPath, config);
-        char *buf = NULL;
-        int bytesRead = 0;
-        ksfu_readFilePrefix(reportPath, &buf, &bytesRead, 2048);
-        if (buf == NULL) {
-            continue;
-        }
-        if (strnstr(buf, reportKey, (size_t)bytesRead) == NULL) {
-            free(buf);
-            buf = NULL;
-            ksfu_readEntireFile(reportPath, &buf, &bytesRead, 0);
-            if (buf == NULL) {
-                continue;
-            }
-        }
-        if (extractRunIdFromBytes(buf, bytesRead, activeRunIds[activeCount], sizeof(activeRunIds[activeCount]))) {
+        if (extractRunIdFromReportFile(reportPath, activeRunIds[activeCount], sizeof(activeRunIds[activeCount]))) {
             activeCount++;
         }
-        free(buf);
     }
 
     DIR *dir = opendir(config->runSidecarsPath);

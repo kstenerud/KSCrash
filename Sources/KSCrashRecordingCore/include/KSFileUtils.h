@@ -96,21 +96,6 @@ bool ksfu_readBytesFromFD(const int fd, char *bytes, int length);
  */
 bool ksfu_readEntireFile(const char *path, char **data, int *length, int maxLength);
 
-/** Read the first maxLength bytes of a file.
- *
- * Reads from the beginning of the file, up to maxLength bytes
- * or the file size, whichever is smaller. The result is always
- * null-terminated.
- *
- * @param path The path to the file.
- * @param data Place to store a pointer to the loaded data (must be freed).
- * @param length Place to store the number of bytes read (can be NULL).
- * @param maxLength Maximum number of bytes to read from the start.
- *
- * @return true if the operation was successful.
- */
-bool ksfu_readFilePrefix(const char *path, char **data, int *length, int maxLength);
-
 /** Write a string to a file.
  *
  * @param fd The file descriptor.
