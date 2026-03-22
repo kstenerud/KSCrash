@@ -45,4 +45,46 @@
     XCTAssertEqualObjects(fixedReport, processedObjects);
 }
 
+#pragma mark - Immutable Input Safety
+
+- (void)testFixupWithImmutableLiteralDoesNotCrash
+{
+    // Literal NSDictionary values are __NSDictionaryI (immutable).
+    // fixupReport must mutableCopy nested dicts before mutating.
+    NSDictionary *report = @{
+        @"report" : @ {
+            @"version" : @"3.3.0",
+            @"timestamp" : @1700000000123456,
+        }
+    };
+    NSDictionary *result = kscrf_fixupReportDict(report);
+    XCTAssertNotNil(result);
+    // Timestamp should be converted to a date string
+    XCTAssertTrue([result[@"report"][@"timestamp"] isKindOfClass:[NSString class]]);
+}
+
+#pragma mark - Malformed Field Type Guards
+
+- (void)testVersionAsArrayDoesNotCrash
+{
+    NSDictionary *report = @{
+        @"report" : @ {
+            @"version" : @[],
+            @"timestamp" : @1700000000,
+        }
+    };
+    NSDictionary *result = kscrf_fixupReportDict(report);
+    XCTAssertNotNil(result);
+}
+
+- (void)testRecrashReportSectionAsStringDoesNotCrash
+{
+    NSDictionary *report = @{
+        @"report" : @ { @"version" : @"3.3.0" },
+        @"recrash_report" : @ { @"report" : @"not a dict" },
+    };
+    NSDictionary *result = kscrf_fixupReportDict(report);
+    XCTAssertNotNil(result);
+}
+
 @end

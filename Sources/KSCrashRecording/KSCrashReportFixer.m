@@ -125,22 +125,33 @@ static void fixupReport(NSMutableDictionary *report)
     if (![reportInfo isKindOfClass:[NSDictionary class]]) {
         return;
     }
-    NSString *versionString = reportInfo[KSCrashField_Version];
+    id versionVal = reportInfo[KSCrashField_Version];
+    if (![versionVal isKindOfClass:[NSString class]]) {
+        return;
+    }
 
     int major, minor, patch;
-    parseVersion(versionString, &major, &minor, &patch);
+    parseVersion(versionVal, &major, &minor, &patch);
 
     // Version 3.3.0+ uses microseconds for timestamps
     BOOL useMicroseconds = isVersionAtLeast(major, minor, patch, 3, 3, 0);
 
-    // Fix timestamp in report
-    fixupTimestamp(reportInfo, useMicroseconds);
+    // Fix timestamp in report (mutableCopy because the input is immutable)
+    NSMutableDictionary *mutableReportInfo = [reportInfo mutableCopy];
+    fixupTimestamp(mutableReportInfo, useMicroseconds);
+    report[KSCrashField_Report] = mutableReportInfo;
 
     // Fix timestamp in recrash report if present
     id recrash = report[KSCrashField_RecrashReport];
     if ([recrash isKindOfClass:[NSDictionary class]]) {
-        NSMutableDictionary *recrashReportInfo = recrash[KSCrashField_Report];
-        fixupTimestamp(recrashReportInfo, useMicroseconds);
+        id recrashReportInfo = recrash[KSCrashField_Report];
+        if ([recrashReportInfo isKindOfClass:[NSDictionary class]]) {
+            NSMutableDictionary *mutableRecrash = [recrash mutableCopy];
+            NSMutableDictionary *mutableRecrashInfo = [recrashReportInfo mutableCopy];
+            fixupTimestamp(mutableRecrashInfo, useMicroseconds);
+            mutableRecrash[KSCrashField_Report] = mutableRecrashInfo;
+            report[KSCrashField_RecrashReport] = mutableRecrash;
+        }
     }
 }
 
