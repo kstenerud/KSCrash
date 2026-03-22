@@ -121,7 +121,10 @@ static void fixupTimestamp(NSMutableDictionary *reportDict, BOOL useMicroseconds
 static void fixupReport(NSMutableDictionary *report)
 {
     // Get version to determine timestamp format
-    NSMutableDictionary *reportInfo = report[KSCrashField_Report];
+    id reportInfo = report[KSCrashField_Report];
+    if (![reportInfo isKindOfClass:[NSDictionary class]]) {
+        return;
+    }
     NSString *versionString = reportInfo[KSCrashField_Version];
 
     int major, minor, patch;
@@ -134,8 +137,8 @@ static void fixupReport(NSMutableDictionary *report)
     fixupTimestamp(reportInfo, useMicroseconds);
 
     // Fix timestamp in recrash report if present
-    NSMutableDictionary *recrash = report[KSCrashField_RecrashReport];
-    if (recrash != nil) {
+    id recrash = report[KSCrashField_RecrashReport];
+    if ([recrash isKindOfClass:[NSDictionary class]]) {
         NSMutableDictionary *recrashReportInfo = recrash[KSCrashField_Report];
         fixupTimestamp(recrashReportInfo, useMicroseconds);
     }

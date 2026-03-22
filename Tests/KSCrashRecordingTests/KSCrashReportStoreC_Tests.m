@@ -611,4 +611,39 @@
     XCTAssertTrue(strstr(pathBuffer, "0123456789abcdef.stacksym") != NULL);
 }
 
+#pragma mark - Malformed Report Section
+
+- (void)testReadReportWithReportSectionAsString
+{
+    [self prepareReportStoreWithPathEnd:@"testMalformedReportString"];
+    NSString *json = @"{\"report\":\"not a dict\",\"crash\":{}}";
+    int64_t reportID = kscrs_addUserReport(json.UTF8String, (int)json.length, &_storeConfig);
+
+    char *report = kscrs_readReport(reportID, &_storeConfig);
+    XCTAssertTrue(report != NULL, @"Should not crash on report section being a string");
+    free(report);
+}
+
+- (void)testReadReportWithReportSectionAsArray
+{
+    [self prepareReportStoreWithPathEnd:@"testMalformedReportArray"];
+    NSString *json = @"{\"report\":[1,2,3],\"crash\":{}}";
+    int64_t reportID = kscrs_addUserReport(json.UTF8String, (int)json.length, &_storeConfig);
+
+    char *report = kscrs_readReport(reportID, &_storeConfig);
+    XCTAssertTrue(report != NULL, @"Should not crash on report section being an array");
+    free(report);
+}
+
+- (void)testReadReportWithMissingReportSection
+{
+    [self prepareReportStoreWithPathEnd:@"testMalformedNoReport"];
+    NSString *json = @"{\"crash\":{\"error\":{}}}";
+    int64_t reportID = kscrs_addUserReport(json.UTF8String, (int)json.length, &_storeConfig);
+
+    char *report = kscrs_readReport(reportID, &_storeConfig);
+    XCTAssertTrue(report != NULL, @"Should not crash when report section is absent");
+    free(report);
+}
+
 @end
