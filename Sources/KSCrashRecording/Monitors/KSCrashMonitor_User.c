@@ -27,6 +27,7 @@
 #include "KSCompilerDefines.h"
 #include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorHelper.h"
+#include "KSCrashReportStoreC+Private.h"
 #include "KSID.h"
 #include "KSStackCursor_SelfThread.h"
 #include "KSThread.h"
@@ -80,7 +81,16 @@ void kscm_reportUserException(const char *name, const char *reason, const char *
     ctx->userException.customStackTrace = stackTrace;
     ctx->stackCursor = &stackCursor;
 
-    g_callbacks.handle(ctx);
+    KSCrash_ReportResult result = { 0 };
+    g_callbacks.handleWithResult(ctx, &result);
+
+    // Non-terminal reports are finalized immediately so sidecar data
+    // (lifecycle state, resource metrics, etc.) is stitched in while
+    // the app is still running. Without this the report would sit
+    // unstitched until next launch.
+    if (!terminateProgram && result.reportId > 0) {
+        kscrs_finalizeReport(result.path, result.reportId);
+    }
 
 exit_immediately:
     if (terminateProgram) {
