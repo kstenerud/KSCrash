@@ -310,9 +310,20 @@ static void addJSONElement(const KSCrashReportWriter *const writer, const char *
     int jsonResult =
         ksjson_addJSONElement(getJsonContext(writer), key, jsonElement, (int)strlen(jsonElement), closeLastContainer);
     if (jsonResult != KSJSON_OK) {
+        char errorBuff[100];
+        const char *errStr = ksjson_stringForError(jsonResult);
+        size_t prefixLen = sizeof("Invalid JSON data: ") - 1;
+        size_t errLen = strlen(errStr);
+        size_t totalLen = prefixLen + errLen;
+        if (totalLen >= sizeof(errorBuff)) {
+            totalLen = sizeof(errorBuff) - 1;
+            errLen = totalLen - prefixLen;
+        }
+        memcpy(errorBuff, "Invalid JSON data: ", prefixLen);
+        memcpy(errorBuff + prefixLen, errStr, errLen);
+        errorBuff[totalLen] = '\0';
         ksjson_beginObject(getJsonContext(writer), key);
-        ksjson_addStringElement(getJsonContext(writer), KSCrashField_Error, ksjson_stringForError(jsonResult),
-                                KSJSON_SIZE_AUTOMATIC);
+        ksjson_addStringElement(getJsonContext(writer), KSCrashField_Error, errorBuff, KSJSON_SIZE_AUTOMATIC);
         ksjson_addStringElement(getJsonContext(writer), KSCrashField_JSONData, jsonElement, KSJSON_SIZE_AUTOMATIC);
         ksjson_endContainer(getJsonContext(writer));
     }
@@ -1105,9 +1116,7 @@ static void writeNotableRegisters(const KSCrashReportWriter *const writer,
     for (int reg = 0; reg < numRegisters; reg++) {
         registerName = kscpu_registerName(reg);
         if (registerName == NULL) {
-            registerNameBuff[0] = 'r';
-            ksstring_intToDecimal(reg, registerNameBuff + 1);
-            registerName = registerNameBuff;
+            registerName = fallbackRegisterName(registerNameBuff, sizeof(registerNameBuff), reg);
         }
         writeMemoryContentsIfNotable(writer, registerName, (uintptr_t)kscpu_registerValue(machineContext, reg));
     }

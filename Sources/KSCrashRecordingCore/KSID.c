@@ -24,36 +24,11 @@
 
 #include "KSID.h"
 
-#include <stdint.h>
 #include <uuid/uuid.h>
-
-// clang-format off
-static const char g_hexDigitsUpper[] = { '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F' };
-// clang-format on
-
-// UUID segment byte counts: 8-4-4-4-12 hex chars = 4-2-2-2-6 bytes
-static const int g_uuidSegmentLengths[] = { 4, 2, 2, 2, 6 };
-
-static void uuidToString(const uuid_t uuid, char *dst)
-{
-    char *p = dst;
-    int byteIndex = 0;
-    for (int seg = 0; seg < 5; seg++) {
-        for (int i = 0; i < g_uuidSegmentLengths[seg]; i++) {
-            uint8_t b = uuid[byteIndex++];
-            *p++ = g_hexDigitsUpper[b >> 4];
-            *p++ = g_hexDigitsUpper[b & 0xF];
-        }
-        if (seg < 4) {
-            *p++ = '-';
-        }
-    }
-    *p = '\0';
-}
 
 void ksid_generate(char *destinationBuffer37Bytes)
 {
     uuid_t uuid;
     uuid_generate(uuid);
-    uuidToString(uuid, destinationBuffer37Bytes);
+    uuid_unparse_upper(uuid, destinationBuffer37Bytes);
 }
