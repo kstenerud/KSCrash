@@ -33,6 +33,15 @@
 extern "C" {
 #endif
 
+/** Maximum report file size we'll attempt to read (20 MB).
+ *
+ *  Reports exceeding this are silently skipped to prevent unbounded
+ *  malloc on corrupt or pathologically large files.  The cap is shared
+ *  by readReportAtPath, finalizeReport, and run-id extraction so they
+ *  all agree on what constitutes "too large."
+ */
+#define KSCRS_MAX_REPORT_SIZE ((size_t)20000000)
+
 /** Get the next crash report to be generated.
  * Max length for paths is KSCRS_MAX_PATH_LENGTH
  *

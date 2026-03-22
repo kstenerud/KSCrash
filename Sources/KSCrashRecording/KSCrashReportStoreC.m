@@ -215,6 +215,9 @@ static NSDictionary *stitchReportSidecarsIntoReport(NSDictionary *report, int64_
     }
     DIR *dir = opendir(config->reportSidecarsPath);
     if (dir == NULL) {
+        if (stitchFailed != NULL) {
+            *stitchFailed = true;
+        }
         return report;
     }
     NSDictionary *result = report;
@@ -278,6 +281,9 @@ static NSDictionary *stitchRunSidecarsIntoReport(NSDictionary *report,
 
     DIR *dir = opendir(runDir);
     if (dir == NULL) {
+        if (stitchFailed != NULL) {
+            *stitchFailed = true;
+        }
         return report;
     }
 
@@ -507,8 +513,7 @@ static char *readReportAtPath(const char *path, int64_t reportID, const KSCrashR
     @autoreleasepool {
         char *rawReport;
         int rawLength = 0;
-        const size_t maxReportSize = 20000000;
-        ksfu_readEntireFile(path, &rawReport, &rawLength, maxReportSize);
+        ksfu_readEntireFile(path, &rawReport, &rawLength, KSCRS_MAX_REPORT_SIZE);
         if (rawReport == NULL) {
             KSLOG_ERROR(@"Failed to load report at path: %s", path);
             return NULL;
@@ -601,8 +606,7 @@ bool kscrs_finalizeReport(const char *reportPath, int64_t reportID)
     @autoreleasepool {
         char *rawReport;
         int rawLength = 0;
-        const size_t maxReportSize = 20000000;
-        ksfu_readEntireFile(reportPath, &rawReport, &rawLength, maxReportSize);
+        ksfu_readEntireFile(reportPath, &rawReport, &rawLength, KSCRS_MAX_REPORT_SIZE);
         if (rawReport == NULL) {
             pthread_mutex_unlock(&g_mutex);
             return false;

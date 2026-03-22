@@ -36,11 +36,10 @@ extern "C" {
 
 /** Extract the run_id from a report file.
  *
- * Reads the file and parses its JSON with a streaming C decoder,
- * stopping as soon as report["report"]["run_id"] is found or the
- * report section ends. Falls back to a full ObjC decode if the
- * streaming path fails on oversized keys/strings. The run_id must
- * be a valid UUID.
+ * Reads the file into memory and parses its JSON, stopping as soon
+ * as report["report"]["run_id"] is found or the report section ends.
+ * Falls back to a full ObjC decode if the C decoder path fails on
+ * oversized keys/strings. The run_id must be a valid UUID.
  *
  * @param reportPath Path to the report JSON file.
  * @param runIdOut Buffer to receive the UUID string.

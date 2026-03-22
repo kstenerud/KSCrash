@@ -30,6 +30,7 @@
 #include <string.h>
 #include <uuid/uuid.h>
 
+#include "KSCrashReportStoreC+Private.h"
 #include "KSFileUtils.h"
 #include "KSJSONCodec.h"
 
@@ -168,10 +169,7 @@ bool kscrs_extractRunIdFromReportFile(const char *reportPath, char *runIdOut, si
 
     char *rawReport = NULL;
     int length = 0;
-    // Cap to the same 20 MB limit used by readReportAtPath to avoid
-    // unbounded malloc on corrupt or unexpectedly large files.
-    const int maxReportSize = 20000000;
-    ksfu_readEntireFile(reportPath, &rawReport, &length, maxReportSize);
+    ksfu_readEntireFile(reportPath, &rawReport, &length, KSCRS_MAX_REPORT_SIZE);
     if (rawReport == NULL) {
         return false;
     }
