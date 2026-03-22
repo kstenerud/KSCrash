@@ -62,19 +62,19 @@ static void *finalizerTestStitchReport(void *reportDict, const char *sidecarPath
 // a monitor that can't parse the report during finalization.
 static const char *failingMonitorId(__unused void *context) { return "FailingTestMonitor"; }
 
-static char *failingStitchReport(__unused const char *report, __unused const char *sidecarPath,
+static void *failingStitchReport(__unused void *reportDict, __unused const char *sidecarPath,
                                  __unused KSCrashSidecarScope scope, __unused void *context)
 {
     return NULL;
 }
 
-// A stitch callback that has nothing to change (returns strdup of original).
+// A stitch callback that has nothing to change (returns copy of original).
 static const char *noopMonitorId(__unused void *context) { return "NoopTestMonitor"; }
 
-static char *noopStitchReport(const char *report, __unused const char *sidecarPath, __unused KSCrashSidecarScope scope,
+static void *noopStitchReport(void *reportDict, __unused const char *sidecarPath, __unused KSCrashSidecarScope scope,
                               __unused void *context)
 {
-    return strdup(report);
+    return (__bridge_retained void *)[(__bridge NSDictionary *)reportDict copy];
 }
 
 #pragma mark - Tests
@@ -389,7 +389,7 @@ static char *noopStitchReport(const char *report, __unused const char *sidecarPa
     [self writeReportSidecar:@"NoopTestMonitor" reportID:reportID contents:@"data"];
     NSString *path = [self reportPathForID:reportID];
 
-    // Finalization should succeed — the no-op callback returned strdup(report), not NULL
+    // Finalization should succeed — the no-op callback returned a copy, not NULL
     bool result = kscrs_finalizeReport(path.UTF8String, reportID);
     XCTAssertTrue(result);
 

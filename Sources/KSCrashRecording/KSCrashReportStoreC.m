@@ -206,7 +206,8 @@ static void deleteReportSidecarsForReport(int64_t reportID, const KSCrashReportS
 }
 
 static NSDictionary *stitchReportSidecarsIntoReport(NSDictionary *report, int64_t reportID,
-                                                    const KSCrashReportStoreCConfiguration *const config)
+                                                    const KSCrashReportStoreCConfiguration *const config,
+                                                    bool *stitchFailed)
 {
     if (config->reportSidecarsPath == NULL) {
         return report;
@@ -236,6 +237,8 @@ static NSDictionary *stitchReportSidecarsIntoReport(NSDictionary *report, int64_
             api->stitchReport((__bridge void *)report, sidecarPath, KSCrashSidecarScopeReport, api->context);
         if (stitched != NULL) {
             report = (__bridge_transfer NSDictionary *)stitched;
+        } else if (stitchFailed != NULL) {
+            *stitchFailed = true;
         }
     }
     closedir(dir);
@@ -243,7 +246,8 @@ static NSDictionary *stitchReportSidecarsIntoReport(NSDictionary *report, int64_
 }
 
 static NSDictionary *stitchRunSidecarsIntoReport(NSDictionary *report,
-                                                 const KSCrashReportStoreCConfiguration *const config)
+                                                 const KSCrashReportStoreCConfiguration *const config,
+                                                 bool *stitchFailed)
 {
     if (config->runSidecarsPath == NULL) {
         return report;
@@ -306,6 +310,8 @@ static NSDictionary *stitchRunSidecarsIntoReport(NSDictionary *report,
         void *stitched = api->stitchReport((__bridge void *)report, sidecarPath, KSCrashSidecarScopeRun, api->context);
         if (stitched != NULL) {
             report = (__bridge_transfer NSDictionary *)stitched;
+        } else if (stitchFailed != NULL) {
+            *stitchFailed = true;
         }
     }
     closedir(dir);
@@ -569,9 +575,9 @@ static char *readReportAtPath(const char *path, int64_t reportID, const KSCrashR
 
         if (config != NULL) {
             // Run sidecars first so per-report data can override per-run data
-            report = stitchRunSidecarsIntoReport(report, config);
+            report = stitchRunSidecarsIntoReport(report, config, NULL);
             if (reportID > 0) {
-                report = stitchReportSidecarsIntoReport(report, reportID, config);
+                report = stitchReportSidecarsIntoReport(report, reportID, config, NULL);
             }
         }
 
@@ -666,8 +672,15 @@ bool kscrs_finalizeReport(const char *reportPath, int64_t reportID)
 
         // Fixup
         NSDictionary *report = kscrf_fixupReportDict(dict);
-        report = stitchRunSidecarsIntoReport(report, &g_storedConfig);
-        report = stitchReportSidecarsIntoReport(report, reportID, &g_storedConfig);
+        bool stitchFailed = false;
+        report = stitchRunSidecarsIntoReport(report, &g_storedConfig, &stitchFailed);
+        report = stitchReportSidecarsIntoReport(report, reportID, &g_storedConfig, &stitchFailed);
+        if (stitchFailed) {
+            KSLOG_ERROR(@"Stitching failed for report %lld, skipping finalization to allow retry on next read",
+                        (long long)reportID);
+            pthread_mutex_unlock(&g_mutex);
+            return false;
+        }
 
         // Set finalized flag directly on the dict
         NSMutableDictionary *finalDict;
@@ -725,7 +738,9 @@ bool kscrs_finalizeReport(const char *reportPath, int64_t reportID)
             return false;
         }
 
-        deleteReportSidecarsForReport(reportID, &g_storedConfig);
+        // Sidecars are not deleted here — they sit inert on disk (reads
+        // skip stitching for finalized reports) and get cleaned up when
+        // the report itself is deleted after consumption.
 
         pthread_mutex_unlock(&g_mutex);
         return true;

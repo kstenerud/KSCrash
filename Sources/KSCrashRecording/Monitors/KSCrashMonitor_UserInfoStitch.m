@@ -156,7 +156,7 @@ void *kscm_userinfo_stitchReport(void *reportDict, const char *sidecarPath, __un
         noChange = ([userSection count] == 0);
     }
     if (noChange) {
-        return strdup(report);
+        return (__bridge_retained void *)[(__bridge NSDictionary *)reportDict copy];
     }
 
     dict[KSCrashField_User] = userSection;
