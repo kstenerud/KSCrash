@@ -230,7 +230,7 @@
 - (void)testUint64ToHexZero
 {
     char buf[17];
-    size_t len = ksstring_uint64ToHex(0, buf, 1, false);
+    size_t len = ksstring_uint64ToHex(0, buf, sizeof(buf), 1, false);
     XCTAssertEqual(len, 1u);
     XCTAssertEqualObjects(@(buf), @"0");
 }
@@ -238,7 +238,7 @@
 - (void)testUint64ToHexZeroPadded
 {
     char buf[17];
-    size_t len = ksstring_uint64ToHex(0, buf, 8, false);
+    size_t len = ksstring_uint64ToHex(0, buf, sizeof(buf), 8, false);
     XCTAssertEqual(len, 8u);
     XCTAssertEqualObjects(@(buf), @"00000000");
 }
@@ -246,7 +246,7 @@
 - (void)testUint64ToHexMax
 {
     char buf[17];
-    size_t len = ksstring_uint64ToHex(UINT64_MAX, buf, 1, false);
+    size_t len = ksstring_uint64ToHex(UINT64_MAX, buf, sizeof(buf), 1, false);
     XCTAssertEqual(len, 16u);
     XCTAssertEqualObjects(@(buf), @"ffffffffffffffff");
 }
@@ -254,7 +254,7 @@
 - (void)testUint64ToHexMaxUppercase
 {
     char buf[17];
-    size_t len = ksstring_uint64ToHex(UINT64_MAX, buf, 1, true);
+    size_t len = ksstring_uint64ToHex(UINT64_MAX, buf, sizeof(buf), 1, true);
     XCTAssertEqual(len, 16u);
     XCTAssertEqualObjects(@(buf), @"FFFFFFFFFFFFFFFF");
 }
@@ -262,7 +262,7 @@
 - (void)testUint64ToHexValue
 {
     char buf[17];
-    size_t len = ksstring_uint64ToHex(0x2fe5c7f8, buf, 1, false);
+    size_t len = ksstring_uint64ToHex(0x2fe5c7f8, buf, sizeof(buf), 1, false);
     XCTAssertEqual(len, 8u);
     XCTAssertEqualObjects(@(buf), @"2fe5c7f8");
 }
@@ -270,11 +270,11 @@
 - (void)testUint64ToHexMinDigitsClamped
 {
     char buf[17];
-    size_t len = ksstring_uint64ToHex(0xAB, buf, 0, true);
+    size_t len = ksstring_uint64ToHex(0xAB, buf, sizeof(buf), 0, true);
     XCTAssertEqual(len, 2u);
     XCTAssertEqualObjects(@(buf), @"AB");
 
-    len = ksstring_uint64ToHex(0xAB, buf, 20, true);
+    len = ksstring_uint64ToHex(0xAB, buf, sizeof(buf), 20, true);
     XCTAssertEqual(len, 16u);
     XCTAssertEqualObjects(@(buf), @"00000000000000AB");
 }
@@ -282,7 +282,7 @@
 - (void)testUint64ToHexSingleBytePadded
 {
     char buf[17];
-    size_t len = ksstring_uint64ToHex(0x0A, buf, 2, true);
+    size_t len = ksstring_uint64ToHex(0x0A, buf, sizeof(buf), 2, true);
     XCTAssertEqual(len, 2u);
     XCTAssertEqualObjects(@(buf), @"0A");
 }
@@ -292,7 +292,7 @@
 - (void)testIntToDecimalZero
 {
     char buf[12];
-    size_t len = ksstring_intToDecimal(0, buf);
+    size_t len = ksstring_intToDecimal(0, buf, sizeof(buf));
     XCTAssertEqual(len, 1u);
     XCTAssertEqualObjects(@(buf), @"0");
 }
@@ -300,7 +300,7 @@
 - (void)testIntToDecimalPositive
 {
     char buf[12];
-    size_t len = ksstring_intToDecimal(31, buf);
+    size_t len = ksstring_intToDecimal(31, buf, sizeof(buf));
     XCTAssertEqual(len, 2u);
     XCTAssertEqualObjects(@(buf), @"31");
 }
@@ -308,7 +308,7 @@
 - (void)testIntToDecimalNegative
 {
     char buf[12];
-    size_t len = ksstring_intToDecimal(-42, buf);
+    size_t len = ksstring_intToDecimal(-42, buf, sizeof(buf));
     XCTAssertEqual(len, 3u);
     XCTAssertEqualObjects(@(buf), @"-42");
 }
@@ -316,7 +316,7 @@
 - (void)testIntToDecimalIntMin
 {
     char buf[12];
-    size_t len = ksstring_intToDecimal(INT_MIN, buf);
+    size_t len = ksstring_intToDecimal(INT_MIN, buf, sizeof(buf));
     NSString *expected = [NSString stringWithFormat:@"%d", INT_MIN];
     XCTAssertEqual(len, expected.length);
     XCTAssertEqualObjects(@(buf), expected);
@@ -325,7 +325,7 @@
 - (void)testIntToDecimalIntMax
 {
     char buf[12];
-    size_t len = ksstring_intToDecimal(INT_MAX, buf);
+    size_t len = ksstring_intToDecimal(INT_MAX, buf, sizeof(buf));
     NSString *expected = [NSString stringWithFormat:@"%d", INT_MAX];
     XCTAssertEqual(len, expected.length);
     XCTAssertEqualObjects(@(buf), expected);

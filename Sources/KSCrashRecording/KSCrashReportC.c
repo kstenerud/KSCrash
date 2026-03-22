@@ -1004,7 +1004,7 @@ static void writeNotableStackContents(const KSCrashReportWriter *const writer,
     for (uintptr_t address = lowAddress; address < highAddress; address += sizeof(address)) {
         if (ksmem_copySafely((void *)address, &contentsAsPointer, sizeof(contentsAsPointer))) {
             memcpy(nameBuffer, "stack@0x", 8);
-            ksstring_uint64ToHex((uint64_t)address, nameBuffer + 8, 1, false);
+            ksstring_uint64ToHex((uint64_t)address, nameBuffer + 8, sizeof(nameBuffer) - 8, 1, false);
             writeMemoryContentsIfNotable(writer, nameBuffer, contentsAsPointer);
         }
     }
@@ -1018,11 +1018,7 @@ static const char *fallbackRegisterName(char *buf, size_t bufSize, int reg)
         return "";
     }
     buf[0] = 'r';
-    size_t maxDecimalLen = bufSize - 1;
-    size_t written = ksstring_intToDecimal(reg, buf + 1);
-    if (written >= maxDecimalLen) {
-        buf[maxDecimalLen] = '\0';
-    }
+    ksstring_intToDecimal(reg, buf + 1, bufSize - 1);
     return buf;
 }
 

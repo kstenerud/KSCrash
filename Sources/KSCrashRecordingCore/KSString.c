@@ -163,8 +163,12 @@ static const char g_hexDigitsLower[] = { '0','1','2','3','4','5','6','7','8','9'
 static const char g_hexDigitsUpper[] = { '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F' };
 // clang-format on
 
-size_t ksstring_uint64ToHex(uint64_t value, char *dst, int minDigits, bool uppercase)
+size_t ksstring_uint64ToHex(uint64_t value, char *dst, size_t bufSize, int minDigits, bool uppercase)
 {
+    if (bufSize == 0) {
+        return 0;
+    }
+
     if (minDigits < 1) {
         minDigits = 1;
     } else if (minDigits > 16) {
@@ -184,17 +188,24 @@ size_t ksstring_uint64ToHex(uint64_t value, char *dst, int minDigits, bool upper
     }
 
     size_t len = (size_t)(16 - pos);
-    memcpy(dst, buf + pos, len);
+    if (len >= bufSize) {
+        len = bufSize - 1;
+    }
+    memcpy(dst, buf + (16 - len), len);
     dst[len] = '\0';
     return len;
 }
 
-size_t ksstring_intToDecimal(int value, char *dst)
+size_t ksstring_intToDecimal(int value, char *dst, size_t bufSize)
 {
+    if (bufSize == 0) {
+        return 0;
+    }
+
     if (value == 0) {
         dst[0] = '0';
-        dst[1] = '\0';
-        return 1;
+        dst[bufSize > 1 ? 1 : 0] = '\0';
+        return bufSize > 1 ? 1 : 0;
     }
 
     char buf[12];
@@ -221,6 +232,10 @@ size_t ksstring_intToDecimal(int value, char *dst)
     }
 
     size_t len = (size_t)(11 - pos);
-    memcpy(dst, buf + pos, len + 1);
+    if (len >= bufSize) {
+        len = bufSize - 1;
+    }
+    memcpy(dst, buf + pos, len);
+    dst[len] = '\0';
     return len;
 }
