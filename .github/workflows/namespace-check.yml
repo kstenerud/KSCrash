@@ -42,7 +42,10 @@ jobs:
         make namespace-check
 
     - name: Comment on failure
-      if: failure() && steps.check.outcome == 'failure' && github.event_name == 'pull_request'
+      if: >-
+        failure() && steps.check.outcome == 'failure' &&
+        github.event_name == 'pull_request' &&
+        github.event.pull_request.head.repo.full_name == github.repository
       uses: thollander/actions-comment-pull-request@v3
       with:
         message: |
@@ -54,7 +57,10 @@ jobs:
         comment-tag: namespace-check
 
     - name: Remove comment on success
-      if: success() && github.event_name == 'pull_request'
+      if: >-
+        success() &&
+        github.event_name == 'pull_request' &&
+        github.event.pull_request.head.repo.full_name == github.repository
       uses: thollander/actions-comment-pull-request@v3
       with:
         message: ''

@@ -151,7 +151,9 @@ jobs:
           fi
 
       - name: Comment PR with Results
-        if: github.event_name == 'pull_request'
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
         uses: thollander/actions-comment-pull-request@v3
         with:
           file-path: benchmark_results.md
