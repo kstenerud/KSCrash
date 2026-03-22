@@ -654,12 +654,20 @@ bool kscrs_finalizeReport(const char *reportPath, int64_t reportID)
             pthread_mutex_unlock(&g_mutex);
             return false;
         }
+        // Already finalized — nothing to do
+        id existingReportSection = dict[KSCrashField_Report];
+        id finalizedVal = [existingReportSection isKindOfClass:[NSDictionary class]]
+                              ? existingReportSection[KSCrashField_Finalized]
+                              : nil;
+        if ([finalizedVal isKindOfClass:[NSNumber class]] && [finalizedVal boolValue]) {
+            pthread_mutex_unlock(&g_mutex);
+            return true;
+        }
+
         // Fixup
         NSDictionary *report = kscrf_fixupReportDict(dict);
         report = stitchRunSidecarsIntoReport(report, &g_storedConfig);
-        if (reportID > 0) {
-            report = stitchReportSidecarsIntoReport(report, reportID, &g_storedConfig);
-        }
+        report = stitchReportSidecarsIntoReport(report, reportID, &g_storedConfig);
 
         // Set finalized flag directly on the dict
         NSMutableDictionary *finalDict;
@@ -753,7 +761,7 @@ int64_t kscrs_addUserReport(const char *report, int reportLength,
         KSLOG_ERROR(@"Could not write to file %s: %s", crashReportPath, strerror(errno));
         goto done;
     } else if (bytesWritten < reportLength) {
-        KSLOG_ERROR(@"Expected to write %d bytes to file %s, but only wrote %d", crashReportPath, reportLength,
+        KSLOG_ERROR(@"Expected to write %d bytes to file %s, but only wrote %d", reportLength, crashReportPath,
                     bytesWritten);
     }
 
