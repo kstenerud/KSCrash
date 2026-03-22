@@ -16,7 +16,7 @@ on:
 
 permissions:
   contents: read
-  checks: write
+  pull-requests: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -72,7 +72,6 @@ jobs:
 
   # Parse and post results
   post-results:
-    name: Benchmark Results
     needs: [browserstack-pr, browserstack-main, check-base-branch]
     if: always() && needs.browserstack-pr.result == 'success'
     runs-on: macos-latest
@@ -151,19 +150,11 @@ jobs:
               --config .github/data/benchmark-tests.json
           fi
 
-      - name: Create Check Run
+      - name: Comment PR with Results
         if: >-
-          always() &&
-          (github.event_name != 'pull_request' ||
-          github.event.pull_request.head.repo.full_name == github.repository)
-        uses: actions/github-script@v7
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        uses: thollander/actions-comment-pull-request@v3
         with:
-          script: |
-            const fs = require('fs');
-            const report = fs.readFileSync('benchmark_results.md', 'utf8');
-            await github.rest.checks.update({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              check_run_id: ${{ job.check_run_id }},
-              output: { title: 'Benchmark results', summary: report },
-            });
+          file-path: benchmark_results.md
+          comment-tag: benchmark-results

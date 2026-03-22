@@ -40,7 +40,6 @@ env:
 
 jobs:
   infer:
-    name: Infer Static Analysis
     runs-on: macos-15
     timeout-minutes: 60
     steps:
@@ -382,10 +381,12 @@ jobs:
             const title = hasNewIssues
               ? `${report.match(/introduces (\d+)/)?.[1] || 'New'} issue(s) found`
               : 'No new issues';
-            await github.rest.checks.update({
+            await github.rest.checks.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              check_run_id: ${{ job.check_run_id }},
+              name: 'Infer Static Analysis',
+              head_sha: context.payload.pull_request?.head.sha || context.sha,
+              conclusion: 'neutral',
               output: { title, summary: report },
             });
 
