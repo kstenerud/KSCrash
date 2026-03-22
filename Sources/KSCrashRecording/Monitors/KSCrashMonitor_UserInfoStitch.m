@@ -156,7 +156,8 @@ char *kscm_userinfo_stitchReport(const char *report, const char *sidecarPath, __
     kskvs_iterate(store, &callbacks, (__bridge void *)userSection);
     kskvs_destroy(store);
 
-    // If nothing changed, leave the report untouched.
+    // If nothing changed, return a copy of the report as-is.
+    // (NULL is reserved for errors per the stitchReport contract.)
     bool noChange;
     if ([existing isKindOfClass:[NSDictionary class]]) {
         noChange = [userSection isEqualToDictionary:existing];
@@ -164,7 +165,7 @@ char *kscm_userinfo_stitchReport(const char *report, const char *sidecarPath, __
         noChange = ([userSection count] == 0);
     }
     if (noChange) {
-        return NULL;
+        return strdup(report);
     }
 
     dict[KSCrashField_User] = userSection;

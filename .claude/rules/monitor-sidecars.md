@@ -88,7 +88,7 @@ char *(*stitchReport)(const char *report, const char *sidecarPath, KSCrashSideca
 - `sidecarPath`: Path to this monitor's sidecar file for the given report.
 - `scope`: `KSCrashSidecarScopeReport` for per-report sidecars, `KSCrashSidecarScopeRun` for per-run sidecars.
 - `context`: The monitor's opaque context pointer (same as `api->context`).
-- Returns: A `malloc`'d NULL-terminated string with the modified report, or `NULL` to leave the report unchanged. The caller frees the returned buffer.
+- Returns: A `malloc`'d NULL-terminated string with the modified report (or a `strdup` of the original if no changes were needed), or `NULL` on failure. The caller frees the returned buffer.
 
 Run sidecars are stitched first, then per-report sidecars, so per-report data can override per-run data.
 

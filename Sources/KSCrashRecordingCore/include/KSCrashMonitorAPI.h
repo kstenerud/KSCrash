@@ -120,8 +120,9 @@ typedef struct KSCrashMonitorAPI {
      * @param scope Whether this is a per-report or per-run sidecar.
      * @param context The monitor's opaque context pointer.
      *
-     * @return A malloc'd NULL-terminated string with the stitched report,
-     *         or NULL to leave the report unchanged. The caller will free the returned buffer.
+     * @return A malloc'd NULL-terminated string with the stitched report
+     *         (or a strdup of the original if no changes were needed),
+     *         or NULL on failure. The caller will free the returned buffer.
      *
      * @note This callback is optional. If NULL, no stitching is performed.
      *       This runs at normal app startup time, not during crash handling.

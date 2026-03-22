@@ -202,7 +202,7 @@ static void deleteReportSidecarsForReport(int64_t reportID, const KSCrashReportS
 }
 
 static char *stitchReportSidecarsIntoReport(char *report, int64_t reportID,
-                                            const KSCrashReportStoreCConfiguration *const config)
+                                            const KSCrashReportStoreCConfiguration *const config, bool *stitchFailed)
 {
     if (config->reportSidecarsPath == NULL) {
         return report;
@@ -232,13 +232,16 @@ static char *stitchReportSidecarsIntoReport(char *report, int64_t reportID,
         if (stitched != NULL) {
             free(report);
             report = stitched;
+        } else if (stitchFailed != NULL) {
+            *stitchFailed = true;
         }
     }
     closedir(dir);
     return report;
 }
 
-static char *stitchRunSidecarsIntoReport(char *report, const KSCrashReportStoreCConfiguration *const config)
+static char *stitchRunSidecarsIntoReport(char *report, const KSCrashReportStoreCConfiguration *const config,
+                                         bool *stitchFailed)
 {
     if (config->runSidecarsPath == NULL) {
         return report;
@@ -291,6 +294,8 @@ static char *stitchRunSidecarsIntoReport(char *report, const KSCrashReportStoreC
         if (stitched != NULL) {
             free(report);
             report = stitched;
+        } else if (stitchFailed != NULL) {
+            *stitchFailed = true;
         }
     }
     closedir(dir);
@@ -507,7 +512,8 @@ int kscrs_getReportIDs(int64_t *reportIDs, int count, const KSCrashReportStoreCC
     return count;
 }
 
-static char *readReportAtPath(const char *path, int64_t reportID, const KSCrashReportStoreCConfiguration *const config)
+static char *readReportAtPath(const char *path, int64_t reportID, const KSCrashReportStoreCConfiguration *const config,
+                              bool *stitchFailed)
 {
     char *rawReport;
     const size_t maxReportSize = 20000000;
@@ -515,6 +521,12 @@ static char *readReportAtPath(const char *path, int64_t reportID, const KSCrashR
     if (rawReport == NULL) {
         KSLOG_ERROR("Failed to load report at path: %s", path);
         return NULL;
+    }
+
+    // Finalized reports already went through fixup and stitching at
+    // recovery time, so return them as-is.
+    if (kscrs_isReportFinalized(rawReport)) {
+        return rawReport;
     }
 
     char *result = kscrf_fixupCrashReport(rawReport);
@@ -526,9 +538,9 @@ static char *readReportAtPath(const char *path, int64_t reportID, const KSCrashR
 
     if (config != NULL) {
         // Run sidecars first so per-report data can override per-run data
-        result = stitchRunSidecarsIntoReport(result, config);
+        result = stitchRunSidecarsIntoReport(result, config, stitchFailed);
         if (reportID > 0) {
-            result = stitchReportSidecarsIntoReport(result, reportID, config);
+            result = stitchReportSidecarsIntoReport(result, reportID, config, stitchFailed);
         }
     }
 
@@ -539,9 +551,97 @@ char *kscrs_readReportAtPath(const char *path)
 {
     pthread_mutex_lock(&g_mutex);
     const KSCrashReportStoreCConfiguration *config = g_hasStoredConfig ? &g_storedConfig : NULL;
-    char *result = readReportAtPath(path, 0, config);
+    char *result = readReportAtPath(path, 0, config, NULL);
     pthread_mutex_unlock(&g_mutex);
     return result;
+}
+
+char *kscrs_readReportByPathAndID(const char *path, int64_t reportID)
+{
+    pthread_mutex_lock(&g_mutex);
+    const KSCrashReportStoreCConfiguration *config = g_hasStoredConfig ? &g_storedConfig : NULL;
+    char *result = readReportAtPath(path, reportID, config, NULL);
+    pthread_mutex_unlock(&g_mutex);
+    return result;
+}
+
+bool kscrs_finalizeReport(const char *reportPath, int64_t reportID)
+{
+    if (reportPath == NULL || reportPath[0] == '\0' || reportID <= 0) {
+        return false;
+    }
+
+    // Hold g_mutex for the entire read → stitch → write-back sequence
+    // so that a concurrent deletion cannot create a window where the
+    // write-back resurrects a deleted report.
+    pthread_mutex_lock(&g_mutex);
+
+    if (!g_hasStoredConfig) {
+        pthread_mutex_unlock(&g_mutex);
+        return false;
+    }
+
+    bool stitchFailed = false;
+    char *stitched = readReportAtPath(reportPath, reportID, &g_storedConfig, &stitchFailed);
+    if (stitched == NULL) {
+        pthread_mutex_unlock(&g_mutex);
+        return false;
+    }
+    if (stitchFailed) {
+        KSLOG_ERROR("Stitching failed for report %lld, skipping finalization to allow retry on next read",
+                    (long long)reportID);
+        free(stitched);
+        pthread_mutex_unlock(&g_mutex);
+        return false;
+    }
+
+    char *finalized = kscrs_injectFinalizedFlag(stitched);
+    free(stitched);
+    if (finalized == NULL) {
+        pthread_mutex_unlock(&g_mutex);
+        return false;
+    }
+
+    // Atomic write: write to .tmp then rename
+    char tmpPath[KSCRS_MAX_PATH_LENGTH];
+    int written = snprintf(tmpPath, sizeof(tmpPath), "%s.tmp", reportPath);
+    if (written < 0 || written >= (int)sizeof(tmpPath)) {
+        KSLOG_ERROR("Report path too long for temp file: %s", reportPath);
+        free(finalized);
+        pthread_mutex_unlock(&g_mutex);
+        return false;
+    }
+    int fd = open(tmpPath, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd < 0) {
+        KSLOG_ERROR("Failed to open temp file for finalization: %s (%s)", tmpPath, strerror(errno));
+        free(finalized);
+        pthread_mutex_unlock(&g_mutex);
+        return false;
+    }
+    bool writeOk = ksfu_writeBytesToFD(fd, finalized, (int)strlen(finalized));
+    close(fd);
+    free(finalized);
+
+    if (!writeOk) {
+        KSLOG_ERROR("Failed to write finalized report to %s", tmpPath);
+        unlink(tmpPath);
+        pthread_mutex_unlock(&g_mutex);
+        return false;
+    }
+
+    if (rename(tmpPath, reportPath) != 0) {
+        KSLOG_ERROR("Failed to rename finalized report %s -> %s: %s", tmpPath, reportPath, strerror(errno));
+        unlink(tmpPath);
+        pthread_mutex_unlock(&g_mutex);
+        return false;
+    }
+
+    // Sidecars are not deleted here — they sit inert on disk (reads
+    // skip stitching for finalized reports) and get cleaned up when
+    // the report itself is deleted after consumption.
+
+    pthread_mutex_unlock(&g_mutex);
+    return true;
 }
 
 char *kscrs_readReport(int64_t reportID, const KSCrashReportStoreCConfiguration *const configuration)
@@ -549,7 +649,7 @@ char *kscrs_readReport(int64_t reportID, const KSCrashReportStoreCConfiguration 
     pthread_mutex_lock(&g_mutex);
     char path[KSCRS_MAX_PATH_LENGTH];
     getCrashReportPathByID(reportID, path, configuration);
-    char *result = readReportAtPath(path, reportID, configuration);
+    char *result = readReportAtPath(path, reportID, configuration, NULL);
     pthread_mutex_unlock(&g_mutex);
     return result;
 }
