@@ -191,7 +191,7 @@ size_t ksstring_uint64ToHex(uint64_t value, char *dst, size_t bufSize, int minDi
     if (len >= bufSize) {
         len = bufSize - 1;
     }
-    memcpy(dst, buf + (16 - len), len);
+    memcpy(dst, buf + pos, len);
     dst[len] = '\0';
     return len;
 }

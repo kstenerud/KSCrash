@@ -287,6 +287,22 @@
     XCTAssertEqualObjects(@(buf), @"0A");
 }
 
+- (void)testUint64ToHexTruncated
+{
+    char buf[5];
+    size_t len = ksstring_uint64ToHex(0x12345678, buf, sizeof(buf), 1, false);
+    XCTAssertEqual(len, 4u);
+    XCTAssertEqualObjects(@(buf), @"1234");
+}
+
+- (void)testUint64ToHexZeroBufSize
+{
+    char buf[17] = "untouched";
+    size_t len = ksstring_uint64ToHex(0xFF, buf, 0, 1, false);
+    XCTAssertEqual(len, 0u);
+    XCTAssertEqualObjects(@(buf), @"untouched");
+}
+
 #pragma mark - intToDecimal
 
 - (void)testIntToDecimalZero
@@ -329,6 +345,22 @@
     NSString *expected = [NSString stringWithFormat:@"%d", INT_MAX];
     XCTAssertEqual(len, expected.length);
     XCTAssertEqualObjects(@(buf), expected);
+}
+
+- (void)testIntToDecimalTruncated
+{
+    char buf[3];
+    size_t len = ksstring_intToDecimal(12345, buf, sizeof(buf));
+    XCTAssertEqual(len, 2u);
+    XCTAssertEqualObjects(@(buf), @"12");
+}
+
+- (void)testIntToDecimalZeroBufSize
+{
+    char buf[12] = "untouched";
+    size_t len = ksstring_intToDecimal(42, buf, 0);
+    XCTAssertEqual(len, 0u);
+    XCTAssertEqualObjects(@(buf), @"untouched");
 }
 
 @end
