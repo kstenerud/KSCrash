@@ -1001,10 +1001,17 @@ static void writeNotableStackContents(const KSCrashReportWriter *const writer,
 
 #pragma mark Registers
 
-static const char *fallbackRegisterName(char *buf, int reg)
+static const char *fallbackRegisterName(char *buf, size_t bufSize, int reg)
 {
+    if (bufSize < 2) {
+        return "";
+    }
     buf[0] = 'r';
-    ksstring_intToDecimal(reg, buf + 1);
+    size_t maxDecimalLen = bufSize - 1;
+    size_t written = ksstring_intToDecimal(reg, buf + 1);
+    if (written >= maxDecimalLen) {
+        buf[maxDecimalLen] = '\0';
+    }
     return buf;
 }
 
@@ -1027,7 +1034,7 @@ static void writeBasicRegisters(const KSCrashReportWriter *const writer, const c
         for (int reg = 0; reg < numRegisters; reg++) {
             registerName = kscpu_registerName(reg);
             if (registerName == NULL) {
-                registerName = fallbackRegisterName(registerNameBuff, reg);
+                registerName = fallbackRegisterName(registerNameBuff, sizeof(registerNameBuff), reg);
             }
             writer->addUIntegerElement(writer, registerName, kscpu_registerValue(machineContext, reg));
         }
@@ -1054,7 +1061,7 @@ static void writeExceptionRegisters(const KSCrashReportWriter *const writer, con
         for (int reg = 0; reg < numRegisters; reg++) {
             registerName = kscpu_exceptionRegisterName(reg);
             if (registerName == NULL) {
-                registerName = fallbackRegisterName(registerNameBuff, reg);
+                registerName = fallbackRegisterName(registerNameBuff, sizeof(registerNameBuff), reg);
             }
             writer->addUIntegerElement(writer, registerName, kscpu_exceptionRegisterValue(machineContext, reg));
         }
