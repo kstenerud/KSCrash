@@ -66,18 +66,13 @@ _Static_assert(sizeof(KSHangSidecar) == 24, "KSHangSidecar size changed — upda
 /** Stitch watchdog sidecar data into a crash report.
  *
  * Called at report delivery time (next app launch) to merge the
- * sidecar data into the JSON report. This function uses ObjC/Foundation
- * for JSON parsing, which is safe because it runs at normal startup.
+ * sidecar data into the report dictionary. Runs at normal startup,
+ * not during crash handling.
  *
- * @param reportDict The report dictionary (NSDictionary* as void*).
- * @param sidecarPath Path to the KSHangSidecar file.
- * @param scope The sidecar scope (report or run).
- * @param context The monitor's opaque context pointer (unused).
- *
- * @return An NSDictionary* (as void*) with the modified report,
- *         or NULL to leave the report unchanged.
+ * See KSCrashMonitorAPI.h createStitchedReport for the full contract.
  */
-void *kscm_watchdog_stitchReport(void *reportDict, const char *sidecarPath, KSCrashSidecarScope scope, void *context);
+CFDictionaryRef kscm_watchdog_createStitchedReport(CFDictionaryRef reportDict, const char *sidecarPath,
+                                                   KSCrashSidecarScope scope, void *context);
 
 #ifdef __cplusplus
 }

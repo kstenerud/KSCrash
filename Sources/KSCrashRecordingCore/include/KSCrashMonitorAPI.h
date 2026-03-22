@@ -27,6 +27,7 @@
 #ifndef HDR_KSCrashMonitorAPI_h
 #define HDR_KSCrashMonitorAPI_h
 
+#include <CoreFoundation/CFDictionary.h>
 #include <stdbool.h>
 
 #include "KSCrashMonitorContext.h"
@@ -111,24 +112,32 @@ typedef struct KSCrashMonitorAPI {
     /**
      * Called at report delivery time to stitch sidecar data into a report.
      *
-     * When the report store reads a report that has a matching sidecar file in this
-     * monitor's sidecar directory, it calls this function to let the monitor merge
-     * sidecar data into the report before delivery.
+     * When the report store finds a matching sidecar file for this monitor,
+     * it calls this function to merge sidecar data into the decoded report
+     * dictionary before delivery.
      *
-     * @param reportDict An NSDictionary* (as void*) containing the decoded report.
-     *        The callback does not own this pointer.
+     * Follows the CF Create Rule: the caller owns the returned dictionary
+     * and must release it (via CFRelease or __bridge_transfer to ARC).
+     * The input reportDict is owned by the caller; the callback must not
+     * release it.
+     *
+     * @param reportDict The decoded report dictionary. Owned by the caller,
+     *        the callback must not release it.
      * @param sidecarPath The full path to the sidecar file for this report.
      * @param scope Whether this is a per-report or per-run sidecar.
      * @param context The monitor's opaque context pointer.
      *
-     * @return A +1 retained NSDictionary* (as void*) with the modified report,
-     *         or NULL to leave the report unchanged. The caller takes ownership
-     *         via __bridge_transfer. Use __bridge_retained to return the result.
+     * @return A +1 CFDictionaryRef with the (possibly modified) report,
+     *         or NULL on failure. NULL signals a stitch error: during
+     *         finalization this aborts the write-back so the report can
+     *         be retried on next app launch; during normal reads the
+     *         error is silent and the original dict is kept.
      *
-     * @note This callback is optional. If NULL, no stitching is performed.
-     *       This runs at normal app startup time, not during crash handling.
+     * @note Optional. If NULL, no stitching is performed.
+     *       Runs at normal app startup time, not during crash handling.
      */
-    void *(*stitchReport)(void *reportDict, const char *sidecarPath, KSCrashSidecarScope scope, void *context);
+    CFDictionaryRef (*createStitchedReport)(CFDictionaryRef reportDict, const char *sidecarPath,
+                                            KSCrashSidecarScope scope, void *context);
 } KSCrashMonitorAPI;
 
 /**

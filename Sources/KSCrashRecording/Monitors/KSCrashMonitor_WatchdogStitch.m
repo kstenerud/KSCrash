@@ -37,8 +37,8 @@
 
 #import "KSLogger.h"
 
-void *kscm_watchdog_stitchReport(void *reportDict, const char *sidecarPath, __unused KSCrashSidecarScope scope,
-                                 __unused void *context)
+CFDictionaryRef kscm_watchdog_createStitchedReport(CFDictionaryRef reportDict, const char *sidecarPath,
+                                                   __unused KSCrashSidecarScope scope, __unused void *context)
 {
     if (!reportDict || !sidecarPath) {
         return NULL;
@@ -119,5 +119,5 @@ void *kscm_watchdog_stitchReport(void *reportDict, const char *sidecarPath, __un
     crash[KSCrashField_Error] = errorDict;
     dict[KSCrashField_Crash] = crash;
 
-    return (__bridge_retained void *)dict;
+    return (__bridge_retained CFDictionaryRef)dict;
 }

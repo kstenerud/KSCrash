@@ -98,20 +98,21 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, NSString *startR
 
 - (void)testNullReportReturnsNull
 {
-    XCTAssertTrue(kscm_watchdog_stitchReport(NULL, "/tmp/fake", KSCrashSidecarScopeReport, NULL) == NULL);
+    XCTAssertTrue(kscm_watchdog_createStitchedReport(NULL, "/tmp/fake", KSCrashSidecarScopeReport, NULL) == NULL);
 }
 
 - (void)testNullSidecarPathReturnsNull
 {
-    XCTAssertTrue(kscm_watchdog_stitchReport((__bridge void *)@{}, NULL, KSCrashSidecarScopeReport, NULL) == NULL);
+    XCTAssertTrue(kscm_watchdog_createStitchedReport((__bridge CFDictionaryRef) @{}, NULL, KSCrashSidecarScopeReport,
+                                                     NULL) == NULL);
 }
 
 - (void)testMissingSidecarFileReturnsNull
 {
     NSString *missingPath = [self.tempDir stringByAppendingPathComponent:[[NSUUID UUID] UUIDString]];
-    void *result =
-        kscm_watchdog_stitchReport((__bridge void *)@{}, missingPath.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result == NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
+        (__bridge CFDictionaryRef) @{}, missingPath.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result == nil);
 }
 
 #pragma mark - Invalid Sidecar
@@ -129,9 +130,9 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, NSString *startR
 
     NSDictionary *report = makeMinimalHangReport(500, @"foreground");
 
-    void *result =
-        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result == NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result == nil);
 }
 
 - (void)testVersionZeroReturnsNull
@@ -147,9 +148,9 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, NSString *startR
 
     NSDictionary *report = makeMinimalHangReport(500, @"foreground");
 
-    void *result =
-        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result == NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result == nil);
 }
 
 - (void)testFutureVersionReturnsNull
@@ -165,9 +166,9 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, NSString *startR
 
     NSDictionary *report = makeMinimalHangReport(500, @"foreground");
 
-    void *result =
-        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result == NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result == nil);
 }
 
 #pragma mark - No Hang In Report
@@ -185,9 +186,9 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, NSString *startR
 
     NSDictionary *report = @{ @"crash" : @ { @"error" : @ { @"type" : @"signal" } } };
 
-    void *result =
-        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result == NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result == nil);
 }
 
 #pragma mark - Fatal Hang (not recovered)
@@ -206,13 +207,11 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, NSString *startR
 
     NSDictionary *report = makeMinimalHangReport(100000000, @"foreground");
 
-    void *result =
-        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
-
-    NSDictionary *hang = stitched[@"crash"][@"error"][@"hang"];
+    NSDictionary *hang = result[@"crash"][@"error"][@"hang"];
     XCTAssertEqualObjects(hang[@"hang_end_nanos"], @(endTs));
 }
 
@@ -229,13 +228,11 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, NSString *startR
 
     NSDictionary *report = makeMinimalHangReport(1000, @"foreground");
 
-    void *result =
-        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
-
-    NSDictionary *error = stitched[@"crash"][@"error"];
+    NSDictionary *error = result[@"crash"][@"error"];
     XCTAssertEqualObjects(error[@"type"], @"signal");
     XCTAssertNotNil(error[@"signal"]);
     XCTAssertNotNil(error[@"mach"]);
@@ -255,13 +252,11 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, NSString *startR
 
     NSDictionary *report = makeMinimalHangReport(1000, @"foreground");
 
-    void *result =
-        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
-
-    NSDictionary *error = stitched[@"crash"][@"error"];
+    NSDictionary *error = result[@"crash"][@"error"];
     XCTAssertEqualObjects(error[@"is_fatal"], @YES);
     XCTAssertEqualObjects(error[@"is_clean_exit"], @NO);
 }
@@ -279,13 +274,11 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, NSString *startR
 
     NSDictionary *report = makeMinimalHangReport(1000, @"foreground");
 
-    void *result =
-        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
-
-    NSDictionary *hang = stitched[@"crash"][@"error"][@"hang"];
+    NSDictionary *hang = result[@"crash"][@"error"][@"hang"];
     XCTAssertNil(hang[@"hang_recovered"]);
 }
 
@@ -304,13 +297,11 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, NSString *startR
 
     NSDictionary *report = makeMinimalHangReport(1000, @"foreground");
 
-    void *result =
-        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
-
-    NSDictionary *hang = stitched[@"crash"][@"error"][@"hang"];
+    NSDictionary *hang = result[@"crash"][@"error"][@"hang"];
     XCTAssertEqualObjects(hang[@"hang_recovered"], @YES);
 }
 
@@ -327,13 +318,11 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, NSString *startR
 
     NSDictionary *report = makeMinimalHangReport(1000, @"foreground");
 
-    void *result =
-        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
-
-    NSDictionary *error = stitched[@"crash"][@"error"];
+    NSDictionary *error = result[@"crash"][@"error"];
     XCTAssertEqualObjects(error[@"is_fatal"], @NO);
     XCTAssertNil(error[@"is_clean_exit"]);
 }
@@ -351,13 +340,11 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, NSString *startR
 
     NSDictionary *report = makeMinimalHangReport(1000, @"foreground");
 
-    void *result =
-        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
-
-    NSString *type = stitched[@"crash"][@"error"][@"type"];
+    NSString *type = result[@"crash"][@"error"][@"type"];
     XCTAssertEqualObjects(type, @"hang");
 }
 
@@ -374,13 +361,11 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, NSString *startR
 
     NSDictionary *report = makeMinimalHangReport(1000, @"foreground");
 
-    void *result =
-        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
-
-    NSDictionary *error = stitched[@"crash"][@"error"];
+    NSDictionary *error = result[@"crash"][@"error"];
     XCTAssertNil(error[@"signal"]);
     XCTAssertNil(error[@"mach"]);
     XCTAssertNil(error[@"exit_reason"]);
@@ -400,13 +385,11 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, NSString *startR
 
     NSDictionary *report = makeMinimalHangReport(1000, @"foreground");
 
-    void *result =
-        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
-
-    NSDictionary *hang = stitched[@"crash"][@"error"][@"hang"];
+    NSDictionary *hang = result[@"crash"][@"error"][@"hang"];
     XCTAssertEqualObjects(hang[@"hang_end_nanos"], @(endTs));
 }
 
@@ -424,13 +407,11 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, NSString *startR
 
     NSDictionary *report = makeMinimalHangReport(startNanos, @"foreground");
 
-    void *result =
-        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
-
-    NSDictionary *hang = stitched[@"crash"][@"error"][@"hang"];
+    NSDictionary *hang = result[@"crash"][@"error"][@"hang"];
     XCTAssertEqualObjects(hang[@"hang_start_nanos"], @(startNanos));
     XCTAssertEqualObjects(hang[@"hang_start_role"], @"foreground");
 }
@@ -447,9 +428,9 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, NSString *startR
 
     NSDictionary *report = makeMinimalHangReport(1000, @"foreground");
 
-    void *result =
-        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result == NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result == nil);
 }
 
 #pragma mark - Malformed Reports
@@ -467,9 +448,9 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, NSString *startR
 
     NSDictionary *report = @{ @"other" : @"value" };
 
-    void *result =
-        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result == NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result == nil);
 }
 
 - (void)testCrashIsNSNullReturnsNull
@@ -485,9 +466,9 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, NSString *startR
 
     NSDictionary *report = @{ @"crash" : [NSNull null] };
 
-    void *result =
-        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result == NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result == nil);
 }
 
 - (void)testErrorIsNSNullReturnsNull
@@ -503,9 +484,9 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, NSString *startR
 
     NSDictionary *report = @{ @"crash" : @ { @"error" : [NSNull null] } };
 
-    void *result =
-        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result == NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result == nil);
 }
 
 - (void)testHangIsNSNullReturnsNull
@@ -521,9 +502,9 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, NSString *startR
 
     NSDictionary *report = @{ @"crash" : @ { @"error" : @ { @"type" : @"signal", @"hang" : [NSNull null] } } };
 
-    void *result =
-        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result == NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result == nil);
 }
 
 #pragma mark - End Role
@@ -541,13 +522,11 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, NSString *startR
 
     NSDictionary *report = makeMinimalHangReport(1000, @"foreground");
 
-    void *result =
-        kscm_watchdog_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
-
-    NSDictionary *hang = stitched[@"crash"][@"error"][@"hang"];
+    NSDictionary *hang = result[@"crash"][@"error"][@"hang"];
     XCTAssertEqualObjects(hang[@"hang_end_role"], @"DEFAULT_APPLICATION");
 }
 

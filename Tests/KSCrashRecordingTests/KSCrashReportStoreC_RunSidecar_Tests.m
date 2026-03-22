@@ -39,8 +39,8 @@
 static const char *testMonitorId(__unused void *context) { return "TestStitchMonitor"; }
 
 // Reads the sidecar file as UTF-8 text and inserts it under "test_stitch" in the report.
-static void *testStitchReport(void *reportDict, const char *sidecarPath, __unused KSCrashSidecarScope scope,
-                              __unused void *context)
+static CFDictionaryRef testStitchReport(CFDictionaryRef reportDict, const char *sidecarPath,
+                                        __unused KSCrashSidecarScope scope, __unused void *context)
 {
     @autoreleasepool {
         NSDictionary *decoded = (__bridge NSDictionary *)reportDict;
@@ -55,7 +55,7 @@ static void *testStitchReport(void *reportDict, const char *sidecarPath, __unuse
         }
         NSMutableDictionary *dict = [decoded mutableCopy];
         dict[@"test_stitch"] = sidecarContent;
-        return (__bridge_retained void *)dict;
+        return (__bridge_retained CFDictionaryRef)dict;
     }
 }
 
@@ -256,7 +256,7 @@ static void *testStitchReport(void *reportDict, const char *sidecarPath, __unuse
     KSCrashMonitorAPI api = {};
     kscma_initAPI(&api);
     api.monitorId = testMonitorId;
-    api.stitchReport = testStitchReport;
+    api.createStitchedReport = testStitchReport;
     return api;
 }
 

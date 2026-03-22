@@ -144,8 +144,12 @@ bool ksresource_getSnapshotForRunID(const char *runID, KSCrash_ResourceData *out
 /** Access the Resource Monitor API. */
 KSCrashMonitorAPI *kscm_resource_getAPI(void);
 
-/** Stitch resource sidecar data into a report at delivery time. */
-void *kscm_resource_stitchReport(void *reportDict, const char *sidecarPath, KSCrashSidecarScope scope, void *context);
+/** Stitch resource sidecar data into a report at delivery time.
+ *
+ *  See KSCrashMonitorAPI.h createStitchedReport for the full contract.
+ */
+CFDictionaryRef kscm_resource_createStitchedReport(CFDictionaryRef reportDict, const char *sidecarPath,
+                                                   KSCrashSidecarScope scope, void *context);
 
 #ifdef __cplusplus
 }

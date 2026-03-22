@@ -111,8 +111,8 @@ static void onRemoved(const char *key, uint16_t keyLen, void *ctx)
 #pragma mark - Stitch -
 // ============================================================================
 
-void *kscm_userinfo_stitchReport(void *reportDict, const char *sidecarPath, __unused KSCrashSidecarScope scope,
-                                 __unused void *context)
+CFDictionaryRef kscm_userinfo_createStitchedReport(CFDictionaryRef reportDict, const char *sidecarPath,
+                                                   __unused KSCrashSidecarScope scope, __unused void *context)
 {
     if (!reportDict || !sidecarPath) {
         return NULL;
@@ -147,8 +147,8 @@ void *kscm_userinfo_stitchReport(void *reportDict, const char *sidecarPath, __un
     kskvs_iterate(store, &callbacks, (__bridge void *)userSection);
     kskvs_destroy(store);
 
-    // If nothing changed, return a copy of the report as-is.
-    // (NULL is reserved for errors per the stitchReport contract.)
+    // If nothing changed, CFRetain and return the input (CF Create Rule).
+    // NULL is reserved for errors per the createStitchedReport contract.
     bool noChange;
     if ([existing isKindOfClass:[NSDictionary class]]) {
         noChange = [userSection isEqualToDictionary:existing];
@@ -156,10 +156,11 @@ void *kscm_userinfo_stitchReport(void *reportDict, const char *sidecarPath, __un
         noChange = ([userSection count] == 0);
     }
     if (noChange) {
-        return (__bridge_retained void *)[(__bridge NSDictionary *)reportDict copy];
+        CFRetain(reportDict);
+        return reportDict;
     }
 
     dict[KSCrashField_User] = userSection;
 
-    return (__bridge_retained void *)dict;
+    return (__bridge_retained CFDictionaryRef)dict;
 }

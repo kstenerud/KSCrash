@@ -216,13 +216,14 @@ static NSDictionary *stitchReportSidecarsIntoReport(NSDictionary *report, int64_
     if (dir == NULL) {
         return report;
     }
+    NSDictionary *result = report;
     struct dirent *ent;
     while ((ent = readdir(dir)) != NULL) {
         if (ent->d_name[0] == '.') {
             continue;
         }
         const KSCrashMonitorAPI *api = kscm_getMonitor(ent->d_name);
-        if (api == NULL || api->stitchReport == NULL) {
+        if (api == NULL || api->createStitchedReport == NULL) {
             continue;
         }
         char sidecarPath[KSCRS_MAX_PATH_LENGTH];
@@ -233,16 +234,16 @@ static NSDictionary *stitchReportSidecarsIntoReport(NSDictionary *report, int64_
         if (access(sidecarPath, F_OK) != 0) {
             continue;
         }
-        void *stitched =
-            api->stitchReport((__bridge void *)report, sidecarPath, KSCrashSidecarScopeReport, api->context);
+        CFDictionaryRef stitched = api->createStitchedReport((__bridge CFDictionaryRef)result, sidecarPath,
+                                                             KSCrashSidecarScopeReport, api->context);
         if (stitched != NULL) {
-            report = (__bridge_transfer NSDictionary *)stitched;
+            result = (__bridge_transfer NSDictionary *)stitched;
         } else if (stitchFailed != NULL) {
             *stitchFailed = true;
         }
     }
     closedir(dir);
-    return report;
+    return result;
 }
 
 static NSDictionary *stitchRunSidecarsIntoReport(NSDictionary *report,
@@ -279,6 +280,7 @@ static NSDictionary *stitchRunSidecarsIntoReport(NSDictionary *report,
         return report;
     }
 
+    NSDictionary *result = report;
     struct dirent *ent;
     while ((ent = readdir(dir)) != NULL) {
         if (ent->d_name[0] == '.') {
@@ -298,7 +300,7 @@ static NSDictionary *stitchRunSidecarsIntoReport(NSDictionary *report,
         monitorId[nameLen] = '\0';
 
         const KSCrashMonitorAPI *api = kscm_getMonitor(monitorId);
-        if (api == NULL || api->stitchReport == NULL) {
+        if (api == NULL || api->createStitchedReport == NULL) {
             continue;
         }
 
@@ -307,15 +309,16 @@ static NSDictionary *stitchRunSidecarsIntoReport(NSDictionary *report,
             continue;
         }
 
-        void *stitched = api->stitchReport((__bridge void *)report, sidecarPath, KSCrashSidecarScopeRun, api->context);
+        CFDictionaryRef stitched = api->createStitchedReport((__bridge CFDictionaryRef)result, sidecarPath,
+                                                             KSCrashSidecarScopeRun, api->context);
         if (stitched != NULL) {
-            report = (__bridge_transfer NSDictionary *)stitched;
+            result = (__bridge_transfer NSDictionary *)stitched;
         } else if (stitchFailed != NULL) {
             *stitchFailed = true;
         }
     }
     closedir(dir);
-    return report;
+    return result;
 }
 
 // UUID: 8-4-4-4-12 hex digits with hyphens = 36 chars
@@ -528,6 +531,16 @@ int kscrs_getReportIDs(int64_t *reportIDs, int count, const KSCrashReportStoreCC
     return count;
 }
 
+static bool isReportFinalized(NSDictionary *dict)
+{
+    id section = dict[KSCrashField_Report];
+    if (![section isKindOfClass:[NSDictionary class]]) {
+        return false;
+    }
+    id val = section[KSCrashField_Finalized];
+    return [val isKindOfClass:[NSNumber class]] && [val boolValue];
+}
+
 static char *readReportAtPath(const char *path, int64_t reportID, const KSCrashReportStoreCConfiguration *const config)
 {
     @autoreleasepool {
@@ -552,22 +565,9 @@ static char *readReportAtPath(const char *path, int64_t reportID, const KSCrashR
         }
 
         // Finalized reports already went through fixup and stitching at
-        // recovery time, so re-encode and return as-is.
-        id reportSection = dict[KSCrashField_Report];
-        id finalizedVal =
-            [reportSection isKindOfClass:[NSDictionary class]] ? reportSection[KSCrashField_Finalized] : nil;
-        if ([finalizedVal isKindOfClass:[NSNumber class]] && [finalizedVal boolValue]) {
-            NSData *encoded = [KSJSONCodec encode:dict options:KSJSONEncodeOptionPretty error:nil];
-            if (!encoded) {
-                return NULL;
-            }
-            char *result = (char *)malloc(encoded.length + 1);
-            if (!result) {
-                return NULL;
-            }
-            memcpy(result, encoded.bytes, encoded.length);
-            result[encoded.length] = '\0';
-            return result;
+        // recovery time, so return the raw bytes as-is.
+        if (isReportFinalized(dict)) {
+            return strdup(rawReport);
         }
 
         // Fixup (timestamp conversion)
@@ -615,15 +615,6 @@ char *kscrs_readReportByPathAndID(const char *path, int64_t reportID)
     return result;
 }
 
-void kscrs_deleteReportSidecarsForReportID(int64_t reportID)
-{
-    pthread_mutex_lock(&g_mutex);
-    if (g_hasStoredConfig) {
-        deleteReportSidecarsForReport(reportID, &g_storedConfig);
-    }
-    pthread_mutex_unlock(&g_mutex);
-}
-
 bool kscrs_finalizeReport(const char *reportPath, int64_t reportID)
 {
     if (reportPath == NULL || reportPath[0] == '\0' || reportID <= 0) {
@@ -660,12 +651,8 @@ bool kscrs_finalizeReport(const char *reportPath, int64_t reportID)
             pthread_mutex_unlock(&g_mutex);
             return false;
         }
-        // Already finalized — nothing to do
-        id existingReportSection = dict[KSCrashField_Report];
-        id finalizedVal = [existingReportSection isKindOfClass:[NSDictionary class]]
-                              ? existingReportSection[KSCrashField_Finalized]
-                              : nil;
-        if ([finalizedVal isKindOfClass:[NSNumber class]] && [finalizedVal boolValue]) {
+        // Already finalized, nothing to do
+        if (isReportFinalized(dict)) {
             pthread_mutex_unlock(&g_mutex);
             return true;
         }

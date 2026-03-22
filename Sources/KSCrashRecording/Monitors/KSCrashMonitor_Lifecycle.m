@@ -504,7 +504,7 @@ KSCrashMonitorAPI *kscm_lifecycle_getAPI(void)
         api.isEnabled = isEnabled_func;
         api.notifyPostSystemEnable = notifyPostSystemEnable;
         api.addContextualInfoToEvent = addContextualInfoToEvent;
-        api.stitchReport = kscm_lifecycle_stitchReport;
+        api.createStitchedReport = kscm_lifecycle_createStitchedReport;
     }
     return &api;
 }

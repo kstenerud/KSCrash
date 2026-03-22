@@ -49,8 +49,8 @@ static void setTimestamp(NSMutableDictionary *dict, NSString *key, int64_t times
     }
 }
 
-void *kscm_system_stitchReport(void *reportDict, const char *sidecarPath, __unused KSCrashSidecarScope scope,
-                               __unused void *context)
+CFDictionaryRef kscm_system_createStitchedReport(CFDictionaryRef reportDict, const char *sidecarPath,
+                                                 __unused KSCrashSidecarScope scope, __unused void *context)
 {
     if (!reportDict || !sidecarPath) {
         return NULL;
@@ -137,5 +137,5 @@ void *kscm_system_stitchReport(void *reportDict, const char *sidecarPath, __unus
 
     dict[KSCrashField_System] = systemDict;
 
-    return (__bridge_retained void *)dict;
+    return (__bridge_retained CFDictionaryRef)dict;
 }

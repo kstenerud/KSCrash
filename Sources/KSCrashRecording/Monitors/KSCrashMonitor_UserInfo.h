@@ -81,14 +81,15 @@ void kscm_userinfo_setDate(const char *key, uint64_t nanosecondsSince1970);
 /** Remove the value for the given key (writes a tombstone record). */
 void kscm_userinfo_removeValue(const char *key);
 
-/** Stitch function — implemented in KSCrashMonitor_UserInfoStitch.m.
+/** Stitch user info sidecar data into a report at delivery time.
  *
  *  Reads the append-only log sidecar, resolves last-write-wins per key,
  *  and merges the resulting dictionary into report["user"].
  *
- *  Runs at normal app startup time — ObjC and heap allocation are safe.
+ *  See KSCrashMonitorAPI.h createStitchedReport for the full contract.
  */
-void *kscm_userinfo_stitchReport(void *reportDict, const char *sidecarPath, KSCrashSidecarScope scope, void *context);
+CFDictionaryRef kscm_userinfo_createStitchedReport(CFDictionaryRef reportDict, const char *sidecarPath,
+                                                   KSCrashSidecarScope scope, void *context);
 
 #ifdef __cplusplus
 }

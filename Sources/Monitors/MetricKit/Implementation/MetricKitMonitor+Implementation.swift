@@ -67,7 +67,7 @@ extension MetricKitMonitor {
                     notifyPostMonitorsEnabled: nil,
                     notifyPostSystemEnable: { _ in },
                     writeInReportSection: nil,
-                    stitchReport: nil
+                    createStitchedReport: nil
                 )
         )
         self.api.pointee.context = Unmanaged.passUnretained(self).toOpaque()

@@ -98,12 +98,13 @@ static KSCrash_LifecycleData makeValidLifecycleData(void)
 
 - (void)testNullReportReturnsNull
 {
-    XCTAssertTrue(kscm_lifecycle_stitchReport(NULL, "/tmp/fake", KSCrashSidecarScopeRun, NULL) == NULL);
+    XCTAssertTrue(kscm_lifecycle_createStitchedReport(NULL, "/tmp/fake", KSCrashSidecarScopeRun, NULL) == NULL);
 }
 
 - (void)testNullSidecarPathReturnsNull
 {
-    XCTAssertTrue(kscm_lifecycle_stitchReport((__bridge void *)@{}, NULL, KSCrashSidecarScopeRun, NULL) == NULL);
+    XCTAssertTrue(kscm_lifecycle_createStitchedReport((__bridge CFDictionaryRef) @{}, NULL, KSCrashSidecarScopeRun,
+                                                      NULL) == NULL);
 }
 
 #pragma mark - Wrong Scope
@@ -115,10 +116,11 @@ static KSCrash_LifecycleData makeValidLifecycleData(void)
 
     NSDictionary *report = @{};
 
-    // Lifecycle is run-scope only; report scope should return NULL
-    void *result =
-        kscm_lifecycle_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result == NULL);
+    // Lifecycle is run-scope only; report scope returns the input unchanged
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_lifecycle_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertNotNil(result);
+    XCTAssertEqualObjects(result, report);
 }
 
 #pragma mark - Invalid Sidecar
@@ -131,8 +133,9 @@ static KSCrash_LifecycleData makeValidLifecycleData(void)
 
     NSDictionary *report = @{};
 
-    void *result = kscm_lifecycle_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result == NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_lifecycle_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result == nil);
 }
 
 - (void)testVersionZeroReturnsNull
@@ -143,8 +146,9 @@ static KSCrash_LifecycleData makeValidLifecycleData(void)
 
     NSDictionary *report = @{};
 
-    void *result = kscm_lifecycle_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result == NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_lifecycle_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result == nil);
 }
 
 - (void)testFutureVersionReturnsNull
@@ -155,8 +159,9 @@ static KSCrash_LifecycleData makeValidLifecycleData(void)
 
     NSDictionary *report = @{};
 
-    void *result = kscm_lifecycle_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result == NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_lifecycle_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result == nil);
 }
 
 - (void)testTruncatedSidecarReturnsNull
@@ -169,8 +174,9 @@ static KSCrash_LifecycleData makeValidLifecycleData(void)
 
     NSDictionary *report = @{};
 
-    void *result = kscm_lifecycle_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result == NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_lifecycle_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result == nil);
 }
 
 #pragma mark - Valid Stitch - All Stats
@@ -182,12 +188,11 @@ static KSCrash_LifecycleData makeValidLifecycleData(void)
 
     NSDictionary *report = @{};
 
-    void *result = kscm_lifecycle_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_lifecycle_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
-
-    NSDictionary *stats = stitched[KSCrashField_System][KSCrashField_AppStats];
+    NSDictionary *stats = result[KSCrashField_System][KSCrashField_AppStats];
     XCTAssertNotNil(stats);
     XCTAssertEqualObjects(stats[KSCrashField_AppActive], @YES);
     XCTAssertEqualObjects(stats[KSCrashField_AppInFG], @YES);
@@ -211,12 +216,11 @@ static KSCrash_LifecycleData makeValidLifecycleData(void)
 
     NSDictionary *report = @{};
 
-    void *result = kscm_lifecycle_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_lifecycle_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
-
-    NSDictionary *stats = stitched[KSCrashField_System][KSCrashField_AppStats];
+    NSDictionary *stats = result[KSCrashField_System][KSCrashField_AppStats];
     XCTAssertEqualWithAccuracy([stats[KSCrashField_ActiveTimeSinceLaunch] doubleValue], 60.0, 0.001);
     XCTAssertEqualWithAccuracy([stats[KSCrashField_BGTimeSinceLaunch] doubleValue], 30.0, 0.001);
     XCTAssertEqualWithAccuracy([stats[KSCrashField_ActiveTimeSinceCrash] doubleValue], 120.0, 0.001);
@@ -234,12 +238,11 @@ static KSCrash_LifecycleData makeValidLifecycleData(void)
 
     NSDictionary *report = @{};
 
-    void *result = kscm_lifecycle_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_lifecycle_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
-
-    NSDictionary *stats = stitched[KSCrashField_System][KSCrashField_AppStats];
+    NSDictionary *stats = result[KSCrashField_System][KSCrashField_AppStats];
     XCTAssertEqualWithAccuracy([stats[KSCrashField_ActiveTimeSinceLaunch] doubleValue], 0.0, 0.001);
     XCTAssertEqualWithAccuracy([stats[KSCrashField_BGTimeSinceLaunch] doubleValue], 0.0, 0.001);
     XCTAssertEqualWithAccuracy([stats[KSCrashField_ActiveTimeSinceCrash] doubleValue], 0.0, 0.001);
@@ -255,15 +258,14 @@ static KSCrash_LifecycleData makeValidLifecycleData(void)
 
     NSDictionary *report = @{};
 
-    void *result = kscm_lifecycle_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result != NULL);
-
-    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_lifecycle_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
 
     // Must be at report.system.application_stats
-    XCTAssertNotNil(stitched[KSCrashField_System]);
-    XCTAssertNotNil(stitched[KSCrashField_System][KSCrashField_AppStats]);
-    XCTAssertTrue([stitched[KSCrashField_System][KSCrashField_AppStats] isKindOfClass:[NSDictionary class]]);
+    XCTAssertNotNil(result[KSCrashField_System]);
+    XCTAssertNotNil(result[KSCrashField_System][KSCrashField_AppStats]);
+    XCTAssertTrue([result[KSCrashField_System][KSCrashField_AppStats] isKindOfClass:[NSDictionary class]]);
 }
 
 #pragma mark - Existing System Dict Preserved
@@ -280,12 +282,11 @@ static KSCrash_LifecycleData makeValidLifecycleData(void)
         }
     };
 
-    void *result = kscm_lifecycle_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_lifecycle_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
-
-    NSDictionary *system = stitched[KSCrashField_System];
+    NSDictionary *system = result[KSCrashField_System];
     XCTAssertEqualObjects(system[@"custom_field"], @"custom_value");
     XCTAssertEqualObjects(system[KSCrashField_SystemName], @"iOS");
     // Also verify stats were added
@@ -302,12 +303,11 @@ static KSCrash_LifecycleData makeValidLifecycleData(void)
 
     NSDictionary *report = @{};
 
-    void *result = kscm_lifecycle_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_lifecycle_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
-
-    NSDictionary *stats = stitched[KSCrashField_System][KSCrashField_AppStats];
+    NSDictionary *stats = result[KSCrashField_System][KSCrashField_AppStats];
     XCTAssertEqualObjects(stats[KSCrashField_TaskRole], @"FOREGROUND_APPLICATION");
 }
 
@@ -319,12 +319,11 @@ static KSCrash_LifecycleData makeValidLifecycleData(void)
 
     NSDictionary *report = @{};
 
-    void *result = kscm_lifecycle_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_lifecycle_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
-
-    NSDictionary *stats = stitched[KSCrashField_System][KSCrashField_AppStats];
+    NSDictionary *stats = result[KSCrashField_System][KSCrashField_AppStats];
     XCTAssertEqualObjects(stats[KSCrashField_TaskRole], @"UNSPECIFIED");
 }
 

@@ -173,7 +173,7 @@ KSCrashMonitorAPI *kscm_userinfo_getAPI(void)
         api.monitorId = monitorId;
         api.setEnabled = setEnabled;
         api.isEnabled = isEnabled;
-        api.stitchReport = kscm_userinfo_stitchReport;
+        api.createStitchedReport = kscm_userinfo_createStitchedReport;
     }
     return &api;
 }

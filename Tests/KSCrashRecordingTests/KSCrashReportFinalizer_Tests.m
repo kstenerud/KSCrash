@@ -38,8 +38,8 @@
 
 static const char *finalizerTestMonitorId(__unused void *context) { return "FinalizerTestMonitor"; }
 
-static void *finalizerTestStitchReport(void *reportDict, const char *sidecarPath, __unused KSCrashSidecarScope scope,
-                                       __unused void *context)
+static CFDictionaryRef finalizerTestStitchReport(CFDictionaryRef reportDict, const char *sidecarPath,
+                                                 __unused KSCrashSidecarScope scope, __unused void *context)
 {
     @autoreleasepool {
         NSDictionary *decoded = (__bridge NSDictionary *)reportDict;
@@ -54,7 +54,7 @@ static void *finalizerTestStitchReport(void *reportDict, const char *sidecarPath
         }
         NSMutableDictionary *dict = [decoded mutableCopy];
         dict[@"finalizer_test_stitch"] = sidecarContent;
-        return (__bridge_retained void *)dict;
+        return (__bridge_retained CFDictionaryRef)dict;
     }
 }
 
@@ -62,19 +62,20 @@ static void *finalizerTestStitchReport(void *reportDict, const char *sidecarPath
 // a monitor that can't parse the report during finalization.
 static const char *failingMonitorId(__unused void *context) { return "FailingTestMonitor"; }
 
-static void *failingStitchReport(__unused void *reportDict, __unused const char *sidecarPath,
-                                 __unused KSCrashSidecarScope scope, __unused void *context)
+static CFDictionaryRef failingStitchReport(__unused CFDictionaryRef reportDict, __unused const char *sidecarPath,
+                                           __unused KSCrashSidecarScope scope, __unused void *context)
 {
     return NULL;
 }
 
-// A stitch callback that has nothing to change (returns copy of original).
+// A stitch callback that has nothing to change (returns the input).
 static const char *noopMonitorId(__unused void *context) { return "NoopTestMonitor"; }
 
-static void *noopStitchReport(void *reportDict, __unused const char *sidecarPath, __unused KSCrashSidecarScope scope,
-                              __unused void *context)
+static CFDictionaryRef noopStitchReport(CFDictionaryRef reportDict, __unused const char *sidecarPath,
+                                        __unused KSCrashSidecarScope scope, __unused void *context)
 {
-    return (__bridge_retained void *)[(__bridge NSDictionary *)reportDict copy];
+    CFRetain(reportDict);
+    return reportDict;
 }
 
 #pragma mark - Tests
@@ -168,7 +169,7 @@ static void *noopStitchReport(void *reportDict, __unused const char *sidecarPath
 {
     kscma_initAPI(&_testMonitorAPI);
     _testMonitorAPI.monitorId = finalizerTestMonitorId;
-    _testMonitorAPI.stitchReport = finalizerTestStitchReport;
+    _testMonitorAPI.createStitchedReport = finalizerTestStitchReport;
     kscm_addMonitor(&_testMonitorAPI);
 }
 
@@ -357,7 +358,7 @@ static void *noopStitchReport(void *reportDict, __unused const char *sidecarPath
     // Register a monitor whose stitch callback always returns NULL
     kscma_initAPI(&_failingMonitorAPI);
     _failingMonitorAPI.monitorId = failingMonitorId;
-    _failingMonitorAPI.stitchReport = failingStitchReport;
+    _failingMonitorAPI.createStitchedReport = failingStitchReport;
     kscm_addMonitor(&_failingMonitorAPI);
 
     NSString *runId = [[NSUUID UUID] UUIDString];
@@ -381,7 +382,7 @@ static void *noopStitchReport(void *reportDict, __unused const char *sidecarPath
     // Register a monitor whose stitch callback returns the report unchanged
     kscma_initAPI(&_noopMonitorAPI);
     _noopMonitorAPI.monitorId = noopMonitorId;
-    _noopMonitorAPI.stitchReport = noopStitchReport;
+    _noopMonitorAPI.createStitchedReport = noopStitchReport;
     kscm_addMonitor(&_noopMonitorAPI);
 
     NSString *runId = [[NSUUID UUID] UUIDString];

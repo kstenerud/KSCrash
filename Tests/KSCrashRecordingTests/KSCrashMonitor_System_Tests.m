@@ -200,14 +200,13 @@ static bool stubRunSidecarPath(const char *monitorId, char *pathBuffer, size_t p
 
     NSString *sidecarFile = [self.tempDir stringByAppendingPathComponent:@"System.ksscr"];
 
-    void *result = api->stitchReport((__bridge void *)minimalReport, sidecarFile.fileSystemRepresentation,
-                                     KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result != NULL, @"stitchReport should return non-NULL");
+    NSDictionary *result = (__bridge_transfer NSDictionary *)api->createStitchedReport(
+        (__bridge CFDictionaryRef)minimalReport, sidecarFile.fileSystemRepresentation, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil, @"createStitchedReport should return non-NULL");
 
-    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
-    XCTAssertTrue([stitched isKindOfClass:[NSDictionary class]]);
+    XCTAssertTrue([result isKindOfClass:[NSDictionary class]]);
 
-    NSDictionary *system = stitched[KSCrashField_System];
+    NSDictionary *system = result[KSCrashField_System];
     XCTAssertTrue([system isKindOfClass:[NSDictionary class]]);
     XCTAssertNotNil(system[KSCrashField_Machine], @"machine should be populated");
     XCTAssertNotNil(system[KSCrashField_ProcessName], @"processName should be populated");
@@ -220,7 +219,7 @@ static bool stubRunSidecarPath(const char *monitorId, char *pathBuffer, size_t p
     XCTAssertNotNil(memory[KSCrashField_Usable], @"usableMemory should be populated");
 
     // processName should also be in report.report
-    NSDictionary *reportInfo = stitched[KSCrashField_Report];
+    NSDictionary *reportInfo = result[KSCrashField_Report];
     XCTAssertNotNil(reportInfo[KSCrashField_ProcessName], @"processName should be stitched into report info");
 }
 
@@ -238,9 +237,9 @@ static bool stubRunSidecarPath(const char *monitorId, char *pathBuffer, size_t p
 
     NSDictionary *minimalReport = @{ KSCrashField_System : @ {} };
 
-    void *result = api->stitchReport((__bridge void *)minimalReport, sidecarFile.fileSystemRepresentation,
-                                     KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result == NULL, @"stitchReport should return NULL for invalid magic");
+    NSDictionary *result = (__bridge_transfer NSDictionary *)api->createStitchedReport(
+        (__bridge CFDictionaryRef)minimalReport, sidecarFile.fileSystemRepresentation, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result == nil, @"createStitchedReport should return NULL for invalid magic");
 }
 
 @end

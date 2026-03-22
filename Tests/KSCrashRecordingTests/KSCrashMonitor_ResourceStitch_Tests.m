@@ -98,21 +98,25 @@ static KSCrash_ResourceData makeValidResourceData(void)
 
 - (void)testNullReportReturnsNull
 {
-    XCTAssertTrue(kscm_resource_stitchReport(NULL, "/tmp/fake", KSCrashSidecarScopeRun, NULL) == NULL);
+    XCTAssertTrue(kscm_resource_createStitchedReport(NULL, "/tmp/fake", KSCrashSidecarScopeRun, NULL) == NULL);
 }
 
 - (void)testNullSidecarPathReturnsNull
 {
-    XCTAssertTrue(kscm_resource_stitchReport((__bridge void *)@{}, NULL, KSCrashSidecarScopeRun, NULL) == NULL);
+    XCTAssertTrue(
+        kscm_resource_createStitchedReport((__bridge CFDictionaryRef) @{}, NULL, KSCrashSidecarScopeRun, NULL) == NULL);
 }
 
-- (void)testWrongScopeReturnsNull
+- (void)testWrongScopeReturnsInputUnchanged
 {
     KSCrash_ResourceData data = makeValidResourceData();
     NSString *path = writeResourceSidecar(self.tempDir, data);
     NSDictionary *report = @{ @"report" : @ {} };
-    XCTAssertTrue(
-        kscm_resource_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeReport, NULL) == NULL);
+    // Resource is run-scope only; report scope returns the input unchanged
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_resource_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertNotNil(result);
+    XCTAssertEqualObjects(result, report);
 }
 
 #pragma mark - Invalid Sidecar
@@ -123,8 +127,8 @@ static KSCrash_ResourceData makeValidResourceData(void)
     data.magic = 0x12345678;
     NSString *path = writeResourceSidecar(self.tempDir, data);
     NSDictionary *report = @{ @"report" : @ {} };
-    XCTAssertTrue(kscm_resource_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeRun, NULL) ==
-                  NULL);
+    XCTAssertTrue(kscm_resource_createStitchedReport((__bridge CFDictionaryRef)report, path.UTF8String,
+                                                     KSCrashSidecarScopeRun, NULL) == NULL);
 }
 
 - (void)testVersionZeroReturnsNull
@@ -133,8 +137,8 @@ static KSCrash_ResourceData makeValidResourceData(void)
     data.version = 0;
     NSString *path = writeResourceSidecar(self.tempDir, data);
     NSDictionary *report = @{ @"report" : @ {} };
-    XCTAssertTrue(kscm_resource_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeRun, NULL) ==
-                  NULL);
+    XCTAssertTrue(kscm_resource_createStitchedReport((__bridge CFDictionaryRef)report, path.UTF8String,
+                                                     KSCrashSidecarScopeRun, NULL) == NULL);
 }
 
 - (void)testFutureVersionReturnsNull
@@ -143,8 +147,8 @@ static KSCrash_ResourceData makeValidResourceData(void)
     data.version = KSCrash_Resource_CurrentVersion + 1;
     NSString *path = writeResourceSidecar(self.tempDir, data);
     NSDictionary *report = @{ @"report" : @ {} };
-    XCTAssertTrue(kscm_resource_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeRun, NULL) ==
-                  NULL);
+    XCTAssertTrue(kscm_resource_createStitchedReport((__bridge CFDictionaryRef)report, path.UTF8String,
+                                                     KSCrashSidecarScopeRun, NULL) == NULL);
 }
 
 - (void)testTruncatedSidecarReturnsNull
@@ -158,15 +162,15 @@ static KSCrash_ResourceData makeValidResourceData(void)
     close(fd);
 
     NSDictionary *report = @{ @"report" : @ {} };
-    XCTAssertTrue(kscm_resource_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeRun, NULL) ==
-                  NULL);
+    XCTAssertTrue(kscm_resource_createStitchedReport((__bridge CFDictionaryRef)report, path.UTF8String,
+                                                     KSCrashSidecarScopeRun, NULL) == NULL);
 }
 
 - (void)testMissingSidecarFileReturnsNull
 {
     NSDictionary *report = @{ @"report" : @ {} };
-    XCTAssertTrue(kscm_resource_stitchReport((__bridge void *)report, "/tmp/nonexistent.ksscr", KSCrashSidecarScopeRun,
-                                             NULL) == NULL);
+    XCTAssertTrue(kscm_resource_createStitchedReport((__bridge CFDictionaryRef)report, "/tmp/nonexistent.ksscr",
+                                                     KSCrashSidecarScopeRun, NULL) == NULL);
 }
 
 #pragma mark - Valid Stitch
@@ -177,12 +181,11 @@ static KSCrash_ResourceData makeValidResourceData(void)
     NSString *path = writeResourceSidecar(self.tempDir, data);
     NSDictionary *report = @{};
 
-    void *result = kscm_resource_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_resource_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
-
-    XCTAssertNotNil(stitched[KSCrashField_System]);
+    XCTAssertNotNil(result[KSCrashField_System]);
 }
 
 - (void)testStitchAppMemoryFields
@@ -191,12 +194,11 @@ static KSCrash_ResourceData makeValidResourceData(void)
     NSString *path = writeResourceSidecar(self.tempDir, data);
     NSDictionary *report = @{};
 
-    void *result = kscm_resource_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_resource_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
-
-    NSDictionary *appMemory = stitched[KSCrashField_System][KSCrashField_AppMemory];
+    NSDictionary *appMemory = result[KSCrashField_System][KSCrashField_AppMemory];
     XCTAssertNotNil(appMemory);
     XCTAssertEqualObjects(appMemory[KSCrashField_MemoryFootprint], @(50000000));
     XCTAssertEqualObjects(appMemory[KSCrashField_MemoryRemaining], @(150000000));
@@ -211,12 +213,11 @@ static KSCrash_ResourceData makeValidResourceData(void)
     NSString *path = writeResourceSidecar(self.tempDir, data);
     NSDictionary *report = @{};
 
-    void *result = kscm_resource_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_resource_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
-
-    NSDictionary *system = stitched[KSCrashField_System];
+    NSDictionary *system = result[KSCrashField_System];
     XCTAssertEqualObjects(system[KSCrashField_BatteryLevel], @(72));
     XCTAssertEqualObjects(system[KSCrashField_BatteryState], @(2));
     XCTAssertEqualObjects(system[KSCrashField_LowPowerModeEnabled], @NO);
@@ -235,12 +236,11 @@ static KSCrash_ResourceData makeValidResourceData(void)
     NSString *path = writeResourceSidecar(self.tempDir, data);
     NSDictionary *report = @{};
 
-    void *result = kscm_resource_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_resource_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
-
-    NSDictionary *system = stitched[KSCrashField_System];
+    NSDictionary *system = result[KSCrashField_System];
     XCTAssertNil(system[KSCrashField_BatteryLevel]);
     // batteryState should still be present
     XCTAssertNotNil(system[KSCrashField_BatteryState]);
@@ -253,12 +253,11 @@ static KSCrash_ResourceData makeValidResourceData(void)
     NSString *path = writeResourceSidecar(self.tempDir, data);
     NSDictionary *report = @{};
 
-    void *result = kscm_resource_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_resource_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
-
-    XCTAssertEqualObjects(stitched[KSCrashField_System][KSCrashField_DataProtectionActive], @NO);
+    XCTAssertEqualObjects(result[KSCrashField_System][KSCrashField_DataProtectionActive], @NO);
 }
 
 - (void)testLowPowerModeEnabled
@@ -268,12 +267,11 @@ static KSCrash_ResourceData makeValidResourceData(void)
     NSString *path = writeResourceSidecar(self.tempDir, data);
     NSDictionary *report = @{};
 
-    void *result = kscm_resource_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_resource_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
-
-    XCTAssertEqualObjects(stitched[KSCrashField_System][KSCrashField_LowPowerModeEnabled], @YES);
+    XCTAssertEqualObjects(result[KSCrashField_System][KSCrashField_LowPowerModeEnabled], @YES);
 }
 
 #pragma mark - Existing Data Preservation
@@ -289,12 +287,11 @@ static KSCrash_ResourceData makeValidResourceData(void)
         }
     };
 
-    void *result = kscm_resource_stitchReport((__bridge void *)existing, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_resource_createStitchedReport(
+        (__bridge CFDictionaryRef)existing, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
-
-    NSDictionary *system = stitched[KSCrashField_System];
+    NSDictionary *system = result[KSCrashField_System];
     XCTAssertEqualObjects(system[@"existing_field"], @"should_survive");
     // Resource fields should also be present
     XCTAssertNotNil(system[KSCrashField_BatteryLevel]);
@@ -313,12 +310,11 @@ static KSCrash_ResourceData makeValidResourceData(void)
         }
     };
 
-    void *result = kscm_resource_stitchReport((__bridge void *)existing, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_resource_createStitchedReport(
+        (__bridge CFDictionaryRef)existing, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
-
-    NSDictionary *appMemory = stitched[KSCrashField_System][KSCrashField_AppMemory];
+    NSDictionary *appMemory = result[KSCrashField_System][KSCrashField_AppMemory];
     XCTAssertEqualObjects(appMemory[@"existing_memory_field"], @"should_survive");
     // Resource memory fields should also be present
     XCTAssertNotNil(appMemory[KSCrashField_MemoryFootprint]);
@@ -333,13 +329,12 @@ static KSCrash_ResourceData makeValidResourceData(void)
         @"crash" : @ { @"error" : @ { @"type" : @"mach" } },
     };
 
-    void *result = kscm_resource_stitchReport((__bridge void *)existing, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_resource_createStitchedReport(
+        (__bridge CFDictionaryRef)existing, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
-
-    XCTAssertEqualObjects(stitched[@"crash"][@"error"][@"type"], @"mach");
-    XCTAssertNotNil(stitched[KSCrashField_System]);
+    XCTAssertEqualObjects(result[@"crash"][@"error"][@"type"], @"mach");
+    XCTAssertNotNil(result[KSCrashField_System]);
 }
 
 #pragma mark - Edge Cases
@@ -352,13 +347,11 @@ static KSCrash_ResourceData makeValidResourceData(void)
         NSString *path = writeResourceSidecar(self.tempDir, data);
         NSDictionary *report = @{};
 
-        void *result =
-            kscm_resource_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-        XCTAssertTrue(result != NULL);
+        NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_resource_createStitchedReport(
+            (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+        XCTAssertTrue(result != nil);
 
-        NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
-
-        XCTAssertEqualObjects(stitched[KSCrashField_System][KSCrashField_ThermalState], @(state));
+        XCTAssertEqualObjects(result[KSCrashField_System][KSCrashField_ThermalState], @(state));
     }
 }
 
@@ -370,13 +363,12 @@ static KSCrash_ResourceData makeValidResourceData(void)
     NSString *path = writeResourceSidecar(self.tempDir, data);
     NSDictionary *report = @{};
 
-    void *result = kscm_resource_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_resource_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
-
-    XCTAssertEqualObjects(stitched[KSCrashField_System][KSCrashField_CPUUsageUser], @(0));
-    XCTAssertEqualObjects(stitched[KSCrashField_System][KSCrashField_CPUUsageSystem], @(0));
+    XCTAssertEqualObjects(result[KSCrashField_System][KSCrashField_CPUUsageUser], @(0));
+    XCTAssertEqualObjects(result[KSCrashField_System][KSCrashField_CPUUsageSystem], @(0));
 }
 
 - (void)testHighCPUUsageStitchesCorrectly
@@ -387,13 +379,12 @@ static KSCrash_ResourceData makeValidResourceData(void)
     NSString *path = writeResourceSidecar(self.tempDir, data);
     NSDictionary *report = @{};
 
-    void *result = kscm_resource_stitchReport((__bridge void *)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_resource_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = (__bridge_transfer NSDictionary *)result;
-
-    XCTAssertEqualObjects(stitched[KSCrashField_System][KSCrashField_CPUUsageUser], @(6000));
-    XCTAssertEqualObjects(stitched[KSCrashField_System][KSCrashField_CPUUsageSystem], @(2000));
+    XCTAssertEqualObjects(result[KSCrashField_System][KSCrashField_CPUUsageUser], @(6000));
+    XCTAssertEqualObjects(result[KSCrashField_System][KSCrashField_CPUUsageSystem], @(2000));
 }
 
 @end

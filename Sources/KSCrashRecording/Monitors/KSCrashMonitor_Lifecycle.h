@@ -180,8 +180,11 @@ KSCrashMonitorAPI *kscm_lifecycle_getAPI(void);
 /** Stitch lifecycle sidecar data into a report at delivery time.
  *  Reads the binary struct, converts nanosecond durations to seconds,
  *  and produces the application_stats JSON section.
+ *
+ *  See KSCrashMonitorAPI.h createStitchedReport for the full contract.
  */
-void *kscm_lifecycle_stitchReport(void *reportDict, const char *sidecarPath, KSCrashSidecarScope scope, void *context);
+CFDictionaryRef kscm_lifecycle_createStitchedReport(CFDictionaryRef reportDict, const char *sidecarPath,
+                                                    KSCrashSidecarScope scope, void *context);
 
 #ifdef __cplusplus
 }

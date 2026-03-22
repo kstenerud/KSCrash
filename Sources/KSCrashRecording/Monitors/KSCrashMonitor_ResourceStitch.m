@@ -54,11 +54,15 @@ static bool readResourceData(const char *path, KSCrash_ResourceData *out)
     return true;
 }
 
-void *kscm_resource_stitchReport(void *reportDict, const char *sidecarPath, KSCrashSidecarScope scope,
-                                 __unused void *context)
+CFDictionaryRef kscm_resource_createStitchedReport(CFDictionaryRef reportDict, const char *sidecarPath,
+                                                   KSCrashSidecarScope scope, __unused void *context)
 {
-    if (!reportDict || !sidecarPath || scope != KSCrashSidecarScopeRun) {
+    if (!reportDict || !sidecarPath) {
         return NULL;
+    }
+    if (scope != KSCrashSidecarScopeRun) {
+        CFRetain(reportDict);
+        return reportDict;
     }
 
     KSCrash_ResourceData data = {};
@@ -110,5 +114,5 @@ void *kscm_resource_stitchReport(void *reportDict, const char *sidecarPath, KSCr
 
     dict[KSCrashField_System] = systemDict;
 
-    return (__bridge_retained void *)dict;
+    return (__bridge_retained CFDictionaryRef)dict;
 }

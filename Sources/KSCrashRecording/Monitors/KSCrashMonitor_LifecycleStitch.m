@@ -34,11 +34,15 @@
 
 #import "KSLogger.h"
 
-void *kscm_lifecycle_stitchReport(void *reportDict, const char *sidecarPath, KSCrashSidecarScope scope,
-                                  __unused void *context)
+CFDictionaryRef kscm_lifecycle_createStitchedReport(CFDictionaryRef reportDict, const char *sidecarPath,
+                                                    KSCrashSidecarScope scope, __unused void *context)
 {
-    if (!reportDict || !sidecarPath || scope != KSCrashSidecarScopeRun) {
+    if (!reportDict || !sidecarPath) {
         return NULL;
+    }
+    if (scope != KSCrashSidecarScopeRun) {
+        CFRetain(reportDict);
+        return reportDict;
     }
 
     KSCrash_LifecycleData lc = {};
@@ -77,5 +81,5 @@ void *kscm_lifecycle_stitchReport(void *reportDict, const char *sidecarPath, KSC
     systemDict[KSCrashField_AppStats] = statsDict;
     dict[KSCrashField_System] = systemDict;
 
-    return (__bridge_retained void *)dict;
+    return (__bridge_retained CFDictionaryRef)dict;
 }

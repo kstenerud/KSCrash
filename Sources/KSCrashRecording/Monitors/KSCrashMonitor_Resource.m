@@ -645,7 +645,7 @@ KSCrashMonitorAPI *kscm_resource_getAPI(void)
         api.monitorId = monitorId;
         api.setEnabled = setEnabled;
         api.isEnabled = isEnabled_func;
-        api.stitchReport = kscm_resource_stitchReport;
+        api.createStitchedReport = kscm_resource_createStitchedReport;
     }
     return &api;
 }
