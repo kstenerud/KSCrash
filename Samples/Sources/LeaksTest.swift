@@ -25,7 +25,10 @@
 //
 
 import Foundation
+import KSCrashDemangleFilter
+import KSCrashFilters
 import KSCrashRecording
+import KSCrashSinks
 
 // MARK: - Sentinel leak to validate leak detection is working
 
@@ -63,6 +66,7 @@ private func createSentinelLeak() {
 private func installKSCrash() -> Bool {
     let config = KSCrashConfiguration()
     config.monitors = .all
+    config.enableHangReporting = true
     do {
         try KSCrash.shared.install(with: config)
         print("[LeaksTest] KSCrash installed successfully")
@@ -73,11 +77,15 @@ private func installKSCrash() -> Bool {
     }
 }
 
+// MARK: - API Exercising
+
 private func exerciseKSCrashAPIs() {
-    // Set user info using per-key API
+    // Set user info using per-key API with various types
     KSCrash.shared.setUserInfo(true, forKey: "leaks_test")
     KSCrash.shared.setUserInfo("Hello from leaks test", forKey: "test_string")
     KSCrash.shared.setUserInfo(42, forKey: "test_number")
+    KSCrash.shared.setUserInfo(3.14159, forKey: "test_double")
+    KSCrash.shared.setUserInfo(Date(), forKey: "test_date")
     print("[LeaksTest] Set userInfo")
 
     // Access various properties
@@ -93,28 +101,56 @@ private func exerciseKSCrashAPIs() {
     let launchesSinceLastCrash = KSCrash.shared.launchesSinceLastCrash
     print("[LeaksTest] Launches since last crash: \(launchesSinceLastCrash)")
 
-    // Report a non-fatal user exception
-    KSCrash.shared.reportUserException(
-        "LeaksTestException",
-        reason: "Testing for memory leaks",
-        language: "Swift",
-        lineOfCode: "LeaksTest.swift:50",
-        stackTrace: ["frame1", "frame2", "frame3"],
-        logAllThreads: false,
-        terminateProgram: false
-    )
-    print("[LeaksTest] Reported user exception")
-
-    // Update userInfo again using per-key API
+    // Update userInfo again
     KSCrash.shared.setUserInfo("exercised", forKey: "leaks_test_phase")
     KSCrash.shared.setUserInfo(Date().timeIntervalSince1970, forKey: "timestamp")
     print("[LeaksTest] Updated userInfo")
 }
 
-private func readAndDeleteReports() {
+private func reportUserExceptions() {
+    // Non-fatal user exception with stack trace
+    KSCrash.shared.reportUserException(
+        "LeaksTestException",
+        reason: "Testing for memory leaks",
+        language: "Swift",
+        lineOfCode: "LeaksTest.swift:100",
+        stackTrace: ["frame1", "frame2", "frame3"],
+        logAllThreads: false,
+        terminateProgram: false
+    )
+    print("[LeaksTest] Reported user exception (non-fatal, no threads)")
+
+    // Non-fatal user exception with all threads logged
+    KSCrash.shared.reportUserException(
+        "LeaksTestAllThreads",
+        reason: "Testing thread capture",
+        language: "Swift",
+        lineOfCode: "LeaksTest.swift:110",
+        stackTrace: ["frame_a", "frame_b"],
+        logAllThreads: true,
+        terminateProgram: false
+    )
+    print("[LeaksTest] Reported user exception (non-fatal, all threads)")
+
+    // Non-fatal with different language tag
+    KSCrash.shared.reportUserException(
+        "LeaksTestObjC",
+        reason: "Testing ObjC path",
+        language: "Objective-C",
+        lineOfCode: "LeaksTest.m:50",
+        stackTrace: ["-[MyClass myMethod]", "-[AppDelegate init]"],
+        logAllThreads: false,
+        terminateProgram: false
+    )
+    print("[LeaksTest] Reported user exception (ObjC language)")
+}
+
+// MARK: - Report Reading and Processing
+
+private func readReports() -> [[String: Any]] {
     guard let reportStore = KSCrash.shared.reportStore else {
         print("[LeaksTest] No report store available")
-        return
+        return []
     }
 
     let reportCount = reportStore.reportCount
@@ -123,48 +159,168 @@ private func readAndDeleteReports() {
     let reportIDs = reportStore.reportIDs
     print("[LeaksTest] Report IDs: \(reportIDs)")
 
-    // Read all reports
+    var reports: [[String: Any]] = []
     for reportID in reportIDs {
         if let report = reportStore.report(for: reportID.int64Value) {
-            print("[LeaksTest] Read report \(reportID)")
-            // Access the report data to exercise parsing
             let value = report.value
-            print("[LeaksTest] Report has \(value.keys.count) top-level keys")
+            print("[LeaksTest] Read report \(reportID), \(value.keys.count) top-level keys")
+            reports.append(value)
+        }
+    }
+    return reports
+}
+
+private func exerciseFilterPipeline(reports: [[String: Any]]) {
+    guard !reports.isEmpty else {
+        print("[LeaksTest] No reports to filter")
+        return
+    }
+
+    // Wrap raw dicts into CrashReportDictionary objects for the filter pipeline
+    let crashReports: [CrashReportDictionary] = reports.map { CrashReportDictionary.report(withValue: $0) }
+
+    // Doctor filter: generates automated diagnosis
+    let doctorFilter = CrashReportFilterDoctor()
+    doctorFilter.filterReports(crashReports) { filtered, error in
+        print("[LeaksTest] Doctor filter: \(filtered?.count ?? 0) reports, error: \(String(describing: error))")
+    }
+
+    // Demangle filter: demangles C++/Swift symbols
+    let demangleFilter = CrashReportFilterDemangle()
+    demangleFilter.filterReports(crashReports) { filtered, error in
+        print("[LeaksTest] Demangle filter: \(filtered?.count ?? 0) reports, error: \(String(describing: error))")
+    }
+
+    // JSON encode filter: dict -> Data
+    let jsonEncodeFilter = CrashReportFilterJSONEncode()
+    jsonEncodeFilter.filterReports(crashReports) { filtered, error in
+        print("[LeaksTest] JSON encode: \(filtered?.count ?? 0) reports, error: \(String(describing: error))")
+
+        if let encoded = filtered {
+            // JSON decode filter: Data -> dict (round-trip)
+            let jsonDecodeFilter = CrashReportFilterJSONDecode()
+            jsonDecodeFilter.filterReports(encoded) { decoded, decError in
+                print("[LeaksTest] JSON decode: \(decoded?.count ?? 0) reports, error: \(String(describing: decError))")
+            }
         }
     }
 
-    // Delete all reports to exercise deletion code path
+    // Apple format filter
+    let appleFilter = CrashReportFilterAppleFmt(reportStyle: .symbolicated)
+    appleFilter.filterReports(crashReports) { filtered, error in
+        print("[LeaksTest] Apple format: \(filtered?.count ?? 0) reports, error: \(String(describing: error))")
+    }
+
+    // Stringify filter
+    let stringifyFilter = CrashReportFilterStringify()
+    stringifyFilter.filterReports(crashReports) { filtered, error in
+        print("[LeaksTest] Stringify: \(filtered?.count ?? 0) reports, error: \(String(describing: error))")
+    }
+
+    // Pipeline: demangle -> doctor -> JSON encode
+    let pipeline = CrashReportFilterPipeline(filters: [
+        CrashReportFilterDemangle(),
+        CrashReportFilterDoctor(),
+        CrashReportFilterJSONEncode(),
+    ])
+    pipeline.filterReports(crashReports) { filtered, error in
+        print("[LeaksTest] Pipeline: \(filtered?.count ?? 0) reports, error: \(String(describing: error))")
+    }
+
+    // Console sink: exercises the sink path without network
+    let consoleSink = CrashReportSinkConsole()
+    consoleSink.filterReports(crashReports) { filtered, error in
+        print("[LeaksTest] Console sink: \(filtered?.count ?? 0) reports, error: \(String(describing: error))")
+    }
+
+    // Combine filter: runs multiple filters in parallel on same input
+    let combine = CrashReportFilterCombine(filters: [
+        "json": CrashReportFilterJSONEncode(),
+        "apple": CrashReportFilterAppleFmt(reportStyle: .symbolicated),
+    ])
+    combine.filterReports(crashReports) { filtered, error in
+        print("[LeaksTest] Combine: \(filtered?.count ?? 0) reports, error: \(String(describing: error))")
+    }
+
+    // Demangle individual symbols
+    _ = CrashReportFilterDemangle.demangledCppSymbol("_ZN5MyApp6MyFunc7doStuffEv")
+    _ = CrashReportFilterDemangle.demangledSwiftSymbol("$s5MyApp6MyFuncC7doStuffyyF")
+    print("[LeaksTest] Exercised symbol demangling")
+}
+
+private func deleteAllReports() {
+    guard let reportStore = KSCrash.shared.reportStore else { return }
     reportStore.deleteAllReports()
     print("[LeaksTest] Deleted all reports")
 }
 
+// MARK: - Hang Exercise
+
+/// Blocks the main thread long enough for the watchdog to detect a hang,
+/// then spins the run loop so the recovery observer fires and finalizes
+/// the hang report in place.
+private func exerciseHangDetectionAndRecovery() {
+    print("[LeaksTest] Blocking main thread to trigger hang detection...")
+    Thread.sleep(forTimeInterval: 1.0)
+    print("[LeaksTest] Spinning run loop for hang recovery...")
+    RunLoop.current.run(until: Date(timeIntervalSinceNow: 1.0))
+    print("[LeaksTest] Hang recovery complete")
+}
+
 // MARK: - Entry Points
 
-/// First run: Install KSCrash, exercise APIs, then crash to generate a crash report
+/// Phase 1: Install KSCrash, exercise APIs, report user exceptions, then crash
 private func runLeaksTestCrash() {
     print("[LeaksTest] Starting crash phase...")
 
     guard installKSCrash() else { return }
     exerciseKSCrashAPIs()
+    reportUserExceptions()
 
     print("[LeaksTest] About to crash via NSException...")
     NSException(name: .genericException, reason: "Leaks test crash", userInfo: nil).raise()
 }
 
-/// Second run: Install KSCrash, read crash reports from previous run, then exit
+/// Phase 2: Install KSCrash (triggers stitching), exercise all code paths, then exit
 private func runLeaksTest() {
     print("[LeaksTest] Starting leaks test phase...")
 
+    // Install triggers stitching/finalization of Phase 1 reports
     guard installKSCrash() else { return }
     exerciseKSCrashAPIs()
-    readAndDeleteReports()
-    createSentinelLeak()
 
-    print("[LeaksTest] Leaks test completed")
+    // Read reports from Phase 1 (crash + user exceptions),
+    // triggering the finalization/stitching pipeline
+    let reports = readReports()
 
-    // Exit so leaks --atExit can report
-    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-        exit(0)
+    // Run all reports through the filter pipeline
+    exerciseFilterPipeline(reports: reports)
+
+    // Clean up Phase 1 reports
+    deleteAllReports()
+
+    // Generate fresh user exceptions and process them too
+    reportUserExceptions()
+    let freshReports = readReports()
+    exerciseFilterPipeline(reports: freshReports)
+    deleteAllReports()
+
+    // Schedule hang exercise + sentinel leaks + exit after the run loop is active.
+    // The watchdog needs the run loop running to detect hangs.
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+        exerciseHangDetectionAndRecovery()
+
+        // Read and process the hang report
+        let hangReports = readReports()
+        exerciseFilterPipeline(reports: hangReports)
+        deleteAllReports()
+
+        createSentinelLeak()
+        print("[LeaksTest] Leaks test completed")
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            exit(0)
+        }
     }
 }
 

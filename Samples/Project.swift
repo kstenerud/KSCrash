@@ -27,7 +27,10 @@ let project = Project(
             ]),
             sources: ["Sources/**"],
             dependencies: [
-                .package(product: "SampleUI", type: .runtime)
+                .package(product: "SampleUI", type: .runtime),
+                .package(product: "Filters", type: .runtime),
+                .package(product: "Sinks", type: .runtime),
+                .package(product: "DemangleFilter", type: .runtime),
             ]
         ),
         .target(
