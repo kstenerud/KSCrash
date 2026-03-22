@@ -112,7 +112,7 @@ void kscm_removeMonitor(const KSCrashMonitorAPI *api);
  * Registers a callback to be invoked when an event occurs.
  */
 void kscm_setEventCallbackWithResult(void (*onEvent)(struct KSCrash_MonitorContext *monitorContext,
-                                                     KSCrash_ReportResult *result));
+                                                     KSCrash_ReportResult *result, bool finalize));
 
 /**
  * Sets the callback for event capture.

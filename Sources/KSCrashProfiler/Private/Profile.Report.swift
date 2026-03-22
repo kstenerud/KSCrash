@@ -93,7 +93,7 @@ extension Profile {
         context?.pointee.omitBinaryImages = true
 
         var result = KSCrash_ReportResult()
-        callbacks.handleWithResult(context, &result)
+        callbacks.handleWithResult(context, &result, true)
 
         let path = withUnsafePointer(to: &result.path) {
             $0.withMemoryRebound(to: CChar.self, capacity: Int(PATH_MAX)) {

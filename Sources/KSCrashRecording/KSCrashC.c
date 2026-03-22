@@ -244,7 +244,7 @@ static void legacyReportWrittenCallbackAdapter(__unused const KSCrash_ExceptionH
  *
  * This function gets passed as a callback to a crash handler.
  */
-static void onExceptionEvent(struct KSCrash_MonitorContext *monitorContext, KSCrash_ReportResult *result)
+static void onExceptionEvent(struct KSCrash_MonitorContext *monitorContext, KSCrash_ReportResult *result, bool finalize)
 {
     // Check if the user wants to modify the plan for this crash.
     if (g_willWriteReportCallback) {
@@ -273,6 +273,10 @@ static void onExceptionEvent(struct KSCrash_MonitorContext *monitorContext, KSCr
         if (result) {
             result->reportId = reportID;
             strncpy(result->path, g_lastCrashReportFilePath, sizeof(result->path));
+        }
+
+        if (finalize && reportID > 0) {
+            kscrs_finalizeReport(crashReportFilePath, reportID);
         }
 
         if (g_didWriteReportCallback != NULL) {

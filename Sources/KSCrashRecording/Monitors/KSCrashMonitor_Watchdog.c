@@ -323,7 +323,7 @@ static void populateReportForCurrentHang(KSHangMonitor *monitor)
     crashContext->Hang.endRole = hang.endRole;
 
     KSCrash_ReportResult result = { 0 };
-    g_callbacks.handleWithResult(crashContext, &result);
+    g_callbacks.handleWithResult(crashContext, &result, false);
 
     ksmc_resumeEnvironment(&suspendedThreads, &suspendedThreadsCount);
 

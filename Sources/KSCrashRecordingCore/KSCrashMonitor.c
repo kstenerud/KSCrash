@@ -75,7 +75,8 @@ static struct {
      */
     void (*onExceptionEvent)(struct KSCrash_MonitorContext *monitorContext);
 
-    void (*onExceptionEventWithResult)(struct KSCrash_MonitorContext *monitorContext, KSCrash_ReportResult *result);
+    void (*onExceptionEventWithResult)(struct KSCrash_MonitorContext *monitorContext, KSCrash_ReportResult *result,
+                                       bool finalize);
 } g_state;
 
 static atomic_bool g_initialized;
@@ -184,7 +185,7 @@ void kscm_setEventCallback(void (*onEvent)(struct KSCrash_MonitorContext *monito
 }
 
 void kscm_setEventCallbackWithResult(void (*onEvent)(struct KSCrash_MonitorContext *monitorContext,
-                                                     KSCrash_ReportResult *result))
+                                                     KSCrash_ReportResult *result, bool finalize))
 {
     init();
     g_state.onExceptionEventWithResult = onEvent;
@@ -308,7 +309,7 @@ static KSCrash_MonitorContext *notifyException(const mach_port_t offendingThread
     return ctx;
 }
 
-static void handleException(struct KSCrash_MonitorContext *ctx, KSCrash_ReportResult *result)
+static void handleException(struct KSCrash_MonitorContext *ctx, KSCrash_ReportResult *result, bool finalize)
 {
     if (ctx == NULL) {
         // This should never happen.
@@ -322,7 +323,7 @@ static void handleException(struct KSCrash_MonitorContext *ctx, KSCrash_ReportRe
 
     // Call the exception event handler if it exists
     if (g_state.onExceptionEventWithResult) {
-        g_state.onExceptionEventWithResult(ctx, result);
+        g_state.onExceptionEventWithResult(ctx, result, finalize);
     } else if (g_state.onExceptionEvent) {
         g_state.onExceptionEvent(ctx);
     }
@@ -346,7 +347,7 @@ static void handleException(struct KSCrash_MonitorContext *ctx, KSCrash_ReportRe
     }
 }
 
-static void handleException_Deprecated(struct KSCrash_MonitorContext *ctx) { handleException(ctx, NULL); }
+static void handleException_Deprecated(struct KSCrash_MonitorContext *ctx) { handleException(ctx, NULL, false); }
 
 static KSCrash_ExceptionHandlerCallbacks g_exceptionCallbacks = { .notify = notifyException,
                                                                   .handleWithResult = handleException,

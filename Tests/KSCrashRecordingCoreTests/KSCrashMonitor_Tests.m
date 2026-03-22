@@ -88,7 +88,8 @@ static KSCrashMonitorAPI g_secondDummyMonitor = {};
 
 static BOOL g_exceptionHandled = NO;
 
-static void myEventCallback(struct KSCrash_MonitorContext *context, KSCrash_ReportResult *result)
+static void myEventCallback(struct KSCrash_MonitorContext *context, KSCrash_ReportResult *result,
+                            __unused bool finalize)
 {
     if (result) {
         result->reportId = g_dummyResultReportId;
@@ -619,7 +620,7 @@ static atomic_int g_counter = 0;
         (KSCrash_ExceptionHandlingRequirements) { .isFatal = false, .asyncSafety = true, .shouldWriteReport = true });
 
     KSCrash_ReportResult result = {};
-    dummyExceptionHandlerCallbacks.handleWithResult(ctx, &result);
+    dummyExceptionHandlerCallbacks.handleWithResult(ctx, &result, false);
     XCTAssert(result.reportId == g_dummyResultReportId);
 }
 

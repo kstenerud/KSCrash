@@ -307,8 +307,11 @@ typedef struct {
      *
      * @param context The monitor context that was returned by `notify()`
      * @param result Contains the result of handling the exception.
+     * @param finalize If true, finalize the report immediately by stitching
+     *        in sidecar data. Use this for non-fatal reports where the app
+     *        continues running. Not async-signal-safe.
      */
-    void (*handleWithResult)(KSCrash_MonitorContext *context, KSCrash_ReportResult *result);
+    void (*handleWithResult)(KSCrash_MonitorContext *context, KSCrash_ReportResult *result, bool finalize);
 
     /** Deprecated: Use `handleWithResult` instead. */
     void (*handle)(KSCrash_MonitorContext *context);

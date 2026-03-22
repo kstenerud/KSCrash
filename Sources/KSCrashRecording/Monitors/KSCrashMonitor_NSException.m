@@ -156,7 +156,8 @@ static KS_NOINLINE void handleException(NSException *exception, BOOL isUserRepor
         crashContext->exceptionStackCursor = &exceptionCursor;
 
         KSLOG_DEBUG(@"Calling main crash handler.");
-        g_state.callbacks.handle(crashContext);
+        KSCrash_ReportResult result = { 0 };
+        g_state.callbacks.handleWithResult(crashContext, &result, isUserReported);
 
     exit_immediately:
         free(callstack);
