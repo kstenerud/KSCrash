@@ -430,4 +430,23 @@ static CFDictionaryRef testStitchReport(CFDictionaryRef reportDict, const char *
                    @"Orphaned sidecar should still be deleted");
 }
 
+- (void)testOrphanCleanupHandlesArraysBeforeRunId
+{
+    [self prepareStoreWithRunSidecars:@"testArrayBeforeRunId"];
+    NSString *runId = [[NSUUID UUID] UUIDString];
+    // report section has arrays and nested objects before run_id
+    NSString *json = [NSString
+        stringWithFormat:@"{\"report\":{\"breadcrumbs\":[1,2,3],\"nested\":{\"a\":true},\"run_id\":\"%@\"}}", runId];
+    NSData *data = [json dataUsingEncoding:NSUTF8StringEncoding];
+    kscrs_addUserReport(data.bytes, (int)data.length, &_storeConfig);
+    [self writeRunSidecar:@"System" runId:runId contents:@"data"];
+
+    NSString *runDir =
+        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:runId];
+
+    kscrs_cleanupOrphanedRunSidecars(&_storeConfig);
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir],
+                  @"Run sidecar should be preserved when arrays precede run_id in report section");
+}
+
 @end
