@@ -215,7 +215,8 @@ static NSDictionary *stitchReportSidecarsIntoReport(NSDictionary *report, int64_
     }
     DIR *dir = opendir(config->reportSidecarsPath);
     if (dir == NULL) {
-        if (stitchFailed != NULL) {
+        // ENOENT is expected when no report sidecars exist yet
+        if (errno != ENOENT && stitchFailed != NULL) {
             *stitchFailed = true;
         }
         return report;
@@ -281,7 +282,8 @@ static NSDictionary *stitchRunSidecarsIntoReport(NSDictionary *report,
 
     DIR *dir = opendir(runDir);
     if (dir == NULL) {
-        if (stitchFailed != NULL) {
+        // ENOENT is expected when no run sidecars exist for this run_id
+        if (errno != ENOENT && stitchFailed != NULL) {
             *stitchFailed = true;
         }
         return report;
