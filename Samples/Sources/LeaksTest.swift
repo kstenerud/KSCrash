@@ -227,7 +227,10 @@ private func exerciseFilterPipeline(reports: [[String: Any]]) {
         print("[LeaksTest] Pipeline: \(filtered?.count ?? 0) reports, error: \(String(describing: error))")
     }
 
-    // Console sink: exercises the sink path without network
+    // Console sink: exercises the sink's type-guard and completion path.
+    // The sink expects KSCrashReportString inputs (from the Apple formatter),
+    // so passing dictionaries validates the reject-and-continue path, not
+    // the formatting pipeline. Good enough for a leaks test.
     let consoleSink = CrashReportSinkConsole()
     consoleSink.filterReports(crashReports) { filtered, error in
         print("[LeaksTest] Console sink: \(filtered?.count ?? 0) reports, error: \(String(describing: error))")

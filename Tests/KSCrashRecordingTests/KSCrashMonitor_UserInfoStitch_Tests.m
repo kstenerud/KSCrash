@@ -353,7 +353,7 @@ static NSString *writeRawSidecar(NSString *dir, NSData *data)
     XCTAssertEqualWithAccuracy([user[@"score"] doubleValue], 9.5, 1e-10);
 }
 
-- (void)testHeaderOnlySidecarReturnsNull
+- (void)testHeaderOnlySidecarReturnsInputUnchanged
 {
     // Create a sidecar with no records.
     NSString *path = buildSidecarFile(self.tempDir, nil);

@@ -506,15 +506,21 @@ static char *readReportAtPath(const char *path, int64_t reportID, const KSCrashR
 {
     @autoreleasepool {
         char *rawReport;
+        int rawLength = 0;
         const size_t maxReportSize = 20000000;
-        ksfu_readEntireFile(path, &rawReport, NULL, maxReportSize);
+        ksfu_readEntireFile(path, &rawReport, &rawLength, maxReportSize);
         if (rawReport == NULL) {
             KSLOG_ERROR(@"Failed to load report at path: %s", path);
             return NULL;
         }
 
-        // Decode once at the top
-        NSData *jsonData = [NSData dataWithBytesNoCopy:rawReport length:strlen(rawReport) freeWhenDone:YES];
+        // Decode once at the top.
+        // objc_precise_lifetime: rawReport is accessed again in the finalized-report
+        // fast path below, so jsonData (which owns it via freeWhenDone:YES) must not
+        // be released early by the optimizer.
+        __attribute__((objc_precise_lifetime)) NSData *jsonData = [NSData dataWithBytesNoCopy:rawReport
+                                                                                       length:(NSUInteger)rawLength
+                                                                                 freeWhenDone:YES];
         NSMutableDictionary *dict =
             [KSJSONCodec decode:jsonData
                         options:KSJSONDecodeOptionIgnoreNullInArray | KSJSONDecodeOptionIgnoreNullInObject |
@@ -594,15 +600,16 @@ bool kscrs_finalizeReport(const char *reportPath, int64_t reportID)
 
     @autoreleasepool {
         char *rawReport;
+        int rawLength = 0;
         const size_t maxReportSize = 20000000;
-        ksfu_readEntireFile(reportPath, &rawReport, NULL, maxReportSize);
+        ksfu_readEntireFile(reportPath, &rawReport, &rawLength, maxReportSize);
         if (rawReport == NULL) {
             pthread_mutex_unlock(&g_mutex);
             return false;
         }
 
         // Decode once
-        NSData *jsonData = [NSData dataWithBytesNoCopy:rawReport length:strlen(rawReport) freeWhenDone:YES];
+        NSData *jsonData = [NSData dataWithBytesNoCopy:rawReport length:(NSUInteger)rawLength freeWhenDone:YES];
         NSMutableDictionary *dict =
             [KSJSONCodec decode:jsonData
                         options:KSJSONDecodeOptionIgnoreNullInArray | KSJSONDecodeOptionIgnoreNullInObject |

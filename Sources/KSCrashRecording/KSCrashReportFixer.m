@@ -126,15 +126,16 @@ static void fixupReport(NSMutableDictionary *report)
         return;
     }
     id versionVal = reportInfo[KSCrashField_Version];
-    if (![versionVal isKindOfClass:[NSString class]]) {
-        return;
+
+    // Determine timestamp format: 3.3.0+ writes microseconds, older writes seconds.
+    // Missing or non-string version is treated as legacy (seconds) so that
+    // numeric timestamps in user/custom reports are still normalized correctly.
+    BOOL useMicroseconds = NO;
+    if ([versionVal isKindOfClass:[NSString class]]) {
+        int major, minor, patch;
+        parseVersion(versionVal, &major, &minor, &patch);
+        useMicroseconds = isVersionAtLeast(major, minor, patch, 3, 3, 0);
     }
-
-    int major, minor, patch;
-    parseVersion(versionVal, &major, &minor, &patch);
-
-    // Version 3.3.0+ uses microseconds for timestamps
-    BOOL useMicroseconds = isVersionAtLeast(major, minor, patch, 3, 3, 0);
 
     // Fix timestamp in report (mutableCopy because the input is immutable)
     NSMutableDictionary *mutableReportInfo = [reportInfo mutableCopy];

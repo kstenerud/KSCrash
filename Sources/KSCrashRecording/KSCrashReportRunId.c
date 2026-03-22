@@ -37,6 +37,8 @@
 #define KSCRS_UUID_STRING_LENGTH 36
 
 // Sentinel returned from callbacks to stop decoding early.
+// Any non-KSJSON_OK value halts ksjson_decode; 999 is chosen to
+// avoid colliding with real KSJSONError codes (1..6).
 #define KSJSON_STOP 999
 
 typedef struct {
@@ -44,6 +46,7 @@ typedef struct {
     size_t runIdOutLen;
     bool inReport;  // true while inside the top-level "report" object
     int nesting;    // container nesting depth relative to the report object
+    int depth;      // overall container depth (1 = inside root object)
     bool found;
 } RunIdSearchContext;
 
@@ -68,11 +71,15 @@ static int onRunIdString(const char *name, const char *value, void *userData)
 static int onRunIdBeginObject(const char *name, void *userData)
 {
     RunIdSearchContext *ctx = (RunIdSearchContext *)userData;
+    // Only match "report" as a direct child of the root object (depth 1).
+    // This avoids false matches on nested objects named "report" inside
+    // other top-level keys (e.g. {"meta": {"report": {}}, "report": {...}}).
     if (ctx->inReport) {
         ctx->nesting++;
-    } else if (name != NULL && strcmp(name, "report") == 0) {
+    } else if (name != NULL && strcmp(name, "report") == 0 && ctx->depth == 1) {
         ctx->inReport = true;
     }
+    ctx->depth++;
     return KSJSON_OK;
 }
 
@@ -82,6 +89,7 @@ static int onRunIdBeginArray(__unused const char *name, void *userData)
     if (ctx->inReport) {
         ctx->nesting++;
     }
+    ctx->depth++;
     return KSJSON_OK;
 }
 
@@ -92,10 +100,12 @@ static int onRunIdEndContainer(void *userData)
         if (ctx->nesting == 0) {
             // Leaving the "report" object, stop early.
             ctx->inReport = false;
+            ctx->depth--;
             return KSJSON_STOP;
         }
         ctx->nesting--;
     }
+    ctx->depth--;
     return KSJSON_OK;
 }
 
@@ -106,7 +116,7 @@ static int onIgnoreBool(__unused const char *n, __unused bool v, __unused void *
 static int onIgnoreFloat(__unused const char *n, __unused double v, __unused void *u) { return KSJSON_OK; }
 static int onIgnoreInt(__unused const char *n, __unused int64_t v, __unused void *u) { return KSJSON_OK; }
 static int onIgnoreUInt(__unused const char *n, __unused uint64_t v, __unused void *u) { return KSJSON_OK; }
-static int onIgnoreName(__unused const char *n, __unused void *u) { return KSJSON_OK; }
+static int onIgnoreNull(__unused const char *n, __unused void *u) { return KSJSON_OK; }
 static int onIgnore(__unused void *u) { return KSJSON_OK; }
 // clang-format on
 
@@ -118,7 +128,10 @@ bool kscrs_extractRunIdFromReportFile(const char *reportPath, char *runIdOut, si
 
     char *rawReport = NULL;
     int length = 0;
-    ksfu_readEntireFile(reportPath, &rawReport, &length, 0);
+    // Cap to the same 20 MB limit used by readReportAtPath to avoid
+    // unbounded malloc on corrupt or unexpectedly large files.
+    const int maxReportSize = 20000000;
+    ksfu_readEntireFile(reportPath, &rawReport, &length, maxReportSize);
     if (rawReport == NULL) {
         return false;
     }
@@ -128,13 +141,13 @@ bool kscrs_extractRunIdFromReportFile(const char *reportPath, char *runIdOut, si
         .runIdOutLen = runIdOutLen,
     };
 
-    char stringBuffer[512];
+    char stringBuffer[4096];
     KSJSONDecodeCallbacks callbacks = {
         .onBooleanElement = onIgnoreBool,
         .onFloatingPointElement = onIgnoreFloat,
         .onIntegerElement = onIgnoreInt,
         .onUnsignedIntegerElement = onIgnoreUInt,
-        .onNullElement = onIgnoreName,
+        .onNullElement = onIgnoreNull,
         .onStringElement = onRunIdString,
         .onBeginObject = onRunIdBeginObject,
         .onBeginArray = onRunIdBeginArray,

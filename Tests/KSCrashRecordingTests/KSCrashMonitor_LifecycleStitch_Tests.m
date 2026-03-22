@@ -109,7 +109,7 @@ static KSCrash_LifecycleData makeValidLifecycleData(void)
 
 #pragma mark - Wrong Scope
 
-- (void)testReportScopeReturnsNull
+- (void)testReportScopeReturnsInputUnchanged
 {
     KSCrash_LifecycleData lc = makeValidLifecycleData();
     NSString *path = writeLifecycleSidecar(self.tempDir, lc);
