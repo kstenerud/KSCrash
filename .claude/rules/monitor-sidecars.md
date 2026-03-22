@@ -112,3 +112,13 @@ The sidecars directories are configured via `KSCrashReportStoreCConfiguration.re
 - `KSCrashReportStoreC+Private.h`: `kscrs_getReportSidecarFilePathForReport()` and `kscrs_getRunSidecarFilePath()` exported for use by path providers
 - `KSCrashCConfiguration.h`: `reportSidecarsPath` and `runSidecarsPath` fields on `KSCrashReportStoreCConfiguration`
 - `KSCrashC.c`: Wires up the sidecar path provider callbacks during install
+
+### Report Finalization
+
+By default, sidecars are stitched into reports at next app launch when the report store reads them. Finalization stitches sidecars at runtime instead, so the report reflects current-session state rather than whatever state exists at next launch.
+
+Finalization is triggered by passing `finalize=true` to `handleWithResult`. The handler writes the report, calls `kscrs_finalizeReport` to read it back, stitch all sidecars, set `"finalized": true` in the report's `report` section, and atomically write it back. The `didWriteReport` callback fires after finalization completes.
+
+Monitors that finalize: User (non-terminal), NSException (user-reported), Profiler. Watchdog manages its own finalization in `finalizeResolvedHang()` after the hang resolves, so it passes `finalize=false`.
+
+Finalization is not async-signal-safe (JSON round-trip + file I/O), so it must only be used for non-fatal reports where the app continues running normally. Already-finalized reports are skipped on next-launch reads to avoid redundant stitching.
