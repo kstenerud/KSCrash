@@ -1,5 +1,5 @@
 //
-//  KSCrashReportRunId.c
+//  KSCrashReportRunId.m
 //
 //  Created by Alexander Cohen on 2026-03-22.
 //
@@ -32,6 +32,11 @@
 
 #include "KSFileUtils.h"
 #include "KSJSONCodec.h"
+
+#import <Foundation/Foundation.h>
+
+#import "KSCrashReportFields.h"
+#import "KSJSONCodecObjC.h"
 
 // UUID string length: 8-4-4-4-12 = 36 chars
 #define KSCRS_UUID_STRING_LENGTH 36
@@ -120,6 +125,41 @@ static int onIgnoreNull(__unused const char *n, __unused void *u) { return KSJSO
 static int onIgnore(__unused void *u) { return KSJSON_OK; }
 // clang-format on
 
+/** ObjC fallback: full-decode the report and extract report.run_id.
+ *  Only called when the streaming decoder fails (e.g. oversized key/string
+ *  trips KSJSON_ERROR_DATA_TOO_LONG before run_id is reached).
+ */
+static bool extractRunIdWithFullDecode(const char *rawReport, int length, char *runIdOut, __unused size_t runIdOutLen)
+{
+    @autoreleasepool {
+        NSData *data = [NSData dataWithBytesNoCopy:(void *)rawReport length:(NSUInteger)length freeWhenDone:NO];
+        NSDictionary *dict =
+            [KSJSONCodec decode:data
+                        options:KSJSONDecodeOptionIgnoreNullInArray | KSJSONDecodeOptionIgnoreNullInObject |
+                                KSJSONDecodeOptionKeepPartialObject
+                          error:nil];
+        if (![dict isKindOfClass:[NSDictionary class]]) {
+            return false;
+        }
+        id reportSection = dict[KSCrashField_Report];
+        if (![reportSection isKindOfClass:[NSDictionary class]]) {
+            return false;
+        }
+        NSString *runId = reportSection[KSCrashField_RunID];
+        if (![runId isKindOfClass:[NSString class]] || runId.length != KSCRS_UUID_STRING_LENGTH) {
+            return false;
+        }
+        const char *utf8 = runId.UTF8String;
+        uuid_t unused;
+        if (uuid_parse(utf8, unused) != 0) {
+            return false;
+        }
+        memcpy(runIdOut, utf8, KSCRS_UUID_STRING_LENGTH);
+        runIdOut[KSCRS_UUID_STRING_LENGTH] = '\0';
+        return true;
+    }
+}
+
 bool kscrs_extractRunIdFromReportFile(const char *reportPath, char *runIdOut, size_t runIdOutLen)
 {
     if (reportPath == NULL || runIdOut == NULL || runIdOutLen <= KSCRS_UUID_STRING_LENGTH) {
@@ -154,7 +194,22 @@ bool kscrs_extractRunIdFromReportFile(const char *reportPath, char *runIdOut, si
         .onEndContainer = onRunIdEndContainer,
         .onEndData = onIgnore,
     };
-    ksjson_decode(rawReport, length, stringBuffer, sizeof(stringBuffer), &callbacks, &ctx, NULL);
+    int result = ksjson_decode(rawReport, length, stringBuffer, sizeof(stringBuffer), &callbacks, &ctx, NULL);
+
+    if (ctx.found) {
+        free(rawReport);
+        return true;
+    }
+
+    // If the streaming decoder failed because a key or string exceeded the
+    // scratch buffer, fall back to a full ObjC decode. This handles valid
+    // reports with oversized keys/values before report.run_id.
+    if (result == KSJSON_ERROR_DATA_TOO_LONG) {
+        bool found = extractRunIdWithFullDecode(rawReport, length, runIdOut, runIdOutLen);
+        free(rawReport);
+        return found;
+    }
+
     free(rawReport);
-    return ctx.found;
+    return false;
 }
