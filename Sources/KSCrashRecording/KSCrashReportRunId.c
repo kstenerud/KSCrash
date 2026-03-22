@@ -86,6 +86,8 @@ static int onRunIdEndContainer(void *userData)
     return KSJSON_OK;
 }
 
+static int onRunIdEndData(__unused void *userData) { return KSJSON_OK; }
+
 bool kscrs_extractRunIdFromReportFile(const char *reportPath, char *runIdOut, size_t runIdOutLen)
 {
     if (reportPath == NULL || runIdOut == NULL || runIdOutLen <= KSCRS_UUID_STRING_LENGTH) {
@@ -109,6 +111,7 @@ bool kscrs_extractRunIdFromReportFile(const char *reportPath, char *runIdOut, si
         .onStringElement = onRunIdString,
         .onBeginObject = onRunIdBeginObject,
         .onEndContainer = onRunIdEndContainer,
+        .onEndData = onRunIdEndData,
     };
     ksjson_decode(rawReport, length, stringBuffer, sizeof(stringBuffer), &callbacks, &ctx, NULL);
     free(rawReport);
