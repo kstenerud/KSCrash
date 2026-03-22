@@ -646,4 +646,24 @@
     free(report);
 }
 
+- (void)testReadReportWithReportSectionAsStringWithRunSidecars
+{
+    self.reportStorePath = [self.tempPath stringByAppendingPathComponent:@"testMalformedRunSidecars"];
+    NSString *sidecarsPath = [self.tempPath stringByAppendingPathComponent:@"Sidecars"];
+    NSString *runSidecarsPath = [self.tempPath stringByAppendingPathComponent:@"RunSidecars"];
+    _storeConfig.appName = self.appName.UTF8String;
+    _storeConfig.reportsPath = self.reportStorePath.UTF8String;
+    _storeConfig.reportSidecarsPath = sidecarsPath.UTF8String;
+    _storeConfig.runSidecarsPath = runSidecarsPath.UTF8String;
+    _storeConfig.maxReportCount = 5;
+    kscrs_initialize(&_storeConfig);
+
+    NSString *json = @"{\"report\":\"not a dict\",\"crash\":{}}";
+    int64_t reportID = kscrs_addUserReport(json.UTF8String, (int)json.length, &_storeConfig);
+
+    char *report = kscrs_readReport(reportID, &_storeConfig);
+    XCTAssertTrue(report != NULL, @"Should not crash on malformed report section with run sidecars enabled");
+    free(report);
+}
+
 @end
