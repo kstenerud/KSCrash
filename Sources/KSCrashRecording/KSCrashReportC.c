@@ -993,13 +993,21 @@ static void writeNotableStackContents(const KSCrashReportWriter *const writer,
     char nameBuffer[40];
     for (uintptr_t address = lowAddress; address < highAddress; address += sizeof(address)) {
         if (ksmem_copySafely((void *)address, &contentsAsPointer, sizeof(contentsAsPointer))) {
-            snprintf(nameBuffer, sizeof(nameBuffer), "stack@%p", (void *)address);
+            memcpy(nameBuffer, "stack@0x", 8);
+            ksstring_uint64ToHex((uint64_t)address, nameBuffer + 8, 1, false);
             writeMemoryContentsIfNotable(writer, nameBuffer, contentsAsPointer);
         }
     }
 }
 
 #pragma mark Registers
+
+static const char *fallbackRegisterName(char *buf, int reg)
+{
+    buf[0] = 'r';
+    ksstring_intToDecimal(reg, buf + 1);
+    return buf;
+}
 
 /** Write the contents of all regular registers to the report.
  *
@@ -1020,8 +1028,7 @@ static void writeBasicRegisters(const KSCrashReportWriter *const writer, const c
         for (int reg = 0; reg < numRegisters; reg++) {
             registerName = kscpu_registerName(reg);
             if (registerName == NULL) {
-                snprintf(registerNameBuff, sizeof(registerNameBuff), "r%d", reg);
-                registerName = registerNameBuff;
+                registerName = fallbackRegisterName(registerNameBuff, reg);
             }
             writer->addUIntegerElement(writer, registerName, kscpu_registerValue(machineContext, reg));
         }
@@ -1048,8 +1055,7 @@ static void writeExceptionRegisters(const KSCrashReportWriter *const writer, con
         for (int reg = 0; reg < numRegisters; reg++) {
             registerName = kscpu_exceptionRegisterName(reg);
             if (registerName == NULL) {
-                snprintf(registerNameBuff, sizeof(registerNameBuff), "r%d", reg);
-                registerName = registerNameBuff;
+                registerName = fallbackRegisterName(registerNameBuff, reg);
             }
             writer->addUIntegerElement(writer, registerName, kscpu_exceptionRegisterValue(machineContext, reg));
         }
@@ -1093,7 +1099,8 @@ static void writeNotableRegisters(const KSCrashReportWriter *const writer,
     for (int reg = 0; reg < numRegisters; reg++) {
         registerName = kscpu_registerName(reg);
         if (registerName == NULL) {
-            snprintf(registerNameBuff, sizeof(registerNameBuff), "r%d", reg);
+            registerNameBuff[0] = 'r';
+            ksstring_intToDecimal(reg, registerNameBuff + 1);
             registerName = registerNameBuff;
         }
         writeMemoryContentsIfNotable(writer, registerName, (uintptr_t)kscpu_registerValue(machineContext, reg));

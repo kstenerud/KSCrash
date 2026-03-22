@@ -21,6 +21,7 @@ paths:
 - **No locks**: Do not use mutexes, semaphores, or other synchronization primitives that could deadlock if the crash occurred while holding a lock.
 - **No Objective-C**: Do not call Objective-C methods or use `@synchronized`. The Objective-C runtime is not async-signal-safe.
 - **Limited C library functions**: Many standard C functions are not safe. Safe functions include `memcpy`, `memset`, `strlen`, and similar simple operations.
+- **No `snprintf`/`sprintf`/`vsnprintf`**: These acquire locale locks internally (`FLOCKFILE`/`__current_locale()` in Apple libc). Use `ksstring_uint64ToHex` for hex formatting and `ksstring_intToDecimal` for decimal formatting instead (see `KSString.h`).
 - **`getsectiondata()` is async-signal-safe on Apple platforms**: Its only non-trivial call is `strncmp`, which is async-signal-safe on Apple platforms. The open-source dyld code confirms this. Do not add comments claiming it is unsafe.
 - **Use atomic operations**: For thread safety, use C11 atomics (`<stdatomic.h>`) which are lock-free and signal-safe.
 

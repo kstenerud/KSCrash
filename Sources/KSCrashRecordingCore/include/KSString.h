@@ -28,6 +28,7 @@
 #define HDR_KSString_h
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include "KSCrashNamespace.h"
@@ -76,6 +77,29 @@ bool ksstring_extractHexValue(const char *string, int stringLength, uint64_t *re
  *           or if both strings are non-NULL and str1 is greater than str2.
  */
 int ksstring_safeStrcmp(const char *str1, const char *str2);
+
+/** Convert a uint64 value to a hex string. Async-signal-safe.
+ *
+ * Writes at most 17 bytes (16 hex digits + NUL) to dst.
+ * If minDigits > 1, pads with leading zeroes (clamped to 1–16).
+ *
+ * @param value The value to convert.
+ * @param dst The destination buffer (must hold at least 17 bytes).
+ * @param minDigits Minimum number of hex digits to emit (1–16).
+ * @param uppercase If true, use A–F; otherwise a–f.
+ * @return The number of characters written (not including NUL).
+ */
+size_t ksstring_uint64ToHex(uint64_t value, char *dst, int minDigits, bool uppercase);
+
+/** Convert an int to a decimal string. Async-signal-safe.
+ *
+ * Writes at most 12 bytes (optional '-', up to 10 digits, NUL) to dst.
+ *
+ * @param value The value to convert.
+ * @param dst The destination buffer (must hold at least 12 bytes).
+ * @return The number of characters written (not including NUL).
+ */
+size_t ksstring_intToDecimal(int value, char *dst);
 
 #ifdef __cplusplus
 }
