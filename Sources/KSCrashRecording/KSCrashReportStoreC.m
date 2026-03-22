@@ -250,7 +250,11 @@ static NSDictionary *stitchRunSidecarsIntoReport(NSDictionary *report,
     }
 
     // Extract run_id directly from the decoded dict
-    NSString *runIdStr = report[KSCrashField_Report][KSCrashField_RunID];
+    id reportSection = report[KSCrashField_Report];
+    if (![reportSection isKindOfClass:[NSDictionary class]]) {
+        return report;
+    }
+    NSString *runIdStr = reportSection[KSCrashField_RunID];
     if (![runIdStr isKindOfClass:[NSString class]] || runIdStr.length == 0) {
         return report;
     }
@@ -543,7 +547,9 @@ static char *readReportAtPath(const char *path, int64_t reportID, const KSCrashR
 
         // Finalized reports already went through fixup and stitching at
         // recovery time, so re-encode and return as-is.
-        id finalizedVal = dict[KSCrashField_Report][KSCrashField_Finalized];
+        id reportSection = dict[KSCrashField_Report];
+        id finalizedVal =
+            [reportSection isKindOfClass:[NSDictionary class]] ? reportSection[KSCrashField_Finalized] : nil;
         if ([finalizedVal isKindOfClass:[NSNumber class]] && [finalizedVal boolValue]) {
             NSData *encoded = [KSJSONCodec encode:dict options:KSJSONEncodeOptionPretty error:nil];
             if (!encoded) {

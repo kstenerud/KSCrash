@@ -116,12 +116,14 @@ typedef struct KSCrashMonitorAPI {
      * sidecar data into the report before delivery.
      *
      * @param reportDict An NSDictionary* (as void*) containing the decoded report.
+     *        The callback does not own this pointer.
      * @param sidecarPath The full path to the sidecar file for this report.
      * @param scope Whether this is a per-report or per-run sidecar.
      * @param context The monitor's opaque context pointer.
      *
-     * @return An NSDictionary* (as void*) with the modified report,
-     *         or NULL to leave the report unchanged.
+     * @return A +1 retained NSDictionary* (as void*) with the modified report,
+     *         or NULL to leave the report unchanged. The caller takes ownership
+     *         via __bridge_transfer. Use __bridge_retained to return the result.
      *
      * @note This callback is optional. If NULL, no stitching is performed.
      *       This runs at normal app startup time, not during crash handling.
