@@ -123,6 +123,9 @@
         return nil;
     }
     NSDictionary *reportDict = reportObj;
+    if (reportDict[pathComponent] == nil) {
+        return nil;
+    }
     id demangledElement = [self demangleReportObj:reportDict[pathComponent] path:path depth:depth + 1];
     if (demangledElement == nil) {
         return nil;
