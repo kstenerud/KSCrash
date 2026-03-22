@@ -26,6 +26,7 @@
 
 #include "KSCrashReportRunId.h"
 
+#include <stdlib.h>
 #include <string.h>
 #include <uuid/uuid.h>
 
@@ -41,15 +42,16 @@
 typedef struct {
     char *runIdOut;
     size_t runIdOutLen;
-    int depth;      // current object nesting depth
-    bool inReport;  // true while inside the "report" object at depth 1
-    bool found;     // true once run_id has been captured
+    int depth;        // current container nesting depth (objects + arrays)
+    int reportDepth;  // depth at which the "report" object was entered, or -1
+    bool found;       // true once run_id has been captured
 } RunIdSearchContext;
 
 static int onRunIdString(const char *name, const char *value, void *userData)
 {
     RunIdSearchContext *ctx = (RunIdSearchContext *)userData;
-    if (ctx->inReport && ctx->depth == 2 && name != NULL && strcmp(name, "run_id") == 0) {
+    // Only match run_id as a direct child of the "report" object
+    if (ctx->reportDepth >= 0 && ctx->depth == ctx->reportDepth && name != NULL && strcmp(name, "run_id") == 0) {
         size_t len = strlen(value);
         if (len == KSCRS_UUID_STRING_LENGTH && len < ctx->runIdOutLen) {
             uuid_t unused;
@@ -69,17 +71,25 @@ static int onRunIdBeginObject(const char *name, void *userData)
     RunIdSearchContext *ctx = (RunIdSearchContext *)userData;
     ctx->depth++;
     if (ctx->depth == 2 && name != NULL && strcmp(name, "report") == 0) {
-        ctx->inReport = true;
+        ctx->reportDepth = ctx->depth;
     }
+    return KSJSON_OK;
+}
+
+static int onRunIdBeginArray(__unused const char *name, void *userData)
+{
+    RunIdSearchContext *ctx = (RunIdSearchContext *)userData;
+    ctx->depth++;
     return KSJSON_OK;
 }
 
 static int onRunIdEndContainer(void *userData)
 {
     RunIdSearchContext *ctx = (RunIdSearchContext *)userData;
-    if (ctx->inReport && ctx->depth == 2) {
+    if (ctx->reportDepth >= 0 && ctx->depth == ctx->reportDepth) {
         // Leaving the "report" object without finding run_id, stop early.
-        ctx->inReport = false;
+        ctx->reportDepth = -1;
+        ctx->depth--;
         return KSJSON_STOP;
     }
     ctx->depth--;
@@ -113,6 +123,7 @@ bool kscrs_extractRunIdFromReportFile(const char *reportPath, char *runIdOut, si
     RunIdSearchContext ctx = {
         .runIdOut = runIdOut,
         .runIdOutLen = runIdOutLen,
+        .reportDepth = -1,
     };
 
     char stringBuffer[512];
@@ -124,7 +135,7 @@ bool kscrs_extractRunIdFromReportFile(const char *reportPath, char *runIdOut, si
         .onNullElement = onIgnoreName,
         .onStringElement = onRunIdString,
         .onBeginObject = onRunIdBeginObject,
-        .onBeginArray = onIgnoreName,
+        .onBeginArray = onRunIdBeginArray,
         .onEndContainer = onRunIdEndContainer,
         .onEndData = onIgnore,
     };
