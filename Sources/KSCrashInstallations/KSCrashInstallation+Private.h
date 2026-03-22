@@ -60,14 +60,14 @@ NS_ASSUME_NONNULL_BEGIN
  * @param propertyName The name of the property.
  * @param key The key to use.
  */
-- (void)reportFieldForProperty:(NSString *)propertyName setKey:(id)key;
+- (void)reportFieldForProperty:(NSString *)propertyName setKey:(nullable id)key;
 
 /** Set the value of the specified report property.
  *
  * @param propertyName The name of the property.
  * @param value The value to set.
  */
-- (void)reportFieldForProperty:(NSString *)propertyName setValue:(id)value;
+- (void)reportFieldForProperty:(NSString *)propertyName setValue:(nullable id)value;
 
 /** Make an absolute key path if the specified path is not already absolute. */
 - (NSString *)makeKeyPath:(NSString *)keyPath;
