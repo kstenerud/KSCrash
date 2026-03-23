@@ -97,6 +97,7 @@ LIBC_IGNORED = [
                 re.compile("^__atanl$"),
                 re.compile("^__cbrt$"),
                 re.compile("^__cbrtf$"),
+                re.compile("^getentropy$"),
                 re.compile("^pthread_exit$"),
                 re.compile("^pthread_getcpuclockid$"),
                 re.compile("^pthread_getschedparam$"),

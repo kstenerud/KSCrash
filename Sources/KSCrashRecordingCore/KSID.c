@@ -24,8 +24,12 @@
 
 #include "KSID.h"
 
+#include <stddef.h>
 #include <string.h>
-#include <sys/random.h>
+
+// getentropy is available on all Apple platforms we support but
+// <sys/random.h> is missing from some SDK configurations.
+extern int getentropy(void *buf, size_t buflen);
 
 static const char g_hexChars[] = "0123456789ABCDEF";
 
