@@ -28,7 +28,6 @@
 
 #import "KSCrashMonitor_UserInfo.h"
 #import "KSCrashReportFields.h"
-#import "KSJSONCodecObjC.h"
 #import "KSKeyValueStore.h"
 
 #include <string.h>
@@ -61,18 +60,6 @@ static NSString *buildSidecarFile(NSString *dir, void (^block)(KSKeyValueStore *
     }
     kskvs_destroy(store);
     return path;
-}
-
-static NSString *jsonString(NSDictionary *dict)
-{
-    NSData *data = [KSJSONCodec encode:dict options:KSJSONEncodeOptionNone error:nil];
-    return [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
-}
-
-static NSDictionary *dictFromCString(const char *json)
-{
-    NSData *data = [NSData dataWithBytes:json length:strlen(json)];
-    return [KSJSONCodec decode:data options:KSJSONDecodeOptionNone error:nil];
 }
 
 static NSDictionary *makeMinimalReport(void)
@@ -122,43 +109,45 @@ static NSString *writeRawSidecar(NSString *dir, NSData *data)
 
 - (void)testNullReportReturnsNull
 {
-    XCTAssertTrue(kscm_userinfo_stitchReport(NULL, "/tmp/fake", KSCrashSidecarScopeRun, NULL) == NULL);
+    XCTAssertTrue(kscm_userinfo_createStitchedReport(NULL, "/tmp/fake", KSCrashSidecarScopeRun, NULL) == NULL);
 }
 
 - (void)testNullSidecarPathReturnsNull
 {
-    XCTAssertTrue(kscm_userinfo_stitchReport("{}", NULL, KSCrashSidecarScopeRun, NULL) == NULL);
+    XCTAssertTrue(
+        kscm_userinfo_createStitchedReport((__bridge CFDictionaryRef) @{}, NULL, KSCrashSidecarScopeRun, NULL) == NULL);
 }
 
 - (void)testMissingSidecarFileReturnsNull
 {
     NSString *missing = [self.tempDir stringByAppendingPathComponent:@"missing.ksscr"];
-    char *result = kscm_userinfo_stitchReport("{}", missing.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result == NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_userinfo_createStitchedReport(
+        (__bridge CFDictionaryRef) @{}, missing.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result == nil);
 }
 
 #pragma mark - Invalid Sidecar
 
 - (void)testBadMagicReturnsNull
 {
-    // Write raw bytes with wrong magic — KSKeyValueStore will reject it.
+    // Write raw bytes with wrong magic -- KSKeyValueStore will reject it.
     uint8_t badHeader[12] = { 0xEF, 0xBE, 0xAD, 0xDE, 1, 0, 0, 0, 12, 0, 0, 0 };
     NSData *data = [NSData dataWithBytes:badHeader length:sizeof(badHeader)];
     NSString *path = writeRawSidecar(self.tempDir, data);
 
     NSDictionary *report = makeMinimalReport();
-    char *result =
-        kscm_userinfo_stitchReport(jsonString(report).UTF8String, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result == NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_userinfo_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result == nil);
 }
 
 - (void)testEmptySidecarReturnsNull
 {
     NSString *path = writeRawSidecar(self.tempDir, [NSData data]);
     NSDictionary *report = makeMinimalReport();
-    char *result =
-        kscm_userinfo_stitchReport(jsonString(report).UTF8String, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result == NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_userinfo_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result == nil);
 }
 
 #pragma mark - Stitch String Values
@@ -170,14 +159,11 @@ static NSString *writeRawSidecar(NSString *dir, NSData *data)
     });
 
     NSDictionary *report = makeMinimalReport();
-    char *result =
-        kscm_userinfo_stitchReport(jsonString(report).UTF8String, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_userinfo_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = dictFromCString(result);
-    free(result);
-
-    XCTAssertEqualObjects(stitched[KSCrashField_User][@"user_id"], @"abc123");
+    XCTAssertEqualObjects(result[KSCrashField_User][@"user_id"], @"abc123");
 }
 
 #pragma mark - Stitch Integer Values
@@ -189,14 +175,11 @@ static NSString *writeRawSidecar(NSString *dir, NSData *data)
     });
 
     NSDictionary *report = makeMinimalReport();
-    char *result =
-        kscm_userinfo_stitchReport(jsonString(report).UTF8String, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_userinfo_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = dictFromCString(result);
-    free(result);
-
-    XCTAssertEqualObjects(stitched[KSCrashField_User][@"score"], @(-999));
+    XCTAssertEqualObjects(result[KSCrashField_User][@"score"], @(-999));
 }
 
 #pragma mark - Stitch Bool Values
@@ -208,14 +191,11 @@ static NSString *writeRawSidecar(NSString *dir, NSData *data)
     });
 
     NSDictionary *report = makeMinimalReport();
-    char *result =
-        kscm_userinfo_stitchReport(jsonString(report).UTF8String, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_userinfo_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = dictFromCString(result);
-    free(result);
-
-    XCTAssertEqualObjects(stitched[KSCrashField_User][@"premium"], @YES);
+    XCTAssertEqualObjects(result[KSCrashField_User][@"premium"], @YES);
 }
 
 #pragma mark - Stitch Double Values
@@ -227,14 +207,11 @@ static NSString *writeRawSidecar(NSString *dir, NSData *data)
     });
 
     NSDictionary *report = makeMinimalReport();
-    char *result =
-        kscm_userinfo_stitchReport(jsonString(report).UTF8String, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_userinfo_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = dictFromCString(result);
-    free(result);
-
-    XCTAssertEqualWithAccuracy([stitched[KSCrashField_User][@"lat"] doubleValue], 37.7749, 1e-4);
+    XCTAssertEqualWithAccuracy([result[KSCrashField_User][@"lat"] doubleValue], 37.7749, 1e-4);
 }
 
 #pragma mark - Last Write Wins
@@ -248,14 +225,11 @@ static NSString *writeRawSidecar(NSString *dir, NSData *data)
     });
 
     NSDictionary *report = makeMinimalReport();
-    char *result =
-        kscm_userinfo_stitchReport(jsonString(report).UTF8String, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_userinfo_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = dictFromCString(result);
-    free(result);
-
-    XCTAssertEqualObjects(stitched[KSCrashField_User][@"color"], @"green");
+    XCTAssertEqualObjects(result[KSCrashField_User][@"color"], @"green");
 }
 
 #pragma mark - Tombstones
@@ -268,11 +242,10 @@ static NSString *writeRawSidecar(NSString *dir, NSData *data)
     });
 
     NSDictionary *report = makeMinimalReport();
-    char *result =
-        kscm_userinfo_stitchReport(jsonString(report).UTF8String, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    // Sidecar has no live keys -> returns unchanged report (not NULL, which signals error)
-    XCTAssertTrue(result != NULL);
-    free(result);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_userinfo_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    // Sidecar has no live keys -> returns unchanged copy (NULL means failure)
+    XCTAssertTrue(result != nil);
 }
 
 - (void)testTombstoneRemovesExistingUserKey
@@ -284,15 +257,12 @@ static NSString *writeRawSidecar(NSString *dir, NSData *data)
     });
 
     NSDictionary *report = makeMinimalReport();
-    char *result =
-        kscm_userinfo_stitchReport(jsonString(report).UTF8String, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_userinfo_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = dictFromCString(result);
-    free(result);
-
-    XCTAssertEqualObjects(stitched[KSCrashField_User][@"keep"], @"yes");
-    XCTAssertNil(stitched[KSCrashField_User][@"remove_me"]);
+    XCTAssertEqualObjects(result[KSCrashField_User][@"keep"], @"yes");
+    XCTAssertNil(result[KSCrashField_User][@"remove_me"]);
 }
 
 - (void)testTombstoneRemovesPreExistingReportKey
@@ -303,15 +273,12 @@ static NSString *writeRawSidecar(NSString *dir, NSData *data)
     });
 
     NSDictionary *report = makeReportWithUserSection(@{ @"old_key" : @"old_val", @"keep" : @"yes" });
-    char *result =
-        kscm_userinfo_stitchReport(jsonString(report).UTF8String, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_userinfo_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = dictFromCString(result);
-    free(result);
-
-    XCTAssertNil(stitched[KSCrashField_User][@"old_key"]);
-    XCTAssertEqualObjects(stitched[KSCrashField_User][@"keep"], @"yes");
+    XCTAssertNil(result[KSCrashField_User][@"old_key"]);
+    XCTAssertEqualObjects(result[KSCrashField_User][@"keep"], @"yes");
 }
 
 #pragma mark - Merge With Existing User Section
@@ -323,14 +290,11 @@ static NSString *writeRawSidecar(NSString *dir, NSData *data)
     });
 
     NSDictionary *report = makeReportWithUserSection(@{ @"old_key" : @"old_val" });
-    char *result =
-        kscm_userinfo_stitchReport(jsonString(report).UTF8String, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_userinfo_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = dictFromCString(result);
-    free(result);
-
-    NSDictionary *user = stitched[KSCrashField_User];
+    NSDictionary *user = result[KSCrashField_User];
     XCTAssertEqualObjects(user[@"old_key"], @"old_val");
     XCTAssertEqualObjects(user[@"new_key"], @"new_val");
 }
@@ -342,14 +306,11 @@ static NSString *writeRawSidecar(NSString *dir, NSData *data)
     });
 
     NSDictionary *report = makeReportWithUserSection(@{ @"shared" : @"from_json" });
-    char *result =
-        kscm_userinfo_stitchReport(jsonString(report).UTF8String, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_userinfo_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = dictFromCString(result);
-    free(result);
-
-    XCTAssertEqualObjects(stitched[KSCrashField_User][@"shared"], @"from_sidecar");
+    XCTAssertEqualObjects(result[KSCrashField_User][@"shared"], @"from_sidecar");
 }
 
 #pragma mark - Empty Report
@@ -362,26 +323,11 @@ static NSString *writeRawSidecar(NSString *dir, NSData *data)
 
     // Report with no user section
     NSDictionary *report = @{ @"crash" : @ {} };
-    char *result =
-        kscm_userinfo_stitchReport(jsonString(report).UTF8String, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_userinfo_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = dictFromCString(result);
-    free(result);
-
-    XCTAssertEqualObjects(stitched[KSCrashField_User][@"key"], @"val");
-}
-
-#pragma mark - Invalid JSON Report
-
-- (void)testInvalidJSONReturnsNull
-{
-    NSString *path = buildSidecarFile(self.tempDir, ^(KSKeyValueStore *store) {
-        kskvs_setString(store, "key", "val");
-    });
-
-    char *result = kscm_userinfo_stitchReport("not json", path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result == NULL);
+    XCTAssertEqualObjects(result[KSCrashField_User][@"key"], @"val");
 }
 
 #pragma mark - Multiple Types
@@ -396,31 +342,27 @@ static NSString *writeRawSidecar(NSString *dir, NSData *data)
     });
 
     NSDictionary *report = makeMinimalReport();
-    char *result =
-        kscm_userinfo_stitchReport(jsonString(report).UTF8String, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_userinfo_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = dictFromCString(result);
-    free(result);
-
-    NSDictionary *user = stitched[KSCrashField_User];
+    NSDictionary *user = result[KSCrashField_User];
     XCTAssertEqualObjects(user[@"name"], @"Test");
     XCTAssertEqualObjects(user[@"count"], @(42));
     XCTAssertEqualObjects(user[@"active"], @YES);
     XCTAssertEqualWithAccuracy([user[@"score"] doubleValue], 9.5, 1e-10);
 }
 
-- (void)testHeaderOnlySidecarReturnsUnchangedReport
+- (void)testHeaderOnlySidecarReturnsInputUnchanged
 {
     // Create a sidecar with no records.
     NSString *path = buildSidecarFile(self.tempDir, nil);
 
     NSDictionary *report = makeMinimalReport();
-    char *result =
-        kscm_userinfo_stitchReport(jsonString(report).UTF8String, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    // No records -> returns unchanged report (not NULL, which signals error)
-    XCTAssertTrue(result != NULL);
-    free(result);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_userinfo_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    // No records -> returns unchanged copy (NULL means failure)
+    XCTAssertTrue(result != nil);
 }
 
 @end

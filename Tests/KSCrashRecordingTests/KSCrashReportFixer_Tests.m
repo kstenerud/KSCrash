@@ -8,6 +8,7 @@
 
 #import <XCTest/XCTest.h>
 #import "KSCrashReportFixer.h"
+#import "KSJSONCodecObjC.h"
 #import "KSTestModuleConfig.h"
 
 @interface KSCrashReportFixer_Tests : XCTestCase
@@ -16,29 +17,24 @@
 
 @implementation KSCrashReportFixer_Tests
 
-- (void)setUp
-{
-    [super setUp];
-    // Put setup code here. This method is called before the invocation of each test method in the class.
-}
-
-- (void)tearDown
-{
-    // Put teardown code here. This method is called after the invocation of each test method in the class.
-    [super tearDown];
-}
-
 - (void)testLoadCrash
 {
     NSBundle *bundle = KS_TEST_MODULE_BUNDLE;
     NSString *rawPath = [bundle pathForResource:@"raw" ofType:@"json"];
-    NSString *rawString = [NSString stringWithContentsOfFile:rawPath encoding:NSUTF8StringEncoding error:nil];
-    char *fixedBytes = kscrf_fixupCrashReport(rawString.UTF8String);
-    NSData *fixedData = [NSData dataWithBytesNoCopy:fixedBytes length:strlen(fixedBytes)];
+    NSData *rawData = [NSData dataWithContentsOfFile:rawPath];
+    XCTAssertNotNil(rawData);
+
     NSError *error = nil;
-    id fixedObjects = [NSJSONSerialization JSONObjectWithData:fixedData options:0 error:&error];
+    NSMutableDictionary *rawReport =
+        [KSJSONCodec decode:rawData
+                    options:KSJSONDecodeOptionIgnoreNullInArray | KSJSONDecodeOptionIgnoreNullInObject |
+                            KSJSONDecodeOptionKeepPartialObject
+                      error:&error];
+    XCTAssertNotNil(rawReport);
     XCTAssertNil(error);
-    XCTAssertNotNil(fixedObjects);
+
+    NSDictionary *fixedReport = kscrf_fixupReportDict(rawReport);
+    XCTAssertNotNil(fixedReport);
 
     NSString *processedPath = [bundle pathForResource:@"processed" ofType:@"json"];
     NSData *processedData = [NSData dataWithContentsOfFile:processedPath];
@@ -46,7 +42,49 @@
     XCTAssertNil(error);
     XCTAssertNotNil(processedObjects);
 
-    XCTAssertEqualObjects(fixedObjects, processedObjects);
+    XCTAssertEqualObjects(fixedReport, processedObjects);
+}
+
+#pragma mark - Immutable Input Safety
+
+- (void)testFixupWithImmutableLiteralDoesNotCrash
+{
+    // Literal NSDictionary values are __NSDictionaryI (immutable).
+    // fixupReport must mutableCopy nested dicts before mutating.
+    NSDictionary *report = @{
+        @"report" : @ {
+            @"version" : @"3.3.0",
+            @"timestamp" : @1700000000123456,
+        }
+    };
+    NSDictionary *result = kscrf_fixupReportDict(report);
+    XCTAssertNotNil(result);
+    // Timestamp should be converted to a date string
+    XCTAssertTrue([result[@"report"][@"timestamp"] isKindOfClass:[NSString class]]);
+}
+
+#pragma mark - Malformed Field Type Guards
+
+- (void)testVersionAsArrayDoesNotCrash
+{
+    NSDictionary *report = @{
+        @"report" : @ {
+            @"version" : @[],
+            @"timestamp" : @1700000000,
+        }
+    };
+    NSDictionary *result = kscrf_fixupReportDict(report);
+    XCTAssertNotNil(result);
+}
+
+- (void)testRecrashReportSectionAsStringDoesNotCrash
+{
+    NSDictionary *report = @{
+        @"report" : @ { @"version" : @"3.3.0" },
+        @"recrash_report" : @ { @"report" : @"not a dict" },
+    };
+    NSDictionary *result = kscrf_fixupReportDict(report);
+    XCTAssertNotNil(result);
 }
 
 @end

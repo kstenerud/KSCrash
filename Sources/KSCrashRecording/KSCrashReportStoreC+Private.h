@@ -33,6 +33,15 @@
 extern "C" {
 #endif
 
+/** Maximum report file size we'll attempt to read (20 MB).
+ *
+ *  Reports exceeding this are silently skipped to prevent unbounded
+ *  malloc on corrupt or pathologically large files.  The cap is shared
+ *  by readReportAtPath, finalizeReport, and run-id extraction so they
+ *  all agree on what constitutes "too large."
+ */
+#define KSCRS_MAX_REPORT_SIZE ((size_t)20000000)
+
 /** Get the next crash report to be generated.
  * Max length for paths is KSCRS_MAX_PATH_LENGTH
  *
@@ -91,19 +100,6 @@ bool kscrs_getRunSidecarFilePathForRunID(const char *monitorId, const char *runI
                                          size_t pathBufferLength,
                                          const KSCrashReportStoreCConfiguration *const configuration);
 
-/** Extract the run_id from a JSON crash report.
- *
- * Parses report["report"]["run_id"] from the JSON string.
- * Uses ObjC JSON parsing — safe at normal startup, not from crash handlers.
- *
- * @param report The NULL-terminated JSON report string.
- * @param runIdBuffer Buffer to receive the run_id string.
- * @param bufferLength The size of runIdBuffer in bytes.
- *
- * @return true if the run_id was successfully extracted, false otherwise.
- */
-bool kscrs_extractRunIdFromReport(const char *report, char *runIdBuffer, size_t bufferLength);
-
 /** Read a report by path and ID, applying fixup and all stitch callbacks.
  *
  * Like kscrs_readReportAtPath but also stitches per-report sidecars
@@ -134,26 +130,6 @@ char *kscrs_readReportByPathAndID(const char *path, int64_t reportID);
  * @return true if the report was successfully finalized, false otherwise.
  */
 bool kscrs_finalizeReport(const char *reportPath, int64_t reportID);
-
-/** Check whether a JSON report has already been finalized.
- *
- * Parses the JSON and checks report.report.finalized.
- * Uses ObjC JSON parsing, not async-signal-safe.
- *
- * @param report The NULL-terminated JSON report string.
- * @return true if the report is marked as finalized.
- */
-bool kscrs_isReportFinalized(const char *report);
-
-/** Inject a "finalized" flag into a stitched JSON report.
- *
- * Decodes the JSON, sets report.report.finalized = true, and re-encodes
- * with pretty printing. Uses ObjC JSON parsing, not async-signal-safe.
- *
- * @param stitchedReport The NULL-terminated stitched JSON report string.
- * @return A heap-allocated JSON string with the flag injected, or NULL on failure. Caller must free().
- */
-char *kscrs_injectFinalizedFlag(const char *stitchedReport);
 
 #ifdef __cplusplus
 }

@@ -28,13 +28,9 @@
 
 #import "KSCrashMonitor_System.h"
 #import "KSCrashReportFields.h"
-#import "KSJSONCodecObjC.h"
 
 #include <fcntl.h>
 #include <unistd.h>
-
-// Forward-declare: not exposed in the header
-char *kscm_system_stitchReport(const char *report, const char *sidecarPath, KSCrashSidecarScope scope, void *context);
 
 #pragma mark - Helpers
 
@@ -99,18 +95,6 @@ static KSCrash_SystemData makeValidSystemData(void)
     return sc;
 }
 
-static NSString *jsonString(NSDictionary *dict)
-{
-    NSData *data = [KSJSONCodec encode:dict options:KSJSONEncodeOptionNone error:nil];
-    return [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
-}
-
-static NSDictionary *dictFromCString(const char *json)
-{
-    NSData *data = [NSData dataWithBytes:json length:strlen(json)];
-    return [KSJSONCodec decode:data options:KSJSONDecodeOptionNone error:nil];
-}
-
 #pragma mark - Tests
 
 @interface KSCrashMonitor_SystemStitch_Tests : XCTestCase
@@ -135,19 +119,21 @@ static NSDictionary *dictFromCString(const char *json)
 
 - (void)testNullReportReturnsNull
 {
-    XCTAssertTrue(kscm_system_stitchReport(NULL, "/tmp/fake", KSCrashSidecarScopeReport, NULL) == NULL);
+    XCTAssertTrue(kscm_system_createStitchedReport(NULL, "/tmp/fake", KSCrashSidecarScopeReport, NULL) == NULL);
 }
 
 - (void)testNullSidecarPathReturnsNull
 {
-    XCTAssertTrue(kscm_system_stitchReport("{}", NULL, KSCrashSidecarScopeReport, NULL) == NULL);
+    XCTAssertTrue(kscm_system_createStitchedReport((__bridge CFDictionaryRef) @{}, NULL, KSCrashSidecarScopeReport,
+                                                   NULL) == NULL);
 }
 
 - (void)testMissingSidecarFileReturnsNull
 {
     NSString *missingPath = [self.tempDir stringByAppendingPathComponent:[[NSUUID UUID] UUIDString]];
-    char *result = kscm_system_stitchReport("{}", missingPath.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result == NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
+        (__bridge CFDictionaryRef) @{}, missingPath.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result == nil);
 }
 
 #pragma mark - Invalid Sidecar
@@ -158,8 +144,9 @@ static NSDictionary *dictFromCString(const char *json)
     sc.magic = (int32_t)0xDEADBEEF;
     NSString *path = writeSidecar(self.tempDir, sc);
 
-    char *result = kscm_system_stitchReport("{}", path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result == NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
+        (__bridge CFDictionaryRef) @{}, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result == nil);
 }
 
 - (void)testVersionZeroReturnsNull
@@ -168,8 +155,9 @@ static NSDictionary *dictFromCString(const char *json)
     sc.version = 0;
     NSString *path = writeSidecar(self.tempDir, sc);
 
-    char *result = kscm_system_stitchReport("{}", path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result == NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
+        (__bridge CFDictionaryRef) @{}, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result == nil);
 }
 
 - (void)testFutureVersionReturnsNull
@@ -178,8 +166,9 @@ static NSDictionary *dictFromCString(const char *json)
     sc.version = KSCrash_System_CurrentVersion + 1;
     NSString *path = writeSidecar(self.tempDir, sc);
 
-    char *result = kscm_system_stitchReport("{}", path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result == NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
+        (__bridge CFDictionaryRef) @{}, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result == nil);
 }
 
 - (void)testTruncatedSidecarReturnsNull
@@ -190,22 +179,12 @@ static NSDictionary *dictFromCString(const char *json)
     write(fd, partial, sizeof(partial));
     close(fd);
 
-    char *result = kscm_system_stitchReport("{}", path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result == NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
+        (__bridge CFDictionaryRef) @{}, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result == nil);
 }
 
-#pragma mark - Invalid JSON
-
-- (void)testInvalidJSONReturnsNull
-{
-    KSCrash_SystemData sc = makeValidSystemData();
-    NSString *path = writeSidecar(self.tempDir, sc);
-
-    char *result = kscm_system_stitchReport("not json at all", path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result == NULL);
-}
-
-#pragma mark - Valid Stitch — String Fields
+#pragma mark - Valid Stitch - String Fields
 
 - (void)testStringFieldsPopulated
 {
@@ -213,15 +192,12 @@ static NSDictionary *dictFromCString(const char *json)
     NSString *path = writeSidecar(self.tempDir, sc);
 
     NSDictionary *report = @{};
-    NSString *json = jsonString(report);
 
-    char *result = kscm_system_stitchReport(json.UTF8String, path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = dictFromCString(result);
-    free(result);
-
-    NSDictionary *system = stitched[KSCrashField_System];
+    NSDictionary *system = result[KSCrashField_System];
     XCTAssertEqualObjects(system[KSCrashField_SystemName], @"iOS");
     XCTAssertEqualObjects(system[KSCrashField_SystemVersion], @"17.2");
     XCTAssertEqualObjects(system[KSCrashField_Machine], @"iPhone15,2");
@@ -244,7 +220,7 @@ static NSDictionary *dictFromCString(const char *json)
     XCTAssertEqualObjects(system[KSCrashField_AppUUID], @"ABCDEF-1234");
 }
 
-#pragma mark - Valid Stitch — Numeric Fields
+#pragma mark - Valid Stitch - Numeric Fields
 
 - (void)testNumericFieldsPopulated
 {
@@ -252,15 +228,12 @@ static NSDictionary *dictFromCString(const char *json)
     NSString *path = writeSidecar(self.tempDir, sc);
 
     NSDictionary *report = @{};
-    NSString *json = jsonString(report);
 
-    char *result = kscm_system_stitchReport(json.UTF8String, path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = dictFromCString(result);
-    free(result);
-
-    NSDictionary *system = stitched[KSCrashField_System];
+    NSDictionary *system = result[KSCrashField_System];
     XCTAssertEqualObjects(system[KSCrashField_CPUType], @(16777228));
     XCTAssertEqualObjects(system[KSCrashField_CPUSubType], @(2));
     XCTAssertEqualObjects(system[KSCrashField_BinaryCPUType], @(16777228));
@@ -269,7 +242,7 @@ static NSDictionary *dictFromCString(const char *json)
     XCTAssertEqualObjects(system[KSCrashField_ParentProcessID], @(1));
 }
 
-#pragma mark - Valid Stitch — Booleans
+#pragma mark - Valid Stitch - Booleans
 
 - (void)testBooleanFieldsPopulated
 {
@@ -279,20 +252,17 @@ static NSDictionary *dictFromCString(const char *json)
     NSString *path = writeSidecar(self.tempDir, sc);
 
     NSDictionary *report = @{};
-    NSString *json = jsonString(report);
 
-    char *result = kscm_system_stitchReport(json.UTF8String, path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = dictFromCString(result);
-    free(result);
-
-    NSDictionary *system = stitched[KSCrashField_System];
+    NSDictionary *system = result[KSCrashField_System];
     XCTAssertEqualObjects(system[KSCrashField_Jailbroken], @NO);
     XCTAssertEqualObjects(system[KSCrashField_ProcTranslated], @YES);
 }
 
-#pragma mark - Valid Stitch — Timestamps
+#pragma mark - Valid Stitch - Timestamps
 
 - (void)testTimestampFieldsPopulated
 {
@@ -302,15 +272,12 @@ static NSDictionary *dictFromCString(const char *json)
     NSString *path = writeSidecar(self.tempDir, sc);
 
     NSDictionary *report = @{};
-    NSString *json = jsonString(report);
 
-    char *result = kscm_system_stitchReport(json.UTF8String, path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = dictFromCString(result);
-    free(result);
-
-    NSDictionary *system = stitched[KSCrashField_System];
+    NSDictionary *system = result[KSCrashField_System];
     // Timestamps should be non-nil ISO 8601 strings
     XCTAssertNotNil(system[KSCrashField_AppStartTime]);
     XCTAssertTrue([system[KSCrashField_AppStartTime] isKindOfClass:[NSString class]]);
@@ -326,20 +293,17 @@ static NSDictionary *dictFromCString(const char *json)
     NSString *path = writeSidecar(self.tempDir, sc);
 
     NSDictionary *report = @{};
-    NSString *json = jsonString(report);
 
-    char *result = kscm_system_stitchReport(json.UTF8String, path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = dictFromCString(result);
-    free(result);
-
-    NSDictionary *system = stitched[KSCrashField_System];
+    NSDictionary *system = result[KSCrashField_System];
     XCTAssertNil(system[KSCrashField_AppStartTime]);
     XCTAssertNil(system[KSCrashField_BootTime]);
 }
 
-#pragma mark - Valid Stitch — Memory Sub-Object
+#pragma mark - Valid Stitch - Memory Sub-Object
 
 - (void)testMemorySubObjectPopulated
 {
@@ -347,22 +311,19 @@ static NSDictionary *dictFromCString(const char *json)
     NSString *path = writeSidecar(self.tempDir, sc);
 
     NSDictionary *report = @{};
-    NSString *json = jsonString(report);
 
-    char *result = kscm_system_stitchReport(json.UTF8String, path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = dictFromCString(result);
-    free(result);
-
-    NSDictionary *memory = stitched[KSCrashField_System][KSCrashField_Memory];
+    NSDictionary *memory = result[KSCrashField_System][KSCrashField_Memory];
     XCTAssertNotNil(memory);
     XCTAssertEqualObjects(memory[KSCrashField_Size], @(6442450944ULL));
     XCTAssertEqualObjects(memory[KSCrashField_Free], @(2000000000ULL));
     XCTAssertEqualObjects(memory[KSCrashField_Usable], @(4000000000ULL));
 }
 
-#pragma mark - Valid Stitch — Storage
+#pragma mark - Valid Stitch - Storage
 
 - (void)testStorageFieldsPopulated
 {
@@ -372,15 +333,12 @@ static NSDictionary *dictFromCString(const char *json)
     NSString *path = writeSidecar(self.tempDir, sc);
 
     NSDictionary *report = @{};
-    NSString *json = jsonString(report);
 
-    char *result = kscm_system_stitchReport(json.UTF8String, path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = dictFromCString(result);
-    free(result);
-
-    NSDictionary *system = stitched[KSCrashField_System];
+    NSDictionary *system = result[KSCrashField_System];
     XCTAssertEqualObjects(system[KSCrashField_Storage], @(256000000000ULL));
     XCTAssertEqualObjects(system[KSCrashField_FreeStorage], @(128000000000ULL));
 }
@@ -393,15 +351,12 @@ static NSDictionary *dictFromCString(const char *json)
     NSString *path = writeSidecar(self.tempDir, sc);
 
     NSDictionary *report = @{};
-    NSString *json = jsonString(report);
 
-    char *result = kscm_system_stitchReport(json.UTF8String, path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = dictFromCString(result);
-    free(result);
-
-    NSDictionary *system = stitched[KSCrashField_System];
+    NSDictionary *system = result[KSCrashField_System];
     XCTAssertNil(system[KSCrashField_Storage]);
     XCTAssertNil(system[KSCrashField_FreeStorage]);
 }
@@ -417,15 +372,12 @@ static NSDictionary *dictFromCString(const char *json)
     NSString *path = writeSidecar(self.tempDir, sc);
 
     NSDictionary *report = @{};
-    NSString *json = jsonString(report);
 
-    char *result = kscm_system_stitchReport(json.UTF8String, path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = dictFromCString(result);
-    free(result);
-
-    NSDictionary *system = stitched[KSCrashField_System];
+    NSDictionary *system = result[KSCrashField_System];
     XCTAssertNil(system[KSCrashField_SystemName]);
     XCTAssertNil(system[KSCrashField_Machine]);
     XCTAssertNil(system[KSCrashField_Model]);
@@ -442,15 +394,12 @@ static NSDictionary *dictFromCString(const char *json)
     NSString *path = writeSidecar(self.tempDir, sc);
 
     NSDictionary *report = @{ KSCrashField_Report : @ { @"id" : @"test-id" } };
-    NSString *json = jsonString(report);
 
-    char *result = kscm_system_stitchReport(json.UTF8String, path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = dictFromCString(result);
-    free(result);
-
-    NSString *processName = stitched[KSCrashField_Report][KSCrashField_ProcessName];
+    NSString *processName = result[KSCrashField_Report][KSCrashField_ProcessName];
     XCTAssertEqualObjects(processName, @"MyApp");
 }
 
@@ -460,16 +409,13 @@ static NSDictionary *dictFromCString(const char *json)
     NSString *path = writeSidecar(self.tempDir, sc);
 
     NSDictionary *report = @{};
-    NSString *json = jsonString(report);
 
-    char *result = kscm_system_stitchReport(json.UTF8String, path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result != NULL);
-
-    NSDictionary *stitched = dictFromCString(result);
-    free(result);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result != nil);
 
     // No report section should be created just for process_name
-    XCTAssertNil(stitched[KSCrashField_Report]);
+    XCTAssertNil(result[KSCrashField_Report]);
 }
 
 #pragma mark - Existing System Dict Preserved
@@ -484,15 +430,12 @@ static NSDictionary *dictFromCString(const char *json)
             @"custom_field" : @"custom_value",
         }
     };
-    NSString *json = jsonString(report);
 
-    char *result = kscm_system_stitchReport(json.UTF8String, path.UTF8String, KSCrashSidecarScopeReport, NULL);
-    XCTAssertTrue(result != NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertTrue(result != nil);
 
-    NSDictionary *stitched = dictFromCString(result);
-    free(result);
-
-    NSDictionary *system = stitched[KSCrashField_System];
+    NSDictionary *system = result[KSCrashField_System];
     XCTAssertEqualObjects(system[@"custom_field"], @"custom_value");
     // Also verify new fields were added
     XCTAssertEqualObjects(system[KSCrashField_SystemName], @"iOS");

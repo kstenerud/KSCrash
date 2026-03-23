@@ -1,7 +1,7 @@
 //
-//  KSCrashReportFixer.c
+//  KSCrashReportRunId.h
 //
-//  Created by Karl Stenerud on 2016-11-07.
+//  Created by Alexander Cohen on 2026-03-22.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,21 +24,33 @@
 // THE SOFTWARE.
 //
 
-#ifndef HDR_KSCrashReportFixer_h
-#define HDR_KSCrashReportFixer_h
+#ifndef KSCrashReportRunId_h
+#define KSCrashReportRunId_h
 
-#include "KSCrashNamespace.h"
+#include <stdbool.h>
+#include <stddef.h>
 
-#ifdef __OBJC__
-#import <Foundation/Foundation.h>
-
-/** Fixes up fields in a decoded crash report that could not be fixed up at crash time.
- * Converts numeric timestamps to ISO-8601 date strings.
- *
- * @param report The decoded report dictionary to fix up.
- * @return The fixed-up dictionary, or nil on failure.
- */
-NSDictionary *kscrf_fixupReportDict(NSDictionary *report);
+#ifdef __cplusplus
+extern "C" {
 #endif
 
-#endif  // HDR_KSCrashReportFixer_h
+/** Extract the run_id from a report file.
+ *
+ * Reads the file into memory and parses its JSON, stopping as soon
+ * as report["report"]["run_id"] is found or the report section ends.
+ * Falls back to a full ObjC decode if the C decoder path fails on
+ * oversized keys/strings. The run_id must be a valid UUID.
+ *
+ * @param reportPath Path to the report JSON file.
+ * @param runIdOut Buffer to receive the UUID string.
+ * @param runIdOutLen Size of the buffer (must be > 36).
+ *
+ * @return true if a valid UUID run_id was extracted, false otherwise.
+ */
+bool kscrs_extractRunIdFromReportFile(const char *reportPath, char *runIdOut, size_t runIdOutLen);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif  // KSCrashReportRunId_h

@@ -21,7 +21,7 @@ Sidecars allow monitors to store auxiliary data alongside crash reports without 
 
 1. **Writing**: A monitor can request a sidecar path at any time and write auxiliary data there. For example, a monitor might write the initial sidecar during event handling and update it periodically afterwards as conditions change.
 
-2. **At report delivery time** (next app launch): When the report store reads a report via `kscrs_readReport`, it scans the sidecar directories for matching files and calls each monitor's `stitchReport` callback to merge sidecar data into the report before delivery.
+2. **At report delivery time** (next app launch): When the report store reads a report via `kscrs_readReport`, it scans the sidecar directories for matching files and calls each monitor's `createStitchedReport` callback to merge sidecar data into the report before delivery.
 
 3. **Cleanup**: Sidecars are automatically deleted when their associated report is deleted (via `kscrs_deleteReportWithID` or `kscrs_deleteAllReports`).
 
@@ -78,17 +78,22 @@ Both callbacks create the necessary subdirectories automatically and return `fal
 
 ### Stitching Sidecars into Reports (Monitor Side)
 
-To merge sidecar data into reports at delivery time, implement the `stitchReport` field in `KSCrashMonitorAPI`:
+To merge sidecar data into reports at delivery time, implement the `createStitchedReport` field in `KSCrashMonitorAPI`:
 
 ```c
-char *(*stitchReport)(const char *report, const char *sidecarPath, KSCrashSidecarScope scope, void *context);
+CFDictionaryRef (*createStitchedReport)(CFDictionaryRef reportDict, const char *sidecarPath,
+                                        KSCrashSidecarScope scope, void *context);
 ```
 
-- `report`: NULL-terminated JSON string of the full crash report.
+Follows the CF Create Rule:
+
+- `reportDict`: The decoded report dictionary (toll-free bridged to NSDictionary). Owned by the caller, the callback must not release it.
 - `sidecarPath`: Path to this monitor's sidecar file for the given report.
 - `scope`: `KSCrashSidecarScopeReport` for per-report sidecars, `KSCrashSidecarScopeRun` for per-run sidecars.
 - `context`: The monitor's opaque context pointer (same as `api->context`).
-- Returns: A `malloc`'d NULL-terminated string with the modified report (or a `strdup` of the original if no changes were needed), or `NULL` on failure. The caller frees the returned buffer.
+- Returns: A +1 `CFDictionaryRef` with the (possibly modified) report, or `NULL` on failure. The caller takes ownership via `__bridge_transfer` to ARC. For no-op returns (e.g. wrong scope), `CFRetain` the input and return it.
+
+`NULL` signals a stitch error. During finalization this aborts the write-back so the report can be retried on next app launch. During normal reads the error is silent and the original dict is kept.
 
 Run sidecars are stitched first, then per-report sidecars, so per-report data can override per-run data.
 
@@ -101,7 +106,7 @@ The sidecars directories are configured via `KSCrashReportStoreCConfiguration.re
 ### Key Files
 
 - `KSCrashMonitorContext.h`: `KSCrashReportSidecarPathProviderFunc`, `KSCrashSidecarRunPathProviderFunc` typedefs and `getReportSidecarPath`, `getRunSidecarPath` callback fields
-- `KSCrashMonitorAPI.h`: `stitchReport` callback field on `KSCrashMonitorAPI`
+- `KSCrashMonitorAPI.h`: `createStitchedReport` callback field on `KSCrashMonitorAPI`
 - `KSCrashMonitor.h/.c`: `kscm_setReportSidecarPathProvider()` and `kscm_setRunSidecarPathProvider()` to register path providers
 - `KSCrashReportStoreC.c`: Internal sidecar path generation, cleanup, stitching, and orphan cleanup logic
 - `KSCrashReportStoreC+Private.h`: `kscrs_getReportSidecarFilePathForReport()` and `kscrs_getRunSidecarFilePath()` exported for use by path providers

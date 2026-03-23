@@ -29,8 +29,6 @@
 #import <Foundation/Foundation.h>
 
 #import "KSCrashReportFields.h"
-#import "KSJSONCodecObjC.h"
-#import "KSLogger.h"
 
 #pragma mark - Version Parsing
 
@@ -123,63 +121,46 @@ static void fixupTimestamp(NSMutableDictionary *reportDict, BOOL useMicroseconds
 static void fixupReport(NSMutableDictionary *report)
 {
     // Get version to determine timestamp format
-    NSMutableDictionary *reportInfo = report[KSCrashField_Report];
-    NSString *versionString = reportInfo[KSCrashField_Version];
+    id reportInfo = report[KSCrashField_Report];
+    if (![reportInfo isKindOfClass:[NSDictionary class]]) {
+        return;
+    }
+    id versionVal = reportInfo[KSCrashField_Version];
 
-    int major, minor, patch;
-    parseVersion(versionString, &major, &minor, &patch);
+    // Determine timestamp format: 3.3.0+ writes microseconds, older writes seconds.
+    // Missing or non-string version is treated as legacy (seconds) so that
+    // numeric timestamps in user/custom reports are still normalized correctly.
+    BOOL useMicroseconds = NO;
+    if ([versionVal isKindOfClass:[NSString class]]) {
+        int major, minor, patch;
+        parseVersion(versionVal, &major, &minor, &patch);
+        useMicroseconds = isVersionAtLeast(major, minor, patch, 3, 3, 0);
+    }
 
-    // Version 3.3.0+ uses microseconds for timestamps
-    BOOL useMicroseconds = isVersionAtLeast(major, minor, patch, 3, 3, 0);
-
-    // Fix timestamp in report
-    fixupTimestamp(reportInfo, useMicroseconds);
+    // Fix timestamp in report (mutableCopy because the input is immutable)
+    NSMutableDictionary *mutableReportInfo = [reportInfo mutableCopy];
+    fixupTimestamp(mutableReportInfo, useMicroseconds);
+    report[KSCrashField_Report] = mutableReportInfo;
 
     // Fix timestamp in recrash report if present
-    NSMutableDictionary *recrash = report[KSCrashField_RecrashReport];
-    if (recrash != nil) {
-        NSMutableDictionary *recrashReportInfo = recrash[KSCrashField_Report];
-        fixupTimestamp(recrashReportInfo, useMicroseconds);
+    id recrash = report[KSCrashField_RecrashReport];
+    if ([recrash isKindOfClass:[NSDictionary class]]) {
+        id recrashReportInfo = recrash[KSCrashField_Report];
+        if ([recrashReportInfo isKindOfClass:[NSDictionary class]]) {
+            NSMutableDictionary *mutableRecrash = [recrash mutableCopy];
+            NSMutableDictionary *mutableRecrashInfo = [recrashReportInfo mutableCopy];
+            fixupTimestamp(mutableRecrashInfo, useMicroseconds);
+            mutableRecrash[KSCrashField_Report] = mutableRecrashInfo;
+            report[KSCrashField_RecrashReport] = mutableRecrash;
+        }
     }
 }
 
-#pragma mark - Public C API
+#pragma mark - Public API
 
-char *kscrf_fixupCrashReport(const char *crashReport)
+NSDictionary *kscrf_fixupReportDict(NSDictionary *report)
 {
-    if (crashReport == NULL) {
-        return NULL;
-    }
-
-    @autoreleasepool {
-        NSData *jsonData = [NSData dataWithBytesNoCopy:(void *)crashReport length:strlen(crashReport) freeWhenDone:NO];
-
-        NSError *error = nil;
-        NSMutableDictionary *report =
-            [KSJSONCodec decode:jsonData
-                        options:KSJSONDecodeOptionIgnoreNullInArray | KSJSONDecodeOptionIgnoreNullInObject |
-                                KSJSONDecodeOptionKeepPartialObject
-                          error:&error];
-        if (report == nil) {
-            KSLOG_ERROR(@"Could not decode report for fixup: %@", error);
-            return NULL;
-        }
-
-        fixupReport(report);
-
-        NSData *outputData = [KSJSONCodec encode:report options:KSJSONEncodeOptionPretty error:&error];
-        if (outputData == nil) {
-            KSLOG_ERROR(@"Could not encode fixed report: %@", error);
-            return NULL;
-        }
-
-        char *result = malloc(outputData.length + 1);
-        if (result == NULL) {
-            return NULL;
-        }
-        memcpy(result, outputData.bytes, outputData.length);
-        result[outputData.length] = '\0';
-
-        return result;
-    }
+    NSMutableDictionary *mutable = [report mutableCopy];
+    fixupReport(mutable);
+    return mutable;
 }

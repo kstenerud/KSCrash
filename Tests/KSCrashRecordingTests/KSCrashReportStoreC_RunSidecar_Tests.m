@@ -39,12 +39,11 @@
 static const char *testMonitorId(__unused void *context) { return "TestStitchMonitor"; }
 
 // Reads the sidecar file as UTF-8 text and inserts it under "test_stitch" in the report.
-static char *testStitchReport(const char *report, const char *sidecarPath, __unused KSCrashSidecarScope scope,
-                              __unused void *context)
+static CFDictionaryRef testStitchReport(CFDictionaryRef reportDict, const char *sidecarPath,
+                                        __unused KSCrashSidecarScope scope, __unused void *context)
 {
     @autoreleasepool {
-        NSData *reportData = [NSData dataWithBytesNoCopy:(void *)report length:strlen(report) freeWhenDone:NO];
-        NSDictionary *decoded = [KSJSONCodec decode:reportData options:KSJSONDecodeOptionNone error:nil];
+        NSDictionary *decoded = (__bridge NSDictionary *)reportDict;
         if (![decoded isKindOfClass:[NSDictionary class]]) {
             return NULL;
         }
@@ -56,15 +55,7 @@ static char *testStitchReport(const char *report, const char *sidecarPath, __unu
         }
         NSMutableDictionary *dict = [decoded mutableCopy];
         dict[@"test_stitch"] = sidecarContent;
-
-        NSData *encoded = [KSJSONCodec encode:dict options:KSJSONEncodeOptionNone error:nil];
-        if (!encoded) {
-            return NULL;
-        }
-        char *result = (char *)malloc(encoded.length + 1);
-        memcpy(result, encoded.bytes, encoded.length);
-        result[encoded.length] = '\0';
-        return result;
+        return (__bridge_retained CFDictionaryRef)dict;
     }
 }
 
@@ -111,80 +102,6 @@ static char *testStitchReport(const char *report, const char *sidecarPath, __unu
                                                     error:nil];
     NSString *path = [runDir stringByAppendingPathComponent:[NSString stringWithFormat:@"%@.ksscr", monitorId]];
     [contents writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
-}
-
-#pragma mark - kscrs_extractRunIdFromReport
-
-- (void)testExtractRunIdFromValidReport
-{
-    NSString *runId = [[NSUUID UUID] UUIDString];
-    NSString *jsonStr = [NSString stringWithFormat:@"{\"report\":{\"run_id\":\"%@\",\"id\":\"evt1\"}}", runId];
-    char buf[64];
-    bool result = kscrs_extractRunIdFromReport(jsonStr.UTF8String, buf, sizeof(buf));
-    XCTAssertTrue(result);
-    XCTAssertEqualObjects([NSString stringWithUTF8String:buf], runId);
-}
-
-- (void)testExtractRunIdFromReportMissingRunId
-{
-    const char *json = "{\"report\":{\"id\":\"evt1\"}}";
-    char buf[64];
-    bool result = kscrs_extractRunIdFromReport(json, buf, sizeof(buf));
-    XCTAssertFalse(result);
-}
-
-- (void)testExtractRunIdFromReportMissingReportSection
-{
-    const char *json = "{\"crash\":{\"error\":{}}}";
-    char buf[64];
-    bool result = kscrs_extractRunIdFromReport(json, buf, sizeof(buf));
-    XCTAssertFalse(result);
-}
-
-- (void)testExtractRunIdFromInvalidJSON
-{
-    const char *json = "not json";
-    char buf[64];
-    bool result = kscrs_extractRunIdFromReport(json, buf, sizeof(buf));
-    XCTAssertFalse(result);
-}
-
-- (void)testExtractRunIdNullReport
-{
-    char buf[64];
-    bool result = kscrs_extractRunIdFromReport(NULL, buf, sizeof(buf));
-    XCTAssertFalse(result);
-}
-
-- (void)testExtractRunIdNullBuffer
-{
-    const char *json = "{\"report\":{\"run_id\":\"abc\"}}";
-    bool result = kscrs_extractRunIdFromReport(json, NULL, 64);
-    XCTAssertFalse(result);
-}
-
-- (void)testExtractRunIdZeroBufferLength
-{
-    const char *json = "{\"report\":{\"run_id\":\"abc\"}}";
-    char buf[64];
-    bool result = kscrs_extractRunIdFromReport(json, buf, 0);
-    XCTAssertFalse(result);
-}
-
-- (void)testExtractRunIdRejectsNonUUID
-{
-    const char *json = "{\"report\":{\"run_id\":\"../../etc/passwd\",\"id\":\"evt1\"}}";
-    char buf[64];
-    bool result = kscrs_extractRunIdFromReport(json, buf, sizeof(buf));
-    XCTAssertFalse(result);
-}
-
-- (void)testExtractRunIdEmptyRunId
-{
-    const char *json = "{\"report\":{\"run_id\":\"\",\"id\":\"evt1\"}}";
-    char buf[64];
-    bool result = kscrs_extractRunIdFromReport(json, buf, sizeof(buf));
-    XCTAssertFalse(result);
 }
 
 #pragma mark - kscrs_getRunSidecarFilePath
@@ -339,7 +256,7 @@ static char *testStitchReport(const char *report, const char *sidecarPath, __unu
     KSCrashMonitorAPI api = {};
     kscma_initAPI(&api);
     api.monitorId = testMonitorId;
-    api.stitchReport = testStitchReport;
+    api.createStitchedReport = testStitchReport;
     return api;
 }
 
@@ -428,6 +345,151 @@ static char *testStitchReport(const char *report, const char *sidecarPath, __unu
     XCTAssertEqualObjects(decoded2[@"test_stitch"], @"shared data");
 
     kscm_removeMonitor(&api);
+}
+
+- (int64_t)writeLargeReportWithRunId:(NSString *)runId reportKeyEarly:(BOOL)reportKeyEarly
+{
+    // Build a large report (>4 KB) to exercise orphan cleanup on oversized files.
+    // When reportKeyEarly=YES, "report" appears near the start but run_id is
+    // buried deep inside the report object (past any prefix window).
+    // When reportKeyEarly=NO, the entire "report" section is past 2 KB.
+    NSMutableString *padding = [NSMutableString stringWithCapacity:5000];
+    for (int i = 0; i < 300; i++) {
+        [padding appendFormat:@"\"pad_%03d\":\"x\",", i];
+    }
+    NSString *json;
+    if (reportKeyEarly) {
+        // "report" key at offset ~1, but run_id is after 4 KB of padding inside it
+        json = [NSString stringWithFormat:@"{\"report\":{%@\"run_id\":\"%@\",\"id\":\"evt1\"}}", padding, runId];
+        NSRange runIdRange = [json rangeOfString:@"\"run_id\":"];
+        XCTAssertTrue(runIdRange.location > 2048, @"run_id must be past any 2 KB prefix window");
+    } else {
+        // "report" key itself is past 2 KB
+        json = [NSString stringWithFormat:@"{%@\"report\":{\"run_id\":\"%@\",\"id\":\"evt1\"}}", padding, runId];
+        NSRange reportRange = [json rangeOfString:@"\"report\":"];
+        XCTAssertTrue(reportRange.location > 2048, @"report key must be past any 2 KB prefix window");
+    }
+    XCTAssertTrue(json.length > 4096, @"Report must be larger than 4 KB");
+    NSData *data = [json dataUsingEncoding:NSUTF8StringEncoding];
+    return kscrs_addUserReport(data.bytes, (int)data.length, &_storeConfig);
+}
+
+#pragma mark - Orphan Cleanup With Large Reports
+
+- (void)testOrphanCleanupPreservesSidecarsForLargeReport
+{
+    [self prepareStoreWithRunSidecars:@"testLargeReportOrphan"];
+    NSString *runId = [[NSUUID UUID] UUIDString];
+    [self writeLargeReportWithRunId:runId reportKeyEarly:NO];
+    [self writeRunSidecar:@"System" runId:runId contents:@"system data"];
+
+    NSString *runDir =
+        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:runId];
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir]);
+
+    kscrs_cleanupOrphanedRunSidecars(&_storeConfig);
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir],
+                  @"Run sidecar should be preserved when report section is past 2 KB");
+}
+
+- (void)testOrphanCleanupPreservesSidecarsWhenRunIdIsDeepInsideReportSection
+{
+    [self prepareStoreWithRunSidecars:@"testDeepRunId"];
+    NSString *runId = [[NSUUID UUID] UUIDString];
+    [self writeLargeReportWithRunId:runId reportKeyEarly:YES];
+    [self writeRunSidecar:@"System" runId:runId contents:@"system data"];
+
+    NSString *runDir =
+        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:runId];
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir]);
+
+    kscrs_cleanupOrphanedRunSidecars(&_storeConfig);
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir],
+                  @"Run sidecar should be preserved when run_id is deep inside report section");
+}
+
+- (void)testOrphanCleanupDeletesOrphanButKeepsLargeReport
+{
+    [self prepareStoreWithRunSidecars:@"testLargeMixed"];
+    NSString *activeRunId = [[NSUUID UUID] UUIDString];
+    NSString *orphanRunId = [[NSUUID UUID] UUIDString];
+
+    [self writeLargeReportWithRunId:activeRunId reportKeyEarly:YES];
+    [self writeRunSidecar:@"System" runId:activeRunId contents:@"active"];
+    [self writeRunSidecar:@"System" runId:orphanRunId contents:@"orphan"];
+
+    NSString *activeDir =
+        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:activeRunId];
+    NSString *orphanDir =
+        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:orphanRunId];
+
+    kscrs_cleanupOrphanedRunSidecars(&_storeConfig);
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:activeDir],
+                  @"Active large-report sidecar should be preserved");
+    XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:orphanDir],
+                   @"Orphaned sidecar should still be deleted");
+}
+
+- (void)testOrphanCleanupHandlesArraysBeforeRunId
+{
+    [self prepareStoreWithRunSidecars:@"testArrayBeforeRunId"];
+    NSString *runId = [[NSUUID UUID] UUIDString];
+    // report section has arrays and nested objects before run_id
+    NSString *json = [NSString
+        stringWithFormat:@"{\"report\":{\"breadcrumbs\":[1,2,3],\"nested\":{\"a\":true},\"run_id\":\"%@\"}}", runId];
+    NSData *data = [json dataUsingEncoding:NSUTF8StringEncoding];
+    kscrs_addUserReport(data.bytes, (int)data.length, &_storeConfig);
+    [self writeRunSidecar:@"System" runId:runId contents:@"data"];
+
+    NSString *runDir =
+        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:runId];
+
+    kscrs_cleanupOrphanedRunSidecars(&_storeConfig);
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir],
+                  @"Run sidecar should be preserved when arrays precede run_id in report section");
+}
+
+- (void)testOrphanCleanupHandlesNestedReportKeyBeforeTopLevel
+{
+    [self prepareStoreWithRunSidecars:@"testNestedReportKey"];
+    NSString *runId = [[NSUUID UUID] UUIDString];
+    // "report" appears as a nested key inside "meta" before the top-level "report"
+    NSString *json =
+        [NSString stringWithFormat:@"{\"meta\":{\"report\":{}},\"report\":{\"run_id\":\"%@\",\"id\":\"evt1\"}}", runId];
+    NSData *data = [json dataUsingEncoding:NSUTF8StringEncoding];
+    kscrs_addUserReport(data.bytes, (int)data.length, &_storeConfig);
+    [self writeRunSidecar:@"System" runId:runId contents:@"data"];
+
+    NSString *runDir =
+        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:runId];
+
+    kscrs_cleanupOrphanedRunSidecars(&_storeConfig);
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir],
+                  @"Run sidecar should be preserved when nested 'report' key precedes top-level one");
+}
+
+- (void)testOrphanCleanupFallsBackOnOversizedKeyBeforeRunId
+{
+    [self prepareStoreWithRunSidecars:@"testOversizedKey"];
+    NSString *runId = [[NSUUID UUID] UUIDString];
+    // Build a key longer than the streaming decoder's name buffer (4096/4 = 1024).
+    // This forces KSJSON_ERROR_DATA_TOO_LONG and exercises the ObjC fallback.
+    NSMutableString *longKey = [NSMutableString stringWithCapacity:1100];
+    for (int i = 0; i < 1100; i++) {
+        [longKey appendString:@"k"];
+    }
+    NSString *json = [NSString
+        stringWithFormat:@"{\"%@\":\"value\",\"report\":{\"run_id\":\"%@\",\"id\":\"evt1\"}}", longKey, runId];
+    NSData *data = [json dataUsingEncoding:NSUTF8StringEncoding];
+    kscrs_addUserReport(data.bytes, (int)data.length, &_storeConfig);
+    [self writeRunSidecar:@"System" runId:runId contents:@"data"];
+
+    NSString *runDir =
+        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:runId];
+
+    kscrs_cleanupOrphanedRunSidecars(&_storeConfig);
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir],
+                  @"Run sidecar should be preserved via ObjC fallback when streaming decoder fails on oversized key");
 }
 
 @end

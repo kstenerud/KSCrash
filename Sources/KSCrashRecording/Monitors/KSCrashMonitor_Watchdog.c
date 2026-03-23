@@ -813,10 +813,6 @@ static void addContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext
     }
 }
 
-/** Implemented in KSCrashMonitor_WatchdogStitch.m */
-extern char *kscm_watchdog_stitchReport(const char *report, const char *sidecarPath, KSCrashSidecarScope scope,
-                                        void *context);
-
 void kscm_watchdog_setReportsHangs(bool enabled) { atomic_store(&g_reportsHangs, enabled); }
 
 KSCrashMonitorAPI *kscm_watchdog_getAPI(void)
@@ -829,7 +825,7 @@ KSCrashMonitorAPI *kscm_watchdog_getAPI(void)
         api.setEnabled = setEnabled;
         api.isEnabled = isEnabled;
         api.addContextualInfoToEvent = addContextualInfoToEvent;
-        api.stitchReport = kscm_watchdog_stitchReport;
+        api.createStitchedReport = kscm_watchdog_createStitchedReport;
     }
     return &api;
 }

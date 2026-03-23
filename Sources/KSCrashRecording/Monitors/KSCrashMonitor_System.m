@@ -615,10 +615,6 @@ void kscm_system_setFreeStorageSize(uint64_t freeStorageSize)
     ks_spinlock_unlock(&g_systemDataLock);
 }
 
-/** Implemented in KSCrashMonitor_SystemStitch.m */
-extern char *kscm_system_stitchReport(const char *report, const char *sidecarPath, KSCrashSidecarScope scope,
-                                      void *context);
-
 KSCrashMonitorAPI *kscm_system_getAPI(void)
 {
     static KSCrashMonitorAPI api = { 0 };
@@ -628,7 +624,7 @@ KSCrashMonitorAPI *kscm_system_getAPI(void)
         api.setEnabled = setEnabled;
         api.isEnabled = isEnabled_func;
         api.addContextualInfoToEvent = addContextualInfoToEvent;
-        api.stitchReport = kscm_system_stitchReport;
+        api.createStitchedReport = kscm_system_createStitchedReport;
     }
     return &api;
 }
