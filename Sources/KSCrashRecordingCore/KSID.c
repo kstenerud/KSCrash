@@ -25,22 +25,16 @@
 #include "KSID.h"
 
 #include <string.h>
-#include <sys/syscall.h>
-#include <unistd.h>
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-static int ks_getentropy(void *buf, size_t len) { return syscall(SYS_getentropy, buf, len); }
-#pragma clang diagnostic pop
+#include <sys/random.h>
 
 static const char g_hexChars[] = "0123456789ABCDEF";
 
 void ksid_generate(char *destinationBuffer37Bytes)
 {
     unsigned char bytes[16];
-    // getentropy is a direct syscall with no userspace locks,
+    // getentropy goes directly to the kernel with no userspace locks,
     // avoiding the corecrypto RNG lock that uuid_generate uses.
-    if (ks_getentropy(bytes, sizeof(bytes)) != 0) {
+    if (getentropy(bytes, sizeof(bytes)) != 0) {
         memset(bytes, 0, sizeof(bytes));
     }
     // UUID v4: version 4 in bytes[6], variant 1 in bytes[8]
