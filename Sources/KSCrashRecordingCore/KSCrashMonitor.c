@@ -101,9 +101,6 @@ static void init(void)
     }
 
     memset(&g_state, 0, sizeof(g_state));
-    for (size_t i = 0; i < ASYNC_SAFE_ITEM_COUNT; i++) {
-        ksid_generate(g_state.asyncSafeContext[i].eventID);
-    }
     g_state.exitImmediatelyContext.requirements.shouldExitImmediately = true;
 }
 
@@ -166,6 +163,7 @@ static KSCrash_MonitorContext *getNextMonitorContext(KSCrash_ExceptionHandlingRe
         //
         // If a third same-thread exception occurs, `notifyException()` calls `_exit(1)`.
         ctx = asyncSafeContextAtIndex(g_state.asyncSafeContextIndex++);
+        ksid_generate(ctx->eventID);
     } else {
         // If we're not in an environment requiring async safety, allocate a context on
         // the heap, and then free it in handleException().
