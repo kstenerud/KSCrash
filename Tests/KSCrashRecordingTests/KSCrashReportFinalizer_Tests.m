@@ -332,6 +332,69 @@ static CFDictionaryRef noopStitchReport(CFDictionaryRef reportDict, __unused con
     XCTAssertEqualObjects(decoded[@"finalizer_test_stitch"], @"original_data");
 }
 
+#pragma mark - Pre-Finalized Reports
+
+- (void)testPreFinalizedUserReportSkipsStitchingOnRead
+{
+    [self prepareStore:@"testPreFinalized"];
+    [self registerTestMonitor];
+
+    NSString *runId = [[NSUUID UUID] UUIDString];
+
+    // Write a report that is already finalized in the JSON body,
+    // as MetricKit does to prevent stitch contamination.
+    NSString *json = [NSString stringWithFormat:@"{\"report\":{\"run_id\":\"%@\",\"id\":\"mk1\",\"finalized\":true},"
+                                                @"\"system\":{\"os_version\":\"original\"}}",
+                                                runId];
+    NSData *data = [json dataUsingEncoding:NSUTF8StringEncoding];
+    int64_t reportID = kscrs_addUserReport(data.bytes, (int)data.length, &_storeConfig);
+    XCTAssertTrue(reportID > 0);
+
+    // Plant a run sidecar that would overwrite system.os_version if stitching ran
+    [self writeRunSidecar:@"FinalizerTestMonitor" runId:runId contents:@"contaminated"];
+
+    // Read via normal path — must return the report as-is
+    char *rawReport = kscrs_readReport(reportID, &_storeConfig);
+    XCTAssertTrue(rawReport != NULL);
+
+    NSData *readData = [NSData dataWithBytesNoCopy:rawReport length:strlen(rawReport) freeWhenDone:YES];
+    NSDictionary *decoded = [KSJSONCodec decode:readData options:KSJSONDecodeOptionNone error:nil];
+
+    // Stitch data must NOT be present
+    XCTAssertNil(decoded[@"finalizer_test_stitch"]);
+    // Original data must be preserved
+    XCTAssertEqualObjects(decoded[@"system"][@"os_version"], @"original");
+}
+
+- (void)testNonFinalizedUserReportIsStitchedOnRead
+{
+    [self prepareStore:@"testNonFinalized"];
+    [self registerTestMonitor];
+
+    NSString *runId = [[NSUUID UUID] UUIDString];
+
+    // Write a report WITHOUT the finalized flag
+    NSString *json = [NSString
+        stringWithFormat:@"{\"report\":{\"run_id\":\"%@\",\"id\":\"mk2\"},\"system\":{\"os_version\":\"original\"}}",
+                         runId];
+    NSData *data = [json dataUsingEncoding:NSUTF8StringEncoding];
+    int64_t reportID = kscrs_addUserReport(data.bytes, (int)data.length, &_storeConfig);
+    XCTAssertTrue(reportID > 0);
+
+    // Plant a run sidecar
+    [self writeRunSidecar:@"FinalizerTestMonitor" runId:runId contents:@"hydrated"];
+
+    // Read via normal path — stitch must run
+    char *rawReport = kscrs_readReport(reportID, &_storeConfig);
+    XCTAssertTrue(rawReport != NULL);
+
+    NSData *readData = [NSData dataWithBytesNoCopy:rawReport length:strlen(rawReport) freeWhenDone:YES];
+    NSDictionary *decoded = [KSJSONCodec decode:readData options:KSJSONDecodeOptionNone error:nil];
+
+    // Stitch data must be present
+    XCTAssertEqualObjects(decoded[@"finalizer_test_stitch"], @"hydrated");
+}
+
 #pragma mark - Idempotency
 
 - (void)testFinalizeAlreadyFinalizedReport

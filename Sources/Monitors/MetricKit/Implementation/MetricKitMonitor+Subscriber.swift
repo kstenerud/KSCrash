@@ -293,7 +293,8 @@ import os.log
                 type: report.report.type,
                 version: report.report.version,
                 runId: crashedRunId,
-                monitorId: report.report.monitorId
+                monitorId: report.report.monitorId,
+                finalized: true
             )
             let newReport = BasicCrashReport(
                 binaryImages: callStackData.binaryImages,
