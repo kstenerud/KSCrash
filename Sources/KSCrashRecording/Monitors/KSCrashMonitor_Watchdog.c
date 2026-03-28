@@ -332,11 +332,15 @@ static void populateReportForCurrentHang(KSHangMonitor *monitor)
             KSLOG_ERROR("Report path too long, discarding hang report");
         } else {
             monitor->sidecar = sidecar_open(monitor);
-            monitor->sidecar->startTimestamp = monitor->hang.timestamp;
-            monitor->sidecar->startRole = monitor->hang.role;
-            monitor->sidecar->startTransitionState = monitor->hang.transitionState;
-            sidecar_update(monitor->sidecar, monitor->hang.endTimestamp, monitor->hang.endRole,
-                           monitor->hang.endTransitionState);
+            if (monitor->sidecar) {
+                monitor->sidecar->startTimestamp = monitor->hang.timestamp;
+                monitor->sidecar->startRole = monitor->hang.role;
+                monitor->sidecar->startTransitionState = monitor->hang.transitionState;
+                sidecar_update(monitor->sidecar, monitor->hang.endTimestamp, monitor->hang.endRole,
+                               monitor->hang.endTransitionState);
+            } else {
+                KSLOG_ERROR("Failed to open run sidecar for hang report");
+            }
         }
     } else {
         KSLOG_DEBUG("hang changed during report population - discarding");
@@ -397,8 +401,12 @@ static void finalizeResolvedHang(KSHangMonitor *monitor, KSHangState hang)
             // the purpose. It would also race with report deletion (the
             // background write-back could resurrect a deleted report).
             if (!kscrs_finalizeReport(hang.path, hang.reportId)) {
-                KSLOG_ERROR("Failed to finalize hang report %" PRIx64 " at %s, will fall back to next-launch stitching",
-                            hang.reportId, hang.path);
+                // With a run sidecar, falling back to next-launch stitching
+                // is unsafe: a second hang would overwrite the same sidecar
+                // and the first report would get the wrong data. Delete it.
+                KSLOG_ERROR("Failed to finalize hang report %" PRIx64 ", deleting to prevent stale stitching",
+                            hang.reportId);
+                unlink(hang.path);
             }
         } else {
             sidecar_delete(monitor);
