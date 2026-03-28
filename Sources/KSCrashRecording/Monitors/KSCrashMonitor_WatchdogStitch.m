@@ -26,6 +26,7 @@
 
 #import "KSCrashMonitor_WatchdogSidecar.h"
 
+#import "KSCrashAppTransitionState.h"
 #import "KSCrashMonitor_Watchdog.h"
 #import "KSCrashReportFields.h"
 #import "KSCrashRunContext.h"
@@ -38,10 +39,14 @@
 #import "KSLogger.h"
 
 CFDictionaryRef kscm_watchdog_createStitchedReport(CFDictionaryRef reportDict, const char *sidecarPath,
-                                                   __unused KSCrashSidecarScope scope, __unused void *context)
+                                                   KSCrashSidecarScope scope, __unused void *context)
 {
     if (!reportDict || !sidecarPath) {
         return NULL;
+    }
+    if (scope != KSCrashSidecarScopeRun) {
+        CFRetain(reportDict);
+        return reportDict;
     }
 
     // Read the sidecar from disk (can't use ksfu_mmap — it truncates with O_TRUNC)
@@ -63,13 +68,11 @@ CFDictionaryRef kscm_watchdog_createStitchedReport(CFDictionaryRef reportDict, c
         return NULL;
     }
 
-    uint64_t endTimestamp = sc.endTimestamp;
-    task_role_t endRole = sc.endRole;
     bool recovered = sc.recovered;
 
     NSMutableDictionary *dict = [(__bridge NSDictionary *)reportDict mutableCopy];
 
-    // Navigate to crash.error.hang, mutableCopy-ing only the levels we mutate.
+    // Navigate to crash.error, create hang section from sidecar data.
     id crashVal = dict[KSCrashField_Crash];
     if (![crashVal isKindOfClass:[NSDictionary class]]) {
         KSLOG_ERROR(@"Malformed report: 'crash' is missing or not a dictionary");
@@ -84,19 +87,16 @@ CFDictionaryRef kscm_watchdog_createStitchedReport(CFDictionaryRef reportDict, c
     }
     NSMutableDictionary *errorDict = [errorVal mutableCopy];
 
-    id hangVal = errorDict[KSCrashField_Hang];
-    if (![hangVal isKindOfClass:[NSDictionary class]]) {
-        KSLOG_ERROR(@"Malformed report: 'hang' is missing or not a dictionary");
-        return NULL;
-    }
-    NSMutableDictionary *hang = [hangVal mutableCopy];
-
-    // Update end timestamps from sidecar
-    hang[KSCrashField_HangEndNanoseconds] = @(endTimestamp);
-    hang[KSCrashField_HangEndRole] = @(kstaskrole_toString(endRole));
+    // Build the hang section entirely from the sidecar.
+    NSMutableDictionary *hang = [NSMutableDictionary dictionary];
+    hang[KSCrashField_HangStartNanoseconds] = @(sc.startTimestamp);
+    hang[KSCrashField_HangStartRole] = @(kstaskrole_toString(sc.startRole));
+    hang[KSCrashField_HangStartTransitionState] = @(ksapp_transitionStateToString(sc.startTransitionState));
+    hang[KSCrashField_HangEndNanoseconds] = @(sc.endTimestamp);
+    hang[KSCrashField_HangEndRole] = @(kstaskrole_toString(sc.endRole));
+    hang[KSCrashField_HangEndTransitionState] = @(ksapp_transitionStateToString(sc.endTransitionState));
 
     if (recovered) {
-        // Mark as recovered hang
         hang[KSCrashField_HangRecovered] = @YES;
 
         // Change the error type to "hang"
@@ -109,7 +109,8 @@ CFDictionaryRef kscm_watchdog_createStitchedReport(CFDictionaryRef reportDict, c
         errorDict[KSCrashField_IsFatal] = @NO;
         [errorDict removeObjectForKey:KSCrashField_IsCleanExit];
     } else {
-        // Unrecovered hang: the OS killed the process, so mark as fatal.
+        // Unrecovered hang: the OS killed the process, mark as fatal.
+        // The report already has the correct type from the report writer.
         errorDict[KSCrashField_IsFatal] = @YES;
         errorDict[KSCrashField_IsCleanExit] = @NO;
     }

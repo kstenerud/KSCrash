@@ -280,8 +280,10 @@ KSCRF_DEFINE_CONSTANT(KSCrashField, TaskRole, taskRole, "task_role")
 
 KSCRF_DEFINE_CONSTANT(KSCrashField, HangStartNanoseconds, hangStartNanoseconds, "hang_start_nanos")
 KSCRF_DEFINE_CONSTANT(KSCrashField, HangStartRole, hangStartRole, "hang_start_role")
+KSCRF_DEFINE_CONSTANT(KSCrashField, HangStartTransitionState, hangStartTransitionState, "hang_start_transition_state")
 KSCRF_DEFINE_CONSTANT(KSCrashField, HangEndNanoseconds, hangEndNanoseconds, "hang_end_nanos")
 KSCRF_DEFINE_CONSTANT(KSCrashField, HangEndRole, hangEndRole, "hang_end_role")
+KSCRF_DEFINE_CONSTANT(KSCrashField, HangEndTransitionState, hangEndTransitionState, "hang_end_transition_state")
 KSCRF_DEFINE_CONSTANT(KSCrashField, HangRecovered, hangRecovered, "hang_recovered")
 
 #ifdef __cplusplus

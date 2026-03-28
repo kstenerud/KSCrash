@@ -180,23 +180,6 @@ typedef struct KSCrash_MonitorContext {
         const char *reason;
     } ZombieException;
 
-    struct {
-        /** Whether the hang is currently in progress */
-        bool inProgress;
-
-        /** Start time of the hang in nanoseconds (monotonic uptime) **/
-        uint64_t timestamp;
-
-        /** Task role (task_role_t) at hang start time. */
-        int role;
-
-        /** End time (or last update time) of the hang in nanoseconds (monotonic uptime) **/
-        uint64_t endTimestamp;
-
-        /** Task role (task_role_t) at hang end time. */
-        int endRole;
-    } Hang;
-
     /** Full path to the console log, if any. */
     const char *consoleLogPath;
 

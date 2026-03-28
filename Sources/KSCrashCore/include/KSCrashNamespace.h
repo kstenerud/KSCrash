@@ -408,6 +408,7 @@
 #define kskvs_setInt64 KSCRASH_NS(kskvs_setInt64)
 #define kskvs_setString KSCRASH_NS(kskvs_setString)
 #define kskvs_setUInt64 KSCRASH_NS(kskvs_setUInt64)
+#define kslifecycle_currentTransitionState KSCRASH_NS(kslifecycle_currentTransitionState)
 #define kslifecycle_getSnapshotForRunID KSCRASH_NS(kslifecycle_getSnapshotForRunID)
 #define kslifecycle_readData KSCRASH_NS(kslifecycle_readData)
 #define kslog_clearLogFile KSCRASH_NS(kslog_clearLogFile)
