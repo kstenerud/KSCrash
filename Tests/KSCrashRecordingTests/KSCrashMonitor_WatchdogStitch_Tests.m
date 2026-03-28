@@ -175,7 +175,7 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 
 #pragma mark - No Hang In Report
 
-- (void)testReportWithoutHangReturnsNull
+- (void)testReportWithoutHangCreatesHangFromSidecar
 {
     KSHangSidecar sc = {
         .magic = KSHANG_SIDECAR_MAGIC,
@@ -495,7 +495,7 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
     XCTAssertTrue(result == nil);
 }
 
-- (void)testHangIsNSNullReturnsNull
+- (void)testHangIsNSNullCreatesHangFromSidecar
 {
     KSHangSidecar sc = {
         .magic = KSHANG_SIDECAR_MAGIC,
@@ -612,8 +612,8 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 
     // Report scope should pass through unchanged — no hang modifications
     NSDictionary *error = result[@"crash"][@"error"];
-    XCTAssertEqualObjects(error[@"type"], @"signal", "Type should be unchanged");
-    XCTAssertEqualObjects(error[@"is_fatal"], @YES, "is_fatal should be unchanged");
+    XCTAssertEqualObjects(error[@"type"], @"signal", @"Type should be unchanged");
+    XCTAssertEqualObjects(error[@"is_fatal"], @YES, @"is_fatal should be unchanged");
 }
 
 #pragma mark - Start Values From Sidecar

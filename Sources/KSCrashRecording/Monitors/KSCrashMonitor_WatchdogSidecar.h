@@ -60,7 +60,7 @@ typedef struct {
 
 // Expected layout (same on 32-bit and 64-bit — no pointer-sized fields):
 //   offset  0: int32_t    magic                  (4 bytes)
-//   offset  4: uint8_t    version                (1 byte + 7 padding)
+//   offset  4: uint8_t    version                (1 byte + 3 padding)
 //   offset  8: uint64_t   startTimestamp          (8 bytes)
 //   offset 16: task_role_t startRole              (4 bytes)
 //   offset 20: uint8_t    startTransitionState    (1 byte + 3 padding)

@@ -372,11 +372,10 @@ static void writeUpdatedReport(KSHangMonitor *monitor)
 
 static void finalizeResolvedHang(KSHangMonitor *monitor, KSHangState hang)
 {
-    // Suppress non-fatal hang reports that started before the app became active.
-    // Startup hangs are expected (initialization work) and would be noise.
-    // The report still existed on disk while active, so WatchdogStitch can
-    // detect fatal hangs (OS kills the app during a startup hang).
-    bool startedDuringStartup = hang.transitionState < KSCrashAppTransitionStateActive;
+    // Suppress non-fatal hangs that started during launch (Startup,
+    // StartupPrewarm, Launching). The report still existed on disk while
+    // active, so WatchdogStitch can detect fatal hangs during startup.
+    bool startedDuringStartup = hang.transitionState <= KSCrashAppTransitionStateLaunching;
 
     if (hang.path[0] != '\0') {
         if (monitor->reportsHangs && !startedDuringStartup) {

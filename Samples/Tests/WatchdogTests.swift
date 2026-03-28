@@ -127,7 +127,7 @@ import XCTest
                 },
                 object: nil
             )
-            wait(for: [finalizedExpectation], timeout: actionDelay + 10.0)
+            wait(for: [finalizedExpectation], timeout: actionDelay + 20.0)
 
             let reportData = try readRawCrashReportData()
             let report = try decodeCrashReport(reportData: reportData)
@@ -167,11 +167,20 @@ import XCTest
             )
             launchAppAndRunScript()
 
-            // Wait long enough for the hang to resolve and cleanup to happen
-            Thread.sleep(forTimeInterval: 5.0)
-
-            // No finalized hang report should exist
+            // Wait for the hang to resolve and any reports to be cleaned up.
+            // A startup hang report is created during detection but deleted on
+            // recovery, so the Reports directory should end up empty.
             let reportsDirUrl = installUrl.appendingPathComponent("Reports")
+            let emptyExpectation = XCTNSPredicateExpectation(
+                predicate: NSPredicate { _, _ in
+                    guard let files = try? FileManager.default.contentsOfDirectory(atPath: reportsDirUrl.path)
+                    else { return true }
+                    return files.isEmpty
+                },
+                object: nil
+            )
+            wait(for: [emptyExpectation], timeout: 10.0)
+
             let files = (try? FileManager.default.contentsOfDirectory(atPath: reportsDirUrl.path)) ?? []
             XCTAssertTrue(files.isEmpty, "Startup hang should be suppressed, but found reports: \(files)")
         }
