@@ -401,12 +401,18 @@ static void finalizeResolvedHang(KSHangMonitor *monitor, KSHangState hang)
             // the purpose. It would also race with report deletion (the
             // background write-back could resurrect a deleted report).
             if (!kscrs_finalizeReport(hang.path, hang.reportId)) {
-                // With a run sidecar, falling back to next-launch stitching
-                // is unsafe: a second hang would overwrite the same sidecar
-                // and the first report would get the wrong data. Delete it.
                 KSLOG_ERROR("Failed to finalize hang report %" PRIx64 ", deleting to prevent stale stitching",
                             hang.reportId);
                 unlink(hang.path);
+            }
+
+            // Delete the run sidecar now that the hang has recovered.
+            // kscrs_finalizeReport already read it, so it's no longer needed.
+            // Leaving it would contaminate later crash reports from this run
+            // with stale hang data.
+            if (monitor->sidecarPath[0] != '\0') {
+                unlink(monitor->sidecarPath);
+                monitor->sidecarPath[0] = '\0';
             }
         } else {
             sidecar_delete(monitor);
