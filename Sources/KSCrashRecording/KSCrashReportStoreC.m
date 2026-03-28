@@ -538,20 +538,17 @@ static char *readReportAtPath(const char *path, int64_t reportID, const KSCrashR
             return NULL;
         }
 
-        // Finalized reports already went through fixup and stitching at
-        // recovery time, so return the raw bytes as-is.
-        if (isReportFinalized(dict)) {
-            return strdup(rawReport);
-        }
-
-        // Fixup (timestamp conversion)
+        // Fixup (timestamp conversion) always runs, even on finalized reports.
         NSDictionary *report = kscrf_fixupReportDict(dict);
 
-        if (config != NULL) {
-            // Run sidecars first so per-report data can override per-run data
-            report = stitchRunSidecarsIntoReport(report, config, NULL);
-            if (reportID > 0) {
-                report = stitchReportSidecarsIntoReport(report, reportID, config, NULL);
+        // Finalized reports already went through stitching, so skip it.
+        if (!isReportFinalized(report)) {
+            if (config != NULL) {
+                // Run sidecars first so per-report data can override per-run data
+                report = stitchRunSidecarsIntoReport(report, config, NULL);
+                if (reportID > 0) {
+                    report = stitchReportSidecarsIntoReport(report, reportID, config, NULL);
+                }
             }
         }
 
