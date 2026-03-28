@@ -42,6 +42,7 @@
 
 #include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorHelper.h"
+#include "KSCrashMonitor_Lifecycle.h"
 #include "KSCrashMonitor_WatchdogSidecar.h"
 #include "KSCrashNamespace.h"
 #include "KSCrashReportFields.h"
@@ -182,14 +183,13 @@ static KSCrash_ExceptionHandlerCallbacks g_callbacks = { 0 };
 
 static const char *monitorId(__unused void *context);
 
-static KSHangSidecar *sidecar_open(KSHangMonitor *monitor, int64_t reportID)
+static KSHangSidecar *sidecar_open(KSHangMonitor *monitor)
 {
-    if (!g_callbacks.getReportSidecarPath) {
+    if (!g_callbacks.getRunSidecarPath) {
         return NULL;
     }
 
-    if (!g_callbacks.getReportSidecarPath(monitorId(NULL), reportID, monitor->sidecarPath,
-                                          sizeof(monitor->sidecarPath))) {
+    if (!g_callbacks.getRunSidecarPath(monitorId(NULL), monitor->sidecarPath, sizeof(monitor->sidecarPath))) {
         monitor->sidecarPath[0] = '\0';
         return NULL;
     }
@@ -207,13 +207,14 @@ static KSHangSidecar *sidecar_open(KSHangMonitor *monitor, int64_t reportID)
     return sc;
 }
 
-static void sidecar_update(KSHangSidecar *sc, uint64_t endTimestamp, task_role_t endRole)
+static void sidecar_update(KSHangSidecar *sc, uint64_t endTimestamp, task_role_t endRole, uint8_t endTransitionState)
 {
     if (!sc) {
         return;
     }
     sc->endTimestamp = endTimestamp;
     sc->endRole = endRole;
+    sc->endTransitionState = endTransitionState;
 }
 
 static void sidecar_finalize(KSHangMonitor *monitor, bool recovered)
@@ -316,12 +317,6 @@ static void populateReportForCurrentHang(KSHangMonitor *monitor)
 
     crashContext->exitReason.code = 0x8badf00d;
 
-    crashContext->Hang.inProgress = true;
-    crashContext->Hang.timestamp = hang.timestamp;
-    crashContext->Hang.role = hang.role;
-    crashContext->Hang.endTimestamp = hang.endTimestamp;
-    crashContext->Hang.endRole = hang.endRole;
-
     KSCrash_ReportResult result = { 0 };
     g_callbacks.handleWithResult(crashContext, &result, false);
 
@@ -336,8 +331,12 @@ static void populateReportForCurrentHang(KSHangMonitor *monitor)
         if (strlcpy(monitor->hang.path, result.path, PATH_MAX) >= PATH_MAX) {
             KSLOG_ERROR("Report path too long, discarding hang report");
         } else {
-            monitor->sidecar = sidecar_open(monitor, result.reportId);
-            sidecar_update(monitor->sidecar, monitor->hang.endTimestamp, monitor->hang.endRole);
+            monitor->sidecar = sidecar_open(monitor);
+            monitor->sidecar->startTimestamp = monitor->hang.timestamp;
+            monitor->sidecar->startRole = monitor->hang.role;
+            monitor->sidecar->startTransitionState = monitor->hang.transitionState;
+            sidecar_update(monitor->sidecar, monitor->hang.endTimestamp, monitor->hang.endRole,
+                           monitor->hang.endTransitionState);
         }
     } else {
         KSLOG_DEBUG("hang changed during report population - discarding");
@@ -361,7 +360,7 @@ static void writeUpdatedReport(KSHangMonitor *monitor)
     }
     timestampStart = monitor->hang.timestamp;
     timestampEnd = monitor->hang.endTimestamp;
-    sidecar_update(monitor->sidecar, timestampEnd, monitor->hang.endRole);
+    sidecar_update(monitor->sidecar, timestampEnd, monitor->hang.endRole, monitor->hang.endTransitionState);
     os_unfair_lock_unlock(&monitor->lock);
 
     notifyObservers(monitor, KSHangChangeTypeUpdated, timestampStart, timestampEnd);
@@ -369,8 +368,14 @@ static void writeUpdatedReport(KSHangMonitor *monitor)
 
 static void finalizeResolvedHang(KSHangMonitor *monitor, KSHangState hang)
 {
+    // Suppress non-fatal hang reports that started before the app became active.
+    // Startup hangs are expected (initialization work) and would be noise.
+    // The report still existed on disk while active, so WatchdogStitch can
+    // detect fatal hangs (OS kills the app during a startup hang).
+    bool startedDuringStartup = hang.transitionState < KSCrashAppTransitionStateActive;
+
     if (hang.path[0] != '\0') {
-        if (monitor->reportsHangs) {
+        if (monitor->reportsHangs && !startedDuringStartup) {
             sidecar_finalize(monitor, true);
 
             // Finalize the report synchronously so the stitched metadata
@@ -451,19 +456,22 @@ static void watchdogTimerFired(CFRunLoopTimerRef timer, void *info)
     }
 
     task_role_t currentRole = kstaskrole_current();
+    uint8_t currentTransition = kslifecycle_currentTransitionState();
 
     bool shouldStartNewHang = false;
     bool shouldUpdateHang = false;
 
     os_unfair_lock_lock(&monitor->lock);
     if (!monitor->hang.active) {
-        kshangstate_init(&monitor->hang, enter, currentRole);
+        kshangstate_init(&monitor->hang, enter, currentRole, currentTransition);
         monitor->hang.endTimestamp = now;
         monitor->hang.endRole = currentRole;
+        monitor->hang.endTransitionState = currentTransition;
         shouldStartNewHang = true;
     } else {
         monitor->hang.endTimestamp = now;
         monitor->hang.endRole = currentRole;
+        monitor->hang.endTransitionState = currentTransition;
         shouldUpdateHang = true;
     }
     os_unfair_lock_unlock(&monitor->lock);
@@ -520,6 +528,7 @@ static void mainRunLoopActivity(CFRunLoopObserverRef obs, CFRunLoopActivity acti
 
         hang.endTimestamp = ksdate_uptimeNanoseconds();
         hang.endRole = kstaskrole_current();
+        hang.endTransitionState = kslifecycle_currentTransitionState();
         finalizeResolvedHang(monitor, hang);
 
     } else if (activity == kCFRunLoopAfterWaiting) {

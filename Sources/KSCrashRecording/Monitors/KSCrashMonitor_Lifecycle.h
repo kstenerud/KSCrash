@@ -42,6 +42,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "KSCrashAppTransitionState.h"
 #include "KSCrashMonitorAPI.h"
 #include "KSCrashNamespace.h"
 #include "KSSystemCapabilities.h"
@@ -172,6 +173,11 @@ bool kslifecycle_readData(const char *path, KSCrash_LifecycleData *out);
  *  Returns false if the run ID has no valid sidecar or data fails validation.
  */
 bool kslifecycle_getSnapshotForRunID(const char *runID, KSCrash_LifecycleData *outData);
+
+/** Returns the most recently observed app transition state.
+ *  Lock-free (atomic load). Safe to call from any thread.
+ */
+KSCrashAppTransitionState kslifecycle_currentTransitionState(void);
 
 /** Access the Lifecycle Monitor API.
  */
