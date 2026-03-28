@@ -813,10 +813,8 @@ static void addContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext
         return;
     }
 
-    if (monitor->sidecarPath[0] != '\0') {
-        unlink(monitor->sidecarPath);
-    }
-
+    // Delete the incomplete hang report — the fatal crash supersedes it.
+    // Keep the run sidecar so the crash report gets hang context at stitch time.
     if (monitor->hang.path[0] != '\0') {
         unlink(monitor->hang.path);
     }
