@@ -60,6 +60,10 @@ import XCTest
             if let hangInfo = hangInfo {
                 let durationSeconds = Double(hangInfo.hangEndNanos - hangInfo.hangStartNanos) / 1_000_000_000.0
                 XCTAssertGreaterThan(durationSeconds, 1.0, "Hang duration should be at least 1 second")
+
+                // Transition states should be present
+                XCTAssertNotNil(hangInfo.hangStartTransitionState, "Start transition state should be present")
+                XCTAssertNotNil(hangInfo.hangEndTransitionState, "End transition state should be present")
             }
 
             // Verify we got a SIGKILL
@@ -142,6 +146,10 @@ import XCTest
                 let durationSeconds =
                     Double(hangInfo.hangEndNanos - hangInfo.hangStartNanos) / 1_000_000_000.0
                 XCTAssertGreaterThan(durationSeconds, 0.25, "Hang should exceed the watchdog threshold")
+
+                // Transition states should be present
+                XCTAssertNotNil(hangInfo.hangStartTransitionState, "Start transition state should be present")
+                XCTAssertNotNil(hangInfo.hangEndTransitionState, "End transition state should be present")
             }
         }
 
@@ -164,9 +172,11 @@ import XCTest
                 rawReport.crash.error.reason, "Exception during hang",
                 "Should have the exception reason")
 
-            // Verify hang info is NOT present - the fatal exception takes precedence
+            // Hang context is present from the run sidecar, providing diagnostic
+            // context that a hang was active when the exception fired.
             let hangInfo = rawReport.crash.error.hang
-            XCTAssertNil(hangInfo, "Hang info should NOT be present when a fatal exception occurred")
+            XCTAssertNotNil(hangInfo, "Hang context should be present from the run sidecar")
+            XCTAssertNil(hangInfo?.hangRecovered, "Hang should not be marked as recovered")
 
             let state = try readState()
             XCTAssertTrue(state.crashedLastLaunch)

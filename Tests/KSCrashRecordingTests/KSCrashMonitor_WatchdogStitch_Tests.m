@@ -26,6 +26,7 @@
 
 #import <XCTest/XCTest.h>
 
+#import "KSCrashAppTransitionState.h"
 #import "KSCrashMonitor_WatchdogSidecar.h"
 #import "KSCrashReportFields.h"
 #import "KSTaskRole.h"
@@ -534,6 +535,116 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 
     NSDictionary *hang = result[@"crash"][@"error"][@"hang"];
     XCTAssertEqualObjects(hang[@"hang_end_role"], @"DEFAULT_APPLICATION");
+}
+
+#pragma mark - Transition State
+
+- (void)testStitchWritesTransitionStatesFromSidecar
+{
+    KSHangSidecar sc = {
+        .magic = KSHANG_SIDECAR_MAGIC,
+        .version = KSHANG_SIDECAR_VERSION_1_0,
+        .startTimestamp = 1000,
+        .startRole = TASK_FOREGROUND_APPLICATION,
+        .startTransitionState = KSCrashAppTransitionStateLaunching,
+        .endTimestamp = 5000,
+        .endRole = TASK_DEFAULT_APPLICATION,
+        .endTransitionState = KSCrashAppTransitionStateActive,
+        .recovered = true,
+    };
+    NSString *path = writeSidecar(self.tempDir, sc);
+
+    NSDictionary *report = makeMinimalHangReport(1000, TASK_FOREGROUND_APPLICATION);
+
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertNotNil(result);
+
+    NSDictionary *hang = result[@"crash"][@"error"][@"hang"];
+    XCTAssertEqualObjects(hang[@"hang_start_transition_state"], @"launching");
+    XCTAssertEqualObjects(hang[@"hang_end_transition_state"], @"active");
+}
+
+- (void)testFatalHangIncludesTransitionStates
+{
+    KSHangSidecar sc = {
+        .magic = KSHANG_SIDECAR_MAGIC,
+        .version = KSHANG_SIDECAR_VERSION_1_0,
+        .startTimestamp = 1000,
+        .startRole = TASK_FOREGROUND_APPLICATION,
+        .startTransitionState = KSCrashAppTransitionStateActive,
+        .endTimestamp = 5000,
+        .endRole = TASK_FOREGROUND_APPLICATION,
+        .endTransitionState = KSCrashAppTransitionStateActive,
+        .recovered = false,
+    };
+    NSString *path = writeSidecar(self.tempDir, sc);
+
+    NSDictionary *report = makeMinimalHangReport(1000, TASK_FOREGROUND_APPLICATION);
+
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertNotNil(result);
+
+    NSDictionary *hang = result[@"crash"][@"error"][@"hang"];
+    XCTAssertEqualObjects(hang[@"hang_start_transition_state"], @"active");
+    XCTAssertEqualObjects(hang[@"hang_end_transition_state"], @"active");
+}
+
+#pragma mark - Sidecar Scope
+
+- (void)testReportScopeIsNoOp
+{
+    KSHangSidecar sc = {
+        .magic = KSHANG_SIDECAR_MAGIC,
+        .version = KSHANG_SIDECAR_VERSION_1_0,
+        .endTimestamp = 5000,
+        .endRole = TASK_DEFAULT_APPLICATION,
+        .recovered = true,
+    };
+    NSString *path = writeSidecar(self.tempDir, sc);
+
+    NSDictionary *report = makeMinimalHangReport(1000, TASK_FOREGROUND_APPLICATION);
+
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertNotNil(result);
+
+    // Report scope should pass through unchanged — no hang modifications
+    NSDictionary *error = result[@"crash"][@"error"];
+    XCTAssertEqualObjects(error[@"type"], @"signal", "Type should be unchanged");
+    XCTAssertEqualObjects(error[@"is_fatal"], @YES, "is_fatal should be unchanged");
+}
+
+#pragma mark - Start Values From Sidecar
+
+- (void)testStartValuesOverwriteJsonValues
+{
+    KSHangSidecar sc = {
+        .magic = KSHANG_SIDECAR_MAGIC,
+        .version = KSHANG_SIDECAR_VERSION_1_0,
+        .startTimestamp = 9999,
+        .startRole = TASK_DEFAULT_APPLICATION,
+        .startTransitionState = KSCrashAppTransitionStateBackground,
+        .endTimestamp = 20000,
+        .endRole = TASK_DEFAULT_APPLICATION,
+        .endTransitionState = KSCrashAppTransitionStateBackground,
+        .recovered = false,
+    };
+    NSString *path = writeSidecar(self.tempDir, sc);
+
+    // JSON has different start values than the sidecar
+    NSDictionary *report = makeMinimalHangReport(1111, TASK_FOREGROUND_APPLICATION);
+
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertNotNil(result);
+
+    // Sidecar values must win
+    NSDictionary *hang = result[@"crash"][@"error"][@"hang"];
+    XCTAssertEqualObjects(hang[@"hang_start_nanos"], @(9999));
+    XCTAssertEqualObjects(hang[@"hang_start_role"], @"DEFAULT_APPLICATION");
+    XCTAssertEqualObjects(hang[@"hang_start_transition_state"], @"background");
 }
 
 @end
