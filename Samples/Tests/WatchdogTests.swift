@@ -153,6 +153,29 @@ import XCTest
             }
         }
 
+        func testStartupHangIsSuppressed() throws {
+            // Trigger a hang during app init (before UIApplicationDidBecomeActive).
+            // The watchdog detects and writes a report, but since the hang started
+            // before Active, the report should be deleted on recovery.
+            var installConfig = InstallConfig(installPath: installUrl.path)
+            installConfig.isWatchdogEnabled = true
+            installConfig.isHangReportingEnabled = true
+            app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
+                crash: .init(triggerId: .other_appHang),
+                install: installConfig,
+                config: .init(delay: 0, stateSavePath: stateUrl.path, runEarly: true)
+            )
+            launchAppAndRunScript()
+
+            // Wait long enough for the hang to resolve and cleanup to happen
+            Thread.sleep(forTimeInterval: 5.0)
+
+            // No finalized hang report should exist
+            let reportsDirUrl = installUrl.appendingPathComponent("Reports")
+            let files = (try? FileManager.default.contentsOfDirectory(atPath: reportsDirUrl.path)) ?? []
+            XCTAssertTrue(files.isEmpty, "Startup hang should be suppressed, but found reports: \(files)")
+        }
+
         func testExceptionDuringHangReportsExceptionNotHang() throws {
             // Trigger a hang, then throw an exception while hung.
             // The fatal exception should be reported, not the hang.
