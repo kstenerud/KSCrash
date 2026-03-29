@@ -427,6 +427,21 @@ static void initialize(void)
 
     sd->appStartTimestamp = (int64_t)ksdate_seconds();
 
+    // Kernel process start time (actual fork/exec, before main()).
+    // Derive monotonic uptime without kern.boottime by comparing
+    // wall clocks: mono = now_mono - (now_wall - p_starttime).
+    struct kinfo_proc procInfo;
+    if (kssysctl_getProcessInfo(sd->processID, &procInfo)) {
+        struct timeval pstart = procInfo.kp_proc.p_starttime;
+        uint64_t pstartNs = (uint64_t)pstart.tv_sec * 1000000000ULL + (uint64_t)pstart.tv_usec * 1000ULL;
+        sd->processStartWallClockNs = pstartNs;
+
+        uint64_t nowWallNs = ksdate_wallClockNanoseconds();
+        uint64_t nowMonoNs = ksdate_continuousNanoseconds();
+        uint64_t elapsedNs = nowWallNs - pstartNs;
+        sd->processStartMonotonicNs = (elapsedNs <= nowMonoNs) ? (nowMonoNs - elapsedNs) : 0;
+    }
+
     safeNSStringCopy(sd->executablePath, getExecutablePath(), sizeof(sd->executablePath));
     safeNSStringCopy(sd->executableName, infoDict[@"CFBundleExecutable"], sizeof(sd->executableName));
     safeNSStringCopy(sd->bundleID, infoDict[@"CFBundleIdentifier"], sizeof(sd->bundleID));
