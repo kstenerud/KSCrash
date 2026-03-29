@@ -106,8 +106,18 @@ CFDictionaryRef kscm_resource_createStitchedReport(CFDictionaryRef reportDict, c
     systemDict[KSCrashField_BatteryState] = @(data.batteryState);
     systemDict[KSCrashField_LowPowerModeEnabled] = @((BOOL)data.lowPowerMode);
     systemDict[KSCrashField_CPUCoreCount] = @(data.cpuCoreCount);
-    systemDict[KSCrashField_CPUUsageUser] = @(data.cpuUsageUser);
-    systemDict[KSCrashField_CPUUsageSystem] = @(data.cpuUsageSystem);
+    {
+        const char *stateStr = "normal";
+        if (data.cpuState == 1)
+            stateStr = "warning";
+        else if (data.cpuState >= 2)
+            stateStr = "critical";
+        systemDict[KSCrashField_CPUState] = @(stateStr);
+    }
+    if (data.cpuWallTimeInWindowNs > 0) {
+        systemDict[KSCrashField_CPUTimeInWindow] = @((double)data.cpuTimeInWindowNs / 1e9);
+        systemDict[KSCrashField_CPUWallTimeInWindow] = @((double)data.cpuWallTimeInWindowNs / 1e9);
+    }
     systemDict[KSCrashField_ThermalState] = @(data.thermalState);
     systemDict[KSCrashField_ThreadCount] = @(data.threadCount);
     systemDict[KSCrashField_DataProtectionActive] = @((BOOL)data.dataProtectionActive);

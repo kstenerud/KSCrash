@@ -196,11 +196,14 @@ public struct SystemInfo: Codable, Sendable, Equatable {
     /// Number of active CPU cores.
     public let cpuCoreCount: Int?
 
-    /// App user-space CPU usage in permil of one core (e.g., 1500 = 1.5 cores worth of user time).
-    public let cpuUsageUser: Int?
+    /// CPU state from sliding-window tracker: "normal", "warning", or "critical".
+    public let cpuState: String?
 
-    /// App kernel-space CPU usage in permil of one core (e.g., 200 = 0.2 cores worth of kernel time).
-    public let cpuUsageSystem: Int?
+    /// CPU time accumulated in the active threshold window (seconds).
+    public let cpuTimeInWindow: Double?
+
+    /// Wall time of the active threshold window (seconds).
+    public let cpuWallTimeInWindow: Double?
 
     /// Device thermal state.
     public let thermalState: ThermalState?
@@ -252,8 +255,9 @@ public struct SystemInfo: Codable, Sendable, Equatable {
         batteryLevel: Int? = nil,
         batteryState: BatteryState? = nil,
         cpuCoreCount: Int? = nil,
-        cpuUsageUser: Int? = nil,
-        cpuUsageSystem: Int? = nil,
+        cpuState: String? = nil,
+        cpuTimeInWindow: Double? = nil,
+        cpuWallTimeInWindow: Double? = nil,
         thermalState: ThermalState? = nil,
         threadCount: Int? = nil,
         dataProtectionActive: Bool? = nil
@@ -298,8 +302,9 @@ public struct SystemInfo: Codable, Sendable, Equatable {
         self.batteryLevel = batteryLevel
         self.batteryState = batteryState
         self.cpuCoreCount = cpuCoreCount
-        self.cpuUsageUser = cpuUsageUser
-        self.cpuUsageSystem = cpuUsageSystem
+        self.cpuState = cpuState
+        self.cpuTimeInWindow = cpuTimeInWindow
+        self.cpuWallTimeInWindow = cpuWallTimeInWindow
         self.thermalState = thermalState
         self.threadCount = threadCount
         self.dataProtectionActive = dataProtectionActive
@@ -346,8 +351,9 @@ public struct SystemInfo: Codable, Sendable, Equatable {
         case batteryLevel = "battery_level"
         case batteryState = "battery_state"
         case cpuCoreCount = "cpu_core_count"
-        case cpuUsageUser = "cpu_usage_user"
-        case cpuUsageSystem = "cpu_usage_system"
+        case cpuState = "cpu_state"
+        case cpuTimeInWindow = "cpu_time_in_window"
+        case cpuWallTimeInWindow = "cpu_wall_time_in_window"
         case thermalState = "thermal_state"
         case threadCount = "thread_count"
         case dataProtectionActive = "data_protection_active"
@@ -401,8 +407,9 @@ public struct SystemInfo: Codable, Sendable, Equatable {
         batteryLevel = try c.decodeIfPresent(Int.self, forKey: .batteryLevel)
         batteryState = try c.decodeIfPresent(BatteryState.self, forKey: .batteryState)
         cpuCoreCount = try c.decodeIfPresent(Int.self, forKey: .cpuCoreCount)
-        cpuUsageUser = try c.decodeIfPresent(Int.self, forKey: .cpuUsageUser)
-        cpuUsageSystem = try c.decodeIfPresent(Int.self, forKey: .cpuUsageSystem)
+        cpuState = try c.decodeIfPresent(String.self, forKey: .cpuState)
+        cpuTimeInWindow = try c.decodeIfPresent(Double.self, forKey: .cpuTimeInWindow)
+        cpuWallTimeInWindow = try c.decodeIfPresent(Double.self, forKey: .cpuWallTimeInWindow)
         thermalState = try c.decodeIfPresent(ThermalState.self, forKey: .thermalState)
         threadCount = try c.decodeIfPresent(Int.self, forKey: .threadCount)
         dataProtectionActive = try c.decodeIfPresent(Bool.self, forKey: .dataProtectionActive)
@@ -460,8 +467,9 @@ public struct SystemInfo: Codable, Sendable, Equatable {
         try c.encodeIfPresent(batteryLevel, forKey: .batteryLevel)
         try c.encodeIfPresent(batteryState, forKey: .batteryState)
         try c.encodeIfPresent(cpuCoreCount, forKey: .cpuCoreCount)
-        try c.encodeIfPresent(cpuUsageUser, forKey: .cpuUsageUser)
-        try c.encodeIfPresent(cpuUsageSystem, forKey: .cpuUsageSystem)
+        try c.encodeIfPresent(cpuState, forKey: .cpuState)
+        try c.encodeIfPresent(cpuTimeInWindow, forKey: .cpuTimeInWindow)
+        try c.encodeIfPresent(cpuWallTimeInWindow, forKey: .cpuWallTimeInWindow)
         try c.encodeIfPresent(thermalState, forKey: .thermalState)
         try c.encodeIfPresent(threadCount, forKey: .threadCount)
         try c.encodeIfPresent(dataProtectionActive, forKey: .dataProtectionActive)

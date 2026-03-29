@@ -61,11 +61,6 @@ typedef enum {
  *  a low-battery termination candidate (percent, 0–100). */
 #define KSCRASH_BATTERY_LEVEL_CRITICAL 1
 
-/** CPU usage threshold in permil of one core above which an app is considered
- *  a CPU termination candidate.  Compared against the sum of user + system
- *  usage across all cores (i.e. threshold * coreCount). */
-#define KSCRASH_CPU_USAGE_CRITICAL 800
-
 #define KSRESOURCE_MAGIC ((int32_t)'ksrs')
 
 static const uint8_t KSCrash_Resource_CurrentVersion = 1;
@@ -109,6 +104,9 @@ typedef struct {
     // Data Protection
     uint8_t dataProtectionActive;  // 1 = protected data available (device unlocked)
 
+    // CPU sliding-window state (from KSCrashCPUTracker)
+    uint8_t cpuState;  // KSCrashCPUState: 0=normal, 1=warning, 2=critical
+
     // Last-update timestamps (monotonic uptime in nanoseconds).
     // Used to determine which resource area changed most recently before a crash.
     uint64_t memoryUpdatedAtNs;
@@ -117,9 +115,14 @@ typedef struct {
     uint64_t lowPowerUpdatedAtNs;
     uint64_t thermalUpdatedAtNs;
     uint64_t dataProtectionUpdatedAtNs;
+
+    // CPU time accumulated in the active threshold window (nanoseconds).
+    // Populated only when cpuState > Normal.
+    uint64_t cpuTimeInWindowNs;
+    uint64_t cpuWallTimeInWindowNs;
 } KSCrash_ResourceData;
 
-_Static_assert(sizeof(KSCrash_ResourceData) == 96, "KSCrash_ResourceData size changed — bump version");
+_Static_assert(sizeof(KSCrash_ResourceData) == 112, "KSCrash_ResourceData size changed — bump version");
 
 // ============================================================================
 #pragma mark - Public Snapshot API -
