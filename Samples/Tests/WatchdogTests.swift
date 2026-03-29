@@ -153,37 +153,43 @@ import XCTest
             }
         }
 
-        func testStartupHangIsSuppressed() throws {
-            // Trigger a hang during app init (before UIApplicationDidBecomeActive).
-            // The watchdog detects and writes a report, but since the hang started
-            // before Active, the report should be deleted on recovery.
-            var installConfig = InstallConfig(installPath: installUrl.path)
-            installConfig.isWatchdogEnabled = true
-            installConfig.isHangReportingEnabled = true
-            app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
-                crash: .init(triggerId: .other_appHang),
-                install: installConfig,
-                config: .init(delay: 0, stateSavePath: stateUrl.path, runEarly: true)
-            )
-            launchAppAndRunScript()
+        // macOS sets Active during +load (before any observer registers), so
+        // there is no pre-Active startup phase for the suppression boundary to
+        // detect. This test is only meaningful on iOS/tvOS where the app
+        // transitions through Launching -> Active via UIKit notifications.
+        #if os(iOS) || os(tvOS)
+            func testStartupHangIsSuppressed() throws {
+                // Trigger a hang during app init (before UIApplicationDidBecomeActive).
+                // The watchdog detects and writes a report, but since the hang started
+                // before Active, the report should be deleted on recovery.
+                var installConfig = InstallConfig(installPath: installUrl.path)
+                installConfig.isWatchdogEnabled = true
+                installConfig.isHangReportingEnabled = true
+                app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
+                    crash: .init(triggerId: .other_appHang),
+                    install: installConfig,
+                    config: .init(delay: 0, stateSavePath: stateUrl.path, runEarly: true)
+                )
+                launchAppAndRunScript()
 
-            // Wait for the hang to resolve and any reports to be cleaned up.
-            // A startup hang report is created during detection but deleted on
-            // recovery, so the Reports directory should end up empty.
-            let reportsDirUrl = installUrl.appendingPathComponent("Reports")
-            let emptyExpectation = XCTNSPredicateExpectation(
-                predicate: NSPredicate { _, _ in
-                    guard let files = try? FileManager.default.contentsOfDirectory(atPath: reportsDirUrl.path)
-                    else { return true }
-                    return files.isEmpty
-                },
-                object: nil
-            )
-            wait(for: [emptyExpectation], timeout: 10.0)
+                // Wait for the hang to resolve and any reports to be cleaned up.
+                // A startup hang report is created during detection but deleted on
+                // recovery, so the Reports directory should end up empty.
+                let reportsDirUrl = installUrl.appendingPathComponent("Reports")
+                let emptyExpectation = XCTNSPredicateExpectation(
+                    predicate: NSPredicate { _, _ in
+                        guard let files = try? FileManager.default.contentsOfDirectory(atPath: reportsDirUrl.path)
+                        else { return true }
+                        return files.isEmpty
+                    },
+                    object: nil
+                )
+                wait(for: [emptyExpectation], timeout: 10.0)
 
-            let files = (try? FileManager.default.contentsOfDirectory(atPath: reportsDirUrl.path)) ?? []
-            XCTAssertTrue(files.isEmpty, "Startup hang should be suppressed, but found reports: \(files)")
-        }
+                let files = (try? FileManager.default.contentsOfDirectory(atPath: reportsDirUrl.path)) ?? []
+                XCTAssertTrue(files.isEmpty, "Startup hang should be suppressed, but found reports: \(files)")
+            }
+        #endif
 
         func testExceptionDuringHangReportsExceptionNotHang() throws {
             // Trigger a hang, then throw an exception while hung.
