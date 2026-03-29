@@ -250,7 +250,7 @@ NSString *const KSCrashNSExceptionStacktraceFuncName = @"exceptionWithStacktrace
     // (threshold is 250ms), then spin the run loop so the BeforeWaiting
     // observer fires and finalizes the recovered hang report in-place.
     [NSThread sleepForTimeInterval:2.0];
-    [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:1.0]];
+    [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:5.0]];
 }
 
 + (void)trigger_other_sigkill
