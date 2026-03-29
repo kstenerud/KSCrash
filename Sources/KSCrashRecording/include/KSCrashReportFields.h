@@ -227,6 +227,8 @@ KSCRF_DEFINE_CONSTANT(KSCrashField, RecrashReport, recrashReport, "recrash_repor
 
 KSCRF_DEFINE_CONSTANT(KSCrashField, AppStartTime, appStartTime, "app_start_time")
 KSCRF_DEFINE_CONSTANT(KSCrashField, AppUUID, appUUID, "app_uuid")
+KSCRF_DEFINE_CONSTANT(KSCrashField, ProcessStartWallClockNs, processStartWallClockNs, "process_start_wall_clock_ns")
+KSCRF_DEFINE_CONSTANT(KSCrashField, ProcessStartMonotonicNs, processStartMonotonicNs, "process_start_monotonic_ns")
 KSCRF_DEFINE_CONSTANT(KSCrashField, BootTime, bootTime, "boot_time")
 KSCRF_DEFINE_CONSTANT(KSCrashField, BundleID, bundleID, "CFBundleIdentifier")
 KSCRF_DEFINE_CONSTANT(KSCrashField, BundleName, bundleName, "CFBundleName")
