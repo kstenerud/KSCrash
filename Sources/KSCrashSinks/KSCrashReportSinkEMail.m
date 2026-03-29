@@ -79,7 +79,7 @@
     int i = 1;
     for (KSCrashReportData *report in reports) {
         if ([report isKindOfClass:[KSCrashReportData class]] == NO || report.value == nil) {
-            KSLOG_ERROR(@"Unexpected non-data report: %@", report);
+            KSLOG_ERROR(@"Unexpected non-data report (got %@)", NSStringFromClass([report class]));
             continue;
         }
         [controller addAttachmentData:report.value

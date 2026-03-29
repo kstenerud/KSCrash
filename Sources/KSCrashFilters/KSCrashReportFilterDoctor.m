@@ -48,7 +48,7 @@
     NSMutableArray<id<KSCrashReport>> *filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
     for (KSCrashReportDictionary *report in reports) {
         if ([report isKindOfClass:[KSCrashReportDictionary class]] == NO) {
-            KSLOG_ERROR(@"Unexpected non-dictionary report: %@", report);
+            KSLOG_ERROR(@"Unexpected non-dictionary report (got %@)", NSStringFromClass([report class]));
             continue;
         }
 
