@@ -380,6 +380,22 @@ final class CrashReportDecodingTests: XCTestCase {
         }
     }
 
+    func testDecodeCPUStateValues() throws {
+        for (rawValue, expected): (String, CPUState) in [
+            ("normal", .normal), ("warning", .warning), ("critical", .critical),
+        ] {
+            let json = """
+                {
+                    "crash": { "error": { "type": "mach" }, "threads": [] },
+                    "report": { "id": "test" },
+                    "system": { "cpu_state": "\(rawValue)" }
+                }
+                """
+            let report = try CrashReport.decode(from: json)
+            XCTAssertEqual(report.system?.cpuState, expected, "cpu_state \(rawValue)")
+        }
+    }
+
     func testDecodeUserData() throws {
         struct TestUserData: Codable, Sendable {
             let key1: String

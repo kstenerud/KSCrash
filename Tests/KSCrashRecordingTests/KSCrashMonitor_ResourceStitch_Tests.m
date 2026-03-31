@@ -379,6 +379,7 @@ static KSCrash_ResourceData makeValidResourceData(void)
 {
     KSCrash_ResourceData data = makeValidResourceData();
     data.cpuState = 2;                            // critical
+    data.cpuAverageUsagePermil = 850;             // 85% of total capacity
     data.cpuTimeInWindowNs = 48000000000ULL;      // 48s of CPU time
     data.cpuWallTimeInWindowNs = 60000000000ULL;  // over 60s wall time
     NSString *path = writeResourceSidecar(self.tempDir, data);
@@ -390,6 +391,9 @@ static KSCrash_ResourceData makeValidResourceData(void)
 
     NSDictionary *system = result[KSCrashField_System];
     XCTAssertEqualObjects(system[KSCrashField_CPUState], @"critical");
+    XCTAssertEqualObjects(system[KSCrashField_CPUAverageUsagePermil], @(850));
+    XCTAssertEqualObjects(system[KSCrashField_CPUUsageUser], @(350));
+    XCTAssertEqualObjects(system[KSCrashField_CPUUsageSystem], @(120));
     XCTAssertEqualWithAccuracy([system[KSCrashField_CPUTimeInWindow] doubleValue], 48.0, 0.01);
     XCTAssertEqualWithAccuracy([system[KSCrashField_CPUWallTimeInWindow] doubleValue], 60.0, 0.01);
 }
@@ -398,6 +402,7 @@ static KSCrash_ResourceData makeValidResourceData(void)
 {
     KSCrash_ResourceData data = makeValidResourceData();
     data.cpuState = 1;                             // warning
+    data.cpuAverageUsagePermil = 520;              // 52% of total capacity
     data.cpuTimeInWindowNs = 100000000000ULL;      // 100s of CPU time
     data.cpuWallTimeInWindowNs = 180000000000ULL;  // over 180s wall time
     NSString *path = writeResourceSidecar(self.tempDir, data);
@@ -409,6 +414,7 @@ static KSCrash_ResourceData makeValidResourceData(void)
 
     NSDictionary *system = result[KSCrashField_System];
     XCTAssertEqualObjects(system[KSCrashField_CPUState], @"warning");
+    XCTAssertEqualObjects(system[KSCrashField_CPUAverageUsagePermil], @(520));
     XCTAssertEqualWithAccuracy([system[KSCrashField_CPUTimeInWindow] doubleValue], 100.0, 0.01);
     XCTAssertEqualWithAccuracy([system[KSCrashField_CPUWallTimeInWindow] doubleValue], 180.0, 0.01);
 }
