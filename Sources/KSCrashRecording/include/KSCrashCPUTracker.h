@@ -61,6 +61,9 @@ typedef void (^KSCrashCPUTrackerObserverBlock)(KSCrashCPU *cpu, KSCrashCPUTracke
 NS_SWIFT_NAME(CPUTracker)
 @interface KSCrashCPUTracker : NSObject
 
+- (instancetype)init NS_UNAVAILABLE;
++ (instancetype)new NS_UNAVAILABLE;
+
 @property(class, atomic, readonly) KSCrashCPUTracker *sharedInstance NS_SWIFT_NAME(shared);
 
 /** The current CPU state classification. */
