@@ -172,7 +172,8 @@
         });
     }
 
-    dispatch_group_wait(group, dispatch_time(DISPATCH_TIME_NOW, 10 * NSEC_PER_SEC));
+    long result = dispatch_group_wait(group, dispatch_time(DISPATCH_TIME_NOW, 10 * NSEC_PER_SEC));
+    XCTAssertEqual(result, 0, @"Concurrent property access timed out");
 }
 
 @end

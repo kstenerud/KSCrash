@@ -297,7 +297,10 @@ final class CrashReportDecodingTests: XCTestCase {
                     "battery_state": 2,
                     "low_power_mode_enabled": true,
                     "cpu_core_count": 6,
+                    "cpu_usage_user": 1500,
+                    "cpu_usage_system": 200,
                     "cpu_state": "warning",
+                    "cpu_average_usage_permil": 520,
                     "cpu_time_in_window": 95.0,
                     "cpu_wall_time_in_window": 180.0,
                     "thermal_state": 1,
@@ -313,7 +316,10 @@ final class CrashReportDecodingTests: XCTestCase {
         XCTAssertEqual(report.system?.batteryState, .charging)
         XCTAssertEqual(report.system?.lowPowerModeEnabled, true)
         XCTAssertEqual(report.system?.cpuCoreCount, 6)
+        XCTAssertEqual(report.system?.cpuUsageUser, 1500)
+        XCTAssertEqual(report.system?.cpuUsageSystem, 200)
         XCTAssertEqual(report.system?.cpuState, .warning)
+        XCTAssertEqual(report.system?.cpuAverageUsagePermil, 520)
         XCTAssertEqual(report.system?.cpuTimeInWindow, 95.0)
         XCTAssertEqual(report.system?.cpuWallTimeInWindow, 180.0)
         XCTAssertEqual(report.system?.thermalState, .fair)

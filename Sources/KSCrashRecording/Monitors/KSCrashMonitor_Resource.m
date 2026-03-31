@@ -166,6 +166,11 @@ static void startCPUObserver(void)
         addObserverWithBlock:^(KSCrashCPU *cpu, __unused KSCrashCPUTrackerChangeType changes) {
             writeCPUSnapshot(cpu);
         }];
+
+    KSCrashCPU *current = KSCrashCPUTracker.sharedInstance.currentCPU;
+    if (current != nil) {
+        writeCPUSnapshot(current);
+    }
 }
 
 static void stopCPUObserver(void) { g_cpuObserver = nil; }

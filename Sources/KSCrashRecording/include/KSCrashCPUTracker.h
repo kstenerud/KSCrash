@@ -72,8 +72,8 @@ NS_SWIFT_NAME(CPUTracker)
 /** Number of active CPU cores on this device. */
 @property(nonatomic, readonly) uint8_t coreCount;
 
-/** A copy of the most recent CPU snapshot. */
-@property(nonatomic, readonly, copy) KSCrashCPU *currentCPU;
+/** A copy of the most recent CPU snapshot, or nil if no data has been collected. */
+@property(nonatomic, readonly, copy, nullable) KSCrashCPU *currentCPU;
 
 /** Adds a block-based observer that is called periodically with the latest snapshot.
  *  @return An opaque token. The observer is removed when this token is deallocated.

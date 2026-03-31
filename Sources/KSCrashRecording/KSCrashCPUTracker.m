@@ -236,13 +236,23 @@ typedef struct {
 
 - (void)_start
 {
+    dispatch_sync(_queue, ^{
+        KSCrashCPU *cpu = [self _poll];
+        if (cpu) {
+            os_unfair_lock_lock(&_lock);
+            _lastCPU = cpu;
+            _state = cpu.state;
+            os_unfair_lock_unlock(&_lock);
+        }
+    });
+
     _timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, _queue);
     __weak __typeof(self) weakMe = self;
     dispatch_source_set_event_handler(_timer, ^{
         [weakMe _tick];
     });
-    dispatch_source_set_timer(_timer, dispatch_time(DISPATCH_TIME_NOW, 0), (uint64_t)(kPollingInterval * NSEC_PER_SEC),
-                              NSEC_PER_SEC);
+    dispatch_source_set_timer(_timer, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kPollingInterval * NSEC_PER_SEC)),
+                              (uint64_t)(kPollingInterval * NSEC_PER_SEC), NSEC_PER_SEC);
     dispatch_activate(_timer);
 }
 
