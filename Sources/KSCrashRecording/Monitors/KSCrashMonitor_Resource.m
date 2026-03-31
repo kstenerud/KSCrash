@@ -147,7 +147,6 @@ static bool validateResourceData(const KSCrash_ResourceData *data)
 
 static void writeCPUSnapshot(KSCrashCPU *cpu)
 {
-    uint64_t now = ksdate_continuousNanoseconds();
     resourceUpdate(^(KSCrash_ResourceData *res) {
         res->cpuUsageUser = cpu.usageUser;
         res->cpuUsageSystem = cpu.usageSystem;
@@ -156,7 +155,7 @@ static void writeCPUSnapshot(KSCrashCPU *cpu)
         res->threadCount = cpu.threadCount;
         res->cpuTimeInWindowNs = (uint64_t)(cpu.cpuTimeInWindow * 1e9);
         res->cpuWallTimeInWindowNs = (uint64_t)(cpu.wallTimeInWindow * 1e9);
-        res->cpuUpdatedAtNs = now;
+        res->cpuUpdatedAtNs = cpu.timestampNs;
     });
 }
 

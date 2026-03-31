@@ -113,6 +113,9 @@ NS_SWIFT_NAME(CPU)
  *  0 when state is Normal. */
 @property(readonly, nonatomic, assign) NSTimeInterval wallTimeInWindow;
 
+/** Monotonic timestamp (nanoseconds) when this snapshot was taken. */
+@property(readonly, nonatomic, assign) uint64_t timestampNs;
+
 @end
 
 NS_ASSUME_NONNULL_END

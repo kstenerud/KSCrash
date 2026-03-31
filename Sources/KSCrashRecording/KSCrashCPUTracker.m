@@ -106,7 +106,8 @@ static const NSTimeInterval kCriticalWindow = 60.0;
                   threadCount:(uint16_t)threadCount
          averageUsageInWindow:(double)averageUsageInWindow
               cpuTimeInWindow:(NSTimeInterval)cpuTimeInWindow
-             wallTimeInWindow:(NSTimeInterval)wallTimeInWindow NS_DESIGNATED_INITIALIZER;
+             wallTimeInWindow:(NSTimeInterval)wallTimeInWindow
+                  timestampNs:(uint64_t)timestampNs NS_DESIGNATED_INITIALIZER;
 @end
 
 @implementation KSCrashCPU
@@ -118,6 +119,7 @@ static const NSTimeInterval kCriticalWindow = 60.0;
          averageUsageInWindow:(double)averageUsageInWindow
               cpuTimeInWindow:(NSTimeInterval)cpuTimeInWindow
              wallTimeInWindow:(NSTimeInterval)wallTimeInWindow
+                  timestampNs:(uint64_t)timestampNs
 {
     if ((self = [super init])) {
         _state = state;
@@ -127,6 +129,7 @@ static const NSTimeInterval kCriticalWindow = 60.0;
         _averageUsageInWindow = averageUsageInWindow;
         _cpuTimeInWindow = cpuTimeInWindow;
         _wallTimeInWindow = wallTimeInWindow;
+        _timestampNs = timestampNs;
     }
     return self;
 }
@@ -332,7 +335,8 @@ typedef struct {
                                  threadCount:threadCount
                         averageUsageInWindow:averageUsage
                              cpuTimeInWindow:cpuTimeInWindow
-                            wallTimeInWindow:wallTimeInWindow];
+                            wallTimeInWindow:wallTimeInWindow
+                                 timestampNs:nowNs];
 }
 
 /** Computes the average CPU fraction of total capacity over the given window.

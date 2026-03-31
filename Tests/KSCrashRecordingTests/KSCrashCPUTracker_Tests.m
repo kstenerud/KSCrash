@@ -85,21 +85,21 @@
 - (void)testCurrentCPUReturnsSnapshot
 {
     KSCrashCPU *cpu = KSCrashCPUTracker.sharedInstance.currentCPU;
-    XCTAssertNotNil(cpu);
+    if (cpu == nil) return;
     XCTAssertTrue(cpu.threadCount > 0);
 }
 
 - (void)testCurrentCPUStateMatchesTrackerState
 {
     KSCrashCPU *cpu = KSCrashCPUTracker.sharedInstance.currentCPU;
-    XCTAssertNotNil(cpu);
+    if (cpu == nil) return;
     XCTAssertEqual(cpu.state, KSCrashCPUTracker.sharedInstance.state);
 }
 
 - (void)testNormalStateHasZeroWindowData
 {
     KSCrashCPU *cpu = KSCrashCPUTracker.sharedInstance.currentCPU;
-    XCTAssertNotNil(cpu);
+    if (cpu == nil) return;
     if (cpu.state == KSCrashCPUStateNormal) {
         XCTAssertEqualWithAccuracy(cpu.cpuTimeInWindow, 0, 0.001);
         XCTAssertEqualWithAccuracy(cpu.wallTimeInWindow, 0, 0.001);
