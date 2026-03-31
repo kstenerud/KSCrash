@@ -57,6 +57,7 @@ extern int proc_pidinfo(int pid, int flavor, uint64_t arg, void *buffer, int buf
 #endif
 
 #import "KSDate.h"
+#import "KSSysCtl.h"
 
 // ============================================================================
 #pragma mark - CPU State String -
@@ -151,6 +152,7 @@ typedef struct {
 
     os_unfair_lock _lock;
     KSCrashCPUState _state;
+    KSCrashCPU *_lastCPU;
     NSPointerArray *_observers;
 
     // Ring buffer and per-interval state — accessed only from _queue.
@@ -161,6 +163,8 @@ typedef struct {
     uint64_t _prevUserNs;
     uint64_t _prevSystemNs;
     uint64_t _prevWallNs;
+
+    uint8_t _coreCount;
 }
 @end
 
@@ -185,6 +189,9 @@ typedef struct {
                                                    dispatch_get_global_queue(QOS_CLASS_UTILITY, 0));
         _state = KSCrashCPUStateNormal;
         _observers = [NSPointerArray weakObjectsPointerArray];
+
+        int32_t count = kssysctl_int32ForName("hw.activecpu");
+        _coreCount = (count > 0) ? (uint8_t)(count > 255 ? 255 : count) : 1;
     }
     return self;
 }
@@ -211,12 +218,10 @@ typedef struct {
 
 - (nullable KSCrashCPU *)currentCPU
 {
-    // Dispatch synchronously to _queue so ring buffer access is serialized.
-    __block KSCrashCPU *result = nil;
-    dispatch_sync(_queue, ^{
-        result = [self _poll];
-    });
-    return result;
+    os_unfair_lock_lock(&_lock);
+    KSCrashCPU *snapshot = _lastCPU;
+    os_unfair_lock_unlock(&_lock);
+    return snapshot;
 }
 
 // ============================================================================
@@ -314,8 +319,9 @@ typedef struct {
                             wallTimeInWindow:wallTimeInWindow];
 }
 
-/** Computes the average CPU fraction over the given window duration.
- *  Returns 0 if the ring doesn't cover enough time. */
+/** Computes the average CPU fraction of total capacity over the given window.
+ *  Returns 0 if the ring doesn't cover at least the full window duration.
+ *  Result is normalized by core count: 1.0 = 100% of all cores. */
 - (double)_averageForWindow:(NSTimeInterval)windowSeconds newest:(KSCPURingSample)newest
 {
     KSCPURingSample oldest = [self _oldestSampleForWindow:windowSeconds];
@@ -323,8 +329,14 @@ typedef struct {
         return 0;
     }
     double wallDelta = (double)(newest.wallNs - oldest.wallNs);
+    // Require the ring to actually span the full window before classifying.
+    if (wallDelta < windowSeconds * 1e9) {
+        return 0;
+    }
     double cpuDelta = (double)(newest.cpuTimeNs - oldest.cpuTimeNs);
-    return cpuDelta / wallDelta;
+    // cpuDelta/wallDelta is fraction of one core; divide by core count
+    // to get fraction of total capacity.
+    return (cpuDelta / wallDelta) / _coreCount;
 }
 
 /** Finds the oldest ring sample that is at least windowSeconds old,
@@ -360,6 +372,7 @@ typedef struct {
         os_unfair_lock_lock(&_lock);
         oldState = _state;
         _state = cpu.state;
+        _lastCPU = cpu;
         [_observers compact];
         observers = [_observers allObjects];
         os_unfair_lock_unlock(&_lock);

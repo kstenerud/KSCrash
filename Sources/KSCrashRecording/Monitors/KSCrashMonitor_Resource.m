@@ -145,16 +145,6 @@ static bool validateResourceData(const KSCrash_ResourceData *data)
 #pragma mark - CPU / Thread Observer -
 // ============================================================================
 
-static uint8_t getActiveCPUCount(void)
-{
-    int count = 0;
-    size_t size = sizeof(count);
-    if (sysctlbyname("hw.activecpu", &count, &size, NULL, 0) != 0) {
-        count = 1;
-    }
-    return (uint8_t)(count > 255 ? 255 : count);
-}
-
 static void writeCPUSnapshot(KSCrashCPU *cpu)
 {
     uint64_t now = ksdate_continuousNanoseconds();
@@ -524,11 +514,10 @@ static void setEnabled(bool isEnabled, __unused void *context)
 
         resourceSet(ptr);
 
-        uint8_t cpuCores = getActiveCPUCount();
         resourceUpdate(^(KSCrash_ResourceData *res) {
             res->magic = KSRESOURCE_MAGIC;
             res->version = KSCrash_Resource_CurrentVersion;
-            res->cpuCoreCount = cpuCores;
+            res->cpuCoreCount = KSCrashCPUTracker.sharedInstance.coreCount;
 
             // Defaults for platforms without battery / data protection
             res->batteryLevel = 255;

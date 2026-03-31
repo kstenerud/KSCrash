@@ -67,6 +67,8 @@ NS_SWIFT_NAME(CPUTracker)
 
 @property(atomic, readonly) KSCrashCPUState state;
 
+@property(nonatomic, readonly) uint8_t coreCount;
+
 @property(nonatomic, readonly, nullable) KSCrashCPU *currentCPU;
 
 /** Adds a block-based observer. Notified on every poll (5s).
