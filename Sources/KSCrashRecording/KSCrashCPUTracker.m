@@ -131,6 +131,12 @@ static const NSTimeInterval kCriticalWindow = 60.0;
     return self;
 }
 
+- (id)copyWithZone:(__unused NSZone *)zone
+{
+    // All properties are readonly value types, so self is already immutable.
+    return self;
+}
+
 @end
 
 // ============================================================================
@@ -216,10 +222,10 @@ typedef struct {
     return s;
 }
 
-- (nullable KSCrashCPU *)currentCPU
+- (KSCrashCPU *)currentCPU
 {
     os_unfair_lock_lock(&_lock);
-    KSCrashCPU *snapshot = _lastCPU;
+    KSCrashCPU *snapshot = [_lastCPU copy];
     os_unfair_lock_unlock(&_lock);
     return snapshot;
 }

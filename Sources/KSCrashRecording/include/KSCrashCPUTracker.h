@@ -30,18 +30,13 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-/** CPU state based on sustained usage over sliding windows.
- *
- *  Thresholds are derived from Apple's MetricKit CPU exception diagnostics:
- *  - Warning:  >50% average CPU over 180s → EXC_RESOURCE report
- *  - Critical: >80% average CPU over  60s → app killed by the system
- *
- *  These represent total CPU capacity (all cores combined), where 1.0 = 100%
- *  of all cores.
- */
+/** CPU state based on sustained usage over sliding windows. */
 typedef NS_ENUM(NSUInteger, KSCrashCPUState) {
+    /** CPU usage is within normal limits. */
     KSCrashCPUStateNormal = 0,
+    /** Sustained CPU usage has reached the level that triggers an EXC_RESOURCE report. */
     KSCrashCPUStateWarning,
+    /** Sustained CPU usage has reached the level at which the system will terminate the app. */
     KSCrashCPUStateCritical,
 } NS_SWIFT_NAME(CPUState);
 
@@ -53,50 +48,66 @@ FOUNDATION_EXPORT const char *KSCrashCPUStateToString(KSCrashCPUState state) NS_
 
 typedef NS_OPTIONS(NSUInteger, KSCrashCPUTrackerChangeType) {
     KSCrashCPUTrackerChangeTypeNone = 0,
+    /** The CPU state (normal/warning/critical) changed since the last update. */
     KSCrashCPUTrackerChangeTypeState = 1 << 0,
+    /** CPU usage values were updated. */
     KSCrashCPUTrackerChangeTypeUsage = 1 << 1,
 } NS_SWIFT_NAME(CPUTrackerChangeType);
 
 typedef void (^KSCrashCPUTrackerObserverBlock)(KSCrashCPU *cpu, KSCrashCPUTrackerChangeType changes)
     NS_SWIFT_UNAVAILABLE("Use Swift closures instead!");
 
+/** Tracks CPU usage over sliding windows and classifies the current state. */
 NS_SWIFT_NAME(CPUTracker)
 @interface KSCrashCPUTracker : NSObject
 
 @property(class, atomic, readonly) KSCrashCPUTracker *sharedInstance NS_SWIFT_NAME(shared);
 
+/** The current CPU state classification. */
 @property(atomic, readonly) KSCrashCPUState state;
 
+/** Number of active CPU cores on this device. */
 @property(nonatomic, readonly) uint8_t coreCount;
 
-@property(nonatomic, readonly, nullable) KSCrashCPU *currentCPU;
+/** A copy of the most recent CPU snapshot. */
+@property(nonatomic, readonly, copy) KSCrashCPU *currentCPU;
 
-/** Adds a block-based observer. Notified on every poll (5s).
- *  @return An object that when set to nil will remove the observer.
+/** Adds a block-based observer that is called periodically with the latest snapshot.
+ *  @return An opaque token. The observer is removed when this token is deallocated.
  */
 - (id)addObserverWithBlock:(KSCrashCPUTrackerObserverBlock)block;
 
 @end
 
-/** Immutable snapshot of CPU state at one poll instant. */
+/** Immutable snapshot of CPU state at one instant. */
 NS_SWIFT_NAME(CPU)
-@interface KSCrashCPU : NSObject
+@interface KSCrashCPU : NSObject <NSCopying>
 
 - (instancetype)init NS_UNAVAILABLE;
 + (instancetype)new NS_UNAVAILABLE;
 
+/** The CPU state classification at the time of this snapshot. */
 @property(readonly, nonatomic, assign) KSCrashCPUState state;
-@property(readonly, nonatomic, assign) uint16_t usageUser;    // permil of one core (last interval)
-@property(readonly, nonatomic, assign) uint16_t usageSystem;  // permil of one core (last interval)
+
+/** User-space CPU usage in permil of one core (0–N*1000 where N is the core count). */
+@property(readonly, nonatomic, assign) uint16_t usageUser;
+
+/** Kernel-space CPU usage in permil of one core (0–N*1000 where N is the core count). */
+@property(readonly, nonatomic, assign) uint16_t usageSystem;
+
+/** Process thread count at the time of this snapshot. */
 @property(readonly, nonatomic, assign) uint16_t threadCount;
 
-/** Average CPU usage over the active threshold window (0.0–N.0 where 1.0 = one core). */
+/** Average CPU usage over the active threshold window as a fraction of total capacity.
+ *  0.0 when state is Normal. 1.0 means all cores fully utilized. */
 @property(readonly, nonatomic, assign) double averageUsageInWindow;
 
-/** CPU seconds accumulated in the active threshold window. */
+/** CPU time accumulated in the active threshold window.
+ *  0 when state is Normal. */
 @property(readonly, nonatomic, assign) NSTimeInterval cpuTimeInWindow;
 
-/** Wall seconds of the active threshold window. */
+/** Wall time spanned by the active threshold window.
+ *  0 when state is Normal. */
 @property(readonly, nonatomic, assign) NSTimeInterval wallTimeInWindow;
 
 @end
