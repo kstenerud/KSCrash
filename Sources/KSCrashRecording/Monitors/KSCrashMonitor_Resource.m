@@ -166,13 +166,6 @@ static void startCPUObserver(void)
         addObserverWithBlock:^(KSCrashCPU *cpu, __unused KSCrashCPUTrackerChangeType changes) {
             writeCPUSnapshot(cpu);
         }];
-
-    // Seed with current values so the sidecar isn't all-zero if a crash
-    // happens before the first timer fire.
-    KSCrashCPU *current = KSCrashCPUTracker.sharedInstance.currentCPU;
-    if (current != nil) {
-        writeCPUSnapshot(current);
-    }
 }
 
 static void stopCPUObserver(void) { g_cpuObserver = nil; }
