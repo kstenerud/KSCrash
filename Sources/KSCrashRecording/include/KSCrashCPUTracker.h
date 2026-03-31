@@ -30,15 +30,24 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-/** CPU state thresholds mirror the OS enforcement windows:
- *  - Warning:  >50% average over 180s → EXC_RESOURCE report
- *  - Critical: >80% average over  60s → app killed
+/** CPU state based on sustained usage over sliding windows.
+ *
+ *  Thresholds are derived from Apple's MetricKit CPU exception diagnostics:
+ *  - Warning:  >50% average CPU over 180s → EXC_RESOURCE report
+ *  - Critical: >80% average CPU over  60s → app killed by the system
+ *
+ *  These represent total CPU capacity (all cores combined), where 1.0 = 100%
+ *  of all cores.
  */
 typedef NS_ENUM(NSUInteger, KSCrashCPUState) {
     KSCrashCPUStateNormal = 0,
     KSCrashCPUStateWarning,
     KSCrashCPUStateCritical,
 } NS_SWIFT_NAME(CPUState);
+
+/** Returns a string for the given CPU state ("normal", "warning", "critical").
+ *  Async-signal-safe. */
+FOUNDATION_EXPORT const char *KSCrashCPUStateToString(KSCrashCPUState state) NS_SWIFT_NAME(CPUState.cString(self:));
 
 @class KSCrashCPU;
 
@@ -78,8 +87,15 @@ NS_SWIFT_NAME(CPU)
 @property(readonly, nonatomic, assign) uint16_t usageUser;    // permil of one core (last interval)
 @property(readonly, nonatomic, assign) uint16_t usageSystem;  // permil of one core (last interval)
 @property(readonly, nonatomic, assign) uint16_t threadCount;
-@property(readonly, nonatomic, assign) NSTimeInterval cpuTimeInWindow;   // CPU seconds in active window
-@property(readonly, nonatomic, assign) NSTimeInterval wallTimeInWindow;  // wall seconds of active window
+
+/** Average CPU usage over the active threshold window (0.0–N.0 where 1.0 = one core). */
+@property(readonly, nonatomic, assign) double averageUsageInWindow;
+
+/** CPU seconds accumulated in the active threshold window. */
+@property(readonly, nonatomic, assign) NSTimeInterval cpuTimeInWindow;
+
+/** Wall seconds of the active threshold window. */
+@property(readonly, nonatomic, assign) NSTimeInterval wallTimeInWindow;
 
 @end
 

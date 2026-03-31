@@ -84,9 +84,12 @@ typedef struct {
     uint64_t memoryRemaining;  // bytes until limit
     uint64_t memoryLimit;      // footprint + remaining
 
-    // CPU (from proc_pidinfo PROC_PIDTASKINFO, polled)
-    uint16_t cpuUsageUser;    // user-space permil of one core: 0–N*1000
-    uint16_t cpuUsageSystem;  // kernel-space permil of one core: 0–N*1000
+    // CPU (from KSCrashCPUTracker)
+    uint16_t cpuUsageUser;           // user-space permil of one core: 0–N*1000
+    uint16_t cpuUsageSystem;         // kernel-space permil of one core: 0–N*1000
+    uint16_t cpuAverageUsagePermil;  // sliding-window average permil of total capacity
+    uint8_t cpuCoreCount;            // active CPU cores (set once at enable time)
+    uint8_t cpuState;                // KSCrashCPUState: 0=normal, 1=warning, 2=critical
 
     // Threads
     uint16_t threadCount;  // process thread count
@@ -96,16 +99,11 @@ typedef struct {
     uint8_t batteryState;  // KSCrashBatteryState
     uint8_t lowPowerMode;  // 0 or 1
 
-    uint8_t cpuCoreCount;  // active CPU cores (set once at enable time)
-
     // Thermal
     uint8_t thermalState;  // 0=nominal, 1=fair, 2=serious, 3=critical
 
     // Data Protection
     uint8_t dataProtectionActive;  // 1 = protected data available (device unlocked)
-
-    // CPU sliding-window state (from KSCrashCPUTracker)
-    uint8_t cpuState;  // KSCrashCPUState: 0=normal, 1=warning, 2=critical
 
     // Last-update timestamps (monotonic uptime in nanoseconds).
     // Used to determine which resource area changed most recently before a crash.

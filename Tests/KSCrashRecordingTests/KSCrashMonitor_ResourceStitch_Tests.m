@@ -223,7 +223,10 @@ static KSCrash_ResourceData makeValidResourceData(void)
     XCTAssertEqualObjects(system[KSCrashField_BatteryState], @(2));
     XCTAssertEqualObjects(system[KSCrashField_LowPowerModeEnabled], @NO);
     XCTAssertEqualObjects(system[KSCrashField_CPUCoreCount], @(6));
+    XCTAssertEqualObjects(system[KSCrashField_CPUUsageUser], @(350));
+    XCTAssertEqualObjects(system[KSCrashField_CPUUsageSystem], @(120));
     XCTAssertEqualObjects(system[KSCrashField_CPUState], @"normal");
+    XCTAssertEqualObjects(system[KSCrashField_CPUAverageUsagePermil], @(0));
     XCTAssertEqualObjects(system[KSCrashField_ThermalState], @(1));
     XCTAssertEqualObjects(system[KSCrashField_ThreadCount], @(42));
     XCTAssertEqualObjects(system[KSCrashField_DataProtectionActive], @YES);

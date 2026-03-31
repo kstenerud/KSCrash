@@ -27,6 +27,7 @@
 #import "KSCrashMonitor_Resource.h"
 
 #import "KSCrashAppMemory.h"
+#import "KSCrashCPUTracker.h"
 #import "KSCrashReportFields.h"
 #import "KSFileUtils.h"
 
@@ -106,14 +107,10 @@ CFDictionaryRef kscm_resource_createStitchedReport(CFDictionaryRef reportDict, c
     systemDict[KSCrashField_BatteryState] = @(data.batteryState);
     systemDict[KSCrashField_LowPowerModeEnabled] = @((BOOL)data.lowPowerMode);
     systemDict[KSCrashField_CPUCoreCount] = @(data.cpuCoreCount);
-    {
-        const char *stateStr = "normal";
-        if (data.cpuState == 1)
-            stateStr = "warning";
-        else if (data.cpuState >= 2)
-            stateStr = "critical";
-        systemDict[KSCrashField_CPUState] = @(stateStr);
-    }
+    systemDict[KSCrashField_CPUUsageUser] = @(data.cpuUsageUser);
+    systemDict[KSCrashField_CPUUsageSystem] = @(data.cpuUsageSystem);
+    systemDict[KSCrashField_CPUState] = @(KSCrashCPUStateToString((KSCrashCPUState)data.cpuState));
+    systemDict[KSCrashField_CPUAverageUsagePermil] = @(data.cpuAverageUsagePermil);
     if (data.cpuWallTimeInWindowNs > 0) {
         systemDict[KSCrashField_CPUTimeInWindow] = @((double)data.cpuTimeInWindowNs / 1e9);
         systemDict[KSCrashField_CPUWallTimeInWindow] = @((double)data.cpuWallTimeInWindowNs / 1e9);

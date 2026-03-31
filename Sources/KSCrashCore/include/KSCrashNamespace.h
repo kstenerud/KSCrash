@@ -103,6 +103,7 @@
 #define KSCrashAppStateTracker KSCRASH_NS(KSCrashAppStateTracker)
 #define KSCrashBasicMonitorPlugin KSCRASH_NS(KSCrashBasicMonitorPlugin)
 #define KSCrashCPU KSCRASH_NS(KSCrashCPU)
+#define KSCrashCPUStateToString KSCRASH_NS(KSCrashCPUStateToString)
 #define KSCrashCPUTracker KSCRASH_NS(KSCrashCPUTracker)
 #define KSCrashCompareRegisterNames KSCRASH_NS(KSCrashCompareRegisterNames)
 #define KSCrashConfiguration KSCRASH_NS(KSCrashConfiguration)

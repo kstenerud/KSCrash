@@ -53,12 +53,6 @@
 #endif
 
 // ============================================================================
-#pragma mark - Constants -
-// ============================================================================
-
-// (CPU polling moved to KSCrashCPUTracker)
-
-// ============================================================================
 #pragma mark - Globals -
 // ============================================================================
 
@@ -167,8 +161,9 @@ static void writeCPUSnapshot(KSCrashCPU *cpu)
     resourceUpdate(^(KSCrash_ResourceData *res) {
         res->cpuUsageUser = cpu.usageUser;
         res->cpuUsageSystem = cpu.usageSystem;
-        res->threadCount = cpu.threadCount;
+        res->cpuAverageUsagePermil = (uint16_t)(cpu.averageUsageInWindow * 1000.0);
         res->cpuState = (uint8_t)cpu.state;
+        res->threadCount = cpu.threadCount;
         res->cpuTimeInWindowNs = (uint64_t)(cpu.cpuTimeInWindow * 1e9);
         res->cpuWallTimeInWindowNs = (uint64_t)(cpu.wallTimeInWindow * 1e9);
         res->cpuUpdatedAtNs = now;

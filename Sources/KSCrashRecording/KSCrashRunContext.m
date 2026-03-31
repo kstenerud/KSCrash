@@ -28,6 +28,7 @@
 
 #import "KSCrashAppMemory.h"
 #import "KSCrashC.h"
+#import "KSCrashCPUTracker.h"
 #import "KSFileUtils.h"
 
 #import <Foundation/Foundation.h>
@@ -138,7 +139,7 @@ static KSTerminationReason determineReason(const KSCrash_LifecycleData *prevLife
         return KSTerminationReasonMemoryPressure;
     }
 
-    if (prevResource->cpuState >= 2 /* KSCrashCPUStateCritical */) {
+    if (prevResource->cpuState >= KSCrashCPUStateCritical) {
         return KSTerminationReasonCPU;
     }
 

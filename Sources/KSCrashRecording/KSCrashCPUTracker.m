@@ -53,10 +53,28 @@ struct proc_taskinfo {
     int32_t pti_numrunning;
     int32_t pti_priority;
 };
-int proc_pidinfo(int pid, int flavor, uint64_t arg, void *buffer, int buffersize);
+extern int proc_pidinfo(int pid, int flavor, uint64_t arg, void *buffer, int buffersize);
 #endif
 
 #import "KSDate.h"
+
+// ============================================================================
+#pragma mark - CPU State String -
+// ============================================================================
+
+const char *KSCrashCPUStateToString(KSCrashCPUState state)
+{
+    switch (state) {
+        case KSCrashCPUStateNormal:
+            return "normal";
+        case KSCrashCPUStateWarning:
+            return "warning";
+        case KSCrashCPUStateCritical:
+            return "critical";
+        default:
+            return "normal";
+    }
+}
 
 // ============================================================================
 #pragma mark - Constants -
@@ -64,13 +82,15 @@ int proc_pidinfo(int pid, int flavor, uint64_t arg, void *buffer, int buffersize
 
 static const NSTimeInterval kPollingInterval = 5.0;
 
-// Ring buffer holds cumulative CPU-time snapshots so we can compute
-// sliding-window averages.  37 entries = 36 intervals * 5s = 180s.
-static const NSUInteger kRingBufferCapacity = 37;
+// Ring buffer holds cumulative CPU-time snapshots for sliding-window
+// averages. 48 entries = 47 intervals * 5s ≈ 235s, giving comfortable
+// headroom beyond the 180s warning window even if a poll fires slightly late.
+static const NSUInteger kRingBufferCapacity = 48;
 
-// OS thresholds (fraction of total CPU capacity, i.e. 1.0 = all cores at 100%)
-static const double kWarningThreshold = 0.50;   // 50% avg over 180s
-static const double kCriticalThreshold = 0.80;  // 80% avg over 60s
+// Thresholds derived from Apple MetricKit CPU exception diagnostics.
+// These are fractions of total CPU capacity (1.0 = all cores at 100%).
+static const double kWarningThreshold = 0.50;
+static const double kCriticalThreshold = 0.80;
 static const NSTimeInterval kWarningWindow = 180.0;
 static const NSTimeInterval kCriticalWindow = 60.0;
 
@@ -83,6 +103,7 @@ static const NSTimeInterval kCriticalWindow = 60.0;
                     usageUser:(uint16_t)usageUser
                   usageSystem:(uint16_t)usageSystem
                   threadCount:(uint16_t)threadCount
+         averageUsageInWindow:(double)averageUsageInWindow
               cpuTimeInWindow:(NSTimeInterval)cpuTimeInWindow
              wallTimeInWindow:(NSTimeInterval)wallTimeInWindow NS_DESIGNATED_INITIALIZER;
 @end
@@ -93,6 +114,7 @@ static const NSTimeInterval kCriticalWindow = 60.0;
                     usageUser:(uint16_t)usageUser
                   usageSystem:(uint16_t)usageSystem
                   threadCount:(uint16_t)threadCount
+         averageUsageInWindow:(double)averageUsageInWindow
               cpuTimeInWindow:(NSTimeInterval)cpuTimeInWindow
              wallTimeInWindow:(NSTimeInterval)wallTimeInWindow
 {
@@ -101,6 +123,7 @@ static const NSTimeInterval kCriticalWindow = 60.0;
         _usageUser = usageUser;
         _usageSystem = usageSystem;
         _threadCount = threadCount;
+        _averageUsageInWindow = averageUsageInWindow;
         _cpuTimeInWindow = cpuTimeInWindow;
         _wallTimeInWindow = wallTimeInWindow;
     }
@@ -130,12 +153,11 @@ typedef struct {
     KSCrashCPUState _state;
     NSPointerArray *_observers;
 
-    // Ring buffer (written only on _queue)
-    KSCPURingSample _ring[37];  // kRingBufferCapacity
-    NSUInteger _ringHead;       // next write index
-    NSUInteger _ringCount;      // entries written (saturates at capacity)
+    // Ring buffer and per-interval state — accessed only from _queue.
+    KSCPURingSample _ring[48];  // kRingBufferCapacity
+    NSUInteger _ringHead;
+    NSUInteger _ringCount;
 
-    // Previous-poll cumulative values for per-interval delta
     uint64_t _prevUserNs;
     uint64_t _prevSystemNs;
     uint64_t _prevWallNs;
@@ -189,8 +211,12 @@ typedef struct {
 
 - (nullable KSCrashCPU *)currentCPU
 {
-    // Poll once to get a fresh snapshot.
-    return [self _poll];
+    // Dispatch synchronously to _queue so ring buffer access is serialized.
+    __block KSCrashCPU *result = nil;
+    dispatch_sync(_queue, ^{
+        result = [self _poll];
+    });
+    return result;
 }
 
 // ============================================================================
@@ -210,11 +236,11 @@ typedef struct {
 }
 
 // ============================================================================
-#pragma mark - Polling -
+#pragma mark - Polling (runs on _queue) -
 // ============================================================================
 
 /** Polls proc_pidinfo, updates the ring buffer, computes window averages,
- *  and returns an immutable snapshot.  Returns nil on failure. */
+ *  and returns an immutable snapshot. Must be called on _queue. */
 - (nullable KSCrashCPU *)_poll
 {
     struct proc_taskinfo taskInfo = { 0 };
@@ -252,30 +278,28 @@ typedef struct {
     }
 
     // --- Sliding window averages ---
-    // We need at least 2 samples to compute a meaningful average.
     KSCrashCPUState newState = KSCrashCPUStateNormal;
+    double averageUsage = 0;
     NSTimeInterval cpuTimeInWindow = 0;
     NSTimeInterval wallTimeInWindow = 0;
 
     if (_ringCount >= 2) {
-        // Most recent sample is at (head - 1)
         NSUInteger newest = (_ringHead + kRingBufferCapacity - 1) % kRingBufferCapacity;
         KSCPURingSample newestSample = _ring[newest];
 
-        // Check critical window (60s) first, then warning (180s)
         double criticalAvg = [self _averageForWindow:kCriticalWindow newest:newestSample];
         double warningAvg = [self _averageForWindow:kWarningWindow newest:newestSample];
 
         if (criticalAvg >= kCriticalThreshold) {
             newState = KSCrashCPUStateCritical;
-            // Report the 60s window data
             KSCPURingSample oldest = [self _oldestSampleForWindow:kCriticalWindow];
+            averageUsage = criticalAvg;
             cpuTimeInWindow = (double)(newestSample.cpuTimeNs - oldest.cpuTimeNs) / 1e9;
             wallTimeInWindow = (double)(newestSample.wallNs - oldest.wallNs) / 1e9;
         } else if (warningAvg >= kWarningThreshold) {
             newState = KSCrashCPUStateWarning;
-            // Report the 180s window data
             KSCPURingSample oldest = [self _oldestSampleForWindow:kWarningWindow];
+            averageUsage = warningAvg;
             cpuTimeInWindow = (double)(newestSample.cpuTimeNs - oldest.cpuTimeNs) / 1e9;
             wallTimeInWindow = (double)(newestSample.wallNs - oldest.wallNs) / 1e9;
         }
@@ -285,6 +309,7 @@ typedef struct {
                                    usageUser:userUsage
                                  usageSystem:systemUsage
                                  threadCount:threadCount
+                        averageUsageInWindow:averageUsage
                              cpuTimeInWindow:cpuTimeInWindow
                             wallTimeInWindow:wallTimeInWindow];
 }
@@ -309,11 +334,9 @@ typedef struct {
     NSUInteger newest = (_ringHead + kRingBufferCapacity - 1) % kRingBufferCapacity;
     uint64_t cutoffNs = _ring[newest].wallNs - (uint64_t)(windowSeconds * 1e9);
 
-    // Walk backwards from the oldest entry in the ring to find the best match
     NSUInteger oldestIdx = (_ringHead + kRingBufferCapacity - _ringCount) % kRingBufferCapacity;
     KSCPURingSample best = _ring[oldestIdx];
 
-    // Scan from oldest to newest, find the last sample at or before the cutoff
     for (NSUInteger i = 0; i < _ringCount; i++) {
         NSUInteger idx = (oldestIdx + i) % kRingBufferCapacity;
         if (_ring[idx].wallNs <= cutoffNs) {

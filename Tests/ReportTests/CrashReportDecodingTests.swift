@@ -313,7 +313,7 @@ final class CrashReportDecodingTests: XCTestCase {
         XCTAssertEqual(report.system?.batteryState, .charging)
         XCTAssertEqual(report.system?.lowPowerModeEnabled, true)
         XCTAssertEqual(report.system?.cpuCoreCount, 6)
-        XCTAssertEqual(report.system?.cpuState, "warning")
+        XCTAssertEqual(report.system?.cpuState, .warning)
         XCTAssertEqual(report.system?.cpuTimeInWindow, 95.0)
         XCTAssertEqual(report.system?.cpuWallTimeInWindow, 180.0)
         XCTAssertEqual(report.system?.thermalState, .fair)

@@ -462,7 +462,7 @@ final class CrashReportEncodingTests: XCTestCase {
                 batteryLevel: 85,
                 batteryState: .charging,
                 cpuCoreCount: 8,
-                cpuState: "critical",
+                cpuState: .critical,
                 cpuTimeInWindow: 48.0,
                 cpuWallTimeInWindow: 60.0,
                 thermalState: .serious,
@@ -476,7 +476,7 @@ final class CrashReportEncodingTests: XCTestCase {
         XCTAssertEqual(roundTripped.system?.batteryLevel, 85)
         XCTAssertEqual(roundTripped.system?.batteryState, .charging)
         XCTAssertEqual(roundTripped.system?.cpuCoreCount, 8)
-        XCTAssertEqual(roundTripped.system?.cpuState, "critical")
+        XCTAssertEqual(roundTripped.system?.cpuState, .critical)
         XCTAssertEqual(roundTripped.system?.cpuTimeInWindow, 48.0)
         XCTAssertEqual(roundTripped.system?.cpuWallTimeInWindow, 60.0)
         XCTAssertEqual(roundTripped.system?.thermalState, .serious)
@@ -655,7 +655,7 @@ final class CrashReportEncodingTests: XCTestCase {
                 batteryLevel: 50,
                 batteryState: .unplugged,
                 cpuCoreCount: 4,
-                cpuState: "warning",
+                cpuState: .warning,
                 cpuTimeInWindow: 95.0,
                 cpuWallTimeInWindow: 180.0,
                 thermalState: .nominal,
