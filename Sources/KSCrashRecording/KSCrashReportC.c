@@ -1365,11 +1365,11 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
             if (machExceptionName != NULL) {
                 writer->addStringElement(writer, KSCrashField_ExceptionName, machExceptionName);
             }
-            writer->addUIntegerElement(writer, KSCrashField_Code, (unsigned)crash->mach.code);
+            writer->addUIntegerElement(writer, KSCrashField_Code, (uint64_t)crash->mach.code);
             if (machCodeName != NULL) {
                 writer->addStringElement(writer, KSCrashField_CodeName, machCodeName);
             }
-            writer->addUIntegerElement(writer, KSCrashField_Subcode, (size_t)crash->mach.subcode);
+            writer->addUIntegerElement(writer, KSCrashField_Subcode, (uint64_t)crash->mach.subcode);
         }
         writer->endContainer(writer);
 #endif
@@ -1863,4 +1863,3 @@ void kscrashreport_setIsWritingReportCallback(const KSCrashIsWritingReportCallba
 }
 
 void kscrashreport_setCompactBinaryImages(bool enabled) { g_compactBinaryImages = enabled; }
-

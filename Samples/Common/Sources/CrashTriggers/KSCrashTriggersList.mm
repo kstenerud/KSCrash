@@ -138,6 +138,13 @@ NSString *const KSCrashNSExceptionStacktraceFuncName = @"exceptionWithStacktrace
     *ptr = 42;  // This will cause an EXC_BAD_ACCESS (SIGSEGV)
 }
 
++ (void)trigger_mach_badAccessDeadbeef
+{
+    // Reproducer from https://github.com/kstenerud/KSCrash/issues/810
+    NSObject *a = (__bridge NSObject *)(void *)0xDEADBEEF;
+    [a class];
+}
+
 + (void)trigger_mach_busError
 {
     char *ptr = (char *)malloc(sizeof(int));
