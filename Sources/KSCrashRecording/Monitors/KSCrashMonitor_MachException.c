@@ -113,11 +113,26 @@ static const exception_mask_t kInterestingExceptions =
 #pragma mark - Types -
 // ============================================================================
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wused-but-marked-unused"
-typedef __Request__exception_raise_t ExceptionRequest;
-typedef __Reply__exception_raise_t ExceptionReply;
-#pragma clang diagnostic pop
+// Match the EXCEPTION_DEFAULT | MACH_EXCEPTION_CODES request layout even on
+// SDKs that don't expose the mach_exc MIG request typedefs.
+#pragma pack(push, 4)
+typedef struct {
+    mach_msg_header_t Head;
+    mach_msg_body_t msgh_body;
+    mach_msg_port_descriptor_t thread;
+    mach_msg_port_descriptor_t task;
+    NDR_record_t NDR;
+    exception_type_t exception;
+    mach_msg_type_number_t codeCnt;
+    mach_exception_data_type_t code[2];
+} ExceptionRequest;
+
+typedef struct {
+    mach_msg_header_t Head;
+    NDR_record_t NDR;
+    kern_return_t RetCode;
+} ExceptionReply;
+#pragma pack(pop)
 
 typedef struct {
     exception_mask_t masks[EXC_TYPES_COUNT];
@@ -249,6 +264,16 @@ static exception_mask_t maskForException(exception_type_t exc)
 {
     // In mach/excepton_types.h, these are all set up as 1 << type
     return 1 << exc;
+}
+
+static mach_exception_code_t machCodeFromRequest(const ExceptionRequest *request)
+{
+    return (mach_exception_code_t)(request->code[0] & (mach_exception_data_type_t)MACH_ERROR_CODE_MASK);
+}
+
+static mach_exception_subcode_t machSubcodeFromRequest(const ExceptionRequest *request)
+{
+    return (mach_exception_subcode_t)(request->code[1] & (mach_exception_data_type_t)MACH_ERROR_CODE_MASK);
 }
 
 static bool canCurrentPortsHandleException(exception_type_t exc)
@@ -443,8 +468,8 @@ static void handleException(ExceptionContext *exceptionCtx)
     kscm_fillMonitorContext(monitorCtx, kscm_machexception_getAPI());
     monitorCtx->registersAreValid = true;
     monitorCtx->mach.type = exceptionCtx->request->exception;
-    monitorCtx->mach.code = exceptionCtx->request->code[0] & (int64_t)MACH_ERROR_CODE_MASK;
-    monitorCtx->mach.subcode = exceptionCtx->request->code[1] & (int64_t)MACH_ERROR_CODE_MASK;
+    monitorCtx->mach.code = machCodeFromRequest(exceptionCtx->request);
+    monitorCtx->mach.subcode = machSubcodeFromRequest(exceptionCtx->request);
     if (monitorCtx->mach.code == KERN_PROTECTION_FAILURE && monitorCtx->isStackOverflow) {
         // A stack overflow should return KERN_INVALID_ADDRESS, but
         // when a stack blasts through the guard pages at the top of the stack,

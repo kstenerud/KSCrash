@@ -112,6 +112,23 @@ final class NSExceptionTests: IntegrationTestBase {
             XCTAssertTrue(state.crashedLastLaunch)
             XCTAssertEqual(state.terminationReason, .crash)
         }
+
+        /// Regression test for https://github.com/kstenerud/KSCrash/issues/810
+        /// mach.subcode was always 0 due to a 32-bit/64-bit struct mismatch in the
+        /// Mach exception handler. Verify the fault address survives into the report.
+        func testBadAccessSubcodePreserved() throws {
+            try launchAndCrash(.mach_badAccessDeadbeef)
+
+            let rawReport = try readCrashReport()
+            try rawReport.validate()
+            XCTAssertEqual(rawReport.crash.error.type, .mach)
+
+            let mach = rawReport.crash.error.mach
+            XCTAssertNotNil(mach)
+            XCTAssertEqual(
+                mach?.subcode, 0xDEAD_BEEF,
+                "mach.subcode should contain the fault address (0xDEADBEEF)")
+        }
     }
 
 #endif

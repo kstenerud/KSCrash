@@ -26,10 +26,15 @@
 
 #import <XCTest/XCTest.h>
 
+#import "KSCrashMonitor_MachException.h"
 #import "KSCrashReportC.h"
+#import "KSMachineContext.h"
+#import "KSStackCursor_SelfThread.h"
 
 #include <pthread.h>
+#include <signal.h>
 #include <stdatomic.h>
+#include <stdio.h>
 
 @interface KSCrashReportC_Tests : XCTestCase
 @end
@@ -48,6 +53,27 @@
     // Clean up after each test
     kscrashreport_setUserInfoJSON(NULL);
     [super tearDown];
+}
+
+- (NSString *)temporaryReportPath
+{
+    return [NSTemporaryDirectory()
+        stringByAppendingPathComponent:[NSString stringWithFormat:@"kscrash-report-%@.json", [NSUUID UUID].UUIDString]];
+}
+
+- (NSDictionary *)readJSONObjectAtPath:(NSString *)path
+{
+    NSData *data = [NSData dataWithContentsOfFile:path];
+    XCTAssertNotNil(data);
+    if (data == nil) {
+        return nil;
+    }
+
+    NSError *error = nil;
+    NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:&error];
+    XCTAssertNil(error);
+    XCTAssertTrue([json isKindOfClass:[NSDictionary class]]);
+    return json;
 }
 
 #pragma mark - Basic Functionality Tests
@@ -228,6 +254,46 @@
         XCTAssertTrue(strcmp(result, expectedJSON) == 0, @"Last set value should persist");
         free((void *)result);
     }
+}
+
+- (void)testWriteStandardReportPreserves64BitMachCodeAndSubcode
+{
+#if KSCRASH_HAS_MACH
+    struct KSMachineContext machineContext = { 0 };
+    XCTAssertTrue(ksmc_getContextForThread(pthread_mach_thread_np(pthread_self()), &machineContext, true));
+
+    KSStackCursor stackCursor;
+    kssc_initSelfThread(&stackCursor, 0);
+
+    KSCrash_MonitorContext context = { 0 };
+    snprintf(context.eventID, sizeof(context.eventID), "MACHCODETEST");
+    context.offendingMachineContext = &machineContext;
+    context.stackCursor = &stackCursor;
+    context.registersAreValid = true;
+    context.omitBinaryImages = true;
+    context.monitorId = kscm_machexception_getAPI()->monitorId(NULL);
+    context.crashReason = "Mach code serialization test";
+    context.faultAddress = (uintptr_t)0xDEADBEEF;
+    context.mach.type = EXC_BAD_ACCESS;
+    context.mach.code = INT64_C(0x123456789ABCDEF0);
+    context.mach.subcode = INT64_C(0x7EEDFACEDEADBEEF);
+    context.signal.signum = SIGBUS;
+
+    NSString *path = [self temporaryReportPath];
+    @try {
+        kscrashreport_writeStandardReport(&context, path.UTF8String);
+
+        NSDictionary *json = [self readJSONObjectAtPath:path];
+        NSDictionary *crash = json[@"crash"];
+        NSDictionary *error = crash[@"error"];
+        NSDictionary *mach = error[@"mach"];
+
+        XCTAssertEqual([mach[@"code"] unsignedLongLongValue], UINT64_C(0x123456789ABCDEF0));
+        XCTAssertEqual([mach[@"subcode"] unsignedLongLongValue], UINT64_C(0x7EEDFACEDEADBEEF));
+    } @finally {
+        [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+    }
+#endif
 }
 
 /**
