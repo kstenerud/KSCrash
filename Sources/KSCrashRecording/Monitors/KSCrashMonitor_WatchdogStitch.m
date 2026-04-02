@@ -38,6 +38,9 @@
 
 #import "KSLogger.h"
 
+// Returns a +1 CFDictionaryRef per the CF Create Rule, as specified by the
+// createStitchedReport contract in KSCrashMonitorAPI.h. The early-return for
+// non-run scopes retains the input to satisfy this ownership requirement.
 CFDictionaryRef kscm_watchdog_createStitchedReport(CFDictionaryRef reportDict, const char *sidecarPath,
                                                    KSCrashSidecarScope scope, __unused void *context)
 {
