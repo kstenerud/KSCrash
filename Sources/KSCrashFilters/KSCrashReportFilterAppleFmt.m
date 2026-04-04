@@ -29,9 +29,15 @@
 #import "KSSystemCapabilities.h"
 
 #import <inttypes.h>
-#import <kern/exc_resource.h>
 #include <mach-o/arch.h>
 #import <mach/exception_types.h>
+
+// From kern/exc_resource.h (not available in the iOS SDK).
+#ifndef EXC_RESOURCE_CPUMONITOR_DECODE_PERCENTAGE
+#define EXC_RESOURCE_CPUMONITOR_DECODE_INTERVAL(code) (((code) >> 7) & 0x1FFFFFFULL)
+#define EXC_RESOURCE_CPUMONITOR_DECODE_PERCENTAGE(code) ((code) & 0x7FULL)
+#define EXC_RESOURCE_CPUMONITOR_DECODE_PERCENTAGE_OBSERVED(subcode) ((subcode) & 0x7FULL)
+#endif
 #import <mach/machine.h>
 
 #import "KSCPU.h"

@@ -41,8 +41,14 @@
 
 #import <Foundation/Foundation.h>
 #import <fcntl.h>
-#import <kern/exc_resource.h>
 #import <mach/exception_types.h>
+
+// From kern/exc_resource.h (not available in the iOS SDK).
+#ifndef RESOURCE_TYPE_CPU
+#define RESOURCE_TYPE_CPU 1
+#define FLAVOR_CPU_MONITOR 1
+#define FLAVOR_CPU_MONITOR_FATAL 2
+#endif
 #import <stdatomic.h>
 #import <unistd.h>
 
