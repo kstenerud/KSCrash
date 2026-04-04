@@ -96,9 +96,11 @@ typedef struct {
     uint64_t freeStorageSize;
     uint64_t freeMemory;
     uint64_t usableMemory;
+    uint64_t processStartWallClockNs;  // unix epoch nanoseconds at sidecar creation
+    uint64_t processStartMonotonicNs;  // CLOCK_MONOTONIC_RAW nanoseconds at sidecar creation
 } KSCrash_SystemData;
 
-_Static_assert(sizeof(KSCrash_SystemData) == 2968, "KSCrash_SystemData size changed — update sidecar version");
+_Static_assert(sizeof(KSCrash_SystemData) == 2984, "KSCrash_SystemData size changed — update sidecar version");
 
 // ============================================================================
 #pragma mark - API -

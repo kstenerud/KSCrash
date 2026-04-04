@@ -30,6 +30,7 @@
 #import "KSCrashAppMemory.h"
 #import "KSCrashAppMemoryTracker.h"
 #import "KSCrashC.h"
+#import "KSCrashCPUTracker.h"
 #import "KSCrashMonitorHelper.h"
 #import "KSFileUtils.h"
 #import "KSSystemCapabilities.h"
@@ -39,34 +40,6 @@
 #import <stdatomic.h>
 #import <unistd.h>
 
-// proc_pidinfo is available on all Apple platforms but libproc.h
-// is only in the macOS SDK.  Forward-declare what we need.
-#if __has_include(<libproc.h>)
-#import <libproc.h>
-#else
-#define PROC_PIDTASKINFO 4
-struct proc_taskinfo {
-    uint64_t pti_virtual_size;
-    uint64_t pti_resident_size;
-    uint64_t pti_total_user;
-    uint64_t pti_total_system;
-    uint64_t pti_threads_user;
-    uint64_t pti_threads_system;
-    int32_t pti_policy;
-    int32_t pti_faults;
-    int32_t pti_pageins;
-    int32_t pti_cow_faults;
-    int32_t pti_messages_sent;
-    int32_t pti_messages_received;
-    int32_t pti_syscalls_mach;
-    int32_t pti_syscalls_unix;
-    int32_t pti_csw;
-    int32_t pti_threadnum;
-    int32_t pti_numrunning;
-    int32_t pti_priority;
-};
-int proc_pidinfo(int pid, int flavor, uint64_t arg, void *buffer, int buffersize);
-#endif
 #import <sys/sysctl.h>
 #import <time.h>
 
@@ -80,12 +53,6 @@ int proc_pidinfo(int pid, int flavor, uint64_t arg, void *buffer, int buffersize
 #endif
 
 // ============================================================================
-#pragma mark - Constants -
-// ============================================================================
-
-static const NSTimeInterval kCPUPollingInterval = 5.0;
-
-// ============================================================================
 #pragma mark - Globals -
 // ============================================================================
 
@@ -97,7 +64,7 @@ static KSCrash_ResourceData *g_resource = NULL;
 
 // Observers / timers
 static id g_memoryObserver = nil;
-static dispatch_source_t g_cpuTimer = NULL;
+static id g_cpuObserver = nil;
 
 static id g_powerStateObserver = nil;
 
@@ -128,6 +95,7 @@ static void applyResourceTestOverrides(KSCrash_ResourceData *res)
     if ((val = getenv("KSCRASH_TEST_CPU_USER")) != NULL) res->cpuUsageUser = (uint16_t)atoi(val);
     if ((val = getenv("KSCRASH_TEST_CPU_SYSTEM")) != NULL) res->cpuUsageSystem = (uint16_t)atoi(val);
     if ((val = getenv("KSCRASH_TEST_CPU_CORES")) != NULL) res->cpuCoreCount = (uint8_t)atoi(val);
+    if ((val = getenv("KSCRASH_TEST_CPU_STATE")) != NULL) res->cpuState = (uint8_t)atoi(val);
     if ((val = getenv("KSCRASH_TEST_BATTERY_LEVEL")) != NULL) res->batteryLevel = (uint8_t)atoi(val);
     if ((val = getenv("KSCRASH_TEST_BATTERY_STATE")) != NULL) res->batteryState = (uint8_t)atoi(val);
 }
@@ -174,90 +142,37 @@ static bool validateResourceData(const KSCrash_ResourceData *data)
 }
 
 // ============================================================================
-#pragma mark - CPU / Thread Polling -
+#pragma mark - CPU / Thread Observer -
 // ============================================================================
 
-static uint8_t getActiveCPUCount(void)
+static void writeCPUSnapshot(KSCrashCPU *cpu)
 {
-    int count = 0;
-    size_t size = sizeof(count);
-    if (sysctlbyname("hw.activecpu", &count, &size, NULL, 0) != 0) {
-        count = 1;
-    }
-    return (uint8_t)(count > 255 ? 255 : count);
-}
-
-/** Reads CPU time and thread count via proc_pidinfo.
- *  CPU usage is computed as the delta since the last poll,
- *  split into user-space and kernel-space components.
- */
-static void pollCPUAndThreads(void)
-{
-    struct proc_taskinfo taskInfo = { 0 };
-    int size = proc_pidinfo(getpid(), PROC_PIDTASKINFO, 0, &taskInfo, sizeof(taskInfo));
-    if (size != (int)sizeof(taskInfo)) {
-        return;
-    }
-
-    static uint64_t s_prevUserNs = 0;
-    static uint64_t s_prevSystemNs = 0;
-    static uint64_t s_prevWallNs = 0;
-
-    uint64_t nowNs = ksdate_continuousNanoseconds();
-
-    uint16_t userUsage = 0;
-    uint16_t systemUsage = 0;
-    if (s_prevWallNs > 0 && nowNs > s_prevWallNs) {
-        uint64_t wallDelta = nowNs - s_prevWallNs;
-        uint64_t userDelta = taskInfo.pti_total_user - s_prevUserNs;
-        uint64_t systemDelta = taskInfo.pti_total_system - s_prevSystemNs;
-        uint64_t userPermil = (userDelta * 1000) / wallDelta;
-        uint64_t systemPermil = (systemDelta * 1000) / wallDelta;
-        userUsage = (uint16_t)(userPermil > UINT16_MAX ? UINT16_MAX : userPermil);
-        systemUsage = (uint16_t)(systemPermil > UINT16_MAX ? UINT16_MAX : systemPermil);
-    }
-
-    s_prevUserNs = taskInfo.pti_total_user;
-    s_prevSystemNs = taskInfo.pti_total_system;
-    s_prevWallNs = nowNs;
-
-    uint16_t threadCount = (uint16_t)(taskInfo.pti_threadnum > UINT16_MAX ? UINT16_MAX : taskInfo.pti_threadnum);
-
-    uint64_t now = ksdate_continuousNanoseconds();
     resourceUpdate(^(KSCrash_ResourceData *res) {
-        res->cpuUsageUser = userUsage;
-        res->cpuUsageSystem = systemUsage;
-        res->threadCount = threadCount;
-        res->cpuUpdatedAtNs = now;
+        res->cpuUsageUser = cpu.usageUser;
+        res->cpuUsageSystem = cpu.usageSystem;
+        res->cpuAverageUsagePermil = (uint16_t)(cpu.averageUsageInWindow * 1000.0);
+        res->cpuState = (uint8_t)cpu.state;
+        res->threadCount = cpu.threadCount;
+        res->cpuTimeInWindowNs = (uint64_t)(cpu.cpuTimeInWindow * 1e9);
+        res->cpuWallTimeInWindowNs = (uint64_t)(cpu.wallTimeInWindow * 1e9);
+        res->cpuUpdatedAtNs = cpu.timestampNs;
     });
 }
 
-static void startCPUTimer(void)
+static void startCPUObserver(void)
 {
-#ifdef KSCRASH_NAMESPACE
-    const char *label = "com.kscrash." KSCRASH_NAMESPACE_STRING ".resource.heartbeat";
-#else
-    const char *label = "com.kscrash.resource.heartbeat";
-#endif
-    dispatch_queue_t queue = dispatch_queue_create_with_target(label, DISPATCH_QUEUE_SERIAL,
-                                                               dispatch_get_global_queue(QOS_CLASS_UTILITY, 0));
-    g_cpuTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, queue);
-    dispatch_source_set_timer(g_cpuTimer, dispatch_time(DISPATCH_TIME_NOW, 0),
-                              (uint64_t)(kCPUPollingInterval * NSEC_PER_SEC), NSEC_PER_SEC);
-    dispatch_source_set_event_handler(g_cpuTimer, ^{
-        if (!atomic_load(&g_isEnabled)) return;
-        pollCPUAndThreads();
-    });
-    dispatch_resume(g_cpuTimer);
-}
+    g_cpuObserver = [KSCrashCPUTracker.sharedInstance
+        addObserverWithBlock:^(KSCrashCPU *cpu, __unused KSCrashCPUTrackerChangeType changes) {
+            writeCPUSnapshot(cpu);
+        }];
 
-static void stopCPUTimer(void)
-{
-    if (g_cpuTimer) {
-        dispatch_source_cancel(g_cpuTimer);
-        g_cpuTimer = NULL;
+    KSCrashCPU *current = KSCrashCPUTracker.sharedInstance.currentCPU;
+    if (current != nil) {
+        writeCPUSnapshot(current);
     }
 }
+
+static void stopCPUObserver(void) { g_cpuObserver = nil; }
 
 // ============================================================================
 #pragma mark - Memory Observer -
@@ -596,11 +511,10 @@ static void setEnabled(bool isEnabled, __unused void *context)
 
         resourceSet(ptr);
 
-        uint8_t cpuCores = getActiveCPUCount();
         resourceUpdate(^(KSCrash_ResourceData *res) {
             res->magic = KSRESOURCE_MAGIC;
             res->version = KSCrash_Resource_CurrentVersion;
-            res->cpuCoreCount = cpuCores;
+            res->cpuCoreCount = KSCrashCPUTracker.sharedInstance.coreCount;
 
             // Defaults for platforms without battery / data protection
             res->batteryLevel = 255;
@@ -609,7 +523,7 @@ static void setEnabled(bool isEnabled, __unused void *context)
         });
 
         startMemoryObserver();
-        startCPUTimer();
+        startCPUObserver();
         startPowerObserver();
 #if KSCRASH_HOST_IOS
         startBatteryObservers();
@@ -621,7 +535,7 @@ static void setEnabled(bool isEnabled, __unused void *context)
 
     } else {
         stopMemoryObserver();
-        stopCPUTimer();
+        stopCPUObserver();
         stopPowerObserver();
 #if KSCRASH_HOST_IOS
         stopBatteryObservers();

@@ -50,11 +50,17 @@ typedef struct KSHangState {
     /** Task role when the hang started. */
     task_role_t role;
 
+    /** App transition state (KSCrashAppTransitionState) when the hang started. */
+    uint8_t transitionState;
+
     /** Monotonic timestamp (in nanoseconds) of the current/end state. */
     uint64_t endTimestamp;
 
     /** Task role at the current/end state. */
     task_role_t endRole;
+
+    /** App transition state (KSCrashAppTransitionState) at the current/end state. */
+    uint8_t endTransitionState;
 
     /** The report ID assigned to this hang. */
     int64_t reportId;
@@ -66,14 +72,16 @@ typedef struct KSHangState {
     bool active;
 } KSHangState;
 
-/** Initialize a hang state with the given start timestamp and role. */
-static inline void kshangstate_init(KSHangState *state, uint64_t timestamp, task_role_t role)
+/** Initialize a hang state with the given start timestamp, role, and transition state. */
+static inline void kshangstate_init(KSHangState *state, uint64_t timestamp, task_role_t role, uint8_t transitionState)
 {
     memset(state, 0, sizeof(*state));
     state->timestamp = timestamp;
     state->role = role;
+    state->transitionState = transitionState;
     state->endTimestamp = timestamp;
     state->endRole = role;
+    state->endTransitionState = transitionState;
     state->active = true;
 }
 
