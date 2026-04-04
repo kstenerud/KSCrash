@@ -38,6 +38,7 @@
 #import "KSStackCursor_MachineContext.h"
 #import "KSSystemCapabilities.h"
 #import "KSThread.h"
+#import "Unwind/KSStackCursor_Unwind.h"
 
 #import <Foundation/Foundation.h>
 #import <fcntl.h>
