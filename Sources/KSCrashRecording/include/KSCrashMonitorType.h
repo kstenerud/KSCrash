@@ -92,7 +92,9 @@ enum
     /** Track per-key user data that survives crashes. */
     KSCrashMonitorTypeUserInfo           = 1 << 11,
 
-    /** Passive resource snapshots (memory, battery, CPU, thermal). */
+    /** Resource snapshots (memory, battery, CPU, thermal).
+     *  Optionally emits non-fatal EXC_RESOURCE reports on CPU warning/critical
+     *  transitions when enableCPUExceptionReporting is set. */
     KSCrashMonitorTypeResource           = 1 << 12,
 
     /** Enable all monitoring options. */

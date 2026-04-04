@@ -35,7 +35,7 @@
 #import "KSCrashMonitorHelper.h"
 #import "KSFileUtils.h"
 #import "KSMachineContext.h"
-#import "KSStackCursor_SelfThread.h"
+#import "KSStackCursor_MachineContext.h"
 #import "KSSystemCapabilities.h"
 #import "KSThread.h"
 
@@ -172,35 +172,40 @@ static void reportCPUState(KSCrashCPU *cpu) KS_KEEP_FUNCTION_IN_STACKTRACE
         return;
     }
 
-    thread_t thisThread = (thread_t)ksthread_self();
-    KSCrash_MonitorContext *ctx = g_callbacks.notify(
-        thisThread,
-        (KSCrash_ExceptionHandlingRequirements) {
-            .asyncSafety = false, .isFatal = false, .shouldRecordAllThreads = true, .shouldWriteReport = true });
-
-    KSMachineContext machineContext = { 0 };
-    ksmc_getContextForThread(thisThread, &machineContext, true);
-    KSStackCursor stackCursor;
-    kssc_initSelfThread(&stackCursor, 2);
-
-    kscm_fillMonitorContext(ctx, kscm_resource_getAPI());
-    ctx->offendingMachineContext = &machineContext;
-    ctx->registersAreValid = false;
-    ctx->stackCursor = &stackCursor;
-
+    // Prepare all data before notify(), which suspends threads and
+    // enters an async-safe-only region.
     char reason[128];
     snprintf(reason, sizeof(reason), "CPU usage %s: %.1f%% average over %.0fs", KSCrashCPUStateToString(cpu.state),
              cpu.averageUsageInWindow * 100.0, cpu.wallTimeInWindow);
-    ctx->crashReason = reason;
 
-    // Encode mach exception fields matching Apple's EXC_RESOURCE format.
-    // code:    [63:61] RESOURCE_TYPE_CPU | [60:58] flavor | [31:7] interval | [6:0] limit %
-    // subcode: [6:0] observed %
     bool isCritical = (cpu.state >= KSCrashCPUStateCritical);
     uint64_t flavor = isCritical ? FLAVOR_CPU_MONITOR_FATAL : FLAVOR_CPU_MONITOR;
     uint64_t intervalSec = (uint64_t)cpu.wallTimeInWindow;
     uint64_t limitPct = isCritical ? 80 : 50;
     uint64_t observedPct = (uint64_t)(cpu.averageUsageInWindow * 100.0);
+
+    // CPU pressure is process-wide, so there's no single offending thread.
+    // We use the main thread as the primary thread in the report because
+    // it provides the most useful context. Per-thread CPU attribution
+    // (task_threads + thread_info on each tick) would be too expensive
+    // for the polling path. All thread stacks are captured regardless,
+    // which is where the real diagnostic value is.
+    thread_t mainThread = (thread_t)ksthread_main();
+    KSCrash_MonitorContext *ctx = g_callbacks.notify(
+        mainThread,
+        (KSCrash_ExceptionHandlingRequirements) {
+            .asyncSafety = false, .isFatal = false, .shouldRecordAllThreads = true, .shouldWriteReport = true });
+
+    KSMachineContext machineContext = { 0 };
+    ksmc_getContextForThread(mainThread, &machineContext, true);
+    KSStackCursor stackCursor;
+    kssc_initWithUnwind(&stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
+
+    kscm_fillMonitorContext(ctx, kscm_resource_getAPI());
+    ctx->offendingMachineContext = &machineContext;
+    ctx->registersAreValid = true;
+    ctx->stackCursor = &stackCursor;
+    ctx->crashReason = reason;
 
     ctx->mach.type = EXC_RESOURCE;
     ctx->mach.code = (int64_t)(((uint64_t)RESOURCE_TYPE_CPU << 61) | (flavor << 58) | ((intervalSec & 0x1FFFFFF) << 7) |
