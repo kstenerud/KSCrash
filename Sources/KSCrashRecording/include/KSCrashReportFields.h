@@ -86,6 +86,7 @@ KSCRF_DEFINE_CONSTANT(KSCrashExcType, Termination, termination, "termination")
 /** @deprecated Use KSCrashExcType_Termination instead. Kept for reading legacy reports. */
 KSCRF_DEFINE_CONSTANT(KSCrashExcType, MemoryTermination, memoryTermination, "memory_termination")
 KSCRF_DEFINE_CONSTANT(KSCrashExcType, Hang, hang, "hang")
+KSCRF_DEFINE_CONSTANT(KSCrashExcType, CPUException, cpuException, "cpu_exception")
 
 #pragma mark - Common -
 

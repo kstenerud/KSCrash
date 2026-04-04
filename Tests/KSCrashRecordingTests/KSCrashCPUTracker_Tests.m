@@ -110,7 +110,8 @@
 - (void)testAddObserverReturnsNonNil
 {
     id observer = [KSCrashCPUTracker.sharedInstance
-        addObserverWithBlock:^(__unused KSCrashCPU *cpu, __unused KSCrashCPUTrackerChangeType changes) {
+        addObserverWithBlock:^(__unused KSCrashCPU *cpu, __unused KSCrashCPUTrackerChangeType changes,
+                               __unused KSCrashCPUState previousState) {
         }];
     XCTAssertNotNil(observer);
 }
@@ -130,7 +131,8 @@
     expectation.assertForOverFulfill = NO;
 
     id observer =
-        [KSCrashCPUTracker.sharedInstance addObserverWithBlock:^(KSCrashCPU *cpu, KSCrashCPUTrackerChangeType changes) {
+        [KSCrashCPUTracker.sharedInstance addObserverWithBlock:^(KSCrashCPU *cpu, KSCrashCPUTrackerChangeType changes,
+                                                                 __unused KSCrashCPUState previousState) {
             XCTAssertNotNil(cpu);
             XCTAssertTrue(changes & KSCrashCPUTrackerChangeTypeUsage);
             [expectation fulfill];
@@ -146,7 +148,8 @@
     @autoreleasepool {
         // Capture self to force the block onto the heap (global blocks never dealloc).
         id observer = [KSCrashCPUTracker.sharedInstance
-            addObserverWithBlock:^(__unused KSCrashCPU *cpu, __unused KSCrashCPUTrackerChangeType changes) {
+            addObserverWithBlock:^(__unused KSCrashCPU *cpu, __unused KSCrashCPUTrackerChangeType changes,
+                                   __unused KSCrashCPUState previousState) {
                 (void)self;
             }];
         weakObserver = observer;

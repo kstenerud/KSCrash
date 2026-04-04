@@ -36,6 +36,7 @@ public enum CrashErrorType: RawRepresentable, Codable, Sendable, Equatable {
     case user
     case termination
     case hang
+    case cpuException
     case profile
     case unknown(String)
 
@@ -49,6 +50,7 @@ public enum CrashErrorType: RawRepresentable, Codable, Sendable, Equatable {
         case "user": self = .user
         case "termination", "memory_termination", "resource_termination": self = .termination
         case "hang": self = .hang
+        case "cpu_exception": self = .cpuException
         case "profile": self = .profile
         default: self = .unknown(rawValue)
         }
@@ -64,6 +66,7 @@ public enum CrashErrorType: RawRepresentable, Codable, Sendable, Equatable {
         case .user: return "user"
         case .termination: return "termination"
         case .hang: return "hang"
+        case .cpuException: return "cpu_exception"
         case .profile: return "profile"
         case .unknown(let value): return value
         }

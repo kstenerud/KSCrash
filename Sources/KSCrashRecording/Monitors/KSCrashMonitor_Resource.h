@@ -24,8 +24,10 @@
 // THE SOFTWARE.
 //
 
-/* Passive resource monitor — collects memory, battery, CPU, thermal, and
- * thread data into an mmap'd run sidecar.  Never generates crash reports.
+/* Resource monitor — collects memory, battery, CPU, thermal, and thread
+ * data into an mmap'd run sidecar.  Optionally generates non-fatal
+ * CPU exception reports when sustained usage crosses warning/critical
+ * thresholds (see kscm_resource_setReportsCPUExceptions).
  *
  * Data is available at runtime via ksresource_getSnapshot() and from any
  * previous run via ksresource_getSnapshotForRunID().  At report delivery
@@ -144,6 +146,12 @@ bool ksresource_getSnapshotForRunID(const char *runID, KSCrash_ResourceData *out
 
 /** Access the Resource Monitor API. */
 KSCrashMonitorAPI *kscm_resource_getAPI(void);
+
+/** Enable or disable non-fatal CPU exception reports.
+ *  When enabled, an upward state transition (e.g. normal → warning)
+ *  generates a report with all thread stacks.
+ */
+void kscm_resource_setReportsCPUExceptions(bool enabled);
 
 /** Stitch resource sidecar data into a report at delivery time.
  *

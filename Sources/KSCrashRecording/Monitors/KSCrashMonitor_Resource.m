@@ -27,13 +27,17 @@
 #import "KSCrashMonitor_Resource.h"
 
 #import <os/lock.h>
+#import "KSCompilerDefines.h"
 #import "KSCrashAppMemory.h"
 #import "KSCrashAppMemoryTracker.h"
 #import "KSCrashC.h"
 #import "KSCrashCPUTracker.h"
 #import "KSCrashMonitorHelper.h"
 #import "KSFileUtils.h"
+#import "KSMachineContext.h"
+#import "KSStackCursor_SelfThread.h"
 #import "KSSystemCapabilities.h"
+#import "KSThread.h"
 
 #import <Foundation/Foundation.h>
 #import <fcntl.h>
@@ -57,6 +61,7 @@
 // ============================================================================
 
 static atomic_bool g_isEnabled = false;
+static atomic_bool g_reportsCPUExceptions = false;
 static KSCrash_ExceptionHandlerCallbacks g_callbacks = { 0 };
 
 static os_unfair_lock g_resourceLock = OS_UNFAIR_LOCK_INIT;
@@ -159,11 +164,49 @@ static void writeCPUSnapshot(KSCrashCPU *cpu)
     });
 }
 
+static void reportCPUState(KSCrashCPU *cpu) KS_KEEP_FUNCTION_IN_STACKTRACE
+{
+    if (!g_callbacks.handleWithResult || !g_callbacks.notify) {
+        return;
+    }
+
+    thread_t thisThread = (thread_t)ksthread_self();
+    KSCrash_MonitorContext *ctx = g_callbacks.notify(
+        thisThread,
+        (KSCrash_ExceptionHandlingRequirements) {
+            .asyncSafety = false, .isFatal = false, .shouldRecordAllThreads = true, .shouldWriteReport = true });
+
+    KSMachineContext machineContext = { 0 };
+    ksmc_getContextForThread(thisThread, &machineContext, true);
+    KSStackCursor stackCursor;
+    kssc_initSelfThread(&stackCursor, 2);
+
+    kscm_fillMonitorContext(ctx, kscm_resource_getAPI());
+    ctx->offendingMachineContext = &machineContext;
+    ctx->registersAreValid = false;
+    ctx->stackCursor = &stackCursor;
+
+    char reason[128];
+    snprintf(reason, sizeof(reason), "CPU usage %s: %.1f%% average over %.0fs", KSCrashCPUStateToString(cpu.state),
+             cpu.averageUsageInWindow * 100.0, cpu.wallTimeInWindow);
+    ctx->crashReason = reason;
+
+    KSCrash_ReportResult result = { 0 };
+    g_callbacks.handleWithResult(ctx, &result, true);
+
+    KS_THWART_TAIL_CALL_OPTIMISATION
+}
+
 static void startCPUObserver(void)
 {
     g_cpuObserver = [KSCrashCPUTracker.sharedInstance
-        addObserverWithBlock:^(KSCrashCPU *cpu, __unused KSCrashCPUTrackerChangeType changes) {
+        addObserverWithBlock:^(KSCrashCPU *cpu, KSCrashCPUTrackerChangeType changes, KSCrashCPUState previousState) {
             writeCPUSnapshot(cpu);
+
+            if (atomic_load(&g_reportsCPUExceptions) && (changes & KSCrashCPUTrackerChangeTypeState) &&
+                cpu.state > previousState) {
+                reportCPUState(cpu);
+            }
         }];
 
     KSCrashCPU *current = KSCrashCPUTracker.sharedInstance.currentCPU;
@@ -563,3 +606,5 @@ KSCrashMonitorAPI *kscm_resource_getAPI(void)
     }
     return &api;
 }
+
+void kscm_resource_setReportsCPUExceptions(bool enabled) { atomic_store(&g_reportsCPUExceptions, enabled); }

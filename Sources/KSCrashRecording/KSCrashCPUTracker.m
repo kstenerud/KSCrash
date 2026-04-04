@@ -404,7 +404,7 @@ typedef struct {
     }
 
     for (KSCrashCPUTrackerObserverBlock obs in observers) {
-        obs(cpu, changes);
+        obs(cpu, changes, oldState);
     }
 }
 

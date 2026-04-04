@@ -39,6 +39,8 @@ final class CrashReportTests: XCTestCase {
         XCTAssertEqual(CrashErrorType(rawValue: "memory_termination"), .termination)
         XCTAssertEqual(CrashErrorType(rawValue: "resource_termination"), .termination)
         XCTAssertEqual(CrashErrorType.hang.rawValue, "hang")
+        XCTAssertEqual(CrashErrorType.cpuException.rawValue, "cpu_exception")
+        XCTAssertEqual(CrashErrorType(rawValue: "cpu_exception"), .cpuException)
         XCTAssertEqual(CrashErrorType.profile.rawValue, "profile")
     }
 

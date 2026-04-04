@@ -68,6 +68,7 @@
         _enableSigTermMonitoring = cConfig.enableSigTermMonitoring ? YES : NO;
 #pragma clang diagnostic pop
         _enableHangReporting = cConfig.enableHangReporting ? YES : NO;
+        _enableCPUExceptionReporting = cConfig.enableCPUExceptionReporting ? YES : NO;
         _enableCompactBinaryImages = cConfig.enableCompactBinaryImages ? YES : NO;
         _plugins = nil;
         _willWriteReportCallback = cConfig.willWriteReportCallback;
@@ -137,6 +138,7 @@
     config.enableSigTermMonitoring = self.enableSigTermMonitoring;
 #pragma clang diagnostic pop
     config.enableHangReporting = self.enableHangReporting;
+    config.enableCPUExceptionReporting = self.enableCPUExceptionReporting;
     config.enableCompactBinaryImages = self.enableCompactBinaryImages;
     config.willWriteReportCallback = self.willWriteReportCallback;
 
@@ -216,6 +218,7 @@
     copy.enableSigTermMonitoring = self.enableSigTermMonitoring;
 #pragma clang diagnostic pop
     copy.enableHangReporting = self.enableHangReporting;
+    copy.enableCPUExceptionReporting = self.enableCPUExceptionReporting;
     copy.enableCompactBinaryImages = self.enableCompactBinaryImages;
     copy.plugins = [self.plugins copy];
     return copy;

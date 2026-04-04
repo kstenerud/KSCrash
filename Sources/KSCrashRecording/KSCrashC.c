@@ -364,6 +364,7 @@ static void handleConfiguration(KSCrashCConfiguration *configuration)
 
     kscrashreport_setIsWritingReportCallback(g_isWritingReportCallback);
     kscm_watchdog_setReportsHangs(configuration->enableHangReporting);
+    kscm_resource_setReportsCPUExceptions(configuration->enableCPUExceptionReporting);
     kscrashreport_setCompactBinaryImages(configuration->enableCompactBinaryImages);
     g_shouldAddConsoleLogToReport = configuration->addConsoleLogToReport;
     g_shouldPrintPreviousLog = configuration->printPreviousLogOnStartup;

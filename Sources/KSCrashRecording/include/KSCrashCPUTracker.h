@@ -54,7 +54,8 @@ typedef NS_OPTIONS(NSUInteger, KSCrashCPUTrackerChangeType) {
     KSCrashCPUTrackerChangeTypeUsage = 1 << 1,
 } NS_SWIFT_NAME(CPUTrackerChangeType);
 
-typedef void (^KSCrashCPUTrackerObserverBlock)(KSCrashCPU *cpu, KSCrashCPUTrackerChangeType changes)
+typedef void (^KSCrashCPUTrackerObserverBlock)(KSCrashCPU *cpu, KSCrashCPUTrackerChangeType changes,
+                                               KSCrashCPUState previousState)
     NS_SWIFT_UNAVAILABLE("Use Swift closures instead!");
 
 /** Tracks CPU usage over sliding windows and classifies the current state. */

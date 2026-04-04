@@ -222,6 +222,7 @@
 #define kscm_reportUserException KSCRASH_NS(kscm_reportUserException)
 #define kscm_resource_createStitchedReport KSCRASH_NS(kscm_resource_createStitchedReport)
 #define kscm_resource_getAPI KSCRASH_NS(kscm_resource_getAPI)
+#define kscm_resource_setReportsCPUExceptions KSCRASH_NS(kscm_resource_setReportsCPUExceptions)
 #define kscm_setDeadlockHandlerWatchdogInterval KSCRASH_NS(kscm_setDeadlockHandlerWatchdogInterval)
 #define kscm_setEventCallback KSCRASH_NS(kscm_setEventCallback)
 #define kscm_setEventCallbackWithResult KSCRASH_NS(kscm_setEventCallbackWithResult)
