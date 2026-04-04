@@ -1453,7 +1453,7 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
             }
             writer->endContainer(writer);
         } else if (isCrashOfMonitorType(crash, kscm_resource_getAPI())) {
-            writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_CPUException);
+            writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_Mach);
         } else if (isCrashOfMonitorType(crash, kscm_system_getAPI()) ||
                    isCrashOfMonitorType(crash, kscm_lifecycle_getAPI()) ||
                    isCrashOfMonitorType(crash, kscm_zombie_getAPI())) {

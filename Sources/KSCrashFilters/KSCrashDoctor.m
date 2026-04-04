@@ -9,6 +9,8 @@
 #import "KSCrashDoctor.h"
 #import "KSCrashReportFields.h"
 
+#import <mach/exception_types.h>
+
 typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } CPUFamily;
 
 @interface KSCrashDoctorParam : NSObject
@@ -543,6 +545,12 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
 
         if ([self isGracefulTerminationRequest:errorReport]) {
             return @"The OS request the app be gracefully terminated.";
+        }
+
+        NSDictionary *machError = errorReport[KSCrashField_Mach];
+        if ([[machError objectForKey:KSCrashField_Exception] intValue] == EXC_RESOURCE) {
+            NSString *reason = errorReport[KSCrashField_Reason];
+            return reason ?: @"Sustained CPU usage exceeded the warning threshold.";
         }
 
         if ([self isTermination:errorReport]) {

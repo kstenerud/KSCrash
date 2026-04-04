@@ -41,6 +41,8 @@
 
 #import <Foundation/Foundation.h>
 #import <fcntl.h>
+#import <kern/exc_resource.h>
+#import <mach/exception_types.h>
 #import <stdatomic.h>
 #import <unistd.h>
 
@@ -190,6 +192,17 @@ static void reportCPUState(KSCrashCPU *cpu) KS_KEEP_FUNCTION_IN_STACKTRACE
     snprintf(reason, sizeof(reason), "CPU usage %s: %.1f%% average over %.0fs", KSCrashCPUStateToString(cpu.state),
              cpu.averageUsageInWindow * 100.0, cpu.wallTimeInWindow);
     ctx->crashReason = reason;
+
+    // Encode mach exception fields matching Apple's EXC_RESOURCE format.
+    // code:    [63:61] RESOURCE_TYPE_CPU | [60:58] flavor | [31:7] interval | [6:0] limit %
+    // subcode: [6:0] observed %
+    uint64_t flavor = (cpu.state >= KSCrashCPUStateCritical) ? FLAVOR_CPU_MONITOR_FATAL : FLAVOR_CPU_MONITOR;
+    uint64_t intervalSec = (uint64_t)cpu.wallTimeInWindow;
+    uint64_t observedPct = (uint64_t)(cpu.averageUsageInWindow * 100.0);
+
+    ctx->mach.type = EXC_RESOURCE;
+    ctx->mach.code = (int64_t)(((uint64_t)RESOURCE_TYPE_CPU << 61) | (flavor << 58) | ((intervalSec & 0x1FFFFFF) << 7));
+    ctx->mach.subcode = (int64_t)(observedPct & 0x7F);
 
     KSCrash_ReportResult result = { 0 };
     g_callbacks.handleWithResult(ctx, &result, true);
