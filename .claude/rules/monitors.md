@@ -31,7 +31,7 @@ Built-in monitors are registered via `KSCrashMonitorType` flags in `KSCrashC.c`.
 | Zombie | `"Zombie"` | Messages sent to deallocated ObjC objects | — | — | No |
 | Watchdog | `"Watchdog"` | Main thread hangs (250ms threshold); also fatal when the OS kills the app during a hang | — | Report (`KSHangSidecar`) | No |
 | UserInfo | `"UserInfo"` | User-supplied key-value info (survives crashes) | — | Run (`KSKeyValueStore`) | No |
-| Resource | `"Resource"` | Memory level/pressure, CPU, thermal, battery snapshots | — | Run (`KSCrash_ResourceData`) | No |
+| Resource | `"Resource"` | Memory level/pressure, CPU, thermal, battery snapshots; optionally emits non-fatal EXC_RESOURCE reports on CPU warning/critical transitions (`enableCPUExceptionReporting`) | — | Run (`KSCrash_ResourceData`) | No |
 
 **Auto-registered monitors** (registered via `__attribute__((constructor))` when their SPM module is linked):
 
@@ -79,6 +79,7 @@ Rules: when `isFatal=true`, `isCleanExit` must be explicitly set. When `isFatal=
 | Memory (OOM confirmed, stitched) | Memory | true | false | false (never set) |
 | MetricKit | MetricKit | true | false | unchanged |
 | Profiler | Profiler | false | — | unchanged |
+| CPU exception (warning/critical) | Resource | false | — | unchanged |
 | Recrash (crash-in-handler) | Monitor.c | true | false | false |
 | Normal exit (UIKit terminating) | Lifecycle observer | — | — | true |
 
