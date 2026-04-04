@@ -331,7 +331,7 @@ def generate_report(pr_results, base_results, config, device_info):
         if not has_results:
             continue
 
-        output.append("<details open>")
+        output.append("<details>")
         output.append(f"<summary><h3>{cat['name']}</h3></summary>\n")
 
         # Build header based on category settings
