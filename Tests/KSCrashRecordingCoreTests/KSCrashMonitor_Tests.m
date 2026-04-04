@@ -87,6 +87,8 @@ static KSCrashMonitorAPI g_secondDummyMonitor = {};
 #pragma mark - Tests -
 
 static BOOL g_exceptionHandled = NO;
+static BOOL g_finalizeCalled = NO;
+static int64_t g_finalizedReportId = 0;
 
 static void myEventCallback(struct KSCrash_MonitorContext *context, KSCrash_ReportResult *result)
 {
@@ -95,6 +97,12 @@ static void myEventCallback(struct KSCrash_MonitorContext *context, KSCrash_Repo
     }
     g_exceptionHandled = YES;
     g_copiedEventID = strdup(context->eventID);
+}
+
+static void myFinalizeCallback(__unused struct KSCrash_MonitorContext *context, const KSCrash_ReportResult *result)
+{
+    g_finalizeCalled = YES;
+    g_finalizedReportId = result->reportId;
 }
 
 extern void kscm_testcode_resetState(void);
@@ -619,8 +627,58 @@ static atomic_int g_counter = 0;
         (KSCrash_ExceptionHandlingRequirements) { .isFatal = false, .asyncSafety = true, .shouldWriteReport = true });
 
     KSCrash_ReportResult result = {};
-    dummyExceptionHandlerCallbacks.handleWithResult(ctx, &result);
+    dummyExceptionHandlerCallbacks.handleWithResult(ctx, &result, false);
     XCTAssert(result.reportId == g_dummyResultReportId);
+}
+
+- (void)testFinalizeCalledForNonFatalWithFinalizeTrue
+{
+    kscm_addMonitor(&g_dummyMonitor);
+    kscm_enableMonitors();
+    kscm_setEventCallbackWithResult(myEventCallback);
+    kscm_setFinalizeReportCallback(myFinalizeCallback);
+    g_finalizeCalled = NO;
+    g_finalizedReportId = 0;
+
+    KSCrash_MonitorContext *ctx = dummyExceptionHandlerCallbacks.notify(
+        (thread_t)ksthread_self(),
+        (KSCrash_ExceptionHandlingRequirements) { .isFatal = false, .shouldWriteReport = true });
+    dummyExceptionHandlerCallbacks.handleWithResult(ctx, NULL, true);
+
+    XCTAssertTrue(g_finalizeCalled);
+    XCTAssertEqual(g_finalizedReportId, g_dummyResultReportId);
+}
+
+- (void)testFinalizeNotCalledForFatalWithFinalizeTrue
+{
+    kscm_addMonitor(&g_dummyMonitor);
+    kscm_enableMonitors();
+    kscm_setEventCallbackWithResult(myEventCallback);
+    kscm_setFinalizeReportCallback(myFinalizeCallback);
+    g_finalizeCalled = NO;
+
+    KSCrash_MonitorContext *ctx = dummyExceptionHandlerCallbacks.notify(
+        (thread_t)ksthread_self(),
+        (KSCrash_ExceptionHandlingRequirements) { .isFatal = true, .shouldWriteReport = true });
+    dummyExceptionHandlerCallbacks.handleWithResult(ctx, NULL, true);
+
+    XCTAssertFalse(g_finalizeCalled);
+}
+
+- (void)testFinalizeNotCalledWithFinalizeFalse
+{
+    kscm_addMonitor(&g_dummyMonitor);
+    kscm_enableMonitors();
+    kscm_setEventCallbackWithResult(myEventCallback);
+    kscm_setFinalizeReportCallback(myFinalizeCallback);
+    g_finalizeCalled = NO;
+
+    KSCrash_MonitorContext *ctx = dummyExceptionHandlerCallbacks.notify(
+        (thread_t)ksthread_self(),
+        (KSCrash_ExceptionHandlingRequirements) { .isFatal = false, .shouldWriteReport = true });
+    dummyExceptionHandlerCallbacks.handleWithResult(ctx, NULL, false);
+
+    XCTAssertFalse(g_finalizeCalled);
 }
 
 @end

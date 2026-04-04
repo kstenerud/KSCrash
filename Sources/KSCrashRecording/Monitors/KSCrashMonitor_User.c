@@ -80,7 +80,8 @@ void kscm_reportUserException(const char *name, const char *reason, const char *
     ctx->userException.customStackTrace = stackTrace;
     ctx->stackCursor = &stackCursor;
 
-    g_callbacks.handle(ctx);
+    KSCrash_ReportResult result = { 0 };
+    g_callbacks.handleWithResult(ctx, &result, !terminateProgram);
 
 exit_immediately:
     if (terminateProgram) {

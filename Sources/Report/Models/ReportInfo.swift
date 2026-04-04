@@ -75,6 +75,9 @@ public struct ReportInfo: Codable, Sendable, Equatable {
     /// Identifier of the monitor that generated this report.
     public let monitorId: String?
 
+    /// Whether sidecar data was stitched in at runtime rather than at next launch.
+    public let finalized: Bool?
+
     public init(
         id: String,
         processName: String? = nil,
@@ -82,7 +85,8 @@ public struct ReportInfo: Codable, Sendable, Equatable {
         type: ReportType? = nil,
         version: ReportVersion? = nil,
         runId: String? = nil,
-        monitorId: String? = nil
+        monitorId: String? = nil,
+        finalized: Bool? = nil
     ) {
         self.id = id
         self.processName = processName
@@ -91,6 +95,7 @@ public struct ReportInfo: Codable, Sendable, Equatable {
         self.version = version
         self.runId = runId
         self.monitorId = monitorId
+        self.finalized = finalized
     }
 
     enum CodingKeys: String, CodingKey {
@@ -101,6 +106,7 @@ public struct ReportInfo: Codable, Sendable, Equatable {
         case version
         case runId = "run_id"
         case monitorId = "monitor_id"
+        case finalized
     }
 
     public init(from decoder: Decoder) throws {
@@ -111,6 +117,7 @@ public struct ReportInfo: Codable, Sendable, Equatable {
         self.version = try container.decodeIfPresent(ReportVersion.self, forKey: .version)
         self.runId = try container.decodeIfPresent(String.self, forKey: .runId)
         self.monitorId = try container.decodeIfPresent(String.self, forKey: .monitorId)
+        self.finalized = try container.decodeIfPresent(Bool.self, forKey: .finalized)
 
         // Timestamp can be ISO 8601 string or microseconds since epoch
         if let microseconds = try? container.decode(Int64.self, forKey: .timestamp) {
@@ -137,6 +144,7 @@ public struct ReportInfo: Codable, Sendable, Equatable {
         try container.encodeIfPresent(version, forKey: .version)
         try container.encodeIfPresent(runId, forKey: .runId)
         try container.encodeIfPresent(monitorId, forKey: .monitorId)
+        try container.encodeIfPresent(finalized, forKey: .finalized)
         if let timestamp {
             try container.encode(Int64(timestamp.timeIntervalSince1970 * 1_000_000), forKey: .timestamp)
         }

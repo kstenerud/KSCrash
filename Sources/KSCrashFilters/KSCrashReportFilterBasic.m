@@ -250,7 +250,7 @@
     NSMutableArray *filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
     for (KSCrashReportDictionary *report in reports) {
         if ([report isKindOfClass:[KSCrashReportDictionary class]] == NO) {
-            KSLOG_ERROR(@"Unexpected non-dictionary report: %@", report);
+            KSLOG_ERROR(@"Unexpected non-dictionary report (got %@)", NSStringFromClass([report class]));
             continue;
         }
         BOOL firstEntry = YES;
@@ -301,7 +301,7 @@
     NSMutableArray<id<KSCrashReport>> *filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
     for (KSCrashReportDictionary *report in reports) {
         if ([report isKindOfClass:[KSCrashReportDictionary class]] == NO) {
-            KSLOG_ERROR(@"Unexpected non-dictionary report: %@", report);
+            KSLOG_ERROR(@"Unexpected non-dictionary report (got %@)", NSStringFromClass([report class]));
             continue;
         }
 
@@ -332,13 +332,13 @@
     NSMutableArray<id<KSCrashReport>> *filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
     for (KSCrashReportData *report in reports) {
         if ([report isKindOfClass:[KSCrashReportData class]] == NO) {
-            KSLOG_ERROR(@"Unexpected non-data report: %@", report);
+            KSLOG_ERROR(@"Unexpected non-data report (got %@)", NSStringFromClass([report class]));
             continue;
         }
 
         NSString *converted = [[NSString alloc] initWithData:report.value encoding:NSUTF8StringEncoding];
         if (converted == nil) {
-            KSLOG_ERROR(@"Can't decode UTF8 string from binary data: %@", report);
+            KSLOG_ERROR(@"Can't decode UTF8 string from binary data (got %@)", NSStringFromClass([report class]));
             continue;
         }
         [filteredReports addObject:[KSCrashReportString reportWithValue:converted]];
@@ -356,7 +356,7 @@
     NSMutableArray<id<KSCrashReport>> *filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
     for (KSCrashReportString *report in reports) {
         if ([report isKindOfClass:[KSCrashReportString class]] == NO) {
-            KSLOG_ERROR(@"Unexpected non-string report: %@", report);
+            KSLOG_ERROR(@"Unexpected non-string report (got %@)", NSStringFromClass([report class]));
             continue;
         }
 

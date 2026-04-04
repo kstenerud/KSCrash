@@ -47,7 +47,7 @@
     int i = 0;
     for (KSCrashReportString *report in reports) {
         if ([report isKindOfClass:[KSCrashReportString class]] == NO) {
-            KSLOG_ERROR(@"Unexpected non-string report: %@", report);
+            KSLOG_ERROR(@"Unexpected non-string report (got %@)", NSStringFromClass([report class]));
             continue;
         }
         printf("Report %d:\n%s\n", ++i, report.value.UTF8String);

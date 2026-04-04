@@ -42,13 +42,13 @@ static KSCrash_MonitorContext *stubNotify(__unused thread_t thread,
     return &g_stubContext;
 }
 
-static void stubHandle(__unused KSCrash_MonitorContext *context, KSCrash_ReportResult *result)
+static void stubHandle(__unused KSCrash_MonitorContext *context, KSCrash_ReportResult *result, __unused bool finalize)
 {
     result->reportId = 12345;
     result->path[0] = '\0';
 }
 
-static void stubHandle_deprecated(KSCrash_MonitorContext *context) { stubHandle(context, NULL); }
+static void stubHandle_deprecated(KSCrash_MonitorContext *context) { stubHandle(context, NULL, false); }
 
 @interface KSSempahore : NSObject {
     dispatch_semaphore_t _semaphore;

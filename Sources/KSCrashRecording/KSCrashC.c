@@ -282,6 +282,11 @@ static void onExceptionEvent(struct KSCrash_MonitorContext *monitorContext, KSCr
     }
 }
 
+static void onFinalizeReport(__unused struct KSCrash_MonitorContext *monitorContext, const KSCrash_ReportResult *result)
+{
+    kscrs_finalizeReport(result->path, result->reportId);
+}
+
 static void setPluginMonitors(KSCrashMonitorAPI *apis, int count)
 {
     g_pluginCount = 0;
@@ -476,6 +481,7 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     ksdl_init();
 
     kscm_setEventCallbackWithResult(onExceptionEvent);
+    kscm_setFinalizeReportCallback(onFinalizeReport);
 
     setMonitors(configuration->monitors);
     setPluginMonitors(configuration->plugins.apis, configuration->plugins.length);

@@ -24,11 +24,39 @@
 
 #include "KSID.h"
 
-#include <uuid/uuid.h>
+#include <stddef.h>
+#include <string.h>
+
+// getentropy is available on all Apple platforms we support but
+// <sys/random.h> is missing from some SDK configurations.
+extern int getentropy(void *buf, size_t buflen);
+
+static const char g_hexChars[] = "0123456789ABCDEF";
 
 void ksid_generate(char *destinationBuffer37Bytes)
 {
-    uuid_t uuid;
-    uuid_generate(uuid);
-    uuid_unparse_upper(uuid, destinationBuffer37Bytes);
+    unsigned char bytes[16];
+    // getentropy goes directly to the kernel with no userspace locks,
+    // avoiding the corecrypto RNG lock that uuid_generate uses.
+    if (getentropy(bytes, sizeof(bytes)) != 0) {
+        memset(bytes, 0, sizeof(bytes));
+    }
+    // UUID v4: version 4 in bytes[6], variant 1 in bytes[8]
+    bytes[6] = (bytes[6] & 0x0F) | 0x40;
+    bytes[8] = (bytes[8] & 0x3F) | 0x80;
+
+    // Format as XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
+    // Dash positions after byte indices 3, 5, 7, 9
+    static const int dashAfter[] = { 3, 5, 7, 9 };
+    int d = 0;
+    int pos = 0;
+    for (int i = 0; i < 16; i++) {
+        destinationBuffer37Bytes[pos++] = g_hexChars[bytes[i] >> 4];
+        destinationBuffer37Bytes[pos++] = g_hexChars[bytes[i] & 0x0F];
+        if (d < 4 && i == dashAfter[d]) {
+            destinationBuffer37Bytes[pos++] = '-';
+            d++;
+        }
+    }
+    destinationBuffer37Bytes[pos] = '\0';
 }

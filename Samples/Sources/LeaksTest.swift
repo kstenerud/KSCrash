@@ -308,23 +308,21 @@ private func runLeaksTest() {
     exerciseFilterPipeline(reports: freshReports)
     deleteAllReports()
 
-    // Schedule hang exercise + sentinel leaks + exit after the run loop is active.
-    // The watchdog needs the run loop running to detect hangs.
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-        exerciseHangDetectionAndRecovery()
+    // Spin the run loop so the watchdog's run loop observer activates.
+    // This runs inline rather than via asyncAfter so exit(0) is reached
+    // even if SwiftUI's lifecycle never yields (e.g. headless CI runner).
+    RunLoop.current.run(until: Date(timeIntervalSinceNow: 1.0))
 
-        // Read and process the hang report
-        let hangReports = readReports()
-        exerciseFilterPipeline(reports: hangReports)
-        deleteAllReports()
+    exerciseHangDetectionAndRecovery()
 
-        createSentinelLeak()
-        print("[LeaksTest] Leaks test completed")
+    // Read and process the hang report
+    let hangReports = readReports()
+    exerciseFilterPipeline(reports: hangReports)
+    deleteAllReports()
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            exit(0)
-        }
-    }
+    createSentinelLeak()
+    print("[LeaksTest] Leaks test completed")
+    exit(0)
 }
 
 // MARK: - Public API

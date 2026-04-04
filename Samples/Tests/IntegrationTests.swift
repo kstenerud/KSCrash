@@ -303,6 +303,7 @@ final class UserReportedTests: IntegrationTestBase {
         XCTAssertEqual(rawReport.crash.error.nsexception?.name, Self.crashName)
         XCTAssertTrue(rawReport.crash.error.nsexception?.userInfo?.contains("a = b") ?? false)
         XCTAssertGreaterThanOrEqual(rawReport.crash.threads?.count ?? 0, 2, "Expected to have at least 2 threads")
+        XCTAssertEqual(rawReport.report.finalized, true, "Non-fatal report should be finalized at runtime")
 
         // Exception backtrace should be in last_exception_backtrace
         let exceptionBt = rawReport.crash.lastExceptionBacktrace
@@ -344,6 +345,7 @@ final class UserReportedTests: IntegrationTestBase {
         XCTAssertEqual(rawReport.crash.error.reason, Self.crashReason)
         XCTAssertEqual(rawReport.crash.error.nsexception?.name, Self.crashName)
         XCTAssertGreaterThanOrEqual(rawReport.crash.threads?.count ?? 0, 2, "Expected to have at least 2 threads")
+        XCTAssertEqual(rawReport.report.finalized, true, "Non-fatal report should be finalized at runtime")
 
         // Exception backtrace (from callStackReturnAddresses) goes to last_exception_backtrace
         XCTAssertNotNil(
@@ -380,6 +382,7 @@ final class UserReportedTests: IntegrationTestBase {
         XCTAssertEqual(rawReport.crash.error.userReported?.name, Self.crashName)
         XCTAssertEqual(rawReport.crash.error.userReported?.backtrace, Self.crashCustomStacktrace)
         XCTAssertGreaterThanOrEqual(rawReport.crash.threads?.count ?? 0, 2, "Expected to have at least 2 threads")
+        XCTAssertEqual(rawReport.report.finalized, true, "Non-fatal report should be finalized at runtime")
         let topSymbol = rawReport.crashedThread?.backtrace?.contents
             .compactMap(\.symbolName).first
             .flatMap(CrashReportFilterDemangle.demangledSwiftSymbol)
