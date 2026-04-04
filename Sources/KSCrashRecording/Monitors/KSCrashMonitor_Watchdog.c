@@ -312,8 +312,8 @@ static void populateReportForCurrentHang(KSHangMonitor *monitor)
     crashContext->signal.sigcode = 0;
 
     crashContext->mach.type = EXC_CRASH;
-    crashContext->mach.code = SIGKILL;
-    crashContext->mach.subcode = KERN_TERMINATED;
+    crashContext->mach.code = 0;
+    crashContext->mach.subcode = 0;
 
     crashContext->exitReason.code = 0x8badf00d;
 
