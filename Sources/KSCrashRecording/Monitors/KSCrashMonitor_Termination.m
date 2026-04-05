@@ -112,6 +112,7 @@ static void injectReport(const char *lastRunID, const KSCrash_LifecycleData *lif
     errorSection[KSCrashExcType_Signal] = @{
         KSCrashField_Signal : @(SIGKILL),
         KSCrashField_Name : @"SIGKILL",
+        KSCrashField_Code : @0,
     };
 
     NSMutableDictionary *crashSection = [NSMutableDictionary dictionary];
