@@ -186,7 +186,7 @@ static void reportCPUState(KSCrashCPU *cpu) KS_KEEP_FUNCTION_IN_STACKTRACE
              cpu.averageUsageInWindow * 100.0, cpu.wallTimeInWindow);
 
     bool isCritical = (cpu.state >= KSCrashCPUStateCritical);
-    uint64_t flavor = isCritical ? FLAVOR_CPU_MONITOR_FATAL : FLAVOR_CPU_MONITOR;
+    uint64_t flavor = FLAVOR_CPU_MONITOR;
     uint64_t intervalSec = (uint64_t)cpu.wallTimeInWindow;
     uint64_t limitPct = isCritical ? 80 : 50;
     uint64_t observedPct = (uint64_t)(cpu.averageUsageInWindow * 100.0);
