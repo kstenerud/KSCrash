@@ -26,6 +26,7 @@
 
 #import "KSCrashCPUTracker.h"
 
+#import <mach/mach_time.h>
 #import <os/lock.h>
 #import <unistd.h>
 
@@ -62,6 +63,17 @@ extern int proc_pidinfo(int pid, int flavor, uint64_t arg, void *buffer, int buf
 // ============================================================================
 #pragma mark - CPU State String -
 // ============================================================================
+
+/** Convert Mach absolute time ticks to nanoseconds. */
+static uint64_t machTicksToNs(uint64_t ticks)
+{
+    static mach_timebase_info_data_t sTimebase;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        mach_timebase_info(&sTimebase);
+    });
+    return ticks * sTimebase.numer / sTimebase.denom;
+}
 
 const char *KSCrashCPUStateToString(KSCrashCPUState state)
 {
@@ -274,22 +286,26 @@ typedef struct {
     }
 
     uint64_t nowNs = ksdate_continuousNanoseconds();
-    uint64_t cumulativeCpuNs = taskInfo.pti_total_user + taskInfo.pti_total_system;
+
+    // pti_total_user/system are in Mach absolute time ticks, not nanoseconds.
+    uint64_t totalUserNs = machTicksToNs(taskInfo.pti_total_user);
+    uint64_t totalSystemNs = machTicksToNs(taskInfo.pti_total_system);
+    uint64_t cumulativeCpuNs = totalUserNs + totalSystemNs;
 
     // --- Per-interval delta (instantaneous usage since last poll) ---
     uint16_t userUsage = 0;
     uint16_t systemUsage = 0;
     if (_prevWallNs > 0 && nowNs > _prevWallNs) {
         uint64_t wallDelta = nowNs - _prevWallNs;
-        uint64_t userDelta = taskInfo.pti_total_user - _prevUserNs;
-        uint64_t systemDelta = taskInfo.pti_total_system - _prevSystemNs;
+        uint64_t userDelta = totalUserNs - _prevUserNs;
+        uint64_t systemDelta = totalSystemNs - _prevSystemNs;
         uint64_t userPermil = (userDelta * 1000) / wallDelta;
         uint64_t systemPermil = (systemDelta * 1000) / wallDelta;
         userUsage = (uint16_t)(userPermil > UINT16_MAX ? UINT16_MAX : userPermil);
         systemUsage = (uint16_t)(systemPermil > UINT16_MAX ? UINT16_MAX : systemPermil);
     }
-    _prevUserNs = taskInfo.pti_total_user;
-    _prevSystemNs = taskInfo.pti_total_system;
+    _prevUserNs = totalUserNs;
+    _prevSystemNs = totalSystemNs;
     _prevWallNs = nowNs;
 
     uint16_t threadCount = (uint16_t)(taskInfo.pti_threadnum > UINT16_MAX ? UINT16_MAX : taskInfo.pti_threadnum);
