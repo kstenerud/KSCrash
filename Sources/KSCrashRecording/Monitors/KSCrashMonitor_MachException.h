@@ -39,9 +39,11 @@
 extern "C" {
 #endif
 
-/** Access the Monitor API.
- */
+/** Access the Monitor API. */
 KSCrashMonitorAPI *kscm_machexception_getAPI(void);
+
+/** Returns the mach exception type corresponding to a Unix signal number. */
+int kscm_machExceptionForSignal(int sigNum);
 
 #ifdef __cplusplus
 }

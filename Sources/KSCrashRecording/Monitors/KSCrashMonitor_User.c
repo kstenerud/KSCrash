@@ -32,7 +32,9 @@
 #include "KSThread.h"
 
 // #define KSLogger_LocalLevel TRACE
+#include <mach/exception_types.h>
 #include <memory.h>
+#include <signal.h>
 #include <stdatomic.h>
 #include <stdlib.h>
 
@@ -78,6 +80,8 @@ void kscm_reportUserException(const char *name, const char *reason, const char *
     ctx->userException.language = language;
     ctx->userException.lineOfCode = lineOfCode;
     ctx->userException.customStackTrace = stackTrace;
+    ctx->mach.type = EXC_CRASH;
+    ctx->signal.signum = SIGABRT;
     ctx->stackCursor = &stackCursor;
 
     KSCrash_ReportResult result = { 0 };

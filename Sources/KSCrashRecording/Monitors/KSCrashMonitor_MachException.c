@@ -230,7 +230,7 @@ static int signalForMachException(exception_type_t exception, mach_exception_cod
     }
 }
 
-static exception_type_t machExceptionForSignal(int sigNum)
+int kscm_kscm_machExceptionForSignal(int sigNum)
 {
     switch (sigNum) {
         case SIGFPE:
@@ -618,18 +618,7 @@ static void setEnabled(bool enabled, __unused void *context)
     }
 }
 
-static void addContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext, __unused void *context)
-{
-    const char *signalName = kscm_signal_getAPI()->monitorId(NULL);
-
-    if (signalName && strcmp(eventContext->monitorId, signalName) == 0) {
-        eventContext->mach.type = machExceptionForSignal(eventContext->signal.signum);
-    } else if (strcmp(eventContext->monitorId, monitorId(NULL)) != 0) {
-        if (eventContext->mach.type == 0) {
-            eventContext->mach.type = EXC_CRASH;
-        }
-    }
-}
+static void addContextualInfoToEvent(__unused struct KSCrash_MonitorContext *eventContext, __unused void *context) {}
 
 static void init(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused void *context)
 {
