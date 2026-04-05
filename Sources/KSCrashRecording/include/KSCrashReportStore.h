@@ -32,6 +32,7 @@
 NS_ASSUME_NONNULL_BEGIN
 
 @class KSCrashReportDictionary;
+@class KSCrashReportData;
 @class KSCrashReportStoreConfiguration;
 
 typedef NS_ENUM(NSUInteger, KSCrashReportCleanupPolicy) {
@@ -151,9 +152,17 @@ NS_SWIFT_NAME(CrashReportStore)
  *
  * @param reportID An ID of report.
  *
- * @return A crash report with a dictionary value. The dectionary fields are described in KSCrashReportFields.h.
+ * @return A crash report with a dictionary value. The dictionary fields are described in KSCrashReportFields.h.
  */
 - (nullable KSCrashReportDictionary *)reportForID:(KSCrashReportID)reportID NS_SWIFT_NAME(report(for:));
+
+/** Get report Data.
+ *
+ * @param reportID An ID of report.
+ *
+ * @return A crash report with a data value.
+ */
+- (nullable KSCrashReportData *)reportDataForID:(int64_t)reportID NS_SWIFT_NAME(reportData(for:));
 
 /** Delete all unsent reports.
  */
