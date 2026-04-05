@@ -302,7 +302,10 @@ static void setPluginMonitors(KSCrashMonitorAPI *apis, int count)
 
 static void setMonitors(KSCrashMonitorType monitorTypes)
 {
-    g_monitoring = monitorTypes;
+    // Infrastructure monitors (System, Lifecycle, UserInfo, Resource) are
+    // always enabled. They collect context that every report depends on
+    // and are not crash detectors, so there is no reason to disable them.
+    g_monitoring = monitorTypes | KSCrashMonitorTypeRequired;
 
     for (size_t i = 0; i < g_monitorMappingCount; i++) {
         KSCrashMonitorAPI *api = g_monitorMappings[i].getAPI();
