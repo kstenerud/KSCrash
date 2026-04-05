@@ -28,8 +28,8 @@
 
 #include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorHelper.h"
-#include "KSCrashMonitor_MachException.h"
 #include "KSID.h"
+#include "KSMach.h"
 #include "KSMachineContext.h"
 #include "KSSignalInfo.h"
 #include "KSStackCursor_MachineContext.h"
@@ -119,7 +119,7 @@ static void handleSignal(int sigNum, siginfo_t *signalInfo, void *userContext)
         crashContext->signal.userContext = userContext;
         crashContext->signal.signum = signalInfo->si_signo;
         crashContext->signal.sigcode = signalInfo->si_code;
-        crashContext->mach.type = kscm_machExceptionForSignal(signalInfo->si_signo);
+        crashContext->mach.type = ksmach_machExceptionForSignal(signalInfo->si_signo);
         crashContext->stackCursor = &stackCursor;
 
         g_state.callbacks.handle(crashContext);

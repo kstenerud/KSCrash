@@ -230,35 +230,6 @@ static int signalForMachException(exception_type_t exception, mach_exception_cod
     }
 }
 
-int kscm_kscm_machExceptionForSignal(int sigNum)
-{
-    switch (sigNum) {
-        case SIGFPE:
-            return EXC_ARITHMETIC;
-        case SIGSEGV:
-            return EXC_BAD_ACCESS;
-        case SIGBUS:
-            return EXC_BAD_ACCESS;
-        case SIGILL:
-            return EXC_BAD_INSTRUCTION;
-        case SIGTRAP:
-            return EXC_BREAKPOINT;
-        case SIGEMT:
-            return EXC_EMULATION;
-        case SIGSYS:
-            return EXC_UNIX_BAD_SYSCALL;
-        case SIGPIPE:
-            return EXC_UNIX_BAD_PIPE;
-        case SIGABRT:
-            // The Apple reporter uses EXC_CRASH instead of EXC_UNIX_ABORT
-            return EXC_CRASH;
-        case SIGKILL:
-            return EXC_SOFT_SIGNAL;
-        default:
-            return 0;
-    }
-}
-
 static exception_mask_t maskForException(exception_type_t exc)
 {
     // In mach/excepton_types.h, these are all set up as 1 << type
