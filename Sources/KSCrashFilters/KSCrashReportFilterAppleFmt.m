@@ -32,13 +32,8 @@
 #import <mach-o/arch.h>
 #import <mach/exception_types.h>
 
-// From kern/exc_resource.h (not available in all SDKs).
-#ifndef EXC_RESOURCE_CPUMONITOR_DECODE_PERCENTAGE
-#define EXC_RESOURCE_CPUMONITOR_DECODE_INTERVAL(code) (((code) >> 7) & 0x1FFFFFFULL)
-#define EXC_RESOURCE_CPUMONITOR_DECODE_PERCENTAGE(code) ((code) & 0x7FULL)
-#define EXC_RESOURCE_CPUMONITOR_DECODE_PERCENTAGE_OBSERVED(subcode) ((subcode) & 0x7FULL)
-#endif
 #import <mach/machine.h>
+#import "KSExcResource.h"
 
 #import "KSCPU.h"
 #import "KSCrashReportFields.h"

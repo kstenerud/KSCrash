@@ -58,6 +58,13 @@ typedef void (^KSCrashCPUTrackerObserverBlock)(KSCrashCPU *cpu, KSCrashCPUTracke
                                                KSCrashCPUState previousState)
     NS_SWIFT_UNAVAILABLE("Use Swift closures instead!");
 
+// Thresholds derived from Apple MetricKit CPU exception diagnostics.
+// Fractions of total CPU capacity (1.0 = all cores at 100%).
+FOUNDATION_EXPORT const double KSCrashCPUWarningThreshold;
+FOUNDATION_EXPORT const double KSCrashCPUCriticalThreshold;
+FOUNDATION_EXPORT const NSTimeInterval KSCrashCPUWarningWindow;
+FOUNDATION_EXPORT const NSTimeInterval KSCrashCPUCriticalWindow;
+
 /** Tracks CPU usage over sliding windows and classifies the current state. */
 NS_SWIFT_NAME(CPUTracker)
 @interface KSCrashCPUTracker : NSObject
@@ -98,6 +105,9 @@ NS_SWIFT_NAME(CPU)
 
 /** Kernel-space CPU usage in permil of one core (0–N*1000 where N is the core count). */
 @property(readonly, nonatomic, assign) uint16_t usageSystem;
+
+/** Active CPU core count at the time of this snapshot. */
+@property(readonly, nonatomic, assign) uint8_t coreCount;
 
 /** Process thread count at the time of this snapshot. */
 @property(readonly, nonatomic, assign) uint16_t threadCount;

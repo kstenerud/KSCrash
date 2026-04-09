@@ -57,6 +57,7 @@ struct proc_taskinfo {
 extern int proc_pidinfo(int pid, int flavor, uint64_t arg, void *buffer, int buffersize);
 #endif
 
+#import "KSCPURingBuffer.h"
 #import "KSDate.h"
 #import "KSSysCtl.h"
 
@@ -95,17 +96,10 @@ const char *KSCrashCPUStateToString(KSCrashCPUState state)
 
 static const NSTimeInterval kPollingInterval = 5.0;
 
-// Ring buffer holds cumulative CPU-time snapshots for sliding-window
-// averages. 48 entries = 47 intervals * 5s ≈ 235s, giving comfortable
-// headroom beyond the 180s warning window even if a poll fires slightly late.
-static const NSUInteger kRingBufferCapacity = 48;
-
-// Thresholds derived from Apple MetricKit CPU exception diagnostics.
-// These are fractions of total CPU capacity (1.0 = all cores at 100%).
-static const double kWarningThreshold = 0.50;
-static const double kCriticalThreshold = 0.80;
-static const NSTimeInterval kWarningWindow = 180.0;
-static const NSTimeInterval kCriticalWindow = 60.0;
+const double KSCrashCPUWarningThreshold = 0.50;
+const double KSCrashCPUCriticalThreshold = 0.80;
+const NSTimeInterval KSCrashCPUWarningWindow = 180.0;
+const NSTimeInterval KSCrashCPUCriticalWindow = 60.0;
 
 // ============================================================================
 #pragma mark - KSCrashCPU -
@@ -115,6 +109,7 @@ static const NSTimeInterval kCriticalWindow = 60.0;
 - (instancetype)initWithState:(KSCrashCPUState)state
                     usageUser:(uint16_t)usageUser
                   usageSystem:(uint16_t)usageSystem
+                    coreCount:(uint8_t)coreCount
                   threadCount:(uint16_t)threadCount
          averageUsageInWindow:(double)averageUsageInWindow
               cpuTimeInWindow:(NSTimeInterval)cpuTimeInWindow
@@ -127,6 +122,7 @@ static const NSTimeInterval kCriticalWindow = 60.0;
 - (instancetype)initWithState:(KSCrashCPUState)state
                     usageUser:(uint16_t)usageUser
                   usageSystem:(uint16_t)usageSystem
+                    coreCount:(uint8_t)coreCount
                   threadCount:(uint16_t)threadCount
          averageUsageInWindow:(double)averageUsageInWindow
               cpuTimeInWindow:(NSTimeInterval)cpuTimeInWindow
@@ -137,6 +133,7 @@ static const NSTimeInterval kCriticalWindow = 60.0;
         _state = state;
         _usageUser = usageUser;
         _usageSystem = usageSystem;
+        _coreCount = coreCount;
         _threadCount = threadCount;
         _averageUsageInWindow = averageUsageInWindow;
         _cpuTimeInWindow = cpuTimeInWindow;
@@ -155,15 +152,6 @@ static const NSTimeInterval kCriticalWindow = 60.0;
 @end
 
 // ============================================================================
-#pragma mark - Ring Buffer Entry -
-// ============================================================================
-
-typedef struct {
-    uint64_t wallNs;     // monotonic (continuous) nanoseconds
-    uint64_t cpuTimeNs;  // cumulative user + system CPU nanoseconds
-} KSCPURingSample;
-
-// ============================================================================
 #pragma mark - KSCrashCPUTracker -
 // ============================================================================
 
@@ -177,9 +165,7 @@ typedef struct {
     NSPointerArray *_observers;
 
     // Ring buffer and per-interval state — accessed only from _queue.
-    KSCPURingSample _ring[48];  // kRingBufferCapacity
-    NSUInteger _ringHead;
-    NSUInteger _ringCount;
+    KSCPURingBuffer _ring;
 
     uint64_t _prevUserNs;
     uint64_t _prevSystemNs;
@@ -210,6 +196,7 @@ typedef struct {
                                                    dispatch_get_global_queue(QOS_CLASS_UTILITY, 0));
         _state = KSCrashCPUStateNormal;
         _observers = [NSPointerArray weakObjectsPointerArray];
+        kscpuring_init(&_ring);
 
         int32_t count = kssysctl_int32ForName("hw.activecpu");
         _coreCount = (count > 0) ? (uint8_t)(count > 255 ? 255 : count) : 1;
@@ -287,6 +274,14 @@ typedef struct {
 
     uint64_t nowNs = ksdate_continuousNanoseconds();
 
+    // Refresh core count — the runtime brings cores online/offline for
+    // power management, so a value cached at init can go stale.
+    int32_t activeCPU = kssysctl_int32ForName("hw.activecpu");
+    if (activeCPU > 0) {
+        _coreCount = (uint8_t)(activeCPU > 255 ? 255 : activeCPU);
+    }
+    // If the syscall fails (activeCPU <= 0), keep the previous value.
+
     // pti_total_user/system are in Mach absolute time ticks, not nanoseconds.
     uint64_t totalUserNs = machTicksToNs(taskInfo.pti_total_user);
     uint64_t totalSystemNs = machTicksToNs(taskInfo.pti_total_system);
@@ -311,11 +306,7 @@ typedef struct {
     uint16_t threadCount = (uint16_t)(taskInfo.pti_threadnum > UINT16_MAX ? UINT16_MAX : taskInfo.pti_threadnum);
 
     // --- Ring buffer update ---
-    _ring[_ringHead] = (KSCPURingSample) { .wallNs = nowNs, .cpuTimeNs = cumulativeCpuNs };
-    _ringHead = (_ringHead + 1) % kRingBufferCapacity;
-    if (_ringCount < kRingBufferCapacity) {
-        _ringCount++;
-    }
+    kscpuring_push(&_ring, (KSCPURingSample) { .wallNs = nowNs, .cpuTimeNs = cumulativeCpuNs });
 
     // --- Sliding window averages ---
     KSCrashCPUState newState = KSCrashCPUStateNormal;
@@ -323,22 +314,23 @@ typedef struct {
     NSTimeInterval cpuTimeInWindow = 0;
     NSTimeInterval wallTimeInWindow = 0;
 
-    if (_ringCount >= 2) {
-        NSUInteger newest = (_ringHead + kRingBufferCapacity - 1) % kRingBufferCapacity;
-        KSCPURingSample newestSample = _ring[newest];
+    if (kscpuring_count(&_ring) >= 2) {
+        uint64_t criticalWindowNs = (uint64_t)(KSCrashCPUCriticalWindow * 1e9);
+        uint64_t warningWindowNs = (uint64_t)(KSCrashCPUWarningWindow * 1e9);
+        KSCPURingSample newestSample = kscpuring_newest(&_ring);
 
-        double criticalAvg = [self _averageForWindow:kCriticalWindow newest:newestSample];
-        double warningAvg = [self _averageForWindow:kWarningWindow newest:newestSample];
+        double criticalAvg = kscpuring_averageForWindow(&_ring, criticalWindowNs, _coreCount);
+        double warningAvg = kscpuring_averageForWindow(&_ring, warningWindowNs, _coreCount);
 
-        if (criticalAvg >= kCriticalThreshold) {
+        if (criticalAvg >= KSCrashCPUCriticalThreshold) {
             newState = KSCrashCPUStateCritical;
-            KSCPURingSample oldest = [self _oldestSampleForWindow:kCriticalWindow];
+            KSCPURingSample oldest = kscpuring_oldestForWindow(&_ring, criticalWindowNs);
             averageUsage = criticalAvg;
             cpuTimeInWindow = (double)(newestSample.cpuTimeNs - oldest.cpuTimeNs) / 1e9;
             wallTimeInWindow = (double)(newestSample.wallNs - oldest.wallNs) / 1e9;
-        } else if (warningAvg >= kWarningThreshold) {
+        } else if (warningAvg >= KSCrashCPUWarningThreshold) {
             newState = KSCrashCPUStateWarning;
-            KSCPURingSample oldest = [self _oldestSampleForWindow:kWarningWindow];
+            KSCPURingSample oldest = kscpuring_oldestForWindow(&_ring, warningWindowNs);
             averageUsage = warningAvg;
             cpuTimeInWindow = (double)(newestSample.cpuTimeNs - oldest.cpuTimeNs) / 1e9;
             wallTimeInWindow = (double)(newestSample.wallNs - oldest.wallNs) / 1e9;
@@ -348,52 +340,12 @@ typedef struct {
     return [[KSCrashCPU alloc] initWithState:newState
                                    usageUser:userUsage
                                  usageSystem:systemUsage
+                                   coreCount:_coreCount
                                  threadCount:threadCount
                         averageUsageInWindow:averageUsage
                              cpuTimeInWindow:cpuTimeInWindow
                             wallTimeInWindow:wallTimeInWindow
                                  timestampNs:nowNs];
-}
-
-/** Computes the average CPU fraction of total capacity over the given window.
- *  Returns 0 if the ring doesn't cover at least the full window duration.
- *  Result is normalized by core count: 1.0 = 100% of all cores. */
-- (double)_averageForWindow:(NSTimeInterval)windowSeconds newest:(KSCPURingSample)newest
-{
-    KSCPURingSample oldest = [self _oldestSampleForWindow:windowSeconds];
-    if (oldest.wallNs == 0 || oldest.wallNs == newest.wallNs) {
-        return 0;
-    }
-    double wallDelta = (double)(newest.wallNs - oldest.wallNs);
-    // Require the ring to actually span the full window before classifying.
-    if (wallDelta < windowSeconds * 1e9) {
-        return 0;
-    }
-    double cpuDelta = (double)(newest.cpuTimeNs - oldest.cpuTimeNs);
-    // cpuDelta/wallDelta is fraction of one core; divide by core count
-    // to get fraction of total capacity.
-    return (cpuDelta / wallDelta) / _coreCount;
-}
-
-/** Finds the oldest ring sample that is at least windowSeconds old,
- *  or the oldest available sample if the ring hasn't filled that far. */
-- (KSCPURingSample)_oldestSampleForWindow:(NSTimeInterval)windowSeconds
-{
-    NSUInteger newest = (_ringHead + kRingBufferCapacity - 1) % kRingBufferCapacity;
-    uint64_t cutoffNs = _ring[newest].wallNs - (uint64_t)(windowSeconds * 1e9);
-
-    NSUInteger oldestIdx = (_ringHead + kRingBufferCapacity - _ringCount) % kRingBufferCapacity;
-    KSCPURingSample best = _ring[oldestIdx];
-
-    for (NSUInteger i = 0; i < _ringCount; i++) {
-        NSUInteger idx = (oldestIdx + i) % kRingBufferCapacity;
-        if (_ring[idx].wallNs <= cutoffNs) {
-            best = _ring[idx];
-        } else {
-            break;
-        }
-    }
-    return best;
 }
 
 /** Timer callback — poll, update state, notify observers. */

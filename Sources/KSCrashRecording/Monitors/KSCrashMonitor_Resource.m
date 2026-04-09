@@ -44,14 +44,9 @@
 #import <fcntl.h>
 #import <mach/exception_types.h>
 
-// From kern/exc_resource.h (not available in the iOS SDK).
-#ifndef RESOURCE_TYPE_CPU
-#define RESOURCE_TYPE_CPU 1
-#define FLAVOR_CPU_MONITOR 1
-#define FLAVOR_CPU_MONITOR_FATAL 2
-#endif
 #import <stdatomic.h>
 #import <unistd.h>
+#import "KSExcResource.h"
 
 #import <sys/sysctl.h>
 #import <time.h>
@@ -166,6 +161,7 @@ static void writeCPUSnapshot(KSCrashCPU *cpu)
         res->cpuUsageSystem = cpu.usageSystem;
         res->cpuAverageUsagePermil = (uint16_t)(cpu.averageUsageInWindow * 1000.0);
         res->cpuState = (uint8_t)cpu.state;
+        res->cpuCoreCount = cpu.coreCount;
         res->threadCount = cpu.threadCount;
         res->cpuTimeInWindowNs = (uint64_t)(cpu.cpuTimeInWindow * 1e9);
         res->cpuWallTimeInWindowNs = (uint64_t)(cpu.wallTimeInWindow * 1e9);
@@ -186,9 +182,8 @@ static void reportCPUState(KSCrashCPU *cpu) KS_KEEP_FUNCTION_IN_STACKTRACE
              cpu.averageUsageInWindow * 100.0, cpu.wallTimeInWindow);
 
     bool isCritical = (cpu.state >= KSCrashCPUStateCritical);
-    uint64_t flavor = FLAVOR_CPU_MONITOR;
     uint64_t intervalSec = (uint64_t)cpu.wallTimeInWindow;
-    uint64_t limitPct = isCritical ? 80 : 50;
+    uint64_t limitPct = (uint64_t)((isCritical ? KSCrashCPUCriticalThreshold : KSCrashCPUWarningThreshold) * 100.0);
     uint64_t observedPct = (uint64_t)(cpu.averageUsageInWindow * 100.0);
 
     // CPU pressure is process-wide, so there's no single offending thread.
@@ -215,9 +210,8 @@ static void reportCPUState(KSCrashCPU *cpu) KS_KEEP_FUNCTION_IN_STACKTRACE
     ctx->crashReason = reason;
 
     ctx->mach.type = EXC_RESOURCE;
-    ctx->mach.code = (int64_t)(((uint64_t)RESOURCE_TYPE_CPU << 61) | (flavor << 58) | ((intervalSec & 0x1FFFFFF) << 7) |
-                               (limitPct & 0x7F));
-    ctx->mach.subcode = (int64_t)(observedPct & 0x7F);
+    ctx->mach.code = KSEXC_RESOURCE_CPU_ENCODE_CODE(RESOURCE_TYPE_CPU, FLAVOR_CPU_MONITOR, intervalSec, limitPct);
+    ctx->mach.subcode = KSEXC_RESOURCE_CPU_ENCODE_SUBCODE(observedPct);
 
     KSCrash_ReportResult result = { 0 };
     g_callbacks.handleWithResult(ctx, &result, true);
