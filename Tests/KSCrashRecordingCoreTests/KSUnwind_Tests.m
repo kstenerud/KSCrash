@@ -887,16 +887,11 @@ static void *ksunwind_test_thread_main(void *arg)
 
     const uint8_t cieData[] = {
         // CIE ID = 0 (this is a CIE)
-        0x00,
-        0x00,
-        0x00,
-        0x00,
+        0x00, 0x00, 0x00, 0x00,
         // Version = 3
         0x03,
         // Augmentation = "zR" (null terminated) - enables pointer encoding
-        'z',
-        'R',
-        0x00,
+        'z', 'R', 0x00,
         // Code alignment factor = 1 (ULEB128)
         0x01,
         // Data alignment factor = -8 (SLEB128: 0x78)
@@ -908,30 +903,18 @@ static void *ksunwind_test_thread_main(void *arg)
         // FDE pointer encoding = DW_EH_PE_udata4 (0x03) - 4-byte unsigned
         0x03,
         // Initial instructions:
-        0x0C,
-        0x07,
-        0x08,  // DW_CFA_def_cfa r7, 8
-        0x86,
-        0x01,  // DW_CFA_offset r6, 1 (offset = 1 * -8 = -8)
+        0x0C, 0x07, 0x08,  // DW_CFA_def_cfa r7, 8
+        0x86, 0x01,        // DW_CFA_offset r6, 1 (offset = 1 * -8 = -8)
     };
     size_t cieSize = sizeof(cieData);
 
     const uint8_t fdeData[] = {
         // CIE pointer (placeholder, not used in buildCFIRow)
-        0x00,
-        0x00,
-        0x00,
-        0x00,
+        0x00, 0x00, 0x00, 0x00,
         // PC start = 0x1000 (4 bytes, little-endian, per udata4 encoding)
-        0x00,
-        0x10,
-        0x00,
-        0x00,
+        0x00, 0x10, 0x00, 0x00,
         // PC range = 0x100 (4 bytes, per udata4 encoding)
-        0x00,
-        0x01,
-        0x00,
-        0x00,
+        0x00, 0x01, 0x00, 0x00,
         // Augmentation data length = 0 (no LSDA since no 'L' in augmentation)
         0x00,
         // No additional FDE instructions
@@ -959,48 +942,30 @@ static void *ksunwind_test_thread_main(void *arg)
     // After restore, r6 should be back to CFA-8
 
     const uint8_t cieData[] = {
-        0x00,
-        0x00,
-        0x00,
-        0x00,  // CIE ID = 0
-        0x03,  // Version = 3
-        'z',
-        'R',
-        0x00,  // Augmentation = "zR"
-        0x01,  // Code alignment = 1
-        0x78,  // Data alignment = -8
-        0x10,  // RA register = 16
-        0x01,  // Augmentation data length = 1
-        0x03,  // FDE pointer encoding = DW_EH_PE_udata4
+        0x00, 0x00, 0x00, 0x00,  // CIE ID = 0
+        0x03,                    // Version = 3
+        'z', 'R', 0x00,          // Augmentation = "zR"
+        0x01,                    // Code alignment = 1
+        0x78,                    // Data alignment = -8
+        0x10,                    // RA register = 16
+        0x01,                    // Augmentation data length = 1
+        0x03,                    // FDE pointer encoding = DW_EH_PE_udata4
         // Initial instructions:
-        0x0C,
-        0x07,
-        0x10,  // DW_CFA_def_cfa r7, 16
-        0x86,
-        0x01,  // DW_CFA_offset r6, 1 (offset = -8)
+        0x0C, 0x07, 0x10,  // DW_CFA_def_cfa r7, 16
+        0x86, 0x01,        // DW_CFA_offset r6, 1 (offset = -8)
     };
     size_t cieSize = sizeof(cieData);
 
     const uint8_t fdeData[] = {
-        0x00,
-        0x00,
-        0x00,
-        0x00,  // CIE pointer
-        0x00,
-        0x10,
-        0x00,
-        0x00,  // PC start = 0x1000 (udata4)
-        0x00,
-        0x02,
-        0x00,
-        0x00,  // PC range = 0x200 (udata4)
-        0x00,  // Augmentation data length = 0
+        0x00, 0x00, 0x00, 0x00,  // CIE pointer
+        0x00, 0x10, 0x00, 0x00,  // PC start = 0x1000 (udata4)
+        0x00, 0x02, 0x00, 0x00,  // PC range = 0x200 (udata4)
+        0x00,                    // Augmentation data length = 0
         // FDE instructions:
-        0x41,  // DW_CFA_advance_loc 1 (PC = 0x1001)
-        0x86,
-        0x02,  // DW_CFA_offset r6, 2 (change to offset = -16)
-        0x41,  // DW_CFA_advance_loc 1 (PC = 0x1002)
-        0xC6,  // DW_CFA_restore r6 (restore to CIE initial state)
+        0x41,        // DW_CFA_advance_loc 1 (PC = 0x1001)
+        0x86, 0x02,  // DW_CFA_offset r6, 2 (change to offset = -16)
+        0x41,        // DW_CFA_advance_loc 1 (PC = 0x1002)
+        0xC6,        // DW_CFA_restore r6 (restore to CIE initial state)
     };
     size_t fdeSize = sizeof(fdeData);
 
@@ -1021,51 +986,30 @@ static void *ksunwind_test_thread_main(void *arg)
     // Uses ULEB128 encoding for register number
 
     const uint8_t cieData[] = {
-        0x00,
-        0x00,
-        0x00,
-        0x00,  // CIE ID = 0
-        0x03,  // Version = 3
-        'z',
-        'R',
-        0x00,  // Augmentation = "zR"
-        0x01,  // Code alignment = 1
-        0x78,  // Data alignment = -8
-        0x10,  // RA register = 16
-        0x01,  // Augmentation data length = 1
-        0x03,  // FDE pointer encoding = DW_EH_PE_udata4
+        0x00, 0x00, 0x00, 0x00,  // CIE ID = 0
+        0x03,                    // Version = 3
+        'z', 'R', 0x00,          // Augmentation = "zR"
+        0x01,                    // Code alignment = 1
+        0x78,                    // Data alignment = -8
+        0x10,                    // RA register = 16
+        0x01,                    // Augmentation data length = 1
+        0x03,                    // FDE pointer encoding = DW_EH_PE_udata4
         // Initial instructions:
-        0x0C,
-        0x07,
-        0x10,  // DW_CFA_def_cfa r7, 16
-        0x05,
-        0x20,
-        0x01,  // DW_CFA_offset_extended r32, 1 (offset = -8)
+        0x0C, 0x07, 0x10,  // DW_CFA_def_cfa r7, 16
+        0x05, 0x20, 0x01,  // DW_CFA_offset_extended r32, 1 (offset = -8)
     };
     size_t cieSize = sizeof(cieData);
 
     const uint8_t fdeData[] = {
-        0x00,
-        0x00,
-        0x00,
-        0x00,  // CIE pointer
-        0x00,
-        0x10,
-        0x00,
-        0x00,  // PC start = 0x1000 (udata4)
-        0x00,
-        0x02,
-        0x00,
-        0x00,  // PC range = 0x200 (udata4)
-        0x00,  // Augmentation data length = 0
+        0x00, 0x00, 0x00, 0x00,  // CIE pointer
+        0x00, 0x10, 0x00, 0x00,  // PC start = 0x1000 (udata4)
+        0x00, 0x02, 0x00, 0x00,  // PC range = 0x200 (udata4)
+        0x00,                    // Augmentation data length = 0
         // FDE instructions:
-        0x41,  // DW_CFA_advance_loc 1
-        0x05,
-        0x20,
-        0x02,  // DW_CFA_offset_extended r32, 2 (change to -16)
-        0x41,  // DW_CFA_advance_loc 1
-        0x06,
-        0x20,  // DW_CFA_restore_extended r32
+        0x41,              // DW_CFA_advance_loc 1
+        0x05, 0x20, 0x02,  // DW_CFA_offset_extended r32, 2 (change to -16)
+        0x41,              // DW_CFA_advance_loc 1
+        0x06, 0x20,        // DW_CFA_restore_extended r32
     };
     size_t fdeSize = sizeof(fdeData);
 
@@ -1097,29 +1041,18 @@ static void *ksunwind_test_thread_main(void *arg)
     size_t cieSize = sizeof(cieData);
 
     const uint8_t fdeData[] = {
-        0x00,
-        0x00,
-        0x00,
-        0x00,  // CIE pointer
-        0x00,
-        0x10,
-        0x00,
-        0x00,  // PC start = 0x1000 (udata4)
-        0x00,
-        0x04,
-        0x00,
-        0x00,  // PC range = 0x400 (udata4)
-        0x00,  // Augmentation data length = 0
+        0x00, 0x00, 0x00, 0x00,  // CIE pointer
+        0x00, 0x10, 0x00, 0x00,  // PC start = 0x1000 (udata4)
+        0x00, 0x04, 0x00, 0x00,  // PC range = 0x400 (udata4)
+        0x00,                    // Augmentation data length = 0
         // FDE instructions:
-        0x41,  // DW_CFA_advance_loc 1 (PC = 0x1001)
-        0x0A,  // DW_CFA_remember_state (save current state)
-        0x41,  // DW_CFA_advance_loc 1 (PC = 0x1002)
-        0x86,
-        0x03,  // DW_CFA_offset r6, 3 (change to offset = -24)
-        0x0E,
-        0x20,  // DW_CFA_def_cfa_offset 32 (change CFA offset)
-        0x41,  // DW_CFA_advance_loc 1 (PC = 0x1003)
-        0x0B,  // DW_CFA_restore_state (restore saved state)
+        0x41,        // DW_CFA_advance_loc 1 (PC = 0x1001)
+        0x0A,        // DW_CFA_remember_state (save current state)
+        0x41,        // DW_CFA_advance_loc 1 (PC = 0x1002)
+        0x86, 0x03,  // DW_CFA_offset r6, 3 (change to offset = -24)
+        0x0E, 0x20,  // DW_CFA_def_cfa_offset 32 (change CFA offset)
+        0x41,        // DW_CFA_advance_loc 1 (PC = 0x1003)
+        0x0B,        // DW_CFA_restore_state (restore saved state)
     };
     size_t fdeSize = sizeof(fdeData);
 

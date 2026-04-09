@@ -253,10 +253,10 @@ const KSCrashRunContext *ksruncontext_previousRunContext(void) { return &g_conte
 // ============================================================================
 
 __attribute__((unused))  // For tests. Declared as extern in TestCase
-KSTerminationReason ksruncontext_testcode_determineReason(const KSCrash_LifecycleData *prevLifecycle,
-                                                          const KSCrash_ResourceData *prevResource,
-                                                          const KSCrash_SystemData *prevSystem,
-                                                          const KSCrash_SystemData *currSystem)
+KSTerminationReason
+ksruncontext_testcode_determineReason(const KSCrash_LifecycleData *prevLifecycle,
+                                      const KSCrash_ResourceData *prevResource, const KSCrash_SystemData *prevSystem,
+                                      const KSCrash_SystemData *currSystem)
 {
     return determineReason(prevLifecycle, prevResource, prevSystem, currSystem);
 }
