@@ -109,8 +109,10 @@ static int unwindSuspendedThread(thread_t machThread, uintptr_t *addresses, int 
     kscpu_getState(&machineContext);
 
     KSStackCursor stackCursor;
-    // Allow one extra frame beyond maxFrames so the truncation probe
-    // (advanceCursor after collecting maxFrames) isn't blocked by the unwinder's depth limit.
+    // The unwinder stops when currentDepth >= maxStackDepth, so passing exactly maxFrames
+    // would make the truncation probe (the extra advanceCursor call after filling the buffer)
+    // always return false. We pass maxFrames+1 so the unwinder allows that one extra step.
+    // This is safe: the probe result is never stored into addresses[].
     kssc_initWithUnwind(&stackCursor, maxFrames + 1, &machineContext);
 
     int frameCount = 0;
