@@ -352,7 +352,11 @@ import XCTest
             ready.wait()
 
             let kr = thread_suspend(machThread)
-            XCTAssertEqual(kr, KERN_SUCCESS, "Failed to suspend other thread")
+            guard kr == KERN_SUCCESS else {
+                XCTFail("thread_suspend failed: \(kr)")
+                done.signal()
+                return
+            }
 
             body(machThread)
 
