@@ -59,11 +59,7 @@ static bool takeThreadCaptureLock(void)
     return true;
 }
 
-static void releaseThreadCaptureLock(void)
-{
-    atomic_flag_clear(&g_captureLock);
-}
-
+static void releaseThreadCaptureLock(void) { atomic_flag_clear(&g_captureLock); }
 
 static bool suspendMachThread(thread_t machThread)
 {
@@ -144,7 +140,8 @@ static int captureBacktraceFromSelf(uintptr_t *addresses, int maxFrames, bool *i
     return frameCount;
 }
 
-static int captureBacktraceFromSuspendedThread(thread_t machThread, uintptr_t *addresses, int maxFrames, bool *out_isTruncated)
+static int captureBacktraceFromSuspendedThread(thread_t machThread, uintptr_t *addresses, int maxFrames,
+                                               bool *out_isTruncated)
 {
     int frameCount = 0;
     bool isTruncated = false;
@@ -160,7 +157,8 @@ static int captureBacktraceFromSuspendedThread(thread_t machThread, uintptr_t *a
     return frameCount;
 }
 
-static int captureBacktraceFromRunningThread(thread_t machThread, uintptr_t *addresses, int maxFrames, bool *out_isTruncated)
+static int captureBacktraceFromRunningThread(thread_t machThread, uintptr_t *addresses, int maxFrames,
+                                             bool *out_isTruncated)
 {
     if (machThread == ksthread_self()) {
         return captureBacktraceFromSelf(addresses, maxFrames, out_isTruncated);
