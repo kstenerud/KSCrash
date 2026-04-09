@@ -95,14 +95,6 @@ static bool resumeMachThread(thread_t machThread)
 #endif
 }
 
-static int returnFramesAndTruncated(int frameCount, bool isTruncated, bool *out_isTruncated)
-{
-    if (out_isTruncated) {
-        *out_isTruncated = isTruncated;
-    }
-    return frameCount;
-}
-
 // Unwinds a thread that is already suspended. Caller must hold g_captureLock.
 static int unwindSuspendedThread(thread_t machThread, uintptr_t *addresses, int maxFrames, bool *isTruncated)
 {
@@ -183,14 +175,20 @@ static int captureBacktraceFromRunningThread(thread_t machThread, uintptr_t *add
         releaseThreadCaptureLock();
     }
 
-    return returnFramesAndTruncated(frameCount, isTruncated, out_isTruncated);
+    if (out_isTruncated) {
+        *out_isTruncated = isTruncated;
+    }
+    return frameCount;
 }
 
 int ksbt_captureBacktraceFromSuspendedMachThread(thread_t machThread, uintptr_t *addresses, int count,
                                                  bool *isTruncated)
 {
     if (!addresses || count <= 0 || machThread == MACH_PORT_NULL) {
-        return returnFramesAndTruncated(0, false, isTruncated);
+        if (isTruncated) {
+            *isTruncated = false;
+        }
+        return 0;
     }
 
     int maxFrames = MIN(count, KSSC_MAX_STACK_DEPTH);
@@ -201,7 +199,10 @@ int ksbt_captureBacktraceFromMachThreadWithTruncation(thread_t machThread, uintp
                                                       bool *isTruncated)
 {
     if (!addresses || count <= 0 || machThread == MACH_PORT_NULL) {
-        return returnFramesAndTruncated(0, false, isTruncated);
+        if (isTruncated) {
+            *isTruncated = false;
+        }
+        return 0;
     }
 
     int maxFrames = MIN(count, KSSC_MAX_STACK_DEPTH);
