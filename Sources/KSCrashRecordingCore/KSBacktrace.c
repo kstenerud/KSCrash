@@ -68,29 +68,31 @@ static void releaseThreadCaptureLock(void)
 static bool suspendMachThread(thread_t machThread)
 {
 #if TARGET_OS_WATCH
+    (void)machThread;
     return true;
-#endif
-
+#else
     kern_return_t kr = thread_suspend(machThread);
     if (kr != KERN_SUCCESS) {
         KSLOG_ERROR("thread_suspend (0x%x) failed: %d", machThread, kr);
         return false;
     }
     return true;
+#endif
 }
 
 static bool resumeMachThread(thread_t machThread)
 {
 #if TARGET_OS_WATCH
+    (void)machThread;
     return true;
-#endif
-
+#else
     kern_return_t kr = thread_resume(machThread);
     if (kr != KERN_SUCCESS) {
         KSLOG_ERROR("thread_resume (0x%x) failed: %d", machThread, kr);
         return false;
     }
     return true;
+#endif
 }
 
 static int returnFramesAndTruncated(int frameCount, bool isTruncated, bool *out_isTruncated)
