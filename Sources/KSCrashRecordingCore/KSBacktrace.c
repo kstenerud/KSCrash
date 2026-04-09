@@ -69,7 +69,7 @@ static bool suspendMachThread(thread_t machThread)
 {
 #if TARGET_OS_WATCH
     (void)machThread;
-    return true;
+    return false;
 #else
     kern_return_t kr = thread_suspend(machThread);
     if (kr != KERN_SUCCESS) {
@@ -84,7 +84,7 @@ static bool resumeMachThread(thread_t machThread)
 {
 #if TARGET_OS_WATCH
     (void)machThread;
-    return true;
+    return false;
 #else
     kern_return_t kr = thread_resume(machThread);
     if (kr != KERN_SUCCESS) {
