@@ -183,7 +183,7 @@ final class ProfilerTests: XCTestCase {
             throw XCTSkip("watchOS does not support backtrace capture")
         #endif
 
-        let profiler = Profiler<Sample64>(
+        let profiler = Profiler<Sample512>(
             thread: pthread_self(),
             interval: 0.005,  // 5ms
             retentionSeconds: 5
@@ -209,7 +209,7 @@ final class ProfilerTests: XCTestCase {
             throw XCTSkip("watchOS does not support backtrace capture")
         #endif
 
-        let profiler = Profiler<Sample64>(
+        let profiler = Profiler<Sample512>(
             thread: pthread_self(),
             interval: 0.01,
             retentionSeconds: 5
@@ -227,7 +227,7 @@ final class ProfilerTests: XCTestCase {
         for sample in profile.samples {
             XCTAssertFalse(sample.addresses.isEmpty, "Sample should have addresses")
             XCTAssertLessThanOrEqual(
-                sample.addresses.count, Sample64.capacity,
+                sample.addresses.count, Sample512.capacity,
                 "Should not exceed Sample capacity"
             )
 
@@ -373,7 +373,7 @@ final class ProfilerTests: XCTestCase {
         #endif
 
         // Create a profiler with small capacity (1 second retention with 100ms interval = 10 samples)
-        let profiler = Profiler<Sample32>(
+        let profiler = Profiler<Sample512>(
             thread: pthread_self(),
             interval: 0.1,  // 100ms
             retentionSeconds: 1  // Small retention to test ring buffer
@@ -528,7 +528,7 @@ final class ProfilerTests: XCTestCase {
             throw XCTSkip("watchOS does not support backtrace capture")
         #endif
 
-        let profiler = Profiler<Sample64>(
+        let profiler = Profiler<Sample512>(
             thread: pthread_self(),
             interval: 0.005,
             retentionSeconds: 10
