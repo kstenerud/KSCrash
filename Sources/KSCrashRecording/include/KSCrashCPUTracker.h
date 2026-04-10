@@ -77,9 +77,6 @@ NS_SWIFT_NAME(CPUTracker)
 /** The current CPU state classification. */
 @property(atomic, readonly) KSCrashCPUState state;
 
-/** Number of active CPU cores on this device. */
-@property(nonatomic, readonly) uint8_t coreCount;
-
 /** A copy of the most recent CPU snapshot, or nil if no data has been collected. */
 @property(nonatomic, readonly, copy, nullable) KSCrashCPU *currentCPU;
 

@@ -90,7 +90,7 @@ typedef struct {
     uint16_t cpuUsageUser;           // user-space permil of one core: 0–N*1000
     uint16_t cpuUsageSystem;         // kernel-space permil of one core: 0–N*1000
     uint16_t cpuAverageUsagePermil;  // sliding-window average permil of total capacity
-    uint8_t cpuCoreCount;            // active CPU cores (set once at enable time)
+    uint8_t cpuCoreCount;            // active CPU cores (refreshed each tracker poll)
     uint8_t cpuState;                // KSCrashCPUState: 0=normal, 1=warning, 2=critical
 
     // Threads

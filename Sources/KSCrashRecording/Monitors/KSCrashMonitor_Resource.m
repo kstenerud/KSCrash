@@ -50,6 +50,7 @@
 
 #import <sys/sysctl.h>
 #import <time.h>
+#import "KSSysCtl.h"
 
 #import "KSDate.h"
 
@@ -576,10 +577,14 @@ static void setEnabled(bool isEnabled, __unused void *context)
 
         resourceSet(ptr);
 
+        // Seed with a correct base value so early crashes don't report 0 cores.
+        int32_t activecpu = kssysctl_int32ForName("hw.activecpu");
+        uint8_t coreCount = (activecpu > 0) ? (uint8_t)(activecpu > 255 ? 255 : activecpu) : 1;
+
         resourceUpdate(^(KSCrash_ResourceData *res) {
             res->magic = KSRESOURCE_MAGIC;
             res->version = KSCrash_Resource_CurrentVersion;
-            res->cpuCoreCount = KSCrashCPUTracker.sharedInstance.coreCount;
+            res->cpuCoreCount = coreCount;
 
             // Defaults for platforms without battery / data protection
             res->batteryLevel = 255;
