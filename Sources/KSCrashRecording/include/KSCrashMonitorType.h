@@ -174,7 +174,7 @@ enum
     /** Same crash detectors as KSCrash 2.5.1. Does not include Termination
      *  or Watchdog, which are new in 3.x. Infrastructure monitors are still
      *  always enabled via KSCrashMonitorTypeRequired. */
-    KSCrashMonitorType251Compatible = (
+    KSCrashMonitorTypeCompatible251 = (
                                        KSCrashMonitorTypeMachException |
                                        KSCrashMonitorTypeSignal |
                                        KSCrashMonitorTypeCPPException |
