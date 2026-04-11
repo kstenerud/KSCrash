@@ -68,10 +68,6 @@ NS_SWIFT_NAME(AppStateTracker)
 /**
  * Adds a block based observer.
  *
- * The block is called immediately (asynchronously on the main queue) with the
- * current transition state so the observer doesn't miss transitions that already
- * happened before registration.
- *
  *@return An object that when set to nil will remove the observer.
  */
 - (id)addObserverWithBlock:(KSCrashAppStateTrackerObserverBlock)block;

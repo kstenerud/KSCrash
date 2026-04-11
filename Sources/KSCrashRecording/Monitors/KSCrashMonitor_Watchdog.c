@@ -123,8 +123,8 @@ typedef struct {
 //
 // Sidecar files
 // -------------
-// A sidecar is a small mmap'd binary file (KSHangSidecar) written alongside
-// the crash report.  It stores the latest end-timestamp and task
+// A sidecar is a small mmap'd binary file (KSHangSidecar, 24 bytes) written
+// alongside the crash report.  It stores the latest end-timestamp and task
 // role, and is updated in-place on each timer fire via direct memory writes
 // (the kernel flushes dirty pages to disk).  This avoids re-writing the
 // full JSON report on every update.  At next launch, the stitch logic
