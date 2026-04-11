@@ -1029,6 +1029,7 @@ final class CrashReportDecodingTests: XCTestCase {
 
     func testDecodeAllTerminationReasons() throws {
         for (raw, expected): (String, TerminationReason) in [
+            ("none", .none),
             ("clean", .clean),
             ("crash", .crash),
             ("hang", .hang),
