@@ -299,6 +299,10 @@ final class CrashReportDecodingTests: XCTestCase {
                     "cpu_core_count": 6,
                     "cpu_usage_user": 1500,
                     "cpu_usage_system": 200,
+                    "cpu_state": "warning",
+                    "cpu_average_usage_permil": 520,
+                    "cpu_time_in_window": 95.0,
+                    "cpu_wall_time_in_window": 180.0,
                     "thermal_state": 1,
                     "thread_count": 42,
                     "data_protection_active": true
@@ -314,6 +318,10 @@ final class CrashReportDecodingTests: XCTestCase {
         XCTAssertEqual(report.system?.cpuCoreCount, 6)
         XCTAssertEqual(report.system?.cpuUsageUser, 1500)
         XCTAssertEqual(report.system?.cpuUsageSystem, 200)
+        XCTAssertEqual(report.system?.cpuState, .warning)
+        XCTAssertEqual(report.system?.cpuAverageUsagePermil, 520)
+        XCTAssertEqual(report.system?.cpuTimeInWindow, 95.0)
+        XCTAssertEqual(report.system?.cpuWallTimeInWindow, 180.0)
         XCTAssertEqual(report.system?.thermalState, .fair)
         XCTAssertEqual(report.system?.threadCount, 42)
         XCTAssertEqual(report.system?.dataProtectionActive, true)
@@ -338,8 +346,9 @@ final class CrashReportDecodingTests: XCTestCase {
         XCTAssertNil(report.system?.batteryState)
         XCTAssertNil(report.system?.lowPowerModeEnabled)
         XCTAssertNil(report.system?.cpuCoreCount)
-        XCTAssertNil(report.system?.cpuUsageUser)
-        XCTAssertNil(report.system?.cpuUsageSystem)
+        XCTAssertNil(report.system?.cpuState)
+        XCTAssertNil(report.system?.cpuTimeInWindow)
+        XCTAssertNil(report.system?.cpuWallTimeInWindow)
         XCTAssertNil(report.system?.thermalState)
         XCTAssertNil(report.system?.threadCount)
         XCTAssertNil(report.system?.dataProtectionActive)
@@ -374,6 +383,22 @@ final class CrashReportDecodingTests: XCTestCase {
                 """
             let report = try CrashReport.decode(from: json)
             XCTAssertEqual(report.system?.thermalState, expected, "thermal_state \(rawValue)")
+        }
+    }
+
+    func testDecodeCPUStateValues() throws {
+        for (rawValue, expected): (String, CPUState) in [
+            ("normal", .normal), ("warning", .warning), ("critical", .critical),
+        ] {
+            let json = """
+                {
+                    "crash": { "error": { "type": "mach" }, "threads": [] },
+                    "report": { "id": "test" },
+                    "system": { "cpu_state": "\(rawValue)" }
+                }
+                """
+            let report = try CrashReport.decode(from: json)
+            XCTAssertEqual(report.system?.cpuState, expected, "cpu_state \(rawValue)")
         }
     }
 

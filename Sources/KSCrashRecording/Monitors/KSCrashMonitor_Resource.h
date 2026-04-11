@@ -24,8 +24,10 @@
 // THE SOFTWARE.
 //
 
-/* Passive resource monitor — collects memory, battery, CPU, thermal, and
- * thread data into an mmap'd run sidecar.  Never generates crash reports.
+/* Resource monitor — collects memory, battery, CPU, thermal, and thread
+ * data into an mmap'd run sidecar.  Optionally generates non-fatal
+ * CPU exception reports when sustained usage crosses warning/critical
+ * thresholds (see kscm_resource_setReportsCPUExceptions).
  *
  * Data is available at runtime via ksresource_getSnapshot() and from any
  * previous run via ksresource_getSnapshotForRunID().  At report delivery
@@ -61,11 +63,6 @@ typedef enum {
  *  a low-battery termination candidate (percent, 0–100). */
 #define KSCRASH_BATTERY_LEVEL_CRITICAL 1
 
-/** CPU usage threshold in permil of one core above which an app is considered
- *  a CPU termination candidate.  Compared against the sum of user + system
- *  usage across all cores (i.e. threshold * coreCount). */
-#define KSCRASH_CPU_USAGE_CRITICAL 800
-
 #define KSRESOURCE_MAGIC ((int32_t)'ksrs')
 
 static const uint8_t KSCrash_Resource_CurrentVersion = 1;
@@ -89,9 +86,12 @@ typedef struct {
     uint64_t memoryRemaining;  // bytes until limit
     uint64_t memoryLimit;      // footprint + remaining
 
-    // CPU (from proc_pidinfo PROC_PIDTASKINFO, polled)
-    uint16_t cpuUsageUser;    // user-space permil of one core: 0–N*1000
-    uint16_t cpuUsageSystem;  // kernel-space permil of one core: 0–N*1000
+    // CPU (from KSCrashCPUTracker)
+    uint16_t cpuUsageUser;           // user-space permil of one core: 0–N*1000
+    uint16_t cpuUsageSystem;         // kernel-space permil of one core: 0–N*1000
+    uint16_t cpuAverageUsagePermil;  // sliding-window average permil of total capacity
+    uint8_t cpuCoreCount;            // active CPU cores (refreshed each tracker poll)
+    uint8_t cpuState;                // KSCrashCPUState: 0=normal, 1=warning, 2=critical
 
     // Threads
     uint16_t threadCount;  // process thread count
@@ -100,8 +100,6 @@ typedef struct {
     uint8_t batteryLevel;  // 0–100, or 255 if unavailable
     uint8_t batteryState;  // KSCrashBatteryState
     uint8_t lowPowerMode;  // 0 or 1
-
-    uint8_t cpuCoreCount;  // active CPU cores (set once at enable time)
 
     // Thermal
     uint8_t thermalState;  // 0=nominal, 1=fair, 2=serious, 3=critical
@@ -117,9 +115,14 @@ typedef struct {
     uint64_t lowPowerUpdatedAtNs;
     uint64_t thermalUpdatedAtNs;
     uint64_t dataProtectionUpdatedAtNs;
+
+    // CPU time accumulated in the active threshold window (nanoseconds).
+    // Populated only when cpuState > Normal.
+    uint64_t cpuTimeInWindowNs;
+    uint64_t cpuWallTimeInWindowNs;
 } KSCrash_ResourceData;
 
-_Static_assert(sizeof(KSCrash_ResourceData) == 96, "KSCrash_ResourceData size changed — bump version");
+_Static_assert(sizeof(KSCrash_ResourceData) == 112, "KSCrash_ResourceData size changed — bump version");
 
 // ============================================================================
 #pragma mark - Public Snapshot API -
@@ -143,6 +146,12 @@ bool ksresource_getSnapshotForRunID(const char *runID, KSCrash_ResourceData *out
 
 /** Access the Resource Monitor API. */
 KSCrashMonitorAPI *kscm_resource_getAPI(void);
+
+/** Enable or disable non-fatal CPU exception reports.
+ *  When enabled, an upward state transition (e.g. normal → warning)
+ *  generates a report with all thread stacks.
+ */
+void kscm_resource_setReportsCPUExceptions(bool enabled);
 
 /** Stitch resource sidecar data into a report at delivery time.
  *

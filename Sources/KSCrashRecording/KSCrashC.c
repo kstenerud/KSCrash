@@ -302,7 +302,10 @@ static void setPluginMonitors(KSCrashMonitorAPI *apis, int count)
 
 static void setMonitors(KSCrashMonitorType monitorTypes)
 {
-    g_monitoring = monitorTypes;
+    // Infrastructure monitors (System, Lifecycle, UserInfo, Resource) are
+    // always enabled. They collect context that every report depends on
+    // and are not crash detectors, so there is no reason to disable them.
+    g_monitoring = monitorTypes | KSCrashMonitorTypeRequired;
 
     for (size_t i = 0; i < g_monitorMappingCount; i++) {
         KSCrashMonitorAPI *api = g_monitorMappings[i].getAPI();
@@ -364,6 +367,7 @@ static void handleConfiguration(KSCrashCConfiguration *configuration)
 
     kscrashreport_setIsWritingReportCallback(g_isWritingReportCallback);
     kscm_watchdog_setReportsHangs(configuration->enableHangReporting);
+    kscm_resource_setReportsCPUExceptions(configuration->enableCPUExceptionReporting);
     kscrashreport_setCompactBinaryImages(configuration->enableCompactBinaryImages);
     g_shouldAddConsoleLogToReport = configuration->addConsoleLogToReport;
     g_shouldPrintPreviousLog = configuration->printPreviousLogOnStartup;

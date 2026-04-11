@@ -171,30 +171,33 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonMemoryPressure);
 }
 
-- (void)testCPUExcessive
+- (void)testCPUCriticalState
 {
     KSCrash_LifecycleData lc = makeLifecycle(false, false);
     KSCrash_ResourceData res = makeResource();
-    res.cpuCoreCount = 4;
-    // 80% of 4 cores = 3200 permil threshold. Set user+system above that.
-    res.cpuUsageUser = 2500;
-    res.cpuUsageSystem = 800;
+    res.cpuState = 2;  // KSCrashCPUStateCritical
     KSCrash_SystemData sys = sameSystem();
 
     XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonCPU);
 }
 
-- (void)testCPUBelowThreshold
+- (void)testCPUWarningStateDoesNotTrigger
 {
     KSCrash_LifecycleData lc = makeLifecycle(false, false);
     KSCrash_ResourceData res = makeResource();
-    res.cpuCoreCount = 4;
-    // Below 3200 threshold
-    res.cpuUsageUser = 1000;
-    res.cpuUsageSystem = 500;
+    res.cpuState = 1;  // KSCrashCPUStateWarning — not fatal
     KSCrash_SystemData sys = sameSystem();
 
-    // Should be unexplained (nothing critical), not CPU
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonUnexplained);
+}
+
+- (void)testCPUNormalStateDoesNotTrigger
+{
+    KSCrash_LifecycleData lc = makeLifecycle(false, false);
+    KSCrash_ResourceData res = makeResource();
+    res.cpuState = 0;  // KSCrashCPUStateNormal
+    KSCrash_SystemData sys = sameSystem();
+
     XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonUnexplained);
 }
 
@@ -378,9 +381,7 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
 {
     KSCrash_LifecycleData lc = makeLifecycle(false, false);
     KSCrash_ResourceData res = makeResource();
-    res.cpuCoreCount = 4;
-    res.cpuUsageUser = 3000;
-    res.cpuUsageSystem = 500;
+    res.cpuState = 2;      // critical
     res.thermalState = 3;  // critical
     KSCrash_SystemData sys = sameSystem();
 

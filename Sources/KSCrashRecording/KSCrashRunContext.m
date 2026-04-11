@@ -28,6 +28,7 @@
 
 #import "KSCrashAppMemory.h"
 #import "KSCrashC.h"
+#import "KSCrashCPUTracker.h"
 #import "KSFileUtils.h"
 
 #import <Foundation/Foundation.h>
@@ -138,9 +139,7 @@ static KSTerminationReason determineReason(const KSCrash_LifecycleData *prevLife
         return KSTerminationReasonMemoryPressure;
     }
 
-    uint32_t totalCPU = (uint32_t)prevResource->cpuUsageUser + (uint32_t)prevResource->cpuUsageSystem;
-    uint32_t cpuThreshold = (uint32_t)prevResource->cpuCoreCount * KSCRASH_CPU_USAGE_CRITICAL;
-    if (cpuThreshold > 0 && totalCPU > cpuThreshold) {
+    if (prevResource->cpuState >= KSCrashCPUStateCritical) {
         return KSTerminationReasonCPU;
     }
 

@@ -41,14 +41,6 @@ extern "C" {
 
 // clang-format off
 
-/** Various aspects of the system that can be monitored:
- * - Mach kernel exception
- * - Fatal signal
- * - Uncaught C++ exception
- * - Uncaught Objective-C NSException
- * - Deadlock on the main thread
- * - User reported custom exception
- */
 typedef
 #ifdef __OBJC__
 NS_OPTIONS(NSUInteger, KSCrashMonitorType)
@@ -58,6 +50,10 @@ enum
 {
     /** No monitoring. */
     KSCrashMonitorTypeNone               = 0,
+
+    /* =======================================================================
+     * Crash detectors (user-configurable)
+     * ======================================================================= */
 
     /** Monitor Mach kernel exceptions. */
     KSCrashMonitorTypeMachException      = 1 << 0,
@@ -74,26 +70,47 @@ enum
     /** Monitor user-reported custom exceptions. */
     KSCrashMonitorTypeUserReported       = 1 << 5,
 
-    /** Track and inject system information. */
-    KSCrashMonitorTypeSystem             = 1 << 6,
-
-    /** Track and inject application state information. */
-    KSCrashMonitorTypeApplicationState   = 1 << 7,
-
     /** Track memory issues and last zombie NSException. */
     KSCrashMonitorTypeZombie             = 1 << 8,
 
     /** Detect terminations caused by resource exhaustion or system changes. */
     KSCrashMonitorTypeTermination        = 1 << 9,
 
-    /** Tracks hangs as well as hangs that cause a termination (watchdog terminations) */
+    /** Tracks hangs as well as hangs that cause a termination (watchdog terminations). */
     KSCrashMonitorTypeWatchdog           = 1 << 10,
+
+    /* =======================================================================
+     * Infrastructure (always enabled, see KSCrashMonitorTypeRequired)
+     * ======================================================================= */
+
+    /** Track and inject system information. */
+    KSCrashMonitorTypeSystem             = 1 << 6,
+
+    /** Track and inject application state information. */
+    KSCrashMonitorTypeApplicationState   = 1 << 7,
 
     /** Track per-key user data that survives crashes. */
     KSCrashMonitorTypeUserInfo           = 1 << 11,
 
-    /** Passive resource snapshots (memory, battery, CPU, thermal). */
+    /** Resource snapshots (memory, battery, CPU, thermal).
+     *  Optionally emits non-fatal EXC_RESOURCE reports on CPU warning/critical
+     *  transitions when enableCPUExceptionReporting is set. */
     KSCrashMonitorTypeResource           = 1 << 12,
+
+    /* =======================================================================
+     * Composite masks
+     * ======================================================================= */
+
+    /** Infrastructure monitors that are always enabled regardless of the
+     *  user's monitor selection. These are not crash detectors; they collect
+     *  context that every report depends on. The monitor system force-ORs
+     *  this mask into whatever the caller passes. */
+    KSCrashMonitorTypeRequired = (
+                                  KSCrashMonitorTypeSystem |
+                                  KSCrashMonitorTypeApplicationState |
+                                  KSCrashMonitorTypeUserInfo |
+                                  KSCrashMonitorTypeResource
+                                  ),
 
     /** Enable all monitoring options. */
     KSCrashMonitorTypeAll = (
@@ -102,13 +119,10 @@ enum
                              KSCrashMonitorTypeCPPException |
                              KSCrashMonitorTypeNSException |
                              KSCrashMonitorTypeUserReported |
-                             KSCrashMonitorTypeSystem |
-                             KSCrashMonitorTypeApplicationState |
                              KSCrashMonitorTypeZombie |
                              KSCrashMonitorTypeTermination |
                              KSCrashMonitorTypeWatchdog |
-                             KSCrashMonitorTypeUserInfo |
-                             KSCrashMonitorTypeResource
+                             KSCrashMonitorTypeRequired
                              ),
 
     /** Fatal monitors track exceptions that lead to error termination of the process. */
@@ -145,22 +159,30 @@ enum
     /** Minimal set of production-safe monitor options. */
     KSCrashMonitorTypeProductionSafeMinimal = (KSCrashMonitorTypeProductionSafe & (~KSCrashMonitorTypeOptional)),
 
-    /** Required monitor options for essential operation. */
-    KSCrashMonitorTypeRequired = (
-                                  KSCrashMonitorTypeSystem |
-                                  KSCrashMonitorTypeApplicationState |
-                                  KSCrashMonitorTypeUserInfo |
-                                  KSCrashMonitorTypeResource
-                                  ),
-
     /** Disable automatic reporting; only manual reports are allowed. */
     KSCrashMonitorTypeManual = (KSCrashMonitorTypeRequired | KSCrashMonitorTypeUserReported),
 
-    // Deprecated aliases — kept for source compatibility.
+    /* =======================================================================
+     * Deprecated aliases
+     * ======================================================================= */
+
     /** Deprecated: use KSCrashMonitorTypeWatchdog instead. */
     KSCrashMonitorTypeMainThreadDeadlock = 1 << 4,
     /** Deprecated: use KSCrashMonitorTypeTermination instead. */
     KSCrashMonitorTypeMemoryTermination  = KSCrashMonitorTypeTermination,
+
+    /** Same crash detectors as KSCrash 2.5.1. Does not include Termination
+     *  or Watchdog, which are new in 3.x. Infrastructure monitors are still
+     *  always enabled via KSCrashMonitorTypeRequired. */
+    KSCrashMonitorTypeCompatible251 = (
+                                       KSCrashMonitorTypeMachException |
+                                       KSCrashMonitorTypeSignal |
+                                       KSCrashMonitorTypeCPPException |
+                                       KSCrashMonitorTypeNSException |
+                                       KSCrashMonitorTypeMainThreadDeadlock |
+                                       KSCrashMonitorTypeUserReported |
+                                       KSCrashMonitorTypeZombie
+                                       ),
 } NS_SWIFT_NAME(MonitorType)
 #ifndef __OBJC__
 KSCrashMonitorType

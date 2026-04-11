@@ -66,7 +66,6 @@
 #include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorHelper.h"
 #include "KSCrashMonitor_Signal.h"
-#include "KSCrashMonitor_Watchdog.h"
 #include "KSID.h"
 #include "KSStackCursor_MachineContext.h"
 #include "KSSystemCapabilities.h"
@@ -226,35 +225,6 @@ static int signalForMachException(exception_type_t exception, mach_exception_cod
                 default:
                     return 0;
             }
-        default:
-            return 0;
-    }
-}
-
-static exception_type_t machExceptionForSignal(int sigNum)
-{
-    switch (sigNum) {
-        case SIGFPE:
-            return EXC_ARITHMETIC;
-        case SIGSEGV:
-            return EXC_BAD_ACCESS;
-        case SIGBUS:
-            return EXC_BAD_ACCESS;
-        case SIGILL:
-            return EXC_BAD_INSTRUCTION;
-        case SIGTRAP:
-            return EXC_BREAKPOINT;
-        case SIGEMT:
-            return EXC_EMULATION;
-        case SIGSYS:
-            return EXC_UNIX_BAD_SYSCALL;
-        case SIGPIPE:
-            return EXC_UNIX_BAD_PIPE;
-        case SIGABRT:
-            // The Apple reporter uses EXC_CRASH instead of EXC_UNIX_ABORT
-            return EXC_CRASH;
-        case SIGKILL:
-            return EXC_SOFT_SIGNAL;
         default:
             return 0;
     }
@@ -619,19 +589,7 @@ static void setEnabled(bool enabled, __unused void *context)
     }
 }
 
-static void addContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext, __unused void *context)
-{
-    const char *signalName = kscm_signal_getAPI()->monitorId(NULL);
-
-    if (strcmp(eventContext->monitorId, kscm_watchdog_getAPI()->monitorId(NULL)) == 0) {
-        // do nothing if this is being handled by the Hang monitor.
-        return;
-    } else if (signalName && strcmp(eventContext->monitorId, signalName) == 0) {
-        eventContext->mach.type = machExceptionForSignal(eventContext->signal.signum);
-    } else if (strcmp(eventContext->monitorId, monitorId(NULL)) != 0) {
-        eventContext->mach.type = EXC_CRASH;
-    }
-}
+static void addContextualInfoToEvent(__unused struct KSCrash_MonitorContext *eventContext, __unused void *context) {}
 
 static void init(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused void *context)
 {

@@ -27,48 +27,30 @@
 #import "KSCrashMonitor_Resource.h"
 
 #import <os/lock.h>
+#import "KSCompilerDefines.h"
 #import "KSCrashAppMemory.h"
 #import "KSCrashAppMemoryTracker.h"
 #import "KSCrashC.h"
+#import "KSCrashCPUTracker.h"
 #import "KSCrashMonitorHelper.h"
 #import "KSFileUtils.h"
+#import "KSMachineContext.h"
+#import "KSStackCursor_MachineContext.h"
 #import "KSSystemCapabilities.h"
+#import "KSThread.h"
+#import "Unwind/KSStackCursor_Unwind.h"
 
 #import <Foundation/Foundation.h>
 #import <fcntl.h>
+#import <mach/exception_types.h>
+
 #import <stdatomic.h>
 #import <unistd.h>
+#import "KSExcResource.h"
 
-// proc_pidinfo is available on all Apple platforms but libproc.h
-// is only in the macOS SDK.  Forward-declare what we need.
-#if __has_include(<libproc.h>)
-#import <libproc.h>
-#else
-#define PROC_PIDTASKINFO 4
-struct proc_taskinfo {
-    uint64_t pti_virtual_size;
-    uint64_t pti_resident_size;
-    uint64_t pti_total_user;
-    uint64_t pti_total_system;
-    uint64_t pti_threads_user;
-    uint64_t pti_threads_system;
-    int32_t pti_policy;
-    int32_t pti_faults;
-    int32_t pti_pageins;
-    int32_t pti_cow_faults;
-    int32_t pti_messages_sent;
-    int32_t pti_messages_received;
-    int32_t pti_syscalls_mach;
-    int32_t pti_syscalls_unix;
-    int32_t pti_csw;
-    int32_t pti_threadnum;
-    int32_t pti_numrunning;
-    int32_t pti_priority;
-};
-int proc_pidinfo(int pid, int flavor, uint64_t arg, void *buffer, int buffersize);
-#endif
 #import <sys/sysctl.h>
 #import <time.h>
+#import "KSSysCtl.h"
 
 #import "KSDate.h"
 
@@ -80,16 +62,11 @@ int proc_pidinfo(int pid, int flavor, uint64_t arg, void *buffer, int buffersize
 #endif
 
 // ============================================================================
-#pragma mark - Constants -
-// ============================================================================
-
-static const NSTimeInterval kCPUPollingInterval = 5.0;
-
-// ============================================================================
 #pragma mark - Globals -
 // ============================================================================
 
 static atomic_bool g_isEnabled = false;
+static atomic_bool g_reportsCPUExceptions = false;
 static KSCrash_ExceptionHandlerCallbacks g_callbacks = { 0 };
 
 static os_unfair_lock g_resourceLock = OS_UNFAIR_LOCK_INIT;
@@ -97,7 +74,7 @@ static KSCrash_ResourceData *g_resource = NULL;
 
 // Observers / timers
 static id g_memoryObserver = nil;
-static dispatch_source_t g_cpuTimer = NULL;
+static id g_cpuObserver = nil;
 
 static id g_powerStateObserver = nil;
 
@@ -128,6 +105,7 @@ static void applyResourceTestOverrides(KSCrash_ResourceData *res)
     if ((val = getenv("KSCRASH_TEST_CPU_USER")) != NULL) res->cpuUsageUser = (uint16_t)atoi(val);
     if ((val = getenv("KSCRASH_TEST_CPU_SYSTEM")) != NULL) res->cpuUsageSystem = (uint16_t)atoi(val);
     if ((val = getenv("KSCRASH_TEST_CPU_CORES")) != NULL) res->cpuCoreCount = (uint8_t)atoi(val);
+    if ((val = getenv("KSCRASH_TEST_CPU_STATE")) != NULL) res->cpuState = (uint8_t)atoi(val);
     if ((val = getenv("KSCRASH_TEST_BATTERY_LEVEL")) != NULL) res->batteryLevel = (uint8_t)atoi(val);
     if ((val = getenv("KSCRASH_TEST_BATTERY_STATE")) != NULL) res->batteryState = (uint8_t)atoi(val);
 }
@@ -174,90 +152,93 @@ static bool validateResourceData(const KSCrash_ResourceData *data)
 }
 
 // ============================================================================
-#pragma mark - CPU / Thread Polling -
+#pragma mark - CPU / Thread Observer -
 // ============================================================================
 
-static uint8_t getActiveCPUCount(void)
+static void writeCPUSnapshot(KSCrashCPU *cpu)
 {
-    int count = 0;
-    size_t size = sizeof(count);
-    if (sysctlbyname("hw.activecpu", &count, &size, NULL, 0) != 0) {
-        count = 1;
-    }
-    return (uint8_t)(count > 255 ? 255 : count);
+    resourceUpdate(^(KSCrash_ResourceData *res) {
+        res->cpuUsageUser = cpu.usageUser;
+        res->cpuUsageSystem = cpu.usageSystem;
+        res->cpuAverageUsagePermil = (uint16_t)(cpu.averageUsageInWindow * 1000.0);
+        res->cpuState = (uint8_t)cpu.state;
+        res->cpuCoreCount = cpu.coreCount;
+        res->threadCount = cpu.threadCount;
+        res->cpuTimeInWindowNs = (uint64_t)(cpu.cpuTimeInWindow * 1e9);
+        res->cpuWallTimeInWindowNs = (uint64_t)(cpu.wallTimeInWindow * 1e9);
+        res->cpuUpdatedAtNs = cpu.timestampNs;
+    });
 }
 
-/** Reads CPU time and thread count via proc_pidinfo.
- *  CPU usage is computed as the delta since the last poll,
- *  split into user-space and kernel-space components.
- */
-static void pollCPUAndThreads(void)
+static void reportCPUState(KSCrashCPU *cpu) KS_KEEP_FUNCTION_IN_STACKTRACE
 {
-    struct proc_taskinfo taskInfo = { 0 };
-    int size = proc_pidinfo(getpid(), PROC_PIDTASKINFO, 0, &taskInfo, sizeof(taskInfo));
-    if (size != (int)sizeof(taskInfo)) {
+    if (!g_callbacks.handleWithResult || !g_callbacks.notify) {
         return;
     }
 
-    static uint64_t s_prevUserNs = 0;
-    static uint64_t s_prevSystemNs = 0;
-    static uint64_t s_prevWallNs = 0;
+    // Prepare all data before notify(), which suspends threads and
+    // enters an async-safe-only region.
+    char reason[128];
+    snprintf(reason, sizeof(reason), "CPU usage %s: %.1f%% average over %.0fs", KSCrashCPUStateToString(cpu.state),
+             cpu.averageUsageInWindow * 100.0, cpu.wallTimeInWindow);
 
-    uint64_t nowNs = ksdate_continuousNanoseconds();
+    bool isCritical = (cpu.state >= KSCrashCPUStateCritical);
+    uint64_t intervalSec = (uint64_t)cpu.wallTimeInWindow;
+    uint64_t limitPct = (uint64_t)((isCritical ? KSCrashCPUCriticalThreshold : KSCrashCPUWarningThreshold) * 100.0);
+    uint64_t observedPct = (uint64_t)(cpu.averageUsageInWindow * 100.0);
 
-    uint16_t userUsage = 0;
-    uint16_t systemUsage = 0;
-    if (s_prevWallNs > 0 && nowNs > s_prevWallNs) {
-        uint64_t wallDelta = nowNs - s_prevWallNs;
-        uint64_t userDelta = taskInfo.pti_total_user - s_prevUserNs;
-        uint64_t systemDelta = taskInfo.pti_total_system - s_prevSystemNs;
-        uint64_t userPermil = (userDelta * 1000) / wallDelta;
-        uint64_t systemPermil = (systemDelta * 1000) / wallDelta;
-        userUsage = (uint16_t)(userPermil > UINT16_MAX ? UINT16_MAX : userPermil);
-        systemUsage = (uint16_t)(systemPermil > UINT16_MAX ? UINT16_MAX : systemPermil);
-    }
+    // CPU pressure is process-wide, so there's no single offending thread.
+    // We use the main thread as the primary thread in the report because
+    // it provides the most useful context. Per-thread CPU attribution
+    // (task_threads + thread_info on each tick) would be too expensive
+    // for the polling path. All thread stacks are captured regardless,
+    // which is where the real diagnostic value is.
+    thread_t mainThread = (thread_t)ksthread_main();
+    KSCrash_MonitorContext *ctx = g_callbacks.notify(
+        mainThread,
+        (KSCrash_ExceptionHandlingRequirements) {
+            .asyncSafety = false, .isFatal = false, .shouldRecordAllThreads = true, .shouldWriteReport = true });
 
-    s_prevUserNs = taskInfo.pti_total_user;
-    s_prevSystemNs = taskInfo.pti_total_system;
-    s_prevWallNs = nowNs;
+    KSMachineContext machineContext = { 0 };
+    ksmc_getContextForThread(mainThread, &machineContext, true);
+    KSStackCursor stackCursor;
+    kssc_initWithUnwind(&stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
 
-    uint16_t threadCount = (uint16_t)(taskInfo.pti_threadnum > UINT16_MAX ? UINT16_MAX : taskInfo.pti_threadnum);
+    kscm_fillMonitorContext(ctx, kscm_resource_getAPI());
+    ctx->offendingMachineContext = &machineContext;
+    ctx->registersAreValid = true;
+    ctx->stackCursor = &stackCursor;
+    ctx->crashReason = reason;
 
-    uint64_t now = ksdate_continuousNanoseconds();
-    resourceUpdate(^(KSCrash_ResourceData *res) {
-        res->cpuUsageUser = userUsage;
-        res->cpuUsageSystem = systemUsage;
-        res->threadCount = threadCount;
-        res->cpuUpdatedAtNs = now;
-    });
+    ctx->mach.type = EXC_RESOURCE;
+    ctx->mach.code = KSEXC_RESOURCE_CPU_ENCODE_CODE(RESOURCE_TYPE_CPU, FLAVOR_CPU_MONITOR, intervalSec, limitPct);
+    ctx->mach.subcode = KSEXC_RESOURCE_CPU_ENCODE_SUBCODE(observedPct);
+
+    KSCrash_ReportResult result = { 0 };
+    g_callbacks.handleWithResult(ctx, &result, true);
+
+    KS_THWART_TAIL_CALL_OPTIMISATION
 }
 
-static void startCPUTimer(void)
+static void startCPUObserver(void)
 {
-#ifdef KSCRASH_NAMESPACE
-    const char *label = "com.kscrash." KSCRASH_NAMESPACE_STRING ".resource.heartbeat";
-#else
-    const char *label = "com.kscrash.resource.heartbeat";
-#endif
-    dispatch_queue_t queue = dispatch_queue_create_with_target(label, DISPATCH_QUEUE_SERIAL,
-                                                               dispatch_get_global_queue(QOS_CLASS_UTILITY, 0));
-    g_cpuTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, queue);
-    dispatch_source_set_timer(g_cpuTimer, dispatch_time(DISPATCH_TIME_NOW, 0),
-                              (uint64_t)(kCPUPollingInterval * NSEC_PER_SEC), NSEC_PER_SEC);
-    dispatch_source_set_event_handler(g_cpuTimer, ^{
-        if (!atomic_load(&g_isEnabled)) return;
-        pollCPUAndThreads();
-    });
-    dispatch_resume(g_cpuTimer);
-}
+    g_cpuObserver = [KSCrashCPUTracker.sharedInstance
+        addObserverWithBlock:^(KSCrashCPU *cpu, KSCrashCPUTrackerChangeType changes, KSCrashCPUState previousState) {
+            writeCPUSnapshot(cpu);
 
-static void stopCPUTimer(void)
-{
-    if (g_cpuTimer) {
-        dispatch_source_cancel(g_cpuTimer);
-        g_cpuTimer = NULL;
+            if (atomic_load(&g_reportsCPUExceptions) && (changes & KSCrashCPUTrackerChangeTypeState) &&
+                cpu.state > previousState) {
+                reportCPUState(cpu);
+            }
+        }];
+
+    KSCrashCPU *current = KSCrashCPUTracker.sharedInstance.currentCPU;
+    if (current != nil) {
+        writeCPUSnapshot(current);
     }
 }
+
+static void stopCPUObserver(void) { g_cpuObserver = nil; }
 
 // ============================================================================
 #pragma mark - Memory Observer -
@@ -596,11 +577,14 @@ static void setEnabled(bool isEnabled, __unused void *context)
 
         resourceSet(ptr);
 
-        uint8_t cpuCores = getActiveCPUCount();
+        // Seed with a correct base value so early crashes don't report 0 cores.
+        int32_t activecpu = kssysctl_int32ForName("hw.activecpu");
+        uint8_t coreCount = (activecpu > 0) ? (uint8_t)(activecpu > 255 ? 255 : activecpu) : 1;
+
         resourceUpdate(^(KSCrash_ResourceData *res) {
             res->magic = KSRESOURCE_MAGIC;
             res->version = KSCrash_Resource_CurrentVersion;
-            res->cpuCoreCount = cpuCores;
+            res->cpuCoreCount = coreCount;
 
             // Defaults for platforms without battery / data protection
             res->batteryLevel = 255;
@@ -609,7 +593,7 @@ static void setEnabled(bool isEnabled, __unused void *context)
         });
 
         startMemoryObserver();
-        startCPUTimer();
+        startCPUObserver();
         startPowerObserver();
 #if KSCRASH_HOST_IOS
         startBatteryObservers();
@@ -621,7 +605,7 @@ static void setEnabled(bool isEnabled, __unused void *context)
 
     } else {
         stopMemoryObserver();
-        stopCPUTimer();
+        stopCPUObserver();
         stopPowerObserver();
 #if KSCRASH_HOST_IOS
         stopBatteryObservers();
@@ -649,3 +633,5 @@ KSCrashMonitorAPI *kscm_resource_getAPI(void)
     }
     return &api;
 }
+
+void kscm_resource_setReportsCPUExceptions(bool enabled) { atomic_store(&g_reportsCPUExceptions, enabled); }

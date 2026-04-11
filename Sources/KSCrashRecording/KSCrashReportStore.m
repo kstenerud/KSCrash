@@ -256,6 +256,15 @@ const KSCrashReportID KSCrashReportNoID = 0;
     return [reportIDs copy];
 }
 
+- (KSCrashReportData *)reportDataForID:(int64_t)reportID
+{
+    NSData *jsonData = [self loadCrashReportJSONWithID:reportID];
+    if (jsonData == nil) {
+        return nil;
+    }
+    return [KSCrashReportData reportWithValue:jsonData];
+}
+
 - (KSCrashReportDictionary *)reportForID:(int64_t)reportID
 {
     NSData *jsonData = [self loadCrashReportJSONWithID:reportID];

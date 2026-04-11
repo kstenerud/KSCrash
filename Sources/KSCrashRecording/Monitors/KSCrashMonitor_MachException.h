@@ -39,8 +39,7 @@
 extern "C" {
 #endif
 
-/** Access the Monitor API.
- */
+/** Access the Monitor API. */
 KSCrashMonitorAPI *kscm_machexception_getAPI(void);
 
 #ifdef __cplusplus

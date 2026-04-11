@@ -205,6 +205,18 @@ NS_ASSUME_NONNULL_BEGIN
  */
 @property(nonatomic, assign) BOOL enableHangReporting;
 
+/** If true, generate non-fatal reports when sustained CPU usage reaches
+ *  warning or critical thresholds.
+ *
+ * Each upward state transition (normal to warning, warning to critical,
+ * or normal to critical) produces one report with all thread stacks.
+ *
+ * Only applies when `KSCrashMonitorTypeResource` is included in `monitors`.
+ *
+ * **Default**: false
+ */
+@property(nonatomic, assign) BOOL enableCPUExceptionReporting;
+
 /** If true, use compact binary image reporting.
  *
  * When enabled, the `binary_images` array is filtered to only include

@@ -34,6 +34,8 @@
 #import "Unwind/KSStackCursor_Unwind.h"
 
 #import <Foundation/Foundation.h>
+#import <mach/exception_types.h>
+#import <signal.h>
 #import <stdatomic.h>
 
 // #define KSLogger_LocalLevel TRACE
@@ -127,6 +129,8 @@ static KSCrash_ExceptionHandlerCallbacks g_callbacks;
     crashContext->registersAreValid = false;
     crashContext->offendingMachineContext = &machineContext;
     crashContext->stackCursor = &stackCursor;
+    crashContext->mach.type = EXC_CRASH;
+    crashContext->signal.signum = SIGABRT;
 
     g_callbacks.handle(crashContext);
 

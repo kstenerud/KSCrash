@@ -28,9 +28,8 @@
 
 #include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorHelper.h"
-#include "KSCrashMonitor_MachException.h"
-#include "KSCrashMonitor_Watchdog.h"
 #include "KSID.h"
+#include "KSMach.h"
 #include "KSMachineContext.h"
 #include "KSSignalInfo.h"
 #include "KSStackCursor_MachineContext.h"
@@ -120,6 +119,7 @@ static void handleSignal(int sigNum, siginfo_t *signalInfo, void *userContext)
         crashContext->signal.userContext = userContext;
         crashContext->signal.signum = signalInfo->si_signo;
         crashContext->signal.sigcode = signalInfo->si_code;
+        crashContext->mach.type = ksmach_machExceptionForSignal(signalInfo->si_signo);
         crashContext->stackCursor = &stackCursor;
 
         g_state.callbacks.handle(crashContext);
@@ -237,18 +237,7 @@ static void setEnabled(bool enabled, __unused void *context)
     }
 }
 
-static void addContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext, __unused void *context)
-{
-    const char *machName = kscm_machexception_getAPI()->monitorId(NULL);
-
-    if (strcmp(eventContext->monitorId, kscm_watchdog_getAPI()->monitorId(NULL)) == 0) {
-        // do nothing if this is being handled by the Hang monitor.
-        return;
-    } else if (!(strcmp(eventContext->monitorId, monitorId(NULL)) == 0 ||
-                 (machName && strcmp(eventContext->monitorId, machName) == 0))) {
-        eventContext->signal.signum = SIGABRT;
-    }
-}
+static void addContextualInfoToEvent(__unused struct KSCrash_MonitorContext *eventContext, __unused void *context) {}
 
 static void init(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused void *context)
 {

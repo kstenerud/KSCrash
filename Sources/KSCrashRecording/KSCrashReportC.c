@@ -36,6 +36,7 @@
 #include "KSCrashMonitor_Lifecycle.h"
 #include "KSCrashMonitor_MachException.h"
 #include "KSCrashMonitor_NSException.h"
+#include "KSCrashMonitor_Resource.h"
 #include "KSCrashMonitor_Signal.h"
 #include "KSCrashMonitor_System.h"
 #include "KSCrashMonitor_User.h"
@@ -1451,6 +1452,8 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
                 }
             }
             writer->endContainer(writer);
+        } else if (isCrashOfMonitorType(crash, kscm_resource_getAPI())) {
+            writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_Mach);
         } else if (isCrashOfMonitorType(crash, kscm_system_getAPI()) ||
                    isCrashOfMonitorType(crash, kscm_lifecycle_getAPI()) ||
                    isCrashOfMonitorType(crash, kscm_zombie_getAPI())) {
