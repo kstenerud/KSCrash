@@ -146,20 +146,9 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
         return nil;
     }
     id heapBlock = [block copy];
-    KSCrashAppTransitionState currentState;
     os_unfair_lock_lock(&_lock);
     [_observers addPointer:(__bridge void *_Nullable)(heapBlock)];
-    currentState = _transitionState;
     os_unfair_lock_unlock(&_lock);
-
-    // Deliver the current state so the observer doesn't miss transitions
-    // that already happened (e.g. on macOS, Active is set during start()
-    // before any observers are registered). Dispatch async to avoid
-    // re-entering the caller while still inside addObserverWithBlock:.
-    dispatch_async(dispatch_get_main_queue(), ^{
-        ((KSCrashAppStateTrackerObserverBlock)heapBlock)(currentState);
-    });
-
     return heapBlock;
 }
 

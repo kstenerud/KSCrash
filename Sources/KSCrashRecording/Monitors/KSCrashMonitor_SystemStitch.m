@@ -84,8 +84,6 @@ CFDictionaryRef kscm_system_createStitchedReport(CFDictionaryRef reportDict, con
     systemDict[KSCrashField_Jailbroken] = sc.isJailbroken ? @YES : @NO;
     systemDict[KSCrashField_ProcTranslated] = sc.procTranslated ? @YES : @NO;
     setTimestamp(systemDict, KSCrashField_AppStartTime, sc.appStartTimestamp);
-    systemDict[KSCrashField_ProcessStartWallClockNs] = @(sc.processStartWallClockNs);
-    systemDict[KSCrashField_ProcessStartMonotonicNs] = @(sc.processStartMonotonicNs);
     setStringIfNonEmpty(systemDict, KSCrashField_ExecutablePath, sc.executablePath);
     setStringIfNonEmpty(systemDict, KSCrashField_Executable, sc.executableName);
     setStringIfNonEmpty(systemDict, KSCrashField_BundleID, sc.bundleID);

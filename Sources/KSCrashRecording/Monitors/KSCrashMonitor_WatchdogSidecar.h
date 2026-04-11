@@ -49,27 +49,19 @@ extern "C" {
 typedef struct {
     int32_t magic;
     uint8_t version;
-    uint64_t startTimestamp;
-    task_role_t startRole;
-    uint8_t startTransitionState;  // KSCrashAppTransitionState at hang start
     uint64_t endTimestamp;
     task_role_t endRole;
-    uint8_t endTransitionState;  // KSCrashAppTransitionState at hang end/current
     bool recovered;
 } KSHangSidecar;
 
 // Expected layout (same on 32-bit and 64-bit — no pointer-sized fields):
-//   offset  0: int32_t    magic                  (4 bytes)
-//   offset  4: uint8_t    version                (1 byte + 3 padding)
-//   offset  8: uint64_t   startTimestamp          (8 bytes)
-//   offset 16: task_role_t startRole              (4 bytes)
-//   offset 20: uint8_t    startTransitionState    (1 byte + 3 padding)
-//   offset 24: uint64_t   endTimestamp            (8 bytes)
-//   offset 32: task_role_t endRole                (4 bytes)
-//   offset 36: uint8_t    endTransitionState      (1 byte)
-//   offset 37: bool       recovered               (1 byte + 2 padding)
-//   total: 40 bytes
-_Static_assert(sizeof(KSHangSidecar) == 40, "KSHangSidecar size changed — update sidecar version");
+//   offset  0: int32_t    magic          (4 bytes)
+//   offset  4: uint8_t    version        (1 byte + 3 padding)
+//   offset  8: uint64_t   endTimestamp   (8 bytes)
+//   offset 16: task_role_t endRole       (4 bytes)
+//   offset 20: bool       recovered      (1 byte + 3 padding)
+//   total: 24 bytes
+_Static_assert(sizeof(KSHangSidecar) == 24, "KSHangSidecar size changed — update sidecar version");
 
 /** Stitch watchdog sidecar data into a crash report.
  *

@@ -24,7 +24,6 @@
 // THE SOFTWARE.
 //
 
-import IntegrationTestsHelper
 import SampleUI
 import SwiftUI
 
@@ -36,7 +35,6 @@ struct SampleApp: App {
 
     init() {
         runLeaksTestIfRequired()
-        IntegrationTestRunner.runEarlyIfNeeded()
     }
 
     var body: some Scene {

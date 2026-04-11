@@ -34,17 +34,11 @@ public struct HangInfo: Codable, Sendable, Equatable {
     /// The app's task role when the hang started.
     public let hangStartRole: TaskRole
 
-    /// The app's transition state when the hang started.
-    public let hangStartTransitionState: AppTransitionState?
-
     /// Timestamp when the hang ended/was detected (in nanoseconds).
     public let hangEndNanos: UInt64
 
     /// The app's task role when the hang ended.
     public let hangEndRole: TaskRole
-
-    /// The app's transition state when the hang ended.
-    public let hangEndTransitionState: AppTransitionState?
 
     /// Whether this hang resolved on its own (true) or led to a termination (false/nil).
     public let hangRecovered: Bool?
@@ -52,10 +46,8 @@ public struct HangInfo: Codable, Sendable, Equatable {
     enum CodingKeys: String, CodingKey {
         case hangStartNanos = "hang_start_nanos"
         case hangStartRole = "hang_start_role"
-        case hangStartTransitionState = "hang_start_transition_state"
         case hangEndNanos = "hang_end_nanos"
         case hangEndRole = "hang_end_role"
-        case hangEndTransitionState = "hang_end_transition_state"
         case hangRecovered = "hang_recovered"
     }
 }

@@ -227,8 +227,6 @@ KSCRF_DEFINE_CONSTANT(KSCrashField, RecrashReport, recrashReport, "recrash_repor
 
 KSCRF_DEFINE_CONSTANT(KSCrashField, AppStartTime, appStartTime, "app_start_time")
 KSCRF_DEFINE_CONSTANT(KSCrashField, AppUUID, appUUID, "app_uuid")
-KSCRF_DEFINE_CONSTANT(KSCrashField, ProcessStartWallClockNs, processStartWallClockNs, "process_start_wall_clock_ns")
-KSCRF_DEFINE_CONSTANT(KSCrashField, ProcessStartMonotonicNs, processStartMonotonicNs, "process_start_monotonic_ns")
 KSCRF_DEFINE_CONSTANT(KSCrashField, BootTime, bootTime, "boot_time")
 KSCRF_DEFINE_CONSTANT(KSCrashField, BundleID, bundleID, "CFBundleIdentifier")
 KSCRF_DEFINE_CONSTANT(KSCrashField, BundleName, bundleName, "CFBundleName")
@@ -270,10 +268,6 @@ KSCRF_DEFINE_CONSTANT(KSCrashField, LowPowerModeEnabled, lowPowerModeEnabled, "l
 KSCRF_DEFINE_CONSTANT(KSCrashField, CPUCoreCount, cpuCoreCount, "cpu_core_count")
 KSCRF_DEFINE_CONSTANT(KSCrashField, CPUUsageUser, cpuUsageUser, "cpu_usage_user")
 KSCRF_DEFINE_CONSTANT(KSCrashField, CPUUsageSystem, cpuUsageSystem, "cpu_usage_system")
-KSCRF_DEFINE_CONSTANT(KSCrashField, CPUState, cpuState, "cpu_state")
-KSCRF_DEFINE_CONSTANT(KSCrashField, CPUAverageUsagePermil, cpuAverageUsagePermil, "cpu_average_usage_permil")
-KSCRF_DEFINE_CONSTANT(KSCrashField, CPUTimeInWindow, cpuTimeInWindow, "cpu_time_in_window")
-KSCRF_DEFINE_CONSTANT(KSCrashField, CPUWallTimeInWindow, cpuWallTimeInWindow, "cpu_wall_time_in_window")
 KSCRF_DEFINE_CONSTANT(KSCrashField, ThermalState, thermalState, "thermal_state")
 KSCRF_DEFINE_CONSTANT(KSCrashField, ThreadCount, threadCount, "thread_count")
 KSCRF_DEFINE_CONSTANT(KSCrashField, DataProtectionActive, dataProtectionActive, "data_protection_active")
@@ -286,10 +280,8 @@ KSCRF_DEFINE_CONSTANT(KSCrashField, TaskRole, taskRole, "task_role")
 
 KSCRF_DEFINE_CONSTANT(KSCrashField, HangStartNanoseconds, hangStartNanoseconds, "hang_start_nanos")
 KSCRF_DEFINE_CONSTANT(KSCrashField, HangStartRole, hangStartRole, "hang_start_role")
-KSCRF_DEFINE_CONSTANT(KSCrashField, HangStartTransitionState, hangStartTransitionState, "hang_start_transition_state")
 KSCRF_DEFINE_CONSTANT(KSCrashField, HangEndNanoseconds, hangEndNanoseconds, "hang_end_nanos")
 KSCRF_DEFINE_CONSTANT(KSCrashField, HangEndRole, hangEndRole, "hang_end_role")
-KSCRF_DEFINE_CONSTANT(KSCrashField, HangEndTransitionState, hangEndTransitionState, "hang_end_transition_state")
 KSCRF_DEFINE_CONSTANT(KSCrashField, HangRecovered, hangRecovered, "hang_recovered")
 
 #ifdef __cplusplus

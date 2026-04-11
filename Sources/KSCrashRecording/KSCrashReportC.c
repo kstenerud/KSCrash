@@ -1402,11 +1402,30 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
             writer->endContainer(writer);
         }
 
+        // Write any current hang info if available
+        if (crash->Hang.inProgress) {
+            writer->beginObject(writer, KSCrashField_Hang);
+            {
+                writer->addUIntegerElement(writer, KSCrashField_HangStartNanoseconds, crash->Hang.timestamp);
+                writer->addStringElement(writer, KSCrashField_HangStartRole, kstaskrole_toString(crash->Hang.role));
+
+                writer->addUIntegerElement(writer, KSCrashField_HangEndNanoseconds, crash->Hang.endTimestamp);
+                writer->addStringElement(writer, KSCrashField_HangEndRole, kstaskrole_toString(crash->Hang.endRole));
+            }
+            writer->endContainer(writer);
+        }
+
         if (isCrashOfMonitorType(crash, kscm_watchdog_getAPI())) {
-            // Hang details (timestamps, roles, transition states) come from
-            // the run sidecar stitch. The type may be changed to "hang" by
-            // the stitch if the hang recovers.
-            writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_Mach);
+            // We're leaning towards a SIGKILL watchdog timeout
+            if (crash->Hang.inProgress) {
+                writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_Mach);
+            }
+
+            // This is going to be a non-fatal hang.
+            else {
+                writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_Hang);
+            }
+
         }
 
         else if (isCrashOfMonitorType(crash, kscm_nsexception_getAPI())) {

@@ -92,8 +92,6 @@ static KSCrash_SystemData makeValidSystemData(void)
     sc.freeStorageSize = 128000000000ULL;
     sc.freeMemory = 2000000000ULL;
     sc.usableMemory = 4000000000ULL;
-    sc.processStartWallClockNs = 1700000000ULL * 1000000000ULL;
-    sc.processStartMonotonicNs = 100000ULL * 1000000000ULL;
     return sc;
 }
 
@@ -285,9 +283,6 @@ static KSCrash_SystemData makeValidSystemData(void)
     XCTAssertTrue([system[KSCrashField_AppStartTime] isKindOfClass:[NSString class]]);
     XCTAssertNotNil(system[KSCrashField_BootTime]);
     XCTAssertTrue([system[KSCrashField_BootTime] isKindOfClass:[NSString class]]);
-
-    XCTAssertEqualObjects(system[KSCrashField_ProcessStartWallClockNs], @(1700000000ULL * 1000000000ULL));
-    XCTAssertEqualObjects(system[KSCrashField_ProcessStartMonotonicNs], @(100000ULL * 1000000000ULL));
 }
 
 - (void)testZeroTimestampNotWritten

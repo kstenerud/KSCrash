@@ -462,9 +462,8 @@ final class CrashReportEncodingTests: XCTestCase {
                 batteryLevel: 85,
                 batteryState: .charging,
                 cpuCoreCount: 8,
-                cpuState: .critical,
-                cpuTimeInWindow: 48.0,
-                cpuWallTimeInWindow: 60.0,
+                cpuUsageUser: 2500,
+                cpuUsageSystem: 300,
                 thermalState: .serious,
                 threadCount: 55,
                 dataProtectionActive: true
@@ -476,9 +475,8 @@ final class CrashReportEncodingTests: XCTestCase {
         XCTAssertEqual(roundTripped.system?.batteryLevel, 85)
         XCTAssertEqual(roundTripped.system?.batteryState, .charging)
         XCTAssertEqual(roundTripped.system?.cpuCoreCount, 8)
-        XCTAssertEqual(roundTripped.system?.cpuState, .critical)
-        XCTAssertEqual(roundTripped.system?.cpuTimeInWindow, 48.0)
-        XCTAssertEqual(roundTripped.system?.cpuWallTimeInWindow, 60.0)
+        XCTAssertEqual(roundTripped.system?.cpuUsageUser, 2500)
+        XCTAssertEqual(roundTripped.system?.cpuUsageSystem, 300)
         XCTAssertEqual(roundTripped.system?.thermalState, .serious)
         XCTAssertEqual(roundTripped.system?.threadCount, 55)
         XCTAssertEqual(roundTripped.system?.dataProtectionActive, true)
@@ -655,9 +653,8 @@ final class CrashReportEncodingTests: XCTestCase {
                 batteryLevel: 50,
                 batteryState: .unplugged,
                 cpuCoreCount: 4,
-                cpuState: .warning,
-                cpuTimeInWindow: 95.0,
-                cpuWallTimeInWindow: 180.0,
+                cpuUsageUser: 1000,
+                cpuUsageSystem: 100,
                 thermalState: .nominal,
                 threadCount: 10,
                 dataProtectionActive: false
@@ -672,9 +669,8 @@ final class CrashReportEncodingTests: XCTestCase {
         XCTAssertEqual(system["battery_state"] as? Int, 1)
         XCTAssertEqual(system["low_power_mode_enabled"] as? Bool, false)
         XCTAssertEqual(system["cpu_core_count"] as? Int, 4)
-        XCTAssertEqual(system["cpu_state"] as? String, "warning")
-        XCTAssertEqual(system["cpu_time_in_window"] as? Double, 95.0)
-        XCTAssertEqual(system["cpu_wall_time_in_window"] as? Double, 180.0)
+        XCTAssertEqual(system["cpu_usage_user"] as? Int, 1000)
+        XCTAssertEqual(system["cpu_usage_system"] as? Int, 100)
         XCTAssertEqual(system["thermal_state"] as? Int, 0)
         XCTAssertEqual(system["thread_count"] as? Int, 10)
         XCTAssertEqual(system["data_protection_active"] as? Bool, false)
@@ -684,9 +680,8 @@ final class CrashReportEncodingTests: XCTestCase {
         XCTAssertNil(system["batteryState"])
         XCTAssertNil(system["lowPowerModeEnabled"])
         XCTAssertNil(system["cpuCoreCount"])
-        XCTAssertNil(system["cpuState"])
-        XCTAssertNil(system["cpuTimeInWindow"])
-        XCTAssertNil(system["cpuWallTimeInWindow"])
+        XCTAssertNil(system["cpuUsageUser"])
+        XCTAssertNil(system["cpuUsageSystem"])
         XCTAssertNil(system["thermalState"])
         XCTAssertNil(system["threadCount"])
         XCTAssertNil(system["dataProtectionActive"])

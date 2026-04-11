@@ -68,7 +68,6 @@ static KSCrash_ResourceData makeValidResourceData(void)
     data.cpuCoreCount = 6;
     data.cpuUsageUser = 350;    // 350 permil = 0.35 cores worth of user time
     data.cpuUsageSystem = 120;  // 120 permil = 0.12 cores worth of system time
-    data.cpuState = 0;          // normal
     data.thermalState = 1;      // fair
     data.threadCount = 42;
     data.dataProtectionActive = 1;
@@ -225,8 +224,6 @@ static KSCrash_ResourceData makeValidResourceData(void)
     XCTAssertEqualObjects(system[KSCrashField_CPUCoreCount], @(6));
     XCTAssertEqualObjects(system[KSCrashField_CPUUsageUser], @(350));
     XCTAssertEqualObjects(system[KSCrashField_CPUUsageSystem], @(120));
-    XCTAssertEqualObjects(system[KSCrashField_CPUState], @"normal");
-    XCTAssertEqualObjects(system[KSCrashField_CPUAverageUsagePermil], @(0));
     XCTAssertEqualObjects(system[KSCrashField_ThermalState], @(1));
     XCTAssertEqualObjects(system[KSCrashField_ThreadCount], @(42));
     XCTAssertEqualObjects(system[KSCrashField_DataProtectionActive], @YES);
@@ -358,10 +355,11 @@ static KSCrash_ResourceData makeValidResourceData(void)
     }
 }
 
-- (void)testNormalCPUStateStitchesCorrectly
+- (void)testZeroCPUUsageStitchesCorrectly
 {
     KSCrash_ResourceData data = makeValidResourceData();
-    data.cpuState = 0;
+    data.cpuUsageUser = 0;
+    data.cpuUsageSystem = 0;
     NSString *path = writeResourceSidecar(self.tempDir, data);
     NSDictionary *report = @{};
 
@@ -369,19 +367,15 @@ static KSCrash_ResourceData makeValidResourceData(void)
         (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
     XCTAssertTrue(result != nil);
 
-    NSDictionary *system = result[KSCrashField_System];
-    XCTAssertEqualObjects(system[KSCrashField_CPUState], @"normal");
-    XCTAssertNil(system[KSCrashField_CPUTimeInWindow]);
-    XCTAssertNil(system[KSCrashField_CPUWallTimeInWindow]);
+    XCTAssertEqualObjects(result[KSCrashField_System][KSCrashField_CPUUsageUser], @(0));
+    XCTAssertEqualObjects(result[KSCrashField_System][KSCrashField_CPUUsageSystem], @(0));
 }
 
-- (void)testCriticalCPUStateStitchesWithWindowData
+- (void)testHighCPUUsageStitchesCorrectly
 {
     KSCrash_ResourceData data = makeValidResourceData();
-    data.cpuState = 2;                            // critical
-    data.cpuAverageUsagePermil = 850;             // 85% of total capacity
-    data.cpuTimeInWindowNs = 48000000000ULL;      // 48s of CPU time
-    data.cpuWallTimeInWindowNs = 60000000000ULL;  // over 60s wall time
+    data.cpuUsageUser = 6000;    // 6 cores saturated
+    data.cpuUsageSystem = 2000;  // 2 cores of kernel time
     NSString *path = writeResourceSidecar(self.tempDir, data);
     NSDictionary *report = @{};
 
@@ -389,34 +383,8 @@ static KSCrash_ResourceData makeValidResourceData(void)
         (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
     XCTAssertTrue(result != nil);
 
-    NSDictionary *system = result[KSCrashField_System];
-    XCTAssertEqualObjects(system[KSCrashField_CPUState], @"critical");
-    XCTAssertEqualObjects(system[KSCrashField_CPUAverageUsagePermil], @(850));
-    XCTAssertEqualObjects(system[KSCrashField_CPUUsageUser], @(350));
-    XCTAssertEqualObjects(system[KSCrashField_CPUUsageSystem], @(120));
-    XCTAssertEqualWithAccuracy([system[KSCrashField_CPUTimeInWindow] doubleValue], 48.0, 0.01);
-    XCTAssertEqualWithAccuracy([system[KSCrashField_CPUWallTimeInWindow] doubleValue], 60.0, 0.01);
-}
-
-- (void)testWarningCPUStateStitchesCorrectly
-{
-    KSCrash_ResourceData data = makeValidResourceData();
-    data.cpuState = 1;                             // warning
-    data.cpuAverageUsagePermil = 520;              // 52% of total capacity
-    data.cpuTimeInWindowNs = 100000000000ULL;      // 100s of CPU time
-    data.cpuWallTimeInWindowNs = 180000000000ULL;  // over 180s wall time
-    NSString *path = writeResourceSidecar(self.tempDir, data);
-    NSDictionary *report = @{};
-
-    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_resource_createStitchedReport(
-        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result != nil);
-
-    NSDictionary *system = result[KSCrashField_System];
-    XCTAssertEqualObjects(system[KSCrashField_CPUState], @"warning");
-    XCTAssertEqualObjects(system[KSCrashField_CPUAverageUsagePermil], @(520));
-    XCTAssertEqualWithAccuracy([system[KSCrashField_CPUTimeInWindow] doubleValue], 100.0, 0.01);
-    XCTAssertEqualWithAccuracy([system[KSCrashField_CPUWallTimeInWindow] doubleValue], 180.0, 0.01);
+    XCTAssertEqualObjects(result[KSCrashField_System][KSCrashField_CPUUsageUser], @(6000));
+    XCTAssertEqualObjects(result[KSCrashField_System][KSCrashField_CPUUsageSystem], @(2000));
 }
 
 @end
