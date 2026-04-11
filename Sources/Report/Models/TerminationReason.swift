@@ -28,6 +28,7 @@ import Foundation
 
 /// The reason a process was terminated.
 public enum TerminationReason: RawRepresentable, Codable, Sendable, Equatable {
+    case none
     // Definitive
     case clean
     case crash
@@ -49,18 +50,19 @@ public enum TerminationReason: RawRepresentable, Codable, Sendable, Equatable {
 
     public init(rawValue: String) {
         switch rawValue {
+        case "none": self = .none
         case "clean": self = .clean
         case "crash": self = .crash
         case "hang": self = .hang
         case "first_launch": self = .firstLaunch
+        case "os_upgrade": self = .osUpgrade
+        case "app_upgrade": self = .appUpgrade
+        case "reboot": self = .reboot
         case "low_battery": self = .lowBattery
         case "memory_limit": self = .memoryLimit
         case "memory_pressure": self = .memoryPressure
         case "thermal": self = .thermal
         case "cpu": self = .cpu
-        case "os_upgrade": self = .osUpgrade
-        case "app_upgrade": self = .appUpgrade
-        case "reboot": self = .reboot
         case "unexplained": self = .unexplained
         default: self = .unknown(rawValue)
         }
@@ -68,18 +70,19 @@ public enum TerminationReason: RawRepresentable, Codable, Sendable, Equatable {
 
     public var rawValue: String {
         switch self {
+        case .none: return "none"
         case .clean: return "clean"
         case .crash: return "crash"
         case .hang: return "hang"
         case .firstLaunch: return "first_launch"
+        case .osUpgrade: return "os_upgrade"
+        case .appUpgrade: return "app_upgrade"
+        case .reboot: return "reboot"
         case .lowBattery: return "low_battery"
         case .memoryLimit: return "memory_limit"
         case .memoryPressure: return "memory_pressure"
         case .thermal: return "thermal"
         case .cpu: return "cpu"
-        case .osUpgrade: return "os_upgrade"
-        case .appUpgrade: return "app_upgrade"
-        case .reboot: return "reboot"
         case .unexplained: return "unexplained"
         case .unknown(let value): return value
         }

@@ -43,6 +43,7 @@ final class CrashReportTests: XCTestCase {
     }
 
     func testTerminationReasonRawValues() {
+        XCTAssertEqual(TerminationReason.none.rawValue, "none")
         XCTAssertEqual(TerminationReason.clean.rawValue, "clean")
         XCTAssertEqual(TerminationReason.crash.rawValue, "crash")
         XCTAssertEqual(TerminationReason.hang.rawValue, "hang")
