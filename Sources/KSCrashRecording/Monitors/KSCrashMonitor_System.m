@@ -427,6 +427,12 @@ static void initialize(void)
 
     sd->appStartTimestamp = (int64_t)ksdate_seconds();
 
+    // Reference pair sampled at the same instant, same pattern as the
+    // Lifecycle sidecar. Consumers convert between clock domains using:
+    //   wallNs = processStartWallClockNs + (monoNs - processStartMonotonicNs)
+    sd->processStartMonotonicNs = ksdate_continuousNanoseconds();
+    sd->processStartWallClockNs = ksdate_wallClockNanoseconds();
+
     safeNSStringCopy(sd->executablePath, getExecutablePath(), sizeof(sd->executablePath));
     safeNSStringCopy(sd->executableName, infoDict[@"CFBundleExecutable"], sizeof(sd->executableName));
     safeNSStringCopy(sd->bundleID, infoDict[@"CFBundleIdentifier"], sizeof(sd->bundleID));

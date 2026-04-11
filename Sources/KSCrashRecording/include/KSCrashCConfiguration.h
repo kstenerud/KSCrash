@@ -276,6 +276,18 @@ typedef struct {
      */
     bool enableHangReporting;
 
+    /** If true, generate non-fatal reports when sustained CPU usage reaches
+     *  warning or critical thresholds.
+     *
+     * Each upward state transition (normal to warning, warning to critical,
+     * or normal to critical) produces one report with all thread stacks.
+     *
+     * Only applies when `KSCrashMonitorTypeResource` is included in `monitors`.
+     *
+     * **Default**: false
+     */
+    bool enableCPUExceptionReporting;
+
     /** If true, use compact binary image reporting.
      *
      * When enabled, the `binary_images` array is filtered to only include
@@ -367,6 +379,7 @@ static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
         .printPreviousLogOnStartup = false,
         .enableSwapCxaThrow = true,
         .enableHangReporting = false,
+        .enableCPUExceptionReporting = false,
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
         .enableSigTermMonitoring = false,

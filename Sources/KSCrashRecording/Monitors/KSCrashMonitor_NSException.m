@@ -35,6 +35,8 @@
 #import "KSThread.h"
 
 #import <Foundation/Foundation.h>
+#import <mach/exception_types.h>
+#import <signal.h>
 #import <stdatomic.h>
 
 // #define KSLogger_LocalLevel TRACE
@@ -149,6 +151,8 @@ static KS_NOINLINE void handleException(NSException *exception, BOOL isUserRepor
         crashContext->NSException.userInfo = userInfo;
         crashContext->exceptionName = exceptionName;
         crashContext->crashReason = exceptionReason;
+        crashContext->mach.type = EXC_CRASH;
+        crashContext->signal.signum = SIGABRT;
 
         // The handler backtrace goes into stackCursor (shown as the crashed thread's backtrace).
         // The exception's origin backtrace goes into exceptionStackCursor (last_exception_backtrace).

@@ -109,11 +109,10 @@ static void injectReport(const char *lastRunID, const KSCrash_LifecycleData *lif
     errorSection[KSCrashField_IsFatal] = @YES;
     errorSection[KSCrashField_IsCleanExit] = @NO;
     // Synthetic SIGKILL for backward compatibility.
-    errorSection[KSCrashExcType_Signal] = @{
-        KSCrashField_Signal : @(SIGKILL),
-        KSCrashField_Name : @"SIGKILL",
-        KSCrashField_Code : @0,
-    };
+    errorSection[KSCrashExcType_Signal] =
+        @{KSCrashField_Signal : @(SIGKILL),
+          KSCrashField_Name : @"SIGKILL",
+          KSCrashField_Code : @0};
 
     NSMutableDictionary *crashSection = [NSMutableDictionary dictionary];
     crashSection[KSCrashField_Error] = errorSection;

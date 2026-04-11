@@ -64,6 +64,7 @@
     XCTAssertEqual(config.reportStoreConfiguration.maxReportCount, 5);
     XCTAssertTrue(config.enableSwapCxaThrow);
     XCTAssertFalse(config.enableHangReporting);
+    XCTAssertFalse(config.enableCPUExceptionReporting);
     XCTAssertFalse(config.enableCompactBinaryImages);
 }
 
@@ -81,6 +82,7 @@
     config.reportStoreConfiguration.maxReportCount = 10;
     config.enableSwapCxaThrow = NO;
     config.enableHangReporting = YES;
+    config.enableCPUExceptionReporting = YES;
     config.enableCompactBinaryImages = YES;
 
     KSCrashCConfiguration cConfig = [config toCConfiguration];
@@ -99,6 +101,7 @@
     XCTAssertEqual(cConfig.reportStoreConfiguration.maxReportCount, 10);
     XCTAssertFalse(cConfig.enableSwapCxaThrow);
     XCTAssertTrue(cConfig.enableHangReporting);
+    XCTAssertTrue(cConfig.enableCPUExceptionReporting);
     XCTAssertTrue(cConfig.enableCompactBinaryImages);
 
     // Free memory allocated for C string array
@@ -119,6 +122,7 @@
     config.reportStoreConfiguration.maxReportCount = 10;
     config.enableSwapCxaThrow = NO;
     config.enableHangReporting = YES;
+    config.enableCPUExceptionReporting = YES;
     config.enableCompactBinaryImages = YES;
 
     KSCrashConfiguration *copy = [config copy];
@@ -134,6 +138,7 @@
     XCTAssertEqual(copy.reportStoreConfiguration.maxReportCount, 10);
     XCTAssertFalse(copy.enableSwapCxaThrow);
     XCTAssertTrue(copy.enableHangReporting);
+    XCTAssertTrue(copy.enableCPUExceptionReporting);
     XCTAssertTrue(copy.enableCompactBinaryImages);
 }
 

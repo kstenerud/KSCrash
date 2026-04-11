@@ -29,8 +29,11 @@
 #import "KSSystemCapabilities.h"
 
 #import <inttypes.h>
-#include <mach-o/arch.h>
+#import <mach-o/arch.h>
+#import <mach/exception_types.h>
+
 #import <mach/machine.h>
+#import "KSExcResource.h"
 
 #import "KSCPU.h"
 #import "KSCrashReportFields.h"
@@ -675,9 +678,23 @@ static NSDictionary *g_registerOrders;
     }
 
     [str appendFormat:@"\n"];
-    [str appendFormat:@"Exception Type:  %@ (%@)\n", machExcName, signalName];
-    [str appendFormat:@"Exception Codes: %@ at " FMT_PTR_LONG @"\n", machCodeName,
-                      (uintptr_t)[[error objectForKey:KSCrashField_Address] longLongValue]];
+
+    NSNumber *machException = [mach objectForKey:KSCrashField_Exception];
+    if ([machException intValue] == EXC_RESOURCE) {
+        uint64_t code = [[mach objectForKey:KSCrashField_Code] unsignedLongLongValue];
+        uint64_t subcode = [[mach objectForKey:KSCrashField_Subcode] unsignedLongLongValue];
+        uint64_t limitPct = EXC_RESOURCE_CPUMONITOR_DECODE_PERCENTAGE(code);
+        uint64_t intervalSec = EXC_RESOURCE_CPUMONITOR_DECODE_INTERVAL(code);
+        uint64_t observedPct = EXC_RESOURCE_CPUMONITOR_DECODE_PERCENTAGE_OBSERVED(subcode);
+        [str appendFormat:@"Exception Type:  EXC_RESOURCE\n"];
+        [str appendFormat:@"Exception Subtype: CPU_MONITOR\n"];
+        [str appendFormat:@"Exception Message: (limit %llu%%) (observed %llu%%) over %llu seconds\n", limitPct,
+                          observedPct, intervalSec];
+    } else {
+        [str appendFormat:@"Exception Type:  %@ (%@)\n", machExcName, signalName];
+        [str appendFormat:@"Exception Codes: %@ at " FMT_PTR_LONG @"\n", machCodeName,
+                          (uintptr_t)[[error objectForKey:KSCrashField_Address] longLongValue]];
+    }
 
     [str appendFormat:@"Triggered by Thread:  %d\n", [[thread objectForKey:KSCrashField_Index] intValue]];
 

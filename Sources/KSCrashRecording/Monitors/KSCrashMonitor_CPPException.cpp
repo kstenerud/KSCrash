@@ -35,6 +35,8 @@
 // #define KSLogger_LocalLevel TRACE
 #include <cxxabi.h>
 #include <dlfcn.h>
+#include <mach/exception_types.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -238,6 +240,8 @@ static void CPPExceptionTerminate(void)
         crashContext->CPPException.name = name;
         crashContext->exceptionName = name;
         crashContext->crashReason = description;
+        crashContext->mach.type = EXC_CRASH;
+        crashContext->signal.signum = SIGABRT;
         crashContext->offendingMachineContext = &machineContext;
 
         g_state.callbacks.handle(crashContext);

@@ -31,10 +31,12 @@ public final class IntegrationTestRunner {
     public struct RunConfig: Codable {
         var delay: TimeInterval?
         var stateSavePath: String?
+        var runEarly: Bool?
 
-        public init(delay: TimeInterval? = nil, stateSavePath: String? = nil) {
+        public init(delay: TimeInterval? = nil, stateSavePath: String? = nil, runEarly: Bool? = nil) {
             self.delay = delay
             self.stateSavePath = stateSavePath
+            self.runEarly = runEarly
         }
     }
 
@@ -53,14 +55,35 @@ public final class IntegrationTestRunner {
         ProcessInfo.processInfo.environment[Self.envKey] != nil
     }
 
+    /// Runs the script during app init, before the app becomes active.
+    /// Only executes if `config.runEarly` is true.
+    public static func runEarlyIfNeeded() {
+        guard let script = decodeScript(), script.config?.runEarly == true else {
+            return
+        }
+        executeScript(script)
+    }
+
+    /// Runs the script from onAppear, after the app is active.
+    /// Skips if `config.runEarly` is true (already handled).
     public static func runIfNeeded() {
-        guard let scriptString = ProcessInfo.processInfo.environment[Self.envKey],
+        guard let script = decodeScript(), script.config?.runEarly != true else {
+            return
+        }
+        executeScript(script)
+    }
+
+    private static func decodeScript() -> Script? {
+        guard let scriptString = ProcessInfo.processInfo.environment[envKey],
             let data = Data(base64Encoded: scriptString),
             let script = try? JSONDecoder().decode(Script.self, from: data)
         else {
-            return
+            return nil
         }
+        return script
+    }
 
+    private static func executeScript(_ script: Script) {
         if let installConfig = script.install {
             try! installConfig.install()
         }

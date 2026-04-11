@@ -77,8 +77,22 @@ jobs:
           sleep 2
 
           # Phase 2: Run the app with leaks to check for memory leaks while processing reports
+          # Normally completes in ~15-30s. Occasionally the app stalls during
+          # framework init under leaks --atExit on CI, so cap each attempt at
+          # 60s and retry once.
+          export MallocScribble=1 MallocStackLogging=1 KSCRASH_LEAKS_TEST=1
+
+          run_leaks() {
+            timeout --kill-after=10 60 leaks --atExit -- "$BINARY_PATH" 2>&1 | tee leaks_output.txt
+            local rc="${PIPESTATUS[0]}"
+            return "$rc"
+          }
+
           echo "Phase 2: Running leaks check on Sample app..."
-          MallocScribble=1 MallocStackLogging=1 KSCRASH_LEAKS_TEST=1 leaks --atExit -- "$BINARY_PATH" 2>&1 | tee leaks_output.txt || true
+          if ! run_leaks; then
+            echo "Phase 2: First attempt failed (exit $?), retrying..."
+            run_leaks || true
+          fi
 
           # Parse results
           if grep -q "0 leaks for 0 total leaked bytes" leaks_output.txt; then
