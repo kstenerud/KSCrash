@@ -76,6 +76,7 @@ import XCTest
 
         func testCPUKill() throws {
             try launchAndSigkill(env: [
+                "KSCRASH_TEST_CPU_STATE": "2",
                 "KSCRASH_TEST_CPU_USER": "900",
                 "KSCRASH_TEST_CPU_CORES": "1",
             ])
