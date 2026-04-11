@@ -22,14 +22,14 @@ If you are upgrading from 2.5.x, see the [migration guide](https://github.com/ks
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/kstenerud/KSCrash.git", .upToNextMajor(from: "2.5.1"))
+    .package(url: "https://github.com/kstenerud/KSCrash.git", .upToNextMajor(from: "2.6.0"))
 ]
 ```
 
 **CocoaPods:**
 
 ```ruby
-pod 'KSCrash', '~> 2.5'
+pod 'KSCrash', '~> 2.6'
 ```
 
 ### Setup
