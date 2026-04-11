@@ -112,6 +112,34 @@ int ksbt_captureBacktraceWithTruncation(pthread_t _Nonnull thread, uintptr_t *_N
     CF_SWIFT_NAME(captureBacktrace(thread:addresses:count:isTruncated:));
 
 /**
+ * Captures the backtrace (call stack) for an already-suspended mach thread with truncation detection.
+ *
+ * @param machThread   The identifier of the mach thread whose backtrace should be captured. The thread must already
+ *                     be suspended by the caller.
+ * @param addresses    A pointer to a buffer to receive the backtrace addresses. Must not be NULL.
+ * @param count        The maximum number of addresses to capture. Must be greater than zero.
+ * @param isTruncated  If non-NULL, set to @c true when the stack is deeper than @c count
+ *                     (i.e. the backtrace was truncated), or @c false otherwise.
+ *
+ * @return The number of frames captured and written to @c addresses, or 0 if @c addresses is NULL, @c count is zero,
+ *         an error occurs, or another backtrace capture is already in progress (caller should retry).
+ *
+ * @discussion This function assumes the target thread is already suspended by the caller. The caller is responsible
+ *             for suspending the thread before calling this function and resuming it afterward. Mach thread suspension
+ *             is reference-counted, so this works correctly even if the thread is suspended by multiple parties (e.g.,
+ *             during crash handling), as long as each caller balances their suspend/resume calls.
+ *
+ *             This function is not async-signal-safe and must not be called from within a signal handler.
+ *
+ *             To prevent concurrent unwinding operations, this function acquires an internal lock. If another backtrace
+ *             capture is in progress, this function returns 0 immediately. Callers should treat this as "capture
+ *             unavailable, retry later".
+ */
+int ksbt_captureBacktraceFromSuspendedMachThread(thread_t machThread, uintptr_t *_Nonnull addresses, int count,
+                                                 bool *_Nullable isTruncated)
+    CF_SWIFT_NAME(captureBacktraceFromSuspended(machThread:addresses:count:isTruncated:));
+
+/**
  * Information about a symbol and the image in which it resides.
  *
  * field returnAddress    The return address of the instruction being symbolicated.

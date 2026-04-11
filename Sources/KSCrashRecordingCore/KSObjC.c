@@ -345,14 +345,9 @@ static uint64_t decodeExponent(uint64_t exp)
     //   distantFuture, except within about 1e-25 second of the reference date.
     static const int taggedDateExponentBias = 0x3ef;
 
-    // Sign-extend the 7-bit exponent to 64 bits
-    const uint64_t signBit = 1ULL << 6;
-    const uint64_t extendMask = ~((1ULL << 7) - 1);
-    exp = (exp ^ signBit) - signBit;
-    exp &= (1ULL << 7) - 1;
-    exp |= extendMask & -((exp & signBit) != 0);
-
-    // Add the bias to the sign-extended exponent
+    // Sign-extend 7-bit exponent to 64 bits (equivalent to llvm::SignExtend64<7>),
+    // then add the bias.
+    exp = ((exp & 0x7F) ^ 0x40) - 0x40;
     return exp + taggedDateExponentBias;
 }
 

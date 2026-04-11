@@ -324,5 +324,129 @@ import XCTest
             XCTAssertEqual(Int(count), entries)
             XCTAssertTrue(isTruncated)
         }
+
+        // MARK: - Suspended Thread Capture Tests
+
+        /// Helper: spins up a thread with a deep call stack, reports its mach thread,
+        /// then blocks until released. The recursive nesting ensures a non-trivial stack depth
+        /// so that truncation tests work reliably (GCD worker threads can have very shallow stacks).
+        private func withSuspendedOtherThread(_ body: (mach_port_t) -> Void) {
+            let ready = DispatchSemaphore(value: 0)
+            let done = DispatchSemaphore(value: 0)
+            nonisolated(unsafe) var machThread: mach_port_t = 0
+
+            func deepBlock(_ depth: Int) {
+                if depth > 0 {
+                    deepBlock(depth - 1)
+                } else {
+                    machThread = pthread_mach_thread_np(pthread_self())
+                    ready.signal()
+                    done.wait()
+                }
+            }
+
+            DispatchQueue.global().async {
+                deepBlock(20)
+            }
+
+            ready.wait()
+
+            let kr = thread_suspend(machThread)
+            guard kr == KERN_SUCCESS else {
+                XCTFail("thread_suspend failed: \(kr)")
+                done.signal()
+                return
+            }
+
+            body(machThread)
+
+            thread_resume(machThread)
+            done.signal()
+        }
+
+        func testSuspendedCaptureFromOtherThread() {
+            withSuspendedOtherThread { machThread in
+                let entries = 512
+                var addresses = [UInt](repeating: 0, count: entries)
+                var isTruncated = false
+                let count = captureBacktraceFromSuspended(
+                    machThread: machThread, addresses: &addresses,
+                    count: Int32(entries), isTruncated: &isTruncated
+                )
+
+                XCTAssertGreaterThan(count, 0, "Should capture frames from suspended thread")
+                XCTAssertFalse(isTruncated)
+                for i in 0..<Int(count) {
+                    XCTAssertNotEqual(addresses[i], 0, "Frame \(i) should be non-zero")
+                }
+            }
+        }
+
+        func testSuspendedCaptureWithSmallBufferIsTruncated() {
+            withSuspendedOtherThread { machThread in
+                // The helper creates a stack ~20+ frames deep, so a buffer of 2 should truncate.
+                let entries = 2
+                var addresses = [UInt](repeating: 0, count: entries)
+                var isTruncated = false
+                let count = captureBacktraceFromSuspended(
+                    machThread: machThread, addresses: &addresses,
+                    count: Int32(entries), isTruncated: &isTruncated
+                )
+
+                XCTAssertEqual(Int(count), entries, "Should fill all available frames")
+                XCTAssertTrue(isTruncated, "A buffer of 2 should be truncated for a deep stack")
+            }
+        }
+
+        func testSuspendedCaptureFramesAreSymbolicatable() {
+            withSuspendedOtherThread { machThread in
+                let entries = 20
+                var addresses = [UInt](repeating: 0, count: entries)
+                let count = captureBacktraceFromSuspended(
+                    machThread: machThread, addresses: &addresses,
+                    count: Int32(entries), isTruncated: nil
+                )
+
+                XCTAssertGreaterThan(count, 0)
+
+                var symbolicatedCount = 0
+                for i in 0..<Int(count) {
+                    var result = SymbolInformation()
+                    if symbolicate(address: addresses[i], result: &result) {
+                        symbolicatedCount += 1
+                        XCTAssertGreaterThan(result.symbolAddress, 0)
+                        XCTAssertNotNil(result.imageName)
+                    }
+                }
+                XCTAssertGreaterThan(symbolicatedCount, 0, "At least some frames should symbolicate")
+            }
+        }
+
+        func testSuspendedCaptureWithNullThread() {
+            let entries = 10
+            var addresses = [UInt](repeating: 0, count: entries)
+            var isTruncated = true
+            let count = captureBacktraceFromSuspended(
+                machThread: mach_port_t(MACH_PORT_NULL), addresses: &addresses,
+                count: Int32(entries), isTruncated: &isTruncated
+            )
+
+            XCTAssertEqual(count, 0)
+            XCTAssertFalse(isTruncated, "isTruncated should be cleared on invalid input")
+        }
+
+        func testSuspendedCaptureWithZeroCount() {
+            withSuspendedOtherThread { machThread in
+                var addresses = [UInt](repeating: 0, count: 1)
+                var isTruncated = true
+                let count = captureBacktraceFromSuspended(
+                    machThread: machThread, addresses: &addresses,
+                    count: 0, isTruncated: &isTruncated
+                )
+
+                XCTAssertEqual(count, 0)
+                XCTAssertFalse(isTruncated)
+            }
+        }
     }
 #endif
