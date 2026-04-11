@@ -1324,14 +1324,16 @@ bool ksdwarf_unwind(const void *ehFrame, size_t ehFrameSize, uintptr_t pc, uintp
     // Get new stack pointer (usually CFA)
     result->stackPointer = cfa;
 
-    // Get new frame pointer
+    // FP is callee-saved on Apple platforms. When CFI has no rule for FP (e.g.
+    // frameless leaf functions), the current FP still holds the caller's FP
+    // and must be passed through so the frame-pointer fallback can continue.
     uint8_t fpReg = getFramePointerRegister();
     uintptr_t newFP = 0;
     if (applyRegisterRule(&row.registers[fpReg], cfa, sp, fp, lr, &newFP)) {
         result->framePointer = newFP;
         result->framePointerRestored = true;  // FP was restored from CFI rules
     } else {
-        result->framePointer = 0;
+        result->framePointer = fp;
         result->framePointerRestored = false;  // No FP rule present (frameless function)
     }
 
