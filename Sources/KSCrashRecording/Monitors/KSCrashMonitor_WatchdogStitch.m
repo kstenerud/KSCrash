@@ -75,6 +75,18 @@ CFDictionaryRef kscm_watchdog_createStitchedReport(CFDictionaryRef reportDict, c
 
     NSMutableDictionary *dict = [(__bridge NSDictionary *)reportDict mutableCopy];
 
+    // Check if this report was written by the Watchdog monitor.
+    // The hang section is added to all reports as context, but only
+    // Watchdog reports get their fatality and error type modified.
+    bool isWatchdogReport = false;
+    id reportSectionVal = dict[KSCrashField_Report];
+    if ([reportSectionVal isKindOfClass:[NSDictionary class]]) {
+        id monitorIdVal = ((NSDictionary *)reportSectionVal)[KSCrashField_MonitorId];
+        if ([monitorIdVal isKindOfClass:[NSString class]]) {
+            isWatchdogReport = [monitorIdVal isEqualToString:@"Watchdog"];
+        }
+    }
+
     // Navigate to crash.error, create hang section from sidecar data.
     id crashVal = dict[KSCrashField_Crash];
     if (![crashVal isKindOfClass:[NSDictionary class]]) {
@@ -90,7 +102,8 @@ CFDictionaryRef kscm_watchdog_createStitchedReport(CFDictionaryRef reportDict, c
     }
     NSMutableDictionary *errorDict = [errorVal mutableCopy];
 
-    // Build the hang section entirely from the sidecar.
+    // The hang section is added to all reports from the run as context
+    // (e.g., an exception that occurred during a hang).
     NSMutableDictionary *hang = [NSMutableDictionary dictionary];
     hang[KSCrashField_HangStartNanoseconds] = @(sc.startTimestamp);
     hang[KSCrashField_HangStartRole] = @(kstaskrole_toString(sc.startRole));
@@ -102,18 +115,15 @@ CFDictionaryRef kscm_watchdog_createStitchedReport(CFDictionaryRef reportDict, c
     if (recovered) {
         hang[KSCrashField_HangRecovered] = @YES;
 
-        // Change the error type to "hang"
-        errorDict[KSCrashField_Type] = KSCrashField_Hang;
-
-        // Remove crash-only fields since this is a recovered hang, not a crash
-        [errorDict removeObjectForKey:KSCrashField_Signal];
-        [errorDict removeObjectForKey:KSCrashField_Mach];
-        [errorDict removeObjectForKey:KSCrashField_ExitReason];
-        errorDict[KSCrashField_IsFatal] = @NO;
-        [errorDict removeObjectForKey:KSCrashField_IsCleanExit];
-    } else {
-        // Unrecovered hang: the OS killed the process, mark as fatal.
-        // The report already has the correct type from the report writer.
+        if (isWatchdogReport) {
+            errorDict[KSCrashField_Type] = KSCrashField_Hang;
+            [errorDict removeObjectForKey:KSCrashField_Signal];
+            [errorDict removeObjectForKey:KSCrashField_Mach];
+            [errorDict removeObjectForKey:KSCrashField_ExitReason];
+            errorDict[KSCrashField_IsFatal] = @NO;
+            [errorDict removeObjectForKey:KSCrashField_IsCleanExit];
+        }
+    } else if (isWatchdogReport) {
         errorDict[KSCrashField_IsFatal] = @YES;
         errorDict[KSCrashField_IsCleanExit] = @NO;
     }
