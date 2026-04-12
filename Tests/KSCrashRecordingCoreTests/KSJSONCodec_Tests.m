@@ -1537,4 +1537,150 @@ static int addJSONData(const char *data, int length, void *userData)
     }
 }
 
+#pragma mark - C-level encoder tests (signal-safe formatters)
+
+// Accumulator callback: appends JSON data to a char buffer.
+typedef struct {
+    char buf[1024];
+    int pos;
+} JSONBuf;
+
+static int appendJSONData(const char *data, int length, void *userData)
+{
+    JSONBuf *jb = (JSONBuf *)userData;
+    if (jb->pos + length < (int)sizeof(jb->buf)) {
+        memcpy(jb->buf + jb->pos, data, (size_t)length);
+        jb->pos += length;
+        jb->buf[jb->pos] = '\0';
+    }
+    return KSJSON_OK;
+}
+
+- (NSString *)encodeValue:(void (^)(KSJSONEncodeContext *ctx))block
+{
+    JSONBuf jb = { .pos = 0 };
+    jb.buf[0] = '\0';
+    KSJSONEncodeContext ctx;
+    ksjson_beginEncode(&ctx, false, appendJSONData, &jb);
+    ksjson_beginArray(&ctx, NULL);
+    block(&ctx);
+    ksjson_endContainer(&ctx);
+    ksjson_endEncode(&ctx);
+    return [NSString stringWithUTF8String:jb.buf];
+}
+
+- (void)testCEncoderInteger
+{
+    NSString *json = [self encodeValue:^(KSJSONEncodeContext *ctx) {
+        ksjson_addIntegerElement(ctx, NULL, 42);
+    }];
+    XCTAssertEqualObjects(json, @"[42]");
+}
+
+- (void)testCEncoderNegativeInteger
+{
+    NSString *json = [self encodeValue:^(KSJSONEncodeContext *ctx) {
+        ksjson_addIntegerElement(ctx, NULL, -1);
+    }];
+    XCTAssertEqualObjects(json, @"[-1]");
+}
+
+- (void)testCEncoderIntegerMax
+{
+    NSString *json = [self encodeValue:^(KSJSONEncodeContext *ctx) {
+        ksjson_addIntegerElement(ctx, NULL, INT64_MAX);
+    }];
+    XCTAssertEqualObjects(json, @"[9223372036854775807]");
+}
+
+- (void)testCEncoderIntegerMin
+{
+    NSString *json = [self encodeValue:^(KSJSONEncodeContext *ctx) {
+        ksjson_addIntegerElement(ctx, NULL, INT64_MIN);
+    }];
+    XCTAssertEqualObjects(json, @"[-9223372036854775808]");
+}
+
+- (void)testCEncoderUnsignedMax
+{
+    NSString *json = [self encodeValue:^(KSJSONEncodeContext *ctx) {
+        ksjson_addUIntegerElement(ctx, NULL, UINT64_MAX);
+    }];
+    XCTAssertEqualObjects(json, @"[18446744073709551615]");
+}
+
+- (void)testCEncoderUnsignedZero
+{
+    NSString *json = [self encodeValue:^(KSJSONEncodeContext *ctx) {
+        ksjson_addUIntegerElement(ctx, NULL, 0);
+    }];
+    XCTAssertEqualObjects(json, @"[0]");
+}
+
+- (void)testCEncoderFloatZero
+{
+    NSString *json = [self encodeValue:^(KSJSONEncodeContext *ctx) {
+        ksjson_addFloatingPointElement(ctx, NULL, 0.0);
+    }];
+    XCTAssertEqualObjects(json, @"[0.0]");
+}
+
+- (void)testCEncoderFloatNaN
+{
+    NSString *json = [self encodeValue:^(KSJSONEncodeContext *ctx) {
+        ksjson_addFloatingPointElement(ctx, NULL, NAN);
+    }];
+    XCTAssertEqualObjects(json, @"[null]");
+}
+
+- (void)testCEncoderFloatInf
+{
+    NSString *json = [self encodeValue:^(KSJSONEncodeContext *ctx) {
+        ksjson_addFloatingPointElement(ctx, NULL, INFINITY);
+    }];
+    XCTAssertEqualObjects(json, @"[1e999]");
+}
+
+- (void)testCEncoderFloatNegInf
+{
+    NSString *json = [self encodeValue:^(KSJSONEncodeContext *ctx) {
+        ksjson_addFloatingPointElement(ctx, NULL, -INFINITY);
+    }];
+    XCTAssertEqualObjects(json, @"[-1e999]");
+}
+
+- (void)testCEncoderFloatPi
+{
+    NSString *json = [self encodeValue:^(KSJSONEncodeContext *ctx) {
+        ksjson_addFloatingPointElement(ctx, NULL, 3.14159);
+    }];
+    // 3.14159 fits in float precision, so FLT_DIG (6) significant digits
+    double parsed = strtod([json substringWithRange:NSMakeRange(1, json.length - 2)].UTF8String, NULL);
+    XCTAssertEqualWithAccuracy(parsed, 3.14159, 0.0001);
+}
+
+- (void)testCEncoderFloatSmallNegative
+{
+    NSString *json = [self encodeValue:^(KSJSONEncodeContext *ctx) {
+        ksjson_addFloatingPointElement(ctx, NULL, -0.2);
+    }];
+    XCTAssertTrue([json hasPrefix:@"[-0."], @"Expected [-0., got %@", json);
+}
+
+- (void)testCEncoderObjectWithNumbers
+{
+    JSONBuf jb = { .pos = 0 };
+    jb.buf[0] = '\0';
+    KSJSONEncodeContext ctx;
+    ksjson_beginEncode(&ctx, false, appendJSONData, &jb);
+    ksjson_beginObject(&ctx, NULL);
+    ksjson_addIntegerElement(&ctx, "count", 100);
+    ksjson_addFloatingPointElement(&ctx, "ratio", 0.5);
+    ksjson_addUIntegerElement(&ctx, "addr", 0xDEADBEEF);
+    ksjson_endContainer(&ctx);
+    ksjson_endEncode(&ctx);
+    NSString *json = [NSString stringWithUTF8String:jb.buf];
+    XCTAssertEqualObjects(json, @"{\"count\":100,\"ratio\":0.5,\"addr\":3735928559}");
+}
+
 @end
