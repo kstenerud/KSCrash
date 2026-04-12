@@ -484,6 +484,278 @@
     XCTAssertEqualObjects(@(buf), @"untouched");
 }
 
+#pragma mark - int64ToDecimal
+
+- (void)testInt64ToDecimalZero
+{
+    char buf[21];
+    size_t len = ksstring_int64ToDecimal(0, buf, sizeof(buf));
+    XCTAssertEqual(len, 1u);
+    XCTAssertEqualObjects(@(buf), @"0");
+}
+
+- (void)testInt64ToDecimalPositive
+{
+    char buf[21];
+    size_t len = ksstring_int64ToDecimal(12345, buf, sizeof(buf));
+    XCTAssertEqual(len, 5u);
+    XCTAssertEqualObjects(@(buf), @"12345");
+}
+
+- (void)testInt64ToDecimalNegative
+{
+    char buf[21];
+    size_t len = ksstring_int64ToDecimal(-98765, buf, sizeof(buf));
+    XCTAssertEqual(len, 6u);
+    XCTAssertEqualObjects(@(buf), @"-98765");
+}
+
+- (void)testInt64ToDecimalMax
+{
+    char buf[21];
+    size_t len = ksstring_int64ToDecimal(INT64_MAX, buf, sizeof(buf));
+    XCTAssertEqualObjects(@(buf), @"9223372036854775807");
+    XCTAssertEqual(len, 19u);
+}
+
+- (void)testInt64ToDecimalMin
+{
+    char buf[21];
+    size_t len = ksstring_int64ToDecimal(INT64_MIN, buf, sizeof(buf));
+    XCTAssertEqualObjects(@(buf), @"-9223372036854775808");
+    XCTAssertEqual(len, 20u);
+}
+
+- (void)testInt64ToDecimalTruncated
+{
+    char buf[4];
+    size_t len = ksstring_int64ToDecimal(12345, buf, sizeof(buf));
+    XCTAssertEqual(len, 3u);
+    XCTAssertEqualObjects(@(buf), @"123");
+}
+
+- (void)testInt64ToDecimalBufSizeZero
+{
+    char buf[21] = "untouched";
+    size_t len = ksstring_int64ToDecimal(42, buf, 0);
+    XCTAssertEqual(len, 0u);
+    XCTAssertEqualObjects(@(buf), @"untouched");
+}
+
+#pragma mark - uint64ToDecimal
+
+- (void)testUint64ToDecimalZero
+{
+    char buf[21];
+    size_t len = ksstring_uint64ToDecimal(0, buf, sizeof(buf));
+    XCTAssertEqual(len, 1u);
+    XCTAssertEqualObjects(@(buf), @"0");
+}
+
+- (void)testUint64ToDecimalValue
+{
+    char buf[21];
+    size_t len = ksstring_uint64ToDecimal(999999, buf, sizeof(buf));
+    XCTAssertEqual(len, 6u);
+    XCTAssertEqualObjects(@(buf), @"999999");
+}
+
+- (void)testUint64ToDecimalMax
+{
+    char buf[21];
+    size_t len = ksstring_uint64ToDecimal(UINT64_MAX, buf, sizeof(buf));
+    XCTAssertEqualObjects(@(buf), @"18446744073709551615");
+    XCTAssertEqual(len, 20u);
+}
+
+- (void)testUint64ToDecimalTruncated
+{
+    char buf[3];
+    size_t len = ksstring_uint64ToDecimal(12345, buf, sizeof(buf));
+    XCTAssertEqual(len, 2u);
+    XCTAssertEqualObjects(@(buf), @"12");
+}
+
+- (void)testUint64ToDecimalBufSizeZero
+{
+    char buf[21] = "untouched";
+    size_t len = ksstring_uint64ToDecimal(42, buf, 0);
+    XCTAssertEqual(len, 0u);
+    XCTAssertEqualObjects(@(buf), @"untouched");
+}
+
+- (void)testUint64ToDecimalBufSizeOne
+{
+    char buf[1];
+    size_t len = ksstring_uint64ToDecimal(42, buf, sizeof(buf));
+    XCTAssertEqual(len, 0u);
+    XCTAssertEqual(buf[0], '\0');
+}
+
+#pragma mark - doubleToString
+
+- (void)testDoubleToStringZero
+{
+    char buf[32];
+    ksstring_doubleToString(0.0, buf, sizeof(buf));
+    XCTAssertEqualObjects(@(buf), @"0.0");
+}
+
+- (void)testDoubleToStringNegativeZero
+{
+    char buf[32];
+    ksstring_doubleToString(-0.0, buf, sizeof(buf));
+    XCTAssertEqualObjects(@(buf), @"-0.0");
+}
+
+- (void)testDoubleToStringNaN
+{
+    char buf[32];
+    ksstring_doubleToString(NAN, buf, sizeof(buf));
+    XCTAssertEqualObjects(@(buf), @"null");
+}
+
+- (void)testDoubleToStringPosInf
+{
+    char buf[32];
+    ksstring_doubleToString(INFINITY, buf, sizeof(buf));
+    XCTAssertEqualObjects(@(buf), @"1e999");
+}
+
+- (void)testDoubleToStringNegInf
+{
+    char buf[32];
+    ksstring_doubleToString(-INFINITY, buf, sizeof(buf));
+    XCTAssertEqualObjects(@(buf), @"-1e999");
+}
+
+- (void)testDoubleToStringInteger
+{
+    char buf[32];
+    ksstring_doubleToString(42.0, buf, sizeof(buf));
+    XCTAssertEqualObjects(@(buf), @"42.0");
+}
+
+- (void)testDoubleToStringFraction
+{
+    char buf[32];
+    ksstring_doubleToString(0.5, buf, sizeof(buf));
+    XCTAssertEqualObjects(@(buf), @"0.5");
+}
+
+- (void)testDoubleToStringNegative
+{
+    char buf[32];
+    ksstring_doubleToString(-3.14, buf, sizeof(buf));
+    NSString *result = @(buf);
+    XCTAssertTrue([result hasPrefix:@"-3.14"], @"Expected -3.14..., got %@", result);
+}
+
+- (void)testDoubleToStringSmallScientific
+{
+    char buf[32];
+    ksstring_doubleToString(2e-15, buf, sizeof(buf));
+    NSString *result = @(buf);
+    XCTAssertTrue([result containsString:@"e"], @"Expected scientific notation, got %@", result);
+    double parsed = strtod(buf, NULL);
+    XCTAssertEqualWithAccuracy(parsed, 2e-15, 1e-20);
+}
+
+- (void)testDoubleToStringLargeScientific
+{
+    char buf[32];
+    ksstring_doubleToString(5e20, buf, sizeof(buf));
+    NSString *result = @(buf);
+    XCTAssertTrue([result containsString:@"e+"], @"Expected scientific notation with +, got %@", result);
+    double parsed = strtod(buf, NULL);
+    XCTAssertEqualWithAccuracy(parsed, 5e20, 1e10);
+}
+
+- (void)testDoubleToStringFltMax
+{
+    char buf[32];
+    ksstring_doubleToString(FLT_MAX, buf, sizeof(buf));
+    double parsed = strtod(buf, NULL);
+    XCTAssertEqualWithAccuracy(parsed, (double)FLT_MAX, (double)FLT_MAX * FLT_EPSILON * 10);
+}
+
+- (void)testDoubleToStringFltMin
+{
+    char buf[32];
+    ksstring_doubleToString(FLT_MIN, buf, sizeof(buf));
+    double parsed = strtod(buf, NULL);
+    XCTAssertEqualWithAccuracy(parsed, (double)FLT_MIN, (double)FLT_MIN * 1e-5);
+}
+
+- (void)testDoubleToStringDblMax
+{
+    char buf[64];
+    ksstring_doubleToString(DBL_MAX, buf, sizeof(buf));
+    // DBL_MAX at 15 significant digits rounds to a value above DBL_MAX,
+    // which strtod returns as inf. This matches snprintf("%.*g", DBL_DIG, DBL_MAX).
+    char expected[64];
+    snprintf(expected, sizeof(expected), "%.*g", DBL_DIG, DBL_MAX);
+    XCTAssertEqualObjects(@(buf), @(expected));
+}
+
+- (void)testDoubleToStringDblMin
+{
+    char buf[32];
+    ksstring_doubleToString(DBL_MIN, buf, sizeof(buf));
+    double parsed = strtod(buf, NULL);
+    XCTAssertEqualWithAccuracy(parsed, DBL_MIN, DBL_MIN * DBL_EPSILON * 100);
+}
+
+- (void)testDoubleToStringLeadingZero
+{
+    char buf[32];
+    ksstring_doubleToString(0.1, buf, sizeof(buf));
+    NSString *result = @(buf);
+    XCTAssertTrue([result hasPrefix:@"0."], @"Expected leading zero, got %@", result);
+    double parsed = strtod(buf, NULL);
+    XCTAssertEqualWithAccuracy(parsed, 0.1, 0.000001);
+}
+
+- (void)testDoubleToStringNegativeLeadingZero
+{
+    char buf[32];
+    ksstring_doubleToString(-0.2, buf, sizeof(buf));
+    NSString *result = @(buf);
+    XCTAssertTrue([result hasPrefix:@"-0."], @"Expected -0., got %@", result);
+    double parsed = strtod(buf, NULL);
+    XCTAssertEqualWithAccuracy(parsed, -0.2, 0.000001);
+}
+
+- (void)testDoubleToStringTimestamp
+{
+    char buf[32];
+    double ts = 757382400.123456;
+    ksstring_doubleToString(ts, buf, sizeof(buf));
+    double parsed = strtod(buf, NULL);
+    // FLT_DIG precision (6 significant digits) for float-representable values
+    XCTAssertEqualWithAccuracy(parsed, ts, fabs(ts) * 1e-5);
+}
+
+- (void)testDoubleToStringBufSizeZero
+{
+    char buf[32] = "untouched";
+    size_t len = ksstring_doubleToString(1.0, buf, 0);
+    XCTAssertEqual(len, 0u);
+    XCTAssertEqualObjects(@(buf), @"untouched");
+}
+
+- (void)testDoubleToStringRoundTrips
+{
+    double values[] = { 1.0, -1.0, 0.5, 100.0, 3.14159, 1e10, 1e-5, -42.5 };
+    for (size_t i = 0; i < sizeof(values) / sizeof(values[0]); i++) {
+        char buf[32];
+        ksstring_doubleToString(values[i], buf, sizeof(buf));
+        double parsed = strtod(buf, NULL);
+        XCTAssertEqualWithAccuracy(parsed, values[i], fabs(values[i]) * 1e-6, @"Round-trip failed for %g → %s → %g",
+                                   values[i], buf, parsed);
+    }
+}
+
 #pragma mark - ksid_generate
 
 - (void)testKSIDGenerateFormat
