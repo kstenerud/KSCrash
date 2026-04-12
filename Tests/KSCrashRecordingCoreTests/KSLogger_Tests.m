@@ -113,4 +113,126 @@
     XCTAssertEqualObjects(result, expected, @"");
 }
 
+#pragma mark - C formatter (signal-safe path)
+
+extern void i_kslog_logCBasic(const char *fmt, ...);
+
+- (NSString *)captureLogOutput:(void (^)(void))block
+{
+    // Each test gets a unique file to avoid cross-test interference.
+    NSString *logFile = [self.tempDir stringByAppendingPathComponent:[[NSUUID UUID] UUIDString]];
+    kslog_setLogFilename([logFile UTF8String], true);
+    block();
+    // write() is unbuffered — data is in the file immediately. Read it back.
+    NSString *content = [NSString stringWithContentsOfFile:logFile encoding:NSUTF8StringEncoding error:nil];
+    if ([content hasSuffix:@"\n"]) {
+        content = [content substringToIndex:content.length - 1];
+    }
+    return content;
+}
+
+- (void)testCFormatterString
+{
+    NSString *result = [self captureLogOutput:^{
+        i_kslog_logCBasic("hello %s", "world");
+    }];
+    XCTAssertEqualObjects(result, @"hello world");
+}
+
+- (void)testCFormatterNullString
+{
+    NSString *result = [self captureLogOutput:^{
+        i_kslog_logCBasic("val=%s", (const char *)NULL);
+    }];
+    XCTAssertEqualObjects(result, @"val=(null)");
+}
+
+- (void)testCFormatterInt
+{
+    NSString *result = [self captureLogOutput:^{
+        i_kslog_logCBasic("n=%d", -42);
+    }];
+    XCTAssertEqualObjects(result, @"n=-42");
+}
+
+- (void)testCFormatterUnsigned
+{
+    NSString *result = [self captureLogOutput:^{
+        i_kslog_logCBasic("n=%u", 12345u);
+    }];
+    XCTAssertEqualObjects(result, @"n=12345");
+}
+
+- (void)testCFormatterHex
+{
+    NSString *result = [self captureLogOutput:^{
+        i_kslog_logCBasic("h=%x", 0xabcdu);
+    }];
+    XCTAssertEqualObjects(result, @"h=abcd");
+}
+
+- (void)testCFormatterZeroPaddedHex
+{
+    NSString *result = [self captureLogOutput:^{
+        i_kslog_logCBasic("h=%08x", 0x1au);
+    }];
+    XCTAssertEqualObjects(result, @"h=0000001a");
+}
+
+- (void)testCFormatterPointer
+{
+    NSString *result = [self captureLogOutput:^{
+        i_kslog_logCBasic("p=%p", (void *)0x1234);
+    }];
+    XCTAssertEqualObjects(result, @"p=0x1234");
+}
+
+- (void)testCFormatterChar
+{
+    NSString *result = [self captureLogOutput:^{
+        i_kslog_logCBasic("c=%c", 'A');
+    }];
+    XCTAssertEqualObjects(result, @"c=A");
+}
+
+- (void)testCFormatterLongLong
+{
+    NSString *result = [self captureLogOutput:^{
+        i_kslog_logCBasic("n=%lld", (long long)INT64_MAX);
+    }];
+    XCTAssertEqualObjects(result, @"n=9223372036854775807");
+}
+
+- (void)testCFormatterSizeT
+{
+    NSString *result = [self captureLogOutput:^{
+        i_kslog_logCBasic("s=%zu", (size_t)65536);
+    }];
+    XCTAssertEqualObjects(result, @"s=65536");
+}
+
+- (void)testCFormatterPercent
+{
+    NSString *result = [self captureLogOutput:^{
+        i_kslog_logCBasic("100%%");
+    }];
+    XCTAssertEqualObjects(result, @"100%");
+}
+
+- (void)testCFormatterMultipleArgs
+{
+    NSString *result = [self captureLogOutput:^{
+        i_kslog_logCBasic("thread_suspend (%08x): %s", 0x1234u, "error");
+    }];
+    XCTAssertEqualObjects(result, @"thread_suspend (00001234): error");
+}
+
+- (void)testCFormatterNullFmt
+{
+    NSString *result = [self captureLogOutput:^{
+        i_kslog_logCBasic(NULL);
+    }];
+    XCTAssertEqualObjects(result, @"(null)");
+}
+
 @end
