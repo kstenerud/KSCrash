@@ -116,7 +116,7 @@ CFDictionaryRef kscm_watchdog_createStitchedReport(CFDictionaryRef reportDict, c
         hang[KSCrashField_HangRecovered] = @YES;
 
         if (isWatchdogReport) {
-            errorDict[KSCrashField_Type] = KSCrashField_Hang;
+            errorDict[KSCrashField_Type] = KSCrashExcType_Hang;
             [errorDict removeObjectForKey:KSCrashField_Signal];
             [errorDict removeObjectForKey:KSCrashField_Mach];
             [errorDict removeObjectForKey:KSCrashField_ExitReason];
