@@ -146,8 +146,13 @@ static void writeFmtArgsToLog(const char *fmt, va_list args)
 
         // Parse length modifier
         int longCount = 0;
+        bool isSizeT = false;
         while (*fmt == 'l') {
             longCount++;
+            fmt++;
+        }
+        if (*fmt == 'z') {
+            isSizeT = true;
             fmt++;
         }
 
@@ -164,9 +169,15 @@ static void writeFmtArgsToLog(const char *fmt, va_list args)
                 }
                 fmt++;
                 continue;
+            case 'c':
+                if (p < end) *p++ = (char)va_arg(args, int);
+                fmt++;
+                continue;
             case 'd': {
                 int64_t val;
-                if (longCount >= 2)
+                if (isSizeT)
+                    val = (int64_t)va_arg(args, size_t);
+                else if (longCount >= 2)
                     val = va_arg(args, long long);
                 else if (longCount == 1)
                     val = va_arg(args, long);
@@ -177,7 +188,9 @@ static void writeFmtArgsToLog(const char *fmt, va_list args)
             }
             case 'u': {
                 uint64_t val;
-                if (longCount >= 2)
+                if (isSizeT)
+                    val = (uint64_t)va_arg(args, size_t);
+                else if (longCount >= 2)
                     val = va_arg(args, unsigned long long);
                 else if (longCount == 1)
                     val = va_arg(args, unsigned long);
@@ -188,7 +201,9 @@ static void writeFmtArgsToLog(const char *fmt, va_list args)
             }
             case 'x': {
                 uint64_t val;
-                if (longCount >= 2)
+                if (isSizeT)
+                    val = (uint64_t)va_arg(args, size_t);
+                else if (longCount >= 2)
                     val = va_arg(args, unsigned long long);
                 else if (longCount == 1)
                     val = va_arg(args, unsigned long);

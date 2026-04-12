@@ -200,46 +200,7 @@ size_t ksstring_uint64ToHex(uint64_t value, char *dst, size_t bufSize, int minDi
 
 size_t ksstring_intToDecimal(int value, char *dst, size_t bufSize)
 {
-    if (bufSize == 0) {
-        return 0;
-    }
-
-    if (value == 0) {
-        dst[0] = '0';
-        dst[bufSize > 1 ? 1 : 0] = '\0';
-        return bufSize > 1 ? 1 : 0;
-    }
-
-    char buf[12];
-    int pos = 11;
-    buf[pos] = '\0';
-
-    bool negative = false;
-    unsigned int uval;
-    if (value < 0) {
-        negative = true;
-        // Avoid undefined behavior on INT_MIN
-        uval = (unsigned int)(-(value + 1)) + 1u;
-    } else {
-        uval = (unsigned int)value;
-    }
-
-    while (uval > 0) {
-        buf[--pos] = (char)('0' + (uval % 10));
-        uval /= 10;
-    }
-
-    if (negative) {
-        buf[--pos] = '-';
-    }
-
-    size_t len = (size_t)(11 - pos);
-    if (len >= bufSize) {
-        len = bufSize - 1;
-    }
-    memcpy(dst, buf + pos, len);
-    dst[len] = '\0';
-    return len;
+    return ksstring_int64ToDecimal((int64_t)value, dst, bufSize);
 }
 
 size_t ksstring_int64ToDecimal(int64_t value, char *dst, size_t bufSize)
@@ -248,41 +209,19 @@ size_t ksstring_int64ToDecimal(int64_t value, char *dst, size_t bufSize)
         return 0;
     }
 
-    if (value == 0) {
-        dst[0] = '0';
-        dst[bufSize > 1 ? 1 : 0] = '\0';
-        return bufSize > 1 ? 1 : 0;
+    if (value >= 0) {
+        return ksstring_uint64ToDecimal((uint64_t)value, dst, bufSize);
     }
 
-    char buf[21];
-    int pos = 20;
-    buf[pos] = '\0';
-
-    bool negative = false;
-    uint64_t uval;
-    if (value < 0) {
-        negative = true;
-        uval = (uint64_t)(-(value + 1)) + 1u;
-    } else {
-        uval = (uint64_t)value;
+    // Negative: prepend '-' then format the magnitude
+    if (bufSize < 2) {
+        dst[0] = '\0';
+        return 0;
     }
-
-    while (uval > 0) {
-        buf[--pos] = (char)('0' + (uval % 10));
-        uval /= 10;
-    }
-
-    if (negative) {
-        buf[--pos] = '-';
-    }
-
-    size_t len = (size_t)(20 - pos);
-    if (len >= bufSize) {
-        len = bufSize - 1;
-    }
-    memcpy(dst, buf + pos, len);
-    dst[len] = '\0';
-    return len;
+    dst[0] = '-';
+    uint64_t magnitude = (uint64_t)(-(value + 1)) + 1u;
+    size_t len = ksstring_uint64ToDecimal(magnitude, dst + 1, bufSize - 1);
+    return len + 1;
 }
 
 size_t ksstring_uint64ToDecimal(uint64_t value, char *dst, size_t bufSize)
@@ -530,7 +469,7 @@ size_t ksstring_doubleToString(double value, char *dst, size_t bufSize)
             }
         } else {
             // Write remaining significant digits after integer part
-            int startIdx = intDigits < 0 ? 0 : intDigits;
+            int startIdx = intDigits;
             if (startIdx < (int)sigLen) {
                 for (int i = startIdx; i < (int)sigLen && p < end; i++) {
                     *p++ = (i < (int)dlen) ? digitBuf[i] : '0';
