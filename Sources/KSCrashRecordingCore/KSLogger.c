@@ -26,6 +26,7 @@
 
 #include "KSLogger.h"
 
+#include "KSString.h"
 #include "KSSystemCapabilities.h"
 
 // ===========================================================================
@@ -111,15 +112,124 @@ static void writeToLog(const char *const str)
     write(STDOUT_FILENO, str, strlen(str));
 }
 
-static inline void writeFmtArgsToLog(const char *fmt, va_list args)
+// Minimal signal-safe formatter. Handles: %s, %d, %u, %x, %p, %08x, 0x%x, %ld, %lu, %lx, %lld, %llu, %llx, %%.
+static void writeFmtArgsToLog(const char *fmt, va_list args)
 {
-    unlikely_if(fmt == NULL) { writeToLog("(null)"); }
-    else
+    unlikely_if(fmt == NULL)
     {
-        char buffer[KSLOGGER_CBufferSize];
-        vsnprintf(buffer, sizeof(buffer), fmt, args);
-        writeToLog(buffer);
+        writeToLog("(null)");
+        return;
     }
+
+    char buffer[KSLOGGER_CBufferSize];
+    char *p = buffer;
+    char *end = buffer + sizeof(buffer) - 1;
+
+    while (*fmt && p < end) {
+        if (*fmt != '%') {
+            *p++ = *fmt++;
+            continue;
+        }
+        fmt++;  // skip '%'
+
+        // Parse flags
+        bool zeroPad = false;
+        int width = 0;
+        if (*fmt == '0') {
+            zeroPad = true;
+            fmt++;
+            while (*fmt >= '0' && *fmt <= '9') {
+                width = width * 10 + (*fmt - '0');
+                fmt++;
+            }
+        }
+
+        // Parse length modifier
+        int longCount = 0;
+        while (*fmt == 'l') {
+            longCount++;
+            fmt++;
+        }
+
+        char convBuf[21];
+        size_t convLen = 0;
+        const char *strVal = NULL;
+
+        switch (*fmt) {
+            case 's':
+                strVal = va_arg(args, const char *);
+                if (!strVal) strVal = "(null)";
+                while (*strVal && p < end) {
+                    *p++ = *strVal++;
+                }
+                fmt++;
+                continue;
+            case 'd': {
+                int64_t val;
+                if (longCount >= 2)
+                    val = va_arg(args, long long);
+                else if (longCount == 1)
+                    val = va_arg(args, long);
+                else
+                    val = va_arg(args, int);
+                convLen = ksstring_int64ToDecimal(val, convBuf, sizeof(convBuf));
+                break;
+            }
+            case 'u': {
+                uint64_t val;
+                if (longCount >= 2)
+                    val = va_arg(args, unsigned long long);
+                else if (longCount == 1)
+                    val = va_arg(args, unsigned long);
+                else
+                    val = va_arg(args, unsigned int);
+                convLen = ksstring_uint64ToDecimal(val, convBuf, sizeof(convBuf));
+                break;
+            }
+            case 'x': {
+                uint64_t val;
+                if (longCount >= 2)
+                    val = va_arg(args, unsigned long long);
+                else if (longCount == 1)
+                    val = va_arg(args, unsigned long);
+                else
+                    val = va_arg(args, unsigned int);
+                convLen = ksstring_uint64ToHex(val, convBuf, sizeof(convBuf), 1, false);
+                break;
+            }
+            case 'p': {
+                void *ptr = va_arg(args, void *);
+                if (p < end) *p++ = '0';
+                if (p < end) *p++ = 'x';
+                convLen = ksstring_uint64ToHex((uint64_t)(uintptr_t)ptr, convBuf, sizeof(convBuf), 1, false);
+                break;
+            }
+            case '%':
+                if (p < end) *p++ = '%';
+                fmt++;
+                continue;
+            default:
+                if (p < end) *p++ = '%';
+                if (p < end) *p++ = *fmt;
+                fmt++;
+                continue;
+        }
+        fmt++;
+
+        // Apply zero-padding for width
+        if (zeroPad && width > 0 && convLen < (size_t)width) {
+            size_t pad = (size_t)width - convLen;
+            for (size_t i = 0; i < pad && p < end; i++) {
+                *p++ = '0';
+            }
+        }
+        for (size_t i = 0; i < convLen && p < end; i++) {
+            *p++ = convBuf[i];
+        }
+    }
+
+    *p = '\0';
+    writeToLog(buffer);
 }
 
 static inline void flushLog(void)

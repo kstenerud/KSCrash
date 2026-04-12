@@ -26,6 +26,8 @@
 
 #include "KSString.h"
 
+#include <float.h>
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -238,4 +240,309 @@ size_t ksstring_intToDecimal(int value, char *dst, size_t bufSize)
     memcpy(dst, buf + pos, len);
     dst[len] = '\0';
     return len;
+}
+
+size_t ksstring_int64ToDecimal(int64_t value, char *dst, size_t bufSize)
+{
+    if (bufSize == 0) {
+        return 0;
+    }
+
+    if (value == 0) {
+        dst[0] = '0';
+        dst[bufSize > 1 ? 1 : 0] = '\0';
+        return bufSize > 1 ? 1 : 0;
+    }
+
+    char buf[21];
+    int pos = 20;
+    buf[pos] = '\0';
+
+    bool negative = false;
+    uint64_t uval;
+    if (value < 0) {
+        negative = true;
+        uval = (uint64_t)(-(value + 1)) + 1u;
+    } else {
+        uval = (uint64_t)value;
+    }
+
+    while (uval > 0) {
+        buf[--pos] = (char)('0' + (uval % 10));
+        uval /= 10;
+    }
+
+    if (negative) {
+        buf[--pos] = '-';
+    }
+
+    size_t len = (size_t)(20 - pos);
+    if (len >= bufSize) {
+        len = bufSize - 1;
+    }
+    memcpy(dst, buf + pos, len);
+    dst[len] = '\0';
+    return len;
+}
+
+size_t ksstring_uint64ToDecimal(uint64_t value, char *dst, size_t bufSize)
+{
+    if (bufSize == 0) {
+        return 0;
+    }
+
+    if (value == 0) {
+        dst[0] = '0';
+        dst[bufSize > 1 ? 1 : 0] = '\0';
+        return bufSize > 1 ? 1 : 0;
+    }
+
+    char buf[21];
+    int pos = 20;
+    buf[pos] = '\0';
+
+    while (value > 0) {
+        buf[--pos] = (char)('0' + (value % 10));
+        value /= 10;
+    }
+
+    size_t len = (size_t)(20 - pos);
+    if (len >= bufSize) {
+        len = bufSize - 1;
+    }
+    memcpy(dst, buf + pos, len);
+    dst[len] = '\0';
+    return len;
+}
+
+static size_t copyLiteral(const char *src, char *dst, size_t bufSize)
+{
+    size_t len = strlen(src);
+    if (len >= bufSize) {
+        len = bufSize > 0 ? bufSize - 1 : 0;
+    }
+    memcpy(dst, src, len);
+    if (bufSize > 0) {
+        dst[len] = '\0';
+    }
+    return len;
+}
+
+// Signal-safe pow10 lookup table (avoids libm pow which may lock).
+static const double g_pow10[] = {
+    1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19,
+};
+
+size_t ksstring_doubleToString(double value, char *dst, size_t bufSize)
+{
+    if (bufSize == 0) {
+        return 0;
+    }
+
+    if (isnan(value)) {
+        return copyLiteral("null", dst, bufSize);
+    }
+    if (isinf(value)) {
+        return copyLiteral(value > 0 ? "1e999" : "-1e999", dst, bufSize);
+    }
+    if (value == 0.0) {
+        return copyLiteral(signbit(value) ? "-0.0" : "0.0", dst, bufSize);
+    }
+
+    char *p = dst;
+    char *end = dst + bufSize - 1;
+
+    if (value < 0) {
+        if (p < end) {
+            *p++ = '-';
+        }
+        value = -value;
+    }
+
+    int sigDigits;
+    float fv = (float)value;
+    if (fabs(value - (double)fv) <= (double)FLT_EPSILON * fabs(value)) {
+        sigDigits = FLT_DIG;
+    } else {
+        sigDigits = DBL_DIG;
+    }
+
+    // Compute decimal exponent via binary search: normalize to [1.0, 10.0)
+    // Covers full double range (~1e-308 to ~1e+308)
+    int exponent = 0;
+    double normalized = value;
+    if (normalized >= 10.0) {
+        if (normalized >= 1e256) {
+            normalized /= 1e256;
+            exponent += 256;
+        }
+        if (normalized >= 1e128) {
+            normalized /= 1e128;
+            exponent += 128;
+        }
+        if (normalized >= 1e64) {
+            normalized /= 1e64;
+            exponent += 64;
+        }
+        if (normalized >= 1e32) {
+            normalized /= 1e32;
+            exponent += 32;
+        }
+        if (normalized >= 1e16) {
+            normalized /= 1e16;
+            exponent += 16;
+        }
+        if (normalized >= 1e8) {
+            normalized /= 1e8;
+            exponent += 8;
+        }
+        if (normalized >= 1e4) {
+            normalized /= 1e4;
+            exponent += 4;
+        }
+        if (normalized >= 1e2) {
+            normalized /= 1e2;
+            exponent += 2;
+        }
+        if (normalized >= 1e1) {
+            normalized /= 1e1;
+            exponent += 1;
+        }
+    } else if (normalized < 1.0) {
+        if (normalized < 1e-255) {
+            normalized *= 1e256;
+            exponent -= 256;
+        }
+        if (normalized < 1e-127) {
+            normalized *= 1e128;
+            exponent -= 128;
+        }
+        if (normalized < 1e-63) {
+            normalized *= 1e64;
+            exponent -= 64;
+        }
+        if (normalized < 1e-31) {
+            normalized *= 1e32;
+            exponent -= 32;
+        }
+        if (normalized < 1e-15) {
+            normalized *= 1e16;
+            exponent -= 16;
+        }
+        if (normalized < 1e-7) {
+            normalized *= 1e8;
+            exponent -= 8;
+        }
+        if (normalized < 1e-3) {
+            normalized *= 1e4;
+            exponent -= 4;
+        }
+        if (normalized < 1e-1) {
+            normalized *= 1e2;
+            exponent -= 2;
+        }
+        if (normalized < 1e0) {
+            normalized *= 1e1;
+            exponent -= 1;
+        }
+    }
+    if (normalized >= 10.0) {
+        normalized /= 10.0;
+        exponent++;
+    }
+    if (normalized < 1.0) {
+        normalized *= 10.0;
+        exponent--;
+    }
+
+    bool useScientific = (exponent >= sigDigits || exponent < -4);
+
+    // Extract significant digits as an integer
+    double scale = g_pow10[sigDigits - 1];
+    uint64_t allDigits = (uint64_t)(normalized * scale + 0.5);
+    if (allDigits >= (uint64_t)(scale * 10.0)) {
+        allDigits /= 10;
+        exponent++;
+    }
+
+    char digitBuf[21];
+    size_t dlen = ksstring_uint64ToDecimal(allDigits, digitBuf, sizeof(digitBuf));
+
+    // Strip trailing zeros from digit string (keep at least first digit)
+    size_t sigLen = dlen;
+    while (sigLen > 1 && digitBuf[sigLen - 1] == '0') {
+        sigLen--;
+    }
+
+    if (useScientific) {
+        // Write mantissa
+        if (dlen > 0 && p < end) {
+            *p++ = digitBuf[0];
+        }
+        if (sigLen > 1) {
+            if (p < end) *p++ = '.';
+            for (size_t i = 1; i < sigLen && p < end; i++) {
+                *p++ = digitBuf[i];
+            }
+        }
+        // Write exponent with explicit sign (matches %g behavior)
+        if (p < end) *p++ = 'e';
+        if (exponent < 0) {
+            if (p < end) *p++ = '-';
+            exponent = -exponent;
+        } else {
+            if (p < end) *p++ = '+';
+        }
+        char expBuf[12];
+        size_t elen = ksstring_intToDecimal(exponent, expBuf, sizeof(expBuf));
+        for (size_t i = 0; i < elen && p < end; i++) {
+            *p++ = expBuf[i];
+        }
+    } else {
+        int intDigits = exponent + 1;
+
+        // Write integer part (at least "0" for values < 1)
+        if (intDigits <= 0) {
+            if (p < end) *p++ = '0';
+        } else {
+            for (int i = 0; i < intDigits && p < end; i++) {
+                *p++ = (i < (int)dlen) ? digitBuf[i] : '0';
+            }
+        }
+
+        if (p < end) {
+            *p++ = '.';
+        }
+
+        // Write fractional part
+        // For values < 1, we need leading zeros after the decimal point
+        size_t fracWritten = 0;
+        if (intDigits < 0) {
+            int leadingZeros = -intDigits;
+            for (int i = 0; i < leadingZeros && p < end; i++) {
+                *p++ = '0';
+                fracWritten++;
+            }
+            // Then write all significant digits
+            for (size_t i = 0; i < sigLen && p < end; i++) {
+                *p++ = digitBuf[i];
+                fracWritten++;
+            }
+        } else {
+            // Write remaining significant digits after integer part
+            int startIdx = intDigits < 0 ? 0 : intDigits;
+            if (startIdx < (int)sigLen) {
+                for (int i = startIdx; i < (int)sigLen && p < end; i++) {
+                    *p++ = (i < (int)dlen) ? digitBuf[i] : '0';
+                    fracWritten++;
+                }
+            }
+        }
+        if (fracWritten == 0 && p < end) {
+            *p++ = '0';
+        }
+    }
+
+    *p = '\0';
+    return (size_t)(p - dst);
 }

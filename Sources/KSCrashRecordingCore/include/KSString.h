@@ -105,6 +105,37 @@ size_t ksstring_uint64ToHex(uint64_t value, char *dst, size_t bufSize, int minDi
  */
 size_t ksstring_intToDecimal(int value, char *dst, size_t bufSize);
 
+/** Convert an int64_t to a decimal string. Async-signal-safe.
+ *
+ * @param value The value to convert.
+ * @param dst The destination buffer.
+ * @param bufSize Size of dst in bytes. Needs at least 21 for full output.
+ * @return The number of characters written (not including NUL).
+ */
+size_t ksstring_int64ToDecimal(int64_t value, char *dst, size_t bufSize);
+
+/** Convert a uint64_t to a decimal string. Async-signal-safe.
+ *
+ * @param value The value to convert.
+ * @param dst The destination buffer.
+ * @param bufSize Size of dst in bytes. Needs at least 21 for full output.
+ * @return The number of characters written (not including NUL).
+ */
+size_t ksstring_uint64ToDecimal(uint64_t value, char *dst, size_t bufSize);
+
+/** Convert a double to a JSON-compatible string. Async-signal-safe.
+ *
+ * NaN → "null", ±Inf → "1e999"/"-1e999", 0 → "0.0".
+ * Uses FLT_DIG precision for float-representable values, DBL_DIG otherwise.
+ * Strips trailing fractional zeros (keeps at least one digit after '.').
+ *
+ * @param value The value to convert.
+ * @param dst The destination buffer.
+ * @param bufSize Size of dst in bytes. Needs at least 32 for full output.
+ * @return The number of characters written (not including NUL).
+ */
+size_t ksstring_doubleToString(double value, char *dst, size_t bufSize);
+
 #ifdef __cplusplus
 }
 #endif
