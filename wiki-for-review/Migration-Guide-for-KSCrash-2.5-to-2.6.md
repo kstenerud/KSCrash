@@ -66,6 +66,181 @@ config.monitors = .compatible251
 
 This excludes Watchdog, Termination, and the new infrastructure monitors from the active set.
 
+## Report Format Changes
+
+The JSON report structure is backward-compatible: all fields present in 2.5.1 are still present (or moved with clear mapping). New fields are additive. If you parse reports, no existing code will break, but you may want to start consuming the new fields.
+
+### Removed Fields
+
+| Field | Notes |
+|---|---|
+| `system.freeStorage` | Always 0, removed |
+| `system.storage` | Always 0, removed |
+
+### Moved Fields
+
+| 2.5.1 Location | 2.6 Location |
+|---|---|
+| `system.app_memory.app_transition_state` | `system.application_stats.app_transition_state` |
+
+### New Fields
+
+**Crash classification** (in `crash.error`):
+
+| Field | Description |
+|---|---|
+| `is_fatal` | Whether the event killed the process |
+| `is_clean_exit` | Distinguishes clean exit (SIGTERM) from dirty crash. Only meaningful when `is_fatal` is true |
+
+**Report metadata** (in `report`):
+
+| Field | Description |
+|---|---|
+| `monitor_id` | Which monitor caught the event (e.g., `"Signal"`, `"MachException"`, `"Watchdog"`) |
+| `run_id` | Unique UUID for the process run. Used to correlate reports and sidecars from the same session |
+
+**Backtrace enrichment** (in each backtrace frame):
+
+| Field | Description |
+|---|---|
+| `object_uuid` | UUID of the binary image for this frame. Enables direct symbolication without scanning the full `binary_images` list |
+
+**App state** (in `system.application_stats`):
+
+| Field | Description |
+|---|---|
+| `task_role` | Process task role (`"FOREGROUND"`, `"BACKGROUND"`, `"UNSPECIFIED"`, etc.) |
+| `user_perceptible` | Whether the app was visible to the user at crash time |
+
+**Resource snapshots** (in `system`):
+
+| Field | Description |
+|---|---|
+| `battery_state` | Battery state enum (0 = unknown) |
+| `low_power_mode_enabled` | Low Power Mode active |
+| `thermal_state` | Thermal state enum (0 = nominal) |
+| `cpu_average_usage_permil` | Sliding-window CPU usage in permil (0-1000) |
+| `cpu_usage_user` | User-space CPU usage |
+| `cpu_usage_system` | System CPU usage |
+| `cpu_state` | CPU state string (`"normal"`, `"warning"`, `"critical"`) |
+| `cpu_core_count` | Number of CPU cores |
+| `data_protection_active` | Whether data protection is active |
+| `thread_count` | Number of threads at crash time |
+
+**Process timing** (in `system`):
+
+| Field | Description |
+|---|---|
+| `process_start_monotonic_ns` | Process start time in monotonic nanoseconds |
+| `process_start_wall_clock_ns` | Process start time as wall clock nanoseconds |
+
+### New Report Types
+
+#### Hang Reports (Watchdog)
+
+Hang reports are produced by the Watchdog monitor when the main thread stalls. A fatal hang occurs when the OS kills the app (SIGKILL) during a hang. A recovered hang is retained as a non-fatal report when `enableHangReporting` is true. Both types include a `hang` section in `crash.error` with timing and state from the mmap'd sidecar:
+
+```json
+"crash": {
+  "error": {
+    "type": "mach",
+    "is_fatal": true,
+    "is_clean_exit": false,
+    "hang": {
+      "hang_start_nanos": 654204315902125,
+      "hang_start_role": "UNSPECIFIED",
+      "hang_start_transition_state": "active",
+      "hang_end_nanos": 654207070528458,
+      "hang_end_role": "UNSPECIFIED",
+      "hang_end_transition_state": "active"
+    },
+    "exit_reason": {
+      "code": 2343432205
+    },
+    "mach": {
+      "exception": 10,
+      "exception_name": "EXC_CRASH"
+    },
+    "signal": {
+      "signal": 9
+    }
+  }
+}
+```
+
+| Field | Description |
+| --- | --- |
+| `crash.error.hang.hang_start_nanos` | Monotonic timestamp when the hang began |
+| `crash.error.hang.hang_start_role` | Task role at hang start (`"FOREGROUND"`, `"BACKGROUND"`, `"UNSPECIFIED"`) |
+| `crash.error.hang.hang_start_transition_state` | App transition state at hang start (`"startup"`, `"active"`, `"terminating"`) |
+| `crash.error.hang.hang_end_nanos` | Monotonic timestamp when the hang ended (recovery or kill) |
+| `crash.error.hang.hang_end_role` | Task role at hang end |
+| `crash.error.hang.hang_end_transition_state` | App transition state at hang end |
+| `crash.error.hang.hang_recovered` | `true` if the hang resolved before the OS killed the app. Only present on recovered hangs |
+| `crash.error.exit_reason.code` | Darwin exit reason code from the previous termination |
+
+For recovered (non-fatal) hangs, the `signal` and `mach` sections are removed and `crash.error.type` is changed to `"hang"`.
+
+The `report.monitor_id` is `"Watchdog"` for hang reports.
+
+#### Profile Reports
+
+Profile reports are written by the Profiler module. They use a deduplicated frame format to minimize file size: unique frames are symbolicated once, and each sample references frames by index. Profile reports omit the `binary_images` section since each frame already includes `object_uuid`.
+
+```json
+"report": {
+  "monitor_id": "profile",
+  "finalized": true,
+  "type": "standard"
+},
+"crash": {
+  "error": {
+    "type": "profile",
+    "is_fatal": false,
+    "profile": {
+      "name": "my-session",
+      "id": "CA579409-1D76-4C21-99FA-531FBA84CBF2",
+      "duration": 480961958,
+      "expected_sample_interval": 10000000,
+      "time_units": "nanoseconds",
+      "time_start_epoch": 1776032889461301000,
+      "time_start_uptime": 654207615368333,
+      "time_end_uptime": 654207867720833,
+      "frames": [
+        {
+          "symbol_name": "main",
+          "symbol_addr": 4377604536,
+          "instruction_addr": 4377604587,
+          "object_name": "MyApp",
+          "object_addr": 4377493504,
+          "object_uuid": "FDECDBB8-12EB-328F-80E7-2BCEA7D31540"
+        }
+      ],
+      "samples": [
+        {
+          "time_start_uptime": 654207616100583,
+          "time_end_uptime": 654207616231541,
+          "duration": 130958,
+          "frames": [4, 2, 0]
+        }
+      ]
+    }
+  }
+}
+```
+
+| Field | Description |
+| --- | --- |
+| `crash.error.profile.name` | Profile session name passed to `beginProfile(named:)` |
+| `crash.error.profile.id` | Unique UUID for this profile session |
+| `crash.error.profile.duration` | Total profile duration in nanoseconds |
+| `crash.error.profile.expected_sample_interval` | Configured sampling interval in nanoseconds |
+| `crash.error.profile.time_start_epoch` | Wall-clock start time in nanoseconds since epoch |
+| `crash.error.profile.time_start_uptime` | Monotonic start timestamp in nanoseconds |
+| `crash.error.profile.time_end_uptime` | Monotonic end timestamp in nanoseconds |
+| `crash.error.profile.frames` | Array of unique symbolicated frames |
+| `crash.error.profile.samples` | Array of samples, each with `frames` as indexes into the frames array |
+
 ## New Features
 
 ### Watchdog (Hang Detection)
