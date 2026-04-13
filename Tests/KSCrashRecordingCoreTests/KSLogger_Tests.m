@@ -235,4 +235,20 @@ extern void i_kslog_logCBasic(const char *fmt, ...);
     XCTAssertEqualObjects(result, @"(null)");
 }
 
+- (void)testCFormatterSignedSizeT
+{
+    NSString *result = [self captureLogOutput:^{
+        i_kslog_logCBasic("n=%zd", (ssize_t)-42);
+    }];
+    XCTAssertEqualObjects(result, @"n=-42");
+}
+
+- (void)testCFormatterTrailingPercent
+{
+    NSString *result = [self captureLogOutput:^{
+        i_kslog_logCBasic("end%");
+    }];
+    XCTAssertEqualObjects(result, @"end%");
+}
+
 @end

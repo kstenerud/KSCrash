@@ -132,6 +132,12 @@ static void writeFmtArgsToLog(const char *fmt, va_list args)
         }
         fmt++;  // skip '%'
 
+        // Lone '%' at end of string
+        if (*fmt == '\0') {
+            if (p < end) *p++ = '%';
+            break;
+        }
+
         // Parse flags
         bool zeroPad = false;
         int width = 0;
@@ -176,7 +182,7 @@ static void writeFmtArgsToLog(const char *fmt, va_list args)
             case 'd': {
                 int64_t val;
                 if (isSizeT)
-                    val = (int64_t)va_arg(args, size_t);
+                    val = (int64_t)va_arg(args, ssize_t);
                 else if (longCount >= 2)
                     val = va_arg(args, long long);
                 else if (longCount == 1)
