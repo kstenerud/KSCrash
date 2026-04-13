@@ -251,4 +251,30 @@ extern void i_kslog_logCBasic(const char *fmt, ...);
     XCTAssertEqualObjects(result, @"end%");
 }
 
+- (void)testCFormatterFloat
+{
+    NSString *result = [self captureLogOutput:^{
+        i_kslog_logCBasic("v=%.3f", 3.14159);
+    }];
+    NSString *numPart = [result substringFromIndex:2];
+    double parsed = [numPart doubleValue];
+    XCTAssertEqualWithAccuracy(parsed, 3.14159, 0.001);
+}
+
+- (void)testCFormatterFloatThenString
+{
+    NSString *result = [self captureLogOutput:^{
+        i_kslog_logCBasic("d=%.3f %s", 1.5, "ok");
+    }];
+    XCTAssertTrue([result hasSuffix:@" ok"], @"Expected trailing ' ok', got: %@", result);
+}
+
+- (void)testCFormatterWidthWithoutZeroPad
+{
+    NSString *result = [self captureLogOutput:^{
+        i_kslog_logCBasic("h=%02x", 0xau);
+    }];
+    XCTAssertEqualObjects(result, @"h=0a");
+}
+
 @end

@@ -144,8 +144,16 @@ static void writeFmtArgsToLog(const char *fmt, va_list args)
         if (*fmt == '0') {
             zeroPad = true;
             fmt++;
+        }
+        while (*fmt >= '0' && *fmt <= '9') {
+            width = width * 10 + (*fmt - '0');
+            fmt++;
+        }
+
+        // Parse precision (e.g. ".3" in "%.3f") — consumed but ignored
+        if (*fmt == '.') {
+            fmt++;
             while (*fmt >= '0' && *fmt <= '9') {
-                width = width * 10 + (*fmt - '0');
                 fmt++;
             }
         }
@@ -162,7 +170,7 @@ static void writeFmtArgsToLog(const char *fmt, va_list args)
             fmt++;
         }
 
-        char convBuf[21];
+        char convBuf[32];
         size_t convLen = 0;
         const char *strVal = NULL;
 
@@ -218,6 +226,13 @@ static void writeFmtArgsToLog(const char *fmt, va_list args)
                 convLen = ksstring_uint64ToHex(val, convBuf, sizeof(convBuf), 1, false);
                 break;
             }
+            case 'f':
+            case 'g':
+            case 'e': {
+                double val = va_arg(args, double);
+                convLen = ksstring_doubleToString(val, convBuf, sizeof(convBuf));
+                break;
+            }
             case 'p': {
                 void *ptr = va_arg(args, void *);
                 if (p < end) *p++ = '0';
@@ -230,8 +245,9 @@ static void writeFmtArgsToLog(const char *fmt, va_list args)
                 fmt++;
                 continue;
             default:
-                if (p < end) *p++ = '%';
-                if (p < end) *p++ = *fmt;
+                // Unknown specifier — consume a pointer-sized arg to keep varargs aligned
+                (void)va_arg(args, void *);
+                if (p < end) *p++ = '?';
                 fmt++;
                 continue;
         }

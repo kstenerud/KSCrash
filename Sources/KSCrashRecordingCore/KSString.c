@@ -302,6 +302,9 @@ size_t ksstring_doubleToString(double value, char *dst, size_t bufSize)
     float fv = (float)value;
     if (fabs(value - (double)fv) <= (double)FLT_EPSILON * fabs(value)) {
         sigDigits = FLT_DIG;
+        // Match old snprintf behavior: format the float-cast value, not the original double.
+        // This avoids boundary rounding differences (e.g. 99.99995 → float 100.0).
+        value = (double)fv;
     } else {
         sigDigits = DBL_DIG;
     }
