@@ -57,6 +57,7 @@ static NSString *writeSidecar(NSString *dir, KSHangSidecar sc)
 static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t startRole)
 {
     return @{
+        @"report" : @ { @"monitor_id" : @"Watchdog" },
         @"crash" : @ {
             @"error" : @ {
                 @"type" : @"signal",
@@ -614,6 +615,81 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
     NSDictionary *error = result[@"crash"][@"error"];
     XCTAssertEqualObjects(error[@"type"], @"signal", @"Type should be unchanged");
     XCTAssertEqualObjects(error[@"is_fatal"], @YES, @"is_fatal should be unchanged");
+}
+
+#pragma mark - Non-Watchdog Reports
+
+- (void)testNonWatchdogReportKeepsOriginalFatality
+{
+    KSHangSidecar sc = {
+        .magic = KSHANG_SIDECAR_MAGIC,
+        .version = KSHANG_SIDECAR_VERSION_1_0,
+        .startTimestamp = 1000,
+        .startRole = TASK_FOREGROUND_APPLICATION,
+        .endTimestamp = 5000,
+        .endRole = TASK_DEFAULT_APPLICATION,
+        .recovered = false,
+    };
+    NSString *path = writeSidecar(self.tempDir, sc);
+
+    NSDictionary *report = @{
+        @"report" : @ { @"monitor_id" : @"profile" },
+        @"crash" : @ {
+            @"error" : @ {
+                @"type" : @"profile",
+                @"is_fatal" : @NO,
+            },
+        },
+    };
+
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertNotNil(result);
+
+    NSDictionary *error = result[@"crash"][@"error"];
+    XCTAssertEqualObjects(error[@"is_fatal"], @NO, @"Non-watchdog report should keep its original is_fatal");
+    XCTAssertEqualObjects(error[@"type"], @"profile", @"Non-watchdog report should keep its original type");
+    XCTAssertNil(error[@"is_clean_exit"], @"Non-watchdog report should not gain is_clean_exit");
+    XCTAssertNotNil(error[@"hang"], @"Hang section should still be added as context");
+}
+
+- (void)testNonWatchdogRecoveredHangKeepsOriginalFields
+{
+    KSHangSidecar sc = {
+        .magic = KSHANG_SIDECAR_MAGIC,
+        .version = KSHANG_SIDECAR_VERSION_1_0,
+        .startTimestamp = 1000,
+        .startRole = TASK_FOREGROUND_APPLICATION,
+        .endTimestamp = 5000,
+        .endRole = TASK_DEFAULT_APPLICATION,
+        .recovered = true,
+    };
+    NSString *path = writeSidecar(self.tempDir, sc);
+
+    NSDictionary *report = @{
+        @"report" : @ { @"monitor_id" : @"Signal" },
+        @"crash" : @ {
+            @"error" : @ {
+                @"type" : @"signal",
+                @"is_fatal" : @YES,
+                @"is_clean_exit" : @NO,
+                @"signal" : @ { @"name" : @"SIGSEGV" },
+                @"mach" : @ { @"exception" : @(1) },
+            },
+        },
+    };
+
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertNotNil(result);
+
+    NSDictionary *error = result[@"crash"][@"error"];
+    XCTAssertEqualObjects(error[@"type"], @"signal", @"Signal report should keep its type");
+    XCTAssertEqualObjects(error[@"is_fatal"], @YES, @"Signal report should keep its fatality");
+    XCTAssertNotNil(error[@"signal"], @"Signal section should not be removed");
+    XCTAssertNotNil(error[@"mach"], @"Mach section should not be removed");
+    XCTAssertNotNil(error[@"hang"], @"Hang section should be added as context");
+    XCTAssertEqualObjects(error[@"hang"][@"hang_recovered"], @YES);
 }
 
 #pragma mark - Start Values From Sidecar
