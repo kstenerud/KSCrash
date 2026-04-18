@@ -277,4 +277,12 @@ extern void i_kslog_logCBasic(const char *fmt, ...);
     XCTAssertEqualObjects(result, @"h=0a");
 }
 
+- (void)testCFormatterZeroPadNegativeInt
+{
+    NSString *result = [self captureLogOutput:^{
+        i_kslog_logCBasic("%06d", -123);
+    }];
+    XCTAssertEqualObjects(result, @"-00123");
+}
+
 @end

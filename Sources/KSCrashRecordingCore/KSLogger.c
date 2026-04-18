@@ -253,14 +253,20 @@ static void writeFmtArgsToLog(const char *fmt, va_list args)
         }
         fmt++;
 
-        // Apply zero-padding for width
+        // Apply zero-padding for width, emitting sign before zeros (e.g. "%06d" + -1 → "-00001")
+        size_t copyStart = 0;
         if (zeroPad && width > 0 && convLen < (size_t)width) {
-            size_t pad = (size_t)width - convLen;
+            if (convLen > 0 && convBuf[0] == '-') {
+                if (p < end) *p++ = '-';
+                copyStart = 1;
+                convLen--;
+            }
+            size_t pad = (size_t)width - convLen - copyStart;
             for (size_t i = 0; i < pad && p < end; i++) {
                 *p++ = '0';
             }
         }
-        for (size_t i = 0; i < convLen && p < end; i++) {
+        for (size_t i = copyStart; i < copyStart + convLen && p < end; i++) {
             *p++ = convBuf[i];
         }
     }
