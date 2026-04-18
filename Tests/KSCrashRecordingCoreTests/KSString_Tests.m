@@ -891,4 +891,35 @@
     }
 }
 
+#pragma mark - doubleToString boundary / rounding cases
+
+- (void)testDoubleToStringRoundingCarryFixed
+{
+    // 999999.5 — rounding carry increments exponent AFTER the scientific/fixed
+    // decision. Round-trip through strtod must still yield the same value.
+    char buf[32];
+    ksstring_doubleToString(999999.5, buf, sizeof(buf));
+    double parsed = strtod(buf, NULL);
+    XCTAssertEqualWithAccuracy(parsed, 1000000.0, 1.0, @"999999.5 didn't round-trip as expected, got: %s", buf);
+}
+
+- (void)testDoubleToStringScientificThreshold1e6
+{
+    // 1e6 sits at the FLT_DIG threshold (sigDigits=6, exponent=6 → scientific).
+    // Regardless of exact format, round-trip must match.
+    char buf[32];
+    ksstring_doubleToString(1e6, buf, sizeof(buf));
+    double parsed = strtod(buf, NULL);
+    XCTAssertEqualWithAccuracy(parsed, 1e6, 1.0, @"1e6 round-trip mismatch, got: %s", buf);
+}
+
+- (void)testDoubleToStringScientificThreshold1eMinus4
+{
+    // exponent < -4 → scientific. Round-trip must match.
+    char buf[32];
+    ksstring_doubleToString(1e-4, buf, sizeof(buf));
+    double parsed = strtod(buf, NULL);
+    XCTAssertEqualWithAccuracy(parsed, 1e-4, 1e-10, @"1e-4 round-trip mismatch, got: %s", buf);
+}
+
 @end

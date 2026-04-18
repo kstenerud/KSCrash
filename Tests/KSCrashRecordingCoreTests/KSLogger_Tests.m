@@ -415,4 +415,58 @@ extern void i_kslog_logCBasic(const char *fmt, ...);
     XCTAssertEqualObjects(out2, @(ref), @"%%c mismatch");
 }
 
+- (void)testCFormatterLongModifiersUse64BitWidth
+{
+    // %ld with a value that exceeds 32-bit range. Catches regressions where
+    // longCount==1 falls back to `int`.
+    long bigNeg = -(((long)1) << 40) + 7;
+    unsigned long bigHex = 0x123456789abcUL;
+    char ref[64];
+
+    NSString *out1 = [self captureLogOutput:^{
+        i_kslog_logCBasic("off=%ld", bigNeg);
+    }];
+    snprintf(ref, sizeof(ref), "off=%ld", bigNeg);
+    XCTAssertEqualObjects(out1, @(ref), @"%%ld 64-bit mismatch");
+
+    NSString *out2 = [self captureLogOutput:^{
+        i_kslog_logCBasic("pc=0x%lx", bigHex);
+    }];
+    snprintf(ref, sizeof(ref), "pc=0x%lx", bigHex);
+    XCTAssertEqualObjects(out2, @(ref), @"%%lx 64-bit mismatch");
+}
+
+- (void)testCFormatterSizeTUses64BitWidth
+{
+    // %zu with a size_t exceeding 32 bits. Catches any regression where 'z'
+    // is consumed as a length modifier but the va_arg reads a 32-bit value.
+    size_t n = (((size_t)1) << 40) + 3;
+    char ref[64];
+    NSString *result = [self captureLogOutput:^{
+        i_kslog_logCBasic("sz=%zu", n);
+    }];
+    snprintf(ref, sizeof(ref), "sz=%zu", n);
+    XCTAssertEqualObjects(result, @(ref), @"%%zu 64-bit mismatch");
+}
+
+- (void)testCFormatterTruncatesLongStringCleanly
+{
+    // Logger buffer is 1024 bytes. Feeding a longer string should truncate
+    // cleanly without overrun. We just verify the output fits in the buffer
+    // and the start matches the input.
+    const size_t longLen = 1100;
+    char *longStr = malloc(longLen + 1);
+    XCTAssertTrue(longStr != NULL);
+    memset(longStr, 'A', longLen);
+    longStr[longLen] = '\0';
+
+    NSString *result = [self captureLogOutput:^{
+        i_kslog_logCBasic("%s", longStr);
+    }];
+    // Buffer cap is KSLOGGER_CBufferSize - 1 (one byte reserved for NUL).
+    XCTAssertLessThanOrEqual(result.length, 1023u, @"Output exceeded buffer: %zu", (size_t)result.length);
+    XCTAssertTrue([result hasPrefix:@"AAAA"], @"Output should start with the input prefix");
+    free(longStr);
+}
+
 @end
