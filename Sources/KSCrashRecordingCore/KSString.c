@@ -214,12 +214,15 @@ size_t ksstring_int64ToDecimal(int64_t value, char *dst, size_t bufSize)
     }
 
     // Negative: prepend '-' then format the magnitude
+    uint64_t magnitude = (uint64_t)(-(value + 1)) + 1u;
     if (bufSize < 2) {
-        dst[0] = '\0';
-        return 0;
+        // Can't write even the '-'; compute required length via a temp buffer
+        char tmp[21];
+        size_t magLen = ksstring_uint64ToDecimal(magnitude, tmp, sizeof(tmp));
+        if (bufSize == 1) dst[0] = '\0';
+        return magLen + 1;
     }
     dst[0] = '-';
-    uint64_t magnitude = (uint64_t)(-(value + 1)) + 1u;
     size_t len = ksstring_uint64ToDecimal(magnitude, dst + 1, bufSize - 1);
     return len + 1;
 }
@@ -231,9 +234,13 @@ size_t ksstring_uint64ToDecimal(uint64_t value, char *dst, size_t bufSize)
     }
 
     if (value == 0) {
-        dst[0] = '0';
-        dst[bufSize > 1 ? 1 : 0] = '\0';
-        return bufSize > 1 ? 1 : 0;
+        if (bufSize >= 2) {
+            dst[0] = '0';
+            dst[1] = '\0';
+        } else {
+            dst[0] = '\0';
+        }
+        return 1;  // snprintf semantics: required length is always 1
     }
 
     char buf[21];
@@ -246,12 +253,10 @@ size_t ksstring_uint64ToDecimal(uint64_t value, char *dst, size_t bufSize)
     }
 
     size_t len = (size_t)(20 - pos);
-    if (len >= bufSize) {
-        len = bufSize - 1;
-    }
-    memcpy(dst, buf + pos, len);
-    dst[len] = '\0';
-    return len;
+    size_t writeLen = (len < bufSize) ? len : bufSize - 1;
+    memcpy(dst, buf + pos, writeLen);
+    dst[writeLen] = '\0';
+    return len;  // snprintf semantics: return required length, not bytes written
 }
 
 static size_t copyLiteral(const char *src, char *dst, size_t bufSize)
@@ -486,5 +491,7 @@ size_t ksstring_doubleToString(double value, char *dst, size_t bufSize)
     }
 
     *p = '\0';
-    return (size_t)(p - dst);
+    size_t written = (size_t)(p - dst);
+    // snprintf semantics: if we filled the buffer, signal truncation with a value >= bufSize
+    return (p == end) ? bufSize : written;
 }

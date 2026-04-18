@@ -392,7 +392,7 @@
 {
     char buf[3];
     size_t len = ksstring_intToDecimal(12345, buf, sizeof(buf));
-    XCTAssertEqual(len, 2u);
+    XCTAssertEqual(len, 5u);  // required length, not bytes written
     XCTAssertEqualObjects(@(buf), @"12");
 }
 
@@ -400,7 +400,7 @@
 {
     char buf[3];
     size_t len = ksstring_intToDecimal(-42, buf, sizeof(buf));
-    XCTAssertEqual(len, 2u);
+    XCTAssertEqual(len, 3u);  // required length for "-42"
     XCTAssertEqualObjects(@(buf), @"-4");
 }
 
@@ -408,7 +408,7 @@
 {
     char buf[1];
     size_t len = ksstring_intToDecimal(42, buf, sizeof(buf));
-    XCTAssertEqual(len, 0u);
+    XCTAssertEqual(len, 2u);  // required length for "42"
     XCTAssertEqual(buf[0], '\0');
 }
 
@@ -416,7 +416,7 @@
 {
     char buf[2];
     size_t len = ksstring_intToDecimal(42, buf, sizeof(buf));
-    XCTAssertEqual(len, 1u);
+    XCTAssertEqual(len, 2u);  // required length for "42"
     XCTAssertEqualObjects(@(buf), @"4");
 }
 
@@ -432,7 +432,7 @@
 {
     char buf[2];
     size_t len = ksstring_intToDecimal(0, buf, 1);
-    XCTAssertEqual(len, 0u);
+    XCTAssertEqual(len, 1u);  // required length for "0"
     XCTAssertEqual(buf[0], '\0');
 }
 
@@ -448,7 +448,7 @@
 {
     char buf[1];
     size_t len = ksstring_intToDecimal(INT_MAX, buf, sizeof(buf));
-    XCTAssertEqual(len, 0u);
+    XCTAssertEqual(len, 10u);  // required length for "2147483647"
     XCTAssertEqual(buf[0], '\0');
 }
 
@@ -456,7 +456,7 @@
 {
     char buf[2];
     size_t len = ksstring_intToDecimal(INT_MAX, buf, sizeof(buf));
-    XCTAssertEqual(len, 1u);
+    XCTAssertEqual(len, 10u);  // required length for "2147483647"
     XCTAssertEqualObjects(@(buf), @"2");
 }
 
@@ -464,7 +464,7 @@
 {
     char buf[1];
     size_t len = ksstring_intToDecimal(INT_MIN, buf, sizeof(buf));
-    XCTAssertEqual(len, 0u);
+    XCTAssertEqual(len, 11u);  // required length for "-2147483648"
     XCTAssertEqual(buf[0], '\0');
 }
 
@@ -472,7 +472,7 @@
 {
     char buf[2];
     size_t len = ksstring_intToDecimal(INT_MIN, buf, sizeof(buf));
-    XCTAssertEqual(len, 1u);
+    XCTAssertEqual(len, 11u);  // required length for "-2147483648"
     XCTAssertEqualObjects(@(buf), @"-");
 }
 
@@ -530,7 +530,7 @@
 {
     char buf[4];
     size_t len = ksstring_int64ToDecimal(12345, buf, sizeof(buf));
-    XCTAssertEqual(len, 3u);
+    XCTAssertEqual(len, 5u);  // required length for "12345"
     XCTAssertEqualObjects(@(buf), @"123");
 }
 
@@ -572,7 +572,7 @@
 {
     char buf[3];
     size_t len = ksstring_uint64ToDecimal(12345, buf, sizeof(buf));
-    XCTAssertEqual(len, 2u);
+    XCTAssertEqual(len, 5u);  // required length for "12345"
     XCTAssertEqualObjects(@(buf), @"12");
 }
 
@@ -588,7 +588,7 @@
 {
     char buf[1];
     size_t len = ksstring_uint64ToDecimal(42, buf, sizeof(buf));
-    XCTAssertEqual(len, 0u);
+    XCTAssertEqual(len, 2u);  // required length for "42"
     XCTAssertEqual(buf[0], '\0');
 }
 
@@ -800,6 +800,29 @@
         uuid_t parsed;
         XCTAssertEqual(uuid_parse(buf, parsed), 0, @"Iteration %d: uuid_parse failed for %s", i, buf);
     }
+}
+
+- (void)testUint64ToDecimalReturnsTruncatedLengthOnSmallBuffer
+{
+    char buf[4];
+    size_t result = ksstring_uint64ToDecimal(123456, buf, sizeof(buf));
+    XCTAssertGreaterThanOrEqual(result, sizeof(buf), @"Should signal truncation");
+    XCTAssertEqualObjects(@(buf), @"123", @"Should write as many digits as fit");
+}
+
+- (void)testUint64ToDecimalReturnsExactLengthWhenFits
+{
+    char buf[10];
+    size_t result = ksstring_uint64ToDecimal(12345, buf, sizeof(buf));
+    XCTAssertEqual(result, 5u);
+    XCTAssertEqualObjects(@(buf), @"12345");
+}
+
+- (void)testDoubleToStringReturnsTruncatedLengthOnSmallBuffer
+{
+    char buf[4];
+    size_t result = ksstring_doubleToString(1.23456789, buf, sizeof(buf));
+    XCTAssertGreaterThanOrEqual(result, sizeof(buf), @"Should signal truncation");
 }
 
 @end
