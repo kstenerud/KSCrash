@@ -469,4 +469,81 @@ extern void i_kslog_logCBasic(const char *fmt, ...);
     free(longStr);
 }
 
+#pragma mark - Call-site parity: every format pattern used in real KSLOG_* calls
+
+// Helper: format with both the logger and snprintf, assert outputs are identical.
+#define ASSERT_PARITY(fmt, ...)                                                                 \
+    do {                                                                                        \
+        NSString *loggerOut = [self captureLogOutput:^{                                         \
+            i_kslog_logCBasic(fmt, ##__VA_ARGS__);                                              \
+        }];                                                                                     \
+        char _ref[512];                                                                         \
+        snprintf(_ref, sizeof(_ref), fmt, ##__VA_ARGS__);                                       \
+        XCTAssertEqualObjects(loggerOut, @(_ref), @"logger vs snprintf mismatch for: %s", fmt); \
+    } while (0)
+
+- (void)testCFormatterCallsiteParitySweep
+{
+    // Covers every unique format-specifier pattern in use across the Sources/
+    // tree (grepped from all KSLOG_* call sites). Each call is compared
+    // byte-for-byte to snprintf.
+
+    // %s — string
+    ASSERT_PARITY("Monitor %s injected.", "NSException");
+    ASSERT_PARITY("Expected ':' but got '%c'", ':');
+
+    // %d — int
+    ASSERT_PARITY("Assigning handler for signal %d", 11);
+    ASSERT_PARITY("Restoring original handler for signal %d", 6);
+
+    // %u — unsigned
+    ASSERT_PARITY("dyld notifier: %u images added", 42u);
+
+    // %x / %02x / %04x / %08x — hex with varying width
+    ASSERT_PARITY("h=%x", 0xdeadbeefu);
+    ASSERT_PARITY("Invalid character 0x%02x in string: %s", 0xabu, "foo");
+    ASSERT_PARITY("Invalid trail surrogate: 0x%04x", 0xdc00u);
+    ASSERT_PARITY("Invalid unicode: 0x%04x", 0xfffdu);
+    ASSERT_PARITY("thread_suspend (%08x): %s", 0x1234u, "error");
+
+    // %p — pointer
+    ASSERT_PARITY("Get context from signal user context and put into %p.", (void *)0x1234abcd);
+    ASSERT_PARITY("Thread %p has an invalid dispatch queue pointer %p", (void *)0xaaaa, (void *)0xbbbb);
+    ASSERT_PARITY("Adding address pair: image=%p, function=%p", (void *)0x100000000, (void *)0x100001234);
+
+    // %ld / %lx — long
+    long signedLong = -(((long)1) << 40) + 7;
+    unsigned long unsignedLong = 0x123456789abcUL;
+    ASSERT_PARITY("off=%ld", signedLong);
+    ASSERT_PARITY("pc=0x%lx", unsignedLong);
+
+    // %llx — long long hex (PRIx64)
+    ASSERT_PARITY("handle=%llx", (unsigned long long)0x123456789abcdef0ULL);
+
+    // %zd — ssize_t
+    ASSERT_PARITY("read returned %zd", (ssize_t)-1);
+    ASSERT_PARITY("bytes=%zd", (ssize_t)1234567);
+
+    // %zu — size_t
+    size_t bigSize = (((size_t)1) << 40) + 3;
+    ASSERT_PARITY("sz=%zu", bigSize);
+    ASSERT_PARITY("Image %s exceeds max segments (%d), truncating", "libfoo", 100);
+
+    // %p(%zu — combined (appears in symbolicator logs)
+    ASSERT_PARITY("region %p(%zu bytes)", (void *)0x1000, (size_t)4096);
+
+    // %c%c%c%c — multiple chars (invalid unicode sequence log)
+    ASSERT_PARITY("Invalid unicode sequence: %c%c%c%c", 'a', 'b', 'c', 'd');
+
+    // %% — literal percent
+    ASSERT_PARITY("progress: %d%%", 50);
+
+    // Composite: image name + address
+    ASSERT_PARITY("Installed dyld image notifier (original=%p)", (void *)0xcafebabe);
+    ASSERT_PARITY("Fill thread 0x%x context into %p. is crashed = %d", 0x1au, (void *)0x2000, 1);
+    ASSERT_PARITY("Restoring exception ports to index %d: %s", 3, "OK");
+}
+
+#undef ASSERT_PARITY
+
 @end
