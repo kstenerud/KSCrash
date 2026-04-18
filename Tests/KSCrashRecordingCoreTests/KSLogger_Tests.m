@@ -333,4 +333,86 @@ extern void i_kslog_logCBasic(const char *fmt, ...);
     XCTAssertLessThan(result.length, 10u, @"Output too long, likely walked past fmt: %@", result);
 }
 
+#pragma mark - snprintf parity for integer/string specifiers
+
+- (void)testCFormatterMatchesSnprintfForIntegers
+{
+    // Compare our logger's output against snprintf for common integer patterns.
+    // Each case formats the same value through both and asserts equality.
+    char ref[64];
+
+    // %d
+    NSString *out1 = [self captureLogOutput:^{
+        i_kslog_logCBasic("%d", -12345);
+    }];
+    snprintf(ref, sizeof(ref), "%d", -12345);
+    XCTAssertEqualObjects(out1, @(ref), @"%%d mismatch");
+
+    // %u
+    NSString *out2 = [self captureLogOutput:^{
+        i_kslog_logCBasic("%u", 99999u);
+    }];
+    snprintf(ref, sizeof(ref), "%u", 99999u);
+    XCTAssertEqualObjects(out2, @(ref), @"%%u mismatch");
+
+    // %lld
+    NSString *out3 = [self captureLogOutput:^{
+        i_kslog_logCBasic("%lld", (long long)INT64_MIN);
+    }];
+    snprintf(ref, sizeof(ref), "%lld", (long long)INT64_MIN);
+    XCTAssertEqualObjects(out3, @(ref), @"%%lld mismatch");
+
+    // %llu
+    NSString *out4 = [self captureLogOutput:^{
+        i_kslog_logCBasic("%llu", (unsigned long long)UINT64_MAX);
+    }];
+    snprintf(ref, sizeof(ref), "%llu", (unsigned long long)UINT64_MAX);
+    XCTAssertEqualObjects(out4, @(ref), @"%%llu mismatch");
+
+    // %x with value
+    NSString *out5 = [self captureLogOutput:^{
+        i_kslog_logCBasic("%x", 0xdeadbeefu);
+    }];
+    snprintf(ref, sizeof(ref), "%x", 0xdeadbeefu);
+    XCTAssertEqualObjects(out5, @(ref), @"%%x mismatch");
+
+    // %08x zero-padded
+    NSString *out6 = [self captureLogOutput:^{
+        i_kslog_logCBasic("%08x", 0xabu);
+    }];
+    snprintf(ref, sizeof(ref), "%08x", 0xabu);
+    XCTAssertEqualObjects(out6, @(ref), @"%%08x mismatch");
+
+    // %06d with negative (zero-padding + sign)
+    NSString *out7 = [self captureLogOutput:^{
+        i_kslog_logCBasic("%06d", -42);
+    }];
+    snprintf(ref, sizeof(ref), "%06d", -42);
+    XCTAssertEqualObjects(out7, @(ref), @"%%06d negative mismatch");
+
+    // %zd with ssize_t
+    NSString *out8 = [self captureLogOutput:^{
+        i_kslog_logCBasic("%zd", (ssize_t)-1);
+    }];
+    snprintf(ref, sizeof(ref), "%zd", (ssize_t)-1);
+    XCTAssertEqualObjects(out8, @(ref), @"%%zd mismatch");
+}
+
+- (void)testCFormatterMatchesSnprintfForStringAndChar
+{
+    char ref[64];
+
+    NSString *out1 = [self captureLogOutput:^{
+        i_kslog_logCBasic("%s", "hello world");
+    }];
+    snprintf(ref, sizeof(ref), "%s", "hello world");
+    XCTAssertEqualObjects(out1, @(ref), @"%%s mismatch");
+
+    NSString *out2 = [self captureLogOutput:^{
+        i_kslog_logCBasic("%c", 'Z');
+    }];
+    snprintf(ref, sizeof(ref), "%c", 'Z');
+    XCTAssertEqualObjects(out2, @(ref), @"%%c mismatch");
+}
+
 @end

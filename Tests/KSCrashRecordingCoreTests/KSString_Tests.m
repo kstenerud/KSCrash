@@ -825,4 +825,70 @@
     XCTAssertGreaterThanOrEqual(result, sizeof(buf), @"Should signal truncation");
 }
 
+- (void)testDoubleToStringExactFitDoesNotSignalTruncation
+{
+    // "3.14" is 4 chars; with buf[5] it fits exactly ("3.14\0"). snprintf
+    // semantics: return 4, NOT >= bufSize. The current p==end check
+    // incorrectly flags exact fit as truncation.
+    char buf[5];
+    size_t result = ksstring_doubleToString(3.14, buf, sizeof(buf));
+    XCTAssertEqualObjects(@(buf), @"3.14");
+    XCTAssertLessThan(result, sizeof(buf), @"Exact fit must not signal truncation");
+}
+
+- (void)testDoubleToStringNaNTruncationReportsRequiredLength
+{
+    // "null" is 4 chars + NUL. Into buf[3] it truncates; snprintf semantics
+    // require returning 4 (required length), not 2 (bytes written).
+    char buf[3];
+    size_t result = ksstring_doubleToString(NAN, buf, sizeof(buf));
+    XCTAssertGreaterThanOrEqual(result, sizeof(buf), @"Should signal truncation");
+}
+
+- (void)testDoubleToStringInfTruncationReportsRequiredLength
+{
+    // "1e999" is 5 chars. Into buf[3] it truncates; must return >= 3.
+    char buf[3];
+    size_t result = ksstring_doubleToString(INFINITY, buf, sizeof(buf));
+    XCTAssertGreaterThanOrEqual(result, sizeof(buf), @"Should signal truncation");
+}
+
+#pragma mark - snprintf parity (integer formatters should match %lld/%llu/%llx)
+
+- (void)testInt64ToDecimalMatchesSnprintf
+{
+    int64_t cases[] = {0, 1, -1, 42, -42, 100, -100, INT64_MAX, INT64_MIN, INT32_MAX, INT32_MIN, 9999999999LL};
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+        char ours[32];
+        char ref[32];
+        ksstring_int64ToDecimal(cases[i], ours, sizeof(ours));
+        snprintf(ref, sizeof(ref), "%lld", (long long)cases[i]);
+        XCTAssertEqualObjects(@(ours), @(ref), @"mismatch for %lld", (long long)cases[i]);
+    }
+}
+
+- (void)testUint64ToDecimalMatchesSnprintf
+{
+    uint64_t cases[] = {0, 1, 42, 1000, UINT32_MAX, UINT64_MAX, 12345678901234567ULL};
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+        char ours[32];
+        char ref[32];
+        ksstring_uint64ToDecimal(cases[i], ours, sizeof(ours));
+        snprintf(ref, sizeof(ref), "%llu", (unsigned long long)cases[i]);
+        XCTAssertEqualObjects(@(ours), @(ref), @"mismatch for %llu", (unsigned long long)cases[i]);
+    }
+}
+
+- (void)testUint64ToHexMatchesSnprintf
+{
+    uint64_t cases[] = {0, 1, 0xa, 0xff, 0xdeadbeef, UINT64_MAX, 0x123456789abcdefULL};
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+        char ours[32];
+        char ref[32];
+        ksstring_uint64ToHex(cases[i], ours, sizeof(ours), 1, false);
+        snprintf(ref, sizeof(ref), "%llx", (unsigned long long)cases[i]);
+        XCTAssertEqualObjects(@(ours), @(ref), @"mismatch for %llx", (unsigned long long)cases[i]);
+    }
+}
+
 @end

@@ -262,14 +262,12 @@ size_t ksstring_uint64ToDecimal(uint64_t value, char *dst, size_t bufSize)
 static size_t copyLiteral(const char *src, char *dst, size_t bufSize)
 {
     size_t len = strlen(src);
-    if (len >= bufSize) {
-        len = bufSize > 0 ? bufSize - 1 : 0;
-    }
-    memcpy(dst, src, len);
+    size_t writeLen = (len < bufSize) ? len : (bufSize > 0 ? bufSize - 1 : 0);
+    memcpy(dst, src, writeLen);
     if (bufSize > 0) {
-        dst[len] = '\0';
+        dst[writeLen] = '\0';
     }
-    return len;
+    return len;  // snprintf semantics: required length, not bytes written
 }
 
 // Signal-safe pow10 lookup table (avoids libm pow which may lock).
@@ -293,13 +291,16 @@ size_t ksstring_doubleToString(double value, char *dst, size_t bufSize)
         return copyLiteral(signbit(value) ? "-0.0" : "0.0", dst, bufSize);
     }
 
-    char *p = dst;
-    char *end = dst + bufSize - 1;
+    // Format into a local scratch buffer so we can report snprintf-semantics
+    // length regardless of the caller's buffer size. 48 bytes covers the worst
+    // case (sign + 16 sig digits + '.' + up to 20 leading zeros + 'e' + sign +
+    // 3 exponent digits).
+    char scratch[48];
+    char *p = scratch;
+    char *end = scratch + sizeof(scratch) - 1;
 
     if (value < 0) {
-        if (p < end) {
-            *p++ = '-';
-        }
+        *p++ = '-';
         value = -value;
     }
 
@@ -491,7 +492,11 @@ size_t ksstring_doubleToString(double value, char *dst, size_t bufSize)
     }
 
     *p = '\0';
-    size_t written = (size_t)(p - dst);
-    // snprintf semantics: if we filled the buffer, signal truncation with a value >= bufSize
-    return (p == end) ? bufSize : written;
+    size_t scratchLen = (size_t)(p - scratch);
+    // Copy scratch → dst with snprintf semantics: return required length, write
+    // at most bufSize-1 chars plus NUL.
+    size_t writeLen = (scratchLen < bufSize) ? scratchLen : bufSize - 1;
+    memcpy(dst, scratch, writeLen);
+    dst[writeLen] = '\0';
+    return scratchLen;
 }
