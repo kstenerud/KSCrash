@@ -285,4 +285,52 @@ extern void i_kslog_logCBasic(const char *fmt, ...);
     XCTAssertEqualObjects(result, @"-00123");
 }
 
+// Bugs found by audit: default case in the formatter should not consume a
+// va_arg for unknown specifiers/flags/length modifiers. Doing so silently
+// desynchronizes the remaining varargs.
+
+- (void)testCFormatterUnknownSpecifierDoesNotConsumeArg
+{
+    // %Y is unknown. Should be emitted literally; the int arg should be
+    // consumed by the following %d.
+    NSString *result = [self captureLogOutput:^{
+        i_kslog_logCBasic("a=%Y b=%d", 42);
+    }];
+    XCTAssertEqualObjects(result, @"a=%Y b=42");
+}
+
+- (void)testCFormatterShortModifier
+{
+    // %hd: 'h' length modifier. Should not swallow the int arg via a spurious
+    // va_arg(void*) in the default case.
+    NSString *result = [self captureLogOutput:^{
+        i_kslog_logCBasic("%hd", (short)-5);
+    }];
+    XCTAssertEqualObjects(result, @"-5");
+}
+
+- (void)testCFormatterDashFlag
+{
+    // %-5d: '-' flag. Should not swallow the int arg in the default case.
+    NSString *result = [self captureLogOutput:^{
+        i_kslog_logCBasic("x=%-5d|", 42);
+    }];
+    // Left-justified padding is optional; what matters is that 42 is formatted,
+    // not the literal '?' from an unknown-specifier path.
+    XCTAssertTrue([result containsString:@"42"], @"Expected '42' in output, got: %@", result);
+    XCTAssertFalse([result containsString:@"?"], @"Unexpected '?' in output: %@", result);
+}
+
+- (void)testCFormatterTrailingPercentZero
+{
+    // "%0" with *fmt='\0' after the '0' should not walk past the null terminator.
+    // Acceptable outputs: "" or "%0". Not acceptable: crash / UB.
+    NSString *result = [self captureLogOutput:^{
+        i_kslog_logCBasic("%0");
+    }];
+    // Just verify it doesn't crash and doesn't emit arbitrary memory.
+    XCTAssertNotNil(result);
+    XCTAssertLessThan(result.length, 10u, @"Output too long, likely walked past fmt: %@", result);
+}
+
 @end

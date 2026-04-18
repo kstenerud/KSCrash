@@ -138,15 +138,16 @@ static void writeFmtArgsToLog(const char *fmt, va_list args)
             break;
         }
 
-        // Parse flags
+        // Parse flags (-, +, #, space are consumed and ignored)
         bool zeroPad = false;
         int width = 0;
-        if (*fmt == '0') {
-            zeroPad = true;
+        while (*fmt == '-' || *fmt == '+' || *fmt == '#' || *fmt == ' ' || *fmt == '0') {
+            if (*fmt == '0') zeroPad = true;
             fmt++;
         }
+        // Width — cap to prevent signed overflow on pathological input
         while (*fmt >= '0' && *fmt <= '9') {
-            width = width * 10 + (*fmt - '0');
+            if (width < 4096) width = width * 10 + (*fmt - '0');
             fmt++;
         }
 
@@ -158,7 +159,8 @@ static void writeFmtArgsToLog(const char *fmt, va_list args)
             }
         }
 
-        // Parse length modifier
+        // Parse length modifier (h, hh, j, t, L, q are consumed but don't change
+        // the va_arg type — char/short/float get default-promoted to int/double)
         int longCount = 0;
         bool isSizeT = false;
         while (*fmt == 'l') {
@@ -168,6 +170,16 @@ static void writeFmtArgsToLog(const char *fmt, va_list args)
         if (*fmt == 'z') {
             isSizeT = true;
             fmt++;
+        } else if (*fmt == 'h') {
+            fmt++;
+            if (*fmt == 'h') fmt++;
+        } else if (*fmt == 'j' || *fmt == 't' || *fmt == 'L' || *fmt == 'q') {
+            fmt++;
+        }
+
+        // If the format string ended mid-specifier, bail
+        if (*fmt == '\0') {
+            break;
         }
 
         char convBuf[32];
@@ -183,10 +195,14 @@ static void writeFmtArgsToLog(const char *fmt, va_list args)
                 }
                 fmt++;
                 continue;
-            case 'c':
-                if (p < end) *p++ = (char)va_arg(args, int);
+            case 'c': {
+                // Always consume the arg, even if buffer is full — otherwise
+                // subsequent specifiers would read the wrong va_list slot.
+                char ch = (char)va_arg(args, int);
+                if (p < end) *p++ = ch;
                 fmt++;
                 continue;
+            }
             case 'd': {
                 int64_t val;
                 if (isSizeT)
@@ -245,9 +261,11 @@ static void writeFmtArgsToLog(const char *fmt, va_list args)
                 fmt++;
                 continue;
             default:
-                // Unknown specifier — consume a pointer-sized arg to keep varargs aligned
-                (void)va_arg(args, void *);
-                if (p < end) *p++ = '?';
+                // Unknown specifier — emit "%<char>" literally WITHOUT consuming
+                // an arg. Consuming a speculative void* would desynchronize the
+                // va_list and corrupt every subsequent specifier's output.
+                if (p < end) *p++ = '%';
+                if (p < end) *p++ = *fmt;
                 fmt++;
                 continue;
         }
