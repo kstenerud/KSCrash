@@ -857,7 +857,7 @@
 
 - (void)testInt64ToDecimalMatchesSnprintf
 {
-    int64_t cases[] = {0, 1, -1, 42, -42, 100, -100, INT64_MAX, INT64_MIN, INT32_MAX, INT32_MIN, 9999999999LL};
+    int64_t cases[] = { 0, 1, -1, 42, -42, 100, -100, INT64_MAX, INT64_MIN, INT32_MAX, INT32_MIN, 9999999999LL };
     for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
         char ours[32];
         char ref[32];
@@ -869,7 +869,7 @@
 
 - (void)testUint64ToDecimalMatchesSnprintf
 {
-    uint64_t cases[] = {0, 1, 42, 1000, UINT32_MAX, UINT64_MAX, 12345678901234567ULL};
+    uint64_t cases[] = { 0, 1, 42, 1000, UINT32_MAX, UINT64_MAX, 12345678901234567ULL };
     for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
         char ours[32];
         char ref[32];
@@ -881,7 +881,7 @@
 
 - (void)testUint64ToHexMatchesSnprintf
 {
-    uint64_t cases[] = {0, 1, 0xa, 0xff, 0xdeadbeef, UINT64_MAX, 0x123456789abcdefULL};
+    uint64_t cases[] = { 0, 1, 0xa, 0xff, 0xdeadbeef, UINT64_MAX, 0x123456789abcdefULL };
     for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
         char ours[32];
         char ref[32];
