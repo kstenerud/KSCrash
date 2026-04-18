@@ -195,6 +195,10 @@ void i_kslog_logCBasic(const char *fmt, ...);
  * opt out by defining KSLOGGER_NO_LEVEL_ALIASES; they must then use the
  * prefixed or numeric form for KSLogger_Level. */
 #ifndef KSLOGGER_NO_LEVEL_ALIASES
+#if defined(DEBUG) || defined(ERROR) || defined(WARN) || defined(INFO) || defined(TRACE)
+#pragma message( \
+    "KSLogger.h: one of DEBUG/ERROR/WARN/INFO/TRACE is already defined; if this causes -Wambiguous-macro, define KSLOGGER_NO_LEVEL_ALIASES=1 and set KSLogger_Level using KSLogger_Level_* or a numeric value.")
+#endif
 #ifdef KS_NONE
 #define KSLOG_BAK_NONE KS_NONE
 #undef KS_NONE
