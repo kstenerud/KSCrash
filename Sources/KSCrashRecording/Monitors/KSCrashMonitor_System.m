@@ -24,6 +24,15 @@
 // THE SOFTWARE.
 //
 
+// Capture DEBUG before KSLogger.h's macro dance can rebind it, otherwise
+// `#if DEBUG` inside this file hits -Wambiguous-macro when the app defines
+// DEBUG on the command line.
+#if DEBUG
+#define KSCRASH_SYSTEM_IS_DEBUG_BUILD 1
+#else
+#define KSCRASH_SYSTEM_IS_DEBUG_BUILD 0
+#endif
+
 #import "KSCrashMonitor_System.h"
 
 #import "KSBinaryImageCache.h"
@@ -258,7 +267,7 @@ static bool procTranslated(void)
 
 static bool isDebugBuild(void)
 {
-#ifdef DEBUG
+#if KSCRASH_SYSTEM_IS_DEBUG_BUILD
     return YES;
 #else
     return NO;
