@@ -153,6 +153,17 @@ jobs:
           file-path: /tmp/analyzer-report.md
           comment-tag: static-analyzer-report
 
+      - name: Delete stale comment when clean
+        if: |
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          steps.check-warnings.outputs.has_warnings == 'false'
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          comment-tag: static-analyzer-report
+          mode: delete
+          create-if-not-exists: false
+
       - name: Fail if warnings found
         if: always()
         run: |
