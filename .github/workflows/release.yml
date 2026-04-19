@@ -7,7 +7,7 @@ on:
         description: "Version number for this release"
         required: true
       dry_run:
-        description: "Test workflow without publishing to CocoaPods"
+        description: "Test workflow locally without touching remote or CocoaPods"
         type: boolean
         default: false
         required: false
@@ -16,19 +16,24 @@ on:
         type: boolean
         default: false
         required: false
+      skip_trunk:
+        description: "Run the full release flow but skip pod trunk push (for end-to-end testing on a branch)"
+        type: boolean
+        default: false
+        required: false
 
 jobs:
   release:
     runs-on: macos-15
-    outputs:
-      commit_sha: ${{ steps.save_commit_info.outputs.commit_sha }}
-      clean_commit_sha: ${{ steps.remove_unsafe_flags.outputs.clean_commit_sha }}
-      version: ${{ github.event.inputs.version }}
-      dry_run: ${{ github.event.inputs.dry_run }}
-      tag_name: ${{ steps.create_tag.outputs.tag_name }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Record branch
+        id: record_branch
+        run: echo "branch=$(git branch --show-current)" >> $GITHUB_OUTPUT
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
@@ -36,7 +41,7 @@ jobs:
           ruby-version: "3.2.2"
 
       - name: Install Ruby Gems
-        run: sudo bundle install
+        run: bundle install
 
       - name: Use Latest Stable Xcode
         uses: maxim-lobanov/setup-xcode@v1
@@ -44,6 +49,7 @@ jobs:
           xcode-version: latest-stable
 
       - name: Ensure Platforms are Downloaded
+        if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.skip_trunk != 'true' }}
         run: |
           xcodebuild -runFirstLaunch
           xcrun simctl list
@@ -54,189 +60,107 @@ jobs:
           done
 
       - name: Update version in podspec
+        if: ${{ github.event.inputs.publish_only != 'true' }}
         run: sed -i '' 's/s.version      = "[^"]*"/s.version      = "${{ github.event.inputs.version }}"/' KSCrash.podspec
 
       - name: Update version in source code
+        if: ${{ github.event.inputs.publish_only != 'true' }}
         run: |
           formatted_version_number=$(echo "${{ github.event.inputs.version }}" | awk -F. '{printf("%d.%02d%02d\n", $1, $2, $3)}')
           sed -i '' 's/const double KSCrashFrameworkVersionNumber = [^;]*/const double KSCrashFrameworkVersionNumber = '"$formatted_version_number"'/' Sources/KSCrashRecording/KSCrash.m
           sed -i '' 's/const unsigned char KSCrashFrameworkVersionString\[\] = "[^"]*"/const unsigned char KSCrashFrameworkVersionString[] = "${{ github.event.inputs.version }}"/' Sources/KSCrashRecording/KSCrash.m
 
       - name: Update README
+        # Skip README version bumps for prereleases (e.g. 2.6.1-beta.1) — we don't
+        # want docs pointing users at a beta tag. Real releases still update README.
+        if: ${{ github.event.inputs.publish_only != 'true' && !contains(github.event.inputs.version, '-') }}
         run: |
-          # Update SPM version
           sed -i '' "s/\.package(url: \"https:\/\/github.com\/kstenerud\/KSCrash.git\", .upToNextMajor(from: \"[^\"]*\"))/\.package(url: \"https:\/\/github.com\/kstenerud\/KSCrash.git\", .upToNextMajor(from: \"${{ github.event.inputs.version }}\"))/" README.md
-
-          # Update CocoaPods version
           VERSION="${{ github.event.inputs.version }}"
           if [[ "$VERSION" == *"-"* ]]; then
-            # It's a pre-release version, use the full version
             sed -i '' "s/pod 'KSCrash'.*$/pod 'KSCrash', '~> $VERSION'/" README.md
           else
-            # It's a release version, use major.minor
             sed -i '' "s/pod 'KSCrash'.*$/pod 'KSCrash', '~> ${VERSION%.*}'/" README.md
           fi
 
-          echo "README.md updated with version ${{ github.event.inputs.version }}"
+      - name: Configure git identity
+        if: ${{ github.event.inputs.publish_only != 'true' }}
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - name: Dry run summary
+        if: ${{ github.event.inputs.dry_run == 'true' && github.event.inputs.publish_only != 'true' }}
+        run: |
+          echo "Dry run: version edits applied locally. Nothing will be pushed or published."
+          echo
+          git status
+          echo
+          git --no-pager diff --stat
 
       - name: Commit version update
         id: commit_version
-        if: ${{ github.event.inputs.publish_only != 'true' }}
+        if: ${{ github.event.inputs.publish_only != 'true' && github.event.inputs.dry_run != 'true' }}
         run: |
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          git add .
+          git add KSCrash.podspec Sources/KSCrashRecording/KSCrash.m README.md
           git commit -m "Update version to ${{ github.event.inputs.version }}"
-          git push
+          git push origin HEAD:${{ steps.record_branch.outputs.branch }}
+          echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
-      - name: Save commit information
-        id: save_commit_info
-        if: ${{ github.event.inputs.publish_only != 'true' }}
+      - name: Tag release (flags-stripped, not on any branch)
+        id: tag
+        if: ${{ github.event.inputs.publish_only != 'true' && github.event.inputs.dry_run != 'true' }}
         run: |
-          COMMIT_SHA=$(git rev-parse HEAD)
-          echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
-
-      - name: Remove unsafe flags for release
-        id: remove_unsafe_flags
-        if: ${{ github.event.inputs.publish_only != 'true' }}
-        run: |
+          # Strip unsafe flags on a commit that's tagged and pushed, but never
+          # merged into the branch. Branch history stays clean (no revert-of-revert
+          # noise); SPM consumers resolve the tag and get a flag-stripped Package.swift.
           scripts/toggle-unsafe-flags.sh remove
           git add Package.swift
-          git commit -m "Remove unsafe flags for release ${{ github.event.inputs.version }}"
-          CLEAN_COMMIT_SHA=$(git rev-parse HEAD)
-          echo "clean_commit_sha=$CLEAN_COMMIT_SHA" >> $GITHUB_OUTPUT
-          git push
-
-      - name: Create git tag
-        id: create_tag
-        if: ${{ github.event.inputs.publish_only != 'true' }}
-        run: |
-          if [[ "${{ github.event.inputs.dry_run }}" == "true" ]]; then
-            TAG_NAME="${{ github.event.inputs.version }}-dryrun"
-          else
-            TAG_NAME="${{ github.event.inputs.version }}"
-          fi
-
-          git tag $TAG_NAME
-          git push origin $TAG_NAME
-          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
-
-      - name: Revert unsafe flags removal
-        if: ${{ github.event.inputs.publish_only != 'true' }}
-        run: |
-          git revert --no-edit ${{ steps.remove_unsafe_flags.outputs.clean_commit_sha }}
-          git push
+          git commit -m "Strip unsafe flags for release ${{ github.event.inputs.version }}"
+          TAG_NAME="${{ github.event.inputs.version }}"
+          git tag "$TAG_NAME"
+          git push origin "$TAG_NAME"
+          # Record the tag as pushed *before* the reset so rollback sees it
+          # even if the reset itself fails for some reason.
+          echo "name=$TAG_NAME" >> $GITHUB_OUTPUT
+          # Drop the strip commit locally so the working tree matches what's on the branch.
+          git reset --hard HEAD~1
 
       - name: Publish to CocoaPods
-        if: ${{ github.event.inputs.dry_run != 'true' }}
+        id: trunk_push
+        if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.skip_trunk != 'true' }}
         env:
           COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_PASSWORD }}
-        run: pod trunk push KSCrash.podspec --verbose
-
-  rollback:
-    runs-on: macos-15
-    needs: release
-    if: failure() && github.event.inputs.publish_only != 'true'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Fetch all tags
         run: |
-          git fetch --tags
+          pod trunk push KSCrash.podspec --verbose
+          echo "pushed=true" >> $GITHUB_OUTPUT
 
-      - name: Delete git tag locally
+      # --- Inline rollback ---
+      # Each step runs only if a previous step has failed (failure()) AND the
+      # corresponding side effect was actually performed (checked via step
+      # outputs that are set *after* the operation succeeds). Rollback steps
+      # all attempt even if one in the chain fails, because failure() remains
+      # true for every subsequent step.
+      #
+      # Runner death (VM crash, OOM) takes the whole job with it — inline
+      # rollback can't run in that case. unrelease.yml is the manual fallback.
+
+      - name: Rollback - delete tag
+        if: failure() && steps.tag.outputs.name != ''
         run: |
-          # Use tag from outputs or construct it
-          if [[ -n "${{ needs.release.outputs.tag_name }}" ]]; then
-            TAG_TO_DELETE="${{ needs.release.outputs.tag_name }}"
-          elif [[ "${{ needs.release.outputs.dry_run }}" == "true" ]]; then
-            TAG_TO_DELETE="${{ needs.release.outputs.version }}-dryrun"
-          else
-            TAG_TO_DELETE="${{ needs.release.outputs.version }}"
-          fi
+          git push --delete origin "${{ steps.tag.outputs.name }}" || echo "Tag not on remote"
 
-          git tag -d $TAG_TO_DELETE || echo "Tag not found locally"
-          echo "TAG_TO_DELETE=$TAG_TO_DELETE" >> $GITHUB_ENV
-
-      - name: Delete git tag remotely
+      - name: Rollback - revert version commit
+        if: failure() && steps.commit_version.outputs.sha != ''
         run: |
-          git push --delete origin ${{ env.TAG_TO_DELETE }} || echo "Tag not found on remote"
+          git pull origin ${{ steps.record_branch.outputs.branch }}
+          git revert --no-edit ${{ steps.commit_version.outputs.sha }}
+          git push origin HEAD:${{ steps.record_branch.outputs.branch }}
 
-      - name: Pull latest changes
+      - name: Rollback - pod trunk delete
+        if: failure() && steps.trunk_push.outputs.pushed == 'true'
+        env:
+          COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_PASSWORD }}
         run: |
-          git pull origin "$(git branch --show-current)"
-
-      - name: Check for commits to revert
-        id: check_commits
-        run: |
-          echo "COMMITS_TO_REVERT=" >> $GITHUB_ENV
-          
-          # Check for the revert commit (that restored unsafe flags)
-          REVERT_MSG="Revert \"Remove unsafe flags for release ${{ needs.release.outputs.version || github.event.inputs.version }}\""
-          REVERT_COMMIT=$(git log --format="%H" --grep="$REVERT_MSG" -n 1)
-          if [[ -n "$REVERT_COMMIT" ]]; then
-            echo "Found revert commit: $REVERT_COMMIT"
-            echo "COMMITS_TO_REVERT=$REVERT_COMMIT" >> $GITHUB_ENV
-          fi
-          
-          # Check for clean commit (unsafe flags removal)
-          if [[ -n "${{ needs.release.outputs.clean_commit_sha }}" ]]; then
-            echo "Clean commit found from outputs: ${{ needs.release.outputs.clean_commit_sha }}"
-            if [[ -n "$COMMITS_TO_REVERT" ]]; then
-              echo "COMMITS_TO_REVERT=$COMMITS_TO_REVERT ${{ needs.release.outputs.clean_commit_sha }}" >> $GITHUB_ENV
-            else
-              echo "COMMITS_TO_REVERT=${{ needs.release.outputs.clean_commit_sha }}" >> $GITHUB_ENV
-            fi
-          fi
-          
-          # Check for version commit
-          if [[ -n "${{ needs.release.outputs.commit_sha }}" ]]; then
-            echo "Version commit found from outputs: ${{ needs.release.outputs.commit_sha }}"
-            if [[ -n "$COMMITS_TO_REVERT" ]]; then
-              echo "COMMITS_TO_REVERT=$COMMITS_TO_REVERT ${{ needs.release.outputs.commit_sha }}" >> $GITHUB_ENV
-            else
-              echo "COMMITS_TO_REVERT=${{ needs.release.outputs.commit_sha }}" >> $GITHUB_ENV
-            fi
-          else
-            # Fallback: search by commit message
-            SEARCH_MSG="Update version to ${{ needs.release.outputs.version || github.event.inputs.version }}"
-            FOUND_COMMIT=$(git log --format="%H" --grep="$SEARCH_MSG" -n 1)
-            if [[ -n "$FOUND_COMMIT" ]]; then
-              echo "Found version commit by message: $FOUND_COMMIT"
-              if [[ -n "$COMMITS_TO_REVERT" ]]; then
-                echo "COMMITS_TO_REVERT=$COMMITS_TO_REVERT $FOUND_COMMIT" >> $GITHUB_ENV
-              else
-                echo "COMMITS_TO_REVERT=$FOUND_COMMIT" >> $GITHUB_ENV
-              fi
-            fi
-          fi
-          
-          if [[ -z "$COMMITS_TO_REVERT" ]]; then
-            echo "No commits found to revert."
-            echo "SHOULD_REVERT=false" >> $GITHUB_ENV
-          else
-            echo "SHOULD_REVERT=true" >> $GITHUB_ENV
-          fi
-
-      - name: Revert commits
-        if: env.SHOULD_REVERT == 'true'
-        run: |
-          echo "Commits to revert: ${{ env.COMMITS_TO_REVERT }}"
-          git log --oneline -n 5
-          
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          
-          # Revert commits in order (they're listed newest to oldest)
-          for commit in ${{ env.COMMITS_TO_REVERT }}; do
-            echo "Reverting commit $commit..."
-            git revert --no-edit $commit
-          done
-
-      - name: Push reverts
-        if: env.SHOULD_REVERT == 'true'
-        run: |
-          git push || { git status; exit 1; }
+          pod trunk delete KSCrash "${{ github.event.inputs.version }}" || \
+            echo "Trunk delete failed — likely outside the 30-minute window. Manual action may be required."
