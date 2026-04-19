@@ -53,9 +53,12 @@
  *
  * If your project already defines any of TRACE/DEBUG/INFO/WARN/ERROR and you
  * do not want KSLogger.h to temporarily redefine them, define
- * KSLOGGER_NO_LEVEL_ALIASES=1. In that case, set KSLogger_Level using the
- * prefixed form (e.g. KSLogger_Level=KSLogger_Level_Warn) or the numeric value
- * (e.g. KSLogger_Level=20).
+ * KSLOGGER_NO_LEVEL_ALIASES=1. In that case both KSLogger_Level AND any
+ * per-file KSLogger_LocalLevel must use the prefixed form (e.g.
+ * KSLogger_Level_Warn) or the numeric value (e.g. 20). The short TRACE/DEBUG/
+ * INFO/WARN/ERROR names will no longer resolve to level numbers, so a stray
+ * `#define KSLogger_LocalLevel TRACE` would otherwise silently compile all
+ * trace/debug logs out.
  *
  * Anything below the level specified for KSLogger_Level will not be compiled
  * or printed.
@@ -127,6 +130,9 @@
  * #define KSLogger_LocalLevel TRACE
  * #import "KSLogger.h"
  *
+ * If KSLOGGER_NO_LEVEL_ALIASES=1 is in effect, the short TRACE name does not
+ * resolve to a number, so use KSLogger_Level_Trace (or the numeric 50) here.
+ *
  *
  * ===============
  * IMPORTANT NOTES
@@ -195,10 +201,6 @@ void i_kslog_logCBasic(const char *fmt, ...);
  * opt out by defining KSLOGGER_NO_LEVEL_ALIASES; they must then use the
  * prefixed or numeric form for KSLogger_Level. */
 #ifndef KSLOGGER_NO_LEVEL_ALIASES
-#if defined(DEBUG) || defined(ERROR) || defined(WARN) || defined(INFO) || defined(TRACE)
-#pragma message( \
-    "KSLogger.h: one of DEBUG/ERROR/WARN/INFO/TRACE is already defined; if this causes issues, define KSLOGGER_NO_LEVEL_ALIASES=1 and set KSLogger_Level using KSLogger_Level_* or a numeric value.")
-#endif
 #ifdef KS_NONE
 #define KSLOG_BAK_NONE KS_NONE
 #undef KS_NONE
