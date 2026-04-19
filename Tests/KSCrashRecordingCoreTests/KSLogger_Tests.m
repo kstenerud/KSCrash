@@ -469,81 +469,354 @@ extern void i_kslog_logCBasic(const char *fmt, ...);
     free(longStr);
 }
 
-#pragma mark - Call-site parity: every format pattern used in real KSLOG_* calls
+#pragma mark - Call-site format-string parity
+//
+// These tests enumerate every distinct format string currently used by
+// KSLOG_*/KSLOGBASIC_* call sites in the project's C sources and run each one
+// through both our signal-safe formatter (i_kslog_logCBasic) and snprintf,
+// asserting byte-equal output. If someone introduces a new specifier the
+// formatter doesn't handle, or changes formatter behavior, these tests will
+// catch the divergence at compile-time-grep-able call sites rather than in
+// production.
+//
+// The exhaustive list below was produced by grepping the codebase for KSLOG
+// format strings. `PRIx64`/`PRId64` are hard-coded as "llx"/"lld" so the test
+// compiles the same string the macro produces on 64-bit targets.
+//
+// Known deviation: the formatter ignores precision (e.g. %.3f), so the one
+// call site using %.3f (KSCrashMonitor_Watchdog.c, hang duration) does NOT
+// match snprintf. That case is covered separately by
+// testCallSiteBehavior_FloatPrecisionIgnored below.
 
-// Helper: format with both the logger and snprintf, assert outputs are identical.
-#define ASSERT_PARITY(fmt, ...)                                                                 \
-    do {                                                                                        \
-        NSString *loggerOut = [self captureLogOutput:^{                                         \
-            i_kslog_logCBasic(fmt, ##__VA_ARGS__);                                              \
-        }];                                                                                     \
-        char _ref[512];                                                                         \
-        snprintf(_ref, sizeof(_ref), fmt, ##__VA_ARGS__);                                       \
-        XCTAssertEqualObjects(loggerOut, @(_ref), @"logger vs snprintf mismatch for: %s", fmt); \
+#define KSLOG_PARITY(FMT, ...)                                                                   \
+    do {                                                                                         \
+        char _ref[1200];                                                                         \
+        int _n = snprintf(_ref, sizeof(_ref), FMT, ##__VA_ARGS__);                               \
+        XCTAssertGreaterThan(_n, 0, @"snprintf returned error for fmt: %s", FMT);                \
+        XCTAssertLessThan(_n, (int)sizeof(_ref), @"test ref buffer too small for fmt: %s", FMT); \
+        NSString *_ours = [self captureLogOutput:^{                                              \
+            i_kslog_logCBasic(FMT, ##__VA_ARGS__);                                               \
+        }];                                                                                      \
+        XCTAssertEqualObjects(_ours, @(_ref), @"parity mismatch for fmt: %s", FMT);              \
     } while (0)
 
-- (void)testCFormatterCallsiteParitySweep
+- (void)testCallSiteParity_SingleStringSpecifier
 {
-    // Covers every unique format-specifier pattern in use across the Sources/
-    // tree (grepped from all KSLOG_* call sites). Each call is compared
-    // byte-for-byte to snprintf.
-
-    // %s — string
-    ASSERT_PARITY("Monitor %s injected.", "NSException");
-    ASSERT_PARITY("Expected ':' but got '%c'", ':');
-
-    // %d — int
-    ASSERT_PARITY("Assigning handler for signal %d", 11);
-    ASSERT_PARITY("Restoring original handler for signal %d", 6);
-
-    // %u — unsigned
-    ASSERT_PARITY("dyld notifier: %u images added", 42u);
-
-    // %x / %02x / %04x / %08x — hex with varying width
-    ASSERT_PARITY("h=%x", 0xdeadbeefu);
-    ASSERT_PARITY("Invalid character 0x%02x in string: %s", 0xabu, "foo");
-    ASSERT_PARITY("Invalid trail surrogate: 0x%04x", 0xdc00u);
-    ASSERT_PARITY("Invalid unicode: 0x%04x", 0xfffdu);
-    ASSERT_PARITY("thread_suspend (%08x): %s", 0x1234u, "error");
-
-    // %p — pointer
-    ASSERT_PARITY("Get context from signal user context and put into %p.", (void *)0x1234abcd);
-    ASSERT_PARITY("Thread %p has an invalid dispatch queue pointer %p", (void *)0xaaaa, (void *)0xbbbb);
-    ASSERT_PARITY("Adding address pair: image=%p, function=%p", (void *)0x100000000, (void *)0x100001234);
-
-    // %ld / %lx — long
-    long signedLong = -(((long)1) << 40) + 7;
-    unsigned long unsignedLong = 0x123456789abcUL;
-    ASSERT_PARITY("off=%ld", signedLong);
-    ASSERT_PARITY("pc=0x%lx", unsignedLong);
-
-    // %llx — long long hex (PRIx64)
-    ASSERT_PARITY("handle=%llx", (unsigned long long)0x123456789abcdef0ULL);
-
-    // %zd — ssize_t
-    ASSERT_PARITY("read returned %zd", (ssize_t)-1);
-    ASSERT_PARITY("bytes=%zd", (ssize_t)1234567);
-
-    // %zu — size_t
-    size_t bigSize = (((size_t)1) << 40) + 3;
-    ASSERT_PARITY("sz=%zu", bigSize);
-    ASSERT_PARITY("Image %s exceeds max segments (%d), truncating", "libfoo", 100);
-
-    // %p(%zu — combined (appears in symbolicator logs)
-    ASSERT_PARITY("region %p(%zu bytes)", (void *)0x1000, (size_t)4096);
-
-    // %c%c%c%c — multiple chars (invalid unicode sequence log)
-    ASSERT_PARITY("Invalid unicode sequence: %c%c%c%c", 'a', 'b', 'c', 'd');
-
-    // %% — literal percent
-    ASSERT_PARITY("progress: %d%%", 50);
-
-    // Composite: image name + address
-    ASSERT_PARITY("Installed dyld image notifier (original=%p)", (void *)0xcafebabe);
-    ASSERT_PARITY("Fill thread 0x%x context into %p. is crashed = %d", 0x1au, (void *)0x2000, 1);
-    ASSERT_PARITY("Restoring exception ports to index %d: %s", 3, "OK");
+    KSLOG_PARITY("Crash monitor type %s shouldn't be able to cause events!", "Signal");
+    KSLOG_PARITY("Dispatch queue name: %s", "com.apple.main-thread");
+    KSLOG_PARITY("Could not read: %s", "Permission denied");
+    KSLOG_PARITY("Could not munmap: %s", "Invalid argument");
+    KSLOG_PARITY("Could not create path: %s", "No such file or directory");
+    KSLOG_PARITY("Failed to grow KVS file: %s", "No space left on device");
+    KSLOG_PARITY("Failed to mmap KVS file: %s", "Invalid argument");
+    KSLOG_PARITY("Failed to remap KVS file: %s", "Invalid argument");
+    KSLOG_PARITY("Failed to size KVS file: %s", "No space left on device");
+    KSLOG_PARITY("Failed to read last_run_id: %s", "I/O error");
+    KSLOG_PARITY("Failed to create watchdog thread: %s", "Resource temporarily unavailable");
+    KSLOG_PARITY("pthread_create: %s", "Resource temporarily unavailable");
+    KSLOG_PARITY("signalstack: %s", "Invalid argument");
+    KSLOG_PARITY("sysctl: %s", "Operation not permitted");
+    KSLOG_PARITY("task_threads: %s", "No such process");
+    KSLOG_PARITY("thread_get_state: %s", "Invalid argument");
+    KSLOG_PARITY("Failed to get protection for section: %s", "Bad address");
+    KSLOG_PARITY("Could not delete %s: Not a regular file.", "/tmp/x");
+    KSLOG_PARITY("Failed to mmap sidecar at %s", "/tmp/sidecar");
+    KSLOG_PARITY("Found backtrace: %s", "trace");
+    KSLOG_PARITY("Found first message: %s", "message");
+    KSLOG_PARITY("Found second message: %s", "message2");
+    KSLOG_PARITY("Found signature: %s", "sig");
+    KSLOG_PARITY("Found crash info section in binary: %s", "MyApp");
+    KSLOG_PARITY("Processing segment %s", "__TEXT");
+    KSLOG_PARITY("Queue label = %s", "com.example.q");
+    KSLOG_PARITY("Monitor %s injected.", "Signal");
+    KSLOG_PARITY("Contents of %s have been mutated", "/tmp/bin");
 }
 
-#undef ASSERT_PARITY
+- (void)testCallSiteParity_TwoStringSpecifiers
+{
+    KSLOG_PARITY("Could not open %s: %s", "/tmp/f", "No such file");
+    KSLOG_PARITY("Could not open crash report file %s: %s", "/tmp/crash", "Permission denied");
+    KSLOG_PARITY("Could not open file %s: %s", "/tmp/f", "No such file");
+    KSLOG_PARITY("Could not mmap file %s: %s", "/tmp/f", "Bad file descriptor");
+    KSLOG_PARITY("Could not create directory %s: %s", "/tmp/dir", "File exists");
+    KSLOG_PARITY("Could not delete %s: %s", "/tmp/f", "Permission denied");
+    KSLOG_PARITY("Could not remove %s: %s", "/tmp/f", "No such file");
+    KSLOG_PARITY("Could not stat %s: %s", "/tmp/f", "No such file");
+    KSLOG_PARITY("Could not write file %s: %s", "/tmp/f", "No space left");
+    KSLOG_PARITY("Could not rename %s to %s: %s", "/tmp/a", "/tmp/b", "Permission denied");
+    KSLOG_PARITY("Could not seek file %s: %s", "/tmp/f", "Invalid argument");
+    KSLOG_PARITY("Error reading directory %s: %s", "/tmp/d", "Permission denied");
+    KSLOG_PARITY("Error reading file %s: %s", "/tmp/f", "I/O error");
+    KSLOG_PARITY("Failed to create KVS file %s: %s", "/tmp/kvs", "No space left");
+    KSLOG_PARITY("Failed to delete hang report at %s: %s", "/tmp/h", "Permission denied");
+    KSLOG_PARITY("Failed to open KVS file for reading %s: %s", "/tmp/kvs", "Not found");
+    KSLOG_PARITY("Failed to seek in %s: %s", "/tmp/f", "Invalid argument");
+    KSLOG_PARITY("Failed to truncate %s: %s", "/tmp/f", "Permission denied");
+    KSLOG_PARITY("Could not get %s value for %s: %s", "cpu", "idle", "Not found");
+    KSLOG_PARITY("Could not get timeval value for %s: %s", "boottime", "Not found");
+    KSLOG_PARITY("Could not get interface data for %s: %s", "en0", "Not found");
+    KSLOG_PARITY("Could not get interface index for %s: %s", "en0", "Not found");
+    KSLOG_PARITY("Error getting thread_info with flavor THREAD_IDENTIFIER_INFO from mach thread : %s",
+                 "Invalid argument");
+    KSLOG_PARITY("Error getting thread_info with flavor THREAD_BASIC_INFO from mach thread : %s", "Invalid argument");
+    KSLOG_PARITY("Failed to add monitor API \"%s\"", "CustomMonitor");
+    KSLOG_PARITY("ksobjc_copyStringContents %s failed", "x");
+    KSLOG_PARITY("ksobjc_isValidObject %s failed", "x");
+    KSLOG_PARITY("ksobjc_ivarNamed %s failed", "x");
+    KSLOG_PARITY("ksobjc_ivarValue %s failed", "x");
+    KSLOG_PARITY("%s: Unknown ivar type [%s]", "MyClass", "^@");
+    KSLOG_PARITY("Performing rebinding with section %s,%s", "__DATA", "__la_symbol_ptr");
+    KSLOG_PARITY("Section %s,%s not found", "__DATA", "__la_symbol_ptr");
+    KSLOG_PARITY("Section %s not found in segment %s", "__cstring", "__TEXT");
+    KSLOG_PARITY("Segment %s not found", "__LINKEDIT");
+    KSLOG_PARITY("Searching for segment %s in Mach header at %p", "__TEXT", (void *)0x1000);
+    KSLOG_PARITY("Monitor %s already exists. Skipping addition.", "Signal");
+    KSLOG_PARITY("Monitor %s is now %sabled.", "Signal", "en");
+}
+
+- (void)testCallSiteParity_IntegerSpecifiers
+{
+    KSLOG_PARITY("Trapped signal %d", 11);
+    KSLOG_PARITY("Assigning handler for signal %d", 6);
+    KSLOG_PARITY("Restoring original handler for signal %d", 6);
+    KSLOG_PARITY("Exceeded maximum number of dylibs (%d)", 512);
+    KSLOG_PARITY("Got %d threads", 8);
+    KSLOG_PARITY("check thread vs %d threads", 8);
+    KSLOG_PARITY("Writing %d of %d threads.", 3, 8);
+    KSLOG_PARITY("Thread count %d is higher than maximum of %d", 999, 64);
+    KSLOG_PARITY("Too many reserved threads (%d). Max is %d", 64, 32);
+    KSLOG_PARITY("No second-level page for index %d", 42);
+    KSLOG_PARITY("Restoring exception ports to index %d: %s", 3, "ok");
+    KSLOG_PARITY("Protection obtained: %d", 7);
+    KSLOG_PARITY("Unsupported CFA rule type: %d", 5);
+    KSLOG_PARITY("Invalid register number: %d", 99);
+    KSLOG_PARITY("Skipped reading crash info: invalid version '%d'", 3);
+    KSLOG_PARITY("Could not get the name for process %d: %s", 1234, "Not found");
+    KSLOG_PARITY("Could not read fd %d: %s", 5, "Bad file descriptor");
+    KSLOG_PARITY("Could not read from fd %d: %s", 5, "I/O error");
+    KSLOG_PARITY("Could not write to fd %d: %s", 5, "Broken pipe");
+    KSLOG_PARITY("Read returns 0 bytes, likely EOF for fd %d: %s", 5, "Success");
+    KSLOG_PARITY("Could not seek to %d from end of %s: %s", 100, "/tmp/f", "Invalid argument");
+    KSLOG_PARITY("Could not get %s value for %d,%d: %s", "ctl", 1, 2, "Not found");
+    KSLOG_PARITY("Could not get timeval value for %d,%d: %s", 1, 2, "Not found");
+    KSLOG_PARITY("Error: Could not allocate %u bytes of memory. KSZombie NOT installed!", 4096u);
+    KSLOG_PARITY("dyld notifier: %u images added", 12u);
+    KSLOG_PARITY("KVS appendRecord called with NULL value but valueLen %u", 16u);
+    KSLOG_PARITY("KVS key too long (%u > %u), truncating", 100u, 64u);
+    KSLOG_PARITY("KVS string value too long (%u > %u), truncating", 100u, 64u);
+    KSLOG_PARITY("Unsupported KVS version %u", 2u);
+    KSLOG_PARITY("Invalid encoding index %u", 7u);
+    KSLOG_PARITY("Unsupported CIE version: %u", 4u);
+    KSLOG_PARITY("Unsupported unwind info version: %u", 3u);
+    KSLOG_PARITY("Unknown second-level page kind: %u", 9u);
+    KSLOG_PARITY("Command type %u not found", 0x19u);
+    KSLOG_PARITY("Getting command by type %u in Mach header at %p", 0x19u, (void *)0x1000);
+    KSLOG_PARITY("Getting section by flag %u in segment %s", 0x01u, "__TEXT");
+    KSLOG_PARITY("Section with flag %u not found in segment %s", 0x01u, "__TEXT");
+    KSLOG_PARITY("CFA base register %u is not available", 31u);
+    KSLOG_PARITY("Failed to get return address (reg %u)", 30u);
+}
+
+- (void)testCallSiteParity_CharSpecifiers
+{
+    KSLOG_PARITY("Expected ':' but got '%c'", 'x');
+    KSLOG_PARITY("Expected '\"' but got '%c'", 'x');
+    KSLOG_PARITY("Expected \"\\u\" but got: \"%c%c\"", 'a', 'b');
+    KSLOG_PARITY("Expected \"false\" but got \"f%c%c%c%c\"", 'o', 'o', 'o', 'o');
+    KSLOG_PARITY("Expected \"null\" but got \"n%c%c%c\"", 'o', 'o', 'o');
+    KSLOG_PARITY("Expected \"true\" but got \"t%c%c%c\"", 'o', 'o', 'o');
+    KSLOG_PARITY("Invalid character '%c'", 'Q');
+    KSLOG_PARITY("Invalid control character '%c'", '\t');
+    KSLOG_PARITY("Not a digit: '%c'", 'z');
+    KSLOG_PARITY("Unknown augmentation: %c", 'S');
+    KSLOG_PARITY("Invalid unicode sequence: %c%c%c%c", 'a', 'b', 'c', 'd');
+}
+
+- (void)testCallSiteParity_HexSpecifiers
+{
+    KSLOG_PARITY("Filling thread state with flavor %x.", 0x5u);
+    KSLOG_PARITY("Invalid KVS magic 0x%x", 0x4ec5c0de);
+    KSLOG_PARITY("Unknown ARM32 unwind mode: 0x%x", 0x3u);
+    KSLOG_PARITY("Unknown ARM64 unwind mode: 0x%x", 0x3u);
+    KSLOG_PARITY("Unknown x86 unwind mode: 0x%x", 0x3u);
+    KSLOG_PARITY("Unknown x86_64 unwind mode: 0x%x", 0x3u);
+    KSLOG_PARITY("Unknown CFI opcode: 0x%x", 0x0Au);
+    KSLOG_PARITY("Unknown pointer format: 0x%x", 0x0Fu);
+    KSLOG_PARITY("Unsupported DWARF expression opcode: 0x%x", 0x10u);
+    KSLOG_PARITY("Unsupported pointer modifier: 0x%x", 0x80u);
+    KSLOG_PARITY("Target offset 0x%x not found in first-level index", 0x1234u);
+    KSLOG_PARITY("Thread %s: Handling mach exception %x", "worker", 1u);
+    KSLOG_PARITY("thread_resume (0x%x) failed: %d", 0x1234u, -1);
+    KSLOG_PARITY("thread_suspend (0x%x) failed: %d", 0x1234u, -1);
+    KSLOG_PARITY("%d: %x vs %x", 3, 0xAAu, 0xBBu);
+    KSLOG_PARITY("Fill thread 0x%x context into %p. is crashed = %d", 0x1234u, (void *)0x4000, 1);
+    KSLOG_PARITY("Writing thread %x (index %d). is crashed: %d", 0x1234u, 2, 0);
+    KSLOG_PARITY("Invalid character 0x%02x in string: %s", 0x1Fu, "foo");
+    KSLOG_PARITY("Invalid trail surrogate: 0x%04x", 0xABu);
+    KSLOG_PARITY("Unexpected trail surrogate: 0x%04x", 0xCDu);
+    KSLOG_PARITY("Invalid unicode: 0x%04x", 0x0Au);
+    KSLOG_PARITY("thread_resume (%08x): %s", 0x1Au, "ok");
+    KSLOG_PARITY("thread_suspend (%08x): %s", 0x1Au, "ok");
+}
+
+- (void)testCallSiteParity_PointerSpecifiers
+{
+    void *p1 = (void *)0x1000;
+    void *p2 = (void *)0x20000;
+    KSLOG_PARITY("Adding address pair: image=%p, function=%p", p1, p2);
+    KSLOG_PARITY("Address %p not found", p1);
+    KSLOG_PARITY("Calling original __cxa_throw function at %p", p1);
+    KSLOG_PARITY("Error while getting dispatch queue name : %p", p1);
+    KSLOG_PARITY("Failed to rebind __cxa_throw at %p", p1);
+    KSLOG_PARITY("Failed to restore binding at %p", p1);
+    KSLOG_PARITY("Finding address for %p", p1);
+    KSLOG_PARITY("Get context from signal user context and put into %p.", p1);
+    KSLOG_PARITY("Getting protection for section starting at %p", p1);
+    KSLOG_PARITY("Installed dyld image notifier (original=%p)", p1);
+    KSLOG_PARITY("Restoring binding at %p to %p", p1, p2);
+    KSLOG_PARITY("Section %s found at %p", "__text", p1);
+    KSLOG_PARITY("Segment %s found at %p", "__TEXT", p1);
+    KSLOG_PARITY("Set isWritingReportCallback to %p", p1);
+    KSLOG_PARITY("Setting userInfoJSON to %p", p1);
+    KSLOG_PARITY("This thread doesn't have a dispatch queue attached : %p", p1);
+    KSLOG_PARITY("Thread %p has an invalid dispatch queue pointer %p", p1, p2);
+    KSLOG_PARITY("Thread %p has an invalid thread basic info %p", p1, p2);
+    KSLOG_PARITY("Thread %p has an invalid thread identifier info %p", p1, p2);
+    KSLOG_PARITY("Using fallback __cxa_throw at %p", p1);
+    KSLOG_PARITY("Getting section data for %s,%s from Mach header at %p", "__TEXT", "__text", p1);
+    KSLOG_PARITY("Searching for section %s in segment %s of Mach header at %p", "__cstring", "__TEXT", p1);
+    KSLOG_PARITY("Segment %s not found in Mach header at %p", "__LINKEDIT", p1);
+}
+
+- (void)testCallSiteParity_LongSpecifiers
+{
+    KSLOG_PARITY("Address 0x%lx is in NULL page - terminating unwind", 0x10UL);
+    KSLOG_PARITY("LR 0x%lx is in NULL page - terminating unwind", 0x10UL);
+    KSLOG_PARITY("Compact unwind succeeded: returnAddr=0x%lx", 0x1234UL);
+    KSLOG_PARITY("DWARF unwind failed for PC 0x%lx", 0x1234UL);
+    KSLOG_PARITY("DWARF unwind succeeded: returnAddr=0x%lx", 0x1234UL);
+    KSLOG_PARITY("DWARF unwind: returnAddr=0x%lx, newSP=0x%lx, newFP=0x%lx", 0x1UL, 0x2UL, 0x3UL);
+    KSLOG_PARITY("EBP-frame unwind: returnAddr=0x%lx, newESP=0x%lx, newEBP=0x%lx", 0x1UL, 0x2UL, 0x3UL);
+    KSLOG_PARITY("Encoding 0x%x requires DWARF for PC 0x%lx", 0x5u, 0x1234UL);
+    KSLOG_PARITY("Failed to build CFI row for PC 0x%lx", 0x1234UL);
+    KSLOG_PARITY("Failed to read frame at FP 0x%lx", 0x1234UL);
+    KSLOG_PARITY("Failed to read previous EBP from EBP (0x%lx)", 0x1234UL);
+    KSLOG_PARITY("Failed to read previous FP from FP (0x%lx)", 0x1234UL);
+    KSLOG_PARITY("Failed to read previous R7 from R7 (0x%lx)", 0x1234UL);
+    KSLOG_PARITY("Failed to read previous RBP from RBP (0x%lx)", 0x1234UL);
+    KSLOG_PARITY("Failed to read return address from EBP+4 (0x%lx)", 0x1234UL);
+    KSLOG_PARITY("Failed to read return address from ESP (0x%lx)", 0x1234UL);
+    KSLOG_PARITY("Failed to read return address from ESP+stackSize-4 (0x%lx)", 0x1234UL);
+    KSLOG_PARITY("Failed to read return address from FP+8 (0x%lx)", 0x1234UL);
+    KSLOG_PARITY("Failed to read return address from R7+4 (0x%lx)", 0x1234UL);
+    KSLOG_PARITY("Failed to read return address from RBP+8 (0x%lx)", 0x1234UL);
+    KSLOG_PARITY("Failed to read return address from RSP (0x%lx)", 0x1234UL);
+    KSLOG_PARITY("Failed to read return address from SP+stackSize-8 (0x%lx)", 0x1234UL);
+    KSLOG_PARITY("Found entry: func=0x%lx, encoding=0x%x", 0x1234UL, 0x5u);
+    KSLOG_PARITY("Frame at FP 0x%lx has NULL return address", 0x1234UL);
+    KSLOG_PARITY("Frame pointer unwind succeeded: returnAddr=0x%lx", 0x1234UL);
+    KSLOG_PARITY("Frame-based unwind: returnAddr=0x%lx, newSP=0x%lx, newFP=0x%lx", 0x1UL, 0x2UL, 0x3UL);
+    KSLOG_PARITY("Frame-based unwind: returnAddr=0x%lx, newSP=0x%lx, newR7=0x%lx", 0x1UL, 0x2UL, 0x3UL);
+    KSLOG_PARITY("Frameless immediate: returnAddr=0x%lx, stackSize=%u (encoded=%u)", 0x1234UL, 16u, 1u);
+    KSLOG_PARITY("Frameless leaf: returnAddr=0x%lx (from LR)", 0x1234UL);
+    KSLOG_PARITY("Frameless leaf: returnAddr=0x%lx", 0x1234UL);
+    KSLOG_PARITY("Frameless non-leaf: returnAddr=0x%lx, stackSize=%u", 0x1234UL, 16u);
+    KSLOG_PARITY("LR fallback: stack direction violation, new FP 0x%lx <= current FP 0x%lx", 0x1UL, 0x2UL);
+    KSLOG_PARITY("LR path: stack direction violation, new FP 0x%lx <= current FP 0x%lx", 0x1UL, 0x2UL);
+    KSLOG_PARITY("No DWARF eh_frame info for PC 0x%lx", 0x1234UL);
+    KSLOG_PARITY("No FDE found for PC 0x%lx", 0x1234UL);
+    KSLOG_PARITY("No compact unwind entry for PC 0x%lx", 0x1234UL);
+    KSLOG_PARITY("No compact unwind info for PC 0x%lx", 0x1234UL);
+    KSLOG_PARITY("No unwind info, assuming leaf: returnAddr=0x%lx (from LR)", 0x1234UL);
+    KSLOG_PARITY("No unwind info, assuming leaf: returnAddr=0x%lx", 0x1234UL);
+    KSLOG_PARITY("RBP-frame unwind: returnAddr=0x%lx, newRSP=0x%lx, newRBP=0x%lx", 0x1UL, 0x2UL, 0x3UL);
+    KSLOG_PARITY("SP not progressing during FP walk (0x%lx <= 0x%lx) - marking end of stack", 0x1UL, 0x2UL);
+    KSLOG_PARITY("Stack direction violation: new FP 0x%lx <= current FP 0x%lx", 0x1UL, 0x2UL);
+    KSLOG_PARITY("CFA = 0x%lx (reg %u + %ld)", 0x1234UL, 5u, -8L);
+    KSLOG_PARITY("ARM32 decode: encoding=0x%x, mode=0x%x, pc=0x%lx, sp=0x%lx, r7=0x%lx, lr=0x%lx", 0x1u, 0x2u, 0x3UL,
+                 0x4UL, 0x5UL, 0x6UL);
+    KSLOG_PARITY("ARM64 decode: encoding=0x%x, mode=0x%x, pc=0x%lx, sp=0x%lx, fp=0x%lx, lr=0x%lx", 0x1u, 0x2u, 0x3UL,
+                 0x4UL, 0x5UL, 0x6UL);
+    KSLOG_PARITY("x86 decode: encoding=0x%x, mode=0x%x, pc=0x%lx, sp=0x%lx, bp=0x%lx", 0x1u, 0x2u, 0x3UL, 0x4UL, 0x5UL);
+    KSLOG_PARITY("x86_64 decode: encoding=0x%x, mode=0x%x, pc=0x%lx, sp=0x%lx, bp=0x%lx", 0x1u, 0x2u, 0x3UL, 0x4UL,
+                 0x5UL);
+}
+
+- (void)testCallSiteParity_SizeSpecifiers
+{
+    KSLOG_PARITY("Invalid unwind info: %p, size %zu", (void *)0x1000, (size_t)4096);
+    KSLOG_PARITY("Section data at %p, size %zu", (void *)0x1000, (size_t)4096);
+    KSLOG_PARITY("Cached image %s: unwind=%p(%zu) eh_frame=%p(%zu)", "MyApp", (void *)0x1, (size_t)10, (void *)0x2,
+                 (size_t)20);
+    KSLOG_PARITY("Image %s exceeds max segments (%d), truncating", "MyApp", 16);
+    KSLOG_PARITY("last_run_id has unexpected length %zd (expected %d), ignoring", (ssize_t)7, 8);
+}
+
+- (void)testCallSiteParity_LongLongSpecifiers
+{
+    KSLOG_PARITY("Thread %s: Trapped mach exception code 0x%llx, subcode 0x%llx", "worker", (unsigned long long)0x1ULL,
+                 (unsigned long long)0x2ULL);
+    KSLOG_PARITY("Hang started (reportID: %llx)", (unsigned long long)0xABCDEF0123456789ULL);
+    KSLOG_PARITY("Failed to finalize hang report %llx, deleting to prevent stale stitching",
+                 (unsigned long long)0xABCDEF0123456789ULL);
+    KSLOG_PARITY("Finalizing non-fatal report %lld", (long long)42);
+}
+
+- (void)testCallSiteParity_WatchdogAndMiscFormats
+{
+    KSLOG_PARITY("Failed to write new run ID to %s", "/tmp/run_id");
+    KSLOG_PARITY("Thread %s: Could not set next level exception ports", "worker");
+    KSLOG_PARITY("Thread %s: Crash handling complete. Restoring original handlers.", "worker");
+    KSLOG_PARITY("Thread %s: Deallocating exception handler", "worker");
+    KSLOG_PARITY("Thread %s: Fault address %p, instruction address %p", "worker", (void *)0x1000, (void *)0x2000);
+    KSLOG_PARITY("Thread %s: Fetching machine state.", "worker");
+    KSLOG_PARITY("Thread %s: Filling out context.", "worker");
+    KSLOG_PARITY("Thread %s: Installing mach exception handler", "worker");
+    KSLOG_PARITY("Thread %s: Mach exception handler installed on thread %d", "worker", 7);
+    KSLOG_PARITY("Thread %s: Mach exception reply sent.", "worker");
+    KSLOG_PARITY("Thread %s: Replying KERN_FAILURE so that the process won't try any further action from this "
+                 "exception raise, and just crash",
+                 "worker");
+    KSLOG_PARITY("Thread %s: Replying KERN_SUCCESS so that the process will re-run the instruction that caused the "
+                 "fault, fail again, and call the original handlers",
+                 "worker");
+    KSLOG_PARITY("Thread %s: Replying to exception message", "worker");
+    KSLOG_PARITY("Thread %s: Restoring original exception ports", "worker");
+    KSLOG_PARITY("Thread %s: Should exit immediately, so returning", "worker");
+    KSLOG_PARITY("Thread %s: Still handling an exception, so not deallocating yet", "worker");
+    KSLOG_PARITY("Thread %s: Waiting for mach exception", "worker");
+    KSLOG_PARITY("mprotect failed for binding at %p: %s", (void *)0x1000, "Permission denied");
+    KSLOG_PARITY("mprotect restore failed for binding at %p: %s", (void *)0x1000, "Permission denied");
+    KSLOG_PARITY("sigaction (%s): %s", "SIGSEGV", "Invalid argument");
+    KSLOG_PARITY("Cannot access binary images");
+    KSLOG_PARITY("Unexpected state: dyld_all_image_infos->infoArray is NULL!");
+    KSLOG_PARITY("Initializing binary image cache");
+    KSLOG_PARITY("Failed to acquire TASK_DYLD_INFO. We won't have access to binary images.");
+    KSLOG_PARITY("Writing crash report to %s", "/tmp/r.json");
+    KSLOG_PARITY("Writing recrash report to %s", "/tmp/r2.json");
+}
+
+- (void)testCallSiteBehavior_FloatPrecisionIgnored
+{
+    // Our signal-safe formatter intentionally ignores precision (the ".3" in
+    // "%.3f"). Instead it uses FLT_DIG/DBL_DIG significant digits. This is the
+    // only call site in the codebase that actually uses a float specifier, so
+    // we document the behavior here rather than asserting snprintf parity.
+    //
+    // Source: KSCrashMonitor_Watchdog.c:426
+    //   KSLOG_INFO("Hang ended (reportID: %" PRIx64 ", duration: %.3f s)", ...)
+    NSString *result = [self captureLogOutput:^{
+        i_kslog_logCBasic("Hang ended (reportID: %llx, duration: %.3f s)", (unsigned long long)0xABCDULL, 1.25);
+    }];
+    XCTAssertTrue([result hasPrefix:@"Hang ended (reportID: abcd, duration: "], @"got: %@", result);
+    XCTAssertTrue([result hasSuffix:@" s)"], @"got: %@", result);
+    NSRange open = [result rangeOfString:@"duration: "];
+    NSRange close = [result rangeOfString:@" s)"];
+    NSString *durStr = [result substringWithRange:NSMakeRange(NSMaxRange(open), close.location - NSMaxRange(open))];
+    double parsed = strtod(durStr.UTF8String, NULL);
+    XCTAssertEqualWithAccuracy(parsed, 1.25, 0.001, @"duration didn't round-trip, got: %@", durStr);
+}
+
+#undef KSLOG_PARITY
 
 @end
