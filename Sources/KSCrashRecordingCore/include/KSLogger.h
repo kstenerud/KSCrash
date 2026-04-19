@@ -51,6 +51,15 @@
  *
  * Example: KSLogger_Level=WARN
  *
+ * If your project already defines any of TRACE/DEBUG/INFO/WARN/ERROR and you
+ * do not want KSLogger.h to temporarily redefine them, define
+ * KSLOGGER_NO_LEVEL_ALIASES=1. In that case both KSLogger_Level AND any
+ * per-file KSLogger_LocalLevel must use the prefixed form (e.g.
+ * KSLogger_Level_Warn) or the numeric value (e.g. 20). The short TRACE/DEBUG/
+ * INFO/WARN/ERROR names will no longer resolve to level numbers, so a stray
+ * `#define KSLogger_LocalLevel TRACE` would otherwise silently compile all
+ * trace/debug logs out.
+ *
  * Anything below the level specified for KSLogger_Level will not be compiled
  * or printed.
  *
@@ -121,6 +130,9 @@
  * #define KSLogger_LocalLevel TRACE
  * #import "KSLogger.h"
  *
+ * If KSLOGGER_NO_LEVEL_ALIASES=1 is in effect, the short TRACE name does not
+ * resolve to a number, so use KSLogger_Level_Trace (or the numeric 50) here.
+ *
  *
  * ===============
  * IMPORTANT NOTES
@@ -177,7 +189,19 @@ void i_kslog_logCBasic(const char *fmt, ...);
 
 #endif  // __OBJC__
 
-/* Back up any existing defines by the same name */
+#define KSLogger_Level_None 0
+#define KSLogger_Level_Error 10
+#define KSLogger_Level_Warn 20
+#define KSLogger_Level_Info 30
+#define KSLogger_Level_Debug 40
+#define KSLogger_Level_Trace 50
+
+/* Back up any existing defines by the same name and alias the short forms to
+ * the KSLogger_Level_* values, so KSLogger_Level=DEBUG (etc.) works. Consumers
+ * that already define any of these names and do not want them touched can
+ * opt out by defining KSLOGGER_NO_LEVEL_ALIASES; they must then use the
+ * prefixed or numeric form for KSLogger_Level. */
+#ifndef KSLOGGER_NO_LEVEL_ALIASES
 #ifdef KS_NONE
 #define KSLOG_BAK_NONE KS_NONE
 #undef KS_NONE
@@ -203,19 +227,13 @@ void i_kslog_logCBasic(const char *fmt, ...);
 #undef TRACE
 #endif
 
-#define KSLogger_Level_None 0
-#define KSLogger_Level_Error 10
-#define KSLogger_Level_Warn 20
-#define KSLogger_Level_Info 30
-#define KSLogger_Level_Debug 40
-#define KSLogger_Level_Trace 50
-
 #define KS_NONE KSLogger_Level_None
 #define ERROR KSLogger_Level_Error
 #define WARN KSLogger_Level_Warn
 #define INFO KSLogger_Level_Info
 #define DEBUG KSLogger_Level_Debug
 #define TRACE KSLogger_Level_Trace
+#endif  // KSLOGGER_NO_LEVEL_ALIASES
 
 #ifndef KSLogger_Level
 #define KSLogger_Level KSLogger_Level_Error
@@ -333,6 +351,7 @@ bool kslog_clearLogFile(void);
 // ============================================================================
 
 /* Put everything back to the way we found it. */
+#ifndef KSLOGGER_NO_LEVEL_ALIASES
 #undef ERROR
 #ifdef KSLOG_BAK_ERROR
 #define ERROR KSLOG_BAK_ERROR
@@ -358,6 +377,7 @@ bool kslog_clearLogFile(void);
 #define TRACE KSLOG_BAK_TRACE
 #undef KSLOG_BAK_TRACE
 #endif
+#endif  // KSLOGGER_NO_LEVEL_ALIASES
 
 #ifdef __cplusplus
 }
