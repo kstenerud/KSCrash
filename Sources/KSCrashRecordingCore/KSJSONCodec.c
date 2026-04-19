@@ -37,6 +37,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "KSString.h"
+
 // ============================================================================
 #pragma mark - Configuration -
 // ============================================================================
@@ -249,37 +251,7 @@ static int checkWriteResult(int written, size_t buffSize, int *bytesWritten)
  */
 static int formatDouble(char *buff, size_t buffSize, double value, int *bytesWritten)
 {
-    int written = 0;
-    if (isnan(value)) {
-        written = snprintf(buff, buffSize, "null");
-    } else if (isinf(value)) {
-        written = snprintf(buff, buffSize, value > 0 ? "1e999" : "-1e999");
-    } else {
-        float floatValue = (float)value;
-        if (fabs(value - floatValue) <= FLT_EPSILON * fabs(value)) {
-            written = snprintf(buff, buffSize, "%.*g", FLT_DIG, floatValue);
-        } else {
-            written = snprintf(buff, buffSize, "%.*g", DBL_DIG, value);
-        }
-
-        if (written > 0 && written < (int)buffSize) {
-            char *dot = strchr(buff, '.');
-            char *e = strchr(buff, 'e');
-            if (dot == NULL && e == NULL) {
-                written = snprintf(buff, buffSize, "%.1f", value);
-            } else if (dot != NULL && e == NULL) {
-                char *end = buff + written - 1;
-                while (end > dot && *end == '0') {
-                    *end-- = '\0';
-                    written--;
-                }
-                if (end == dot) {
-                    *++end = '0';
-                    written++;
-                }
-            }
-        }
-    }
+    int written = (int)ksstring_doubleToString(value, buff, buffSize);
     return checkWriteResult(written, buffSize, bytesWritten);
 }
 
@@ -293,7 +265,7 @@ static int formatDouble(char *buff, size_t buffSize, double value, int *bytesWri
  */
 static int formatInt64(char *buff, size_t buffSize, int64_t value, int *bytesWritten)
 {
-    int written = snprintf(buff, buffSize, "%" PRId64, value);
+    int written = (int)ksstring_int64ToDecimal(value, buff, buffSize);
     return checkWriteResult(written, buffSize, bytesWritten);
 }
 
@@ -307,7 +279,7 @@ static int formatInt64(char *buff, size_t buffSize, int64_t value, int *bytesWri
  */
 static int formatUint64(char *buff, size_t buffSize, uint64_t value, int *bytesWritten)
 {
-    int written = snprintf(buff, buffSize, "%" PRIu64, value);
+    int written = (int)ksstring_uint64ToDecimal(value, buff, buffSize);
     return checkWriteResult(written, buffSize, bytesWritten);
 }
 

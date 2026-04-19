@@ -26,6 +26,7 @@
 
 #include "KSLogger.h"
 
+#include "KSString.h"
 #include "KSSystemCapabilities.h"
 
 // ===========================================================================
@@ -111,15 +112,185 @@ static void writeToLog(const char *const str)
     write(STDOUT_FILENO, str, strlen(str));
 }
 
-static inline void writeFmtArgsToLog(const char *fmt, va_list args)
+// Minimal signal-safe formatter. Handles: %s, %d, %u, %x, %p, %08x, 0x%x, %ld, %lu, %lx, %lld, %llu, %llx, %%.
+static void writeFmtArgsToLog(const char *fmt, va_list args)
 {
-    unlikely_if(fmt == NULL) { writeToLog("(null)"); }
-    else
+    unlikely_if(fmt == NULL)
     {
-        char buffer[KSLOGGER_CBufferSize];
-        vsnprintf(buffer, sizeof(buffer), fmt, args);
-        writeToLog(buffer);
+        writeToLog("(null)");
+        return;
     }
+
+    char buffer[KSLOGGER_CBufferSize];
+    char *p = buffer;
+    char *end = buffer + sizeof(buffer) - 1;
+
+    while (*fmt && p < end) {
+        if (*fmt != '%') {
+            *p++ = *fmt++;
+            continue;
+        }
+        fmt++;  // skip '%'
+
+        // Lone '%' at end of string
+        if (*fmt == '\0') {
+            if (p < end) *p++ = '%';
+            break;
+        }
+
+        // Parse flags (-, +, #, space are consumed and ignored)
+        bool zeroPad = false;
+        int width = 0;
+        while (*fmt == '-' || *fmt == '+' || *fmt == '#' || *fmt == ' ' || *fmt == '0') {
+            if (*fmt == '0') zeroPad = true;
+            fmt++;
+        }
+        // Width — cap to prevent signed overflow on pathological input
+        while (*fmt >= '0' && *fmt <= '9') {
+            if (width < 4096) width = width * 10 + (*fmt - '0');
+            fmt++;
+        }
+
+        // Parse precision (e.g. ".3" in "%.3f") — consumed but ignored
+        if (*fmt == '.') {
+            fmt++;
+            while (*fmt >= '0' && *fmt <= '9') {
+                fmt++;
+            }
+        }
+
+        // Parse length modifier (h, hh, j, t, L, q are consumed but don't change
+        // the va_arg type — char/short/float get default-promoted to int/double)
+        int longCount = 0;
+        bool isSizeT = false;
+        while (*fmt == 'l') {
+            longCount++;
+            fmt++;
+        }
+        if (*fmt == 'z') {
+            isSizeT = true;
+            fmt++;
+        } else if (*fmt == 'h') {
+            fmt++;
+            if (*fmt == 'h') fmt++;
+        } else if (*fmt == 'j' || *fmt == 't' || *fmt == 'L' || *fmt == 'q') {
+            fmt++;
+        }
+
+        // If the format string ended mid-specifier, bail
+        if (*fmt == '\0') {
+            break;
+        }
+
+        char convBuf[32];
+        size_t convLen = 0;
+        const char *strVal = NULL;
+
+        switch (*fmt) {
+            case 's':
+                strVal = va_arg(args, const char *);
+                if (!strVal) strVal = "(null)";
+                while (*strVal && p < end) {
+                    *p++ = *strVal++;
+                }
+                fmt++;
+                continue;
+            case 'c': {
+                // Always consume the arg, even if buffer is full — otherwise
+                // subsequent specifiers would read the wrong va_list slot.
+                char ch = (char)va_arg(args, int);
+                if (p < end) *p++ = ch;
+                fmt++;
+                continue;
+            }
+            case 'd': {
+                int64_t val;
+                if (isSizeT)
+                    val = (int64_t)va_arg(args, ssize_t);
+                else if (longCount >= 2)
+                    val = va_arg(args, long long);
+                else if (longCount == 1)
+                    val = va_arg(args, long);
+                else
+                    val = va_arg(args, int);
+                convLen = ksstring_int64ToDecimal(val, convBuf, sizeof(convBuf));
+                break;
+            }
+            case 'u': {
+                uint64_t val;
+                if (isSizeT)
+                    val = (uint64_t)va_arg(args, size_t);
+                else if (longCount >= 2)
+                    val = va_arg(args, unsigned long long);
+                else if (longCount == 1)
+                    val = va_arg(args, unsigned long);
+                else
+                    val = va_arg(args, unsigned int);
+                convLen = ksstring_uint64ToDecimal(val, convBuf, sizeof(convBuf));
+                break;
+            }
+            case 'x': {
+                uint64_t val;
+                if (isSizeT)
+                    val = (uint64_t)va_arg(args, size_t);
+                else if (longCount >= 2)
+                    val = va_arg(args, unsigned long long);
+                else if (longCount == 1)
+                    val = va_arg(args, unsigned long);
+                else
+                    val = va_arg(args, unsigned int);
+                convLen = ksstring_uint64ToHex(val, convBuf, sizeof(convBuf), 1, false);
+                break;
+            }
+            case 'f':
+            case 'g':
+            case 'e': {
+                double val = va_arg(args, double);
+                convLen = ksstring_doubleToString(val, convBuf, sizeof(convBuf));
+                break;
+            }
+            case 'p': {
+                void *ptr = va_arg(args, void *);
+                if (p < end) *p++ = '0';
+                if (p < end) *p++ = 'x';
+                convLen = ksstring_uint64ToHex((uint64_t)(uintptr_t)ptr, convBuf, sizeof(convBuf), 1, false);
+                break;
+            }
+            case '%':
+                if (p < end) *p++ = '%';
+                fmt++;
+                continue;
+            default:
+                // Unknown specifier — emit "%<char>" literally WITHOUT consuming
+                // an arg. Consuming a speculative void* would desynchronize the
+                // va_list and corrupt every subsequent specifier's output.
+                if (p < end) *p++ = '%';
+                if (p < end) *p++ = *fmt;
+                fmt++;
+                continue;
+        }
+        fmt++;
+
+        // Apply zero-padding for width, emitting sign before zeros (e.g. "%06d" + -1 → "-00001")
+        size_t copyStart = 0;
+        if (zeroPad && width > 0 && convLen < (size_t)width) {
+            if (convLen > 0 && convBuf[0] == '-') {
+                if (p < end) *p++ = '-';
+                copyStart = 1;
+                convLen--;
+            }
+            size_t pad = (size_t)width - convLen - copyStart;
+            for (size_t i = 0; i < pad && p < end; i++) {
+                *p++ = '0';
+            }
+        }
+        for (size_t i = copyStart; i < copyStart + convLen && p < end; i++) {
+            *p++ = convBuf[i];
+        }
+    }
+
+    *p = '\0';
+    writeToLog(buffer);
 }
 
 static inline void flushLog(void)
