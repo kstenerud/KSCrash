@@ -464,6 +464,14 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
         g_reportStoreConfig.runSidecarsPath = strdup(path);
     }
 
+    if (g_reportStoreConfig.runSummariesPath == NULL) {
+        if (snprintf(path, sizeof(path), "%s/Runs", installPath) >= (int)sizeof(path)) {
+            KSLOG_ERROR("Runs path is too long.");
+            return KSCrashInstallErrorPathTooLong;
+        }
+        g_reportStoreConfig.runSummariesPath = strdup(path);
+    }
+
     kscrs_initialize(&g_reportStoreConfig);
     kscm_setReportSidecarFilePathProvider(getReportSidecarFilePathCallback);
     kscm_setReportSidecarPathProvider(getReportSidecarPathCallback);
@@ -504,8 +512,10 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     }
     kscm_notifyPostMonitorsEnabled();
     ksruncontext_init(getRunSidecarPathForRunIDCallback);
-    ksruncontext_persistPreviousRunSummary(configuration->reportStoreConfiguration.runSummariesPath,
-                                           configuration->reportStoreConfiguration.maxRunSummaryCount);
+    // g_reportStoreConfig has the resolved default path, whereas `configuration`
+    // still holds whatever the caller passed in (NULL is valid there).
+    ksruncontext_persistPreviousRunSummary(g_reportStoreConfig.runSummariesPath,
+                                           g_reportStoreConfig.maxRunSummaryCount);
     kscm_notifyPostSystemEnable();
 
     g_installed = true;
