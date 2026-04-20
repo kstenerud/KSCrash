@@ -61,6 +61,21 @@ NS_ASSUME_NONNULL_BEGIN
 @property(atomic, readwrite, strong, nullable) NSDictionary<NSString *, id> *userInfo KSCRASH_DEPRECATED(
     "Use per-key API in KSCrash+UserInfo.h (e.g. -setUserInfoString:forKey:) instead");
 
+/** Record the currently-active user identifier.
+ *
+ *  Writes through to the per-run user info sidecar under the reserved key
+ *  `"com.kscrash.userid"`. Pass nil to clear (e.g. on logout).
+ *
+ *  Write-only: the value is captured for the run summary at next launch and
+ *  for attribution in any crash reports this run may produce. There is no
+ *  getter — track the current user in your own state if you need to read it
+ *  back at runtime.
+ *
+ *  Do not write `"com.kscrash.userid"` through `-setUserInfoString:forKey:`;
+ *  that key is reserved for this method.
+ */
+- (void)setUserID:(nullable NSString *)userID;
+
 #pragma mark - Information -
 
 /** Exposes the uncaughtExceptionHandler if set from KSCrash. Is nil if debugger is running. */

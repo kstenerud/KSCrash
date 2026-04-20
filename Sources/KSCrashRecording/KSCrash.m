@@ -33,6 +33,7 @@
 #import "KSCrashMonitor_Lifecycle.h"
 #import "KSCrashMonitor_System.h"
 #import "KSCrashMonitor_Termination.h"
+#import "KSCrashMonitor_UserInfo.h"
 #import "KSCrashReport.h"
 #import "KSCrashReportFields.h"
 #import "KSCrashRunContext.h"
@@ -214,6 +215,16 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
     kscrash_setUserInfoJSON(userInfoString.UTF8String);
 }
 #pragma clang diagnostic pop
+
+// Write-only: -setUserID: appends a record to the UserInfo sidecar under the
+// reserved key "com.kscrash.userid". Passing NULL to kscm_userinfo_setString
+// writes a tombstone, handling the nil/logout case. No local cache — the
+// sidecar is the single source of truth, read at next launch during stitch.
+
+- (void)setUserID:(NSString *)userID
+{
+    kscm_userinfo_setString("com.kscrash.userid", userID.UTF8String);
+}
 
 - (BOOL)reportsMemoryTerminations
 {
