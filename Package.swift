@@ -522,6 +522,9 @@ let package = Package(
 
         .target(
             name: Targets.report,
+            dependencies: [
+                .target(name: Targets.recording)
+            ],
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy")
             ]

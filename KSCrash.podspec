@@ -103,6 +103,7 @@ Pod::Spec.new do |s|
 
   s.subspec 'Report' do |report|
     module_name = 'Report'
+    report.dependency 'KSCrash/Recording'
     report.source_files = "Sources/#{module_name}/**/*.swift"
     report.resource_bundles = { module_name => "Sources/#{module_name}/Resources/PrivacyInfo.xcprivacy" }
   end

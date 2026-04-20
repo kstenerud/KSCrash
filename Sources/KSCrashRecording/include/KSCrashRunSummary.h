@@ -75,6 +75,7 @@ FOUNDATION_EXPORT NSString *const KSCrashRunSummaryAnonymousUserID;
  *  for the per-run collection of user IDs.
  */
 NS_SWIFT_NAME(RunSummary.UserID)
+__attribute__((objc_subclassing_restricted))
 @interface KSCrashRunSummaryUserID : NSObject
 
 /** Returns `KSCrashRunSummaryAnonymousUserID`. Swift: `RunSummary.UserID.anonymous`. */
@@ -90,6 +91,7 @@ NS_SWIFT_NAME(RunSummary.UserID)
 // ============================================================================
 
 NS_SWIFT_NAME(RunSummary.Outcome)
+__attribute__((objc_subclassing_restricted))
 @interface KSCrashRunSummaryOutcome : NSObject
 
 @property(nonatomic, readonly) KSTerminationReason terminationReason;
@@ -112,6 +114,7 @@ NS_SWIFT_NAME(RunSummary.Outcome)
 // ============================================================================
 
 NS_SWIFT_NAME(RunSummary.Durations)
+__attribute__((objc_subclassing_restricted))
 @interface KSCrashRunSummaryDurations : NSObject
 
 @property(nonatomic, readonly) int64_t activeMs;
@@ -129,6 +132,7 @@ NS_SWIFT_NAME(RunSummary.Durations)
 // ============================================================================
 
 NS_SWIFT_NAME(RunSummary.Sessions)
+__attribute__((objc_subclassing_restricted))
 @interface KSCrashRunSummarySessions : NSObject
 
 @property(nonatomic, readonly) NSInteger perceptibleCount;
@@ -147,6 +151,7 @@ NS_SWIFT_NAME(RunSummary.Sessions)
 // ============================================================================
 
 NS_SWIFT_NAME(RunSummary.UserIDs)
+__attribute__((objc_subclassing_restricted))
 @interface KSCrashRunSummaryUserIDs : NSObject
 
 @property(nonatomic, readonly, copy) NSArray<NSString *> *perceptible;
@@ -165,6 +170,7 @@ NS_SWIFT_NAME(RunSummary.UserIDs)
 // ============================================================================
 
 NS_SWIFT_NAME(RunSummary.App)
+__attribute__((objc_subclassing_restricted))
 @interface KSCrashRunSummaryApp : NSObject
 
 @property(nonatomic, readonly, copy) NSString *bundleID;
@@ -187,6 +193,7 @@ NS_SWIFT_NAME(RunSummary.App)
 // ============================================================================
 
 NS_SWIFT_NAME(RunSummary.OS)
+__attribute__((objc_subclassing_restricted))
 @interface KSCrashRunSummaryOS : NSObject
 
 @property(nonatomic, readonly, copy) NSString *name;
@@ -207,6 +214,7 @@ NS_SWIFT_NAME(RunSummary.OS)
 // ============================================================================
 
 NS_SWIFT_NAME(RunSummary.Device)
+__attribute__((objc_subclassing_restricted))
 @interface KSCrashRunSummaryDevice : NSObject
 
 @property(nonatomic, readonly, copy) NSString *model;
@@ -245,6 +253,7 @@ NS_SWIFT_NAME(RunSummary.Device)
  * invariants, and clock-source semantics.
  */
 NS_SWIFT_NAME(RunSummary)
+__attribute__((objc_subclassing_restricted))
 @interface KSCrashRunSummary : NSObject
 
 @property(nonatomic, readonly) NSInteger schemaVersion;
