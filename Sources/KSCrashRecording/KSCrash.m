@@ -224,6 +224,7 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
 - (void)setUserID:(NSString *)userID
 {
     kscm_userinfo_setString("com.kscrash.userid", userID.UTF8String);
+    kscm_lifecycle_observeUser(userID.UTF8String);
 }
 
 - (BOOL)reportsMemoryTerminations

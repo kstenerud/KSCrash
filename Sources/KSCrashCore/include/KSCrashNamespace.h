@@ -226,6 +226,7 @@
 #define kscm_getMonitor KSCRASH_NS(kscm_getMonitor)
 #define kscm_lifecycle_createStitchedReport KSCRASH_NS(kscm_lifecycle_createStitchedReport)
 #define kscm_lifecycle_getAPI KSCRASH_NS(kscm_lifecycle_getAPI)
+#define kscm_lifecycle_observeUser KSCRASH_NS(kscm_lifecycle_observeUser)
 #define kscm_lifecycle_testcode_hangChange KSCRASH_NS(kscm_lifecycle_testcode_hangChange)
 #define kscm_lifecycle_testcode_setTaskRole KSCRASH_NS(kscm_lifecycle_testcode_setTaskRole)
 #define kscm_lifecycle_testcode_transitionState KSCRASH_NS(kscm_lifecycle_testcode_transitionState)

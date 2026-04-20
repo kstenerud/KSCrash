@@ -227,7 +227,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
 
 - (void)testLifecycleDataStructLayout
 {
-    XCTAssertEqual(sizeof(KSCrash_LifecycleData), 96u);
+    XCTAssertEqual(sizeof(KSCrash_LifecycleData), 104u);
     XCTAssertEqual(KSLIFECYCLE_MAGIC, (int32_t)0x6B736C63);
     XCTAssertEqual(KSCrash_Lifecycle_CurrentVersion, 2);
 }
@@ -487,6 +487,73 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     // Invariant: sessionsSinceLaunch == perceptible + imperceptible at all times.
     XCTAssertEqual((uint32_t)data.sessionsSinceLaunch,
                    data.perceptibleSessionsSinceLaunch + data.imperceptibleSessionsSinceLaunch);
+}
+
+#pragma mark - Distinct user tracking (v2)
+
+- (void)testObserveUser_firstSeenBumpsPerceptibleCount
+{
+    [self enableMonitor];  // Default state is Active (perceptible).
+    kscm_lifecycle_observeUser("alice");
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    XCTAssertEqual(data.distinctPerceptibleUserCount, 1u);
+    XCTAssertEqual(data.distinctImperceptibleUserCount, 0u);
+}
+
+- (void)testObserveUser_duplicateDoesNotDoubleCount
+{
+    [self enableMonitor];
+    kscm_lifecycle_observeUser("alice");
+    kscm_lifecycle_observeUser("alice");
+    kscm_lifecycle_observeUser("alice");
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    XCTAssertEqual(data.distinctPerceptibleUserCount, 1u);
+}
+
+- (void)testObserveUser_distinctUsersEachCountedOnce
+{
+    [self enableMonitor];
+    kscm_lifecycle_observeUser("alice");
+    kscm_lifecycle_observeUser("bob");
+    kscm_lifecycle_observeUser("alice");  // already seen
+    kscm_lifecycle_observeUser("carol");
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    XCTAssertEqual(data.distinctPerceptibleUserCount, 3u);
+}
+
+- (void)testObserveUser_nilAndEmptyAreNoOps
+{
+    [self enableMonitor];
+    kscm_lifecycle_observeUser(NULL);
+    kscm_lifecycle_observeUser("");
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    XCTAssertEqual(data.distinctPerceptibleUserCount, 0u);
+    XCTAssertEqual(data.distinctImperceptibleUserCount, 0u);
+}
+
+- (void)testObserveUser_perceptibilityTransitionReaccountsCurrentUser
+{
+    [self enableMonitor];
+    kscm_lifecycle_observeUser("alice");  // counted in perceptible bucket
+
+    // Drive a transition that flips perceptibility from true → false.
+    // Background is not user-perceptible.
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateDeactivating);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateBackground);
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    // alice counted in both buckets: 1 + 1 = 2 total distinctness across buckets.
+    XCTAssertEqual(data.distinctPerceptibleUserCount, 1u);
+    XCTAssertEqual(data.distinctImperceptibleUserCount, 1u);
 }
 
 - (void)testReadData_v1Sidecar_zeroFillsNewFields

@@ -116,9 +116,15 @@ typedef struct {
     // on every change so readers that depended on it stay correct.
     uint32_t perceptibleSessionsSinceLaunch;
     uint32_t imperceptibleSessionsSinceLaunch;
+
+    // Counts of distinct user IDs observed in each perceptibility bucket
+    // during this run. Distinctness is tracked in-memory (lost on crash);
+    // only the counts are persisted. See kscm_lifecycle_observeUser.
+    uint32_t distinctPerceptibleUserCount;
+    uint32_t distinctImperceptibleUserCount;
 } KSCrash_LifecycleData;
 
-_Static_assert(sizeof(KSCrash_LifecycleData) == 96, "KSCrash_LifecycleData size changed — bump version");
+_Static_assert(sizeof(KSCrash_LifecycleData) == 104, "KSCrash_LifecycleData size changed — bump version");
 
 // ============================================================================
 #pragma mark - Public State (computed from sidecar) -
@@ -191,6 +197,23 @@ bool kslifecycle_getSnapshotForRunID(const char *runID, KSCrash_LifecycleData *o
  *  Lock-free (atomic load). Safe to call from any thread.
  */
 KSCrashAppTransitionState kslifecycle_currentTransitionState(void);
+
+/** Observe that the given user ID is active right now.
+ *
+ *  The monitor tracks distinct user IDs in memory (NSMutableSet) split by
+ *  the current user-perceptibility state, and persists only the COUNTS
+ *  (`distinctPerceptibleUserCount` / `distinctImperceptibleUserCount`) into
+ *  the Lifecycle sidecar. The in-memory sets are lost on crash, but the
+ *  counts at crash time are preserved.
+ *
+ *  Pass NULL or an empty string to record no-op (no user).
+ *  No-op before the monitor is enabled.
+ *
+ *  Called from `-[KSCrash setUserID:]` on every user change, and
+ *  internally whenever a perceptibility transition reveals the current
+ *  user in a new bucket.
+ */
+void kscm_lifecycle_observeUser(const char *userID);
 
 /** Access the Lifecycle Monitor API.
  */
