@@ -107,4 +107,17 @@ const KSCrashRunContext *ksruncontext_previousRunContext(void);
 }
 #endif
 
+#ifdef __OBJC__
+#import <Foundation/Foundation.h>
+
+@class KSCrashRunSummary;
+
+/** Returns the run summary for the previous run, or nil if there was no
+ *  previous run or its data was incomplete.
+ *
+ *  Only valid after ksruncontext_init().
+ */
+KSCrashRunSummary *ksruncontext_previousRunSummary(void);
+#endif  // __OBJC__
+
 #endif  // KSCrashRunContext_h

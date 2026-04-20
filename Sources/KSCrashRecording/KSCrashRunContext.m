@@ -29,7 +29,9 @@
 #import "KSCrashAppMemory.h"
 #import "KSCrashC.h"
 #import "KSCrashCPUTracker.h"
+#import "KSCrashRunSummary.h"
 #import "KSFileUtils.h"
+#import "KSKeyValueStore.h"
 
 #import <Foundation/Foundation.h>
 #import <fcntl.h>
@@ -38,11 +40,17 @@
 
 #import "KSLogger.h"
 
+// Defined in KSCrash.m. Forward-declared here to avoid importing KSCrash.h.
+FOUNDATION_EXPORT const unsigned char KSCrashFrameworkVersionString[];
+
 // ============================================================================
 #pragma mark - Globals -
 // ============================================================================
 
 static KSCrashRunContext g_context = { 0 };
+static KSCrashRunSummary *g_summary = nil;
+
+static KSCrashRunSummary *buildSummary(const KSCrashRunContext *ctx, const char *userInfoSidecarPath);
 
 // ============================================================================
 #pragma mark - Sidecar Reading -
@@ -163,6 +171,7 @@ void ksruncontext_init(KSCrashSidecarRunPathForRunIDProviderFunc pathForRunID)
 {
     const char *lastRunID = kscrash_getLastRunID();
     memset(&g_context, 0, sizeof(g_context));
+    g_summary = nil;
 
     if (!lastRunID || lastRunID[0] == '\0') {
         g_context.terminationReason = KSTerminationReasonFirstLaunch;
@@ -171,6 +180,16 @@ void ksruncontext_init(KSCrashSidecarRunPathForRunIDProviderFunc pathForRunID)
     }
 
     ksruncontext_contextForRunID(lastRunID, pathForRunID, &g_context);
+
+    // Build the summary from the same sidecar data we just read, while the
+    // UserInfo path resolver is still in hand — callers of
+    // ksruncontext_previousRunSummary() don't deal with sidecar paths.
+    char userInfoPath[KSFU_MAX_PATH_LENGTH];
+    const char *userInfoPathPtr = NULL;
+    if (pathForRunID != NULL && pathForRunID("UserInfo", lastRunID, userInfoPath, sizeof(userInfoPath))) {
+        userInfoPathPtr = userInfoPath;
+    }
+    g_summary = buildSummary(&g_context, userInfoPathPtr);
 
     KSLOG_DEBUG(@"Previous run %s: %s", lastRunID, kstermination_reasonToString(g_context.terminationReason));
 }
@@ -248,6 +267,164 @@ bool ksruncontext_contextForRunID(const char *runID, KSCrashSidecarRunPathForRun
 
 const KSCrashRunContext *ksruncontext_previousRunContext(void) { return &g_context; }
 
+KSCrashRunSummary *ksruncontext_previousRunSummary(void) { return g_summary; }
+
+// ============================================================================
+#pragma mark - Build Summary -
+// ============================================================================
+
+// Reserved UserInfo key, mirrors the one in -[KSCrash setUserID:].
+static const char kUserIDKey[] = "com.kscrash.userid";
+
+typedef struct {
+    // Mutable result: the last string value seen for kUserIDKey, or nil if
+    // only tombstones / absent. Retained by the iteration callbacks so the
+    // outer function takes ownership at the end.
+    NSString *userID;
+} UserIDReadContext;
+
+static void userInfoOnString(const char *key, uint16_t keyLen, const char *value, uint16_t valueLen, void *ctx)
+{
+    UserIDReadContext *out = (UserIDReadContext *)ctx;
+    if (keyLen != sizeof(kUserIDKey) - 1 || memcmp(key, kUserIDKey, keyLen) != 0) {
+        return;
+    }
+    NSString *str = [[NSString alloc] initWithBytes:value length:valueLen encoding:NSUTF8StringEncoding];
+    if (str) {
+        out->userID = str;
+    }
+}
+
+static void userInfoOnRemoved(const char *key, uint16_t keyLen, void *ctx)
+{
+    UserIDReadContext *out = (UserIDReadContext *)ctx;
+    if (keyLen != sizeof(kUserIDKey) - 1 || memcmp(key, kUserIDKey, keyLen) != 0) {
+        return;
+    }
+    out->userID = nil;
+}
+
+static NSString *readUserIDFromSidecar(const char *sidecarPath)
+{
+    if (sidecarPath == NULL || sidecarPath[0] == '\0') {
+        return nil;
+    }
+    KSKeyValueStore *store = kskvs_create(sidecarPath, KSKVSModeRead, NULL);
+    if (store == NULL) {
+        return nil;
+    }
+
+    UserIDReadContext ctx = { .userID = nil };
+    KSKVSCallbacks callbacks = {
+        .onString = userInfoOnString,
+        .onRemoved = userInfoOnRemoved,
+    };
+    kskvs_iterate(store, &callbacks, &ctx);
+    kskvs_destroy(store);
+
+    return ctx.userID;
+}
+
+static KSCrashRunSummaryHostKind hostKindFromCurrentBundle(void)
+{
+    NSString *ext = [[NSBundle mainBundle] bundlePath].pathExtension.lowercaseString;
+    if ([ext isEqualToString:@"app"]) {
+        return KSCrashRunSummaryHostKindApp;
+    }
+    if ([ext isEqualToString:@"appex"]) {
+        return KSCrashRunSummaryHostKindExtension;
+    }
+    if ([ext isEqualToString:@"xctest"]) {
+        return KSCrashRunSummaryHostKindXCTest;
+    }
+    return KSCrashRunSummaryHostKindOther;
+}
+
+// Returns the given C string as an NSString, or @"" if null/empty. Used for
+// system-sidecar fields that must appear in the summary as non-null strings.
+static NSString *safeString(const char *cstr)
+{
+    if (cstr == NULL || cstr[0] == '\0') {
+        return @"";
+    }
+    return [NSString stringWithUTF8String:cstr] ?: @"";
+}
+
+static KSCrashRunSummary *buildSummary(const KSCrashRunContext *ctx, const char *userInfoSidecarPath)
+{
+    if (ctx == NULL || !ctx->systemValid || !ctx->lifecycleValid) {
+        return nil;
+    }
+
+    const KSCrash_LifecycleData *lc = &ctx->lifecycle;
+    const KSCrash_SystemData *sys = &ctx->system;
+
+    // Wall-clock timestamps. `started_at` is captured at sidecar creation.
+    // `ended_at` = started + (mostRecentMonotonic - monotonicAtStart). If
+    // the monotonic delta is non-positive (shouldn't happen, but defend
+    // against corrupt sidecars), fall back to the start timestamp.
+    int64_t startedAtMs = (int64_t)(lc->wallClockAtStartNs / 1000000ULL);
+    int64_t endedAtMs = startedAtMs;
+    if (ctx->mostRecentTimestampNs >= lc->monotonicAtStartNs) {
+        uint64_t elapsedNs = ctx->mostRecentTimestampNs - lc->monotonicAtStartNs;
+        endedAtMs = (int64_t)((lc->wallClockAtStartNs + elapsedNs) / 1000000ULL);
+    }
+
+    KSCrashRunSummaryOutcome *outcome =
+        [[KSCrashRunSummaryOutcome alloc] initWithTerminationReason:ctx->terminationReason
+                                                      cleanShutdown:lc->cleanShutdown != 0
+                                                      fatalReported:lc->fatalReported != 0
+                                                    userPerceptible:lc->userPerceptible != 0];
+
+    KSCrashRunSummaryDurations *durations = [[KSCrashRunSummaryDurations alloc]
+        initWithActiveMs:(int64_t)(lc->activeDurationSinceLaunchNs / 1000000ULL)
+            backgroundMs:(int64_t)(lc->backgroundDurationSinceLaunchNs / 1000000ULL)];
+
+    KSCrashRunSummarySessions *sessions =
+        [[KSCrashRunSummarySessions alloc] initWithPerceptibleCount:(NSInteger)lc->perceptibleSessionsSinceLaunch
+                                                 imperceptibleCount:(NSInteger)lc->imperceptibleSessionsSinceLaunch];
+
+    KSCrashRunSummaryUsers *users =
+        [[KSCrashRunSummaryUsers alloc] initWithPerceptibleCount:(NSInteger)lc->distinctPerceptibleUserCount
+                                              imperceptibleCount:(NSInteger)lc->distinctImperceptibleUserCount];
+
+    KSCrashRunSummaryApp *app = [[KSCrashRunSummaryApp alloc] initWithBundleID:safeString(sys->bundleID)
+                                                                       version:safeString(sys->bundleVersion)
+                                                                  shortVersion:safeString(sys->bundleShortVersion)
+                                                                      hostKind:hostKindFromCurrentBundle()];
+
+    KSCrashRunSummaryOS *os = [[KSCrashRunSummaryOS alloc] initWithName:safeString(sys->systemName)
+                                                                version:safeString(sys->systemVersion)
+                                                                  build:safeString(sys->osVersion)];
+
+    KSCrashRunSummaryDevice *device = [[KSCrashRunSummaryDevice alloc] initWithModel:safeString(sys->machine)
+                                                                         modelFamily:safeString(sys->model)
+                                                                        architecture:safeString(sys->cpuArchitecture)
+                                                                  binaryArchitecture:safeString(sys->binaryArchitecture)
+                                                                        isTranslated:sys->procTranslated != 0
+                                                                        isJailbroken:sys->isJailbroken != 0];
+
+    NSString *sdkVersion = [NSString stringWithUTF8String:(const char *)KSCrashFrameworkVersionString] ?: @"";
+    NSString *runID = [NSString stringWithUTF8String:ctx->runID] ?: @"";
+    NSString *deviceID = safeString(sys->deviceAppHash);
+    NSString *userID = readUserIDFromSidecar(userInfoSidecarPath);
+
+    return [[KSCrashRunSummary alloc] initWithSchemaVersion:1
+                                                 sdkVersion:sdkVersion
+                                                      runID:runID
+                                                   deviceID:deviceID
+                                                     userID:userID
+                                                      users:users
+                                                startedAtMs:startedAtMs
+                                                  endedAtMs:endedAtMs
+                                                    outcome:outcome
+                                                  durations:durations
+                                                   sessions:sessions
+                                                        app:app
+                                                         os:os
+                                                     device:device];
+}
+
 // ============================================================================
 #pragma mark - Testing API -
 // ============================================================================
@@ -278,4 +455,11 @@ void ksruncontext_testcode_setLifecycleData(const KSCrash_LifecycleData *data)
         g_context.lifecycleValid = false;
         memset(&g_context.lifecycle, 0, sizeof(g_context.lifecycle));
     }
+}
+
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+KSCrashRunSummary *
+ksruncontext_testcode_buildSummary(const KSCrashRunContext *ctx, const char *userInfoSidecarPath)
+{
+    return buildSummary(ctx, userInfoSidecarPath);
 }
