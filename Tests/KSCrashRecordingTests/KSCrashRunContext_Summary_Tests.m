@@ -255,4 +255,42 @@ static void populateContext(KSCrashRunContext *ctx)
     XCTAssertNil(summary.userID);
 }
 
+#pragma mark - Persistence
+
+extern void ksruncontext_testcode_setCachedSummary(KSCrashRunSummary *summary, const char *runID);
+
+- (void)test_persistPreviousRunSummary_writesJSONFile
+{
+    KSCrashRunContext ctx;
+    populateContext(&ctx);
+    KSCrashRunSummary *summary = ksruncontext_testcode_buildSummary(&ctx, NULL);
+    ksruncontext_testcode_setCachedSummary(summary, ctx.runID);
+
+    ksruncontext_persistPreviousRunSummary(self.tempDir.UTF8String);
+
+    NSString *expectedPath =
+        [self.tempDir stringByAppendingPathComponent:[NSString stringWithFormat:@"Runs/%s.json", ctx.runID]];
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:expectedPath]);
+
+    NSData *data = [NSData dataWithContentsOfFile:expectedPath];
+    XCTAssertNotNil(data);
+    NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+    XCTAssertEqualObjects(json[@"run_id"], @"a1b2c3d4-e5f6-7890-abcd-ef1234567890");
+    XCTAssertEqualObjects(json[@"os"][@"name"], @"iOS");
+    XCTAssertEqualObjects(json[@"outcome"][@"termination_reason"], @"crash");
+
+    ksruncontext_testcode_setCachedSummary(nil, NULL);
+}
+
+- (void)test_persistPreviousRunSummary_noOpWhenSummaryMissing
+{
+    ksruncontext_testcode_setCachedSummary(nil, NULL);
+
+    // Shouldn't crash, shouldn't create the Runs/ directory.
+    ksruncontext_persistPreviousRunSummary(self.tempDir.UTF8String);
+
+    NSString *runsDir = [self.tempDir stringByAppendingPathComponent:@"Runs"];
+    XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:runsDir]);
+}
+
 @end

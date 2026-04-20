@@ -103,6 +103,13 @@ bool ksruncontext_contextForRunID(const char *runID, KSCrashSidecarRunPathForRun
  */
 const KSCrashRunContext *ksruncontext_previousRunContext(void);
 
+/** Write the cached previous-run summary to `<installPath>/Runs/<runID>.json`.
+ *
+ *  No-op if there is no summary (first launch, or previous run's data was
+ *  incomplete). Creates the `Runs/` directory if needed.
+ */
+void ksruncontext_persistPreviousRunSummary(const char *installPath);
+
 #ifdef __cplusplus
 }
 #endif

@@ -269,6 +269,40 @@ const KSCrashRunContext *ksruncontext_previousRunContext(void) { return &g_conte
 
 KSCrashRunSummary *ksruncontext_previousRunSummary(void) { return g_summary; }
 
+void ksruncontext_persistPreviousRunSummary(const char *installPath)
+{
+    if (g_summary == nil || installPath == NULL || installPath[0] == '\0') {
+        return;
+    }
+
+    char dir[KSFU_MAX_PATH_LENGTH];
+    if (snprintf(dir, sizeof(dir), "%s/Runs", installPath) >= (int)sizeof(dir)) {
+        KSLOG_ERROR(@"Run summary path too long: %s/Runs", installPath);
+        return;
+    }
+    if (!ksfu_makePath(dir)) {
+        KSLOG_ERROR(@"Failed to create run summary dir %s", dir);
+        return;
+    }
+
+    char path[KSFU_MAX_PATH_LENGTH];
+    if (snprintf(path, sizeof(path), "%s/%s.json", dir, g_context.runID) >= (int)sizeof(path)) {
+        KSLOG_ERROR(@"Run summary file path too long: %s/%s.json", dir, g_context.runID);
+        return;
+    }
+
+    NSData *data = [g_summary jsonData];
+    if (data == nil) {
+        return;  // Error already logged in -jsonData.
+    }
+
+    NSError *error = nil;
+    NSString *nsPath = [NSString stringWithUTF8String:path];
+    if (![data writeToFile:nsPath options:NSDataWritingAtomic error:&error]) {
+        KSLOG_ERROR(@"Failed to write run summary to %s: %@", path, error);
+    }
+}
+
 // ============================================================================
 #pragma mark - Build Summary -
 // ============================================================================
@@ -462,4 +496,15 @@ KSCrashRunSummary *
 ksruncontext_testcode_buildSummary(const KSCrashRunContext *ctx, const char *userInfoSidecarPath)
 {
     return buildSummary(ctx, userInfoSidecarPath);
+}
+
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+void ksruncontext_testcode_setCachedSummary(KSCrashRunSummary *summary, const char *runID)
+{
+    g_summary = summary;
+    if (runID != NULL) {
+        strlcpy(g_context.runID, runID, sizeof(g_context.runID));
+    } else {
+        g_context.runID[0] = '\0';
+    }
 }
