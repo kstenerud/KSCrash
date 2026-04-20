@@ -34,6 +34,19 @@
 extern KSCrashRunSummary *ksruncontext_testcode_buildSummary(const KSCrashRunContext *ctx,
                                                              const char *userInfoSidecarPath);
 
+// Block until any persist/prune work scheduled before the call has finished.
+// The queue is serial, so a sync round-trip flushes everything in flight.
+// Test-only: production code must never dispatch_sync onto this queue.
+static void waitForRunSummaryQueue(void)
+{
+    dispatch_sync(ksruncontext_getRunSummaryQueue(), ^ {
+                  });
+}
+
+// Wall-clock ms → zero-padded "<digits>.run" filename, matching the format
+// written by persistPreviousRunSummary.
+static NSString *runFilenameForMs(long long ms) { return [NSString stringWithFormat:@"%019lld.run", ms]; }
+
 // Fills a context with a realistic set of values so mapping tests can assert
 // on each field individually.
 static void populateContext(KSCrashRunContext *ctx)
@@ -309,9 +322,10 @@ extern void ksruncontext_testcode_setCachedSummary(KSCrashRunSummary *summary, c
     ksruncontext_testcode_setCachedSummary(summary, ctx.runID);
 
     ksruncontext_persistPreviousRunSummary(self.runsDir.UTF8String, 50);
+    waitForRunSummaryQueue();
 
-    // Filename is <startedAtMs>.run. populateContext gives startedAtMs = 1744000000000.
-    NSString *expectedPath = [self.tempDir stringByAppendingPathComponent:@"Runs/1744000000000.run"];
+    // Filename is <startedAtMs>.run, zero-padded. populateContext gives startedAtMs = 1744000000000.
+    NSString *expectedPath = [self.runsDir stringByAppendingPathComponent:runFilenameForMs(1744000000000LL)];
     XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:expectedPath]);
 
     NSData *data = [NSData dataWithContentsOfFile:expectedPath];
@@ -330,6 +344,7 @@ extern void ksruncontext_testcode_setCachedSummary(KSCrashRunSummary *summary, c
 
     // Shouldn't crash, shouldn't create the Runs/ directory.
     ksruncontext_persistPreviousRunSummary(self.runsDir.UTF8String, 50);
+    waitForRunSummaryQueue();
 
     XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:self.runsDir]);
 }
@@ -342,6 +357,7 @@ extern void ksruncontext_testcode_setCachedSummary(KSCrashRunSummary *summary, c
     ksruncontext_testcode_setCachedSummary(summary, ctx.runID);
 
     ksruncontext_persistPreviousRunSummary(self.runsDir.UTF8String, 0);
+    waitForRunSummaryQueue();
 
     XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:self.runsDir]);
 
@@ -364,12 +380,13 @@ extern void ksruncontext_testcode_setCachedSummary(KSCrashRunSummary *summary, c
     // The new file lands at <startedAtMs>.run which is numerically larger than
     // any seed, so it sorts as newest on subsequent prunes.
     ksruncontext_persistPreviousRunSummary(self.runsDir.UTF8String, 3);
+    waitForRunSummaryQueue();
 
     NSArray<NSString *> *contents = [self runsDirContents];
     XCTAssertEqual(contents.count, 3u);
     XCTAssertTrue([contents containsObject:@"3.run"]);
     XCTAssertTrue([contents containsObject:@"4.run"]);
-    XCTAssertTrue([contents containsObject:@"1744000000000.run"]);
+    XCTAssertTrue([contents containsObject:runFilenameForMs(1744000000000LL)]);
     XCTAssertFalse([contents containsObject:@"0.run"]);
     XCTAssertFalse([contents containsObject:@"1.run"]);
     XCTAssertFalse([contents containsObject:@"2.run"]);
@@ -387,6 +404,7 @@ extern void ksruncontext_testcode_setCachedSummary(KSCrashRunSummary *summary, c
     ksruncontext_testcode_setCachedSummary(summary, ctx.runID);
 
     ksruncontext_persistPreviousRunSummary(self.runsDir.UTF8String, 5);
+    waitForRunSummaryQueue();
 
     NSArray<NSString *> *contents = [self runsDirContents];
     XCTAssertEqual(contents.count, 3u);  // 2 seeded + 1 new, all survive.
@@ -413,11 +431,12 @@ extern void ksruncontext_testcode_setCachedSummary(KSCrashRunSummary *summary, c
 
     // Cap 1 → prune the single seed, keep the others, write the new summary.
     ksruncontext_persistPreviousRunSummary(self.runsDir.UTF8String, 1);
+    waitForRunSummaryQueue();
 
     NSArray<NSString *> *contents = [self runsDirContents];
     XCTAssertTrue([contents containsObject:@"scratch.tmp"]);
     XCTAssertTrue([contents containsObject:@"not-a-number.run"]);
-    XCTAssertTrue([contents containsObject:@"1744000000000.run"]);
+    XCTAssertTrue([contents containsObject:runFilenameForMs(1744000000000LL)]);
     XCTAssertFalse([contents containsObject:@"0.run"]);
 
     ksruncontext_testcode_setCachedSummary(nil, NULL);

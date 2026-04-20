@@ -118,6 +118,7 @@ void ksruncontext_persistPreviousRunSummary(const char *runSummariesPath, int ma
 
 #ifdef __OBJC__
 #import <Foundation/Foundation.h>
+#import <dispatch/dispatch.h>
 
 @class KSCrashRunSummary;
 
@@ -127,6 +128,15 @@ void ksruncontext_persistPreviousRunSummary(const char *runSummariesPath, int ma
  *  Only valid after ksruncontext_init().
  */
 KSCrashRunSummary *ksruncontext_previousRunSummary(void);
+
+/** Serial background queue that owns all run-summary file I/O.
+ *
+ *  Both install-time persistence and `-sendAllRunSummariesWithCompletion:`
+ *  dispatch onto this queue so a send can never observe a partially-written
+ *  file, and two sends can't race each other's deletions. Lazily created;
+ *  runs at QOS_CLASS_UTILITY.
+ */
+dispatch_queue_t ksruncontext_getRunSummaryQueue(void);
 #endif  // __OBJC__
 
 #endif  // KSCrashRunContext_h

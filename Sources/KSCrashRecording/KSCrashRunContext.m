@@ -35,6 +35,7 @@
 
 #import <Foundation/Foundation.h>
 #import <dirent.h>
+#import <dispatch/dispatch.h>
 #import <fcntl.h>
 #import <stdlib.h>
 #import <string.h>
@@ -52,7 +53,29 @@ FOUNDATION_EXPORT const unsigned char KSCrashFrameworkVersionString[];
 static KSCrashRunContext g_context = { 0 };
 static KSCrashRunSummary *g_summary = nil;
 
+// Width of the zero-padded decimal ms prefix in "<ms>.run" filenames. 19 digits
+// covers INT64_MAX (9223372036854775807), so any valid wall-clock value fits
+// without overflow and all files in the dir sort lexically the same as they do
+// numerically — tools that just `ls` the dir get the right order for free.
+#define KSRUN_SUMMARY_FILENAME_DIGITS 19
+
 static KSCrashRunSummary *buildSummary(const KSCrashRunContext *ctx, const char *userInfoSidecarPath);
+
+dispatch_queue_t ksruncontext_getRunSummaryQueue(void)
+{
+    static dispatch_queue_t queue;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+#ifdef KSCRASH_NAMESPACE
+        const char *label = "com.kscrash." KSCRASH_NAMESPACE_STRING ".runsummary";
+#else
+        const char *label = "com.kscrash.runsummary";
+#endif
+        queue = dispatch_queue_create_with_target(label, DISPATCH_QUEUE_SERIAL,
+                                                  dispatch_get_global_queue(QOS_CLASS_UTILITY, 0));
+    });
+    return queue;
+}
 
 // ============================================================================
 #pragma mark - Sidecar Reading -
@@ -289,11 +312,19 @@ static bool parseRunFilename(const char *name, uint64_t *outMs)
     return true;
 }
 
-static int compareUInt64Ascending(const void *a, const void *b)
+// Pairs a parsed ms prefix with the original d_name that yielded it. Keeping
+// the on-disk name instead of reformatting lets us unlink files written with
+// any digit width (e.g. legacy unpadded files left from earlier runs or tests).
+typedef struct {
+    uint64_t ms;
+    char name[256];
+} RunSummaryPruneEntry;
+
+static int compareRunSummaryPruneEntriesAscending(const void *a, const void *b)
 {
-    uint64_t ua = *(const uint64_t *)a;
-    uint64_t ub = *(const uint64_t *)b;
-    return (ua < ub) ? -1 : (ua > ub) ? 1 : 0;
+    const RunSummaryPruneEntry *ea = (const RunSummaryPruneEntry *)a;
+    const RunSummaryPruneEntry *eb = (const RunSummaryPruneEntry *)b;
+    return (ea->ms < eb->ms) ? -1 : (ea->ms > eb->ms) ? 1 : 0;
 }
 
 // Prune ".run" files in runsDir oldest-first so that, after the caller writes
@@ -323,37 +354,38 @@ static void pruneOldSummaries(const char *runsDir, int maxSummaryCount)
         return;
     }
 
-    uint64_t *timestamps = malloc(sizeof(uint64_t) * (size_t)count);
-    if (timestamps == NULL) {
+    RunSummaryPruneEntry *entries = malloc(sizeof(RunSummaryPruneEntry) * (size_t)count);
+    if (entries == NULL) {
         return;
     }
 
-    // Second pass: collect timestamps.
+    // Second pass: collect (ms, d_name) pairs.
     dir = opendir(runsDir);
     if (dir == NULL) {
-        free(timestamps);
+        free(entries);
         return;
     }
     int index = 0;
     while ((ent = readdir(dir)) != NULL && index < count) {
         uint64_t ms;
         if (parseRunFilename(ent->d_name, &ms)) {
-            timestamps[index++] = ms;
+            entries[index].ms = ms;
+            strlcpy(entries[index].name, ent->d_name, sizeof(entries[index].name));
+            index++;
         }
     }
     closedir(dir);
 
-    qsort(timestamps, (size_t)index, sizeof(uint64_t), compareUInt64Ascending);
+    qsort(entries, (size_t)index, sizeof(*entries), compareRunSummaryPruneEntriesAscending);
 
     int toDelete = index - keep;
     for (int i = 0; i < toDelete; i++) {
         char path[KSFU_MAX_PATH_LENGTH];
-        if (snprintf(path, sizeof(path), "%s/%llu.run", runsDir, (unsigned long long)timestamps[i]) <
-            (int)sizeof(path)) {
+        if (snprintf(path, sizeof(path), "%s/%s", runsDir, entries[i].name) < (int)sizeof(path)) {
             unlink(path);
         }
     }
-    free(timestamps);
+    free(entries);
 }
 
 void ksruncontext_persistPreviousRunSummary(const char *runSummariesPath, int maxSummaryCount)
@@ -362,32 +394,49 @@ void ksruncontext_persistPreviousRunSummary(const char *runSummariesPath, int ma
         return;
     }
 
-    if (!ksfu_makePath(runSummariesPath)) {
-        KSLOG_ERROR(@"Failed to create run summary dir %s", runSummariesPath);
+    // Snapshot the summary pointer and copy the path — the caller's buffer may
+    // go away before the queue block runs.
+    KSCrashRunSummary *summary = g_summary;
+    char *runsDirCopy = strdup(runSummariesPath);
+    if (runsDirCopy == NULL) {
         return;
     }
 
-    // Filename is the run's wall-clock start time in ms. Lexical-ish but we
-    // sort numerically on read, so same-width strings aren't required.
-    long long startedAtMs = (long long)g_summary.startedAtMs;
-    char path[KSFU_MAX_PATH_LENGTH];
-    if (snprintf(path, sizeof(path), "%s/%lld.run", runSummariesPath, startedAtMs) >= (int)sizeof(path)) {
-        KSLOG_ERROR(@"Run summary file path too long: %s/%lld.run", runSummariesPath, startedAtMs);
-        return;
-    }
+    dispatch_async(ksruncontext_getRunSummaryQueue(), ^{
+        if (!ksfu_makePath(runsDirCopy)) {
+            KSLOG_ERROR(@"Failed to create run summary dir %s", runsDirCopy);
+            free(runsDirCopy);
+            return;
+        }
 
-    NSData *data = [g_summary jsonData];
-    if (data == nil) {
-        return;  // Error already logged in -jsonData.
-    }
+        // Filename is the run's wall-clock start time in ms, zero-padded to
+        // KSRUN_SUMMARY_FILENAME_DIGITS so all files in the dir lexically
+        // sort the same as they do numerically.
+        long long startedAtMs = (long long)summary.startedAtMs;
+        char path[KSFU_MAX_PATH_LENGTH];
+        if (snprintf(path, sizeof(path), "%s/%0*lld.run", runsDirCopy, KSRUN_SUMMARY_FILENAME_DIGITS, startedAtMs) >=
+            (int)sizeof(path)) {
+            KSLOG_ERROR(@"Run summary file path too long: %s/%0*lld.run", runsDirCopy, KSRUN_SUMMARY_FILENAME_DIGITS,
+                        startedAtMs);
+            free(runsDirCopy);
+            return;
+        }
 
-    pruneOldSummaries(runSummariesPath, maxSummaryCount);
+        NSData *data = [summary jsonData];
+        if (data == nil) {
+            free(runsDirCopy);
+            return;  // Error already logged in -jsonData.
+        }
 
-    NSError *error = nil;
-    NSString *nsPath = [NSString stringWithUTF8String:path];
-    if (![data writeToFile:nsPath options:NSDataWritingAtomic error:&error]) {
-        KSLOG_ERROR(@"Failed to write run summary to %s: %@", path, error);
-    }
+        pruneOldSummaries(runsDirCopy, maxSummaryCount);
+
+        NSError *error = nil;
+        NSString *nsPath = [NSString stringWithUTF8String:path];
+        if (![data writeToFile:nsPath options:NSDataWritingAtomic error:&error]) {
+            KSLOG_ERROR(@"Failed to write run summary to %s: %@", path, error);
+        }
+        free(runsDirCopy);
+    });
 }
 
 // ============================================================================

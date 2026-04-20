@@ -506,6 +506,7 @@
 #define ksresource_getSnapshot KSCRASH_NS(ksresource_getSnapshot)
 #define ksresource_getSnapshotForRunID KSCRASH_NS(ksresource_getSnapshotForRunID)
 #define ksruncontext_contextForRunID KSCRASH_NS(ksruncontext_contextForRunID)
+#define ksruncontext_getRunSummaryQueue KSCRASH_NS(ksruncontext_getRunSummaryQueue)
 #define ksruncontext_init KSCRASH_NS(ksruncontext_init)
 #define ksruncontext_persistPreviousRunSummary KSCRASH_NS(ksruncontext_persistPreviousRunSummary)
 #define ksruncontext_previousRunContext KSCRASH_NS(ksruncontext_previousRunContext)

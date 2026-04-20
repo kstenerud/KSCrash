@@ -367,43 +367,9 @@ static KSCrashRunSummaryHostKind hostKindFromWireString(NSString *value)
         return nil;
     }
 
-    NSString *reasonString = requiredString(outcomeDict, @"termination_reason", &ok);
-    KSCrashRunSummaryOutcome *outcome = [[KSCrashRunSummaryOutcome alloc]
-        initWithTerminationReason:ok ? kstermination_reasonFromString(reasonString.UTF8String) : KSTerminationReasonNone
-                    cleanShutdown:requiredBool(outcomeDict, @"clean_shutdown", &ok)
-                    fatalReported:requiredBool(outcomeDict, @"fatal_reported", &ok)
-                  userPerceptible:requiredBool(outcomeDict, @"user_perceptible", &ok)];
-
-    KSCrashRunSummaryDurations *durations =
-        [[KSCrashRunSummaryDurations alloc] initWithActiveMs:requiredInt64(durationsDict, @"active", &ok)
-                                                backgroundMs:requiredInt64(durationsDict, @"background", &ok)];
-
-    KSCrashRunSummarySessions *sessions = [[KSCrashRunSummarySessions alloc]
-        initWithPerceptibleCount:requiredInteger(sessionsDict, @"perceptible_count", &ok)
-              imperceptibleCount:requiredInteger(sessionsDict, @"imperceptible_count", &ok)];
-
-    KSCrashRunSummaryUsers *users = [[KSCrashRunSummaryUsers alloc]
-        initWithPerceptibleCount:requiredInteger(usersDict, @"perceptible_count", &ok)
-              imperceptibleCount:requiredInteger(usersDict, @"imperceptible_count", &ok)];
-
-    NSString *hostKindString = requiredString(appDict, @"host_kind", &ok);
-    KSCrashRunSummaryApp *app =
-        [[KSCrashRunSummaryApp alloc] initWithBundleID:requiredString(appDict, @"bundle_id", &ok) ?: @""
-                                               version:requiredString(appDict, @"version", &ok) ?: @""
-                                          shortVersion:requiredString(appDict, @"short_version", &ok) ?: @""
-                                              hostKind:hostKindFromWireString(hostKindString)];
-
-    KSCrashRunSummaryOS *os = [[KSCrashRunSummaryOS alloc] initWithName:requiredString(osDict, @"name", &ok) ?: @""
-                                                                version:requiredString(osDict, @"version", &ok) ?: @""
-                                                                  build:requiredString(osDict, @"build", &ok) ?: @""];
-
-    KSCrashRunSummaryDevice *device =
-        [[KSCrashRunSummaryDevice alloc] initWithModel:requiredString(deviceDict, @"model", &ok) ?: @""
-                                           modelFamily:requiredString(deviceDict, @"model_family", &ok) ?: @""
-                                          architecture:requiredString(deviceDict, @"architecture", &ok) ?: @""
-                                    binaryArchitecture:requiredString(deviceDict, @"binary_architecture", &ok) ?: @""
-                                          isTranslated:requiredBool(deviceDict, @"is_translated", &ok)
-                                          isJailbroken:requiredBool(deviceDict, @"is_jailbroken", &ok)];
+    // Gather every required scalar up front so we can fail once at the end
+    // instead of threading `ok` through each nested initializer. Missing any
+    // required field → nil return; no partial object is built.
 
     NSInteger schemaVersion = requiredInteger(dict, @"schema_version", &ok);
     NSString *sdkVersion = requiredString(dict, @"sdk_version", &ok);
@@ -412,13 +378,66 @@ static KSCrashRunSummaryHostKind hostKindFromWireString(NSString *value)
     int64_t startedAtMs = requiredInt64(dict, @"started_at_ms", &ok);
     int64_t endedAtMs = requiredInt64(dict, @"ended_at_ms", &ok);
 
-    // Any required scalar missing or mistyped → malformed input.
+    NSString *reasonString = requiredString(outcomeDict, @"termination_reason", &ok);
+    BOOL cleanShutdown = requiredBool(outcomeDict, @"clean_shutdown", &ok);
+    BOOL fatalReported = requiredBool(outcomeDict, @"fatal_reported", &ok);
+    BOOL userPerceptible = requiredBool(outcomeDict, @"user_perceptible", &ok);
+
+    int64_t activeMs = requiredInt64(durationsDict, @"active", &ok);
+    int64_t backgroundMs = requiredInt64(durationsDict, @"background", &ok);
+
+    NSInteger sessionsPerceptible = requiredInteger(sessionsDict, @"perceptible_count", &ok);
+    NSInteger sessionsImperceptible = requiredInteger(sessionsDict, @"imperceptible_count", &ok);
+
+    NSInteger usersPerceptible = requiredInteger(usersDict, @"perceptible_count", &ok);
+    NSInteger usersImperceptible = requiredInteger(usersDict, @"imperceptible_count", &ok);
+
+    NSString *bundleID = requiredString(appDict, @"bundle_id", &ok);
+    NSString *appVersion = requiredString(appDict, @"version", &ok);
+    NSString *appShortVersion = requiredString(appDict, @"short_version", &ok);
+    NSString *hostKindString = requiredString(appDict, @"host_kind", &ok);
+
+    NSString *osName = requiredString(osDict, @"name", &ok);
+    NSString *osVersion = requiredString(osDict, @"version", &ok);
+    NSString *osBuild = requiredString(osDict, @"build", &ok);
+
+    NSString *deviceModel = requiredString(deviceDict, @"model", &ok);
+    NSString *deviceModelFamily = requiredString(deviceDict, @"model_family", &ok);
+    NSString *deviceArchitecture = requiredString(deviceDict, @"architecture", &ok);
+    NSString *deviceBinaryArchitecture = requiredString(deviceDict, @"binary_architecture", &ok);
+    BOOL isTranslated = requiredBool(deviceDict, @"is_translated", &ok);
+    BOOL isJailbroken = requiredBool(deviceDict, @"is_jailbroken", &ok);
+
     if (!ok) {
         return nil;
     }
 
     // user_id is explicitly nullable — null / missing / wrong type all map to nil.
     NSString *userID = [dict[@"user_id"] isKindOfClass:[NSString class]] ? dict[@"user_id"] : nil;
+
+    KSCrashRunSummaryOutcome *outcome = [[KSCrashRunSummaryOutcome alloc]
+        initWithTerminationReason:kstermination_reasonFromString(reasonString.UTF8String)
+                    cleanShutdown:cleanShutdown
+                    fatalReported:fatalReported
+                  userPerceptible:userPerceptible];
+    KSCrashRunSummaryDurations *durations = [[KSCrashRunSummaryDurations alloc] initWithActiveMs:activeMs
+                                                                                    backgroundMs:backgroundMs];
+    KSCrashRunSummarySessions *sessions =
+        [[KSCrashRunSummarySessions alloc] initWithPerceptibleCount:sessionsPerceptible
+                                                 imperceptibleCount:sessionsImperceptible];
+    KSCrashRunSummaryUsers *users = [[KSCrashRunSummaryUsers alloc] initWithPerceptibleCount:usersPerceptible
+                                                                          imperceptibleCount:usersImperceptible];
+    KSCrashRunSummaryApp *app = [[KSCrashRunSummaryApp alloc] initWithBundleID:bundleID
+                                                                       version:appVersion
+                                                                  shortVersion:appShortVersion
+                                                                      hostKind:hostKindFromWireString(hostKindString)];
+    KSCrashRunSummaryOS *os = [[KSCrashRunSummaryOS alloc] initWithName:osName version:osVersion build:osBuild];
+    KSCrashRunSummaryDevice *device = [[KSCrashRunSummaryDevice alloc] initWithModel:deviceModel
+                                                                         modelFamily:deviceModelFamily
+                                                                        architecture:deviceArchitecture
+                                                                  binaryArchitecture:deviceBinaryArchitecture
+                                                                        isTranslated:isTranslated
+                                                                        isJailbroken:isJailbroken];
 
     return [[KSCrashRunSummary alloc] initWithSchemaVersion:schemaVersion
                                                  sdkVersion:sdkVersion

@@ -34,6 +34,9 @@
 // Stub sink that captures received runs and responds per-test.
 @interface KSCrashReportStore_StubRunSink : NSObject <KSCrashRunFilter>
 @property(nonatomic, copy, nullable) NSArray<KSCrashRunSummary *> *lastReceivedRuns;
+// If nil, the stub echoes received runs. Set to a subset (or empty array) to
+// simulate a sink where only some runs were accepted for delivery.
+@property(nonatomic, copy, nullable) NSArray<KSCrashRunSummary *> *runsToReturn;
 @property(nonatomic, strong, nullable) NSError *errorToReturn;
 @end
 
@@ -42,7 +45,7 @@
 {
     self.lastReceivedRuns = runs;
     if (onCompletion) {
-        onCompletion(runs, self.errorToReturn);
+        onCompletion(self.runsToReturn ?: runs, self.errorToReturn);
     }
 }
 @end
@@ -197,6 +200,10 @@
 {
     [self writeSummaryWithRunID:@"run-A"];
     KSCrashReportStore_StubRunSink *sink = [KSCrashReportStore_StubRunSink new];
+    // Simulate a well-behaved sink that failed on every run — it returns an
+    // empty filteredRuns array and signals the failure via `error`. The store
+    // deletes based on filteredRuns, so nothing should be removed.
+    sink.runsToReturn = @[];
     sink.errorToReturn = [NSError errorWithDomain:@"test" code:42 userInfo:nil];
     self.store.runSink = sink;
 
@@ -211,6 +218,37 @@
 
     XCTAssertTrue(
         [[NSFileManager defaultManager] fileExistsAtPath:[self.runsDir stringByAppendingPathComponent:@"run-A.run"]]);
+}
+
+- (void)test_sendAllRunSummaries_deletesOnlyRunsReturnedBySink
+{
+    [self writeSummaryWithRunID:@"run-A"];
+    [self writeSummaryWithRunID:@"run-B"];
+    [self writeSummaryWithRunID:@"run-C"];
+
+    KSCrashReportStore_StubRunSink *sink = [KSCrashReportStore_StubRunSink new];
+    // Sink reports partial success: A and C shipped, B did not. Store should
+    // delete A and C's files and leave B on disk for the next send.
+    sink.runsToReturn = @[
+        [self sampleSummaryWithRunID:@"run-A"],
+        [self sampleSummaryWithRunID:@"run-C"],
+    ];
+    sink.errorToReturn = [NSError errorWithDomain:@"test" code:7 userInfo:nil];
+    self.store.runSink = sink;
+
+    XCTestExpectation *done = [self expectationWithDescription:@"completion"];
+    [self.store
+        sendAllRunSummariesWithCompletion:^(NSArray<KSCrashRunSummary *> *_Nullable runs, NSError *_Nullable error) {
+            XCTAssertNotNil(error);
+            XCTAssertEqual(runs.count, 2u);
+            [done fulfill];
+        }];
+    [self waitForExpectations:@[ done ] timeout:1.0];
+
+    NSFileManager *fm = [NSFileManager defaultManager];
+    XCTAssertFalse([fm fileExistsAtPath:[self.runsDir stringByAppendingPathComponent:@"run-A.run"]]);
+    XCTAssertTrue([fm fileExistsAtPath:[self.runsDir stringByAppendingPathComponent:@"run-B.run"]]);
+    XCTAssertFalse([fm fileExistsAtPath:[self.runsDir stringByAppendingPathComponent:@"run-C.run"]]);
 }
 
 - (void)test_sendAllRunSummaries_skipsCorruptFiles
