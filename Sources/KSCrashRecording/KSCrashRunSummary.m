@@ -262,19 +262,62 @@ static NSString *hostKindWireString(KSCrashRunSummaryHostKind kind)
 
 #pragma mark - JSON decoding
 
-static NSString *stringOrEmpty(id value) { return [value isKindOfClass:[NSString class]] ? value : @""; }
+// Required-key fetchers. Each returns the value cast to the expected type,
+// or nil / false via the outOK flag when the key is missing or the value
+// has the wrong type. Chaining through outOK lets the decoder short-circuit
+// into returning nil, honoring the header contract that malformed input
+// (missing required keys, wrong types) never decodes as a "valid" summary
+// full of zeros.
 
-static int64_t int64FromValue(id value)
+static NSString *requiredString(NSDictionary *dict, NSString *key, BOOL *outOK)
 {
-    return [value isKindOfClass:[NSNumber class]] ? [(NSNumber *)value longLongValue] : 0;
+    id value = dict[key];
+    if (![value isKindOfClass:[NSString class]]) {
+        *outOK = NO;
+        return nil;
+    }
+    return (NSString *)value;
 }
 
-static NSInteger nsIntegerFromValue(id value)
+static int64_t requiredInt64(NSDictionary *dict, NSString *key, BOOL *outOK)
 {
-    return [value isKindOfClass:[NSNumber class]] ? [(NSNumber *)value integerValue] : 0;
+    id value = dict[key];
+    if (![value isKindOfClass:[NSNumber class]]) {
+        *outOK = NO;
+        return 0;
+    }
+    return [(NSNumber *)value longLongValue];
 }
 
-static BOOL boolFromValue(id value) { return [value isKindOfClass:[NSNumber class]] && [(NSNumber *)value boolValue]; }
+static NSInteger requiredInteger(NSDictionary *dict, NSString *key, BOOL *outOK)
+{
+    id value = dict[key];
+    if (![value isKindOfClass:[NSNumber class]]) {
+        *outOK = NO;
+        return 0;
+    }
+    return [(NSNumber *)value integerValue];
+}
+
+static BOOL requiredBool(NSDictionary *dict, NSString *key, BOOL *outOK)
+{
+    id value = dict[key];
+    if (![value isKindOfClass:[NSNumber class]]) {
+        *outOK = NO;
+        return NO;
+    }
+    return [(NSNumber *)value boolValue];
+}
+
+static NSDictionary *requiredDictionary(NSDictionary *dict, NSString *key, BOOL *outOK)
+{
+    id value = dict[key];
+    if (![value isKindOfClass:[NSDictionary class]]) {
+        *outOK = NO;
+        return nil;
+    }
+    return (NSDictionary *)value;
+}
 
 static KSCrashRunSummaryHostKind hostKindFromWireString(NSString *value)
 {
@@ -298,67 +341,80 @@ static KSCrashRunSummaryHostKind hostKindFromWireString(NSString *value)
     }
     NSDictionary *dict = decoded;
 
-    NSDictionary *outcomeDict = dict[@"outcome"];
-    NSDictionary *durationsDict = dict[@"durations_ms"];
-    NSDictionary *sessionsDict = dict[@"sessions"];
-    NSDictionary *usersDict = dict[@"users"];
-    NSDictionary *appDict = dict[@"app"];
-    NSDictionary *osDict = dict[@"os"];
-    NSDictionary *deviceDict = dict[@"device"];
-    if (![outcomeDict isKindOfClass:[NSDictionary class]] || ![durationsDict isKindOfClass:[NSDictionary class]] ||
-        ![sessionsDict isKindOfClass:[NSDictionary class]] || ![usersDict isKindOfClass:[NSDictionary class]] ||
-        ![appDict isKindOfClass:[NSDictionary class]] || ![osDict isKindOfClass:[NSDictionary class]] ||
-        ![deviceDict isKindOfClass:[NSDictionary class]]) {
+    BOOL ok = YES;
+
+    NSDictionary *outcomeDict = requiredDictionary(dict, @"outcome", &ok);
+    NSDictionary *durationsDict = requiredDictionary(dict, @"durations_ms", &ok);
+    NSDictionary *sessionsDict = requiredDictionary(dict, @"sessions", &ok);
+    NSDictionary *usersDict = requiredDictionary(dict, @"users", &ok);
+    NSDictionary *appDict = requiredDictionary(dict, @"app", &ok);
+    NSDictionary *osDict = requiredDictionary(dict, @"os", &ok);
+    NSDictionary *deviceDict = requiredDictionary(dict, @"device", &ok);
+    if (!ok) {
         return nil;
     }
 
-    NSString *reasonString = stringOrEmpty(outcomeDict[@"termination_reason"]);
+    NSString *reasonString = requiredString(outcomeDict, @"termination_reason", &ok);
     KSCrashRunSummaryOutcome *outcome = [[KSCrashRunSummaryOutcome alloc]
-        initWithTerminationReason:kstermination_reasonFromString(reasonString.UTF8String)
-                    cleanShutdown:boolFromValue(outcomeDict[@"clean_shutdown"])
-                    fatalReported:boolFromValue(outcomeDict[@"fatal_reported"])
-                  userPerceptible:boolFromValue(outcomeDict[@"user_perceptible"])];
+        initWithTerminationReason:ok ? kstermination_reasonFromString(reasonString.UTF8String) : KSTerminationReasonNone
+                    cleanShutdown:requiredBool(outcomeDict, @"clean_shutdown", &ok)
+                    fatalReported:requiredBool(outcomeDict, @"fatal_reported", &ok)
+                  userPerceptible:requiredBool(outcomeDict, @"user_perceptible", &ok)];
 
     KSCrashRunSummaryDurations *durations =
-        [[KSCrashRunSummaryDurations alloc] initWithActiveMs:int64FromValue(durationsDict[@"active"])
-                                                backgroundMs:int64FromValue(durationsDict[@"background"])];
+        [[KSCrashRunSummaryDurations alloc] initWithActiveMs:requiredInt64(durationsDict, @"active", &ok)
+                                                backgroundMs:requiredInt64(durationsDict, @"background", &ok)];
 
     KSCrashRunSummarySessions *sessions = [[KSCrashRunSummarySessions alloc]
-        initWithPerceptibleCount:nsIntegerFromValue(sessionsDict[@"perceptible_count"])
-              imperceptibleCount:nsIntegerFromValue(sessionsDict[@"imperceptible_count"])];
+        initWithPerceptibleCount:requiredInteger(sessionsDict, @"perceptible_count", &ok)
+              imperceptibleCount:requiredInteger(sessionsDict, @"imperceptible_count", &ok)];
 
-    KSCrashRunSummaryUsers *users =
-        [[KSCrashRunSummaryUsers alloc] initWithPerceptibleCount:nsIntegerFromValue(usersDict[@"perceptible_count"])
-                                              imperceptibleCount:nsIntegerFromValue(usersDict[@"imperceptible_count"])];
+    KSCrashRunSummaryUsers *users = [[KSCrashRunSummaryUsers alloc]
+        initWithPerceptibleCount:requiredInteger(usersDict, @"perceptible_count", &ok)
+              imperceptibleCount:requiredInteger(usersDict, @"imperceptible_count", &ok)];
 
+    NSString *hostKindString = requiredString(appDict, @"host_kind", &ok);
     KSCrashRunSummaryApp *app =
-        [[KSCrashRunSummaryApp alloc] initWithBundleID:stringOrEmpty(appDict[@"bundle_id"])
-                                               version:stringOrEmpty(appDict[@"version"])
-                                          shortVersion:stringOrEmpty(appDict[@"short_version"])
-                                              hostKind:hostKindFromWireString(stringOrEmpty(appDict[@"host_kind"]))];
+        [[KSCrashRunSummaryApp alloc] initWithBundleID:requiredString(appDict, @"bundle_id", &ok) ?: @""
+                                               version:requiredString(appDict, @"version", &ok) ?: @""
+                                          shortVersion:requiredString(appDict, @"short_version", &ok) ?: @""
+                                              hostKind:hostKindFromWireString(hostKindString)];
 
-    KSCrashRunSummaryOS *os = [[KSCrashRunSummaryOS alloc] initWithName:stringOrEmpty(osDict[@"name"])
-                                                                version:stringOrEmpty(osDict[@"version"])
-                                                                  build:stringOrEmpty(osDict[@"build"])];
+    KSCrashRunSummaryOS *os = [[KSCrashRunSummaryOS alloc] initWithName:requiredString(osDict, @"name", &ok) ?: @""
+                                                                version:requiredString(osDict, @"version", &ok) ?: @""
+                                                                  build:requiredString(osDict, @"build", &ok) ?: @""];
 
     KSCrashRunSummaryDevice *device =
-        [[KSCrashRunSummaryDevice alloc] initWithModel:stringOrEmpty(deviceDict[@"model"])
-                                           modelFamily:stringOrEmpty(deviceDict[@"model_family"])
-                                          architecture:stringOrEmpty(deviceDict[@"architecture"])
-                                    binaryArchitecture:stringOrEmpty(deviceDict[@"binary_architecture"])
-                                          isTranslated:boolFromValue(deviceDict[@"is_translated"])
-                                          isJailbroken:boolFromValue(deviceDict[@"is_jailbroken"])];
+        [[KSCrashRunSummaryDevice alloc] initWithModel:requiredString(deviceDict, @"model", &ok) ?: @""
+                                           modelFamily:requiredString(deviceDict, @"model_family", &ok) ?: @""
+                                          architecture:requiredString(deviceDict, @"architecture", &ok) ?: @""
+                                    binaryArchitecture:requiredString(deviceDict, @"binary_architecture", &ok) ?: @""
+                                          isTranslated:requiredBool(deviceDict, @"is_translated", &ok)
+                                          isJailbroken:requiredBool(deviceDict, @"is_jailbroken", &ok)];
 
+    NSInteger schemaVersion = requiredInteger(dict, @"schema_version", &ok);
+    NSString *sdkVersion = requiredString(dict, @"sdk_version", &ok);
+    NSString *runID = requiredString(dict, @"run_id", &ok);
+    NSString *deviceID = requiredString(dict, @"device_id", &ok);
+    int64_t startedAtMs = requiredInt64(dict, @"started_at_ms", &ok);
+    int64_t endedAtMs = requiredInt64(dict, @"ended_at_ms", &ok);
+
+    // Any required scalar missing or mistyped → malformed input.
+    if (!ok) {
+        return nil;
+    }
+
+    // user_id is explicitly nullable — null / missing / wrong type all map to nil.
     NSString *userID = [dict[@"user_id"] isKindOfClass:[NSString class]] ? dict[@"user_id"] : nil;
 
-    return [[KSCrashRunSummary alloc] initWithSchemaVersion:nsIntegerFromValue(dict[@"schema_version"])
-                                                 sdkVersion:stringOrEmpty(dict[@"sdk_version"])
-                                                      runID:stringOrEmpty(dict[@"run_id"])
-                                                   deviceID:stringOrEmpty(dict[@"device_id"])
+    return [[KSCrashRunSummary alloc] initWithSchemaVersion:schemaVersion
+                                                 sdkVersion:sdkVersion
+                                                      runID:runID
+                                                   deviceID:deviceID
                                                      userID:userID
                                                       users:users
-                                                startedAtMs:int64FromValue(dict[@"started_at_ms"])
-                                                  endedAtMs:int64FromValue(dict[@"ended_at_ms"])
+                                                startedAtMs:startedAtMs
+                                                  endedAtMs:endedAtMs
                                                     outcome:outcome
                                                   durations:durations
                                                    sessions:sessions

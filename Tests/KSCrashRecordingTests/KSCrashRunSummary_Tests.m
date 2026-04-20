@@ -236,4 +236,112 @@
     XCTAssertNil(summary.userID);
 }
 
+#pragma mark - Decoder rejects malformed input
+
+// Fully-valid wire-format JSON dict used as a base for the "missing key"
+// tests below. Each test removes exactly one key and asserts the decoder
+// returns nil.
+- (NSMutableDictionary *)fullyValidWireDict
+{
+    return [@{
+        @"schema_version" : @1,
+        @"sdk_version" : @"2.6.0-beta.1",
+        @"run_id" : @"r",
+        @"device_id" : @"d",
+        @"users" : @ { @"perceptible_count" : @0, @"imperceptible_count" : @0 },
+        @"started_at_ms" : @0,
+        @"ended_at_ms" : @0,
+        @"outcome" : @ {
+            @"termination_reason" : @"clean",
+            @"clean_shutdown" : @YES,
+            @"fatal_reported" : @NO,
+            @"user_perceptible" : @YES,
+        },
+        @"durations_ms" : @ { @"active" : @0, @"background" : @0 },
+        @"sessions" : @ { @"perceptible_count" : @0, @"imperceptible_count" : @0 },
+        @"app" : @ { @"bundle_id" : @"x", @"version" : @"1", @"short_version" : @"1", @"host_kind" : @"app" },
+        @"os" : @ { @"name" : @"iOS", @"version" : @"18", @"build" : @"X" },
+        @"device" : @ {
+            @"model" : @"x",
+            @"model_family" : @"x",
+            @"architecture" : @"arm64",
+            @"binary_architecture" : @"arm64",
+            @"is_translated" : @NO,
+            @"is_jailbroken" : @NO,
+        },
+    } mutableCopy];
+}
+
+- (NSData *)jsonDataFromDict:(NSDictionary *)dict
+{
+    return [NSJSONSerialization dataWithJSONObject:dict options:0 error:nil];
+}
+
+- (void)test_decoder_acceptsFullyValidDict
+{
+    KSCrashRunSummary *summary =
+        [KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:[self fullyValidWireDict]] error:nil];
+    XCTAssertNotNil(summary);
+}
+
+- (void)test_decoder_rejectsMissingTopLevelRequiredKeys
+{
+    NSArray<NSString *> *requiredKeys = @[
+        @"schema_version", @"sdk_version", @"run_id", @"device_id", @"started_at_ms", @"ended_at_ms", @"users",
+        @"outcome", @"durations_ms", @"sessions", @"app", @"os", @"device"
+    ];
+    for (NSString *key in requiredKeys) {
+        NSMutableDictionary *dict = [self fullyValidWireDict];
+        [dict removeObjectForKey:key];
+        XCTAssertNil([KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil],
+                     @"Expected nil when required key %@ is missing", key);
+    }
+}
+
+- (void)test_decoder_rejectsWrongTypes
+{
+    NSMutableDictionary *dict = [self fullyValidWireDict];
+    dict[@"run_id"] = @42;  // number where string is required
+    XCTAssertNil([KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil]);
+
+    dict = [self fullyValidWireDict];
+    dict[@"started_at_ms"] = @"not a number";
+    XCTAssertNil([KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil]);
+
+    dict = [self fullyValidWireDict];
+    dict[@"outcome"] = @"not a dict";
+    XCTAssertNil([KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil]);
+}
+
+- (void)test_decoder_rejectsMissingNestedRequiredKeys
+{
+    NSMutableDictionary *dict = [self fullyValidWireDict];
+    NSMutableDictionary *outcome = [dict[@"outcome"] mutableCopy];
+    [outcome removeObjectForKey:@"clean_shutdown"];
+    dict[@"outcome"] = outcome;
+    XCTAssertNil([KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil]);
+
+    dict = [self fullyValidWireDict];
+    NSMutableDictionary *app = [dict[@"app"] mutableCopy];
+    [app removeObjectForKey:@"host_kind"];
+    dict[@"app"] = app;
+    XCTAssertNil([KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil]);
+}
+
+- (void)test_decoder_toleratesMissingUserID
+{
+    NSMutableDictionary *dict = [self fullyValidWireDict];
+    // user_id is explicitly nullable in the header — absence is valid.
+    [dict removeObjectForKey:@"user_id"];
+    KSCrashRunSummary *summary = [KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil];
+    XCTAssertNotNil(summary);
+    XCTAssertNil(summary.userID);
+}
+
+- (void)test_decoder_rejectsNonDictionaryRoot
+{
+    NSData *rootArray = [NSJSONSerialization dataWithJSONObject:@[ @"not a dict" ] options:0 error:nil];
+    XCTAssertNil([KSCrashRunSummary summaryFromJSONData:rootArray error:nil]);
+}
+
 @end
