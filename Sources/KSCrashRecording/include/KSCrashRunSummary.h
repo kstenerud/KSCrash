@@ -45,46 +45,10 @@ typedef NS_ENUM(NSInteger, KSCrashRunSummaryHostKind) {
 @class KSCrashRunSummaryOutcome;
 @class KSCrashRunSummaryDurations;
 @class KSCrashRunSummarySessions;
-@class KSCrashRunSummaryUserID;
-@class KSCrashRunSummaryUserIDs;
+@class KSCrashRunSummaryUsers;
 @class KSCrashRunSummaryApp;
 @class KSCrashRunSummaryOS;
 @class KSCrashRunSummaryDevice;
-
-/** Sentinel string used to represent logged-out / anonymous periods inside
- *  `KSCrashRunSummaryUserIDs.perceptible` and `.imperceptible` arrays.
- *  Identity-comparable — callers can use `==` to detect anonymous slots
- *  without allocating. On the wire, anonymous periods serialize to JSON
- *  null; in ObjC/Swift arrays (which can't hold nil) this constant is
- *  used instead.
- *
- *  Swift callers typically use `RunSummary.UserID.anonymous`, which
- *  returns this exact pointer.
- *
- *  Value: `"com.kscrash.user.anon"`.
- */
-FOUNDATION_EXPORT NSString *const KSCrashRunSummaryAnonymousUserID;
-
-// ============================================================================
-#pragma mark - UserID (namespace) -
-// ============================================================================
-
-/** Namespace type for single-user-ID concepts. Not instantiable — exists to
- *  host `anonymous` as a class-property accessor for the file-level constant
- *  `KSCrashRunSummaryAnonymousUserID`. See also `KSCrashRunSummaryUserIDs`
- *  for the per-run collection of user IDs.
- */
-NS_SWIFT_NAME(RunSummary.UserID)
-__attribute__((objc_subclassing_restricted))
-@interface KSCrashRunSummaryUserID : NSObject
-
-/** Returns `KSCrashRunSummaryAnonymousUserID`. Swift: `RunSummary.UserID.anonymous`. */
-@property(class, nonatomic, readonly, copy) NSString *anonymous;
-
-- (instancetype)init NS_UNAVAILABLE;
-+ (instancetype)new NS_UNAVAILABLE;
-
-@end
 
 // ============================================================================
 #pragma mark - Outcome -
@@ -150,18 +114,21 @@ __attribute__((objc_subclassing_restricted))
 #pragma mark - UserIDs -
 // ============================================================================
 
-NS_SWIFT_NAME(RunSummary.UserIDs)
+NS_SWIFT_NAME(RunSummary.Users)
 __attribute__((objc_subclassing_restricted))
-@interface KSCrashRunSummaryUserIDs : NSObject
+@interface KSCrashRunSummaryUsers : NSObject
 
-@property(nonatomic, readonly, copy) NSArray<NSString *> *perceptible;
-@property(nonatomic, readonly, copy) NSArray<NSString *> *imperceptible;
+/** Number of distinct user IDs seen during perceptible portions of the run. */
+@property(nonatomic, readonly) NSInteger perceptibleCount;
+
+/** Number of distinct user IDs seen during imperceptible portions of the run. */
+@property(nonatomic, readonly) NSInteger imperceptibleCount;
 
 - (instancetype)init NS_UNAVAILABLE;
 + (instancetype)new NS_UNAVAILABLE;
 
-- (instancetype)initWithPerceptible:(NSArray<NSString *> *)perceptible
-                      imperceptible:(NSArray<NSString *> *)imperceptible NS_DESIGNATED_INITIALIZER;
+- (instancetype)initWithPerceptibleCount:(NSInteger)perceptibleCount
+                      imperceptibleCount:(NSInteger)imperceptibleCount NS_DESIGNATED_INITIALIZER;
 
 @end
 
@@ -266,10 +233,10 @@ __attribute__((objc_subclassing_restricted))
  */
 @property(nonatomic, readonly, copy, nullable) NSString *userID;
 
-/** Distinct user IDs seen during the run, split by perceptibility.
- *  Anonymous periods appear as `KSCrashRunSummaryUserIDs.anonymous` in the arrays.
+/** Counts of distinct user IDs seen during the run, split by perceptibility.
+ *  The IDs themselves are not stored; see `KSCrash.setUserID:` documentation.
  */
-@property(nonatomic, readonly, strong) KSCrashRunSummaryUserIDs *userIDs;
+@property(nonatomic, readonly, strong) KSCrashRunSummaryUsers *users;
 
 /** Unix epoch milliseconds (wall clock). */
 @property(nonatomic, readonly) int64_t startedAtMs;
@@ -292,7 +259,7 @@ __attribute__((objc_subclassing_restricted))
                                 runID:(NSString *)runID
                              deviceID:(NSString *)deviceID
                                userID:(nullable NSString *)userID
-                              userIDs:(KSCrashRunSummaryUserIDs *)userIDs
+                                users:(KSCrashRunSummaryUsers *)users
                           startedAtMs:(int64_t)startedAtMs
                             endedAtMs:(int64_t)endedAtMs
                               outcome:(KSCrashRunSummaryOutcome *)outcome

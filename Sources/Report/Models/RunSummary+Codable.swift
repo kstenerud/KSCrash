@@ -58,7 +58,7 @@ private struct Payload: Codable {
     let runID: String
     let deviceID: String
     let userID: String?
-    let userIDs: UserIDs
+    let users: Users
     let startedAtMs: Int64
     let endedAtMs: Int64
     let outcome: Outcome
@@ -74,7 +74,7 @@ private struct Payload: Codable {
         case runID = "run_id"
         case deviceID = "device_id"
         case userID = "user_id"
-        case userIDs = "user_ids"
+        case users = "users"
         case startedAtMs = "started_at_ms"
         case endedAtMs = "ended_at_ms"
         case outcome
@@ -91,7 +91,7 @@ private struct Payload: Codable {
         runID = summary.runID
         deviceID = summary.deviceID
         userID = summary.userID
-        userIDs = UserIDs(from: summary.userIDs)
+        users = Users(from: summary.users)
         startedAtMs = summary.startedAtMs
         endedAtMs = summary.endedAtMs
         outcome = Outcome(from: summary.outcome)
@@ -109,7 +109,7 @@ private struct Payload: Codable {
             runID: runID,
             deviceID: deviceID,
             userID: userID,
-            userIDs: userIDs.makeObjC(),
+            users: users.makeObjC(),
             startedAtMs: startedAtMs,
             endedAtMs: endedAtMs,
             outcome: outcome.makeObjC(),
@@ -195,22 +195,27 @@ extension Payload {
     }
 }
 
-// MARK: - UserIDs
+// MARK: - Users
 
 extension Payload {
-    fileprivate struct UserIDs: Codable {
-        let perceptible: [String?]
-        let imperceptible: [String?]
+    fileprivate struct Users: Codable {
+        let perceptibleCount: Int
+        let imperceptibleCount: Int
 
-        init(from userIDs: RunSummary.UserIDs) {
-            perceptible = userIDs.perceptible.map { wireUserID(from: $0) }
-            imperceptible = userIDs.imperceptible.map { wireUserID(from: $0) }
+        enum CodingKeys: String, CodingKey {
+            case perceptibleCount = "perceptible_count"
+            case imperceptibleCount = "imperceptible_count"
         }
 
-        func makeObjC() -> RunSummary.UserIDs {
-            RunSummary.UserIDs(
-                perceptible: perceptible.map { objcUserID(from: $0) },
-                imperceptible: imperceptible.map { objcUserID(from: $0) })
+        init(from users: RunSummary.Users) {
+            perceptibleCount = users.perceptibleCount
+            imperceptibleCount = users.imperceptibleCount
+        }
+
+        func makeObjC() -> RunSummary.Users {
+            RunSummary.Users(
+                perceptibleCount: perceptibleCount,
+                imperceptibleCount: imperceptibleCount)
         }
     }
 }
@@ -375,14 +380,3 @@ extension RunSummary.HostKind {
     }
 }
 
-// MARK: - User ID sentinel bridging
-
-/// Maps ObjC array element (may be the anonymous sentinel) to JSON-wire optional.
-private func wireUserID(from objcValue: String) -> String? {
-    objcValue == KSCrashRunSummaryAnonymousUserID ? nil : objcValue
-}
-
-/// Maps JSON-wire optional to ObjC array element (replaces nil with sentinel).
-private func objcUserID(from wireValue: String?) -> String {
-    wireValue ?? KSCrashRunSummaryAnonymousUserID
-}

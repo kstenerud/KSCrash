@@ -71,55 +71,14 @@
     XCTAssertEqual(sessions.imperceptibleCount, 2);
 }
 
-#pragma mark - UserIDs
+#pragma mark - Users
 
-- (void)test_anonymousSentinel_hasExpectedValue
+- (void)test_users_storesCounts
 {
-    XCTAssertEqualObjects(KSCrashRunSummaryAnonymousUserID, @"com.kscrash.user.anon");
-}
+    KSCrashRunSummaryUsers *users = [[KSCrashRunSummaryUsers alloc] initWithPerceptibleCount:3 imperceptibleCount:1];
 
-- (void)test_anonymousSentinel_isIdentityComparable
-{
-    // The constant is a true NSString *const, so two references are the same pointer
-    // and identity comparison works without falling back to -isEqual:.
-    NSString *a = KSCrashRunSummaryAnonymousUserID;
-    NSString *b = KSCrashRunSummaryAnonymousUserID;
-    XCTAssertTrue(a == b, @"Expected identical pointer for the anonymous sentinel");
-}
-
-- (void)test_anonymousSentinel_userIDAccessorReturnsSamePointer
-{
-    // The class-property form (used in Swift as `RunSummary.UserID.anonymous`)
-    // must return the exact same pointer as the file-level constant.
-    XCTAssertTrue(KSCrashRunSummaryUserID.anonymous == KSCrashRunSummaryAnonymousUserID);
-}
-
-- (void)test_userIDs_storesArrays
-{
-    NSArray<NSString *> *perceptible = @[ @"alice", KSCrashRunSummaryAnonymousUserID, @"bob" ];
-    NSArray<NSString *> *imperceptible = @[ @"bob" ];
-
-    KSCrashRunSummaryUserIDs *userIDs = [[KSCrashRunSummaryUserIDs alloc] initWithPerceptible:perceptible
-                                                                                imperceptible:imperceptible];
-
-    XCTAssertEqualObjects(userIDs.perceptible, perceptible);
-    XCTAssertEqualObjects(userIDs.imperceptible, imperceptible);
-}
-
-- (void)test_userIDs_copiesArraysDefensively
-{
-    NSMutableArray<NSString *> *mutablePerceptible = [@[ @"alice" ] mutableCopy];
-    NSMutableArray<NSString *> *mutableImperceptible = [@[ @"bob" ] mutableCopy];
-
-    KSCrashRunSummaryUserIDs *userIDs = [[KSCrashRunSummaryUserIDs alloc] initWithPerceptible:mutablePerceptible
-                                                                                imperceptible:mutableImperceptible];
-
-    // Mutating the input arrays after construction must not change the stored state.
-    [mutablePerceptible addObject:@"eve"];
-    [mutableImperceptible addObject:@"eve"];
-
-    XCTAssertEqual(userIDs.perceptible.count, (NSUInteger)1);
-    XCTAssertEqual(userIDs.imperceptible.count, (NSUInteger)1);
+    XCTAssertEqual(users.perceptibleCount, 3);
+    XCTAssertEqual(users.imperceptibleCount, 1);
 }
 
 #pragma mark - App
@@ -191,8 +150,7 @@
                                                                                     backgroundMs:45678];
     KSCrashRunSummarySessions *sessions = [[KSCrashRunSummarySessions alloc] initWithPerceptibleCount:3
                                                                                    imperceptibleCount:2];
-    KSCrashRunSummaryUserIDs *userIDs = [[KSCrashRunSummaryUserIDs alloc] initWithPerceptible:@[ @"alice", @"bob" ]
-                                                                                imperceptible:@[ @"bob" ]];
+    KSCrashRunSummaryUsers *users = [[KSCrashRunSummaryUsers alloc] initWithPerceptibleCount:2 imperceptibleCount:1];
     KSCrashRunSummaryApp *app = [[KSCrashRunSummaryApp alloc] initWithBundleID:@"com.acme.app"
                                                                        version:@"2.6.0.1234"
                                                                   shortVersion:@"2.6.0"
@@ -211,7 +169,7 @@
                                                    runID:@"a1b2c3d4-e5f6-7890-abcd-ef1234567890"
                                                 deviceID:@"0123456789abcdef"
                                                   userID:@"bob"
-                                                 userIDs:userIDs
+                                                   users:users
                                              startedAtMs:1744000000000
                                                endedAtMs:1744000180000
                                                  outcome:outcome
@@ -231,7 +189,7 @@
     XCTAssertIdentical(summary.outcome, outcome);
     XCTAssertIdentical(summary.durations, durations);
     XCTAssertIdentical(summary.sessions, sessions);
-    XCTAssertIdentical(summary.userIDs, userIDs);
+    XCTAssertIdentical(summary.users, users);
     XCTAssertIdentical(summary.app, app);
     XCTAssertIdentical(summary.os, os);
     XCTAssertIdentical(summary.device, device);
@@ -247,7 +205,7 @@
     KSCrashRunSummaryDurations *durations = [[KSCrashRunSummaryDurations alloc] initWithActiveMs:0 backgroundMs:0];
     KSCrashRunSummarySessions *sessions = [[KSCrashRunSummarySessions alloc] initWithPerceptibleCount:0
                                                                                    imperceptibleCount:1];
-    KSCrashRunSummaryUserIDs *userIDs = [[KSCrashRunSummaryUserIDs alloc] initWithPerceptible:@[] imperceptible:@[]];
+    KSCrashRunSummaryUsers *users = [[KSCrashRunSummaryUsers alloc] initWithPerceptibleCount:0 imperceptibleCount:0];
     KSCrashRunSummaryApp *app = [[KSCrashRunSummaryApp alloc] initWithBundleID:@"com.acme.app"
                                                                        version:@"1"
                                                                   shortVersion:@"1"
@@ -265,7 +223,7 @@
                                                                             runID:@"r"
                                                                          deviceID:@"d"
                                                                            userID:nil
-                                                                          userIDs:userIDs
+                                                                            users:users
                                                                       startedAtMs:0
                                                                         endedAtMs:0
                                                                           outcome:outcome

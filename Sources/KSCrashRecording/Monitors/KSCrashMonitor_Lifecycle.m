@@ -145,74 +145,82 @@ static void updateSidecarDurations(KSCrash_LifecycleData *sc)
 // ============================================================================
 #pragma mark - Distinct user tracking -
 // ============================================================================
+//
+// The two sets and g_currentUserID are guarded by g_userLock. The sidecar's
+// distinct-count fields are guarded by g_sidecarLock. These locks are never
+// held together: each call site updates the in-memory state first, grabs
+// the new count, then writes it into the sidecar in a separate critical
+// section.
 
-/** Add `userID` to the appropriate bucket for the current perceptibility and
- *  update the sidecar's count if this is the first time we've seen the user
- *  in that bucket.
- *
- *  Call with g_userLock HELD. Acquires g_sidecarLock briefly to bump counters.
- */
-static void observeCurrentUserInBucketLocked(NSString *userID, bool perceptible)
+/** Write a user bucket's count into the sidecar. Grabs g_sidecarLock. */
+static void writeDistinctUserCountToSidecar(bool perceptible, NSUInteger count)
 {
-    if (userID.length == 0) {
-        return;
-    }
-    NSMutableSet *bucket = perceptible ? g_perceptibleUsers : g_imperceptibleUsers;
-    if (bucket == nil) {
-        bucket = [NSMutableSet set];
-        if (perceptible) {
-            g_perceptibleUsers = bucket;
-        } else {
-            g_imperceptibleUsers = bucket;
-        }
-    }
-    if ([bucket containsObject:userID]) {
-        return;  // already counted
-    }
-    [bucket addObject:userID];
-
     ks_spinlock_lock(&g_sidecarLock);
     KSCrash_LifecycleData *sc = g_sidecar;
     if (sc != NULL) {
         if (perceptible) {
-            sc->distinctPerceptibleUserCount++;
+            sc->distinctPerceptibleUserCount = (uint32_t)count;
         } else {
-            sc->distinctImperceptibleUserCount++;
+            sc->distinctImperceptibleUserCount = (uint32_t)count;
         }
     }
     ks_spinlock_unlock(&g_sidecarLock);
+}
+
+/** Record `userID` in the bucket for `perceptible`. Return the new bucket
+ *  size, or 0 if there was nothing to record. Grabs g_userLock.
+ */
+static NSUInteger recordUserInBucket(NSString *userID, bool perceptible)
+{
+    if (userID.length == 0) {
+        return 0;
+    }
+    NSUInteger count = 0;
+    os_unfair_lock_lock(&g_userLock);
+    if (perceptible) {
+        if (g_perceptibleUsers == nil) g_perceptibleUsers = [NSMutableSet set];
+        [g_perceptibleUsers addObject:userID];
+        count = g_perceptibleUsers.count;
+    } else {
+        if (g_imperceptibleUsers == nil) g_imperceptibleUsers = [NSMutableSet set];
+        [g_imperceptibleUsers addObject:userID];
+        count = g_imperceptibleUsers.count;
+    }
+    os_unfair_lock_unlock(&g_userLock);
+    return count;
 }
 
 void kscm_lifecycle_observeUser(const char *userID)
 {
     NSString *asString = (userID != NULL && userID[0] != '\0') ? [NSString stringWithUTF8String:userID] : nil;
 
-    // Use the sidecar's userPerceptible flag for the current state. If the
-    // sidecar hasn't been created yet (pre-install), this is a no-op.
-    bool perceptible = false;
-    ks_spinlock_lock(&g_sidecarLock);
-    KSCrash_LifecycleData *sc = g_sidecar;
-    if (sc == NULL) {
-        ks_spinlock_unlock(&g_sidecarLock);
-        return;
-    }
-    perceptible = sc->userPerceptible != 0;
-    ks_spinlock_unlock(&g_sidecarLock);
-
     os_unfair_lock_lock(&g_userLock);
     g_currentUserID = [asString copy];
-    observeCurrentUserInBucketLocked(g_currentUserID, perceptible);
     os_unfair_lock_unlock(&g_userLock);
-}
 
-/** Called from the transition handler whenever perceptibility may have
- *  changed. If we have a known current user, counts them in the new bucket.
- */
-static void observeCurrentUserAfterPerceptibilityChange(bool newPerceptible)
-{
-    os_unfair_lock_lock(&g_userLock);
-    observeCurrentUserInBucketLocked(g_currentUserID, newPerceptible);
-    os_unfair_lock_unlock(&g_userLock);
+    if (asString.length == 0) {
+        return;  // nothing to count
+    }
+
+    // Read perceptibility from the sidecar. createSidecar() populates this
+    // on install from the current app state, so it's accurate before any
+    // transition has fired (unlike the atomic g_transitionState which
+    // starts at Startup).
+    bool perceptible = false;
+    ks_spinlock_lock(&g_sidecarLock);
+    bool haveSidecar = g_sidecar != NULL;
+    if (haveSidecar) {
+        perceptible = g_sidecar->userPerceptible != 0;
+    }
+    ks_spinlock_unlock(&g_sidecarLock);
+    if (!haveSidecar) {
+        return;  // pre-install no-op
+    }
+
+    NSUInteger count = recordUserInBucket(asString, perceptible);
+    if (count > 0) {
+        writeDistinctUserCountToSidecar(perceptible, count);
+    }
 }
 
 bool kslifecycle_readData(const char *path, KSCrash_LifecycleData *out)
@@ -331,12 +339,17 @@ static void onTransitionState(KSCrashAppTransitionState transitionState)
     updateSidecarTaskRole(sc);
     ks_spinlock_unlock(&g_sidecarLock);
 
-    // If perceptibility just flipped, the current user (if any) is now in a
-    // new bucket. Record that. This is the only place in the transition
-    // handler that grabs the user lock — keep it after the sidecar lock
-    // release to avoid nested locking.
+    // Perceptibility flipped: the current user (if any) is now in a new
+    // bucket. Recording happens after the sidecar lock is released so the
+    // two locks never nest.
     if (newPerceptible != previousPerceptible) {
-        observeCurrentUserAfterPerceptibilityChange(newPerceptible);
+        os_unfair_lock_lock(&g_userLock);
+        NSString *user = g_currentUserID;
+        os_unfair_lock_unlock(&g_userLock);
+        NSUInteger count = recordUserInBucket(user, newPerceptible);
+        if (count > 0) {
+            writeDistinctUserCountToSidecar(newPerceptible, count);
+        }
     }
 }
 

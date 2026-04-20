@@ -26,17 +26,6 @@
 
 #import "KSCrashRunSummary.h"
 
-NSString *const KSCrashRunSummaryAnonymousUserID = @"com.kscrash.user.anon";
-
-@implementation KSCrashRunSummaryUserID
-
-+ (NSString *)anonymous
-{
-    return KSCrashRunSummaryAnonymousUserID;
-}
-
-@end
-
 @implementation KSCrashRunSummaryOutcome
 
 - (instancetype)initWithTerminationReason:(KSTerminationReason)terminationReason
@@ -81,14 +70,13 @@ NSString *const KSCrashRunSummaryAnonymousUserID = @"com.kscrash.user.anon";
 
 @end
 
-@implementation KSCrashRunSummaryUserIDs
+@implementation KSCrashRunSummaryUsers
 
-- (instancetype)initWithPerceptible:(NSArray<NSString *> *)perceptible
-                      imperceptible:(NSArray<NSString *> *)imperceptible
+- (instancetype)initWithPerceptibleCount:(NSInteger)perceptibleCount imperceptibleCount:(NSInteger)imperceptibleCount
 {
     if ((self = [super init])) {
-        _perceptible = [perceptible copy];
-        _imperceptible = [imperceptible copy];
+        _perceptibleCount = perceptibleCount;
+        _imperceptibleCount = imperceptibleCount;
     }
     return self;
 }
@@ -156,7 +144,7 @@ NSString *const KSCrashRunSummaryAnonymousUserID = @"com.kscrash.user.anon";
                                 runID:(NSString *)runID
                              deviceID:(NSString *)deviceID
                                userID:(NSString *)userID
-                              userIDs:(KSCrashRunSummaryUserIDs *)userIDs
+                                users:(KSCrashRunSummaryUsers *)users
                           startedAtMs:(int64_t)startedAtMs
                             endedAtMs:(int64_t)endedAtMs
                               outcome:(KSCrashRunSummaryOutcome *)outcome
@@ -172,7 +160,7 @@ NSString *const KSCrashRunSummaryAnonymousUserID = @"com.kscrash.user.anon";
         _runID = [runID copy];
         _deviceID = [deviceID copy];
         _userID = [userID copy];
-        _userIDs = userIDs;
+        _users = users;
         _startedAtMs = startedAtMs;
         _endedAtMs = endedAtMs;
         _outcome = outcome;

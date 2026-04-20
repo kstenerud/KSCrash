@@ -35,8 +35,8 @@ final class RunSummaryCodableTests: XCTestCase {
 
     private func makeSummary(
         userID: String? = "bob",
-        userIDsPerceptible: [String] = ["alice", "bob"],
-        userIDsImperceptible: [String] = ["bob"],
+        perceptibleUserCount: Int = 2,
+        imperceptibleUserCount: Int = 1,
         terminationReason: KSCrashRecording.TerminationReason = .clean,
         hostKind: RunSummary.HostKind = .app
     ) -> RunSummary {
@@ -47,7 +47,9 @@ final class RunSummaryCodableTests: XCTestCase {
             userPerceptible: true)
         let durations = RunSummary.Durations(activeMs: 123_456, backgroundMs: 45_678)
         let sessions = RunSummary.Sessions(perceptibleCount: 3, imperceptibleCount: 2)
-        let userIDs = RunSummary.UserIDs(perceptible: userIDsPerceptible, imperceptible: userIDsImperceptible)
+        let users = RunSummary.Users(
+            perceptibleCount: perceptibleUserCount,
+            imperceptibleCount: imperceptibleUserCount)
         let app = RunSummary.App(
             bundleID: "com.acme.app",
             version: "2.6.0.1234",
@@ -67,7 +69,7 @@ final class RunSummaryCodableTests: XCTestCase {
             runID: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
             deviceID: "0123456789abcdef",
             userID: userID,
-            userIDs: userIDs,
+            users: users,
             startedAtMs: 1_744_000_000_000,
             endedAtMs: 1_744_000_180_000,
             outcome: outcome,
@@ -94,8 +96,8 @@ final class RunSummaryCodableTests: XCTestCase {
         XCTAssertEqual(decoded.runID, original.runID)
         XCTAssertEqual(decoded.deviceID, original.deviceID)
         XCTAssertEqual(decoded.userID, original.userID)
-        XCTAssertEqual(decoded.userIDs.perceptible, original.userIDs.perceptible)
-        XCTAssertEqual(decoded.userIDs.imperceptible, original.userIDs.imperceptible)
+        XCTAssertEqual(decoded.users.perceptibleCount, original.users.perceptibleCount)
+        XCTAssertEqual(decoded.users.imperceptibleCount, original.users.imperceptibleCount)
         XCTAssertEqual(decoded.startedAtMs, original.startedAtMs)
         XCTAssertEqual(decoded.endedAtMs, original.endedAtMs)
         XCTAssertEqual(decoded.outcome.terminationReason, original.outcome.terminationReason)
@@ -139,7 +141,7 @@ final class RunSummaryCodableTests: XCTestCase {
         XCTAssertNotNil(json["run_id"])
         XCTAssertNotNil(json["device_id"])
         XCTAssertNotNil(json["user_id"])
-        XCTAssertNotNil(json["user_ids"])
+        XCTAssertNotNil(json["users"])
         XCTAssertNotNil(json["started_at_ms"])
         XCTAssertNotNil(json["ended_at_ms"])
         XCTAssertNotNil(json["durations_ms"])
@@ -180,36 +182,14 @@ final class RunSummaryCodableTests: XCTestCase {
         XCTAssertEqual(app["host_kind"] as? String, "extension")
     }
 
-    // MARK: - Anonymous sentinel bridging
+    // MARK: - users counts
 
-    func test_wireFormat_anonymousSentinelSerializesToNull() throws {
-        let objcArray = ["alice", KSCrashRunSummaryAnonymousUserID, "bob"]
-        let summary = makeSummary(userIDsPerceptible: objcArray, userIDsImperceptible: [])
-        let data = try summary.jsonData()
+    func test_wireFormat_usersAreCounts() throws {
+        let data = try makeSummary(perceptibleUserCount: 5, imperceptibleUserCount: 2).jsonData()
         let json = try asJSONObject(data)
-        let userIDs = try XCTUnwrap(json["user_ids"] as? [String: Any])
-        let perceptible = try XCTUnwrap(userIDs["perceptible"] as? [Any])
-
-        XCTAssertEqual(perceptible.count, 3)
-        XCTAssertEqual(perceptible[0] as? String, "alice")
-        XCTAssertTrue(perceptible[1] is NSNull, "Anonymous slot should serialize as JSON null")
-        XCTAssertEqual(perceptible[2] as? String, "bob")
-    }
-
-    func test_roundtrip_anonymousSentinelPreserved() throws {
-        let objcArray = ["alice", KSCrashRunSummaryAnonymousUserID, "bob"]
-        let original = makeSummary(userIDsPerceptible: objcArray, userIDsImperceptible: [])
-        let data = try original.jsonData()
-        let decoded = try RunSummary.decode(from: data)
-
-        XCTAssertEqual(decoded.userIDs.perceptible.count, 3)
-        XCTAssertEqual(decoded.userIDs.perceptible[0], "alice")
-        // Identity comparison: the decoder should produce the same pointer as the
-        // file-level constant, not a fresh equal string.
-        XCTAssertTrue(
-            decoded.userIDs.perceptible[1] == KSCrashRunSummaryAnonymousUserID,
-            "Decoded anonymous slot should be the sentinel constant pointer")
-        XCTAssertEqual(decoded.userIDs.perceptible[2], "bob")
+        let users = try XCTUnwrap(json["users"] as? [String: Any])
+        XCTAssertEqual(users["perceptible_count"] as? Int, 5)
+        XCTAssertEqual(users["imperceptible_count"] as? Int, 2)
     }
 
     // MARK: - Unknown tolerance
@@ -222,7 +202,7 @@ final class RunSummaryCodableTests: XCTestCase {
               "run_id": "r",
               "device_id": "d",
               "user_id": null,
-              "user_ids": { "perceptible": [], "imperceptible": [] },
+              "users": { "perceptible_count": 0, "imperceptible_count": 0 },
               "started_at_ms": 0,
               "ended_at_ms": 0,
               "outcome": {
