@@ -27,8 +27,8 @@
 #import <Foundation/Foundation.h>
 
 #include "KSCrashNamespace.h"
-#import "KSCrashRunFilter.h"
 #import "KSCrashReportFilter.h"
+#import "KSCrashRunFilter.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -144,6 +144,20 @@ NS_SWIFT_NAME(CrashReportStore)
  * @param onCompletion Called when sending is complete (nil = ignore).
  */
 - (void)sendReportWithID:(KSCrashReportID)reportID completion:(nullable KSCrashReportFilterCompletion)onCompletion;
+
+/** Send all pending run summaries to the current @c runSink.
+ *
+ *  Reads each `<runSummariesPath>/<runID>.json` file, decodes it, passes
+ *  the array to the run sink's @c filterRuns:onCompletion:. Files are
+ *  deleted on successful send (error == nil); on error, files are kept
+ *  for retry on the next call.
+ *
+ *  @note @c runSink MUST be set or else this method calls @c onCompletion
+ *  with an error.
+ *
+ *  @param onCompletion Called when sending is complete (nil = ignore).
+ */
+- (void)sendAllRunSummariesWithCompletion:(nullable KSCrashRunFilterCompletion)onCompletion;
 
 /** Send a single report by ID, optionally including current-run reports.
  *

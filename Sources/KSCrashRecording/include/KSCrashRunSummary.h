@@ -274,6 +274,13 @@ __attribute__((objc_subclassing_restricted))
  */
 - (nullable NSData *)jsonData;
 
+/** Decode a summary from JSON matching the wire schema. Unknown enum
+ *  values map to their respective `None`/`Other` cases. Returns nil if
+ *  the data is malformed or missing required keys.
+ */
++ (nullable instancetype)summaryFromJSONData:(NSData *)data
+                                       error:(NSError *_Nullable *_Nullable)error NS_SWIFT_NAME(decode(from:));
+
 @end
 
 NS_ASSUME_NONNULL_END

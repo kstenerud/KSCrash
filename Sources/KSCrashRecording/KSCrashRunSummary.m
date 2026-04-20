@@ -260,4 +260,111 @@ static NSString *hostKindWireString(KSCrashRunSummaryHostKind kind)
     return data;
 }
 
+#pragma mark - JSON decoding
+
+static NSString *stringOrEmpty(id value) { return [value isKindOfClass:[NSString class]] ? value : @""; }
+
+static int64_t int64FromValue(id value)
+{
+    return [value isKindOfClass:[NSNumber class]] ? [(NSNumber *)value longLongValue] : 0;
+}
+
+static NSInteger nsIntegerFromValue(id value)
+{
+    return [value isKindOfClass:[NSNumber class]] ? [(NSNumber *)value integerValue] : 0;
+}
+
+static BOOL boolFromValue(id value) { return [value isKindOfClass:[NSNumber class]] && [(NSNumber *)value boolValue]; }
+
+static KSCrashRunSummaryHostKind hostKindFromWireString(NSString *value)
+{
+    if ([value isEqualToString:@"app"]) {
+        return KSCrashRunSummaryHostKindApp;
+    }
+    if ([value isEqualToString:@"extension"]) {
+        return KSCrashRunSummaryHostKindExtension;
+    }
+    if ([value isEqualToString:@"xctest"]) {
+        return KSCrashRunSummaryHostKindXCTest;
+    }
+    return KSCrashRunSummaryHostKindOther;
+}
+
++ (instancetype)summaryFromJSONData:(NSData *)data error:(NSError **)error
+{
+    id decoded = [NSJSONSerialization JSONObjectWithData:data options:0 error:error];
+    if (![decoded isKindOfClass:[NSDictionary class]]) {
+        return nil;
+    }
+    NSDictionary *dict = decoded;
+
+    NSDictionary *outcomeDict = dict[@"outcome"];
+    NSDictionary *durationsDict = dict[@"durations_ms"];
+    NSDictionary *sessionsDict = dict[@"sessions"];
+    NSDictionary *usersDict = dict[@"users"];
+    NSDictionary *appDict = dict[@"app"];
+    NSDictionary *osDict = dict[@"os"];
+    NSDictionary *deviceDict = dict[@"device"];
+    if (![outcomeDict isKindOfClass:[NSDictionary class]] || ![durationsDict isKindOfClass:[NSDictionary class]] ||
+        ![sessionsDict isKindOfClass:[NSDictionary class]] || ![usersDict isKindOfClass:[NSDictionary class]] ||
+        ![appDict isKindOfClass:[NSDictionary class]] || ![osDict isKindOfClass:[NSDictionary class]] ||
+        ![deviceDict isKindOfClass:[NSDictionary class]]) {
+        return nil;
+    }
+
+    NSString *reasonString = stringOrEmpty(outcomeDict[@"termination_reason"]);
+    KSCrashRunSummaryOutcome *outcome = [[KSCrashRunSummaryOutcome alloc]
+        initWithTerminationReason:kstermination_reasonFromString(reasonString.UTF8String)
+                    cleanShutdown:boolFromValue(outcomeDict[@"clean_shutdown"])
+                    fatalReported:boolFromValue(outcomeDict[@"fatal_reported"])
+                  userPerceptible:boolFromValue(outcomeDict[@"user_perceptible"])];
+
+    KSCrashRunSummaryDurations *durations =
+        [[KSCrashRunSummaryDurations alloc] initWithActiveMs:int64FromValue(durationsDict[@"active"])
+                                                backgroundMs:int64FromValue(durationsDict[@"background"])];
+
+    KSCrashRunSummarySessions *sessions = [[KSCrashRunSummarySessions alloc]
+        initWithPerceptibleCount:nsIntegerFromValue(sessionsDict[@"perceptible_count"])
+              imperceptibleCount:nsIntegerFromValue(sessionsDict[@"imperceptible_count"])];
+
+    KSCrashRunSummaryUsers *users =
+        [[KSCrashRunSummaryUsers alloc] initWithPerceptibleCount:nsIntegerFromValue(usersDict[@"perceptible_count"])
+                                              imperceptibleCount:nsIntegerFromValue(usersDict[@"imperceptible_count"])];
+
+    KSCrashRunSummaryApp *app =
+        [[KSCrashRunSummaryApp alloc] initWithBundleID:stringOrEmpty(appDict[@"bundle_id"])
+                                               version:stringOrEmpty(appDict[@"version"])
+                                          shortVersion:stringOrEmpty(appDict[@"short_version"])
+                                              hostKind:hostKindFromWireString(stringOrEmpty(appDict[@"host_kind"]))];
+
+    KSCrashRunSummaryOS *os = [[KSCrashRunSummaryOS alloc] initWithName:stringOrEmpty(osDict[@"name"])
+                                                                version:stringOrEmpty(osDict[@"version"])
+                                                                  build:stringOrEmpty(osDict[@"build"])];
+
+    KSCrashRunSummaryDevice *device =
+        [[KSCrashRunSummaryDevice alloc] initWithModel:stringOrEmpty(deviceDict[@"model"])
+                                           modelFamily:stringOrEmpty(deviceDict[@"model_family"])
+                                          architecture:stringOrEmpty(deviceDict[@"architecture"])
+                                    binaryArchitecture:stringOrEmpty(deviceDict[@"binary_architecture"])
+                                          isTranslated:boolFromValue(deviceDict[@"is_translated"])
+                                          isJailbroken:boolFromValue(deviceDict[@"is_jailbroken"])];
+
+    NSString *userID = [dict[@"user_id"] isKindOfClass:[NSString class]] ? dict[@"user_id"] : nil;
+
+    return [[KSCrashRunSummary alloc] initWithSchemaVersion:nsIntegerFromValue(dict[@"schema_version"])
+                                                 sdkVersion:stringOrEmpty(dict[@"sdk_version"])
+                                                      runID:stringOrEmpty(dict[@"run_id"])
+                                                   deviceID:stringOrEmpty(dict[@"device_id"])
+                                                     userID:userID
+                                                      users:users
+                                                startedAtMs:int64FromValue(dict[@"started_at_ms"])
+                                                  endedAtMs:int64FromValue(dict[@"ended_at_ms"])
+                                                    outcome:outcome
+                                                  durations:durations
+                                                   sessions:sessions
+                                                        app:app
+                                                         os:os
+                                                     device:device];
+}
+
 @end

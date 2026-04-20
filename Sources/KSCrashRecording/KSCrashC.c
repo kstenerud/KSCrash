@@ -504,7 +504,8 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     }
     kscm_notifyPostMonitorsEnabled();
     ksruncontext_init(getRunSidecarPathForRunIDCallback);
-    ksruncontext_persistPreviousRunSummary(installPath, configuration->reportStoreConfiguration.maxRunSummaryCount);
+    ksruncontext_persistPreviousRunSummary(configuration->reportStoreConfiguration.runSummariesPath,
+                                           configuration->reportStoreConfiguration.maxRunSummaryCount);
     kscm_notifyPostSystemEnable();
 
     g_installed = true;

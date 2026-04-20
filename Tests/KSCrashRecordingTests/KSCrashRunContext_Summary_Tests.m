@@ -296,7 +296,7 @@ extern void ksruncontext_testcode_setCachedSummary(KSCrashRunSummary *summary, c
     KSCrashRunSummary *summary = ksruncontext_testcode_buildSummary(&ctx, NULL);
     ksruncontext_testcode_setCachedSummary(summary, ctx.runID);
 
-    ksruncontext_persistPreviousRunSummary(self.tempDir.UTF8String, 50);
+    ksruncontext_persistPreviousRunSummary(self.runsDir.UTF8String, 50);
 
     NSString *expectedPath =
         [self.tempDir stringByAppendingPathComponent:[NSString stringWithFormat:@"Runs/%s.json", ctx.runID]];
@@ -317,7 +317,7 @@ extern void ksruncontext_testcode_setCachedSummary(KSCrashRunSummary *summary, c
     ksruncontext_testcode_setCachedSummary(nil, NULL);
 
     // Shouldn't crash, shouldn't create the Runs/ directory.
-    ksruncontext_persistPreviousRunSummary(self.tempDir.UTF8String, 50);
+    ksruncontext_persistPreviousRunSummary(self.runsDir.UTF8String, 50);
 
     XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:self.runsDir]);
 }
@@ -329,7 +329,7 @@ extern void ksruncontext_testcode_setCachedSummary(KSCrashRunSummary *summary, c
     KSCrashRunSummary *summary = ksruncontext_testcode_buildSummary(&ctx, NULL);
     ksruncontext_testcode_setCachedSummary(summary, ctx.runID);
 
-    ksruncontext_persistPreviousRunSummary(self.tempDir.UTF8String, 0);
+    ksruncontext_persistPreviousRunSummary(self.runsDir.UTF8String, 0);
 
     XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:self.runsDir]);
 
@@ -349,7 +349,7 @@ extern void ksruncontext_testcode_setCachedSummary(KSCrashRunSummary *summary, c
     ksruncontext_testcode_setCachedSummary(summary, ctx.runID);
 
     // Cap 3 → prune to 2, then write the new one → total 3.
-    ksruncontext_persistPreviousRunSummary(self.tempDir.UTF8String, 3);
+    ksruncontext_persistPreviousRunSummary(self.runsDir.UTF8String, 3);
 
     NSArray<NSString *> *contents = [self runsDirContents];
     XCTAssertEqual(contents.count, 3u);
@@ -373,7 +373,7 @@ extern void ksruncontext_testcode_setCachedSummary(KSCrashRunSummary *summary, c
     KSCrashRunSummary *summary = ksruncontext_testcode_buildSummary(&ctx, NULL);
     ksruncontext_testcode_setCachedSummary(summary, ctx.runID);
 
-    ksruncontext_persistPreviousRunSummary(self.tempDir.UTF8String, 5);
+    ksruncontext_persistPreviousRunSummary(self.runsDir.UTF8String, 5);
 
     NSArray<NSString *> *contents = [self runsDirContents];
     XCTAssertEqual(contents.count, 3u);  // 2 seeded + 1 new, all survive.
@@ -394,7 +394,7 @@ extern void ksruncontext_testcode_setCachedSummary(KSCrashRunSummary *summary, c
     ksruncontext_testcode_setCachedSummary(summary, ctx.runID);
 
     // Cap 1 → prune the single seed, keep the .tmp, write the new .json.
-    ksruncontext_persistPreviousRunSummary(self.tempDir.UTF8String, 1);
+    ksruncontext_persistPreviousRunSummary(self.runsDir.UTF8String, 1);
 
     NSArray<NSString *> *contents = [self runsDirContents];
     XCTAssertTrue([contents containsObject:@"scratch.tmp"]);

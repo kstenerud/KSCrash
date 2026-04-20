@@ -33,6 +33,7 @@
 #import "KSCrashReportFields.h"
 #import "KSCrashReportFilter.h"
 #import "KSCrashReportStoreC+Private.h"
+#import "KSCrashRunSummary.h"
 #import "KSJSONCodecObjC.h"
 #import "KSNSErrorHelper.h"
 
@@ -203,6 +204,75 @@ const KSCrashReportID KSCrashReportNoID = 0;
 - (void)cleanupOrphanedRunSidecars
 {
     kscrs_cleanupOrphanedRunSidecars(&_cConfig);
+}
+
+#pragma mark - Run summaries
+
+- (void)sendAllRunSummariesWithCompletion:(KSCrashRunFilterCompletion)onCompletion
+{
+    if (self.runSink == nil) {
+        if (onCompletion) {
+            onCompletion(@[], [KSNSErrorHelper errorWithDomain:[[self class] description]
+                                                          code:0
+                                                   description:@"No run sink set. Run summaries not sent."]);
+        }
+        return;
+    }
+
+    const char *runsDirC = _cConfig.runSummariesPath;
+    if (runsDirC == NULL || runsDirC[0] == '\0') {
+        if (onCompletion) {
+            onCompletion(@[], nil);
+        }
+        return;
+    }
+
+    NSString *runsDir = [NSString stringWithUTF8String:runsDirC];
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSArray<NSString *> *entries = [fm contentsOfDirectoryAtPath:runsDir error:nil];
+    NSMutableArray<KSCrashRunSummary *> *summaries = [NSMutableArray arrayWithCapacity:entries.count];
+    NSMutableArray<NSString *> *paths = [NSMutableArray arrayWithCapacity:entries.count];
+    for (NSString *entry in entries) {
+        if (![entry.pathExtension.lowercaseString isEqualToString:@"json"]) {
+            continue;
+        }
+        NSString *path = [runsDir stringByAppendingPathComponent:entry];
+        NSData *data = [NSData dataWithContentsOfFile:path];
+        if (data == nil) {
+            continue;
+        }
+        KSCrashRunSummary *summary = [KSCrashRunSummary summaryFromJSONData:data error:nil];
+        if (summary == nil) {
+            // Corrupt file — leave it alone, will be pruned by the backlog
+            // cap on the next install if it keeps failing.
+            KSLOG_ERROR(@"Failed to decode run summary at %@", path);
+            continue;
+        }
+        [summaries addObject:summary];
+        [paths addObject:path];
+    }
+
+    if (summaries.count == 0) {
+        if (onCompletion) {
+            onCompletion(@[], nil);
+        }
+        return;
+    }
+
+    [self.runSink filterRuns:summaries
+                onCompletion:^(NSArray<KSCrashRunSummary *> *_Nullable filteredRuns, NSError *_Nullable error) {
+                    if (error != nil) {
+                        KSLOG_ERROR(@"Failed to send run summaries: %@", error);
+                    } else {
+                        NSFileManager *innerFM = [NSFileManager defaultManager];
+                        for (NSString *path in paths) {
+                            [innerFM removeItemAtPath:path error:nil];
+                        }
+                    }
+                    if (onCompletion) {
+                        onCompletion(filteredRuns, error);
+                    }
+                }];
 }
 
 #pragma mark - Private API

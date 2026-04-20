@@ -28,8 +28,6 @@ import Foundation
 import KSCrashRecording
 import XCTest
 
-@testable import Report
-
 final class RunSummaryCodableTests: XCTestCase {
     // MARK: - Helpers
 

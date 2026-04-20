@@ -308,25 +308,20 @@ static void pruneOldSummaries(NSString *runsDir, int maxSummaryCount)
     }
 }
 
-void ksruncontext_persistPreviousRunSummary(const char *installPath, int maxSummaryCount)
+void ksruncontext_persistPreviousRunSummary(const char *runSummariesPath, int maxSummaryCount)
 {
-    if (g_summary == nil || installPath == NULL || installPath[0] == '\0' || maxSummaryCount <= 0) {
+    if (g_summary == nil || runSummariesPath == NULL || runSummariesPath[0] == '\0' || maxSummaryCount <= 0) {
         return;
     }
 
-    char dir[KSFU_MAX_PATH_LENGTH];
-    if (snprintf(dir, sizeof(dir), "%s/Runs", installPath) >= (int)sizeof(dir)) {
-        KSLOG_ERROR(@"Run summary path too long: %s/Runs", installPath);
-        return;
-    }
-    if (!ksfu_makePath(dir)) {
-        KSLOG_ERROR(@"Failed to create run summary dir %s", dir);
+    if (!ksfu_makePath(runSummariesPath)) {
+        KSLOG_ERROR(@"Failed to create run summary dir %s", runSummariesPath);
         return;
     }
 
     char path[KSFU_MAX_PATH_LENGTH];
-    if (snprintf(path, sizeof(path), "%s/%s.json", dir, g_context.runID) >= (int)sizeof(path)) {
-        KSLOG_ERROR(@"Run summary file path too long: %s/%s.json", dir, g_context.runID);
+    if (snprintf(path, sizeof(path), "%s/%s.json", runSummariesPath, g_context.runID) >= (int)sizeof(path)) {
+        KSLOG_ERROR(@"Run summary file path too long: %s/%s.json", runSummariesPath, g_context.runID);
         return;
     }
 
@@ -335,7 +330,7 @@ void ksruncontext_persistPreviousRunSummary(const char *installPath, int maxSumm
         return;  // Error already logged in -jsonData.
     }
 
-    pruneOldSummaries([NSString stringWithUTF8String:dir], maxSummaryCount);
+    pruneOldSummaries([NSString stringWithUTF8String:runSummariesPath], maxSummaryCount);
 
     NSError *error = nil;
     NSString *nsPath = [NSString stringWithUTF8String:path];
