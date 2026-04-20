@@ -269,6 +269,15 @@ static NSString *hostKindWireString(KSCrashRunSummaryHostKind kind)
 // (missing required keys, wrong types) never decodes as a "valid" summary
 // full of zeros.
 
+// NSJSONSerialization represents JSON booleans as __NSCFBoolean, a subclass
+// of NSNumber — so `isKindOfClass:[NSNumber class]` accepts booleans as
+// numbers and vice versa. We disambiguate via CFBooleanGetTypeID so
+// {"schema_version": true} or {"clean_shutdown": 2} are rejected as
+// malformed instead of silently coerced.
+static BOOL isJSONBoolean(id value) { return CFGetTypeID((__bridge CFTypeRef)value) == CFBooleanGetTypeID(); }
+
+static BOOL isJSONNumber(id value) { return [value isKindOfClass:[NSNumber class]] && !isJSONBoolean(value); }
+
 static NSString *requiredString(NSDictionary *dict, NSString *key, BOOL *outOK)
 {
     id value = dict[key];
@@ -282,7 +291,7 @@ static NSString *requiredString(NSDictionary *dict, NSString *key, BOOL *outOK)
 static int64_t requiredInt64(NSDictionary *dict, NSString *key, BOOL *outOK)
 {
     id value = dict[key];
-    if (![value isKindOfClass:[NSNumber class]]) {
+    if (!isJSONNumber(value)) {
         *outOK = NO;
         return 0;
     }
@@ -292,7 +301,7 @@ static int64_t requiredInt64(NSDictionary *dict, NSString *key, BOOL *outOK)
 static NSInteger requiredInteger(NSDictionary *dict, NSString *key, BOOL *outOK)
 {
     id value = dict[key];
-    if (![value isKindOfClass:[NSNumber class]]) {
+    if (!isJSONNumber(value)) {
         *outOK = NO;
         return 0;
     }
@@ -302,7 +311,7 @@ static NSInteger requiredInteger(NSDictionary *dict, NSString *key, BOOL *outOK)
 static BOOL requiredBool(NSDictionary *dict, NSString *key, BOOL *outOK)
 {
     id value = dict[key];
-    if (![value isKindOfClass:[NSNumber class]]) {
+    if (value == nil || !isJSONBoolean(value)) {
         *outOK = NO;
         return NO;
     }

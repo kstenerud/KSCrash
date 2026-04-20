@@ -344,4 +344,52 @@
     XCTAssertNil([KSCrashRunSummary summaryFromJSONData:rootArray error:nil]);
 }
 
+// Under NSJSONSerialization JSON booleans are __NSCFBoolean (an NSNumber
+// subclass), so a naive isKindOfClass:[NSNumber class] check accepts
+// {"schema_version": true} and {"clean_shutdown": 2} alike. These tests
+// lock in that the decoder distinguishes the two.
+- (void)test_decoder_rejectsBooleanWhereNumberRequired
+{
+    NSMutableDictionary *dict = [self fullyValidWireDict];
+    dict[@"schema_version"] = @YES;
+    XCTAssertNil([KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil]);
+
+    dict = [self fullyValidWireDict];
+    dict[@"started_at_ms"] = @NO;
+    XCTAssertNil([KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil]);
+
+    dict = [self fullyValidWireDict];
+    NSMutableDictionary *durations = [dict[@"durations_ms"] mutableCopy];
+    durations[@"active"] = @YES;
+    dict[@"durations_ms"] = durations;
+    XCTAssertNil([KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil]);
+
+    dict = [self fullyValidWireDict];
+    NSMutableDictionary *users = [dict[@"users"] mutableCopy];
+    users[@"perceptible_count"] = @YES;
+    dict[@"users"] = users;
+    XCTAssertNil([KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil]);
+}
+
+- (void)test_decoder_rejectsNumberWhereBooleanRequired
+{
+    NSMutableDictionary *dict = [self fullyValidWireDict];
+    NSMutableDictionary *outcome = [dict[@"outcome"] mutableCopy];
+    outcome[@"clean_shutdown"] = @2;
+    dict[@"outcome"] = outcome;
+    XCTAssertNil([KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil]);
+
+    dict = [self fullyValidWireDict];
+    outcome = [dict[@"outcome"] mutableCopy];
+    outcome[@"fatal_reported"] = @0;  // 0 also rejected — bool is not a synonym for "zero"
+    dict[@"outcome"] = outcome;
+    XCTAssertNil([KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil]);
+
+    dict = [self fullyValidWireDict];
+    NSMutableDictionary *device = [dict[@"device"] mutableCopy];
+    device[@"is_translated"] = @1;
+    dict[@"device"] = device;
+    XCTAssertNil([KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil]);
+}
+
 @end
