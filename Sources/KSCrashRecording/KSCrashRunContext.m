@@ -269,9 +269,48 @@ const KSCrashRunContext *ksruncontext_previousRunContext(void) { return &g_conte
 
 KSCrashRunSummary *ksruncontext_previousRunSummary(void) { return g_summary; }
 
-void ksruncontext_persistPreviousRunSummary(const char *installPath)
+// Prune summary files in `runsDir` by modification time (oldest first) so
+// that, after callers write one more file, the total count does not exceed
+// `backlogCap`. No-op if the directory is already under the target.
+static void pruneOldSummaries(NSString *runsDir, int backlogCap)
 {
-    if (g_summary == nil || installPath == NULL || installPath[0] == '\0') {
+    // We're about to write one more file, so allow at most backlogCap - 1
+    // existing files to survive. If backlogCap is 1, we clear everything.
+    NSInteger keep = (NSInteger)backlogCap - 1;
+
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSArray<NSURL *> *urls = [fm contentsOfDirectoryAtURL:[NSURL fileURLWithPath:runsDir]
+                               includingPropertiesForKeys:@[ NSURLContentModificationDateKey ]
+                                                  options:NSDirectoryEnumerationSkipsHiddenFiles
+                                                    error:nil];
+    if (urls.count == 0) {
+        return;
+    }
+
+    NSPredicate *jsonOnly = [NSPredicate predicateWithFormat:@"pathExtension ==[c] %@", @"json"];
+    NSArray<NSURL *> *jsonURLs = [urls filteredArrayUsingPredicate:jsonOnly];
+    if ((NSInteger)jsonURLs.count <= keep) {
+        return;
+    }
+
+    // Oldest first — we drop from the head of this list.
+    NSArray<NSURL *> *sorted = [jsonURLs sortedArrayUsingComparator:^NSComparisonResult(NSURL *a, NSURL *b) {
+        NSDate *dateA = nil;
+        NSDate *dateB = nil;
+        [a getResourceValue:&dateA forKey:NSURLContentModificationDateKey error:nil];
+        [b getResourceValue:&dateB forKey:NSURLContentModificationDateKey error:nil];
+        return [dateA compare:dateB];
+    }];
+
+    NSUInteger toDelete = sorted.count - (NSUInteger)keep;
+    for (NSUInteger i = 0; i < toDelete; i++) {
+        [fm removeItemAtURL:sorted[i] error:nil];
+    }
+}
+
+void ksruncontext_persistPreviousRunSummary(const char *installPath, int backlogCap)
+{
+    if (g_summary == nil || installPath == NULL || installPath[0] == '\0' || backlogCap <= 0) {
         return;
     }
 
@@ -295,6 +334,8 @@ void ksruncontext_persistPreviousRunSummary(const char *installPath)
     if (data == nil) {
         return;  // Error already logged in -jsonData.
     }
+
+    pruneOldSummaries([NSString stringWithUTF8String:dir], backlogCap);
 
     NSError *error = nil;
     NSString *nsPath = [NSString stringWithUTF8String:path];
