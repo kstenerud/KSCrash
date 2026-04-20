@@ -27,6 +27,7 @@
 #import <Foundation/Foundation.h>
 
 #include "KSCrashNamespace.h"
+#import "KSCrashRunFilter.h"
 #import "KSCrashReportFilter.h"
 
 NS_ASSUME_NONNULL_BEGIN
@@ -87,6 +88,14 @@ NS_SWIFT_NAME(CrashReportStore)
  *       Do not modify it in such a case.
  */
 @property(nonatomic, readwrite, strong, nullable) id<KSCrashReportFilter> sink;
+
+/** The run-summary sink where per-run stability pings get sent.
+ *
+ *  Parallels @c sink but for run summaries rather than crash reports.
+ *  Must be set before calling @c sendAllRunSummariesWithCompletion: —
+ *  otherwise the call completes with an error and nothing is sent.
+ */
+@property(nonatomic, readwrite, strong, nullable) id<KSCrashRunFilter> runSink;
 
 /** What to do after sending reports via `-[KSCrashReportStore sendAllReportsWithCompletion:]`.
  *

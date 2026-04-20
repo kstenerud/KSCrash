@@ -504,10 +504,7 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     }
     kscm_notifyPostMonitorsEnabled();
     ksruncontext_init(getRunSidecarPathForRunIDCallback);
-    // TODO(Stage 4 of run-summary project): replace the hard-coded 50 with
-    // configuration.runBacklogCap. The default aligns with the planned config
-    // default so switching over won't change behavior for unchanged consumers.
-    ksruncontext_persistPreviousRunSummary(installPath, 50);
+    ksruncontext_persistPreviousRunSummary(installPath, configuration->reportStoreConfiguration.maxRunSummaryCount);
     kscm_notifyPostSystemEnable();
 
     g_installed = true;

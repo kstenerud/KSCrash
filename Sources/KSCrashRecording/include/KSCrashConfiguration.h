@@ -300,6 +300,16 @@ NS_SWIFT_NAME(CrashReportStoreConfiguration)
  */
 @property(nonatomic, assign) NSInteger maxReportCount;
 
+/** The maximum number of run summaries allowed on disk before old ones get deleted.
+ *
+ * When a new summary is written at install time, the oldest ones are
+ * pruned so the total does not exceed this limit. Set to 0 to disable
+ * run-summary persistence entirely.
+ *
+ * **Default**: 50
+ */
+@property(nonatomic, assign) NSInteger maxRunSummaryCount;
+
 /** What to do after sending reports via `-[KSCrashReportStore sendAllReportsWithCompletion:]`.
  *
  * - Use `KSCrashReportCleanupPolicyNever` if you manually manage the reports.

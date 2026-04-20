@@ -106,11 +106,11 @@ const KSCrashRunContext *ksruncontext_previousRunContext(void);
 /** Write the cached previous-run summary to `<installPath>/Runs/<runID>.json`.
  *
  *  No-op if there is no summary (first launch, or previous run's data was
- *  incomplete), or if backlogCap <= 0. Creates the `Runs/` directory if
+ *  incomplete), or if maxSummaryCount <= 0. Creates the `Runs/` directory if
  *  needed. Before writing, prunes the oldest summaries (by modification
- *  time) so the total after the write does not exceed backlogCap.
+ *  time) so the total after the write does not exceed maxSummaryCount.
  */
-void ksruncontext_persistPreviousRunSummary(const char *installPath, int backlogCap);
+void ksruncontext_persistPreviousRunSummary(const char *installPath, int maxSummaryCount);
 
 #ifdef __cplusplus
 }

@@ -82,6 +82,16 @@ typedef struct {
      * **Default**: 5
      */
     int maxReportCount;
+
+    /** The maximum number of run summaries to retain on disk.
+     *
+     * When a new summary is written at install time, the oldest ones are
+     * pruned so the total does not exceed this limit. Set to 0 to disable
+     * run-summary persistence entirely.
+     *
+     * **Default**: 50
+     */
+    int maxRunSummaryCount;
 } KSCrashReportStoreCConfiguration;
 
 static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_Default(void)
@@ -92,6 +102,7 @@ static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_
         .reportSidecarsPath = NULL,
         .runSidecarsPath = NULL,
         .maxReportCount = 5,
+        .maxRunSummaryCount = 50,
     };
 }
 
@@ -104,6 +115,7 @@ static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_
         .reportSidecarsPath = configuration->reportSidecarsPath ? strdup(configuration->reportSidecarsPath) : NULL,
         .runSidecarsPath = configuration->runSidecarsPath ? strdup(configuration->runSidecarsPath) : NULL,
         .maxReportCount = configuration->maxReportCount,
+        .maxRunSummaryCount = configuration->maxRunSummaryCount,
     };
 }
 

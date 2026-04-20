@@ -76,6 +76,7 @@
         _reportStoreConfiguration = [KSCrashReportStoreConfiguration new];
         _reportStoreConfiguration.appName = nil;
         _reportStoreConfiguration.maxReportCount = cConfig.reportStoreConfiguration.maxReportCount;
+        _reportStoreConfiguration.maxRunSummaryCount = (NSInteger)cConfig.reportStoreConfiguration.maxRunSummaryCount;
 
         KSCrashCConfiguration_Release(&cConfig);
     }
@@ -238,6 +239,7 @@
 
         KSCrashReportStoreCConfiguration cConfig = KSCrashReportStoreCConfiguration_Default();
         _maxReportCount = (NSInteger)cConfig.maxReportCount;
+        _maxRunSummaryCount = (NSInteger)cConfig.maxRunSummaryCount;
     }
     return self;
 }
@@ -257,6 +259,7 @@
     config.appName = resolvedAppName != nil ? strdup(resolvedAppName.UTF8String) : NULL;
     config.reportsPath = resolvedReportsPath != nil ? strdup(resolvedReportsPath.UTF8String) : NULL;
     config.maxReportCount = (int)self.maxReportCount;
+    config.maxRunSummaryCount = (int)self.maxRunSummaryCount;
 
     if (resolvedReportsPath != nil) {
         NSString *parentPath = [resolvedReportsPath stringByDeletingLastPathComponent];
@@ -277,6 +280,7 @@
     copy.reportsPath = [self.reportsPath copyWithZone:zone];
     copy.appName = [self.appName copyWithZone:zone];
     copy.maxReportCount = self.maxReportCount;
+    copy.maxRunSummaryCount = self.maxRunSummaryCount;
     copy.reportCleanupPolicy = self.reportCleanupPolicy;
     return copy;
 }

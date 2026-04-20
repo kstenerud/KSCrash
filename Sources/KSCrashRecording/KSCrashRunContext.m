@@ -271,12 +271,12 @@ KSCrashRunSummary *ksruncontext_previousRunSummary(void) { return g_summary; }
 
 // Prune summary files in `runsDir` by modification time (oldest first) so
 // that, after callers write one more file, the total count does not exceed
-// `backlogCap`. No-op if the directory is already under the target.
-static void pruneOldSummaries(NSString *runsDir, int backlogCap)
+// `maxSummaryCount`. No-op if the directory is already under the target.
+static void pruneOldSummaries(NSString *runsDir, int maxSummaryCount)
 {
-    // We're about to write one more file, so allow at most backlogCap - 1
-    // existing files to survive. If backlogCap is 1, we clear everything.
-    NSInteger keep = (NSInteger)backlogCap - 1;
+    // We're about to write one more file, so allow at most maxSummaryCount - 1
+    // existing files to survive. If maxSummaryCount is 1, we clear everything.
+    NSInteger keep = (NSInteger)maxSummaryCount - 1;
 
     NSFileManager *fm = [NSFileManager defaultManager];
     NSArray<NSURL *> *urls = [fm contentsOfDirectoryAtURL:[NSURL fileURLWithPath:runsDir]
@@ -308,9 +308,9 @@ static void pruneOldSummaries(NSString *runsDir, int backlogCap)
     }
 }
 
-void ksruncontext_persistPreviousRunSummary(const char *installPath, int backlogCap)
+void ksruncontext_persistPreviousRunSummary(const char *installPath, int maxSummaryCount)
 {
-    if (g_summary == nil || installPath == NULL || installPath[0] == '\0' || backlogCap <= 0) {
+    if (g_summary == nil || installPath == NULL || installPath[0] == '\0' || maxSummaryCount <= 0) {
         return;
     }
 
@@ -335,7 +335,7 @@ void ksruncontext_persistPreviousRunSummary(const char *installPath, int backlog
         return;  // Error already logged in -jsonData.
     }
 
-    pruneOldSummaries([NSString stringWithUTF8String:dir], backlogCap);
+    pruneOldSummaries([NSString stringWithUTF8String:dir], maxSummaryCount);
 
     NSError *error = nil;
     NSString *nsPath = [NSString stringWithUTF8String:path];
