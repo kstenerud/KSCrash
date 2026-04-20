@@ -233,7 +233,7 @@ const KSCrashReportID KSCrashReportNoID = 0;
     NSMutableArray<KSCrashRunSummary *> *summaries = [NSMutableArray arrayWithCapacity:entries.count];
     NSMutableArray<NSString *> *paths = [NSMutableArray arrayWithCapacity:entries.count];
     for (NSString *entry in entries) {
-        if (![entry.pathExtension.lowercaseString isEqualToString:@"json"]) {
+        if (![entry.pathExtension.lowercaseString isEqualToString:@"run"]) {
             continue;
         }
         NSString *path = [runsDir stringByAppendingPathComponent:entry];

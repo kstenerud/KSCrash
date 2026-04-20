@@ -34,7 +34,9 @@
 #import "KSKeyValueStore.h"
 
 #import <Foundation/Foundation.h>
+#import <dirent.h>
 #import <fcntl.h>
+#import <stdlib.h>
 #import <string.h>
 #import <unistd.h>
 
@@ -269,43 +271,89 @@ const KSCrashRunContext *ksruncontext_previousRunContext(void) { return &g_conte
 
 KSCrashRunSummary *ksruncontext_previousRunSummary(void) { return g_summary; }
 
-// Prune summary files in `runsDir` by modification time (oldest first) so
-// that, after callers write one more file, the total count does not exceed
-// `maxSummaryCount`. No-op if the directory is already under the target.
-static void pruneOldSummaries(NSString *runsDir, int maxSummaryCount)
+// Parse a filename of the form "<decimal>.run" into a uint64_t. All chars
+// before the extension must be digits; otherwise the file isn't ours.
+static bool parseRunFilename(const char *name, uint64_t *outMs)
 {
-    // We're about to write one more file, so allow at most maxSummaryCount - 1
-    // existing files to survive. If maxSummaryCount is 1, we clear everything.
-    NSInteger keep = (NSInteger)maxSummaryCount - 1;
+    size_t len = strlen(name);
+    if (len < 5) return false;  // shortest valid form is "0.run"
+    if (strcmp(name + len - 4, ".run") != 0) return false;
+    size_t prefixLen = len - 4;
+    for (size_t i = 0; i < prefixLen; i++) {
+        if (name[i] < '0' || name[i] > '9') return false;
+    }
+    char *endp = NULL;
+    unsigned long long v = strtoull(name, &endp, 10);
+    if (endp != name + prefixLen) return false;
+    *outMs = (uint64_t)v;
+    return true;
+}
 
-    NSFileManager *fm = [NSFileManager defaultManager];
-    NSArray<NSURL *> *urls = [fm contentsOfDirectoryAtURL:[NSURL fileURLWithPath:runsDir]
-                               includingPropertiesForKeys:@[ NSURLContentModificationDateKey ]
-                                                  options:NSDirectoryEnumerationSkipsHiddenFiles
-                                                    error:nil];
-    if (urls.count == 0) {
+static int compareUInt64Ascending(const void *a, const void *b)
+{
+    uint64_t ua = *(const uint64_t *)a;
+    uint64_t ub = *(const uint64_t *)b;
+    return (ua < ub) ? -1 : (ua > ub) ? 1 : 0;
+}
+
+// Prune ".run" files in runsDir oldest-first so that, after the caller writes
+// one more file, the total does not exceed maxSummaryCount. Sort key is the
+// ms prefix parsed from the filename — no per-file stat, mirroring pruneReports
+// in KSCrashReportStoreC.c. Non-matching entries are ignored.
+static void pruneOldSummaries(const char *runsDir, int maxSummaryCount)
+{
+    int keep = maxSummaryCount > 0 ? maxSummaryCount - 1 : 0;
+
+    // First pass: count matching files.
+    DIR *dir = opendir(runsDir);
+    if (dir == NULL) {
+        return;
+    }
+    int count = 0;
+    struct dirent *ent;
+    while ((ent = readdir(dir)) != NULL) {
+        uint64_t ms;
+        if (parseRunFilename(ent->d_name, &ms)) {
+            count++;
+        }
+    }
+    closedir(dir);
+
+    if (count <= keep) {
         return;
     }
 
-    NSPredicate *jsonOnly = [NSPredicate predicateWithFormat:@"pathExtension ==[c] %@", @"json"];
-    NSArray<NSURL *> *jsonURLs = [urls filteredArrayUsingPredicate:jsonOnly];
-    if ((NSInteger)jsonURLs.count <= keep) {
+    uint64_t *timestamps = malloc(sizeof(uint64_t) * (size_t)count);
+    if (timestamps == NULL) {
         return;
     }
 
-    // Oldest first — we drop from the head of this list.
-    NSArray<NSURL *> *sorted = [jsonURLs sortedArrayUsingComparator:^NSComparisonResult(NSURL *a, NSURL *b) {
-        NSDate *dateA = nil;
-        NSDate *dateB = nil;
-        [a getResourceValue:&dateA forKey:NSURLContentModificationDateKey error:nil];
-        [b getResourceValue:&dateB forKey:NSURLContentModificationDateKey error:nil];
-        return [dateA compare:dateB];
-    }];
-
-    NSUInteger toDelete = sorted.count - (NSUInteger)keep;
-    for (NSUInteger i = 0; i < toDelete; i++) {
-        [fm removeItemAtURL:sorted[i] error:nil];
+    // Second pass: collect timestamps.
+    dir = opendir(runsDir);
+    if (dir == NULL) {
+        free(timestamps);
+        return;
     }
+    int index = 0;
+    while ((ent = readdir(dir)) != NULL && index < count) {
+        uint64_t ms;
+        if (parseRunFilename(ent->d_name, &ms)) {
+            timestamps[index++] = ms;
+        }
+    }
+    closedir(dir);
+
+    qsort(timestamps, (size_t)index, sizeof(uint64_t), compareUInt64Ascending);
+
+    int toDelete = index - keep;
+    for (int i = 0; i < toDelete; i++) {
+        char path[KSFU_MAX_PATH_LENGTH];
+        if (snprintf(path, sizeof(path), "%s/%llu.run", runsDir, (unsigned long long)timestamps[i]) <
+            (int)sizeof(path)) {
+            unlink(path);
+        }
+    }
+    free(timestamps);
 }
 
 void ksruncontext_persistPreviousRunSummary(const char *runSummariesPath, int maxSummaryCount)
@@ -319,9 +367,12 @@ void ksruncontext_persistPreviousRunSummary(const char *runSummariesPath, int ma
         return;
     }
 
+    // Filename is the run's wall-clock start time in ms. Lexical-ish but we
+    // sort numerically on read, so same-width strings aren't required.
+    long long startedAtMs = (long long)g_summary.startedAtMs;
     char path[KSFU_MAX_PATH_LENGTH];
-    if (snprintf(path, sizeof(path), "%s/%s.json", runSummariesPath, g_context.runID) >= (int)sizeof(path)) {
-        KSLOG_ERROR(@"Run summary file path too long: %s/%s.json", runSummariesPath, g_context.runID);
+    if (snprintf(path, sizeof(path), "%s/%lld.run", runSummariesPath, startedAtMs) >= (int)sizeof(path)) {
+        KSLOG_ERROR(@"Run summary file path too long: %s/%lld.run", runSummariesPath, startedAtMs);
         return;
     }
 
@@ -330,7 +381,7 @@ void ksruncontext_persistPreviousRunSummary(const char *runSummariesPath, int ma
         return;  // Error already logged in -jsonData.
     }
 
-    pruneOldSummaries([NSString stringWithUTF8String:runSummariesPath], maxSummaryCount);
+    pruneOldSummaries(runSummariesPath, maxSummaryCount);
 
     NSError *error = nil;
     NSString *nsPath = [NSString stringWithUTF8String:path];

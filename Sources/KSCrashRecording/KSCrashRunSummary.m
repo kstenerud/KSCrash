@@ -30,6 +30,7 @@
 // used by the schema, so we reuse it rather than duplicating the mapping.
 #import "KSTerminationReason.h"
 
+#import "KSJSONCodecObjC.h"
 #import "KSLogger.h"
 
 @implementation KSCrashRunSummaryOutcome
@@ -253,7 +254,7 @@ static NSString *hostKindWireString(KSCrashRunSummaryHostKind kind)
 - (NSData *)jsonData
 {
     NSError *error = nil;
-    NSData *data = [NSJSONSerialization dataWithJSONObject:[self wireDictionary] options:0 error:&error];
+    NSData *data = [KSJSONCodec encode:[self wireDictionary] options:KSJSONEncodeOptionNone error:&error];
     if (data == nil) {
         KSLOG_ERROR(@"Failed to encode RunSummary JSON: %@", error);
     }
@@ -344,7 +345,10 @@ static KSCrashRunSummaryHostKind hostKindFromWireString(NSString *value)
 
 + (instancetype)summaryFromJSONData:(NSData *)data error:(NSError **)error
 {
-    id decoded = [NSJSONSerialization JSONObjectWithData:data options:0 error:error];
+    // IgnoreNullInObject so an explicit `"user_id": null` decodes as missing
+    // rather than NSNull; all other null values in required fields still fail
+    // the type checks below.
+    id decoded = [KSJSONCodec decode:data options:KSJSONDecodeOptionIgnoreNullInObject error:error];
     if (![decoded isKindOfClass:[NSDictionary class]]) {
         return nil;
     }

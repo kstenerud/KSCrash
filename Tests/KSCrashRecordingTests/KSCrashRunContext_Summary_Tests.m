@@ -281,22 +281,17 @@ extern void ksruncontext_testcode_setCachedSummary(KSCrashRunSummary *summary, c
     return [self.tempDir stringByAppendingPathComponent:@"Runs"];
 }
 
-// Seeds `count` fake summary files with staggered modification times,
-// oldest first. The oldest gets mtime = now - count seconds, the newest
-// gets mtime = now - 1 second. Lets pruning tests assert *which* files
-// were dropped.
+// Seed `count` fake summary files named "<i>.run" so that the numeric prefix
+// encodes age (lower = older). pruneOldSummaries sorts by this prefix, so the
+// ordering is deterministic without touching file mtimes.
 - (void)seedSummariesCount:(NSInteger)count
 {
     NSFileManager *fm = [NSFileManager defaultManager];
     [fm createDirectoryAtPath:self.runsDir withIntermediateDirectories:YES attributes:nil error:nil];
-    NSDate *now = [NSDate date];
     for (NSInteger i = 0; i < count; i++) {
-        NSString *name = [NSString stringWithFormat:@"fake-%04ld.json", (long)i];
+        NSString *name = [NSString stringWithFormat:@"%ld.run", (long)i];
         NSString *path = [self.runsDir stringByAppendingPathComponent:name];
         [[NSData data] writeToFile:path atomically:YES];
-        // Oldest file (index 0) gets the earliest mtime.
-        NSDate *mtime = [now dateByAddingTimeInterval:-(NSTimeInterval)(count - i)];
-        [fm setAttributes:@{ NSFileModificationDate : mtime } ofItemAtPath:path error:nil];
     }
 }
 
@@ -306,7 +301,7 @@ extern void ksruncontext_testcode_setCachedSummary(KSCrashRunSummary *summary, c
     return [entries sortedArrayUsingSelector:@selector(compare:)];
 }
 
-- (void)test_persistPreviousRunSummary_writesJSONFile
+- (void)test_persistPreviousRunSummary_writesFile
 {
     KSCrashRunContext ctx;
     populateContext(&ctx);
@@ -315,8 +310,8 @@ extern void ksruncontext_testcode_setCachedSummary(KSCrashRunSummary *summary, c
 
     ksruncontext_persistPreviousRunSummary(self.runsDir.UTF8String, 50);
 
-    NSString *expectedPath =
-        [self.tempDir stringByAppendingPathComponent:[NSString stringWithFormat:@"Runs/%s.json", ctx.runID]];
+    // Filename is <startedAtMs>.run. populateContext gives startedAtMs = 1744000000000.
+    NSString *expectedPath = [self.tempDir stringByAppendingPathComponent:@"Runs/1744000000000.run"];
     XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:expectedPath]);
 
     NSData *data = [NSData dataWithContentsOfFile:expectedPath];
@@ -357,7 +352,7 @@ extern void ksruncontext_testcode_setCachedSummary(KSCrashRunSummary *summary, c
 
 - (void)test_persistPreviousRunSummary_dropsOldestWhenOverCap
 {
-    // Seed 5 fake summaries — oldest first, mtime increases with index.
+    // Seed 5 fake summaries, lowest filename = oldest.
     [self seedSummariesCount:5];
 
     KSCrashRunContext ctx;
@@ -366,17 +361,18 @@ extern void ksruncontext_testcode_setCachedSummary(KSCrashRunSummary *summary, c
     ksruncontext_testcode_setCachedSummary(summary, ctx.runID);
 
     // Cap 3 → prune to 2, then write the new one → total 3.
+    // The new file lands at <startedAtMs>.run which is numerically larger than
+    // any seed, so it sorts as newest on subsequent prunes.
     ksruncontext_persistPreviousRunSummary(self.runsDir.UTF8String, 3);
 
     NSArray<NSString *> *contents = [self runsDirContents];
     XCTAssertEqual(contents.count, 3u);
-    // The two youngest seeds (indices 3, 4) survive; the new real file lands too.
-    XCTAssertTrue([contents containsObject:@"fake-0003.json"]);
-    XCTAssertTrue([contents containsObject:@"fake-0004.json"]);
-    XCTAssertTrue([contents containsObject:@"a1b2c3d4-e5f6-7890-abcd-ef1234567890.json"]);
-    XCTAssertFalse([contents containsObject:@"fake-0000.json"]);
-    XCTAssertFalse([contents containsObject:@"fake-0001.json"]);
-    XCTAssertFalse([contents containsObject:@"fake-0002.json"]);
+    XCTAssertTrue([contents containsObject:@"3.run"]);
+    XCTAssertTrue([contents containsObject:@"4.run"]);
+    XCTAssertTrue([contents containsObject:@"1744000000000.run"]);
+    XCTAssertFalse([contents containsObject:@"0.run"]);
+    XCTAssertFalse([contents containsObject:@"1.run"]);
+    XCTAssertFalse([contents containsObject:@"2.run"]);
 
     ksruncontext_testcode_setCachedSummary(nil, NULL);
 }
@@ -398,25 +394,31 @@ extern void ksruncontext_testcode_setCachedSummary(KSCrashRunSummary *summary, c
     ksruncontext_testcode_setCachedSummary(nil, NULL);
 }
 
-- (void)test_persistPreviousRunSummary_ignoresNonJSONFiles
+- (void)test_persistPreviousRunSummary_ignoresNonRunFiles
 {
-    // Seed one .json and a few non-json files that must not be counted or deleted.
+    // Seed one .run and a couple of files that don't match our naming. They
+    // must not be counted toward the cap or deleted.
     [self seedSummariesCount:1];
-    NSString *junkPath = [self.runsDir stringByAppendingPathComponent:@"scratch.tmp"];
-    [[NSData data] writeToFile:junkPath atomically:YES];
+    NSString *tmpPath = [self.runsDir stringByAppendingPathComponent:@"scratch.tmp"];
+    [[NSData data] writeToFile:tmpPath atomically:YES];
+    // A .run file whose prefix isn't numeric — doesn't match parseRunFilename
+    // and must be ignored by the prune.
+    NSString *oddPath = [self.runsDir stringByAppendingPathComponent:@"not-a-number.run"];
+    [[NSData data] writeToFile:oddPath atomically:YES];
 
     KSCrashRunContext ctx;
     populateContext(&ctx);
     KSCrashRunSummary *summary = ksruncontext_testcode_buildSummary(&ctx, NULL);
     ksruncontext_testcode_setCachedSummary(summary, ctx.runID);
 
-    // Cap 1 → prune the single seed, keep the .tmp, write the new .json.
+    // Cap 1 → prune the single seed, keep the others, write the new summary.
     ksruncontext_persistPreviousRunSummary(self.runsDir.UTF8String, 1);
 
     NSArray<NSString *> *contents = [self runsDirContents];
     XCTAssertTrue([contents containsObject:@"scratch.tmp"]);
-    XCTAssertTrue([contents containsObject:@"a1b2c3d4-e5f6-7890-abcd-ef1234567890.json"]);
-    XCTAssertFalse([contents containsObject:@"fake-0000.json"]);
+    XCTAssertTrue([contents containsObject:@"not-a-number.run"]);
+    XCTAssertTrue([contents containsObject:@"1744000000000.run"]);
+    XCTAssertFalse([contents containsObject:@"0.run"]);
 
     ksruncontext_testcode_setCachedSummary(nil, NULL);
 }

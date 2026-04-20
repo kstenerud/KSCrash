@@ -106,7 +106,10 @@
                                                     error:nil];
     NSData *data = [[self sampleSummaryWithRunID:runID] jsonData];
     XCTAssertNotNil(data);
-    NSString *path = [self.runsDir stringByAppendingPathComponent:[runID stringByAppendingPathExtension:@"json"]];
+    // Filename scheme on disk is <ms>.run; tests use the runID as a fake ms so
+    // assertions can correlate the file with the run without caring about the
+    // actual timestamp.
+    NSString *path = [self.runsDir stringByAppendingPathComponent:[runID stringByAppendingPathExtension:@"run"]];
     [data writeToFile:path atomically:YES];
 }
 
@@ -146,7 +149,7 @@
 
     // Files must be left on disk — they'll be retried once a sink is provided.
     XCTAssertTrue(
-        [[NSFileManager defaultManager] fileExistsAtPath:[self.runsDir stringByAppendingPathComponent:@"run-A.json"]]);
+        [[NSFileManager defaultManager] fileExistsAtPath:[self.runsDir stringByAppendingPathComponent:@"run-A.run"]]);
 }
 
 - (void)test_sendAllRunSummaries_completesWithEmptyArrayWhenNoFiles
@@ -185,9 +188,9 @@
 
     // Files gone after successful send.
     XCTAssertFalse(
-        [[NSFileManager defaultManager] fileExistsAtPath:[self.runsDir stringByAppendingPathComponent:@"run-A.json"]]);
+        [[NSFileManager defaultManager] fileExistsAtPath:[self.runsDir stringByAppendingPathComponent:@"run-A.run"]]);
     XCTAssertFalse(
-        [[NSFileManager defaultManager] fileExistsAtPath:[self.runsDir stringByAppendingPathComponent:@"run-B.json"]]);
+        [[NSFileManager defaultManager] fileExistsAtPath:[self.runsDir stringByAppendingPathComponent:@"run-B.run"]]);
 }
 
 - (void)test_sendAllRunSummaries_retainsFilesWhenSinkReturnsError
@@ -207,7 +210,7 @@
     [self waitForExpectations:@[ done ] timeout:1.0];
 
     XCTAssertTrue(
-        [[NSFileManager defaultManager] fileExistsAtPath:[self.runsDir stringByAppendingPathComponent:@"run-A.json"]]);
+        [[NSFileManager defaultManager] fileExistsAtPath:[self.runsDir stringByAppendingPathComponent:@"run-A.run"]]);
 }
 
 - (void)test_sendAllRunSummaries_skipsCorruptFiles
@@ -217,7 +220,7 @@
                               withIntermediateDirectories:YES
                                                attributes:nil
                                                     error:nil];
-    NSString *junkPath = [self.runsDir stringByAppendingPathComponent:@"garbage.json"];
+    NSString *junkPath = [self.runsDir stringByAppendingPathComponent:@"garbage.run"];
     [[NSData dataWithBytes:"not json" length:8] writeToFile:junkPath atomically:YES];
 
     KSCrashReportStore_StubRunSink *sink = [KSCrashReportStore_StubRunSink new];

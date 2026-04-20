@@ -563,6 +563,7 @@
 #define kstc_setSearchQueueNames KSCRASH_NS(kstc_setSearchQueueNames)
 #define kstc_unfreeze KSCRASH_NS(kstc_unfreeze)
 #define kstermination_producesReport KSCRASH_NS(kstermination_producesReport)
+#define kstermination_reasonFromString KSCRASH_NS(kstermination_reasonFromString)
 #define kstermination_reasonToString KSCRASH_NS(kstermination_reasonToString)
 #define ksthread_getQueueName KSCRASH_NS(ksthread_getQueueName)
 #define ksthread_getThreadName KSCRASH_NS(ksthread_getThreadName)
