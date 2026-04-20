@@ -215,8 +215,8 @@ static NSString *hostKindWireString(KSCrashRunSummaryHostKind kind)
     dict[@"ended_at_ms"] = @(self.endedAtMs);
     dict[@"outcome"] = @{
         @"termination_reason" : @(kstermination_reasonToString(self.outcome.terminationReason)),
-        // Use @YES / @NO literals so NSJSONSerialization emits JSON booleans
-        // rather than serializing the NSNumber as an integer.
+        // @YES / @NO wrap CFBoolean so KSJSONCodec emits JSON booleans; a
+        // plain @(BOOL) would be an integer NSNumber and serialize as 0/1.
         @"clean_shutdown" : self.outcome.cleanShutdown ? @YES : @NO,
         @"fatal_reported" : self.outcome.fatalReported ? @YES : @NO,
         @"user_perceptible" : self.outcome.userPerceptible ? @YES : @NO,
@@ -413,7 +413,8 @@ static KSCrashRunSummaryHostKind hostKindFromWireString(NSString *value)
     }
 
     // user_id is explicitly nullable — null / missing / wrong type all map to nil.
-    NSString *userID = [dict[@"user_id"] isKindOfClass:[NSString class]] ? dict[@"user_id"] : nil;
+    id userIDValue = dict[@"user_id"];
+    NSString *userID = [userIDValue isKindOfClass:[NSString class]] ? (NSString *)userIDValue : nil;
 
     KSCrashRunSummaryOutcome *outcome = [[KSCrashRunSummaryOutcome alloc]
         initWithTerminationReason:kstermination_reasonFromString(reasonString.UTF8String)

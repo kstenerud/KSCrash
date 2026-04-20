@@ -513,9 +513,11 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     kscm_notifyPostMonitorsEnabled();
     ksruncontext_init(getRunSidecarPathForRunIDCallback);
     // g_reportStoreConfig has the resolved default path, whereas `configuration`
-    // still holds whatever the caller passed in (NULL is valid there).
-    ksruncontext_persistPreviousRunSummary(g_reportStoreConfig.runSummariesPath,
-                                           g_reportStoreConfig.maxRunSummaryCount);
+    // still holds whatever the caller passed in (NULL is valid there). Skip
+    // when the caller disabled the feature via maxRunSummaryCount <= 0.
+    if (g_reportStoreConfig.maxRunSummaryCount > 0) {
+        ksruncontext_persistPreviousRunSummary(g_reportStoreConfig.runSummariesPath);
+    }
     kscm_notifyPostSystemEnable();
 
     g_installed = true;

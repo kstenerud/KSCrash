@@ -103,14 +103,24 @@ bool ksruncontext_contextForRunID(const char *runID, KSCrashSidecarRunPathForRun
  */
 const KSCrashRunContext *ksruncontext_previousRunContext(void);
 
-/** Write the cached previous-run summary to `<runSummariesPath>/<runID>.json`.
+/** Write the previous-run summary to `<runSummariesPath>/<startedAtMs>.run`.
  *
  *  No-op if there is no summary (first launch, or previous run's data was
- *  incomplete), or if maxSummaryCount <= 0. Creates `runSummariesPath` if
- *  needed. Before writing, prunes the oldest summaries (by modification
- *  time) so the total after the write does not exceed maxSummaryCount.
+ *  incomplete). Creates `runSummariesPath` if needed.
+ *
+ *  Synchronous — the file is on disk by the time this call returns, so a
+ *  crash immediately after `kscrash_install()` can still land the previous
+ *  run's summary. Backlog pruning is deferred to the send path; callers
+ *  that never send should call @c ksruncontext_pruneRunSummaries directly.
  */
-void ksruncontext_persistPreviousRunSummary(const char *runSummariesPath, int maxSummaryCount);
+void ksruncontext_persistPreviousRunSummary(const char *runSummariesPath);
+
+/** Delete the oldest `*.run` files in `runsDir` until at most `keepCount`
+ *  remain. Sort key is the zero-padded ms prefix parsed from each filename;
+ *  no per-file stat. Non-matching entries are ignored. No-op for a NULL /
+ *  empty path or @c keepCount <= 0 (which deletes everything matching).
+ */
+void ksruncontext_pruneRunSummaries(const char *runsDir, int keepCount);
 
 #ifdef __cplusplus
 }
@@ -118,7 +128,6 @@ void ksruncontext_persistPreviousRunSummary(const char *runSummariesPath, int ma
 
 #ifdef __OBJC__
 #import <Foundation/Foundation.h>
-#import <dispatch/dispatch.h>
 
 @class KSCrashRunSummary;
 
@@ -128,15 +137,6 @@ void ksruncontext_persistPreviousRunSummary(const char *runSummariesPath, int ma
  *  Only valid after ksruncontext_init().
  */
 KSCrashRunSummary *ksruncontext_previousRunSummary(void);
-
-/** Serial background queue that owns all run-summary file I/O.
- *
- *  Both install-time persistence and `-sendAllRunSummariesWithCompletion:`
- *  dispatch onto this queue so a send can never observe a partially-written
- *  file, and two sends can't race each other's deletions. Lazily created;
- *  runs at QOS_CLASS_UTILITY.
- */
-dispatch_queue_t ksruncontext_getRunSummaryQueue(void);
 #endif  // __OBJC__
 
 #endif  // KSCrashRunContext_h

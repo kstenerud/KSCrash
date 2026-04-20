@@ -265,10 +265,17 @@
         NSString *parentPath = [resolvedReportsPath stringByDeletingLastPathComponent];
         NSString *sidecarsPath = [parentPath stringByAppendingPathComponent:@"Sidecars"];
         NSString *runSidecarsPath = [parentPath stringByAppendingPathComponent:@"RunSidecars"];
-        NSString *runSummariesPath = [parentPath stringByAppendingPathComponent:@"Runs"];
         config.reportSidecarsPath = strdup(sidecarsPath.UTF8String);
         config.runSidecarsPath = strdup(runSidecarsPath.UTF8String);
-        config.runSummariesPath = strdup(runSummariesPath.UTF8String);
+    }
+
+    NSString *resolvedRunSummariesPath = self.runSummariesPath;
+    if (resolvedRunSummariesPath == nil && resolvedReportsPath != nil) {
+        resolvedRunSummariesPath =
+            [[resolvedReportsPath stringByDeletingLastPathComponent] stringByAppendingPathComponent:@"Runs"];
+    }
+    if (resolvedRunSummariesPath != nil) {
+        config.runSummariesPath = strdup(resolvedRunSummariesPath.UTF8String);
     }
 
     return config;
@@ -280,6 +287,7 @@
 {
     KSCrashReportStoreConfiguration *copy = [[KSCrashReportStoreConfiguration allocWithZone:zone] init];
     copy.reportsPath = [self.reportsPath copyWithZone:zone];
+    copy.runSummariesPath = [self.runSummariesPath copyWithZone:zone];
     copy.appName = [self.appName copyWithZone:zone];
     copy.maxReportCount = self.maxReportCount;
     copy.maxRunSummaryCount = self.maxRunSummaryCount;

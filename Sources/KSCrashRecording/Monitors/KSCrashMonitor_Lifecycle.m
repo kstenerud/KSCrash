@@ -213,6 +213,13 @@ static NSUInteger recordUserInBucket(NSString *userID, bool perceptible)
 
 void kscm_lifecycle_observeUser(const char *userID)
 {
+    // Gate on enable so pre-install writes can't stash a g_currentUserID that
+    // would leak into a later setEnabled(true) session. The monitor always
+    // clears g_currentUserID on disable, so post-enable writes stay correct.
+    if (!atomic_load(&g_isEnabled)) {
+        return;
+    }
+
     NSString *asString = (userID != NULL && userID[0] != '\0') ? [NSString stringWithUTF8String:userID] : nil;
 
     os_unfair_lock_lock(&g_userLock);
@@ -235,7 +242,7 @@ void kscm_lifecycle_observeUser(const char *userID)
     }
     ks_spinlock_unlock(&g_sidecarLock);
     if (!haveSidecar) {
-        return;  // pre-install no-op
+        return;
     }
 
     NSUInteger count = recordUserInBucket(asString, perceptible);

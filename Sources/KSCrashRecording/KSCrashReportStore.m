@@ -38,6 +38,8 @@
 #import "KSJSONCodecObjC.h"
 #import "KSNSErrorHelper.h"
 
+#import <os/lock.h>
+
 // #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
 
@@ -45,6 +47,8 @@ const KSCrashReportID KSCrashReportNoID = 0;
 
 @implementation KSCrashReportStore {
     KSCrashReportStoreCConfiguration _cConfig;
+    // Guards all on-disk run-summary work (prune, enumerate, decode, delete).
+    os_unfair_lock _runSummaryLock;
 }
 
 + (NSString *)defaultInstallSubfolder
@@ -69,6 +73,7 @@ const KSCrashReportID KSCrashReportNoID = 0;
         KSCrashReportStoreConfiguration *resolvedConfiguration = configuration ?: [KSCrashReportStoreConfiguration new];
         _cConfig = [resolvedConfiguration toCConfiguration];
         _reportCleanupPolicy = resolvedConfiguration.reportCleanupPolicy;
+        _runSummaryLock = OS_UNFAIR_LOCK_INIT;
 
         kscrs_initialize(&_cConfig);
     }
@@ -228,20 +233,30 @@ const KSCrashReportID KSCrashReportNoID = 0;
         }
         return;
     }
-
-    // Snapshot the path into an NSString so the block doesn't depend on `self`
-    // outliving the dispatch.
     NSString *runsDir = [NSString stringWithUTF8String:runsDirC];
-    dispatch_queue_t queue = ksruncontext_getRunSummaryQueue();
+    int maxCount = _cConfig.maxRunSummaryCount;
 
-    dispatch_async(queue, ^{
+    __weak __typeof(self) weakSelf = self;
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+        __strong __typeof(weakSelf) strongSelf = weakSelf;
+        if (strongSelf == nil) {
+            if (onCompletion) onCompletion(@[], nil);
+            return;
+        }
+
+        // runID → file path. Populated from decoded summaries so we later
+        // delete only the files whose runIDs the sink confirmed shipped.
+        NSMutableArray<KSCrashRunSummary *> *summaries = nil;
+        NSMutableDictionary<NSString *, NSString *> *runIDToPath = nil;
+
+        os_unfair_lock_lock(&strongSelf->_runSummaryLock);
+
+        ksruncontext_pruneRunSummaries(runsDirC, maxCount);
+
         NSFileManager *fm = [NSFileManager defaultManager];
         NSArray<NSString *> *entries = [fm contentsOfDirectoryAtPath:runsDir error:nil];
-        NSMutableArray<KSCrashRunSummary *> *summaries = [NSMutableArray arrayWithCapacity:entries.count];
-        // runID → file path. Populated from decoded summaries so we can later
-        // delete only the files whose runIDs the sink confirmed shipped.
-        NSMutableDictionary<NSString *, NSString *> *runIDToPath =
-            [NSMutableDictionary dictionaryWithCapacity:entries.count];
+        summaries = [NSMutableArray arrayWithCapacity:entries.count];
+        runIDToPath = [NSMutableDictionary dictionaryWithCapacity:entries.count];
         for (NSString *entry in entries) {
             if (![entry.pathExtension.lowercaseString isEqualToString:@"run"]) {
                 continue;
@@ -253,8 +268,6 @@ const KSCrashReportID KSCrashReportNoID = 0;
             }
             KSCrashRunSummary *summary = [KSCrashRunSummary summaryFromJSONData:data error:nil];
             if (summary == nil) {
-                // Corrupt file — leave it alone, will be pruned by the backlog
-                // cap on the next install if it keeps failing.
                 KSLOG_ERROR(@"Failed to decode run summary at %@", path);
                 continue;
             }
@@ -264,37 +277,39 @@ const KSCrashReportID KSCrashReportNoID = 0;
             }
         }
 
+        os_unfair_lock_unlock(&strongSelf->_runSummaryLock);
+
         if (summaries.count == 0) {
-            if (onCompletion) {
-                onCompletion(@[], nil);
-            }
+            if (onCompletion) onCompletion(@[], nil);
             return;
         }
 
         [runSink filterRuns:summaries
                onCompletion:^(NSArray<KSCrashRunSummary *> *_Nullable filteredRuns, NSError *_Nullable error) {
-                   // Back onto the summary queue for deletion so we don't race
-                   // any other persist/send happening in parallel, and so the
-                   // final completion fires after file I/O is settled.
-                   dispatch_async(queue, ^{
-                       if (error != nil) {
-                           KSLOG_ERROR(@"Run summary send reported an error: %@", error);
-                       }
-                       // Delete only files whose runID is present in filteredRuns
-                       // — the sink signals per-run success by including it.
-                       // Runs omitted from filteredRuns (or all runs, on full
-                       // failure) stay on disk for the next call to retry.
+                   __strong __typeof(weakSelf) deleteSelf = weakSelf;
+                   if (error != nil) {
+                       KSLOG_ERROR(@"Run summary send reported an error: %@", error);
+                   }
+                   if (deleteSelf != nil) {
+                       // Delete only files whose runID is in filteredRuns — the
+                       // sink signals per-run success by including it. Runs
+                       // omitted (or all, on full failure) stay on disk for the
+                       // next call to retry.
+                       os_unfair_lock_lock(&deleteSelf->_runSummaryLock);
                        NSFileManager *innerFM = [NSFileManager defaultManager];
                        for (KSCrashRunSummary *summary in filteredRuns) {
                            NSString *path = runIDToPath[summary.runID];
-                           if (path != nil) {
-                               [innerFM removeItemAtPath:path error:nil];
+                           if (path == nil) {
+                               continue;
+                           }
+                           NSError *removeError = nil;
+                           if (![innerFM removeItemAtPath:path error:&removeError]) {
+                               KSLOG_ERROR(@"Failed to delete run summary at %@: %@", path, removeError);
                            }
                        }
-                       if (onCompletion) {
-                           onCompletion(filteredRuns, error);
-                       }
-                   });
+                       os_unfair_lock_unlock(&deleteSelf->_runSummaryLock);
+                   }
+                   if (onCompletion) onCompletion(filteredRuns, error);
                }];
     });
 }

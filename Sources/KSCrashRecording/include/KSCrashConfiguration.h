@@ -284,6 +284,13 @@ NS_SWIFT_NAME(CrashReportStoreConfiguration)
  */
 @property(nonatomic, copy, nullable) NSString *reportsPath;
 
+/** Specifies a custom directory path for the run-summary store.
+ *  If `nil`, defaults to `Runs` alongside `reportsPath`.
+ *
+ * **Default**: `nil`
+ */
+@property(nonatomic, copy, nullable) NSString *runSummariesPath;
+
 /** Specifies a custom app name to be used in report file name.
  * If `nil` the default value is used: `CFBundleName` from Info.plist.
  *
