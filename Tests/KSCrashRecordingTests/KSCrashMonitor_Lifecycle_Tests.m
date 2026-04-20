@@ -227,8 +227,9 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
 
 - (void)testLifecycleDataStructLayout
 {
-    XCTAssertEqual(sizeof(KSCrash_LifecycleData), 88u);
+    XCTAssertEqual(sizeof(KSCrash_LifecycleData), 96u);
     XCTAssertEqual(KSLIFECYCLE_MAGIC, (int32_t)0x6B736C63);
+    XCTAssertEqual(KSCrash_Lifecycle_CurrentVersion, 2);
 }
 
 - (void)testRelaunchAfterCrash
@@ -440,6 +441,81 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     KSCrash_AppState state = kscrashstate_lifecycleAppState();
     // 1 (initial) + 3 (foregroundings) = 4
     XCTAssertEqual(state.sessionsSinceLaunch, 4);
+}
+
+#pragma mark - Perceptible / imperceptible session counts (v2)
+
+- (void)testInitialPerceptibleSessionCountOnPerceptibleLaunch
+{
+    [self enableMonitor];  // default transition state is Active → perceptible
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    XCTAssertEqual(data.perceptibleSessionsSinceLaunch, 1u);
+    XCTAssertEqual(data.imperceptibleSessionsSinceLaunch, 0u);
+    XCTAssertEqual(data.sessionsSinceLaunch, 1);
+}
+
+- (void)testForegroundingBumpsPerceptibleCountOnly
+{
+    [self enableMonitor];
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateDeactivating);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateBackground);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateForegrounding);
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    // initial (1) + foregrounding (1) = 2 perceptible, 0 imperceptible.
+    XCTAssertEqual(data.perceptibleSessionsSinceLaunch, 2u);
+    XCTAssertEqual(data.imperceptibleSessionsSinceLaunch, 0u);
+    XCTAssertEqual(data.sessionsSinceLaunch, 2);
+}
+
+- (void)testSessionsSinceLaunchAlwaysEqualsSum
+{
+    [self enableMonitor];
+    for (int i = 0; i < 5; i++) {
+        kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+        kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateDeactivating);
+        kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateBackground);
+        kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateForegrounding);
+    }
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    // Invariant: sessionsSinceLaunch == perceptible + imperceptible at all times.
+    XCTAssertEqual((uint32_t)data.sessionsSinceLaunch,
+                   data.perceptibleSessionsSinceLaunch + data.imperceptibleSessionsSinceLaunch);
+}
+
+- (void)testReadData_v1Sidecar_zeroFillsNewFields
+{
+    // Construct a v1-sized (88-byte) sidecar on disk. The readData function
+    // must tolerate the short file and leave the new v2 fields zero-filled.
+    KSCrash_LifecycleData v2 = { 0 };
+    v2.magic = KSLIFECYCLE_MAGIC;
+    v2.version = 1;  // pretend this is a v1 sidecar
+    v2.sessionsSinceLaunch = 7;
+    v2.launchesSinceLastCrash = 3;
+    v2.perceptibleSessionsSinceLaunch = 999;  // "garbage" trailing bytes we won't write
+    v2.imperceptibleSessionsSinceLaunch = 999;
+
+    NSString *path = [self.tempPath stringByAppendingPathComponent:@"v1.ksscr"];
+    int fd = open(path.fileSystemRepresentation, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    XCTAssertNotEqual(fd, -1);
+    const size_t v1Size = 88;  // historical v1 struct size
+    ssize_t written = write(fd, &v2, v1Size);
+    close(fd);
+    XCTAssertEqual(written, (ssize_t)v1Size);
+
+    KSCrash_LifecycleData out = { 0 };
+    XCTAssertTrue(kslifecycle_readData(path.fileSystemRepresentation, &out));
+    XCTAssertEqual(out.sessionsSinceLaunch, 7);
+    XCTAssertEqual(out.launchesSinceLastCrash, 3);
+    // New v2 fields weren't in the file → zero-filled, not garbage.
+    XCTAssertEqual(out.perceptibleSessionsSinceLaunch, 0u);
+    XCTAssertEqual(out.imperceptibleSessionsSinceLaunch, 0u);
 }
 
 - (void)testTerminatingTransitionSetsCleanShutdown

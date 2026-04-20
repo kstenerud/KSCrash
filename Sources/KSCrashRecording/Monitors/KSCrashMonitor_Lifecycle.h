@@ -57,7 +57,7 @@ extern "C" {
 
 #define KSLIFECYCLE_MAGIC ((int32_t)'kslc')
 
-static const uint8_t KSCrash_Lifecycle_CurrentVersion = 1;
+static const uint8_t KSCrash_Lifecycle_CurrentVersion = 2;
 
 static inline double kslifecycle_nsToSeconds(uint64_t ns) { return (double)ns / 1000000000.0; }
 
@@ -103,9 +103,22 @@ typedef struct {
                               // while still technically backgrounded)
     uint8_t hangInProgress;   // true while the watchdog is tracking an active hang;
                               // if still true on next launch, the app was killed during a hang
+
+    // --- v2 additions ---
+    //
+    // Added in KSCrash_Lifecycle_CurrentVersion=2. New fields must only be
+    // APPENDED (never reordered or inserted above) so that v1 sidecar files
+    // (shorter) can be read into this struct with the trailing fields left
+    // zero-filled. kslifecycle_readData tolerates short reads to enable this.
+    //
+    // Split of `sessionsSinceLaunch` by perceptibility. The stored
+    // `sessionsSinceLaunch` above is kept as the sum `perceptible + imperceptible`
+    // on every change so readers that depended on it stay correct.
+    uint32_t perceptibleSessionsSinceLaunch;
+    uint32_t imperceptibleSessionsSinceLaunch;
 } KSCrash_LifecycleData;
 
-_Static_assert(sizeof(KSCrash_LifecycleData) == 88, "KSCrash_LifecycleData size changed — bump version");
+_Static_assert(sizeof(KSCrash_LifecycleData) == 96, "KSCrash_LifecycleData size changed — bump version");
 
 // ============================================================================
 #pragma mark - Public State (computed from sidecar) -

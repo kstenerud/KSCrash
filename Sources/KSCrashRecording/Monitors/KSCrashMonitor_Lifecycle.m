@@ -45,6 +45,7 @@
 #import <mach/task_policy.h>
 #import <stdatomic.h>
 #import <string.h>
+#import <sys/stat.h>
 #import <time.h>
 #import <unistd.h>
 
@@ -145,7 +146,18 @@ bool kslifecycle_readData(const char *path, KSCrash_LifecycleData *out)
     }
 
     memset(out, 0, sizeof(*out));
-    bool ok = ksfu_readBytesFromFD(fd, (char *)out, (int)sizeof(*out));
+
+    // Tolerate short reads: older sidecars were smaller than the current
+    // struct. Fields beyond the file are left zero-filled, which is the
+    // correct default for any forward-compatible addition (see header:
+    // new fields must only be appended, never reordered).
+    struct stat st;
+    if (fstat(fd, &st) != 0) {
+        close(fd);
+        return false;
+    }
+    size_t bytesToRead = (size_t)st.st_size < sizeof(*out) ? (size_t)st.st_size : sizeof(*out);
+    bool ok = (bytesToRead > 0) && ksfu_readBytesFromFD(fd, (char *)out, (int)bytesToRead);
     close(fd);
 
     if (!ok || out->magic != KSLIFECYCLE_MAGIC || out->version == 0 ||
@@ -207,10 +219,15 @@ static void onTransitionState(KSCrashAppTransitionState transitionState)
             break;
 
         case KSCrashAppTransitionStateForegrounding:
-            // Returning to foreground: accumulate background duration, increment sessions
+            // Returning to foreground: accumulate background duration, increment sessions.
+            // Foregrounding is perceptible by definition, so this bumps the
+            // perceptible counter. `sessionsSinceLaunch` is kept as the sum so
+            // existing readers see the same monotonically-increasing total.
             updateSidecarDurations(sc);
             sc->applicationIsInForeground = true;
-            sc->sessionsSinceLaunch++;
+            sc->perceptibleSessionsSinceLaunch++;
+            sc->sessionsSinceLaunch =
+                (int32_t)(sc->perceptibleSessionsSinceLaunch + sc->imperceptibleSessionsSinceLaunch);
             sc->sessionsSinceLastCrash++;
             break;
 
@@ -351,7 +368,6 @@ static KSCrash_LifecycleData *createSidecar(void)
     }
 
     KSCrash_LifecycleData *sc = (KSCrash_LifecycleData *)ptr;
-    sc->sessionsSinceLaunch = 1;
     sc->monotonicAtStartNs = ksdate_continuousNanoseconds();
     sc->wallClockAtStartNs = ksdate_wallClockNanoseconds();
     sc->appStateTransitionTimeNs = sc->monotonicAtStartNs;
@@ -372,6 +388,16 @@ static KSCrash_LifecycleData *createSidecar(void)
         (ts == KSCrashAppTransitionStateActive || ts == KSCrashAppTransitionStateDeactivating ||
          ts == KSCrashAppTransitionStateForegrounding);
     sc->userPerceptible = ksapp_transitionStateIsUserPerceptible(ts);
+
+    // The initial launch is one session. Attribute it to perceptible or
+    // imperceptible based on whether the user can see the app at this moment.
+    // `sessionsSinceLaunch` is kept as the sum so existing readers are unaffected.
+    if (sc->userPerceptible) {
+        sc->perceptibleSessionsSinceLaunch = 1;
+    } else {
+        sc->imperceptibleSessionsSinceLaunch = 1;
+    }
+    sc->sessionsSinceLaunch = (int32_t)(sc->perceptibleSessionsSinceLaunch + sc->imperceptibleSessionsSinceLaunch);
 
     sc->taskRole = (int32_t)kstaskrole_current();
     sc->magic = KSLIFECYCLE_MAGIC;
