@@ -269,6 +269,11 @@ __attribute__((objc_subclassing_restricted))
                                    os:(KSCrashRunSummaryOS *)os
                                device:(KSCrashRunSummaryDevice *)device NS_DESIGNATED_INITIALIZER;
 
+/** Encode this summary as JSON using the wire schema documented in
+ *  project_run_summary_schema.md. Returns nil on encoding failure.
+ */
+- (nullable NSData *)jsonData;
+
 @end
 
 NS_ASSUME_NONNULL_END

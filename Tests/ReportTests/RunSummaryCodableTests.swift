@@ -88,7 +88,7 @@ final class RunSummaryCodableTests: XCTestCase {
 
     func test_roundtrip_preservesAllFields() throws {
         let original = makeSummary()
-        let data = try original.jsonData()
+        let data = try XCTUnwrap(original.jsonData())
         let decoded = try RunSummary.decode(from: data)
 
         XCTAssertEqual(decoded.schemaVersion, original.schemaVersion)
@@ -125,7 +125,7 @@ final class RunSummaryCodableTests: XCTestCase {
 
     func test_roundtrip_nilUserID() throws {
         let original = makeSummary(userID: nil)
-        let data = try original.jsonData()
+        let data = try XCTUnwrap(original.jsonData())
         let decoded = try RunSummary.decode(from: data)
         XCTAssertNil(decoded.userID)
     }
@@ -133,7 +133,7 @@ final class RunSummaryCodableTests: XCTestCase {
     // MARK: - Wire format
 
     func test_wireFormat_usesSnakeCaseKeys() throws {
-        let data = try makeSummary().jsonData()
+        let data = try XCTUnwrap(makeSummary().jsonData())
         let json = try asJSONObject(data)
 
         XCTAssertNotNil(json["schema_version"])
@@ -169,14 +169,14 @@ final class RunSummaryCodableTests: XCTestCase {
     }
 
     func test_wireFormat_terminationReasonIsSnakeCaseString() throws {
-        let data = try makeSummary(terminationReason: .osUpgrade).jsonData()
+        let data = try XCTUnwrap(makeSummary(terminationReason: .osUpgrade).jsonData())
         let json = try asJSONObject(data)
         let outcome = try XCTUnwrap(json["outcome"] as? [String: Any])
         XCTAssertEqual(outcome["termination_reason"] as? String, "os_upgrade")
     }
 
     func test_wireFormat_hostKindIsLowercaseString() throws {
-        let data = try makeSummary(hostKind: .extension).jsonData()
+        let data = try XCTUnwrap(makeSummary(hostKind: .extension).jsonData())
         let json = try asJSONObject(data)
         let app = try XCTUnwrap(json["app"] as? [String: Any])
         XCTAssertEqual(app["host_kind"] as? String, "extension")
@@ -185,7 +185,7 @@ final class RunSummaryCodableTests: XCTestCase {
     // MARK: - users counts
 
     func test_wireFormat_usersAreCounts() throws {
-        let data = try makeSummary(perceptibleUserCount: 5, imperceptibleUserCount: 2).jsonData()
+        let data = try XCTUnwrap(makeSummary(perceptibleUserCount: 5, imperceptibleUserCount: 2).jsonData())
         let json = try asJSONObject(data)
         let users = try XCTUnwrap(json["users"] as? [String: Any])
         XCTAssertEqual(users["perceptible_count"] as? Int, 5)

@@ -26,6 +26,12 @@
 
 #import "KSCrashRunSummary.h"
 
+// kstermination_reasonToString already returns the snake_case wire strings
+// used by the schema, so we reuse it rather than duplicating the mapping.
+#import "KSTerminationReason.h"
+
+#import "KSLogger.h"
+
 @implementation KSCrashRunSummaryOutcome
 
 - (instancetype)initWithTerminationReason:(KSTerminationReason)terminationReason
@@ -171,6 +177,87 @@
         _device = device;
     }
     return self;
+}
+
+#pragma mark - JSON encoding
+
+static NSString *hostKindWireString(KSCrashRunSummaryHostKind kind)
+{
+    switch (kind) {
+        case KSCrashRunSummaryHostKindApp:
+            return @"app";
+        case KSCrashRunSummaryHostKindExtension:
+            return @"extension";
+        case KSCrashRunSummaryHostKindXCTest:
+            return @"xctest";
+        case KSCrashRunSummaryHostKindOther:
+        default:
+            return @"other";
+    }
+}
+
+- (NSDictionary<NSString *, id> *)wireDictionary
+{
+    NSMutableDictionary *dict = [NSMutableDictionary dictionaryWithCapacity:14];
+    dict[@"schema_version"] = @(self.schemaVersion);
+    dict[@"sdk_version"] = self.sdkVersion;
+    dict[@"run_id"] = self.runID;
+    dict[@"device_id"] = self.deviceID;
+    if (self.userID != nil) {
+        dict[@"user_id"] = self.userID;
+    }
+    dict[@"users"] = @{
+        @"perceptible_count" : @(self.users.perceptibleCount),
+        @"imperceptible_count" : @(self.users.imperceptibleCount),
+    };
+    dict[@"started_at_ms"] = @(self.startedAtMs);
+    dict[@"ended_at_ms"] = @(self.endedAtMs);
+    dict[@"outcome"] = @{
+        @"termination_reason" : @(kstermination_reasonToString(self.outcome.terminationReason)),
+        // Use @YES / @NO literals so NSJSONSerialization emits JSON booleans
+        // rather than serializing the NSNumber as an integer.
+        @"clean_shutdown" : self.outcome.cleanShutdown ? @YES : @NO,
+        @"fatal_reported" : self.outcome.fatalReported ? @YES : @NO,
+        @"user_perceptible" : self.outcome.userPerceptible ? @YES : @NO,
+    };
+    dict[@"durations_ms"] = @{
+        @"active" : @(self.durations.activeMs),
+        @"background" : @(self.durations.backgroundMs),
+    };
+    dict[@"sessions"] = @{
+        @"perceptible_count" : @(self.sessions.perceptibleCount),
+        @"imperceptible_count" : @(self.sessions.imperceptibleCount),
+    };
+    dict[@"app"] = @{
+        @"bundle_id" : self.app.bundleID,
+        @"version" : self.app.version,
+        @"short_version" : self.app.shortVersion,
+        @"host_kind" : hostKindWireString(self.app.hostKind),
+    };
+    dict[@"os"] = @{
+        @"name" : self.os.name,
+        @"version" : self.os.version,
+        @"build" : self.os.build,
+    };
+    dict[@"device"] = @{
+        @"model" : self.device.model,
+        @"model_family" : self.device.modelFamily,
+        @"architecture" : self.device.architecture,
+        @"binary_architecture" : self.device.binaryArchitecture,
+        @"is_translated" : self.device.isTranslated ? @YES : @NO,
+        @"is_jailbroken" : self.device.isJailbroken ? @YES : @NO,
+    };
+    return dict;
+}
+
+- (NSData *)jsonData
+{
+    NSError *error = nil;
+    NSData *data = [NSJSONSerialization dataWithJSONObject:[self wireDictionary] options:0 error:&error];
+    if (data == nil) {
+        KSLOG_ERROR(@"Failed to encode RunSummary JSON: %@", error);
+    }
+    return data;
 }
 
 @end

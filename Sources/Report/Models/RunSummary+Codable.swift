@@ -27,10 +27,11 @@
 import Foundation
 import KSCrashRecording
 
-// Codable support for RunSummary.
+// Codable-backed decode for RunSummary.
 //
-// The public API is two methods on `RunSummary`: `.jsonData()` and
-// `RunSummary.decode(from:)`. Internally those use a private Codable
+// Encoding is owned by the ObjC `-[KSCrashRunSummary jsonData]` method —
+// single source of truth for the wire schema, callable from both ObjC
+// and Swift. This file only provides the decode half, via a private
 // `Payload` struct mirroring the wire schema. The ObjC classes are not
 // themselves Codable — Swift disallows `init(from:)` on non-final
 // ObjC-imported classes without a `required` initializer, and that
@@ -38,12 +39,6 @@ import KSCrashRecording
 // that restriction without exposing any Swift-only parallel type.
 
 extension RunSummary {
-    /// Encode this summary as JSON using the wire schema documented in
-    /// `project_run_summary_schema.md`.
-    public func jsonData(encoder: JSONEncoder = JSONEncoder()) throws -> Data {
-        try encoder.encode(Payload(from: self))
-    }
-
     /// Decode a summary from JSON matching the wire schema.
     public static func decode(from data: Data, decoder: JSONDecoder = JSONDecoder()) throws -> RunSummary {
         try decoder.decode(Payload.self, from: data).makeRunSummary()
@@ -85,23 +80,6 @@ private struct Payload: Codable {
         case device
     }
 
-    init(from summary: RunSummary) {
-        schemaVersion = summary.schemaVersion
-        sdkVersion = summary.sdkVersion
-        runID = summary.runID
-        deviceID = summary.deviceID
-        userID = summary.userID
-        users = Users(from: summary.users)
-        startedAtMs = summary.startedAtMs
-        endedAtMs = summary.endedAtMs
-        outcome = Outcome(from: summary.outcome)
-        durationsMs = Durations(from: summary.durations)
-        sessions = Sessions(from: summary.sessions)
-        app = App(from: summary.app)
-        os = OSInfo(from: summary.os)
-        device = Device(from: summary.device)
-    }
-
     func makeRunSummary() -> RunSummary {
         RunSummary(
             schemaVersion: schemaVersion,
@@ -137,13 +115,6 @@ extension Payload {
             case userPerceptible = "user_perceptible"
         }
 
-        init(from outcome: RunSummary.Outcome) {
-            terminationReason = outcome.terminationReason.wireString
-            cleanShutdown = outcome.cleanShutdown
-            fatalReported = outcome.fatalReported
-            userPerceptible = outcome.userPerceptible
-        }
-
         func makeObjC() -> RunSummary.Outcome {
             RunSummary.Outcome(
                 terminationReason: KSCrashRecording.TerminationReason(wireString: terminationReason),
@@ -160,11 +131,6 @@ extension Payload {
     fileprivate struct Durations: Codable {
         let active: Int64
         let background: Int64
-
-        init(from durations: RunSummary.Durations) {
-            active = durations.activeMs
-            background = durations.backgroundMs
-        }
 
         func makeObjC() -> RunSummary.Durations {
             RunSummary.Durations(activeMs: active, backgroundMs: background)
@@ -184,11 +150,6 @@ extension Payload {
             case imperceptibleCount = "imperceptible_count"
         }
 
-        init(from sessions: RunSummary.Sessions) {
-            perceptibleCount = sessions.perceptibleCount
-            imperceptibleCount = sessions.imperceptibleCount
-        }
-
         func makeObjC() -> RunSummary.Sessions {
             RunSummary.Sessions(perceptibleCount: perceptibleCount, imperceptibleCount: imperceptibleCount)
         }
@@ -205,11 +166,6 @@ extension Payload {
         enum CodingKeys: String, CodingKey {
             case perceptibleCount = "perceptible_count"
             case imperceptibleCount = "imperceptible_count"
-        }
-
-        init(from users: RunSummary.Users) {
-            perceptibleCount = users.perceptibleCount
-            imperceptibleCount = users.imperceptibleCount
         }
 
         func makeObjC() -> RunSummary.Users {
@@ -236,13 +192,6 @@ extension Payload {
             case hostKind = "host_kind"
         }
 
-        init(from app: RunSummary.App) {
-            bundleID = app.bundleID
-            version = app.version
-            shortVersion = app.shortVersion
-            hostKind = app.hostKind.wireString
-        }
-
         func makeObjC() -> RunSummary.App {
             RunSummary.App(
                 bundleID: bundleID,
@@ -260,12 +209,6 @@ extension Payload {
         let name: String
         let version: String
         let build: String
-
-        init(from os: RunSummary.OS) {
-            name = os.name
-            version = os.version
-            build = os.build
-        }
 
         func makeObjC() -> RunSummary.OS {
             RunSummary.OS(name: name, version: version, build: build)
@@ -291,15 +234,6 @@ extension Payload {
             case binaryArchitecture = "binary_architecture"
             case isTranslated = "is_translated"
             case isJailbroken = "is_jailbroken"
-        }
-
-        init(from device: RunSummary.Device) {
-            model = device.model
-            modelFamily = device.modelFamily
-            architecture = device.architecture
-            binaryArchitecture = device.binaryArchitecture
-            isTranslated = device.isTranslated
-            isJailbroken = device.isJailbroken
         }
 
         func makeObjC() -> RunSummary.Device {
@@ -336,25 +270,6 @@ extension KSCrashRecording.TerminationReason {
         }
     }
 
-    fileprivate var wireString: String {
-        switch self {
-        case .clean: return "clean"
-        case .crash: return "crash"
-        case .hang: return "hang"
-        case .firstLaunch: return "first_launch"
-        case .osUpgrade: return "os_upgrade"
-        case .appUpgrade: return "app_upgrade"
-        case .reboot: return "reboot"
-        case .lowBattery: return "low_battery"
-        case .memoryLimit: return "memory_limit"
-        case .memoryPressure: return "memory_pressure"
-        case .thermal: return "thermal"
-        case .CPU: return "cpu"
-        case .unexplained: return "unexplained"
-        case .none: return "none"
-        @unknown default: return "none"
-        }
-    }
 }
 
 // MARK: - HostKind bridging
@@ -368,15 +283,4 @@ extension RunSummary.HostKind {
         default: self = .other
         }
     }
-
-    fileprivate var wireString: String {
-        switch self {
-        case .app: return "app"
-        case .`extension`: return "extension"
-        case .xcTest: return "xctest"
-        case .other: return "other"
-        @unknown default: return "other"
-        }
-    }
 }
-
