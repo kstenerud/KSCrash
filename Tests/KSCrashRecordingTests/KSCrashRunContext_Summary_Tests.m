@@ -134,9 +134,10 @@ static void populateContext(KSCrashRunContext *ctx)
     XCTAssertEqualObjects(summary.app.bundleID, @"com.acme.app");
     XCTAssertEqualObjects(summary.app.version, @"2.6.0.1234");
     XCTAssertEqualObjects(summary.app.shortVersion, @"2.6.0");
-    // hostKind is derived from the *current* bundle, not from the context,
-    // so we don't assert on a specific value here — swift test's runner
-    // isn't a .app/.appex/.xctest bundle in the general case.
+    // hostKind comes from the lifecycle sidecar's stored byte. populateContext
+    // left it at 0, which maps to KSCrashRunSummaryHostKindApp (the default
+    // v2-sidecar-loaded-into-v3 behavior).
+    XCTAssertEqual(summary.app.hostKind, KSCrashRunSummaryHostKindApp);
 
     XCTAssertEqualObjects(summary.os.name, @"iOS");
     XCTAssertEqualObjects(summary.os.version, @"18.0");
@@ -148,6 +149,22 @@ static void populateContext(KSCrashRunContext *ctx)
     XCTAssertEqualObjects(summary.device.binaryArchitecture, @"arm64e");
     XCTAssertFalse(summary.device.isTranslated);
     XCTAssertFalse(summary.device.isJailbroken);
+}
+
+// Verifies that hostKind comes from the *previous* run's stored sidecar
+// byte, not from the current bundle. This is the guarantee that matters
+// when an app and an extension share one KSCrash install dir — the summary
+// for the previous run gets the producer's host kind, not the current
+// process's.
+- (void)test_buildSummary_hostKindComesFromSidecar
+{
+    KSCrashRunContext ctx;
+    populateContext(&ctx);
+    ctx.lifecycle.hostKind = (uint8_t)KSCrashRunSummaryHostKindExtension;
+
+    KSCrashRunSummary *summary = ksruncontext_testcode_buildSummary(&ctx, NULL);
+
+    XCTAssertEqual(summary.app.hostKind, KSCrashRunSummaryHostKindExtension);
 }
 
 - (void)test_buildSummary_usesStartWhenMostRecentIsBeforeStart

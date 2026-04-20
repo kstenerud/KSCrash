@@ -395,21 +395,6 @@ static NSString *readUserIDFromSidecar(const char *sidecarPath)
     return ctx.userID;
 }
 
-static KSCrashRunSummaryHostKind hostKindFromCurrentBundle(void)
-{
-    NSString *ext = [[NSBundle mainBundle] bundlePath].pathExtension.lowercaseString;
-    if ([ext isEqualToString:@"app"]) {
-        return KSCrashRunSummaryHostKindApp;
-    }
-    if ([ext isEqualToString:@"appex"]) {
-        return KSCrashRunSummaryHostKindExtension;
-    }
-    if ([ext isEqualToString:@"xctest"]) {
-        return KSCrashRunSummaryHostKindXCTest;
-    }
-    return KSCrashRunSummaryHostKindOther;
-}
-
 // Returns the given C string as an NSString, or @"" if null/empty. Used for
 // system-sidecar fields that must appear in the summary as non-null strings.
 static NSString *safeString(const char *cstr)
@@ -461,7 +446,7 @@ static KSCrashRunSummary *buildSummary(const KSCrashRunContext *ctx, const char 
     KSCrashRunSummaryApp *app = [[KSCrashRunSummaryApp alloc] initWithBundleID:safeString(sys->bundleID)
                                                                        version:safeString(sys->bundleVersion)
                                                                   shortVersion:safeString(sys->bundleShortVersion)
-                                                                      hostKind:hostKindFromCurrentBundle()];
+                                                                      hostKind:(KSCrashRunSummaryHostKind)lc->hostKind];
 
     KSCrashRunSummaryOS *os = [[KSCrashRunSummaryOS alloc] initWithName:safeString(sys->systemName)
                                                                 version:safeString(sys->systemVersion)

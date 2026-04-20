@@ -227,9 +227,9 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
 
 - (void)testLifecycleDataStructLayout
 {
-    XCTAssertEqual(sizeof(KSCrash_LifecycleData), 104u);
+    XCTAssertEqual(sizeof(KSCrash_LifecycleData), 112u);
     XCTAssertEqual(KSLIFECYCLE_MAGIC, (int32_t)0x6B736C63);
-    XCTAssertEqual(KSCrash_Lifecycle_CurrentVersion, 2);
+    XCTAssertEqual(KSCrash_Lifecycle_CurrentVersion, 3);
 }
 
 - (void)testRelaunchAfterCrash

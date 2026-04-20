@@ -57,7 +57,7 @@ extern "C" {
 
 #define KSLIFECYCLE_MAGIC ((int32_t)'kslc')
 
-static const uint8_t KSCrash_Lifecycle_CurrentVersion = 2;
+static const uint8_t KSCrash_Lifecycle_CurrentVersion = 3;
 
 static inline double kslifecycle_nsToSeconds(uint64_t ns) { return (double)ns / 1000000000.0; }
 
@@ -122,9 +122,19 @@ typedef struct {
     // only the counts are persisted. See kscm_lifecycle_observeUser.
     uint32_t distinctPerceptibleUserCount;
     uint32_t distinctImperceptibleUserCount;
+
+    // --- v3 additions ---
+    //
+    // Kind of host (app / extension / xctest / other) captured at sidecar
+    // creation. Recorded per-run so the previous run's summary carries the
+    // *producer's* host kind when a different process type flushes it —
+    // important when app and extension share one KSCrash install dir.
+    // Values match `KSCrashRunSummaryHostKind` (0=app, 1=extension,
+    // 2=xctest, 3=other). v2 sidecars short-read to 0 = app.
+    uint8_t hostKind;
 } KSCrash_LifecycleData;
 
-_Static_assert(sizeof(KSCrash_LifecycleData) == 104, "KSCrash_LifecycleData size changed — bump version");
+_Static_assert(sizeof(KSCrash_LifecycleData) == 112, "KSCrash_LifecycleData size changed — bump version");
 
 // ============================================================================
 #pragma mark - Public State (computed from sidecar) -
