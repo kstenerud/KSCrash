@@ -50,6 +50,24 @@
 }
 @end
 
+// Sink that stashes its completion instead of invoking it, so the test can
+// hold the store mid-send (between filterRuns: and the sink callback) while
+// it asserts on a second concurrent send.
+@interface KSCrashReportStore_BlockingRunSink : NSObject <KSCrashRunFilter>
+@property(nonatomic, copy, nullable) KSCrashRunFilterCompletion stashedCompletion;
+@property(nonatomic, copy, nullable) NSArray<KSCrashRunSummary *> *lastReceivedRuns;
+@property(nonatomic, strong) XCTestExpectation *receivedExpectation;
+@end
+
+@implementation KSCrashReportStore_BlockingRunSink
+- (void)filterRuns:(NSArray<KSCrashRunSummary *> *)runs onCompletion:(KSCrashRunFilterCompletion)onCompletion
+{
+    self.lastReceivedRuns = runs;
+    self.stashedCompletion = onCompletion;
+    [self.receivedExpectation fulfill];
+}
+@end
+
 @interface KSCrashReportStore_RunSummary_Tests : XCTestCase
 @property(nonatomic, strong) NSString *tempDir;
 @property(nonatomic, strong) KSCrashReportStore *store;
@@ -249,6 +267,62 @@
     XCTAssertFalse([fm fileExistsAtPath:[self.runsDir stringByAppendingPathComponent:@"run-A.run"]]);
     XCTAssertTrue([fm fileExistsAtPath:[self.runsDir stringByAppendingPathComponent:@"run-B.run"]]);
     XCTAssertFalse([fm fileExistsAtPath:[self.runsDir stringByAppendingPathComponent:@"run-C.run"]]);
+}
+
+- (void)test_sendAllRunSummaries_secondConcurrentCallReturnsBusyError
+{
+    [self writeSummaryWithRunID:@"run-A"];
+
+    KSCrashReportStore_BlockingRunSink *sink = [KSCrashReportStore_BlockingRunSink new];
+    sink.receivedExpectation = [self expectationWithDescription:@"sink received first batch"];
+    self.store.runSink = sink;
+
+    XCTestExpectation *firstDone = [self expectationWithDescription:@"first send completes"];
+    [self.store
+        sendAllRunSummariesWithCompletion:^(NSArray<KSCrashRunSummary *> *_Nullable runs, NSError *_Nullable error) {
+            XCTAssertNil(error);
+            XCTAssertEqual(runs.count, 1u);
+            [firstDone fulfill];
+        }];
+
+    // Wait until the sink has been handed the first batch — at this point the
+    // store is past the synchronous flag-set and the in-flight send is parked
+    // inside the sink's filterRuns: waiting on stashedCompletion.
+    [self waitForExpectations:@[ sink.receivedExpectation ] timeout:1.0];
+
+    // Second call must short-circuit synchronously with a "busy" error.
+    __block BOOL secondCompletionFired = NO;
+    __block NSError *secondError = nil;
+    __block NSArray *secondRuns = nil;
+    [self.store
+        sendAllRunSummariesWithCompletion:^(NSArray<KSCrashRunSummary *> *_Nullable runs, NSError *_Nullable error) {
+            secondCompletionFired = YES;
+            secondError = error;
+            secondRuns = runs;
+        }];
+    XCTAssertTrue(secondCompletionFired, @"Reentrant call should complete synchronously");
+    XCTAssertNotNil(secondError);
+    XCTAssertEqual(secondRuns.count, 0u);
+    // Sink saw exactly one batch — the second call must not have re-decoded.
+    XCTAssertEqual(sink.lastReceivedRuns.count, 1u);
+
+    // Release the first send, then verify the file is gone (sink echoed it).
+    sink.stashedCompletion(sink.lastReceivedRuns, nil);
+    [self waitForExpectations:@[ firstDone ] timeout:1.0];
+    XCTAssertFalse(
+        [[NSFileManager defaultManager] fileExistsAtPath:[self.runsDir stringByAppendingPathComponent:@"run-A.run"]]);
+
+    // Once the first send's completion has fired, the flag is clear again and
+    // a follow-up call proceeds normally (here: nothing to send → empty).
+    self.store.runSink = [KSCrashReportStore_StubRunSink new];
+    XCTestExpectation *thirdDone = [self expectationWithDescription:@"third send completes"];
+    [self.store
+        sendAllRunSummariesWithCompletion:^(NSArray<KSCrashRunSummary *> *_Nullable runs, NSError *_Nullable error) {
+            XCTAssertNil(error);
+            XCTAssertEqual(runs.count, 0u);
+            [thirdDone fulfill];
+        }];
+    [self waitForExpectations:@[ thirdDone ] timeout:1.0];
 }
 
 - (void)test_sendAllRunSummaries_skipsCorruptFiles

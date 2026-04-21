@@ -47,8 +47,14 @@ const KSCrashReportID KSCrashReportNoID = 0;
 
 @implementation KSCrashReportStore {
     KSCrashReportStoreCConfiguration _cConfig;
-    // Guards all on-disk run-summary work (prune, enumerate, decode, delete).
+    // Guards all on-disk run-summary work (prune, enumerate, decode, delete)
+    // and the _isSendingRunSummaries reentrancy flag.
     os_unfair_lock _runSummaryLock;
+    // True from the moment a send is accepted until its sink completion has
+    // run. A second concurrent sendAllRunSummariesWithCompletion: short-circuits
+    // with an error rather than re-decoding the same files and handing the sink
+    // duplicates.
+    BOOL _isSendingRunSummaries;
 }
 
 + (NSString *)defaultInstallSubfolder
@@ -233,6 +239,24 @@ const KSCrashReportID KSCrashReportNoID = 0;
         }
         return;
     }
+    // Reentrancy guard: only one send pipeline runs at a time. Two concurrent
+    // calls would each decode the same files and pass duplicates to the sink;
+    // the second delete pass would also see ENOENT for everything the first
+    // pass deleted. Take the flag synchronously here so the second caller gets
+    // immediate feedback rather than silently joining a duplicate batch.
+    os_unfair_lock_lock(&_runSummaryLock);
+    if (_isSendingRunSummaries) {
+        os_unfair_lock_unlock(&_runSummaryLock);
+        if (onCompletion) {
+            onCompletion(@[], [KSNSErrorHelper errorWithDomain:[[self class] description]
+                                                          code:0
+                                                   description:@"Run summary send already in progress."]);
+        }
+        return;
+    }
+    _isSendingRunSummaries = YES;
+    os_unfair_lock_unlock(&_runSummaryLock);
+
     NSString *runsDir = [NSString stringWithUTF8String:runsDirC];
     int maxCount = _cConfig.maxRunSummaryCount;
 
@@ -240,6 +264,7 @@ const KSCrashReportID KSCrashReportNoID = 0;
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
         __strong __typeof(weakSelf) strongSelf = weakSelf;
         if (strongSelf == nil) {
+            // Self is gone, so the flag dies with it — no need to clear.
             if (onCompletion) onCompletion(@[], nil);
             return;
         }
@@ -280,6 +305,9 @@ const KSCrashReportID KSCrashReportNoID = 0;
         os_unfair_lock_unlock(&strongSelf->_runSummaryLock);
 
         if (summaries.count == 0) {
+            os_unfair_lock_lock(&strongSelf->_runSummaryLock);
+            strongSelf->_isSendingRunSummaries = NO;
+            os_unfair_lock_unlock(&strongSelf->_runSummaryLock);
             if (onCompletion) onCompletion(@[], nil);
             return;
         }
@@ -294,7 +322,9 @@ const KSCrashReportID KSCrashReportNoID = 0;
                        // Delete only files whose runID is in filteredRuns — the
                        // sink signals per-run success by including it. Runs
                        // omitted (or all, on full failure) stay on disk for the
-                       // next call to retry.
+                       // next call to retry. Flag clear is in the same critical
+                       // section as the deletes so a follow-up sender finds a
+                       // clean directory state.
                        os_unfair_lock_lock(&deleteSelf->_runSummaryLock);
                        NSFileManager *innerFM = [NSFileManager defaultManager];
                        for (KSCrashRunSummary *summary in filteredRuns) {
@@ -307,6 +337,7 @@ const KSCrashReportID KSCrashReportNoID = 0;
                                KSLOG_ERROR(@"Failed to delete run summary at %@: %@", path, removeError);
                            }
                        }
+                       deleteSelf->_isSendingRunSummaries = NO;
                        os_unfair_lock_unlock(&deleteSelf->_runSummaryLock);
                    }
                    if (onCompletion) onCompletion(filteredRuns, error);

@@ -147,13 +147,21 @@ NS_SWIFT_NAME(CrashReportStore)
 
 /** Send all pending run summaries to the current @c runSink.
  *
- *  Reads each `<runSummariesPath>/<runID>.json` file, decodes it, passes
- *  the array to the run sink's @c filterRuns:onCompletion:. Files are
- *  deleted on successful send (error == nil); on error, files are kept
- *  for retry on the next call.
+ *  Reads each `<runSummariesPath>/<wallClockAtStartNs>.run` file, decodes
+ *  it, passes the array to the run sink's @c filterRuns:onCompletion:.
+ *  Files whose runID appears in the sink's returned array are deleted;
+ *  any others stay on disk for retry on the next call.
+ *
+ *  Only one send may be in flight at a time. If a previous call's sink
+ *  completion has not yet fired, this call returns immediately with an
+ *  error rather than re-decoding the same files.
  *
  *  @note @c runSink MUST be set or else this method calls @c onCompletion
  *  with an error.
+ *
+ *  @note On the success path, @c onCompletion is invoked from a background
+ *  queue. The early-error paths (no sink, send already in progress) invoke
+ *  it synchronously on the calling thread.
  *
  *  @param onCompletion Called when sending is complete (nil = ignore).
  */
