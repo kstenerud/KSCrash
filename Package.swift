@@ -522,9 +522,6 @@ let package = Package(
 
         .target(
             name: Targets.report,
-            dependencies: [
-                .target(name: Targets.recording)
-            ],
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy")
             ]
@@ -532,7 +529,8 @@ let package = Package(
         .testTarget(
             name: Targets.report.tests,
             dependencies: [
-                .target(name: Targets.report)
+                .target(name: Targets.report),
+                .target(name: Targets.recording),
             ],
             resources: [
                 .process("Resources")
