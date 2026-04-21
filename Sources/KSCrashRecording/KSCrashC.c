@@ -515,6 +515,12 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     // g_reportStoreConfig has the resolved default path, whereas `configuration`
     // still holds whatever the caller passed in (NULL is valid there). Skip
     // when the caller disabled the feature via maxRunSummaryCount <= 0.
+    //
+    // Install only appends — the retention cap is enforced on the send path
+    // (sendAllRunSummariesWithCompletion:) and via the public
+    // ksruncontext_pruneRunSummaries() API that callers can invoke on their
+    // own cadence. Intentionally not pruning here so retention policy stays a
+    // caller choice rather than being coupled to launch timing.
     if (g_reportStoreConfig.maxRunSummaryCount > 0) {
         ksruncontext_persistPreviousRunSummary(g_reportStoreConfig.runSummariesPath);
     }

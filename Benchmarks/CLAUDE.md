@@ -80,6 +80,7 @@ The benchmarks test KSCrash's core crash capture performance:
 - **KSJSONCodecBenchmarks** - JSON encoding performance
 - **KSThreadBenchmarks** - Thread operations and caching
 - **KSCrashReportBenchmarks** - Full crash report generation
+- **KSCrashRunSummaryBenchmarks** - Install-time run-summary build + persist cost
 - **KSProfilerBenchmarks** - Sampling profiler performance
 - **KSCxaThrowBenchmarks** - C++ exception handling (warm)
 - **KSCxaThrowColdBenchmarks** - C++ exception handling (cold)

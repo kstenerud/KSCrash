@@ -371,6 +371,33 @@
     XCTAssertNil([KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil]);
 }
 
+// Fractional JSON values must not silently truncate via -longLongValue. The
+// schema only has integer scalars (counts, ms timestamps, schema_version),
+// so a {"started_at_ms": 1.5e9} wire payload indicates producer/consumer
+// version drift rather than a value to accept.
+- (void)test_decoder_rejectsFractionalWhereIntegerRequired
+{
+    NSMutableDictionary *dict = [self fullyValidWireDict];
+    dict[@"started_at_ms"] = @(1.5);
+    XCTAssertNil([KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil]);
+
+    dict = [self fullyValidWireDict];
+    dict[@"schema_version"] = @(2.5);
+    XCTAssertNil([KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil]);
+
+    dict = [self fullyValidWireDict];
+    NSMutableDictionary *durations = [dict[@"durations_ms"] mutableCopy];
+    durations[@"active"] = @(100.25);
+    dict[@"durations_ms"] = durations;
+    XCTAssertNil([KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil]);
+
+    dict = [self fullyValidWireDict];
+    NSMutableDictionary *sessions = [dict[@"sessions"] mutableCopy];
+    sessions[@"perceptible_count"] = @(3.7);
+    dict[@"sessions"] = sessions;
+    XCTAssertNil([KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil]);
+}
+
 - (void)test_decoder_rejectsNumberWhereBooleanRequired
 {
     NSMutableDictionary *dict = [self fullyValidWireDict];

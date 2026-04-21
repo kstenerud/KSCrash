@@ -565,7 +565,8 @@ let package = Package(
                 .target(name: Targets.recording),
             ],
             cSettings: [
-                .headerSearchPath("../../Sources/\(Targets.recording)")
+                .headerSearchPath("../../Sources/\(Targets.recording)"),
+                .headerSearchPath("../../Sources/\(Targets.recording)/Monitors"),
             ]
         ),
 

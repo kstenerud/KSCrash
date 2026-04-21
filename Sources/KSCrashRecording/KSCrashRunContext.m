@@ -53,10 +53,13 @@ FOUNDATION_EXPORT const unsigned char KSCrashFrameworkVersionString[];
 static KSCrashRunContext g_context = { 0 };
 static KSCrashRunSummary *g_summary = nil;
 
-// Width of the zero-padded decimal ms prefix in "<ms>.run" filenames. 19 digits
-// covers INT64_MAX (9223372036854775807), so any valid wall-clock value fits
-// without overflow and all files in the dir sort lexically the same as they do
-// numerically — tools that just `ls` the dir get the right order for free.
+// Width of the zero-padded decimal ns prefix in "<ns>.run" filenames. 19 digits
+// covers INT64_MAX (9223372036854775807), so any unix-epoch nanosecond value
+// (~1.76e18 today) fits without overflow and all files in the dir sort
+// lexically the same as they do numerically — tools that just `ls` the dir
+// get the right order for free. Nanosecond resolution on the wall clock makes
+// collisions between concurrent launches (e.g. app + extension) effectively
+// impossible.
 #define KSRUN_SUMMARY_FILENAME_DIGITS 19
 
 static KSCrashRunSummary *buildSummary(const KSCrashRunContext *ctx, const char *userInfoSidecarPath);
@@ -386,15 +389,18 @@ void ksruncontext_persistPreviousRunSummary(const char *runSummariesPath)
         return;
     }
 
-    // Filename is the run's wall-clock start time in ms, zero-padded to
-    // KSRUN_SUMMARY_FILENAME_DIGITS so all files in the dir lexically sort
-    // the same as they do numerically.
-    long long startedAtMs = (long long)g_summary.startedAtMs;
+    // Filename is the run's wall-clock start time in nanoseconds, zero-padded
+    // to KSRUN_SUMMARY_FILENAME_DIGITS so all files in the dir lexically sort
+    // the same as they do numerically. Nanoseconds (not ms) so concurrent
+    // launches can't collide on the same prefix. `wallClockAtStartNs` comes
+    // straight from the lifecycle sidecar that produced the summary, so it
+    // matches the run being written.
+    long long startedAtNs = (long long)g_context.lifecycle.wallClockAtStartNs;
     char path[KSFU_MAX_PATH_LENGTH];
-    if (snprintf(path, sizeof(path), "%s/%0*lld.run", runSummariesPath, KSRUN_SUMMARY_FILENAME_DIGITS, startedAtMs) >=
+    if (snprintf(path, sizeof(path), "%s/%0*lld.run", runSummariesPath, KSRUN_SUMMARY_FILENAME_DIGITS, startedAtNs) >=
         (int)sizeof(path)) {
         KSLOG_ERROR(@"Run summary file path too long: %s/%0*lld.run", runSummariesPath, KSRUN_SUMMARY_FILENAME_DIGITS,
-                    startedAtMs);
+                    startedAtNs);
         return;
     }
 
@@ -508,9 +514,30 @@ static KSCrashRunSummary *buildSummary(const KSCrashRunContext *ctx, const char 
                                                       fatalReported:lc->fatalReported != 0
                                                     userPerceptible:lc->userPerceptible != 0];
 
-    KSCrashRunSummaryDurations *durations = [[KSCrashRunSummaryDurations alloc]
-        initWithActiveMs:(int64_t)(lc->activeDurationSinceLaunchNs / 1000000ULL)
-            backgroundMs:(int64_t)(lc->backgroundDurationSinceLaunchNs / 1000000ULL)];
+    // Durations accumulate in the sidecar only on state transitions, so the
+    // currently-open slice (from the last transition to "now") is not yet
+    // folded in when the process dies without a transition. That's the common
+    // path for abnormal terminations (OOM, CPU / thermal kill, reboot,
+    // unexplained kill) — no lifecycle or crash callback fires, so without
+    // this tail extension a run that spent its whole time foregrounded would
+    // summarize as ~0 ms active. Clean shutdown and fatal crashes already
+    // close the slice via updateSidecarDurations, so adding the tail here
+    // would double-count — except that those paths set appStateTransitionTimeNs
+    // forward to the time of closure, making the tail zero by construction.
+    uint64_t activeNs = lc->activeDurationSinceLaunchNs;
+    uint64_t backgroundNs = lc->backgroundDurationSinceLaunchNs;
+    if (ctx->mostRecentTimestampNs > lc->appStateTransitionTimeNs) {
+        uint64_t tailNs = ctx->mostRecentTimestampNs - lc->appStateTransitionTimeNs;
+        if (lc->applicationIsActive) {
+            activeNs += tailNs;
+        } else if (!lc->applicationIsInForeground) {
+            backgroundNs += tailNs;
+        }
+    }
+
+    KSCrashRunSummaryDurations *durations =
+        [[KSCrashRunSummaryDurations alloc] initWithActiveMs:(int64_t)(activeNs / 1000000ULL)
+                                                backgroundMs:(int64_t)(backgroundNs / 1000000ULL)];
 
     KSCrashRunSummarySessions *sessions =
         [[KSCrashRunSummarySessions alloc] initWithPerceptibleCount:(NSInteger)lc->perceptibleSessionsSinceLaunch

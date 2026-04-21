@@ -274,10 +274,24 @@ static NSString *hostKindWireString(KSCrashRunSummaryHostKind kind)
 // of NSNumber — so `isKindOfClass:[NSNumber class]` accepts booleans as
 // numbers and vice versa. We disambiguate via CFBooleanGetTypeID so
 // {"schema_version": true} or {"clean_shutdown": 2} are rejected as
-// malformed instead of silently coerced.
+// malformed instead of silently coerced. Callers must null-check before
+// invoking; CFGetTypeID(NULL) is undefined.
 static BOOL isJSONBoolean(id value) { return CFGetTypeID((__bridge CFTypeRef)value) == CFBooleanGetTypeID(); }
 
-static BOOL isJSONNumber(id value) { return [value isKindOfClass:[NSNumber class]] && !isJSONBoolean(value); }
+// True only for NSNumber values whose backing type is integral. The schema
+// uses integer fields for every scalar (counts, ms timestamps, schema_version),
+// so a JSON fractional value like {"started_at_ms": 1.5e9} is malformed and
+// must be rejected rather than silently truncated via -longLongValue.
+static BOOL isJSONInteger(id value)
+{
+    if (![value isKindOfClass:[NSNumber class]] || isJSONBoolean(value)) {
+        return NO;
+    }
+    const char *type = [(NSNumber *)value objCType];
+    // Float/double carry 'f' / 'd'; every integral type code is something
+    // else (c, i, s, l, q, C, I, S, L, Q). Bool ('B') is already filtered.
+    return type != NULL && type[0] != 'f' && type[0] != 'd';
+}
 
 static NSString *requiredString(NSDictionary *dict, NSString *key, BOOL *outOK)
 {
@@ -292,7 +306,7 @@ static NSString *requiredString(NSDictionary *dict, NSString *key, BOOL *outOK)
 static int64_t requiredInt64(NSDictionary *dict, NSString *key, BOOL *outOK)
 {
     id value = dict[key];
-    if (!isJSONNumber(value)) {
+    if (!isJSONInteger(value)) {
         *outOK = NO;
         return 0;
     }
@@ -302,7 +316,7 @@ static int64_t requiredInt64(NSDictionary *dict, NSString *key, BOOL *outOK)
 static NSInteger requiredInteger(NSDictionary *dict, NSString *key, BOOL *outOK)
 {
     id value = dict[key];
-    if (!isJSONNumber(value)) {
+    if (!isJSONInteger(value)) {
         *outOK = NO;
         return 0;
     }

@@ -34,9 +34,9 @@
 extern KSCrashRunSummary *ksruncontext_testcode_buildSummary(const KSCrashRunContext *ctx,
                                                              const char *userInfoSidecarPath);
 
-// Wall-clock ms → zero-padded "<digits>.run" filename, matching the format
+// Wall-clock ns → zero-padded "<digits>.run" filename, matching the format
 // written by persistPreviousRunSummary.
-static NSString *runFilenameForMs(long long ms) { return [NSString stringWithFormat:@"%019lld.run", ms]; }
+static NSString *runFilenameForNs(long long ns) { return [NSString stringWithFormat:@"%019lld.run", ns]; }
 
 // Fills a context with a realistic set of values so mapping tests can assert
 // on each field individually.
@@ -63,6 +63,12 @@ static void populateContext(KSCrashRunContext *ctx)
     // mostRecent - monotonicAtStart = 180000000000 ns = 180000 ms.
     // ended = started + 180000 ms = 1744000000000 + 180000 = 1744000180000 ms
     ctx->mostRecentTimestampNs = ctx->lifecycle.monotonicAtStartNs + 180000000000ULL;
+    // Model a terminated-at-transition state (fatal crash or clean exit path):
+    // updateSidecarDurations advanced the transition time to the end, so no
+    // open tail slice remains and the stored durations above are final.
+    // Tests that want to exercise the abnormal-termination path (tail slice
+    // added by buildSummary) override appStateTransitionTimeNs explicitly.
+    ctx->lifecycle.appStateTransitionTimeNs = ctx->mostRecentTimestampNs;
 
     ctx->systemValid = true;
     strlcpy(ctx->system.systemName, "iOS", sizeof(ctx->system.systemName));
@@ -169,6 +175,59 @@ static void populateContext(KSCrashRunContext *ctx)
     KSCrashRunSummary *summary = ksruncontext_testcode_buildSummary(&ctx, NULL);
 
     XCTAssertEqual(summary.app.hostKind, KSCrashRunSummaryHostKindExtension);
+}
+
+- (void)test_buildSummary_extendsActiveWithOpenTailSlice
+{
+    KSCrashRunContext ctx;
+    populateContext(&ctx);
+    // Abnormal termination (e.g. OOM, thermal kill): the previous run died
+    // foregrounded and active, without a lifecycle callback closing the slice.
+    // appStateTransitionTimeNs sits back at start, so (mostRecent - transition)
+    // is the tail to fold into activeDurationSinceLaunchNs.
+    ctx.lifecycle.appStateTransitionTimeNs = ctx.lifecycle.monotonicAtStartNs;
+    ctx.lifecycle.applicationIsActive = 1;
+    ctx.lifecycle.applicationIsInForeground = 1;
+
+    KSCrashRunSummary *summary = ksruncontext_testcode_buildSummary(&ctx, NULL);
+
+    // Stored activeDurationSinceLaunchNs (123456 ms) plus the 180000 ms tail.
+    XCTAssertEqual(summary.durations.activeMs, 123456LL + 180000LL);
+    XCTAssertEqual(summary.durations.backgroundMs, 45678LL);
+}
+
+- (void)test_buildSummary_extendsBackgroundWithOpenTailSlice
+{
+    KSCrashRunContext ctx;
+    populateContext(&ctx);
+    // Same shape as the active case, but the run was backgrounded at death.
+    // Startup / foregrounding states set applicationIsInForeground false but
+    // are not "background" for duration accounting — only the
+    // !isActive && !isInForeground branch accumulates background time.
+    ctx.lifecycle.appStateTransitionTimeNs = ctx.lifecycle.monotonicAtStartNs;
+    ctx.lifecycle.applicationIsActive = 0;
+    ctx.lifecycle.applicationIsInForeground = 0;
+
+    KSCrashRunSummary *summary = ksruncontext_testcode_buildSummary(&ctx, NULL);
+
+    XCTAssertEqual(summary.durations.activeMs, 123456LL);
+    XCTAssertEqual(summary.durations.backgroundMs, 45678LL + 180000LL);
+}
+
+- (void)test_buildSummary_ignoresTailWhenTransitionAlreadyCurrent
+{
+    KSCrashRunContext ctx;
+    populateContext(&ctx);
+    // Fatal crash / clean exit path: updateSidecarDurations advances
+    // appStateTransitionTimeNs to now, so the stored durations already cover
+    // the slice up to termination and no tail should be added.
+    ctx.lifecycle.appStateTransitionTimeNs = ctx.mostRecentTimestampNs;
+    ctx.lifecycle.applicationIsActive = 1;
+
+    KSCrashRunSummary *summary = ksruncontext_testcode_buildSummary(&ctx, NULL);
+
+    XCTAssertEqual(summary.durations.activeMs, 123456LL);
+    XCTAssertEqual(summary.durations.backgroundMs, 45678LL);
 }
 
 - (void)test_buildSummary_usesStartWhenMostRecentIsBeforeStart
@@ -279,6 +338,7 @@ static void populateContext(KSCrashRunContext *ctx)
 #pragma mark - Persistence
 
 extern void ksruncontext_testcode_setCachedSummary(KSCrashRunSummary *summary, const char *runID);
+extern void ksruncontext_testcode_setLifecycleData(const KSCrash_LifecycleData *data);
 
 - (NSString *)runsDir
 {
@@ -311,11 +371,16 @@ extern void ksruncontext_testcode_setCachedSummary(KSCrashRunSummary *summary, c
     populateContext(&ctx);
     KSCrashRunSummary *summary = ksruncontext_testcode_buildSummary(&ctx, NULL);
     ksruncontext_testcode_setCachedSummary(summary, ctx.runID);
+    // The filename is derived from g_context.lifecycle.wallClockAtStartNs, so
+    // seed lifecycle too. In production ksruncontext_init populates both in
+    // lockstep; tests drive them separately via these helpers.
+    ksruncontext_testcode_setLifecycleData(&ctx.lifecycle);
 
     ksruncontext_persistPreviousRunSummary(self.runsDir.UTF8String);
 
-    // Filename is <startedAtMs>.run, zero-padded. populateContext gives startedAtMs = 1744000000000.
-    NSString *expectedPath = [self.runsDir stringByAppendingPathComponent:runFilenameForMs(1744000000000LL)];
+    // Filename is <wallClockAtStartNs>.run, zero-padded. populateContext sets
+    // wallClockAtStartNs = 1744000000000000000.
+    NSString *expectedPath = [self.runsDir stringByAppendingPathComponent:runFilenameForNs(1744000000000000000LL)];
     XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:expectedPath]);
 
     NSData *data = [NSData dataWithContentsOfFile:expectedPath];
@@ -326,6 +391,7 @@ extern void ksruncontext_testcode_setCachedSummary(KSCrashRunSummary *summary, c
     XCTAssertEqualObjects(json[@"outcome"][@"termination_reason"], @"crash");
 
     ksruncontext_testcode_setCachedSummary(nil, NULL);
+    ksruncontext_testcode_setLifecycleData(NULL);
 }
 
 - (void)test_persistPreviousRunSummary_noOpWhenSummaryMissing
