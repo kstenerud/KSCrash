@@ -30,15 +30,14 @@ jobs:
         with:
           xcode-version: latest-stable
 
-      - name: Resolve baseline ref
+      - name: Resolve baseline ref (latest stable release)
         id: base
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if [ -n "${{ github.event.pull_request.base.sha }}" ]; then
-            echo "ref=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
-          else
-            # push to master: diff against the previous commit on master
-            echo "ref=${{ github.event.before }}" >> "$GITHUB_OUTPUT"
-          fi
+          ref="$(gh release view --json tagName -q .tagName)"
+          echo "Latest stable release: $ref"
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
 
       - name: Compare public API
         id: compare
