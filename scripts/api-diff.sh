@@ -131,16 +131,21 @@ cmd_dump() {
     mods="$(public_modules)"
     [ -n "$mods" ] || die "no public-library modules discovered in $(pwd)"
 
-    local M
+    local M failed=0
     while IFS= read -r M; do
         [ -n "$M" ] || continue
         printf '>> dump %s\n' "$M"
         if ! "$DIGESTER" -dump-sdk -module "$M" "${args[@]}" \
                 -o "$out_dir/$M.json" 2>"$out_dir/$M.dump.log"; then
             printf '   FAILED to dump %s; see %s\n' "$M" "$out_dir/$M.dump.log" >&2
+            sed 's/^/     /' "$out_dir/$M.dump.log" >&2 || true
             rm -f "$out_dir/$M.json"
+            failed=$((failed+1))
         fi
     done <<<"$mods"
+    if [ "$failed" -gt 0 ]; then
+        die "$failed module dump(s) failed in $(pwd); see logs in $out_dir"
+    fi
 }
 
 classify_report() {

@@ -55,6 +55,8 @@ jobs:
           name: api-diff-reports
           path: |
             .api-diff-work/reports/
+            .api-diff-work/old-json/
+            .api-diff-work/new-json/
             api-diff.log
           retention-days: 14
           if-no-files-found: warn
