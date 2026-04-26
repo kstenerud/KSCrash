@@ -30,14 +30,6 @@ jobs:
         with:
           xcode-version: '26.4.1'
 
-      - name: Diagnostics
-        run: |
-          xcode-select -p
-          swift --version
-          DIGESTER="$(xcrun -f swift-api-digester)"
-          echo "digester: $DIGESTER"
-          "$DIGESTER" --help 2>&1 | head -60 || true
-
       - name: Resolve baseline ref (latest stable release)
         id: base
         env:
