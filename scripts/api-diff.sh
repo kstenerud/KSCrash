@@ -150,9 +150,21 @@ cmd_dump() {
 
 classify_report() {
     local M="$1" out="$2"
-    python3 - "$M" "$out" <<'PY'
-import re, sys
-M, path = sys.argv[1], sys.argv[2]
+    local ignore_file="${API_BREAK_IGNORE_FILE:-Tests/APICheck/api-break-ignore.txt}"
+    python3 - "$M" "$out" "$ignore_file" <<'PY'
+import os, re, sys
+M, path, ignore_path = sys.argv[1], sys.argv[2], sys.argv[3]
+ignore_patterns = []
+if os.path.isfile(ignore_path):
+    with open(ignore_path) as f:
+        for raw in f:
+            s = raw.strip()
+            if not s or s.startswith("#"):
+                continue
+            try:
+                ignore_patterns.append(re.compile(s, re.IGNORECASE))
+            except re.error as e:
+                sys.stderr.write(f"warning: bad regex in {ignore_path}: {s} ({e})\n")
 breaking_sections = {
     "Removed Decls",
     "Renamed Decls",
@@ -172,7 +184,10 @@ breaking_attribute_phrases = (
 section = None
 breaks = []
 nonbreaks = []
+ignored = []
 header_re = re.compile(r"^/\*\s+(.*?)\s+\*/\s*$")
+def is_ignored(text):
+    return any(p.search(text) for p in ignore_patterns)
 with open(path) as f:
     for raw in f:
         line = raw.rstrip("\n")
@@ -182,22 +197,26 @@ with open(path) as f:
             continue
         if not line.strip():
             continue
+        is_break = False
         if section in breaking_sections:
-            breaks.append((section, line))
-        elif section == "Protocol Conformance Change":
-            if "removed conformance to" in line:
-                breaks.append((section, line))
-            else:
-                nonbreaks.append((section, line))
+            is_break = True
+        elif section == "Protocol Conformance Change" and "removed conformance to" in line:
+            is_break = True
         elif section == "Decl Attribute changes" and any(p in line for p in breaking_attribute_phrases):
-            breaks.append((section, line))
+            is_break = True
+        if is_break:
+            if is_ignored(line):
+                ignored.append((section, line))
+            else:
+                breaks.append((section, line))
         else:
             nonbreaks.append((section or "(no section)", line))
+tail = f", {len(ignored)} ignored" if ignored else ""
 if breaks:
-    print(f"[BREAK] {M}: {len(breaks)} breaking, {len(nonbreaks)} additive/other")
+    print(f"[BREAK] {M}: {len(breaks)} breaking, {len(nonbreaks)} additive/other{tail}")
     sys.exit(1)
-if nonbreaks:
-    print(f"[ok]    {M}: {len(nonbreaks)} additive/other change(s)")
+if nonbreaks or ignored:
+    print(f"[ok]    {M}: {len(nonbreaks)} additive/other change(s){tail}")
 else:
     print(f"[ok]    {M}: no changes")
 sys.exit(0)

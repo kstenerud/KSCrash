@@ -25,10 +25,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Select Xcode 26.4
+      - name: Use Latest Stable Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '26.4.1'
+          xcode-version: latest-stable
 
       - name: Resolve baseline ref (latest stable release)
         id: base
@@ -47,6 +47,89 @@ jobs:
             2>&1 | tee api-diff.log
           exit ${PIPESTATUS[0]}
         timeout-minutes: 20
+
+      - name: Annotate breaking changes
+        if: failure() && steps.compare.conclusion == 'failure'
+        run: |
+          python3 - <<'PY'
+          import os, re, glob
+
+          IGNORE_FILE = os.environ.get("API_BREAK_IGNORE_FILE", "Tests/APICheck/api-break-ignore.txt")
+          ignore_patterns = []
+          if os.path.isfile(IGNORE_FILE):
+              with open(IGNORE_FILE) as f:
+                  for raw in f:
+                      s = raw.strip()
+                      if s and not s.startswith("#"):
+                          try:
+                              ignore_patterns.append(re.compile(s, re.IGNORECASE))
+                          except re.error:
+                              pass
+
+          BREAKING_SECTIONS = {
+              "Removed Decls", "Renamed Decls", "Type Changes",
+              "Class Inheritance Change", "Protocol Requirement Change",
+              "Generic Signature Changes",
+          }
+          ATTR_PHRASES = (
+              "is now throwing", "is no longer throwing",
+              "is now not class", "is no longer class",
+              "is now not static", "is no longer static",
+          )
+          line_re = re.compile(r"^([A-Za-z_][\w]*)(?:\(([^)]+)\))?:\s*(.+)$")
+          header_re = re.compile(r"^/\*\s+(.*?)\s+\*/\s*$")
+
+          def resolve(module, basename):
+              if not basename:
+                  return None
+              for cand in glob.glob(f"Sources/{module}/**/{basename}", recursive=True):
+                  return cand
+              for cand in glob.glob(f"Sources/**/{basename}", recursive=True):
+                  return cand
+              return None
+
+          def emit(props, msg):
+              attrs = ",".join(f"{k}={v}" for k, v in props.items() if v)
+              # Escape per GitHub workflow-command rules
+              msg = msg.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+              print(f"::error {attrs}::{msg}")
+
+          total = 0
+          for path in sorted(glob.glob(".api-diff-work/reports/*.diff.txt")):
+              module = os.path.basename(path)[:-len(".diff.txt")]
+              section = None
+              with open(path) as f:
+                  for raw in f:
+                      line = raw.rstrip("\n")
+                      m = header_re.match(line)
+                      if m:
+                          section = m.group(1)
+                          continue
+                      if not line.strip():
+                          continue
+                      breaking = (
+                          section in BREAKING_SECTIONS
+                          or (section == "Protocol Conformance Change" and "removed conformance to" in line)
+                          or (section == "Decl Attribute changes" and any(p in line for p in ATTR_PHRASES))
+                      )
+                      if not breaking:
+                          continue
+                      if any(p.search(line) for p in ignore_patterns):
+                          continue
+                      m = line_re.match(line)
+                      if m:
+                          mod, basename, msg = m.group(1), m.group(2), m.group(3)
+                          file_path = resolve(mod, basename)
+                          props = {"title": f"API break in {mod}"}
+                          if file_path:
+                              props["file"] = file_path
+                              props["line"] = "1"
+                          emit(props, f"[{section}] {msg}")
+                      else:
+                          emit({"title": f"API break in {module}"}, f"[{section}] {line}")
+                      total += 1
+          print(f"::notice::Annotated {total} breaking change(s); see Files changed for inline highlights.")
+          PY
 
       - name: Upload diff reports
         if: always()
