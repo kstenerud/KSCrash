@@ -15,6 +15,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   api-check:
     name: latest stable release vs HEAD
@@ -130,6 +134,34 @@ jobs:
                       total += 1
           print(f"::notice::Annotated {total} breaking change(s); see Files changed for inline highlights.")
           PY
+
+      - name: Build summary markdown
+        if: always() && (steps.compare.conclusion == 'success' || steps.compare.conclusion == 'failure')
+        id: summary
+        run: |
+          python3 scripts/api-diff-summary.py \
+            .api-diff-work/reports \
+            "${{ steps.base.outputs.ref }}" \
+            "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            > break-summary.md
+          cat break-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Post sticky PR comment
+        if: always() && github.event_name == 'pull_request' && (steps.compare.conclusion == 'success' || steps.compare.conclusion == 'failure')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          MARKER="<!-- api-diff-comment -->"
+          existing=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
+            --jq "[.[] | select(.body | startswith(\"$MARKER\"))][0].id // empty")
+          if [ -n "$existing" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$existing" --field body=@break-summary.md >/dev/null
+            echo "Updated comment $existing"
+          else
+            gh pr comment "$PR" --body-file break-summary.md
+          fi
 
       - name: Upload diff reports
         if: always()
