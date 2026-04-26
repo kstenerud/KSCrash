@@ -157,7 +157,7 @@ cmd_dump() {
 
 classify_report() {
     local M="$1" out="$2"
-    local ignore_file="${API_BREAK_IGNORE_FILE:-Tests/APICheck/api-break-ignore.txt}"
+    local ignore_file="${API_BREAK_IGNORE_FILE:-scripts/api-break-ignore.txt}"
     python3 - "$M" "$out" "$ignore_file" <<'PY'
 import os, re, sys
 M, path, ignore_path = sys.argv[1], sys.argv[2], sys.argv[3]

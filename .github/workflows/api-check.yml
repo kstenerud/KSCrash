@@ -5,7 +5,8 @@ on:
     paths:
       - "Sources/**"
       - "Package.swift"
-      - "scripts/api-diff.sh"
+      - "scripts/api-diff*"
+      - "scripts/api-break-ignore.txt"
       - ".github/workflows/api-check.yml"
   push:
     branches:
@@ -58,7 +59,7 @@ jobs:
           python3 - <<'PY'
           import os, re, glob
 
-          IGNORE_FILE = os.environ.get("API_BREAK_IGNORE_FILE", "Tests/APICheck/api-break-ignore.txt")
+          IGNORE_FILE = os.environ.get("API_BREAK_IGNORE_FILE", "scripts/api-break-ignore.txt")
           ignore_patterns = []
           if os.path.isfile(IGNORE_FILE):
               with open(IGNORE_FILE) as f:

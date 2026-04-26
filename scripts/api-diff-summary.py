@@ -29,7 +29,7 @@ ATTR_PHRASES = (
     "is now not static",
     "is no longer static",
 )
-IGNORE_FILE = os.environ.get("API_BREAK_IGNORE_FILE", "Tests/APICheck/api-break-ignore.txt")
+IGNORE_FILE = os.environ.get("API_BREAK_IGNORE_FILE", "scripts/api-break-ignore.txt")
 COMMENT_MARKER = "<!-- api-diff-comment -->"
 LINE_RE = re.compile(r"^([A-Za-z_][\w]*)(?:\(([^)]+)\))?:\s*(.+)$")
 HEADER_RE = re.compile(r"^/\*\s+(.*?)\s+\*/\s*$")
@@ -133,7 +133,7 @@ def render(reports_dir, baseline, run_url):
                 out.append(f"| {section} | {msg} | {file_disp} |")
             out.append("")
         if ignored:
-            out.append("**Ignored** (matched `Tests/APICheck/api-break-ignore.txt`):")
+            out.append("**Ignored** (matched `scripts/api-break-ignore.txt`):")
             for _, line in ignored:
                 _, _, msg = parse_break_line(line)
                 if len(msg) > 200:
