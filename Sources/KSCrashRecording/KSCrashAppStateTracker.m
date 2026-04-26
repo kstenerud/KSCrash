@@ -167,10 +167,14 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
 
 - (id)subscribeWithBlock:(KSCrashAppStateTrackerObserverBlock)block
 {
-    if (!block) {
-        return nil;
+    KSCrashAppStateTrackerObserverBlock heapBlock = [block copy];
+    if (!heapBlock) {
+        // Caller violated the non-null param contract. Return a non-nil
+        // global no-op block so the non-null return contract is honored;
+        // do not register it as an observer.
+        return ^(KSCrashAppTransitionState __unused transitionState) {
+        };
     }
-    id heapBlock = [block copy];
     KSCrashAppTransitionState currentState;
     os_unfair_lock_lock(&_lock);
     [_observers addPointer:(__bridge void *_Nullable)(heapBlock)];
@@ -182,7 +186,7 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
     // before any observers are registered). Dispatch async to avoid
     // re-entering the caller while still inside subscribeWithBlock:.
     dispatch_async(dispatch_get_main_queue(), ^{
-        ((KSCrashAppStateTrackerObserverBlock)heapBlock)(currentState);
+        heapBlock(currentState);
     });
 
     return heapBlock;
@@ -198,13 +202,7 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
     // assigned the result to id<KSCrashAppStateTrackerObserving> still
     // compile. The wrapper retains the heap-copied block returned by
     // -subscribeWithBlock: so the weak reference in _observers stays alive.
-    if (!block) {
-        return nil;
-    }
     KSCrashAppStateTrackerObserverBlock token = (KSCrashAppStateTrackerObserverBlock)[self subscribeWithBlock:block];
-    if (!token) {
-        return nil;
-    }
     KSCrashAppStateTrackerBlockObserver *wrapper = [[KSCrashAppStateTrackerBlockObserver alloc] init];
     wrapper.block = token;
     return wrapper;

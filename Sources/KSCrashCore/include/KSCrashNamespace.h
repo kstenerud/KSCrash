@@ -101,6 +101,7 @@
 #define KSCrashAppMemoryTracker KSCRASH_NS(KSCrashAppMemoryTracker)
 #define KSCrashAppMemoryTrackerDelegate KSCRASH_NS(KSCrashAppMemoryTrackerDelegate)
 #define KSCrashAppStateTracker KSCRASH_NS(KSCrashAppStateTracker)
+#define KSCrashAppStateTrackerBlockObserver KSCRASH_NS(KSCrashAppStateTrackerBlockObserver)
 #define KSCrashBasicMonitorPlugin KSCRASH_NS(KSCrashBasicMonitorPlugin)
 #define KSCrashCPU KSCRASH_NS(KSCrashCPU)
 #define KSCrashCPUCriticalThreshold KSCRASH_NS(KSCrashCPUCriticalThreshold)
