@@ -1,0 +1,61 @@
+name: Public API Diff
+
+on:
+  pull_request:
+    paths:
+      - "Sources/**"
+      - "Package.swift"
+      - "scripts/api-diff.sh"
+      - ".github/workflows/api-check.yml"
+  push:
+    branches:
+      - master
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api-check:
+    name: Public API Diff (${{ github.base_ref || 'master' }} -> HEAD)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Use Latest Stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Resolve baseline ref
+        id: base
+        run: |
+          if [ -n "${{ github.event.pull_request.base.sha }}" ]; then
+            echo "ref=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            # push to master: diff against the previous commit on master
+            echo "ref=${{ github.event.before }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Compare public API
+        id: compare
+        run: |
+          mkdir -p .api-diff-work
+          bash scripts/api-diff.sh compare "${{ steps.base.outputs.ref }}" "${{ github.sha }}" .api-diff-work \
+            2>&1 | tee api-diff.log
+          exit ${PIPESTATUS[0]}
+        timeout-minutes: 20
+
+      - name: Upload diff reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: api-diff-reports
+          path: |
+            .api-diff-work/reports/
+            api-diff.log
+          retention-days: 14
+          if-no-files-found: warn
