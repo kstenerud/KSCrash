@@ -81,19 +81,24 @@ ALLOWLIST = {
     "Report",
 }
 d = json.load(sys.stdin)
-discovered = set()
+all_targets = {t.get("name") for t in d.get("targets", []) if t.get("name")}
+library_targets = set()
 for p in d.get("products", []):
     t = p.get("type")
     if t == "library" or (isinstance(t, dict) and "library" in t):
         for tgt in p.get("targets", []):
-            discovered.add(tgt)
-missing = ALLOWLIST - discovered
-if missing:
-    sys.exit("documented public modules not exposed as library products in Package.swift: " + ", ".join(sorted(missing)))
-extra = discovered - ALLOWLIST
+            library_targets.add(tgt)
+present = ALLOWLIST & all_targets
+drifted = present - library_targets
+if drifted:
+    sys.exit("documented public modules exist as targets but are not exposed as library products in Package.swift: " + ", ".join(sorted(drifted)))
+absent = ALLOWLIST - all_targets
+if absent:
+    sys.stderr.write("note: documented public modules not present in this revision (older snapshot?): " + ", ".join(sorted(absent)) + "\n")
+extra = library_targets - ALLOWLIST
 if extra:
     sys.stderr.write("note: ignoring library targets not listed as public in .claude/CLAUDE.md: " + ", ".join(sorted(extra)) + "\n")
-print("\n".join(sorted(ALLOWLIST)))
+print("\n".join(sorted(present)))
 '
 }
 
