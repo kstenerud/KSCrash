@@ -23,6 +23,9 @@ permissions:
 jobs:
   api-check:
     name: latest stable release vs HEAD
+    # Pinned to macos-26 because macos-latest (= macos-15) tops out at
+    # Xcode 26.3, whose swift-api-digester rejects -Xcc and dumps fail.
+    # Switch back to macos-latest once it ships Xcode 26.4+.
     runs-on: macos-26
     steps:
       - name: Checkout Code
