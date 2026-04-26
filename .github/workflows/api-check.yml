@@ -146,21 +146,31 @@ jobs:
             > break-summary.md
           cat break-summary.md >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Post sticky PR comment
+      - name: Post or clear sticky PR comment
         if: always() && github.event_name == 'pull_request' && (steps.compare.conclusion == 'success' || steps.compare.conclusion == 'failure')
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
+          OUTCOME: ${{ steps.compare.conclusion }}
         run: |
           MARKER="<!-- api-diff-comment -->"
           existing=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
             --jq "[.[] | select(.body | startswith(\"$MARKER\"))][0].id // empty")
-          if [ -n "$existing" ]; then
-            gh api -X PATCH "repos/$REPO/issues/comments/$existing" --field body=@break-summary.md >/dev/null
-            echo "Updated comment $existing"
+          if [ "$OUTCOME" = "success" ]; then
+            if [ -n "$existing" ]; then
+              gh api -X DELETE "repos/$REPO/issues/comments/$existing"
+              echo "Removed stale sticky comment $existing (no actionable breaks)."
+            else
+              echo "No breaks and no prior comment; nothing to do."
+            fi
           else
-            gh pr comment "$PR" --body-file break-summary.md
+            if [ -n "$existing" ]; then
+              gh api -X PATCH "repos/$REPO/issues/comments/$existing" --field body=@break-summary.md >/dev/null
+              echo "Updated comment $existing"
+            else
+              gh pr comment "$PR" --body-file break-summary.md
+            fi
           fi
 
       - name: Upload diff reports
