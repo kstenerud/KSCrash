@@ -84,6 +84,31 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
     }
 }
 
+// Source-compat wrapper for the deprecated -addObserverWithBlock: shim.
+// Holds the heap-copied block strongly so the weak reference inside _observers
+// stays alive as long as the caller retains this token. The protocol
+// conformance is honest (the typed return is not a cast lie), but the tracker
+// invokes the block directly via _observers — the protocol method exists only
+// so that the typed return value compiles for legacy 2.5.1-shaped call sites.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#pragma clang diagnostic ignored "-Wdeprecated-implementations"
+@interface KSCrashAppStateTrackerBlockObserver : NSObject <KSCrashAppStateTrackerObserving>
+@property(nonatomic, copy) KSCrashAppStateTrackerObserverBlock block;
+@end
+
+@implementation KSCrashAppStateTrackerBlockObserver
+- (void)appStateTracker:(__unused KSCrashAppStateTracker *)tracker
+    didTransitionToState:(KSCrashAppTransitionState)transitionState
+{
+    KSCrashAppStateTrackerObserverBlock block = self.block;
+    if (block) {
+        block(transitionState);
+    }
+}
+@end
+#pragma clang diagnostic pop
+
 @interface KSCrashAppStateTracker () {
     NSNotificationCenter *_center;
     NSArray<id<NSObject>> *_registrations;
@@ -140,7 +165,7 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
     [self stop];
 }
 
-- (id)addObserverWithBlock:(KSCrashAppStateTrackerObserverBlock)block
+- (id)subscribeWithBlock:(KSCrashAppStateTrackerObserverBlock)block
 {
     if (!block) {
         return nil;
@@ -155,7 +180,7 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
     // Deliver the current state so the observer doesn't miss transitions
     // that already happened (e.g. on macOS, Active is set during start()
     // before any observers are registered). Dispatch async to avoid
-    // re-entering the caller while still inside addObserverWithBlock:.
+    // re-entering the caller while still inside subscribeWithBlock:.
     dispatch_async(dispatch_get_main_queue(), ^{
         ((KSCrashAppStateTrackerObserverBlock)heapBlock)(currentState);
     });
@@ -166,12 +191,31 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-implementations"
 
+- (id<KSCrashAppStateTrackerObserving>)addObserverWithBlock:(KSCrashAppStateTrackerObserverBlock)block
+{
+    // Deprecated source-compat shim. Returns a wrapper conforming to
+    // KSCrashAppStateTrackerObserving so that 2.5.1-shaped call sites that
+    // assigned the result to id<KSCrashAppStateTrackerObserving> still
+    // compile. The wrapper retains the heap-copied block returned by
+    // -subscribeWithBlock: so the weak reference in _observers stays alive.
+    if (!block) {
+        return nil;
+    }
+    KSCrashAppStateTrackerObserverBlock token = (KSCrashAppStateTrackerObserverBlock)[self subscribeWithBlock:block];
+    if (!token) {
+        return nil;
+    }
+    KSCrashAppStateTrackerBlockObserver *wrapper = [[KSCrashAppStateTrackerBlockObserver alloc] init];
+    wrapper.block = token;
+    return wrapper;
+}
+
 - (void)addObserver:(id<KSCrashAppStateTrackerObserving>)observer
 {
     // Deprecated: wrap the protocol observer into a block observer.
     __weak id<KSCrashAppStateTrackerObserving> weakObserver = observer;
     __weak typeof(self) weakSelf = self;
-    [self addObserverWithBlock:^(KSCrashAppTransitionState transitionState) {
+    [self subscribeWithBlock:^(KSCrashAppTransitionState transitionState) {
         [weakObserver appStateTracker:weakSelf didTransitionToState:transitionState];
     }];
 }

@@ -424,7 +424,7 @@ static void setEnabled(bool isEnabled, __unused void *context)
         ks_spinlock_unlock(&g_sidecarLock);
 
         g_appStateObserver =
-            [KSCrashAppStateTracker.sharedInstance addObserverWithBlock:^(KSCrashAppTransitionState transitionState) {
+            [KSCrashAppStateTracker.sharedInstance subscribeWithBlock:^(KSCrashAppTransitionState transitionState) {
                 onTransitionState(transitionState);
             }];
 

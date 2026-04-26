@@ -94,7 +94,7 @@ static KSCrashAppMemory *Memory(uint64_t footprint)
     __block KSCrashAppTransitionState state;
 
     KSCrashAppStateTracker *tracker = [KSCrashAppStateTracker new];
-    [tracker addObserverWithBlock:^(KSCrashAppTransitionState transitionState) {
+    [tracker subscribeWithBlock:^(KSCrashAppTransitionState transitionState) {
         state = transitionState;
     }];
 
