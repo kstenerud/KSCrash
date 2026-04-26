@@ -68,15 +68,32 @@ require_tools() {
 public_modules() {
     swift package describe --type json | python3 -c '
 import json, sys
+ALLOWLIST = {
+    "KSCrashRecording",
+    "KSCrashFilters",
+    "KSCrashSinks",
+    "KSCrashInstallations",
+    "KSCrashDiscSpaceMonitor",
+    "KSCrashBootTimeMonitor",
+    "KSCrashDemangleFilter",
+    "KSCrashProfiler",
+    "Monitors",
+    "Report",
+}
 d = json.load(sys.stdin)
-mods = set()
+discovered = set()
 for p in d.get("products", []):
     t = p.get("type")
-    is_lib = t == "library" or (isinstance(t, dict) and "library" in t)
-    if is_lib:
+    if t == "library" or (isinstance(t, dict) and "library" in t):
         for tgt in p.get("targets", []):
-            mods.add(tgt)
-print("\n".join(sorted(mods)))
+            discovered.add(tgt)
+missing = ALLOWLIST - discovered
+if missing:
+    sys.exit("documented public modules not exposed as library products in Package.swift: " + ", ".join(sorted(missing)))
+extra = discovered - ALLOWLIST
+if extra:
+    sys.stderr.write("note: ignoring library targets not listed as public in .claude/CLAUDE.md: " + ", ".join(sorted(extra)) + "\n")
+print("\n".join(sorted(ALLOWLIST)))
 '
 }
 
