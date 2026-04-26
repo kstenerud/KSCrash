@@ -131,6 +131,9 @@ cmd_dump() {
     mods="$(public_modules)"
     [ -n "$mods" ] || die "no public-library modules discovered in $(pwd)"
 
+    local objc_only_modules=" KSCrashRecording KSCrashRecordingCore KSCrashFilters KSCrashSinks KSCrashInstallations KSCrashDiscSpaceMonitor KSCrashBootTimeMonitor KSCrashDemangleFilter "
+    local filter_script
+    filter_script="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)/api-diff-filter-c.py"
     local M failed=0
     while IFS= read -r M; do
         [ -n "$M" ] || continue
@@ -141,6 +144,10 @@ cmd_dump() {
             sed 's/^/     /' "$out_dir/$M.dump.log" >&2 || true
             rm -f "$out_dir/$M.json"
             failed=$((failed+1))
+            continue
+        fi
+        if [[ " $objc_only_modules " == *" $M "* ]] && [ -f "$filter_script" ]; then
+            python3 "$filter_script" "$out_dir/$M.json"
         fi
     done <<<"$mods"
     if [ "$failed" -gt 0 ]; then
