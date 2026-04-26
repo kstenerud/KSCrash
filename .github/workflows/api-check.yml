@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   api-check:
-    name: Public API Diff (${{ github.base_ref || 'master' }} -> HEAD)
+    name: latest stable release vs HEAD
     runs-on: macos-latest
     steps:
       - name: Checkout Code
