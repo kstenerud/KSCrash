@@ -8,3 +8,10 @@
 # Experimental APIs are not part of the public contract. Symbols whose path
 # contains the word "experimental" can be removed/changed without notice.
 \bexperimental\b
+
+# AppStateTracker.addObserver(_:) return-type change between 2.5.1 and 2.6.0.
+# 2.5.1's KSCrashAppStateTracker.h carried "We'll keep it private for now until
+# it is integrated with KSCrashMonitor_AppState" — de-facto private despite
+# being in a public header. Documented as a known break in the 2.6.0 release
+# notes. See PR #828 review thread (naftaly) and PR #829 (closed).
+AppStateTracker\.addObserver
