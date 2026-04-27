@@ -5,6 +5,7 @@ on:
     paths:
       - "Sources/**"
       - "Package.swift"
+      - ".swiftpm/xcode/xcshareddata/xcschemes/**"
       - "scripts/api-diff*"
       - "scripts/api_diff*"
       - "scripts/api-break-ignore.txt"
