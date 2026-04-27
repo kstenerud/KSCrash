@@ -32,8 +32,11 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - { name: macOS, target: arm64-apple-macos15, sdk: macosx, xcode_platform: macOS }
-          - { name: iOS,   target: arm64-apple-ios18,   sdk: iphoneos, xcode_platform: iOS }
+          - { name: macOS,    target: arm64-apple-macos15,   sdk: macosx,     xcode_platform: macOS }
+          - { name: iOS,      target: arm64-apple-ios18,     sdk: iphoneos,   xcode_platform: iOS }
+          - { name: tvOS,     target: arm64-apple-tvos18,    sdk: appletvos,  xcode_platform: tvOS }
+          - { name: watchOS,  target: arm64-apple-watchos11, sdk: watchos,    xcode_platform: watchOS }
+          - { name: visionOS, target: arm64-apple-xros2,     sdk: xros,       xcode_platform: visionOS }
     steps:
       - name: Checkout Code
         uses: actions/checkout@v6
