@@ -1,0 +1,128 @@
+name: Public API Diff
+
+on:
+  pull_request:
+    paths:
+      - "Sources/**"
+      - "Package.swift"
+      - ".swiftpm/xcode/xcshareddata/xcschemes/**"
+      - "scripts/api-diff*"
+      - "scripts/api_diff*"
+      - "scripts/api-break-ignore.txt"
+      - ".github/workflows/api-check.yml"
+  push:
+    branches:
+      - master
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  api-check:
+    name: ${{ matrix.platform.name }} vs latest stable release
+    # Pinned to macos-26 because macos-latest (= macos-15) tops out at
+    # Xcode 26.3, whose swift-api-digester rejects -Xcc and dumps fail.
+    # Switch back to macos-latest once it ships Xcode 26.4+.
+    runs-on: macos-26
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { name: macOS,    target: arm64-apple-macos15,   sdk: macosx,     xcode_platform: macOS }
+          - { name: iOS,      target: arm64-apple-ios18,     sdk: iphoneos,   xcode_platform: iOS }
+          - { name: tvOS,     target: arm64-apple-tvos18,    sdk: appletvos,  xcode_platform: tvOS }
+          - { name: watchOS,  target: arm64-apple-watchos11, sdk: watchos,    xcode_platform: watchOS }
+          - { name: visionOS, target: arm64-apple-xros2,     sdk: xros,       xcode_platform: visionOS }
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Use Latest Stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Resolve baseline ref (latest stable release)
+        id: base
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ref="$(gh release view --json tagName -q .tagName)"
+          echo "Latest stable release: $ref"
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+
+      - name: Compare public API
+        id: compare
+        env:
+          BASE_REF: ${{ steps.base.outputs.ref }}
+          NEW_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+          TARGET: ${{ matrix.platform.target }}
+          SDK_NAME: ${{ matrix.platform.sdk }}
+          XCODE_PLATFORM: ${{ matrix.platform.xcode_platform }}
+        run: |
+          mkdir -p .api-diff-work
+          bash scripts/api-diff.sh compare "$BASE_REF" "$NEW_REF" .api-diff-work \
+            2>&1 | tee api-diff.log
+          exit ${PIPESTATUS[0]}
+        timeout-minutes: 25
+
+      - name: Annotate breaking changes
+        if: failure() && steps.compare.conclusion == 'failure'
+        run: python3 scripts/api-diff-annotate.py .api-diff-work/reports
+
+      - name: Build summary markdown
+        if: always() && (steps.compare.conclusion == 'success' || steps.compare.conclusion == 'failure')
+        id: summary
+        env:
+          BASE_REF: ${{ steps.base.outputs.ref }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PLATFORM_LABEL: ${{ matrix.platform.name }}
+        run: |
+          python3 scripts/api-diff-summary.py .api-diff-work/reports "$BASE_REF" "$RUN_URL" "$PLATFORM_LABEL" > break-summary.md
+          cat break-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Comment PR with breaking changes
+        if: |
+          !cancelled() &&
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          steps.summary.conclusion == 'success' &&
+          steps.compare.conclusion == 'failure'
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          file-path: break-summary.md
+          comment-tag: api-diff-comment-${{ matrix.platform.sdk }}
+
+      - name: Clear stale sticky comment when clean
+        if: |
+          !cancelled() &&
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          steps.summary.conclusion == 'success' &&
+          steps.compare.conclusion == 'success'
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          comment-tag: api-diff-comment-${{ matrix.platform.sdk }}
+          mode: delete
+          create-if-not-exists: false
+
+      - name: Upload diff reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: api-diff-reports-${{ matrix.platform.sdk }}
+          path: |
+            .api-diff-work/reports/
+            .api-diff-work/old-json/
+            .api-diff-work/new-json/
+            api-diff.log
+          retention-days: 14
+          if-no-files-found: warn
