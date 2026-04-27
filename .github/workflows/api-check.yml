@@ -77,6 +77,7 @@ jobs:
 
       - name: Comment PR with breaking changes
         if: |
+          !cancelled() &&
           github.event_name == 'pull_request' &&
           github.event.pull_request.head.repo.full_name == github.repository &&
           steps.summary.conclusion == 'success' &&
@@ -88,6 +89,7 @@ jobs:
 
       - name: Clear stale sticky comment when clean
         if: |
+          !cancelled() &&
           github.event_name == 'pull_request' &&
           github.event.pull_request.head.repo.full_name == github.repository &&
           steps.summary.conclusion == 'success' &&
