@@ -3,7 +3,7 @@
 Build a Markdown summary of api-diff.sh results for posting to GitHub.
 
 Usage:
-    api-diff-summary.py <reports-dir> <baseline-ref> [<run-url>]
+    api-diff-summary.py <reports-dir> <baseline-ref> [<run-url>] [<platform-label>]
 
 Reads every <Module>.diff.txt under <reports-dir>, applies the same classifier
 and ignore-list rules used by api-diff.sh, and prints Markdown on stdout.
@@ -22,7 +22,7 @@ from api_diff_classify import (  # noqa: E402
 )
 
 
-def render(reports_dir, baseline, run_url):
+def render(reports_dir, baseline, run_url, platform_label=""):
     if not os.path.isdir(reports_dir):
         sys.exit(f"api-diff-summary: reports dir does not exist: {reports_dir}")
     sentinel = os.path.join(reports_dir, TOOL_FAILED_SENTINEL)
@@ -53,7 +53,10 @@ def render(reports_dir, baseline, run_url):
             total_ignored += len(ignored)
 
     out = []
-    out.append(f"### Public API Diff vs `{baseline}`")
+    title = f"### Public API Diff vs `{baseline}`"
+    if platform_label:
+        title = f"### Public API Diff ({platform_label}) vs `{baseline}`"
+    out.append(title)
     out.append("")
     if total_break == 0:
         out.append("**Result:** :white_check_mark: No breaking changes")
@@ -101,11 +104,12 @@ def render(reports_dir, baseline, run_url):
 
 def main():
     if len(sys.argv) < 3:
-        sys.exit("usage: api-diff-summary.py <reports-dir> <baseline-ref> [<run-url>]")
+        sys.exit("usage: api-diff-summary.py <reports-dir> <baseline-ref> [<run-url>] [<platform-label>]")
     reports_dir = sys.argv[1]
     baseline = sys.argv[2]
     run_url = sys.argv[3] if len(sys.argv) > 3 else ""
-    text, _ = render(reports_dir, baseline, run_url)
+    platform_label = sys.argv[4] if len(sys.argv) > 4 else ""
+    text, _ = render(reports_dir, baseline, run_url, platform_label)
     sys.stdout.write(text)
 
 

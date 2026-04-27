@@ -32,8 +32,12 @@
 #
 # Environment overrides:
 #   TARGET           default arm64-apple-macos15
+#   SDK_NAME         default macosx (e.g. iphoneos for iOS dumps)
+#   XCODE_PLATFORM   xcodebuild -destination platform name (e.g. iOS); only
+#                    used when SDK_NAME != macosx (then xcodebuild produces
+#                    target-correct .swiftmodules; macosx uses swift build)
 #   SWIFT_VERSION    default 6
-#   SDK              default "$(xcrun --show-sdk-path --sdk macosx)"
+#   SDK              default "$(xcrun --show-sdk-path --sdk $SDK_NAME)"
 #   DIGESTER         default "$(xcrun -f swift-api-digester)"
 #
 # Exit codes:
@@ -46,6 +50,7 @@ set -euo pipefail
 
 SCRIPT_PATH="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 TARGET="${TARGET:-arm64-apple-macos15}"
+SDK_NAME="${SDK_NAME:-macosx}"
 SWIFT_VERSION="${SWIFT_VERSION:-6}"
 SDK="${SDK:-}"
 DIGESTER="${DIGESTER:-}"
@@ -61,7 +66,7 @@ require_tools() {
     fi
     [ -x "$DIGESTER" ] || die "DIGESTER=$DIGESTER is not executable"
     if [ -z "$SDK" ]; then
-        SDK="$(xcrun --show-sdk-path --sdk macosx)"
+        SDK="$(xcrun --show-sdk-path --sdk "$SDK_NAME")"
     fi
 }
 
@@ -109,19 +114,42 @@ cmd_dump() {
     mkdir -p "$out_dir"
     out_dir="$(cd "$out_dir" && pwd)"
 
-    printf '>> swift build (full package)\n'
-    swift build >/dev/null
-
-    local build
-    build="$(swift build --show-bin-path)"
-
     local args=(-target "$TARGET" -sdk "$SDK" -swift-version "$SWIFT_VERSION")
-    args+=(-I "$build/Modules")
     local mm inc
-    for mm in "$build"/*.build/module.modulemap; do
-        [ -e "$mm" ] || continue
-        args+=(-Xcc -fmodule-map-file="$mm")
-    done
+    if [ "$SDK_NAME" = "macosx" ]; then
+        printf '>> swift build (full package)\n'
+        swift build >/dev/null
+        local build
+        build="$(swift build --show-bin-path)"
+        args+=(-I "$build/Modules")
+        for mm in "$build"/*.build/module.modulemap; do
+            [ -e "$mm" ] || continue
+            args+=(-Xcc -fmodule-map-file="$mm")
+        done
+    else
+        # Non-macOS targets: swift build only emits host-target .swiftmodules
+        # which fail to load with "incompatible target" in the digester. Use
+        # xcodebuild against the SwiftPM-generated workspace, which produces
+        # target-correct .swiftmodules and module.modulemaps for ObjC modules.
+        local platform="${XCODE_PLATFORM:-}"
+        [ -n "$platform" ] || die "XCODE_PLATFORM must be set when SDK_NAME=$SDK_NAME (e.g. iOS)"
+        local derived="$out_dir/.derived"
+        printf '>> xcodebuild build -destination "generic/platform=%s"\n' "$platform"
+        xcodebuild build \
+            -workspace .swiftpm/xcode/package.xcworkspace \
+            -scheme KSCrash-Package \
+            -destination "generic/platform=$platform" \
+            -derivedDataPath "$derived" \
+            -quiet
+        local products="$derived/Build/Products/Debug-$SDK_NAME"
+        local mm_dir="$derived/Build/Intermediates.noindex/GeneratedModuleMaps-$SDK_NAME"
+        [ -d "$products" ] || die "xcodebuild Products dir missing: $products"
+        args+=(-I "$products")
+        for mm in "$mm_dir"/*.modulemap; do
+            [ -e "$mm" ] || continue
+            args+=(-Xcc -fmodule-map-file="$mm")
+        done
+    fi
     for inc in Sources/*/include; do
         [ -d "$inc" ] || continue
         args+=(-I "$inc")

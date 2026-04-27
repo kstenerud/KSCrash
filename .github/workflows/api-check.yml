@@ -23,11 +23,17 @@ permissions:
 
 jobs:
   api-check:
-    name: latest stable release vs HEAD
+    name: ${{ matrix.platform.name }} vs latest stable release
     # Pinned to macos-26 because macos-latest (= macos-15) tops out at
     # Xcode 26.3, whose swift-api-digester rejects -Xcc and dumps fail.
     # Switch back to macos-latest once it ships Xcode 26.4+.
     runs-on: macos-26
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { name: macOS, target: arm64-apple-macos15, sdk: macosx, xcode_platform: macOS }
+          - { name: iOS,   target: arm64-apple-ios18,   sdk: iphoneos, xcode_platform: iOS }
     steps:
       - name: Checkout Code
         uses: actions/checkout@v6
@@ -54,12 +60,15 @@ jobs:
         env:
           BASE_REF: ${{ steps.base.outputs.ref }}
           NEW_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+          TARGET: ${{ matrix.platform.target }}
+          SDK_NAME: ${{ matrix.platform.sdk }}
+          XCODE_PLATFORM: ${{ matrix.platform.xcode_platform }}
         run: |
           mkdir -p .api-diff-work
           bash scripts/api-diff.sh compare "$BASE_REF" "$NEW_REF" .api-diff-work \
             2>&1 | tee api-diff.log
           exit ${PIPESTATUS[0]}
-        timeout-minutes: 20
+        timeout-minutes: 25
 
       - name: Annotate breaking changes
         if: failure() && steps.compare.conclusion == 'failure'
@@ -71,8 +80,9 @@ jobs:
         env:
           BASE_REF: ${{ steps.base.outputs.ref }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PLATFORM_LABEL: ${{ matrix.platform.name }}
         run: |
-          python3 scripts/api-diff-summary.py .api-diff-work/reports "$BASE_REF" "$RUN_URL" > break-summary.md
+          python3 scripts/api-diff-summary.py .api-diff-work/reports "$BASE_REF" "$RUN_URL" "$PLATFORM_LABEL" > break-summary.md
           cat break-summary.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Comment PR with breaking changes
@@ -85,7 +95,7 @@ jobs:
         uses: thollander/actions-comment-pull-request@v3
         with:
           file-path: break-summary.md
-          comment-tag: api-diff-comment
+          comment-tag: api-diff-comment-${{ matrix.platform.sdk }}
 
       - name: Clear stale sticky comment when clean
         if: |
@@ -96,7 +106,7 @@ jobs:
           steps.compare.conclusion == 'success'
         uses: thollander/actions-comment-pull-request@v3
         with:
-          comment-tag: api-diff-comment
+          comment-tag: api-diff-comment-${{ matrix.platform.sdk }}
           mode: delete
           create-if-not-exists: false
 
@@ -104,7 +114,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: api-diff-reports
+          name: api-diff-reports-${{ matrix.platform.sdk }}
           path: |
             .api-diff-work/reports/
             .api-diff-work/old-json/
