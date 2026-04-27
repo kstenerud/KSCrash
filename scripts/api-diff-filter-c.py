@@ -1,14 +1,24 @@
 #!/usr/bin/env python3
 """
 Filter a swift-api-digester JSON dump in place to keep only declarations that
-are part of the Swift-facing API surface, dropping pure-C declarations
-(free functions, C structs, plain typedefs).
+are part of the Obj-C-imported Swift-facing API surface, dropping pure-C
+declarations (free C functions, C structs, plain typedefs, FOUNDATION_EXPORT
+constants).
+
+Policy: per project rules, the gate treats Obj-C as the Swift-facing surface;
+the pure-C surface (KSCrashC.h, KSCrashCConfiguration, FOUNDATION_EXPORT
+NSString constants, etc.) is intentionally NOT gated, even when those decls
+happen to be Swift-callable via ClangImporter. C-API breakage is allowed.
 
 A top-level decl is kept iff it satisfies any of:
     - has `objc_name` set (Obj-C @interface / @protocol / @property / NS_ENUM)
     - has "ObjC" in declAttributes
     - has "SynthesizedProtocol" in declAttributes (NS_OPTIONS imported as
       Swift OptionSet — Swift synthesises OptionSet/RawRepresentable conformance)
+
+Nested decls (members of kept TypeDecls) are not filtered: an NS_SWIFT_NAME-
+pinned C function bound as a method of an Obj-C-imported enum/struct rides
+along with its parent (e.g. KSCrashCPUStateToString -> CPUState.cString()).
 
 Usage:
     api-diff-filter-c.py <module>.json

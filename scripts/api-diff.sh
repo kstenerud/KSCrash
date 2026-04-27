@@ -158,76 +158,9 @@ cmd_dump() {
 classify_report() {
     local M="$1" out="$2"
     local ignore_file="${API_BREAK_IGNORE_FILE:-scripts/api-break-ignore.txt}"
-    python3 - "$M" "$out" "$ignore_file" <<'PY'
-import os, re, sys
-M, path, ignore_path = sys.argv[1], sys.argv[2], sys.argv[3]
-ignore_patterns = []
-if os.path.isfile(ignore_path):
-    with open(ignore_path) as f:
-        for raw in f:
-            s = raw.strip()
-            if not s or s.startswith("#"):
-                continue
-            try:
-                ignore_patterns.append(re.compile(s, re.IGNORECASE))
-            except re.error as e:
-                sys.stderr.write(f"warning: bad regex in {ignore_path}: {s} ({e})\n")
-breaking_sections = {
-    "Removed Decls",
-    "Renamed Decls",
-    "Type Changes",
-    "Class Inheritance Change",
-    "Protocol Requirement Change",
-    "Generic Signature Changes",
-}
-breaking_attribute_phrases = (
-    "is now throwing",
-    "is no longer throwing",
-    "is now not class",
-    "is no longer class",
-    "is now not static",
-    "is no longer static",
-)
-section = None
-breaks = []
-nonbreaks = []
-ignored = []
-header_re = re.compile(r"^/\*\s+(.*?)\s+\*/\s*$")
-def is_ignored(text):
-    return any(p.search(text) for p in ignore_patterns)
-with open(path) as f:
-    for raw in f:
-        line = raw.rstrip("\n")
-        m = header_re.match(line)
-        if m:
-            section = m.group(1)
-            continue
-        if not line.strip():
-            continue
-        is_break = False
-        if section in breaking_sections:
-            is_break = True
-        elif section == "Protocol Conformance Change" and "removed conformance to" in line:
-            is_break = True
-        elif section == "Decl Attribute changes" and any(p in line for p in breaking_attribute_phrases):
-            is_break = True
-        if is_break:
-            if is_ignored(line):
-                ignored.append((section, line))
-            else:
-                breaks.append((section, line))
-        else:
-            nonbreaks.append((section or "(no section)", line))
-tail = f", {len(ignored)} ignored" if ignored else ""
-if breaks:
-    print(f"[BREAK] {M}: {len(breaks)} breaking, {len(nonbreaks)} additive/other{tail}")
-    sys.exit(1)
-if nonbreaks or ignored:
-    print(f"[ok]    {M}: {len(nonbreaks)} additive/other change(s){tail}")
-else:
-    print(f"[ok]    {M}: no changes")
-sys.exit(0)
-PY
+    local classifier
+    classifier="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)/api_diff_classify.py"
+    python3 "$classifier" classify "$M" "$out" "$ignore_file"
 }
 
 cmd_diff() {
@@ -239,13 +172,14 @@ cmd_diff() {
     [ -d "$new_dir" ] || die "new-dir not found: $new_dir"
     mkdir -p "$report_dir"
 
-    local total=0 broke=0 changed=0
-    local new_json M old_json out rc
+    local total=0 broke=0 changed=0 tool_failed=0
+    local new_json M old_json out diag_log rc
     for new_json in "$new_dir"/*.json; do
         [ -e "$new_json" ] || continue
         M="$(basename "$new_json" .json)"
         old_json="$old_dir/$M.json"
         out="$report_dir/$M.diff.txt"
+        diag_log="$report_dir/$M.diagnose.log"
         total=$((total+1))
         if [ ! -f "$old_json" ]; then
             printf '[NEW]   %s: module did not exist in baseline\n' "$M"
@@ -253,11 +187,19 @@ cmd_diff() {
             changed=$((changed+1))
             continue
         fi
+        rc=0
         "$DIGESTER" -diagnose-sdk \
             -input-paths "$old_json" \
             -input-paths "$new_json" \
             -print-module \
-            -o "$out" >/dev/null 2>&1 || true
+            -o "$out" >/dev/null 2>"$diag_log" || rc=$?
+        if [ "$rc" -ne 0 ] || [ ! -f "$out" ]; then
+            printf '[FAIL]  %s: swift-api-digester exited %d; see %s\n' "$M" "$rc" "$diag_log" >&2
+            sed 's/^/     /' "$diag_log" >&2 || true
+            tool_failed=$((tool_failed+1))
+            continue
+        fi
+        [ -s "$diag_log" ] || rm -f "$diag_log"
         rc=0
         classify_report "$M" "$out" || rc=$?
         if [ "$rc" -ne 0 ]; then
@@ -274,10 +216,21 @@ cmd_diff() {
         M="$(basename "$old_json" .json)"
         if [ ! -f "$new_dir/$M.json" ]; then
             printf '[BREAK] %s: MODULE REMOVED (was in baseline, not in new)\n' "$M"
+            out="$report_dir/$M.diff.txt"
+            {
+                printf '/* Removed Decls */\n'
+                printf '%s: module has been removed (was present in baseline, absent in new)\n' "$M"
+            } >"$out"
             removed=$((removed+1))
         fi
     done
     broke=$((broke+removed))
+    if [ "$tool_failed" -gt 0 ]; then
+        # Sentinel for api-diff-summary.py — refuse to render green on partial digester failure.
+        printf '%d module diff(s) failed in swift-api-digester; see *.diagnose.log\n' "$tool_failed" \
+            >"$report_dir/.tool-failed"
+        die "$tool_failed module diff(s) failed in swift-api-digester; see logs in $report_dir"
+    fi
 
     printf '\nSummary: %d module(s); %d breaking, %d non-breaking change(s), %d unchanged\n' \
         "$total" "$broke" "$changed" "$((total-broke-changed))"

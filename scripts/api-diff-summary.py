@@ -10,99 +10,55 @@ and ignore-list rules used by api-diff.sh, and prints Markdown on stdout.
 """
 import glob
 import os
-import re
 import sys
 
-BREAKING_SECTIONS = {
-    "Removed Decls",
-    "Renamed Decls",
-    "Type Changes",
-    "Class Inheritance Change",
-    "Protocol Requirement Change",
-    "Generic Signature Changes",
-}
-ATTR_PHRASES = (
-    "is now throwing",
-    "is no longer throwing",
-    "is now not class",
-    "is no longer class",
-    "is now not static",
-    "is no longer static",
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from api_diff_classify import (  # noqa: E402
+    TOOL_FAILED_SENTINEL,
+    classify_module,
+    ignore_file_path,
+    load_ignore_patterns,
+    parse_break_line,
 )
-IGNORE_FILE = os.environ.get("API_BREAK_IGNORE_FILE", "scripts/api-break-ignore.txt")
-COMMENT_MARKER = "<!-- api-diff-comment -->"
-LINE_RE = re.compile(r"^([A-Za-z_][\w]*)(?:\(([^)]+)\))?:\s*(.+)$")
-HEADER_RE = re.compile(r"^/\*\s+(.*?)\s+\*/\s*$")
-
-
-def load_ignore_patterns():
-    pats = []
-    if os.path.isfile(IGNORE_FILE):
-        with open(IGNORE_FILE) as f:
-            for raw in f:
-                s = raw.strip()
-                if s and not s.startswith("#"):
-                    try:
-                        pats.append(re.compile(s, re.IGNORECASE))
-                    except re.error:
-                        pass
-    return pats
-
-
-def classify_module(path, ignore_patterns):
-    section = None
-    breaks, ignored = [], []
-    with open(path) as f:
-        for raw in f:
-            line = raw.rstrip("\n")
-            m = HEADER_RE.match(line)
-            if m:
-                section = m.group(1)
-                continue
-            if not line.strip():
-                continue
-            is_break = (
-                section in BREAKING_SECTIONS
-                or (section == "Protocol Conformance Change" and "removed conformance to" in line)
-                or (section == "Decl Attribute changes" and any(p in line for p in ATTR_PHRASES))
-            )
-            if not is_break:
-                continue
-            entry = (section, line)
-            if any(p.search(line) for p in ignore_patterns):
-                ignored.append(entry)
-            else:
-                breaks.append(entry)
-    return breaks, ignored
-
-
-def parse_break_line(raw):
-    m = LINE_RE.match(raw)
-    if not m:
-        return None, None, raw
-    return m.group(1), m.group(2) or "", m.group(3)
 
 
 def render(reports_dir, baseline, run_url):
+    if not os.path.isdir(reports_dir):
+        sys.exit(f"api-diff-summary: reports dir does not exist: {reports_dir}")
+    sentinel = os.path.join(reports_dir, TOOL_FAILED_SENTINEL)
+    if os.path.isfile(sentinel):
+        with open(sentinel) as f:
+            detail = f.read().strip() or "swift-api-digester failed"
+        sys.exit(
+            f"api-diff-summary: tool-failure sentinel present in {reports_dir}: {detail} "
+            "(refusing to render a partial summary from a run where the digester crashed)"
+        )
+    diff_files = sorted(glob.glob(os.path.join(reports_dir, "*.diff.txt")))
+    if not diff_files:
+        sys.exit(
+            f"api-diff-summary: no *.diff.txt files in {reports_dir} "
+            "(refusing to render a green summary from an empty/failed run)"
+        )
     patterns = load_ignore_patterns()
+    ignore_path = ignore_file_path()
     modules = []
     total_break = 0
     total_ignored = 0
-    for diff_path in sorted(glob.glob(os.path.join(reports_dir, "*.diff.txt"))):
+    for diff_path in diff_files:
         m = os.path.basename(diff_path)[: -len(".diff.txt")]
-        breaks, ignored = classify_module(diff_path, patterns)
+        breaks, ignored, _ = classify_module(diff_path, patterns)
         if breaks or ignored:
             modules.append((m, breaks, ignored))
             total_break += len(breaks)
             total_ignored += len(ignored)
 
-    out = [COMMENT_MARKER, ""]
+    out = []
     out.append(f"### Public API Diff vs `{baseline}`")
     out.append("")
     if total_break == 0:
         out.append("**Result:** :white_check_mark: No breaking changes")
         if total_ignored:
-            out.append(f"  ({total_ignored} ignored by `{IGNORE_FILE}`)")
+            out.append(f"  ({total_ignored} ignored by `{ignore_path}`)")
     else:
         plural_b = "s" if total_break != 1 else ""
         plural_m = "s" if len(modules) != 1 else ""
@@ -113,8 +69,6 @@ def render(reports_dir, baseline, run_url):
         )
     out.append("")
     for module, breaks, ignored in modules:
-        if not breaks and not ignored:
-            continue
         head = f"<b>{module}</b> — "
         head += f"{len(breaks)} breaking" if breaks else "0 breaking"
         if ignored:
@@ -127,13 +81,12 @@ def render(reports_dir, baseline, run_url):
                 _, basename, msg = parse_break_line(line)
                 msg = msg.replace("|", "\\|")
                 file_disp = f"`{basename}`" if basename else "_(none)_"
-                # Truncate over-long messages so the comment stays readable.
                 if len(msg) > 200:
                     msg = msg[:197] + "..."
                 out.append(f"| {section} | {msg} | {file_disp} |")
             out.append("")
         if ignored:
-            out.append("**Ignored** (matched `scripts/api-break-ignore.txt`):")
+            out.append(f"**Ignored** (matched `{ignore_path}`):")
             for _, line in ignored:
                 _, _, msg = parse_break_line(line)
                 if len(msg) > 200:
