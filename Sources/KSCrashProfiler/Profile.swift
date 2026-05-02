@@ -83,8 +83,10 @@ public struct Profile: Sendable {
 
     /// Captured backtrace samples within this profile's time window.
     ///
-    /// Samples are returned in chronological order. Only samples whose capture time
-    /// overlaps with `[startTimestampNs, endTimestampNs]` are included.
+    /// Samples are returned in chronological order. A sample is included when its
+    /// unwind began inside `[startTimestampNs, endTimestampNs]`, i.e. its
+    /// `metadata.timestampBeginNs` falls in the range. Captures that began before
+    /// the window opened are excluded even if their end timestamp crosses into it.
     public let samples: [Sample]
 
     /// Total duration of this profile in nanoseconds.

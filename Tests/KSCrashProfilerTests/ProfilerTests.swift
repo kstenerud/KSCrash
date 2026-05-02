@@ -275,7 +275,7 @@ final class ProfilerTests: XCTestCase {
         }
     }
 
-    func testSamplesOverlapWithProfileTimeWindow() {
+    func testSamplesBeginWithinProfileTimeWindow() {
         let profiler = Profiler(
             thread: pthread_self(),
             interval: 0.005,
@@ -292,17 +292,60 @@ final class ProfilerTests: XCTestCase {
         }
 
         for sample in profile.samples {
-            // Samples are included if they overlap with the profile window
-            // Overlap means: sample ends after profile starts AND sample starts before profile ends
+            // Membership: a sample belongs to the window when its unwind began inside it.
             XCTAssertGreaterThanOrEqual(
-                sample.metadata.timestampEndNs, profile.startTimestampNs,
-                "Sample should end after or at profile start (overlap condition)"
+                sample.metadata.timestampBeginNs, profile.startTimestampNs,
+                "Sample should begin at or after profile start"
             )
             XCTAssertLessThanOrEqual(
                 sample.metadata.timestampBeginNs, profile.endTimestampNs,
-                "Sample should start before or at profile end (overlap condition)"
+                "Sample should begin at or before profile end"
             )
         }
+    }
+
+    func testSamplesInRangeExcludesSampleWhoseBeginPrecedesStart() {
+        // Directly drives samplesInRangeLocked with hand-crafted slot timestamps so we can
+        // pin the membership rule (begin within range) without relying on capture timing.
+        let profiler = Profiler(
+            thread: pthread_self(),
+            interval: 0.01,
+            maxFrames: 4,
+            retentionSeconds: 1
+        )
+
+        let samples: [Sample] = profiler.lock.withLock {
+            // Slot 0: begins before the range (10) but ends inside it (20). Under the old
+            // overlap rule this would be included; under "begin within range" it must not be.
+            profiler.slots[0] = SampleSlot(
+                metadata: SampleMetadata(timestampBeginNs: 10, timestampEndNs: 20),
+                addressCount: 1
+            )
+            profiler.addressPool[0 * profiler.maxFrames] = 0xAAAA
+
+            // Slot 1: fully inside the range. Must be included.
+            profiler.slots[1] = SampleSlot(
+                metadata: SampleMetadata(timestampBeginNs: 30, timestampEndNs: 40),
+                addressCount: 1
+            )
+            profiler.addressPool[1 * profiler.maxFrames] = 0xBBBB
+
+            // Slot 2: begins after the range. Must trigger the walk's break.
+            profiler.slots[2] = SampleSlot(
+                metadata: SampleMetadata(timestampBeginNs: 60, timestampEndNs: 70),
+                addressCount: 1
+            )
+            profiler.addressPool[2 * profiler.maxFrames] = 0xCCCC
+
+            profiler.sampleCount = 3
+            profiler.writeIndex = 3 % profiler.capacity
+
+            return profiler.samplesInRangeLocked(from: 15, to: 50)
+        }
+
+        XCTAssertEqual(samples.count, 1, "Only the sample whose begin is inside [15, 50] should be returned")
+        XCTAssertEqual(samples.first?.metadata.timestampBeginNs, 30)
+        XCTAssertEqual(samples.first?.addresses, [0xBBBB])
     }
 
     // MARK: - Profile Duration Tests

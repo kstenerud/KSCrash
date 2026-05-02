@@ -405,14 +405,23 @@ extension Profiler {
         }
     }
 
-    /// Retrieves samples from the ring buffer that overlap the given time range.
+    /// Retrieves samples whose unwind began inside the given time range.
     ///
-    /// Iterates through valid samples in the ring buffer (from oldest to newest) and
-    /// returns those whose capture time window overlaps with `[startNs, endNs]`.
+    /// Membership rule: a sample belongs to the range when its `timestampBeginNs`
+    /// (the moment its unwind started) falls in `[startNs, endNs]`. A sample whose
+    /// unwind began before `startNs` is excluded even if its `timestampEndNs`
+    /// crosses into the range — that capture sampled thread state from before the
+    /// profile window opened, so attributing it here would be misleading. This
+    /// also prevents an in-flight capture that publishes after a new profile
+    /// starts from being attributed to the new profile.
     ///
-    /// A sample overlaps the range if:
-    /// - The sample's end time is at or after the range start, AND
-    /// - The sample's begin time is at or before the range end
+    /// Samples are written to the ring in timer order, so logical-index ordering
+    /// matches chronological ordering. Binary-search for the first slot whose
+    /// `timestampBeginNs >= startNs`, then walk forward until a slot's
+    /// `timestampBeginNs > endNs`. This avoids scanning the prefix of stale
+    /// samples that fall before the range, which matters when the retention
+    /// buffer is much longer than the profiled span (e.g., a 5s profile inside
+    /// a 30s ring).
     ///
     /// Materialization makes a deep copy of each matching slot's frame addresses
     /// out of the address pool, so the returned `[Sample]` survives subsequent
@@ -421,28 +430,43 @@ extension Profiler {
     /// - Parameters:
     ///   - startNs: Start of the time range (monotonic nanoseconds from `CLOCK_UPTIME_RAW`).
     ///   - endNs: End of the time range (monotonic nanoseconds from `CLOCK_UPTIME_RAW`).
-    /// - Returns: Array of samples that overlap the time range, in chronological order.
+    /// - Returns: Array of samples whose unwind began inside the range, in chronological order.
     ///
     /// - Important: Must be called while holding `lock`.
     func samplesInRangeLocked(from startNs: UInt64, to endNs: UInt64) -> [Sample] {
         guard sampleCount > 0 else { return [] }
 
-        var result: [Sample] = []
-        result.reserveCapacity(sampleCount)
-
         // Calculate the oldest sample's position in the ring buffer.
         let oldest = (writeIndex - sampleCount + capacity) % capacity
 
-        // Iterate from oldest to newest.
-        for i in 0..<sampleCount {
-            let slot = (oldest + i) % capacity
+        @inline(__always) func physicalSlot(_ logicalIndex: Int) -> Int {
+            (oldest + logicalIndex) % capacity
+        }
+
+        // Binary search for the first sample whose begin timestamp is >= startNs.
+        // Logical indices preserve capture order, so begin timestamps are non-decreasing.
+        var lo = 0
+        var hi = sampleCount
+        while lo < hi {
+            let mid = (lo + hi) / 2
+            if slots[physicalSlot(mid)].metadata.timestampBeginNs < startNs {
+                lo = mid + 1
+            } else {
+                hi = mid
+            }
+        }
+
+        var result: [Sample] = []
+        result.reserveCapacity(sampleCount - lo)
+
+        for i in lo..<sampleCount {
+            let slot = physicalSlot(i)
             let s = slots[slot]
 
-            guard
-                s.metadata.timestampEndNs >= startNs
-                    && s.metadata.timestampBeginNs <= endNs
-                    && s.addressCount > 0
-            else { continue }
+            // Past the range — no later sample can match either.
+            if s.metadata.timestampBeginNs > endNs { break }
+            // Skip empty/truncated slots (addressCount == 0).
+            if s.addressCount <= 0 { continue }
 
             let n = Int(s.addressCount)
             var addrs = [UInt](repeating: 0, count: n)
