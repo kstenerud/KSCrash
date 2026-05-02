@@ -145,7 +145,7 @@
     { "name": "SampleCaptureMediumStack", "category": "profiler", "description": "Medium stack (64 frames)", "notes": "100 capture cycles, 64-frame stack" },
     { "name": "SampleCaptureDeepStack", "category": "profiler", "description": "Deep stack (128 frames)", "notes": "100 capture cycles, 128-frame stack" },
     { "name": "SampleCaptureVeryDeepStack", "category": "profiler", "description": "Very deep stack (256 frames)", "notes": "100 capture cycles, 256-frame stack" },
-    { "name": "PerSampleCaptureLatency", "category": "profiler", "description": "Per-sample latency (64 frames)", "notes": "1000 samples, detailed timing" },
-    { "name": "PerSampleCaptureLatencyDeepStack", "category": "profiler", "description": "Per-sample latency (256 frames)", "notes": "1000 samples, deep stack" }
+    { "name": "PerSampleCaptureLatency", "category": "profiler", "description": "Per-sample latency (64 frames)", "notes": "Per-sample avg latency, ~1000 samples / 1s @ 1ms", "thresholds": { "excellent": 0.0001, "good": 0.00025, "ok": 0.0005 } },
+    { "name": "PerSampleCaptureLatencyDeepStack", "category": "profiler", "description": "Per-sample latency (256 frames)", "notes": "Per-sample avg latency, deep stack (slower unwind)", "thresholds": { "excellent": 0.0003, "good": 0.0007, "ok": 0.0015 } }
   ]
 }
