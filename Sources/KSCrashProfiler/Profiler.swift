@@ -355,10 +355,15 @@ extension Profiler {
         sampleCount = 0
 
         let timer = DispatchSource.makeTimerSource(queue: samplingQueue)
+        // Leeway scales with interval: ~10% of the interval, clamped to [10µs, 5ms].
+        // The previous fixed 1ms leeway was 100% slop for a 1ms sampling interval,
+        // which let the kernel coalesce wake-ups and inflate inter-sample gaps. A
+        // smaller leeway tightens P95/P99 timing at a small battery cost.
+        let leewayNs = max(10_000, min(5_000_000, intervalNs / 10))
         timer.schedule(
             deadline: .now(),
             repeating: Double(intervalNs) / 1_000_000_000,
-            leeway: .milliseconds(1)
+            leeway: .nanoseconds(Int(leewayNs))
         )
         timer.setEventHandler { [weak self] in
             self?.captureSample()
