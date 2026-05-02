@@ -128,22 +128,40 @@ def parse_xcresult(xcresult_path):
                         "is_simulator": None  # Unknown
                     }
 
+            # Prefer KSCrash-specific custom metrics (emitted via XCTMetric,
+            # e.g. profiler per-sample latency) over the built-in wall-clock
+            # metric when both are present. Tests without a custom metric
+            # fall back to wall clock, so the rest of the suite is unaffected.
+            wall_clock_ids = (
+                "com.apple.XCTPerformanceMetric_WallClockTime",
+                "com.apple.XCTPerformanceMetric_ClockMonotonicTime",
+                "com.apple.dt.XCTMetric_Time",
+                "com.apple.dt.XCTMetric_Clock.time.monotonic",
+            )
+            kscrash_custom_prefix = "kscrash."
+
+            chosen = None
+            chosen_priority = -1  # higher wins; custom outranks wall clock
             for metric in test_runs[0].get("metrics", []):
                 metric_id = metric.get("identifier", "")
-                # Accept WallClockTime, ClockMonotonicTime, or Time metrics
-                if metric_id in (
-                    "com.apple.XCTPerformanceMetric_WallClockTime",
-                    "com.apple.XCTPerformanceMetric_ClockMonotonicTime",
-                    "com.apple.dt.XCTMetric_Time",
-                    "com.apple.dt.XCTMetric_Clock.time.monotonic",
-                ):
-                    measurements = metric.get("measurements", [])
-                    if measurements:
-                        results[test_name] = {
-                            "avg": statistics.mean(measurements),
-                            "stddev": statistics.stdev(measurements) if len(measurements) > 1 else 0.0,
-                            "n": len(measurements)
-                        }
+                if metric_id.startswith(kscrash_custom_prefix):
+                    priority = 1
+                elif metric_id in wall_clock_ids:
+                    priority = 0
+                else:
+                    continue
+                if priority > chosen_priority:
+                    chosen = metric
+                    chosen_priority = priority
+
+            if chosen is not None:
+                measurements = chosen.get("measurements", [])
+                if measurements:
+                    results[test_name] = {
+                        "avg": statistics.mean(measurements),
+                        "stddev": statistics.stdev(measurements) if len(measurements) > 1 else 0.0,
+                        "n": len(measurements)
+                    }
 
     except subprocess.CalledProcessError as e:
         print(f"Error running xcresulttool: {e}", file=sys.stderr)
@@ -352,7 +370,10 @@ def generate_report(pr_results, base_results, config, device_info):
 
             t = pr_results[name]["avg"]
             stddev = pr_results[name]["stddev"]
-            thresholds = cat["thresholds"]
+            # Per-test threshold override (used by profiler tests that
+            # emit a per-sample latency metric, which has a different scale
+            # than the rest of the category's wall-clock measurements).
+            thresholds = test.get("thresholds", cat["thresholds"])
 
             if cat.get("perCall"):
                 iterations = test.get("iterations", 1)
