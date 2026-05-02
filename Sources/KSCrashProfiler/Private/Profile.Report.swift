@@ -151,21 +151,19 @@ private class BoxedProfile {
         sampleIndexes.reserveCapacity(samples.count)
 
         for sample in samples {
-            sample.withAddresses { buf in
-                var idxs: [Int32] = []
-                idxs.reserveCapacity(buf.count)
-                for addr in buf {
-                    if let i = addrToIdx[addr] {
-                        idxs.append(i)
-                    } else {
-                        let i = Int32(uniqueAddrs.count)
-                        addrToIdx[addr] = i
-                        uniqueAddrs.append(addr)
-                        idxs.append(i)
-                    }
+            var idxs: [Int32] = []
+            idxs.reserveCapacity(sample.addresses.count)
+            for addr in sample.addresses {
+                if let i = addrToIdx[addr] {
+                    idxs.append(i)
+                } else {
+                    let i = Int32(uniqueAddrs.count)
+                    addrToIdx[addr] = i
+                    uniqueAddrs.append(addr)
+                    idxs.append(i)
                 }
-                sampleIndexes.append(idxs)
             }
+            sampleIndexes.append(idxs)
         }
 
         writer.add("name", profile.name)

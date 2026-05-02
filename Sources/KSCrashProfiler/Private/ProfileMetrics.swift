@@ -94,7 +94,7 @@ public struct ProfileMetrics: Sendable {
     /// Creates metrics from an array of samples.
     ///
     /// Extracts `durationNs` from each sample's metadata.
-    internal init(samples: [any Sample]) {
+    internal init(samples: [Sample]) {
         self.sampleTimingsNs = samples.map { $0.metadata.durationNs }
     }
 }

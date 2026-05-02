@@ -85,7 +85,7 @@ public struct Profile: Sendable {
     ///
     /// Samples are returned in chronological order. Only samples whose capture time
     /// overlaps with `[startTimestampNs, endTimestampNs]` are included.
-    public let samples: [any Sample]
+    public let samples: [Sample]
 
     /// Total duration of this profile in nanoseconds.
     public var durationNs: UInt64 {
@@ -120,7 +120,7 @@ public struct Profile: Sendable {
         startTimestampNs: UInt64,
         endTimestampNs: UInt64,
         expectedSampleIntervalNs: UInt64,
-        samples: [any Sample]
+        samples: [Sample]
     ) {
         self.id = id
         self.name = name
