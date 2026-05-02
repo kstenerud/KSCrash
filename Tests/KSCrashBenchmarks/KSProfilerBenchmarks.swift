@@ -50,18 +50,68 @@ import XCTest
 
         // MARK: - Sampling Benchmarks
 
-        /// Benchmark profiling with 5ms interval (high frequency)
+        // The five sampling-scenario tests below need a `Thread.sleep` inside
+        // the `measure` block to give the sampler real time to fire.
+        // Wall-clock time is therefore dominated by the sleep, not by
+        // profiler overhead, so we emit a custom `ProfilerSampleMetric`
+        // carrying `profile.metrics.avgNs` (per-sample capture latency in
+        // seconds). The default wall-clock metric is intentionally omitted.
+        // See `ProfilerSampleMetric.swift` for the threading model.
+
+        private static let perSampleAvgMetricID = "kscrash.profiler.persample_avg"
+        private static let perSampleAvgDisplayName = "Per-sample avg latency"
+
+        /// Runs `body` inside `measure(metrics:)`, emitting per-sample average
+        /// latency from the returned `ProfileMetrics` as a custom metric.
+        ///
+        /// Asserts at least one sample was captured per iteration. A regression
+        /// that yields zero samples (e.g. `Sample` capacity smaller than the
+        /// profiled thread's stack, since the profiler discards truncated
+        /// samples) would otherwise render as Excellent because `avgNs`
+        /// returns 0 for empty sample lists. The assertion runs everywhere;
+        /// if a platform has unreliable dispatch timing we'd rather fix the
+        /// test than mask it.
+        private func measurePerSampleLatency(
+            file: StaticString = #file,
+            line: UInt = #line,
+            body: @escaping () -> ProfileMetrics?
+        ) {
+            var avgSeconds: Double = 0
+            let metric = ProfilerSampleMetric(
+                identifier: Self.perSampleAvgMetricID,
+                displayName: Self.perSampleAvgDisplayName,
+                valueProvider: { avgSeconds }
+            )
+
+            measure(metrics: [metric]) {
+                let metrics = body()
+                avgSeconds = (metrics?.avgNs ?? 0) / 1_000_000_000.0
+                XCTAssertGreaterThan(
+                    metrics?.count ?? 0,
+                    0,
+                    "Expected at least one sample to be captured",
+                    file: file,
+                    line: line
+                )
+            }
+        }
+
+        /// Benchmark profiling with 5ms interval (high frequency).
+        ///
+        /// Profiles `pthread_self()`, which under XCTest carries a 60+ frame
+        /// stack, so uses `Sample128` to keep captures from being discarded
+        /// as truncated.
         func testBenchmarkHighFrequencySampling() {
-            let profiler = Profiler<Sample64>(
+            let profiler = Profiler<Sample128>(
                 thread: pthread_self(),
                 interval: 0.005,
                 retentionSeconds: 5
             )
 
-            measure {
+            measurePerSampleLatency {
                 let id = profiler.beginProfile(named: "benchmark")
                 Thread.sleep(forTimeInterval: 0.05)
-                _ = profiler.endProfile(id: id)
+                return profiler.endProfile(id: id)?.metrics
             }
         }
 
@@ -73,10 +123,10 @@ import XCTest
                 retentionSeconds: 5
             )
 
-            measure {
+            measurePerSampleLatency {
                 let id = profiler.beginProfile(named: "benchmark")
                 Thread.sleep(forTimeInterval: 0.1)
-                _ = profiler.endProfile(id: id)
+                return profiler.endProfile(id: id)?.metrics
             }
         }
 
@@ -105,10 +155,10 @@ import XCTest
                 retentionSeconds: 5
             )
 
-            measure {
+            measurePerSampleLatency {
                 let id = profiler.beginProfile(named: "benchmark")
                 Thread.sleep(forTimeInterval: 0.05)
-                _ = profiler.endProfile(id: id)
+                return profiler.endProfile(id: id)?.metrics
             }
 
             endSemaphore.signal()
@@ -116,18 +166,21 @@ import XCTest
 
         // MARK: - Sample Retrieval Benchmarks
 
-        /// Benchmark retrieving samples from a profile
+        /// Benchmark retrieving samples from a profile.
+        ///
+        /// Same `Sample128` rationale as `testBenchmarkHighFrequencySampling`:
+        /// the XCTest stack is too deep for `Sample64`.
         func testBenchmarkSampleRetrieval() {
-            let profiler = Profiler<Sample64>(
+            let profiler = Profiler<Sample128>(
                 thread: pthread_self(),
                 interval: 0.005,
                 retentionSeconds: 5
             )
 
-            measure {
+            measurePerSampleLatency {
                 let id = profiler.beginProfile(named: "benchmark")
                 Thread.sleep(forTimeInterval: 0.2)
-                _ = profiler.endProfile(id: id)
+                return profiler.endProfile(id: id)?.metrics
             }
         }
 
@@ -141,7 +194,7 @@ import XCTest
                 retentionSeconds: 10
             )
 
-            measure {
+            measurePerSampleLatency {
                 let id1 = profiler.beginProfile(named: "benchmark")
                 let id2 = profiler.beginProfile(named: "benchmark")
                 let id3 = profiler.beginProfile(named: "benchmark")
@@ -150,7 +203,7 @@ import XCTest
 
                 _ = profiler.endProfile(id: id1)
                 _ = profiler.endProfile(id: id2)
-                _ = profiler.endProfile(id: id3)
+                return profiler.endProfile(id: id3)?.metrics
             }
         }
 
@@ -245,6 +298,12 @@ import XCTest
 
         /// Benchmark individual sample capture operations using ProfileMetrics.
         /// This measures the actual hot-path performance including allocation overhead.
+        ///
+        /// Profiles a thread holding a moderate (64-frame) stack at 1 ms over
+        /// 1 s, so each iteration collects ~1000 samples — much more than the
+        /// 5 sampling-scenario tests above. Per-sample average latency is
+        /// emitted via `ProfilerSampleMetric` so the run shows up as a real
+        /// row in the PR benchmark report.
         func testBenchmarkPerSampleCaptureLatency() {
             var targetThread: pthread_t?
             let readySemaphore = DispatchSemaphore(value: 0)
@@ -270,38 +329,21 @@ import XCTest
                 retentionSeconds: 5
             )
 
-            let id = profiler.beginProfile(named: "benchmark")
-            Thread.sleep(forTimeInterval: 1.0)  // Collect ~1000 samples
-            let profile = profiler.endProfile(id: id)!
+            measurePerSampleLatency {
+                let id = profiler.beginProfile(named: "benchmark")
+                Thread.sleep(forTimeInterval: 1.0)  // Collect ~1000 samples
+                return profiler.endProfile(id: id)?.metrics
+            }
 
             doneSemaphore.signal()
-
-            let metrics = profile.metrics
-
-            print(
-                """
-
-                ============================================================
-                PER-SAMPLE CAPTURE LATENCY (64 frames, Sample128)
-                ============================================================
-                Samples:    \(metrics.count)
-                Min:        \(String(format: "%.2f", Double(metrics.minNs) / 1000.0)) µs
-                Max:        \(String(format: "%.2f", Double(metrics.maxNs) / 1000.0)) µs
-                Average:    \(String(format: "%.2f", metrics.avgNs / 1000.0)) µs
-                Std Dev:    \(String(format: "%.2f", metrics.stdDevNs / 1000.0)) µs
-                P50:        \(String(format: "%.2f", Double(metrics.p50Ns) / 1000.0)) µs
-                P95:        \(String(format: "%.2f", Double(metrics.p95Ns) / 1000.0)) µs
-                P99:        \(String(format: "%.2f", Double(metrics.p99Ns) / 1000.0)) µs
-                ============================================================
-
-                """)
-
-            // Note: The comprehensive unwind implementation (compact unwind + DWARF + frame pointer)
-            // may capture fewer samples than simple frame pointer walking due to additional overhead.
-            XCTAssertGreaterThan(metrics.count, 0, "Should have captured samples")
         }
 
-        /// Benchmark per-sample capture with deep stacks (256 frames)
+        /// Benchmark per-sample capture with deep stacks (256 frames).
+        ///
+        /// Deep stacks with the comprehensive unwind (compact unwind +
+        /// DWARF + frame pointer) take longer per sample, so the per-test
+        /// thresholds in `benchmark-tests.json` are looser than the
+        /// 64-frame variant.
         func testBenchmarkPerSampleCaptureLatencyDeepStack() {
             var targetThread: pthread_t?
             let readySemaphore = DispatchSemaphore(value: 0)
@@ -326,35 +368,13 @@ import XCTest
                 retentionSeconds: 5
             )
 
-            let id = profiler.beginProfile(named: "benchmark")
-            Thread.sleep(forTimeInterval: 1.0)  // Collect ~1000 samples
-            let profile = profiler.endProfile(id: id)!
+            measurePerSampleLatency {
+                let id = profiler.beginProfile(named: "benchmark")
+                Thread.sleep(forTimeInterval: 1.0)  // Collect ~1000 samples
+                return profiler.endProfile(id: id)?.metrics
+            }
 
             doneSemaphore.signal()
-
-            let metrics = profile.metrics
-
-            print(
-                """
-
-                ============================================================
-                PER-SAMPLE CAPTURE LATENCY (256 frames, Sample512)
-                ============================================================
-                Samples:    \(metrics.count)
-                Min:        \(String(format: "%.2f", Double(metrics.minNs) / 1000.0)) µs
-                Max:        \(String(format: "%.2f", Double(metrics.maxNs) / 1000.0)) µs
-                Average:    \(String(format: "%.2f", metrics.avgNs / 1000.0)) µs
-                Std Dev:    \(String(format: "%.2f", metrics.stdDevNs / 1000.0)) µs
-                P50:        \(String(format: "%.2f", Double(metrics.p50Ns) / 1000.0)) µs
-                P95:        \(String(format: "%.2f", Double(metrics.p95Ns) / 1000.0)) µs
-                P99:        \(String(format: "%.2f", Double(metrics.p99Ns) / 1000.0)) µs
-                ============================================================
-
-                """)
-
-            // Note: Deep stacks with comprehensive unwind (compact unwind + DWARF + frame pointer)
-            // take longer per sample. With 256 frames and ~1s profile, we may get fewer samples.
-            XCTAssertGreaterThan(metrics.count, 0, "Should have captured samples")
         }
     }
 #endif

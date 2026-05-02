@@ -135,17 +135,17 @@
 
     { "name": "ProfilerInit", "category": "profiler", "description": "Profiler initialization", "notes": "Create profiler instance" },
     { "name": "BeginEndProfile", "category": "profiler", "description": "Begin/end cycle", "notes": "Start and stop profiling" },
-    { "name": "HighFrequencySampling", "category": "profiler", "description": "High frequency (5ms)", "notes": "50ms of 5ms interval sampling" },
-    { "name": "DefaultFrequencySampling", "category": "profiler", "description": "Default frequency (10ms)", "notes": "100ms of 10ms interval sampling" },
-    { "name": "CrossThreadProfiling", "category": "profiler", "description": "Cross-thread profiling", "notes": "Profile different thread" },
-    { "name": "SampleRetrieval", "category": "profiler", "description": "Sample retrieval", "notes": "Extract samples from profile" },
-    { "name": "ConcurrentProfiles", "category": "profiler", "description": "Concurrent profiles", "notes": "3 simultaneous sessions" },
+    { "name": "HighFrequencySampling", "category": "profiler", "description": "High frequency (5ms)", "notes": "Per-sample avg latency, 5ms interval", "thresholds": { "excellent": 0.00025, "good": 0.00075, "ok": 0.0015 } },
+    { "name": "DefaultFrequencySampling", "category": "profiler", "description": "Default frequency (10ms)", "notes": "Per-sample avg latency, 10ms interval", "thresholds": { "excellent": 0.00025, "good": 0.00075, "ok": 0.0015 } },
+    { "name": "CrossThreadProfiling", "category": "profiler", "description": "Cross-thread profiling", "notes": "Per-sample avg latency, profiling another thread", "thresholds": { "excellent": 0.00015, "good": 0.0003, "ok": 0.0006 } },
+    { "name": "SampleRetrieval", "category": "profiler", "description": "Sample retrieval", "notes": "Per-sample avg latency over 200ms profile", "thresholds": { "excellent": 0.00025, "good": 0.00075, "ok": 0.0015 } },
+    { "name": "ConcurrentProfiles", "category": "profiler", "description": "Concurrent profiles", "notes": "Per-sample avg latency, 3 simultaneous sessions", "thresholds": { "excellent": 0.0003, "good": 0.001, "ok": 0.002 } },
     { "name": "StorageSizeCalculation", "category": "profiler", "description": "Storage size calc (1000x)", "notes": "Calculate memory footprint" },
     { "name": "SampleCaptureShallowStack", "category": "profiler", "description": "Shallow stack (16 frames)", "notes": "100 capture cycles, 16-frame stack" },
     { "name": "SampleCaptureMediumStack", "category": "profiler", "description": "Medium stack (64 frames)", "notes": "100 capture cycles, 64-frame stack" },
     { "name": "SampleCaptureDeepStack", "category": "profiler", "description": "Deep stack (128 frames)", "notes": "100 capture cycles, 128-frame stack" },
     { "name": "SampleCaptureVeryDeepStack", "category": "profiler", "description": "Very deep stack (256 frames)", "notes": "100 capture cycles, 256-frame stack" },
-    { "name": "PerSampleCaptureLatency", "category": "profiler", "description": "Per-sample latency (64 frames)", "notes": "1000 samples, detailed timing" },
-    { "name": "PerSampleCaptureLatencyDeepStack", "category": "profiler", "description": "Per-sample latency (256 frames)", "notes": "1000 samples, deep stack" }
+    { "name": "PerSampleCaptureLatency", "category": "profiler", "description": "Per-sample latency (64 frames)", "notes": "Per-sample avg latency, ~1000 samples / 1s @ 1ms", "thresholds": { "excellent": 0.002, "good": 0.008, "ok": 0.015 } },
+    { "name": "PerSampleCaptureLatencyDeepStack", "category": "profiler", "description": "Per-sample latency (256 frames)", "notes": "Per-sample avg latency, deep stack (slower unwind)", "thresholds": { "excellent": 0.003, "good": 0.010, "ok": 0.020 } }
   ]
 }
