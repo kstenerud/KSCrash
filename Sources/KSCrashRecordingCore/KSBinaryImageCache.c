@@ -408,7 +408,11 @@ static const struct mach_header *linearScanForAddress(uintptr_t address, KSBinar
 /// More info in this comment:
 /// https://github.com/kstenerud/KSCrash/pull/655#discussion_r2211271075
 
-static struct dyld_all_image_infos *g_all_image_infos = NULL;
+// Atomic so test-only `ksbic_resetCache` can NULL the pointer without racing
+// concurrent readers (getImages, getAppHeader, etc.). The pointer itself is
+// the only thing that races; the dyld struct it points to is managed by dyld
+// and its members have their own well-known thread-safety contract.
+static _Atomic(struct dyld_all_image_infos *) g_all_image_infos = NULL;
 
 // Original dyld notifier that we chain to after our processing
 static dyld_image_notifier g_original_notifier = NULL;
@@ -484,14 +488,15 @@ void ksbic_init(void)
         KSLOG_ERROR("Failed to acquire TASK_DYLD_INFO. We won't have access to binary images.");
         return;
     }
-    g_all_image_infos = (struct dyld_all_image_infos *)dyld_info.all_image_info_addr;
+    struct dyld_all_image_infos *allInfo = (struct dyld_all_image_infos *)dyld_info.all_image_info_addr;
+    atomic_store_explicit(&g_all_image_infos, allInfo, memory_order_relaxed);
 
     // Initialize the address range cache
     g_cache_storage.count = 0;
 
     // Cache the main executable — always the first image, almost certainly in every backtrace
-    if (g_all_image_infos->infoArrayCount > 0 && g_all_image_infos->infoArray != NULL) {
-        const struct dyld_image_info *mainImage = &g_all_image_infos->infoArray[0];
+    if (allInfo->infoArrayCount > 0 && allInfo->infoArray != NULL) {
+        const struct dyld_image_info *mainImage = &allInfo->infoArray[0];
         if (mainImage->imageLoadAddress != NULL) {
             KSBinaryImageRange mainEntry;
             if (populateCacheEntry(mainImage->imageLoadAddress, mainImage->imageFilePath, &mainEntry)) {
@@ -501,9 +506,9 @@ void ksbic_init(void)
     }
 
     // Cache dyld's own image — it's not in the infoArray.
-    if (g_all_image_infos->dyldImageLoadAddress != NULL) {
+    if (allInfo->dyldImageLoadAddress != NULL) {
         KSBinaryImageRange dyldEntry;
-        if (populateCacheEntry(g_all_image_infos->dyldImageLoadAddress, ksbic_getDyldPath(), &dyldEntry)) {
+        if (populateCacheEntry(allInfo->dyldImageLoadAddress, ksbic_getDyldPath(), &dyldEntry)) {
             insertSortedCacheEntry(&g_cache_storage, &dyldEntry);
         }
     }
@@ -513,9 +518,9 @@ void ksbic_init(void)
     // Install our dyld image notifier to track image loading/unloading.
     // Save the original notifier so we can chain to it.
     // Only install if not already installed (avoid caching our own notifier on re-init).
-    if (g_all_image_infos->notification != ksbic_dyld_image_notifier) {
-        g_original_notifier = g_all_image_infos->notification;
-        g_all_image_infos->notification = ksbic_dyld_image_notifier;
+    if (allInfo->notification != ksbic_dyld_image_notifier) {
+        g_original_notifier = allInfo->notification;
+        allInfo->notification = ksbic_dyld_image_notifier;
         KSLOG_DEBUG("Installed dyld image notifier (original=%p)", (void *)g_original_notifier);
     }
 }
@@ -525,7 +530,7 @@ const ks_dyld_image_info *ksbic_getImages(uint32_t *count)
     if (count) {
         *count = 0;
     }
-    struct dyld_all_image_infos *allInfo = g_all_image_infos;
+    struct dyld_all_image_infos *allInfo = atomic_load_explicit(&g_all_image_infos, memory_order_relaxed);
     if (allInfo == NULL) {
         KSLOG_ERROR("Cannot access binary images");
         return NULL;
@@ -543,7 +548,7 @@ const ks_dyld_image_info *ksbic_getImages(uint32_t *count)
 
 const struct mach_header *ksbic_getAppHeader(void)
 {
-    struct dyld_all_image_infos *allInfo = g_all_image_infos;
+    struct dyld_all_image_infos *allInfo = atomic_load_explicit(&g_all_image_infos, memory_order_relaxed);
     if (allInfo == NULL || allInfo->infoArray == NULL || allInfo->infoArrayCount == 0) {
         return NULL;
     }
@@ -552,7 +557,7 @@ const struct mach_header *ksbic_getAppHeader(void)
 
 const struct mach_header *ksbic_getDyldHeader(void)
 {
-    struct dyld_all_image_infos *allInfo = g_all_image_infos;
+    struct dyld_all_image_infos *allInfo = atomic_load_explicit(&g_all_image_infos, memory_order_relaxed);
     if (allInfo == NULL) {
         return NULL;
     }
@@ -561,7 +566,7 @@ const struct mach_header *ksbic_getDyldHeader(void)
 
 const char *ksbic_getDyldPath(void)
 {
-    struct dyld_all_image_infos *allInfo = g_all_image_infos;
+    struct dyld_all_image_infos *allInfo = atomic_load_explicit(&g_all_image_infos, memory_order_relaxed);
     if (allInfo != NULL && allInfo->dyldPath != NULL) {
         return allInfo->dyldPath;
     }
@@ -574,11 +579,12 @@ const char *ksbic_getDyldPath(void)
 void ksbic_resetCache(void)
 {
     // Restore the original dyld notifier before resetting
-    if (g_all_image_infos != NULL && g_all_image_infos->notification == ksbic_dyld_image_notifier) {
-        g_all_image_infos->notification = g_original_notifier;
+    struct dyld_all_image_infos *allInfo = atomic_load_explicit(&g_all_image_infos, memory_order_relaxed);
+    if (allInfo != NULL && allInfo->notification == ksbic_dyld_image_notifier) {
+        allInfo->notification = g_original_notifier;
     }
     g_original_notifier = NULL;
-    g_all_image_infos = NULL;
+    atomic_store_explicit(&g_all_image_infos, NULL, memory_order_relaxed);
 
     // Acquire exclusive access to the cache before resetting
     KSBinaryImageRangeCache *cache = atomic_exchange(&g_cache_ptr, NULL);
