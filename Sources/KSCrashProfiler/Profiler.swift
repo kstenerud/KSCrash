@@ -75,6 +75,7 @@ import os
 ///
 /// - Note: On watchOS, backtrace capture is not supported and samples will contain empty addresses.
 public final class Profiler: @unchecked Sendable {
+
     /// The mach thread being profiled
     public let machThread: thread_t
 
@@ -83,6 +84,11 @@ public final class Profiler: @unchecked Sendable {
 
     /// Maximum number of frames captured per backtrace.
     public let maxFrames: Int
+
+    /// Set of unwind methods the profiler tries per frame. Configured at init.
+    /// See `KSBacktraceUnwindMethods` for trade-offs and presets like `.fast` /
+    /// `.accurate`.
+    public let unwindMethods: KSBacktraceUnwindMethods
 
     /// Maximum number of samples to retain in the ring buffer.
     public let capacity: Int
@@ -135,7 +141,9 @@ public final class Profiler: @unchecked Sendable {
     ) -> Int {
         let clampedInterval = max(0.001, interval)
         let capacity = max(1, Int((Double(retentionSeconds) / clampedInterval).rounded(.toNearestOrAwayFromZero)))
-        let frames = max(1, maxFrames)
+        // Mirror init's clamp so storageSize and the actual allocation agree, and so the
+        // `frames * MemoryLayout<UInt>.size` term below can't overflow on extreme inputs.
+        let frames = max(1, min(maxFrames, Int(KSSC_MAX_STACK_DEPTH)))
 
         let pool = capacity.multipliedReportingOverflow(by: frames * MemoryLayout<UInt>.size)
         let slots = capacity.multipliedReportingOverflow(by: MemoryLayout<SampleSlot>.size)
@@ -154,17 +162,21 @@ public final class Profiler: @unchecked Sendable {
     ///   - interval: The time interval between samples (default: 10ms).
     ///   - maxFrames: Maximum frames captured per backtrace (default: 128).
     ///   - retentionSeconds: How many seconds of samples to retain in the ring buffer (default: 30).
+    ///   - unwindMethods: Bitmask of unwind strategies. Default `.fast`
+    ///     (compact unwind + frame pointer fallback). See `KSBacktraceUnwindMethods`.
     public convenience init(
         thread: pthread_t,
         interval: TimeInterval = 0.01,
         maxFrames: Int = 128,
-        retentionSeconds: Int = 30
+        retentionSeconds: Int = 30,
+        unwindMethods: KSBacktraceUnwindMethods = .fast
     ) {
         self.init(
             machThread: pthread_mach_thread_np(thread),
             interval: interval,
             maxFrames: maxFrames,
-            retentionSeconds: retentionSeconds
+            retentionSeconds: retentionSeconds,
+            unwindMethods: unwindMethods
         )
     }
 
@@ -174,18 +186,25 @@ public final class Profiler: @unchecked Sendable {
     ///   - interval: The time interval between samples (default: 10ms).
     ///   - maxFrames: Maximum frames captured per backtrace (default: 128).
     ///   - retentionSeconds: How many seconds of samples to retain in the ring buffer (default: 30).
+    ///   - unwindMethods: Bitmask of unwind strategies. Default `.fast`
+    ///     (compact unwind + frame pointer fallback). See `KSBacktraceUnwindMethods`.
     public init(
         machThread: thread_t,
         interval: TimeInterval = 0.01,
         maxFrames: Int = 128,
-        retentionSeconds: Int = 30
+        retentionSeconds: Int = 30,
+        unwindMethods: KSBacktraceUnwindMethods = .fast
     ) {
         self.machThread = machThread
 
         let clampedInterval = max(0.001, interval)
         self.intervalNs = UInt64(clampedInterval * 1_000_000_000)
         self.samplingQueue = DispatchQueue(label: "com.kscrash.profiler.sampling", qos: .userInteractive)
-        self.maxFrames = max(1, maxFrames)
+        // Clamp to the unwinder's hard cap. Asking for more than KSSC_MAX_STACK_DEPTH
+        // wastes pool memory: the C unwinder won't fill past that anyway, and unclamped
+        // values flow into capacity * maxFrames below where they could overflow Int.
+        self.maxFrames = max(1, min(maxFrames, Int(KSSC_MAX_STACK_DEPTH)))
+        self.unwindMethods = unwindMethods
 
         let computed = Int((Double(retentionSeconds) / clampedInterval).rounded(.toNearestOrAwayFromZero))
         self.capacity = max(1, computed)
@@ -380,7 +399,8 @@ extension Profiler {
             machThread: machThread,
             addresses: scratchAddresses,
             count: Int32(maxFrames),
-            isTruncated: &isTruncated
+            isTruncated: &isTruncated,
+            methods: unwindMethods
         )
         let endNs = ksdate_uptimeNanoseconds()
 

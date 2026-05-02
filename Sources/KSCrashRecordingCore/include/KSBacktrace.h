@@ -112,6 +112,68 @@ int ksbt_captureBacktraceWithTruncation(pthread_t _Nonnull thread, uintptr_t *_N
     CF_SWIFT_NAME(captureBacktrace(thread:addresses:count:isTruncated:));
 
 /**
+ * Bitmask of stack-unwinding strategies.
+ *
+ * The unwinder tries the selected methods per frame in fixed natural order
+ * (compact unwind, then DWARF, then frame pointer) and accepts the first one
+ * that yields a valid next frame. The natural order is "most accurate first,
+ * fall through to faster fallbacks", which is what you almost always want.
+ *
+ * Common combinations:
+ * - @c KSBacktraceUnwindFast (compact unwind + frame pointer): skips DWARF, the slow
+ *   fallback only needed for frames without compact-unwind info. For typical Apple-toolchain
+ *   binaries (Swift/ObjC) this is as accurate as the full chain at substantially lower
+ *   per-sample cost. Recommended for sampling profilers.
+ * - @c KSBacktraceUnwindAccurate (compact unwind + DWARF + frame pointer): matches the
+ *   chain used by KSCrash's crash handlers. Pays the DWARF cost on the rare frame that
+ *   needs it.
+ * - @c KSBacktraceUnwindFramePointer alone: pure FP walk; fastest but breaks for code
+ *   compiled with @c -fomit-frame-pointer.
+ */
+typedef CF_OPTIONS(uint32_t, KSBacktraceUnwindMethods) {
+    KSBacktraceUnwindNone = 0,
+
+    /** Apple's compact unwind data (`__unwind_info` section). */
+    KSBacktraceUnwindCompactUnwind = 1u << 0,
+
+    /** DWARF CFI (`__eh_frame` section). Slow fallback for code without compact unwind. */
+    KSBacktraceUnwindDwarf = 1u << 1,
+
+    /** Frame-pointer walk. Fastest, but requires the target was compiled with frame pointers. */
+    KSBacktraceUnwindFramePointer = 1u << 2,
+
+    /** Compact unwind + frame pointer fallback. Recommended for sampling profilers. */
+    KSBacktraceUnwindFast = KSBacktraceUnwindCompactUnwind | KSBacktraceUnwindFramePointer,
+
+    /** Compact unwind + DWARF + frame pointer. Matches the crash-handler chain. */
+    KSBacktraceUnwindAccurate = KSBacktraceUnwindCompactUnwind | KSBacktraceUnwindDwarf | KSBacktraceUnwindFramePointer,
+};
+
+/**
+ * Captures the backtrace using a caller-specified set of unwind strategies.
+ *
+ * @param machThread   The identifier of the mach thread whose backtrace should be captured.
+ * @param addresses    A pointer to a buffer to receive the backtrace addresses. Must not be NULL.
+ * @param count        The maximum number of addresses to capture. Must be greater than zero.
+ * @param isTruncated  If non-NULL, set to @c true when the stack is deeper than @c count
+ *                     (i.e. the backtrace was truncated), or @c false otherwise.
+ * @param methods      Bitmask of unwind methods to enable. If no recognized bits are set
+ *                     (including @c KSBacktraceUnwindNone), falls back to the default chain
+ *                     (@c KSBacktraceUnwindAccurate) so callers always get a usable backtrace.
+ *
+ * @return The number of frames captured and written to @c addresses, or 0 if @c addresses is NULL,
+ *         @c count is zero, or an error occurs.
+ *
+ * @discussion Use this when you want a different speed/accuracy trade-off than
+ *             @c ksbt_captureBacktraceFromMachThreadWithTruncation provides. Like the standard
+ *             variant, this function is not async-signal-safe and may briefly suspend the
+ *             target thread.
+ */
+int ksbt_captureBacktraceFromMachThreadWithMethods(thread_t machThread, uintptr_t *_Nonnull addresses, int count,
+                                                   bool *_Nullable isTruncated, KSBacktraceUnwindMethods methods)
+    CF_SWIFT_NAME(captureBacktrace(machThread:addresses:count:isTruncated:methods:));
+
+/**
  * Captures the backtrace (call stack) for an already-suspended mach thread with truncation detection.
  *
  * @param machThread   The identifier of the mach thread whose backtrace should be captured. The thread must already
