@@ -64,12 +64,13 @@ import XCTest
         /// Runs `body` inside `measure(metrics:)`, emitting per-sample average
         /// latency from the returned `ProfileMetrics` as a custom metric.
         ///
-        /// On real iOS / tvOS device, asserts at least one sample was
-        /// captured per iteration so a sampler regression fails loud rather
-        /// than rendering as Excellent (`avgNs` returns 0 for empty sample
-        /// lists). The assertion is suppressed on simulators, Mac Catalyst,
-        /// and macOS hosts (e.g. `swift test` with sanitizers) where dispatch
-        /// timing is too unreliable to honor a 5–10 ms sampling interval.
+        /// Asserts at least one sample was captured per iteration. A regression
+        /// that yields zero samples (e.g. `Sample` capacity smaller than the
+        /// profiled thread's stack, since the profiler discards truncated
+        /// samples) would otherwise render as Excellent because `avgNs`
+        /// returns 0 for empty sample lists. The assertion runs everywhere;
+        /// if a platform has unreliable dispatch timing we'd rather fix the
+        /// test than mask it.
         private func measurePerSampleLatency(
             file: StaticString = #file,
             line: UInt = #line,
@@ -85,21 +86,23 @@ import XCTest
             measure(metrics: [metric]) {
                 let metrics = body()
                 avgSeconds = (metrics?.avgNs ?? 0) / 1_000_000_000.0
-                #if (os(iOS) || os(tvOS)) && !targetEnvironment(simulator) && !targetEnvironment(macCatalyst)
-                    XCTAssertGreaterThan(
-                        metrics?.count ?? 0,
-                        0,
-                        "Expected at least one sample to be captured",
-                        file: file,
-                        line: line
-                    )
-                #endif
+                XCTAssertGreaterThan(
+                    metrics?.count ?? 0,
+                    0,
+                    "Expected at least one sample to be captured",
+                    file: file,
+                    line: line
+                )
             }
         }
 
-        /// Benchmark profiling with 5ms interval (high frequency)
+        /// Benchmark profiling with 5ms interval (high frequency).
+        ///
+        /// Profiles `pthread_self()`, which under XCTest carries a 60+ frame
+        /// stack, so uses `Sample128` to keep captures from being discarded
+        /// as truncated.
         func testBenchmarkHighFrequencySampling() {
-            let profiler = Profiler<Sample64>(
+            let profiler = Profiler<Sample128>(
                 thread: pthread_self(),
                 interval: 0.005,
                 retentionSeconds: 5
@@ -163,9 +166,12 @@ import XCTest
 
         // MARK: - Sample Retrieval Benchmarks
 
-        /// Benchmark retrieving samples from a profile
+        /// Benchmark retrieving samples from a profile.
+        ///
+        /// Same `Sample128` rationale as `testBenchmarkHighFrequencySampling`:
+        /// the XCTest stack is too deep for `Sample64`.
         func testBenchmarkSampleRetrieval() {
-            let profiler = Profiler<Sample64>(
+            let profiler = Profiler<Sample128>(
                 thread: pthread_self(),
                 interval: 0.005,
                 retentionSeconds: 5
