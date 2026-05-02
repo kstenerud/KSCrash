@@ -292,6 +292,12 @@ import XCTest
 
         /// Benchmark individual sample capture operations using ProfileMetrics.
         /// This measures the actual hot-path performance including allocation overhead.
+        ///
+        /// Profiles a thread holding a moderate (64-frame) stack at 1 ms over
+        /// 1 s, so each iteration collects ~1000 samples — much more than the
+        /// 5 sampling-scenario tests above. Per-sample average latency is
+        /// emitted via `ProfilerSampleMetric` so the run shows up as a real
+        /// row in the PR benchmark report.
         func testBenchmarkPerSampleCaptureLatency() {
             var targetThread: pthread_t?
             let readySemaphore = DispatchSemaphore(value: 0)
@@ -317,38 +323,21 @@ import XCTest
                 retentionSeconds: 5
             )
 
-            let id = profiler.beginProfile(named: "benchmark")
-            Thread.sleep(forTimeInterval: 1.0)  // Collect ~1000 samples
-            let profile = profiler.endProfile(id: id)!
+            measurePerSampleLatency {
+                let id = profiler.beginProfile(named: "benchmark")
+                Thread.sleep(forTimeInterval: 1.0)  // Collect ~1000 samples
+                return profiler.endProfile(id: id)?.metrics
+            }
 
             doneSemaphore.signal()
-
-            let metrics = profile.metrics
-
-            print(
-                """
-
-                ============================================================
-                PER-SAMPLE CAPTURE LATENCY (64 frames, Sample128)
-                ============================================================
-                Samples:    \(metrics.count)
-                Min:        \(String(format: "%.2f", Double(metrics.minNs) / 1000.0)) µs
-                Max:        \(String(format: "%.2f", Double(metrics.maxNs) / 1000.0)) µs
-                Average:    \(String(format: "%.2f", metrics.avgNs / 1000.0)) µs
-                Std Dev:    \(String(format: "%.2f", metrics.stdDevNs / 1000.0)) µs
-                P50:        \(String(format: "%.2f", Double(metrics.p50Ns) / 1000.0)) µs
-                P95:        \(String(format: "%.2f", Double(metrics.p95Ns) / 1000.0)) µs
-                P99:        \(String(format: "%.2f", Double(metrics.p99Ns) / 1000.0)) µs
-                ============================================================
-
-                """)
-
-            // Note: The comprehensive unwind implementation (compact unwind + DWARF + frame pointer)
-            // may capture fewer samples than simple frame pointer walking due to additional overhead.
-            XCTAssertGreaterThan(metrics.count, 0, "Should have captured samples")
         }
 
-        /// Benchmark per-sample capture with deep stacks (256 frames)
+        /// Benchmark per-sample capture with deep stacks (256 frames).
+        ///
+        /// Deep stacks with the comprehensive unwind (compact unwind +
+        /// DWARF + frame pointer) take longer per sample, so the per-test
+        /// thresholds in `benchmark-tests.json` are looser than the
+        /// 64-frame variant.
         func testBenchmarkPerSampleCaptureLatencyDeepStack() {
             var targetThread: pthread_t?
             let readySemaphore = DispatchSemaphore(value: 0)
@@ -373,35 +362,13 @@ import XCTest
                 retentionSeconds: 5
             )
 
-            let id = profiler.beginProfile(named: "benchmark")
-            Thread.sleep(forTimeInterval: 1.0)  // Collect ~1000 samples
-            let profile = profiler.endProfile(id: id)!
+            measurePerSampleLatency {
+                let id = profiler.beginProfile(named: "benchmark")
+                Thread.sleep(forTimeInterval: 1.0)  // Collect ~1000 samples
+                return profiler.endProfile(id: id)?.metrics
+            }
 
             doneSemaphore.signal()
-
-            let metrics = profile.metrics
-
-            print(
-                """
-
-                ============================================================
-                PER-SAMPLE CAPTURE LATENCY (256 frames, Sample512)
-                ============================================================
-                Samples:    \(metrics.count)
-                Min:        \(String(format: "%.2f", Double(metrics.minNs) / 1000.0)) µs
-                Max:        \(String(format: "%.2f", Double(metrics.maxNs) / 1000.0)) µs
-                Average:    \(String(format: "%.2f", metrics.avgNs / 1000.0)) µs
-                Std Dev:    \(String(format: "%.2f", metrics.stdDevNs / 1000.0)) µs
-                P50:        \(String(format: "%.2f", Double(metrics.p50Ns) / 1000.0)) µs
-                P95:        \(String(format: "%.2f", Double(metrics.p95Ns) / 1000.0)) µs
-                P99:        \(String(format: "%.2f", Double(metrics.p99Ns) / 1000.0)) µs
-                ============================================================
-
-                """)
-
-            // Note: Deep stacks with comprehensive unwind (compact unwind + DWARF + frame pointer)
-            // take longer per sample. With 256 frames and ~1s profile, we may get fewer samples.
-            XCTAssertGreaterThan(metrics.count, 0, "Should have captured samples")
         }
     }
 #endif
