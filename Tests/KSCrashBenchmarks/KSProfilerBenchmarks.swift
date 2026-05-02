@@ -50,6 +50,17 @@ import XCTest
 
         // MARK: - Sampling Benchmarks
 
+        // The five sampling-scenario tests below need a `Thread.sleep` inside
+        // the `measure` block to give the sampler real time to fire.
+        // Wall-clock time is therefore dominated by the sleep, not by
+        // profiler overhead, so we emit a custom `ProfilerSampleMetric`
+        // carrying `profile.metrics.avgNs` (per-sample capture latency in
+        // seconds). The default wall-clock metric is intentionally omitted.
+        // See `ProfilerSampleMetric.swift` for the threading model.
+
+        private static let perSampleAvgMetricID = "kscrash.profiler.persample_avg"
+        private static let perSampleAvgDisplayName = "Per-sample avg latency"
+
         /// Benchmark profiling with 5ms interval (high frequency)
         func testBenchmarkHighFrequencySampling() {
             let profiler = Profiler<Sample64>(
@@ -58,10 +69,28 @@ import XCTest
                 retentionSeconds: 5
             )
 
-            measure {
+            var avgSeconds: Double = 0
+            let metric = ProfilerSampleMetric(
+                identifier: Self.perSampleAvgMetricID,
+                displayName: Self.perSampleAvgDisplayName,
+                valueProvider: { avgSeconds }
+            )
+
+            measure(metrics: [metric]) {
                 let id = profiler.beginProfile(named: "benchmark")
                 Thread.sleep(forTimeInterval: 0.05)
-                _ = profiler.endProfile(id: id)
+                let profile = profiler.endProfile(id: id)
+                avgSeconds = (profile?.metrics.avgNs ?? 0) / 1_000_000_000.0
+                // Simulators frequently fail to fire the dispatch source on
+                // time at small intervals, so suppressed there. On device a
+                // zero-sample run means the sampler is broken; fail loud.
+                #if !targetEnvironment(simulator)
+                    XCTAssertGreaterThan(
+                        profile?.metrics.count ?? 0,
+                        0,
+                        "Expected at least one sample to be captured"
+                    )
+                #endif
             }
         }
 
@@ -73,10 +102,28 @@ import XCTest
                 retentionSeconds: 5
             )
 
-            measure {
+            var avgSeconds: Double = 0
+            let metric = ProfilerSampleMetric(
+                identifier: Self.perSampleAvgMetricID,
+                displayName: Self.perSampleAvgDisplayName,
+                valueProvider: { avgSeconds }
+            )
+
+            measure(metrics: [metric]) {
                 let id = profiler.beginProfile(named: "benchmark")
                 Thread.sleep(forTimeInterval: 0.1)
-                _ = profiler.endProfile(id: id)
+                let profile = profiler.endProfile(id: id)
+                avgSeconds = (profile?.metrics.avgNs ?? 0) / 1_000_000_000.0
+                // Simulators frequently fail to fire the dispatch source on
+                // time at small intervals, so suppressed there. On device a
+                // zero-sample run means the sampler is broken; fail loud.
+                #if !targetEnvironment(simulator)
+                    XCTAssertGreaterThan(
+                        profile?.metrics.count ?? 0,
+                        0,
+                        "Expected at least one sample to be captured"
+                    )
+                #endif
             }
         }
 
@@ -105,10 +152,28 @@ import XCTest
                 retentionSeconds: 5
             )
 
-            measure {
+            var avgSeconds: Double = 0
+            let metric = ProfilerSampleMetric(
+                identifier: Self.perSampleAvgMetricID,
+                displayName: Self.perSampleAvgDisplayName,
+                valueProvider: { avgSeconds }
+            )
+
+            measure(metrics: [metric]) {
                 let id = profiler.beginProfile(named: "benchmark")
                 Thread.sleep(forTimeInterval: 0.05)
-                _ = profiler.endProfile(id: id)
+                let profile = profiler.endProfile(id: id)
+                avgSeconds = (profile?.metrics.avgNs ?? 0) / 1_000_000_000.0
+                // Simulators frequently fail to fire the dispatch source on
+                // time at small intervals, so suppressed there. On device a
+                // zero-sample run means the sampler is broken; fail loud.
+                #if !targetEnvironment(simulator)
+                    XCTAssertGreaterThan(
+                        profile?.metrics.count ?? 0,
+                        0,
+                        "Expected at least one sample to be captured"
+                    )
+                #endif
             }
 
             endSemaphore.signal()
@@ -124,10 +189,28 @@ import XCTest
                 retentionSeconds: 5
             )
 
-            measure {
+            var avgSeconds: Double = 0
+            let metric = ProfilerSampleMetric(
+                identifier: Self.perSampleAvgMetricID,
+                displayName: Self.perSampleAvgDisplayName,
+                valueProvider: { avgSeconds }
+            )
+
+            measure(metrics: [metric]) {
                 let id = profiler.beginProfile(named: "benchmark")
                 Thread.sleep(forTimeInterval: 0.2)
-                _ = profiler.endProfile(id: id)
+                let profile = profiler.endProfile(id: id)
+                avgSeconds = (profile?.metrics.avgNs ?? 0) / 1_000_000_000.0
+                // Simulators frequently fail to fire the dispatch source on
+                // time at small intervals, so suppressed there. On device a
+                // zero-sample run means the sampler is broken; fail loud.
+                #if !targetEnvironment(simulator)
+                    XCTAssertGreaterThan(
+                        profile?.metrics.count ?? 0,
+                        0,
+                        "Expected at least one sample to be captured"
+                    )
+                #endif
             }
         }
 
@@ -141,7 +224,14 @@ import XCTest
                 retentionSeconds: 10
             )
 
-            measure {
+            var avgSeconds: Double = 0
+            let metric = ProfilerSampleMetric(
+                identifier: Self.perSampleAvgMetricID,
+                displayName: Self.perSampleAvgDisplayName,
+                valueProvider: { avgSeconds }
+            )
+
+            measure(metrics: [metric]) {
                 let id1 = profiler.beginProfile(named: "benchmark")
                 let id2 = profiler.beginProfile(named: "benchmark")
                 let id3 = profiler.beginProfile(named: "benchmark")
@@ -150,7 +240,18 @@ import XCTest
 
                 _ = profiler.endProfile(id: id1)
                 _ = profiler.endProfile(id: id2)
-                _ = profiler.endProfile(id: id3)
+                let profile = profiler.endProfile(id: id3)
+                avgSeconds = (profile?.metrics.avgNs ?? 0) / 1_000_000_000.0
+                // Simulators frequently fail to fire the dispatch source on
+                // time at small intervals, so suppressed there. On device a
+                // zero-sample run means the sampler is broken; fail loud.
+                #if !targetEnvironment(simulator)
+                    XCTAssertGreaterThan(
+                        profile?.metrics.count ?? 0,
+                        0,
+                        "Expected at least one sample to be captured"
+                    )
+                #endif
             }
         }
 
