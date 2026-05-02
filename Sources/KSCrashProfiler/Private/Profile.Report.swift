@@ -125,31 +125,47 @@ private class BoxedProfile {
 
     /// Writes the profile data to the report using the given writer.
     ///
-    /// The output format uses frame deduplication:
-    /// 1. Collect all unique addresses from all samples
-    /// 2. Symbolicate each unique address once
-    /// 3. Build a lookup table mapping address -> index
-    /// 4. Write frames array with symbolicated info
-    /// 5. Write samples array with frame indexes instead of addresses
+    /// Single-pass frame deduplication:
+    /// 1. Walk samples once, assigning each new address an index in `addrToIdx`
+    ///    and appending it to `uniqueAddrs`. Per-sample index sequences are
+    ///    captured into `sampleIndexes` to avoid a second hash lookup per frame
+    ///    at write time.
+    /// 2. Write metadata + the frames array, symbolicating each unique address
+    ///    on the fly (no intermediate `[SymbolInformation]`).
+    /// 3. Write the samples array, emitting the pre-computed indexes.
+    ///
+    /// Frames are written in insertion order rather than sorted, since the
+    /// consumer doesn't depend on sort order and skipping the sort avoids an
+    /// extra pass and allocation.
     ///
     /// - Parameter writer: The report writer to use for JSON output.
     func write(with writer: UnsafeReportWriter) {
+        let samples = profile.samples
+        var addrToIdx: [UInt: Int32] = [:]
+        // One unique address per sample is a reasonable starting estimate;
+        // the dictionary will grow on its own if the profile has more variety.
+        addrToIdx.reserveCapacity(samples.count)
+        var uniqueAddrs: [UInt] = []
+        uniqueAddrs.reserveCapacity(samples.count)
+        var sampleIndexes: [[Int32]] = []
+        sampleIndexes.reserveCapacity(samples.count)
 
-        let addresses = Array(Set(profile.samples.flatMap(\.addresses)))
-            .sorted()
-            .map {
-                var info = SymbolInformation()
-                _ = symbolicate(address: $0, result: &info)
-                return info
+        for sample in samples {
+            sample.withAddresses { buf in
+                var idxs: [Int32] = []
+                idxs.reserveCapacity(buf.count)
+                for addr in buf {
+                    if let i = addrToIdx[addr] {
+                        idxs.append(i)
+                    } else {
+                        let i = Int32(uniqueAddrs.count)
+                        addrToIdx[addr] = i
+                        uniqueAddrs.append(addr)
+                        idxs.append(i)
+                    }
+                }
+                sampleIndexes.append(idxs)
             }
-
-        let addressToIndex = Dictionary(uniqueKeysWithValues: addresses.enumerated().map { ($1.returnAddress, $0) })
-
-        let indexedSamples: [(indexes: [Int], sample: any Sample)] = profile.samples.map { sample in
-            let indexes = sample.addresses.compactMap { address in
-                addressToIndex[address]
-            }
-            return (indexes, sample)
         }
 
         writer.add("name", profile.name)
@@ -162,37 +178,41 @@ private class BoxedProfile {
         writer.add("time_units", "nanoseconds")
 
         writer.beginArray("frames")
-        for address in addresses {
-            writer.beginObject(nil)
+        for addr in uniqueAddrs {
+            // Re-init per address: ksbt_symbolicateAddress only writes the fields it
+            // can resolve, so a fresh struct is needed per call to keep stale fields
+            // (symbolName, imageName, imageUUID, etc.) from a previous frame from
+            // leaking into a frame whose address fails to resolve.
+            var info = SymbolInformation()
+            _ = symbolicate(address: addr, result: &info)
 
-            if let symbolName = address.symbolName {
+            writer.beginObject(nil)
+            if let symbolName = info.symbolName {
                 writer.add("symbol_name", String(cString: symbolName))
             }
-            writer.add("symbol_addr", UInt64(address.symbolAddress))
-            writer.add("instruction_addr", UInt64(address.callInstruction))
-            if let imageName = address.imageName {
+            writer.add("symbol_addr", UInt64(info.symbolAddress))
+            writer.add("instruction_addr", UInt64(info.callInstruction))
+            if let imageName = info.imageName {
                 let name = URL(fileURLWithPath: String(cString: imageName)).lastPathComponent
                 writer.add("object_name", name)
             }
-            writer.add("object_addr", UInt64(address.imageAddress))
-            if let uuid = address.imageUUID {
+            writer.add("object_addr", UInt64(info.imageAddress))
+            if let uuid = info.imageUUID {
                 writer.addUUID("object_uuid", uuid)
             }
-
             writer.endContainer()
         }
         writer.endContainer()
 
         writer.beginArray("samples")
-        for (indexes, sample) in indexedSamples {
-
+        for (i, sample) in samples.enumerated() {
             writer.beginObject(nil)
             writer.add("time_start_uptime", sample.metadata.timestampBeginNs)
             writer.add("time_end_uptime", sample.metadata.timestampEndNs)
             writer.add("duration", sample.metadata.durationNs)
 
             writer.beginArray("frames")
-            for index in indexes {
+            for index in sampleIndexes[i] {
                 writer.add(nil, UInt64(index))
             }
             writer.endContainer()

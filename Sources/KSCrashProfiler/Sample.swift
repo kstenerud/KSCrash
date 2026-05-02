@@ -70,10 +70,24 @@ extension Sample {
     /// Returns the captured stack frame addresses as an array.
     ///
     /// This creates a new array from the inline storage. For performance-critical
-    /// code paths, prefer accessing `storage` directly via `withUnsafeBytes`.
+    /// code paths, prefer `withAddresses(_:)` instead.
     public var addresses: [UInt] {
-        withUnsafeBytes(of: storage) { ptr in
-            Array(ptr.bindMemory(to: UInt.self).prefix(addressCount))
+        withAddresses { Array($0) }
+    }
+
+    /// Calls `body` with a buffer pointer to the captured frame addresses.
+    ///
+    /// The buffer is valid only for the duration of the call. Avoids the heap
+    /// allocation that `addresses` performs.
+    ///
+    /// - Parameter body: A closure that receives an `UnsafeBufferPointer<UInt>`
+    ///   containing the captured frame addresses (length `addressCount`).
+    /// - Returns: Whatever `body` returns.
+    public func withAddresses<R>(_ body: (UnsafeBufferPointer<UInt>) throws -> R) rethrows -> R {
+        try withUnsafeBytes(of: storage) { ptr in
+            let bound = ptr.bindMemory(to: UInt.self)
+            let buf = UnsafeBufferPointer(start: bound.baseAddress, count: addressCount)
+            return try body(buf)
         }
     }
 
