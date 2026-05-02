@@ -104,6 +104,11 @@ public final class Profiler<T: Sample>: @unchecked Sendable {
     /// The timer used for periodic sampling
     var timer: DispatchSourceTimer?
 
+    /// Scratch sample used by the capture timer to unwind the stack lock-free.
+    /// Only the sampling queue touches it; copied into the ring slot under the
+    /// publish lock.
+    var scratchSample: T = T.make()
+
     /// Whether profiling is currently active
     public var isRunning: Bool {
         lock.withLock { !activeSessions.isEmpty }
@@ -311,32 +316,29 @@ extension Profiler {
     ///
     /// ## Implementation Notes
     ///
-    /// The backtrace capture happens while holding the lock. This design choice trades
-    /// some lock contention for simpler, more predictable code:
+    /// The expensive part — the backtrace unwind itself — runs lock-free into
+    /// `scratchSample`. Only the brief publish step (memcpy into the ring slot
+    /// plus index bump) holds `lock`. Lock hold time drops from the unwind
+    /// duration (~100–300 µs) to a struct copy (~tens to hundreds of ns
+    /// depending on `T`), so concurrent `beginProfile`/`endProfile` callers
+    /// no longer wait on the unwind.
     ///
-    /// - **Simplicity**: Capturing directly into the ring buffer slot eliminates the need
-    ///   to copy sample data, reducing overhead and complexity.
-    /// - **Correctness**: Holding the lock ensures the ring buffer slot remains valid
-    ///   throughout the capture operation, avoiding race conditions with concurrent
-    ///   `endProfile()` calls that read from the buffer.
-    ///
-    /// The lock is held for approximately 100-300µs per sample (depending on stack depth),
-    /// which is acceptable for the typical 1-10ms sampling intervals.
+    /// `scratchSample` is exclusively owned by the sampling queue: the timer
+    /// is serialized, and `captureSample` is the only function that touches
+    /// it. No locking is required around the unwind.
     func captureSample() {
+        // Unwind into scratch without holding the publish lock.
+        scratchSample.metadata.timestampBeginNs = ksdate_uptimeNanoseconds()
+        scratchSample.capture(
+            thread: machThread,
+            using: captureBacktrace(machThread:addresses:count:isTruncated:)
+        )
+        scratchSample.metadata.timestampEndNs = ksdate_uptimeNanoseconds()
+
+        // Briefly take the lock to publish into the ring.
         lock.withLock {
             guard !activeSessions.isEmpty else { return }
-
-            let slot = writeIndex
-
-            // Capture directly into the ring buffer slot to avoid struct copy overhead
-            samples[slot].metadata.timestampBeginNs = ksdate_uptimeNanoseconds()
-            samples[slot].capture(
-                thread: machThread,
-                using: captureBacktrace(machThread:addresses:count:isTruncated:)
-            )
-            samples[slot].metadata.timestampEndNs = ksdate_uptimeNanoseconds()
-
-            // Advance ring buffer position
+            samples[writeIndex] = scratchSample
             writeIndex = (writeIndex + 1) % capacity
             if count < capacity {
                 count += 1
