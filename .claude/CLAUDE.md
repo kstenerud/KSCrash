@@ -60,6 +60,10 @@ KSCrash is a layered crash reporting framework:
 
 Public modules (API surface): KSCrashRecording, KSCrashFilters, KSCrashSinks, KSCrashInstallations, KSCrashDiscSpaceMonitor, KSCrashBootTimeMonitor, KSCrashDemangleFilter, Monitors (Swift), Report (Swift), KSCrashProfiler (Swift). Public headers: `Sources/[ModuleName]/include/*.h`.
 
+## Source-Breaking Changes
+
+A change is source-breaking **only if it breaks code that compiled against the most recent tagged release** (`git describe --tags --abbrev=0`), not against master. Symbols, types, or shapes that do not exist at the release tag cannot be source-breaking, no matter how they evolve on master. Always verify against the release tag before acting on a review comment, automated flag, or memory note that calls something source-breaking. See `.claude/rules/api-stability.md` for the full rule and the list of changes that warrant flagging.
+
 ## Verbose Logging
 
 KSLogger uses compile-time log levels for async-signal-safety:
