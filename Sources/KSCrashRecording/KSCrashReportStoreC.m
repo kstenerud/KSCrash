@@ -71,7 +71,7 @@ void kscrs_setStitchConfig(const KSCrashReportStoreCConfiguration *const configu
         g_hasStitchConfig = false;
     }
     if (configuration != NULL) {
-        g_stitchConfig = KSCrashReportStoreCConfiguration_Copy((KSCrashReportStoreCConfiguration *)configuration);
+        g_stitchConfig = KSCrashReportStoreCConfiguration_Copy(configuration);
         g_hasStitchConfig = true;
     }
     pthread_mutex_unlock(&g_mutex);

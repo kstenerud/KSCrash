@@ -464,7 +464,10 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
         g_reportStoreConfig.runSidecarsPath = strdup(path);
     }
 
-    kscrs_initialize(&g_reportStoreConfig);
+    KSCrashInstallErrorCode storeInitResult = kscrs_initialize(&g_reportStoreConfig);
+    if (storeInitResult != KSCrashInstallErrorNone) {
+        return storeInitResult;
+    }
     // Register the install's config as the source of paths for the no-config
     // readers (readReportAtPath, readReportByPathAndID, finalizeReport). Only
     // the install does this; constructing a KSCrashReportStore no longer
