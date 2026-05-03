@@ -49,8 +49,14 @@ typedef struct {
 
 // g_zombieCacheBuffer is the owned allocation; it is allocated once and never freed.
 // g_zombieCache is the "active" pointer that handleDealloc reads — NULL when disabled.
+// Atomic with acquire/release: handleDealloc may run from a signal handler and on
+// arbitrary threads, while install/disable publish the pointer from the monitor's
+// enable thread. Plain `volatile` was insufficient — it gave no happens-before for
+// the buffer's calloc initialization vs. the publish, and no guarantee that the
+// disable's NULL store would be observed promptly. The buffer itself is never
+// freed, so a stale non-NULL load is harmless even under contention.
 static Zombie *g_zombieCacheBuffer;
-static volatile Zombie *g_zombieCache;
+static _Atomic(Zombie *) g_zombieCache;
 static unsigned g_zombieHashMask;
 
 static atomic_bool g_isEnabled = false;
@@ -112,10 +118,10 @@ static void storeException(const void *exception)
 
 static inline void handleDealloc(const void *self)
 {
-    volatile Zombie *cache = g_zombieCache;
+    Zombie *cache = atomic_load_explicit(&g_zombieCache, memory_order_acquire);
     likely_if(cache != NULL)
     {
-        Zombie *zombie = (Zombie *)cache + hashIndex(self);
+        Zombie *zombie = cache + hashIndex(self);
         zombie->object = self;
         Class class = object_getClass((id)self);
         zombie->className = class_getName(class);
@@ -163,7 +169,7 @@ static void install(void)
             return;
         }
     }
-    g_zombieCache = g_zombieCacheBuffer;
+    atomic_store_explicit(&g_zombieCache, g_zombieCacheBuffer, memory_order_release);
 
     g_lastDeallocedException.class = objc_getClass("NSException");
     g_lastDeallocedException.address = NULL;
@@ -176,12 +182,12 @@ static void install(void)
 
 const char *kszombie_className(const void *object)
 {
-    volatile Zombie *cache = g_zombieCache;
+    Zombie *cache = atomic_load_explicit(&g_zombieCache, memory_order_acquire);
     if (cache == NULL || object == NULL) {
         return NULL;
     }
 
-    Zombie *zombie = (Zombie *)cache + hashIndex(object);
+    Zombie *zombie = cache + hashIndex(object);
     if (zombie->object == object) {
         return zombie->className;
     }
@@ -206,7 +212,7 @@ static void setEnabled(bool isEnabled, __unused void *context)
         // We intentionally do NOT free the buffer here: a concurrent dealloc on another
         // thread may have already loaded the old pointer. The buffer is reused on re-enable
         // (install() checks g_zombieCacheBuffer == NULL before allocating).
-        g_zombieCache = NULL;
+        atomic_store_explicit(&g_zombieCache, NULL, memory_order_release);
     }
 }
 
