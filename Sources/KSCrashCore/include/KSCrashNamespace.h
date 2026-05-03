@@ -345,6 +345,7 @@
 #define kscrs_readReport KSCRASH_NS(kscrs_readReport)
 #define kscrs_readReportAtPath KSCRASH_NS(kscrs_readReportAtPath)
 #define kscrs_readReportByPathAndID KSCRASH_NS(kscrs_readReportByPathAndID)
+#define kscrs_setStitchConfig KSCRASH_NS(kscrs_setStitchConfig)
 #define ksct_swap KSCRASH_NS(ksct_swap)
 #define ksct_swapReset KSCRASH_NS(ksct_swapReset)
 #define kscu_arm64_decode KSCRASH_NS(kscu_arm64_decode)

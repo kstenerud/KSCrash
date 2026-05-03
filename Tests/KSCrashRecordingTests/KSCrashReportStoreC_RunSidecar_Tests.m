@@ -72,6 +72,12 @@ static CFDictionaryRef testStitchReport(CFDictionaryRef reportDict, const char *
     memset(&_storeConfig, 0, sizeof(_storeConfig));
 }
 
+- (void)tearDown
+{
+    kscrs_setStitchConfig(NULL);
+    [super tearDown];
+}
+
 - (void)prepareStoreWithRunSidecars:(NSString *)name
 {
     NSString *reportsPath = [self.tempPath stringByAppendingPathComponent:name];
@@ -83,6 +89,7 @@ static CFDictionaryRef testStitchReport(CFDictionaryRef reportDict, const char *
     _storeConfig.runSidecarsPath = runSidecarsPath.UTF8String;
     _storeConfig.maxReportCount = 10;
     kscrs_initialize(&_storeConfig);
+    kscrs_setStitchConfig(&_storeConfig);
 }
 
 - (int64_t)writeReportWithRunId:(NSString *)runId

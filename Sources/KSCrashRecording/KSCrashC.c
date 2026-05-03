@@ -465,6 +465,11 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     }
 
     kscrs_initialize(&g_reportStoreConfig);
+    // Register the install's config as the source of paths for the no-config
+    // readers (readReportAtPath, readReportByPathAndID, finalizeReport). Only
+    // the install does this; constructing a KSCrashReportStore no longer
+    // hijacks the stitch path.
+    kscrs_setStitchConfig(&g_reportStoreConfig);
     kscm_setReportSidecarFilePathProvider(getReportSidecarFilePathCallback);
     kscm_setReportSidecarPathProvider(getReportSidecarPathCallback);
     kscm_setRunSidecarPathProvider(getRunSidecarPathCallback);

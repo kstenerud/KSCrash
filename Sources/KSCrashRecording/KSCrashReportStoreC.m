@@ -55,9 +55,27 @@ static _Atomic(uint32_t) g_nextUniqueIDLow;
 static int64_t g_nextUniqueIDHigh;
 static pthread_mutex_t g_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-// Saved during kscrs_initialize so kscrs_readReportAtPath can stitch sidecars.
-static bool g_hasStoredConfig = false;
-static KSCrashReportStoreCConfiguration g_storedConfig;
+// The stitch config used by the no-config readers (readReportAtPath,
+// readReportByPathAndID, finalizeReport). Set explicitly via
+// kscrs_setStitchConfig — typically by kscrash_install. Constructing a
+// KSCrashReportStore does NOT touch this; only the install (or a test that
+// opts in) decides whose paths the stitching uses.
+static bool g_hasStitchConfig = false;
+static KSCrashReportStoreCConfiguration g_stitchConfig;
+
+void kscrs_setStitchConfig(const KSCrashReportStoreCConfiguration *const configuration)
+{
+    pthread_mutex_lock(&g_mutex);
+    if (g_hasStitchConfig) {
+        KSCrashReportStoreCConfiguration_Release(&g_stitchConfig);
+        g_hasStitchConfig = false;
+    }
+    if (configuration != NULL) {
+        g_stitchConfig = KSCrashReportStoreCConfiguration_Copy((KSCrashReportStoreCConfiguration *)configuration);
+        g_hasStitchConfig = true;
+    }
+    pthread_mutex_unlock(&g_mutex);
+}
 
 static int compareInt64(const void *a, const void *b)
 {
@@ -463,12 +481,6 @@ KSCrashInstallErrorCode kscrs_initialize(const KSCrashReportStoreCConfiguration 
         }
         pruneReports(configuration);
         initializeIDs();
-
-        if (g_hasStoredConfig) {
-            KSCrashReportStoreCConfiguration_Release(&g_storedConfig);
-        }
-        g_storedConfig = KSCrashReportStoreCConfiguration_Copy((KSCrashReportStoreCConfiguration *)configuration);
-        g_hasStoredConfig = true;
     }
     pthread_mutex_unlock(&g_mutex);
     return result;
@@ -571,7 +583,7 @@ static char *readReportAtPath(const char *path, int64_t reportID, const KSCrashR
 char *kscrs_readReportAtPath(const char *path)
 {
     pthread_mutex_lock(&g_mutex);
-    const KSCrashReportStoreCConfiguration *config = g_hasStoredConfig ? &g_storedConfig : NULL;
+    const KSCrashReportStoreCConfiguration *config = g_hasStitchConfig ? &g_stitchConfig : NULL;
     char *result = readReportAtPath(path, 0, config);
     pthread_mutex_unlock(&g_mutex);
     return result;
@@ -580,7 +592,7 @@ char *kscrs_readReportAtPath(const char *path)
 char *kscrs_readReportByPathAndID(const char *path, int64_t reportID)
 {
     pthread_mutex_lock(&g_mutex);
-    const KSCrashReportStoreCConfiguration *config = g_hasStoredConfig ? &g_storedConfig : NULL;
+    const KSCrashReportStoreCConfiguration *config = g_hasStitchConfig ? &g_stitchConfig : NULL;
     char *result = readReportAtPath(path, reportID, config);
     pthread_mutex_unlock(&g_mutex);
     return result;
@@ -597,7 +609,7 @@ bool kscrs_finalizeReport(const char *reportPath, int64_t reportID)
     // window where the write-back resurrects a deleted report.
     pthread_mutex_lock(&g_mutex);
 
-    if (!g_hasStoredConfig) {
+    if (!g_hasStitchConfig) {
         pthread_mutex_unlock(&g_mutex);
         return false;
     }
@@ -631,8 +643,8 @@ bool kscrs_finalizeReport(const char *reportPath, int64_t reportID)
         // Fixup
         NSDictionary *report = kscrf_fixupReportDict(dict);
         bool stitchFailed = false;
-        report = stitchRunSidecarsIntoReport(report, &g_storedConfig, &stitchFailed);
-        report = stitchReportSidecarsIntoReport(report, reportID, &g_storedConfig, &stitchFailed);
+        report = stitchRunSidecarsIntoReport(report, &g_stitchConfig, &stitchFailed);
+        report = stitchReportSidecarsIntoReport(report, reportID, &g_stitchConfig, &stitchFailed);
         if (stitchFailed) {
             KSLOG_ERROR(@"Stitching failed for report %lld, skipping finalization to allow retry on next read",
                         (long long)reportID);
