@@ -89,6 +89,13 @@ public struct Profile: Sendable {
     /// the window opened are excluded even if their end timestamp crosses into it.
     public let samples: [Sample]
 
+    /// Number of samples whose stack was deeper than the profiler's `maxFrames`
+    /// and was therefore dropped by the unwinder. These samples are not present
+    /// in `samples`. Compare against `samples.count` to gauge how much profile
+    /// data was lost to truncation, and consider raising `maxFrames` if the
+    /// ratio is high.
+    public let truncatedSampleCount: Int
+
     /// Total duration of this profile in nanoseconds.
     public var durationNs: UInt64 {
         endTimestampNs - startTimestampNs
@@ -122,7 +129,8 @@ public struct Profile: Sendable {
         startTimestampNs: UInt64,
         endTimestampNs: UInt64,
         expectedSampleIntervalNs: UInt64,
-        samples: [Sample]
+        samples: [Sample],
+        truncatedSampleCount: Int = 0
     ) {
         self.id = id
         self.name = name
@@ -132,5 +140,6 @@ public struct Profile: Sendable {
         self.endTimestampNs = endTimestampNs
         self.expectedSampleIntervalNs = expectedSampleIntervalNs
         self.samples = samples
+        self.truncatedSampleCount = truncatedSampleCount
     }
 }

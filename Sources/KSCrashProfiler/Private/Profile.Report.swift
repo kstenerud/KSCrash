@@ -174,6 +174,7 @@ private class BoxedProfile {
         writer.add("expected_sample_interval", profile.expectedSampleIntervalNs)
         writer.add("duration", profile.durationNs)
         writer.add("time_units", "nanoseconds")
+        writer.add("truncated_count", UInt64(profile.truncatedSampleCount))
 
         writer.beginArray("frames")
         for addr in uniqueAddrs {

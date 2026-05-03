@@ -314,7 +314,7 @@ final class ProfilerTests: XCTestCase {
             retentionSeconds: 1
         )
 
-        let samples: [Sample] = profiler.lock.withLock {
+        let result: (samples: [Sample], truncatedCount: Int) = profiler.lock.withLock {
             // Slot 0: begins before the range (10) but ends inside it (20). Under the old
             // overlap rule this would be included; under "begin within range" it must not be.
             profiler.slots[0] = SampleSlot(
@@ -343,9 +343,62 @@ final class ProfilerTests: XCTestCase {
             return profiler.samplesInRangeLocked(from: 15, to: 50)
         }
 
-        XCTAssertEqual(samples.count, 1, "Only the sample whose begin is inside [15, 50] should be returned")
-        XCTAssertEqual(samples.first?.metadata.timestampBeginNs, 30)
-        XCTAssertEqual(samples.first?.addresses, [0xBBBB])
+        XCTAssertEqual(result.samples.count, 1, "Only the sample whose begin is inside [15, 50] should be returned")
+        XCTAssertEqual(result.samples.first?.metadata.timestampBeginNs, 30)
+        XCTAssertEqual(result.samples.first?.addresses, [0xBBBB])
+        XCTAssertEqual(result.truncatedCount, 0, "No truncated slots in this fixture")
+    }
+
+    func testTruncatedSamplesAreCountedSeparately() {
+        // Slots whose unwind produced a truncated stack must be excluded from `samples`
+        // but counted in `truncatedSampleCount`, only when they fall inside the window.
+        let profiler = Profiler(
+            thread: pthread_self(),
+            interval: 0.01,
+            maxFrames: 4,
+            retentionSeconds: 1
+        )
+
+        let result: (samples: [Sample], truncatedCount: Int) = profiler.lock.withLock {
+            // Slot 0: in range, captured normally.
+            profiler.slots[0] = SampleSlot(
+                metadata: SampleMetadata(timestampBeginNs: 20, timestampEndNs: 25),
+                addressCount: 1,
+                truncated: false
+            )
+            profiler.addressPool[0 * profiler.maxFrames] = 0xAAAA
+
+            // Slot 1: in range, truncated. Counts against the budget but emits no Sample.
+            profiler.slots[1] = SampleSlot(
+                metadata: SampleMetadata(timestampBeginNs: 30, timestampEndNs: 35),
+                addressCount: 0,
+                truncated: true
+            )
+
+            // Slot 2: in range, truncated.
+            profiler.slots[2] = SampleSlot(
+                metadata: SampleMetadata(timestampBeginNs: 40, timestampEndNs: 45),
+                addressCount: 0,
+                truncated: true
+            )
+
+            // Slot 3: outside the range; truncation here must NOT be counted.
+            profiler.slots[3] = SampleSlot(
+                metadata: SampleMetadata(timestampBeginNs: 200, timestampEndNs: 205),
+                addressCount: 0,
+                truncated: true
+            )
+
+            profiler.sampleCount = 4
+            profiler.writeIndex = 4 % profiler.capacity
+
+            return profiler.samplesInRangeLocked(from: 15, to: 50)
+        }
+
+        XCTAssertEqual(result.samples.count, 1, "Only the non-truncated in-range slot should be returned")
+        XCTAssertEqual(result.samples.first?.addresses, [0xAAAA])
+        XCTAssertEqual(
+            result.truncatedCount, 2, "Truncated slots inside the window should be counted; outside ones excluded")
     }
 
     // MARK: - Profile Duration Tests

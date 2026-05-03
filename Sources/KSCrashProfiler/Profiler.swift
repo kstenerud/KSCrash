@@ -265,7 +265,7 @@ public final class Profiler: @unchecked Sendable {
                 return nil
             }
 
-            let matchingSamples = samplesInRangeLocked(
+            let inRange = samplesInRangeLocked(
                 from: activeProfile.startTimestampNs,
                 to: endTimestamp
             )
@@ -282,7 +282,8 @@ public final class Profiler: @unchecked Sendable {
                 startTimestampNs: activeProfile.startTimestampNs,
                 endTimestampNs: endTimestamp,
                 expectedSampleIntervalNs: intervalNs,
-                samples: matchingSamples
+                samples: inRange.samples,
+                truncatedSampleCount: inRange.truncatedCount
             )
         }
     }
@@ -341,6 +342,11 @@ struct SampleSlot {
     /// Number of valid frames in this slot's address-pool window.
     /// `Int32` since stack depths fit comfortably in 31 bits.
     var addressCount: Int32 = 0
+    /// True when the unwinder produced a truncated stack (deeper than `maxFrames`).
+    /// `addressCount` is forced to 0 in that case so the slot is treated as empty
+    /// by `samplesInRangeLocked`'s frame loop, but the flag still lets us count
+    /// the drop.
+    var truncated: Bool = false
 }
 
 extension Profiler {
@@ -418,7 +424,8 @@ extension Profiler {
             let slot = writeIndex
             slots[slot] = SampleSlot(
                 metadata: SampleMetadata(timestampBeginNs: beginNs, timestampEndNs: endNs),
-                addressCount: Int32(count)
+                addressCount: Int32(count),
+                truncated: isTruncated
             )
             if count > 0 {
                 addressPool.advanced(by: slot * maxFrames).update(from: scratchAddresses, count: count)
@@ -455,11 +462,12 @@ extension Profiler {
     /// - Parameters:
     ///   - startNs: Start of the time range (monotonic nanoseconds from `CLOCK_UPTIME_RAW`).
     ///   - endNs: End of the time range (monotonic nanoseconds from `CLOCK_UPTIME_RAW`).
-    /// - Returns: Array of samples whose unwind began inside the range, in chronological order.
+    /// - Returns: A pair of (samples whose unwind began inside the range, in chronological order;
+    ///   count of slots inside the range whose unwind produced a truncated stack).
     ///
     /// - Important: Must be called while holding `lock`.
-    func samplesInRangeLocked(from startNs: UInt64, to endNs: UInt64) -> [Sample] {
-        guard sampleCount > 0 else { return [] }
+    func samplesInRangeLocked(from startNs: UInt64, to endNs: UInt64) -> (samples: [Sample], truncatedCount: Int) {
+        guard sampleCount > 0 else { return ([], 0) }
 
         // Calculate the oldest sample's position in the ring buffer.
         let oldest = (writeIndex - sampleCount + capacity) % capacity
@@ -483,6 +491,7 @@ extension Profiler {
 
         var result: [Sample] = []
         result.reserveCapacity(sampleCount - lo)
+        var truncatedCount = 0
 
         for i in lo..<sampleCount {
             let slot = physicalSlot(i)
@@ -490,7 +499,14 @@ extension Profiler {
 
             // Past the range — no later sample can match either.
             if s.metadata.timestampBeginNs > endNs { break }
-            // Skip empty/truncated slots (addressCount == 0).
+
+            if s.truncated {
+                // Slot's unwind produced a truncated stack; count it but don't
+                // synthesize a Sample (no usable frames).
+                truncatedCount += 1
+                continue
+            }
+            // Skip slots that are simply empty (no frames captured, not truncated).
             if s.addressCount <= 0 { continue }
 
             let n = Int(s.addressCount)
@@ -502,6 +518,6 @@ extension Profiler {
             result.append(Sample(metadata: s.metadata, addresses: addrs))
         }
 
-        return result
+        return (result, truncatedCount)
     }
 }
