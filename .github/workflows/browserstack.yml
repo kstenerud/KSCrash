@@ -208,7 +208,7 @@ jobs:
                   {
                     \"name\": \"Shard 2 - JSON, Thread, Profiler\",
                     \"strategy\": \"only-testing\",
-                    \"values\": [\"KSJSONCodecBenchmarks\", \"KSThreadBenchmarks\", \"KSTimeProfilerBenchmarks\"]
+                    \"values\": [\"KSJSONCodecBenchmarks\", \"KSThreadBenchmarks\", \"KSProfilerBenchmarks\", \"KSTimeProfilerBenchmarks\"]
                   },
                   {
                     \"name\": \"Shard 3 - CrashReport, CxaThrow, CxaThrowCold, KVS\",
