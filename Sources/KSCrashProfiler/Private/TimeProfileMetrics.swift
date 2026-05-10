@@ -1,5 +1,5 @@
 //
-//  ProfileMetrics.swift
+//  TimeProfileMetrics.swift
 //
 //  Created by Alexander Cohen on 2025-12-14.
 //
@@ -40,12 +40,12 @@ import Foundation
 /// ```
 ///
 /// All timing values represent `durationNs` from each sample's metadata.
-public struct ProfileMetrics: Sendable {
+public struct TimeProfileMetrics: Sendable {
     /// Per-sample capture timing in nanoseconds.
     public let sampleTimingsNs: [UInt64]
 
     /// Number of samples whose stack was deeper than the profiler's `maxFrames`
-    /// and was dropped by the unwinder. Mirrors `Profile.truncatedSampleCount`.
+    /// and was dropped by the unwinder. Mirrors `TimeProfile.truncatedSampleCount`.
     /// Compare against `count` to gauge how much data was lost.
     public let truncatedSampleCount: Int
 
@@ -105,13 +105,13 @@ public struct ProfileMetrics: Sendable {
     }
 }
 
-extension Profile {
+extension TimeProfile {
 
     /// Performance metrics computed from sample capture timings.
     ///
     /// This property is computed on demand. For repeated access, store the result
     /// in a local variable.
-    public var metrics: ProfileMetrics {
-        ProfileMetrics(samples: samples, truncatedSampleCount: truncatedSampleCount)
+    public var metrics: TimeProfileMetrics {
+        TimeProfileMetrics(samples: samples, truncatedSampleCount: truncatedSampleCount)
     }
 }

@@ -33,7 +33,7 @@ import XCTest
     /// The xcresult-driven CI pipeline (`.github/scripts/parse_benchmarks.py`)
     /// only sees what XCTest records as a metric; anything `print()`ed to the
     /// test log is invisible. We use this metric to surface per-sample
-    /// profiler latency (computed from `Profile.metrics`) for tests where the
+    /// profiler latency (computed from `TimeProfile.metrics`) for tests where the
     /// default wall-clock-time metric would just measure the surrounding
     /// `Thread.sleep` instead of profiler overhead.
     ///
