@@ -1,7 +1,7 @@
 //
-//  KSCrashInstallationStandard_Tests.m
+//  KSCrashSendConfiguration.h
 //
-//  Created by Karl Stenerud on 2013-03-09.
+//  Created by Alexander Cohen on 2026-05-16.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,29 +24,37 @@
 // THE SOFTWARE.
 //
 
-#import <XCTest/XCTest.h>
+#import <Foundation/Foundation.h>
 
-#import "KSCrashInstallationStandard.h"
-#import "KSCrashMonitor.h"
+#include "KSCrashNamespace.h"
+#import "KSCrashReportFilter.h"
+#import "KSCrashReportStore.h"
 
-@interface KSCrashInstallationStandard_Tests : XCTestCase
+NS_ASSUME_NONNULL_BEGIN
+
+/** Per-send configuration: the filter chain and cleanup policy used when
+ *  sending crash reports.
+ *
+ *  Pass an instance to the `KSCrash` / `KSCrashReportStore` send methods. The
+ *  same configuration can be reused across calls.
+ */
+NS_SWIFT_NAME(CrashSendConfiguration)
+@interface KSCrashSendConfiguration : NSObject <NSCopying>
+
+/** Ordered filter chain for crash reports. The output of each filter feeds the
+ *  next; the last filter is the terminal sink that delivers the reports.
+ *  An empty chain causes report sends to complete with an error.
+ *
+ *  **Default**: empty
+ */
+@property(nonatomic, copy) NSArray<id<KSCrashReportFilter>> *reportFilters;
+
+/** What to do with crash reports after sending.
+ *
+ *  **Default**: `KSCrashReportCleanupPolicyAlways`
+ */
+@property(nonatomic, assign) KSCrashReportCleanupPolicy reportCleanupPolicy;
+
 @end
 
-@implementation KSCrashInstallationStandard_Tests
-
-- (void)tearDown
-{
-    // Disable all monitors to clean up background threads (exception handlers, etc.)
-    // This prevents ASan from hanging when XCTSkip throws an exception in later tests.
-    kscm_disableAllMonitors();
-    [super tearDown];
-}
-
-- (void)testInstall
-{
-    KSCrashInstallationStandard *installation = [KSCrashInstallationStandard sharedInstance];
-    installation.url = [NSURL URLWithString:@"https://www.google.com"];
-    [installation installWithConfiguration:[KSCrashConfiguration new] error:NULL];
-}
-
-@end
+NS_ASSUME_NONNULL_END

@@ -27,19 +27,18 @@
 #import "KSCrashReportSinkConsole.h"
 #import "KSCrashReport.h"
 #import "KSCrashReportFilterAppleFmt.h"
-#import "KSCrashReportFilterBasic.h"
 
 // #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
 
 @implementation KSCrashReportSinkConsole
 
-- (id<KSCrashReportFilter>)defaultCrashReportFilterSet
+- (NSArray<id<KSCrashReportFilter>> *)defaultCrashReportFilterSet
 {
-    return [[KSCrashReportFilterPipeline alloc] initWithFilters:@[
+    return @[
         [[KSCrashReportFilterAppleFmt alloc] initWithReportStyle:KSAppleReportStyleSymbolicated],
         self,
-    ]];
+    ];
 }
 
 - (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion

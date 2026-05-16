@@ -64,7 +64,7 @@ private func createSentinelLeak() {
 // MARK: - KSCrash Setup
 
 private func installKSCrash() -> Bool {
-    let config = KSCrashConfiguration()
+    let config = CrashInstallConfiguration()
     config.monitors = .all
     config.enableHangReporting = true
     do {
@@ -217,14 +217,15 @@ private func exerciseFilterPipeline(reports: [[String: Any]]) {
         print("[LeaksTest] Stringify: \(filtered?.count ?? 0) reports, error: \(String(describing: error))")
     }
 
-    // Pipeline: demangle -> doctor -> JSON encode
-    let pipeline = CrashReportFilterPipeline(filters: [
-        CrashReportFilterDemangle(),
-        CrashReportFilterDoctor(),
-        CrashReportFilterJSONEncode(),
-    ])
-    pipeline.filterReports(crashReports) { filtered, error in
-        print("[LeaksTest] Pipeline: \(filtered?.count ?? 0) reports, error: \(String(describing: error))")
+    // Exercise the transform filters individually (demangle, doctor, JSON encode).
+    CrashReportFilterDemangle().filterReports(crashReports) { filtered, error in
+        print("[LeaksTest] Demangle: \(filtered?.count ?? 0) reports, error: \(String(describing: error))")
+    }
+    CrashReportFilterDoctor().filterReports(crashReports) { filtered, error in
+        print("[LeaksTest] Doctor: \(filtered?.count ?? 0) reports, error: \(String(describing: error))")
+    }
+    CrashReportFilterJSONEncode().filterReports(crashReports) { filtered, error in
+        print("[LeaksTest] JSONEncode: \(filtered?.count ?? 0) reports, error: \(String(describing: error))")
     }
 
     // Console sink: exercises the sink's type-guard and completion path.

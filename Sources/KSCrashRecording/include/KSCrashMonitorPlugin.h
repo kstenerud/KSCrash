@@ -32,7 +32,7 @@ typedef struct KSCrashMonitorAPI KSCrashMonitorAPI;
 
 NS_ASSUME_NONNULL_BEGIN
 
-/** A protocol for plugin monitors that can be added to `KSCrashConfiguration.plugins`.
+/** A protocol for plugin monitors that can be added to `KSCrashInstallConfiguration.plugins`.
  *
  * Conforming types provide access to a `KSCrashMonitorAPI` pointer that must remain
  * valid for the lifetime of the plugin (typically a static or global).

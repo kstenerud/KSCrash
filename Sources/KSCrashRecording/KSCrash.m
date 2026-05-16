@@ -29,13 +29,14 @@
 
 #import "KSCompilerDefines.h"
 #import "KSCrashC.h"
-#import "KSCrashConfiguration+Private.h"
+#import "KSCrashInstallConfiguration+Private.h"
 #import "KSCrashMonitor_Lifecycle.h"
 #import "KSCrashMonitor_System.h"
 #import "KSCrashMonitor_Termination.h"
 #import "KSCrashReport.h"
 #import "KSCrashReportFields.h"
 #import "KSCrashRunContext.h"
+#import "KSCrashSendConfiguration.h"
 #import "KSDate.h"
 #import "KSJSONCodecObjC.h"
 #import "KSNSErrorHelper.h"
@@ -52,7 +53,7 @@
 @interface KSCrash ()
 
 @property(nonatomic, readwrite, copy) NSString *bundleName;
-@property(nonatomic, strong) KSCrashConfiguration *configuration;
+@property(nonatomic, strong) KSCrashInstallConfiguration *configuration;
 
 @end
 
@@ -287,9 +288,9 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
     return [dict copy];
 }
 
-- (BOOL)installWithConfiguration:(KSCrashConfiguration *)configuration error:(NSError **)error
+- (BOOL)installWithConfiguration:(KSCrashInstallConfiguration *)configuration error:(NSError **)error
 {
-    self.configuration = [configuration copy] ?: [KSCrashConfiguration new];
+    self.configuration = [configuration copy] ?: [KSCrashInstallConfiguration new];
     self.configuration.installPath = configuration.installPath ?: kscrash_getDefaultInstallPath();
 
     if (self.configuration.reportStoreConfiguration.appName == nil) {
@@ -318,6 +319,37 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
 
     _reportStore = reportStore;
     return YES;
+}
+
+- (NSError *)notInstalledError
+{
+    return [KSNSErrorHelper
+        errorWithDomain:[[self class] description]
+                   code:0
+            description:@"Reporting is not allowed before the call of `installWithConfiguration:error:`"];
+}
+
+- (void)sendAllReportsWithConfiguration:(KSCrashSendConfiguration *)configuration
+                             completion:(KSCrashReportFilterCompletion)onCompletion
+{
+    KSCrashReportStore *store = self.reportStore;
+    if (store == nil) {
+        kscrash_callCompletion(onCompletion, @[], [self notInstalledError]);
+        return;
+    }
+    [store sendAllReportsWithConfiguration:configuration completion:onCompletion];
+}
+
+- (void)sendReportWithID:(KSCrashReportID)reportID
+           configuration:(KSCrashSendConfiguration *)configuration
+              completion:(KSCrashReportFilterCompletion)onCompletion
+{
+    KSCrashReportStore *store = self.reportStore;
+    if (store == nil) {
+        kscrash_callCompletion(onCompletion, @[], [self notInstalledError]);
+        return;
+    }
+    [store sendReportWithID:reportID configuration:configuration completion:onCompletion];
 }
 
 - (void)reportUserException:(NSString *)name

@@ -34,6 +34,7 @@ NS_ASSUME_NONNULL_BEGIN
 @class KSCrashReportDictionary;
 @class KSCrashReportData;
 @class KSCrashReportStoreConfiguration;
+@class KSCrashSendConfiguration;
 
 typedef NS_ENUM(NSUInteger, KSCrashReportCleanupPolicy) {
     KSCrashReportCleanupPolicyNever,
@@ -79,27 +80,6 @@ NS_SWIFT_NAME(CrashReportStore)
 
 #pragma mark - Configuration
 
-/** The report sink where reports get sent.
- * This MUST be set or else the reporter will not send reports (although it will
- * still record them).
- *
- * Note: If you use an installation, it will automatically set this property.
- *       Do not modify it in such a case.
- */
-@property(nonatomic, readwrite, strong, nullable) id<KSCrashReportFilter> sink;
-
-/** What to do after sending reports via `-[KSCrashReportStore sendAllReportsWithCompletion:]`.
- *
- * - Use `KSCrashReportCleanupPolicyNever` if you manually manage the reports.
- * - Use `KSCrashReportCleanupPolicyAlways` if you are using an alert confirmation
- *   (otherwise it will nag the user incessantly until he selects "yes").
- * - Use `KSCrashReportCleanupPolicyOnSucess` for all other situations.
- *
- * Initial value is provided from store configuration.
- * If no configuration is provided, the default value from `KSCrashReportStoreConfiguration` is used.
- */
-@property(nonatomic, assign) KSCrashReportCleanupPolicy reportCleanupPolicy;
-
 /** The total number of unsent reports. Note: This is an expensive operation.
  */
 @property(nonatomic, readonly, assign) NSInteger reportCount;
@@ -112,29 +92,41 @@ NS_SWIFT_NAME(CrashReportStore)
 /** Get the oldest unsent report ID, or KSCrashReportNoID if the store is empty. */
 @property(nonatomic, readonly, assign) KSCrashReportID nextReportID;
 
-/** Send all outstanding crash reports to the current sink.
- * It will only attempt to send the most recent 5 reports. All others will be
- * deleted. Once the reports are successfully sent to the server, they may be
- * deleted locally, depending on the property "reportCleanupPolicy".
+/** Send all outstanding crash reports using the given send configuration.
+ *
+ * Reports are run through @c configuration.reportFilters in order; the last
+ * filter is the terminal sink that actually delivers them. An empty
+ * @c reportFilters chain completes with an error.
+ *
+ * It will only attempt to send the most recent reports; all others will be
+ * deleted. Depending on @c configuration.reportCleanupPolicy the sent reports
+ * may then be deleted locally.
  *
  * Reports from the current process run are excluded because they may still
  * be updated while the process is alive. To send a specific report by ID
- * (including current-run reports), use @c sendReportWithID:completion:.
+ * (including current-run reports), use
+ * @c sendReportWithID:configuration:completion:.
  *
- * @note Property "sink" MUST be set or else this method will call `onCompletion` with an error.
- *
+ * @param configuration The filter chain and cleanup policy to use.
  * @param onCompletion Called when sending is complete (nil = ignore).
  */
-- (void)sendAllReportsWithCompletion:(nullable KSCrashReportFilterCompletion)onCompletion;
+- (void)sendAllReportsWithConfiguration:(KSCrashSendConfiguration *)configuration
+                             completion:(nullable KSCrashReportFilterCompletion)onCompletion
+    NS_SWIFT_NAME(sendAllReports(with:completion:));
 
-/** Send a single report by ID.
+/** Send a single report by ID using the given send configuration.
  *
- * Equivalent to calling @c sendReportWithID:includeCurrentRun:completion: with @c YES.
+ * Equivalent to calling
+ * @c sendReportWithID:includeCurrentRun:configuration:completion: with @c YES.
  *
  * @param reportID The ID of the report to send.
+ * @param configuration The filter chain and cleanup policy to use.
  * @param onCompletion Called when sending is complete (nil = ignore).
  */
-- (void)sendReportWithID:(KSCrashReportID)reportID completion:(nullable KSCrashReportFilterCompletion)onCompletion;
+- (void)sendReportWithID:(KSCrashReportID)reportID
+           configuration:(KSCrashSendConfiguration *)configuration
+              completion:(nullable KSCrashReportFilterCompletion)onCompletion
+    NS_SWIFT_NAME(sendReport(id:with:completion:));
 
 /** Send a single report by ID, optionally including current-run reports.
  *
@@ -142,11 +134,14 @@ NS_SWIFT_NAME(CrashReportStore)
  * @param includeCurrentRun If YES, sends the report even if it belongs to the current run.
  *                          If NO and the report is from the current run, calls onCompletion
  *                          with an error.
+ * @param configuration The filter chain and cleanup policy to use.
  * @param onCompletion Called when sending is complete (nil = ignore).
  */
 - (void)sendReportWithID:(KSCrashReportID)reportID
        includeCurrentRun:(BOOL)includeCurrentRun
-              completion:(nullable KSCrashReportFilterCompletion)onCompletion;
+           configuration:(KSCrashSendConfiguration *)configuration
+              completion:(nullable KSCrashReportFilterCompletion)onCompletion
+    NS_SWIFT_NAME(sendReport(id:includeCurrentRun:with:completion:));
 
 /** Get report.
  *
@@ -176,7 +171,7 @@ NS_SWIFT_NAME(CrashReportStore)
 
 /** Remove run sidecar directories that no longer have matching reports.
  *
- * Called automatically within @c sendAllReportsWithCompletion:.
+ * Called automatically within @c sendAllReportsWithConfiguration:completion:.
  * If you handle report delivery yourself, call this periodically or after sending reports.
  * May block, so prefer calling from a background thread.
  */

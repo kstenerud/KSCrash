@@ -27,7 +27,8 @@
 import Combine
 import CrashCallback
 import Foundation
-import KSCrashInstallations
+import KSCrashDemangleFilter
+import KSCrashFilters
 import KSCrashRecording
 import Logging
 import SwiftUI
@@ -64,7 +65,7 @@ public class InstallBridge: ObservableObject {
         config.installPath = basePath
     }
 
-    private var config: KSCrashConfiguration
+    private var config: CrashInstallConfiguration
     private var disposables = Set<AnyCancellable>()
 
     @Published public var basePath: BasePath = .default
@@ -73,7 +74,7 @@ public class InstallBridge: ObservableObject {
     @Published public var error: InstallationError?
 
     @Published public var reportStore: CrashReportStore?
-    @Published public var installation: CrashInstallation?
+    @Published public var useSamplePipeline: Bool = false
 
     public init() {
         config = .init()
@@ -129,17 +130,38 @@ public class InstallBridge: ObservableObject {
         }
     }
 
-    public func useInstallation(_ installation: CrashInstallation) {
+    // Installs normally and flags that report sending should use the sample
+    // filter chain (demangle -> SampleFilter -> SampleSink). With installations
+    // removed, the chain is now passed at send time instead of being baked into
+    // an installation subclass.
+    public func useSampleSendPipeline() {
         guard !installed else {
             error = .alreadyInstalled
             return
         }
 
         handleInstallation {
-            try installation.install(with: config)
+            try KSCrash.shared.install(with: config)
             reportStore = KSCrash.shared.reportStore
-            self.installation = installation
+            useSamplePipeline = true
             installed = true
+        }
+    }
+
+    public func sendViaSamplePipeline(completion: @escaping (Error?) -> Void) {
+        guard let store = reportStore else {
+            completion(InstallationError.unexpectedError("KSCrash is not installed"))
+            return
+        }
+        let cfg = CrashSendConfiguration()
+        cfg.reportFilters = [
+            CrashReportFilterDemangle(),
+            SampleFilter(),
+            SampleSink(),
+        ]
+        cfg.reportCleanupPolicy = .never
+        store.sendAllReports(with: cfg) { _, error in
+            completion(error)
         }
     }
 
@@ -163,7 +185,7 @@ public class InstallBridge: ObservableObject {
 
 // An utility method to simplify binding of config fields
 extension InstallBridge {
-    public func configBinding<T>(for keyPath: WritableKeyPath<KSCrashConfiguration, T>) -> Binding<T> {
+    public func configBinding<T>(for keyPath: WritableKeyPath<CrashInstallConfiguration, T>) -> Binding<T> {
         .init { [config] in
             config[keyPath: keyPath]
         } set: { [weak self] val in

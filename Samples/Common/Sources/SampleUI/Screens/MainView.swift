@@ -58,9 +58,9 @@ struct MainView: View {
             } else {
                 Text("Reporting is not available")
             }
-            if let installation = bridge.installation {
-                Button("Send reports via installation") {
-                    installation.sendAllReports { _, error in
+            if bridge.useSamplePipeline {
+                Button("Send reports via sample pipeline") {
+                    bridge.sendViaSamplePipeline { error in
                         alertMessage = error?.localizedDescription
                         alertIsPresented = error != nil
                     }

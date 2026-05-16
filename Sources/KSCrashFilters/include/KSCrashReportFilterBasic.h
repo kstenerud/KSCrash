@@ -72,35 +72,6 @@ NS_SWIFT_NAME(CrashReportFilterCombine)
 @end
 
 /**
- * A pipeline of filters. Reports get passed through each subfilter in order.
- *
- * Input: Depends on what's in the pipeline.
- * Output: Depends on what's in the pipeline.
- */
-NS_SWIFT_NAME(CrashReportFilterPipeline)
-@interface KSCrashReportFilterPipeline : NSObject <KSCrashReportFilter>
-
-/** The filters in this pipeline. */
-@property(nonatomic, readonly, copy) NSArray<id<KSCrashReportFilter>> *filters;
-
-/** Initializer using an array of filters.
- *
- * @param filters An array of filters, where each filter conforms to
- *                the KSCrashReportFilter protocol.
- */
-- (instancetype)initWithFilters:(NSArray<id<KSCrashReportFilter>> *)filters;
-
-/** Adds a filter to the beginning of the pipeline.
- *
- * @param filter The filter to be added. This filter must conform to the
- *               KSCrashReportFilter protocol. It will be inserted at the
- *               beginning of the existing filters in the pipeline.
- */
-- (void)addFilter:(id<KSCrashReportFilter>)filter;
-
-@end
-
-/**
  * Takes values by key from the report and concatenates their string representations.
  *
  * Input: NSDictionary

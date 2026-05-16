@@ -184,23 +184,23 @@
     return self;
 }
 
-- (id<KSCrashReportFilter>)defaultCrashReportFilterSet
+- (NSArray<id<KSCrashReportFilter>> *)defaultCrashReportFilterSet
 {
-    return [[KSCrashReportFilterPipeline alloc] initWithFilters:@[
+    return @[
         [[KSCrashReportFilterJSONEncode alloc] initWithOptions:KSJSONEncodeOptionSorted | KSJSONEncodeOptionPretty],
         [[KSCrashReportFilterGZipCompress alloc] initWithCompressionLevel:-1],
         self,
-    ]];
+    ];
 }
 
-- (id<KSCrashReportFilter>)defaultCrashReportFilterSetAppleFmt
+- (NSArray<id<KSCrashReportFilter>> *)defaultCrashReportFilterSetAppleFmt
 {
-    return [[KSCrashReportFilterPipeline alloc] initWithFilters:@[
+    return @[
         [[KSCrashReportFilterAppleFmt alloc] initWithReportStyle:KSAppleReportStyleSymbolicatedSideBySide],
         [KSCrashReportFilterStringToData new],
         [[KSCrashReportFilterGZipCompress alloc] initWithCompressionLevel:-1],
         self,
-    ]];
+    ];
 }
 
 #pragma clang diagnostic push
@@ -300,23 +300,23 @@ static UIWindow *getKeyWindow(void)
                                                 description:@"Cannot send mail on this platform"]);
 }
 
-- (id<KSCrashReportFilter>)defaultCrashReportFilterSet
+- (NSArray<id<KSCrashReportFilter>> *)defaultCrashReportFilterSet
 {
-    return [[KSCrashReportFilterPipeline alloc] initWithFilters:@[
+    return @[
         [[KSCrashReportFilterJSONEncode alloc] initWithOptions:KSJSONEncodeOptionSorted | KSJSONEncodeOptionPretty],
         [[KSCrashReportFilterGZipCompress alloc] initWithCompressionLevel:-1],
         self,
-    ]];
+    ];
 }
 
-- (id<KSCrashReportFilter>)defaultCrashReportFilterSetAppleFmt
+- (NSArray<id<KSCrashReportFilter>> *)defaultCrashReportFilterSetAppleFmt
 {
-    return [[KSCrashReportFilterPipeline alloc] initWithFilters:@[
+    return @[
         [[KSCrashReportFilterAppleFmt alloc] initWithReportStyle:KSAppleReportStyleSymbolicatedSideBySide],
         [KSCrashReportFilterStringToData new],
         [[KSCrashReportFilterGZipCompress alloc] initWithCompressionLevel:-1],
         self,
-    ]];
+    ];
 }
 
 @end

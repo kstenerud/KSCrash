@@ -26,10 +26,10 @@
 
 import KSCrashRecording
 
-/// Namespace for plugin monitors that can be added to `KSCrashConfiguration.plugins`.
+/// Namespace for plugin monitors that can be added to `CrashInstallConfiguration.plugins`.
 ///
 /// ```swift
-/// let config = KSCrashConfiguration()
+/// let config = CrashInstallConfiguration()
 /// config.plugins = [Monitors.metricKit]
 /// ```
 public enum Monitors {

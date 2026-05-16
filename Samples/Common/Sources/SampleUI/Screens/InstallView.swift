@@ -78,9 +78,9 @@ struct InstallView: View {
                 }
             }
 
-            Section(header: Text("Installations")) {
-                Button("SampleInstallation") {
-                    bridge.useInstallation(SampleInstallation())
+            Section(header: Text("Sample send pipeline")) {
+                Button("Install + use sample send pipeline") {
+                    bridge.useSampleSendPipeline()
                 }
             }
 

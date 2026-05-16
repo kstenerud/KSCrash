@@ -40,8 +40,10 @@ NS_ASSUME_NONNULL_BEGIN
 NS_SWIFT_NAME(CrashReportSinkConsole)
 @interface KSCrashReportSinkConsole : NSObject <KSCrashReportFilter>
 
-/** Returns the default crash report filter set. */
-@property(nonatomic, readonly) id<KSCrashReportFilter> defaultCrashReportFilterSet;
+/** The default ordered filter chain to run before this sink.
+ *  The chain's last element is this sink itself.
+ */
+@property(nonatomic, readonly) NSArray<id<KSCrashReportFilter>> *defaultCrashReportFilterSet;
 
 @end
 

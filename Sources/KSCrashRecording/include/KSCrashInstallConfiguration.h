@@ -1,5 +1,5 @@
 //
-//  KSCrashConfiguration.h
+//  KSCrashInstallConfiguration.h
 //
 //  Created by Gleb Linnik on 11.06.2024.
 //
@@ -39,7 +39,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 @class KSCrashReportStoreConfiguration;
 
-@interface KSCrashConfiguration : NSObject <NSCopying>
+NS_SWIFT_NAME(CrashInstallConfiguration)
+@interface KSCrashInstallConfiguration : NSObject <NSCopying>
 
 /** Specifies a custom base path for KSCrash installation.
  * If `nil` the default directory is used:.
@@ -299,19 +300,6 @@ NS_SWIFT_NAME(CrashReportStoreConfiguration)
  * **Default**: 5
  */
 @property(nonatomic, assign) NSInteger maxReportCount;
-
-/** What to do after sending reports via `-[KSCrashReportStore sendAllReportsWithCompletion:]`.
- *
- * - Use `KSCrashReportCleanupPolicyNever` if you manually manage the reports.
- * - Use `KSCrashReportCleanupPolicyAlways` if you are using an alert confirmation
- *   (otherwise it will nag the user incessantly until he selects "yes").
- * - Use `KSCrashReportCleanupPolicyOnSucess` for all other situations.
- *
- * Can be updated after creation of report store / installation of KSCrash.
- *
- * **Default**: `KSCrashReportCleanupPolicyAlways`
- */
-@property(nonatomic, assign) KSCrashReportCleanupPolicy reportCleanupPolicy;
 
 @end
 

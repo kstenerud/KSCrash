@@ -1,7 +1,7 @@
 //
-//  KSCrashInstallationStandard.h
+//  KSCrashInstallConfiguration+Private.h
 //
-//  Created by Karl Stenerud on 2013-03-02.
+//  Created by Gleb Linnik on 11.06.2024.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,21 +24,22 @@
 // THE SOFTWARE.
 //
 
-#import "KSCrashInstallation.h"
-#include "KSCrashNamespace.h"
+#ifndef KSCrashInstallConfiguration_Private_h
+#define KSCrashInstallConfiguration_Private_h
 
-#import <Foundation/Foundation.h>
+#import "KSCrashCConfiguration.h"
+#import "KSCrashInstallConfiguration.h"
 
-NS_ASSUME_NONNULL_BEGIN
+@interface KSCrashInstallConfiguration ()
 
-NS_SWIFT_NAME(CrashInstallationStandard)
-@interface KSCrashInstallationStandard : KSCrashInstallation
-
-@property(class, atomic, readonly) KSCrashInstallationStandard *sharedInstance NS_SWIFT_NAME(shared);
-
-/** The URL to connect to. */
-@property(nonatomic, readwrite, strong) NSURL *url;
+- (KSCrashCConfiguration)toCConfiguration;
 
 @end
 
-NS_ASSUME_NONNULL_END
+@interface KSCrashReportStoreConfiguration ()
+
+- (KSCrashReportStoreCConfiguration)toCConfiguration;
+
+@end
+
+#endif /* KSCrashInstallConfiguration_Private_h */

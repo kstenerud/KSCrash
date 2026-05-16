@@ -36,8 +36,9 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@class KSCrashConfiguration;
+@class KSCrashInstallConfiguration;
 @class KSCrashReportDictionary;
+@class KSCrashSendConfiguration;
 
 /**
  * Reports any crashes that occur in the application.
@@ -131,7 +132,7 @@ NS_ASSUME_NONNULL_BEGIN
  * @note If the installation fails, the error parameter will contain information about the failure reason.
  * @note Once installed, the crash reporter cannot be re-installed or modified without restarting the application.
  */
-- (BOOL)installWithConfiguration:(KSCrashConfiguration *)configuration error:(NSError **)error;
+- (BOOL)installWithConfiguration:(KSCrashInstallConfiguration *)configuration error:(NSError **)error;
 
 /** The installed report store.
  * This is the store that is used to save and load crash reports.
@@ -139,6 +140,34 @@ NS_ASSUME_NONNULL_BEGIN
  * @note If the crash reporter is not installed, this will be `nil`.
  */
 @property(nonatomic, strong, readonly, nullable) KSCrashReportStore *reportStore;
+
+#pragma mark - Sending -
+
+/** Send all outstanding crash reports using the given send configuration.
+ *
+ * Forwards to the installed report store. If the crash reporter is not
+ * installed, @c onCompletion is called with an error.
+ *
+ * @param configuration The filter chain and cleanup policy to use.
+ * @param onCompletion Called when sending is complete (nil = ignore).
+ */
+- (void)sendAllReportsWithConfiguration:(KSCrashSendConfiguration *)configuration
+                             completion:(nullable KSCrashReportFilterCompletion)onCompletion
+    NS_SWIFT_NAME(sendAllReports(with:completion:));
+
+/** Send a single report by ID using the given send configuration.
+ *
+ * Forwards to the installed report store. If the crash reporter is not
+ * installed, @c onCompletion is called with an error.
+ *
+ * @param reportID The ID of the report to send.
+ * @param configuration The filter chain and cleanup policy to use.
+ * @param onCompletion Called when sending is complete (nil = ignore).
+ */
+- (void)sendReportWithID:(KSCrashReportID)reportID
+           configuration:(KSCrashSendConfiguration *)configuration
+              completion:(nullable KSCrashReportFilterCompletion)onCompletion
+    NS_SWIFT_NAME(sendReport(id:with:completion:));
 
 /** Report a custom, user defined exception.
  * This can be useful when dealing with scripting languages.

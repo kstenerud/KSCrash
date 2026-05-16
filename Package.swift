@@ -201,7 +201,6 @@ let package = Package(
             targets: [
                 Targets.filters,
                 Targets.sinks,
-                Targets.installations,
             ]
         ),
         .library(
@@ -211,10 +210,6 @@ let package = Package(
         .library(
             name: "Sinks",
             targets: [Targets.sinks]
-        ),
-        .library(
-            name: "Installations",
-            targets: [Targets.installations]
         ),
         .library(
             name: "Recording",
@@ -328,34 +323,6 @@ let package = Package(
             ],
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy")
-            ],
-            cSettings: [
-                .unsafeFlags(warningFlags)
-            ]
-        ),
-
-        .target(
-            name: Targets.installations,
-            dependencies: [
-                .target(name: Targets.filters),
-                .target(name: Targets.sinks),
-                .target(name: Targets.recording),
-                .target(name: Targets.demangleFilter),
-            ],
-            resources: [
-                .copy("Resources/PrivacyInfo.xcprivacy")
-            ],
-            cSettings: [
-                .unsafeFlags(warningFlags)
-            ]
-        ),
-        .testTarget(
-            name: Targets.installations.tests,
-            dependencies: [
-                .target(name: Targets.installations),
-                .target(name: Targets.filters),
-                .target(name: Targets.sinks),
-                .target(name: Targets.recording),
             ],
             cSettings: [
                 .unsafeFlags(warningFlags)
@@ -631,7 +598,6 @@ enum Targets {
     static let recording = "KSCrashRecording"
     static let filters = "KSCrashFilters"
     static let sinks = "KSCrashSinks"
-    static let installations = "KSCrashInstallations"
     static let recordingCore = "KSCrashRecordingCore"
     static let recordingCoreSwift = "KSCrashRecordingCoreSwift"
     static let reportingCore = "KSCrashReportingCore"

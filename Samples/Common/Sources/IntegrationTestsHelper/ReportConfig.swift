@@ -46,18 +46,13 @@ extension ReportConfig {
         guard let store = KSCrash.shared.reportStore else {
             return
         }
-        if rawJSON {
-            store.sink = CrashReportFilterPipeline(filters: [
-                CrashReportFilterJSONEncode(),
-                DirectorySink(url),
-            ])
-        } else {
-            store.sink = CrashReportFilterPipeline(filters: [
-                CrashReportFilterAppleFmt(),
-                DirectorySink(url),
-            ])
-        }
-        store.sendAllReports()
+        let cfg = CrashSendConfiguration()
+        cfg.reportFilters =
+            rawJSON
+            ? [CrashReportFilterJSONEncode(), DirectorySink(url)]
+            : [CrashReportFilterAppleFmt(), DirectorySink(url)]
+        cfg.reportCleanupPolicy = .always
+        store.sendAllReports(with: cfg)
     }
 }
 

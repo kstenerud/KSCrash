@@ -28,11 +28,12 @@
 
 #import "KSCrash+Private.h"
 #import "KSCrashC.h"
-#import "KSCrashConfiguration+Private.h"
+#import "KSCrashInstallConfiguration+Private.h"
 #import "KSCrashReport.h"
 #import "KSCrashReportFields.h"
 #import "KSCrashReportFilter.h"
 #import "KSCrashReportStoreC+Private.h"
+#import "KSCrashSendConfiguration.h"
 #import "KSJSONCodecObjC.h"
 #import "KSNSErrorHelper.h"
 
@@ -40,6 +41,18 @@
 #import "KSLogger.h"
 
 const KSCrashReportID KSCrashReportNoID = 0;
+
+@interface KSCrashReportStore ()
+
+- (void)sendReports:(NSArray<id<KSCrashReport>> *)reports
+            filters:(NSArray<id<KSCrashReportFilter>> *)filters
+       onCompletion:(KSCrashReportFilterCompletion)onCompletion;
+
+- (void)runReportFilterChain:(NSArray<id<KSCrashReportFilter>> *)filters
+                     reports:(NSArray<id<KSCrashReport>> *)reports
+                onCompletion:(KSCrashReportFilterCompletion)onCompletion;
+
+@end
 
 @implementation KSCrashReportStore {
     KSCrashReportStoreCConfiguration _cConfig;
@@ -66,7 +79,6 @@ const KSCrashReportID KSCrashReportNoID = 0;
     if (self != nil) {
         KSCrashReportStoreConfiguration *resolvedConfiguration = configuration ?: [KSCrashReportStoreConfiguration new];
         _cConfig = [resolvedConfiguration toCConfiguration];
-        _reportCleanupPolicy = resolvedConfiguration.reportCleanupPolicy;
 
         kscrs_initialize(&_cConfig);
     }
@@ -92,8 +104,12 @@ const KSCrashReportID KSCrashReportNoID = 0;
     return reportID;
 }
 
-- (void)sendAllReportsWithCompletion:(KSCrashReportFilterCompletion)onCompletion
+- (void)sendAllReportsWithConfiguration:(KSCrashSendConfiguration *)configuration
+                             completion:(KSCrashReportFilterCompletion)onCompletion
 {
+    NSArray<id<KSCrashReportFilter>> *filters = configuration.reportFilters;
+    KSCrashReportCleanupPolicy cleanupPolicy = configuration.reportCleanupPolicy;
+
     NSArray<NSNumber *> *allIDs = [self reportIDs];
     NSString *currentRunID = [NSString stringWithUTF8String:kscrash_getRunID()];
 
@@ -118,6 +134,7 @@ const KSCrashReportID KSCrashReportNoID = 0;
 
     __weak __typeof(self) weakSelf = self;
     [self sendReports:reports
+              filters:filters
          onCompletion:^(NSArray *filteredReports, NSError *error) {
              __strong __typeof(weakSelf) strongSelf = weakSelf;
              if (strongSelf == nil) {
@@ -128,8 +145,8 @@ const KSCrashReportID KSCrashReportNoID = 0;
              if (error != nil) {
                  KSLOG_ERROR(@"Failed to send reports: %@", error);
              }
-             if ((strongSelf.reportCleanupPolicy == KSCrashReportCleanupPolicyOnSuccess && error == nil) ||
-                 strongSelf.reportCleanupPolicy == KSCrashReportCleanupPolicyAlways) {
+             if ((cleanupPolicy == KSCrashReportCleanupPolicyOnSuccess && error == nil) ||
+                 cleanupPolicy == KSCrashReportCleanupPolicyAlways) {
                  for (NSNumber *reportID in sentIDs) {
                      [strongSelf deleteReportWithID:reportID.longLongValue];
                  }
@@ -139,15 +156,21 @@ const KSCrashReportID KSCrashReportNoID = 0;
          }];
 }
 
-- (void)sendReportWithID:(KSCrashReportID)reportID completion:(nullable KSCrashReportFilterCompletion)onCompletion
+- (void)sendReportWithID:(KSCrashReportID)reportID
+           configuration:(KSCrashSendConfiguration *)configuration
+              completion:(nullable KSCrashReportFilterCompletion)onCompletion
 {
-    [self sendReportWithID:reportID includeCurrentRun:YES completion:onCompletion];
+    [self sendReportWithID:reportID includeCurrentRun:YES configuration:configuration completion:onCompletion];
 }
 
 - (void)sendReportWithID:(KSCrashReportID)reportID
        includeCurrentRun:(BOOL)includeCurrentRun
+           configuration:(KSCrashSendConfiguration *)configuration
               completion:(nullable KSCrashReportFilterCompletion)onCompletion
 {
+    NSArray<id<KSCrashReportFilter>> *filters = configuration.reportFilters;
+    KSCrashReportCleanupPolicy cleanupPolicy = configuration.reportCleanupPolicy;
+
     KSCrashReportDictionary *report = [self reportForID:reportID];
     if (report == nil) {
         kscrash_callCompletion(onCompletion, @[],
@@ -173,6 +196,7 @@ const KSCrashReportID KSCrashReportNoID = 0;
 
     __weak __typeof(self) weakSelf = self;
     [self sendReports:@[ report ]
+              filters:filters
          onCompletion:^(NSArray *filteredReports, NSError *error) {
              __strong __typeof(weakSelf) strongSelf = weakSelf;
              if (strongSelf == nil) {
@@ -182,8 +206,8 @@ const KSCrashReportID KSCrashReportNoID = 0;
              if (error != nil) {
                  KSLOG_ERROR(@"Failed to send report: %@", error);
              }
-             if ((strongSelf.reportCleanupPolicy == KSCrashReportCleanupPolicyOnSuccess && error == nil) ||
-                 strongSelf.reportCleanupPolicy == KSCrashReportCleanupPolicyAlways) {
+             if ((cleanupPolicy == KSCrashReportCleanupPolicyOnSuccess && error == nil) ||
+                 cleanupPolicy == KSCrashReportCleanupPolicyAlways) {
                  [strongSelf deleteReportWithID:reportID];
              }
              kscrash_callCompletion(onCompletion, filteredReports, error);
@@ -207,25 +231,83 @@ const KSCrashReportID KSCrashReportNoID = 0;
 
 #pragma mark - Private API
 
-- (void)sendReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
+- (void)sendReports:(NSArray<id<KSCrashReport>> *)reports
+            filters:(NSArray<id<KSCrashReportFilter>> *)filters
+       onCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
     if ([reports count] == 0) {
         kscrash_callCompletion(onCompletion, reports, nil);
         return;
     }
 
-    if (self.sink == nil) {
+    if (filters.count == 0) {
         kscrash_callCompletion(onCompletion, reports,
                                [KSNSErrorHelper errorWithDomain:[[self class] description]
                                                            code:0
-                                                    description:@"No sink set. Crash reports not sent."]);
+                                                    description:@"No filters set. Crash reports not sent."]);
         return;
     }
 
-    [self.sink filterReports:reports
-                onCompletion:^(NSArray *filteredReports, NSError *error) {
-                    kscrash_callCompletion(onCompletion, filteredReports, error);
-                }];
+    [self runReportFilterChain:filters
+                       reports:reports
+                  onCompletion:^(NSArray *filteredReports, NSError *error) {
+                      kscrash_callCompletion(onCompletion, filteredReports, error);
+                  }];
+}
+
+/** Run reports through an ordered filter chain: each filter's output feeds the
+ * next, the last filter is the terminal sink. Implemented here (rather than via
+ * a filter-composition class) so KSCrashRecording needs no dependency on
+ * KSCrashFilters. Runs at send time only (next launch / normal context), never
+ * in a crash handler, so ObjC and dispatch are safe.
+ */
+- (void)runReportFilterChain:(NSArray<id<KSCrashReportFilter>> *)filters
+                     reports:(NSArray<id<KSCrashReport>> *)reports
+                onCompletion:(KSCrashReportFilterCompletion)onCompletion
+{
+    NSUInteger filterCount = filters.count;
+    if (filterCount == 0) {
+        kscrash_callCompletion(onCompletion, reports, nil);
+        return;
+    }
+
+    __block NSUInteger iFilter = 0;
+    __block KSCrashReportFilterCompletion filterCompletion;
+    __block __weak KSCrashReportFilterCompletion weakFilterCompletion = nil;
+    dispatch_block_t disposeOfCompletion = [^{
+        // Release the self-reference on the main thread.
+        dispatch_async(dispatch_get_main_queue(), ^{
+            filterCompletion = nil;
+        });
+    } copy];
+    filterCompletion = [^(NSArray<id<KSCrashReport>> *filteredReports, NSError *filterError) {
+        if (filterError != nil || filteredReports == nil) {
+            if (filterError != nil) {
+                kscrash_callCompletion(onCompletion, filteredReports, filterError);
+            } else {
+                kscrash_callCompletion(onCompletion, filteredReports,
+                                       [KSNSErrorHelper errorWithDomain:[[self class] description]
+                                                                   code:0
+                                                            description:@"filteredReports was nil"]);
+            }
+            disposeOfCompletion();
+            return;
+        }
+
+        if (++iFilter < filterCount) {
+            id<KSCrashReportFilter> filter = [filters objectAtIndex:iFilter];
+            [filter filterReports:filteredReports onCompletion:weakFilterCompletion];
+            return;
+        }
+
+        // All filters complete.
+        kscrash_callCompletion(onCompletion, filteredReports, filterError);
+        disposeOfCompletion();
+    } copy];
+    weakFilterCompletion = filterCompletion;
+
+    id<KSCrashReportFilter> filter = [filters objectAtIndex:iFilter];
+    [filter filterReports:reports onCompletion:filterCompletion];
 }
 
 - (nullable NSData *)loadCrashReportJSONWithID:(int64_t)reportID

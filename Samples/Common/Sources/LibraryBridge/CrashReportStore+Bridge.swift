@@ -34,8 +34,17 @@ import Logging
 extension CrashReportStore {
     private static let logger = Logger(label: "ReportingSample")
 
+    private func sendConfig(_ filters: [CrashReportFilter], _ policy: CrashReportCleanupPolicy)
+        -> CrashSendConfiguration
+    {
+        let cfg = CrashSendConfiguration()
+        cfg.reportFilters = filters
+        cfg.reportCleanupPolicy = policy
+        return cfg
+    }
+
     public func logAll() async throws {
-        let reports = try await sendAllReports()
+        let reports = try await sendAllReports(with: sendConfig([CrashReportFilterPassthrough()], .never))
         for report in reports {
             guard let report = report as? CrashReportDictionary else {
                 continue
@@ -45,8 +54,8 @@ extension CrashReportStore {
     }
 
     public func logToConsole() {
-        sink = CrashReportSinkConsole().defaultCrashReportFilterSet
-        sendAllReports { reports, error in
+        sendAllReports(with: sendConfig(CrashReportSinkConsole().defaultCrashReportFilterSet, .never)) {
+            reports, error in
             if let reports {
                 Self.logger.info("Logged \(reports.count) reports")
                 for (idx, report) in reports.enumerated() {
@@ -69,8 +78,7 @@ extension CrashReportStore {
     }
 
     public func logRawToConsole() {
-        sink = CrashReportFilterPassthrough()
-        sendAllReports { reports, error in
+        sendAllReports(with: sendConfig([CrashReportFilterPassthrough()], .never)) { reports, error in
             if let reports {
                 Self.logger.info("Logged \(reports.count) reports")
                 for (idx, report) in reports.enumerated() {
@@ -94,22 +102,25 @@ extension CrashReportStore {
     }
 
     public func logWithAlert() {
-        sink = CrashReportFilterPipeline(filters: [
-            CrashReportFilterAlert(
-                title: "Sample Alert", message: "Do you want to log?", yesAnswer: "Yes", noAnswer: "No"),
-            CrashReportFilterAppleFmt(),
-            CrashReportSinkConsole(),
-        ])
-        sendAllReports()
+        // Alert confirmation: delete always so the user isn't nagged on every launch.
+        sendAllReports(
+            with: sendConfig(
+                [
+                    CrashReportFilterAlert(
+                        title: "Sample Alert", message: "Do you want to log?", yesAnswer: "Yes", noAnswer: "No"),
+                    CrashReportFilterAppleFmt(),
+                    CrashReportSinkConsole(),
+                ], .always))
     }
 
     public func sampleLogToConsole() {
-        sink = CrashReportFilterPipeline(filters: [
-            CrashReportFilterDemangle(),
-            SampleFilter(),
-            SampleSink(),
-        ])
-        sendAllReports()
+        sendAllReports(
+            with: sendConfig(
+                [
+                    CrashReportFilterDemangle(),
+                    SampleFilter(),
+                    SampleSink(),
+                ], .never))
     }
 }
 
