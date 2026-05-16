@@ -26,6 +26,8 @@
 
 #include "KSTerminationReason.h"
 
+#include <string.h>
+
 const char *kstermination_reasonToString(KSTerminationReason reason)
 {
     switch (reason) {
@@ -59,6 +61,28 @@ const char *kstermination_reasonToString(KSTerminationReason reason)
         default:
             return "none";
     }
+}
+
+KSTerminationReason kstermination_reasonFromString(const char *string)
+{
+    if (string == NULL) {
+        return KSTerminationReasonNone;
+    }
+    // Strings match kstermination_reasonToString above.
+    if (strcmp(string, "clean") == 0) return KSTerminationReasonClean;
+    if (strcmp(string, "crash") == 0) return KSTerminationReasonCrash;
+    if (strcmp(string, "hang") == 0) return KSTerminationReasonHang;
+    if (strcmp(string, "first_launch") == 0) return KSTerminationReasonFirstLaunch;
+    if (strcmp(string, "low_battery") == 0) return KSTerminationReasonLowBattery;
+    if (strcmp(string, "memory_limit") == 0) return KSTerminationReasonMemoryLimit;
+    if (strcmp(string, "memory_pressure") == 0) return KSTerminationReasonMemoryPressure;
+    if (strcmp(string, "thermal") == 0) return KSTerminationReasonThermal;
+    if (strcmp(string, "cpu") == 0) return KSTerminationReasonCPU;
+    if (strcmp(string, "os_upgrade") == 0) return KSTerminationReasonOSUpgrade;
+    if (strcmp(string, "app_upgrade") == 0) return KSTerminationReasonAppUpgrade;
+    if (strcmp(string, "reboot") == 0) return KSTerminationReasonReboot;
+    if (strcmp(string, "unexplained") == 0) return KSTerminationReasonUnexplained;
+    return KSTerminationReasonNone;
 }
 
 bool kstermination_producesReport(KSTerminationReason reason)

@@ -29,20 +29,40 @@
 #import "KSCrashAppMemory.h"
 #import "KSCrashC.h"
 #import "KSCrashCPUTracker.h"
+#import "KSCrashRunSummary.h"
 #import "KSFileUtils.h"
+#import "KSKeyValueStore.h"
 
 #import <Foundation/Foundation.h>
+#import <dirent.h>
+#import <errno.h>
 #import <fcntl.h>
+#import <stdlib.h>
 #import <string.h>
 #import <unistd.h>
 
 #import "KSLogger.h"
+
+// Defined in KSCrash.m. Forward-declared here to avoid importing KSCrash.h.
+FOUNDATION_EXPORT const unsigned char KSCrashFrameworkVersionString[];
 
 // ============================================================================
 #pragma mark - Globals -
 // ============================================================================
 
 static KSCrashRunContext g_context = { 0 };
+static KSCrashRunSummary *g_summary = nil;
+
+// Width of the zero-padded decimal ns prefix in "<ns>.run" filenames. 19 digits
+// covers INT64_MAX (9223372036854775807), so any unix-epoch nanosecond value
+// (~1.76e18 today) fits without overflow and all files in the dir sort
+// lexically the same as they do numerically — tools that just `ls` the dir
+// get the right order for free. Nanosecond resolution on the wall clock makes
+// collisions between concurrent launches (e.g. app + extension) effectively
+// impossible.
+#define KSRUN_SUMMARY_FILENAME_DIGITS 19
+
+static KSCrashRunSummary *buildSummary(const KSCrashRunContext *ctx, const char *userInfoSidecarPath);
 
 // ============================================================================
 #pragma mark - Sidecar Reading -
@@ -163,6 +183,7 @@ void ksruncontext_init(KSCrashSidecarRunPathForRunIDProviderFunc pathForRunID)
 {
     const char *lastRunID = kscrash_getLastRunID();
     memset(&g_context, 0, sizeof(g_context));
+    g_summary = nil;
 
     if (!lastRunID || lastRunID[0] == '\0') {
         g_context.terminationReason = KSTerminationReasonFirstLaunch;
@@ -171,6 +192,16 @@ void ksruncontext_init(KSCrashSidecarRunPathForRunIDProviderFunc pathForRunID)
     }
 
     ksruncontext_contextForRunID(lastRunID, pathForRunID, &g_context);
+
+    // Build the summary from the same sidecar data we just read, while the
+    // UserInfo path resolver is still in hand — callers of
+    // ksruncontext_previousRunSummary() don't deal with sidecar paths.
+    char userInfoPath[KSFU_MAX_PATH_LENGTH];
+    const char *userInfoPathPtr = NULL;
+    if (pathForRunID != NULL && pathForRunID("UserInfo", lastRunID, userInfoPath, sizeof(userInfoPath))) {
+        userInfoPathPtr = userInfoPath;
+    }
+    g_summary = buildSummary(&g_context, userInfoPathPtr);
 
     KSLOG_DEBUG(@"Previous run %s: %s", lastRunID, kstermination_reasonToString(g_context.terminationReason));
 }
@@ -238,7 +269,13 @@ bool ksruncontext_contextForRunID(const char *runID, KSCrashSidecarRunPathForRun
             }
         }
     }
-    if (outContext->lifecycleValid && mostRecentNs == 0) {
+    // The lifecycle monitor updates appStateTransitionTimeNs on every state
+    // change, including at clean shutdown and crash time, so it is frequently
+    // newer than the last periodic resource poll. Fold it into the max rather
+    // than using it only when there is no resource data at all; otherwise a run
+    // that polled resources near launch and then ran for a while before exiting
+    // cleanly or crashing reports ended_at near that stale poll.
+    if (outContext->lifecycleValid && outContext->lifecycle.appStateTransitionTimeNs > mostRecentNs) {
         mostRecentNs = outContext->lifecycle.appStateTransitionTimeNs;
     }
     outContext->mostRecentTimestampNs = mostRecentNs;
@@ -247,6 +284,319 @@ bool ksruncontext_contextForRunID(const char *runID, KSCrashSidecarRunPathForRun
 }
 
 const KSCrashRunContext *ksruncontext_previousRunContext(void) { return &g_context; }
+
+KSCrashRunSummary *ksruncontext_previousRunSummary(void) { return g_summary; }
+
+// Parse a filename of the form "<decimal>.run" into a uint64_t. All chars
+// before the extension must be digits; otherwise the file isn't ours.
+// Rejects values that overflow uint64_t (errno == ERANGE from strtoull) and
+// prefixes wider than KSRUN_SUMMARY_FILENAME_DIGITS — the on-disk format
+// never emits anything wider, and capping here keeps prune's fixed-size
+// name buffer from ever truncating a parsed-but-unrepresentable name.
+static bool parseRunFilename(const char *name, uint64_t *outNs)
+{
+    size_t len = strlen(name);
+    if (len < 5) return false;  // shortest valid form is "0.run"
+    if (strcmp(name + len - 4, ".run") != 0) return false;
+    size_t prefixLen = len - 4;
+    if (prefixLen > KSRUN_SUMMARY_FILENAME_DIGITS) return false;
+    for (size_t i = 0; i < prefixLen; i++) {
+        if (name[i] < '0' || name[i] > '9') return false;
+    }
+    errno = 0;
+    char *endp = NULL;
+    unsigned long long v = strtoull(name, &endp, 10);
+    if (endp != name + prefixLen) return false;
+    if (errno == ERANGE) return false;
+    *outNs = (uint64_t)v;
+    return true;
+}
+
+// Pairs a parsed ns prefix with the original d_name that yielded it. Keeping
+// the on-disk name instead of reformatting lets us unlink files written with
+// any digit width (e.g. legacy unpadded files left from earlier runs or tests).
+typedef struct {
+    uint64_t ns;
+    char name[256];
+} RunSummaryPruneEntry;
+
+static int compareRunSummaryPruneEntriesAscending(const void *a, const void *b)
+{
+    const RunSummaryPruneEntry *ea = (const RunSummaryPruneEntry *)a;
+    const RunSummaryPruneEntry *eb = (const RunSummaryPruneEntry *)b;
+    return (ea->ns < eb->ns) ? -1 : (ea->ns > eb->ns) ? 1 : 0;
+}
+
+// Prune ".run" files in runsDir oldest-first until at most `keepCount` remain.
+// Sort key is the ns prefix parsed from the filename — no per-file stat,
+// mirroring pruneReports in KSCrashReportStoreC.c. Non-matching entries are
+// ignored. keepCount <= 0 is a no-op (it does NOT delete everything) so a
+// disabled retention cap can't accidentally wipe the backlog.
+void ksruncontext_pruneRunSummaries(const char *runsDir, int keepCount)
+{
+    if (runsDir == NULL || runsDir[0] == '\0' || keepCount <= 0) {
+        return;
+    }
+
+    // First pass: count matching files.
+    DIR *dir = opendir(runsDir);
+    if (dir == NULL) {
+        return;
+    }
+    int count = 0;
+    struct dirent *ent;
+    while ((ent = readdir(dir)) != NULL) {
+        uint64_t ns;
+        if (parseRunFilename(ent->d_name, &ns)) {
+            count++;
+        }
+    }
+    closedir(dir);
+
+    if (count <= keepCount) {
+        return;
+    }
+
+    RunSummaryPruneEntry *entries = malloc(sizeof(RunSummaryPruneEntry) * (size_t)count);
+    if (entries == NULL) {
+        return;
+    }
+
+    // Second pass: collect (ns, d_name) pairs.
+    dir = opendir(runsDir);
+    if (dir == NULL) {
+        free(entries);
+        return;
+    }
+    int index = 0;
+    while ((ent = readdir(dir)) != NULL && index < count) {
+        uint64_t ns;
+        if (parseRunFilename(ent->d_name, &ns)) {
+            entries[index].ns = ns;
+            strlcpy(entries[index].name, ent->d_name, sizeof(entries[index].name));
+            index++;
+        }
+    }
+    closedir(dir);
+
+    qsort(entries, (size_t)index, sizeof(*entries), compareRunSummaryPruneEntriesAscending);
+
+    int toDelete = index - keepCount;
+    for (int i = 0; i < toDelete; i++) {
+        char path[KSFU_MAX_PATH_LENGTH];
+        if (snprintf(path, sizeof(path), "%s/%s", runsDir, entries[i].name) < (int)sizeof(path)) {
+            unlink(path);
+        }
+    }
+    free(entries);
+}
+
+void ksruncontext_persistPreviousRunSummary(const char *runSummariesPath)
+{
+    if (g_summary == nil || runSummariesPath == NULL || runSummariesPath[0] == '\0') {
+        return;
+    }
+
+    if (!ksfu_makePath(runSummariesPath)) {
+        KSLOG_ERROR(@"Failed to create run summary dir %s", runSummariesPath);
+        return;
+    }
+
+    // Filename is the run's wall-clock start time in nanoseconds, zero-padded
+    // to KSRUN_SUMMARY_FILENAME_DIGITS so all files in the dir lexically sort
+    // the same as they do numerically. Nanoseconds (not ms) so concurrent
+    // launches can't collide on the same prefix. `wallClockAtStartNs` comes
+    // straight from the lifecycle sidecar that produced the summary, so it
+    // matches the run being written.
+    unsigned long long startedAtNs = (unsigned long long)g_context.lifecycle.wallClockAtStartNs;
+    char path[KSFU_MAX_PATH_LENGTH];
+    if (snprintf(path, sizeof(path), "%s/%0*llu.run", runSummariesPath, KSRUN_SUMMARY_FILENAME_DIGITS, startedAtNs) >=
+        (int)sizeof(path)) {
+        KSLOG_ERROR(@"Run summary file path too long: %s/%0*llu.run", runSummariesPath, KSRUN_SUMMARY_FILENAME_DIGITS,
+                    startedAtNs);
+        return;
+    }
+
+    NSData *data = [g_summary jsonData];
+    if (data == nil) {
+        return;  // Error already logged in -jsonData.
+    }
+
+    // C write — the decoder rejects truncated / invalid JSON on read, so a
+    // crash mid-write is self-correcting; no atomic rename needed.
+    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd < 0) {
+        KSLOG_ERROR(@"Failed to open run summary file %s: errno=%d", path, errno);
+        return;
+    }
+    if (!ksfu_writeBytesToFD(fd, (const char *)data.bytes, (int)data.length)) {
+        KSLOG_ERROR(@"Failed to write run summary to %s: errno=%d", path, errno);
+    }
+    close(fd);
+}
+
+// ============================================================================
+#pragma mark - Build Summary -
+// ============================================================================
+
+// Reserved UserInfo key, mirrors the one in -[KSCrash setUserID:].
+static const char kUserIDKey[] = "com.kscrash.userid";
+
+typedef struct {
+    // Mutable result: the last string value seen for kUserIDKey, or nil if
+    // only tombstones / absent. Retained by the iteration callbacks so the
+    // outer function takes ownership at the end. `__strong` is explicit so
+    // ARC retains on assignment and releases on struct destruction.
+    __strong NSString *userID;
+} UserIDReadContext;
+
+static void userInfoOnString(const char *key, uint16_t keyLen, const char *value, uint16_t valueLen, void *ctx)
+{
+    UserIDReadContext *out = (UserIDReadContext *)ctx;
+    if (keyLen != sizeof(kUserIDKey) - 1 || memcmp(key, kUserIDKey, keyLen) != 0) {
+        return;
+    }
+    NSString *str = [[NSString alloc] initWithBytes:value length:valueLen encoding:NSUTF8StringEncoding];
+    if (str) {
+        out->userID = str;
+    }
+}
+
+static void userInfoOnRemoved(const char *key, uint16_t keyLen, void *ctx)
+{
+    UserIDReadContext *out = (UserIDReadContext *)ctx;
+    if (keyLen != sizeof(kUserIDKey) - 1 || memcmp(key, kUserIDKey, keyLen) != 0) {
+        return;
+    }
+    out->userID = nil;
+}
+
+static NSString *readUserIDFromSidecar(const char *sidecarPath)
+{
+    if (sidecarPath == NULL || sidecarPath[0] == '\0') {
+        return nil;
+    }
+    KSKeyValueStore *store = kskvs_create(sidecarPath, KSKVSModeRead, NULL);
+    if (store == NULL) {
+        return nil;
+    }
+
+    UserIDReadContext ctx = { .userID = nil };
+    KSKVSCallbacks callbacks = {
+        .onString = userInfoOnString,
+        .onRemoved = userInfoOnRemoved,
+    };
+    kskvs_iterate(store, &callbacks, &ctx);
+    kskvs_destroy(store);
+
+    return ctx.userID;
+}
+
+// Returns the given C string as an NSString, or @"" if null/empty. Used for
+// system-sidecar fields that must appear in the summary as non-null strings.
+static NSString *safeString(const char *cstr)
+{
+    if (cstr == NULL || cstr[0] == '\0') {
+        return @"";
+    }
+    return [NSString stringWithUTF8String:cstr] ?: @"";
+}
+
+static KSCrashRunSummary *buildSummary(const KSCrashRunContext *ctx, const char *userInfoSidecarPath)
+{
+    if (ctx == NULL || !ctx->systemValid || !ctx->lifecycleValid) {
+        return nil;
+    }
+
+    const KSCrash_LifecycleData *lc = &ctx->lifecycle;
+    const KSCrash_SystemData *sys = &ctx->system;
+
+    // Wall-clock timestamps. `started_at` is captured at sidecar creation.
+    // `ended_at` = started + (mostRecentMonotonic - monotonicAtStart). If
+    // the monotonic delta is non-positive (shouldn't happen, but defend
+    // against corrupt sidecars), fall back to the start timestamp.
+    int64_t startedAtMs = (int64_t)(lc->wallClockAtStartNs / 1000000ULL);
+    int64_t endedAtMs = startedAtMs;
+    if (ctx->mostRecentTimestampNs >= lc->monotonicAtStartNs) {
+        uint64_t elapsedNs = ctx->mostRecentTimestampNs - lc->monotonicAtStartNs;
+        endedAtMs = (int64_t)((lc->wallClockAtStartNs + elapsedNs) / 1000000ULL);
+    }
+
+    KSCrashRunSummaryOutcome *outcome =
+        [[KSCrashRunSummaryOutcome alloc] initWithTerminationReason:ctx->terminationReason
+                                                      cleanShutdown:lc->cleanShutdown != 0
+                                                      fatalReported:lc->fatalReported != 0
+                                                    userPerceptible:lc->userPerceptible != 0];
+
+    // Durations accumulate in the sidecar only on state transitions, so the
+    // currently-open slice (from the last transition to "now") is not yet
+    // folded in when the process dies without a transition. That's the common
+    // path for abnormal terminations (OOM, CPU / thermal kill, reboot,
+    // unexplained kill) — no lifecycle or crash callback fires, so without
+    // this tail extension a run that spent its whole time foregrounded would
+    // summarize as ~0 ms active. Clean shutdown and fatal crashes already
+    // close the slice via updateSidecarDurations, so adding the tail here
+    // would double-count — except that those paths set appStateTransitionTimeNs
+    // forward to the time of closure, making the tail zero by construction.
+    uint64_t activeNs = lc->activeDurationSinceLaunchNs;
+    uint64_t backgroundNs = lc->backgroundDurationSinceLaunchNs;
+    if (ctx->mostRecentTimestampNs > lc->appStateTransitionTimeNs) {
+        uint64_t tailNs = ctx->mostRecentTimestampNs - lc->appStateTransitionTimeNs;
+        if (lc->applicationIsActive) {
+            activeNs += tailNs;
+        } else if (!lc->applicationIsInForeground) {
+            backgroundNs += tailNs;
+        }
+    }
+
+    KSCrashRunSummaryDurations *durations =
+        [[KSCrashRunSummaryDurations alloc] initWithActiveMs:(int64_t)(activeNs / 1000000ULL)
+                                                backgroundMs:(int64_t)(backgroundNs / 1000000ULL)];
+
+    KSCrashRunSummarySessions *sessions =
+        [[KSCrashRunSummarySessions alloc] initWithPerceptibleCount:(NSInteger)lc->perceptibleSessionsSinceLaunch
+                                                 imperceptibleCount:(NSInteger)lc->imperceptibleSessionsSinceLaunch];
+
+    KSCrashRunSummaryUsers *users =
+        [[KSCrashRunSummaryUsers alloc] initWithPerceptibleCount:(NSInteger)lc->distinctPerceptibleUserCount
+                                              imperceptibleCount:(NSInteger)lc->distinctImperceptibleUserCount];
+
+    KSCrashRunSummaryApp *app = [[KSCrashRunSummaryApp alloc] initWithBundleID:safeString(sys->bundleID)
+                                                                       version:safeString(sys->bundleVersion)
+                                                                  shortVersion:safeString(sys->bundleShortVersion)
+                                                                      hostKind:(KSCrashRunSummaryHostKind)lc->hostKind];
+
+    KSCrashRunSummaryOS *os = [[KSCrashRunSummaryOS alloc] initWithName:safeString(sys->systemName)
+                                                                version:safeString(sys->systemVersion)
+                                                                  build:safeString(sys->osVersion)];
+
+    KSCrashRunSummaryDevice *device = [[KSCrashRunSummaryDevice alloc] initWithModel:safeString(sys->machine)
+                                                                         modelFamily:safeString(sys->model)
+                                                                        architecture:safeString(sys->cpuArchitecture)
+                                                                  binaryArchitecture:safeString(sys->binaryArchitecture)
+                                                                        isTranslated:sys->procTranslated != 0
+                                                                        isJailbroken:sys->isJailbroken != 0];
+
+    NSString *sdkVersion = [NSString stringWithUTF8String:(const char *)KSCrashFrameworkVersionString] ?: @"";
+    NSString *runID = [NSString stringWithUTF8String:ctx->runID] ?: @"";
+    NSString *deviceID = safeString(sys->deviceAppHash);
+    NSString *userID = readUserIDFromSidecar(userInfoSidecarPath);
+
+    return [[KSCrashRunSummary alloc] initWithSchemaVersion:1
+                                                 sdkVersion:sdkVersion
+                                                      runID:runID
+                                                   deviceID:deviceID
+                                                     userID:userID
+                                                      users:users
+                                                startedAtMs:startedAtMs
+                                                  endedAtMs:endedAtMs
+                                                    outcome:outcome
+                                                  durations:durations
+                                                   sessions:sessions
+                                                        app:app
+                                                         os:os
+                                                     device:device];
+}
 
 // ============================================================================
 #pragma mark - Testing API -
@@ -277,5 +627,23 @@ void ksruncontext_testcode_setLifecycleData(const KSCrash_LifecycleData *data)
     } else {
         g_context.lifecycleValid = false;
         memset(&g_context.lifecycle, 0, sizeof(g_context.lifecycle));
+    }
+}
+
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+KSCrashRunSummary *
+ksruncontext_testcode_buildSummary(const KSCrashRunContext *ctx, const char *userInfoSidecarPath)
+{
+    return buildSummary(ctx, userInfoSidecarPath);
+}
+
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+void ksruncontext_testcode_setCachedSummary(KSCrashRunSummary *summary, const char *runID)
+{
+    g_summary = summary;
+    if (runID != NULL) {
+        strlcpy(g_context.runID, runID, sizeof(g_context.runID));
+    } else {
+        g_context.runID[0] = '\0';
     }
 }

@@ -39,7 +39,10 @@ let project = Project(
                 .package(product: "Profiler", type: .runtime),
             ],
             settings: .settings(base: [
-                "HEADER_SEARCH_PATHS": "$(SRCROOT)/../Sources/KSCrashRecording"
+                "HEADER_SEARCH_PATHS": [
+                    "$(SRCROOT)/../Sources/KSCrashRecording",
+                    "$(SRCROOT)/../Sources/KSCrashRecording/Monitors",
+                ]
             ])
         ),
         .target(
@@ -60,7 +63,10 @@ let project = Project(
                 .package(product: "Profiler", type: .runtime),
             ],
             settings: .settings(base: [
-                "HEADER_SEARCH_PATHS": "$(SRCROOT)/../Sources/KSCrashRecording",
+                "HEADER_SEARCH_PATHS": [
+                    "$(SRCROOT)/../Sources/KSCrashRecording",
+                    "$(SRCROOT)/../Sources/KSCrashRecording/Monitors",
+                ],
                 // BrowserStack discovers tests via `nm -U -g | grep '.test'`.
                 // -enable-testing exports Swift symbols globally (T not t).
                 "OTHER_SWIFT_FLAGS": ["-Xfrontend", "-enable-testing"],

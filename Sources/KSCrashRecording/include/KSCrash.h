@@ -62,6 +62,16 @@ NS_ASSUME_NONNULL_BEGIN
 @property(atomic, readwrite, strong, nullable) NSDictionary<NSString *, id> *userInfo KSCRASH_DEPRECATED(
     "Use per-key API in KSCrash+UserInfo.h (e.g. -setUserInfoString:forKey:) instead");
 
+/** Record the currently-active user identifier.
+ *
+ *  The value is attributed to this run (used for crash attribution and any
+ *  stability reporting this run produces). Pass nil to clear, e.g. on logout.
+ *
+ *  Write-only: there is no getter. Track the current user in your own
+ *  application state if you need to read it back at runtime.
+ */
+- (void)setUserID:(nullable NSString *)userID;
+
 #pragma mark - Information -
 
 /** Exposes the uncaughtExceptionHandler if set from KSCrash. Is nil if debugger is running. */
@@ -168,6 +178,18 @@ NS_ASSUME_NONNULL_BEGIN
            configuration:(KSCrashSendConfiguration *)configuration
               completion:(nullable KSCrashReportFilterCompletion)onCompletion
     NS_SWIFT_NAME(sendReport(id:with:completion:));
+
+/** Send all pending run summaries using the given send configuration.
+ *
+ * Forwards to the installed report store. If the crash reporter is not
+ * installed, @c onCompletion is called with an error.
+ *
+ * @param configuration The run-filter chain to use (@c runSummaryFilters).
+ * @param onCompletion Called when sending is complete (nil = ignore).
+ */
+- (void)sendAllRunSummariesWithConfiguration:(KSCrashSendConfiguration *)configuration
+                                  completion:(nullable KSCrashRunFilterCompletion)onCompletion
+    NS_SWIFT_NAME(sendAllRunSummaries(with:completion:));
 
 /** Report a custom, user defined exception.
  * This can be useful when dealing with scripting languages.

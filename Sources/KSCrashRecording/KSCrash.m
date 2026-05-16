@@ -33,6 +33,7 @@
 #import "KSCrashMonitor_Lifecycle.h"
 #import "KSCrashMonitor_System.h"
 #import "KSCrashMonitor_Termination.h"
+#import "KSCrashMonitor_UserInfo.h"
 #import "KSCrashReport.h"
 #import "KSCrashReportFields.h"
 #import "KSCrashRunContext.h"
@@ -216,6 +217,18 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
 }
 #pragma clang diagnostic pop
 
+// Write-only: -setUserID: appends a record to the UserInfo sidecar under the
+// reserved key "com.kscrash.userid". Passing NULL to kscm_userinfo_setString
+// writes a tombstone, handling the nil/logout case. No local cache — the
+// sidecar is the single source of truth, read at next launch during stitch.
+
+- (void)setUserID:(nullable NSString *)userID
+{
+    const char *userIDString = userID.UTF8String;
+    kscm_userinfo_setString("com.kscrash.userid", userIDString);
+    kscm_lifecycle_observeUser(userIDString);
+}
+
 - (BOOL)reportsMemoryTerminations
 {
     KSCrashMonitorAPI *api = kscm_termination_getAPI();
@@ -323,10 +336,10 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
 
 - (NSError *)notInstalledError
 {
-    return [KSNSErrorHelper
-        errorWithDomain:[[self class] description]
-                   code:0
-            description:@"Reporting is not allowed before the call of `installWithConfiguration:error:`"];
+    return
+        [KSNSErrorHelper errorWithDomain:[[self class] description]
+                                    code:0
+                             description:@"Reporting is not allowed before calling `installWithConfiguration:error:`"];
 }
 
 - (void)sendAllReportsWithConfiguration:(KSCrashSendConfiguration *)configuration
@@ -350,6 +363,19 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
         return;
     }
     [store sendReportWithID:reportID configuration:configuration completion:onCompletion];
+}
+
+- (void)sendAllRunSummariesWithConfiguration:(KSCrashSendConfiguration *)configuration
+                                  completion:(KSCrashRunFilterCompletion)onCompletion
+{
+    KSCrashReportStore *store = self.reportStore;
+    if (store == nil) {
+        if (onCompletion != nil) {
+            onCompletion(@[], [self notInstalledError]);
+        }
+        return;
+    }
+    [store sendAllRunSummariesWithConfiguration:configuration completion:onCompletion];
 }
 
 - (void)reportUserException:(NSString *)name

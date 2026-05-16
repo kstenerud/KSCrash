@@ -57,7 +57,7 @@ extern "C" {
 
 #define KSLIFECYCLE_MAGIC ((int32_t)'kslc')
 
-static const uint8_t KSCrash_Lifecycle_CurrentVersion = 1;
+static const uint8_t KSCrash_Lifecycle_CurrentVersion = 3;
 
 static inline double kslifecycle_nsToSeconds(uint64_t ns) { return (double)ns / 1000000000.0; }
 
@@ -103,9 +103,40 @@ typedef struct {
                               // while still technically backgrounded)
     uint8_t hangInProgress;   // true while the watchdog is tracking an active hang;
                               // if still true on next launch, the app was killed during a hang
+
+    // --- v2 additions ---
+    //
+    // Added in KSCrash_Lifecycle_CurrentVersion=2. New fields must only be
+    // APPENDED (never reordered or inserted above) so that v1 sidecar files
+    // (shorter) can be read into this struct with the trailing fields left
+    // zero-filled. kslifecycle_readData tolerates short reads to enable this.
+    //
+    // Per-run session counts split by user perceptibility, consumed by the
+    // RunSummary pipeline. These are independent of `sessionsSinceLaunch`
+    // above, which keeps its historical "launch + foreground resume" meaning
+    // (backgrounding bumps imperceptible here but never the public counter),
+    // so the two are NOT related by a sum invariant.
+    uint32_t perceptibleSessionsSinceLaunch;
+    uint32_t imperceptibleSessionsSinceLaunch;
+
+    // Counts of distinct user IDs observed in each perceptibility bucket
+    // during this run. Distinctness is tracked in-memory (lost on crash);
+    // only the counts are persisted. See kscm_lifecycle_observeUser.
+    uint32_t distinctPerceptibleUserCount;
+    uint32_t distinctImperceptibleUserCount;
+
+    // --- v3 additions ---
+    //
+    // Kind of host (app / extension / xctest / other) captured at sidecar
+    // creation. Recorded per-run so the previous run's summary carries the
+    // *producer's* host kind when a different process type flushes it —
+    // important when app and extension share one KSCrash install dir.
+    // Values match `KSCrashRunSummaryHostKind` (0=app, 1=extension,
+    // 2=xctest, 3=other). v2 sidecars short-read to 0 = app.
+    uint8_t hostKind;
 } KSCrash_LifecycleData;
 
-_Static_assert(sizeof(KSCrash_LifecycleData) == 88, "KSCrash_LifecycleData size changed — bump version");
+_Static_assert(sizeof(KSCrash_LifecycleData) == 112, "KSCrash_LifecycleData size changed — bump version");
 
 // ============================================================================
 #pragma mark - Public State (computed from sidecar) -
@@ -178,6 +209,23 @@ bool kslifecycle_getSnapshotForRunID(const char *runID, KSCrash_LifecycleData *o
  *  Lock-free (atomic load). Safe to call from any thread.
  */
 KSCrashAppTransitionState kslifecycle_currentTransitionState(void);
+
+/** Observe that the given user ID is active right now.
+ *
+ *  The monitor maintains distinct-user counts, split by the current
+ *  perceptibility state, and persists them into the Lifecycle sidecar as
+ *  `distinctPerceptibleUserCount` / `distinctImperceptibleUserCount`.
+ *  Distinctness tracking itself is in-memory only; the counts at crash
+ *  time are what survive.
+ *
+ *  Pass NULL or an empty string to record no user. No-op before the
+ *  monitor is enabled.
+ *
+ *  Called from `-[KSCrash setUserID:]` on every user change, and
+ *  internally whenever a perceptibility transition reveals the current
+ *  user in a new bucket.
+ */
+void kscm_lifecycle_observeUser(const char *userID);
 
 /** Access the Lifecycle Monitor API.
  */

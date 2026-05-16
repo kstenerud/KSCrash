@@ -100,6 +100,11 @@ typedef int KSTerminationReason;
 /** Returns the string representation of a termination reason. */
 const char *kstermination_reasonToString(KSTerminationReason reason);
 
+/** Parse a termination reason from its string representation.
+ *  Unknown strings (including NULL) map to KSTerminationReasonNone.
+ */
+KSTerminationReason kstermination_reasonFromString(const char *string);
+
 /** Whether the given termination reason produces a crash report. */
 bool kstermination_producesReport(KSTerminationReason reason);
 

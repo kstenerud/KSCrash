@@ -32,6 +32,7 @@
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitorHelper.h"
 #import "KSCrashRunContext.h"
+#import "KSCrashRunSummary.h"
 #import "KSDate.h"
 #import "KSFileUtils.h"
 #import "KSSpinLock.h"
@@ -43,8 +44,10 @@
 #import <fcntl.h>
 #import <mach/mach.h>
 #import <mach/task_policy.h>
+#import <os/lock.h>
 #import <stdatomic.h>
 #import <string.h>
+#import <sys/stat.h>
 #import <time.h>
 #import <unistd.h>
 
@@ -63,6 +66,33 @@ static dispatch_source_t g_taskRoleHeartbeatTimer = NULL;
 
 static atomic_bool g_isEnabled = false;
 static _Atomic KSCrashAppTransitionState g_transitionState = KSCrashAppTransitionStateStartup;
+
+// Maps the currently-running bundle to the matching host kind enum. Called
+// once at sidecar creation — the bundle doesn't change during a run, so we
+// capture the producer's host kind into the sidecar where it survives for
+// the next process to read. Different process types (app vs extension) that
+// share a KSCrash install dir then don't mislabel each other's summaries.
+static KSCrashRunSummaryHostKind hostKindForCurrentBundle(void)
+{
+    NSString *ext = [[NSBundle mainBundle] bundlePath].pathExtension.lowercaseString;
+    if ([ext isEqualToString:@"app"]) {
+        return KSCrashRunSummaryHostKindApp;
+    }
+    if ([ext isEqualToString:@"appex"]) {
+        return KSCrashRunSummaryHostKindExtension;
+    }
+    if ([ext isEqualToString:@"xctest"]) {
+        return KSCrashRunSummaryHostKindXCTest;
+    }
+    return KSCrashRunSummaryHostKindOther;
+}
+
+// In-memory state for the distinct-user tracking. Not persisted (only the
+// counts in the sidecar are). `g_userLock` guards all three variables.
+static os_unfair_lock g_userLock = OS_UNFAIR_LOCK_INIT;
+static NSMutableSet<NSString *> *g_perceptibleUsers = nil;
+static NSMutableSet<NSString *> *g_imperceptibleUsers = nil;
+static NSString *g_currentUserID = nil;
 
 /** Write the current task role to the sidecar if it changed.
  *  Call under the sidecar lock.
@@ -133,6 +163,94 @@ static void updateSidecarDurations(KSCrash_LifecycleData *sc)
     }
 }
 
+// ============================================================================
+#pragma mark - Distinct user tracking -
+// ============================================================================
+//
+// The two sets and g_currentUserID are guarded by g_userLock. The sidecar's
+// distinct-count fields are guarded by g_sidecarLock. These locks are never
+// held together: each call site updates the in-memory state first, grabs
+// the new count, then writes it into the sidecar in a separate critical
+// section.
+
+/** Write a user bucket's count into the sidecar. Grabs g_sidecarLock. */
+static void writeDistinctUserCountToSidecar(bool perceptible, NSUInteger count)
+{
+    ks_spinlock_lock(&g_sidecarLock);
+    KSCrash_LifecycleData *sc = g_sidecar;
+    if (sc != NULL) {
+        if (perceptible) {
+            sc->distinctPerceptibleUserCount = (uint32_t)count;
+        } else {
+            sc->distinctImperceptibleUserCount = (uint32_t)count;
+        }
+    }
+    ks_spinlock_unlock(&g_sidecarLock);
+}
+
+/** Record `userID` in the bucket for `perceptible`. Return the new bucket
+ *  size, or 0 if there was nothing to record. Grabs g_userLock.
+ */
+static NSUInteger recordUserInBucket(NSString *userID, bool perceptible)
+{
+    if (userID.length == 0) {
+        return 0;
+    }
+    NSUInteger count = 0;
+    os_unfair_lock_lock(&g_userLock);
+    if (perceptible) {
+        if (g_perceptibleUsers == nil) g_perceptibleUsers = [NSMutableSet set];
+        [g_perceptibleUsers addObject:userID];
+        count = g_perceptibleUsers.count;
+    } else {
+        if (g_imperceptibleUsers == nil) g_imperceptibleUsers = [NSMutableSet set];
+        [g_imperceptibleUsers addObject:userID];
+        count = g_imperceptibleUsers.count;
+    }
+    os_unfair_lock_unlock(&g_userLock);
+    return count;
+}
+
+void kscm_lifecycle_observeUser(const char *userID)
+{
+    // Gate on enable so pre-install writes can't stash a g_currentUserID that
+    // would leak into a later setEnabled(true) session. The monitor always
+    // clears g_currentUserID on disable, so post-enable writes stay correct.
+    if (!atomic_load(&g_isEnabled)) {
+        return;
+    }
+
+    NSString *asString = (userID != NULL && userID[0] != '\0') ? [NSString stringWithUTF8String:userID] : nil;
+
+    os_unfair_lock_lock(&g_userLock);
+    g_currentUserID = [asString copy];
+    os_unfair_lock_unlock(&g_userLock);
+
+    if (asString.length == 0) {
+        return;  // nothing to count
+    }
+
+    // Read perceptibility from the sidecar. createSidecar() populates this
+    // on install from the current app state, so it's accurate before any
+    // transition has fired (unlike the atomic g_transitionState which
+    // starts at Startup).
+    bool perceptible = false;
+    ks_spinlock_lock(&g_sidecarLock);
+    bool haveSidecar = g_sidecar != NULL;
+    if (haveSidecar) {
+        perceptible = g_sidecar->userPerceptible != 0;
+    }
+    ks_spinlock_unlock(&g_sidecarLock);
+    if (!haveSidecar) {
+        return;
+    }
+
+    NSUInteger count = recordUserInBucket(asString, perceptible);
+    if (count > 0) {
+        writeDistinctUserCountToSidecar(perceptible, count);
+    }
+}
+
 bool kslifecycle_readData(const char *path, KSCrash_LifecycleData *out)
 {
     if (!path || !out) {
@@ -145,7 +263,18 @@ bool kslifecycle_readData(const char *path, KSCrash_LifecycleData *out)
     }
 
     memset(out, 0, sizeof(*out));
-    bool ok = ksfu_readBytesFromFD(fd, (char *)out, (int)sizeof(*out));
+
+    // Tolerate short reads: older sidecars were smaller than the current
+    // struct. Fields beyond the file are left zero-filled, which is the
+    // correct default for any forward-compatible addition (see header:
+    // new fields must only be appended, never reordered).
+    struct stat st;
+    if (fstat(fd, &st) != 0) {
+        close(fd);
+        return false;
+    }
+    size_t bytesToRead = (size_t)st.st_size < sizeof(*out) ? (size_t)st.st_size : sizeof(*out);
+    bool ok = (bytesToRead > 0) && ksfu_readBytesFromFD(fd, (char *)out, (int)bytesToRead);
     close(fd);
 
     if (!ok || out->magic != KSLIFECYCLE_MAGIC || out->version == 0 ||
@@ -201,15 +330,26 @@ static void onTransitionState(KSCrashAppTransitionState transitionState)
             break;
 
         case KSCrashAppTransitionStateBackground:
-            // Entering background: reset transition timer, mark not foreground
+            // Entering background starts an imperceptible run period. Bump only
+            // the imperceptible bucket consumed by the RunSummary split. The
+            // public sessionsSinceLaunch / sessionsSinceLastCrash deliberately
+            // keep their historical "launch + foreground resume" semantics and
+            // are NOT touched here — backgrounding must never inflate them
+            // (a launch -> background -> foreground cycle stays at 2).
             updateSidecarDurations(sc);
             sc->applicationIsInForeground = false;
+            sc->imperceptibleSessionsSinceLaunch++;
             break;
 
         case KSCrashAppTransitionStateForegrounding:
-            // Returning to foreground: accumulate background duration, increment sessions
+            // Returning to foreground starts a new perceptible session. Bump the
+            // perceptible bucket and, per the historical "launch + foreground
+            // resume" semantics, the public sessionsSinceLaunch /
+            // sessionsSinceLastCrash counters. These public counters are
+            // independent of the perceptibility buckets (no sum invariant).
             updateSidecarDurations(sc);
             sc->applicationIsInForeground = true;
+            sc->perceptibleSessionsSinceLaunch++;
             sc->sessionsSinceLaunch++;
             sc->sessionsSinceLastCrash++;
             break;
@@ -226,10 +366,25 @@ static void onTransitionState(KSCrashAppTransitionState transitionState)
             break;
     }
 
+    bool previousPerceptible = sc->userPerceptible != 0;
+    bool newPerceptible = ksapp_transitionStateIsUserPerceptible(transitionState);
     sc->transitionState = (uint8_t)transitionState;
-    sc->userPerceptible = ksapp_transitionStateIsUserPerceptible(transitionState);
+    sc->userPerceptible = newPerceptible;
     updateSidecarTaskRole(sc);
     ks_spinlock_unlock(&g_sidecarLock);
+
+    // Perceptibility flipped: the current user (if any) is now in a new
+    // bucket. Recording happens after the sidecar lock is released so the
+    // two locks never nest.
+    if (newPerceptible != previousPerceptible) {
+        os_unfair_lock_lock(&g_userLock);
+        NSString *user = g_currentUserID;
+        os_unfair_lock_unlock(&g_userLock);
+        NSUInteger count = recordUserInBucket(user, newPerceptible);
+        if (count > 0) {
+            writeDistinctUserCountToSidecar(newPerceptible, count);
+        }
+    }
 }
 
 // ============================================================================
@@ -351,7 +506,6 @@ static KSCrash_LifecycleData *createSidecar(void)
     }
 
     KSCrash_LifecycleData *sc = (KSCrash_LifecycleData *)ptr;
-    sc->sessionsSinceLaunch = 1;
     sc->monotonicAtStartNs = ksdate_continuousNanoseconds();
     sc->wallClockAtStartNs = ksdate_wallClockNanoseconds();
     sc->appStateTransitionTimeNs = sc->monotonicAtStartNs;
@@ -373,7 +527,19 @@ static KSCrash_LifecycleData *createSidecar(void)
          ts == KSCrashAppTransitionStateForegrounding);
     sc->userPerceptible = ksapp_transitionStateIsUserPerceptible(ts);
 
+    // The initial launch is one session. Attribute it to the perceptible or
+    // imperceptible bucket based on whether the user can see the app right now.
+    // The public sessionsSinceLaunch keeps its historical meaning (launch +
+    // foreground resumes) and is independent of the perceptibility buckets.
+    if (sc->userPerceptible) {
+        sc->perceptibleSessionsSinceLaunch = 1;
+    } else {
+        sc->imperceptibleSessionsSinceLaunch = 1;
+    }
+    sc->sessionsSinceLaunch = 1;
+
     sc->taskRole = (int32_t)kstaskrole_current();
+    sc->hostKind = (uint8_t)hostKindForCurrentBundle();
     sc->magic = KSLIFECYCLE_MAGIC;
     sc->version = KSCrash_Lifecycle_CurrentVersion;
     return sc;
@@ -423,6 +589,25 @@ static void setEnabled(bool isEnabled, __unused void *context)
         g_sidecar = sc;
         ks_spinlock_unlock(&g_sidecarLock);
 
+        // Close the enable race: g_isEnabled is flipped before the sidecar is
+        // published, so a concurrent kscm_lifecycle_observeUser() could have
+        // passed the gate, stashed g_currentUserID, then bailed at the
+        // !haveSidecar check without counting the user. Now that the sidecar
+        // exists, replay the stashed user into its bucket. recordUserInBucket
+        // is a set insert, so this is idempotent if it already counted.
+        os_unfair_lock_lock(&g_userLock);
+        NSString *pendingUser = g_currentUserID;
+        os_unfair_lock_unlock(&g_userLock);
+        if (pendingUser.length > 0) {
+            ks_spinlock_lock(&g_sidecarLock);
+            bool perceptible = g_sidecar->userPerceptible != 0;
+            ks_spinlock_unlock(&g_sidecarLock);
+            NSUInteger count = recordUserInBucket(pendingUser, perceptible);
+            if (count > 0) {
+                writeDistinctUserCountToSidecar(perceptible, count);
+            }
+        }
+
         g_appStateObserver =
             [KSCrashAppStateTracker.sharedInstance addObserverWithBlock:^(KSCrashAppTransitionState transitionState) {
                 onTransitionState(transitionState);
@@ -439,6 +624,12 @@ static void setEnabled(bool isEnabled, __unused void *context)
         }
 
         g_appStateObserver = nil;
+
+        os_unfair_lock_lock(&g_userLock);
+        g_perceptibleUsers = nil;
+        g_imperceptibleUsers = nil;
+        g_currentUserID = nil;
+        os_unfair_lock_unlock(&g_userLock);
 
         releaseSidecar();
     }
