@@ -2,6 +2,17 @@
 
 When performing code reviews on this repository, follow these instructions to identify API breaking changes in the KSCrash crash reporting library.
 
+## What "Breaking" Means in This Repo
+
+A change is breaking **only if it breaks code that compiled against the most recent tagged release**, not against unreleased work on master. This is the only baseline that matters when reviewing.
+
+- Compare the affected public header at the most recent tag (`git describe --tags --abbrev=0`, then `git show <tag>:Sources/.../Header.h`) against the PR's version.
+- If the API in the PR is identical to or strictly additive over the API at the release tag, the change is **not breaking** for the purposes of this review, no matter what unreleased work on master has done in between.
+- A symbol, type, property, or signature that did not exist at the release tag is not part of the released surface. Changing or removing it on master cannot be breaking.
+- Do not flag a change as breaking without performing this comparison. If a reviewer comment, prior memory, or pattern-match suggests a change is breaking but the verification disagrees, the change is not breaking.
+
+The patterns below describe the changes that warrant scrutiny **when they would break code compiled against the most recent release**.
+
 ## Scope of Review
 
 Only review changes to public API surfaces. The public modules are: KSCrashRecording, KSCrashFilters, KSCrashSinks, KSCrashInstallations, KSCrashDiscSpaceMonitor, KSCrashBootTimeMonitor, and KSCrashDemangleFilter. Only examine files in `Sources/[ModuleName]/include/*.h` directories as these contain the public headers.
@@ -228,6 +239,8 @@ Adding optional methods to protocols is safe:
 
 ## Review Process
 
-For each PR, examine modified public headers and flag any of the breaking change patterns above. Ask yourself: Would existing user code fail to compile after this change? If yes, it's breaking. The KSCrash library prioritizes API stability, so breaking changes need strong justification and migration guidance.
+For each PR, examine modified public headers and flag any of the breaking change patterns above. The question to ask is: **would code that compiled against the most recent release fail to compile after this change?** Verify against the release tag (`git show <tag>:<header>`); do not rely on the master state alone or on a pattern match. If the API at the release tag did not contain the symbol or shape in question, the change cannot be breaking.
+
+The KSCrash library prioritizes API stability, so breaking changes (measured this way) need strong justification and migration guidance.
 
 Pay special attention to callback API changes as this library has a history of major callback signature evolution for async-safety and policy awareness.

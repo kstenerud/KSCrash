@@ -15,7 +15,17 @@ The public API surface consists of: **KSCrashRecording**, **KSCrashFilters**, **
 
 ## API Stability
 
-KSCrash prioritizes API stability. A change is **breaking** only if it breaks code that compiled against the last tagged release (e.g., 2.5.1), not against unreleased work on master. The following changes to public headers need strong justification plus migration guidance:
+KSCrash prioritizes API stability. A change is **breaking** only if it breaks code that compiled against the **most recent tagged release**, not against unreleased work on master.
+
+**This is the only baseline that matters.** Apply it when authoring changes, when reviewing PRs, and when evaluating any review comment that claims "this is source-breaking."
+
+- Find the current release with `git describe --tags --abbrev=0` (or check the GitHub releases page).
+- Compare the affected public header at that tag (`git show <tag>:Sources/.../Header.h`) against the PR's version.
+- If the API in the PR is identical to, or strictly additive over, the API at the release tag, **the change is not source-breaking**, regardless of what unreleased work on master has done in between.
+- A symbol or type that does not exist at the release tag is not part of the released surface, so changing or removing it on master cannot be source-breaking.
+- A reviewer comment, automated tool, or memory note that flags a change as source-breaking must be verified against the release tag before being acted on. If the verification disagrees with the comment, the comment is wrong.
+
+The following changes to public headers need strong justification plus migration guidance **when they would break code compiled against the most recent release**:
 
 - **Method parameter changes**: Any addition, removal, type change, or reordering. ObjC has no default parameters, so even adding a nullable parameter breaks all call sites.
 - **Callback/function pointer signature changes**: Parameter or return type changes.
