@@ -76,6 +76,7 @@
         _reportStoreConfiguration = [KSCrashReportStoreConfiguration new];
         _reportStoreConfiguration.appName = nil;
         _reportStoreConfiguration.maxReportCount = cConfig.reportStoreConfiguration.maxReportCount;
+        _reportStoreConfiguration.maxRunSummaryCount = (NSInteger)cConfig.reportStoreConfiguration.maxRunSummaryCount;
 
         KSCrashCConfiguration_Release(&cConfig);
     }
@@ -237,6 +238,7 @@
 
         KSCrashReportStoreCConfiguration cConfig = KSCrashReportStoreCConfiguration_Default();
         _maxReportCount = (NSInteger)cConfig.maxReportCount;
+        _maxRunSummaryCount = (NSInteger)cConfig.maxRunSummaryCount;
     }
     return self;
 }
@@ -256,6 +258,7 @@
     config.appName = resolvedAppName != nil ? strdup(resolvedAppName.UTF8String) : NULL;
     config.reportsPath = resolvedReportsPath != nil ? strdup(resolvedReportsPath.UTF8String) : NULL;
     config.maxReportCount = (int)self.maxReportCount;
+    config.maxRunSummaryCount = (int)self.maxRunSummaryCount;
 
     if (resolvedReportsPath != nil) {
         NSString *parentPath = [resolvedReportsPath stringByDeletingLastPathComponent];
@@ -263,6 +266,15 @@
         NSString *runSidecarsPath = [parentPath stringByAppendingPathComponent:@"RunSidecars"];
         config.reportSidecarsPath = strdup(sidecarsPath.UTF8String);
         config.runSidecarsPath = strdup(runSidecarsPath.UTF8String);
+    }
+
+    NSString *resolvedRunSummariesPath = self.runSummariesPath;
+    if (resolvedRunSummariesPath == nil && resolvedReportsPath != nil) {
+        resolvedRunSummariesPath =
+            [[resolvedReportsPath stringByDeletingLastPathComponent] stringByAppendingPathComponent:@"Runs"];
+    }
+    if (resolvedRunSummariesPath != nil) {
+        config.runSummariesPath = strdup(resolvedRunSummariesPath.UTF8String);
     }
 
     return config;
@@ -274,8 +286,10 @@
 {
     KSCrashReportStoreConfiguration *copy = [[KSCrashReportStoreConfiguration allocWithZone:zone] init];
     copy.reportsPath = [self.reportsPath copyWithZone:zone];
+    copy.runSummariesPath = [self.runSummariesPath copyWithZone:zone];
     copy.appName = [self.appName copyWithZone:zone];
     copy.maxReportCount = self.maxReportCount;
+    copy.maxRunSummaryCount = self.maxRunSummaryCount;
     return copy;
 }
 

@@ -464,6 +464,28 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
         g_reportStoreConfig.runSidecarsPath = strdup(path);
     }
 
+    if (g_reportStoreConfig.runSummariesPath == NULL) {
+        // Match the ObjC KSCrashReportStoreConfiguration: place run summaries in
+        // a "Runs" directory that is a sibling of the resolved reports
+        // directory, not under installPath. Otherwise a caller that overrides
+        // reportsPath but leaves runSummariesPath NULL writes summaries where a
+        // store configured with the same reportsPath won't scan, so
+        // sendAllRunSummaries misses them. reportsPath is already resolved above.
+        const char *reportsPath = g_reportStoreConfig.reportsPath;
+        const char *lastSlash = reportsPath != NULL ? strrchr(reportsPath, '/') : NULL;
+        int written;
+        if (lastSlash != NULL && lastSlash != reportsPath) {
+            written = snprintf(path, sizeof(path), "%.*s/Runs", (int)(lastSlash - reportsPath), reportsPath);
+        } else {
+            written = snprintf(path, sizeof(path), "%s/Runs", installPath);
+        }
+        if (written >= (int)sizeof(path)) {
+            KSLOG_ERROR("Runs path is too long.");
+            return KSCrashInstallErrorPathTooLong;
+        }
+        g_reportStoreConfig.runSummariesPath = strdup(path);
+    }
+
     KSCrashInstallErrorCode storeInitResult = kscrs_initialize(&g_reportStoreConfig);
     if (storeInitResult != KSCrashInstallErrorNone) {
         return storeInitResult;
@@ -512,6 +534,18 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     }
     kscm_notifyPostMonitorsEnabled();
     ksruncontext_init(getRunSidecarPathForRunIDCallback);
+    // g_reportStoreConfig has the resolved default path, whereas `configuration`
+    // still holds whatever the caller passed in (NULL is valid there). Skip
+    // when the caller disabled the feature via maxRunSummaryCount <= 0.
+    //
+    // Install only appends — the retention cap is enforced on the send path
+    // (sendAllRunSummariesWithConfiguration:completion:) and via the public
+    // ksruncontext_pruneRunSummaries() API that callers can invoke on their
+    // own cadence. Intentionally not pruning here so retention policy stays a
+    // caller choice rather than being coupled to launch timing.
+    if (g_reportStoreConfig.maxRunSummaryCount > 0) {
+        ksruncontext_persistPreviousRunSummary(g_reportStoreConfig.runSummariesPath);
+    }
     kscm_notifyPostSystemEnable();
 
     g_installed = true;

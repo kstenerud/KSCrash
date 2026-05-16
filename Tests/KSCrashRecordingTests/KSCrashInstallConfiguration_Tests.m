@@ -62,6 +62,7 @@
     XCTAssertFalse(config.addConsoleLogToReport);
     XCTAssertFalse(config.printPreviousLogOnStartup);
     XCTAssertEqual(config.reportStoreConfiguration.maxReportCount, 5);
+    XCTAssertEqual(config.reportStoreConfiguration.maxRunSummaryCount, 50);
     XCTAssertTrue(config.enableSwapCxaThrow);
     XCTAssertFalse(config.enableHangReporting);
     XCTAssertFalse(config.enableCPUExceptionReporting);
@@ -80,6 +81,7 @@
     config.addConsoleLogToReport = YES;
     config.printPreviousLogOnStartup = YES;
     config.reportStoreConfiguration.maxReportCount = 10;
+    config.reportStoreConfiguration.maxRunSummaryCount = 7;
     config.enableSwapCxaThrow = NO;
     config.enableHangReporting = YES;
     config.enableCPUExceptionReporting = YES;
@@ -99,6 +101,7 @@
     XCTAssertTrue(cConfig.addConsoleLogToReport);
     XCTAssertTrue(cConfig.printPreviousLogOnStartup);
     XCTAssertEqual(cConfig.reportStoreConfiguration.maxReportCount, 10);
+    XCTAssertEqual(cConfig.reportStoreConfiguration.maxRunSummaryCount, 7);
     XCTAssertFalse(cConfig.enableSwapCxaThrow);
     XCTAssertTrue(cConfig.enableHangReporting);
     XCTAssertTrue(cConfig.enableCPUExceptionReporting);
@@ -120,6 +123,7 @@
     config.addConsoleLogToReport = YES;
     config.printPreviousLogOnStartup = YES;
     config.reportStoreConfiguration.maxReportCount = 10;
+    config.reportStoreConfiguration.maxRunSummaryCount = 7;
     config.enableSwapCxaThrow = NO;
     config.enableHangReporting = YES;
     config.enableCPUExceptionReporting = YES;
@@ -136,6 +140,7 @@
     XCTAssertTrue(copy.addConsoleLogToReport);
     XCTAssertTrue(copy.printPreviousLogOnStartup);
     XCTAssertEqual(copy.reportStoreConfiguration.maxReportCount, 10);
+    XCTAssertEqual(copy.reportStoreConfiguration.maxRunSummaryCount, 7);
     XCTAssertFalse(copy.enableSwapCxaThrow);
     XCTAssertTrue(copy.enableHangReporting);
     XCTAssertTrue(copy.enableCPUExceptionReporting);
@@ -577,6 +582,19 @@ static bool testPluginIsEnabled(__unused void *context) { return g_testPluginEna
     cConfig.plugins.length = 1;
     cConfig.plugins.release = NULL;
     // Should not crash — no free called on stack pointer
+    KSCrashCConfiguration_Release(&cConfig);
+}
+
+#pragma mark - Run summary config
+
+- (void)testMaxRunSummaryCount_threadsThroughToCConfiguration
+{
+    KSCrashInstallConfiguration *config = [KSCrashInstallConfiguration new];
+    config.reportStoreConfiguration.maxRunSummaryCount = 3;
+
+    KSCrashCConfiguration cConfig = [config toCConfiguration];
+    XCTAssertEqual(cConfig.reportStoreConfiguration.maxRunSummaryCount, 3);
+
     KSCrashCConfiguration_Release(&cConfig);
 }
 

@@ -33,9 +33,13 @@
 #import "KSCrashReportFields.h"
 #import "KSCrashReportFilter.h"
 #import "KSCrashReportStoreC+Private.h"
+#import "KSCrashRunContext.h"
+#import "KSCrashRunSummary.h"
 #import "KSCrashSendConfiguration.h"
 #import "KSJSONCodecObjC.h"
 #import "KSNSErrorHelper.h"
+
+#import <os/lock.h>
 
 // #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -52,10 +56,22 @@ const KSCrashReportID KSCrashReportNoID = 0;
                      reports:(NSArray<id<KSCrashReport>> *)reports
                 onCompletion:(KSCrashReportFilterCompletion)onCompletion;
 
+- (void)runRunFilterChain:(NSArray<id<KSCrashRunFilter>> *)filters
+                     runs:(NSArray<KSCrashRunSummary *> *)runs
+             onCompletion:(KSCrashRunFilterCompletion)onCompletion;
+
 @end
 
 @implementation KSCrashReportStore {
     KSCrashReportStoreCConfiguration _cConfig;
+    // Guards all on-disk run-summary work (prune, enumerate, decode, delete)
+    // and the _isSendingRunSummaries reentrancy flag.
+    os_unfair_lock _runSummaryLock;
+    // True from the moment a send is accepted until its sink completion has
+    // run. A second concurrent sendAllRunSummariesWithConfiguration: short-circuits
+    // with an error rather than re-decoding the same files and handing the sink
+    // duplicates.
+    BOOL _isSendingRunSummaries;
 }
 
 + (NSString *)defaultInstallSubfolder
@@ -79,6 +95,7 @@ const KSCrashReportID KSCrashReportNoID = 0;
     if (self != nil) {
         KSCrashReportStoreConfiguration *resolvedConfiguration = configuration ?: [KSCrashReportStoreConfiguration new];
         _cConfig = [resolvedConfiguration toCConfiguration];
+        _runSummaryLock = OS_UNFAIR_LOCK_INIT;
 
         kscrs_initialize(&_cConfig);
     }
@@ -229,6 +246,164 @@ const KSCrashReportID KSCrashReportNoID = 0;
     kscrs_cleanupOrphanedRunSidecars(&_cConfig);
 }
 
+#pragma mark - Run summaries
+
+- (void)sendAllRunSummariesWithConfiguration:(KSCrashSendConfiguration *)configuration
+                                  completion:(nullable KSCrashRunFilterCompletion)onCompletion
+{
+    NSArray<id<KSCrashRunFilter>> *filters = configuration.runSummaryFilters;
+
+    if (filters.count == 0) {
+        if (onCompletion) {
+            onCompletion(@[], [KSNSErrorHelper errorWithDomain:[[self class] description]
+                                                          code:0
+                                                   description:@"No run filters set. Run summaries not sent."]);
+        }
+        return;
+    }
+
+    const char *runsDirC = _cConfig.runSummariesPath;
+    if (runsDirC == NULL || runsDirC[0] == '\0') {
+        if (onCompletion) {
+            onCompletion(@[], nil);
+        }
+        return;
+    }
+    // Reentrancy guard: only one send pipeline runs at a time. Two concurrent
+    // calls would each decode the same files and pass duplicates to the sink;
+    // the second delete pass would also see ENOENT for everything the first
+    // pass deleted. Take the flag synchronously here so the second caller gets
+    // immediate feedback rather than silently joining a duplicate batch.
+    os_unfair_lock_lock(&_runSummaryLock);
+    if (_isSendingRunSummaries) {
+        os_unfair_lock_unlock(&_runSummaryLock);
+        if (onCompletion) {
+            onCompletion(@[], [KSNSErrorHelper errorWithDomain:[[self class] description]
+                                                          code:0
+                                                   description:@"Run summary send already in progress."]);
+        }
+        return;
+    }
+    _isSendingRunSummaries = YES;
+    os_unfair_lock_unlock(&_runSummaryLock);
+
+    NSString *runsDir = [NSString stringWithUTF8String:runsDirC];
+    int maxCount = _cConfig.maxRunSummaryCount;
+
+    __weak __typeof(self) weakSelf = self;
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+        @autoreleasepool {
+            __strong __typeof(weakSelf) strongSelf = weakSelf;
+            if (strongSelf == nil) {
+                // Self is gone, so the flag dies with it — no need to clear.
+                if (onCompletion) onCompletion(@[], nil);
+                return;
+            }
+
+            // runID → list of on-disk paths that decoded to that runID. A
+            // list (not a single path) because the sink contract is keyed
+            // by runID and we must not lose a file to a duplicate-runID
+            // collision — on collision we still want to delete every file
+            // the sink confirmed as shipped.
+            NSMutableArray<KSCrashRunSummary *> *summaries = nil;
+            NSMutableDictionary<NSString *, NSMutableArray<NSString *> *> *runIDToPaths = nil;
+
+            os_unfair_lock_lock(&strongSelf->_runSummaryLock);
+
+            ksruncontext_pruneRunSummaries(runsDirC, maxCount);
+
+            NSFileManager *fm = [NSFileManager defaultManager];
+            NSArray<NSString *> *entries = [fm contentsOfDirectoryAtPath:runsDir error:nil];
+            summaries = [NSMutableArray arrayWithCapacity:entries.count];
+            runIDToPaths = [NSMutableDictionary dictionaryWithCapacity:entries.count];
+            for (NSString *entry in entries) {
+                @autoreleasepool {
+                    if (![entry.pathExtension.lowercaseString isEqualToString:@"run"]) {
+                        continue;
+                    }
+                    NSString *path = [runsDir stringByAppendingPathComponent:entry];
+                    NSData *data = [NSData dataWithContentsOfFile:path];
+                    if (data == nil) {
+                        continue;
+                    }
+                    KSCrashRunSummary *summary = [KSCrashRunSummary summaryFromJSONData:data error:nil];
+                    if (summary == nil) {
+                        KSLOG_ERROR(@"Failed to decode run summary at %@", path);
+                        continue;
+                    }
+                    // Summaries with no runID can't be tied back to a sink
+                    // acknowledgement, so skip them entirely rather than
+                    // shipping a record we'd never be able to delete.
+                    // Pruning by maxRunSummaryCount eventually reclaims them.
+                    if (summary.runID.length == 0) {
+                        KSLOG_ERROR(@"Run summary at %@ has empty runID; skipping", path);
+                        continue;
+                    }
+                    [summaries addObject:summary];
+                    NSMutableArray<NSString *> *bucket = runIDToPaths[summary.runID];
+                    if (bucket == nil) {
+                        bucket = [NSMutableArray arrayWithCapacity:1];
+                        runIDToPaths[summary.runID] = bucket;
+                    }
+                    [bucket addObject:path];
+                }
+            }
+
+            os_unfair_lock_unlock(&strongSelf->_runSummaryLock);
+
+            if (summaries.count == 0) {
+                os_unfair_lock_lock(&strongSelf->_runSummaryLock);
+                strongSelf->_isSendingRunSummaries = NO;
+                os_unfair_lock_unlock(&strongSelf->_runSummaryLock);
+                if (onCompletion) onCompletion(@[], nil);
+                return;
+            }
+
+            [strongSelf
+                runRunFilterChain:filters
+                             runs:summaries
+                     onCompletion:^(NSArray<KSCrashRunSummary *> *_Nullable filteredRuns, NSError *_Nullable error) {
+                         __strong __typeof(weakSelf) deleteSelf = weakSelf;
+                         if (error != nil) {
+                             KSLOG_ERROR(@"Run summary send reported an error: %@", error);
+                         }
+                         if (deleteSelf != nil) {
+                             // Delete every file whose runID the sink confirmed
+                             // as shipped. Runs omitted (or all, on full failure)
+                             // stay on disk for retry. Flag clear is in the same
+                             // critical section as the deletes so a follow-up
+                             // sender finds a clean directory state.
+                             os_unfair_lock_lock(&deleteSelf->_runSummaryLock);
+                             NSFileManager *innerFM = [NSFileManager defaultManager];
+                             for (KSCrashRunSummary *summary in filteredRuns) {
+                                 if (summary.runID.length == 0) {
+                                     continue;
+                                 }
+                                 // Pop rather than lookup so a sink that
+                                 // returns the same runID twice doesn't try
+                                 // to delete the same file twice and log a
+                                 // spurious ENOENT on the second pass.
+                                 NSArray<NSString *> *pathsToDelete = runIDToPaths[summary.runID];
+                                 if (pathsToDelete == nil) {
+                                     continue;
+                                 }
+                                 [runIDToPaths removeObjectForKey:summary.runID];
+                                 for (NSString *path in pathsToDelete) {
+                                     NSError *removeError = nil;
+                                     if (![innerFM removeItemAtPath:path error:&removeError]) {
+                                         KSLOG_ERROR(@"Failed to delete run summary at %@: %@", path, removeError);
+                                     }
+                                 }
+                             }
+                             deleteSelf->_isSendingRunSummaries = NO;
+                             os_unfair_lock_unlock(&deleteSelf->_runSummaryLock);
+                         }
+                         if (onCompletion) onCompletion(filteredRuns, error);
+                     }];
+        }
+    });
+}
+
 #pragma mark - Private API
 
 - (void)sendReports:(NSArray<id<KSCrashReport>> *)reports
@@ -308,6 +483,51 @@ const KSCrashReportID KSCrashReportNoID = 0;
 
     id<KSCrashReportFilter> filter = [filters objectAtIndex:iFilter];
     [filter filterReports:reports onCompletion:filterCompletion];
+}
+
+/** Run-summary equivalent of runReportFilterChain:reports:onCompletion:. */
+- (void)runRunFilterChain:(NSArray<id<KSCrashRunFilter>> *)filters
+                     runs:(NSArray<KSCrashRunSummary *> *)runs
+             onCompletion:(KSCrashRunFilterCompletion)onCompletion
+{
+    NSUInteger filterCount = filters.count;
+    if (filterCount == 0) {
+        if (onCompletion) onCompletion(runs, nil);
+        return;
+    }
+
+    __block NSUInteger iFilter = 0;
+    __block KSCrashRunFilterCompletion filterCompletion;
+    __block __weak KSCrashRunFilterCompletion weakFilterCompletion = nil;
+    dispatch_block_t disposeOfCompletion = [^{
+        dispatch_async(dispatch_get_main_queue(), ^{
+            filterCompletion = nil;
+        });
+    } copy];
+    filterCompletion = [^(NSArray<KSCrashRunSummary *> *filteredRuns, NSError *filterError) {
+        if (filterError != nil || filteredRuns == nil) {
+            NSError *error = filterError
+                                 ?: [KSNSErrorHelper errorWithDomain:[[self class] description]
+                                                                code:0
+                                                         description:@"filteredRuns was nil"];
+            if (onCompletion) onCompletion(filteredRuns, error);
+            disposeOfCompletion();
+            return;
+        }
+
+        if (++iFilter < filterCount) {
+            id<KSCrashRunFilter> filter = [filters objectAtIndex:iFilter];
+            [filter filterRuns:filteredRuns onCompletion:weakFilterCompletion];
+            return;
+        }
+
+        if (onCompletion) onCompletion(filteredRuns, filterError);
+        disposeOfCompletion();
+    } copy];
+    weakFilterCompletion = filterCompletion;
+
+    id<KSCrashRunFilter> filter = [filters objectAtIndex:iFilter];
+    [filter filterRuns:runs onCompletion:filterCompletion];
 }
 
 - (nullable NSData *)loadCrashReportJSONWithID:(int64_t)reportID

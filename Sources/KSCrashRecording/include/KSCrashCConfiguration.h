@@ -74,6 +74,12 @@ typedef struct {
      */
     const char *runSidecarsPath;
 
+    /** The directory path for storing per-run summary files.
+     * Files are written with a `.run` extension.
+     * If NULL, defaults to a "Runs" sibling directory alongside reportsPath.
+     */
+    const char *runSummariesPath;
+
     /** The maximum number of crash reports to retain on disk.
      *
      * Defines the upper limit of crash reports to keep in storage. When this threshold
@@ -82,6 +88,13 @@ typedef struct {
      * **Default**: 5
      */
     int maxReportCount;
+
+    /** Upper bound on retained run summaries; oldest are pruned when exceeded.
+     * Set to 0 to disable run-summary persistence entirely.
+     *
+     * **Default**: 50
+     */
+    int maxRunSummaryCount;
 } KSCrashReportStoreCConfiguration;
 
 static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_Default(void)
@@ -91,7 +104,9 @@ static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_
         .reportsPath = NULL,
         .reportSidecarsPath = NULL,
         .runSidecarsPath = NULL,
+        .runSummariesPath = NULL,
         .maxReportCount = 5,
+        .maxRunSummaryCount = 50,
     };
 }
 
@@ -103,7 +118,9 @@ static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_
         .reportsPath = configuration->reportsPath ? strdup(configuration->reportsPath) : NULL,
         .reportSidecarsPath = configuration->reportSidecarsPath ? strdup(configuration->reportSidecarsPath) : NULL,
         .runSidecarsPath = configuration->runSidecarsPath ? strdup(configuration->runSidecarsPath) : NULL,
+        .runSummariesPath = configuration->runSummariesPath ? strdup(configuration->runSummariesPath) : NULL,
         .maxReportCount = configuration->maxReportCount,
+        .maxRunSummaryCount = configuration->maxRunSummaryCount,
     };
 }
 
@@ -113,6 +130,7 @@ static inline void KSCrashReportStoreCConfiguration_Release(KSCrashReportStoreCC
     free((void *)configuration->reportsPath);
     free((void *)configuration->reportSidecarsPath);
     free((void *)configuration->runSidecarsPath);
+    free((void *)configuration->runSummariesPath);
 }
 
 /** Configuration for KSCrash settings.
