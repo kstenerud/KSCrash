@@ -25,11 +25,8 @@
 //
 
 import Foundation
+import Report
 import os.log
-
-#if SWIFT_PACKAGE
-    import Report
-#endif
 
 // MARK: - Output
 

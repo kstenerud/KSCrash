@@ -23,7 +23,6 @@ body:
       label: Integration method
       options:
         - Swift Package Manager
-        - CocoaPods
         - Other
     validations:
       required: true
@@ -32,7 +31,7 @@ body:
     id: error-messages
     attributes:
       label: Error messages
-      description: Paste any error messages you're seeing here (compilation errors, CocoaPods/SPM errors, etc.).
+      description: Paste any error messages you're seeing here (compilation errors, SPM errors, etc.).
       render: shell
     validations:
       required: true
@@ -81,14 +80,13 @@ body:
         Please provide the contents of your lock file. This is crucial for reproducing your environment and debugging the issue.
         
         - For Swift Package Manager: Include the contents of your `Package.resolved`
-        - For CocoaPods: Include the contents of your `Podfile.lock`
         - For manual integration: You can skip this field
 
   - type: textarea
     id: lock-file
     attributes:
       label: Lock file contents
-      description: Paste the contents of your Podfile.lock or Package.resolved here.
+      description: Paste the contents of your Package.resolved here.
       render: yaml
     validations:
       required: false

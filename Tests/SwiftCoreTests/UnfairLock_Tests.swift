@@ -24,11 +24,8 @@
 // THE SOFTWARE.
 //
 
+import SwiftCore
 import XCTest
-
-#if SWIFT_PACKAGE
-    import SwiftCore
-#endif
 
 final class UnfairLockTests: XCTestCase {
 

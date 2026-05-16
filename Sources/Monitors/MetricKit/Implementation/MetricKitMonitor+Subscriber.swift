@@ -25,26 +25,18 @@
 //
 
 import Foundation
+import KSCrashRecording
+import KSCrashRecordingCore
+import Report
 import os.log
 
 #if KSCRASH_HAS_METRICKIT
     import MetricKit
 #endif
 
-#if SWIFT_PACKAGE
-    import KSCrashRecording
-    import KSCrashRecordingCore
-    import Report
-#endif
-
-// Disambiguate from Foundation.MachError.
-// Under SPM, MachError lives in the Report module (ambiguous with Foundation).
-// Under CocoaPods, it's in the current module (KSCrash) which takes priority.
-#if SWIFT_PACKAGE
-    private typealias _MachError = Report.MachError
-#else
-    private typealias _MachError = MachError
-#endif
+// Disambiguate from Foundation.MachError: the one we want lives in the Report
+// module and is ambiguous with Foundation's MachError, so qualify it.
+private typealias _MachError = Report.MachError
 
 // MARK: - MXMetricManagerSubscriber
 

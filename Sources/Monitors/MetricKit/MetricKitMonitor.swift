@@ -25,12 +25,9 @@
 //
 
 import Foundation
-
-#if SWIFT_PACKAGE
-    import KSCrashRecording
-    import KSCrashRecordingCore
-    import SwiftCore
-#endif
+import KSCrashRecording
+import KSCrashRecordingCore
+import SwiftCore
 
 /// A monitor plugin that receives diagnostic and metric payloads from MetricKit.
 @available(iOS 14.0, macOS 12.0, *)

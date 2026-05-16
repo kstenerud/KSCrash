@@ -2,7 +2,6 @@
 ![Untitled](https://github.com/user-attachments/assets/9478bde6-78ae-4d59-b8ab-dc6db4137b9f)
 
 [![Run Unit Tests](https://github.com/kstenerud/KSCrash/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/kstenerud/KSCrash/actions/workflows/unit-tests.yml)
-[![CocoaPods Lint](https://github.com/kstenerud/KSCrash/actions/workflows/cocoapods-lint.yml/badge.svg)](https://github.com/kstenerud/KSCrash/actions/workflows/cocoapods-lint.yml)
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fkstenerud%2FKSCrash%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/kstenerud/KSCrash)
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fkstenerud%2FKSCrash%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/kstenerud/KSCrash)
 
@@ -95,36 +94,14 @@ targets: [
 ]
 ```
 
-### CocoaPods
-
-1. Add to your `Podfile`:
-   ```ruby
-   pod 'KSCrash', '~> 2.5'
-   ```
-
-2. Run:
-   ```
-   $ pod install
-   ```
-
-3. Use the generated `.xcworkspace` file.
-
 ### Post-Installation Setup
 
 Add the following to your `AppDelegate.swift` file:
 
 #### Import KSCrash
 
-For Swift Package Manager:
-
 ```swift
 import KSCrashInstallations
-```
-
-For CocoaPods:
-
-```swift
-import KSCrash
 ```
 
 #### Configure AppDelegate
@@ -186,19 +163,12 @@ installation.sendAllReports { reports, completed, error in
 
 KSCrash includes two optional monitor modules: `BootTimeMonitor` and `DiscSpaceMonitor`. These modules are not included by default and must be explicitly added if needed. They contain privacy-concerning APIs that require showing crash reports to the user before sending this information off the device.
 
-To include these modules:
+To include these modules, add to your target dependencies:
 
-- With CocoaPods:
-  ```ruby
-  pod 'KSCrash/BootTimeMonitor'
-  pod 'KSCrash/DiscSpaceMonitor'
-  ```
-
-- With SPM, add to your target dependencies:
-  ```swift
-  .product(name: "BootTimeMonitor", package: "KSCrash"),
-  .product(name: "DiscSpaceMonitor", package: "KSCrash"),
-  ```
+```swift
+.product(name: "BootTimeMonitor", package: "KSCrash"),
+.product(name: "DiscSpaceMonitor", package: "KSCrash"),
+```
 
 If these modules are linked, they act automatically and require no additional setup. It is the responsibility of the library user to implement the necessary UI for user consent.
 
@@ -210,17 +180,11 @@ KSCrash has an optional module that provides demangling for both C++ and Swift s
 
 This module is used automatically if you use the `Installations` API. If you want to avoid demangling, you can set `isDemangleEnabled` in the `CrashInstallation` instance to `false`.
 
-If you don't use the `Installations` API, you can include this module manually:
+If you don't use the `Installations` API, you can include this module manually by adding to your target dependencies:
 
-- With CocoaPods:
-  ```ruby
-  pod 'KSCrash/DemangleFilter'
-  ```
-
-- With SPM, add to your target dependencies:
-  ```swift
-  .product(name: "DemangleFilter", package: "KSCrash"),
-  ```
+```swift
+.product(name: "DemangleFilter", package: "KSCrash"),
+```
 
 The `CrashReportFilterDemangle` class also has a static API that you can use yourself in case you need to demangle a C++ or Swift symbol.
 
