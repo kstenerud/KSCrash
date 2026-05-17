@@ -134,6 +134,11 @@ typedef struct {
     // Values match `KSCrashRunSummaryHostKind` (0=app, 1=extension,
     // 2=xctest, 3=other). v2 sidecars short-read to 0 = app.
     uint8_t hostKind;
+
+    // Per-run: a perceptible session is owed but not yet counted. Set at
+    // launch and on entering background; cleared when the app first becomes
+    // perceptible. See countPerceptibleSessionIfPending.
+    uint8_t perceptibleSessionPending;
 } KSCrash_LifecycleData;
 
 _Static_assert(sizeof(KSCrash_LifecycleData) == 112, "KSCrash_LifecycleData size changed — bump version");
