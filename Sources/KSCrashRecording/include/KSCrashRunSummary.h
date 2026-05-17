@@ -99,7 +99,12 @@ NS_SWIFT_NAME(RunSummary.Sessions)
 __attribute__((objc_subclassing_restricted))
 @interface KSCrashRunSummarySessions : NSObject
 
+/** Number of times the app reached the foreground this run: a launch that
+ *  actually foregrounds, plus each resume from background. A launch that never
+ *  foregrounds counts zero. */
 @property(nonatomic, readonly) NSInteger perceptibleCount;
+
+/** Number of times the app entered the background this run. */
 @property(nonatomic, readonly) NSInteger imperceptibleCount;
 
 - (instancetype)init NS_UNAVAILABLE;
