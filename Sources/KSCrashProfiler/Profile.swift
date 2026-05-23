@@ -1,7 +1,7 @@
 //
 //  Profile.swift
 //
-//  Created by Alexander Cohen on 2025-12-12.
+//  Created by Alexander Cohen on 2026-05-10.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -29,117 +29,43 @@ import Foundation
 /// Unique identifier for a profiling session.
 public typealias ProfileID = UUID
 
-/// A completed profile containing timing information and captured samples.
+/// The result of a completed profiling session.
 ///
-/// A `Profile` represents the results of a profiling session between `beginProfile(named:)` and
-/// `endProfile(id:)` calls. It contains all samples captured during that time window, along
-/// with timing metadata.
+/// `Profile` describes the public surface common to every profile kind (time, allocation,
+/// future variants): identity, time window, and report writing. Concrete profile types
+/// (`TimeProfile`, future `AllocationProfile`) carry their own data alongside this surface
+/// — samples and capture-timing metrics for `TimeProfile`, allocation events for an
+/// allocation profile.
 ///
-/// To write the profile to a crash report, call `writeReport()`. Since this performs synchronous
-/// disk I/O, it should be called from a background queue.
-///
-/// ## Example
-///
-/// ```swift
-/// let id = profiler.beginProfile(named: "MyOperation")
-/// // ... do work ...
-/// let profile = profiler.endProfile(id: id)!
-/// print("Profile: \(profile.name)")
-/// print("Duration: \(Double(profile.durationNs) / 1_000_000)ms")
-///
-/// DispatchQueue.global().async {
-///     if let url = profile.writeReport() {
-///         print("Report written to: \(url.path)")
-///     }
-/// }
-/// ```
-public struct Profile: Sendable {
+/// Callers that hold a concrete profile see all of its data directly. Callers that hold
+/// `any Profile` can write reports and read the basic timing/identity fields, but must
+/// downcast to inspect kind-specific data.
+public protocol Profile: Sendable {
     /// Unique identifier for this profile session.
-    public let id: ProfileID
+    var id: ProfileID { get }
 
     /// Human-readable name for this profile session.
-    ///
-    /// This is the name provided to `beginProfile(named:)`. Use it to identify
-    /// the operation or code path being profiled.
-    public let name: String
+    var name: String { get }
 
     /// Wall-clock time when profiling started.
-    ///
-    /// Use this for correlating with external events or logs. For duration calculations,
-    /// use the monotonic timestamps instead.
-    public let startTime: Date
+    var startTime: Date { get }
 
     /// Monotonic timestamp when profiling started (nanoseconds from `CLOCK_UPTIME_RAW`).
-    public let startTimestampNs: UInt64
+    var startTimestampNs: UInt64 { get }
 
     /// Monotonic timestamp when profiling ended (nanoseconds from `CLOCK_UPTIME_RAW`).
-    public let endTimestampNs: UInt64
-
-    /// Expected interval between samples in nanoseconds.
-    ///
-    /// This is the configured sampling interval. Actual intervals may vary slightly
-    /// due to timer precision and system load.
-    public let expectedSampleIntervalNs: UInt64
-
-    /// Captured backtrace samples within this profile's time window.
-    ///
-    /// Samples are returned in chronological order. A sample is included when its
-    /// unwind began inside `[startTimestampNs, endTimestampNs]`, i.e. its
-    /// `metadata.timestampBeginNs` falls in the range. Captures that began before
-    /// the window opened are excluded even if their end timestamp crosses into it.
-    public let samples: [Sample]
-
-    /// Number of samples whose stack was deeper than the profiler's `maxFrames`
-    /// and was therefore dropped by the unwinder. These samples are not present
-    /// in `samples`. Compare against `samples.count` to gauge how much profile
-    /// data was lost to truncation, and consider raising `maxFrames` if the
-    /// ratio is high.
-    public let truncatedSampleCount: Int
-
-    /// Total duration of this profile in nanoseconds.
-    public var durationNs: UInt64 {
-        endTimestampNs - startTimestampNs
-    }
+    var endTimestampNs: UInt64 { get }
 
     /// Writes this profile to a crash report file.
     ///
-    /// This method triggers the KSCrash report writing machinery to generate a JSON report
-    /// containing the profile data. The report is written synchronously to the KSCrash
-    /// reports directory.
+    /// Performs synchronous disk I/O via the KSCrash report writing machinery. Call from
+    /// a background queue or task to avoid blocking the main thread.
     ///
     /// - Returns: The URL of the written report file, or `nil` if the report could not be written.
-    ///
-    /// - Note: This method performs synchronous disk I/O and should be called from a background
-    ///   queue or task to avoid blocking the main thread.
-    public func writeReport() -> URL? {
-        _writeReport()
-    }
+    func writeReport() -> URL?
+}
 
-    /// The Mach thread port of the thread that was profiled.
-    ///
-    /// This is the thread from which backtraces were captured during the profiling session.
-    /// Note that this is a Mach thread port (`thread_t`), not a pthread.
-    public let thread: thread_t
-
-    internal init(
-        id: ProfileID,
-        name: String,
-        thread: thread_t,
-        startTime: Date,
-        startTimestampNs: UInt64,
-        endTimestampNs: UInt64,
-        expectedSampleIntervalNs: UInt64,
-        samples: [Sample],
-        truncatedSampleCount: Int = 0
-    ) {
-        self.id = id
-        self.name = name
-        self.thread = thread
-        self.startTime = startTime
-        self.startTimestampNs = startTimestampNs
-        self.endTimestampNs = endTimestampNs
-        self.expectedSampleIntervalNs = expectedSampleIntervalNs
-        self.samples = samples
-        self.truncatedSampleCount = truncatedSampleCount
-    }
+extension Profile {
+    /// Total duration of this profile in nanoseconds.
+    public var durationNs: UInt64 { endTimestampNs - startTimestampNs }
 }

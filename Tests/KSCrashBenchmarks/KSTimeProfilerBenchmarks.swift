@@ -1,5 +1,5 @@
 //
-//  KSProfilerBenchmarks.swift
+//  KSTimeProfilerBenchmarks.swift
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -27,20 +27,20 @@ import KSCrashProfiler
 import XCTest
 
 #if !os(watchOS)
-    class KSProfilerBenchmarks: KSBenchmarkTestCase {
+    class KSTimeProfilerBenchmarks: KSBenchmarkTestCase {
 
-        // MARK: - Profiler Lifecycle Benchmarks
+        // MARK: - TimeProfiler Lifecycle Benchmarks
 
         /// Benchmark profiler initialization
         func testBenchmarkProfilerInit() {
             measure {
-                _ = Profiler(thread: pthread_self(), interval: 0.01, retentionSeconds: 30)
+                _ = TimeProfiler(thread: pthread_self(), interval: 0.01, retentionSeconds: 30)
             }
         }
 
         /// Benchmark begin/end profile cycle with minimal duration
         func testBenchmarkBeginEndProfile() {
-            let profiler = Profiler(thread: pthread_self(), interval: 0.01, retentionSeconds: 5)
+            let profiler = TimeProfiler(thread: pthread_self(), interval: 0.01, retentionSeconds: 5)
 
             measure {
                 let id = profiler.beginProfile(named: "benchmark")
@@ -62,7 +62,7 @@ import XCTest
         private static let perSampleAvgDisplayName = "Per-sample avg latency"
 
         /// Runs `body` inside `measure(metrics:)`, emitting per-sample average
-        /// latency from the returned `ProfileMetrics` as a custom metric.
+        /// latency from the returned `TimeProfileMetrics` as a custom metric.
         ///
         /// Asserts at least one sample was captured per iteration. A regression
         /// that yields zero samples (e.g. `Sample` capacity smaller than the
@@ -74,7 +74,7 @@ import XCTest
         private func measurePerSampleLatency(
             file: StaticString = #file,
             line: UInt = #line,
-            body: @escaping () -> ProfileMetrics?
+            body: @escaping () -> TimeProfileMetrics?
         ) {
             var avgSeconds: Double = 0
             let metric = ProfilerSampleMetric(
@@ -102,7 +102,7 @@ import XCTest
         /// stack. The default `maxFrames` (128) is large enough to keep
         /// captures from being discarded as truncated.
         func testBenchmarkHighFrequencySampling() {
-            let profiler = Profiler(
+            let profiler = TimeProfiler(
                 thread: pthread_self(),
                 interval: 0.005,
                 retentionSeconds: 5
@@ -117,7 +117,7 @@ import XCTest
 
         /// Benchmark profiling with 10ms interval (default frequency)
         func testBenchmarkDefaultFrequencySampling() {
-            let profiler = Profiler(
+            let profiler = TimeProfiler(
                 thread: pthread_self(),
                 interval: 0.01,
                 retentionSeconds: 5
@@ -149,7 +149,7 @@ import XCTest
                 return
             }
 
-            let profiler = Profiler(
+            let profiler = TimeProfiler(
                 thread: thread,
                 interval: 0.01,
                 retentionSeconds: 5
@@ -172,7 +172,7 @@ import XCTest
         /// `testBenchmarkHighFrequencySampling`: the XCTest stack is too deep
         /// for the smaller buffers we used to test against.
         func testBenchmarkSampleRetrieval() {
-            let profiler = Profiler(
+            let profiler = TimeProfiler(
                 thread: pthread_self(),
                 interval: 0.005,
                 retentionSeconds: 5
@@ -189,7 +189,7 @@ import XCTest
 
         /// Benchmark multiple concurrent profile sessions
         func testBenchmarkConcurrentProfiles() {
-            let profiler = Profiler(
+            let profiler = TimeProfiler(
                 thread: pthread_self(),
                 interval: 0.01,
                 retentionSeconds: 10
@@ -214,7 +214,7 @@ import XCTest
         func testBenchmarkStorageSizeCalculation() {
             measure {
                 for _ in 0..<1000 {
-                    _ = Profiler.storageSize(interval: 0.01, maxFrames: 128, retentionSeconds: 30)
+                    _ = TimeProfiler.storageSize(interval: 0.01, maxFrames: 128, retentionSeconds: 30)
                 }
             }
         }
@@ -251,7 +251,7 @@ import XCTest
             // Each cycle schedules immediate sample capture (first sample is taken asynchronously shortly after begin)
             measure {
                 for _ in 0..<100 {
-                    let profiler = Profiler(
+                    let profiler = TimeProfiler(
                         thread: thread,
                         interval: 0.001,
                         maxFrames: maxFrames,
@@ -298,7 +298,7 @@ import XCTest
 
         // MARK: - Per-Sample Capture Latency Benchmarks
 
-        /// Benchmark individual sample capture operations using ProfileMetrics.
+        /// Benchmark individual sample capture operations using TimeProfileMetrics.
         /// This measures the actual hot-path performance including allocation overhead.
         ///
         /// Profiles a thread holding a moderate (64-frame) stack at 1 ms over
@@ -325,7 +325,7 @@ import XCTest
                 return
             }
 
-            let profiler = Profiler(
+            let profiler = TimeProfiler(
                 thread: thread,
                 interval: 0.001,  // 1ms
                 maxFrames: 128,
@@ -365,7 +365,7 @@ import XCTest
                 return
             }
 
-            let profiler = Profiler(
+            let profiler = TimeProfiler(
                 thread: thread,
                 interval: 0.001,  // 1ms
                 maxFrames: 512,
@@ -410,7 +410,7 @@ import XCTest
                 return
             }
 
-            let profiler = Profiler(
+            let profiler = TimeProfiler(
                 thread: thread,
                 interval: 0.001,  // 1ms
                 maxFrames: 128,
@@ -509,7 +509,7 @@ import XCTest
             var sampleCounts: [Int] = []
 
             for _ in 0..<runs {
-                let profiler = Profiler(
+                let profiler = TimeProfiler(
                     thread: thread,
                     interval: 0.001,
                     maxFrames: 128,
