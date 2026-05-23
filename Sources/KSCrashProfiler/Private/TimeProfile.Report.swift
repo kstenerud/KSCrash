@@ -1,5 +1,5 @@
 //
-//  Profile.Report.swift
+//  TimeProfile.Report.swift
 //
 //  Created by Alexander Cohen on 2025-12-17.
 //
@@ -32,9 +32,9 @@ import Foundation
     import SwiftCore
 #endif
 
-// MARK: - Profile Report Writing
+// MARK: - Time Profile Report Writing
 
-/// Extension that provides crash report writing functionality for profiles.
+/// Extension that provides crash report writing functionality for time-sampled profiles.
 ///
 /// This extension registers a custom KSCrash monitor that allows profiles to be written
 /// as crash reports. The report format uses frame deduplication to minimize file size:
@@ -52,7 +52,7 @@ import Foundation
 /// - `duration`: Profile duration in nanoseconds
 /// - `frames`: Array of unique symbolicated frames
 /// - `samples`: Array of samples, each referencing frames by index
-extension Profile {
+extension TimeProfile {
 
     /// Writes this profile to a crash report file.
     ///
@@ -84,9 +84,9 @@ extension Profile {
 
         let context = callbacks.notify(thread, requirements)
         kscm_fillMonitorContext(context, api)
-        let callbackContext = Unmanaged.passRetained(BoxedProfile(self)).toOpaque()
+        let callbackContext = Unmanaged.passRetained(BoxedTimeProfile(self)).toOpaque()
         defer {
-            Unmanaged<BoxedProfile>.fromOpaque(callbackContext).release()
+            Unmanaged<BoxedTimeProfile>.fromOpaque(callbackContext).release()
         }
         context?.pointee.callbackContext = callbackContext
         // Profile frames already include object_uuid, so binary_images is redundant.
@@ -109,17 +109,17 @@ extension Profile {
     }
 }
 
-// MARK: - BoxedProfile
+// MARK: - BoxedTimeProfile
 
-/// A class wrapper around `Profile` for passing through C callbacks.
+/// A class wrapper around `TimeProfile` for passing through C callbacks.
 ///
-/// Since `Profile` is a struct, we need a reference type to pass through the
+/// Since `TimeProfile` is a struct, we need a reference type to pass through the
 /// `void*` context in the monitor callbacks. This class boxes the profile and
 /// provides the `write(with:)` method to serialize it to JSON.
-private class BoxedProfile {
-    let profile: Profile
+private class BoxedTimeProfile {
+    let profile: TimeProfile
 
-    init(_ profile: Profile) {
+    init(_ profile: TimeProfile) {
         self.profile = profile
     }
 
@@ -323,6 +323,6 @@ private func profileMonitorWriteInReportSection(
         return
     }
 
-    let profileBox = Unmanaged<BoxedProfile>.fromOpaque(callbackContext).takeUnretainedValue()
+    let profileBox = Unmanaged<BoxedTimeProfile>.fromOpaque(callbackContext).takeUnretainedValue()
     profileBox.write(with: writer)
 }

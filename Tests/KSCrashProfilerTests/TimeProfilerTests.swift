@@ -1,5 +1,5 @@
 //
-//  ProfilerTests.swift
+//  TimeProfilerTests.swift
 //
 //  Created by Claude on 2025-12-13.
 //
@@ -30,9 +30,9 @@ import XCTest
 
 @testable import KSCrashProfiler
 
-final class ProfilerTests: XCTestCase {
+final class TimeProfilerTests: XCTestCase {
 
-    // MARK: - Profiler Initialization Tests
+    // MARK: - TimeProfiler Initialization Tests
 
     override func setUp() {
         ksdl_init()
@@ -43,14 +43,14 @@ final class ProfilerTests: XCTestCase {
     }
 
     func testProfilerInitialization() {
-        let profiler = Profiler(thread: pthread_self())
+        let profiler = TimeProfiler(thread: pthread_self())
 
         XCTAssertFalse(profiler.isRunning, "Profiler should not be running initially")
         XCTAssertEqual(profiler.intervalNs, 10_000_000, "Default interval should be 10ms (10,000,000 ns)")
     }
 
     func testProfilerInitializationWithCustomParameters() {
-        let profiler = Profiler(
+        let profiler = TimeProfiler(
             thread: pthread_self(),
             interval: 0.005,  // 5ms
             retentionSeconds: 10
@@ -62,7 +62,7 @@ final class ProfilerTests: XCTestCase {
 
     func testProfilerClampsMinimumInterval() {
         // Interval below 1ms should be clamped to 1ms
-        let profiler = Profiler(
+        let profiler = TimeProfiler(
             thread: pthread_self(),
             interval: 0.0001  // 0.1ms - too small
         )
@@ -75,22 +75,22 @@ final class ProfilerTests: XCTestCase {
     func testStorageSizeCalculation() {
         // With 10ms interval, 128 frames, 30 seconds retention:
         // capacity = 30 / 0.01 = 3000 samples
-        let size = Profiler.storageSize(interval: 0.01, maxFrames: 128, retentionSeconds: 30)
+        let size = TimeProfiler.storageSize(interval: 0.01, maxFrames: 128, retentionSeconds: 30)
         XCTAssertGreaterThan(size, 0, "Storage size should be positive")
 
         // Verify smaller configuration yields smaller storage
-        let smallerSize = Profiler.storageSize(interval: 0.01, maxFrames: 32, retentionSeconds: 10)
+        let smallerSize = TimeProfiler.storageSize(interval: 0.01, maxFrames: 32, retentionSeconds: 10)
         XCTAssertLessThan(smallerSize, size, "Smaller config should yield smaller storage")
     }
 
     func testStorageSizeWithMinimalConfig() {
-        let size = Profiler.storageSize(interval: 1.0, maxFrames: 32, retentionSeconds: 1)
+        let size = TimeProfiler.storageSize(interval: 1.0, maxFrames: 32, retentionSeconds: 1)
         XCTAssertGreaterThan(size, 0)
     }
 
     func testStorageSizeScalesWithRetention() {
-        let size1 = Profiler.storageSize(interval: 0.01, maxFrames: 64, retentionSeconds: 10)
-        let size2 = Profiler.storageSize(interval: 0.01, maxFrames: 64, retentionSeconds: 20)
+        let size1 = TimeProfiler.storageSize(interval: 0.01, maxFrames: 64, retentionSeconds: 10)
+        let size2 = TimeProfiler.storageSize(interval: 0.01, maxFrames: 64, retentionSeconds: 20)
 
         // Doubling retention should roughly double storage (within ~5% — the
         // fixed scratch buffer doesn't double with retention).
@@ -102,7 +102,7 @@ final class ProfilerTests: XCTestCase {
     // MARK: - Begin/End Profile Tests
 
     func testBeginProfileStartsSampling() {
-        let profiler = Profiler(thread: pthread_self())
+        let profiler = TimeProfiler(thread: pthread_self())
 
         XCTAssertFalse(profiler.isRunning)
 
@@ -116,7 +116,7 @@ final class ProfilerTests: XCTestCase {
     }
 
     func testEndProfileWithInvalidIdReturnsNil() {
-        let profiler = Profiler(thread: pthread_self())
+        let profiler = TimeProfiler(thread: pthread_self())
 
         let invalidId = UUID()
         let profile = profiler.endProfile(id: invalidId)
@@ -125,7 +125,7 @@ final class ProfilerTests: XCTestCase {
     }
 
     func testEndProfileCannotBeCalledTwice() {
-        let profiler = Profiler(thread: pthread_self())
+        let profiler = TimeProfiler(thread: pthread_self())
 
         let id = profiler.beginProfile(named: "test")
         let profile1 = profiler.endProfile(id: id)
@@ -138,7 +138,7 @@ final class ProfilerTests: XCTestCase {
     // MARK: - Multiple Concurrent Profiles Tests
 
     func testMultipleConcurrentProfiles() {
-        let profiler = Profiler(thread: pthread_self())
+        let profiler = TimeProfiler(thread: pthread_self())
 
         let id1 = profiler.beginProfile(named: "test")
         XCTAssertTrue(profiler.isRunning)
@@ -160,7 +160,7 @@ final class ProfilerTests: XCTestCase {
     // MARK: - Profile Content Tests
 
     func testProfileContainsValidTimestamps() {
-        let profiler = Profiler(
+        let profiler = TimeProfiler(
             thread: pthread_self(),
             interval: 0.005,
             retentionSeconds: 5
@@ -186,7 +186,7 @@ final class ProfilerTests: XCTestCase {
             throw XCTSkip("watchOS does not support backtrace capture")
         #endif
 
-        let profiler = Profiler(
+        let profiler = TimeProfiler(
             thread: pthread_self(),
             interval: 0.005,  // 5ms
             retentionSeconds: 5
@@ -212,7 +212,7 @@ final class ProfilerTests: XCTestCase {
             throw XCTSkip("watchOS does not support backtrace capture")
         #endif
 
-        let profiler = Profiler(
+        let profiler = TimeProfiler(
             thread: pthread_self(),
             interval: 0.01,
             retentionSeconds: 5
@@ -247,7 +247,7 @@ final class ProfilerTests: XCTestCase {
             throw XCTSkip("watchOS does not support backtrace capture")
         #endif
 
-        let profiler = Profiler(
+        let profiler = TimeProfiler(
             thread: pthread_self(),
             interval: 0.01,
             retentionSeconds: 5
@@ -276,7 +276,7 @@ final class ProfilerTests: XCTestCase {
     }
 
     func testSamplesBeginWithinProfileTimeWindow() {
-        let profiler = Profiler(
+        let profiler = TimeProfiler(
             thread: pthread_self(),
             interval: 0.005,
             retentionSeconds: 5
@@ -307,7 +307,7 @@ final class ProfilerTests: XCTestCase {
     func testSamplesInRangeExcludesSampleWhoseBeginPrecedesStart() {
         // Directly drives samplesInRangeLocked with hand-crafted slot timestamps so we can
         // pin the membership rule (begin within range) without relying on capture timing.
-        let profiler = Profiler(
+        let profiler = TimeProfiler(
             thread: pthread_self(),
             interval: 0.01,
             maxFrames: 4,
@@ -352,7 +352,7 @@ final class ProfilerTests: XCTestCase {
     func testTruncatedSamplesAreCountedSeparately() {
         // Slots whose unwind produced a truncated stack must be excluded from `samples`
         // but counted in `truncatedSampleCount`, only when they fall inside the window.
-        let profiler = Profiler(
+        let profiler = TimeProfiler(
             thread: pthread_self(),
             interval: 0.01,
             maxFrames: 4,
@@ -404,7 +404,7 @@ final class ProfilerTests: XCTestCase {
     // MARK: - Profile Duration Tests
 
     func testProfileDurationProperty() {
-        let profiler = Profiler(
+        let profiler = TimeProfiler(
             thread: pthread_self(),
             interval: 0.01,
             retentionSeconds: 5
@@ -428,7 +428,7 @@ final class ProfilerTests: XCTestCase {
     // MARK: - Thread Safety Tests
 
     func testConcurrentBeginEndFromMultipleThreads() {
-        let profiler = Profiler(
+        let profiler = TimeProfiler(
             thread: pthread_self(),
             interval: 0.01,
             retentionSeconds: 10
@@ -436,7 +436,7 @@ final class ProfilerTests: XCTestCase {
 
         let group = DispatchGroup()
         let iterations = 10
-        var profiles: [Profile?] = Array(repeating: nil, count: iterations)
+        var profiles: [TimeProfile?] = Array(repeating: nil, count: iterations)
         let lock = NSLock()
 
         for i in 0..<iterations {
@@ -472,7 +472,7 @@ final class ProfilerTests: XCTestCase {
         #endif
 
         // Create a profiler with small capacity (1 second retention with 100ms interval = 10 samples)
-        let profiler = Profiler(
+        let profiler = TimeProfiler(
             thread: pthread_self(),
             interval: 0.1,  // 100ms
             retentionSeconds: 1  // Small retention to test ring buffer
@@ -528,7 +528,7 @@ final class ProfilerTests: XCTestCase {
             return
         }
 
-        let profiler = Profiler(
+        let profiler = TimeProfiler(
             thread: targetThread,
             interval: 0.005,
             retentionSeconds: 5
@@ -550,7 +550,7 @@ final class ProfilerTests: XCTestCase {
     // MARK: - Expected Sample Interval Tests
 
     func testExpectedSampleInterval() {
-        let profiler = Profiler(
+        let profiler = TimeProfiler(
             thread: pthread_self(),
             interval: 0.02,  // 20ms
             retentionSeconds: 5
@@ -569,7 +569,7 @@ final class ProfilerTests: XCTestCase {
     // MARK: - Start/Stop Cycling Tests
 
     func testStartStopCycling() {
-        let profiler = Profiler(
+        let profiler = TimeProfiler(
             thread: pthread_self(),
             interval: 0.01,
             retentionSeconds: 5
@@ -592,7 +592,7 @@ final class ProfilerTests: XCTestCase {
     // MARK: - Profile Isolation Tests
 
     func testSequentialProfilesAreIsolated() {
-        let profiler = Profiler(
+        let profiler = TimeProfiler(
             thread: pthread_self(),
             interval: 0.01,
             retentionSeconds: 5
@@ -627,7 +627,7 @@ final class ProfilerTests: XCTestCase {
             throw XCTSkip("watchOS does not support backtrace capture")
         #endif
 
-        let profiler = Profiler(
+        let profiler = TimeProfiler(
             thread: pthread_self(),
             interval: 0.005,
             retentionSeconds: 10
@@ -668,7 +668,7 @@ final class ProfilerTests: XCTestCase {
     // MARK: - Profile Name Tests
 
     func testProfileNameIsCaptured() {
-        let profiler = Profiler(thread: pthread_self())
+        let profiler = TimeProfiler(thread: pthread_self())
 
         let id = profiler.beginProfile(named: "MyOperation")
         let profile = profiler.endProfile(id: id)
@@ -678,7 +678,7 @@ final class ProfilerTests: XCTestCase {
     }
 
     func testProfileNameWithEmptyString() {
-        let profiler = Profiler(thread: pthread_self())
+        let profiler = TimeProfiler(thread: pthread_self())
 
         let id = profiler.beginProfile(named: "")
         let profile = profiler.endProfile(id: id)
@@ -688,7 +688,7 @@ final class ProfilerTests: XCTestCase {
     }
 
     func testProfileNameWithSpecialCharacters() {
-        let profiler = Profiler(thread: pthread_self())
+        let profiler = TimeProfiler(thread: pthread_self())
         let specialName = "Test/Profile:With-Special_Characters.123"
 
         let id = profiler.beginProfile(named: specialName)
@@ -701,7 +701,7 @@ final class ProfilerTests: XCTestCase {
     // MARK: - Profile Thread Tests
 
     func testProfileThreadIsCaptured() {
-        let profiler = Profiler(thread: pthread_self())
+        let profiler = TimeProfiler(thread: pthread_self())
 
         let id = profiler.beginProfile(named: "test")
         let profile = profiler.endProfile(id: id)
@@ -713,7 +713,7 @@ final class ProfilerTests: XCTestCase {
     func testProfileThreadMatchesProfilerThread() {
         let currentThread = pthread_self()
         let expectedMachThread = pthread_mach_thread_np(currentThread)
-        let profiler = Profiler(thread: currentThread)
+        let profiler = TimeProfiler(thread: currentThread)
 
         let id = profiler.beginProfile(named: "test")
         let profile = profiler.endProfile(id: id)
@@ -725,7 +725,7 @@ final class ProfilerTests: XCTestCase {
     // MARK: - Write Report Tests
 
     func testWriteReportCanBeCalled() {
-        let profiler = Profiler(thread: pthread_self())
+        let profiler = TimeProfiler(thread: pthread_self())
 
         let id = profiler.beginProfile(named: "test")
         Thread.sleep(forTimeInterval: 0.02)
@@ -739,7 +739,7 @@ final class ProfilerTests: XCTestCase {
     }
 
     func testMultipleProfilesCanCallWriteReport() {
-        let profiler = Profiler(
+        let profiler = TimeProfiler(
             thread: pthread_self(),
             interval: 0.005,
             retentionSeconds: 5
