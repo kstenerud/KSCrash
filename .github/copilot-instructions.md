@@ -1,23 +1,32 @@
 # GitHub Copilot Code Review Instructions for KSCrash
 
-When performing code reviews on this repository, follow these instructions to identify API breaking changes in the KSCrash crash reporting library.
+When performing code reviews on this repository, follow these instructions to identify API breaking
+changes in the KSCrash crash reporting library.
 
 ## Scope of Review
 
-Only review changes to public API surfaces. The public modules are: KSCrashRecording, KSCrashFilters, KSCrashSinks, KSCrashInstallations, KSCrashDiscSpaceMonitor, KSCrashBootTimeMonitor, KSCrashDemangleFilter, Monitors, Report, and KSCrashProfiler. For C/ObjC modules, examine files in `Sources/[ModuleName]/include/*.h` directories as these contain the public headers. For Swift modules (Monitors, Report, KSCrashProfiler), all public types and functions are part of the API surface.
+Only review changes to public API surfaces. The public modules are: KSCrashRecording,
+KSCrashFilters, KSCrashSinks, KSCrashInstallations, KSCrashDiscSpaceMonitor, KSCrashBootTimeMonitor,
+KSCrashDemangleFilter, Monitors, Report, and KSCrashProfiler. For C/ObjC modules, examine files in
+`Sources/[ModuleName]/include/*.h` directories as these contain the public headers. For Swift
+modules (Monitors, Report, KSCrashProfiler), all public types and functions are part of the API
+surface.
 
 ## Critical Breaking Changes - Always Flag
 
 ### Method Parameter Changes
-Flag ANY parameter addition, removal, or type changes to existing Objective-C methods. Objective-C has no default parameters, so even adding a nullable parameter breaks all existing call sites.
+
+Flag ANY parameter addition, removal, or type changes to existing Objective-C methods. Objective-C
+has no default parameters, so even adding a nullable parameter breaks all existing call sites.
 
 Examples of breaking changes:
+
 ```objc
 // BREAKING: Adding parameter
 - (void)method:(NSString *)existing;                                     // Old
 - (void)method:(NSString *)existing newParam:(nullable NSString *)param; // New - BREAKING
 
-// BREAKING: Parameter removal  
+// BREAKING: Parameter removal
 - (void)method:(NSString *)param1 param2:(NSString *)param2;    // Old
 - (void)method:(NSString *)param1;                              // New - BREAKING
 
@@ -31,9 +40,12 @@ Examples of breaking changes:
 ```
 
 ### Callback Signature Changes
-Flag any changes to callback or function pointer signatures including parameter addition, removal, reordering, or return type changes.
+
+Flag any changes to callback or function pointer signatures including parameter addition, removal,
+reordering, or return type changes.
 
 Examples of breaking changes:
+
 ```c
 // BREAKING: Parameter addition
 typedef void (*SomeCallback)(Writer *writer);                   // Old
@@ -45,9 +57,11 @@ typedef Policy (*SomeCallback)(Context *ctx);    // New - BREAKING
 ```
 
 ### Property Changes
+
 Flag any property type changes or nullability changes in either direction.
 
 Examples of breaking changes:
+
 ```objc
 // BREAKING: Property type changes
 @property (nonatomic, strong) NSString *prop;    // Old
@@ -66,9 +80,12 @@ Examples of breaking changes:
 ```
 
 ### Swift API Changes via NS_SWIFT_NAME
-Flag any addition, modification, or removal of NS_SWIFT_NAME attributes on existing types or methods.
+
+Flag any addition, modification, or removal of NS_SWIFT_NAME attributes on existing types or
+methods.
 
 Examples of breaking changes:
+
 ```objc
 // BREAKING: Adding NS_SWIFT_NAME to existing type
 @interface ExistingClass : NSObject                              // Old
@@ -88,9 +105,12 @@ NS_SWIFT_NAME(SwiftName) @interface MyClass : NSObject    // Old
 ```
 
 ### Struct and Enum Changes
-Flag any struct or enum field reordering, removal, or type changes as these break binary compatibility.
+
+Flag any struct or enum field reordering, removal, or type changes as these break binary
+compatibility.
 
 Examples of breaking changes:
+
 ```c
 // BREAKING: Field reordering
 typedef struct {    // Old
@@ -125,9 +145,11 @@ typedef enum {      // New - BREAKING
 ```
 
 ### Protocol Requirement Changes
+
 Flag changes between required and optional protocol methods.
 
 Examples of breaking changes:
+
 ```objc
 // BREAKING: Adding required methods
 @protocol PublicProtocol         // Old
@@ -153,9 +175,11 @@ Examples of breaking changes:
 ```
 
 ### Function Signature Changes
+
 Flag any C function parameter or return type changes.
 
 Examples of breaking changes:
+
 ```c
 // BREAKING: Parameter changes
 void someFunction(int param);                    // Old
@@ -167,9 +191,11 @@ int someFunction(void);     // New - BREAKING
 ```
 
 ### Class Hierarchy Changes
+
 Flag any superclass changes for existing classes.
 
 Examples of breaking changes:
+
 ```objc
 // BREAKING: Changing superclass
 @interface MyClass : NSObject    // Old
@@ -177,9 +203,11 @@ Examples of breaking changes:
 ```
 
 ### Private Module Leaks
+
 Flag any private module types appearing in public headers.
 
 Examples of breaking changes:
+
 ```objc
 // BREAKING: Private types in public API
 #import "KSCrashRecordingCore/SomePrivateType.h"  // FLAG if used in public headers
@@ -189,7 +217,9 @@ Examples of breaking changes:
 ## Safe Changes - Don't Flag
 
 ### Deprecation
+
 Adding deprecation attributes is safe:
+
 ```objc
 // SAFE: Deprecation warnings don't break compilation
 @property (deprecated("Use newProperty instead")) id oldProperty;
@@ -197,7 +227,9 @@ Adding deprecation attributes is safe:
 ```
 
 ### New APIs with New Names
+
 Adding completely new methods, properties, or classes is safe:
+
 ```objc
 // SAFE: New methods with different names
 - (void)existingMethod:(NSString *)param;
@@ -209,14 +241,18 @@ Adding completely new methods, properties, or classes is safe:
 ```
 
 ### NS_SWIFT_NAME on New APIs
+
 Adding NS_SWIFT_NAME to brand new APIs is safe:
+
 ```objc
 // SAFE: NS_SWIFT_NAME on new APIs only
 NS_SWIFT_NAME(NewSwiftAPI) @interface BrandNewClass : NSObject
 ```
 
 ### Optional Protocol Methods
+
 Adding optional methods to protocols is safe:
+
 ```objc
 // SAFE: Adding optional methods
 @protocol ExistingProtocol
@@ -228,6 +264,10 @@ Adding optional methods to protocols is safe:
 
 ## Review Process
 
-For each PR, examine modified public headers and flag any of the breaking change patterns above. Ask yourself: Would existing user code fail to compile after this change? If yes, it's breaking. The KSCrash library prioritizes API stability, so breaking changes need strong justification and migration guidance.
+For each PR, examine modified public headers and flag any of the breaking change patterns above. Ask
+yourself: Would existing user code fail to compile after this change? If yes, it's breaking. The
+KSCrash library prioritizes API stability, so breaking changes need strong justification and
+migration guidance.
 
-Pay special attention to callback API changes as this library has a history of major callback signature evolution for async-safety and policy awareness.
+Pay special attention to callback API changes as this library has a history of major callback
+signature evolution for async-safety and policy awareness.
