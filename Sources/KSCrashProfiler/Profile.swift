@@ -83,9 +83,18 @@ public struct Profile: Sendable {
 
     /// Captured backtrace samples within this profile's time window.
     ///
-    /// Samples are returned in chronological order. Only samples whose capture time
-    /// overlaps with `[startTimestampNs, endTimestampNs]` are included.
-    public let samples: [any Sample]
+    /// Samples are returned in chronological order. A sample is included when its
+    /// unwind began inside `[startTimestampNs, endTimestampNs]`, i.e. its
+    /// `metadata.timestampBeginNs` falls in the range. Captures that began before
+    /// the window opened are excluded even if their end timestamp crosses into it.
+    public let samples: [Sample]
+
+    /// Number of samples whose stack was deeper than the profiler's `maxFrames`
+    /// and was therefore dropped by the unwinder. These samples are not present
+    /// in `samples`. Compare against `samples.count` to gauge how much profile
+    /// data was lost to truncation, and consider raising `maxFrames` if the
+    /// ratio is high.
+    public let truncatedSampleCount: Int
 
     /// Total duration of this profile in nanoseconds.
     public var durationNs: UInt64 {
@@ -120,7 +129,8 @@ public struct Profile: Sendable {
         startTimestampNs: UInt64,
         endTimestampNs: UInt64,
         expectedSampleIntervalNs: UInt64,
-        samples: [any Sample]
+        samples: [Sample],
+        truncatedSampleCount: Int = 0
     ) {
         self.id = id
         self.name = name
@@ -130,5 +140,6 @@ public struct Profile: Sendable {
         self.endTimestampNs = endTimestampNs
         self.expectedSampleIntervalNs = expectedSampleIntervalNs
         self.samples = samples
+        self.truncatedSampleCount = truncatedSampleCount
     }
 }
