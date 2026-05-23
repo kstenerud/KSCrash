@@ -26,6 +26,47 @@
 
 import Foundation
 
+/// App memory state classification.
+///
+/// Mirrors the C `KSCrashAppMemoryState` enum (`KSCrashAppMemory.h`). Values are
+/// emitted as lowercase strings in the report JSON and used for both the app's
+/// own memory level and system-wide memory pressure.
+public enum MemoryState: RawRepresentable, Codable, Sendable, Equatable {
+    case normal
+    case warn
+    case urgent
+    case critical
+    case terminal
+    case unknown(String)
+
+    public init(rawValue: String) {
+        switch rawValue {
+        case "normal": self = .normal
+        case "warn": self = .warn
+        case "urgent": self = .urgent
+        case "critical": self = .critical
+        case "terminal": self = .terminal
+        default: self = .unknown(rawValue)
+        }
+    }
+
+    public var rawValue: String {
+        switch self {
+        case .normal: return "normal"
+        case .warn: return "warn"
+        case .urgent: return "urgent"
+        case .critical: return "critical"
+        case .terminal: return "terminal"
+        case .unknown(let value): return value
+        }
+    }
+
+    public var isUnknown: Bool {
+        if case .unknown = self { return true }
+        return false
+    }
+}
+
 /// App memory information at crash time.
 public struct AppMemoryInfo: Codable, Sendable, Equatable {
     /// Memory footprint of the app in bytes.
@@ -35,16 +76,16 @@ public struct AppMemoryInfo: Codable, Sendable, Equatable {
     public let memoryRemaining: UInt64?
 
     /// System memory pressure level.
-    public let memoryPressure: String?
+    public let memoryPressure: MemoryState?
 
     /// App memory level.
-    public let memoryLevel: String?
+    public let memoryLevel: MemoryState?
 
     /// Memory limit for the app in bytes.
     public let memoryLimit: UInt64?
 
     /// App transition state at crash time.
-    public let appTransitionState: String?
+    public let appTransitionState: AppTransitionState?
 
     enum CodingKeys: String, CodingKey {
         case memoryFootprint = "memory_footprint"
