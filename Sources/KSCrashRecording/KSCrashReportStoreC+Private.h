@@ -100,6 +100,19 @@ bool kscrs_getRunSidecarFilePathForRunID(const char *monitorId, const char *runI
                                          size_t pathBufferLength,
                                          const KSCrashReportStoreCConfiguration *const configuration);
 
+/** Sets the configuration used by the no-config readers
+ *  (kscrs_readReportAtPath, kscrs_readReportByPathAndID, kscrs_finalizeReport)
+ *  for sidecar stitching.
+ *
+ *  Typically called once by kscrash_install. Tests that need stitching to work
+ *  without going through kscrash_install can call this directly. Pass NULL to
+ *  clear (e.g. in tearDown so cross-test state does not leak).
+ *
+ *  The configuration is deep-copied; the caller does not need to keep the
+ *  passed pointer alive after this call returns.
+ */
+void kscrs_setStitchConfig(const KSCrashReportStoreCConfiguration *configuration);
+
 /** Read a report by path and ID, applying fixup and all stitch callbacks.
  *
  * Like kscrs_readReportAtPath but also stitches per-report sidecars

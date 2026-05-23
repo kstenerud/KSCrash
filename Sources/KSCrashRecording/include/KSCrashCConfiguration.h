@@ -96,7 +96,7 @@ static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_
 }
 
 static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_Copy(
-    KSCrashReportStoreCConfiguration *configuration)
+    const KSCrashReportStoreCConfiguration *configuration)
 {
     return (KSCrashReportStoreCConfiguration) {
         .appName = configuration->appName ? strdup(configuration->appName) : NULL,
