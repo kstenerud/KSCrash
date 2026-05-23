@@ -25,16 +25,13 @@
 //
 
 import Foundation
+import KSCrashRecording
+import KSCrashRecordingCore
+import SwiftCore
 import os.log
 
 #if KSCRASH_HAS_METRICKIT
     import MetricKit
-#endif
-
-#if SWIFT_PACKAGE
-    import KSCrashRecording
-    import KSCrashRecordingCore
-    import SwiftCore
 #endif
 
 // MARK: - Internal Implementation

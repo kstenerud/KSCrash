@@ -25,10 +25,7 @@
 //
 
 import Foundation
-
-#if SWIFT_PACKAGE
-    import KSCrashRecording
-#endif
+import KSCrashRecording
 
 /// A Swift-friendly wrapper around the C `ReportWriter` struct.
 ///

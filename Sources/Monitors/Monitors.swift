@@ -24,9 +24,7 @@
 // THE SOFTWARE.
 //
 
-#if SWIFT_PACKAGE
-    import KSCrashRecording
-#endif
+import KSCrashRecording
 
 /// Namespace for plugin monitors that can be added to `KSCrashConfiguration.plugins`.
 ///

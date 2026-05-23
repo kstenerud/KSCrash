@@ -7,17 +7,7 @@ on:
         description: "Version number for this release"
         required: true
       dry_run:
-        description: "Test workflow locally without touching remote or CocoaPods"
-        type: boolean
-        default: false
-        required: false
-      publish_only:
-        description: "Publish to CocoaPods without version updates or tagging"
-        type: boolean
-        default: false
-        required: false
-      skip_trunk:
-        description: "Run the full release flow but skip pod trunk push (for end-to-end testing on a branch)"
+        description: "Test workflow locally without touching the remote"
         type: boolean
         default: false
         required: false
@@ -35,36 +25,7 @@ jobs:
         id: record_branch
         run: echo "branch=$(git branch --show-current)" >> $GITHUB_OUTPUT
 
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: "3.2.2"
-
-      - name: Install Ruby Gems
-        run: bundle install
-
-      - name: Use Latest Stable Xcode
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: latest-stable
-
-      - name: Ensure Platforms are Downloaded
-        if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.skip_trunk != 'true' }}
-        run: |
-          xcodebuild -runFirstLaunch
-          xcrun simctl list
-          for platform in iOS watchOS tvOS visionOS; do
-            echo "Downloading $platform platform..."
-            xcodebuild -downloadPlatform $platform
-            xcodebuild -runFirstLaunch
-          done
-
-      - name: Update version in podspec
-        if: ${{ github.event.inputs.publish_only != 'true' }}
-        run: sed -i '' 's/s.version      = "[^"]*"/s.version      = "${{ github.event.inputs.version }}"/' KSCrash.podspec
-
       - name: Update version in source code
-        if: ${{ github.event.inputs.publish_only != 'true' }}
         run: |
           formatted_version_number=$(echo "${{ github.event.inputs.version }}" | awk -F. '{printf("%d.%02d%02d\n", $1, $2, $3)}')
           sed -i '' 's/const double KSCrashFrameworkVersionNumber = [^;]*/const double KSCrashFrameworkVersionNumber = '"$formatted_version_number"'/' Sources/KSCrashRecording/KSCrash.m
@@ -73,26 +34,19 @@ jobs:
       - name: Update README
         # Skip README version bumps for prereleases (e.g. 2.6.1-beta.1) — we don't
         # want docs pointing users at a beta tag. Real releases still update README.
-        if: ${{ github.event.inputs.publish_only != 'true' && !contains(github.event.inputs.version, '-') }}
+        if: ${{ !contains(github.event.inputs.version, '-') }}
         run: |
           sed -i '' "s/\.package(url: \"https:\/\/github.com\/kstenerud\/KSCrash.git\", .upToNextMajor(from: \"[^\"]*\"))/\.package(url: \"https:\/\/github.com\/kstenerud\/KSCrash.git\", .upToNextMajor(from: \"${{ github.event.inputs.version }}\"))/" README.md
-          VERSION="${{ github.event.inputs.version }}"
-          if [[ "$VERSION" == *"-"* ]]; then
-            sed -i '' "s/pod 'KSCrash'.*$/pod 'KSCrash', '~> $VERSION'/" README.md
-          else
-            sed -i '' "s/pod 'KSCrash'.*$/pod 'KSCrash', '~> ${VERSION%.*}'/" README.md
-          fi
 
       - name: Configure git identity
-        if: ${{ github.event.inputs.publish_only != 'true' }}
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
 
       - name: Dry run summary
-        if: ${{ github.event.inputs.dry_run == 'true' && github.event.inputs.publish_only != 'true' }}
+        if: ${{ github.event.inputs.dry_run == 'true' }}
         run: |
-          echo "Dry run: version edits applied locally. Nothing will be pushed or published."
+          echo "Dry run: version edits applied locally. Nothing will be pushed."
           echo
           git status
           echo
@@ -100,16 +54,16 @@ jobs:
 
       - name: Commit version update
         id: commit_version
-        if: ${{ github.event.inputs.publish_only != 'true' && github.event.inputs.dry_run != 'true' }}
+        if: ${{ github.event.inputs.dry_run != 'true' }}
         run: |
-          git add KSCrash.podspec Sources/KSCrashRecording/KSCrash.m README.md
+          git add Sources/KSCrashRecording/KSCrash.m README.md
           git commit -m "Update version to ${{ github.event.inputs.version }}"
           git push origin HEAD:${{ steps.record_branch.outputs.branch }}
           echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
       - name: Tag release (flags-stripped, not on any branch)
         id: tag
-        if: ${{ github.event.inputs.publish_only != 'true' && github.event.inputs.dry_run != 'true' }}
+        if: ${{ github.event.inputs.dry_run != 'true' }}
         run: |
           # Strip unsafe flags on a commit that's tagged and pushed, but never
           # merged into the branch. Branch history stays clean (no revert-of-revert
@@ -125,19 +79,6 @@ jobs:
           echo "name=$TAG_NAME" >> $GITHUB_OUTPUT
           # Drop the strip commit locally so the working tree matches what's on the branch.
           git reset --hard HEAD~1
-
-      - name: Publish to CocoaPods
-        id: trunk_push
-        if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.skip_trunk != 'true' }}
-        env:
-          COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_PASSWORD }}
-        run: |
-          # --allow-warnings: trunk's server-side validator rejects the
-          # `subspec.visionos.pod_target_xcconfig` pattern as an unrecognized
-          # key warning, even though cocoapods-core accepts it and pod lib
-          # lint passes locally. See CocoaPods/CocoaPods#12291.
-          pod trunk push KSCrash.podspec --verbose --allow-warnings
-          echo "pushed=true" >> $GITHUB_OUTPUT
 
       # --- Inline rollback ---
       # Each step runs only if a previous step has failed (failure()) AND the
@@ -160,11 +101,3 @@ jobs:
           git pull origin ${{ steps.record_branch.outputs.branch }}
           git revert --no-edit ${{ steps.commit_version.outputs.sha }}
           git push origin HEAD:${{ steps.record_branch.outputs.branch }}
-
-      - name: Rollback - pod trunk delete
-        if: failure() && steps.trunk_push.outputs.pushed == 'true'
-        env:
-          COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_PASSWORD }}
-        run: |
-          pod trunk delete KSCrash "${{ github.event.inputs.version }}" || \
-            echo "Trunk delete failed — likely outside the 30-minute window. Manual action may be required."
