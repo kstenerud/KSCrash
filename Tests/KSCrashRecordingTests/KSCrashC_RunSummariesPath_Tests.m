@@ -71,7 +71,6 @@ extern bool kscrash_testcode_deriveReportsSiblingDir(const char *reportsPath, co
     // No usable parent directory → fall back to subdir under installPath.
     XCTAssertEqualObjects([self derive:"Runs" reports:"Reports" install:"/tmp/Install"], @"/tmp/Install/Runs");
     XCTAssertEqualObjects([self derive:"Runs" reports:"/Reports" install:"/tmp/Install"], @"/tmp/Install/Runs");
-    XCTAssertEqualObjects([self derive:"Runs" reports:NULL install:"/tmp/Install"], @"/tmp/Install/Runs");
 }
 
 - (void)testSidecarsAndRunSidecarsUseSameSiblingRule

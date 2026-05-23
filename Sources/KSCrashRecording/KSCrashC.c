@@ -408,22 +408,21 @@ static bool getRunSidecarPathForRunIDCallback(const char *monitorId, const char 
  *  trimmed first, so reportsPath "/a/Reports/" with subdir "Runs" yields
  *  "/a/Runs", not "/a/Reports/Runs" (the store scans the sibling, so the
  *  latter would never be found). Falls back to subdir under installPath when
- *  reportsPath has no usable parent. Returns false if the result does not fit
- *  in out. */
+ *  reportsPath has no usable parent (e.g. "Reports" or "/Reports"). reportsPath
+ *  must be non-NULL; the caller fills in a default before this is reached.
+ *  Returns false if the result does not fit in out. */
 static bool deriveReportsSiblingDir(const char *reportsPath, const char *installPath, const char *subdir, char *out,
                                     size_t outSize)
 {
     const char *lastSlash = NULL;
-    if (reportsPath != NULL) {
-        size_t len = strlen(reportsPath);
-        while (len > 1 && reportsPath[len - 1] == '/') {
-            len--;
-        }
-        for (const char *p = reportsPath + len; p > reportsPath; p--) {
-            if (p[-1] == '/') {
-                lastSlash = p - 1;
-                break;
-            }
+    size_t len = strlen(reportsPath);
+    while (len > 1 && reportsPath[len - 1] == '/') {
+        len--;
+    }
+    for (const char *p = reportsPath + len; p > reportsPath; p--) {
+        if (p[-1] == '/') {
+            lastSlash = p - 1;
+            break;
         }
     }
     int written;
