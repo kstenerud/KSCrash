@@ -2,6 +2,11 @@ name: Public API Diff
 
 on:
   pull_request:
+    # develop is the integration line for the next major (3.0). Breaking
+    # changes are expected there, so the digester gate would be noise.
+    # When 3.0 ships, re-enable by deleting this exclusion.
+    branches-ignore:
+      - develop
     paths:
       - "Sources/**"
       - "Package.swift"
