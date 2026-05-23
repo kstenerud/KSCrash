@@ -129,7 +129,12 @@ static int beginHandlingException(thread_t handlerThread)
 
 static void endHandlingException(int threadIndex)
 {
-    atomic_store(&g_state.threadsHandlingExceptions[threadIndex], 0);
+    // Mirror the bounds check in beginHandlingException: an index past the array
+    // was never stored into in the first place, so there's nothing to clear and
+    // attempting it would write OOB.
+    if (threadIndex >= 0 && threadIndex < MAX_SIMULTANEOUS_EXCEPTIONS) {
+        atomic_store(&g_state.threadsHandlingExceptions[threadIndex], 0);
+    }
 
     int expectedIndex = g_state.handlingExceptionIndex;
     if (expectedIndex == 0) {
