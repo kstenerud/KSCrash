@@ -2,11 +2,14 @@ name: Public API Diff
 
 on:
   pull_request:
-    # develop is the integration line for the next major (3.0). Breaking
-    # changes are expected there, so the digester gate would be noise.
-    # When 3.0 ships, re-enable by deleting this exclusion.
-    branches-ignore:
-      - develop
+    # Only gate PRs that will land on a stable base (master + release/*).
+    # develop is the 3.0 integration line where breaking changes are expected,
+    # and PRs stacked on develop (e.g. ac/run-summary -> ac/remove-installations-base)
+    # would slip past a develop-only exclusion. Listing stable bases explicitly
+    # covers both. When 3.0 ships and develop merges into master, add develop here.
+    branches:
+      - master
+      - "release/**"
     paths:
       - "Sources/**"
       - "Package.swift"
