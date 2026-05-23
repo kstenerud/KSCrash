@@ -1,3 +1,54 @@
+2.6.0:
+
+New Features:
+
+- Watchdog monitor: Detects main thread hangs (250ms+ threshold) using run-loop observation. Captures full backtraces, tracks hang duration and recovery state. Replaces the deprecated Deadlock monitor.
+- Termination monitor: Detects OS-level terminations that can't be caught at runtime (OOM, thermal kills, CPU watchdog, device reboots, OS/app upgrades). Uses mmap'd sidecar files to compare previous-run state against current system state at launch.
+- CPU tracker: Sliding-window CPU state tracking that mirrors Apple's enforcement thresholds (50% over 180s for warning, 80% over 60s for critical). Optional non-fatal EXC_RESOURCE report generation on state transitions.
+- Hang reporting: Optional retention of resolved hangs as non-fatal reports (enableHangReporting). Startup hangs are automatically suppressed.
+- Hang observers: Real-time hang state change callbacks via KSCrash+Hang.h.
+- Per-key user info API: Type-safe, mmap'd key-value store (KSCrash+UserInfo.h) replaces the deprecated dictionary-based userInfo property. Zero crash-time overhead.
+- previousTerminationReason: Query why the previous run ended (13 distinct reason codes).
+- Report module (Swift): Strongly-typed CrashReport<UserData> model for parsing crash reports. AppMemoryInfo.memoryLevel/memoryPressure are typed as a new MemoryState enum and AppMemoryInfo.appTransitionState is typed as AppTransitionState, replacing the raw String? fields used during early beta. A matching ObjC KSCrashExcType_Profile constant covers profile reports.
+- Monitors module (Swift): MetricKit plugin for receiving Apple diagnostic payloads.
+- Profiler module (Swift): Sampling profiler for thread backtraces at regular intervals. Profile/Profiler are protocols; TimeProfile/TimeProfiler are the concrete time-sampling implementation. Configurable maxFrames (runtime), opt-in fast unwind via KSBacktraceUnwindMethods, ring storage ~1.5 MB at defaults.
+- Backtrace capture API: Direct access to crash-time backtrace infrastructure (KSCrash+Backtrace.h). Adds ksbt_captureBacktraceFromSuspendedMachThread for callers that have already suspended a target thread.
+- Threadcrumbs: Encode short messages into thread call stacks for recovery via symbolication.
+- Plugin monitor API: Register custom monitors via KSCrashConfiguration.plugins.
+- Compact binary images: Optional filtering to only include backtrace-referenced images (enableCompactBinaryImages).
+- Report store improvements: KSCrashReportID typedef, nextReportID, sendReportWithID:includeCurrentRun:completion: for per-report sending.
+- Sidecar system: mmap'd per-report and per-run sidecar files for storing auxiliary monitor data without modifying the main report.
+- Stitch pipeline: Parse-once, stitch-all, encode-once architecture for merging sidecar data into reports at delivery time.
+- RunContext: Cross-monitor shared layer for previous-run analysis and termination reason detection.
+- KSLogger level-alias opt-out: define KSLOGGER_NO_LEVEL_ALIASES=1 so KSLogger.h leaves your TRACE/DEBUG/INFO/WARN/ERROR identifiers alone; pass levels using the prefixed names (KSLogger_Level_Warn) or numeric values instead.
+- CI: Public API breaking-change gate using swift-api-digester runs on PRs targeting stable bases (master, release/*) so source-breaking changes can't slip in without being explicit.
+
+Deprecations:
+
+- DEPRECATED KSCrash.userInfo property. Use per-key API in KSCrash+UserInfo.h.
+- DEPRECATED KSCrashMonitorTypeMainThreadDeadlock. Use KSCrashMonitorTypeWatchdog.
+- DEPRECATED KSCrashMonitorTypeMemoryTermination. Use KSCrashMonitorTypeTermination.
+- DEPRECATED deadlockWatchdogInterval. Use KSCrashMonitorTypeWatchdog (fixed 250ms threshold).
+- DEPRECATED enableSigTermMonitoring. SIGTERM is now always caught for clean shutdown detection.
+- DEPRECATED KSCrashAppStateTrackerObserving protocol. Use addObserverWithBlock:.
+- DEPRECATED crashNotifyCallback/reportWrittenCallback. Use isWritingReportCallback/didWriteReportCallback.
+
+Behavioral Changes:
+
+- crashedLastLaunch now returns true for resource terminations (OOM, thermal, CPU) and unrecovered hangs, not just crashes.
+- KSCrashMonitorTypeRequired now includes UserInfo and Resource (auto-enabled regardless of user selection).
+- KSCRS_MAX_PATH_LENGTH increased from 500 to 1024 bytes.
+- New KSCrashMonitorTypeCompatible251 composite mask for gradual migration from 2.5.1.
+
+Bug Fixes:
+
+- Constructing a KSCrashReportStore after install no longer silently replaces the install's sidecar/stitch config, so the no-config readers (readReportAtPath, readReportByPathAndID, finalizeReport) keep finding sidecars in the install's directories instead of the store's.
+- Watchdog stitch no longer overwrites is_fatal on non-watchdog reports when both monitors emit sidecars for the same report.
+- JSON codec and KSLogger callsites that ran inside signal handlers were using non-async-signal-safe primitives; replaced with ksstring_uint64ToHex / ksstring_intToDecimal where applicable.
+
+See the migration guide for details: https://github.com/kstenerud/KSCrash/wiki/Migration-Guide-for-KSCrash-2.5-to-2.6
+
+
 1.15.2:
 
 Added HTTP report submission to Android.
