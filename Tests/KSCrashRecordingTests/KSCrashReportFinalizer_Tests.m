@@ -26,8 +26,10 @@
 
 #import "FileBasedTestCase.h"
 
+#import "KSCrashConfiguration.h"
 #import "KSCrashMonitor.h"
 #import "KSCrashReportFields.h"
+#import "KSCrashReportStore.h"
 #import "KSCrashReportStoreC+Private.h"
 #import "KSCrashReportStoreC.h"
 #import "KSJSONCodecObjC.h"
@@ -101,6 +103,7 @@ static CFDictionaryRef noopStitchReport(CFDictionaryRef reportDict, __unused con
 
 - (void)tearDown
 {
+    kscrs_setStitchConfig(NULL);
     kscm_removeMonitor(&_testMonitorAPI);
     kscm_removeMonitor(&_failingMonitorAPI);
     kscm_removeMonitor(&_noopMonitorAPI);
@@ -118,6 +121,7 @@ static CFDictionaryRef noopStitchReport(CFDictionaryRef reportDict, __unused con
     _storeConfig.runSidecarsPath = runSidecarsPath.UTF8String;
     _storeConfig.maxReportCount = 10;
     kscrs_initialize(&_storeConfig);
+    kscrs_setStitchConfig(&_storeConfig);
 }
 
 - (int64_t)writeReportWithRunId:(NSString *)runId
@@ -262,6 +266,43 @@ static CFDictionaryRef noopStitchReport(CFDictionaryRef reportDict, __unused con
 
     NSDictionary *report = [self readReportJSON:path];
     XCTAssertEqualObjects(report[@"finalizer_test_stitch"], @"stitched_report_data");
+}
+
+- (void)testConstructingReportStoreDoesNotHijackStitchConfig
+{
+    // Regression: prior to the fix, KSCrashReportStore.init called
+    // kscrs_initialize, which had the side effect of replacing the global
+    // stitch config with the Store's config. Constructing a Store after
+    // install made finalize/read look up sidecars in the Store's paths
+    // instead of the install's. This test pins the new contract: only
+    // kscrs_setStitchConfig sets the stitch config; constructing a Store
+    // does not.
+    [self prepareStore:@"testHijackA"];  // sets stitch config to _storeConfig (paths under testHijackA)
+    [self registerTestMonitor];
+
+    NSString *runId = [[NSUUID UUID] UUIDString];
+    int64_t reportID = [self writeReportWithRunId:runId];
+    [self writeReportSidecar:@"FinalizerTestMonitor" reportID:reportID contents:@"data_from_store_A"];
+    NSString *path = [self reportPathForID:reportID];
+
+    // Construct an unrelated KSCrashReportStore with a different reports path.
+    // Its init calls kscrs_initialize on its own config; we expect the stitch
+    // config (set above by prepareStore) to remain unchanged.
+    KSCrashReportStoreConfiguration *otherConfig = [KSCrashReportStoreConfiguration new];
+    otherConfig.appName = @"otherapp";
+    otherConfig.reportsPath = [self.tempPath stringByAppendingPathComponent:@"testHijackB"];
+    KSCrashReportStore *otherStore = [KSCrashReportStore storeWithConfiguration:otherConfig error:nil];
+    XCTAssertNotNil(otherStore);
+
+    // If construction had hijacked the stitch config, finalize would now look
+    // for sidecars under testHijackB's paths and fail to find the one written
+    // under testHijackA. With the fix, the stitch config still points at
+    // testHijackA and the sidecar is found.
+    bool result = kscrs_finalizeReport(path.UTF8String, reportID);
+    XCTAssertTrue(result);
+
+    NSDictionary *report = [self readReportJSON:path];
+    XCTAssertEqualObjects(report[@"finalizer_test_stitch"], @"data_from_store_A");
 }
 
 #pragma mark - Sidecar Cleanup

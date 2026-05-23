@@ -64,6 +64,12 @@
     self.appName = @"myapp";
 }
 
+- (void)tearDown
+{
+    kscrs_setStitchConfig(NULL);
+    [super tearDown];
+}
+
 - (void)prepareReportStoreWithPathEnd:(NSString *)pathEnd
 {
     [self prepareReportStoreWithPathEnd:pathEnd maxReportCount:5];
@@ -76,6 +82,7 @@
     _storeConfig.reportsPath = self.reportStorePath.UTF8String;
     _storeConfig.maxReportCount = maxReportCount;
     kscrs_initialize(&_storeConfig);
+    kscrs_setStitchConfig(&_storeConfig);
 }
 
 - (void)prepareReportStoreWithSidecarsWithPathEnd:(NSString *)pathEnd
@@ -87,6 +94,7 @@
     _storeConfig.reportSidecarsPath = sidecarsPath.UTF8String;
     _storeConfig.maxReportCount = 5;
     kscrs_initialize(&_storeConfig);
+    kscrs_setStitchConfig(&_storeConfig);
 }
 
 - (NSArray *)getReportIDs
@@ -657,6 +665,7 @@
     _storeConfig.runSidecarsPath = runSidecarsPath.UTF8String;
     _storeConfig.maxReportCount = 5;
     kscrs_initialize(&_storeConfig);
+    kscrs_setStitchConfig(&_storeConfig);
 
     NSString *json = @"{\"report\":\"not a dict\",\"crash\":{}}";
     int64_t reportID = kscrs_addUserReport(json.UTF8String, (int)json.length, &_storeConfig);
