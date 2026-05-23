@@ -1060,6 +1060,69 @@ final class CrashReportDecodingTests: XCTestCase {
         }
     }
 
+    func testDecodeAllMemoryStates() throws {
+        for (raw, expected): (String, MemoryState) in [
+            ("normal", .normal),
+            ("warn", .warn),
+            ("urgent", .urgent),
+            ("critical", .critical),
+            ("terminal", .terminal),
+        ] {
+            let json = """
+                {
+                    "crash": { "error": { "type": "signal" } },
+                    "system": {
+                        "app_memory": {
+                            "memory_level": "\(raw)",
+                            "memory_pressure": "\(raw)"
+                        }
+                    },
+                    "report": { "id": "test" }
+                }
+                """
+            let report = try CrashReport.decode(from: json)
+            XCTAssertEqual(report.system?.appMemory?.memoryLevel, expected, "memory_level \(raw)")
+            XCTAssertEqual(report.system?.appMemory?.memoryPressure, expected, "memory_pressure \(raw)")
+        }
+    }
+
+    func testDecodeUnknownMemoryState() throws {
+        let json = """
+            {
+                "crash": { "error": { "type": "signal" } },
+                "system": {
+                    "app_memory": {
+                        "memory_level": "future_state"
+                    }
+                },
+                "report": { "id": "test" }
+            }
+            """
+
+        let report = try CrashReport.decode(from: json)
+        XCTAssertEqual(report.system?.appMemory?.memoryLevel, .unknown("future_state"))
+        XCTAssertEqual(report.system?.appMemory?.memoryLevel?.isUnknown, true)
+    }
+
+    func testDecodeAppMemoryAppTransitionStateIsTyped() throws {
+        // AppMemoryInfo.appTransitionState used to be String?; verifying it now decodes
+        // into the typed AppTransitionState enum, matching ApplicationStats.appTransitionState.
+        let json = """
+            {
+                "crash": { "error": { "type": "signal" } },
+                "system": {
+                    "app_memory": {
+                        "app_transition_state": "active"
+                    }
+                },
+                "report": { "id": "test" }
+            }
+            """
+
+        let report = try CrashReport.decode(from: json)
+        XCTAssertEqual(report.system?.appMemory?.appTransitionState, .active)
+    }
+
     func testDecodeIsCleanExitAbsent() throws {
         let json = """
             {
