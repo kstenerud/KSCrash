@@ -1,4 +1,11 @@
 
+> [!NOTE]
+> **Branch layout (May 2026)**
+>
+> - [`master`](https://github.com/kstenerud/KSCrash): latest stable release, currently `2.5.1`
+> - [`develop`](https://github.com/kstenerud/KSCrash/tree/develop): next-release work, **target this for new PRs**
+> - [`release/2.6.0`](https://github.com/kstenerud/KSCrash/tree/release/2.6.0): in-flight 2.6 line, latest beta is [`2.6.0-beta.2`](https://github.com/kstenerud/KSCrash/releases/tag/2.6.0-beta.2)
+
 ![Untitled](https://github.com/user-attachments/assets/9478bde6-78ae-4d59-b8ab-dc6db4137b9f)
 
 [![Run Unit Tests](https://github.com/kstenerud/KSCrash/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/kstenerud/KSCrash/actions/workflows/unit-tests.yml)
