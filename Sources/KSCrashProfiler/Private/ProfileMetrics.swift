@@ -44,6 +44,11 @@ public struct ProfileMetrics: Sendable {
     /// Per-sample capture timing in nanoseconds.
     public let sampleTimingsNs: [UInt64]
 
+    /// Number of samples whose stack was deeper than the profiler's `maxFrames`
+    /// and was dropped by the unwinder. Mirrors `Profile.truncatedSampleCount`.
+    /// Compare against `count` to gauge how much data was lost.
+    public let truncatedSampleCount: Int
+
     /// Number of samples with timing data.
     public var count: Int { sampleTimingsNs.count }
 
@@ -94,8 +99,9 @@ public struct ProfileMetrics: Sendable {
     /// Creates metrics from an array of samples.
     ///
     /// Extracts `durationNs` from each sample's metadata.
-    internal init(samples: [any Sample]) {
+    internal init(samples: [Sample], truncatedSampleCount: Int = 0) {
         self.sampleTimingsNs = samples.map { $0.metadata.durationNs }
+        self.truncatedSampleCount = truncatedSampleCount
     }
 }
 
@@ -106,6 +112,6 @@ extension Profile {
     /// This property is computed on demand. For repeated access, store the result
     /// in a local variable.
     public var metrics: ProfileMetrics {
-        ProfileMetrics(samples: samples)
+        ProfileMetrics(samples: samples, truncatedSampleCount: truncatedSampleCount)
     }
 }

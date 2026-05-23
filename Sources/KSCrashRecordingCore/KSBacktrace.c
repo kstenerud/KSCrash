@@ -91,8 +91,29 @@ static bool resumeMachThread(thread_t machThread)
 #endif
 }
 
+// Default unwind method chain: compact unwind, DWARF, FP fallback. Most accurate.
+// Used by the standard ksbt_captureBacktrace* entrypoints. Callers wanting a different
+// trade-off (e.g., a sampling profiler that wants to skip DWARF) use
+// ksbt_captureBacktraceFromMachThreadWithMethods with their own list.
+static const KSUnwindMethod kStandardUnwindMethods[] = { KSUnwindMethod_CompactUnwind, KSUnwindMethod_Dwarf,
+                                                         KSUnwindMethod_FramePointer };
+
+// Bitmask → unwind-method mapping used to resolve KSBacktraceUnwindMethods.
+// Adding a new method bit only requires adding a row here: the resolved-method
+// buffer below sizes itself from this table, so the code stays in sync.
+static const struct {
+    KSBacktraceUnwindMethods bit;
+    KSUnwindMethod method;
+} kUnwindMethodMap[] = {
+    { KSBacktraceUnwindCompactUnwind, KSUnwindMethod_CompactUnwind },
+    { KSBacktraceUnwindDwarf, KSUnwindMethod_Dwarf },
+    { KSBacktraceUnwindFramePointer, KSUnwindMethod_FramePointer },
+};
+#define KSBT_UNWIND_METHOD_COUNT (sizeof(kUnwindMethodMap) / sizeof(*kUnwindMethodMap))
+
 // Unwinds a thread that is already suspended. Caller must hold g_captureLock.
-static int unwindSuspendedThread(thread_t machThread, uintptr_t *addresses, int maxFrames, bool *isTruncated)
+static int unwindSuspendedThreadWithMethods(thread_t machThread, uintptr_t *addresses, int maxFrames, bool *isTruncated,
+                                            const KSUnwindMethod *methods, size_t methodCount)
 {
     // Lightweight context initialization - only set what's needed for unwinding.
     // Avoids the ~4KB memset that ksmc_getContextForThread does.
@@ -109,7 +130,7 @@ static int unwindSuspendedThread(thread_t machThread, uintptr_t *addresses, int 
     // would make the truncation probe (the extra advanceCursor call after filling the buffer)
     // always return false. We pass maxFrames+1 so the unwinder allows that one extra step.
     // This is safe: the probe result is never stored into addresses[].
-    kssc_initWithUnwind(&stackCursor, maxFrames + 1, &machineContext);
+    kssc_initWithUnwindMethods(&stackCursor, maxFrames + 1, &machineContext, methods, methodCount);
 
     int frameCount = 0;
     while (frameCount < maxFrames && stackCursor.advanceCursor(&stackCursor)) {
@@ -121,6 +142,12 @@ static int unwindSuspendedThread(thread_t machThread, uintptr_t *addresses, int 
     }
 
     return frameCount;
+}
+
+static int unwindSuspendedThread(thread_t machThread, uintptr_t *addresses, int maxFrames, bool *isTruncated)
+{
+    return unwindSuspendedThreadWithMethods(machThread, addresses, maxFrames, isTruncated, kStandardUnwindMethods,
+                                            sizeof(kStandardUnwindMethods) / sizeof(*kStandardUnwindMethods));
 }
 
 static int captureBacktraceFromSelf(uintptr_t *addresses, int maxFrames, bool *isTruncated)
@@ -157,10 +184,13 @@ static int captureBacktraceFromSuspendedThread(thread_t machThread, uintptr_t *a
     return frameCount;
 }
 
-static int captureBacktraceFromRunningThread(thread_t machThread, uintptr_t *addresses, int maxFrames,
-                                             bool *out_isTruncated)
+static int captureBacktraceFromRunningThreadWithMethods(thread_t machThread, uintptr_t *addresses, int maxFrames,
+                                                        bool *out_isTruncated, const KSUnwindMethod *methods,
+                                                        size_t methodCount)
 {
     if (machThread == ksthread_self()) {
+        // captureBacktraceFromSelf uses Apple's libc backtrace() under the hood,
+        // which is already a fast frame-pointer walker. Method choice doesn't apply.
         return captureBacktraceFromSelf(addresses, maxFrames, out_isTruncated);
     }
 
@@ -169,7 +199,8 @@ static int captureBacktraceFromRunningThread(thread_t machThread, uintptr_t *add
 
     if (takeThreadCaptureLock()) {
         if (suspendMachThread(machThread)) {
-            frameCount = unwindSuspendedThread(machThread, addresses, maxFrames, &isTruncated);
+            frameCount =
+                unwindSuspendedThreadWithMethods(machThread, addresses, maxFrames, &isTruncated, methods, methodCount);
             resumeMachThread(machThread);
         }
         releaseThreadCaptureLock();
@@ -179,6 +210,14 @@ static int captureBacktraceFromRunningThread(thread_t machThread, uintptr_t *add
         *out_isTruncated = isTruncated;
     }
     return frameCount;
+}
+
+static int captureBacktraceFromRunningThread(thread_t machThread, uintptr_t *addresses, int maxFrames,
+                                             bool *out_isTruncated)
+{
+    return captureBacktraceFromRunningThreadWithMethods(
+        machThread, addresses, maxFrames, out_isTruncated, kStandardUnwindMethods,
+        sizeof(kStandardUnwindMethods) / sizeof(*kStandardUnwindMethods));
 }
 
 int ksbt_captureBacktraceFromSuspendedMachThread(thread_t machThread, uintptr_t *addresses, int count,
@@ -212,6 +251,37 @@ int ksbt_captureBacktraceFromMachThreadWithTruncation(thread_t machThread, uintp
 int ksbt_captureBacktraceFromMachThread(thread_t machThread, uintptr_t *addresses, int count)
 {
     return ksbt_captureBacktraceFromMachThreadWithTruncation(machThread, addresses, count, NULL);
+}
+
+int ksbt_captureBacktraceFromMachThreadWithMethods(thread_t machThread, uintptr_t *addresses, int count,
+                                                   bool *isTruncated, KSBacktraceUnwindMethods methods)
+{
+    if (!addresses || count <= 0 || machThread == MACH_PORT_NULL) {
+        if (isTruncated) {
+            *isTruncated = false;
+        }
+        return 0;
+    }
+
+    // Resolve the bitmask into the natural-order array the unwinder takes.
+    KSUnwindMethod resolved[KSBT_UNWIND_METHOD_COUNT];
+    size_t resolvedCount = 0;
+    for (size_t i = 0; i < KSBT_UNWIND_METHOD_COUNT; i++) {
+        if (methods & kUnwindMethodMap[i].bit) {
+            resolved[resolvedCount++] = kUnwindMethodMap[i].method;
+        }
+    }
+    // Fall back to the default chain when no recognized bits are set, whether
+    // the caller passed 0 or only unknown bits. Otherwise the unwinder would
+    // get an empty method list and silently return 0 frames.
+    if (resolvedCount == 0) {
+        memcpy(resolved, kStandardUnwindMethods, sizeof(kStandardUnwindMethods));
+        resolvedCount = sizeof(kStandardUnwindMethods) / sizeof(*kStandardUnwindMethods);
+    }
+
+    int maxFrames = MIN(count, KSSC_MAX_STACK_DEPTH);
+    return captureBacktraceFromRunningThreadWithMethods(machThread, addresses, maxFrames, isTruncated, resolved,
+                                                        resolvedCount);
 }
 
 int ksbt_captureBacktrace(pthread_t thread, uintptr_t *addresses, int count)

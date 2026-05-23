@@ -26,99 +26,32 @@
 
 import Foundation
 
-// MARK: - Protocol
+// MARK: - Sample
 
-/// Protocol for backtrace samples with fixed-size inline storage.
+/// A single backtrace sample captured during profiling.
 ///
-/// Sample types use tuple-based storage to hold stack frame addresses inline,
-/// avoiding heap allocations during capture. Each concrete type (Sample32, Sample64, etc.)
-/// provides storage for a different maximum number of frames.
-///
-/// ## Choosing a Sample Type
-///
-/// Choose based on your expected maximum stack depth:
-/// - `Sample32`: Shallow stacks (UI code, simple callbacks)
-/// - `Sample64`: Common case (most application code)
-/// - `Sample128`: Deep stacks (recursive algorithms, deep call chains)
-/// - `Sample256`: Very deep stacks (complex frameworks)
-/// - `Sample512`: Extremely deep stacks (rare edge cases)
-///
-/// Using a smaller sample type reduces memory usage but may truncate deep stacks.
-public protocol Sample: Sendable {
-    /// The tuple type used for inline address storage.
-    associatedtype Storage
-
-    /// Maximum number of stack frames this sample type can hold.
-    static var capacity: Int { get }
-
-    /// Number of valid addresses captured (0...capacity).
-    var addressCount: Int { get set }
-
+/// `Sample` is a plain value type. Frame addresses are stored in a
+/// right-sized `[UInt]` (length up to the profiler's `maxFrames`).
+public struct Sample: Sendable {
     /// Timing metadata for this sample.
-    var metadata: SampleMetadata { get set }
+    public var metadata: SampleMetadata
 
-    /// Inline tuple storage for stack frame addresses.
-    var storage: Storage { get set }
+    /// Captured stack frame addresses, deepest call first (matching the order
+    /// produced by the unwinder). Length is at most the profiler's `maxFrames`.
+    public var addresses: [UInt]
 
-    /// Creates a new zero-initialized sample.
-    init()
-}
+    /// Number of valid addresses captured. Equivalent to `addresses.count`.
+    public var addressCount: Int { addresses.count }
 
-// MARK: - Default Implementations
-
-extension Sample {
-    /// Returns the captured stack frame addresses as an array.
-    ///
-    /// This creates a new array from the inline storage. For performance-critical
-    /// code paths, prefer accessing `storage` directly via `withUnsafeBytes`.
-    public var addresses: [UInt] {
-        withUnsafeBytes(of: storage) { ptr in
-            Array(ptr.bindMemory(to: UInt.self).prefix(addressCount))
-        }
-    }
-
-    /// Captures a backtrace from the specified thread into this sample's storage.
-    ///
-    /// - Parameters:
-    ///   - thread: The mach thread port to capture the backtrace from.
-    ///   - captureBacktrace: The backtrace capture function. Takes a mach thread, address buffer,
-    ///     count, and an optional truncation flag pointer; returns the number of frames captured.
-    ///
-    /// After capture, `addressCount` contains the number of valid frames captured.
-    /// If the backtrace was truncated (stack deeper than capacity), `addressCount` is set to 0
-    /// to discard the incomplete sample.
-    public mutating func capture(
-        thread: mach_port_t,
-        using captureBacktrace: (
-            _ machThread: mach_port_t,
-            _ addresses: UnsafeMutablePointer<UInt>,
-            _ count: Int32,
-            _ isTruncated: UnsafeMutablePointer<Bool>?
-        ) -> Int32
-    ) {
-        var isTruncated = false
-        let count = withUnsafeMutableBytes(of: &storage) { ptr in
-            captureBacktrace(
-                thread,
-                ptr.baseAddress!.assumingMemoryBound(to: UInt.self),
-                Int32(Self.capacity),
-                &isTruncated
-            )
-        }
-        addressCount = isTruncated ? 0 : Int(count)
-    }
-
-    /// Creates a new zero-initialized sample instance.
-    public static func make() -> Self {
-        Self()
+    public init(metadata: SampleMetadata = SampleMetadata(), addresses: [UInt] = []) {
+        self.metadata = metadata
+        self.addresses = addresses
     }
 }
 
 // MARK: - Metadata
 
 /// Timing metadata for a captured sample.
-///
-/// Contains timestamps that mark the beginning and end of the backtrace capture operation.
 ///
 /// - `timestampBeginNs`: When backtrace capture began.
 /// - `timestampEndNs`: When backtrace capture completed.
@@ -133,260 +66,8 @@ public struct SampleMetadata: Sendable {
     /// Duration of the backtrace capture in nanoseconds.
     public var durationNs: UInt64 { timestampEndNs &- timestampBeginNs }
 
-    public init() {}
+    public init(timestampBeginNs: UInt64 = 0, timestampEndNs: UInt64 = 0) {
+        self.timestampBeginNs = timestampBeginNs
+        self.timestampEndNs = timestampEndNs
+    }
 }
-
-// MARK: - Concrete Sample Types
-
-/// A sample with storage for up to 32 frames (shallow stacks).
-public struct Sample32: Sample {
-    public static let capacity = 32
-    public var addressCount: Int = 0
-    public var metadata = SampleMetadata()
-    public var storage: Storage32 = (
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-    )
-    public init() {}
-}
-
-/// A sample with storage for up to 64 frames (common case).
-public struct Sample64: Sample {
-    public static let capacity = 64
-    public var addressCount: Int = 0
-    public var metadata = SampleMetadata()
-    public var storage: Storage64 = (
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-    )
-    public init() {}
-}
-
-/// A sample with storage for up to 128 frames (deep stacks).
-public struct Sample128: Sample {
-    public static let capacity = 128
-    public var addressCount: Int = 0
-    public var metadata = SampleMetadata()
-    public var storage: Storage128 = (
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-    )
-    public init() {}
-}
-
-/// A sample with storage for up to 256 frames (very deep stacks).
-public struct Sample256: Sample {
-    public static let capacity = 256
-    public var addressCount: Int = 0
-    public var metadata = SampleMetadata()
-    public var storage: Storage256 = (
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-    )
-    public init() {}
-}
-
-/// A sample with storage for up to 512 frames (extremely deep stacks).
-public struct Sample512: Sample {
-    public static let capacity = 512
-    public var addressCount: Int = 0
-    public var metadata = SampleMetadata()
-    public var storage: Storage512 = (
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-    )
-    public init() {}
-}
-
-// MARK: - Storage Typealiases
-
-public typealias Storage32 = (
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt
-)
-
-public typealias Storage64 = (
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt
-)
-
-public typealias Storage128 = (
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt
-)
-
-public typealias Storage256 = (
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt
-)
-
-public typealias Storage512 = (
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt,
-    UInt, UInt, UInt, UInt, UInt, UInt, UInt, UInt
-)
