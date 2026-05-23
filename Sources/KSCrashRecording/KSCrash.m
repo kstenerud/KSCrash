@@ -435,4 +435,4 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(NSInteger, sessionsSinceLaunch)
 const double KSCrashFrameworkVersionNumber = 2.0600;
 
 //! Project version string for KSCrashFramework.
-const unsigned char KSCrashFrameworkVersionString[] = "2.6.0-beta.1";
+const unsigned char KSCrashFrameworkVersionString[] = "2.6.0-beta.2";
