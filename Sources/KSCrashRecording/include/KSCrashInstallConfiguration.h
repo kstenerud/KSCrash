@@ -53,7 +53,7 @@ NS_SWIFT_NAME(CrashInstallConfiguration)
 /** The configuration for report store.
  * @note See `KSCrashStoreConfiguration` for more details.
  */
-@property(nonatomic, strong) KSCrashReportStoreConfiguration *reportStoreConfiguration;
+@property(nonatomic, copy) KSCrashReportStoreConfiguration *reportStoreConfiguration;
 
 /** The crash types that will be handled.
  * Some crash types may not be enabled depending on circumstances (e.g., running in a debugger).
@@ -116,7 +116,7 @@ NS_SWIFT_NAME(CrashInstallConfiguration)
  *
  * **Default**: NULL
  */
-@property(nonatomic, strong, nullable) NSArray<NSString *> *doNotIntrospectClasses;
+@property(nonatomic, copy, nullable) NSArray<NSString *> *doNotIntrospectClasses;
 
 /** Callback to invoke before beginning to write a crash report.
  *

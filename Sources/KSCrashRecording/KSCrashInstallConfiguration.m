@@ -90,7 +90,7 @@
                                      userInfo:nil];
     }
 
-    _reportStoreConfiguration = reportStoreConfiguration;
+    _reportStoreConfiguration = [reportStoreConfiguration copy];
 }
 
 - (KSCrashCConfiguration)toCConfiguration
