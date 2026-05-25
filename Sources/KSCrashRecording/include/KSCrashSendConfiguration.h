@@ -51,7 +51,9 @@ NS_SWIFT_NAME(CrashSendConfiguration)
 
 /** What to do with crash reports after sending.
  *
- *  **Default**: `KSCrashReportCleanupPolicyAlways`
+ *  **Default**: `KSCrashReportCleanupPolicyOnSuccess`. With this default, a
+ *  failed send (network error, configuration error, etc.) keeps the local
+ *  copies so the send can be retried.
  */
 @property(nonatomic, assign) KSCrashReportCleanupPolicy reportCleanupPolicy;
 

@@ -33,7 +33,7 @@
     self = [super init];
     if (self != nil) {
         _reportFilters = @[];
-        _reportCleanupPolicy = KSCrashReportCleanupPolicyAlways;
+        _reportCleanupPolicy = KSCrashReportCleanupPolicyOnSuccess;
     }
     return self;
 }
