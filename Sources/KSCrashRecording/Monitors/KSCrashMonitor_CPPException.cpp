@@ -27,6 +27,7 @@
 #include "KSCompilerDefines.h"
 #include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorHelper.h"
+#include "KSCrashMonitor_CPPException+Private.h"
 #include "KSID.h"
 #include "KSMachineContext.h"
 #include "KSStackCursor_SelfThread.h"
@@ -95,7 +96,7 @@ static bool isEnabled(__unused void *context) { return g_state.isEnabled && g_st
 static KS_NOINLINE void captureStackTrace(void *, std::type_info *tinfo,
                                           void (*)(void *)) KS_KEEP_FUNCTION_IN_STACKTRACE
 {
-    if (tinfo != nullptr && strcmp(tinfo->name(), "NSException") == 0) {
+    if (kscm_cppexception_isObjCException(tinfo)) {
         return;
     }
     if (g_captureNextStackTrace) {
@@ -145,8 +146,8 @@ static void CPPExceptionTerminate(void)
     // nullptr when std::terminate() is invoked without an active exception
     // (explicit call, noexcept violation after exception is consumed, etc.).
     const char *name = tinfo != nullptr ? cpp_demangleSymbol(tinfo->name()) : NULL;
-    if (name != NULL && strcmp(name, "NSException") == 0) {
-        KSLOG_DEBUG("Detected NSException. Letting the current NSException handler deal with it.");
+    if (kscm_cppexception_isObjCException(tinfo)) {
+        KSLOG_DEBUG("Detected Objective-C exception. Letting the current NSException handler deal with it.");
         goto skip_handling;
     }
 
