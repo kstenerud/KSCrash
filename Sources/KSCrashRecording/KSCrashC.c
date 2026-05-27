@@ -402,6 +402,38 @@ static bool getRunSidecarPathForRunIDCallback(const char *monitorId, const char 
     return kscrs_getRunSidecarFilePathForRunID(monitorId, runID, pathBuffer, pathBufferLength, &g_reportStoreConfig);
 }
 
+/** Derive a default store directory (e.g. "Runs", "Sidecars", "RunSidecars")
+ *  as a sibling of reportsPath, matching the ObjC KSCrashReportStoreConfiguration
+ *  which derives these via -stringByDeletingLastPathComponent. Trailing '/' are
+ *  trimmed first, so reportsPath "/a/Reports/" with subdir "Runs" yields
+ *  "/a/Runs", not "/a/Reports/Runs" (the store scans the sibling, so the
+ *  latter would never be found). Falls back to subdir under installPath when
+ *  reportsPath has no usable parent (e.g. "Reports" or "/Reports"). reportsPath
+ *  must be non-NULL; the caller fills in a default before this is reached.
+ *  Returns false if the result does not fit in out. */
+static bool deriveReportsSiblingDir(const char *reportsPath, const char *installPath, const char *subdir, char *out,
+                                    size_t outSize)
+{
+    const char *lastSlash = NULL;
+    size_t len = strlen(reportsPath);
+    while (len > 1 && reportsPath[len - 1] == '/') {
+        len--;
+    }
+    for (const char *p = reportsPath + len; p > reportsPath; p--) {
+        if (p[-1] == '/') {
+            lastSlash = p - 1;
+            break;
+        }
+    }
+    int written;
+    if (lastSlash != NULL && lastSlash != reportsPath) {
+        written = snprintf(out, outSize, "%.*s/%s", (int)(lastSlash - reportsPath), reportsPath, subdir);
+    } else {
+        written = snprintf(out, outSize, "%s/%s", installPath, subdir);
+    }
+    return written >= 0 && written < (int)outSize;
+}
+
 // ============================================================================
 #pragma mark - API -
 // ============================================================================
@@ -448,8 +480,12 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
         g_reportStoreConfig.reportsPath = strdup(path);
     }
 
+    // Sidecars, RunSidecars and Runs default to siblings of reportsPath,
+    // matching the ObjC KSCrashReportStoreConfiguration. Deriving these from
+    // installPath instead would write them where a store configured with the
+    // same reportsPath does not scan.
     if (g_reportStoreConfig.reportSidecarsPath == NULL) {
-        if (snprintf(path, sizeof(path), "%s/Sidecars", installPath) >= (int)sizeof(path)) {
+        if (!deriveReportsSiblingDir(g_reportStoreConfig.reportsPath, installPath, "Sidecars", path, sizeof(path))) {
             KSLOG_ERROR("Sidecars path is too long.");
             return KSCrashInstallErrorPathTooLong;
         }
@@ -457,11 +493,19 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     }
 
     if (g_reportStoreConfig.runSidecarsPath == NULL) {
-        if (snprintf(path, sizeof(path), "%s/RunSidecars", installPath) >= (int)sizeof(path)) {
+        if (!deriveReportsSiblingDir(g_reportStoreConfig.reportsPath, installPath, "RunSidecars", path, sizeof(path))) {
             KSLOG_ERROR("RunSidecars path is too long.");
             return KSCrashInstallErrorPathTooLong;
         }
         g_reportStoreConfig.runSidecarsPath = strdup(path);
+    }
+
+    if (g_reportStoreConfig.runSummariesPath == NULL) {
+        if (!deriveReportsSiblingDir(g_reportStoreConfig.reportsPath, installPath, "Runs", path, sizeof(path))) {
+            KSLOG_ERROR("Runs path is too long.");
+            return KSCrashInstallErrorPathTooLong;
+        }
+        g_reportStoreConfig.runSummariesPath = strdup(path);
     }
 
     KSCrashInstallErrorCode storeInitResult = kscrs_initialize(&g_reportStoreConfig);
@@ -512,6 +556,18 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     }
     kscm_notifyPostMonitorsEnabled();
     ksruncontext_init(getRunSidecarPathForRunIDCallback);
+    // g_reportStoreConfig has the resolved default path, whereas `configuration`
+    // still holds whatever the caller passed in (NULL is valid there). Skip
+    // when the caller disabled the feature via maxRunSummaryCount <= 0.
+    //
+    // Install only appends — the retention cap is enforced on the send path
+    // (sendAllRunSummariesWithConfiguration:completion:) and via the public
+    // ksruncontext_pruneRunSummaries() API that callers can invoke on their
+    // own cadence. Intentionally not pruning here so retention policy stays a
+    // caller choice rather than being coupled to launch timing.
+    if (g_reportStoreConfig.maxRunSummaryCount > 0) {
+        ksruncontext_persistPreviousRunSummary(g_reportStoreConfig.runSummariesPath);
+    }
     kscm_notifyPostSystemEnable();
 
     g_installed = true;
@@ -589,6 +645,13 @@ void kscrash_notifyAppCrash(void) { KSLOG_DEBUG("kscrash_notifyAppCrash is depre
 // ============================================================================
 #pragma mark - Testing API -
 // ============================================================================
+
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+bool kscrash_testcode_deriveReportsSiblingDir(const char *reportsPath, const char *installPath, const char *subdir,
+                                              char *out, size_t outSize)
+{
+    return deriveReportsSiblingDir(reportsPath, installPath, subdir, out, outSize);
+}
 
 __attribute__((unused))  // For tests. Declared as extern in TestCase
 void kscrash_testcode_setLastRunID(const char *runID)

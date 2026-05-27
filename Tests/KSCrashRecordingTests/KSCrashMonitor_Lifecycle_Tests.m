@@ -227,8 +227,9 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
 
 - (void)testLifecycleDataStructLayout
 {
-    XCTAssertEqual(sizeof(KSCrash_LifecycleData), 88u);
+    XCTAssertEqual(sizeof(KSCrash_LifecycleData), 112u);
     XCTAssertEqual(KSLIFECYCLE_MAGIC, (int32_t)0x6B736C63);
+    XCTAssertEqual(KSCrash_Lifecycle_CurrentVersion, 3);
 }
 
 - (void)testRelaunchAfterCrash
@@ -421,7 +422,8 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
 
     KSCrash_AppState state = kscrashstate_lifecycleAppState();
     XCTAssertTrue(state.applicationIsInForeground);
-    // Session count: 1 (initial) + 1 (foregrounding) = 2
+    // Backgrounding bumps only the imperceptible bucket, not the public
+    // counters: 1 (initial) + 1 (foregrounding) = 2 — the historical semantics.
     XCTAssertEqual(state.sessionsSinceLaunch, 2);
     XCTAssertEqual(state.sessionsSinceLastCrash, 2);
 }
@@ -438,8 +440,229 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     }
 
     KSCrash_AppState state = kscrashstate_lifecycleAppState();
-    // 1 (initial) + 3 (foregroundings) = 4
+    // 1 (initial) + 3 cycles × foregrounding = 4. Backgrounding bumps only the
+    // imperceptible bucket, never the public sessionsSinceLaunch.
     XCTAssertEqual(state.sessionsSinceLaunch, 4);
+}
+
+#pragma mark - Perceptible / imperceptible session counts (v2)
+
+- (void)testLaunchAloneDoesNotCountPerceptibleSession
+{
+    // A launch that has not actually reached the foreground owes a perceptible
+    // session but must not have counted one yet — regardless of the transient
+    // install-time transition state. (The public sessionsSinceLaunch keeps its
+    // historical launch == 1 meaning.)
+    [self enableMonitor];
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    XCTAssertEqual(data.perceptibleSessionsSinceLaunch, 0u);
+    XCTAssertEqual(data.imperceptibleSessionsSinceLaunch, 0u);
+    XCTAssertEqual(data.sessionsSinceLaunch, 1);
+}
+
+- (void)testForegroundAfterLaunchCountsOnePerceptibleSession
+{
+    // Plain (non-scene) cold launch: reaches the foreground via Active with no
+    // Foregrounding. The owed launch session is counted exactly once.
+    [self enableMonitor];
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    XCTAssertEqual(data.perceptibleSessionsSinceLaunch, 1u);
+    XCTAssertEqual(data.imperceptibleSessionsSinceLaunch, 0u);
+}
+
+- (void)testLaunchTimeForegroundingCountsOnce
+{
+    // Scene-style launch: Foregrounding then Active during the launch itself,
+    // no preceding background. The owed launch session is counted exactly once
+    // (on Foregrounding); the following Active does not double it. The public
+    // sessionsSinceLaunch retains its historical launch + foreground-resume
+    // semantics (1 launch + 1 foregrounding = 2) and is intentionally
+    // unchanged by this fix.
+    [self enableMonitor];
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateForegrounding);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    XCTAssertEqual(data.perceptibleSessionsSinceLaunch, 1u);
+    XCTAssertEqual(data.imperceptibleSessionsSinceLaunch, 0u);
+    XCTAssertEqual(data.sessionsSinceLaunch, 2);
+}
+
+- (void)testTransientDeactivateReactivateDoesNotRecount
+{
+    // Control Center / app switcher: Active -> Deactivating -> Active with no
+    // Background in between is the same perceptible session, not a new one.
+    [self enableMonitor];
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateDeactivating);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    XCTAssertEqual(data.perceptibleSessionsSinceLaunch, 1u);
+    XCTAssertEqual(data.imperceptibleSessionsSinceLaunch, 0u);
+}
+
+- (void)testRealResumeAfterForegroundCountsAgain
+{
+    // A launch-time foreground counts once; a later real background -> foreground
+    // counts a second perceptible session and one imperceptible session.
+    [self enableMonitor];
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateForegrounding);  // launch fg
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateDeactivating);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateBackground);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateForegrounding);  // real resume
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    XCTAssertEqual(data.perceptibleSessionsSinceLaunch, 2u);
+    XCTAssertEqual(data.imperceptibleSessionsSinceLaunch, 1u);
+    XCTAssertEqual(data.sessionsSinceLaunch, 3);
+}
+
+- (void)testBackgroundAndForegroundingBumpRespectiveCounters
+{
+    [self enableMonitor];
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateDeactivating);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateBackground);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateForegrounding);
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    // Active counts the launch perceptible session (1); Background bumps
+    // imperceptible (1) and re-owes a session; the resume Foregrounding counts
+    // perceptible (2). The public sessionsSinceLaunch is decoupled: launch +
+    // foreground resume only, so it is 2, NOT the bucket sum (3).
+    XCTAssertEqual(data.perceptibleSessionsSinceLaunch, 2u);
+    XCTAssertEqual(data.imperceptibleSessionsSinceLaunch, 1u);
+    XCTAssertEqual(data.sessionsSinceLaunch, 2);
+}
+
+- (void)testSessionsSinceLaunchDecoupledFromPerceptibilityBuckets
+{
+    [self enableMonitor];
+    for (int i = 0; i < 5; i++) {
+        kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+        kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateDeactivating);
+        kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateBackground);
+        kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateForegrounding);
+    }
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    // Public counter: 1 launch + 5 foreground resumes = 6 (backgrounding does
+    // not touch it). Buckets: perceptible = launch (first Active) + 5 resume
+    // foregroundings = 6, imperceptible = 5 backgrounds. The public counter is
+    // intentionally NOT the sum of the buckets.
+    XCTAssertEqual(data.sessionsSinceLaunch, 6);
+    XCTAssertEqual(data.perceptibleSessionsSinceLaunch, 6u);
+    XCTAssertEqual(data.imperceptibleSessionsSinceLaunch, 5u);
+    XCTAssertNotEqual((uint32_t)data.sessionsSinceLaunch,
+                      data.perceptibleSessionsSinceLaunch + data.imperceptibleSessionsSinceLaunch);
+}
+
+#pragma mark - Distinct user tracking (v2)
+
+- (void)testObserveUser_firstSeenBumpsPerceptibleCount
+{
+    [self enableMonitor];  // Default state is Active (perceptible).
+    kscm_lifecycle_observeUser("alice");
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    XCTAssertEqual(data.distinctPerceptibleUserCount, 1u);
+    XCTAssertEqual(data.distinctImperceptibleUserCount, 0u);
+}
+
+- (void)testObserveUser_duplicateDoesNotDoubleCount
+{
+    [self enableMonitor];
+    kscm_lifecycle_observeUser("alice");
+    kscm_lifecycle_observeUser("alice");
+    kscm_lifecycle_observeUser("alice");
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    XCTAssertEqual(data.distinctPerceptibleUserCount, 1u);
+}
+
+- (void)testObserveUser_distinctUsersEachCountedOnce
+{
+    [self enableMonitor];
+    kscm_lifecycle_observeUser("alice");
+    kscm_lifecycle_observeUser("bob");
+    kscm_lifecycle_observeUser("alice");  // already seen
+    kscm_lifecycle_observeUser("carol");
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    XCTAssertEqual(data.distinctPerceptibleUserCount, 3u);
+}
+
+- (void)testObserveUser_nilAndEmptyAreNoOps
+{
+    [self enableMonitor];
+    kscm_lifecycle_observeUser(NULL);
+    kscm_lifecycle_observeUser("");
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    XCTAssertEqual(data.distinctPerceptibleUserCount, 0u);
+    XCTAssertEqual(data.distinctImperceptibleUserCount, 0u);
+}
+
+- (void)testObserveUser_perceptibilityTransitionReaccountsCurrentUser
+{
+    [self enableMonitor];
+    kscm_lifecycle_observeUser("alice");  // counted in perceptible bucket
+
+    // Drive a transition that flips perceptibility from true → false.
+    // Background is not user-perceptible.
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateDeactivating);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateBackground);
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    // alice counted in both buckets: 1 + 1 = 2 total distinctness across buckets.
+    XCTAssertEqual(data.distinctPerceptibleUserCount, 1u);
+    XCTAssertEqual(data.distinctImperceptibleUserCount, 1u);
+}
+
+- (void)testReadData_v1Sidecar_zeroFillsNewFields
+{
+    // Construct a v1-sized (88-byte) sidecar on disk. The readData function
+    // must tolerate the short file and leave the new v2 fields zero-filled.
+    KSCrash_LifecycleData v2 = { 0 };
+    v2.magic = KSLIFECYCLE_MAGIC;
+    v2.version = 1;  // pretend this is a v1 sidecar
+    v2.sessionsSinceLaunch = 7;
+    v2.launchesSinceLastCrash = 3;
+    v2.perceptibleSessionsSinceLaunch = 999;  // "garbage" trailing bytes we won't write
+    v2.imperceptibleSessionsSinceLaunch = 999;
+
+    NSString *path = [self.tempPath stringByAppendingPathComponent:@"v1.ksscr"];
+    int fd = open(path.fileSystemRepresentation, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    XCTAssertNotEqual(fd, -1);
+    const size_t v1Size = 88;  // historical v1 struct size
+    ssize_t written = write(fd, &v2, v1Size);
+    close(fd);
+    XCTAssertEqual(written, (ssize_t)v1Size);
+
+    KSCrash_LifecycleData out = { 0 };
+    XCTAssertTrue(kslifecycle_readData(path.fileSystemRepresentation, &out));
+    XCTAssertEqual(out.sessionsSinceLaunch, 7);
+    XCTAssertEqual(out.launchesSinceLastCrash, 3);
+    // New v2 fields weren't in the file → zero-filled, not garbage.
+    XCTAssertEqual(out.perceptibleSessionsSinceLaunch, 0u);
+    XCTAssertEqual(out.imperceptibleSessionsSinceLaunch, 0u);
 }
 
 - (void)testTerminatingTransitionSetsCleanShutdown

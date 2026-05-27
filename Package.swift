@@ -496,7 +496,8 @@ let package = Package(
         .testTarget(
             name: Targets.report.tests,
             dependencies: [
-                .target(name: Targets.report)
+                .target(name: Targets.report),
+                .target(name: Targets.recording),
             ],
             resources: [
                 .process("Resources")
@@ -529,7 +530,8 @@ let package = Package(
                 .target(name: Targets.recording),
             ],
             cSettings: [
-                .headerSearchPath("../../Sources/\(Targets.recording)")
+                .headerSearchPath("../../Sources/\(Targets.recording)"),
+                .headerSearchPath("../../Sources/\(Targets.recording)/Monitors"),
             ]
         ),
 

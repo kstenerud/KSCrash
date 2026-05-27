@@ -103,8 +103,49 @@ bool ksruncontext_contextForRunID(const char *runID, KSCrashSidecarRunPathForRun
  */
 const KSCrashRunContext *ksruncontext_previousRunContext(void);
 
+/** Write the previous-run summary into `runSummariesPath` as a `.run` file.
+ *
+ *  No-op if there is no summary (first launch, or previous run's data was
+ *  incomplete). Creates `runSummariesPath` if needed.
+ *
+ *  Synchronous — the file is on disk by the time this call returns, so a
+ *  crash immediately after `kscrash_install()` can still land the previous
+ *  run's summary. Backlog pruning is deferred to the send path; callers
+ *  that never send should call @c ksruncontext_pruneRunSummaries directly.
+ */
+void ksruncontext_persistPreviousRunSummary(const char *runSummariesPath);
+
+/** Delete the oldest `*.run` files in `runsDir` until at most `keepCount`
+ *  remain. No per-file stat — files sort oldest-first by their filename
+ *  prefix. Non-matching entries are ignored. No-op for a NULL / empty path
+ *  or @c keepCount <= 0 — a disabled retention cap never deletes anything.
+ */
+void ksruncontext_pruneRunSummaries(const char *runsDir, int keepCount);
+
 #ifdef __cplusplus
 }
 #endif
+
+#ifdef __OBJC__
+#import <Foundation/Foundation.h>
+
+@class KSCrashRunSummary;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/** Returns the run summary for the previous run, or nil if there was no
+ *  previous run or its data was incomplete.
+ *
+ *  Only valid after ksruncontext_init().
+ */
+KSCrashRunSummary *ksruncontext_previousRunSummary(void);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif  // __OBJC__
 
 #endif  // KSCrashRunContext_h

@@ -285,6 +285,13 @@ NS_SWIFT_NAME(CrashReportStoreConfiguration)
  */
 @property(nonatomic, copy, nullable) NSString *reportsPath;
 
+/** Specifies a custom directory path for the run-summary store.
+ *  If `nil`, defaults to `Runs` alongside `reportsPath`.
+ *
+ * **Default**: `nil`
+ */
+@property(nonatomic, copy, nullable) NSString *runSummariesPath;
+
 /** Specifies a custom app name to be used in report file name.
  * If `nil` the default value is used: `CFBundleName` from Info.plist.
  *
@@ -300,6 +307,13 @@ NS_SWIFT_NAME(CrashReportStoreConfiguration)
  * **Default**: 5
  */
 @property(nonatomic, assign) NSInteger maxReportCount;
+
+/** Upper bound on retained run summaries; oldest are pruned when exceeded.
+ * Set to 0 to disable run-summary persistence entirely.
+ *
+ * **Default**: 50
+ */
+@property(nonatomic, assign) NSInteger maxRunSummaryCount;
 
 @end
 

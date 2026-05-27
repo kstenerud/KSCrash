@@ -28,6 +28,7 @@
 
 #include "KSCrashNamespace.h"
 #import "KSCrashReportFilter.h"
+#import "KSCrashRunFilter.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -127,6 +128,26 @@ NS_SWIFT_NAME(CrashReportStore)
            configuration:(KSCrashSendConfiguration *)configuration
               completion:(nullable KSCrashReportFilterCompletion)onCompletion
     NS_SWIFT_NAME(sendReport(id:with:completion:));
+
+/** Send all pending run summaries using the given send configuration.
+ *
+ *  Summaries are run through @c configuration.runSummaryFilters in order; the
+ *  last filter is the terminal sink. An empty @c runSummaryFilters chain
+ *  completes with an error.
+ *
+ *  Summaries reported as delivered by the sink are removed; any others
+ *  remain pending and are retried on the next call.
+ *
+ *  Only one send may be in flight at a time; concurrent calls complete
+ *  with an error.
+ *
+ *  @param configuration The run-filter chain to use (@c runSummaryFilters).
+ *  @param onCompletion Called when sending is complete (nil = ignore).
+ *  The thread and queue used for the callback are unspecified.
+ */
+- (void)sendAllRunSummariesWithConfiguration:(KSCrashSendConfiguration *)configuration
+                                  completion:(nullable KSCrashRunFilterCompletion)onCompletion
+    NS_SWIFT_NAME(sendAllRunSummaries(with:completion:));
 
 /** Send a single report by ID, optionally including current-run reports.
  *
