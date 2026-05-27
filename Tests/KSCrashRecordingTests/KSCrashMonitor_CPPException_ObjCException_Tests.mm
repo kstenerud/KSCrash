@@ -1,6 +1,8 @@
 //
 //  KSCrashMonitor_CPPException_ObjCException_Tests.mm
 //
+//  Created by Mischan Toosarani-Hausberger on 2024-05-26.
+//
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
