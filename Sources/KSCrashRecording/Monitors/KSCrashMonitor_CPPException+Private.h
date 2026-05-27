@@ -28,6 +28,7 @@
 #ifdef __cplusplus
 
 #include <string.h>
+
 #include <typeinfo>
 
 #include "KSSystemCapabilities.h"
