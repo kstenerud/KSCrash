@@ -27,11 +27,13 @@
 
 #ifdef __cplusplus
 
+#include <string.h>
 #include <typeinfo>
 
 #include "KSSystemCapabilities.h"
 
 #if KSCRASH_HAS_OBJC
+#include <objc/runtime.h>
 #if defined(__has_include)
 #if __has_include(<ptrauth.h>)
 #include <ptrauth.h>
@@ -63,8 +65,8 @@ static inline const void *kscm_cppexception_stripCxxVTablePointer(const void *po
 }
 #endif  // KSCRASH_HAS_OBJC
 
-// Check if a C++ exception type_info represents an Objective-C exception.
-static inline bool kscm_cppexception_isObjCException(const std::type_info *tinfo)
+// Check if a C++ exception type_info represents an Objective-C exception object.
+static inline bool kscm_cppexception_isObjCExceptionType(const std::type_info *tinfo)
 {
 #if KSCRASH_HAS_OBJC
     if (tinfo == nullptr) {
@@ -78,6 +80,47 @@ static inline bool kscm_cppexception_isObjCException(const std::type_info *tinfo
     // On arm64e, vtable pointers are signed with pointer authentication codes (PAC). Strip the signatures before
     // comparing so the raw objc_ehtype_vtable address can match the signed pointer stored in tinfo.
     return kscm_cppexception_stripCxxVTablePointer(tinfoVTable) == kscm_cppexception_stripCxxVTablePointer(objcVTable);
+#else
+    (void)tinfo;
+    return false;
+#endif
+}
+
+// objc_typeinfo mirrors the ObjC runtime's custom type_info subclass. The first two fields are std::type_info's
+// vtable and name pointer; the ObjC runtime adds the thrown object's Class after those fields.
+struct kscm_cppexception_objc_typeinfo {
+    const void *vtable;
+    const char *name;
+    Class cls;
+};
+
+static inline Class kscm_cppexception_objcClassFromTypeInfo(const std::type_info *tinfo)
+{
+#if KSCRASH_HAS_OBJC
+    if (!kscm_cppexception_isObjCExceptionType(tinfo)) {
+        return Nil;
+    }
+    return reinterpret_cast<const kscm_cppexception_objc_typeinfo *>(tinfo)->cls;
+#else
+    (void)tinfo;
+    return Nil;
+#endif
+}
+
+// Check if a C++ exception type_info represents an NSException or subclass. The NSException monitor only handles
+// NSException objects; arbitrary Objective-C object throws (for example @throw @"...") should remain with the C++
+// monitor instead of being skipped here.
+static inline bool kscm_cppexception_isNSException(const std::type_info *tinfo)
+{
+#if KSCRASH_HAS_OBJC
+    for (Class currentClass = kscm_cppexception_objcClassFromTypeInfo(tinfo); currentClass != Nil;
+         currentClass = class_getSuperclass(currentClass)) {
+        const char *className = class_getName(currentClass);
+        if (className != nullptr && strcmp(className, "NSException") == 0) {
+            return true;
+        }
+    }
+    return false;
 #else
     (void)tinfo;
     return false;

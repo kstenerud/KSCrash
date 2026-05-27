@@ -60,18 +60,20 @@ static bool legacyNameCheckMatchesNSException(const std::type_info *tinfo)
     return tinfo != nullptr && strcmp(tinfo->name(), "NSException") == 0;
 }
 
-- (void)testObjectiveCExceptionDetection_NSException_MatchesLegacyAndVTableCheck
+- (void)testObjectiveCExceptionDetection_NSException_MatchesLegacyAndNSExceptionCheck
 {
     @try {
         [NSException raise:NSInvalidArgumentException format:@"Invalid argument"];
     } @catch (...) {
         std::type_info *tinfo = currentExceptionType();
         XCTAssertTrue(legacyNameCheckMatchesNSException(tinfo));
-        XCTAssertTrue(kscm_cppexception_isObjCException(tinfo));
+        XCTAssertTrue(kscm_cppexception_isObjCExceptionType(tinfo));
+        XCTAssertEqual(kscm_cppexception_objcClassFromTypeInfo(tinfo), NSException.class);
+        XCTAssertTrue(kscm_cppexception_isNSException(tinfo));
     }
 }
 
-- (void)testObjectiveCExceptionDetection_NSExceptionSubclass_OnlyMatchesVTableCheck
+- (void)testObjectiveCExceptionDetection_NSExceptionSubclass_OnlyMatchesNSExceptionCheck
 {
     @try {
         [[KSCrashMonitor_CPPException_TestNSExceptionSubclass exceptionWithName:@"TestException"
@@ -80,18 +82,22 @@ static bool legacyNameCheckMatchesNSException(const std::type_info *tinfo)
     } @catch (...) {
         std::type_info *tinfo = currentExceptionType();
         XCTAssertFalse(legacyNameCheckMatchesNSException(tinfo));
-        XCTAssertTrue(kscm_cppexception_isObjCException(tinfo));
+        XCTAssertTrue(kscm_cppexception_isObjCExceptionType(tinfo));
+        XCTAssertEqual(kscm_cppexception_objcClassFromTypeInfo(tinfo), KSCrashMonitor_CPPException_TestNSExceptionSubclass.class);
+        XCTAssertTrue(kscm_cppexception_isNSException(tinfo));
     }
 }
 
-- (void)testObjectiveCExceptionDetection_ArbitraryObjectiveCObject_OnlyMatchesVTableCheck
+- (void)testObjectiveCExceptionDetection_ArbitraryObjectiveCObject_DoesNotMatchNSExceptionCheck
 {
     @try {
         @throw @"Objective-C object exception";
     } @catch (...) {
         std::type_info *tinfo = currentExceptionType();
         XCTAssertFalse(legacyNameCheckMatchesNSException(tinfo));
-        XCTAssertTrue(kscm_cppexception_isObjCException(tinfo));
+        XCTAssertTrue(kscm_cppexception_isObjCExceptionType(tinfo));
+        XCTAssertEqual(kscm_cppexception_objcClassFromTypeInfo(tinfo), object_getClass(@"Objective-C object exception"));
+        XCTAssertFalse(kscm_cppexception_isNSException(tinfo));
     }
 }
 
@@ -102,7 +108,9 @@ static bool legacyNameCheckMatchesNSException(const std::type_info *tinfo)
     } catch (...) {
         std::type_info *tinfo = currentExceptionType();
         XCTAssertFalse(legacyNameCheckMatchesNSException(tinfo));
-        XCTAssertFalse(kscm_cppexception_isObjCException(tinfo));
+        XCTAssertFalse(kscm_cppexception_isObjCExceptionType(tinfo));
+        XCTAssertEqual(kscm_cppexception_objcClassFromTypeInfo(tinfo), Nil);
+        XCTAssertFalse(kscm_cppexception_isNSException(tinfo));
     }
 }
 
