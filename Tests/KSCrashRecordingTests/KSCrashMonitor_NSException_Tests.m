@@ -27,7 +27,7 @@
 #import <XCTest/XCTest.h>
 
 #import "KSCrash.h"
-#import "KSCrashConfiguration.h"
+#import "KSCrashInstallConfiguration.h"
 #import "KSCrashMonitor.h"
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitor_NSException.h"
@@ -71,7 +71,7 @@
 - (void)testReportUserNSException
 {
     // Install KSCrash to enable the NSException monitor (ignore if already installed)
-    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+    KSCrashInstallConfiguration *config = [[KSCrashInstallConfiguration alloc] init];
     [[KSCrash sharedInstance] installWithConfiguration:config error:NULL];
 
     // Create an exception with a real call stack by throwing and catching
@@ -93,7 +93,7 @@
 - (void)testReportUserNSExceptionWithEmptyCallStack
 {
     // Install KSCrash to enable the NSException monitor (ignore if already installed)
-    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+    KSCrashInstallConfiguration *config = [[KSCrashInstallConfiguration alloc] init];
     [[KSCrash sharedInstance] installWithConfiguration:config error:NULL];
 
     // Create an exception without throwing (no call stack)

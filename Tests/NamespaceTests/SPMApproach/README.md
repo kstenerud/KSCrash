@@ -25,7 +25,7 @@ The rest of the files (everything in `CrashLibA/Sources/KSCrashLibA` are generat
 
 ### How It Works
 
-[`sync.sh`](sync.sh) holds a list of targets to merge from the KSCrash package, as well as a list of headers to export from it (in this case, `CrashLibA` and `CrashLibB` are only using `KSCrashInstallationConsole`, so they don't need many headers exposed).
+[`sync.sh`](sync.sh) holds a list of targets to merge from the KSCrash package, as well as a list of headers to export from it (in this case, `CrashLibA` and `CrashLibB` use `KSCrash`, `KSCrashInstallConfiguration`, `KSCrashReportSinkConsole`, and `KSCrashSendConfiguration`, so only those headers are exposed).
 
 First, it merges from the KSCrash project using [`merge_spm_project.py`](merge_spm_project.py). This script creates `CrashLibA/Sources/KSCrashLibA` and then copies all of the KSCrash sources from the targets we're interested in (listed in [`sync.sh`](sync.sh)).
 

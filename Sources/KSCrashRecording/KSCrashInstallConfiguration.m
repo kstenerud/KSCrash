@@ -1,5 +1,5 @@
 //
-//  KSCrashConfiguration.m
+//  KSCrashInstallConfiguration.m
 //
 //  Created by Gleb Linnik on 11.06.2024.
 //
@@ -24,13 +24,13 @@
 // THE SOFTWARE.
 //
 
-#import "KSCrashConfiguration.h"
+#import "KSCrashInstallConfiguration.h"
 #import <objc/runtime.h>
 #import "KSCrash+Private.h"
-#import "KSCrashConfiguration+Private.h"
+#import "KSCrashInstallConfiguration+Private.h"
 #import "KSCrashReportStore.h"
 
-@implementation KSCrashConfiguration
+@implementation KSCrashInstallConfiguration
 
 - (instancetype)init
 {
@@ -90,7 +90,7 @@
                                      userInfo:nil];
     }
 
-    _reportStoreConfiguration = reportStoreConfiguration;
+    _reportStoreConfiguration = [reportStoreConfiguration copy];
 }
 
 - (KSCrashCConfiguration)toCConfiguration
@@ -183,7 +183,7 @@
 
 - (nonnull id)copyWithZone:(nullable NSZone *)zone
 {
-    KSCrashConfiguration *copy = [[KSCrashConfiguration allocWithZone:zone] init];
+    KSCrashInstallConfiguration *copy = [[KSCrashInstallConfiguration allocWithZone:zone] init];
     if (copy == nil) {
         return nil;
     }
@@ -234,7 +234,6 @@
     if (self != nil) {
         _appName = nil;
         _reportsPath = nil;
-        _reportCleanupPolicy = KSCrashReportCleanupPolicyAlways;
 
         KSCrashReportStoreCConfiguration cConfig = KSCrashReportStoreCConfiguration_Default();
         _maxReportCount = (NSInteger)cConfig.maxReportCount;
@@ -277,7 +276,6 @@
     copy.reportsPath = [self.reportsPath copyWithZone:zone];
     copy.appName = [self.appName copyWithZone:zone];
     copy.maxReportCount = self.maxReportCount;
-    copy.reportCleanupPolicy = self.reportCleanupPolicy;
     return copy;
 }
 

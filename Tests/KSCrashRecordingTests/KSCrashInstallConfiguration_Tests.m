@@ -1,5 +1,5 @@
 //
-//  KSCrashConfiguration_Tests.m
+//  KSCrashInstallConfiguration_Tests.m
 //
 //  Created by Gleb Linnik on 13.06.2024.
 //
@@ -26,17 +26,17 @@
 
 #import <XCTest/XCTest.h>
 #import <objc/runtime.h>
-#import "KSCrashConfiguration+Private.h"
-#import "KSCrashConfiguration.h"
+#import "KSCrashInstallConfiguration+Private.h"
+#import "KSCrashInstallConfiguration.h"
 
 #define AssertAround(FLOAT_VALUE, COMPARED_TO)                          \
     XCTAssertGreaterThanOrEqual(FLOAT_VALUE, (COMPARED_TO) - 0.000001); \
     XCTAssertLessThanOrEqual(FLOAT_VALUE, (COMPARED_TO) + 0.000001)
 
-@interface KSCrashConfigurationTests : XCTestCase
+@interface KSCrashInstallConfigurationTests : XCTestCase
 @end
 
-@implementation KSCrashConfigurationTests
+@implementation KSCrashInstallConfigurationTests
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -49,7 +49,7 @@
 
 - (void)testInitializationDefaults
 {
-    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+    KSCrashInstallConfiguration *config = [[KSCrashInstallConfiguration alloc] init];
 
     XCTAssertEqual(config.monitors, KSCrashMonitorTypeProductionSafeMinimal);
     XCTAssertNil(config.userInfoJSON);
@@ -70,7 +70,7 @@
 
 - (void)testToCConfiguration
 {
-    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+    KSCrashInstallConfiguration *config = [[KSCrashInstallConfiguration alloc] init];
     config.monitors = KSCrashMonitorTypeDebuggerSafe;
     config.userInfoJSON = @{ @"key" : @"value" };
     config.deadlockWatchdogInterval = 5.0;
@@ -110,7 +110,7 @@
 
 - (void)testCopyWithZone
 {
-    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+    KSCrashInstallConfiguration *config = [[KSCrashInstallConfiguration alloc] init];
     config.monitors = KSCrashMonitorTypeDebuggerSafe;
     config.userInfoJSON = @{ @"key" : @"value" };
     config.deadlockWatchdogInterval = 5.0;
@@ -125,7 +125,7 @@
     config.enableCPUExceptionReporting = YES;
     config.enableCompactBinaryImages = YES;
 
-    KSCrashConfiguration *copy = [config copy];
+    KSCrashInstallConfiguration *copy = [config copy];
 
     XCTAssertEqual(copy.monitors, KSCrashMonitorTypeDebuggerSafe);
     XCTAssertEqualObjects(copy.userInfoJSON, @{ @"key" : @"value" });
@@ -144,7 +144,7 @@
 
 - (void)testEmptyDictionaryForJSONConversion
 {
-    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+    KSCrashInstallConfiguration *config = [[KSCrashInstallConfiguration alloc] init];
     config.userInfoJSON = @{};
     KSCrashCConfiguration cConfig = [config toCConfiguration];
 
@@ -156,7 +156,7 @@
 
 - (void)testLargeDataForJSONConversion
 {
-    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+    KSCrashInstallConfiguration *config = [[KSCrashInstallConfiguration alloc] init];
     NSMutableDictionary *largeDict = [NSMutableDictionary dictionary];
     for (int i = 0; i < 1000; i++) {
         NSString *key = [NSString stringWithFormat:@"key%d", i];
@@ -176,7 +176,7 @@
 
 - (void)testSpecialCharactersInStrings
 {
-    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+    KSCrashInstallConfiguration *config = [[KSCrashInstallConfiguration alloc] init];
     config.userInfoJSON = @{ @"key" : @"value with special characters: @#$%^&*()" };
     KSCrashCConfiguration cConfig = [config toCConfiguration];
 
@@ -188,7 +188,7 @@
 
 - (void)testNilAndEmptyArraysForCStringConversion
 {
-    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+    KSCrashInstallConfiguration *config = [[KSCrashInstallConfiguration alloc] init];
 
     // Test with nil array
     config.doNotIntrospectClasses = nil;
@@ -207,11 +207,11 @@
 
 - (void)testCopyingWithNilProperties
 {
-    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+    KSCrashInstallConfiguration *config = [[KSCrashInstallConfiguration alloc] init];
     config.userInfoJSON = nil;
     config.doNotIntrospectClasses = nil;
 
-    KSCrashConfiguration *copy = [config copy];
+    KSCrashInstallConfiguration *copy = [config copy];
     XCTAssertNil(copy.userInfoJSON);
     XCTAssertNil(copy.doNotIntrospectClasses);
 }
@@ -253,7 +253,7 @@ static void didWriteReportCallback(const KSCrash_ExceptionHandlingPlan *const pl
 
 - (void)testCallbacksInCConfiguration
 {
-    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+    KSCrashInstallConfiguration *config = [[KSCrashInstallConfiguration alloc] init];
 
     config.willWriteReportCallback = willWriteReportCallback;
     config.isWritingReportCallback = isWritingReportCallback;
@@ -312,7 +312,7 @@ static void clearLegacyCallbackData(void) { memset(&g_legacyCallbackData, 0, siz
 
 - (void)testDeprecatedCrashNotifyCallbackConversion
 {
-    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+    KSCrashInstallConfiguration *config = [[KSCrashInstallConfiguration alloc] init];
 
     config.crashNotifyCallback = ^(const struct KSCrashReportWriter *writer) {
         g_legacyCallbackData.legacyCrashNotifyCallbackCalled = YES;
@@ -333,7 +333,7 @@ static void clearLegacyCallbackData(void) { memset(&g_legacyCallbackData, 0, siz
 
 - (void)testDeprecatedReportWrittenCallbackConversion
 {
-    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+    KSCrashInstallConfiguration *config = [[KSCrashInstallConfiguration alloc] init];
 
     config.reportWrittenCallback = ^(int64_t reportID) {
         g_legacyCallbackData.legacyReportWrittenCallbackCalled = YES;
@@ -354,7 +354,7 @@ static void clearLegacyCallbackData(void) { memset(&g_legacyCallbackData, 0, siz
 
 - (void)testMixedCallbackUsage
 {
-    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+    KSCrashInstallConfiguration *config = [[KSCrashInstallConfiguration alloc] init];
     config.crashNotifyCallback = ^(const struct KSCrashReportWriter *writer) {
         g_legacyCallbackData.legacyCrashNotifyCallbackCalled = YES;
         g_legacyCallbackData.legacyCapturedWriter = writer;
@@ -408,7 +408,7 @@ static void clearLegacyCallbackData(void) { memset(&g_legacyCallbackData, 0, siz
 
 - (void)testCopyingWithDeprecatedCallbacks
 {
-    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+    KSCrashInstallConfiguration *config = [[KSCrashInstallConfiguration alloc] init];
     config.crashNotifyCallback = ^(const struct KSCrashReportWriter *writer) {
         g_legacyCallbackData.legacyCrashNotifyCallbackCalled = YES;
         g_legacyCallbackData.legacyCapturedWriter = writer;
@@ -420,7 +420,7 @@ static void clearLegacyCallbackData(void) { memset(&g_legacyCallbackData, 0, siz
 
     config.isWritingReportCallback = isWritingReportCallback;
     config.didWriteReportCallback = didWriteReportCallback;
-    KSCrashConfiguration *copiedConfig = [config copy];
+    KSCrashInstallConfiguration *copiedConfig = [config copy];
 
     XCTAssertNotNil(copiedConfig.crashNotifyCallback);
     XCTAssertNotNil(copiedConfig.reportWrittenCallback);
@@ -444,7 +444,7 @@ static void clearLegacyCallbackData(void) { memset(&g_legacyCallbackData, 0, siz
 
 - (void)testNilDeprecatedCallbacks
 {
-    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+    KSCrashInstallConfiguration *config = [[KSCrashInstallConfiguration alloc] init];
 
     config.crashNotifyCallback = nil;
     config.reportWrittenCallback = nil;
@@ -459,7 +459,7 @@ static void clearLegacyCallbackData(void) { memset(&g_legacyCallbackData, 0, siz
 
 - (void)testDefaultDeprecatedCallbacks
 {
-    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+    KSCrashInstallConfiguration *config = [[KSCrashInstallConfiguration alloc] init];
     KSCrashCConfiguration cConfig = [config toCConfiguration];
     XCTAssertEqual(cConfig.crashNotifyCallback, NULL);
     XCTAssertEqual(cConfig.reportWrittenCallback, NULL);
@@ -494,7 +494,7 @@ static bool testPluginIsEnabled(__unused void *context) { return g_testPluginEna
 
 - (void)testPluginsDefaultNil
 {
-    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+    KSCrashInstallConfiguration *config = [[KSCrashInstallConfiguration alloc] init];
     XCTAssertNil(config.plugins);
 }
 
@@ -508,7 +508,7 @@ static bool testPluginIsEnabled(__unused void *context) { return g_testPluginEna
 
     KSCrashBasicMonitorPlugin *plugin1 = [[KSCrashBasicMonitorPlugin alloc] initWithAPI:&api1];
 
-    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+    KSCrashInstallConfiguration *config = [[KSCrashInstallConfiguration alloc] init];
     config.plugins = @[ plugin1 ];
 
     KSCrashCConfiguration cConfig = [config toCConfiguration];
@@ -523,7 +523,7 @@ static bool testPluginIsEnabled(__unused void *context) { return g_testPluginEna
 
 - (void)testPluginsToCConfigurationNil
 {
-    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+    KSCrashInstallConfiguration *config = [[KSCrashInstallConfiguration alloc] init];
     config.plugins = nil;
 
     KSCrashCConfiguration cConfig = [config toCConfiguration];
@@ -541,10 +541,10 @@ static bool testPluginIsEnabled(__unused void *context) { return g_testPluginEna
     api.monitorId = testPluginMonitorId;
     KSCrashBasicMonitorPlugin *plugin = [[KSCrashBasicMonitorPlugin alloc] initWithAPI:&api];
 
-    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+    KSCrashInstallConfiguration *config = [[KSCrashInstallConfiguration alloc] init];
     config.plugins = @[ plugin ];
 
-    KSCrashConfiguration *copy = [config copy];
+    KSCrashInstallConfiguration *copy = [config copy];
 
     XCTAssertEqual(copy.plugins.count, 1);
     XCTAssertEqual(copy.plugins[0].api, &api);

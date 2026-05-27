@@ -54,9 +54,9 @@
     return self;
 }
 
-- (id<KSCrashReportFilter>)defaultCrashReportFilterSet
+- (NSArray<id<KSCrashReportFilter>> *)defaultCrashReportFilterSet
 {
-    return self;
+    return @[ self ];
 }
 
 - (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion

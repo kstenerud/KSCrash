@@ -49,7 +49,10 @@ NS_SWIFT_NAME(CrashReportSinkStandard)
  */
 - (instancetype)initWithURL:(NSURL *)url;
 
-@property(nonatomic, readonly) id<KSCrashReportFilter> defaultCrashReportFilterSet;
+/** The default ordered filter chain to run before this sink.
+ *  The chain's last element is this sink itself.
+ */
+@property(nonatomic, readonly) NSArray<id<KSCrashReportFilter>> *defaultCrashReportFilterSet;
 
 @end
 

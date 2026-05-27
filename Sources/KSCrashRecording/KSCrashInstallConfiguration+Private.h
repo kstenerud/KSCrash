@@ -1,7 +1,7 @@
 //
-//  KSCrashInstallationStandard_Tests.m
+//  KSCrashInstallConfiguration+Private.h
 //
-//  Created by Karl Stenerud on 2013-03-09.
+//  Created by Gleb Linnik on 11.06.2024.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,29 +24,22 @@
 // THE SOFTWARE.
 //
 
-#import <XCTest/XCTest.h>
+#ifndef KSCrashInstallConfiguration_Private_h
+#define KSCrashInstallConfiguration_Private_h
 
-#import "KSCrashInstallationStandard.h"
-#import "KSCrashMonitor.h"
+#import "KSCrashCConfiguration.h"
+#import "KSCrashInstallConfiguration.h"
 
-@interface KSCrashInstallationStandard_Tests : XCTestCase
-@end
+@interface KSCrashInstallConfiguration ()
 
-@implementation KSCrashInstallationStandard_Tests
-
-- (void)tearDown
-{
-    // Disable all monitors to clean up background threads (exception handlers, etc.)
-    // This prevents ASan from hanging when XCTSkip throws an exception in later tests.
-    kscm_disableAllMonitors();
-    [super tearDown];
-}
-
-- (void)testInstall
-{
-    KSCrashInstallationStandard *installation = [KSCrashInstallationStandard sharedInstance];
-    installation.url = [NSURL URLWithString:@"https://www.google.com"];
-    [installation installWithConfiguration:[KSCrashConfiguration new] error:NULL];
-}
+- (KSCrashCConfiguration)toCConfiguration;
 
 @end
+
+@interface KSCrashReportStoreConfiguration ()
+
+- (KSCrashReportStoreCConfiguration)toCConfiguration;
+
+@end
+
+#endif /* KSCrashInstallConfiguration_Private_h */

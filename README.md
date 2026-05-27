@@ -82,14 +82,19 @@ dependencies: [
 ]
 ```
 
-Then, include "Installations" as a dependency for your target:
+Then add the KSCrash products you need. A typical setup that records and sends
+crashes uses `Recording` (core), plus `Sinks`/`Filters` to process and deliver
+reports, and optionally `DemangleFilter`:
 
 ```swift
 targets: [
     .target(
         name: "YourTarget",
         dependencies: [
-            .product(name: "Installations", package: "KSCrash"),
+            .product(name: "Recording", package: "KSCrash"),
+            .product(name: "Sinks", package: "KSCrash"),
+            .product(name: "Filters", package: "KSCrash"),
+            .product(name: "DemangleFilter", package: "KSCrash"),
         ]),
 ]
 ```
@@ -101,7 +106,10 @@ Add the following to your `AppDelegate.swift` file:
 #### Import KSCrash
 
 ```swift
-import KSCrashInstallations
+import KSCrashRecording
+import KSCrashSinks
+import KSCrashFilters
+import KSCrashDemangleFilter
 ```
 
 #### Configure AppDelegate
@@ -110,53 +118,79 @@ import KSCrashInstallations
 class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
 
-        let installation = CrashInstallationStandard.shared
-        installation.url = URL(string: "http://put.your.url.here")!
-
         // Install the crash reporting system
-        let config = KSCrashConfiguration()
+        let config = CrashInstallConfiguration()
         config.monitors = [.machException, .signal]
-        installation.install(with: config) // set `nil` for default config
-
-        // Optional: Add an alert confirmation (recommended for email installation)
-        installation.addConditionalAlert(
-            withTitle: "Crash Detected",
-            message: "The app crashed last time it was launched. Send a crash report?",
-            yesAnswer: "Sure!",
-            noAnswer: "No thanks"
-        )
+        try? KSCrash.shared.install(with: config) // pass a default config or customize
 
         return true
     }
 }
 ```
 
-#### Other Installation Types
-
-##### Email Installation
-
-```swift
-let installation = CrashInstallationEmail.shared
-installation.recipients = ["some@email.address"] // Specify recipients for email reports
-// Optional: Send Apple-style reports instead of JSON
-installation.setReportStyle(.apple, useDefaultFilenameFormat: true)
-```
-
-##### Console Installation
-
-```swift
-let installation = CrashInstallationConsole.shared
-installation.printAppleFormat = true // Print crash reports in Apple format for testing
-```
-
 #### Sending Reports
 
-To send any outstanding crash reports, call:
+Reports are sent through the `KSCrash` shared instance. A `CrashSendConfiguration`
+holds the ordered filter chain (last element = terminal sink) and the cleanup
+policy. There is no installation object and no held sink; the configuration is
+passed to each send call.
 
 ```swift
-installation.sendAllReports { reports, completed, error in
+let sink = CrashReportSinkStandard(url: URL(string: "http://put.your.url.here")!)
+let config = CrashSendConfiguration()
+config.reportFilters = [CrashReportFilterDemangle(), CrashReportFilterDoctor()] + sink.defaultCrashReportFilterSet
+config.reportCleanupPolicy = .onSuccess
+
+KSCrash.shared.sendAllReports(with: config) { reports, error in
     // Stuff to do when report sending is complete
 }
+```
+
+`defaultCrashReportFilterSet` is an `[CrashReportFilter]` array (the chain that
+prepares reports for that sink, ending in the sink itself). Prepend any
+transform filters you want, such as demangling or the doctor diagnosis. The
+same `CrashSendConfiguration` can be reused across calls.
+
+##### Email sink
+
+```swift
+let sink = CrashReportSinkEmail(
+    recipients: ["some@email.address"],
+    subject: "Crash Report",
+    message: nil,
+    filenameFmt: "crash-report.json.gz")
+let config = CrashSendConfiguration()
+config.reportFilters = sink.defaultCrashReportFilterSet
+config.reportCleanupPolicy = .always
+KSCrash.shared.sendAllReports(with: config) { _, _ in }
+```
+
+##### Console sink (for testing)
+
+```swift
+let sink = CrashReportSinkConsole()
+let config = CrashSendConfiguration()
+config.reportFilters = sink.defaultCrashReportFilterSet
+config.reportCleanupPolicy = .never
+KSCrash.shared.sendAllReports(with: config) { _, _ in }
+```
+
+##### Alert confirmation
+
+To ask the user before sending, prepend a `CrashReportFilterAlert` and use the
+`.always` cleanup policy so the user isn't re-prompted every launch:
+
+```swift
+let config = CrashSendConfiguration()
+config.reportFilters = [
+    CrashReportFilterAlert(
+        title: "Crash Detected",
+        message: "The app crashed last time. Send a crash report?",
+        yesAnswer: "Sure!",
+        noAnswer: "No thanks"),
+] + sink.defaultCrashReportFilterSet
+config.reportCleanupPolicy = .always
+KSCrash.shared.sendAllReports(with: config) { _, _ in }
 ```
 
 ### Optional Monitors
@@ -178,15 +212,37 @@ For more information, see Apple's documentation on [Disk space APIs](https://dev
 
 KSCrash has an optional module that provides demangling for both C++ and Swift symbols: `DemangleFilter`. This module contains a KSCrash filter (`CrashReportFilterDemangle`) that can be used for demangling symbols in crash reports during the `sendAllReports` call *(if this filter is added to the filters pipeline)*.
 
-This module is used automatically if you use the `Installations` API. If you want to avoid demangling, you can set `isDemangleEnabled` in the `CrashInstallation` instance to `false`.
+Demangling is opt-in: add `CrashReportFilterDemangle()` to
+`CrashSendConfiguration.reportFilters`. Omit it if you don't want demangling.
 
-If you don't use the `Installations` API, you can include this module manually by adding to your target dependencies:
+To include this module, add it to your target dependencies:
 
 ```swift
 .product(name: "DemangleFilter", package: "KSCrash"),
 ```
 
 The `CrashReportFilterDemangle` class also has a static API that you can use yourself in case you need to demangle a C++ or Swift symbol.
+
+## Migrating from 2.x (KSCrashInstallations removed in 3.0)
+
+The `KSCrashInstallations` module (`CrashInstallation`,
+`CrashInstallationStandard/Email/Console`) and `KSCrashReportFilterPipeline` /
+`KSCrashFilterSets` have been removed. Setup and sending now go through the
+`KSCrash` shared instance; a `CrashSendConfiguration` (filter chains + cleanup
+policy) is passed to each send call rather than held as state.
+
+| 2.x | 3.0 |
+|---|---|
+| `installation.install(with: config)` | `try KSCrash.shared.install(with: config)` |
+| `installation.sendAllReports { … }` | `KSCrash.shared.sendAllReports(with: CrashSendConfiguration) { … }` |
+| `CrashInstallationStandard().url` + `sink()` | `config.reportFilters = CrashReportSinkStandard(url:).defaultCrashReportFilterSet` (an `[CrashReportFilter]`) |
+| `isDemangleEnabled` / `isDoctorEnabled` / `addPreFilter:` | prepend `CrashReportFilterDemangle()` / `CrashReportFilterDoctor()` / your filter to `config.reportFilters` |
+| `addConditionalAlert` / `addUnconditionalAlert` | prepend `CrashReportFilterAlert(…)` to `config.reportFilters` and set `config.reportCleanupPolicy = .always` |
+| `KSCrashReportStoreConfiguration.reportCleanupPolicy` / `store.reportCleanupPolicy` | `config.reportCleanupPolicy` |
+| `store.sink = …` | `config.reportFilters` |
+| `KSCrashReportFilterPipeline(filters: […])` | a plain Swift array `[…]` (the send call runs it sequentially) |
+| Installation custom report-field properties (`IMPLEMENT_REPORT_*`) | `KSCrash`'s per-key user-info API, `config.userInfoJSON`, or `config.isWritingReportCallback` |
+| `validateSetupWithError:` | validate sink configuration yourself before sending |
 
 ## Integrating KSCrash Into Your Library
 
@@ -269,8 +325,8 @@ If possible, you should read the following header files to fully understand
 what features KSCrash has, and how to use them:
 
 * KSCrash.h
-* KSCrashInstallation.h
-* KSCrashInstallation(SPECIFIC TYPE).h
+* KSCrashInstallConfiguration.h
+* KSCrashReportStore.h
 * [Architecture.md](https://github.com/kstenerud/KSCrash/wiki/KSCrash-Architecture)
 
 ## Understanding the KSCrash Codebase
@@ -281,9 +337,8 @@ KSCrash is structured into several modules, divided into public and private APIs
 
 1. **Recording**: `KSCrashRecording` - Handles crash event recording.
 2. **Reporting**:
-   - **Filters**: `KSCrashFilters` - Processes crash reports.
-   - **Sinks**: `KSCrashSinks` - Manages report destinations.
-   - **Installations**: `KSCrashInstallations` - Provides easy-to-use setups for different reporting scenarios.
+   - **Filters**: `KSCrashFilters` - Processes and transforms crash reports.
+   - **Sinks**: `KSCrashSinks` - Delivers reports to their destination (HTTP, email, console).
 
 ### Optional Modules
 
@@ -374,7 +429,7 @@ setting the **doNotIntrospectClasses** property in KSCrash.
 
 #### Custom crash handling code
 
-The following callbacks are available in `KSCrashConfiguration.h`:
+The following callbacks are available in `KSCrashInstallConfiguration.h`:
 
  * `willWriteReportCallback`
  * `isWritingReportCallback`

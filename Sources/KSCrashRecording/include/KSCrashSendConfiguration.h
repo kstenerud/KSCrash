@@ -1,7 +1,7 @@
 //
-//  KSCrashInstallationStandard.h
+//  KSCrashSendConfiguration.h
 //
-//  Created by Karl Stenerud on 2013-03-02.
+//  Created by Alexander Cohen on 2026-05-16.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,20 +24,38 @@
 // THE SOFTWARE.
 //
 
-#import "KSCrashInstallation.h"
-#include "KSCrashNamespace.h"
-
 #import <Foundation/Foundation.h>
+
+#include "KSCrashNamespace.h"
+#import "KSCrashReportFilter.h"
+#import "KSCrashReportStore.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
-NS_SWIFT_NAME(CrashInstallationStandard)
-@interface KSCrashInstallationStandard : KSCrashInstallation
+/** Per-send configuration: the filter chain and cleanup policy used when
+ *  sending crash reports.
+ *
+ *  Pass an instance to the `KSCrash` / `KSCrashReportStore` send methods. The
+ *  same configuration can be reused across calls.
+ */
+NS_SWIFT_NAME(CrashSendConfiguration)
+@interface KSCrashSendConfiguration : NSObject <NSCopying>
 
-@property(class, atomic, readonly) KSCrashInstallationStandard *sharedInstance NS_SWIFT_NAME(shared);
+/** Ordered filter chain for crash reports. The output of each filter feeds the
+ *  next; the last filter is the terminal sink that delivers the reports.
+ *  An empty chain causes report sends to complete with an error.
+ *
+ *  **Default**: empty
+ */
+@property(nonatomic, copy) NSArray<id<KSCrashReportFilter>> *reportFilters;
 
-/** The URL to connect to. */
-@property(nonatomic, readwrite, strong) NSURL *url;
+/** What to do with crash reports after sending.
+ *
+ *  **Default**: `KSCrashReportCleanupPolicyOnSuccess`. With this default, a
+ *  failed send (network error, configuration error, etc.) keeps the local
+ *  copies so the send can be retried.
+ */
+@property(nonatomic, assign) KSCrashReportCleanupPolicy reportCleanupPolicy;
 
 @end
 

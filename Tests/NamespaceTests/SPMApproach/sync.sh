@@ -31,16 +31,18 @@ TARGETS=(
     KSCrashReportingCore
     KSCrashCore
     KSCrashDiscSpaceMonitor
-    KSCrashInstallations
     KSCrashRecordingCore
     KSCrashSinks
 )
 
 # Which headers to declare as the merged target module's public API.
-# CrashLibA and CrashLibB only use KSCrashInstallationConsole and KSCrashConfiguration.
+# CrashLibA and CrashLibB use KSCrash, KSCrashInstallConfiguration,
+# KSCrashReportSinkConsole, and KSCrashSendConfiguration.
 MODULE_HEADERS=(
   KSCrash.h
-  KSCrashInstallationConsole.h
+  KSCrashInstallConfiguration.h
+  KSCrashReportSinkConsole.h
+  KSCrashSendConfiguration.h
 )
 
 printf -v TARGETS_ARG '%s,' "${TARGETS[@]}"

@@ -54,8 +54,14 @@ NS_SWIFT_NAME(CrashReportSinkEmail)
                            message:(nullable NSString *)message
                        filenameFmt:(NSString *)filenameFmt;
 
-@property(nonatomic, readonly) id<KSCrashReportFilter> defaultCrashReportFilterSet;
-@property(nonatomic, readonly) id<KSCrashReportFilter> defaultCrashReportFilterSetAppleFmt;
+/** The default ordered filter chain to run before this sink (JSON).
+ *  The chain's last element is this sink itself.
+ */
+@property(nonatomic, readonly) NSArray<id<KSCrashReportFilter>> *defaultCrashReportFilterSet;
+/** The default ordered filter chain to run before this sink (Apple format).
+ *  The chain's last element is this sink itself.
+ */
+@property(nonatomic, readonly) NSArray<id<KSCrashReportFilter>> *defaultCrashReportFilterSetAppleFmt;
 
 @end
 

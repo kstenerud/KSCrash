@@ -1,7 +1,7 @@
 //
-//  KSCrashReportFilterSets.h
+//  KSCrashSendConfiguration.m
 //
-//  Created by Karl Stenerud on 2012-08-21.
+//  Created by Alexander Cohen on 2026-05-16.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,27 +24,26 @@
 // THE SOFTWARE.
 //
 
-#include "KSCrashNamespace.h"
-#import "KSCrashReportFilter.h"
-#import "KSCrashReportFilterAppleFmt.h"
+#import "KSCrashSendConfiguration.h"
 
-#import <Foundation/Foundation.h>
+@implementation KSCrashSendConfiguration
 
-NS_ASSUME_NONNULL_BEGIN
+- (instancetype)init
+{
+    self = [super init];
+    if (self != nil) {
+        _reportFilters = @[];
+        _reportCleanupPolicy = KSCrashReportCleanupPolicyOnSuccess;
+    }
+    return self;
+}
 
-/**
- * Common filter sets.
- */
-NS_SWIFT_NAME(CrashFilterSets)
-@interface KSCrashFilterSets : NSObject
-
-- (instancetype)init NS_UNAVAILABLE;
-+ (instancetype)new NS_UNAVAILABLE;
-
-/** Create an Apple format filter that includes system and user data in JSON format.
- */
-+ (id<KSCrashReportFilter>)appleFmtWithUserAndSystemData:(KSAppleReportStyle)reportStyle compressed:(BOOL)compressed;
+- (nonnull id)copyWithZone:(nullable NSZone *)zone
+{
+    KSCrashSendConfiguration *copy = [[KSCrashSendConfiguration allocWithZone:zone] init];
+    copy.reportFilters = [self.reportFilters copy];
+    copy.reportCleanupPolicy = self.reportCleanupPolicy;
+    return copy;
+}
 
 @end
-
-NS_ASSUME_NONNULL_END

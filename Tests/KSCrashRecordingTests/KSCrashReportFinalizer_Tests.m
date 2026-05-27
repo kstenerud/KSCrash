@@ -26,7 +26,7 @@
 
 #import "FileBasedTestCase.h"
 
-#import "KSCrashConfiguration.h"
+#import "KSCrashInstallConfiguration.h"
 #import "KSCrashMonitor.h"
 #import "KSCrashReportFields.h"
 #import "KSCrashReportStore.h"
