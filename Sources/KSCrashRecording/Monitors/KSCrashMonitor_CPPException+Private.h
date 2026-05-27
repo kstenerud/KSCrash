@@ -1,6 +1,8 @@
 //
 //  KSCrashMonitor_CPPException+Private.h
 //
+//  Created by Mischan Toosarani-Hausberger on 2024-05-26.
+//
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -79,7 +81,7 @@ static inline bool kscm_cppexception_isObjCExceptionType(const std::type_info *t
     const void *objcVTable = reinterpret_cast<const void *>(objc_ehtype_vtable + 2);
 
     // On arm64e, vtable pointers are signed with pointer authentication codes (PAC). Strip the signatures before
-    // comparing so the raw objc_ehtype_vtable address can match the signed pointer stored in tinfo.
+    // comparing so that the raw objc_ehtype_vtable address matches the signed pointer stored in tinfo.
     return kscm_cppexception_stripCxxVTablePointer(tinfoVTable) == kscm_cppexception_stripCxxVTablePointer(objcVTable);
 #else
     (void)tinfo;
