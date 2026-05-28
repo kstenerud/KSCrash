@@ -27,6 +27,7 @@
 #include "KSCompilerDefines.h"
 #include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorHelper.h"
+#include "KSCrashMonitor_CPPException+Private.h"
 #include "KSID.h"
 #include "KSMachineContext.h"
 #include "KSStackCursor_SelfThread.h"
@@ -95,7 +96,7 @@ static bool isEnabled(__unused void *context) { return g_state.isEnabled && g_st
 static KS_NOINLINE void captureStackTrace(void *, std::type_info *tinfo,
                                           void (*)(void *)) KS_KEEP_FUNCTION_IN_STACKTRACE
 {
-    if (tinfo != nullptr && strcmp(tinfo->name(), "NSException") == 0) {
+    if (kscm_cppexception_isObjCExceptionType(tinfo)) {
         return;
     }
     if (g_captureNextStackTrace) {
@@ -144,13 +145,15 @@ static void CPPExceptionTerminate(void)
     std::type_info *tinfo = __cxxabiv1::__cxa_current_exception_type();
     // nullptr when std::terminate() is invoked without an active exception
     // (explicit call, noexcept violation after exception is consumed, etc.).
-    const char *name = tinfo != nullptr ? cpp_demangleSymbol(tinfo->name()) : NULL;
-    if (name != NULL && strcmp(name, "NSException") == 0) {
+    if (kscm_cppexception_isNSException(tinfo)) {
+        // Let NSException and subclasses flow to objc_terminate()/NSSetUncaughtExceptionHandler. Arbitrary Objective-C
+        // object throws are not handled by NSSetUncaughtExceptionHandler, so the C++ monitor still reports those.
         KSLOG_DEBUG("Detected NSException. Letting the current NSException handler deal with it.");
         goto skip_handling;
     }
 
     if (isEnabled(NULL)) {
+        const char *name = tinfo != nullptr ? cpp_demangleSymbol(tinfo->name()) : NULL;
         thread_t thisThread = (thread_t)ksthread_self();
         // This requires async-safety because the environment is suspended.
         KSCrash_MonitorContext *crashContext = g_state.callbacks.notify(

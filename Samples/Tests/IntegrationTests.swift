@@ -57,6 +57,22 @@ final class NSExceptionTests: IntegrationTestBase {
         XCTAssertEqual(state.terminationReason, .crash)
     }
 
+    func testNSExceptionSubclass() throws {
+        try launchAndCrash(.nsException_nsExceptionSubclass)
+
+        let rawReport = try readCrashReport()
+        try rawReport.validate()
+        XCTAssertEqual(rawReport.crash.error.type, .nsexception)
+        XCTAssertEqual(rawReport.crash.error.reason, "Subclass Test")
+        XCTAssertEqual(rawReport.crash.error.nsexception?.name, "TestNSExceptionSubclass")
+        XCTAssertNil(rawReport.crash.error.cppException)
+        XCTAssertNotNil(rawReport.crash.lastExceptionBacktrace)
+
+        let appleReport = try launchAndReportCrash()
+        XCTAssertTrue(appleReport.contains("TestNSExceptionSubclass"))
+        XCTAssertTrue(appleReport.contains("Subclass Test"))
+    }
+
     func testDontRecordAllThreads() throws {
         try launchAndCrash(
             .nsException_genericNSException,
@@ -158,6 +174,19 @@ final class CppTests: IntegrationTestBase {
         let state = try readState()
         XCTAssertTrue(state.crashedLastLaunch)
         XCTAssertEqual(state.terminationReason, .crash)
+    }
+
+    func testObjectiveCObjectExceptionFallsBackToCPPMonitor() throws {
+        // NSSetUncaughtExceptionHandler is only called for NSException objects, so arbitrary Objective-C object throws
+        // should still be reported by the C++ monitor instead of being skipped as NSExceptions.
+        try launchAndCrash(.cpp_objcObjectException)
+
+        let rawReport = try readCrashReport()
+        try rawReport.validate()
+        XCTAssertEqual(rawReport.crash.error.type, .cppException)
+        XCTAssertNotNil(rawReport.crash.error.cppException?.name)
+        XCTAssertNil(rawReport.crash.error.nsexception)
+        XCTAssertNotNil(rawReport.crash.lastExceptionBacktrace)
     }
 
     func testRuntimeExceptionBackgroundThread() throws {
