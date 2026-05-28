@@ -43,10 +43,12 @@ extern NSString *const KSCrashNSExceptionStacktraceFuncName;
 
 #define __ALL_TRIGGERS                                                                                 \
     __PROCESS_TRIGGER(nsException, genericNSException, @"Generic NSException")                         \
+    __PROCESS_TRIGGER(nsException, nsExceptionSubclass, @"NSException Subclass")                       \
     __PROCESS_TRIGGER(nsException, nsArrayOutOfBounds, @"NSArray out-of-bounds")                       \
     __PROCESS_TRIGGER(nsException, user, @"User reported NSException")                                 \
     __PROCESS_TRIGGER(cpp, runtimeException, @"Runtime Exception")                                     \
     __PROCESS_TRIGGER(cpp, runtimeExceptionBackgroundThread, @"Runtime Exception (Background Thread)") \
+    __PROCESS_TRIGGER(cpp, objcObjectException, @"Objective-C Object Exception")                       \
     __PROCESS_TRIGGER(mach, badAccess, @"EXC_BAD_ACCESS (SIGSEGV)")                                    \
     __PROCESS_TRIGGER(mach, badAccessDeadbeef, @"EXC_BAD_ACCESS (0xDEADBEEF)")                         \
     __PROCESS_TRIGGER(mach, busError, @"EXC_BAD_ACCESS (SIGBUS)")                                      \

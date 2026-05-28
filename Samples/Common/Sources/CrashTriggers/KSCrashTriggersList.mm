@@ -43,6 +43,12 @@ class Report
 };
 }  // namespace sample_namespace
 
+@interface KSCrashTriggersList_TestNSExceptionSubclass : NSException
+@end
+
+@implementation KSCrashTriggersList_TestNSExceptionSubclass
+@end
+
 static void trigger_ns(void)
 {
     NSException *exc = [NSException exceptionWithName:NSGenericException reason:@"Something broke" userInfo:nil];
@@ -108,6 +114,13 @@ NSString *const KSCrashNSExceptionStacktraceFuncName = @"exceptionWithStacktrace
     [exc raise];
 }
 
++ (void)trigger_nsException_nsExceptionSubclass
+{
+    [[KSCrashTriggersList_TestNSExceptionSubclass exceptionWithName:@"TestNSExceptionSubclass"
+                                                             reason:@"Subclass Test"
+                                                           userInfo:nil] raise];
+}
+
 + (void)trigger_nsException_nsArrayOutOfBounds
 {
     NSArray *array = @[ @1, @2, @3 ];
@@ -130,6 +143,11 @@ NSString *const KSCrashNSExceptionStacktraceFuncName = @"exceptionWithStacktrace
 + (void)trigger_cpp_runtimeExceptionBackgroundThread
 {
     trigger_cpp_backgroundThread();
+}
+
++ (void)trigger_cpp_objcObjectException
+{
+    @throw @"Objective-C object exception";
 }
 
 + (void)trigger_mach_badAccess
