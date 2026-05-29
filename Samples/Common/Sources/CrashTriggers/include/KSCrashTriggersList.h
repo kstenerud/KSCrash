@@ -49,6 +49,7 @@ extern NSString *const KSCrashNSExceptionStacktraceFuncName;
     __PROCESS_TRIGGER(cpp, runtimeException, @"Runtime Exception")                                     \
     __PROCESS_TRIGGER(cpp, runtimeExceptionBackgroundThread, @"Runtime Exception (Background Thread)") \
     __PROCESS_TRIGGER(cpp, objcObjectException, @"Objective-C Object Exception")                       \
+    __PROCESS_TRIGGER(cpp, objcObjectExceptionAfterCaughtCpp, @"ObjC Object (after caught C++)")       \
     __PROCESS_TRIGGER(mach, badAccess, @"EXC_BAD_ACCESS (SIGSEGV)")                                    \
     __PROCESS_TRIGGER(mach, badAccessDeadbeef, @"EXC_BAD_ACCESS (0xDEADBEEF)")                         \
     __PROCESS_TRIGGER(mach, busError, @"EXC_BAD_ACCESS (SIGBUS)")                                      \

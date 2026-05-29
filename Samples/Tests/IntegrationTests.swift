@@ -189,6 +189,27 @@ final class CppTests: IntegrationTestBase {
         XCTAssertNotNil(rawReport.crash.lastExceptionBacktrace)
     }
 
+    func testObjectiveCObjectExceptionAfterCaughtCppUsesCurrentThrowSite() throws {
+        // Regression: a caught C++ exception captures a throw-site backtrace cursor on this
+        // thread. The later fatal Objective-C object throw is reported by the C++ monitor and
+        // must reflect its own throw site, not reuse the earlier (already-handled) C++ one.
+        try launchAndCrash(.cpp_objcObjectExceptionAfterCaughtCpp)
+
+        let rawReport = try readCrashReport()
+        try rawReport.validate()
+        XCTAssertEqual(rawReport.crash.error.type, .cppException)
+        XCTAssertNil(rawReport.crash.error.nsexception)
+
+        let exceptionBt = rawReport.crash.lastExceptionBacktrace
+        XCTAssertNotNil(exceptionBt, "C++ exception crash should have last_exception_backtrace")
+        let demangled = (exceptionBt?.contents ?? [])
+            .compactMap(\.symbolName)
+            .compactMap(CrashReportFilterDemangle.demangledCppSymbol)
+        XCTAssertFalse(
+            demangled.contains("sample_namespace::Report::crash()"),
+            "last_exception_backtrace must reflect the @throw site, not the earlier caught C++ exception")
+    }
+
     func testRuntimeExceptionBackgroundThread() throws {
         try launchAndCrash(
             .cpp_runtimeExceptionBackgroundThread,

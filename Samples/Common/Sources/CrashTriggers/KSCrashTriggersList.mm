@@ -63,6 +63,14 @@ static void trigger_cpp_backgroundThread(void)
     t.join();
 }
 
+static void catch_cpp(void)
+{
+    try {
+        sample_namespace::Report::crash();
+    } catch (...) {
+    }
+}
+
 static void trigger_mach(void)
 {
     volatile int *ptr = (int *)0x42;
@@ -148,6 +156,15 @@ NSString *const KSCrashNSExceptionStacktraceFuncName = @"exceptionWithStacktrace
 + (void)trigger_cpp_objcObjectException
 {
     @throw @"Objective-C object exception";
+}
+
++ (void)trigger_cpp_objcObjectExceptionAfterCaughtCpp
+{
+    // A caught C++ exception leaves a throw-site backtrace cursor behind on this thread. The subsequent fatal
+    // Objective-C object throw is reported by the C++ monitor and must capture its own throw site, not reuse the
+    // earlier (already-handled) one.
+    catch_cpp();
+    @throw @"Objective-C object exception after caught C++";
 }
 
 + (void)trigger_mach_badAccess

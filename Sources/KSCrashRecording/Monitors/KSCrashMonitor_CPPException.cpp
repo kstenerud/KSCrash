@@ -218,8 +218,12 @@ static void CPPExceptionTerminate(void)
             // from a prior throw on this thread. Skip 1 frame (this function) to show
             // the terminate() context, same as the handler cursor.
             kssc_initSelfThread(&g_exceptionStackCursor, 1);
-        } else if (!g_exceptionCursorValid) {
-            // Exception exists but captureStackTrace didn't fire (e.g., foreign throw).
+        } else if (!g_exceptionCursorValid || kscm_cppexception_isObjCExceptionType(tinfo)) {
+            // Either captureStackTrace didn't fire (foreign throw), or this is an arbitrary Objective-C object throw
+            // (for example @throw @"..."). Objective-C exceptions reach terminate via objc_exception_throw ->
+            // __cxa_throw inside libobjc, a path our interception does not see, so g_exceptionStackCursor was never
+            // captured for this exception and g_exceptionCursorValid may be stale from an earlier C++ throw on this
+            // thread. Recompute from here rather than reusing that unrelated cursor.
             // Skip 4 frames: CPPExceptionTerminate -> std::__terminate -> failed_throw -> __cxa_throw
             // to reach the actual throw location.
             kssc_initSelfThread(&g_exceptionStackCursor, 4);
