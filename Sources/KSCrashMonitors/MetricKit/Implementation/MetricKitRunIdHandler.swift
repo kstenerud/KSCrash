@@ -28,7 +28,7 @@ import Foundation
 
 #if SWIFT_PACKAGE
     import KSCrashRecording
-    import Report
+    import KSCrashReportModel
 #endif
 
 /// Encodes a run ID into a parked thread's call stack using KSCrashThreadcrumb,

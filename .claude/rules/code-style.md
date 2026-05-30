@@ -23,7 +23,7 @@ A good test: if removing the comment would make a future change risky, keep it. 
 - Use consistent naming patterns:
   - Classes: `KSCrashMonitor_*`, `KSCrash*` (prefix with KS)
   - Methods: descriptive, camelCase
-  - **Swift SPM modules**: Do **not** use the `KSCrash` prefix. Use plain names (e.g., `SwiftCore`, `Monitors`, `Profiler`, `Report`). The `KSCrash` prefix is only for C/ObjC targets.
+  - **SPM module (target) names**: All targets use the `KSCrash` prefix, Swift and C/ObjC alike (e.g., `KSCrashSwiftCore`, `KSCrashMonitors`, `KSCrashProfiler`, `KSCrashReportModel`). Library **product** names stay unprefixed (e.g., `Monitors`, `Report`), exactly as `KSCrashRecording` ships in the `Recording` product, so a consumer depends on product `Report` and writes `import KSCrashReportModel`. (It's `KSCrashReportModel`, not `KSCrashReport`, because `KSCrashReport` is already the public ObjC protocol.)
 - Error handling: Use proper error handling conventions for Objective-C/Swift
 - Module organization: Maintain the existing module structure
 - API design: Keep public APIs clean and well-documented

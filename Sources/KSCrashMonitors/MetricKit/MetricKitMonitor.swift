@@ -29,7 +29,7 @@ import Foundation
 #if SWIFT_PACKAGE
     import KSCrashRecording
     import KSCrashRecordingCore
-    import SwiftCore
+    import KSCrashSwiftCore
 #endif
 
 /// A monitor plugin that receives diagnostic and metric payloads from MetricKit.

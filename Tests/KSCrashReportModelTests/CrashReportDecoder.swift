@@ -25,7 +25,7 @@
 //
 
 import Foundation
-import Report
+import KSCrashReportModel
 
 extension CrashReport where UserData == NoUserData {
     static func decode(from json: String) throws -> CrashReport<NoUserData> {

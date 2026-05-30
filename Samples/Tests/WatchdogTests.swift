@@ -26,7 +26,7 @@
 
 import IntegrationTestsHelper
 import KSCrashRecording
-import Report
+import KSCrashReportModel
 import XCTest
 
 #if !os(watchOS)

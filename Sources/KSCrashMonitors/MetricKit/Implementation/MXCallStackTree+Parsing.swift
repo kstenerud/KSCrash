@@ -28,7 +28,7 @@ import Foundation
 import os.log
 
 #if SWIFT_PACKAGE
-    import Report
+    import KSCrashReportModel
 #endif
 
 // MARK: - Output

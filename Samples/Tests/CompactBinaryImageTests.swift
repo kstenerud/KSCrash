@@ -25,7 +25,7 @@
 //
 
 import IntegrationTestsHelper
-import Report
+import KSCrashReportModel
 import XCTest
 
 final class CompactBinaryImageTests: IntegrationTestBase {
