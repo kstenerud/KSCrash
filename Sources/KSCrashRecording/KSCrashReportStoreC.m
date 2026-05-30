@@ -350,14 +350,13 @@ static NSDictionary *stitchRunSidecarsIntoReport(NSDictionary *report,
 
 // UUID: 8-4-4-4-12 hex digits with hyphens = 36 chars
 #define KSCRS_UUID_STRING_LENGTH 36
-#define KSCRS_MAX_REPORT_COUNT 512
 
 /** Remove run sidecar directories that have no matching reports.
  *
  * Scans the RunSidecars directory and collects the set of active run_ids
  * from existing reports by JSON-decoding report["report"]["run_id"].
  * Any run sidecar directory whose name isn't in the active set is deleted.
- * Runs once at initialization.
+ * Runs after report sending and via the explicit cleanup entry point.
  */
 static void cleanupOrphanedRunSidecars(const KSCrashReportStoreCConfiguration *const config)
 {
@@ -367,12 +366,24 @@ static void cleanupOrphanedRunSidecars(const KSCrashReportStoreCConfiguration *c
 
     const char *currentRunID = kscrash_getRunID();
 
-    int64_t reportIDs[KSCRS_MAX_REPORT_COUNT];
-    int reportCount = getReportIDs(reportIDs, KSCRS_MAX_REPORT_COUNT, config);
+    // Enumerate every report, not a fixed cap. A run sidecar is an orphan only
+    // when no surviving report references it, so under-counting reports here
+    // would delete sidecars still in use (e.g. when maxReportCount exceeds the
+    // buffer size). Sizing to the actual count mirrors pruneReports.
+    int reportCount = getReportCount(config);
+    int64_t *reportIDs = NULL;
+    if (reportCount > 0) {
+        reportIDs = calloc((size_t)reportCount, sizeof(*reportIDs));
+        if (reportIDs == NULL) {
+            return;
+        }
+        reportCount = getReportIDs(reportIDs, reportCount, config);
+    }
 
     int capacity = reportCount + 1;  // +1 for current run
     char (*activeRunIds)[KSCRS_UUID_STRING_LENGTH + 1] = calloc((size_t)capacity, sizeof(*activeRunIds));
     if (activeRunIds == NULL) {
+        free(reportIDs);
         return;
     }
     int activeCount = 0;
@@ -418,6 +429,7 @@ static void cleanupOrphanedRunSidecars(const KSCrashReportStoreCConfiguration *c
     }
 
     free(activeRunIds);
+    free(reportIDs);
 }
 
 static void deleteReportWithID(int64_t reportID, const KSCrashReportStoreCConfiguration *const config)
