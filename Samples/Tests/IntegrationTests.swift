@@ -221,6 +221,29 @@ final class CppTests: IntegrationTestBase {
             "last_exception_backtrace must not reuse the earlier caught C++ exception")
     }
 
+    func testTerminateWithoutActiveExceptionAfterCaughtCppUsesTerminateContext() throws {
+        // Regression for the tinfo == nullptr branch in CPPExceptionTerminate: a caught C++ exception leaves a
+        // throw-site cursor on this thread, then a bare std::terminate() fires with no active exception. The monitor
+        // must recompute a fresh cursor from the terminate context, not reuse the earlier (already-handled) throw site.
+        try launchAndCrash(.cpp_terminateAfterCaughtCpp)
+
+        let rawReport = try readCrashReport()
+        try rawReport.validate()
+        XCTAssertEqual(rawReport.crash.error.type, .cppException)
+
+        let exceptionBt = rawReport.crash.lastExceptionBacktrace
+        XCTAssertNotNil(exceptionBt, "C++ terminate crash should have last_exception_backtrace")
+        XCTAssertGreaterThan(
+            exceptionBt?.contents.count ?? 0, 0, "recomputed exception cursor should produce frames")
+
+        let demangled = (exceptionBt?.contents ?? [])
+            .compactMap(\.symbolName)
+            .compactMap(CrashReportFilterDemangle.demangledCppSymbol)
+        XCTAssertFalse(
+            demangled.contains("sample_namespace::Report::crash()"),
+            "last_exception_backtrace must not reuse the earlier caught C++ exception")
+    }
+
     func testRuntimeExceptionBackgroundThread() throws {
         try launchAndCrash(
             .cpp_runtimeExceptionBackgroundThread,

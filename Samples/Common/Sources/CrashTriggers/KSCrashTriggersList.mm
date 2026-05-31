@@ -28,6 +28,7 @@
 
 #import <mach/mach.h>
 #import <signal.h>
+#import <exception>
 #import <stdexcept>
 #import <thread>
 #import "CrashCallback.h"
@@ -161,6 +162,18 @@ NSString *const KSCrashNSExceptionStacktraceFuncName = @"exceptionWithStacktrace
     }
     NSString *exception = @"Objective-C object exception after caught C++";
     @throw exception;
+}
+
++ (void)trigger_cpp_terminateAfterCaughtCpp
+{
+    // A caught C++ exception leaves a throw-site backtrace cursor behind on this thread. A subsequent bare
+    // std::terminate() has no active exception, so the C++ monitor must recompute a fresh cursor from the terminate
+    // context rather than reusing the earlier (already-handled) throw site.
+    try {
+        sample_namespace::Report::crash();
+    } catch (...) {
+    }
+    std::terminate();
 }
 
 + (void)trigger_mach_badAccess
