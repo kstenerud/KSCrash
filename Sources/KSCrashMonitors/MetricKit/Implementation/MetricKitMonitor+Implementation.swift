@@ -34,7 +34,7 @@ import os.log
 #if SWIFT_PACKAGE
     import KSCrashRecording
     import KSCrashRecordingCore
-    import SwiftCore
+    import KSCrashSwiftCore
 #endif
 
 // MARK: - Internal Implementation

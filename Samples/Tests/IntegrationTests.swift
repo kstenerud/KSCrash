@@ -28,7 +28,7 @@ import CrashTriggers
 import IntegrationTestsHelper
 import KSCrashDemangleFilter
 import KSCrashRecording
-import Report
+import KSCrashReportModel
 import SampleUI
 import XCTest
 
@@ -432,8 +432,8 @@ final class UserReportedTests: IntegrationTestBase {
     }
 }
 
-extension Report.CrashReport where UserData == Report.NoUserData {
-    var crashedThread: Report.CrashReport<UserData>.Thread? {
+extension KSCrashReportModel.CrashReport where UserData == KSCrashReportModel.NoUserData {
+    var crashedThread: KSCrashReportModel.CrashReport<UserData>.Thread? {
         if let thread = self.crash.crashedThread {
             return thread
         }

@@ -87,7 +87,7 @@ Pod::Spec.new do |s|
   end
 
   s.subspec 'SwiftCore' do |swift_core|
-    module_name = 'SwiftCore'
+    module_name = 'KSCrashSwiftCore'
     swift_core.source_files = "Sources/#{module_name}/**/*.swift"
   end
 
@@ -102,7 +102,7 @@ Pod::Spec.new do |s|
   end
 
   s.subspec 'Report' do |report|
-    module_name = 'Report'
+    module_name = 'KSCrashReportModel'
     report.source_files = "Sources/#{module_name}/**/*.swift"
     report.resource_bundles = { module_name => "Sources/#{module_name}/Resources/PrivacyInfo.xcprivacy" }
   end
@@ -113,7 +113,7 @@ Pod::Spec.new do |s|
     monitors.dependency 'KSCrash/Report'
     monitors.dependency 'KSCrash/SwiftCore'
 
-    module_name = 'Monitors'
+    module_name = 'KSCrashMonitors'
     monitors.source_files = "Sources/#{module_name}/**/*.swift"
     monitors.resource_bundles = { module_name => "Sources/#{module_name}/Resources/PrivacyInfo.xcprivacy" }
 

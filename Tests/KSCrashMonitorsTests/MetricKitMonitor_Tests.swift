@@ -25,10 +25,10 @@
 //
 
 import KSCrashRecording
-import Report
+import KSCrashReportModel
 import XCTest
 
-@testable import Monitors
+@testable import KSCrashMonitors
 
 #if KSCRASH_HAS_METRICKIT
 

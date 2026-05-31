@@ -27,7 +27,7 @@
 import XCTest
 
 #if SWIFT_PACKAGE
-    import SwiftCore
+    import KSCrashSwiftCore
 #endif
 
 final class UnfairLockTests: XCTestCase {

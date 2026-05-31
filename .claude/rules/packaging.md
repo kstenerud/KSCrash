@@ -14,7 +14,7 @@ The public API surface consists of these modules: **KSCrashRecording**, **KSCras
 
 ## Swift SPM Module Naming
 
-Swift SPM modules should **not** use the `KSCrash` prefix. Use plain names (e.g., `SwiftCore`, `Monitors`, `Profiler`, `Report`). The `KSCrash` prefix is only for C/ObjC targets.
+All SPM modules (targets) use the `KSCrash` prefix, Swift and C/ObjC alike (e.g., `KSCrashSwiftCore`, `KSCrashMonitors`, `KSCrashProfiler`, `KSCrashReportModel`). Library **product** names stay unprefixed (e.g., `Monitors`, `Report`), matching the C targets: a consumer depends on the `Report` product and writes `import KSCrashReportModel`. The Swift report-model module is `KSCrashReportModel`, not `KSCrashReport`, because `KSCrashReport` is already the public ObjC protocol (Swift-named `CrashReport`) and a module/type name clash breaks qualified references.
 
 ## KSCrashNamespace.h
 

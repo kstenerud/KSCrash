@@ -34,14 +34,14 @@ import os.log
 #if SWIFT_PACKAGE
     import KSCrashRecording
     import KSCrashRecordingCore
-    import Report
+    import KSCrashReportModel
 #endif
 
 // Disambiguate from Foundation.MachError.
-// Under SPM, MachError lives in the Report module (ambiguous with Foundation).
+// Under SPM, MachError lives in the KSCrashReportModel module (ambiguous with Foundation).
 // Under CocoaPods, it's in the current module (KSCrash) which takes priority.
 #if SWIFT_PACKAGE
-    private typealias _MachError = Report.MachError
+    private typealias _MachError = KSCrashReportModel.MachError
 #else
     private typealias _MachError = MachError
 #endif
