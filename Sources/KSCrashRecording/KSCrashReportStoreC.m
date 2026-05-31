@@ -366,25 +366,28 @@ static void cleanupOrphanedRunSidecars(const KSCrashReportStoreCConfiguration *c
 
     const char *currentRunID = kscrash_getRunID();
 
+    // Declared up front so the single `done:` cleanup path frees them regardless
+    // of which early exit is taken.
+    int64_t *reportIDs = NULL;
+    char (*activeRunIds)[KSCRS_UUID_STRING_LENGTH + 1] = NULL;
+
     // Enumerate every report, not a fixed cap. A run sidecar is an orphan only
     // when no surviving report references it, so under-counting reports here
     // would delete sidecars still in use (e.g. when maxReportCount exceeds the
     // buffer size). Sizing to the actual count mirrors pruneReports.
     int reportCount = getReportCount(config);
-    int64_t *reportIDs = NULL;
     if (reportCount > 0) {
         reportIDs = calloc((size_t)reportCount, sizeof(*reportIDs));
         if (reportIDs == NULL) {
-            return;
+            goto done;
         }
         reportCount = getReportIDs(reportIDs, reportCount, config);
     }
 
     int capacity = reportCount + 1;  // +1 for current run
-    char (*activeRunIds)[KSCRS_UUID_STRING_LENGTH + 1] = calloc((size_t)capacity, sizeof(*activeRunIds));
+    activeRunIds = calloc((size_t)capacity, sizeof(*activeRunIds));
     if (activeRunIds == NULL) {
-        free(reportIDs);
-        return;
+        goto done;
     }
     int activeCount = 0;
 
@@ -428,6 +431,7 @@ static void cleanupOrphanedRunSidecars(const KSCrashReportStoreCConfiguration *c
         closedir(dir);
     }
 
+done:
     free(activeRunIds);
     free(reportIDs);
 }
