@@ -218,14 +218,18 @@ static void CPPExceptionTerminate(void)
             // from a prior throw on this thread. Skip 1 frame (this function) to show
             // the terminate() context, same as the handler cursor.
             kssc_initSelfThread(&g_exceptionStackCursor, 1);
-        } else if (!g_exceptionCursorValid || kscm_cppexception_isObjCExceptionType(tinfo)) {
-            // Either captureStackTrace didn't fire (foreign throw), or this is an arbitrary Objective-C object throw
-            // (for example @throw @"..."). Objective-C exceptions reach terminate via objc_exception_throw ->
-            // __cxa_throw inside libobjc, a path our interception does not see, so g_exceptionStackCursor was never
-            // captured for this exception and g_exceptionCursorValid may be stale from an earlier C++ throw on this
-            // thread. Recompute from here rather than reusing that unrelated cursor.
-            // Skip 4 frames: CPPExceptionTerminate -> std::__terminate -> failed_throw -> __cxa_throw
-            // to reach the actual throw location.
+        } else if (kscm_cppexception_isObjCExceptionType(tinfo)) {
+            // Arbitrary Objective-C object throw (for example @throw @"..."). It reaches terminate through
+            // objc_exception_throw inside libobjc, a path our __cxa_throw interception does not see, so
+            // g_exceptionStackCursor was never captured for this exception (and may be stale from an earlier C++ throw
+            // on this thread). Recompute from here. This path carries two more machinery frames above the throw site
+            // than a foreign C++ throw, so skip 6 (vs 4 below) to reach the @throw location. The exact count is pinned
+            // by CppTests.testObjectiveCObjectExceptionAfterCaughtCppUsesCurrentThrowSite, which asserts the top frame.
+            kssc_initSelfThread(&g_exceptionStackCursor, 6);
+        } else if (!g_exceptionCursorValid) {
+            // captureStackTrace didn't fire (foreign throw whose __cxa_throw we didn't intercept). Recompute from here
+            // rather than reusing a stale cursor. Skip 4 frames to step over the terminate internals and __cxa_throw
+            // and reach the throw location.
             kssc_initSelfThread(&g_exceptionStackCursor, 4);
         }
         // else: throw-site cursor was captured by captureStackTrace — use it as-is.

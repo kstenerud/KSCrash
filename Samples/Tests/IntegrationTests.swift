@@ -202,12 +202,23 @@ final class CppTests: IntegrationTestBase {
 
         let exceptionBt = rawReport.crash.lastExceptionBacktrace
         XCTAssertNotNil(exceptionBt, "C++ exception crash should have last_exception_backtrace")
+        XCTAssertGreaterThan(
+            exceptionBt?.contents.count ?? 0, 0, "recomputed exception cursor should produce frames")
+
+        // The top frame must be the @throw site, not the earlier caught C++ throw and not the throw machinery
+        // (objc_exception_throw and the terminate internals). Pinning the exact top frame guards the ObjC-path
+        // frame-skip count in CPPExceptionTerminate: an off-by-one there would surface here as a different top frame.
+        let topSymbol = exceptionBt?.contents.first?.symbolName
+        XCTAssertEqual(
+            topSymbol, "+[KSCrashTriggersList trigger_cpp_objcObjectExceptionAfterCaughtCpp]",
+            "last_exception_backtrace must reflect the @throw site")
+
         let demangled = (exceptionBt?.contents ?? [])
             .compactMap(\.symbolName)
             .compactMap(CrashReportFilterDemangle.demangledCppSymbol)
         XCTAssertFalse(
             demangled.contains("sample_namespace::Report::crash()"),
-            "last_exception_backtrace must reflect the @throw site, not the earlier caught C++ exception")
+            "last_exception_backtrace must not reuse the earlier caught C++ exception")
     }
 
     func testRuntimeExceptionBackgroundThread() throws {
