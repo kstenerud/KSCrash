@@ -238,6 +238,31 @@ static CFDictionaryRef testStitchReport(CFDictionaryRef reportDict, const char *
     XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:orphanDir]);
 }
 
+// Regression: cleanup used to enumerate reports into a fixed 512-slot buffer, so
+// with more reports than that the unenumerated tail had its still-referenced run
+// sidecars deleted as orphans. Every sidecar with a matching report must survive.
+- (void)testCleanupKeepsRunSidecarsBeyondFixedReportCap
+{
+    [self prepareStoreWithRunSidecars:@"testCleanupBeyondCap"];
+
+    const int reportCount = 600;  // comfortably over the old 512 cap
+    NSMutableArray<NSString *> *runDirs = [NSMutableArray arrayWithCapacity:reportCount];
+    for (int i = 0; i < reportCount; i++) {
+        NSString *runId = [[NSUUID UUID] UUIDString];
+        [self writeReportWithRunId:runId];
+        [self writeRunSidecar:@"System" runId:runId contents:@"system data"];
+        [runDirs addObject:[[NSString stringWithUTF8String:_storeConfig.runSidecarsPath]
+                               stringByAppendingPathComponent:runId]];
+    }
+
+    kscrs_cleanupOrphanedRunSidecars(&_storeConfig);
+
+    NSFileManager *fm = [NSFileManager defaultManager];
+    for (NSString *runDir in runDirs) {
+        XCTAssertTrue([fm fileExistsAtPath:runDir], @"Run sidecar wrongly deleted: %@", runDir);
+    }
+}
+
 - (void)testDeleteReportWithNoRunSidecarsPathDoesNotCrash
 {
     [self prepareStoreWithRunSidecars:@"testDeleteNoRunSidecars"];

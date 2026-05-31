@@ -350,14 +350,13 @@ static NSDictionary *stitchRunSidecarsIntoReport(NSDictionary *report,
 
 // UUID: 8-4-4-4-12 hex digits with hyphens = 36 chars
 #define KSCRS_UUID_STRING_LENGTH 36
-#define KSCRS_MAX_REPORT_COUNT 512
 
 /** Remove run sidecar directories that have no matching reports.
  *
  * Scans the RunSidecars directory and collects the set of active run_ids
  * from existing reports by JSON-decoding report["report"]["run_id"].
  * Any run sidecar directory whose name isn't in the active set is deleted.
- * Runs once at initialization.
+ * Runs after report sending and via the explicit cleanup entry point.
  */
 static void cleanupOrphanedRunSidecars(const KSCrashReportStoreCConfiguration *const config)
 {
@@ -367,13 +366,28 @@ static void cleanupOrphanedRunSidecars(const KSCrashReportStoreCConfiguration *c
 
     const char *currentRunID = kscrash_getRunID();
 
-    int64_t reportIDs[KSCRS_MAX_REPORT_COUNT];
-    int reportCount = getReportIDs(reportIDs, KSCRS_MAX_REPORT_COUNT, config);
+    // Declared up front so the single `done:` cleanup path frees them regardless
+    // of which early exit is taken.
+    int64_t *reportIDs = NULL;
+    char (*activeRunIds)[KSCRS_UUID_STRING_LENGTH + 1] = NULL;
+
+    // Enumerate every report, not a fixed cap. A run sidecar is an orphan only
+    // when no surviving report references it, so under-counting reports here
+    // would delete sidecars still in use (e.g. when maxReportCount exceeds the
+    // buffer size). Sizing to the actual count mirrors pruneReports.
+    int reportCount = getReportCount(config);
+    if (reportCount > 0) {
+        reportIDs = calloc((size_t)reportCount, sizeof(*reportIDs));
+        if (reportIDs == NULL) {
+            goto done;
+        }
+        reportCount = getReportIDs(reportIDs, reportCount, config);
+    }
 
     int capacity = reportCount + 1;  // +1 for current run
-    char (*activeRunIds)[KSCRS_UUID_STRING_LENGTH + 1] = calloc((size_t)capacity, sizeof(*activeRunIds));
+    activeRunIds = calloc((size_t)capacity, sizeof(*activeRunIds));
     if (activeRunIds == NULL) {
-        return;
+        goto done;
     }
     int activeCount = 0;
 
@@ -417,7 +431,9 @@ static void cleanupOrphanedRunSidecars(const KSCrashReportStoreCConfiguration *c
         closedir(dir);
     }
 
+done:
     free(activeRunIds);
+    free(reportIDs);
 }
 
 static void deleteReportWithID(int64_t reportID, const KSCrashReportStoreCConfiguration *const config)
