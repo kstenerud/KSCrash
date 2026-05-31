@@ -79,8 +79,8 @@ store with zero crash-time overhead.
 ### Additional Features
 
 - **Profiler**: Sampling profiler for thread backtraces (`KSCrashProfiler` module)
-- **MetricKit**: Apple diagnostic payload integration (`Monitors` module)
-- **Report**: Strongly-typed Swift model for crash reports (`Report` module)
+- **MetricKit**: Apple diagnostic payload integration (`KSCrashMonitors` module)
+- **Report**: Strongly-typed Swift model for crash reports (`KSCrashReportModel` module)
 - **Zombie Detection**: Catches messages to deallocated objects
 - **Memory Tracking**: Real-time memory pressure monitoring via `AppMemoryTracker`
 - **Crash Doctor**: Automatic crash cause diagnosis
