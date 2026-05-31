@@ -27,7 +27,7 @@
 import Foundation
 import KSCrashRecording
 import KSCrashRecordingCore
-import SwiftCore
+import KSCrashSwiftCore
 
 // MARK: - Time Profile Report Writing
 

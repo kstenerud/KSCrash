@@ -27,7 +27,7 @@
 import Foundation
 import KSCrashRecording
 import KSCrashRecordingCore
-import SwiftCore
+import KSCrashSwiftCore
 import os.log
 
 #if KSCRASH_HAS_METRICKIT

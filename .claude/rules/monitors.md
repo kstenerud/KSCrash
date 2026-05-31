@@ -11,7 +11,7 @@ paths:
 
 ## Monitors
 
-Built-in monitors are registered via `KSCrashMonitorType` flags in `KSCrashC.c`. External monitors can be added as plugins via `KSCrashConfiguration.plugins` (Swift: `MonitorPlugin`, ObjC: `KSCrashMonitorPlugin`), which wrap a `KSCrashMonitorAPI` and are registered at install time via `kscm_addMonitor()`. The `Monitors` Swift module provides ready-made plugins (e.g., `Monitors.metricKit`).
+Built-in monitors are registered via `KSCrashMonitorType` flags in `KSCrashC.c`. External monitors can be added as plugins via `KSCrashConfiguration.plugins` (Swift: `MonitorPlugin`, ObjC: `KSCrashMonitorPlugin`), which wrap a `KSCrashMonitorAPI` and are registered at install time via `kscm_addMonitor()`. The `KSCrashMonitors` Swift module provides ready-made plugins (e.g., `Monitors.metricKit`).
 
 ### Monitor Reference
 
