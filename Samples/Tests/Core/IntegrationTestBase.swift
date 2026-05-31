@@ -26,8 +26,8 @@
 
 import CrashTriggers
 import IntegrationTestsHelper
+import KSCrashReportModel
 import Logging
-import Report
 import SampleUI
 import XCTest
 

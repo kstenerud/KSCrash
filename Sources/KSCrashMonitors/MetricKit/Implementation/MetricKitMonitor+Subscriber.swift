@@ -27,16 +27,16 @@
 import Foundation
 import KSCrashRecording
 import KSCrashRecordingCore
-import Report
+import KSCrashReportModel
 import os.log
 
 #if KSCRASH_HAS_METRICKIT
     import MetricKit
 #endif
 
-// Disambiguate from Foundation.MachError: the one we want lives in the Report
+// Disambiguate from Foundation.MachError: the one we want lives in the KSCrashReportModel
 // module and is ambiguous with Foundation's MachError, so qualify it.
-private typealias _MachError = Report.MachError
+private typealias _MachError = KSCrashReportModel.MachError
 
 // MARK: - MXMetricManagerSubscriber
 

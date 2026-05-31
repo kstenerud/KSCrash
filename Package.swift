@@ -607,14 +607,14 @@ enum Targets {
     static let discSpaceMonitor = "KSCrashDiscSpaceMonitor"
     static let bootTimeMonitor = "KSCrashBootTimeMonitor"
     static let demangleFilter = "KSCrashDemangleFilter"
-    static let report = "Report"
+    static let report = "KSCrashReportModel"
     static let testTools = "KSCrashTestTools"
     static let benchmarks = "KSCrashBenchmarks"
     static let objcBenchmarks = "KSCrashBenchmarksObjC"
     static let coldBenchmarks = "KSCrashBenchmarksCold"
-    static let swiftCore = "SwiftCore"
+    static let swiftCore = "KSCrashSwiftCore"
     static let profiler = "KSCrashProfiler"
-    static let monitors = "Monitors"
+    static let monitors = "KSCrashMonitors"
 }
 
 extension String {

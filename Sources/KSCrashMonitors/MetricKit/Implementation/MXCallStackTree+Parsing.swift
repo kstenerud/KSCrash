@@ -25,7 +25,7 @@
 //
 
 import Foundation
-import Report
+import KSCrashReportModel
 import os.log
 
 // MARK: - Output

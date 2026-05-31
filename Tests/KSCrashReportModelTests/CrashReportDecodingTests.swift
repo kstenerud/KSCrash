@@ -27,7 +27,7 @@
 import Foundation
 import XCTest
 
-@testable import Report
+@testable import KSCrashReportModel
 
 final class CrashReportDecodingTests: XCTestCase {
 
