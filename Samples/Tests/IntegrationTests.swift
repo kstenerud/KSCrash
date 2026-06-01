@@ -189,6 +189,60 @@ final class CppTests: IntegrationTestBase {
         XCTAssertNotNil(rawReport.crash.lastExceptionBacktrace)
     }
 
+    func testObjectiveCObjectExceptionAfterCaughtCppUsesCurrentThrowSite() throws {
+        // Regression: a caught C++ exception captures a throw-site backtrace cursor on this
+        // thread. The later fatal Objective-C object throw is reported by the C++ monitor and
+        // must reflect its own throw site, not reuse the earlier (already-handled) C++ one.
+        try launchAndCrash(.cpp_objcObjectExceptionAfterCaughtCpp)
+
+        let rawReport = try readCrashReport()
+        try rawReport.validate()
+        XCTAssertEqual(rawReport.crash.error.type, .cppException)
+        XCTAssertNil(rawReport.crash.error.nsexception)
+
+        let exceptionBt = rawReport.crash.lastExceptionBacktrace
+        XCTAssertNotNil(exceptionBt, "C++ exception crash should have last_exception_backtrace")
+        XCTAssertGreaterThan(
+            exceptionBt?.contents.count ?? 0, 0, "recomputed exception cursor should produce frames")
+
+        // The backtrace must reach the @throw site near the top. The exact top frame is platform-dependent: on macOS
+        // and devices it is the throw site itself, while on the simulator one extra objc_exception_throw frame can sit
+        // above it (libobjc is not prebound there). Assert the throw site appears within the first few frames rather
+        // than pinning the exact top, and that the earlier (already-handled) C++ throw site is not reused.
+        let symbols = (exceptionBt?.contents ?? []).compactMap(\.symbolName)
+        XCTAssertTrue(
+            symbols.prefix(3).contains("+[KSCrashTriggersList trigger_cpp_objcObjectExceptionAfterCaughtCpp]"),
+            "last_exception_backtrace must reach the @throw site near the top, got: \(symbols.prefix(3))")
+
+        let demangled = symbols.compactMap(CrashReportFilterDemangle.demangledCppSymbol)
+        XCTAssertFalse(
+            demangled.contains("sample_namespace::Report::crash()"),
+            "last_exception_backtrace must not reuse the earlier caught C++ exception")
+    }
+
+    func testTerminateWithoutActiveExceptionAfterCaughtCppUsesTerminateContext() throws {
+        // Regression for the tinfo == nullptr branch in CPPExceptionTerminate: a caught C++ exception leaves a
+        // throw-site cursor on this thread, then a bare std::terminate() fires with no active exception. The monitor
+        // must recompute a fresh cursor from the terminate context, not reuse the earlier (already-handled) throw site.
+        try launchAndCrash(.cpp_terminateAfterCaughtCpp)
+
+        let rawReport = try readCrashReport()
+        try rawReport.validate()
+        XCTAssertEqual(rawReport.crash.error.type, .cppException)
+
+        let exceptionBt = rawReport.crash.lastExceptionBacktrace
+        XCTAssertNotNil(exceptionBt, "C++ terminate crash should have last_exception_backtrace")
+        XCTAssertGreaterThan(
+            exceptionBt?.contents.count ?? 0, 0, "recomputed exception cursor should produce frames")
+
+        let demangled = (exceptionBt?.contents ?? [])
+            .compactMap(\.symbolName)
+            .compactMap(CrashReportFilterDemangle.demangledCppSymbol)
+        XCTAssertFalse(
+            demangled.contains("sample_namespace::Report::crash()"),
+            "last_exception_backtrace must not reuse the earlier caught C++ exception")
+    }
+
     func testRuntimeExceptionBackgroundThread() throws {
         try launchAndCrash(
             .cpp_runtimeExceptionBackgroundThread,
