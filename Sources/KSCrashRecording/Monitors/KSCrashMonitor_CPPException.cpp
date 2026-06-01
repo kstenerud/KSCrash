@@ -218,10 +218,21 @@ static void CPPExceptionTerminate(void)
             // from a prior throw on this thread. Skip 1 frame (this function) to show
             // the terminate() context, same as the handler cursor.
             kssc_initSelfThread(&g_exceptionStackCursor, 1);
+        } else if (kscm_cppexception_isObjCExceptionType(tinfo)) {
+            // Arbitrary Objective-C object throw (for example @throw @"..."). It reaches terminate through
+            // objc_exception_throw inside libobjc, a path our __cxa_throw interception does not see, so
+            // g_exceptionStackCursor was never captured for this exception (and may be stale from an earlier C++ throw
+            // on this thread). Recompute from here. This path carries one extra machinery frame (objc_exception_throw)
+            // above the throw site versus a foreign C++ throw, so skip 5 (vs 4 below). The exact frame this lands on is
+            // platform-dependent: on macOS/devices it is the throw site itself; on the simulator objc_exception_throw
+            // may remain just above it (libobjc is not prebound there). We deliberately under-skip rather than risk
+            // overshooting and dropping the throw site. Covered by
+            // CppTests.testObjectiveCObjectExceptionAfterCaughtCppUsesCurrentThrowSite.
+            kssc_initSelfThread(&g_exceptionStackCursor, 5);
         } else if (!g_exceptionCursorValid) {
-            // Exception exists but captureStackTrace didn't fire (e.g., foreign throw).
-            // Skip 4 frames: CPPExceptionTerminate -> std::__terminate -> failed_throw -> __cxa_throw
-            // to reach the actual throw location.
+            // captureStackTrace didn't fire (foreign throw whose __cxa_throw we didn't intercept). Recompute from here
+            // rather than reusing a stale cursor. Skip 4 frames to step over the terminate internals and __cxa_throw
+            // and reach the throw location.
             kssc_initSelfThread(&g_exceptionStackCursor, 4);
         }
         // else: throw-site cursor was captured by captureStackTrace — use it as-is.
