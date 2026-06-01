@@ -222,10 +222,10 @@ static void CPPExceptionTerminate(void)
             // Arbitrary Objective-C object throw (for example @throw @"..."). It reaches terminate through
             // objc_exception_throw inside libobjc, a path our __cxa_throw interception does not see, so
             // g_exceptionStackCursor was never captured for this exception (and may be stale from an earlier C++ throw
-            // on this thread). Recompute from here. This path carries two more machinery frames above the throw site
-            // than a foreign C++ throw, so skip 6 (vs 4 below) to reach the @throw location. The exact count is pinned
+            // on this thread). Recompute from here. This path carries one more machinery frame above the throw site
+            // than a foreign C++ throw, so skip 5 (vs 4 below) to reach the @throw location. The exact count is pinned
             // by CppTests.testObjectiveCObjectExceptionAfterCaughtCppUsesCurrentThrowSite, which asserts the top frame.
-            kssc_initSelfThread(&g_exceptionStackCursor, 6);
+            kssc_initSelfThread(&g_exceptionStackCursor, 5);
         } else if (!g_exceptionCursorValid) {
             // captureStackTrace didn't fire (foreign throw whose __cxa_throw we didn't intercept). Recompute from here
             // rather than reusing a stale cursor. Skip 4 frames to step over the terminate internals and __cxa_throw
