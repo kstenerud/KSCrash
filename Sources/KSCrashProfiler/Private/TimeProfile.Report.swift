@@ -48,7 +48,8 @@ import KSCrashSwiftCore
 /// - `time_end_uptime`: Monotonic end timestamp
 /// - `duration`: Profile duration in nanoseconds
 /// - `frames`: Array of unique symbolicated frames
-/// - `samples`: Array of samples, each referencing frames by index
+/// - `threads`: One entry per thread (a time profile has exactly one, flagged primary),
+///   each with a `samples` array referencing frames by index
 extension TimeProfile {
 
     /// Writes this profile to a crash report file.
@@ -200,9 +201,18 @@ private class BoxedTimeProfile {
         }
         writer.endContainer()
 
+        // A time profile observes a single thread, emitted as a one-element `threads` array
+        // so the report shape matches multi-thread profiles (e.g. hangs). count is always 1:
+        // each captured backtrace is its own sample.
+        writer.beginArray("threads")
+        writer.beginObject(nil)
+        writer.add("index", Int64(0))
+        writer.add("primary", true)
+
         writer.beginArray("samples")
         for (i, sample) in samples.enumerated() {
             writer.beginObject(nil)
+            writer.add("count", Int64(1))
             writer.add("time_start_uptime", sample.metadata.timestampBeginNs)
             writer.add("time_end_uptime", sample.metadata.timestampEndNs)
             writer.add("duration", sample.metadata.durationNs)
@@ -215,7 +225,10 @@ private class BoxedTimeProfile {
 
             writer.endContainer()
         }
-        writer.endContainer()
+        writer.endContainer()  // samples
+
+        writer.endContainer()  // thread object
+        writer.endContainer()  // threads
     }
 }
 

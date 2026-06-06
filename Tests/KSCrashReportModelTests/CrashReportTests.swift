@@ -122,16 +122,14 @@ final class CrashReportTests: XCTestCase {
         XCTAssertEqual(decoded, profile)
 
         // A hang sample carries a count and no timing.
-        let sample = try XCTUnwrap(decoded.threads?.first?.samples.first)
+        let sample = try XCTUnwrap(decoded.threads.first?.samples.first)
         XCTAssertEqual(sample.count, 3)
-        XCTAssertEqual(sample.effectiveCount, 3)
         XCTAssertNil(sample.timeStartUptime)
         XCTAssertNil(sample.duration)
     }
 
-    func testSingleThreadProfileNormalizesToThreadSamples() throws {
-        // A live time profile uses top-level samples and no threads array; threadSamples
-        // wraps it as one primary thread so consumers read every profile the same way.
+    func testSingleThreadProfileUsesOneThread() throws {
+        // A live time profile is one thread with timed, count-1 samples.
         let profile = ProfileInfo(
             name: "startup",
             id: "AAAA",
@@ -139,14 +137,19 @@ final class CrashReportTests: XCTestCase {
             timeEndUptime: 200,
             duration: 100,
             frames: [StackFrame(instructionAddr: 0x1000)],
-            samples: [ProfileSample(timeStartUptime: 100, timeEndUptime: 110, duration: 10, frames: [0])]
+            threads: [
+                ProfileThread(
+                    index: 0, primary: true, name: nil,
+                    samples: [ProfileSample(timeStartUptime: 100, timeEndUptime: 110, duration: 10, frames: [0])])
+            ]
         )
-        XCTAssertNil(profile.threads)
-        let normalized = profile.threadSamples
-        XCTAssertEqual(normalized.count, 1)
-        XCTAssertTrue(normalized[0].primary)
-        XCTAssertEqual(normalized[0].samples.first?.effectiveCount, 1)
-        XCTAssertEqual(normalized[0].samples.first?.duration, 10)
+        let decoded = try JSONDecoder().decode(ProfileInfo.self, from: try JSONEncoder().encode(profile))
+        XCTAssertEqual(decoded, profile)
+        XCTAssertEqual(decoded.threads.count, 1)
+        XCTAssertTrue(decoded.threads[0].primary)
+        let sample = try XCTUnwrap(decoded.threads[0].samples.first)
+        XCTAssertEqual(sample.count, 1)
+        XCTAssertEqual(sample.duration, 10)
     }
 
     func testReportTypeRawValues() {

@@ -28,16 +28,18 @@ import Foundation
 
 /// Information about a profiling session captured in the crash report.
 ///
-/// Profile reports contain sampled backtraces captured during a profiling session,
-/// with frame deduplication to minimize file size. The `frames` table is shared across
-/// all samples (and all threads, when `threads` is used).
+/// Profile reports contain sampled backtraces with frame deduplication to minimize file
+/// size. The `frames` table is shared across every thread, and samples reference frames by
+/// index. Samples are always grouped under `threads`, one entry per thread, with one flagged
+/// primary, even a single-thread time profile uses a one-element `threads` array. There is
+/// no separate top-level samples list, so a reader never has to choose between two shapes.
 ///
 /// Two sources populate this model:
 /// - A live time profile (`TimeProfiler`) records one sample per captured backtrace on a
-///   single thread, with per-sample timing. It uses `samples` and fills every timing field.
-/// - A hang (e.g. a MetricKit hang diagnostic) is an aggregate of many samples across all
-///   threads with no per-sample timing. It uses `threads`, each sample carrying a `count`
-///   (multiplicity) instead of timing, and fills only `duration` at the profile level.
+///   single thread (`count == 1`), with per-sample timing.
+/// - A hang (e.g. a MetricKit hang diagnostic) aggregates many samples across all threads
+///   with no per-sample timing. Each sample carries a `count` (multiplicity) and only
+///   `duration` is set at the profile level.
 public struct ProfileInfo: Codable, Sendable, Equatable {
     /// Human-readable name for this profile session.
     public let name: String
@@ -60,22 +62,21 @@ public struct ProfileInfo: Codable, Sendable, Equatable {
     /// report a configured interval (e.g. a hang).
     public let expectedSampleInterval: UInt64?
 
-    /// Profile duration in nanoseconds. Always set (for a hang this is the hang duration).
+    /// Profile duration in nanoseconds. Always set. Its meaning depends on the report's
+    /// `error.subtype`: for a time profile it is how long we observed; for a hang
+    /// (`subtype == .hang`) it is how long the hang lasted.
     public let duration: UInt64
 
-    /// Time units used (typically "nanoseconds").
+    /// Units for the time fields ("nanoseconds"). Applies to durations and timestamps only;
+    /// per-sample ``ProfileSample/count`` values are unitless.
     public let timeUnits: String
 
     /// Array of unique symbolicated frames referenced by samples.
     public let frames: [StackFrame]
 
-    /// Single-thread samples, each referencing frames by index. Used by live time profiles.
-    /// Empty for multi-thread profiles, which use ``threads`` instead.
-    public let samples: [ProfileSample]
-
-    /// Per-thread samples for a multi-thread profile (e.g. a hang covering all threads).
-    /// When non-nil this takes precedence over ``samples``; one thread is flagged primary.
-    public let threads: [ProfileThread]?
+    /// Per-thread samples; one entry per thread, one flagged primary. A single-thread time
+    /// profile has exactly one element.
+    public let threads: [ProfileThread]
 
     public init(
         name: String,
@@ -87,8 +88,7 @@ public struct ProfileInfo: Codable, Sendable, Equatable {
         duration: UInt64,
         timeUnits: String = "nanoseconds",
         frames: [StackFrame],
-        samples: [ProfileSample] = [],
-        threads: [ProfileThread]? = nil
+        threads: [ProfileThread]
     ) {
         self.name = name
         self.id = id
@@ -99,16 +99,7 @@ public struct ProfileInfo: Codable, Sendable, Equatable {
         self.duration = duration
         self.timeUnits = timeUnits
         self.frames = frames
-        self.samples = samples
         self.threads = threads
-    }
-
-    /// Per-thread samples normalized across both shapes: returns ``threads`` when present,
-    /// otherwise wraps the single-thread ``samples`` as one primary thread. Lets a consumer
-    /// read every profile the same way regardless of source.
-    public var threadSamples: [ProfileThread] {
-        if let threads { return threads }
-        return [ProfileThread(index: 0, primary: true, name: nil, samples: samples)]
     }
 
     enum CodingKeys: String, CodingKey {
@@ -121,7 +112,6 @@ public struct ProfileInfo: Codable, Sendable, Equatable {
         case duration
         case timeUnits = "time_units"
         case frames
-        case samples
         case threads
     }
 }
@@ -158,14 +148,14 @@ public struct ProfileThread: Codable, Sendable, Equatable {
 
 /// A captured sample in a profile.
 ///
-/// Each sample references frames by index into the profile's frames array. A live time
-/// profile sample carries capture timing (`timeStartUptime`/`timeEndUptime`/`duration`)
-/// and an implicit count of 1. A hang sample carries a `count` (how many times the stack
-/// was observed in the window) and no timing.
-///
-/// Invariant: if `count > 1`, the timing fields are nil; if timing is present, `count` is
-/// 1 (or absent). A single sample never has both a multiplicity and a single timestamp.
+/// Each sample references frames by index into the profile's frames array. `count` is the
+/// number of times this stack was observed (always 1 for a live time profile, where each
+/// captured backtrace is its own sample). Timing is independent and optional: a live time
+/// profile fills it with the backtrace capture window, a hang has none.
 public struct ProfileSample: Codable, Sendable, Equatable {
+    /// Number of times this stack was observed.
+    public let count: Int
+
     /// Monotonic timestamp when backtrace capture began. Nil for an aggregated hang sample.
     public let timeStartUptime: UInt64?
 
@@ -175,34 +165,28 @@ public struct ProfileSample: Codable, Sendable, Equatable {
     /// Duration of the backtrace capture in nanoseconds. Nil for an aggregated hang sample.
     public let duration: UInt64?
 
-    /// Number of times this stack was observed. Absent means 1.
-    public let count: Int?
-
     /// Indexes into the profile's frames array, deepest call first.
     public let frames: [Int]
 
-    /// Observed multiplicity, treating an absent ``count`` as 1.
-    public var effectiveCount: Int { count ?? 1 }
-
     public init(
+        count: Int = 1,
         timeStartUptime: UInt64? = nil,
         timeEndUptime: UInt64? = nil,
         duration: UInt64? = nil,
-        count: Int? = nil,
         frames: [Int]
     ) {
+        self.count = count
         self.timeStartUptime = timeStartUptime
         self.timeEndUptime = timeEndUptime
         self.duration = duration
-        self.count = count
         self.frames = frames
     }
 
     enum CodingKeys: String, CodingKey {
+        case count
         case timeStartUptime = "time_start_uptime"
         case timeEndUptime = "time_end_uptime"
         case duration
-        case count
         case frames
     }
 }

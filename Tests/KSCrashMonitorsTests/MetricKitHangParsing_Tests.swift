@@ -132,14 +132,14 @@ final class MetricKitHangParsingTests: XCTestCase {
         let profile = buildProfileData(from: tree)
 
         // Thread 0: two leaves with counts 3 and 2, summing to the root's 5.
-        let t0 = profile.threads[0].samples.map { $0.effectiveCount }.sorted()
+        let t0 = profile.threads[0].samples.map { $0.count }.sorted()
         XCTAssertEqual(t0, [2, 3])
-        XCTAssertEqual(profile.threads[0].samples.reduce(0) { $0 + $1.effectiveCount }, 5)
+        XCTAssertEqual(profile.threads[0].samples.reduce(0) { $0 + $1.count }, 5)
 
         // Thread 1: leaves with counts 1 and 3, summing to 4.
-        let t1 = profile.threads[1].samples.map { $0.effectiveCount }.sorted()
+        let t1 = profile.threads[1].samples.map { $0.count }.sorted()
         XCTAssertEqual(t1, [1, 3])
-        XCTAssertEqual(profile.threads[1].samples.reduce(0) { $0 + $1.effectiveCount }, 4)
+        XCTAssertEqual(profile.threads[1].samples.reduce(0) { $0 + $1.count }, 4)
     }
 
     func testFrameTableDedupsAcrossThreads() throws {
@@ -163,7 +163,7 @@ final class MetricKitHangParsingTests: XCTestCase {
 
         // Thread 0's count-3 sample is the path dyld -> App -> Foundation; deepest-first means
         // Foundation (0x3000) is first and dyld (0x1000) is last.
-        let sample = try XCTUnwrap(profile.threads[0].samples.first { $0.effectiveCount == 3 })
+        let sample = try XCTUnwrap(profile.threads[0].samples.first { $0.count == 3 })
         XCTAssertEqual(profile.frames[sample.frames.first!].instructionAddr, 0x3000)
         XCTAssertEqual(profile.frames[sample.frames.last!].instructionAddr, 0x1000)
 
