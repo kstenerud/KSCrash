@@ -141,6 +141,13 @@ public final class MetricKitRunIdHandler {
 
             let runId = contents.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
 
+            // An empty sidecar isn't a usable run ID; treat it as a miss so we don't cache or
+            // return it (which would hand later diagnostics the same bogus value).
+            guard !runId.isEmpty else {
+                try? FileManager.default.removeItem(at: url)
+                continue
+            }
+
             // Cache before removing the sidecar so later diagnostics from this run still resolve.
             decodedRunIds.withLock { $0[hash] = runId }
             try? FileManager.default.removeItem(at: url)

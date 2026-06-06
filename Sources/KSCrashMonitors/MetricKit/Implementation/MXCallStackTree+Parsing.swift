@@ -165,8 +165,9 @@ func flattenFrames(_ frames: [CallStackTreeRepresentation.Frame]) -> [CallStackT
 // A hang tree is a sample-merged trie: each node's `sampleCount` equals the sum of its
 // children's, so the per-node "self" samples live at the leaves and each root->leaf path is
 // one observed stack. We emit one weighted `ProfileSample` per path (count = the path's self
-// samples), deduping frames by address into one shared table. Frames are stored deepest-first
-// to match KSCrash's `Sample.addresses` convention.
+// samples), deduping frames by address into one shared table (in first-seen order). Each
+// sample's frame index list is ordered deepest-first to match KSCrash's `Sample.addresses`
+// convention.
 //
 // `primaryThreadIndex` selects the thread of interest. The caller passes index 0 for a
 // "Main Runloop Hang" (the main thread); when nil we fall back to the attributed thread, then
