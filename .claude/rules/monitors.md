@@ -77,7 +77,8 @@ Rules: when `isFatal=true`, `isCleanExit` must be explicitly set. When `isFatal=
 | User report (non-fatal) | User | false | — | unchanged |
 | Memory (breadcrumb, current run) | Memory | false | — | unchanged |
 | Memory (OOM confirmed, stitched) | Memory | true | false | false (never set) |
-| MetricKit | MetricKit | true | false | unchanged |
+| MetricKit (crash) | MetricKit | true | false | unchanged |
+| MetricKit (hang) | MetricKit | false | — | unchanged |
 | Profiler | Profiler | false | — | unchanged |
 | CPU exception (warning/critical) | Resource | false | — | unchanged |
 | Recrash (crash-in-handler) | Monitor.c | true | false | false |
@@ -106,6 +107,10 @@ Monitors implement three enable-time callbacks:
 ### Watchdog Monitor
 
 The watchdog monitor uses a fixed 250ms threshold to detect hangs on the main thread. This threshold is intentionally not configurable — it aligns with Apple's definition of a "hang" (250ms+) and should not be changed. See `KSCrashMonitor_Watchdog.h` for the rationale. The legacy Deadlock monitor (`KSCrashMonitorTypeMainThreadDeadlock`) is deprecated — use Watchdog instead.
+
+### MetricKit Monitor
+
+The MetricKit monitor ingests `MXDiagnosticPayload`s and turns each diagnostic into a report. `MXCrashDiagnostic` becomes a normal (fatal) crash report. `MXHangDiagnostic` becomes a **profile report**: its `callStackTree` is a sample-merged trie across all threads, not a single backtrace, so it is converted to weighted per-thread samples (`MXCallStackTree.extractProfileData`) and stored in `ProfileInfo`. The report's `error.type` is `.profile` and it carries the generic `error.subtype == .hang` to identify the hang; this is the same discriminator the watchdog-driven `HangProfiler` should use, rather than matching on a profile name. Because a hang has no per-sample timing, each sample carries a `count` (multiplicity) and the profile's monotonic timing fields are nil; only `duration` (the hang duration) is set. Hang reports are non-fatal and describe a previous window, so they do not touch current-run `cleanShutdown`. CPU/diskWrite/appLaunch diagnostics are not yet ingested (dump-only).
 
 ### KSCrashMonitorFlagAsyncSafe
 
