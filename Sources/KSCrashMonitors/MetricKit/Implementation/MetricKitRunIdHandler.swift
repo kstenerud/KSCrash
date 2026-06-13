@@ -27,6 +27,7 @@
 import Foundation
 import KSCrashRecording
 import KSCrashReportModel
+import KSCrashSwiftCore
 
 /// Encodes a run ID into a parked thread's call stack using KSCrashThreadcrumb,
 /// then writes a sidecar file mapping the stack hash to the run ID.
@@ -48,6 +49,12 @@ public final class MetricKitRunIdHandler {
     static let dataStartIndex = 4
 
     private let threadcrumb = KSCrashThreadcrumb(identifier: "com.kscrash.run_id")
+
+    /// Run IDs already decoded this process, keyed by threadcrumb stack hash. A single app run
+    /// can produce several diagnostics (e.g. multiple non-fatal hangs), all sharing one
+    /// threadcrumb sidecar; decoding removes that file, so later diagnostics from the same run
+    /// would otherwise fail to resolve. Serving repeats from here keeps their run IDs intact.
+    private let decodedRunIds = UnfairLock([UInt64: String]())
 
     /// Callback type for obtaining sidecar file URLs.
     public typealias SidecarPathProvider = (_ name: String, _ extension: String) -> URL?
@@ -117,21 +124,35 @@ public final class MetricKitRunIdHandler {
             let addresses = dataFrames.map { NSNumber(value: $0.instructionAddr) }
             let hash = Self.computeHash(from: addresses)
 
+            // A previous diagnostic from the same run already consumed the sidecar.
+            if let cached = decodedRunIds.withLock({ $0[hash] }) {
+                return cached
+            }
+
             // Look up sidecar
             let name = String(format: "%016llx", hash)
             guard let url = pathProvider(name, "stacksym") else {
                 continue
             }
 
-            guard let runId = try? String(contentsOf: url, encoding: .utf8) else {
+            guard let contents = try? String(contentsOf: url, encoding: .utf8) else {
                 continue
             }
 
-            // remove the sidecar
+            let runId = contents.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+
+            // An empty sidecar isn't a usable run ID; treat it as a miss so we don't cache or
+            // return it (which would hand later diagnostics the same bogus value).
+            guard !runId.isEmpty else {
+                try? FileManager.default.removeItem(at: url)
+                continue
+            }
+
+            // Cache before removing the sidecar so later diagnostics from this run still resolve.
+            decodedRunIds.withLock { $0[hash] = runId }
             try? FileManager.default.removeItem(at: url)
 
-            // trim and return
-            return runId.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+            return runId
         }
 
         return nil

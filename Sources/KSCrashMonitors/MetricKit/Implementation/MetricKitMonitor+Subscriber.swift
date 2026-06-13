@@ -62,6 +62,13 @@ private typealias _MachError = KSCrashReportModel.MachError
                         }
                     }
                 }
+                if let diagnostics = payload.hangDiagnostics {
+                    for diagnostic in diagnostics {
+                        if let reportID = processHangDiagnostic(diagnostic, timestamp: timestamp) {
+                            reportIDs.append(reportID)
+                        }
+                    }
+                }
                 if dumpPayloadsToDocuments {
                     payload.dump()
                 }
@@ -91,15 +98,32 @@ private typealias _MachError = KSCrashReportModel.MachError
 
         @discardableResult
         private func processCrashDiagnostic(_ diagnostic: MXCrashDiagnostic, timestamp: Date) -> Int64? {
+            // Phase 1: Write skeleton report to a temp file via C callbacks.
+            guard let tempURL = writeSkeletonReport() else { return nil }
+            defer { try? FileManager.default.removeItem(at: tempURL) }
+
+            // Phase 2: Post-process and write final report
+            return postProcessReport(atPath: tempURL.path, diagnostic: diagnostic, timestamp: timestamp)
+        }
+
+        @discardableResult
+        private func processHangDiagnostic(_ diagnostic: MXHangDiagnostic, timestamp: Date) -> Int64? {
+            guard let tempURL = writeSkeletonReport() else { return nil }
+            defer { try? FileManager.default.removeItem(at: tempURL) }
+
+            return postProcessHangReport(atPath: tempURL.path, diagnostic: diagnostic, timestamp: timestamp)
+        }
+
+        /// Writes a skeleton report to a temp file via the C callbacks and returns its URL.
+        /// The caller is responsible for removing the file once it has been post-processed.
+        private func writeSkeletonReport() -> URL? {
             guard let callbacks = callbacks else {
                 os_log(.error, log: metricKitLog, "[MONITORS] No callbacks available, skipping diagnostic")
                 return nil
             }
 
-            // Phase 1: Write skeleton report to a temp file via C callbacks.
             let tempURL = FileManager.default.temporaryDirectory
                 .appendingPathComponent("kscrash-metrickit-\(UUID().uuidString).json")
-            let tempPath = tempURL.path
 
             // Use isFatal=0 for the skeleton so that Lifecycle's addContextualInfoToEvent
             // doesn't mark the current run as unclean — MetricKit diagnostics describe a
@@ -118,15 +142,12 @@ private typealias _MachError = KSCrashReportModel.MachError
             let context = callbacks.notify(thread_t(ksthread_self()), requirements)
             kscm_fillMonitorContext(context, api)
             context?.pointee.omitBinaryImages = true
-            tempPath.withCString { cPath in
+            tempURL.path.withCString { cPath in
                 context?.pointee.reportPath = cPath
                 callbacks.handle(context)
             }
 
-            defer { try? FileManager.default.removeItem(at: tempURL) }
-
-            // Phase 2: Post-process and write final report
-            return postProcessReport(atPath: tempPath, diagnostic: diagnostic, timestamp: timestamp)
+            return tempURL
         }
 
         // MARK: - Post-Processing
@@ -230,42 +251,10 @@ private typealias _MachError = KSCrashReportModel.MachError
             // Build system info from MetricKit metadata.
             // The skeleton report's system info reflects the current session,
             // not the session that crashed, so we discard it entirely.
-            let meta = diagnostic.metaData
-            var processID: Int?
-            var buildType: BuildType = .appStore
-            var bundleIdentifier: String? = report.system?.cfBundleIdentifier
-            var lowPowerMode: Bool?
-            if #available(iOS 17.0, macOS 14.0, *) {
-                let pid = meta.pid
-                processID = pid >= 0 ? Int(pid) : nil
-                if meta.isTestFlightApp {
-                    buildType = .test
-                }
-                lowPowerMode = meta.lowPowerModeEnabled
-            }
-            // MXMetaData.bundleIdentifier was added in the macOS 26 / iOS 26 SDK (Xcode 26 / Swift 6.2).
-            #if compiler(>=6.2)
-                if #available(iOS 26.0, macOS 26.0, visionOS 26.0, *) {
-                    let metaBundleId = meta.bundleIdentifier
-                    if !metaBundleId.isEmpty {
-                        bundleIdentifier = metaBundleId
-                    }
-                }
-            #endif
-            let osInfo = parseOSVersion(meta.osVersion)
-            let newSystem = SystemInfo(
-                cfBundleIdentifier: bundleIdentifier,
-                cfBundleShortVersionString: diagnostic.applicationVersion,
-                cfBundleVersion: meta.applicationBuildVersion,
-                cpuArch: meta.platformArchitecture,
-                machine: meta.deviceType,
-                osVersion: osInfo.build,
-                processID: processID,
-                processName: report.system?.processName,
-                systemName: osInfo.name,
-                systemVersion: osInfo.version,
-                buildType: buildType,
-                lowPowerModeEnabled: lowPowerMode
+            let newSystem = buildSystemInfo(
+                metaData: diagnostic.metaData,
+                applicationVersion: diagnostic.applicationVersion,
+                skeleton: report
             )
 
             // Construct the final report.
@@ -316,6 +305,179 @@ private typealias _MachError = KSCrashReportModel.MachError
                     crashedRunId ?? "none")
             }
             return reportID
+        }
+
+        // MARK: - Hang Post-Processing
+
+        // MetricKit "Main Runloop Hang" diagnostics attribute the hang to the main thread,
+        // which MetricKit always reports as call stack index 0.
+        private static let mainRunloopHangThreadIndex = 0
+
+        // A hang diagnostic is a sampling profile of the hang window. We keep the report in
+        // the profile lane (error.type == .profile) and tag it with the generic
+        // error.subtype == .hang, rather than inventing a fatal error type. The report is
+        // non-fatal and describes a previous window, so it must not touch current-run state.
+        private func postProcessHangReport(atPath path: String, diagnostic: MXHangDiagnostic, timestamp: Date)
+            -> Int64?
+        {
+            let url = URL(fileURLWithPath: path)
+
+            guard let data = try? Data(contentsOf: url),
+                let report = try? JSONDecoder().decode(BasicCrashReport.self, from: data)
+            else {
+                os_log(
+                    .error, log: metricKitLog, "[MONITORS] Failed to read or decode skeleton report at %{public}@",
+                    path
+                )
+                return nil
+            }
+
+            // The hang's call stack tree is a sample-merged trie across all threads. Convert
+            // it to weighted per-thread samples for the profile body. The main thread is the
+            // subject of a Main Runloop Hang.
+            let profileData = diagnostic.callStackTree.extractProfileData(
+                primaryThreadIndex: Self.mainRunloopHangThreadIndex)
+            // The threadcrumb run ID lives in a flat per-thread backtrace, so decode it from
+            // the crash-style extraction (cheap second pass over the same tree).
+            let callStackData = diagnostic.callStackTree.extractCallStackData()
+
+            let hangNs = diagnostic.hangDuration.converted(to: .seconds).value * 1_000_000_000
+            guard let durationNs = nanosToUInt64(hangNs) else {
+                os_log(
+                    .error, log: metricKitLog, "[MONITORS] Skipping hang report with invalid duration at %{public}@",
+                    path
+                )
+                return nil
+            }
+
+            let profile = ProfileInfo(
+                name: "com.kscrash.profile.hang",
+                id: UUID().uuidString,
+                timeStartEpoch: epochNanos(for: timestamp, minus: durationNs),
+                duration: durationNs,
+                frames: profileData.frames,
+                threads: profileData.threads
+            )
+
+            let newError = CrashError(
+                type: .profile,
+                subtype: .hang,
+                profile: profile,
+                isFatal: false
+            )
+
+            let newCrash = BasicCrashReport.Crash(diagnosis: nil, error: newError)
+
+            let newSystem = buildSystemInfo(
+                metaData: diagnostic.metaData,
+                applicationVersion: diagnostic.applicationVersion,
+                skeleton: report
+            )
+
+            let crashedRunId = runIdHandler.decode(from: callStackData) { name, ext in
+                self.sidecarPathProvider(name: name, extension: ext)
+            }
+
+            let reportInfo = ReportInfo(
+                id: report.report.id,
+                processName: report.report.processName,
+                timestamp: timestamp,
+                type: report.report.type,
+                version: report.report.version,
+                runId: crashedRunId,
+                monitorId: report.report.monitorId,
+                finalized: true
+            )
+            let newReport = BasicCrashReport(
+                binaryImages: [],
+                crash: newCrash,
+                debug: nil,
+                process: nil,
+                report: reportInfo,
+                system: newSystem
+            )
+
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.sortedKeys]
+            guard let newData = try? encoder.encode(newReport) else {
+                os_log(.error, log: metricKitLog, "[MONITORS] Failed to encode MetricKit hang report")
+                return nil
+            }
+
+            var reportID: Int64 = 0
+            newData.withUnsafeBytes { buffer in
+                guard let ptr = buffer.baseAddress?.assumingMemoryBound(to: CChar.self) else { return }
+                reportID = kscrash_addUserReport(ptr, Int32(buffer.count))
+                os_log(
+                    .default, log: metricKitLog,
+                    "[MONITORS] Added MetricKit hang report (id=%lld, %d bytes, %d threads, app %{public}@, runId=%{public}@)",
+                    reportID, buffer.count, profileData.threads.count, diagnostic.applicationVersion,
+                    crashedRunId ?? "none")
+            }
+            return reportID
+        }
+
+        // MARK: - Shared Builders
+
+        /// Builds system info from MetricKit metadata. The skeleton report's system info
+        /// reflects the current session, not the session the diagnostic describes, so it is
+        /// discarded except for the process name and bundle identifier fallbacks.
+        private func buildSystemInfo(
+            metaData meta: MXMetaData, applicationVersion: String, skeleton report: BasicCrashReport
+        )
+            -> SystemInfo
+        {
+            var processID: Int?
+            var buildType: BuildType = .appStore
+            var bundleIdentifier: String? = report.system?.cfBundleIdentifier
+            var lowPowerMode: Bool?
+            if #available(iOS 17.0, macOS 14.0, *) {
+                let pid = meta.pid
+                processID = pid >= 0 ? Int(pid) : nil
+                if meta.isTestFlightApp {
+                    buildType = .test
+                }
+                lowPowerMode = meta.lowPowerModeEnabled
+            }
+            // MXMetaData.bundleIdentifier was added in the macOS 26 / iOS 26 SDK (Xcode 26 / Swift 6.2).
+            #if compiler(>=6.2)
+                if #available(iOS 26.0, macOS 26.0, visionOS 26.0, *) {
+                    let metaBundleId = meta.bundleIdentifier
+                    if !metaBundleId.isEmpty {
+                        bundleIdentifier = metaBundleId
+                    }
+                }
+            #endif
+            let osInfo = parseOSVersion(meta.osVersion)
+            return SystemInfo(
+                cfBundleIdentifier: bundleIdentifier,
+                cfBundleShortVersionString: applicationVersion,
+                cfBundleVersion: meta.applicationBuildVersion,
+                cpuArch: meta.platformArchitecture,
+                machine: meta.deviceType,
+                osVersion: osInfo.build,
+                processID: processID,
+                processName: report.system?.processName,
+                systemName: osInfo.name,
+                systemVersion: osInfo.version,
+                buildType: buildType,
+                lowPowerModeEnabled: lowPowerMode
+            )
+        }
+
+        /// Converts a nanosecond count to `UInt64`, returning nil for non-finite, negative, or
+        /// out-of-range values rather than trapping on the cast.
+        private func nanosToUInt64(_ ns: Double) -> UInt64? {
+            guard ns.isFinite, ns >= 0, ns < Double(UInt64.max) else { return nil }
+            return UInt64(ns.rounded())
+        }
+
+        /// Wall-clock start estimate for a hang window: the payload end timestamp minus the
+        /// hang duration. Returns nil if the timestamp is out of range or the subtraction
+        /// would underflow.
+        private func epochNanos(for timestamp: Date, minus durationNs: UInt64) -> UInt64? {
+            guard let end = nanosToUInt64(timestamp.timeIntervalSince1970 * 1_000_000_000) else { return nil }
+            return end >= durationNs ? end - durationNs : nil
         }
 
     }

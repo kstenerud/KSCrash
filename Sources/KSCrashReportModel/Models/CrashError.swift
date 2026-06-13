@@ -76,6 +76,39 @@ public enum CrashErrorType: RawRepresentable, Codable, Sendable, Equatable {
     }
 }
 
+/// A subtype that refines ``CrashErrorType``.
+///
+/// Generic across error types: any report can carry a subtype to distinguish a variant of
+/// its primary `type` without inventing a new top-level type. For example a profile report
+/// (`type == .profile`) sourced from a hang carries `subtype == .hang`, so consumers can
+/// identify hangs reliably instead of matching on a profile name.
+public enum CrashErrorSubtype: RawRepresentable, Codable, Sendable, Equatable {
+    /// The report describes a hang (e.g. a MetricKit hang diagnostic or a watchdog hang
+    /// captured as a profile).
+    case hang
+    case unknown(String)
+
+    public init(rawValue: String) {
+        switch rawValue {
+        case "hang": self = .hang
+        default: self = .unknown(rawValue)
+        }
+    }
+
+    public var rawValue: String {
+        switch self {
+        case .hang: return "hang"
+        case .unknown(let value): return value
+        }
+    }
+
+    /// Whether this subtype is unknown.
+    public var isUnknown: Bool {
+        if case .unknown = self { return true }
+        return false
+    }
+}
+
 /// The error that caused the crash.
 public struct CrashError: Codable, Sendable, Equatable {
     /// Memory address involved in the crash (if applicable).
@@ -92,6 +125,9 @@ public struct CrashError: Codable, Sendable, Equatable {
 
     /// The type of error that caused the crash.
     public let type: CrashErrorType
+
+    /// An optional subtype refining ``type`` (e.g. `.hang` for a hang-sourced profile report).
+    public let subtype: CrashErrorSubtype?
 
     /// C++ exception information.
     public let cppException: CppExceptionInfo?
@@ -127,6 +163,7 @@ public struct CrashError: Codable, Sendable, Equatable {
         nsexception: ExceptionInfo? = nil,
         signal: SignalError? = nil,
         type: CrashErrorType,
+        subtype: CrashErrorSubtype? = nil,
         cppException: CppExceptionInfo? = nil,
         userReported: UserReportedInfo? = nil,
         hang: HangInfo? = nil,
@@ -142,6 +179,7 @@ public struct CrashError: Codable, Sendable, Equatable {
         self.nsexception = nsexception
         self.signal = signal
         self.type = type
+        self.subtype = subtype
         self.cppException = cppException
         self.userReported = userReported
         self.hang = hang
@@ -159,6 +197,7 @@ public struct CrashError: Codable, Sendable, Equatable {
         case nsexception
         case signal
         case type
+        case subtype
         case cppException = "cpp_exception"
         case userReported = "user_reported"
         case hang

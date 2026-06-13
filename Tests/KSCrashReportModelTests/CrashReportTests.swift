@@ -71,6 +71,87 @@ final class CrashReportTests: XCTestCase {
         XCTAssertEqual(unknown.rawValue, "some_future_type")
     }
 
+    func testCrashErrorSubtypeRawValues() {
+        XCTAssertEqual(CrashErrorSubtype.hang.rawValue, "hang")
+        XCTAssertEqual(CrashErrorSubtype(rawValue: "hang"), .hang)
+    }
+
+    func testCrashErrorSubtypeUnknown() {
+        let unknown = CrashErrorSubtype(rawValue: "some_future_subtype")
+        XCTAssertEqual(unknown.rawValue, "some_future_subtype")
+        XCTAssertTrue(unknown.isUnknown)
+        XCTAssertFalse(CrashErrorSubtype.hang.isUnknown)
+    }
+
+    func testCrashErrorSubtypeRoundTrips() throws {
+        let error = CrashError(type: .profile, subtype: .hang, isFatal: false)
+        let data = try JSONEncoder().encode(error)
+        let decoded = try JSONDecoder().decode(CrashError.self, from: data)
+        XCTAssertEqual(decoded.type, .profile)
+        XCTAssertEqual(decoded.subtype, .hang)
+        XCTAssertEqual(decoded.isFatal, false)
+    }
+
+    func testCrashErrorWithoutSubtypeDecodesNil() throws {
+        let error = CrashError(type: .signal)
+        let data = try JSONEncoder().encode(error)
+        let decoded = try JSONDecoder().decode(CrashError.self, from: data)
+        XCTAssertNil(decoded.subtype)
+    }
+
+    func testMultiThreadProfileRoundTrips() throws {
+        let profile = ProfileInfo(
+            name: "com.kscrash.profile.hang",
+            id: "11111111-2222-3333-4444-555555555555",
+            duration: 1_000_000_000,
+            frames: [
+                StackFrame(instructionAddr: 0x1000, objectAddr: 0xF00, objectName: "dyld", objectUUID: nil),
+                StackFrame(instructionAddr: 0x2000, objectAddr: 0x1E00, objectName: "App", objectUUID: nil),
+            ],
+            threads: [
+                ProfileThread(
+                    index: 0, primary: true, name: nil,
+                    samples: [ProfileSample(count: 3, frames: [1, 0])]),
+                ProfileThread(
+                    index: 1, primary: false, name: nil,
+                    samples: [ProfileSample(count: 1, frames: [0])]),
+            ]
+        )
+        let data = try JSONEncoder().encode(profile)
+        let decoded = try JSONDecoder().decode(ProfileInfo.self, from: data)
+        XCTAssertEqual(decoded, profile)
+
+        // A hang sample carries a count and no timing.
+        let sample = try XCTUnwrap(decoded.threads.first?.samples.first)
+        XCTAssertEqual(sample.count, 3)
+        XCTAssertNil(sample.timeStartUptime)
+        XCTAssertNil(sample.duration)
+    }
+
+    func testSingleThreadProfileUsesOneThread() throws {
+        // A live time profile is one thread with timed, count-1 samples.
+        let profile = ProfileInfo(
+            name: "startup",
+            id: "AAAA",
+            timeStartUptime: 100,
+            timeEndUptime: 200,
+            duration: 100,
+            frames: [StackFrame(instructionAddr: 0x1000)],
+            threads: [
+                ProfileThread(
+                    index: 0, primary: true, name: nil,
+                    samples: [ProfileSample(timeStartUptime: 100, timeEndUptime: 110, duration: 10, frames: [0])])
+            ]
+        )
+        let decoded = try JSONDecoder().decode(ProfileInfo.self, from: try JSONEncoder().encode(profile))
+        XCTAssertEqual(decoded, profile)
+        XCTAssertEqual(decoded.threads.count, 1)
+        XCTAssertTrue(decoded.threads[0].primary)
+        let sample = try XCTUnwrap(decoded.threads[0].samples.first)
+        XCTAssertEqual(sample.count, 1)
+        XCTAssertEqual(sample.duration, 10)
+    }
+
     func testReportTypeRawValues() {
         XCTAssertEqual(ReportType.standard.rawValue, "standard")
         XCTAssertEqual(ReportType.minimal.rawValue, "minimal")

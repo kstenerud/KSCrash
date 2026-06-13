@@ -595,12 +595,16 @@ final class CrashReportDecodingTests: XCTestCase {
         let frames = profile?.frames ?? []
         XCTAssertFalse(frames.isEmpty)
 
-        // Verify samples exist
-        let samples = profile?.samples ?? []
+        // A time profile is one primary thread with samples.
+        let threads = profile?.threads ?? []
+        XCTAssertEqual(threads.count, 1)
+        XCTAssertTrue(threads[0].primary)
+        let samples = threads[0].samples
         XCTAssertFalse(samples.isEmpty)
 
         // Verify each sample's frame indexes reference valid frames
         for (sampleIndex, sample) in samples.enumerated() {
+            XCTAssertEqual(sample.count, 1)
             for frameIndex in sample.frames {
                 XCTAssertTrue(
                     frameIndex >= 0 && frameIndex < frames.count,
@@ -823,12 +827,19 @@ final class CrashReportDecodingTests: XCTestCase {
                                     "symbol_addr": 4295032832
                                 }
                             ],
-                            "samples": [
+                            "threads": [
                                 {
-                                    "time_start_uptime": 500000,
-                                    "time_end_uptime": 510000,
-                                    "duration": 10000,
-                                    "frames": [0, 1]
+                                    "index": 0,
+                                    "primary": true,
+                                    "samples": [
+                                        {
+                                            "count": 1,
+                                            "time_start_uptime": 500000,
+                                            "time_end_uptime": 510000,
+                                            "duration": 10000,
+                                            "frames": [0, 1]
+                                        }
+                                    ]
                                 }
                             ]
                         }

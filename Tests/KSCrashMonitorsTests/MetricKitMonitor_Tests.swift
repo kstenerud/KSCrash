@@ -727,6 +727,54 @@ import XCTest
             XCTAssertEqual(decoded, runId, "Decode should return the encoded run ID")
         }
 
+        func testDecodeReusesRunIdForRepeatedDiagnosticsFromSameRun() {
+            // A single app run can deliver multiple diagnostics (e.g. several non-fatal hangs),
+            // each sharing one threadcrumb sidecar. Decoding removes the sidecar, so the handler
+            // must cache the run ID and keep resolving later diagnostics from the same run.
+            let handler = MetricKitRunIdHandler()
+            let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+            defer { try? FileManager.default.removeItem(at: tempDir) }
+
+            let runId = UUID().uuidString
+            let strippedRunId = runId.replacingOccurrences(of: "-", with: "")
+            let threadcrumb = KSCrashThreadcrumb(identifier: "test")
+            let addresses = threadcrumb.log(strippedRunId)
+
+            let hash = MetricKitRunIdHandler.computeHash(from: addresses)
+            let name = String(format: "%016llx", hash)
+            let sidecarURL = tempDir.appendingPathComponent("\(name).stacksym")
+            try? runId.write(to: sidecarURL, atomically: true, encoding: .utf8)
+
+            var stackFrames: [StackFrame] = []
+            for i in 0..<4 {
+                stackFrames.append(StackFrame(instructionAddr: UInt64(0xF000 + i), objectName: "libsystem"))
+            }
+            for addr in addresses {
+                stackFrames.append(StackFrame(instructionAddr: addr.uint64Value, objectName: "TestBinary"))
+            }
+            for i in 0..<3 {
+                stackFrames.append(StackFrame(instructionAddr: UInt64(0xE000 + i), objectName: "libpthread"))
+            }
+
+            let thread = BasicCrashReport.Thread(
+                backtrace: Backtrace(contents: stackFrames, skipped: 0),
+                crashed: false, currentThread: false, index: 0)
+            let callStackData = CallStackData(threads: [thread], crashedThreadIndex: 0, binaryImages: [])
+            let provider: MetricKitRunIdHandler.SidecarPathProvider = { name, ext in
+                tempDir.appendingPathComponent("\(name).\(ext)")
+            }
+
+            let first = handler.decode(from: callStackData, pathProvider: provider)
+            XCTAssertEqual(first, runId)
+            // The sidecar is consumed by the first decode.
+            XCTAssertFalse(FileManager.default.fileExists(atPath: sidecarURL.path))
+
+            // A second diagnostic from the same run still resolves, served from the cache.
+            let second = handler.decode(from: callStackData, pathProvider: provider)
+            XCTAssertEqual(second, runId, "Repeated diagnostics from the same run must keep the run ID")
+        }
+
         func testDecodeReturnsNilWhenNoMatchingFrames() {
             let handler = MetricKitRunIdHandler()
             let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -761,6 +809,54 @@ import XCTest
             }
 
             XCTAssertNil(decoded, "Decode should return nil when no matching sidecar exists")
+        }
+
+        func testDecodeReturnsNilForEmptySidecar() {
+            // An empty (or whitespace-only) sidecar is not a usable run ID; decode must treat
+            // it as a miss rather than returning or caching the empty string.
+            let handler = MetricKitRunIdHandler()
+            let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+            defer { try? FileManager.default.removeItem(at: tempDir) }
+
+            let threadcrumb = KSCrashThreadcrumb(identifier: "test")
+            let addresses = threadcrumb.log(UUID().uuidString.replacingOccurrences(of: "-", with: ""))
+            let hash = MetricKitRunIdHandler.computeHash(from: addresses)
+            let name = String(format: "%016llx", hash)
+            try? "  \n".write(
+                to: tempDir.appendingPathComponent("\(name).stacksym"), atomically: true, encoding: .utf8)
+
+            var stackFrames: [StackFrame] = []
+            for i in 0..<4 {
+                stackFrames.append(StackFrame(instructionAddr: UInt64(0xF000 + i), objectName: "libsystem"))
+            }
+            for addr in addresses {
+                stackFrames.append(StackFrame(instructionAddr: addr.uint64Value, objectName: "TestBinary"))
+            }
+            for i in 0..<3 {
+                stackFrames.append(StackFrame(instructionAddr: UInt64(0xE000 + i), objectName: "libpthread"))
+            }
+
+            let thread = BasicCrashReport.Thread(
+                backtrace: Backtrace(contents: stackFrames, skipped: 0),
+                crashed: false, currentThread: false, index: 0)
+            let callStackData = CallStackData(threads: [thread], crashedThreadIndex: 0, binaryImages: [])
+
+            let sidecar = tempDir.appendingPathComponent("\(name).stacksym")
+
+            let decoded = handler.decode(from: callStackData) { name, ext in
+                tempDir.appendingPathComponent("\(name).\(ext)")
+            }
+            XCTAssertNil(decoded, "An empty sidecar must decode to nil, not an empty run ID")
+
+            // Recreate the (still empty) sidecar and decode again. The cache lookup runs before
+            // the file read, so the only way this returns non-nil is if the first pass cached the
+            // empty string. It must stay a miss.
+            try? "  \n".write(to: sidecar, atomically: true, encoding: .utf8)
+            let decodedAgain = handler.decode(from: callStackData) { name, ext in
+                tempDir.appendingPathComponent("\(name).\(ext)")
+            }
+            XCTAssertNil(decodedAgain, "An empty sidecar must not be cached and returned later")
         }
 
         func testDecodeReturnsNilWhenNotEnoughFrames() {
