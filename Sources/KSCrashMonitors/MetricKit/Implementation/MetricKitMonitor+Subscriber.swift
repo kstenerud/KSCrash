@@ -309,6 +309,10 @@ private typealias _MachError = KSCrashReportModel.MachError
 
         // MARK: - Hang Post-Processing
 
+        // MetricKit "Main Runloop Hang" diagnostics attribute the hang to the main thread,
+        // which MetricKit always reports as call stack index 0.
+        private static let mainRunloopHangThreadIndex = 0
+
         // A hang diagnostic is a sampling profile of the hang window. We keep the report in
         // the profile lane (error.type == .profile) and tag it with the generic
         // error.subtype == .hang, rather than inventing a fatal error type. The report is
@@ -329,14 +333,22 @@ private typealias _MachError = KSCrashReportModel.MachError
             }
 
             // The hang's call stack tree is a sample-merged trie across all threads. Convert
-            // it to weighted per-thread samples for the profile body. The main thread (index 0)
-            // is the subject of a Main Runloop Hang.
-            let profileData = diagnostic.callStackTree.extractProfileData(primaryThreadIndex: 0)
+            // it to weighted per-thread samples for the profile body. The main thread is the
+            // subject of a Main Runloop Hang.
+            let profileData = diagnostic.callStackTree.extractProfileData(
+                primaryThreadIndex: Self.mainRunloopHangThreadIndex)
             // The threadcrumb run ID lives in a flat per-thread backtrace, so decode it from
             // the crash-style extraction (cheap second pass over the same tree).
             let callStackData = diagnostic.callStackTree.extractCallStackData()
 
-            let durationNs = UInt64((diagnostic.hangDuration.converted(to: .seconds).value * 1_000_000_000).rounded())
+            let hangNs = diagnostic.hangDuration.converted(to: .seconds).value * 1_000_000_000
+            guard let durationNs = nanosToUInt64(hangNs) else {
+                os_log(
+                    .error, log: metricKitLog, "[MONITORS] Skipping hang report with invalid duration at %{public}@",
+                    path
+                )
+                return nil
+            }
 
             let profile = ProfileInfo(
                 name: "com.kscrash.profile.hang",
@@ -453,12 +465,18 @@ private typealias _MachError = KSCrashReportModel.MachError
             )
         }
 
+        /// Converts a nanosecond count to `UInt64`, returning nil for non-finite, negative, or
+        /// out-of-range values rather than trapping on the cast.
+        private func nanosToUInt64(_ ns: Double) -> UInt64? {
+            guard ns.isFinite, ns >= 0, ns < Double(UInt64.max) else { return nil }
+            return UInt64(ns.rounded())
+        }
+
         /// Wall-clock start estimate for a hang window: the payload end timestamp minus the
-        /// hang duration. Returns nil if the subtraction would underflow.
+        /// hang duration. Returns nil if the timestamp is out of range or the subtraction
+        /// would underflow.
         private func epochNanos(for timestamp: Date, minus durationNs: UInt64) -> UInt64? {
-            let endNs = timestamp.timeIntervalSince1970 * 1_000_000_000
-            guard endNs.isFinite, endNs >= 0 else { return nil }
-            let end = UInt64(endNs.rounded())
+            guard let end = nanosToUInt64(timestamp.timeIntervalSince1970 * 1_000_000_000) else { return nil }
             return end >= durationNs ? end - durationNs : nil
         }
 

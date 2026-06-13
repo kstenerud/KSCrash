@@ -842,10 +842,21 @@ import XCTest
                 crashed: false, currentThread: false, index: 0)
             let callStackData = CallStackData(threads: [thread], crashedThreadIndex: 0, binaryImages: [])
 
+            let sidecar = tempDir.appendingPathComponent("\(name).stacksym")
+
             let decoded = handler.decode(from: callStackData) { name, ext in
                 tempDir.appendingPathComponent("\(name).\(ext)")
             }
             XCTAssertNil(decoded, "An empty sidecar must decode to nil, not an empty run ID")
+
+            // Recreate the (still empty) sidecar and decode again. The cache lookup runs before
+            // the file read, so the only way this returns non-nil is if the first pass cached the
+            // empty string. It must stay a miss.
+            try? "  \n".write(to: sidecar, atomically: true, encoding: .utf8)
+            let decodedAgain = handler.decode(from: callStackData) { name, ext in
+                tempDir.appendingPathComponent("\(name).\(ext)")
+            }
+            XCTAssertNil(decodedAgain, "An empty sidecar must not be cached and returned later")
         }
 
         func testDecodeReturnsNilWhenNotEnoughFrames() {

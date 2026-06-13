@@ -34,10 +34,10 @@ import XCTest
 final class MetricKitHangParsingTests: XCTestCase {
 
     // A two-thread sampled trie. Thread 0 has two branches summing to its root; thread 1
-    // reuses thread 0's addresses (A/B/D) to exercise cross-thread frame dedup, plus a new
+    // reuses thread 0's addresses (A/B/C) to exercise cross-thread frame dedup, plus a new
     // address F. Frame E omits binaryName/binaryUUID to exercise unmapped-frame tolerance.
     //
-    // Addresses: A=0x1000 B=0x2000 D=0x3000 C=0x4000 E=0x5000 F=0x6000
+    // Addresses: A=0x1000 B=0x2000 C=0x3000 D=0x4000 E=0x5000 F=0x6000
     private let fixture = """
         {
           "callStacks": [
@@ -146,7 +146,7 @@ final class MetricKitHangParsingTests: XCTestCase {
         let tree = try decodeFixture()
         let profile = buildProfileData(from: tree)
 
-        // Six distinct addresses across both threads (A, B, D, C, E, F); dyld/App/Foundation
+        // Six distinct addresses across both threads (A, B, C, D, E, F); dyld/App/Foundation
         // are shared between the threads and must appear once.
         XCTAssertEqual(profile.frames.count, 6)
 
