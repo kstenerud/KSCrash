@@ -46,6 +46,13 @@
 
 const KSCrashReportID KSCrashReportNoID = 0;
 
+/// A chain step: receives the previous filter's output (or the initial items)
+/// and either advances the chain or terminates it. Type-erased over the report
+/// and run-summary element types so one chain runner serves both paths.
+typedef void (^KSChainStepCompletion)(NSArray *_Nullable items, NSError *_Nullable error);
+/// Adapts a chain step to a concrete filter protocol (filterReports: / filterRuns:).
+typedef void (^KSChainApplyFilter)(id filter, NSArray *items, KSChainStepCompletion stepCompletion);
+
 @interface KSCrashReportStore ()
 
 - (void)sendReports:(NSArray<id<KSCrashReport>> *)reports
@@ -430,59 +437,77 @@ const KSCrashReportID KSCrashReportNoID = 0;
                   }];
 }
 
-/** Run reports through an ordered filter chain: each filter's output feeds the
- * next, the last filter is the terminal sink. Implemented here (rather than via
- * a filter-composition class) so KSCrashRecording needs no dependency on
- * KSCrashFilters. Runs at send time only (next launch / normal context), never
- * in a crash handler, so ObjC and dispatch are safe.
+/** Run items through an ordered filter chain: each filter's output feeds the
+ * next, the last filter is the terminal sink. Shared by the report and
+ * run-summary send paths; `applyFilter` adapts a chain step to the concrete
+ * filter protocol. Implemented here (rather than via a filter-composition class)
+ * so KSCrashRecording needs no dependency on KSCrashFilters. Runs at send time
+ * only (next launch / normal context), never in a crash handler, so ObjC and
+ * dispatch are safe.
  */
-- (void)runReportFilterChain:(NSArray<id<KSCrashReportFilter>> *)filters
-                     reports:(NSArray<id<KSCrashReport>> *)reports
-                onCompletion:(KSCrashReportFilterCompletion)onCompletion
+- (void)runFilterChain:(NSArray *)filters
+                  items:(NSArray *)items
+            applyFilter:(KSChainApplyFilter)applyFilter
+    nilItemsDescription:(NSString *)nilItemsDescription
+           onCompletion:(KSChainStepCompletion)onCompletion
 {
     NSUInteger filterCount = filters.count;
     if (filterCount == 0) {
-        kscrash_callCompletion(onCompletion, reports, nil);
+        if (onCompletion) onCompletion(items, nil);
         return;
     }
 
     __block NSUInteger iFilter = 0;
-    __block KSCrashReportFilterCompletion filterCompletion;
-    __block __weak KSCrashReportFilterCompletion weakFilterCompletion = nil;
-    dispatch_block_t disposeOfCompletion = [^{
-        // Release the self-reference on the main thread.
-        dispatch_async(dispatch_get_main_queue(), ^{
-            filterCompletion = nil;
-        });
-    } copy];
-    filterCompletion = [^(NSArray<id<KSCrashReport>> *filteredReports, NSError *filterError) {
-        if (filterError != nil || filteredReports == nil) {
-            if (filterError != nil) {
-                kscrash_callCompletion(onCompletion, filteredReports, filterError);
-            } else {
-                kscrash_callCompletion(onCompletion, filteredReports,
-                                       [KSNSErrorHelper errorWithDomain:[[self class] description]
-                                                                   code:0
-                                                            description:@"filteredReports was nil"]);
-            }
-            disposeOfCompletion();
+    // The step block advances the chain by calling itself, so it must reference
+    // itself. The strong __block slot is the chain's lifeline: it keeps the block
+    // (and the self/filters it captures) alive across async filter hops, at the
+    // cost of a deliberate retain cycle. Filters get the __weak alias so the
+    // self-reference adds no retain. Niling the strong slot at the terminal step
+    // breaks the cycle. Disposal is synchronous: whoever invoked the step holds a
+    // strong reference for the duration of the call, so the block stays alive
+    // until that call returns. (Deferring disposal to the main queue, as this
+    // code once did, leaked the block in contexts with no serviced main queue,
+    // e.g. some XCTest/CLI runs.)
+    __block KSChainStepCompletion stepCompletion = nil;
+    __block __weak KSChainStepCompletion weakStepCompletion = nil;
+    stepCompletion = ^(NSArray *_Nullable filteredItems, NSError *_Nullable filterError) {
+        if (filterError != nil || filteredItems == nil) {
+            NSError *error = filterError
+                                 ?: [KSNSErrorHelper errorWithDomain:[[self class] description]
+                                                                code:0
+                                                         description:nilItemsDescription];
+            if (onCompletion) onCompletion(filteredItems, error);
+            stepCompletion = nil;
             return;
         }
 
         if (++iFilter < filterCount) {
-            id<KSCrashReportFilter> filter = [filters objectAtIndex:iFilter];
-            [filter filterReports:filteredReports onCompletion:weakFilterCompletion];
+            applyFilter([filters objectAtIndex:iFilter], filteredItems, weakStepCompletion);
             return;
         }
 
         // All filters complete.
-        kscrash_callCompletion(onCompletion, filteredReports, filterError);
-        disposeOfCompletion();
-    } copy];
-    weakFilterCompletion = filterCompletion;
+        if (onCompletion) onCompletion(filteredItems, filterError);
+        stepCompletion = nil;
+    };
+    weakStepCompletion = stepCompletion;
 
-    id<KSCrashReportFilter> filter = [filters objectAtIndex:iFilter];
-    [filter filterReports:reports onCompletion:filterCompletion];
+    applyFilter([filters objectAtIndex:0], items, stepCompletion);
+}
+
+/** Run reports through an ordered filter chain. See runFilterChain:. */
+- (void)runReportFilterChain:(NSArray<id<KSCrashReportFilter>> *)filters
+                     reports:(NSArray<id<KSCrashReport>> *)reports
+                onCompletion:(KSCrashReportFilterCompletion)onCompletion
+{
+    [self runFilterChain:filters
+                      items:reports
+                applyFilter:^(id filter, NSArray *chainItems, KSChainStepCompletion stepCompletion) {
+                    id<KSCrashReportFilter> reportFilter = filter;
+                    [reportFilter filterReports:chainItems onCompletion:stepCompletion];
+                }
+        nilItemsDescription:@"filteredReports was nil"
+               onCompletion:onCompletion];
 }
 
 /** Run-summary equivalent of runReportFilterChain:reports:onCompletion:. */
@@ -490,44 +515,14 @@ const KSCrashReportID KSCrashReportNoID = 0;
                      runs:(NSArray<KSCrashRunSummary *> *)runs
              onCompletion:(KSCrashRunFilterCompletion)onCompletion
 {
-    NSUInteger filterCount = filters.count;
-    if (filterCount == 0) {
-        if (onCompletion) onCompletion(runs, nil);
-        return;
-    }
-
-    __block NSUInteger iFilter = 0;
-    __block KSCrashRunFilterCompletion filterCompletion;
-    __block __weak KSCrashRunFilterCompletion weakFilterCompletion = nil;
-    dispatch_block_t disposeOfCompletion = [^{
-        dispatch_async(dispatch_get_main_queue(), ^{
-            filterCompletion = nil;
-        });
-    } copy];
-    filterCompletion = [^(NSArray<KSCrashRunSummary *> *filteredRuns, NSError *filterError) {
-        if (filterError != nil || filteredRuns == nil) {
-            NSError *error = filterError
-                                 ?: [KSNSErrorHelper errorWithDomain:[[self class] description]
-                                                                code:0
-                                                         description:@"filteredRuns was nil"];
-            if (onCompletion) onCompletion(filteredRuns, error);
-            disposeOfCompletion();
-            return;
-        }
-
-        if (++iFilter < filterCount) {
-            id<KSCrashRunFilter> filter = [filters objectAtIndex:iFilter];
-            [filter filterRuns:filteredRuns onCompletion:weakFilterCompletion];
-            return;
-        }
-
-        if (onCompletion) onCompletion(filteredRuns, filterError);
-        disposeOfCompletion();
-    } copy];
-    weakFilterCompletion = filterCompletion;
-
-    id<KSCrashRunFilter> filter = [filters objectAtIndex:iFilter];
-    [filter filterRuns:runs onCompletion:filterCompletion];
+    [self runFilterChain:filters
+                      items:runs
+                applyFilter:^(id filter, NSArray *chainItems, KSChainStepCompletion stepCompletion) {
+                    id<KSCrashRunFilter> runFilter = filter;
+                    [runFilter filterRuns:chainItems onCompletion:stepCompletion];
+                }
+        nilItemsDescription:@"filteredRuns was nil"
+               onCompletion:onCompletion];
 }
 
 - (nullable NSData *)loadCrashReportJSONWithID:(int64_t)reportID
