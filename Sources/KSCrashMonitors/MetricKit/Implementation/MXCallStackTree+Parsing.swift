@@ -106,7 +106,7 @@ func buildCallStackData(from tree: CallStackTreeRepresentation) -> CallStackData
         let flatFrames = flattenFrames(callStack.callStackRootFrames ?? [])
 
         let stackFrames = flatFrames.map { frame in
-            let objectAddr = frame.offsetIntoBinaryTextSegment.map { frame.address - $0 }
+            let objectAddr = objectBaseAddress(of: frame)
             return StackFrame(
                 instructionAddr: frame.address,
                 objectAddr: objectAddr,
@@ -126,7 +126,7 @@ func buildCallStackData(from tree: CallStackTreeRepresentation) -> CallStackData
 
             images.append(
                 BinaryImage(
-                    imageAddr: frame.address - (frame.offsetIntoBinaryTextSegment ?? 0),
+                    imageAddr: objectBaseAddress(of: frame) ?? frame.address,
                     name: frame.binaryName ?? "unknown",
                     uuid: binaryUUID
                 ))
@@ -147,6 +147,15 @@ func buildCallStackData(from tree: CallStackTreeRepresentation) -> CallStackData
         crashedThreadIndex: crashedIndex,
         binaryImages: images
     )
+}
+
+/// The image base address for a frame: its instruction address minus the offset into the
+/// binary's text segment. Returns nil when there is no offset, and guards against underflow
+/// if the offset ever exceeds the address (e.g. a frame with a missing/zero address), so the
+/// crash reporter never traps while parsing a stack.
+func objectBaseAddress(of frame: CallStackTreeRepresentation.Frame) -> UInt64? {
+    guard let offset = frame.offsetIntoBinaryTextSegment else { return nil }
+    return frame.address >= offset ? frame.address - offset : nil
 }
 
 func flattenFrames(_ frames: [CallStackTreeRepresentation.Frame]) -> [CallStackTreeRepresentation.Frame] {
@@ -178,7 +187,7 @@ func buildProfileData(from tree: CallStackTreeRepresentation, primaryThreadIndex
 
     func indexFor(_ f: CallStackTreeRepresentation.Frame) -> Int {
         if let i = frameIndexByAddr[f.address] { return i }
-        let objectAddr = f.offsetIntoBinaryTextSegment.map { f.address - $0 }
+        let objectAddr = objectBaseAddress(of: f)
         let i = frames.count
         frames.append(
             StackFrame(

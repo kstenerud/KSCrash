@@ -25,9 +25,34 @@
 //
 
 import Foundation
+import KSCrashReportModel
 import os.log
 
 let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
+
+// MARK: - Report Info
+
+/// Builds the `ReportInfo` for a MetricKit-sourced report from the skeleton report's metadata,
+/// shared by the crash, hang, and memory paths.
+///
+/// `finalized` controls whether the store stitches the report's run sidecars on read. Crash and
+/// memory exceptions are the dead run's last moment, so its sidecars (memory state, breadcrumbs,
+/// lifecycle) are aligned data — pass `false` to let them stitch in, keyed by `runId`. A hang is
+/// a moment within a run that kept going, so its last-moment sidecar does not align — pass `true`.
+func makeMetricKitReportInfo(
+    skeleton: BasicCrashReport, timestamp: Date, runId: String?, finalized: Bool
+) -> ReportInfo {
+    ReportInfo(
+        id: skeleton.report.id,
+        processName: skeleton.report.processName,
+        timestamp: timestamp,
+        type: skeleton.report.type,
+        version: skeleton.report.version,
+        runId: runId,
+        monitorId: skeleton.report.monitorId,
+        finalized: finalized
+    )
+}
 
 // MARK: - OS Version Parsing
 

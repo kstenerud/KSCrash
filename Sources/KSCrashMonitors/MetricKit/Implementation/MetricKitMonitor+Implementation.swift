@@ -144,6 +144,14 @@ func metricKitMonitorSetEnabled(_ isEnabled: Bool, _ context: UnsafeMutableRawPo
                     MXMetricManager.shared.add(monitor)
                     os_log(.default, log: metricKitLog, "[MONITORS] Subscribed to MXMetricManager")
 
+                    // iOS 27+ vends memory exception diagnostics only through the new
+                    // MetricManager async API; subscribe to it in addition to the legacy path.
+                    #if compiler(>=6.4) && os(iOS) && !targetEnvironment(macCatalyst)
+                        if #available(iOS 27.0, *) {
+                            monitor.startMemoryDiagnosticReporting()
+                        }
+                    #endif
+
                     if monitor.threadcrumbEnabled {
                         monitor.encodeRunIdThreadcrumb()
                     }
@@ -151,6 +159,12 @@ func metricKitMonitorSetEnabled(_ isEnabled: Bool, _ context: UnsafeMutableRawPo
             } else {
                 if monitor.enabled {
                     MXMetricManager.shared.remove(monitor)
+
+                    #if compiler(>=6.4) && os(iOS) && !targetEnvironment(macCatalyst)
+                        if #available(iOS 27.0, *) {
+                            monitor.stopMemoryDiagnosticReporting()
+                        }
+                    #endif
 
                     monitor.updateDiagnosticsState(.none)
                     monitor.updateMetricsState(.none)

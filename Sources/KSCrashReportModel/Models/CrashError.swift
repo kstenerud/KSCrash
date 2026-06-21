@@ -86,11 +86,16 @@ public enum CrashErrorSubtype: RawRepresentable, Codable, Sendable, Equatable {
     /// The report describes a hang (e.g. a MetricKit hang diagnostic or a watchdog hang
     /// captured as a profile).
     case hang
+    /// The report describes a memory termination captured from a MetricKit memory exception
+    /// diagnostic (iOS 27+). Carried on a `.termination` report so consumers can tell a
+    /// memory kill apart from other terminations, while still treating it as an OOM.
+    case memoryException
     case unknown(String)
 
     public init(rawValue: String) {
         switch rawValue {
         case "hang": self = .hang
+        case "memory_exception": self = .memoryException
         default: self = .unknown(rawValue)
         }
     }
@@ -98,6 +103,7 @@ public enum CrashErrorSubtype: RawRepresentable, Codable, Sendable, Equatable {
     public var rawValue: String {
         switch self {
         case .hang: return "hang"
+        case .memoryException: return "memory_exception"
         case .unknown(let value): return value
         }
     }

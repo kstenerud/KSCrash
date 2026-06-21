@@ -92,6 +92,8 @@ public final class MetricKitMonitor: NSObject, MonitorPlugin, @unchecked Sendabl
         var diagnosticReportIDs: [Int64] = []
         var dumpPayloadsToDocuments: Bool = false
         var threadcrumbEnabled: Bool = true
+        /// Long-lived task consuming the iOS 27+ `MetricManager.diagnosticReports` stream.
+        var memoryDiagnosticsTask: Task<Void, Never>? = nil
     }
 
     let lock = UnfairLock(MonitorState())
@@ -110,6 +112,7 @@ public final class MetricKitMonitor: NSObject, MonitorPlugin, @unchecked Sendabl
         set { lock.withLock { $0.callbacks = newValue } }
         get { lock.withLock { $0.callbacks } }
     }
+
 
     let runIdHandler = MetricKitRunIdHandler()
 
