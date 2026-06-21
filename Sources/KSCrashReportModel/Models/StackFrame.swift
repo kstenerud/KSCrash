@@ -28,8 +28,9 @@ import Foundation
 
 /// A single frame in a stack trace.
 public struct StackFrame: Codable, Sendable, Equatable {
-    /// Instruction pointer address.
-    public let instructionAddr: UInt64
+    /// Instruction pointer address. Optional so a frame that lacks one (e.g. a degenerate or
+    /// older profile frame) does not fail decoding of the entire report.
+    public let instructionAddr: UInt64?
 
     /// Base address of the containing binary image.
     public let objectAddr: UInt64?
@@ -47,7 +48,7 @@ public struct StackFrame: Codable, Sendable, Equatable {
     public let symbolName: String?
 
     public init(
-        instructionAddr: UInt64,
+        instructionAddr: UInt64? = nil,
         objectAddr: UInt64? = nil,
         objectName: String? = nil,
         objectUUID: String? = nil,

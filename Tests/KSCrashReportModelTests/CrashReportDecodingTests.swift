@@ -31,6 +31,31 @@ import XCTest
 
 final class CrashReportDecodingTests: XCTestCase {
 
+    // A degenerate or older profile frame can lack `instruction_addr`. It must decode with a nil
+    // address rather than failing the whole report (which is index-referenced and can't drop frames).
+    func testStackFrameDecodesWithoutInstructionAddr() throws {
+        let json = """
+            {
+                "object_name": "App",
+                "object_addr": 4096,
+                "symbol_name": "foo"
+            }
+            """
+        let frame = try JSONDecoder().decode(StackFrame.self, from: Data(json.utf8))
+        XCTAssertNil(frame.instructionAddr)
+        XCTAssertEqual(frame.objectAddr, 4096)
+        XCTAssertEqual(frame.objectName, "App")
+        XCTAssertEqual(frame.symbolName, "foo")
+    }
+
+    func testStackFrameDecodesWithInstructionAddr() throws {
+        let json = """
+            { "instruction_addr": 8192 }
+            """
+        let frame = try JSONDecoder().decode(StackFrame.self, from: Data(json.utf8))
+        XCTAssertEqual(frame.instructionAddr, 8192)
+    }
+
     func testDecodeMinimalReport() throws {
         let json = """
             {

@@ -120,8 +120,8 @@ public final class MetricKitRunIdHandler {
             let dataFrames = Array(
                 frames[Self.dataStartIndex..<(Self.dataStartIndex + Self.expectedDataFrameCount)])
 
-            // Convert to addresses for hashing
-            let addresses = dataFrames.map { NSNumber(value: $0.instructionAddr) }
+            // Convert to addresses for hashing (threadcrumb frames always carry an address)
+            let addresses = dataFrames.map { NSNumber(value: $0.instructionAddr ?? 0) }
             let hash = Self.computeHash(from: addresses)
 
             // A previous diagnostic from the same run already consumed the sidecar.
