@@ -35,35 +35,22 @@ import KSCrashSwiftCore
 @available(watchOS, unavailable)
 public final class MetricKitMonitor: NSObject, MonitorPlugin, @unchecked Sendable {
 
-    /// The processing state of the MetricKit receiver.
-    public enum ProcessingState: String, Sendable {
-        case none
-        case waiting
-        case processing
-        case completed
-    }
+    /// Posted once per diagnostic report as it is added, with the id of the report that was just
+    /// added in `userInfo` under ``diagnosticReportIDUserInfoKey``. The notification object is the
+    /// `MetricKitMonitor` instance.
+    public static let diagnosticReportAddedNotification = Notification.Name("MetricKitMonitorDiagnosticReportAdded")
 
-    /// Posted when the diagnostics or metrics processing state changes.
-    /// The notification object is the `MetricKitMonitor` instance.
-    public static let processingStateDidChangeNotification = Notification.Name("MetricKitMonitorStateDidChange")
+    /// `userInfo` key on ``diagnosticReportAddedNotification`` whose value is the `Int64` id of
+    /// the diagnostic report that was just added.
+    public static let diagnosticReportIDUserInfoKey = "diagnosticReportID"
 
     /// The underlying C monitor API.
     public let api: UnsafeMutablePointer<KSCrashMonitorAPI>
 
-    /// The current state of diagnostic payload processing.
-    public var diagnosticsState: ProcessingState {
-        lock.withLock { $0.diagnosticsState }
-    }
-
-    /// Report IDs created during the most recent diagnostic processing pass.
-    /// Populated just before `diagnosticsState` transitions to `.completed`.
+    /// The ids of every diagnostic report added by this monitor, in the order they were added.
+    /// Each addition also posts ``diagnosticReportAddedNotification`` carrying just that id.
     public var diagnosticReportIDs: [Int64] {
         lock.withLock { $0.diagnosticReportIDs }
-    }
-
-    /// The current state of metric payload processing.
-    public var metricsState: ProcessingState {
-        lock.withLock { $0.metricsState }
     }
 
     /// When true, writes all received payloads as JSON to Documents/MetricKit/.
@@ -87,8 +74,6 @@ public final class MetricKitMonitor: NSObject, MonitorPlugin, @unchecked Sendabl
     struct MonitorState {
         var enabled: Bool = false
         var callbacks: KSCrash_ExceptionHandlerCallbacks? = nil
-        var diagnosticsState: ProcessingState = .none
-        var metricsState: ProcessingState = .none
         var diagnosticReportIDs: [Int64] = []
         var dumpPayloadsToDocuments: Bool = false
         var threadcrumbEnabled: Bool = true
@@ -125,7 +110,6 @@ public final class MetricKitMonitor: NSObject, MonitorPlugin, @unchecked Sendabl
         set { lock.withLock { $0.callbacks = newValue } }
         get { lock.withLock { $0.callbacks } }
     }
-
 
     let runIdHandler = MetricKitRunIdHandler()
 

@@ -61,8 +61,6 @@ import os.log
         func handleMemoryException(
             _ diagnostic: MemoryExceptionDiagnostic, in report: DiagnosticReport
         ) {
-            updateDiagnosticsState(.processing)
-
             os_log(
                 .default, log: metricKitLog,
                 "[MONITORS] Received memory exception diagnostic (app %{public}@, %d thread(s))",
@@ -76,12 +74,9 @@ import os.log
                 MetricKitJSONDumper.dump(encodable: diagnostic, type: "MemoryException/Diagnostic")
             }
 
-            var reportIDs: [Int64] = []
             if let reportID = processMemoryDiagnostic(diagnostic, report: report) {
-                reportIDs.append(reportID)
+                recordDiagnosticReport(reportID)
             }
-
-            updateDiagnosticsState(.completed, reportIDs: reportIDs)
         }
 
         // MARK: - Processing

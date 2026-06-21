@@ -77,24 +77,15 @@ extension MetricKitMonitor {
         return Unmanaged<MetricKitMonitor>.fromOpaque(context).takeUnretainedValue()
     }
 
-    func updateDiagnosticsState(_ state: ProcessingState, reportIDs: [Int64] = []) {
-        lock.withLock {
-            $0.diagnosticReportIDs = reportIDs
-            $0.diagnosticsState = state
-        }
-        postStateChangeNotification()
-    }
-
-    func updateMetricsState(_ state: ProcessingState) {
-        lock.withLock { $0.metricsState = state }
-        postStateChangeNotification()
-    }
-
-    func postStateChangeNotification() {
+    /// Records a diagnostic report as it is added: appends its id to ``diagnosticReportIDs`` and
+    /// posts ``diagnosticReportAddedNotification`` carrying just that id in `userInfo`.
+    func recordDiagnosticReport(_ reportID: Int64) {
+        lock.withLock { $0.diagnosticReportIDs.append(reportID) }
         DispatchQueue.main.async {
             NotificationCenter.default.post(
-                name: MetricKitMonitor.processingStateDidChangeNotification,
-                object: self
+                name: MetricKitMonitor.diagnosticReportAddedNotification,
+                object: self,
+                userInfo: [MetricKitMonitor.diagnosticReportIDUserInfoKey: reportID]
             )
         }
     }
@@ -138,9 +129,6 @@ func metricKitMonitorSetEnabled(_ isEnabled: Bool, _ context: UnsafeMutableRawPo
             guard let monitor = MetricKitMonitor.from(context) else { return }
             if isEnabled {
                 if !monitor.enabled {
-                    monitor.updateDiagnosticsState(.waiting)
-                    monitor.updateMetricsState(.waiting)
-
                     MXMetricManager.shared.add(monitor)
                     os_log(.default, log: metricKitLog, "[MONITORS] Subscribed to MXMetricManager")
 
@@ -165,9 +153,6 @@ func metricKitMonitorSetEnabled(_ isEnabled: Bool, _ context: UnsafeMutableRawPo
                             monitor.stopMemoryDiagnosticReporting()
                         }
                     #endif
-
-                    monitor.updateDiagnosticsState(.none)
-                    monitor.updateMetricsState(.none)
 
                     os_log(.default, log: metricKitLog, "[MONITORS] Unsubscribed from MXMetricManager")
                 }

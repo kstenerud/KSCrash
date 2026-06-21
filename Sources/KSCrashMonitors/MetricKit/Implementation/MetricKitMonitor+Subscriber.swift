@@ -50,24 +50,21 @@ import os.log
     extension MetricKitMonitor: MXMetricManagerSubscriber {
 
         public func didReceive(_ payloads: [MXDiagnosticPayload]) {
-            updateDiagnosticsState(.processing)
-
             os_log(.default, log: metricKitLog, "[MONITORS] Received %d diagnostic payload(s)", payloads.count)
 
-            var reportIDs: [Int64] = []
             for payload in payloads {
                 let timestamp = payload.timeStampEnd
                 if let diagnostics = payload.crashDiagnostics {
                     for diagnostic in diagnostics {
                         if let reportID = processCrashDiagnostic(diagnostic, timestamp: timestamp) {
-                            reportIDs.append(reportID)
+                            recordDiagnosticReport(reportID)
                         }
                     }
                 }
                 if let diagnostics = payload.hangDiagnostics {
                     for diagnostic in diagnostics {
                         if let reportID = processHangDiagnostic(diagnostic, timestamp: timestamp) {
-                            reportIDs.append(reportID)
+                            recordDiagnosticReport(reportID)
                         }
                     }
                 }
@@ -75,17 +72,12 @@ import os.log
                     payload.dump()
                 }
             }
-
-            updateDiagnosticsState(.completed, reportIDs: reportIDs)
         }
 
         // MXMetricPayload was API_UNAVAILABLE(macos) until the macOS 26 SDK (Xcode 26 / Swift 6.2).
         // On iOS it has been available since iOS 13.
         #if !os(macOS) || compiler(>=6.2)
             public func didReceive(_ payloads: [MXMetricPayload]) {
-                updateMetricsState(.processing)
-                defer { updateMetricsState(.completed) }
-
                 os_log(.default, log: metricKitLog, "[MONITORS] Received %d metric payload(s)", payloads.count)
 
                 for payload in payloads {
@@ -216,7 +208,9 @@ import os.log
                     guard state.memoryDiagnosticsTask == nil else { return }
                     let manager = MetricManager()
                     state.memoryDiagnosticsTask = Task { [weak self] in
-                        os_log(.default, log: metricKitLog, "[MONITORS] Observing MetricManager.diagnosticReports for memory exceptions")
+                        os_log(
+                            .default, log: metricKitLog,
+                            "[MONITORS] Observing MetricManager.diagnosticReports for memory exceptions")
                         for await report in manager.diagnosticReports {
                             if Task.isCancelled { break }
                             guard case .memoryException(let diagnostic) = report.result else { continue }
