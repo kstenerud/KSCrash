@@ -61,6 +61,8 @@ import os.log
         func handleMemoryException(
             _ diagnostic: MemoryExceptionDiagnostic, in report: DiagnosticReport
         ) {
+            updateDiagnosticsState(.processing)
+
             os_log(
                 .default, log: metricKitLog,
                 "[MONITORS] Received memory exception diagnostic (app %{public}@, %d thread(s))",
@@ -74,12 +76,12 @@ import os.log
                 MetricKitJSONDumper.dump(encodable: diagnostic, type: "MemoryException/Diagnostic")
             }
 
-            // Deliberately does not touch diagnosticsState / diagnosticReportIDs. Those track the
-            // legacy MXMetricManagerSubscriber's discrete batch delivery; this stream is
-            // continuous and runs concurrently with it, so sharing that single state slot would
-            // race (one source clobbering the other's report IDs). The report is written to the
-            // store and delivered by the normal send path like any other.
-            processMemoryDiagnostic(diagnostic, report: report)
+            var reportIDs: [Int64] = []
+            if let reportID = processMemoryDiagnostic(diagnostic, report: report) {
+                reportIDs.append(reportID)
+            }
+
+            updateDiagnosticsState(.completed, reportIDs: reportIDs)
         }
 
         // MARK: - Processing
