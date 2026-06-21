@@ -124,15 +124,19 @@ import os.log
                 shouldExitImmediately: 0
             )
 
-            let context = callbacks.notify(thread_t(ksthread_self()), requirements)
-            kscm_fillMonitorContext(context, api)
-            context?.pointee.omitBinaryImages = true
-            tempURL.path.withCString { cPath in
-                context?.pointee.reportPath = cPath
-                callbacks.handle(context)
+            // notify()/handle() mutate shared exception-handling state in KSCrashMonitor.c that
+            // is not safe to enter concurrently. The legacy subscriber and the iOS 27 memory
+            // stream deliver on different threads, so serialize the whole sequence.
+            return skeletonLock.withLock {
+                let context = callbacks.notify(thread_t(ksthread_self()), requirements)
+                kscm_fillMonitorContext(context, api)
+                context?.pointee.omitBinaryImages = true
+                tempURL.path.withCString { cPath in
+                    context?.pointee.reportPath = cPath
+                    callbacks.handle(context)
+                }
+                return tempURL
             }
-
-            return tempURL
         }
 
         /// Builds system info from MetricKit metadata. The skeleton report's system info

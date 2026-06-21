@@ -98,6 +98,13 @@ public final class MetricKitMonitor: NSObject, MonitorPlugin, @unchecked Sendabl
 
     let lock = UnfairLock(MonitorState())
 
+    /// Serializes skeleton-report production. The shared exception-handling state in
+    /// KSCrashMonitor.c (`notify`/`handle`) is not safe to enter concurrently, and on iOS 27
+    /// two MetricKit delivery mechanisms run on different threads — the legacy
+    /// `MXMetricManagerSubscriber` (crash/hang) and the `MetricManager` async stream (memory).
+    /// This lock keeps `writeSkeletonReport` calls from overlapping across them.
+    let skeletonLock = UnfairLock()
+
     var enabled: Bool {
         set { lock.withLock { $0.enabled = newValue } }
         get { lock.withLock { $0.enabled } }
