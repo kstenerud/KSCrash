@@ -92,8 +92,14 @@ public final class MetricKitMonitor: NSObject, MonitorPlugin, @unchecked Sendabl
         var diagnosticReportIDs: [Int64] = []
         var dumpPayloadsToDocuments: Bool = false
         var threadcrumbEnabled: Bool = true
-        /// Long-lived task consuming the iOS 27+ `MetricManager.diagnosticReports` stream.
-        var memoryDiagnosticsTask: Task<Void, Never>? = nil
+        // Gated to match the only code that uses it (the iOS 27 memory stream in
+        // MetricKitMonitor+Subscriber). `Task` requires watchOS 6.0+, and this type is compiled
+        // — though unavailable — on watchOS, so an ungated field breaks the watchOS build under
+        // the package's lower deployment target.
+        #if compiler(>=6.4) && os(iOS) && !targetEnvironment(macCatalyst)
+            /// Long-lived task consuming the iOS 27+ `MetricManager.diagnosticReports` stream.
+            var memoryDiagnosticsTask: Task<Void, Never>? = nil
+        #endif
     }
 
     let lock = UnfairLock(MonitorState())
