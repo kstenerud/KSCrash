@@ -900,6 +900,13 @@ static void writeMemoryContentsIfNotable(const KSCrashReportWriter *const writer
     }
 }
 
+// Referenced-object introspection dereferences local memory (ObjC objects, C strings), so it
+// must be skipped for a remote (corpse) context, same as notable addresses.
+static bool isLocalMemoryContext(const KSCrash_MonitorContext *const crash)
+{
+    return crash->offendingMachineContext == NULL || crash->offendingMachineContext->task == mach_task_self();
+}
+
 /** Look for a hex value in a string and try to write whatever it references.
  *
  * @param writer The writer.
@@ -1008,7 +1015,7 @@ static void writeStackContents(const KSCrashReportWriter *const writer, const ch
         writer->addBooleanElement(writer, KSCrashField_Overflow, stackOverflow);
         uint8_t stackBuffer[kStackContentsTotalDistance * sizeof(sp)];
         int copyLength = (int)(highAddress - lowAddress);
-        if (ksmem_copySafely((void *)lowAddress, stackBuffer, copyLength)) {
+        if (ksmem_copySafelyFromTask(machineContext->task, (void *)lowAddress, stackBuffer, copyLength)) {
             writer->addDataElement(writer, KSCrashField_Contents, (void *)stackBuffer, copyLength);
         } else {
             writer->addStringElement(writer, KSCrashField_Error, "Stack contents not accessible");
@@ -1046,7 +1053,8 @@ static void writeNotableStackContents(const KSCrashReportWriter *const writer,
     uintptr_t contentsAsPointer;
     char nameBuffer[40];
     for (uintptr_t address = lowAddress; address < highAddress; address += sizeof(address)) {
-        if (ksmem_copySafely((void *)address, &contentsAsPointer, sizeof(contentsAsPointer))) {
+        if (ksmem_copySafelyFromTask(machineContext->task, (void *)address, &contentsAsPointer,
+                                     sizeof(contentsAsPointer))) {
             memcpy(nameBuffer, "stack@0x", 8);
             ksstring_uint64ToHex((uint64_t)address, nameBuffer + 8, sizeof(nameBuffer) - 8, 1, false);
             writeMemoryContentsIfNotable(writer, nameBuffer, contentsAsPointer);
@@ -1237,7 +1245,10 @@ static void writeThread(const KSCrashReportWriter *const writer, const char *con
         writer->addBooleanElement(writer, KSCrashField_CurrentThread, thread == ksthread_self());
         if (isCrashedThread) {
             writeStackContents(writer, KSCrashField_Stack, machineContext, stackCursor.state.stackOverflow);
-            if (shouldWriteNotableAddresses) {
+            // Notable-address introspection (ObjC objects, zombies, C strings) dereferences
+            // local memory. For a remote (corpse) context it would read this process's own
+            // memory at the target's addresses, so skip it entirely.
+            if (shouldWriteNotableAddresses && machineContext->task == mach_task_self()) {
                 writeNotableAddresses(writer, KSCrashField_NotableAddresses, machineContext);
             }
         }
@@ -1280,6 +1291,12 @@ static void writeThreads(const KSCrashReportWriter *const writer, const char *co
                 writeThread(writer, NULL, crash, context, i, writeNotableAddresses, threadRunState, referencedImages);
             } else if (shouldRecordAllThreads) {
                 ksmc_getContextForThread(thread, &machineContext, false);
+                // Read this thread from the same task and image set as the crashed thread. For a
+                // normal in-process report both are the defaults (current task, live dyld); for an
+                // out-of-process report (a corpse) this makes every thread unwind from that target
+                // rather than the reporter's own process.
+                machineContext.task = context->task;
+                machineContext.imageSet = context->imageSet;
                 writeThread(writer, NULL, crash, &machineContext, i, writeNotableAddresses, threadRunState,
                             referencedImages);
             }
@@ -1459,7 +1476,9 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
             {
                 writer->addStringElement(writer, KSCrashField_Name, crash->NSException.name);
                 writer->addStringElement(writer, KSCrashField_UserInfo, crash->NSException.userInfo);
-                writeAddressReferencedByString(writer, KSCrashField_ReferencedObject, crash->crashReason);
+                if (isLocalMemoryContext(crash)) {
+                    writeAddressReferencedByString(writer, KSCrashField_ReferencedObject, crash->crashReason);
+                }
             }
             writer->endContainer(writer);
         } else if (isCrashOfMonitorType(crash, kscm_machexception_getAPI())) {
@@ -1548,8 +1567,10 @@ static void writeProcessState(const KSCrashReportWriter *const writer, const cha
                 writer->addUIntegerElement(writer, KSCrashField_Address, monitorContext->ZombieException.address);
                 writer->addStringElement(writer, KSCrashField_Name, monitorContext->ZombieException.name);
                 writer->addStringElement(writer, KSCrashField_Reason, monitorContext->ZombieException.reason);
-                writeAddressReferencedByString(writer, KSCrashField_ReferencedObject,
-                                               monitorContext->ZombieException.reason);
+                if (isLocalMemoryContext(monitorContext)) {
+                    writeAddressReferencedByString(writer, KSCrashField_ReferencedObject,
+                                                   monitorContext->ZombieException.reason);
+                }
             }
             writer->endContainer(writer);
         }
