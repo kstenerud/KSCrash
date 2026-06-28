@@ -51,6 +51,7 @@
 #include "KSCrashRunContext.h"
 #include "KSDynamicLinker.h"
 #include "KSFileUtils.h"
+#include "KSMemory.h"
 #include "KSObjC.h"
 #include "KSStackCursor_SelfThread.h"
 #include "KSString.h"
@@ -122,9 +123,21 @@ static KSCrashDidWriteReportCallback g_didWriteReportCallback;
 static KSCrashMonitorAPI g_plugins[KSC_MAX_PLUGINS];
 static int g_pluginCount = 0;
 
-// Run ID: a UUID generated once during kscrash_install().
-// Read-only after that, so safe to access from crash handlers.
-static char g_runID[KSC_UUID_STRING_LENGTH + 1];
+// Run ID: a UUID generated once during kscrash_install(). In a normal app it is read-only after
+// that, so it stays safe to access from crash handlers. It lives in a named section so a crash
+// extension can locate it in a process corpse and load the crashed run's id
+// into its own g_runIDSection (see kscrash_loadRunIDFromCorpse), stamping its report with the same id.
+// The payload carries the namespace identifier because the section name can't (Mach-O section
+// names are capped at 16 bytes): with two namespaced KSCrash copies in one app, both carry a
+// __ks_runid section, and the loader must pick the copy matching its own namespace.
+typedef struct {
+    char namespaceID[64];
+    char runID[KSC_UUID_STRING_LENGTH + 1];
+} KSRunIDSectionPayload;
+
+static KSRunIDSectionPayload g_runIDSection __attribute__((section("__DATA,__ks_runid"))) = {
+    .namespaceID = KSCRASH_NS_STRING("KSCrash"),
+};
 
 // Previous run's ID, read from Data/last_run_id during install.
 // Used by the Lifecycle monitor to find the previous sidecar.
@@ -135,14 +148,14 @@ static char g_lastRunID[KSC_UUID_STRING_LENGTH + 1];
 // ============================================================================
 
 /** Generate a new run ID, read the previous run's ID from disk, and persist the new one.
- *  After this call both g_runID and g_lastRunID are available.
+ *  After this call both g_runIDSection.runID and g_lastRunID are available.
  *  Must be called after the Data directory exists.
  */
 static void rotateRunID(const char *installPath)
 {
     uuid_t uuid;
     uuid_generate(uuid);
-    uuid_unparse_lower(uuid, g_runID);
+    uuid_unparse_lower(uuid, g_runIDSection.runID);
 
     char path[KSFU_MAX_PATH_LENGTH];
     if (snprintf(path, sizeof(path), "%s/Data/last_run_id", installPath) >= (int)sizeof(path)) {
@@ -185,7 +198,7 @@ static void rotateRunID(const char *installPath)
     if (lseek(fd, 0, SEEK_SET) == (off_t)-1) {
         KSLOG_ERROR("Failed to seek in %s: %s", path, strerror(errno));
     }
-    if (!ksfu_writeBytesToFD(fd, g_runID, KSC_UUID_STRING_LENGTH)) {
+    if (!ksfu_writeBytesToFD(fd, g_runIDSection.runID, KSC_UUID_STRING_LENGTH)) {
         KSLOG_ERROR("Failed to write new run ID to %s", path);
     }
     close(fd);
@@ -617,7 +630,76 @@ int64_t kscrash_addUserReport(const char *report, int reportLength)
     return kscrs_addUserReport(report, reportLength, &g_reportStoreConfig);
 }
 
-const char *kscrash_getRunID(void) { return g_runID; }
+const char *kscrash_getRunID(void) { return g_runIDSection.runID; }
+
+void kscrash_clearRunID(void)
+{
+    // Extension use only: the run id is per-corpse state there, so each capture clears it
+    // before loading the next corpse's. Never called in a normal install, where the id is
+    // generated once and stays read-only for signal safety.
+    memset(g_runIDSection.runID, 0, sizeof(g_runIDSection.runID));
+}
+
+void kscrash_testcode_setRunID(const char *runID)
+{
+    // Tests only. Install generates the run id once per process and clearing it is otherwise
+    // irreversible, so a test that exercises clear-then-failed-load would strand every later
+    // test in the process with an empty id. This lets such a test put back what it took.
+    if (runID == NULL) {
+        memset(g_runIDSection.runID, 0, sizeof(g_runIDSection.runID));
+        return;
+    }
+    strlcpy(g_runIDSection.runID, runID, sizeof(g_runIDSection.runID));
+}
+
+bool kscrash_loadRunIDFromCorpse(task_t corpse, const uint64_t *imageLoadAddresses, uint32_t imageCount)
+{
+    // Runs in a crash extension: scan the corpse's images for the __ks_runid section and
+    // load the crashed run's id into g_runIDSection.runID, so a report this process writes for the corpse carries
+    // the app's run id rather than this process's own. Caller passes the corpse's image load
+    // addresses (it already has them from the crash extension's binary image list).
+    // Writes only on success; a capture clears first (kscrash_clearRunID) so a corpse whose
+    // id cannot be read is reported with no run id, never a previous corpse's.
+    if (corpse == MACH_PORT_NULL || imageLoadAddresses == NULL || imageCount == 0) {
+        return false;
+    }
+
+    for (uint32_t i = 0; i < imageCount; i++) {
+        uintptr_t sectionAddr = 0;
+        uintptr_t sectionSize = 0;
+        if (!ksbic_findSectionInTaskImage(corpse, (uintptr_t)imageLoadAddresses[i], "__DATA", "__ks_runid",
+                                          &sectionAddr, &sectionSize)) {
+            continue;
+        }
+        if (sectionSize < sizeof(KSRunIDSectionPayload)) {
+            continue;
+        }
+
+        KSRunIDSectionPayload payload;
+        if (!ksmem_copySafelyFromTask(corpse, (const void *)sectionAddr, &payload, sizeof(payload))) {
+            continue;
+        }
+        payload.namespaceID[sizeof(payload.namespaceID) - 1] = '\0';
+        payload.runID[KSC_UUID_STRING_LENGTH] = '\0';
+
+        // Only accept the KSCrash copy in the same namespace as this one; with multiple
+        // namespaced copies in one app each carries its own __ks_runid section.
+        if (strcmp(payload.namespaceID, g_runIDSection.namespaceID) != 0) {
+            continue;
+        }
+
+        // Only accept a well-formed UUID; an uninitialized section reads as zeros and is skipped.
+        uuid_t parsed;
+        if (uuid_parse(payload.runID, parsed) != 0) {
+            continue;
+        }
+
+        memcpy(g_runIDSection.runID, payload.runID, KSC_UUID_STRING_LENGTH);
+        g_runIDSection.runID[KSC_UUID_STRING_LENGTH] = '\0';
+        return true;
+    }
+    return false;
+}
 
 const char *kscrash_getLastRunID(void) { return g_lastRunID; }
 

@@ -18,11 +18,18 @@
 #import "KSMach-O.h"
 #import "KSMachineContext.h"
 #import "KSMachineContext_Apple.h"
+#import "KSMemory.h"
 #import "KSStackCursor_MachineContext.h"
 #import "KSThread.h"
 #import "Unwind/KSCompactUnwind.h"
 #import "Unwind/KSDwarfUnwind.h"
 #import "Unwind/KSStackCursor_Unwind.h"
+
+// A known value in a named __DATA section, to exercise the section-find + cross-task read that
+// kscrash_loadRunIDFromCorpse uses to pull the run id out of a corpse. `used` keeps the linker from
+// stripping it; the value mimics a UUID run id.
+static char g_ksTestSectionValue[] __attribute__((section("__DATA,__ks_test_rid"), used)) =
+    "11111111-2222-3333-4444-555555555555";
 
 static void ks_dwarf_test_helper(void) __attribute__((noinline));
 static void ks_dwarf_test_helper(void) {}
@@ -2294,6 +2301,38 @@ static uint32_t ks_test_buildLocalDescriptors(KSBinaryImageDescriptor **outDescr
 
     ksbic_destroySet(set);
 #endif
+}
+
+// Locate a named section across a task's images and read its bytes cross-task. This is the
+// mechanism kscrash_loadRunIDFromCorpse uses to pull the crashed run's id out of a corpse's
+// __ks_runid section; here we point it at our own task and a known test section.
+- (void)testFindSectionInTaskImageLocatesAndReadsValue
+{
+    uintptr_t sectionAddr = 0;
+    uintptr_t sectionSize = 0;
+    bool found = false;
+
+    // Scan our own loaded images for the test section, exactly as the loader scans the corpse's.
+    uint32_t imageCount = _dyld_image_count();
+    for (uint32_t i = 0; i < imageCount; i++) {
+        const struct mach_header *header = _dyld_get_image_header(i);
+        if (header != NULL && ksbic_findSectionInTaskImage(mach_task_self(), (uintptr_t)header, "__DATA",
+                                                           "__ks_test_rid", &sectionAddr, &sectionSize)) {
+            found = true;
+            break;
+        }
+    }
+    XCTAssertTrue(found, @"Should locate the test section in one of our images");
+    XCTAssertGreaterThanOrEqual(sectionSize, (uintptr_t)sizeof(g_ksTestSectionValue));
+
+    char buffer[64] = { 0 };
+    XCTAssertTrue(ksmem_copySafelyFromTask(mach_task_self(), (const void *)sectionAddr, buffer,
+                                           (int)strlen(g_ksTestSectionValue)));
+    XCTAssertEqual(0, strcmp(buffer, g_ksTestSectionValue), @"Read section bytes should match the known value");
+
+    // A section that does not exist is not found.
+    XCTAssertFalse(ksbic_findSectionInTaskImage(mach_task_self(), (uintptr_t)_dyld_get_image_header(0), "__DATA",
+                                                "__ks_absent_sec", &sectionAddr, &sectionSize));
 }
 
 @end
