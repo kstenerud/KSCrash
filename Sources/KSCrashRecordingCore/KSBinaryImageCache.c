@@ -1139,6 +1139,32 @@ bool ksbic_fillTaskImage(task_t task, uintptr_t loadAddress, KSBinaryImage *outI
     return true;
 }
 
+bool ksbic_findSectionInTaskImage(task_t task, uintptr_t loadAddress, const char *segName, const char *sectName,
+                                  uintptr_t *outRuntimeAddr, uintptr_t *outSize)
+{
+    struct mach_header_64 header;
+    uint8_t *cmds = copyLoadCommandsFromTask(task, loadAddress, &header);
+    if (cmds == NULL) {
+        return false;
+    }
+
+    KSMachOSectionQuery query = { .segName = segName, .sectName = sectName };
+    KSMachOImageGeometry geometry;
+    walkLoadCommands64(cmds, header.sizeofcmds, header.ncmds, loadAddress, &query, 1, &geometry);
+    free(cmds);
+
+    if (!query.found) {
+        return false;
+    }
+    if (outRuntimeAddr != NULL) {
+        *outRuntimeAddr = query.addr;
+    }
+    if (outSize != NULL) {
+        *outSize = query.size;
+    }
+    return true;
+}
+
 // Read and parse one image's Mach-O header from a (possibly remote) task, recovering the geometry
 // the unwinder needs: slide, segment ranges, and the __unwind_info/__eh_frame section coordinates.
 // Copies load commands out of `task` instead of dereferencing a mapped header, so it works against

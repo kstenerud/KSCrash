@@ -305,6 +305,25 @@ KSBinaryImageSet *_Nullable ksbic_createSetFromTaskImages(task_t task, const KSB
 bool ksbic_fillTaskImage(task_t task, uintptr_t loadAddress, KSBinaryImage *_Nonnull outImage);
 
 /**
+ * Find a named section in an image of @c task and return its runtime address and size in that task.
+ *
+ * Reads the image's Mach-O header and load commands out of @c task (cross-task), so it works against
+ * another process (e.g. a corpse). 64-bit images only. The returned address is the section's vmaddr
+ * with the image slide applied, so it can be read back with ksmem_copySafelyFromTask.
+ *
+ * @param task The task whose image to inspect.
+ * @param loadAddress The image's load address in @c task.
+ * @param segName The segment name, e.g. "__DATA".
+ * @param sectName The section name, e.g. "__ks_runid".
+ * @param outRuntimeAddr If not NULL and found, receives the section's runtime address in @c task.
+ * @param outSize If not NULL and found, receives the section's size in bytes.
+ * @return true if the section was found, false otherwise.
+ */
+bool ksbic_findSectionInTaskImage(task_t task, uintptr_t loadAddress, const char *_Nonnull segName,
+                                  const char *_Nonnull sectName, uintptr_t *_Nullable outRuntimeAddr,
+                                  uintptr_t *_Nullable outSize);
+
+/**
  * Release an image set created by ksbic_createSetFromTaskImages or
  * ksbic_createSetFromLocalImages.
  *
