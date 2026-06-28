@@ -35,6 +35,15 @@ extern "C" {
 extern const double KSCrashFrameworkVersionNumber;
 extern const unsigned char KSCrashFrameworkVersionString[];
 
+/** Tests only: overwrite the run id, or clear it when @c runID is NULL.
+ *
+ * Install generates the run id once per process and `kscrash_clearRunID` is otherwise
+ * irreversible, so a test that exercises clear-then-failed-load would strand every later test
+ * in the process with an empty id. Declared here rather than in KSCrashC.h to keep it out of
+ * the public surface.
+ */
+void kscrash_testcode_setRunID(const char *_Nullable runID);
+
 #ifdef __cplusplus
 }
 #endif
