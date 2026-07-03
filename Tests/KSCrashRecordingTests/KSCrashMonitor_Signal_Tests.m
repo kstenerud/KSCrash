@@ -26,6 +26,8 @@
 
 #import <XCTest/XCTest.h>
 
+#include <signal.h>
+
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitor_Signal.h"
 #import "KSSystemCapabilities.h"
@@ -60,6 +62,32 @@
     XCTAssertFalse(api->isEnabled(NULL));
     api->setEnabled(false, NULL);
     XCTAssertFalse(api->isEnabled(NULL));
+}
+
+- (void)testPreservesIgnoredSignalHandlers
+{
+    KSCrashMonitorAPI *api = kscm_signal_getAPI();
+    api->setEnabled(false, NULL);
+
+    struct sigaction originalAction;
+    XCTAssertEqual(sigaction(SIGPIPE, NULL, &originalAction), 0);
+
+    struct sigaction ignoredAction = { { 0 } };
+    ignoredAction.sa_handler = SIG_IGN;
+    sigemptyset(&ignoredAction.sa_mask);
+    XCTAssertEqual(sigaction(SIGPIPE, &ignoredAction, NULL), 0);
+
+    @try {
+        api->setEnabled(true, NULL);
+        XCTAssertTrue(api->isEnabled(NULL));
+
+        struct sigaction currentAction;
+        XCTAssertEqual(sigaction(SIGPIPE, NULL, &currentAction), 0);
+        XCTAssertEqual(currentAction.sa_handler, SIG_IGN);
+    } @finally {
+        api->setEnabled(false, NULL);
+        sigaction(SIGPIPE, &originalAction, NULL);
+    }
 }
 
 #else

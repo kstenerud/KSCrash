@@ -193,6 +193,14 @@ static void install(void)
             }
             goto failed;
         }
+
+        // If the application or runtime explicitly ignored this signal before
+        // KSCrash was installed, preserve that behavior. Otherwise KSCrash would
+        // turn an ignored signal (for example SIGPIPE) into a reported fatal
+        // crash even though the process would normally continue running.
+        if (g_state.previousSignalHandlers[i].sa_handler == SIG_IGN) {
+            sigaction(fatalSignals[i], &g_state.previousSignalHandlers[i], NULL);
+        }
     }
     KSLOG_DEBUG("Signal handlers installed.");
     return;
