@@ -26,9 +26,11 @@
 
 #import <XCTest/XCTest.h>
 
+#import "KSBinaryImageCache.h"
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitor_System.h"
 #import "KSCrashReportFields.h"
+#import "KSDynamicLinker.h"
 #import "KSFileUtils.h"
 #import "KSJSONCodecObjC.h"
 #import "KSSysCtl.h"
@@ -63,6 +65,7 @@ static bool stubRunSidecarPath(const char *monitorId, char *pathBuffer, size_t p
                                                attributes:nil
                                                     error:nil];
     strlcpy(g_sidecarPath, self.tempDir.fileSystemRepresentation, sizeof(g_sidecarPath));
+    ksdl_init();
 }
 
 - (void)tearDown
@@ -72,6 +75,7 @@ static bool stubRunSidecarPath(const char *monitorId, char *pathBuffer, size_t p
 
     [[NSFileManager defaultManager] removeItemAtPath:self.tempDir error:nil];
     g_sidecarPath[0] = '\0';
+    ksdl_init();
     [super tearDown];
 }
 
@@ -111,6 +115,56 @@ static bool stubRunSidecarPath(const char *monitorId, char *pathBuffer, size_t p
     XCTAssertGreaterThan(sc.processID, 0, @"processID should be non-zero");
 
     api->setEnabled(false, NULL);
+}
+
+- (void)testBinaryCPUMetadataUsesBinaryImageCacheHeader
+{
+    const struct mach_header *header = ksbic_getAppHeader();
+    XCTAssertNotEqual(header, NULL, @"App header should be available from the binary image cache");
+
+    KSCrashMonitorAPI *api = kscm_system_getAPI();
+    KSCrash_ExceptionHandlerCallbacks callbacks = { .getRunSidecarPath = stubRunSidecarPath };
+    api->init(&callbacks, NULL);
+    api->setEnabled(true, NULL);
+
+    NSString *sidecarFile = [self.tempDir stringByAppendingPathComponent:@"System.ksscr"];
+    KSCrash_SystemData sc = {};
+    int fd = open(sidecarFile.fileSystemRepresentation, O_RDONLY);
+    XCTAssertNotEqual(fd, -1);
+    XCTAssertTrue(ksfu_readBytesFromFD(fd, (char *)&sc, (int)sizeof(sc)));
+    close(fd);
+
+    XCTAssertEqual(sc.binaryCPUType, header->cputype);
+    XCTAssertEqual(sc.binaryCPUSubType, header->cpusubtype);
+    XCTAssertTrue(sc.binaryArchitecture[0] != '\0', @"binaryArchitecture should be populated");
+
+    api->setEnabled(false, NULL);
+}
+
+- (void)testBinaryCPUMetadataMissingWhenBinaryImageCacheUnavailable
+{
+    ksdl_resetCache();
+    XCTAssertEqual(ksbic_getAppHeader(), NULL,
+                   @"App header should be unavailable before the binary image cache is initialized");
+
+    KSCrashMonitorAPI *api = kscm_system_getAPI();
+    KSCrash_ExceptionHandlerCallbacks callbacks = { .getRunSidecarPath = stubRunSidecarPath };
+    api->init(&callbacks, NULL);
+    api->setEnabled(true, NULL);
+
+    NSString *sidecarFile = [self.tempDir stringByAppendingPathComponent:@"System.ksscr"];
+    KSCrash_SystemData sc = {};
+    int fd = open(sidecarFile.fileSystemRepresentation, O_RDONLY);
+    XCTAssertNotEqual(fd, -1);
+    XCTAssertTrue(ksfu_readBytesFromFD(fd, (char *)&sc, (int)sizeof(sc)));
+    close(fd);
+
+    XCTAssertEqual(sc.binaryCPUType, 0);
+    XCTAssertEqual(sc.binaryCPUSubType, 0);
+    XCTAssertEqual(sc.binaryArchitecture[0], '\0');
+
+    api->setEnabled(false, NULL);
+    ksdl_init();
 }
 
 - (void)testOSVersionMatchesPlatform

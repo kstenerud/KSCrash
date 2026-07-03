@@ -57,7 +57,6 @@
 #import <UIKit/UIKit.h>
 #endif
 #include <fcntl.h>
-#include <mach-o/dyld.h>
 #include <mach/mach.h>
 #include <stdatomic.h>
 
@@ -392,7 +391,7 @@ static void initialize(void)
     // Populate all static fields into local pointer before publishing.
     NSBundle *mainBundle = [NSBundle mainBundle];
     NSDictionary *infoDict = [mainBundle infoDictionary];
-    const struct mach_header *header = _dyld_get_image_header(0);
+    const struct mach_header *header = ksbic_getAppHeader();
 
 #if KSCRASH_HAS_UIDEVICE
     safeNSStringCopy(sd->systemName, [UIDevice currentDevice].systemName, sizeof(sd->systemName));
@@ -454,8 +453,10 @@ static void initialize(void)
     safeStrlcpy(sd->cpuArchitecture, getCurrentCPUArch(), sizeof(sd->cpuArchitecture));
     sd->cpuType = kssysctl_int32ForName("hw.cputype");
     sd->cpuSubType = kssysctl_int32ForName("hw.cpusubtype");
-    sd->binaryCPUType = header->cputype;
-    sd->binaryCPUSubType = header->cpusubtype;
+    if (header != NULL) {
+        sd->binaryCPUType = header->cputype;
+        sd->binaryCPUSubType = header->cpusubtype;
+    }
     safeNSStringCopy(sd->timezone, [NSTimeZone localTimeZone].abbreviation, sizeof(sd->timezone));
     safeNSStringCopy(sd->processName, [NSProcessInfo processInfo].processName, sizeof(sd->processName));
     sd->processID = [NSProcessInfo processInfo].processIdentifier;
@@ -464,8 +465,10 @@ static void initialize(void)
     safeStrlcpy(sd->buildType, getBuildType(), sizeof(sd->buildType));
     sd->memorySize = kssysctl_uint64ForName("hw.memsize");
 
-    const char *binaryArch = getCPUArchForCPUType(header->cputype, header->cpusubtype);
-    safeStrlcpy(sd->binaryArchitecture, binaryArch != NULL ? binaryArch : "", sizeof(sd->binaryArchitecture));
+    if (header != NULL) {
+        const char *binaryArch = getCPUArchForCPUType(header->cputype, header->cpusubtype);
+        safeStrlcpy(sd->binaryArchitecture, binaryArch != NULL ? binaryArch : "", sizeof(sd->binaryArchitecture));
+    }
 
 #ifdef __clang_version__
     safeStrlcpy(sd->clangVersion, __clang_version__, sizeof(sd->clangVersion));
