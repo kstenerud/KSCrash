@@ -63,13 +63,16 @@ static int g_reservedThreadsCount = 0;
 
 static inline bool getThreadList(KSMachineContext *context)
 {
+    // Enumerate threads of the context's task (a corpse, when the context targets another task).
+    const task_t sourceTask = context->task;
+    // Port rights and the returned array are always owned by *our* task, so deallocation uses self.
     const task_t thisTask = mach_task_self();
     KSLOG_DEBUG("Getting thread list");
     kern_return_t kr;
     thread_act_array_t threads;
     mach_msg_type_number_t actualThreadCount;
 
-    if ((kr = task_threads(thisTask, &threads, &actualThreadCount)) != KERN_SUCCESS) {
+    if ((kr = task_threads(sourceTask, &threads, &actualThreadCount)) != KERN_SUCCESS) {
         KSLOG_ERROR("task_threads: %s", mach_error_string(kr));
         return false;
     }
@@ -95,8 +98,25 @@ static inline bool getThreadList(KSMachineContext *context)
     }
     context->threadCount = (int)threadCount;
 
-    for (mach_msg_type_number_t i = 0; i < actualThreadCount; i++) {
-        mach_port_deallocate(thisTask, threads[i]);
+    if (sourceTask == thisTask) {
+        // In-process, pthread holds its own send right for every thread, so the raw names
+        // stay valid after we drop ours.
+        for (mach_msg_type_number_t i = 0; i < actualThreadCount; i++) {
+            mach_port_deallocate(thisTask, threads[i]);
+        }
+    } else {
+        // Remote (corpse) task: these are the only send rights we hold, so dropping them
+        // would kill the names before thread_get_state ever runs. Keep the rights for the
+        // captured threads (they live until this short-lived reader process exits) and only
+        // drop the ones that didn't fit in allThreads.
+        for (mach_msg_type_number_t i = threadCount; i < actualThreadCount; i++) {
+            mach_port_deallocate(thisTask, threads[i]);
+        }
+        if (threadCount > 0 && !isCrashedThreadInList) {
+            // The last slot was overwritten with the crashed thread, so its original
+            // occupant is not referenced anywhere either.
+            mach_port_deallocate(thisTask, threads[threadCount - 1]);
+        }
     }
     vm_deallocate(thisTask, (vm_address_t)threads, sizeof(thread_t) * actualThreadCount);
 
@@ -112,6 +132,7 @@ bool ksmc_getContextForThread(KSThread thread, KSMachineContext *destinationCont
     KSLOG_DEBUG("Fill thread 0x%x context into %p. is crashed = %d", thread, destinationContext, isCrashedContext);
     memset(destinationContext, 0, sizeof(*destinationContext));
     destinationContext->thisThread = (thread_t)thread;
+    destinationContext->task = mach_task_self();
     destinationContext->isCurrentThread = thread == ksthread_self();
     destinationContext->isCrashedContext = isCrashedContext;
     destinationContext->isSignalContext = false;
@@ -131,6 +152,7 @@ bool ksmc_getContextForSignal(void *signalUserContext, KSMachineContext *destina
     _STRUCT_MCONTEXT *sourceContext = ((SignalUserContext *)signalUserContext)->UC_MCONTEXT;
     memcpy(&destinationContext->machineContext, sourceContext, sizeof(destinationContext->machineContext));
     destinationContext->thisThread = (thread_t)ksthread_self();
+    destinationContext->task = mach_task_self();
     destinationContext->isCrashedContext = true;
     destinationContext->isSignalContext = true;
     getThreadList(destinationContext);

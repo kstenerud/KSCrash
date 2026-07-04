@@ -48,20 +48,10 @@
 // The savedRegisters array only has 16 slots which is enough for X19-X28 (10 regs)
 // If needed in the future, increase savedRegisters array size
 
-// MARK: - Internal Functions
-
-/**
- * Read a pointer-sized value safely from memory.
- */
-static inline bool readPtr(uintptr_t addr, uintptr_t *outValue)
-{
-    return ksmem_copySafely((const void *)addr, outValue, sizeof(uintptr_t));
-}
-
 // MARK: - ARM64 Compact Unwind Decoder
 
 bool kscu_arm64_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attribute__((unused)), uintptr_t sp,
-                       uintptr_t fp, uintptr_t lr, KSCompactUnwindResult *result)
+                       uintptr_t fp, uintptr_t lr, KSCompactUnwindResult *result, task_t task)
 {
     if (result == NULL) {
         return false;
@@ -95,14 +85,14 @@ bool kscu_arm64_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attrib
 
         // Read return address from [FP+8]
         uintptr_t returnAddr;
-        if (!readPtr(fp + 8, &returnAddr)) {
+        if (!kscu_readTaskPointer(task, fp + 8, &returnAddr)) {
             KSLOG_TRACE("Failed to read return address from FP+8 (0x%lx)", (unsigned long)(fp + 8));
             return false;
         }
 
         // Read previous frame pointer from [FP]
         uintptr_t prevFP;
-        if (!readPtr(fp, &prevFP)) {
+        if (!kscu_readTaskPointer(task, fp, &prevFP)) {
             KSLOG_TRACE("Failed to read previous FP from FP (0x%lx)", (unsigned long)fp);
             return false;
         }
@@ -119,7 +109,7 @@ bool kscu_arm64_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attrib
         // X19/X20 pair
         if (encoding & KSCU_UNWIND_ARM64_FRAME_X19_X20_PAIR) {
             uintptr_t regs[2];
-            if (ksmem_copySafely((const void *)(regSaveAddr - 8), regs, sizeof(regs))) {
+            if (ksmem_copySafelyFromTask(task, (const void *)(regSaveAddr - 8), regs, sizeof(regs))) {
                 result->savedRegisters[KSREG_ARM64_X19] = regs[0];
                 result->savedRegisters[KSREG_ARM64_X20] = regs[1];
                 result->savedRegisterMask |= (1 << KSREG_ARM64_X19) | (1 << KSREG_ARM64_X20);
@@ -130,7 +120,7 @@ bool kscu_arm64_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attrib
         // X21/X22 pair
         if (encoding & KSCU_UNWIND_ARM64_FRAME_X21_X22_PAIR) {
             uintptr_t regs[2];
-            if (ksmem_copySafely((const void *)(regSaveAddr - 8), regs, sizeof(regs))) {
+            if (ksmem_copySafelyFromTask(task, (const void *)(regSaveAddr - 8), regs, sizeof(regs))) {
                 result->savedRegisters[KSREG_ARM64_X21] = regs[0];
                 result->savedRegisters[KSREG_ARM64_X22] = regs[1];
                 result->savedRegisterMask |= (1 << KSREG_ARM64_X21) | (1 << KSREG_ARM64_X22);
@@ -141,7 +131,7 @@ bool kscu_arm64_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attrib
         // X23/X24 pair
         if (encoding & KSCU_UNWIND_ARM64_FRAME_X23_X24_PAIR) {
             uintptr_t regs[2];
-            if (ksmem_copySafely((const void *)(regSaveAddr - 8), regs, sizeof(regs))) {
+            if (ksmem_copySafelyFromTask(task, (const void *)(regSaveAddr - 8), regs, sizeof(regs))) {
                 result->savedRegisters[KSREG_ARM64_X23] = regs[0];
                 result->savedRegisters[KSREG_ARM64_X24] = regs[1];
                 result->savedRegisterMask |= (1 << KSREG_ARM64_X23) | (1 << KSREG_ARM64_X24);
@@ -152,7 +142,7 @@ bool kscu_arm64_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attrib
         // X25/X26 pair
         if (encoding & KSCU_UNWIND_ARM64_FRAME_X25_X26_PAIR) {
             uintptr_t regs[2];
-            if (ksmem_copySafely((const void *)(regSaveAddr - 8), regs, sizeof(regs))) {
+            if (ksmem_copySafelyFromTask(task, (const void *)(regSaveAddr - 8), regs, sizeof(regs))) {
                 result->savedRegisters[KSREG_ARM64_X25] = regs[0];
                 result->savedRegisters[KSREG_ARM64_X26] = regs[1];
                 result->savedRegisterMask |= (1 << KSREG_ARM64_X25) | (1 << KSREG_ARM64_X26);
@@ -163,7 +153,7 @@ bool kscu_arm64_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attrib
         // X27/X28 pair
         if (encoding & KSCU_UNWIND_ARM64_FRAME_X27_X28_PAIR) {
             uintptr_t regs[2];
-            if (ksmem_copySafely((const void *)(regSaveAddr - 8), regs, sizeof(regs))) {
+            if (ksmem_copySafelyFromTask(task, (const void *)(regSaveAddr - 8), regs, sizeof(regs))) {
                 result->savedRegisters[KSREG_ARM64_X27] = regs[0];
                 result->savedRegisters[KSREG_ARM64_X28] = regs[1];
                 result->savedRegisterMask |= (1 << KSREG_ARM64_X27) | (1 << KSREG_ARM64_X28);
@@ -200,7 +190,7 @@ bool kscu_arm64_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attrib
 
         // Non-leaf frameless function - return address is saved at the top of the frame
         uintptr_t returnAddr;
-        if (!readPtr(sp + stackSize - 8, &returnAddr)) {
+        if (!kscu_readTaskPointer(task, sp + stackSize - 8, &returnAddr)) {
             KSLOG_TRACE("Failed to read return address from SP+stackSize-8 (0x%lx)",
                         (unsigned long)(sp + stackSize - 8));
             return false;
