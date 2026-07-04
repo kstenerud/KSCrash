@@ -171,6 +171,14 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
     return CPUFamilyUnknown;
 }
 
+- (BOOL)is32BitReport:(NSDictionary *)report
+{
+    // 64-bit arch names (arm64, arm64e, x86_64) all contain "64". Treat an unknown
+    // or missing arch as not-32-bit so the ambiguous 0xbad0 sentinel is not matched.
+    NSString *cpuArch = [[self systemReport:report] objectForKey:KSCrashField_CPUArch];
+    return cpuArch != nil && [cpuArch rangeOfString:@"64"].location == NSNotFound;
+}
+
 - (nullable NSString *)registerNameForFamily:(CPUFamily)family paramIndex:(int)index
 {
     switch (family) {
@@ -544,7 +552,10 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
             if (address == 0) {
                 return [self appendOriginatingCall:@"Attempted to dereference null pointer." callName:lastFunctionName];
             }
-            if (address == kKSNonatomicRaceSentinel || address == kKSNonatomicRaceSentinel32) {
+            // The 64-bit sentinel is unmistakable. The 32-bit half (0xbad0) is a plausible
+            // real garbage pointer on 64-bit, so only trust it on a 32-bit report.
+            if (address == kKSNonatomicRaceSentinel ||
+                (address == kKSNonatomicRaceSentinel32 && [self is32BitReport:report])) {
                 return [self
                     appendOriginatingCall:@"Crashed on the Objective-C nonatomic-property race sentinel. A nonatomic "
                                           @"property was read on one thread while being written on another "
