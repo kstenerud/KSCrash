@@ -30,6 +30,7 @@
 #ifndef HDR_ksmemory_h
 #define HDR_ksmemory_h
 
+#include <mach/mach_types.h>
 #include <stdbool.h>
 
 #include "KSCrashNamespace.h"
@@ -68,6 +69,22 @@ int ksmem_maxReadableBytes(const void *const memory, const int tryByteCount);
  * @return true if successful.
  */
 bool ksmem_copySafely(const void *restrict const src, void *restrict const dst, int byteCount);
+
+/** Copy memory safely from a specific task's address space. If the memory is not accessible,
+ * returns false rather than crashing.
+ *
+ * @param task The task to read from. Pass mach_task_self() to read the current process; pass a
+ *             remote (e.g. corpse) task port to read another task's memory.
+ *
+ * @param src The source location to copy from, in the address space of @c task.
+ *
+ * @param dst The location to copy to, in the current process.
+ *
+ * @param byteCount The number of bytes to copy.
+ *
+ * @return true if successful.
+ */
+bool ksmem_copySafelyFromTask(task_t task, const void *restrict const src, void *restrict const dst, int byteCount);
 
 /** Copies up to numBytes of data from src to dest, stopping if memory
  * becomes inaccessible.
