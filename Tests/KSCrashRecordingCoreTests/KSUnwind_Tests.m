@@ -1931,4 +1931,108 @@ static bool expressionEndsWithin(const uint8_t *expr, size_t len, const uint8_t 
                       maxConsecutiveRepeats);
 }
 
+#pragma mark - Image Set
+
+// A set built from the local images must answer unwind-info lookups identically to the
+// live dyld-backed cache. This is the in-process proof that a set can drive the unwinder,
+// which is what the out-of-process (corpse) path will rely on for shared-cache images.
+- (void)testImageSetMatchesLiveUnwindLookup
+{
+    ksdl_init();
+
+    KSBinaryImageSet *set = ksbic_createSetFromLocalImages();
+    XCTAssertTrue(set != NULL, @"Failed to build image set from local images");
+
+    // Harvest real code addresses spanning several images (test binary, XCTest, libsystem, dyld).
+    uintptr_t addresses[64] = { 0 };
+    int count = ksbt_captureBacktrace(pthread_self(), addresses, 64);
+    XCTAssertGreaterThan(count, 1, @"Expected a multi-frame backtrace to sample addresses from");
+
+    int comparedWithCompactUnwind = 0;
+    for (int i = 0; i < count; i++) {
+        KSBinaryImageUnwindInfo live = { 0 };
+        KSBinaryImageUnwindInfo viaSet = { 0 };
+        bool liveFound = ksbic_getUnwindInfoForAddress(addresses[i], &live);
+        bool setFound = ksbic_getUnwindInfoForAddressInSet(set, addresses[i], &viaSet);
+
+        XCTAssertEqual(liveFound, setFound, @"Set and live cache disagree on presence for address %p",
+                       (void *)addresses[i]);
+        if (liveFound && setFound) {
+            XCTAssertEqual(live.header, viaSet.header, @"header mismatch for %p", (void *)addresses[i]);
+            XCTAssertEqual(live.slide, viaSet.slide, @"slide mismatch for %p", (void *)addresses[i]);
+            XCTAssertEqual(live.unwindInfo, viaSet.unwindInfo, @"unwindInfo mismatch for %p", (void *)addresses[i]);
+            XCTAssertEqual(live.unwindInfoSize, viaSet.unwindInfoSize);
+            XCTAssertEqual(live.ehFrame, viaSet.ehFrame, @"ehFrame mismatch for %p", (void *)addresses[i]);
+            XCTAssertEqual(live.ehFrameSize, viaSet.ehFrameSize);
+            XCTAssertEqual(live.hasCompactUnwind, viaSet.hasCompactUnwind);
+            XCTAssertEqual(live.hasEhFrame, viaSet.hasEhFrame);
+            if (live.hasCompactUnwind) {
+                comparedWithCompactUnwind++;
+            }
+        }
+    }
+    XCTAssertGreaterThan(comparedWithCompactUnwind, 0, @"Expected at least one frame backed by compact unwind info");
+
+    // A clearly-invalid address resolves in neither.
+    KSBinaryImageUnwindInfo bogus = { 0 };
+    XCTAssertFalse(ksbic_getUnwindInfoForAddressInSet(set, 0x1, &bogus));
+    XCTAssertFalse(ksbic_getUnwindInfoForAddressInSet(NULL, addresses[0], &bogus));
+
+    ksbic_destroySet(set);
+}
+
+// Drive the real cursor over the same frozen stack twice: once resolving unwind info from the
+// live dyld cache (imageSet == NULL) and once from a local image set. Since the set is built
+// from the same images, the unwound frames must be identical. This exercises the machine-context
+// imageSet wiring end to end, the path the out-of-process corpse unwind will take.
+- (void)testImageSetDrivesCursorIdenticallyToLiveCache
+{
+#if TARGET_OS_WATCH
+    XCTSkip(@"Cannot test on watchOS without pthread support");
+#else
+    ksdl_init();
+
+    KSBinaryImageSet *set = ksbic_createSetFromLocalImages();
+    XCTAssertTrue(set != NULL);
+
+    KSUnwindTestThread *helper = [[KSUnwindTestThread alloc] init];
+    [helper start];
+    [helper suspend];
+
+    // One frozen register context, walked twice. The thread stays suspended across both walks.
+    KSMachineContext machineContext;
+    ksmc_getContextForThread(helper.machThread, &machineContext, false);
+
+    uintptr_t live[128];
+    int liveCount = 0;
+    machineContext.imageSet = NULL;
+    KSStackCursor liveCursor;
+    kssc_initWithUnwind(&liveCursor, 128, &machineContext);
+    while (liveCount < 128 && liveCursor.advanceCursor(&liveCursor)) {
+        live[liveCount++] = liveCursor.stackEntry.address;
+    }
+
+    uintptr_t viaSet[128];
+    int setCount = 0;
+    machineContext.imageSet = set;
+    KSStackCursor setCursor;
+    kssc_initWithUnwind(&setCursor, 128, &machineContext);
+    while (setCount < 128 && setCursor.advanceCursor(&setCursor)) {
+        viaSet[setCount++] = setCursor.stackEntry.address;
+    }
+
+    [helper resume];
+    [helper stop];
+
+    XCTAssertGreaterThan(liveCount, 2, @"Expected a multi-frame unwind");
+    XCTAssertEqual(liveCount, setCount, @"Set-driven unwind produced a different frame count");
+    for (int i = 0; i < liveCount && i < setCount; i++) {
+        XCTAssertEqual(live[i], viaSet[i], @"Frame %d differs: live %p vs set %p", i, (void *)live[i],
+                       (void *)viaSet[i]);
+    }
+
+    ksbic_destroySet(set);
+#endif
+}
+
 @end

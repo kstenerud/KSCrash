@@ -94,16 +94,24 @@ typedef struct {
     FrameEntry currentFrame;
 } UnwindCursorContext;
 
+// Resolve unwind info for an address: from the supplied image set when unwinding another
+// process's images, otherwise from this process's live dyld cache.
+static inline bool lookupUnwindInfo(const KSBinaryImageSet *imageSet, uintptr_t pc, KSBinaryImageUnwindInfo *outInfo)
+{
+    return imageSet != NULL ? ksbic_getUnwindInfoForAddressInSet(imageSet, pc, outInfo)
+                            : ksbic_getUnwindInfoForAddress(pc, outInfo);
+}
+
 // MARK: - Architecture-Specific Helpers
 
 #if defined(__arm64__)
 
 static bool tryCompactUnwindForPC(uintptr_t pc, uintptr_t sp, uintptr_t fp, uintptr_t lr, KSCompactUnwindResult *result,
-                                  task_t task)
+                                  task_t task, const KSBinaryImageSet *imageSet)
 {
     // Find unwind info for this PC
     KSBinaryImageUnwindInfo imageInfo;
-    if (!ksbic_getUnwindInfoForAddress(pc, &imageInfo) || !imageInfo.hasCompactUnwind) {
+    if (!lookupUnwindInfo(imageSet, pc, &imageInfo) || !imageInfo.hasCompactUnwind) {
         KSLOG_TRACE("No compact unwind info for PC 0x%lx", (unsigned long)pc);
         return false;
     }
@@ -129,10 +137,10 @@ static bool tryCompactUnwindForPC(uintptr_t pc, uintptr_t sp, uintptr_t fp, uint
 #elif defined(__x86_64__)
 
 static bool tryCompactUnwindForPC(uintptr_t pc, uintptr_t sp, uintptr_t fp, uintptr_t lr __attribute__((unused)),
-                                  KSCompactUnwindResult *result, task_t task)
+                                  KSCompactUnwindResult *result, task_t task, const KSBinaryImageSet *imageSet)
 {
     KSBinaryImageUnwindInfo imageInfo;
-    if (!ksbic_getUnwindInfoForAddress(pc, &imageInfo) || !imageInfo.hasCompactUnwind) {
+    if (!lookupUnwindInfo(imageSet, pc, &imageInfo) || !imageInfo.hasCompactUnwind) {
         KSLOG_TRACE("No compact unwind info for PC 0x%lx", (unsigned long)pc);
         return false;
     }
@@ -155,10 +163,10 @@ static bool tryCompactUnwindForPC(uintptr_t pc, uintptr_t sp, uintptr_t fp, uint
 #elif defined(__arm__)
 
 static bool tryCompactUnwindForPC(uintptr_t pc, uintptr_t sp, uintptr_t fp, uintptr_t lr, KSCompactUnwindResult *result,
-                                  task_t task)
+                                  task_t task, const KSBinaryImageSet *imageSet)
 {
     KSBinaryImageUnwindInfo imageInfo;
-    if (!ksbic_getUnwindInfoForAddress(pc, &imageInfo) || !imageInfo.hasCompactUnwind) {
+    if (!lookupUnwindInfo(imageSet, pc, &imageInfo) || !imageInfo.hasCompactUnwind) {
         KSLOG_TRACE("No compact unwind info for PC 0x%lx", (unsigned long)pc);
         return false;
     }
@@ -181,10 +189,10 @@ static bool tryCompactUnwindForPC(uintptr_t pc, uintptr_t sp, uintptr_t fp, uint
 #elif defined(__i386__)
 
 static bool tryCompactUnwindForPC(uintptr_t pc, uintptr_t sp, uintptr_t fp, uintptr_t lr __attribute__((unused)),
-                                  KSCompactUnwindResult *result, task_t task)
+                                  KSCompactUnwindResult *result, task_t task, const KSBinaryImageSet *imageSet)
 {
     KSBinaryImageUnwindInfo imageInfo;
-    if (!ksbic_getUnwindInfoForAddress(pc, &imageInfo) || !imageInfo.hasCompactUnwind) {
+    if (!lookupUnwindInfo(imageSet, pc, &imageInfo) || !imageInfo.hasCompactUnwind) {
         KSLOG_TRACE("No compact unwind info for PC 0x%lx", (unsigned long)pc);
         return false;
     }
@@ -209,7 +217,8 @@ static bool tryCompactUnwindForPC(uintptr_t pc, uintptr_t sp, uintptr_t fp, uint
 static bool tryCompactUnwindForPC(uintptr_t pc __attribute__((unused)), uintptr_t sp __attribute__((unused)),
                                   uintptr_t fp __attribute__((unused)), uintptr_t lr __attribute__((unused)),
                                   KSCompactUnwindResult *result __attribute__((unused)),
-                                  task_t task __attribute__((unused)))
+                                  task_t task __attribute__((unused)),
+                                  const KSBinaryImageSet *imageSet __attribute__((unused)))
 {
     return false;
 }
@@ -218,11 +227,11 @@ static bool tryCompactUnwindForPC(uintptr_t pc __attribute__((unused)), uintptr_
 // MARK: - DWARF Unwinding
 
 static bool tryDwarfUnwindForPC(uintptr_t pc, uintptr_t sp, uintptr_t fp, uintptr_t lr, KSCompactUnwindResult *result,
-                                task_t task)
+                                task_t task, const KSBinaryImageSet *imageSet)
 {
     // Find unwind info for this PC
     KSBinaryImageUnwindInfo imageInfo;
-    if (!ksbic_getUnwindInfoForAddress(pc, &imageInfo) || !imageInfo.hasEhFrame) {
+    if (!lookupUnwindInfo(imageSet, pc, &imageInfo) || !imageInfo.hasEhFrame) {
         KSLOG_TRACE("No DWARF eh_frame info for PC 0x%lx", (unsigned long)pc);
         return false;
     }
@@ -340,7 +349,8 @@ static bool tryUnwindWithMethod(UnwindCursorContext *ctx, KSUnwindMethod method,
 
     switch (method) {
         case KSUnwindMethod_CompactUnwind:
-            if (tryCompactUnwindForPC(lookupPC, ctx->sp, ctx->fp, ctx->lr, &result, ctx->machineContext->task) &&
+            if (tryCompactUnwindForPC(lookupPC, ctx->sp, ctx->fp, ctx->lr, &result, ctx->machineContext->task,
+                                      ctx->machineContext->imageSet) &&
                 result.valid) {
                 *outAddress = result.returnAddress;
                 ctx->sp = result.stackPointer;
@@ -354,7 +364,8 @@ static bool tryUnwindWithMethod(UnwindCursorContext *ctx, KSUnwindMethod method,
             break;
 
         case KSUnwindMethod_Dwarf:
-            if (tryDwarfUnwindForPC(lookupPC, ctx->sp, ctx->fp, ctx->lr, &result, ctx->machineContext->task) &&
+            if (tryDwarfUnwindForPC(lookupPC, ctx->sp, ctx->fp, ctx->lr, &result, ctx->machineContext->task,
+                                    ctx->machineContext->imageSet) &&
                 result.valid) {
                 *outAddress = result.returnAddress;
                 ctx->sp = result.stackPointer;
@@ -408,7 +419,8 @@ static bool tryUpdateStateAfterLR(UnwindCursorContext *ctx, uintptr_t consumedLR
     for (int i = 0; i < KSUNWIND_MAX_METHODS && ctx->methods[i] != KSUnwindMethod_None; i++) {
         switch (ctx->methods[i]) {
             case KSUnwindMethod_CompactUnwind:
-                if (tryCompactUnwindForPC(lookupPC, ctx->sp, ctx->fp, ctx->lr, &result, ctx->machineContext->task) &&
+                if (tryCompactUnwindForPC(lookupPC, ctx->sp, ctx->fp, ctx->lr, &result, ctx->machineContext->task,
+                                          ctx->machineContext->imageSet) &&
                     result.valid) {
                     ctx->sp = result.stackPointer;
                     ctx->fp = result.framePointer;
@@ -420,7 +432,8 @@ static bool tryUpdateStateAfterLR(UnwindCursorContext *ctx, uintptr_t consumedLR
                 break;
 
             case KSUnwindMethod_Dwarf:
-                if (tryDwarfUnwindForPC(lookupPC, ctx->sp, ctx->fp, ctx->lr, &result, ctx->machineContext->task) &&
+                if (tryDwarfUnwindForPC(lookupPC, ctx->sp, ctx->fp, ctx->lr, &result, ctx->machineContext->task,
+                                        ctx->machineContext->imageSet) &&
                     result.valid) {
                     ctx->sp = result.stackPointer;
                     ctx->fp = result.framePointer;

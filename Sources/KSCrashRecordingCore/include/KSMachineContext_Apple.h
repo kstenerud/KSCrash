@@ -39,6 +39,10 @@ extern "C" {
 
 #define MAX_CAPTURED_THREADS 1000
 
+/** Opaque image set used to resolve unwind info from a supplied image list
+ * instead of the live process. See KSBinaryImageCache.h. */
+struct KSBinaryImageSet;
+
 #ifdef __arm64__
 #define STRUCT_MCONTEXT_L _STRUCT_MCONTEXT64
 #else
@@ -50,6 +54,9 @@ typedef struct KSMachineContext {
     /** The task whose address space and threads this context reads. mach_task_self() for this
      * process; a corpse or other remote task port when reading another task. */
     task_t task;
+    /** Image set supplying unwind info, or NULL to use the live process's dyld image cache.
+     * Non-NULL only when unwinding another process whose images we were handed. */
+    const struct KSBinaryImageSet *imageSet;
     thread_t allThreads[MAX_CAPTURED_THREADS];
     int threadCount;
     bool isCrashedContext;
