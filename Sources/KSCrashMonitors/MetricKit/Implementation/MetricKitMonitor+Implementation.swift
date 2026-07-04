@@ -49,6 +49,7 @@ extension MetricKitMonitor {
             to:
                 KSCrashMonitorAPI(
                     context: nil,
+                    priority: 0,
                     init: { callbacks, cntxt in
                         MetricKitMonitor.from(cntxt)?.callbacks = callbacks?.pointee
                     },

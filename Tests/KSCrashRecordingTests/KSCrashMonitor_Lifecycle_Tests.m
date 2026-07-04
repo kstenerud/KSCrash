@@ -30,7 +30,11 @@
 #import "KSCrashHang.h"
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitor_Lifecycle.h"
+#import "KSCrashMonitor_Resource.h"
+#import "KSCrashMonitor_System.h"
 #import "KSCrashMonitor_Termination.h"
+#import "KSCrashMonitor_UserInfo.h"
+#import "KSCrashMonitor_Watchdog.h"
 #import "KSCrashRunContext.h"
 
 #include <mach/task_policy.h>
@@ -917,6 +921,31 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     }
     XCTAssertTrue(corrected, @"Heartbeat did not update taskRole within 5 seconds");
     XCTAssertEqual(data.taskRole, kstaskrole_current());
+}
+
+// The built-in stitch ladder is a single total order: each monitor carries its named layer, the
+// layers are strictly ascending (a collision would silently demote ordering to the id
+// tie-break), and Watchdog is highest (its stitch can rewrite the report type and must win).
+- (void)testBuiltInStitchPriorityLadder
+{
+    KSCrashMonitorAPI *apis[] = {
+        kscm_lifecycle_getAPI(), kscm_resource_getAPI(), kscm_system_getAPI(),
+        kscm_userinfo_getAPI(),  kscm_watchdog_getAPI(),
+    };
+    int expected[] = {
+        KSCrashStitchPriorityLifecycle, KSCrashStitchPriorityResource, KSCrashStitchPrioritySystem,
+        KSCrashStitchPriorityUserInfo,  KSCrashStitchPriorityWatchdog,
+    };
+    const int count = 5;
+    for (int i = 0; i < count; i++) {
+        XCTAssertEqual(apis[i]->priority, expected[i]);
+        if (i > 0) {
+            XCTAssertLessThan(apis[i - 1]->priority, apis[i]->priority, @"Layers must be strictly ascending");
+        }
+    }
+    XCTAssertEqual(apis[count - 1], kscm_watchdog_getAPI(), @"Watchdog stitches last among the sidecar layers");
+    XCTAssertGreaterThan(KSCrashStitchPriorityCorpse, KSCrashStitchPriorityWatchdog,
+                         @"The corpse final-pass layer must sit above every sidecar layer");
 }
 
 @end

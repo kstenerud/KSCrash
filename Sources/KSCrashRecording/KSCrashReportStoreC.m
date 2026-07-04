@@ -156,6 +156,19 @@ done:
     return index;
 }
 
+// Pure path builder (no directory creation): the single place the per-report sidecar path
+// format lives. Used by the writer-side helpers (which mkdir first) and the read/stitch/delete
+// paths (which must not create directories).
+static bool buildReportSidecarFilePath(const char *sidecarsBasePath, const char *monitorId, int64_t reportID,
+                                       char *pathBuffer, size_t pathBufferLength)
+{
+    if (sidecarsBasePath == NULL || monitorId == NULL || pathBuffer == NULL || pathBufferLength == 0) {
+        return false;
+    }
+    return snprintf(pathBuffer, pathBufferLength, "%s/%s/%016llx.ksscr", sidecarsBasePath, monitorId,
+                    (unsigned long long)reportID) < (int)pathBufferLength;
+}
+
 static bool getReportSidecarFilePath(const char *sidecarsBasePath, const char *monitorId, const char *name,
                                      const char *extension, char *pathBuffer, size_t pathBufferLength)
 {
@@ -182,6 +195,19 @@ static bool getReportSidecarFilePathForReport(const char *sidecarsBasePath, cons
     return getReportSidecarFilePath(sidecarsBasePath, monitorId, name, "ksscr", pathBuffer, pathBufferLength);
 }
 
+// Pure path builder (no directory creation): the single place the run sidecar path format
+// lives. Used by the writer-side helpers (which mkdir first) and the read/stitch paths.
+static bool buildRunSidecarFilePath(const char *runSidecarsPath, const char *runID, const char *monitorId,
+                                    char *pathBuffer, size_t pathBufferLength)
+{
+    if (runSidecarsPath == NULL || runID == NULL || runID[0] == '\0' || monitorId == NULL || pathBuffer == NULL ||
+        pathBufferLength == 0) {
+        return false;
+    }
+    return snprintf(pathBuffer, pathBufferLength, "%s/%s/%s.ksscr", runSidecarsPath, runID, monitorId) <
+           (int)pathBufferLength;
+}
+
 static bool getRunSidecarFilePath(const char *runSidecarsPath, const char *monitorId, char *pathBuffer,
                                   size_t pathBufferLength)
 {
@@ -197,10 +223,7 @@ static bool getRunSidecarFilePath(const char *runSidecarsPath, const char *monit
         return false;
     }
     ksfu_makePath(runDir);
-    if (snprintf(pathBuffer, pathBufferLength, "%s/%s.ksscr", runDir, monitorId) >= (int)pathBufferLength) {
-        return false;
-    }
-    return true;
+    return buildRunSidecarFilePath(runSidecarsPath, runID, monitorId, pathBuffer, pathBufferLength);
 }
 
 static void deleteReportSidecarsForReport(int64_t reportID, const KSCrashReportStoreCConfiguration *const config)
@@ -218,12 +241,183 @@ static void deleteReportSidecarsForReport(int64_t reportID, const KSCrashReportS
             continue;
         }
         char sidecarPath[KSCRS_MAX_PATH_LENGTH];
-        if (snprintf(sidecarPath, sizeof(sidecarPath), "%s/%s/%016llx.ksscr", config->reportSidecarsPath, ent->d_name,
-                     (unsigned long long)reportID) < (int)sizeof(sidecarPath)) {
+        if (buildReportSidecarFilePath(config->reportSidecarsPath, ent->d_name, reportID, sidecarPath,
+                                       sizeof(sidecarPath))) {
             ksfu_removeFile(sidecarPath, false);
         }
     }
     closedir(dir);
+}
+
+// Sized to the monitor registry so a stitch pass can never be truncated: every registered monitor
+// fits. The sidecar loops still guard the bound, since they count directory entries.
+#define KSCRS_MAX_STITCHES KSCRASH_MONITOR_API_COUNT
+
+// Order monitors by priority ascending, so a higher-priority monitor stitches last and wins on any
+// overlapping keys. Ties break on monitor id for a stable order regardless of directory listing order.
+// Compares KSCrashMonitorAPI values, not pointers: the stitch loops copy each API by value so a
+// monitor removed concurrently (kscm_removeMonitor) can't leave a dangling registry pointer held
+// across the whole readdir/sort/stitch walk.
+static int compareMonitorPriority(const void *a, const void *b)
+{
+    const KSCrashMonitorAPI *ma = (const KSCrashMonitorAPI *)a;
+    const KSCrashMonitorAPI *mb = (const KSCrashMonitorAPI *)b;
+    if (ma->priority != mb->priority) {
+        return ma->priority < mb->priority ? -1 : 1;
+    }
+    const char *ida = ma->monitorId != NULL ? ma->monitorId(ma->context) : "";
+    const char *idb = mb->monitorId != NULL ? mb->monitorId(mb->context) : "";
+    return strcmp(ida, idb);
+}
+
+// Apply one monitor's stitch, returning the (possibly replaced) report.
+static NSDictionary *applyStitch(NSDictionary *report, const KSCrashMonitorAPI *api, const char *sidecarPath,
+                                 KSCrashSidecarScope scope, bool *stitchFailed)
+{
+    CFDictionaryRef stitched = NULL;
+    @try {
+        stitched = api->createStitchedReport((__bridge CFDictionaryRef)report, sidecarPath, scope, api->context);
+    } @catch (NSException *exception) {
+        // The walk runs under the store mutex; an exception unwinding through the C frames
+        // above would leave it locked forever. Contain the callback and count it as a
+        // stitch failure instead.
+        const char *monitorId = api->monitorId != NULL ? api->monitorId(api->context) : "<unknown>";
+        KSLOG_ERROR(@"Stitch callback for %s threw %@: %@", monitorId, exception.name, exception.reason);
+        stitched = NULL;
+    }
+    if (stitched != NULL) {
+        return (__bridge_transfer NSDictionary *)stitched;
+    }
+    if (stitchFailed != NULL) {
+        *stitchFailed = true;
+    }
+    return report;
+}
+
+// Resolve one sidecar directory entry to its monitor, or NULL when the entry doesn't name a
+// registered monitor with a stitchable sidecar. `reportID` is only meaningful for the report scope.
+typedef const KSCrashMonitorAPI *(*SidecarMonitorForEntryFunc)(const struct dirent *ent,
+                                                               const KSCrashReportStoreCConfiguration *config,
+                                                               int64_t reportID);
+
+// Report-scope entries are monitor directory names; require a sidecar file for this report.
+static const KSCrashMonitorAPI *reportSidecarMonitorForEntry(const struct dirent *ent,
+                                                             const KSCrashReportStoreCConfiguration *config,
+                                                             int64_t reportID)
+{
+    const KSCrashMonitorAPI *api = kscm_getMonitor(ent->d_name);
+    if (api == NULL || api->createStitchedReport == NULL) {
+        return NULL;
+    }
+    // Skip monitors with no sidecar for this specific report (absence is not a stitch failure).
+    char sidecarPath[KSCRS_MAX_PATH_LENGTH];
+    if (!buildReportSidecarFilePath(config->reportSidecarsPath, ent->d_name, reportID, sidecarPath,
+                                    sizeof(sidecarPath))) {
+        return NULL;
+    }
+    if (access(sidecarPath, F_OK) != 0) {
+        return NULL;
+    }
+    return api;
+}
+
+// Run-scope entries are `<monitorId>.ksscr` files inside the run's directory.
+static const KSCrashMonitorAPI *runSidecarMonitorForEntry(const struct dirent *ent,
+                                                          __unused const KSCrashReportStoreCConfiguration *config,
+                                                          __unused int64_t reportID)
+{
+    // Strip .ksscr extension to get monitorId
+    char monitorId[256];
+    const char *dot = strrchr(ent->d_name, '.');
+    if (dot == NULL || strcmp(dot, ".ksscr") != 0) {
+        return NULL;
+    }
+    size_t nameLen = (size_t)(dot - ent->d_name);
+    if (nameLen == 0 || nameLen >= sizeof(monitorId)) {
+        return NULL;
+    }
+    memcpy(monitorId, ent->d_name, nameLen);
+    monitorId[nameLen] = '\0';
+
+    const KSCrashMonitorAPI *api = kscm_getMonitor(monitorId);
+    if (api == NULL || api->createStitchedReport == NULL) {
+        return NULL;
+    }
+    return api;
+}
+
+// Shared stitch skeleton for both sidecar scopes. Takes ownership of `dir` (always closes it),
+// collects each entry's monitor via `monitorForEntry`, sorts by priority, and applies the
+// stitches. `reportID` drives the report scope's sidecar paths, `runID` the run scope's.
+static NSDictionary *stitchSidecarsIntoReport(NSDictionary *report, DIR *dir, KSCrashSidecarScope scope,
+                                              const KSCrashReportStoreCConfiguration *const config, int64_t reportID,
+                                              const char *runID, SidecarMonitorForEntryFunc monitorForEntry,
+                                              bool *stitchFailed)
+{
+    // Copy each matching API by value so the walk never holds registry pointers across the
+    // readdir/sort/stitch phases (a concurrently removed monitor would leave them dangling).
+    KSCrashMonitorAPI monitors[KSCRS_MAX_STITCHES];
+    size_t count = 0;
+    struct dirent *ent;
+    while ((ent = readdir(dir)) != NULL) {
+        if (ent->d_name[0] == '.') {
+            continue;
+        }
+        const KSCrashMonitorAPI *api = monitorForEntry(ent, config, reportID);
+        if (api == NULL) {
+            continue;
+        }
+        if (count >= KSCRS_MAX_STITCHES) {
+            KSLOG_WARN(@"More than %d %s sidecars to stitch; skipping the rest", KSCRS_MAX_STITCHES,
+                       scope == KSCrashSidecarScopeReport ? "report" : "run");
+            // Dropped sidecars mean an incomplete report; flag it so the write-back is
+            // aborted and the report can be retried instead of silently losing data.
+            if (stitchFailed != NULL) {
+                *stitchFailed = true;
+            }
+            break;
+        }
+        monitors[count++] = *api;
+    }
+    closedir(dir);
+
+    qsort(monitors, count, sizeof(*monitors), compareMonitorPriority);
+    NSDictionary *result = report;
+    for (size_t i = 0; i < count; i++) {
+        const KSCrashMonitorAPI *api = &monitors[i];
+        const char *monitorId = api->monitorId != NULL ? api->monitorId(api->context) : NULL;
+        if (monitorId == NULL) {
+            continue;
+        }
+        char sidecarPath[KSCRS_MAX_PATH_LENGTH];
+        bool builtPath =
+            scope == KSCrashSidecarScopeReport
+                ? buildReportSidecarFilePath(config->reportSidecarsPath, monitorId, reportID, sidecarPath,
+                                             sizeof(sidecarPath))
+                : buildRunSidecarFilePath(config->runSidecarsPath, runID, monitorId, sidecarPath, sizeof(sidecarPath));
+        if (!builtPath) {
+            continue;
+        }
+        result = applyStitch(result, api, sidecarPath, scope, stitchFailed);
+    }
+    return result;
+}
+
+// The final pass: after all sidecar stitching, every registered monitor implementing
+// createStitchedReport gets one call with no sidecar, in (priority, id) order. The last
+// chance to modify a report before it is handed out; a monitor draws on the report itself
+// (e.g. the corpse monitor's embedded snapshot). Monitors with nothing to add return the
+// input retained, the unhandled-scope convention.
+static NSDictionary *stitchFinalPassIntoReport(NSDictionary *report, bool *stitchFailed)
+{
+    KSCrashMonitorAPI monitors[KSCRS_MAX_STITCHES];
+    size_t count = kscm_copyStitchableMonitors(monitors, KSCRS_MAX_STITCHES);
+    qsort(monitors, count, sizeof(*monitors), compareMonitorPriority);
+    NSDictionary *result = report;
+    for (size_t i = 0; i < count; i++) {
+        result = applyStitch(result, &monitors[i], NULL, KSCrashSidecarScopeFinal, stitchFailed);
+    }
+    return result;
 }
 
 static NSDictionary *stitchReportSidecarsIntoReport(NSDictionary *report, int64_t reportID,
@@ -241,34 +435,8 @@ static NSDictionary *stitchReportSidecarsIntoReport(NSDictionary *report, int64_
         }
         return report;
     }
-    NSDictionary *result = report;
-    struct dirent *ent;
-    while ((ent = readdir(dir)) != NULL) {
-        if (ent->d_name[0] == '.') {
-            continue;
-        }
-        const KSCrashMonitorAPI *api = kscm_getMonitor(ent->d_name);
-        if (api == NULL || api->createStitchedReport == NULL) {
-            continue;
-        }
-        char sidecarPath[KSCRS_MAX_PATH_LENGTH];
-        if (snprintf(sidecarPath, sizeof(sidecarPath), "%s/%s/%016llx.ksscr", config->reportSidecarsPath, ent->d_name,
-                     (unsigned long long)reportID) >= (int)sizeof(sidecarPath)) {
-            continue;
-        }
-        if (access(sidecarPath, F_OK) != 0) {
-            continue;
-        }
-        CFDictionaryRef stitched = api->createStitchedReport((__bridge CFDictionaryRef)result, sidecarPath,
-                                                             KSCrashSidecarScopeReport, api->context);
-        if (stitched != NULL) {
-            result = (__bridge_transfer NSDictionary *)stitched;
-        } else if (stitchFailed != NULL) {
-            *stitchFailed = true;
-        }
-    }
-    closedir(dir);
-    return result;
+    return stitchSidecarsIntoReport(report, dir, KSCrashSidecarScopeReport, config, reportID, NULL,
+                                    reportSidecarMonitorForEntry, stitchFailed);
 }
 
 static NSDictionary *stitchRunSidecarsIntoReport(NSDictionary *report,
@@ -308,46 +476,8 @@ static NSDictionary *stitchRunSidecarsIntoReport(NSDictionary *report,
         }
         return report;
     }
-
-    NSDictionary *result = report;
-    struct dirent *ent;
-    while ((ent = readdir(dir)) != NULL) {
-        if (ent->d_name[0] == '.') {
-            continue;
-        }
-        // Strip .ksscr extension to get monitorId
-        char monitorId[256];
-        const char *dot = strrchr(ent->d_name, '.');
-        if (dot == NULL || strcmp(dot, ".ksscr") != 0) {
-            continue;
-        }
-        size_t nameLen = (size_t)(dot - ent->d_name);
-        if (nameLen == 0 || nameLen >= sizeof(monitorId)) {
-            continue;
-        }
-        memcpy(monitorId, ent->d_name, nameLen);
-        monitorId[nameLen] = '\0';
-
-        const KSCrashMonitorAPI *api = kscm_getMonitor(monitorId);
-        if (api == NULL || api->createStitchedReport == NULL) {
-            continue;
-        }
-
-        char sidecarPath[KSCRS_MAX_PATH_LENGTH];
-        if (snprintf(sidecarPath, sizeof(sidecarPath), "%s/%s", runDir, ent->d_name) >= (int)sizeof(sidecarPath)) {
-            continue;
-        }
-
-        CFDictionaryRef stitched = api->createStitchedReport((__bridge CFDictionaryRef)result, sidecarPath,
-                                                             KSCrashSidecarScopeRun, api->context);
-        if (stitched != NULL) {
-            result = (__bridge_transfer NSDictionary *)stitched;
-        } else if (stitchFailed != NULL) {
-            *stitchFailed = true;
-        }
-    }
-    closedir(dir);
-    return result;
+    return stitchSidecarsIntoReport(report, dir, KSCrashSidecarScopeRun, config, 0, runIdStr.UTF8String,
+                                    runSidecarMonitorForEntry, stitchFailed);
 }
 
 // UUID: 8-4-4-4-12 hex digits with hyphens = 36 chars
@@ -576,6 +706,7 @@ static char *readReportAtPath(const char *path, int64_t reportID, const KSCrashR
                     report = stitchReportSidecarsIntoReport(report, reportID, config, NULL);
                 }
             }
+            report = stitchFinalPassIntoReport(report, NULL);
         }
 
         // Encode once at the bottom
@@ -659,6 +790,7 @@ bool kscrs_finalizeReport(const char *reportPath, int64_t reportID)
         bool stitchFailed = false;
         report = stitchRunSidecarsIntoReport(report, &g_stitchConfig, &stitchFailed);
         report = stitchReportSidecarsIntoReport(report, reportID, &g_stitchConfig, &stitchFailed);
+        report = stitchFinalPassIntoReport(report, &stitchFailed);
         if (stitchFailed) {
             KSLOG_ERROR(@"Stitching failed for report %lld, skipping finalization to allow retry on next read",
                         (long long)reportID);
@@ -832,11 +964,7 @@ bool kscrs_getRunSidecarFilePathForRunID(const char *monitorId, const char *runI
     if (uuid_parse(runID, parsed) != 0) {
         return false;
     }
-    if (snprintf(pathBuffer, pathBufferLength, "%s/%s/%s.ksscr", runSidecarsPath, runID, monitorId) >=
-        (int)pathBufferLength) {
-        return false;
-    }
-    return true;
+    return buildRunSidecarFilePath(runSidecarsPath, runID, monitorId, pathBuffer, pathBufferLength);
 }
 
 void kscrs_cleanupOrphanedRunSidecars(const KSCrashReportStoreCConfiguration *const configuration)

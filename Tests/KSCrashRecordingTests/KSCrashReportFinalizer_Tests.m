@@ -41,9 +41,14 @@
 static const char *finalizerTestMonitorId(__unused void *context) { return "FinalizerTestMonitor"; }
 
 static CFDictionaryRef finalizerTestStitchReport(CFDictionaryRef reportDict, const char *sidecarPath,
-                                                 __unused KSCrashSidecarScope scope, __unused void *context)
+                                                 KSCrashSidecarScope scope, __unused void *context)
 {
     @autoreleasepool {
+        if (scope == KSCrashSidecarScopeFinal) {
+            // The final pass has no sidecar file; nothing to add.
+            CFRetain(reportDict);
+            return reportDict;
+        }
         NSDictionary *decoded = (__bridge NSDictionary *)reportDict;
         if (![decoded isKindOfClass:[NSDictionary class]]) {
             return NULL;

@@ -847,6 +847,8 @@ KSCrashMonitorAPI *kscm_watchdog_getAPI(void)
         api.isEnabled = isEnabled;
         api.addContextualInfoToEvent = addContextualInfoToEvent;
         api.createStitchedReport = kscm_watchdog_createStitchedReport;
+        // Watchdog is last so its fatality resolution on its own reports wins.
+        api.priority = KSCrashStitchPriorityWatchdog;
     }
     return &api;
 }

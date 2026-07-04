@@ -728,6 +728,7 @@ KSCrashMonitorAPI *kscm_lifecycle_getAPI(void)
         api.notifyPostSystemEnable = notifyPostSystemEnable;
         api.addContextualInfoToEvent = addContextualInfoToEvent;
         api.createStitchedReport = kscm_lifecycle_createStitchedReport;
+        api.priority = KSCrashStitchPriorityLifecycle;
     }
     return &api;
 }

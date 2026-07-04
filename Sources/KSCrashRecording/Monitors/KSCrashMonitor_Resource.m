@@ -630,6 +630,7 @@ KSCrashMonitorAPI *kscm_resource_getAPI(void)
         api.setEnabled = setEnabled;
         api.isEnabled = isEnabled_func;
         api.createStitchedReport = kscm_resource_createStitchedReport;
+        api.priority = KSCrashStitchPriorityResource;
     }
     return &api;
 }

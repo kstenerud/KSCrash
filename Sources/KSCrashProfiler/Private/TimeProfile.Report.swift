@@ -271,6 +271,7 @@ final private class ProfileMonitor: Sendable {
     static let api: UnsafeMutablePointer<KSCrashMonitorAPI> = {
         var api = KSCrashMonitorAPI(
             context: nil,
+            priority: 0,
             init: profileMonitorInit,
             monitorId: profileMonitorGetId,
             monitorFlags: profileMonitorGetFlags,
