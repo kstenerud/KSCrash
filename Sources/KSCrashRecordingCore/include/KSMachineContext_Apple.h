@@ -47,6 +47,9 @@ extern "C" {
 
 typedef struct KSMachineContext {
     thread_t thisThread;
+    /** The task whose address space and threads this context reads. mach_task_self() for this
+     * process; a corpse or other remote task port when reading another task. */
+    task_t task;
     thread_t allThreads[MAX_CAPTURED_THREADS];
     int threadCount;
     bool isCrashedContext;

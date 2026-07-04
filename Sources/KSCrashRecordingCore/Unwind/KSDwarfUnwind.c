@@ -123,6 +123,7 @@ typedef struct {
     const uint8_t *data;
     const uint8_t *end;
     uintptr_t baseAddress;  // For pcrel calculations
+    task_t task;            // Address space for DW_EH_PE_indirect dereferences
 } KSDwarfReader;
 
 // CIE parsed data
@@ -342,10 +343,11 @@ static uintptr_t readEncodedPointer(KSDwarfReader *reader, uint8_t encoding, uin
             break;
     }
 
-    // Handle indirect
+    // Handle indirect. The resolved address is in the target's address space, so read it
+    // from the reader's task.
     if (encoding & DW_EH_PE_indirect) {
         uintptr_t indirect;
-        if (ksmem_copySafely((const void *)result, &indirect, sizeof(indirect))) {
+        if (ksmem_copySafelyFromTask(reader->task, (const void *)result, &indirect, sizeof(indirect))) {
             result = indirect;
         }
     }
@@ -355,7 +357,7 @@ static uintptr_t readEncodedPointer(KSDwarfReader *reader, uint8_t encoding, uin
 
 // MARK: - CIE/FDE Parsing
 
-static bool parseCIE(const uint8_t *cieData, size_t cieSize, KSDwarfCIE *outCIE)
+static bool parseCIE(const uint8_t *cieData, size_t cieSize, task_t task, KSDwarfCIE *outCIE)
 {
     memset(outCIE, 0, sizeof(*outCIE));
 
@@ -363,6 +365,7 @@ static bool parseCIE(const uint8_t *cieData, size_t cieSize, KSDwarfCIE *outCIE)
         .data = cieData,
         .end = cieData + cieSize,
         .baseAddress = 0,
+        .task = task,
     };
 
     // Version
@@ -411,8 +414,9 @@ static bool parseCIE(const uint8_t *cieData, size_t cieSize, KSDwarfCIE *outCIE)
                     break;
                 case 'P': {
                     uint8_t personalityEncoding = readU8(&reader);
-                    // Skip personality function pointer
-                    readEncodedPointer(&reader, personalityEncoding, 0);
+                    // Skip personality function pointer. Mask off indirect: it doesn't change
+                    // the encoded size and the value is discarded, so don't dereference.
+                    readEncodedPointer(&reader, personalityEncoding & (uint8_t)~DW_EH_PE_indirect, 0);
                     break;
                 }
                 case 'R':
@@ -437,7 +441,7 @@ static bool parseCIE(const uint8_t *cieData, size_t cieSize, KSDwarfCIE *outCIE)
     return true;
 }
 
-static bool parseFDE(const uint8_t *fdeData, size_t fdeSize, const KSDwarfCIE *cie, uintptr_t fdeAddress,
+static bool parseFDE(const uint8_t *fdeData, size_t fdeSize, const KSDwarfCIE *cie, uintptr_t fdeAddress, task_t task,
                      KSDwarfFDE *outFDE)
 {
     memset(outFDE, 0, sizeof(*outFDE));
@@ -446,6 +450,7 @@ static bool parseFDE(const uint8_t *fdeData, size_t fdeSize, const KSDwarfCIE *c
         .data = fdeData,
         .end = fdeData + fdeSize,
         .baseAddress = 0,
+        .task = task,
     };
 
     // PC start (encoded)
@@ -507,12 +512,14 @@ static bool parseFDE(const uint8_t *fdeData, size_t fdeSize, const KSDwarfCIE *c
 // MARK: - CFI Instruction Execution
 
 static bool executeCFIInstructions(const uint8_t *instructions, size_t len, const KSDwarfCIE *cie, uintptr_t pcStart,
-                                   uintptr_t targetPC, KSDwarfCFIRow *row, const KSDwarfCFIRow *initialState)
+                                   uintptr_t targetPC, KSDwarfCFIRow *row, const KSDwarfCFIRow *initialState,
+                                   task_t task)
 {
     KSDwarfReader reader = {
         .data = instructions,
         .end = instructions + len,
         .baseAddress = 0,
+        .task = task,
     };
 
     uintptr_t currentPC = pcStart;
@@ -884,7 +891,7 @@ static bool exprPop(intptr_t *stack, int *depth, intptr_t *outValue)
 }
 
 static bool evaluateDwarfExpression(const uint8_t *expr, size_t len, uintptr_t cfa, uintptr_t sp, uintptr_t fp,
-                                    uintptr_t lr, intptr_t *outValue, bool *outIsValue)
+                                    uintptr_t lr, intptr_t *outValue, bool *outIsValue, task_t task)
 {
     if (expr == NULL || len == 0 || outValue == NULL) {
         return false;
@@ -894,6 +901,7 @@ static bool evaluateDwarfExpression(const uint8_t *expr, size_t len, uintptr_t c
         .data = expr,
         .end = expr + len,
         .baseAddress = 0,
+        .task = task,
     };
 
     intptr_t stack[KSDWARF_EXPR_STACK_MAX];
@@ -985,7 +993,7 @@ static bool evaluateDwarfExpression(const uint8_t *expr, size_t len, uintptr_t c
                 intptr_t addr;
                 uintptr_t value = 0;
                 if (!exprPop(stack, &depth, &addr)) return false;
-                if (!ksmem_copySafely((const void *)addr, &value, sizeof(value))) return false;
+                if (!ksmem_copySafelyFromTask(task, (const void *)addr, &value, sizeof(value))) return false;
                 if (!exprPush(stack, &depth, (intptr_t)value)) return false;
                 break;
             }
@@ -1039,7 +1047,7 @@ static bool evaluateDwarfExpression(const uint8_t *expr, size_t len, uintptr_t c
 }
 
 static bool applyRegisterRule(const KSDwarfRegisterRule *rule, uintptr_t cfa, uintptr_t sp, uintptr_t fp, uintptr_t lr,
-                              uintptr_t *outValue)
+                              uintptr_t *outValue, task_t task)
 {
     switch (rule->type) {
         case KSDwarfRuleUndefined:
@@ -1052,7 +1060,7 @@ static bool applyRegisterRule(const KSDwarfRegisterRule *rule, uintptr_t cfa, ui
         case KSDwarfRuleOffset: {
             // rule->offset can be negative (register saved below CFA), so use signed arithmetic
             uintptr_t addr = (uintptr_t)((intptr_t)cfa + rule->offset);
-            return ksmem_copySafely((const void *)addr, outValue, sizeof(*outValue));
+            return ksmem_copySafelyFromTask(task, (const void *)addr, outValue, sizeof(*outValue));
         }
 
         case KSDwarfRuleValOffset:
@@ -1066,19 +1074,20 @@ static bool applyRegisterRule(const KSDwarfRegisterRule *rule, uintptr_t cfa, ui
         case KSDwarfRuleExpression: {
             intptr_t exprValue = 0;
             bool resultIsValue = false;
-            if (!evaluateDwarfExpression(rule->expr, rule->exprLen, cfa, sp, fp, lr, &exprValue, &resultIsValue)) {
+            if (!evaluateDwarfExpression(rule->expr, rule->exprLen, cfa, sp, fp, lr, &exprValue, &resultIsValue,
+                                         task)) {
                 return false;
             }
             if (resultIsValue) {
                 *outValue = (uintptr_t)exprValue;
                 return true;
             }
-            return ksmem_copySafely((const void *)exprValue, outValue, sizeof(*outValue));
+            return ksmem_copySafelyFromTask(task, (const void *)exprValue, outValue, sizeof(*outValue));
         }
 
         case KSDwarfRuleValExpression: {
             intptr_t exprValue = 0;
-            if (!evaluateDwarfExpression(rule->expr, rule->exprLen, cfa, sp, fp, lr, &exprValue, NULL)) {
+            if (!evaluateDwarfExpression(rule->expr, rule->exprLen, cfa, sp, fp, lr, &exprValue, NULL, task)) {
                 return false;
             }
             *outValue = (uintptr_t)exprValue;
@@ -1097,7 +1106,7 @@ static bool applyRegisterRule(const KSDwarfRegisterRule *rule, uintptr_t cfa, ui
 
 bool ksdwarf_findFDE(const void *ehFrame, size_t ehFrameSize, uintptr_t targetPC,
                      uintptr_t imageBase __attribute__((unused)), const uint8_t **outFDE, size_t *outFDESize,
-                     const uint8_t **outCIE, size_t *outCIESize, bool *outIs64bit)
+                     const uint8_t **outCIE, size_t *outCIESize, bool *outIs64bit, task_t task)
 {
     if (ehFrame == NULL || ehFrameSize == 0) {
         return false;
@@ -1243,14 +1252,14 @@ bool ksdwarf_findFDE(const void *ehFrame, size_t ehFrameSize, uintptr_t targetPC
         const uint8_t *cieDataStart = (const uint8_t *)cieDataStartAddr;
 
         KSDwarfCIE cie;
-        if (!parseCIE(cieDataStart, cieDataSize, &cie)) {
+        if (!parseCIE(cieDataStart, cieDataSize, task, &cie)) {
             ptr = entryEnd;
             continue;
         }
 
         // Now parse FDE
         KSDwarfFDE fde;
-        if (!parseFDE(ptr, (size_t)(entryEnd - ptr), &cie, (uintptr_t)entryStart, &fde)) {
+        if (!parseFDE(ptr, (size_t)(entryEnd - ptr), &cie, (uintptr_t)entryStart, task, &fde)) {
             ptr = entryEnd;
             continue;
         }
@@ -1275,7 +1284,7 @@ bool ksdwarf_findFDE(const void *ehFrame, size_t ehFrameSize, uintptr_t targetPC
 }
 
 bool ksdwarf_buildCFIRow(const uint8_t *cie, size_t cieSize, const uint8_t *fde, size_t fdeSize, uintptr_t targetPC,
-                         bool is64bit, KSDwarfCFIRow *outRow)
+                         bool is64bit, KSDwarfCFIRow *outRow, task_t task)
 {
     memset(outRow, 0, sizeof(*outRow));
 
@@ -1288,7 +1297,7 @@ bool ksdwarf_buildCFIRow(const uint8_t *cie, size_t cieSize, const uint8_t *fde,
     // Parse CIE
     KSDwarfCIE cieData;
     const uint8_t *cieContent = cie + cieIdSize;  // Skip CIE ID
-    if (!parseCIE(cieContent, cieSize - cieIdSize, &cieData)) {
+    if (!parseCIE(cieContent, cieSize - cieIdSize, task, &cieData)) {
         KSLOG_TRACE("Failed to parse CIE");
         return false;
     }
@@ -1296,7 +1305,7 @@ bool ksdwarf_buildCFIRow(const uint8_t *cie, size_t cieSize, const uint8_t *fde,
     // Parse FDE
     KSDwarfFDE fdeData;
     const uint8_t *fdeContent = fde + fdeCiePointerSize;  // Skip CIE pointer
-    if (!parseFDE(fdeContent, fdeSize - fdeCiePointerSize, &cieData, (uintptr_t)fde, &fdeData)) {
+    if (!parseFDE(fdeContent, fdeSize - fdeCiePointerSize, &cieData, (uintptr_t)fde, task, &fdeData)) {
         KSLOG_TRACE("Failed to parse FDE");
         return false;
     }
@@ -1305,7 +1314,7 @@ bool ksdwarf_buildCFIRow(const uint8_t *cie, size_t cieSize, const uint8_t *fde,
     // Pass NULL for initialState since CIE is building the initial state
     if (cieData.initialInstructions && cieData.initialInstructionsLen > 0) {
         if (!executeCFIInstructions(cieData.initialInstructions, cieData.initialInstructionsLen, &cieData,
-                                    fdeData.pcStart, targetPC, outRow, NULL)) {
+                                    fdeData.pcStart, targetPC, outRow, NULL, task)) {
             KSLOG_TRACE("Failed to execute CIE initial instructions");
             return false;
         }
@@ -1317,7 +1326,7 @@ bool ksdwarf_buildCFIRow(const uint8_t *cie, size_t cieSize, const uint8_t *fde,
     // Execute FDE instructions, passing the initial state for restore operations
     if (fdeData.instructions && fdeData.instructionsLen > 0) {
         if (!executeCFIInstructions(fdeData.instructions, fdeData.instructionsLen, &cieData, fdeData.pcStart, targetPC,
-                                    outRow, &initialState)) {
+                                    outRow, &initialState, task)) {
             KSLOG_TRACE("Failed to execute FDE instructions");
             return false;
         }
@@ -1327,7 +1336,7 @@ bool ksdwarf_buildCFIRow(const uint8_t *cie, size_t cieSize, const uint8_t *fde,
 }
 
 bool ksdwarf_unwind(const void *ehFrame, size_t ehFrameSize, uintptr_t pc, uintptr_t sp, uintptr_t fp, uintptr_t lr,
-                    uintptr_t imageBase, KSDwarfUnwindResult *result)
+                    uintptr_t imageBase, KSDwarfUnwindResult *result, task_t task)
 {
     if (result == NULL) {
         return false;
@@ -1342,14 +1351,14 @@ bool ksdwarf_unwind(const void *ehFrame, size_t ehFrameSize, uintptr_t pc, uintp
     size_t cieSize = 0;
     bool is64bit = false;
 
-    if (!ksdwarf_findFDE(ehFrame, ehFrameSize, pc, imageBase, &fde, &fdeSize, &cie, &cieSize, &is64bit)) {
+    if (!ksdwarf_findFDE(ehFrame, ehFrameSize, pc, imageBase, &fde, &fdeSize, &cie, &cieSize, &is64bit, task)) {
         KSLOG_TRACE("No FDE found for PC 0x%lx", (unsigned long)pc);
         return false;
     }
 
     // Build CFI row for this PC
     KSDwarfCFIRow row;
-    if (!ksdwarf_buildCFIRow(cie, cieSize, fde, fdeSize, pc, is64bit, &row)) {
+    if (!ksdwarf_buildCFIRow(cie, cieSize, fde, fdeSize, pc, is64bit, &row, task)) {
         KSLOG_TRACE("Failed to build CFI row for PC 0x%lx", (unsigned long)pc);
         return false;
     }
@@ -1365,7 +1374,7 @@ bool ksdwarf_unwind(const void *ehFrame, size_t ehFrameSize, uintptr_t pc, uintp
         cfa = cfaBase + (uintptr_t)row.cfaOffset;
     } else if (row.cfaRule == KSDwarfRuleExpression) {
         intptr_t exprValue = 0;
-        if (!evaluateDwarfExpression(row.cfaExpression, row.cfaExpressionLen, 0, sp, fp, lr, &exprValue, NULL)) {
+        if (!evaluateDwarfExpression(row.cfaExpression, row.cfaExpressionLen, 0, sp, fp, lr, &exprValue, NULL, task)) {
             KSLOG_TRACE("Failed to evaluate CFA expression");
             return false;
         }
@@ -1380,7 +1389,7 @@ bool ksdwarf_unwind(const void *ehFrame, size_t ehFrameSize, uintptr_t pc, uintp
     // Get return address
     uint8_t raReg = getReturnAddressRegister();
     uintptr_t returnAddress = 0;
-    if (!applyRegisterRule(&row.registers[raReg], cfa, sp, fp, lr, &returnAddress)) {
+    if (!applyRegisterRule(&row.registers[raReg], cfa, sp, fp, lr, &returnAddress, task)) {
         KSLOG_TRACE("Failed to get return address (reg %u)", raReg);
         return false;
     }
@@ -1393,7 +1402,7 @@ bool ksdwarf_unwind(const void *ehFrame, size_t ehFrameSize, uintptr_t pc, uintp
     // and must be passed through so the frame-pointer fallback can continue.
     uint8_t fpReg = getFramePointerRegister();
     uintptr_t newFP = 0;
-    if (applyRegisterRule(&row.registers[fpReg], cfa, sp, fp, lr, &newFP)) {
+    if (applyRegisterRule(&row.registers[fpReg], cfa, sp, fp, lr, &newFP, task)) {
         result->framePointer = newFP;
         result->framePointerRestored = true;  // FP was restored from CFI rules
     } else {
