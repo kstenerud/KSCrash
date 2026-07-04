@@ -563,6 +563,7 @@
 #define kssysctl_uint64 KSCRASH_NS(kssysctl_uint64)
 #define kssysctl_uint64ForName KSCRASH_NS(kssysctl_uint64ForName)
 #define kstaskrole_current KSCRASH_NS(kstaskrole_current)
+#define kstaskrole_forTask KSCRASH_NS(kstaskrole_forTask)
 #define kstaskrole_toString KSCRASH_NS(kstaskrole_toString)
 #define kstc_freeze KSCRASH_NS(kstc_freeze)
 #define kstc_getAllThreads KSCRASH_NS(kstc_getAllThreads)
