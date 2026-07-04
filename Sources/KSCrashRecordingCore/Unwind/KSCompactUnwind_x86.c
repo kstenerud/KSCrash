@@ -30,25 +30,10 @@
 #include "KSMemory.h"
 #include "Unwind/KSCompactUnwind.h"
 
-// MARK: - Internal Functions
-
-/**
- * Read a 32-bit pointer value safely from memory.
- */
-static inline bool readPtr(uintptr_t addr, uintptr_t *outValue)
-{
-    uint32_t value;
-    if (!ksmem_copySafely((const void *)addr, &value, sizeof(value))) {
-        return false;
-    }
-    *outValue = value;
-    return true;
-}
-
 // MARK: - x86 (32-bit) Compact Unwind Decoder
 
 bool kscu_x86_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attribute__((unused)), uintptr_t sp,
-                     uintptr_t bp, KSCompactUnwindResult *result)
+                     uintptr_t bp, KSCompactUnwindResult *result, task_t task)
 {
     if (result == NULL) {
         return false;
@@ -82,14 +67,14 @@ bool kscu_x86_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attribut
 
         // Read return address from [EBP+4]
         uintptr_t returnAddr;
-        if (!readPtr(bp + 4, &returnAddr)) {
+        if (!kscu_readTaskPointer(task, bp + 4, &returnAddr)) {
             KSLOG_TRACE("Failed to read return address from EBP+4 (0x%lx)", (unsigned long)(bp + 4));
             return false;
         }
 
         // Read previous frame pointer from [EBP]
         uintptr_t prevBP;
-        if (!readPtr(bp, &prevBP)) {
+        if (!kscu_readTaskPointer(task, bp, &prevBP)) {
             KSLOG_TRACE("Failed to read previous EBP from EBP (0x%lx)", (unsigned long)bp);
             return false;
         }
@@ -119,7 +104,7 @@ bool kscu_x86_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attribut
         if (encodedSize == 0) {
             // No stack adjustment - leaf function, return address at [ESP]
             uintptr_t returnAddr;
-            if (!readPtr(sp, &returnAddr)) {
+            if (!kscu_readTaskPointer(task, sp, &returnAddr)) {
                 KSLOG_TRACE("Failed to read return address from ESP (0x%lx)", (unsigned long)sp);
                 return false;
             }
@@ -133,7 +118,7 @@ bool kscu_x86_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attribut
 
         // Return address is at the top of the frame
         uintptr_t returnAddr;
-        if (!readPtr(sp + stackSize - 4, &returnAddr)) {
+        if (!kscu_readTaskPointer(task, sp + stackSize - 4, &returnAddr)) {
             KSLOG_TRACE("Failed to read return address from ESP+stackSize-4 (0x%lx)",
                         (unsigned long)(sp + stackSize - 4));
             return false;
@@ -159,7 +144,7 @@ bool kscu_x86_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attribut
         // No unwind info - likely a leaf function
         // On x86, return address is at [ESP]
         uintptr_t returnAddr;
-        if (!readPtr(sp, &returnAddr)) {
+        if (!kscu_readTaskPointer(task, sp, &returnAddr)) {
             KSLOG_TRACE("Failed to read return address from ESP (0x%lx)", (unsigned long)sp);
             return false;
         }
