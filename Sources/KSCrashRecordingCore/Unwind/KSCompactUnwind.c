@@ -146,16 +146,34 @@ static inline uint32_t readU32(const void *ptr)
 }
 
 /**
+ * Check that [offset, offset + length) lies within a section of sectionSize bytes.
+ * All offsets come from unwind_info bytes that may be a copy of a crashed (possibly
+ * memory-smashed) process's section, so nothing can be trusted to point in-bounds.
+ */
+static inline bool rangeInSection(size_t sectionSize, uint64_t offset, uint64_t length)
+{
+    return offset <= sectionSize && length <= sectionSize - offset;
+}
+
+/**
  * Binary search within a regular (uncompressed) second-level page.
  */
-static bool searchRegularPage(const uint8_t *pageStart, uint32_t targetOffset,
+static bool searchRegularPage(const uint8_t *pageStart, size_t pageSize, uint32_t targetOffset,
                               uint32_t pageBaseOffset __attribute__((unused)), compact_unwind_encoding_t *outEncoding,
                               uint32_t *outFunctionOffset, uint32_t *outNextFunctionOffset)
 {
+    if (pageSize < sizeof(struct unwind_info_regular_second_level_page_header)) {
+        return false;
+    }
     const struct unwind_info_regular_second_level_page_header *pageHeader =
         (const struct unwind_info_regular_second_level_page_header *)pageStart;
 
     if (pageHeader->entryCount == 0) {
+        return false;
+    }
+    if (!rangeInSection(pageSize, pageHeader->entryPageOffset,
+                        (uint64_t)pageHeader->entryCount * sizeof(struct unwind_info_regular_second_level_entry))) {
+        KSLOG_TRACE("Regular page entries out of bounds");
         return false;
     }
 
@@ -197,15 +215,23 @@ static bool searchRegularPage(const uint8_t *pageStart, uint32_t targetOffset,
 /**
  * Binary search within a compressed second-level page.
  */
-static bool searchCompressedPage(const uint8_t *pageStart, uint32_t targetOffset, uint32_t pageBaseOffset,
-                                 const uint8_t *sectionBase, const struct unwind_info_section_header *header,
+static bool searchCompressedPage(const uint8_t *pageStart, size_t pageSize, uint32_t targetOffset,
+                                 uint32_t pageBaseOffset, const uint8_t *sectionBase, size_t sectionSize,
+                                 const struct unwind_info_section_header *header,
                                  compact_unwind_encoding_t *outEncoding, uint32_t *outFunctionOffset,
                                  uint32_t *outNextFunctionOffset)
 {
+    if (pageSize < sizeof(struct unwind_info_compressed_second_level_page_header)) {
+        return false;
+    }
     const struct unwind_info_compressed_second_level_page_header *pageHeader =
         (const struct unwind_info_compressed_second_level_page_header *)pageStart;
 
     if (pageHeader->entryCount == 0) {
+        return false;
+    }
+    if (!rangeInSection(pageSize, pageHeader->entryPageOffset, (uint64_t)pageHeader->entryCount * sizeof(uint32_t))) {
+        KSLOG_TRACE("Compressed page entries out of bounds");
         return false;
     }
 
@@ -243,12 +269,18 @@ static bool searchCompressedPage(const uint8_t *pageStart, uint32_t targetOffset
     compact_unwind_encoding_t encoding;
     if (encodingIndex < header->commonEncodingsArrayCount) {
         // Use common encoding from the header
+        if (!rangeInSection(sectionSize, header->commonEncodingsArraySectionOffset,
+                            ((uint64_t)encodingIndex + 1) * sizeof(uint32_t))) {
+            KSLOG_TRACE("Common encodings array out of bounds");
+            return false;
+        }
         const uint8_t *commonEncodingsBase = sectionBase + header->commonEncodingsArraySectionOffset;
         encoding = readU32(commonEncodingsBase + encodingIndex * sizeof(uint32_t));
     } else {
         // Use page-local encoding
         uint32_t localIndex = encodingIndex - header->commonEncodingsArrayCount;
-        if (localIndex < pageHeader->encodingsCount) {
+        if (localIndex < pageHeader->encodingsCount &&
+            rangeInSection(pageSize, pageHeader->encodingsPageOffset, ((uint64_t)localIndex + 1) * sizeof(uint32_t))) {
             const uint8_t *pageEncodingsBase = pageStart + pageHeader->encodingsPageOffset;
             encoding = readU32(pageEncodingsBase + localIndex * sizeof(uint32_t));
         } else {
@@ -274,10 +306,12 @@ static bool searchCompressedPage(const uint8_t *pageStart, uint32_t targetOffset
 /**
  * Search the LSDA index for a function.
  */
-static uintptr_t findLSDA(const uint8_t *sectionBase, const struct unwind_info_section_header_index_entry *indexEntry,
-                          uint32_t functionOffset, uintptr_t slide)
+static uintptr_t findLSDA(const uint8_t *sectionBase, size_t sectionSize,
+                          const struct unwind_info_section_header_index_entry *indexEntry, uint32_t functionOffset,
+                          uintptr_t slide)
 {
-    if (indexEntry->lsdaIndexArraySectionOffset == 0) {
+    if (indexEntry->lsdaIndexArraySectionOffset == 0 ||
+        indexEntry->lsdaIndexArraySectionOffset >= (uint64_t)sectionSize) {
         return 0;
     }
 
@@ -287,11 +321,13 @@ static uintptr_t findLSDA(const uint8_t *sectionBase, const struct unwind_info_s
     const struct unwind_info_section_header_lsda_index_entry *lsdaIndex =
         (const struct unwind_info_section_header_lsda_index_entry *)(sectionBase +
                                                                      indexEntry->lsdaIndexArraySectionOffset);
+    uint32_t maxEntries = (uint32_t)((sectionSize - indexEntry->lsdaIndexArraySectionOffset) /
+                                     sizeof(struct unwind_info_section_header_lsda_index_entry));
 
     // Linear scan for the function
     // (In a more optimized version, we'd binary search)
-    for (uint32_t i = 0;; i++) {
-        // Safety limit to prevent infinite loop
+    for (uint32_t i = 0; i < maxEntries; i++) {
+        // Safety limit to prevent runaway scans of corrupt data
         if (i > 10000) {
             break;
         }
@@ -352,6 +388,11 @@ bool kscu_findEntry(const void *unwindInfo, size_t unwindInfoSize, uintptr_t tar
     }
 
     // Binary search the first-level index
+    if (!rangeInSection(unwindInfoSize, header->indexSectionOffset,
+                        (uint64_t)header->indexCount * sizeof(struct unwind_info_section_header_index_entry))) {
+        KSLOG_TRACE("First-level index out of bounds");
+        return false;
+    }
     const struct unwind_info_section_header_index_entry *indices =
         (const struct unwind_info_section_header_index_entry *)(sectionBase + header->indexSectionOffset);
 
@@ -369,8 +410,14 @@ bool kscu_findEntry(const void *unwindInfo, size_t unwindInfoSize, uintptr_t tar
         return false;
     }
 
-    // Parse the second-level page
+    // Parse the second-level page. Page-relative offsets are bounded by the rest of the
+    // section; the page's own headers say how far into it the entries actually reach.
+    if (!rangeInSection(unwindInfoSize, indexEntry->secondLevelPagesSectionOffset, sizeof(uint32_t))) {
+        KSLOG_TRACE("Second-level page offset out of bounds");
+        return false;
+    }
     const uint8_t *pageStart = sectionBase + indexEntry->secondLevelPagesSectionOffset;
+    size_t pageSize = unwindInfoSize - indexEntry->secondLevelPagesSectionOffset;
     uint32_t pageKind = readU32(pageStart);
 
     compact_unwind_encoding_t encoding = 0;
@@ -379,11 +426,11 @@ bool kscu_findEntry(const void *unwindInfo, size_t unwindInfoSize, uintptr_t tar
 
     bool found = false;
     if (pageKind == UNWIND_SECOND_LEVEL_REGULAR) {
-        found = searchRegularPage(pageStart, targetOffset, indexEntry->functionOffset, &encoding, &functionOffset,
-                                  &nextFunctionOffset);
+        found = searchRegularPage(pageStart, pageSize, targetOffset, indexEntry->functionOffset, &encoding,
+                                  &functionOffset, &nextFunctionOffset);
     } else if (pageKind == UNWIND_SECOND_LEVEL_COMPRESSED) {
-        found = searchCompressedPage(pageStart, targetOffset, indexEntry->functionOffset, sectionBase, header,
-                                     &encoding, &functionOffset, &nextFunctionOffset);
+        found = searchCompressedPage(pageStart, pageSize, targetOffset, indexEntry->functionOffset, sectionBase,
+                                     unwindInfoSize, header, &encoding, &functionOffset, &nextFunctionOffset);
     } else {
         KSLOG_TRACE("Unknown second-level page kind: %u", pageKind);
         return false;
@@ -407,7 +454,9 @@ bool kscu_findEntry(const void *unwindInfo, size_t unwindInfoSize, uintptr_t tar
 
         // Look up personality function
         uint32_t personalityIndex = (encoding & KSCU_UNWIND_PERSONALITY_MASK) >> 28;
-        if (personalityIndex > 0 && personalityIndex <= header->personalityArrayCount) {
+        if (personalityIndex > 0 && personalityIndex <= header->personalityArrayCount &&
+            rangeInSection(unwindInfoSize, header->personalityArraySectionOffset,
+                           (uint64_t)personalityIndex * sizeof(uint32_t))) {
             const uint8_t *personalitiesBase = sectionBase + header->personalityArraySectionOffset;
             uint32_t personality = readU32(personalitiesBase + (personalityIndex - 1) * sizeof(uint32_t));
             outEntry->personalityFunction = (uintptr_t)personality + slide;
@@ -417,7 +466,7 @@ bool kscu_findEntry(const void *unwindInfo, size_t unwindInfoSize, uintptr_t tar
 
         // Look up LSDA if present
         if (encoding & KSCU_UNWIND_HAS_LSDA) {
-            outEntry->lsda = findLSDA(sectionBase, indexEntry, functionOffset, slide);
+            outEntry->lsda = findLSDA(sectionBase, unwindInfoSize, indexEntry, functionOffset, slide);
         } else {
             outEntry->lsda = 0;
         }

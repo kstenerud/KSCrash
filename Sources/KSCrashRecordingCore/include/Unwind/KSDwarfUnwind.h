@@ -156,7 +156,7 @@ typedef struct {
  * @return true if unwinding succeeded, false otherwise.
  */
 bool ksdwarf_unwind(const void *ehFrame, size_t ehFrameSize, uintptr_t pc, uintptr_t sp, uintptr_t fp, uintptr_t lr,
-                    uintptr_t imageBase, KSDwarfUnwindResult *result, task_t task);
+                    uintptr_t imageBase, KSDwarfUnwindResult *result, task_t task, uintptr_t ehFrameRuntimeDelta);
 
 /**
  * Find the FDE (Frame Description Entry) for a given PC.
@@ -175,7 +175,7 @@ bool ksdwarf_unwind(const void *ehFrame, size_t ehFrameSize, uintptr_t pc, uintp
  */
 bool ksdwarf_findFDE(const void *ehFrame, size_t ehFrameSize, uintptr_t targetPC, uintptr_t imageBase,
                      const uint8_t **outFDE, size_t *outFDESize, const uint8_t **outCIE, size_t *outCIESize,
-                     bool *outIs64bit, task_t task);
+                     bool *outIs64bit, task_t task, uintptr_t ehFrameRuntimeDelta);
 
 /**
  * Execute CFI instructions to build a CFI row for a target PC.
@@ -191,7 +191,7 @@ bool ksdwarf_findFDE(const void *ehFrame, size_t ehFrameSize, uintptr_t targetPC
  * @return true if CFI row was built successfully.
  */
 bool ksdwarf_buildCFIRow(const uint8_t *cie, size_t cieSize, const uint8_t *fde, size_t fdeSize, uintptr_t targetPC,
-                         bool is64bit, KSDwarfCFIRow *outRow, task_t task);
+                         bool is64bit, KSDwarfCFIRow *outRow, task_t task, uintptr_t ehFrameRuntimeDelta);
 
 #ifdef __cplusplus
 }
