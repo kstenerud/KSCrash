@@ -156,6 +156,18 @@ const KSCrashMonitorAPI *kscmr_getMonitor(KSCrashMonitorAPIList *monitorList, co
     return NULL;
 }
 
+size_t kscmr_copyStitchableMonitors(KSCrashMonitorAPIList *monitorList, KSCrashMonitorAPI *buffer, size_t capacity)
+{
+    size_t count = 0;
+    for (size_t i = 0; i < KSCRASH_MONITOR_API_COUNT && count < capacity; i++) {
+        const KSCrashMonitorAPI *api = atomic_load(monitorList->apis + i);
+        if (api != NULL && api->createStitchedReport != NULL) {
+            buffer[count++] = *api;
+        }
+    }
+    return count;
+}
+
 bool kscmr_enableMonitors(KSCrashMonitorAPIList *monitorList)
 {
     bool isDebuggerUnsafe = ksdebug_isBeingTraced();

@@ -69,12 +69,16 @@ static KSCrashSidecarReadResult readHangSidecar(const char *path, KSHangSidecar 
 CFDictionaryRef kscm_watchdog_createStitchedReport(CFDictionaryRef reportDict, const char *sidecarPath,
                                                    KSCrashSidecarScope scope, __unused void *context)
 {
-    if (!reportDict || !sidecarPath) {
+    if (reportDict == NULL) {
         return NULL;
     }
     if (scope != KSCrashSidecarScopeRun) {
+        // Not this monitor's scope (e.g. the final pass, which has no sidecar file).
         CFRetain(reportDict);
         return reportDict;
+    }
+    if (sidecarPath == NULL) {
+        return NULL;
     }
 
     KSHangSidecar sc = {};
