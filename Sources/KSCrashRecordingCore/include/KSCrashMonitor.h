@@ -104,6 +104,13 @@ bool kscm_addMonitor(const KSCrashMonitorAPI *api);
  */
 void kscm_removeMonitor(const KSCrashMonitorAPI *api);
 
+/** Copy every registered monitor api that implements createStitchedReport into `buffer`,
+ * by value, up to `capacity`. Drives the final stitch pass (KSCrashSidecarScopeFinal).
+ *
+ * @return The number of apis copied.
+ */
+size_t kscm_copyStitchableMonitors(KSCrashMonitorAPI *buffer, size_t capacity);
+
 /**
  * Sets the callback for event capture allowing to capture the result of capturing the event.
  *
