@@ -678,6 +678,7 @@ KSCrashMonitorAPI *kscm_system_getAPI(void)
         api.isEnabled = isEnabled_func;
         api.addContextualInfoToEvent = addContextualInfoToEvent;
         api.createStitchedReport = kscm_system_createStitchedReport;
+        api.priority = KSCrashStitchPrioritySystem;
     }
     return &api;
 }
