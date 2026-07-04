@@ -1,7 +1,7 @@
 //
-//  ExitReasonInfo.swift
+//  ExitReasonCode.swift
 //
-//  Created by Alexander Cohen on 2024-12-09.
+//  Created by Alexander Cohen on 2026-06-28.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -26,24 +26,19 @@
 
 import Foundation
 
-/// Exit reason information from the OS.
-public struct ExitReasonInfo: Codable, Sendable, Equatable {
-    /// Exit reason code. (ex: 0x8badf00d)
-    public let code: UInt64
+/// A process exit code, as carried by an exit reason. A handful are the recognizable "magic" codes
+/// Apple documents (TN2151), exposed as static constants; everything else (a jetsam reason, a signal
+/// number, ...) is meaningful only within its `ExitReasonNamespace`, so this is an open struct that
+/// preserves the raw value.
+public struct ExitReasonCode: RawRepresentable, Codable, Sendable, Hashable {
+    public let rawValue: UInt64
+    public init(rawValue: UInt64) { self.rawValue = rawValue }
 
-    /// The namespace the code belongs to, when known. A code is only meaningful within its
-    /// namespace, so the same number means different things under jetsam and code signing.
-    ///
-    /// Absent from reports written by the crashing process itself, which records only a code.
-    /// A corpse report carries it, because kcdata's exit reason knows it.
-    public let namespace: ExitReasonNamespace?
-
-    /// OS reason flags, when known. Same availability as `namespace`.
-    public let flags: UInt64?
-
-    public init(code: UInt64, namespace: ExitReasonNamespace? = nil, flags: UInt64? = nil) {
-        self.code = code
-        self.namespace = namespace
-        self.flags = flags
-    }
+    public static let watchdogTimeout = Self(rawValue: 0x8BAD_F00D)
+    public static let resourceHeldWhileSuspended = Self(rawValue: 0xDEAD_10CC)
+    public static let telephonyTimeout = Self(rawValue: 0xBAAD_CA11)
+    public static let voipResumedTooFrequently = Self(rawValue: 0xBAD2_2222)
+    public static let thermalEvent = Self(rawValue: 0xC000_10FF)
+    public static let userForceQuit = Self(rawValue: 0xDEAD_FA11)
+    public static let privacyViolation = Self(rawValue: 0x2BAD_45EC)
 }
