@@ -54,4 +54,16 @@
     XCTAssertEqualObjects(diagnostic, @"App hung for 3.99 seconds. Terminated by watchdog.");
 }
 
+- (void)testNonatomicPropertyRaceSentinel
+{
+    // EXC_BAD_ACCESS on 0x400000000000bad0, the sentinel a synthesized nonatomic
+    // ObjC setter briefly stores mid-store (Apple ObjC runtime, rdar://148109501).
+    KSCrashReportDictionary *report = [self _crashReportAsJSON:@"nonatomic_race"];
+    KSCrashReportDictionary *resultReport = [self _filteredReport:report];
+    NSString *diagnostic = resultReport.value[KSCrashField_Crash][KSCrashField_Diagnosis];
+    XCTAssertEqualObjects(diagnostic,
+                          @"Crashed on the Objective-C nonatomic-property race sentinel. A nonatomic property was read "
+                          @"on one thread while being written on another (thread-safety bug).");
+}
+
 @end

@@ -11,6 +11,13 @@
 
 #import <mach/exception_types.h>
 
+/// Sentinel that synthesized nonatomic Objective-C setters briefly store mid-store;
+/// a concurrent unsafe read of the property faults on it, so a crash on this address
+/// signals a thread-safety bug on a nonatomic property (Apple ObjC runtime, rdar://148109501).
+/// 64-bit devices fault on the full value; 32-bit watchOS uses its low half, 0xbad0.
+static const unsigned long long kKSNonatomicRaceSentinel = 0x400000000000bad0ULL;
+static const unsigned long long kKSNonatomicRaceSentinel32 = 0xbad0ULL;
+
 typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } CPUFamily;
 
 @interface KSCrashDoctorParam : NSObject
@@ -533,13 +540,20 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
         }
 
         if ([self isInvalidAddress:errorReport]) {
-            uintptr_t address = (uintptr_t)[[errorReport objectForKey:KSCrashField_Address] unsignedLongLongValue];
+            unsigned long long address = [[errorReport objectForKey:KSCrashField_Address] unsignedLongLongValue];
             if (address == 0) {
                 return [self appendOriginatingCall:@"Attempted to dereference null pointer." callName:lastFunctionName];
             }
+            if (address == kKSNonatomicRaceSentinel || address == kKSNonatomicRaceSentinel32) {
+                return [self
+                    appendOriginatingCall:@"Crashed on the Objective-C nonatomic-property race sentinel. A nonatomic "
+                                          @"property was read on one thread while being written on another "
+                                          @"(thread-safety bug)."
+                                 callName:lastFunctionName];
+            }
             return
                 [self appendOriginatingCall:[NSString stringWithFormat:@"Attempted to dereference garbage pointer %p.",
-                                                                       (void *)address]
+                                                                       (void *)(uintptr_t)address]
                                    callName:lastFunctionName];
         }
 
