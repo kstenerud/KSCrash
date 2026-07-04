@@ -1,7 +1,7 @@
 //
-//  ExitReasonInfo.swift
+//  Signal.swift
 //
-//  Created by Alexander Cohen on 2024-12-09.
+//  Created by Alexander Cohen on 2026-06-28.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -26,24 +26,39 @@
 
 import Foundation
 
-/// Exit reason information from the OS.
-public struct ExitReasonInfo: Codable, Sendable, Equatable {
-    /// Exit reason code. (ex: 0x8badf00d)
-    public let code: UInt64
-
-    /// The namespace the code belongs to, when known. A code is only meaningful within its
-    /// namespace, so the same number means different things under jetsam and code signing.
-    ///
-    /// Absent from reports written by the crashing process itself, which records only a code.
-    /// A corpse report carries it, because kcdata's exit reason knows it.
-    public let namespace: ExitReasonNamespace?
-
-    /// OS reason flags, when known. Same availability as `namespace`.
-    public let flags: UInt64?
-
-    public init(code: UInt64, namespace: ExitReasonNamespace? = nil, flags: UInt64? = nil) {
-        self.code = code
-        self.namespace = namespace
-        self.flags = flags
-    }
+/// A Unix signal, named after its `SIG*` symbol. The signal set is fixed, so this is a closed enum
+/// encoded as its signal number.
+// swift-format-ignore: AlwaysUseLowerCamelCase
+public enum Signal: Int32, Codable, Sendable, CaseIterable {
+    case SIGHUP = 1
+    case SIGINT = 2
+    case SIGQUIT = 3
+    case SIGILL = 4
+    case SIGTRAP = 5
+    case SIGABRT = 6
+    case SIGEMT = 7
+    case SIGFPE = 8
+    case SIGKILL = 9
+    case SIGBUS = 10
+    case SIGSEGV = 11
+    case SIGSYS = 12
+    case SIGPIPE = 13
+    case SIGALRM = 14
+    case SIGTERM = 15
+    case SIGURG = 16
+    case SIGSTOP = 17
+    case SIGTSTP = 18
+    case SIGCONT = 19
+    case SIGCHLD = 20
+    case SIGTTIN = 21
+    case SIGTTOU = 22
+    case SIGIO = 23
+    case SIGXCPU = 24
+    case SIGXFSZ = 25
+    case SIGVTALRM = 26
+    case SIGPROF = 27
+    case SIGWINCH = 28
+    case SIGINFO = 29
+    case SIGUSR1 = 30
+    case SIGUSR2 = 31
 }
