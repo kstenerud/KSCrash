@@ -28,6 +28,7 @@
 #define HDR_KSBinaryImageCache_h
 
 #include <mach-o/dyld.h>
+#include <mach/mach_types.h>
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -37,6 +38,7 @@
 #pragma clang diagnostic pop
 
 #include "KSCrashNamespace.h"
+#include "KSDynamicLinker.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -139,6 +141,11 @@ typedef struct {
     uintptr_t slide;
     bool hasCompactUnwind;
     bool hasEhFrame;
+    // Target runtime address of ehFrame byte 0, minus the local address of the ehFrame buffer.
+    // 0 when ehFrame is mapped at its own runtime address (the live cache, or a same-address-space
+    // target). Non-zero only when ehFrame is a copy of another process's section: DWARF pc-relative
+    // pointers are resolved against (local pointer + this delta) so they land in the target's space.
+    uintptr_t ehFrameRuntimeDelta;
 } KSBinaryImageUnwindInfo;
 
 /**
@@ -215,8 +222,10 @@ bool ksbic_getUnwindInfoForAddress(uintptr_t address, KSBinaryImageUnwindInfo *_
  * as the section pointers stored in each entry reference bytes readable in the current
  * process.
  *
- * Opaque. Create with ksbic_createSetFromLocalImages (or, later, from externally
- * supplied images) and release with ksbic_destroySet. Querying is read-only.
+ * Opaque. Create with ksbic_createSetFromTaskImages (remote images) or
+ * ksbic_createSetFromLocalImages (this process's images) and release with
+ * ksbic_destroySet. Confine each set to a single thread: lookups lazily copy a remote
+ * image's unwind sections out of the source task on first hit.
  */
 typedef struct KSBinaryImageSet KSBinaryImageSet;
 
@@ -228,16 +237,91 @@ typedef struct KSBinaryImageSet KSBinaryImageSet;
  * same per-image entries describe shared-cache images that are mapped into both the target
  * task and this one.
  *
+ * NOT interchangeable with ksbic_createSetFromTaskImages(mach_task_self(), ...), despite
+ * describing the same images. Entries here are born fully resolved, pointing straight at
+ * in-process sections, so no lookup ever allocates. The task builder instead records each
+ * section's remote address for a lazy cross-task copy, which mallocs and vm_reads on first
+ * hit. This is therefore the only allocation-free way to obtain a set, which is what an
+ * in-process consumer that cannot allocate during lookups needs. Do not delete it as unused
+ * on the strength of the task builder existing.
+ *
  * @return A newly allocated set the caller must release with ksbic_destroySet, or NULL on failure.
  */
 KSBinaryImageSet *_Nullable ksbic_createSetFromLocalImages(void);
 
 /**
- * Release an image set created by ksbic_createSetFromLocalImages.
+ * Describes one image to load into a set: its load address in the target task, and an
+ * optional name. This mirrors the (baseAddress, path) pair a crash extension hands us
+ * for each image of a crashed process.
+ */
+typedef struct {
+    uintptr_t loadAddress;
+    const char *_Nullable name;
+} KSBinaryImageDescriptor;
+
+/**
+ * Build an image set by reading each image's Mach-O header and unwind sections from @c task.
+ *
+ * For every descriptor this reads the header out of @c task (via cross-task memory reads) and
+ * parses it to recover the slide, segment ranges, and unwind-section coordinates. The
+ * __unwind_info / __eh_frame bytes are copied out of @c task lazily, on the first lookup that
+ * hits the image; the set owns those copies and frees them in ksbic_destroySet. Because the
+ * bytes are copied, the resulting set can drive the unwinder against a genuinely remote process
+ * (e.g. a corpse handed to a crash extension), not just the current one. The task port must
+ * therefore stay valid for the set's lifetime.
+ *
+ * Allocates; not async-signal-safe.
+ *
+ * @param task The task to read image headers and sections from.
+ * @param images The images to load. May be NULL only if @c count is 0.
+ * @param count The number of descriptors.
+ * @return A newly allocated set the caller must release with ksbic_destroySet, or NULL on failure.
+ */
+KSBinaryImageSet *_Nullable ksbic_createSetFromTaskImages(task_t task, const KSBinaryImageDescriptor *_Nullable images,
+                                                          uint32_t count);
+
+/**
+ * Fill in the header-derived fields of a @c KSBinaryImage from an image of @c task, cross-task.
+ * 64-bit images only.
+ *
+ * Sets exactly the fields the Mach-O header knows: address, vmAddress, vmAddressSlide, size and
+ * the version triple. Everything else on the image (name, uuid, cpuType, cpuSubType, crash-info
+ * strings) is the caller's to fill, and untouched fields are left alone.
+ *
+ * The values match what @c ksdl_binaryImageForHeader records for a local image, so a report
+ * about another task describes its images identically to a local one. That matters
+ * most for @c vmAddress: symbolication derives the slide as address - vmAddress, so leaving it
+ * zero silently misplaces every frame in the image.
+ *
+ * Caller-supplied image facts are not always trustworthy: the iOS 27 CrashReportExtension hands
+ * sizes computed to the end of the dyld shared cache for cache-resident images, and hands no
+ * vmaddr or version at all. One load-command walk answers all of them.
+ *
+ * @param task The task whose image to inspect.
+ * @param loadAddress The image's load address in @c task.
+ * @param outImage The image to fill. Must not be NULL.
+ * @return true if the header was read and carried a __TEXT segment.
+ */
+bool ksbic_fillTaskImage(task_t task, uintptr_t loadAddress, KSBinaryImage *_Nonnull outImage);
+
+/**
+ * Release an image set created by ksbic_createSetFromTaskImages or
+ * ksbic_createSetFromLocalImages.
  *
  * @param set The set to release. NULL is allowed and ignored.
  */
 void ksbic_destroySet(KSBinaryImageSet *_Nullable set);
+
+/**
+ * Which unwind sections a set lookup should resolve (copy out of a remote task).
+ * Sections are copied on the first lookup that requests them: compact unwind almost always
+ * suffices, so __eh_frame (often hundreds of KB per large image) is only copied when a DWARF
+ * lookup actually asks for it.
+ */
+typedef enum {
+    KSBinaryImageUnwindSectionCompactUnwind = 1 << 0,
+    KSBinaryImageUnwindSectionEhFrame = 1 << 1,
+} KSBinaryImageUnwindSections;
 
 /**
  * Look up unwind information for an address within an image set.
@@ -248,11 +332,14 @@ void ksbic_destroySet(KSBinaryImageSet *_Nullable set);
  *
  * @param set The image set to query. NULL returns false.
  * @param address The address to look up, in the address space of the set's images.
+ * @param wantedSections The sections to resolve for the hit image (remote sets copy them
+ *        out of the source task on first request). A section not yet requested reads as
+ *        absent in the result (hasCompactUnwind / hasEhFrame false).
  * @param outInfo If not NULL and found, receives the unwind info.
  * @return true if an image containing the address was found, false otherwise.
  */
 bool ksbic_getUnwindInfoForAddressInSet(const KSBinaryImageSet *_Nullable set, uintptr_t address,
-                                        KSBinaryImageUnwindInfo *_Nullable outInfo);
+                                        uint32_t wantedSections, KSBinaryImageUnwindInfo *_Nullable outInfo);
 
 #ifdef __cplusplus
 }

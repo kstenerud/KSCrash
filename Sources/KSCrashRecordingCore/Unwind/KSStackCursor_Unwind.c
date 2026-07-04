@@ -95,23 +95,27 @@ typedef struct {
 } UnwindCursorContext;
 
 // Resolve unwind info for an address: from the supplied image set when unwinding another
-// process's images, otherwise from this process's live dyld cache.
-static inline bool lookupUnwindInfo(const KSBinaryImageSet *imageSet, uintptr_t pc, KSBinaryImageUnwindInfo *outInfo)
+// process's images, otherwise from this process's live dyld cache. `wantedSections` picks the
+// sections the set lazily copies from the remote task; the live cache ignores it (its sections
+// are already mapped).
+static inline bool lookupUnwindInfo(const KSBinaryImageSet *imageSet, uintptr_t pc, uint32_t wantedSections,
+                                    KSBinaryImageUnwindInfo *outInfo)
 {
-    return imageSet != NULL ? ksbic_getUnwindInfoForAddressInSet(imageSet, pc, outInfo)
+    return imageSet != NULL ? ksbic_getUnwindInfoForAddressInSet(imageSet, pc, wantedSections, outInfo)
                             : ksbic_getUnwindInfoForAddress(pc, outInfo);
 }
 
 // MARK: - Architecture-Specific Helpers
 
-#if defined(__arm64__)
+#if defined(__arm64__) || defined(__x86_64__) || defined(__arm__) || defined(__i386__)
 
 static bool tryCompactUnwindForPC(uintptr_t pc, uintptr_t sp, uintptr_t fp, uintptr_t lr, KSCompactUnwindResult *result,
                                   task_t task, const KSBinaryImageSet *imageSet)
 {
     // Find unwind info for this PC
     KSBinaryImageUnwindInfo imageInfo;
-    if (!lookupUnwindInfo(imageSet, pc, &imageInfo) || !imageInfo.hasCompactUnwind) {
+    if (!lookupUnwindInfo(imageSet, pc, KSBinaryImageUnwindSectionCompactUnwind, &imageInfo) ||
+        !imageInfo.hasCompactUnwind) {
         KSLOG_TRACE("No compact unwind info for PC 0x%lx", (unsigned long)pc);
         return false;
     }
@@ -130,86 +134,18 @@ static bool tryCompactUnwindForPC(uintptr_t pc, uintptr_t sp, uintptr_t fp, uint
         return false;
     }
 
-    // Decode the compact unwind encoding
+    // Decode the compact unwind encoding with this architecture's decoder (lr is ARM-only)
+#if defined(__arm64__)
     return kscu_arm64_decode(entry.encoding, pc, sp, fp, lr, result, task);
-}
-
 #elif defined(__x86_64__)
-
-static bool tryCompactUnwindForPC(uintptr_t pc, uintptr_t sp, uintptr_t fp, uintptr_t lr __attribute__((unused)),
-                                  KSCompactUnwindResult *result, task_t task, const KSBinaryImageSet *imageSet)
-{
-    KSBinaryImageUnwindInfo imageInfo;
-    if (!lookupUnwindInfo(imageSet, pc, &imageInfo) || !imageInfo.hasCompactUnwind) {
-        KSLOG_TRACE("No compact unwind info for PC 0x%lx", (unsigned long)pc);
-        return false;
-    }
-
-    KSCompactUnwindEntry entry;
-    uintptr_t imageBase = (uintptr_t)imageInfo.header;
-    if (!kscu_findEntry(imageInfo.unwindInfo, imageInfo.unwindInfoSize, pc, imageBase, imageInfo.slide, &entry)) {
-        KSLOG_TRACE("No compact unwind entry for PC 0x%lx", (unsigned long)pc);
-        return false;
-    }
-
-    if (kscu_encodingRequiresDwarf(entry.encoding)) {
-        KSLOG_TRACE("Encoding 0x%x requires DWARF for PC 0x%lx", entry.encoding, (unsigned long)pc);
-        return false;
-    }
-
+    (void)lr;
     return kscu_x86_64_decode(entry.encoding, pc, sp, fp, result, task);
-}
-
 #elif defined(__arm__)
-
-static bool tryCompactUnwindForPC(uintptr_t pc, uintptr_t sp, uintptr_t fp, uintptr_t lr, KSCompactUnwindResult *result,
-                                  task_t task, const KSBinaryImageSet *imageSet)
-{
-    KSBinaryImageUnwindInfo imageInfo;
-    if (!lookupUnwindInfo(imageSet, pc, &imageInfo) || !imageInfo.hasCompactUnwind) {
-        KSLOG_TRACE("No compact unwind info for PC 0x%lx", (unsigned long)pc);
-        return false;
-    }
-
-    KSCompactUnwindEntry entry;
-    uintptr_t imageBase = (uintptr_t)imageInfo.header;
-    if (!kscu_findEntry(imageInfo.unwindInfo, imageInfo.unwindInfoSize, pc, imageBase, imageInfo.slide, &entry)) {
-        KSLOG_TRACE("No compact unwind entry for PC 0x%lx", (unsigned long)pc);
-        return false;
-    }
-
-    if (kscu_encodingRequiresDwarf(entry.encoding)) {
-        KSLOG_TRACE("Encoding 0x%x requires DWARF for PC 0x%lx", entry.encoding, (unsigned long)pc);
-        return false;
-    }
-
     return kscu_arm_decode(entry.encoding, pc, sp, fp, lr, result, task);
-}
-
 #elif defined(__i386__)
-
-static bool tryCompactUnwindForPC(uintptr_t pc, uintptr_t sp, uintptr_t fp, uintptr_t lr __attribute__((unused)),
-                                  KSCompactUnwindResult *result, task_t task, const KSBinaryImageSet *imageSet)
-{
-    KSBinaryImageUnwindInfo imageInfo;
-    if (!lookupUnwindInfo(imageSet, pc, &imageInfo) || !imageInfo.hasCompactUnwind) {
-        KSLOG_TRACE("No compact unwind info for PC 0x%lx", (unsigned long)pc);
-        return false;
-    }
-
-    KSCompactUnwindEntry entry;
-    uintptr_t imageBase = (uintptr_t)imageInfo.header;
-    if (!kscu_findEntry(imageInfo.unwindInfo, imageInfo.unwindInfoSize, pc, imageBase, imageInfo.slide, &entry)) {
-        KSLOG_TRACE("No compact unwind entry for PC 0x%lx", (unsigned long)pc);
-        return false;
-    }
-
-    if (kscu_encodingRequiresDwarf(entry.encoding)) {
-        KSLOG_TRACE("Encoding 0x%x requires DWARF for PC 0x%lx", entry.encoding, (unsigned long)pc);
-        return false;
-    }
-
+    (void)lr;
     return kscu_x86_decode(entry.encoding, pc, sp, fp, result, task);
+#endif
 }
 
 #else
@@ -231,7 +167,7 @@ static bool tryDwarfUnwindForPC(uintptr_t pc, uintptr_t sp, uintptr_t fp, uintpt
 {
     // Find unwind info for this PC
     KSBinaryImageUnwindInfo imageInfo;
-    if (!lookupUnwindInfo(imageSet, pc, &imageInfo) || !imageInfo.hasEhFrame) {
+    if (!lookupUnwindInfo(imageSet, pc, KSBinaryImageUnwindSectionEhFrame, &imageInfo) || !imageInfo.hasEhFrame) {
         KSLOG_TRACE("No DWARF eh_frame info for PC 0x%lx", (unsigned long)pc);
         return false;
     }
@@ -239,7 +175,8 @@ static bool tryDwarfUnwindForPC(uintptr_t pc, uintptr_t sp, uintptr_t fp, uintpt
     // Try DWARF unwinding
     KSDwarfUnwindResult dwarfResult;
     uintptr_t imageBase = (uintptr_t)imageInfo.header;
-    if (!ksdwarf_unwind(imageInfo.ehFrame, imageInfo.ehFrameSize, pc, sp, fp, lr, imageBase, &dwarfResult, task)) {
+    if (!ksdwarf_unwind(imageInfo.ehFrame, imageInfo.ehFrameSize, pc, sp, fp, lr, imageBase, &dwarfResult, task,
+                        imageInfo.ehFrameRuntimeDelta)) {
         KSLOG_TRACE("DWARF unwind failed for PC 0x%lx", (unsigned long)pc);
         return false;
     }
