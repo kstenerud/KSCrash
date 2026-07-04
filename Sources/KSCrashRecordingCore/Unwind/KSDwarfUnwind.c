@@ -343,8 +343,8 @@ static uintptr_t readEncodedPointer(KSDwarfReader *reader, uint8_t encoding, uin
             break;
     }
 
-    // Handle indirect. The resolved address is in the target's address space, so read it
-    // from the reader's task.
+    // Handle indirect. The resolved address is in the target's address space
+    // (pcrel bases carry the runtime delta), so read it from the reader's task.
     if (encoding & DW_EH_PE_indirect) {
         uintptr_t indirect;
         if (ksmem_copySafelyFromTask(reader->task, (const void *)result, &indirect, sizeof(indirect))) {
@@ -441,8 +441,11 @@ static bool parseCIE(const uint8_t *cieData, size_t cieSize, task_t task, KSDwar
     return true;
 }
 
-static bool parseFDE(const uint8_t *fdeData, size_t fdeSize, const KSDwarfCIE *cie, uintptr_t fdeAddress, task_t task,
-                     KSDwarfFDE *outFDE)
+// pcStartFieldAddress is the runtime (target address space) address of the FDE's pcStart
+// field, i.e. fdeData's runtime address. DWARF pcrel is relative to the field being
+// decoded, not the FDE record start (libunwind's decodeFDE does the same).
+static bool parseFDE(const uint8_t *fdeData, size_t fdeSize, const KSDwarfCIE *cie, uintptr_t pcStartFieldAddress,
+                     task_t task, KSDwarfFDE *outFDE)
 {
     memset(outFDE, 0, sizeof(*outFDE));
 
@@ -454,7 +457,7 @@ static bool parseFDE(const uint8_t *fdeData, size_t fdeSize, const KSDwarfCIE *c
     };
 
     // PC start (encoded)
-    outFDE->pcStart = readEncodedPointer(&reader, cie->fdePointerEncoding, fdeAddress);
+    outFDE->pcStart = readEncodedPointer(&reader, cie->fdePointerEncoding, pcStartFieldAddress);
 
     // PC range (same format but no relocation)
     uint8_t rangeFormat = cie->fdePointerEncoding & 0x0F;
@@ -513,7 +516,7 @@ static bool parseFDE(const uint8_t *fdeData, size_t fdeSize, const KSDwarfCIE *c
 
 static bool executeCFIInstructions(const uint8_t *instructions, size_t len, const KSDwarfCIE *cie, uintptr_t pcStart,
                                    uintptr_t targetPC, KSDwarfCFIRow *row, const KSDwarfCFIRow *initialState,
-                                   task_t task)
+                                   task_t task, uintptr_t ehFrameRuntimeDelta)
 {
     KSDwarfReader reader = {
         .data = instructions,
@@ -574,7 +577,10 @@ static bool executeCFIInstructions(const uint8_t *instructions, size_t len, cons
                     break;
 
                 case DW_CFA_set_loc:
-                    currentPC = readEncodedPointer(&reader, cie->fdePointerEncoding, 0);
+                    // Resolve to the target's address space: pass the runtime address of the field
+                    // being read (local pointer + delta) as the pc-relative base.
+                    currentPC = readEncodedPointer(&reader, cie->fdePointerEncoding,
+                                                   (uintptr_t)reader.data + ehFrameRuntimeDelta);
                     break;
 
                 case DW_CFA_advance_loc1:
@@ -1106,7 +1112,8 @@ static bool applyRegisterRule(const KSDwarfRegisterRule *rule, uintptr_t cfa, ui
 
 bool ksdwarf_findFDE(const void *ehFrame, size_t ehFrameSize, uintptr_t targetPC,
                      uintptr_t imageBase __attribute__((unused)), const uint8_t **outFDE, size_t *outFDESize,
-                     const uint8_t **outCIE, size_t *outCIESize, bool *outIs64bit, task_t task)
+                     const uint8_t **outCIE, size_t *outCIESize, bool *outIs64bit, task_t task,
+                     uintptr_t ehFrameRuntimeDelta)
 {
     if (ehFrame == NULL || ehFrameSize == 0) {
         return false;
@@ -1257,9 +1264,11 @@ bool ksdwarf_findFDE(const void *ehFrame, size_t ehFrameSize, uintptr_t targetPC
             continue;
         }
 
-        // Now parse FDE
+        // Now parse FDE. ptr points at the pcStart field (past length and CIE pointer);
+        // resolve pcStart against that field's runtime address (local pointer + delta)
+        // so a copied eh_frame's FDE ranges match target PCs.
         KSDwarfFDE fde;
-        if (!parseFDE(ptr, (size_t)(entryEnd - ptr), &cie, (uintptr_t)entryStart, task, &fde)) {
+        if (!parseFDE(ptr, (size_t)(entryEnd - ptr), &cie, (uintptr_t)ptr + ehFrameRuntimeDelta, task, &fde)) {
             ptr = entryEnd;
             continue;
         }
@@ -1284,7 +1293,7 @@ bool ksdwarf_findFDE(const void *ehFrame, size_t ehFrameSize, uintptr_t targetPC
 }
 
 bool ksdwarf_buildCFIRow(const uint8_t *cie, size_t cieSize, const uint8_t *fde, size_t fdeSize, uintptr_t targetPC,
-                         bool is64bit, KSDwarfCFIRow *outRow, task_t task)
+                         bool is64bit, KSDwarfCFIRow *outRow, task_t task, uintptr_t ehFrameRuntimeDelta)
 {
     memset(outRow, 0, sizeof(*outRow));
 
@@ -1305,7 +1314,10 @@ bool ksdwarf_buildCFIRow(const uint8_t *cie, size_t cieSize, const uint8_t *fde,
     // Parse FDE
     KSDwarfFDE fdeData;
     const uint8_t *fdeContent = fde + fdeCiePointerSize;  // Skip CIE pointer
-    if (!parseFDE(fdeContent, fdeSize - fdeCiePointerSize, &cieData, (uintptr_t)fde, task, &fdeData)) {
+    // pcStart resolves pc-relative to the pcStart field's runtime address; apply the delta so
+    // it lands in the target's address space when the FDE bytes are a local copy.
+    if (!parseFDE(fdeContent, fdeSize - fdeCiePointerSize, &cieData, (uintptr_t)fdeContent + ehFrameRuntimeDelta, task,
+                  &fdeData)) {
         KSLOG_TRACE("Failed to parse FDE");
         return false;
     }
@@ -1314,7 +1326,7 @@ bool ksdwarf_buildCFIRow(const uint8_t *cie, size_t cieSize, const uint8_t *fde,
     // Pass NULL for initialState since CIE is building the initial state
     if (cieData.initialInstructions && cieData.initialInstructionsLen > 0) {
         if (!executeCFIInstructions(cieData.initialInstructions, cieData.initialInstructionsLen, &cieData,
-                                    fdeData.pcStart, targetPC, outRow, NULL, task)) {
+                                    fdeData.pcStart, targetPC, outRow, NULL, task, ehFrameRuntimeDelta)) {
             KSLOG_TRACE("Failed to execute CIE initial instructions");
             return false;
         }
@@ -1326,7 +1338,7 @@ bool ksdwarf_buildCFIRow(const uint8_t *cie, size_t cieSize, const uint8_t *fde,
     // Execute FDE instructions, passing the initial state for restore operations
     if (fdeData.instructions && fdeData.instructionsLen > 0) {
         if (!executeCFIInstructions(fdeData.instructions, fdeData.instructionsLen, &cieData, fdeData.pcStart, targetPC,
-                                    outRow, &initialState, task)) {
+                                    outRow, &initialState, task, ehFrameRuntimeDelta)) {
             KSLOG_TRACE("Failed to execute FDE instructions");
             return false;
         }
@@ -1336,7 +1348,7 @@ bool ksdwarf_buildCFIRow(const uint8_t *cie, size_t cieSize, const uint8_t *fde,
 }
 
 bool ksdwarf_unwind(const void *ehFrame, size_t ehFrameSize, uintptr_t pc, uintptr_t sp, uintptr_t fp, uintptr_t lr,
-                    uintptr_t imageBase, KSDwarfUnwindResult *result, task_t task)
+                    uintptr_t imageBase, KSDwarfUnwindResult *result, task_t task, uintptr_t ehFrameRuntimeDelta)
 {
     if (result == NULL) {
         return false;
@@ -1351,14 +1363,15 @@ bool ksdwarf_unwind(const void *ehFrame, size_t ehFrameSize, uintptr_t pc, uintp
     size_t cieSize = 0;
     bool is64bit = false;
 
-    if (!ksdwarf_findFDE(ehFrame, ehFrameSize, pc, imageBase, &fde, &fdeSize, &cie, &cieSize, &is64bit, task)) {
+    if (!ksdwarf_findFDE(ehFrame, ehFrameSize, pc, imageBase, &fde, &fdeSize, &cie, &cieSize, &is64bit, task,
+                         ehFrameRuntimeDelta)) {
         KSLOG_TRACE("No FDE found for PC 0x%lx", (unsigned long)pc);
         return false;
     }
 
     // Build CFI row for this PC
     KSDwarfCFIRow row;
-    if (!ksdwarf_buildCFIRow(cie, cieSize, fde, fdeSize, pc, is64bit, &row, task)) {
+    if (!ksdwarf_buildCFIRow(cie, cieSize, fde, fdeSize, pc, is64bit, &row, task, ehFrameRuntimeDelta)) {
         KSLOG_TRACE("Failed to build CFI row for PC 0x%lx", (unsigned long)pc);
         return false;
     }

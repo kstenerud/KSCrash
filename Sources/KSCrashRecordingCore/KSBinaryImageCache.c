@@ -36,8 +36,10 @@
 #include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "KSLogger.h"
+#include "KSMemory.h"
 #include "KSPlatformSpecificDefines.h"
 
 // MARK: - Image Address Range Cache
@@ -108,30 +110,43 @@ static inline bool addressInCachedSegments(const KSBinaryImageRange *entry, uint
     return false;
 }
 
-// Binary search to find the rightmost entry with startAddress <= address.
-// Returns -1 if no such entry exists.
-// The cache must be sorted by startAddress in ascending order.
-static inline int32_t binarySearchCache(const KSBinaryImageRangeCache *cache, uintptr_t address)
+// Range of one element in an array whose elements lead with a KSBinaryImageRange. The void* hop
+// silences -Wcast-align; alignment is guaranteed because `stride` is the real element size of a
+// properly aligned array.
+static inline const KSBinaryImageRange *rangeAtIndex(const void *entries, size_t stride, int32_t index)
 {
-    if (cache->count == 0) {
-        return -1;
-    }
+    return (const KSBinaryImageRange *)(const void *)((const char *)entries + (size_t)index * stride);
+}
 
+// Find the entry whose segments contain `address` in an array sorted ascending by startAddress.
+// Entries may be any struct whose first member is a KSBinaryImageRange; `stride` is the element
+// size. Binary-searches for the rightmost entry with startAddress <= address, then scans backward
+// across overlapping ranges (dyld shared cache images interleave) until the segment check passes.
+// Returns the matching index, or -1 if no entry contains the address.
+// Allocation-free and lock-free: the live cache calls this in async-signal context.
+static int32_t findEntryForAddress(const void *entries, uint32_t count, size_t stride, uintptr_t address)
+{
     int32_t left = 0;
-    int32_t right = (int32_t)cache->count - 1;
-    int32_t result = -1;
+    int32_t right = (int32_t)count - 1;
+    int32_t idx = -1;
 
     while (left <= right) {
         int32_t mid = left + (right - left) / 2;
-        if (cache->entries[mid].startAddress <= address) {
-            result = mid;
+        if (rangeAtIndex(entries, stride, mid)->startAddress <= address) {
+            idx = mid;
             left = mid + 1;
         } else {
             right = mid - 1;
         }
     }
 
-    return result;
+    for (; idx >= 0; idx--) {
+        const KSBinaryImageRange *range = rangeAtIndex(entries, stride, idx);
+        if (address >= range->startAddress && address < range->endAddress && addressInCachedSegments(range, address)) {
+            return idx;
+        }
+    }
+    return -1;
 }
 
 // Insert an entry into the cache maintaining sorted order by startAddress.
@@ -167,193 +182,323 @@ static void insertSortedCacheEntry(KSBinaryImageRangeCache *cache, const KSBinar
     cache->count++;
 }
 
+// MARK: - Shared 64-bit Mach-O load-command walker
+
+// Optional named-section lookup performed during a walk. Found addresses are returned slid
+// (runtime addresses in the walked image's address space).
+typedef struct {
+    const char *segName;
+    const char *sectName;
+    uintptr_t addr;  // out: runtime (slid) address, 0 if not found
+    uintptr_t size;  // out: section size, 0 if not found
+    bool found;      // out
+} KSMachOSectionQuery;
+
+// Geometry recovered from one image's load commands. Runtime addresses (segments, queries,
+// startAddress, endAddress) are slid; the fields explicitly documented as unslid below
+// (textVMAddr, segmentBase) are raw link-time values and callers apply the slide themselves.
+typedef struct {
+    uintptr_t slide;
+    uintptr_t textSize;      // __TEXT vmsize: the size in-process reports record for an image
+    uint64_t textVMAddr;     // __TEXT vmaddr, UNSLID: what reports record as image_vmaddr, and
+                             // what symbolication subtracts from the load address to get the slide
+    uint64_t dylibVersion;   // LC_ID_DYLIB current_version, 0 if absent (packed major/minor/revision)
+    uintptr_t segmentBase;   // UNSLID vmaddr - fileoff of __LINKEDIT (for symbol lookups), 0 if absent
+    uintptr_t startAddress;  // min segment start, 0 if no segments
+    uintptr_t endAddress;    // max segment end, 0 if no segments
+    KSSegmentRange segments[KSBIC_MAX_SEGMENTS_PER_IMAGE];
+    uint8_t segmentCount;
+    const uint8_t *uuid;  // LC_UUID bytes pointing INTO the walked buffer, NULL if absent.
+                          // Only valid as long as the walked buffer is; do not keep it when
+                          // walking a temporary copy of a remote task's load commands.
+} KSMachOImageGeometry;
+
+// Walk a 64-bit Mach-O load-command region. `cmds` is either the live in-process region or a
+// copy of a remote task's; every offset is bounds-checked against `sizeofcmds` because remote
+// bytes come from a crashed (possibly memory-smashed) process and cannot be trusted.
+// Async-signal-safe (no allocation, no libc beyond strncmp).
+static void walkLoadCommands64(const uint8_t *cmds, uint32_t sizeofcmds, uint32_t ncmds, uintptr_t loadAddress,
+                               KSMachOSectionQuery *queries, uint32_t queryCount, KSMachOImageGeometry *outGeometry)
+{
+    memset(outGeometry, 0, sizeof(*outGeometry));
+
+    uintptr_t minAddr = UINTPTR_MAX;
+    uintptr_t maxAddr = 0;
+    bool foundText = false;
+    bool foundLinkedit = false;
+
+    // Walk via uintptr_t (not uint8_t *) so casts to load_command/segment structs don't trip
+    // -Wcast-align.
+    uintptr_t cmdPtr = (uintptr_t)cmds;
+    const uintptr_t cmdsEnd = cmdPtr + sizeofcmds;
+    for (uint32_t i = 0; i < ncmds; i++) {
+        if (cmdPtr + sizeof(struct load_command) > cmdsEnd) {
+            break;
+        }
+        const struct load_command *lc = (const struct load_command *)cmdPtr;
+        if (lc->cmdsize < sizeof(struct load_command) || cmdPtr + lc->cmdsize > cmdsEnd) {
+            break;
+        }
+        // 64-bit load commands are 8-byte aligned. Magnitude alone is not enough: an unaligned
+        // cmdsize leaves every later cmdPtr misaligned, and the struct casts below then load
+        // 64-bit fields from an odd address (UB, and a trap under -fsanitize=alignment).
+        if (lc->cmdsize % 8 != 0) {
+            break;
+        }
+
+        if (lc->cmd == LC_SEGMENT_64 && lc->cmdsize >= sizeof(struct segment_command_64)) {
+            const struct segment_command_64 *seg = (const struct segment_command_64 *)cmdPtr;
+
+            // __TEXT gives the slide, which converts vmaddrs to runtime addresses, and its
+            // vmsize is the image size in-process reports record.
+            if (!foundText && strncmp(seg->segname, SEG_TEXT, sizeof(seg->segname)) == 0) {
+                outGeometry->slide = loadAddress - (uintptr_t)seg->vmaddr;
+                outGeometry->textSize = (uintptr_t)seg->vmsize;
+                outGeometry->textVMAddr = seg->vmaddr;
+                foundText = true;
+            }
+
+            // __LINKEDIT gives the segment base for symbol lookups.
+            if (!foundLinkedit && strncmp(seg->segname, SEG_LINKEDIT, sizeof(seg->segname)) == 0) {
+                outGeometry->segmentBase = (uintptr_t)(seg->vmaddr - seg->fileoff);
+                foundLinkedit = true;
+            }
+
+            // Match named sections inside this segment. nsects is untrusted (remote bytes),
+            // so the bound is checked in integer space before any pointer arithmetic uses it
+            // (sects + nsects on a hostile count would be out-of-bounds arithmetic, formal UB).
+            if (queryCount > 0) {
+                const struct section_64 *sects =
+                    (const struct section_64 *)(cmdPtr + sizeof(struct segment_command_64));
+                if ((uint64_t)seg->nsects * sizeof(struct section_64) <=
+                    lc->cmdsize - sizeof(struct segment_command_64)) {
+                    for (uint32_t q = 0; q < queryCount; q++) {
+                        if (queries[q].found || strncmp(seg->segname, queries[q].segName, sizeof(seg->segname)) != 0) {
+                            continue;
+                        }
+                        for (uint32_t s = 0; s < seg->nsects; s++) {
+                            if (strncmp(sects[s].sectname, queries[q].sectName, sizeof(sects[s].sectname)) == 0) {
+                                queries[q].addr = (uintptr_t)sects[s].addr;  // slid after the loop
+                                queries[q].size = (uintptr_t)sects[s].size;
+                                queries[q].found = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Store segments with actual file content (exclude __PAGEZERO)
+            if (seg->vmsize > 0 && seg->filesize > 0) {
+                uintptr_t segStart = (uintptr_t)seg->vmaddr;
+                uintptr_t segEnd = segStart + (uintptr_t)seg->vmsize;
+                if (segStart < minAddr) minAddr = segStart;
+                if (segEnd > maxAddr) maxAddr = segEnd;
+                if (outGeometry->segmentCount < KSBIC_MAX_SEGMENTS_PER_IMAGE) {
+                    outGeometry->segments[outGeometry->segmentCount].start = segStart;
+                    outGeometry->segments[outGeometry->segmentCount].end = segEnd;
+                    outGeometry->segmentCount++;
+                }
+            }
+        }
+        if (lc->cmd == LC_UUID && lc->cmdsize >= sizeof(struct uuid_command)) {
+            const struct uuid_command *ucmd = (const struct uuid_command *)cmdPtr;
+            outGeometry->uuid = ucmd->uuid;
+        }
+        // LC_ID_DYLIB carries the version triple reports record for the image.
+        if (lc->cmd == LC_ID_DYLIB && lc->cmdsize >= sizeof(struct dylib_command)) {
+            const struct dylib_command *dcmd = (const struct dylib_command *)cmdPtr;
+            outGeometry->dylibVersion = dcmd->dylib.current_version;
+        }
+        cmdPtr += lc->cmdsize;
+    }
+
+    // Apply the slide now that __TEXT has been seen.
+    const uintptr_t slide = outGeometry->slide;
+    for (uint8_t i = 0; i < outGeometry->segmentCount; i++) {
+        outGeometry->segments[i].start += slide;
+        outGeometry->segments[i].end += slide;
+    }
+    for (uint32_t q = 0; q < queryCount; q++) {
+        if (queries[q].found) {
+            queries[q].addr += slide;
+        }
+    }
+    outGeometry->startAddress = (minAddr == UINTPTR_MAX) ? 0 : (minAddr + slide);
+    outGeometry->endAddress = (maxAddr == 0) ? 0 : (maxAddr + slide);
+}
+
+// The 32-bit sibling of walkLoadCommands64, for MH_MAGIC images (arm64_32 on watchOS).
+// Keep the two in lockstep: same bounds discipline, same geometry, same query handling.
+// Async-signal-safe (no allocation, no libc beyond strncmp).
+static void walkLoadCommands32(const uint8_t *cmds, uint32_t sizeofcmds, uint32_t ncmds, uintptr_t loadAddress,
+                               KSMachOSectionQuery *queries, uint32_t queryCount, KSMachOImageGeometry *outGeometry)
+{
+    memset(outGeometry, 0, sizeof(*outGeometry));
+
+    uintptr_t minAddr = UINTPTR_MAX;
+    uintptr_t maxAddr = 0;
+    bool foundText = false;
+    bool foundLinkedit = false;
+
+    uintptr_t cmdPtr = (uintptr_t)cmds;
+    const uintptr_t cmdsEnd = cmdPtr + sizeofcmds;
+    for (uint32_t i = 0; i < ncmds; i++) {
+        if (cmdPtr + sizeof(struct load_command) > cmdsEnd) {
+            break;
+        }
+        const struct load_command *lc = (const struct load_command *)cmdPtr;
+        if (lc->cmdsize < sizeof(struct load_command) || cmdPtr + lc->cmdsize > cmdsEnd) {
+            break;
+        }
+        // 32-bit load commands are 4-byte aligned; see the 64-bit walker for why magnitude
+        // alone is not enough.
+        if (lc->cmdsize % 4 != 0) {
+            break;
+        }
+
+        if (lc->cmd == LC_SEGMENT && lc->cmdsize >= sizeof(struct segment_command)) {
+            const struct segment_command *seg = (const struct segment_command *)cmdPtr;
+
+            // __TEXT gives the slide, which converts vmaddrs to runtime addresses, and its
+            // vmsize is the image size in-process reports record.
+            if (!foundText && strncmp(seg->segname, SEG_TEXT, sizeof(seg->segname)) == 0) {
+                outGeometry->slide = loadAddress - (uintptr_t)seg->vmaddr;
+                outGeometry->textSize = (uintptr_t)seg->vmsize;
+                outGeometry->textVMAddr = seg->vmaddr;
+                foundText = true;
+            }
+
+            // __LINKEDIT gives the segment base for symbol lookups.
+            if (!foundLinkedit && strncmp(seg->segname, SEG_LINKEDIT, sizeof(seg->segname)) == 0) {
+                outGeometry->segmentBase = (uintptr_t)(seg->vmaddr - seg->fileoff);
+                foundLinkedit = true;
+            }
+
+            // Match named sections inside this segment; nsects is untrusted, same as the
+            // 64-bit walker.
+            if (queryCount > 0) {
+                const struct section *sects = (const struct section *)(cmdPtr + sizeof(struct segment_command));
+                if ((uint64_t)seg->nsects * sizeof(struct section) <= lc->cmdsize - sizeof(struct segment_command)) {
+                    for (uint32_t q = 0; q < queryCount; q++) {
+                        if (queries[q].found || strncmp(seg->segname, queries[q].segName, sizeof(seg->segname)) != 0) {
+                            continue;
+                        }
+                        for (uint32_t s = 0; s < seg->nsects; s++) {
+                            if (strncmp(sects[s].sectname, queries[q].sectName, sizeof(sects[s].sectname)) == 0) {
+                                queries[q].addr = (uintptr_t)sects[s].addr;  // slid after the loop
+                                queries[q].size = (uintptr_t)sects[s].size;
+                                queries[q].found = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Store segments with actual file content (exclude __PAGEZERO)
+            if (seg->vmsize > 0 && seg->filesize > 0) {
+                uintptr_t segStart = (uintptr_t)seg->vmaddr;
+                uintptr_t segEnd = segStart + (uintptr_t)seg->vmsize;
+                if (segStart < minAddr) minAddr = segStart;
+                if (segEnd > maxAddr) maxAddr = segEnd;
+                if (outGeometry->segmentCount < KSBIC_MAX_SEGMENTS_PER_IMAGE) {
+                    outGeometry->segments[outGeometry->segmentCount].start = segStart;
+                    outGeometry->segments[outGeometry->segmentCount].end = segEnd;
+                    outGeometry->segmentCount++;
+                }
+            }
+        }
+        if (lc->cmd == LC_UUID && lc->cmdsize >= sizeof(struct uuid_command)) {
+            const struct uuid_command *ucmd = (const struct uuid_command *)cmdPtr;
+            outGeometry->uuid = ucmd->uuid;
+        }
+        // LC_ID_DYLIB carries the version triple reports record for the image.
+        if (lc->cmd == LC_ID_DYLIB && lc->cmdsize >= sizeof(struct dylib_command)) {
+            const struct dylib_command *dcmd = (const struct dylib_command *)cmdPtr;
+            outGeometry->dylibVersion = dcmd->dylib.current_version;
+        }
+        cmdPtr += lc->cmdsize;
+    }
+
+    // Apply the slide now that __TEXT has been seen.
+    const uintptr_t slide = outGeometry->slide;
+    for (uint8_t i = 0; i < outGeometry->segmentCount; i++) {
+        outGeometry->segments[i].start += slide;
+        outGeometry->segments[i].end += slide;
+    }
+    for (uint32_t q = 0; q < queryCount; q++) {
+        if (queries[q].found) {
+            queries[q].addr += slide;
+        }
+    }
+    outGeometry->startAddress = (minAddr == UINTPTR_MAX) ? 0 : (minAddr + slide);
+    outGeometry->endAddress = (maxAddr == 0) ? 0 : (maxAddr + slide);
+}
+
+// Walk either flavor of header into geometry. Returns false when the magic is neither
+// MH_MAGIC_64 nor MH_MAGIC (a corrupt or byte-swapped header).
+static bool walkImageGeometry(const struct mach_header *header, KSMachOSectionQuery *queries, uint32_t queryCount,
+                              KSMachOImageGeometry *outGeometry)
+{
+    const uintptr_t loadAddr = (uintptr_t)header;
+    if (header->magic == MH_MAGIC_64) {
+        const struct mach_header_64 *header64 = (const struct mach_header_64 *)header;
+        walkLoadCommands64((const uint8_t *)(header64 + 1), header64->sizeofcmds, header64->ncmds, loadAddr, queries,
+                           queryCount, outGeometry);
+        return true;
+    }
+    if (header->magic == MH_MAGIC) {
+        walkLoadCommands32((const uint8_t *)(header + 1), header->sizeofcmds, header->ncmds, loadAddr, queries,
+                           queryCount, outGeometry);
+        return true;
+    }
+    return false;
+}
+
+// Test seam: run the load-command walker over a (possibly synthetic) header and report the
+// recovered geometry. Lets tests exercise the 32-bit walker, which real images on a 64-bit
+// test host never reach. A non-NULL segName/sectName also runs one section query.
+bool ksbic_testcode_walkImageGeometry(const struct mach_header *header, const char *segName, const char *sectName,
+                                      uintptr_t *outSlide, uintptr_t *outSegmentBase, uint8_t *outSegmentCount,
+                                      bool *outHasUUID, uintptr_t *outSectionAddr)
+{
+    KSMachOSectionQuery query = { .segName = segName, .sectName = sectName };
+    const bool hasQuery = segName != NULL && sectName != NULL;
+    KSMachOImageGeometry geometry;
+    if (!walkImageGeometry(header, hasQuery ? &query : NULL, hasQuery ? 1 : 0, &geometry)) {
+        return false;
+    }
+    if (outSlide) *outSlide = geometry.slide;
+    if (outSegmentBase) *outSegmentBase = geometry.segmentBase;
+    if (outSegmentCount) *outSegmentCount = geometry.segmentCount;
+    if (outHasUUID) *outHasUUID = geometry.uuid != NULL;
+    if (outSectionAddr) *outSectionAddr = query.found ? query.addr : 0;
+    return true;
+}
+
 intptr_t ksbic_getImageSlide(const struct mach_header *header)
 {
     if (header == NULL) {
         return 0;
     }
-
-    uintptr_t loadAddr = (uintptr_t)header;
-
-    if (header->magic == MH_MAGIC_64) {
-        const struct mach_header_64 *header64 = (const struct mach_header_64 *)header;
-        uintptr_t cmdPtr = (uintptr_t)(header64 + 1);
-
-        for (uint32_t i = 0; i < header64->ncmds; i++) {
-            const struct load_command *lc = (const struct load_command *)cmdPtr;
-            if (lc->cmd == LC_SEGMENT_64) {
-                const struct segment_command_64 *seg = (const struct segment_command_64 *)cmdPtr;
-                // Check for __TEXT segment
-                if (seg->segname[0] == '_' && seg->segname[1] == '_' && seg->segname[2] == 'T' &&
-                    seg->segname[3] == 'E' && seg->segname[4] == 'X' && seg->segname[5] == 'T' &&
-                    seg->segname[6] == '\0') {
-                    return (intptr_t)(loadAddr - seg->vmaddr);
-                }
-            }
-            cmdPtr += lc->cmdsize;
-        }
-    } else if (header->magic == MH_MAGIC) {
-        uintptr_t cmdPtr = (uintptr_t)(header + 1);
-
-        for (uint32_t i = 0; i < header->ncmds; i++) {
-            const struct load_command *lc = (const struct load_command *)cmdPtr;
-            if (lc->cmd == LC_SEGMENT) {
-                const struct segment_command *seg = (const struct segment_command *)cmdPtr;
-                // Check for __TEXT segment
-                if (seg->segname[0] == '_' && seg->segname[1] == '_' && seg->segname[2] == 'T' &&
-                    seg->segname[3] == 'E' && seg->segname[4] == 'X' && seg->segname[5] == 'T' &&
-                    seg->segname[6] == '\0') {
-                    return (intptr_t)(loadAddr - seg->vmaddr);
-                }
-            }
-            cmdPtr += lc->cmdsize;
-        }
+    KSMachOImageGeometry geometry;
+    if (!walkImageGeometry(header, NULL, 0, &geometry)) {
+        return 0;
     }
-
-    return 0;
+    return (intptr_t)geometry.slide;
 }
 
-// Populate a cache entry with image info including segment ranges.
-// Returns true if the image has valid segments, false otherwise.
-static bool populateCacheEntry(const struct mach_header *header, const char *name, KSBinaryImageRange *entry)
+// Cache unwind section pointers for a live (in-process) image using getsectiondata().
+// getsectiondata() correctly handles images in the dyld shared cache and is
+// async-signal-safe on Apple platforms (its only non-trivial call is strncmp,
+// which is async-signal-safe on Apple platforms).
+// Returns true if the entry has valid segments.
+static bool populateUnwindSections(const struct mach_header *header, const char *name __attribute__((unused)),
+                                   KSBinaryImageRange *entry)
 {
-    *entry = (KSBinaryImageRange) {
-        .header = header,
-        .name = name,
-    };
-
-    if (header == NULL) {
-        return false;
-    }
-
-    uintptr_t loadAddr = (uintptr_t)header;
-    uintptr_t slide = 0;
-    uintptr_t segmentBase = 0;
-    uintptr_t minAddr = UINTPTR_MAX;
-    uintptr_t maxAddr = 0;
-    bool foundText = false;
-    bool foundLinkedit = false;
-    uint8_t segCount = 0;
-
-    if (header->magic == MH_MAGIC_64) {
-        const struct mach_header_64 *header64 = (const struct mach_header_64 *)header;
-        uintptr_t cmdPtr = (uintptr_t)(header64 + 1);
-
-        for (uint32_t i = 0; i < header64->ncmds; i++) {
-            const struct load_command *lc = (const struct load_command *)cmdPtr;
-            if (lc->cmd == LC_SEGMENT_64) {
-                const struct segment_command_64 *seg = (const struct segment_command_64 *)cmdPtr;
-
-                // Check for __TEXT to compute slide (only once)
-                if (!foundText && seg->segname[0] == '_' && seg->segname[1] == '_' && seg->segname[2] == 'T' &&
-                    seg->segname[3] == 'E' && seg->segname[4] == 'X' && seg->segname[5] == 'T' &&
-                    seg->segname[6] == '\0') {
-                    slide = loadAddr - (uintptr_t)seg->vmaddr;
-                    foundText = true;
-                }
-
-                // Check for __LINKEDIT to compute segment base (only once)
-                if (!foundLinkedit && seg->segname[0] == '_' && seg->segname[1] == '_' && seg->segname[2] == 'L' &&
-                    seg->segname[3] == 'I' && seg->segname[4] == 'N' && seg->segname[5] == 'K' &&
-                    seg->segname[6] == 'E' && seg->segname[7] == 'D' && seg->segname[8] == 'I' &&
-                    seg->segname[9] == 'T' && seg->segname[10] == '\0') {
-                    segmentBase = (uintptr_t)(seg->vmaddr - seg->fileoff);
-                    foundLinkedit = true;
-                }
-
-                // Store segments with actual file content (exclude __PAGEZERO)
-                if (seg->vmsize > 0 && seg->filesize > 0) {
-                    uintptr_t segStart = (uintptr_t)seg->vmaddr;
-                    uintptr_t segEnd = segStart + (uintptr_t)seg->vmsize;
-                    if (segStart < minAddr) minAddr = segStart;
-                    if (segEnd > maxAddr) maxAddr = segEnd;
-
-                    // Store segment range (will apply slide after loop)
-                    if (segCount < KSBIC_MAX_SEGMENTS_PER_IMAGE) {
-                        entry->segments[segCount].start = segStart;
-                        entry->segments[segCount].end = segEnd;
-                        segCount++;
-                    } else {
-                        KSLOG_DEBUG("Image %s exceeds max segments (%d), truncating", name ? name : "<unknown>",
-                                    KSBIC_MAX_SEGMENTS_PER_IMAGE);
-                    }
-                }
-            }
-            if (lc->cmd == LC_UUID) {
-                const struct uuid_command *ucmd = (const struct uuid_command *)cmdPtr;
-                entry->uuid = ucmd->uuid;
-            }
-            cmdPtr += lc->cmdsize;
-        }
-    } else if (header->magic == MH_MAGIC) {
-        uintptr_t cmdPtr = (uintptr_t)(header + 1);
-
-        for (uint32_t i = 0; i < header->ncmds; i++) {
-            const struct load_command *lc = (const struct load_command *)cmdPtr;
-            if (lc->cmd == LC_SEGMENT) {
-                const struct segment_command *seg = (const struct segment_command *)cmdPtr;
-
-                // Check for __TEXT to compute slide (only once)
-                if (!foundText && seg->segname[0] == '_' && seg->segname[1] == '_' && seg->segname[2] == 'T' &&
-                    seg->segname[3] == 'E' && seg->segname[4] == 'X' && seg->segname[5] == 'T' &&
-                    seg->segname[6] == '\0') {
-                    slide = loadAddr - (uintptr_t)seg->vmaddr;
-                    foundText = true;
-                }
-
-                // Check for __LINKEDIT to compute segment base (only once)
-                if (!foundLinkedit && seg->segname[0] == '_' && seg->segname[1] == '_' && seg->segname[2] == 'L' &&
-                    seg->segname[3] == 'I' && seg->segname[4] == 'N' && seg->segname[5] == 'K' &&
-                    seg->segname[6] == 'E' && seg->segname[7] == 'D' && seg->segname[8] == 'I' &&
-                    seg->segname[9] == 'T' && seg->segname[10] == '\0') {
-                    segmentBase = (uintptr_t)(seg->vmaddr - seg->fileoff);
-                    foundLinkedit = true;
-                }
-
-                // Store segments with actual file content (exclude __PAGEZERO)
-                if (seg->vmsize > 0 && seg->filesize > 0) {
-                    uintptr_t segStart = (uintptr_t)seg->vmaddr;
-                    uintptr_t segEnd = segStart + (uintptr_t)seg->vmsize;
-                    if (segStart < minAddr) minAddr = segStart;
-                    if (segEnd > maxAddr) maxAddr = segEnd;
-
-                    // Store segment range (will apply slide after loop)
-                    if (segCount < KSBIC_MAX_SEGMENTS_PER_IMAGE) {
-                        entry->segments[segCount].start = segStart;
-                        entry->segments[segCount].end = segEnd;
-                        segCount++;
-                    } else {
-                        KSLOG_DEBUG("Image %s exceeds max segments (%d), truncating", name ? name : "<unknown>",
-                                    KSBIC_MAX_SEGMENTS_PER_IMAGE);
-                    }
-                }
-            }
-            if (lc->cmd == LC_UUID) {
-                const struct uuid_command *ucmd = (const struct uuid_command *)cmdPtr;
-                entry->uuid = ucmd->uuid;
-            }
-            cmdPtr += lc->cmdsize;
-        }
-    }
-
-    // Apply slide to all segment ranges
-    for (uint8_t i = 0; i < segCount; i++) {
-        entry->segments[i].start += slide;
-        entry->segments[i].end += slide;
-    }
-
-    entry->slide = slide;
-    entry->segmentBase = segmentBase;
-    entry->startAddress = (minAddr == UINTPTR_MAX) ? 0 : (minAddr + slide);
-    entry->endAddress = (maxAddr == 0) ? 0 : (maxAddr + slide);
-    entry->segmentCount = segCount;
-
-    // Cache unwind section pointers using getsectiondata().
-    // getsectiondata() correctly handles images in the dyld shared cache and is
-    // async-signal-safe on Apple platforms (its only non-trivial call is strncmp,
-    // which is async-signal-safe on Apple platforms).
     entry->unwindInfo.header = header;
-    entry->unwindInfo.slide = slide;
+    entry->unwindInfo.slide = entry->slide;
 
     unsigned long unwindSectionSize = 0;
     entry->unwindInfo.unwindInfo =
@@ -370,7 +515,39 @@ static bool populateCacheEntry(const struct mach_header *header, const char *nam
                 entry->unwindInfo.unwindInfo, entry->unwindInfo.unwindInfoSize, entry->unwindInfo.ehFrame,
                 entry->unwindInfo.ehFrameSize);
 
-    return (segCount > 0);
+    return (entry->segmentCount > 0);
+}
+
+// Populate a cache entry with image info including segment ranges.
+// Returns true if the image has valid segments, false otherwise.
+static bool populateCacheEntry(const struct mach_header *header, const char *name, KSBinaryImageRange *entry)
+{
+    *entry = (KSBinaryImageRange) {
+        .header = header,
+        .name = name,
+    };
+
+    if (header == NULL) {
+        return false;
+    }
+
+    KSMachOImageGeometry geometry;
+    if (!walkImageGeometry(header, NULL, 0, &geometry)) {
+        return false;
+    }
+
+    entry->slide = geometry.slide;
+    entry->segmentBase = geometry.segmentBase;
+    entry->startAddress = geometry.startAddress;
+    entry->endAddress = geometry.endAddress;
+    entry->segmentCount = geometry.segmentCount;
+    memcpy(entry->segments, geometry.segments, sizeof(entry->segments));
+    // The walked buffer is the live mapped header, so the LC_UUID pointer stays valid.
+    entry->uuid = geometry.uuid;
+
+    // 32-bit images have no unwind sections to find (compact unwind and eh_frame are
+    // 64-bit-only here); populateUnwindSections simply finds nothing for them.
+    return populateUnwindSections(header, name, entry);
 }
 
 // Linear scan through dyld images to find one containing the address.
@@ -650,31 +827,18 @@ const struct mach_header *ksbic_getImageDetailsForAddress(uintptr_t address, uin
     if (cache != NULL) {
         // SUCCESS: We have exclusive access to the cache
 
-        // Use binary search to find candidate entries.
-        // The cache is sorted by startAddress, so we find the rightmost entry
-        // with startAddress <= address, then check it and scan backwards for
-        // overlapping ranges (due to dyld shared cache).
-        int32_t idx = binarySearchCache(cache, address);
+        int32_t idx = findEntryForAddress(cache->entries, cache->count, sizeof(cache->entries[0]), address);
+        if (idx >= 0) {
+            // Cache hit - found the image
+            const KSBinaryImageRange *entry = &cache->entries[idx];
+            if (outSlide) *outSlide = entry->slide;
+            if (outSegmentBase) *outSegmentBase = entry->segmentBase;
+            if (outName) *outName = entry->name;
+            const struct mach_header *result = entry->header;
 
-        // Check the found entry and scan backwards for overlapping ranges
-        while (idx >= 0) {
-            KSBinaryImageRange *entry = &cache->entries[idx];
-
-            // Check if address is in range and verify with segment check
-            if (address >= entry->startAddress && address < entry->endAddress) {
-                if (addressInCachedSegments(entry, address)) {
-                    // Cache hit - found the image
-                    if (outSlide) *outSlide = entry->slide;
-                    if (outSegmentBase) *outSegmentBase = entry->segmentBase;
-                    if (outName) *outName = entry->name;
-                    const struct mach_header *result = entry->header;
-
-                    // Release the cache
-                    atomic_store(&g_cache_ptr, cache);
-                    return result;
-                }
-            }
-            idx--;
+            // Release the cache
+            atomic_store(&g_cache_ptr, cache);
+            return result;
         }
 
         // Cache miss - do linear scan
@@ -780,21 +944,13 @@ bool ksbic_getUnwindInfoForAddress(uintptr_t address, KSBinaryImageUnwindInfo *o
     KSBinaryImageRangeCache *cache = atomic_exchange(&g_cache_ptr, NULL);
 
     if (cache != NULL) {
-        // Binary search for the image containing this address
-        int32_t idx = binarySearchCache(cache, address);
-
-        while (idx >= 0) {
-            KSBinaryImageRange *entry = &cache->entries[idx];
-            if (address >= entry->startAddress && address < entry->endAddress) {
-                if (addressInCachedSegments(entry, address)) {
-                    if (outInfo) {
-                        *outInfo = entry->unwindInfo;
-                    }
-                    atomic_store(&g_cache_ptr, cache);
-                    return true;
-                }
+        int32_t idx = findEntryForAddress(cache->entries, cache->count, sizeof(cache->entries[0]), address);
+        if (idx >= 0) {
+            if (outInfo) {
+                *outInfo = cache->entries[idx].unwindInfo;
             }
-            idx--;
+            atomic_store(&g_cache_ptr, cache);
+            return true;
         }
 
         // Cache miss — populate and add
@@ -870,22 +1026,264 @@ const uint8_t *ksbic_getUUIDForHeader(const struct mach_header *header)
 
 // MARK: - Image Sets (another task's images, or a snapshot of this one's)
 
+// One set entry: the shared geometry plus, for remote sets, the source-task coordinates of the
+// unwind sections. Remote sections are copied out of the task lazily on the first lookup that
+// hits this image: a backtrace touches a few dozen of the hundreds of images in a process, so
+// eager copying would pin several MB of section bytes up front.
+typedef struct {
+    KSBinaryImageRange range;
+    task_t sourceTask;           // MACH_PORT_NULL for local entries (sections already mapped)
+    uintptr_t remoteUnwindAddr;  // slid, in sourceTask's address space
+    uintptr_t remoteUnwindSize;
+    uintptr_t remoteEhAddr;
+    uintptr_t remoteEhSize;
+    // Resolved independently (each true once its lazy copy ran; both always true for local
+    // entries): compact unwind almost always decides a frame, so the often-huge __eh_frame
+    // is only copied when a DWARF lookup requests it.
+    bool unwindInfoResolved;
+    bool ehFrameResolved;
+} KSBinaryImageSetEntry;
+
 // A set owns its entries inline via a flexible array. Entries are sorted by start address at
-// creation for binary-search lookups. Built once and queried read-only, so it needs no locking
-// or the atomic-swap dance the live cache uses.
+// creation for binary-search lookups. Queried from a single thread (the lazy section copy
+// mutates entries), so it needs no locking or the atomic-swap dance the live cache uses. Copied
+// section buffers are owned by the set and freed on destroy.
 struct KSBinaryImageSet {
     uint32_t count;
-    KSBinaryImageRange entries[];
+    uint32_t ownedCount;              // number of entries in ownedBuffers
+    void **ownedBuffers;              // section-byte copies owned by this set, or NULL when none
+    KSBinaryImageSetEntry entries[];  // flexible array member, must stay last
 };
 
 static int compareSetEntriesByStart(const void *a, const void *b)
 {
-    const KSBinaryImageRange *ea = (const KSBinaryImageRange *)a;
-    const KSBinaryImageRange *eb = (const KSBinaryImageRange *)b;
-    if (ea->startAddress != eb->startAddress) {
-        return ea->startAddress < eb->startAddress ? -1 : 1;
+    const KSBinaryImageSetEntry *ea = (const KSBinaryImageSetEntry *)a;
+    const KSBinaryImageSetEntry *eb = (const KSBinaryImageSetEntry *)b;
+    if (ea->range.startAddress != eb->range.startAddress) {
+        return ea->range.startAddress < eb->range.startAddress ? -1 : 1;
     }
     return 0;
+}
+
+// Copy a section's bytes out of `task` into a newly malloc'd buffer. Returns NULL on failure or an
+// implausible size. The caller owns the returned buffer.
+static void *copySectionFromTask(task_t task, uintptr_t runtimeAddr, uintptr_t size)
+{
+    const uintptr_t maxSectionSize = 128u * 1024 * 1024;  // generous; real unwind sections are far smaller
+    if (size == 0 || size > maxSectionSize) {
+        return NULL;
+    }
+    void *buffer = malloc(size);
+    if (buffer == NULL) {
+        return NULL;
+    }
+    if (!ksmem_copySafelyFromTask(task, (const void *)runtimeAddr, buffer, (int)size)) {
+        free(buffer);
+        return NULL;
+    }
+    return buffer;
+}
+
+// Copy a (64-bit) Mach-O header and its load commands out of `task`. Returns the malloc'd
+// load-command buffer (caller frees) or NULL on failure, garbage sizes, or a 32-bit image.
+static uint8_t *copyLoadCommandsFromTask(task_t task, uintptr_t loadAddress, struct mach_header_64 *outHeader)
+{
+    if (!ksmem_copySafelyFromTask(task, (const void *)loadAddress, outHeader, sizeof(*outHeader)) ||
+        outHeader->magic != MH_MAGIC_64) {
+        return NULL;
+    }
+
+    // Sanity-bound the load-command region before allocating, in case the header is garbage.
+    const uint32_t maxCmdsSize = 1u << 20;  // 1 MiB; real load-command regions are a few KiB.
+    if (outHeader->sizeofcmds == 0 || outHeader->sizeofcmds > maxCmdsSize) {
+        return NULL;
+    }
+    uint8_t *cmds = malloc(outHeader->sizeofcmds);
+    if (cmds == NULL) {
+        return NULL;
+    }
+    if (!ksmem_copySafelyFromTask(task, (const void *)(loadAddress + sizeof(struct mach_header_64)), cmds,
+                                  (int)outHeader->sizeofcmds)) {
+        free(cmds);
+        return NULL;
+    }
+    return cmds;
+}
+
+bool ksbic_fillTaskImage(task_t task, uintptr_t loadAddress, KSBinaryImage *outImage)
+{
+    if (outImage == NULL) {
+        return false;
+    }
+    struct mach_header_64 header;
+    uint8_t *cmds = copyLoadCommandsFromTask(task, loadAddress, &header);
+    if (cmds == NULL) {
+        return false;
+    }
+    KSMachOImageGeometry geometry;
+    walkLoadCommands64(cmds, header.sizeofcmds, header.ncmds, loadAddress, NULL, 0, &geometry);
+    free(cmds);
+    if (geometry.textSize == 0) {
+        return false;
+    }
+
+    outImage->address = loadAddress;
+    outImage->vmAddress = geometry.textVMAddr;
+    outImage->vmAddressSlide = (uint64_t)geometry.slide;
+    outImage->size = geometry.textSize;
+    // Reports carry the version as a triple; the load command packs it as xxxx.yy.zz in a
+    // single 32-bit field, unpacked exactly as ksdl_binaryImageForHeader does in-process.
+    outImage->majorVersion = geometry.dylibVersion >> 16;
+    outImage->minorVersion = (geometry.dylibVersion >> 8) & 0xff;
+    outImage->revisionVersion = geometry.dylibVersion & 0xff;
+    return true;
+}
+
+// Read and parse one image's Mach-O header from a (possibly remote) task, recovering the geometry
+// the unwinder needs: slide, segment ranges, and the __unwind_info/__eh_frame section coordinates.
+// Copies load commands out of `task` instead of dereferencing a mapped header, so it works against
+// another process. 64-bit only. Not async-signal-safe (allocates).
+//
+// The section bytes themselves are NOT copied here; the entry records their coordinates in the
+// source task, and the first set lookup that hits this image copies them (see
+// resolveSetEntrySections).
+static bool populateEntryFromTask(task_t task, uintptr_t loadAddress, const char *name, KSBinaryImageSetEntry *entry)
+{
+    *entry = (KSBinaryImageSetEntry) {
+        .range = { .header = (const struct mach_header *)loadAddress, .name = name },
+        .sourceTask = task,
+    };
+
+    struct mach_header_64 header;
+    uint8_t *cmds = copyLoadCommandsFromTask(task, loadAddress, &header);
+    if (cmds == NULL) {
+        // Unreadable, garbage, or a 32-bit image (unsupported when reading another task).
+        return false;
+    }
+
+    KSMachOSectionQuery queries[] = {
+        { .segName = SEG_TEXT, .sectName = "__unwind_info" },
+        { .segName = SEG_TEXT, .sectName = "__eh_frame" },
+    };
+    KSMachOImageGeometry geometry;
+    walkLoadCommands64(cmds, header.sizeofcmds, header.ncmds, loadAddress, queries, 2, &geometry);
+    free(cmds);
+    // Note: geometry.uuid would point into the freed cmds buffer, so it is deliberately unused.
+
+    if (geometry.segmentCount == 0) {
+        return false;
+    }
+
+    entry->range.slide = geometry.slide;
+    entry->range.segmentBase = geometry.segmentBase;
+    entry->range.startAddress = geometry.startAddress;
+    entry->range.endAddress = geometry.endAddress;
+    entry->range.segmentCount = geometry.segmentCount;
+    memcpy(entry->range.segments, geometry.segments, sizeof(entry->range.segments));
+    entry->range.unwindInfo.header = (const struct mach_header *)loadAddress;
+    entry->range.unwindInfo.slide = geometry.slide;
+
+    entry->remoteUnwindAddr = queries[0].addr;
+    entry->remoteUnwindSize = queries[0].size;
+    entry->remoteEhAddr = queries[1].addr;
+    entry->remoteEhSize = queries[1].size;
+    return true;
+}
+
+// Lazily copy the requested unwind sections of a remote entry out of its source task. A failed
+// or absent copy leaves that section's fields empty (unwindable via frame pointers only), and
+// is not retried.
+/** True when a section recorded from @c entry's header actually lies inside that image.
+ *
+ * The address and size come from an untrusted section_64 in a possibly memory-smashed process,
+ * and copySectionFromTask sizes a malloc from them before any read can reject them. The image's
+ * own segment span is the natural bound. When the span is unknown (no segments were recovered)
+ * this defers to copySectionFromTask's absolute cap rather than refusing outright.
+ */
+static bool sectionLiesWithinImage(const KSBinaryImageSetEntry *entry, uintptr_t addr, uintptr_t size)
+{
+    const uintptr_t start = entry->range.startAddress;
+    const uintptr_t end = entry->range.endAddress;
+    if (start == 0 || end <= start) {
+        return true;
+    }
+    if (addr < start || addr >= end) {
+        return false;
+    }
+    // Subtraction rather than addr + size, which can wrap on a hostile size.
+    return size <= (uintptr_t)(end - addr);
+}
+
+static void resolveSetEntrySections(KSBinaryImageSet *set, KSBinaryImageSetEntry *entry, uint32_t wantedSections)
+{
+    if ((wantedSections & KSBinaryImageUnwindSectionCompactUnwind) && !entry->unwindInfoResolved) {
+        entry->unwindInfoResolved = true;
+        if (entry->remoteUnwindSize > 0 &&
+            sectionLiesWithinImage(entry, entry->remoteUnwindAddr, entry->remoteUnwindSize)) {
+            void *copy = copySectionFromTask(entry->sourceTask, entry->remoteUnwindAddr, entry->remoteUnwindSize);
+            if (copy != NULL) {
+                set->ownedBuffers[set->ownedCount++] = copy;
+                entry->range.unwindInfo.unwindInfo = copy;
+                entry->range.unwindInfo.unwindInfoSize = (size_t)entry->remoteUnwindSize;
+                entry->range.unwindInfo.hasCompactUnwind = true;
+            }
+        }
+    }
+    if ((wantedSections & KSBinaryImageUnwindSectionEhFrame) && !entry->ehFrameResolved) {
+        entry->ehFrameResolved = true;
+        if (entry->remoteEhSize > 0 && sectionLiesWithinImage(entry, entry->remoteEhAddr, entry->remoteEhSize)) {
+            void *copy = copySectionFromTask(entry->sourceTask, entry->remoteEhAddr, entry->remoteEhSize);
+            if (copy != NULL) {
+                set->ownedBuffers[set->ownedCount++] = copy;
+                entry->range.unwindInfo.ehFrame = copy;
+                entry->range.unwindInfo.ehFrameSize = (size_t)entry->remoteEhSize;
+                // Records where the copy lives versus the target so the DWARF unwinder resolves
+                // pc-relative pointers back into the target's address space.
+                entry->range.unwindInfo.ehFrameRuntimeDelta = entry->remoteEhAddr - (uintptr_t)copy;
+                entry->range.unwindInfo.hasEhFrame = true;
+            }
+        }
+    }
+}
+
+KSBinaryImageSet *ksbic_createSetFromTaskImages(task_t task, const KSBinaryImageDescriptor *images, uint32_t count)
+{
+    KSBinaryImageSet *set = malloc(sizeof(KSBinaryImageSet) + (size_t)count * sizeof(KSBinaryImageSetEntry));
+    if (set == NULL) {
+        return NULL;
+    }
+    set->count = 0;
+    set->ownedCount = 0;
+    // Each image contributes at most two copied buffers (unwind_info + eh_frame).
+    set->ownedBuffers = count > 0 ? malloc((size_t)count * 2 * sizeof(void *)) : NULL;
+    if (count > 0 && set->ownedBuffers == NULL) {
+        free(set);
+        return NULL;
+    }
+
+    uint32_t n = 0;
+    for (uint32_t i = 0; i < count; i++) {
+        if (populateEntryFromTask(task, images[i].loadAddress, images[i].name, &set->entries[n])) {
+            n++;
+        }
+    }
+    set->count = n;
+    qsort(set->entries, n, sizeof(*set->entries), compareSetEntriesByStart);
+    return set;
+}
+
+// Fill one set entry from a live in-process image. The sections are already mapped, so the
+// entry is born resolved and there is nothing to copy lazily.
+static bool populateLocalSetEntry(const struct mach_header *header, const char *name, KSBinaryImageSetEntry *entry)
+{
+    memset(entry, 0, sizeof(*entry));
+    if (!populateCacheEntry(header, name, &entry->range)) {
+        return false;
+    }
+    entry->sourceTask = MACH_PORT_NULL;
+    entry->unwindInfoResolved = true;
+    entry->ehFrameResolved = true;
+    return true;
 }
 
 KSBinaryImageSet *ksbic_createSetFromLocalImages(void)
@@ -895,20 +1293,23 @@ KSBinaryImageSet *ksbic_createSetFromLocalImages(void)
 
     // +1 because dyld is not part of the normal image list (see ksbic_getDyldHeader).
     uint32_t capacity = imageCount + 1;
-    KSBinaryImageSet *set = malloc(sizeof(KSBinaryImageSet) + (size_t)capacity * sizeof(KSBinaryImageRange));
+    KSBinaryImageSet *set = malloc(sizeof(KSBinaryImageSet) + (size_t)capacity * sizeof(KSBinaryImageSetEntry));
     if (set == NULL) {
         return NULL;
     }
+    // Entries point at mapped image memory, so this set owns no copied buffers.
+    set->ownedCount = 0;
+    set->ownedBuffers = NULL;
 
     uint32_t n = 0;
     for (uint32_t i = 0; i < imageCount; i++) {
         const struct mach_header *header = images[i].imageLoadAddress;
-        if (header != NULL && populateCacheEntry(header, images[i].imageFilePath, &set->entries[n])) {
+        if (header != NULL && populateLocalSetEntry(header, images[i].imageFilePath, &set->entries[n])) {
             n++;
         }
     }
     const struct mach_header *dyldHeader = ksbic_getDyldHeader();
-    if (dyldHeader != NULL && populateCacheEntry(dyldHeader, ksbic_getDyldPath(), &set->entries[n])) {
+    if (dyldHeader != NULL && populateLocalSetEntry(dyldHeader, ksbic_getDyldPath(), &set->entries[n])) {
         n++;
     }
 
@@ -917,38 +1318,37 @@ KSBinaryImageSet *ksbic_createSetFromLocalImages(void)
     return set;
 }
 
-void ksbic_destroySet(KSBinaryImageSet *set) { free(set); }
+void ksbic_destroySet(KSBinaryImageSet *set)
+{
+    if (set == NULL) {
+        return;
+    }
+    for (uint32_t i = 0; i < set->ownedCount; i++) {
+        free(set->ownedBuffers[i]);
+    }
+    free(set->ownedBuffers);
+    free(set);
+}
 
-bool ksbic_getUnwindInfoForAddressInSet(const KSBinaryImageSet *set, uintptr_t address,
+bool ksbic_getUnwindInfoForAddressInSet(const KSBinaryImageSet *set, uintptr_t address, uint32_t wantedSections,
                                         KSBinaryImageUnwindInfo *outInfo)
 {
     if (set == NULL) {
         return false;
     }
 
-    // Binary search for the rightmost entry with startAddress <= address, then scan backwards
-    // for overlapping ranges (shared-cache images interleave), matching the live cache's lookup.
-    int32_t left = 0;
-    int32_t right = (int32_t)set->count - 1;
-    int32_t idx = -1;
-    while (left <= right) {
-        int32_t mid = left + (right - left) / 2;
-        if (set->entries[mid].startAddress <= address) {
-            idx = mid;
-            left = mid + 1;
-        } else {
-            right = mid - 1;
-        }
+    // Set entries lead with a KSBinaryImageRange, so the shared range lookup works on them.
+    int32_t idx = findEntryForAddress(set->entries, set->count, sizeof(set->entries[0]), address);
+    if (idx < 0) {
+        return false;
     }
 
-    for (; idx >= 0; idx--) {
-        const KSBinaryImageRange *entry = &set->entries[idx];
-        if (address >= entry->startAddress && address < entry->endAddress && addressInCachedSegments(entry, address)) {
-            if (outInfo != NULL) {
-                *outInfo = entry->unwindInfo;
-            }
-            return true;
-        }
+    // The set is logically read-only; the lazy section copy below is a cache fill, which is
+    // why sets are documented as single-thread only.
+    KSBinaryImageSetEntry *entry = (KSBinaryImageSetEntry *)&set->entries[idx];
+    resolveSetEntrySections((KSBinaryImageSet *)set, entry, wantedSections);
+    if (outInfo != NULL) {
+        *outInfo = entry->range.unwindInfo;
     }
-    return false;
+    return true;
 }
