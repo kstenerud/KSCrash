@@ -9,6 +9,7 @@
 #import <mach-o/compact_unwind_encoding.h>
 #import <mach-o/dyld.h>
 #import <mach-o/loader.h>
+#import <mach/mach.h>
 #import <pthread.h>
 
 #import "KSBacktrace.h"
@@ -730,7 +731,7 @@ static KSTestUnwindSection validTestUnwindSection(void)
     uintptr_t bp = 0;  // No base pointer for frameless
 
     KSCompactUnwindResult result;
-    bool success = kscu_x86_64_decode(encoding, 0x1000, sp, bp, &result);
+    bool success = kscu_x86_64_decode(encoding, 0x1000, sp, bp, &result, mach_task_self());
 
     XCTAssertTrue(success, @"Frameless leaf decode should succeed");
     XCTAssertTrue(result.valid, @"Result should be valid");
@@ -763,7 +764,7 @@ static KSTestUnwindSection validTestUnwindSection(void)
     uintptr_t bp = 0;
 
     KSCompactUnwindResult result;
-    bool success = kscu_x86_64_decode(encoding, 0x1000, sp, bp, &result);
+    bool success = kscu_x86_64_decode(encoding, 0x1000, sp, bp, &result, mach_task_self());
 
     XCTAssertTrue(success, @"Frameless non-leaf decode should succeed");
     XCTAssertTrue(result.valid, @"Result should be valid");
@@ -790,7 +791,7 @@ static KSTestUnwindSection validTestUnwindSection(void)
     uintptr_t sp = (uintptr_t)&mockStack[0];
 
     KSCompactUnwindResult result;
-    bool success = kscu_x86_64_decode(encoding, 0x1000, sp, 0, &result);
+    bool success = kscu_x86_64_decode(encoding, 0x1000, sp, 0, &result, mach_task_self());
 
     XCTAssertTrue(success, @"Frameless with larger stack should succeed");
     XCTAssertEqual(result.returnAddress, 0xCAFEBABE12345678, @"Return address should be at RSP+64");
@@ -820,7 +821,7 @@ static KSTestUnwindSection validTestUnwindSection(void)
     uintptr_t sp = (uintptr_t)&mockStack[0];
 
     KSCompactUnwindResult result;
-    bool success = kscu_x86_decode(encoding, 0x1000, sp, 0, &result);
+    bool success = kscu_x86_decode(encoding, 0x1000, sp, 0, &result, mach_task_self());
 
     XCTAssertTrue(success, @"Frameless leaf decode should succeed");
     XCTAssertTrue(result.valid, @"Result should be valid");
@@ -848,7 +849,7 @@ static KSTestUnwindSection validTestUnwindSection(void)
     uintptr_t sp = (uintptr_t)&mockStack[0];
 
     KSCompactUnwindResult result;
-    bool success = kscu_x86_decode(encoding, 0x1000, sp, 0, &result);
+    bool success = kscu_x86_decode(encoding, 0x1000, sp, 0, &result, mach_task_self());
 
     XCTAssertTrue(success, @"Frameless non-leaf decode should succeed");
     XCTAssertEqual(result.returnAddress, 0xDEADBEEF, @"Return address should be at ESP+16");
@@ -885,7 +886,7 @@ static KSTestUnwindSection validTestUnwindSection(void)
     uintptr_t lr = 0x9999999999999999;  // Should be ignored for frame-based
 
     KSCompactUnwindResult result;
-    bool success = kscu_arm64_decode(encoding, 0x1000, sp, fp, lr, &result);
+    bool success = kscu_arm64_decode(encoding, 0x1000, sp, fp, lr, &result, mach_task_self());
 
     XCTAssertTrue(success, @"Frame-based decode should succeed");
     XCTAssertTrue(result.valid, @"Result should be valid");
@@ -920,7 +921,7 @@ static KSTestUnwindSection validTestUnwindSection(void)
     uintptr_t sp = (uintptr_t)&mockStack[0];  // SP at bottom
 
     KSCompactUnwindResult result;
-    bool success = kscu_arm64_decode(encoding, 0x1000, sp, fp, 0, &result);
+    bool success = kscu_arm64_decode(encoding, 0x1000, sp, fp, 0, &result, mach_task_self());
 
     XCTAssertTrue(success, @"Frame-based with saved regs should succeed");
     XCTAssertTrue(result.valid, @"Result should be valid");
@@ -944,7 +945,7 @@ static KSTestUnwindSection validTestUnwindSection(void)
     uintptr_t lr = 0xDEADBEEFCAFEBABE;
 
     KSCompactUnwindResult result;
-    bool success = kscu_arm64_decode(encoding, 0x1000, sp, fp, lr, &result);
+    bool success = kscu_arm64_decode(encoding, 0x1000, sp, fp, lr, &result, mach_task_self());
 
     XCTAssertTrue(success, @"Frameless leaf decode should succeed");
     XCTAssertTrue(result.valid, @"Result should be valid");
@@ -978,7 +979,7 @@ static KSTestUnwindSection validTestUnwindSection(void)
     uintptr_t fp = 0x9000;  // Should be passed through
 
     KSCompactUnwindResult result;
-    bool success = kscu_arm64_decode(encoding, 0x1000, sp, fp, 0, &result);
+    bool success = kscu_arm64_decode(encoding, 0x1000, sp, fp, 0, &result, mach_task_self());
 
     XCTAssertTrue(success, @"Frameless non-leaf decode should succeed");
     XCTAssertTrue(result.valid, @"Result should be valid");
@@ -1006,7 +1007,7 @@ static KSTestUnwindSection validTestUnwindSection(void)
     uintptr_t sp = (uintptr_t)&mockStack[0];
 
     KSCompactUnwindResult result;
-    bool success = kscu_arm64_decode(encoding, 0x1000, sp, 0x5000, 0, &result);
+    bool success = kscu_arm64_decode(encoding, 0x1000, sp, 0x5000, 0, &result, mach_task_self());
 
     XCTAssertTrue(success, @"Frameless with larger stack should succeed");
     XCTAssertEqual(result.returnAddress, 0xCAFEBABE12345678, @"Return address should be at SP+120");
@@ -1020,7 +1021,7 @@ static KSTestUnwindSection validTestUnwindSection(void)
     compact_unwind_encoding_t encoding = KSCU_UNWIND_ARM64_MODE_DWARF;
 
     KSCompactUnwindResult result;
-    bool success = kscu_arm64_decode(encoding, 0x1000, 0x2000, 0x3000, 0x4000, &result);
+    bool success = kscu_arm64_decode(encoding, 0x1000, 0x2000, 0x3000, 0x4000, &result, mach_task_self());
 
     XCTAssertFalse(success, @"DWARF mode should fail compact unwind decode");
     XCTAssertFalse(result.valid, @"Result should not be valid");
@@ -1033,7 +1034,7 @@ static KSTestUnwindSection validTestUnwindSection(void)
     compact_unwind_encoding_t encoding = KSCU_UNWIND_ARM64_MODE_FRAME;
 
     KSCompactUnwindResult result;
-    bool success = kscu_arm64_decode(encoding, 0x1000, 0x2000, 0, 0x4000, &result);
+    bool success = kscu_arm64_decode(encoding, 0x1000, 0x2000, 0, 0x4000, &result, mach_task_self());
 
     XCTAssertFalse(success, @"Frame-based with NULL FP should fail");
 }
@@ -1172,7 +1173,7 @@ static bool expressionEndsWithin(const uint8_t *expr, size_t len, const uint8_t 
     size_t fdeSize = sizeof(fdeData);
 
     KSDwarfCFIRow row;
-    bool success = ksdwarf_buildCFIRow(cieData, cieSize, fdeData, fdeSize, 0x1000, false, &row);
+    bool success = ksdwarf_buildCFIRow(cieData, cieSize, fdeData, fdeSize, 0x1000, false, &row, mach_task_self());
 
     XCTAssertTrue(success, @"Building CFI row should succeed");
     XCTAssertEqual(row.cfaRegister, 7, @"CFA register should be r7");
@@ -1221,7 +1222,7 @@ static bool expressionEndsWithin(const uint8_t *expr, size_t len, const uint8_t 
 
     // Build row at PC 0x1003 (after restore)
     KSDwarfCFIRow row;
-    bool success = ksdwarf_buildCFIRow(cieData, cieSize, fdeData, fdeSize, 0x1003, false, &row);
+    bool success = ksdwarf_buildCFIRow(cieData, cieSize, fdeData, fdeSize, 0x1003, false, &row, mach_task_self());
 
     XCTAssertTrue(success, @"Building CFI row should succeed");
 
@@ -1264,7 +1265,7 @@ static bool expressionEndsWithin(const uint8_t *expr, size_t len, const uint8_t 
     size_t fdeSize = sizeof(fdeData);
 
     KSDwarfCFIRow row;
-    bool success = ksdwarf_buildCFIRow(cieData, cieSize, fdeData, fdeSize, 0x1003, false, &row);
+    bool success = ksdwarf_buildCFIRow(cieData, cieSize, fdeData, fdeSize, 0x1003, false, &row, mach_task_self());
 
     XCTAssertTrue(success, @"Building CFI row should succeed");
     XCTAssertEqual(row.registers[32].type, KSDwarfRuleOffset, @"Register 32 should have offset rule");
@@ -1308,7 +1309,7 @@ static bool expressionEndsWithin(const uint8_t *expr, size_t len, const uint8_t 
 
     // Build row at PC 0x1004 (after restore_state)
     KSDwarfCFIRow row;
-    bool success = ksdwarf_buildCFIRow(cieData, cieSize, fdeData, fdeSize, 0x1004, false, &row);
+    bool success = ksdwarf_buildCFIRow(cieData, cieSize, fdeData, fdeSize, 0x1004, false, &row, mach_task_self());
 
     XCTAssertTrue(success, @"Building CFI row should succeed");
 
@@ -1415,7 +1416,7 @@ static bool expressionEndsWithin(const uint8_t *expr, size_t len, const uint8_t 
     uintptr_t sp = (uintptr_t)&stack[0];
 
     KSDwarfUnwindResult result;
-    bool success = ksdwarf_unwind(ehFrame, ehLen, 0x1000, sp, 0, 0, 0, &result);
+    bool success = ksdwarf_unwind(ehFrame, ehLen, 0x1000, sp, 0, 0, 0, &result, mach_task_self());
     XCTAssertTrue(success, @"DWARF unwind with expression should succeed");
     XCTAssertTrue(result.valid, @"Result should be valid");
     XCTAssertEqual(result.returnAddress, expectedRA, @"Return address should be loaded via expression");
@@ -1503,7 +1504,7 @@ static bool expressionEndsWithin(const uint8_t *expr, size_t len, const uint8_t 
     uintptr_t sp = (uintptr_t)&stack[0];
 
     KSDwarfUnwindResult result;
-    bool success = ksdwarf_unwind(ehFrame, ehLen, 0x1000, sp, 0, 0, 0, &result);
+    bool success = ksdwarf_unwind(ehFrame, ehLen, 0x1000, sp, 0, 0, 0, &result, mach_task_self());
     XCTAssertTrue(success, @"DWARF unwind with CFA expression should succeed");
     XCTAssertTrue(result.valid, @"Result should be valid");
     XCTAssertEqual(result.returnAddress, expectedRA, @"Return address should be loaded at CFA");
@@ -1593,7 +1594,7 @@ static bool expressionEndsWithin(const uint8_t *expr, size_t len, const uint8_t 
     uintptr_t sp = (uintptr_t)&stack[0];
 
     KSDwarfUnwindResult result;
-    bool success = ksdwarf_unwind(ehFrame, ehLen, 0x1000, sp, 0, 0, 0, &result);
+    bool success = ksdwarf_unwind(ehFrame, ehLen, 0x1000, sp, 0, 0, 0, &result, mach_task_self());
     XCTAssertTrue(success, @"DWARF unwind with stack_value should succeed");
     XCTAssertTrue(result.valid, @"Result should be valid");
     XCTAssertEqual(result.returnAddress, expectedRA, @"Return address should match stack_value expression");
@@ -1680,12 +1681,12 @@ static bool expressionEndsWithin(const uint8_t *expr, size_t len, const uint8_t 
     size_t cieSize = 0;
     bool is64bit = false;
 
-    bool found = ksdwarf_findFDE(ehFrame, ehLen, 0x1000, 0, &fde, &fdeSize, &cie, &cieSize, &is64bit);
+    bool found = ksdwarf_findFDE(ehFrame, ehLen, 0x1000, 0, &fde, &fdeSize, &cie, &cieSize, &is64bit, mach_task_self());
     XCTAssertTrue(found, @"Should find FDE in 64-bit DWARF data");
     XCTAssertTrue(is64bit, @"Should report 64-bit DWARF format");
 
     KSDwarfCFIRow row;
-    bool success = ksdwarf_buildCFIRow(cie, cieSize, fde, fdeSize, 0x1000, is64bit, &row);
+    bool success = ksdwarf_buildCFIRow(cie, cieSize, fde, fdeSize, 0x1000, is64bit, &row, mach_task_self());
     XCTAssertTrue(success, @"Building CFI row should succeed for 64-bit format");
     XCTAssertEqual(row.cfaRegister, cfaReg, @"CFA register should match");
     XCTAssertEqual(row.cfaOffset, ptrSize, @"CFA offset should match pointer size");
@@ -1710,14 +1711,14 @@ static bool expressionEndsWithin(const uint8_t *expr, size_t len, const uint8_t 
     bool is64bit = false;
 
     bool found = ksdwarf_findFDE(info.ehFrame, info.ehFrameSize, address, (uintptr_t)info.header, &fde, &fdeSize, &cie,
-                                 &cieSize, &is64bit);
+                                 &cieSize, &is64bit, mach_task_self());
     if (!found) {
         // The test function might not have FDE (e.g., leaf function with no unwind info)
         XCTSkip(@"No FDE found for test helper function - this is expected for simple leaf functions");
     }
 
     KSDwarfCFIRow row;
-    bool built = ksdwarf_buildCFIRow(cie, cieSize, fde, fdeSize, address, is64bit, &row);
+    bool built = ksdwarf_buildCFIRow(cie, cieSize, fde, fdeSize, address, is64bit, &row, mach_task_self());
     XCTAssertTrue(built, @"Should build CFI row from real __eh_frame data");
 }
 

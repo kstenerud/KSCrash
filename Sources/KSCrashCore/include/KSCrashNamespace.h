@@ -463,6 +463,7 @@
 #define ksmc_suspendEnvironment KSCRASH_NS(ksmc_suspendEnvironment)
 #define ksmem_copyMaxPossible KSCRASH_NS(ksmem_copyMaxPossible)
 #define ksmem_copySafely KSCRASH_NS(ksmem_copySafely)
+#define ksmem_copySafelyFromTask KSCRASH_NS(ksmem_copySafelyFromTask)
 #define ksmem_isMemoryReadable KSCRASH_NS(ksmem_isMemoryReadable)
 #define ksmem_maxReadableBytes KSCRASH_NS(ksmem_maxReadableBytes)
 #define ksobjc_arrayContents KSCRASH_NS(ksobjc_arrayContents)
