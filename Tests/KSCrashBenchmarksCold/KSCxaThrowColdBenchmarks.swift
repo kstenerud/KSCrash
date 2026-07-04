@@ -24,11 +24,26 @@
 // THE SOFTWARE.
 //
 
+import Darwin
 import KSCrashRecordingCore
 import XCTest
 
 // Dummy handler for benchmarking - does nothing
 private let dummyHandler: cxa_throw_type = { _, _, _ in }
+
+// True when the process is running under a sanitizer (ASan/TSan/UBSan), used to
+// skip this benchmark (it conflicts with a sanitizer and SEGVs under TSan).
+// Copied from KSBenchmarkTestCase because this cold benchmark is a separate SPM
+// target and can't share code with it; see there for why the sanitizer is probed
+// with dlsym rather than a C-macro `#if`, a shared module, or a build flag.
+private func isRunningUnderSanitizer() -> Bool {
+    // RTLD_DEFAULT (search every loaded image) is not exported to Swift, so spell
+    // out its pseudo-handle value.
+    let rtldDefault = UnsafeMutableRawPointer(bitPattern: -2)
+    return ["__asan_init", "__tsan_init", "__ubsan_handle_add_overflow"].contains { symbol in
+        symbol.withCString { dlsym(rtldDefault, $0) != nil }
+    }
+}
 
 /// This test target runs in its own process to ensure true cold measurement.
 /// No other tests run before this, guaranteeing:
@@ -41,11 +56,8 @@ class KSCxaThrowColdBenchmarks: XCTestCase {
     /// This test runs in an isolated process to ensure truly cold state.
     /// Uses iterationCount=1 with a counter trick: warmup iteration does nothing,
     /// measured iteration runs the actual cold installation.
-    func testBenchmarkSwapInstallationCold() {
-        #if KSCRASH_HAS_SANITIZER
-            print("Skipping benchmark - sanitizers are enabled")
-            return
-        #endif
+    func testBenchmarkSwapInstallationCold() throws {
+        try XCTSkipIf(isRunningUnderSanitizer(), "Sanitizers conflict with __cxa_throw swapper")
 
         var iteration = 0
 
