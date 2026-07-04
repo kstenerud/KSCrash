@@ -206,6 +206,54 @@ bool ksbic_getUnwindInfoForHeader(const struct mach_header *_Nullable header,
  */
 bool ksbic_getUnwindInfoForAddress(uintptr_t address, KSBinaryImageUnwindInfo *_Nullable outInfo);
 
+/**
+ * An immutable, self-contained snapshot of binary images and their unwind info.
+ *
+ * Unlike the live cache (which reads the running process's dyld image list), a set
+ * carries each image's own segment ranges and unwind-section pointers. That makes it
+ * usable to drive the unwinder against images from *another* task (e.g. a corpse), as long
+ * as the section pointers stored in each entry reference bytes readable in the current
+ * process.
+ *
+ * Opaque. Create with ksbic_createSetFromLocalImages (or, later, from externally
+ * supplied images) and release with ksbic_destroySet. Querying is read-only.
+ */
+typedef struct KSBinaryImageSet KSBinaryImageSet;
+
+/**
+ * Build an image set from the current process's loaded images.
+ *
+ * Allocates, so this is NOT async-signal-safe and must not run from a crash handler.
+ * It is the counterpart to (and a building block for) ksbic_createSetFromTaskImages: the
+ * same per-image entries describe shared-cache images that are mapped into both the target
+ * task and this one.
+ *
+ * @return A newly allocated set the caller must release with ksbic_destroySet, or NULL on failure.
+ */
+KSBinaryImageSet *_Nullable ksbic_createSetFromLocalImages(void);
+
+/**
+ * Release an image set created by ksbic_createSetFromLocalImages.
+ *
+ * @param set The set to release. NULL is allowed and ignored.
+ */
+void ksbic_destroySet(KSBinaryImageSet *_Nullable set);
+
+/**
+ * Look up unwind information for an address within an image set.
+ *
+ * The set-backed equivalent of ksbic_getUnwindInfoForAddress: matches the address
+ * against each image's segment ranges (so interleaved shared-cache images resolve
+ * correctly) and returns that image's unwind info.
+ *
+ * @param set The image set to query. NULL returns false.
+ * @param address The address to look up, in the address space of the set's images.
+ * @param outInfo If not NULL and found, receives the unwind info.
+ * @return true if an image containing the address was found, false otherwise.
+ */
+bool ksbic_getUnwindInfoForAddressInSet(const KSBinaryImageSet *_Nullable set, uintptr_t address,
+                                        KSBinaryImageUnwindInfo *_Nullable outInfo);
+
 #ifdef __cplusplus
 }
 #endif

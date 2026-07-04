@@ -867,3 +867,88 @@ const uint8_t *ksbic_getUUIDForHeader(const struct mach_header *header)
         return NULL;
     }
 }
+
+// MARK: - Image Sets (another task's images, or a snapshot of this one's)
+
+// A set owns its entries inline via a flexible array. Entries are sorted by start address at
+// creation for binary-search lookups. Built once and queried read-only, so it needs no locking
+// or the atomic-swap dance the live cache uses.
+struct KSBinaryImageSet {
+    uint32_t count;
+    KSBinaryImageRange entries[];
+};
+
+static int compareSetEntriesByStart(const void *a, const void *b)
+{
+    const KSBinaryImageRange *ea = (const KSBinaryImageRange *)a;
+    const KSBinaryImageRange *eb = (const KSBinaryImageRange *)b;
+    if (ea->startAddress != eb->startAddress) {
+        return ea->startAddress < eb->startAddress ? -1 : 1;
+    }
+    return 0;
+}
+
+KSBinaryImageSet *ksbic_createSetFromLocalImages(void)
+{
+    uint32_t imageCount = 0;
+    const ks_dyld_image_info *images = ksbic_getImages(&imageCount);
+
+    // +1 because dyld is not part of the normal image list (see ksbic_getDyldHeader).
+    uint32_t capacity = imageCount + 1;
+    KSBinaryImageSet *set = malloc(sizeof(KSBinaryImageSet) + (size_t)capacity * sizeof(KSBinaryImageRange));
+    if (set == NULL) {
+        return NULL;
+    }
+
+    uint32_t n = 0;
+    for (uint32_t i = 0; i < imageCount; i++) {
+        const struct mach_header *header = images[i].imageLoadAddress;
+        if (header != NULL && populateCacheEntry(header, images[i].imageFilePath, &set->entries[n])) {
+            n++;
+        }
+    }
+    const struct mach_header *dyldHeader = ksbic_getDyldHeader();
+    if (dyldHeader != NULL && populateCacheEntry(dyldHeader, ksbic_getDyldPath(), &set->entries[n])) {
+        n++;
+    }
+
+    set->count = n;
+    qsort(set->entries, n, sizeof(*set->entries), compareSetEntriesByStart);
+    return set;
+}
+
+void ksbic_destroySet(KSBinaryImageSet *set) { free(set); }
+
+bool ksbic_getUnwindInfoForAddressInSet(const KSBinaryImageSet *set, uintptr_t address,
+                                        KSBinaryImageUnwindInfo *outInfo)
+{
+    if (set == NULL) {
+        return false;
+    }
+
+    // Binary search for the rightmost entry with startAddress <= address, then scan backwards
+    // for overlapping ranges (shared-cache images interleave), matching the live cache's lookup.
+    int32_t left = 0;
+    int32_t right = (int32_t)set->count - 1;
+    int32_t idx = -1;
+    while (left <= right) {
+        int32_t mid = left + (right - left) / 2;
+        if (set->entries[mid].startAddress <= address) {
+            idx = mid;
+            left = mid + 1;
+        } else {
+            right = mid - 1;
+        }
+    }
+
+    for (; idx >= 0; idx--) {
+        const KSBinaryImageRange *entry = &set->entries[idx];
+        if (address >= entry->startAddress && address < entry->endAddress && addressInCachedSegments(entry, address)) {
+            if (outInfo != NULL) {
+                *outInfo = entry->unwindInfo;
+            }
+            return true;
+        }
+    }
+    return false;
+}
