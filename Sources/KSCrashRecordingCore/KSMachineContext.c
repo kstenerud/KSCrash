@@ -149,10 +149,16 @@ bool ksmc_getContextForThread(KSThread thread, KSMachineContext *destinationCont
 bool ksmc_getContextForSignal(void *signalUserContext, KSMachineContext *destinationContext)
 {
     KSLOG_DEBUG("Get context from signal user context and put into %p.", destinationContext);
+    // Zero first, like every other constructor: imageSet is a pointer the unwinder dereferences
+    // when non-NULL, so a caller passing a non-zeroed context would otherwise have the crash
+    // handler chase a stale one. (memcpy below fills machineContext, so this costs one memset
+    // of a struct we are about to overwrite most of.)
+    memset(destinationContext, 0, sizeof(*destinationContext));
     _STRUCT_MCONTEXT *sourceContext = ((SignalUserContext *)signalUserContext)->UC_MCONTEXT;
     memcpy(&destinationContext->machineContext, sourceContext, sizeof(destinationContext->machineContext));
     destinationContext->thisThread = (thread_t)ksthread_self();
     destinationContext->task = mach_task_self();
+    destinationContext->isCurrentThread = true;
     destinationContext->isCrashedContext = true;
     destinationContext->isSignalContext = true;
     getThreadList(destinationContext);
