@@ -180,7 +180,10 @@ static void updateCache(void)
 
 static void *monitorThreadCache(__unused void *const userData)
 {
-    static int quickPollCount = 4;
+    // Each monitor thread owns its quick-poll countdown. Keep it a local: more
+    // than one monitor thread can run at once (kstc_init after kstc_reset), and
+    // they must not share this counter.
+    int quickPollCount = 4;
     usleep(1);
 
     for (;;) {
