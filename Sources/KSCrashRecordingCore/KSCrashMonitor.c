@@ -410,6 +410,12 @@ const KSCrashMonitorAPI *kscm_getMonitor(const char *monitorId)
     return kscmr_getMonitor(&g_state.monitors, monitorId);
 }
 
+size_t kscm_copyStitchableMonitors(KSCrashMonitorAPI *buffer, size_t capacity)
+{
+    init();
+    return kscmr_copyStitchableMonitors(&g_state.monitors, buffer, capacity);
+}
+
 void kscm_setReportSidecarFilePathProvider(KSCrashReportSidecarFilePathProviderFunc provider)
 {
     init();

@@ -75,6 +75,22 @@ typedef CF_CLOSED_ENUM(int, KSCrashSidecarScope) {
     KSCrashSidecarScopeFinal = 2,
 } CF_SWIFT_NAME(SidecarScope);
 
+/** The built-in monitors' stitch layers (see KSCrashMonitorAPI.priority): one total order in one
+ *  place, spaced by 10 so a new monitor can slot between layers. Watchdog must stay highest among
+ *  the sidecar layers: its stitch can rewrite the report's type ("hang") and must see every other
+ *  sidecar layer's data. Corpse sits above them all: in the final pass it replaces run-cached
+ *  sidecar values with the at-death truth from a corpse report's embedded snapshot. A colliding
+ *  value does not fail; it silently demotes the ordering to the monitor-id tie-break.
+ */
+enum {
+    KSCrashStitchPriorityLifecycle = 10,
+    KSCrashStitchPriorityResource = 20,
+    KSCrashStitchPrioritySystem = 30,
+    KSCrashStitchPriorityUserInfo = 40,
+    KSCrashStitchPriorityWatchdog = 50,
+    KSCrashStitchPriorityCorpse = 60,
+};
+
 /**
  * Monitor API.
  * WARNING: All functions MUST be idempotent!
@@ -168,8 +184,9 @@ typedef struct KSCrashMonitorAPI {
      *
      * @param reportDict The decoded report dictionary. Owned by the caller,
      *        the callback must not release it.
-     * @param sidecarPath The full path to the sidecar file for this report.
-     * @param scope Whether this is a per-report or per-run sidecar.
+     * @param sidecarPath The full path to the sidecar file for this report;
+     *        NULL in the final pass, which has no sidecar.
+     * @param scope The sidecar's scope, or KSCrashSidecarScopeFinal for the final pass.
      * @param context The monitor's opaque context pointer.
      *
      * @return A +1 CFDictionaryRef with the (possibly modified) report,
