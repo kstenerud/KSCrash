@@ -198,7 +198,7 @@ static bool verify_dwarf_unwind_info(uintptr_t func_addr, const char *name)
     bool is64bit = false;
 
     bool found = ksdwarf_findFDE(imageInfo.ehFrame, imageInfo.ehFrameSize, func_addr, (uintptr_t)imageInfo.header, &fde,
-                                 &fdeSize, &cie, &cieSize, &is64bit, mach_task_self());
+                                 &fdeSize, &cie, &cieSize, &is64bit, mach_task_self(), 0);
 
     if (!found) {
         char error[256];
@@ -209,7 +209,7 @@ static bool verify_dwarf_unwind_info(uintptr_t func_addr, const char *name)
 
     // Step 4 & 5: Parse the CIE/FDE and build a CFI row
     KSDwarfCFIRow row;
-    bool parsed = ksdwarf_buildCFIRow(cie, cieSize, fde, fdeSize, func_addr, is64bit, &row, mach_task_self());
+    bool parsed = ksdwarf_buildCFIRow(cie, cieSize, fde, fdeSize, func_addr, is64bit, &row, mach_task_self(), 0);
 
     if (!parsed) {
         char error[256];
