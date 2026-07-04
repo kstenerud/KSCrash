@@ -24,7 +24,36 @@
 // THE SOFTWARE.
 //
 
+import Darwin
 import XCTest
+
+// True when the process is running under a sanitizer (ASan/TSan/UBSan). Used to
+// skip these benchmarks: measuring performance under a sanitizer is meaningless,
+// and under TSan XCTest's measure() intermittently SEGVs in objc_release during
+// measurement teardown.
+//
+// The dlsym probe is deliberate. Each tidier-looking option fails here:
+//   - `#if KSCRASH_HAS_SANITIZER`: that is a C preprocessor macro, and Swift's
+//     `#if` only reads `-D` build conditions, not C macros, so it is silently
+//     always false (this was the original, broken guard).
+//   - A shared helper in a module (KSCrashTestTools, KSCrashSwiftCore): these
+//     benchmark sources are also compiled by the Tuist on-device build
+//     (Benchmarks/Project.swift), which can only depend on shipping products, not
+//     internal test/utility targets, so any such import breaks that build.
+//   - A `-D SANITIZER` build flag + `#if`: only skips when the build passes the
+//     flag, so a local `swift test --sanitize` that omits it silently runs the
+//     benchmarks and crashes.
+// A sanitizer runtime exports a well-known init symbol once loaded, so a dlsym
+// against RTLD_DEFAULT detects it however the build was invoked, with zero
+// dependencies.
+private func isRunningUnderSanitizer() -> Bool {
+    // RTLD_DEFAULT (search every loaded image) is not exported to Swift, so spell
+    // out its pseudo-handle value.
+    let rtldDefault = UnsafeMutableRawPointer(bitPattern: -2)
+    return ["__asan_init", "__tsan_init", "__ubsan_handle_add_overflow"].contains { symbol in
+        symbol.withCString { dlsym(rtldDefault, $0) != nil }
+    }
+}
 
 /// Base class for all KSCrash benchmark tests.
 ///
@@ -44,5 +73,12 @@ class KSBenchmarkTestCase: XCTestCase {
             options.iterationCount = 5
         #endif
         return options
+    }
+
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        // Benchmarks measure performance, which is meaningless under a sanitizer,
+        // and XCTest's measure() intermittently crashes in objc_release under TSan.
+        try XCTSkipIf(isRunningUnderSanitizer(), "Benchmarks do not run under sanitizers")
     }
 }
