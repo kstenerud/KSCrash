@@ -74,4 +74,43 @@
     XCTAssertEqual(machineContext.threadCount, MAX_CAPTURED_THREADS);
 }
 
+#pragma mark - Task Thread Context
+
+static uint64_t threadIDOfPort(thread_t port)
+{
+    thread_identifier_info_data_t info;
+    mach_msg_type_number_t count = THREAD_IDENTIFIER_INFO_COUNT;
+    if (thread_info(port, THREAD_IDENTIFIER_INFO, (thread_info_t)&info, &count) != KERN_SUCCESS) {
+        return 0;
+    }
+    return info.thread_id;
+}
+
+// Validated against our own task: the same call works on a corpse port, which is the
+// case it exists for (crash info identifies the crashed thread by kernel thread id).
+- (void)testGetContextForTaskThreadFillsFromTask
+{
+    uint64_t currentThreadID = threadIDOfPort((thread_t)ksthread_self());
+    XCTAssertNotEqual(currentThreadID, 0);
+
+    KSMachineContext machineContext = { 0 };
+    XCTAssertTrue(ksmc_getContextForTaskThread(mach_task_self(), NULL, currentThreadID, &machineContext));
+
+    XCTAssertEqual(machineContext.task, mach_task_self());
+    XCTAssertEqual(threadIDOfPort(machineContext.thisThread), currentThreadID);
+    XCTAssertTrue(machineContext.isCrashedContext);
+    XCTAssertGreaterThan(machineContext.threadCount, 0);
+    bool found = false;
+    for (int i = 0; i < machineContext.threadCount && !found; i++) {
+        found = machineContext.allThreads[i] == machineContext.thisThread;
+    }
+    XCTAssertTrue(found, @"The subject thread must be in the context's thread list");
+}
+
+- (void)testGetContextForTaskThreadFailsForUnknownThreadID
+{
+    KSMachineContext machineContext = { 0 };
+    XCTAssertFalse(ksmc_getContextForTaskThread(mach_task_self(), NULL, UINT64_MAX, &machineContext));
+}
+
 @end
