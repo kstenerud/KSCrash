@@ -714,6 +714,28 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     XCTAssertFalse(data.cleanShutdown);
 }
 
+- (void)testRemoteSubjectFatalEventLeavesSidecarUntouched
+{
+    [self enableMonitor];
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateDeactivating);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateBackground);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateTerminating);
+
+    KSCrashMonitorAPI *api = kscm_lifecycle_getAPI();
+    KSCrash_MonitorContext eventContext = { 0 };
+    // A fatal event about another task (a corpse): this process is healthy, so its
+    // run state must not be charged with the crash.
+    eventContext.requirements.isFatal = true;
+    eventContext.requirements.isRemoteSubject = true;
+    api->addContextualInfoToEvent(&eventContext, api->context);
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    XCTAssertTrue(data.cleanShutdown, @"A remote subject's fatal event must not clear cleanShutdown");
+    XCTAssertFalse(data.fatalReported, @"A remote subject's fatal event must not set fatalReported");
+}
+
 - (void)testFatalCleanExitSetsCleanShutdown
 {
     [self enableMonitor];

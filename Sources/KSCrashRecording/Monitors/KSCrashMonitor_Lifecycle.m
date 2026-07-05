@@ -676,7 +676,7 @@ static void notifyPostSystemEnable(__unused void *context)
 
 static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext, __unused void *context)
 {
-    bool isFatal = eventContext != NULL && eventContext->requirements.isFatal;
+    bool isFatal = eventContext != NULL && kscexc_isLocallyFatal(eventContext->requirements);
     // For fatal events, write cleanShutdown and fatalReported before acquiring the
     // lock. These are small stores to mmap'd memory that must succeed unconditionally
     // — if the bounded lock times out we still need the next launch to see the correct

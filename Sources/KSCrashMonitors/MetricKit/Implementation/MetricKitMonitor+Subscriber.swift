@@ -113,7 +113,8 @@ import os.log
                 asyncSafety: 0,
                 asyncSafetyBecauseThreadsSuspended: 0,
                 crashedDuringExceptionHandling: 0,
-                shouldExitImmediately: 0
+                shouldExitImmediately: 0,
+                isRemoteSubject: 0
             )
 
             // notify()/handle() mutate shared exception-handling state in KSCrashMonitor.c that

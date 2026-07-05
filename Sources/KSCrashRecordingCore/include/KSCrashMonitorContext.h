@@ -266,11 +266,18 @@ typedef struct {
      *
      * Also note that requesting thread recording will change the environment into one requiring async-safety. So make
      * sure anything async-unsafe you need is done BEFORE calling this function with `shouldRecordThreads` set!
+     * (Exception: with `requirements.isRemoteSubject` set, no threads of this process are ever suspended and no
+     * async-safety requirement is introduced; the subject's threads are frozen in their own task.)
      *
      * After calling this function, you should fill out any pertinent information in the returned context, and then call
      * handleWithResult().
      *
-     * @param offendingThread The thread that caused the exception.
+     * @param offendingThread The thread of THIS process that the event is about: the crashed thread for an
+     *        in-process crash, the hung main thread for a watchdog report, and so on. It is checked against
+     *        the threads currently inside exception handlers to detect a crashed handler and dual delivery
+     *        of the same crash (e.g. Mach and signal). Pass MACH_PORT_NULL when the event has no local
+     *        subject thread (a remote-subject event such as a corpse report, or a synthesized report about
+     *        a previous run); the calling thread is registered for recrash protection either way.
      * @param requirements Requirements and information about how this exception should be handled.
      * @return a monitor context to be filled out and passed to `handleWithResult()`.
      */

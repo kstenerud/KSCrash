@@ -113,11 +113,44 @@ typedef struct {
      */
     unsigned shouldExitImmediately : 1;
 
+    /**
+     * The event describes a subject other than the current process (e.g. another process's
+     * corpse, or a previous run of this app). The reporting process itself is healthy.
+     *
+     * When set, the machinery skips every process-local effect: no threads of this
+     * process are suspended (`shouldRecordAllThreads` becomes purely a directive to
+     * record all of the subject's threads, which are frozen in their own task), `isFatal`
+     * describes the event rather than this process (no fatal handler state is latched,
+     * monitors stay enabled, and the current run is not marked as crashed).
+     *
+     * Note: Do not test this value directly! Use `kscexc_isRemoteSubject`.
+     */
+    unsigned isRemoteSubject : 1;
+
 } KSCrash_ExceptionHandlingRequirements;
 
 static inline bool kscexc_requiresAsyncSafety(KSCrash_ExceptionHandlingRequirements requirements)
 {
     return requirements.asyncSafety || requirements.asyncSafetyBecauseThreadsSuspended;
+}
+
+/** True when the event describes a subject other than the current process (see `isRemoteSubject`).
+ *  Process-local effects (thread suspension, fatal handler state, run-state bookkeeping such as
+ *  the Lifecycle sidecar's cleanShutdown/fatalReported) must not fire for such an event.
+ */
+static inline bool kscexc_isRemoteSubject(KSCrash_ExceptionHandlingRequirements requirements)
+{
+    return requirements.isRemoteSubject;
+}
+
+/** True when the event is fatal FOR THIS PROCESS: a remote subject's death is fatal for the
+ *  subject, not for the healthy reporter writing about it. Every consumer that latches fatal
+ *  state, marks the run as crashed, or otherwise reacts to "this process is dying" must use
+ *  this, not `isFatal` alone.
+ */
+static inline bool kscexc_isLocallyFatal(KSCrash_ExceptionHandlingRequirements requirements)
+{
+    return requirements.isFatal && !kscexc_isRemoteSubject(requirements);
 }
 
 #ifdef __cplusplus
