@@ -11,6 +11,13 @@
 
 #import <mach/exception_types.h>
 
+/// Sentinel that synthesized nonatomic Objective-C setters briefly store mid-store;
+/// a concurrent unsafe read of the property faults on it, so a crash on this address
+/// signals a thread-safety bug on a nonatomic property (Apple ObjC runtime, rdar://148109501).
+/// 64-bit devices fault on the full value; 32-bit watchOS uses its low half, 0xbad0.
+static const unsigned long long kKSNonatomicRaceSentinel = 0x400000000000bad0ULL;
+static const unsigned long long kKSNonatomicRaceSentinel32 = 0xbad0ULL;
+
 typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } CPUFamily;
 
 @interface KSCrashDoctorParam : NSObject
@@ -162,6 +169,14 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
         return CPUFamilyX86_64;
     }
     return CPUFamilyUnknown;
+}
+
+- (BOOL)is32BitReport:(NSDictionary *)report
+{
+    // 64-bit arch names (arm64, arm64e, x86_64) all contain "64". Treat an unknown
+    // or missing arch as not-32-bit so the ambiguous 0xbad0 sentinel is not matched.
+    NSString *cpuArch = [[self systemReport:report] objectForKey:KSCrashField_CPUArch];
+    return cpuArch != nil && [cpuArch rangeOfString:@"64"].location == NSNotFound;
 }
 
 - (nullable NSString *)registerNameForFamily:(CPUFamily)family paramIndex:(int)index
@@ -533,13 +548,23 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
         }
 
         if ([self isInvalidAddress:errorReport]) {
-            uintptr_t address = (uintptr_t)[[errorReport objectForKey:KSCrashField_Address] unsignedLongLongValue];
+            unsigned long long address = [[errorReport objectForKey:KSCrashField_Address] unsignedLongLongValue];
             if (address == 0) {
                 return [self appendOriginatingCall:@"Attempted to dereference null pointer." callName:lastFunctionName];
             }
+            // The 64-bit sentinel is unmistakable. The 32-bit half (0xbad0) is a plausible
+            // real garbage pointer on 64-bit, so only trust it on a 32-bit report.
+            if (address == kKSNonatomicRaceSentinel ||
+                (address == kKSNonatomicRaceSentinel32 && [self is32BitReport:report])) {
+                return [self
+                    appendOriginatingCall:@"Crashed on the Objective-C nonatomic-property race sentinel. A nonatomic "
+                                          @"property was read on one thread while being written on another "
+                                          @"(thread-safety bug)."
+                                 callName:lastFunctionName];
+            }
             return
                 [self appendOriginatingCall:[NSString stringWithFormat:@"Attempted to dereference garbage pointer %p.",
-                                                                       (void *)address]
+                                                                       (void *)(uintptr_t)address]
                                    callName:lastFunctionName];
         }
 
