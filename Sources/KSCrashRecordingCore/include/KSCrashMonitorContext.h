@@ -34,6 +34,7 @@
 #include "KSCrashExceptionHandlingRequirements.h"
 #include "KSCrashMonitorFlag.h"
 #include "KSCrashNamespace.h"
+#include "KSDynamicLinker.h"
 #include "KSMachineContext.h"
 
 #ifdef __cplusplus
@@ -99,6 +100,29 @@ typedef struct KSCrash_MonitorContext {
      *  This can be useful in cases where we have no stack.
      */
     bool omitBinaryImages;
+
+    /** When set, the binary images section is written from this list instead of the live
+     *  process's own images. A report about another task (e.g. a corpse) must list that
+     *  task's images: this process's images say nothing about the subject, and symbolication
+     *  resolves frames against this section.
+     *  The array and everything it points to must remain valid until handling completes.
+     */
+    const KSBinaryImage *providedBinaryImages;
+    int providedBinaryImageCount;
+
+    /** When set, written as the report's process_name. A report about a remote subject
+     *  (e.g. a corpse) must name the subject process, not the reporting one, so the
+     *  reporter sets this from what it knows about the subject. NULL omits the field.
+     *  Must remain valid until handling completes.
+     */
+    const char *processName;
+
+    /** When set, the report writer emits this as crash.error.type instead of the monitor id.
+     *  For plugin monitors whose events are standard exceptions (a corpse capture's mach
+     *  exception); the monitor's own report section still writes under the monitor id.
+     *  Must remain valid until handling completes.
+     */
+    const char *errorTypeOverride;
 
     /** Context available to you in monitor API context.
      */
