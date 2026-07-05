@@ -32,6 +32,7 @@
 #import "KSCrashMonitor_MachException.h"
 #import "KSCrashMonitor_NSException.h"
 #import "KSCrashReportC.h"
+#import "KSDynamicLinker.h"
 #import "KSJSONCodec.h"
 #import "KSMachineContext.h"
 #import "KSStackCursor_SelfThread.h"
@@ -312,6 +313,116 @@ static void writeTestMonitorSection(__unused const KSCrash_MonitorContext *event
     XCTAssertEqualObjects(referenced[@"class"], @"KSCrashTestRestrictedSecret");
     XCTAssertNil(referenced[@"value"]);
     XCTAssertNil(referenced[@"ivars"]);
+}
+
+#pragma mark - Provided Binary Images
+
+/** Build the minimal context the writer needs, pointing at the current thread. */
+- (void)fillWriterContext:(KSCrash_MonitorContext *)context machineContext:(struct KSMachineContext *)machineContext
+{
+    XCTAssertTrue(ksmc_getContextForThread(pthread_mach_thread_np(pthread_self()), machineContext, true));
+    snprintf(context->eventID, sizeof(context->eventID), "BINARYIMAGETEST");
+    context->offendingMachineContext = machineContext;
+    context->registersAreValid = true;
+    context->monitorId = kscm_machexception_getAPI()->monitorId(NULL);
+    context->mach.type = EXC_BAD_ACCESS;
+    context->signal.signum = SIGBUS;
+}
+
+// An out-of-process report (a corpse) must list the subject's images, which the caller
+// provides, not whatever happens to be loaded in the reporting process.
+- (void)testWriteStandardReportUsesProvidedBinaryImages
+{
+    struct KSMachineContext machineContext = { 0 };
+    KSCrash_MonitorContext context = { 0 };
+    [self fillWriterContext:&context machineContext:&machineContext];
+
+    const uint8_t uuid[16] = { 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+                               0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF };
+    KSBinaryImage providedImages[2] = {
+        { .address = 0x100000000,
+          .vmAddress = 0x4000,
+          .size = 0x8000,
+          .name = "/corpse/app/Binary",
+          .uuid = uuid,
+          .cpuType = 16777228,
+          .cpuSubType = 2 },
+        { .address = 0x200000000, .size = 0x4000, .name = "/corpse/lib/Framework", .uuid = NULL, .cpuType = 16777228 },
+    };
+    context.providedBinaryImages = providedImages;
+    context.providedBinaryImageCount = 2;
+
+    NSString *path = [self temporaryReportPath];
+    @try {
+        kscrashreport_writeStandardReport(&context, path.UTF8String);
+
+        NSArray *images = [self readJSONObjectAtPath:path][@"binary_images"];
+        XCTAssertEqual(images.count, 2, @"Exactly the provided images, nothing from live dyld");
+
+        NSDictionary *first = images[0];
+        XCTAssertEqual([first[@"image_addr"] unsignedLongLongValue], 0x100000000);
+        XCTAssertEqual([first[@"image_vmaddr"] unsignedLongLongValue], 0x4000);
+        XCTAssertEqual([first[@"image_size"] unsignedLongLongValue], 0x8000);
+        XCTAssertEqualObjects(first[@"name"], @"/corpse/app/Binary");
+        XCTAssertEqualObjects([first[@"uuid"] lowercaseString], @"00112233-4455-6677-8899-aabbccddeeff");
+        XCTAssertEqual([first[@"cpu_type"] intValue], 16777228);
+        XCTAssertEqual([first[@"cpu_subtype"] intValue], 2);
+
+        NSDictionary *second = images[1];
+        XCTAssertEqual([second[@"image_addr"] unsignedLongLongValue], 0x200000000);
+        XCTAssertEqualObjects(second[@"name"], @"/corpse/lib/Framework");
+    } @finally {
+        [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+    }
+}
+
+// Compact mode must not filter a provided image list: remote frames never populate the
+// referenced-image set (they don't symbolicate, and the set would hold this process's
+// bases anyway), so filtering would ship an empty binary_images section.
+- (void)testWriteStandardReportKeepsProvidedBinaryImagesInCompactMode
+{
+    struct KSMachineContext machineContext = { 0 };
+    KSCrash_MonitorContext context = { 0 };
+    [self fillWriterContext:&context machineContext:&machineContext];
+
+    KSBinaryImage providedImages[2] = {
+        { .address = 0x100000000, .size = 0x8000, .name = "/corpse/app/Binary", .cpuType = 16777228 },
+        { .address = 0x200000000, .size = 0x4000, .name = "/corpse/lib/Framework", .cpuType = 16777228 },
+    };
+    context.providedBinaryImages = providedImages;
+    context.providedBinaryImageCount = 2;
+
+    kscrashreport_setCompactBinaryImages(true);
+    NSString *path = [self temporaryReportPath];
+    @try {
+        kscrashreport_writeStandardReport(&context, path.UTF8String);
+
+        NSArray *images = [self readJSONObjectAtPath:path][@"binary_images"];
+        XCTAssertEqual(images.count, 2, @"Compact mode must keep every provided image");
+    } @finally {
+        kscrashreport_setCompactBinaryImages(false);
+        [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+    }
+}
+
+- (void)testWriteStandardReportDefaultsToLiveBinaryImages
+{
+    // The live path reads the binary image cache, which install normally initializes.
+    ksdl_init();
+
+    struct KSMachineContext machineContext = { 0 };
+    KSCrash_MonitorContext context = { 0 };
+    [self fillWriterContext:&context machineContext:&machineContext];
+
+    NSString *path = [self temporaryReportPath];
+    @try {
+        kscrashreport_writeStandardReport(&context, path.UTF8String);
+
+        NSArray *images = [self readJSONObjectAtPath:path][@"binary_images"];
+        XCTAssertGreaterThan(images.count, 10, @"Without a provided list, the live process's images are written");
+    } @finally {
+        [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+    }
 }
 
 @end
