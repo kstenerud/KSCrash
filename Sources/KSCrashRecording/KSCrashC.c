@@ -413,6 +413,38 @@ static bool getSummarySidecarPathCallback(const char *runID, const char *extensi
     return kscrs_getSummarySidecarFilePath(runID, extension, pathBuffer, pathBufferLength, &g_reportStoreConfig);
 }
 
+/** Fill any unset report store paths with their defaults under installPath.
+ *  Shared by both install entry points so a store configured either way scans the same layout.
+ */
+static KSCrashInstallErrorCode resolveStoreConfigDefaults(const char *const installPath)
+{
+    char path[KSFU_MAX_PATH_LENGTH];
+
+    // The store directories live under the install root, by the names the
+    // Swift install's Locations derive from the same constants.
+    const struct {
+        const char *folder;
+        const char **field;
+    } storeDirectories[] = {
+        { KSCRS_DEFAULT_REPORTS_FOLDER, &g_reportStoreConfig.reportsPath },
+        { KSCRS_DEFAULT_REPORT_SIDECARS_FOLDER, &g_reportStoreConfig.reportSidecarsPath },
+        { KSCRS_DEFAULT_RUN_SIDECARS_FOLDER, &g_reportStoreConfig.runSidecarsPath },
+        { KSCRS_DEFAULT_RUNS_FOLDER, &g_reportStoreConfig.runSummariesPath },
+    };
+    for (size_t i = 0; i < sizeof(storeDirectories) / sizeof(storeDirectories[0]); i++) {
+        if (snprintf(path, sizeof(path), "%s/%s", installPath, storeDirectories[i].folder) >= (int)sizeof(path)) {
+            KSLOG_ERROR("%s path is too long.", storeDirectories[i].folder);
+            return KSCrashInstallErrorPathTooLong;
+        }
+        *storeDirectories[i].field = strdup(path);
+        if (*storeDirectories[i].field == NULL) {
+            return KSCrashInstallErrorCouldNotInitializeStore;
+        }
+    }
+
+    return KSCrashInstallErrorNone;
+}
+
 // ============================================================================
 #pragma mark - API -
 // ============================================================================
@@ -446,27 +478,11 @@ KSCrashInstallErrorCode kscrash_install(const char *const installPath, KSCrashCC
     }
     rotateRunID(installPath);
 
-    // The store directories live under the install root, by the names the
-    // Swift install's Locations derive from the same constants.
-    const struct {
-        const char *folder;
-        const char **field;
-    } storeDirectories[] = {
-        { KSCRS_DEFAULT_REPORTS_FOLDER, &g_reportStoreConfig.reportsPath },
-        { KSCRS_DEFAULT_REPORT_SIDECARS_FOLDER, &g_reportStoreConfig.reportSidecarsPath },
-        { KSCRS_DEFAULT_RUN_SIDECARS_FOLDER, &g_reportStoreConfig.runSidecarsPath },
-        { KSCRS_DEFAULT_RUNS_FOLDER, &g_reportStoreConfig.runSummariesPath },
-    };
-    for (size_t i = 0; i < sizeof(storeDirectories) / sizeof(storeDirectories[0]); i++) {
-        if (snprintf(path, sizeof(path), "%s/%s", installPath, storeDirectories[i].folder) >= (int)sizeof(path)) {
-            KSLOG_ERROR("%s path is too long.", storeDirectories[i].folder);
-            return KSCrashInstallErrorPathTooLong;
-        }
-        *storeDirectories[i].field = strdup(path);
-        if (*storeDirectories[i].field == NULL) {
-            return KSCrashInstallErrorCouldNotInitializeStore;
-        }
+    KSCrashInstallErrorCode pathResult = resolveStoreConfigDefaults(installPath);
+    if (pathResult != KSCrashInstallErrorNone) {
+        return pathResult;
     }
+
     KSCrashInstallErrorCode storeInitResult = kscrs_initialize(&g_reportStoreConfig);
     if (storeInitResult != KSCrashInstallErrorNone) {
         return storeInitResult;
@@ -541,6 +557,57 @@ KSCrashInstallErrorCode kscrash_install(const char *const installPath, KSCrashCC
 
 void kscrash_thwartTailCallOptimisation(void) { KS_THWART_TAIL_CALL_OPTIMISATION }
 
+KSCrashInstallErrorCode kscrash_installForExtensionReporting(const char *const installPath,
+                                                             KSCrashMonitorAPI *pluginAPIs, int pluginCount)
+{
+    KSLOG_DEBUG("Installing crash reporter in extension (reporter-only) mode.");
+
+    if (g_installed) {
+        KSLOG_DEBUG("Crash reporter already installed.");
+        return KSCrashInstallErrorAlreadyInstalled;
+    }
+    if (installPath == NULL) {
+        KSLOG_ERROR("Invalid parameters: installPath is NULL.");
+        return KSCrashInstallErrorInvalidParameter;
+    }
+
+    // A reporter-only process: it writes reports about other processes into its own report
+    // area (typically in an App Group container the app reads later) and runs none of the
+    // app-lifecycle machinery. No run id (a capture loads the crashed run's), no last_run_id
+    // chain, no RunContext or run summaries (previous-run analysis and session counting are
+    // the app's job), no console log, no crash-detection monitors, no report pruning, no
+    // sidecar or stitch wiring (a corpse report carries its data directly and is stitched by
+    // the app at read time), no thread cache (it only knows this process's threads, and the
+    // writer degrades to nameless threads without it), and no dynamic-linker symbol cache
+    // (a subject's frames must resolve against its provided images, never this process's).
+    g_reportStoreConfig = KSCrashReportStoreCConfiguration_Default();
+    g_reportStoreConfig.maxReportCount = 0;  // Never prune from here.
+    KSCrashInstallErrorCode pathResult = resolveStoreConfigDefaults(installPath);
+    if (pathResult != KSCrashInstallErrorNone) {
+        return pathResult;
+    }
+    KSCrashInstallErrorCode storeInitResult = kscrs_initialize(&g_reportStoreConfig);
+    if (storeInitResult != KSCrashInstallErrorNone) {
+        return storeInitResult;
+    }
+
+    kscm_setEventCallbackWithResult(onExceptionEvent);
+
+    setPluginMonitors(pluginAPIs, pluginCount);
+    // Plugins are excluded from the "any crash monitor active" verdict by design, and a
+    // reporter-only process has no crash monitors, so the verdict is meaningless here.
+    (void)kscm_enableMonitors();
+    // Same post-enable step as kscrash_install. kscm_notifyPostSystemEnable is deliberately
+    // NOT fired: its contract is "RunContext is ready", and RunContext never initializes in
+    // extension mode.
+    kscm_notifyPostMonitorsEnabled();
+
+    g_installed = true;
+    KSLOG_DEBUG("Extension installation complete.");
+
+    return KSCrashInstallErrorNone;
+}
+
 void kscrash_reportUserException(const char *name, const char *reason, const char *language, const char *lineOfCode,
                                  const char *stackTrace, bool logAllThreads,
                                  bool terminateProgram) KS_KEEP_FUNCTION_IN_STACKTRACE
@@ -586,6 +653,16 @@ void kscrash_testcode_setRunID(const char *runID)
         return;
     }
     strlcpy(g_runIDSection.runID, runID, sizeof(g_runIDSection.runID));
+}
+
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+void kscrash_testcode_setLastRunID(const char *runID)
+{
+    if (runID != NULL) {
+        strlcpy(g_lastRunID, runID, sizeof(g_lastRunID));
+    } else {
+        g_lastRunID[0] = '\0';
+    }
 }
 
 bool kscrash_loadRunIDFromCorpse(task_t corpse, const uint64_t *imageLoadAddresses, uint32_t imageCount)
@@ -696,12 +773,3 @@ void kscrash_testcode_restorePluginMonitors(void *saved)
     free(saved);
 }
 
-__attribute__((unused))  // For tests. Declared as extern in TestCase
-void kscrash_testcode_setLastRunID(const char *runID)
-{
-    if (runID != NULL) {
-        strlcpy(g_lastRunID, runID, sizeof(g_lastRunID));
-    } else {
-        g_lastRunID[0] = '\0';
-    }
-}
