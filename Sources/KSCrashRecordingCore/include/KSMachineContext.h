@@ -75,6 +75,45 @@ int ksmc_contextSize(void);
  */
 bool ksmc_getContextForThread(KSThread thread, struct KSMachineContext *destinationContext, bool isCrashedContext);
 
+/** Fill in a machine context for one thread of an arbitrary task, identified by its kernel
+ * thread id (the id a corpse's crash info reports; thread ports are task-local and so cannot
+ * identify a thread across tasks).
+ *
+ * The cross-task counterpart of ksmc_getContextForThread: the context reads the given task
+ * instead of the current process. A single task_threads() pass fills the context's
+ * thread list and resolves the id to a port. The context is always a crashed context. Works on
+ * the current task too, in which case it behaves like an id-addressed ksmc_getContextForThread.
+ *
+ * Port rights: for a remote task the send rights of up to MAX_CAPTURED_THREADS captured
+ * threads are kept for the LIFETIME OF THIS PROCESS (they are the only rights keeping the
+ * thread names alive for thread_get_state and the report writer, and there is no teardown
+ * API). This is by design for short-lived reader processes (a crash extension handling a few
+ * corpses); a long-lived host calling this repeatedly accumulates dead port names.
+ *
+ * @param task The task the thread belongs to (e.g. a corpse port, or mach_task_self()).
+ * @param imageSet Image set supplying the task's unwind info, or NULL to use the live
+ *                 process's dyld image cache (only correct when task is the current task).
+ * @param threadID The kernel thread id of the subject thread. Must not be 0.
+ * @param destinationContext The context to fill.
+ * @return true if the context was filled, false if the task's threads could not be
+ *         enumerated or no thread has the given id.
+ */
+bool ksmc_getContextForTaskThread(task_t task, const struct KSBinaryImageSet *imageSet, uint64_t threadID,
+                                  struct KSMachineContext *destinationContext);
+
+/** Fill in a machine context for a sibling thread of an existing context, inheriting the
+ * source context's task and image set so the sibling is born reading the same target (a
+ * remote sibling would otherwise be stamped with this process's task and silently unwind the
+ * wrong address space). Never a crashed context; no thread enumeration.
+ *
+ * @param thread The sibling thread (a port name valid in this process's IPC space).
+ * @param sourceContext The context whose task and image set the sibling inherits.
+ * @param destinationContext The context to fill.
+ * @return true if successful.
+ */
+bool ksmc_getContextForSiblingThread(KSThread thread, const struct KSMachineContext *sourceContext,
+                                     struct KSMachineContext *destinationContext);
+
 /** Fill in a machine context from a signal handler.
  * A signal handler context is always assumed to be a crashed context.
  *
