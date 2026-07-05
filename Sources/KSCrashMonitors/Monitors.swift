@@ -24,6 +24,7 @@
 // THE SOFTWARE.
 //
 
+import KSCrashMonitorPlugins
 import KSCrashRecording
 
 /// Namespace for plugin monitors that can be added to `CrashInstallConfiguration.plugins`.
@@ -39,4 +40,12 @@ public enum Monitors {
     @available(tvOS, unavailable)
     @available(watchOS, unavailable)
     public static let metricKit = MetricKitMonitor()
+
+    /// The crash-report-extension monitor's bridge: writes crash reports for other processes'
+    /// corpses in an out-of-process crash reporter. Not public API: it is registered by
+    /// `KSCrash.installForExtensionReporting(with:)` and driven by
+    /// `KSCrash.captureCrashReport`; the developer never touches it directly. The monitor
+    /// instance exists immediately (eager instantiation); `isInstalled` gates whether it is
+    /// connected to the pipeline.
+    static let crashReportExtension = Monitor(CrashReportExtensionMonitor.self)
 }

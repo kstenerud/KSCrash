@@ -37,7 +37,10 @@ import KSCrashReportModel
 /// intentionally Codable so it can be dumped to JSON for inspection during bring-up.
 /// Fields are `var` with nil defaults purely for the synthesized memberwise init (17 hand-written
 /// assignments invite silent transposition); a snapshot is never mutated after gathering.
-struct CorpseSnapshot: Codable {
+/// Public in name only: the corpse monitor's typed event payload must be visible wherever the
+/// monitor class is, but everything inside stays internal; the extension's capture path is the
+/// only producer and consumer.
+public struct CorpseSnapshot: Codable {
     /// The original Mach exception type from `CrashReason.exception` (reliable, unlike its `codes`).
     var exception: MachExceptionType?
 
@@ -99,6 +102,19 @@ struct CorpseSnapshot: Codable {
         var exceptionType: Int32?
         var memoryLimitMB: UInt64?
         var memoryLimitIncreaseMB: UInt32?
+
+        /// The Mach exception code to report, matching what an in-process report carries.
+        ///
+        /// Most exceptions pack the code word as (signal << 24) | (mach exception << 20) |
+        /// code, so only the low 20 bits are the Mach code itself; `subcode` holds them.
+        /// EXC_RESOURCE and EXC_GUARD instead define the whole word as a payload, so those
+        /// pass through untouched.
+        func machCode(for exception: MachExceptionType) -> UInt64 {
+            switch exception {
+            case .EXC_RESOURCE, .EXC_GUARD: return exceptionCode
+            default: return UInt64(subcode ?? 0)
+            }
+        }
 
         /// An EXC_RESOURCE bitfield: which resource was exceeded and how.
         struct Resource: Codable {
@@ -354,5 +370,14 @@ struct CorpseSnapshot: Codable {
         let size: UInt64
         let cpuType: Int32
         let cpuSubType: Int32
+    }
+
+    /// The copy that gets embedded in the report. The image list stays out: it is already the
+    /// report's binary_images section. Copy-and-clear so a future field can never be dropped
+    /// here by forgetting to add it to a member list.
+    func forEmbedding() -> CorpseSnapshot {
+        var copy = self
+        copy.images = []
+        return copy
     }
 }

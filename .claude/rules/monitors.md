@@ -46,7 +46,7 @@ Built-in monitors are registered via `KSCrashMonitorType` flags in `KSCrashC.c`.
 |---|---|---|---|---|
 | MetricKit | `"MetricKit"` | Monitors | Apple MetricKit diagnostics (async, hours/days post-crash). Built on the Swift monitor layer (`.claude/rules/swift-monitors.md`). | Yes |
 | Profiler | `"profile"` (the id doubles as the report's `crash.error.type` and section key; never rename) | KSCrashProfiler | Sampling profiler (thread backtraces at intervals) | No |
-| Corpse | `"Corpse"` | Monitors | Other processes' corpses, in an out-of-process crash reporter (iOS 27 CrashReportExtension). Not registered via `plugins`: `KSCrash.installForExtensionReporting(with:)` registers it and `KSCrash.captureCrashReport` drives it. Built on the Swift monitor layer (`.claude/rules/swift-monitors.md`). | No (never fires in extension mode) |
+| Corpse | `"Corpse"` | Monitors | Other processes' corpses, from an iOS 27 CrashReportExtension. In the extension, `KSCrash.installForExtensionReporting(with:)` registers it and `KSCrash.captureCrashReport` drives it. In the app that ingests the extension's reports, register it via `config.plugins = [CrashReportExtensionMonitor.plugin()]`: it detects nothing there and stitches in the final pass (priority `KSCrashStitchPriorityCorpse`, above every sidecar layer), replacing run-cached values with the report's embedded at-death snapshot data and then moving that snapshot out of `crash.error.Corpse` to the report root as `corpse` (a monitor section can only be written inside the error, but the snapshot describes the whole dead process). Its reports carry `error.type = "mach"` (context `errorTypeOverride`). Built on the Swift monitor layer (`.claude/rules/swift-monitors.md`). | No (never fires in extension mode) |
 
 **Extension-reporting install** (`kscrash_installForExtensionReporting`): a reporter-only process that writes reports about other processes and detects no crashes of its own. It initializes the report store and pipeline, registers the given plugins, enables them, and fires `notifyPostMonitorsEnabled`; it runs no crash-detection monitors, no RunContext (so `notifyPostSystemEnable` never fires), no run id of its own (a capture loads the crashed run's), no run summaries, no console log, and no pruning.
 
@@ -61,6 +61,8 @@ Three fields classify each event. See `run-context.md` for how these feed into t
 | `cleanShutdown` | Lifecycle sidecar | Per-run flag — determines `crashedLastLaunch` on next launch |
 
 Rules: when `isFatal=true`, `isCleanExit` must be explicitly set. When `isFatal=false`, `isCleanExit` is meaningless. Only the Lifecycle observer and clean-exit signal handler set `cleanShutdown=true`; dirty crashes explicitly set it to `false`.
+
+**Remote-subject exception**: an event with `requirements.isRemoteSubject` (a corpse report written by a crash extension) describes another task's death. Its `isFatal` classifies the event for the report only; no process-local effect fires: no threads of the reporting process are suspended, no fatal handler state latches, monitors stay enabled, and Lifecycle leaves `cleanShutdown`/`fatalReported` untouched. Consumers that react to "this process is dying" must use `kscexc_isLocallyFatal()`, never bare `isFatal`.
 
 **Event matrix:**
 
@@ -85,6 +87,7 @@ Rules: when `isFatal=true`, `isCleanExit` must be explicitly set. When `isFatal=
 | MetricKit (memory exception, iOS 27+) | MetricKit | true | false | unchanged |
 | Profiler | Profiler | false | — | unchanged |
 | CPU exception (warning/critical) | Resource | false | — | unchanged |
+| Corpse capture (remote subject) | Corpse | true (for the subject) | false | unchanged (remote-subject exception) |
 | Recrash (crash-in-handler) | Monitor.c | true | false | false |
 | Normal exit (UIKit terminating) | Lifecycle observer | — | — | true |
 
