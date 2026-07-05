@@ -448,6 +448,14 @@ static void initStackCursor(KSStackCursor *cursor, int maxDepth, const struct KS
     kssc_initWithUnwindMethods(cursor, maxDepth, machineContext, g_unwindMethods, MAX_UNWIND_METHODS);
 }
 
+/** A symbolicate that always declines. A frame belonging to another task must not be
+ *  symbolicated here: its address is looked up against whatever this process has mapped at
+ *  that address, which names the wrong symbol. Such frames resolve against the report's binary
+ *  images instead. A crash extension could symbolicate them through CrashReporterExtension's
+ *  own symbolication, but symbolication belongs on the backend.
+ */
+static bool neverSymbolicate(__unused KSStackCursor *cursor) { return false; }
+
 /** Get the backtrace for the specified machine context.
  *
  * This function will choose how to fetch the backtrace based on the crash and
@@ -470,10 +478,17 @@ static bool getStackCursor(const KSCrash_MonitorContext *const crash,
     if (ksmc_getThreadFromContext(machineContext) == ksmc_getThreadFromContext(crash->offendingMachineContext) &&
         crash->stackCursor != NULL) {
         *cursor = *((KSStackCursor *)crash->stackCursor);
-        return true;
+    } else {
+        initStackCursor(cursor, KSSC_STACK_OVERFLOW_THRESHOLD, machineContext);
     }
 
-    initStackCursor(cursor, KSSC_STACK_OVERFLOW_THRESHOLD, machineContext);
+    // Applies to whichever cursor we ended up with. A monitor-supplied cursor carries whatever
+    // symbolicate it was built with, so gating this on the fall-through path alone would let a
+    // remote subject's frames be symbolicated against this process's images, on the crashed
+    // thread specifically.
+    if (machineContext->task != mach_task_self()) {
+        cursor->symbolicate = neverSymbolicate;
+    }
     return true;
 }
 
@@ -1349,8 +1364,23 @@ static void writeBinaryImage(const KSCrashReportWriter *const writer, const KSBi
  * @param key The object key, if needed.
  */
 static void writeBinaryImages(const KSCrashReportWriter *const writer, const char *const key,
-                              const KSReferencedImageSet *referencedImages)
+                              const KSCrash_MonitorContext *const crash, const KSReferencedImageSet *referencedImages)
 {
+    if (crash->providedBinaryImages != NULL) {
+        // The caller handed us the subject task's image list; this process's own images say
+        // nothing about the subject. Compact mode's referenced-image
+        // filter must NOT apply here: remote frames never symbolicate, so the set stays empty
+        // (and would hold this process's image bases, not the subject's), and filtering would
+        // write an empty binary_images section for a report whose frames can only resolve
+        // against this list.
+        writer->beginArray(writer, key);
+        for (int i = 0; i < crash->providedBinaryImageCount; i++) {
+            writeBinaryImage(writer, &crash->providedBinaryImages[i]);
+        }
+        writer->endContainer(writer);
+        return;
+    }
+
     uint32_t count = 0;
     const ks_dyld_image_info *images = ksbic_getImages(&count);
 
@@ -1521,7 +1551,8 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
             KSLOG_ERROR("Crash monitor type %s shouldn't be able to cause events!", crash->monitorId);
         } else {
             // We now support custom monitors.
-            writer->addStringElement(writer, KSCrashField_Type, crash->monitorId);
+            writer->addStringElement(writer, KSCrashField_Type,
+                                     crash->errorTypeOverride != NULL ? crash->errorTypeOverride : crash->monitorId);
             const KSCrashMonitorAPI *api = kscm_getMonitor(crash->monitorId);
             if (api && api->writeInReportSection) {
                 if (strcmp(crash->monitorId, KSCrashExcType_Profile) == 0) {
@@ -1685,8 +1716,8 @@ void kscrashreport_writeRecrashReport(const KSCrash_MonitorContext *const monito
         if (remove(tempPath) < 0) {
             KSLOG_ERROR("Could not remove %s: %s", tempPath, strerror(errno));
         }
-        writeReportInfo(writer, KSCrashField_Report, KSCrashReportType_Minimal, reportID, NULL,
-                        monitorContext->monitorId);
+        writeReportInfo(writer, KSCrashField_Report, KSCrashReportType_Minimal, reportID,
+                        monitorContext->processName, monitorContext->monitorId);
         ksfu_flushBufferedWriter(&bufferedWriter);
 
         writer->beginObject(writer, KSCrashField_Crash);
@@ -1779,8 +1810,8 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
 
     writer->beginObject(writer, KSCrashField_Report);
     {
-        writeReportInfo(writer, KSCrashField_Report, KSCrashReportType_Standard, monitorContext->eventID, NULL,
-                        monitorContext->monitorId);
+        writeReportInfo(writer, KSCrashField_Report, KSCrashReportType_Standard, monitorContext->eventID,
+                        monitorContext->processName, monitorContext->monitorId);
         ksfu_flushBufferedWriter(&bufferedWriter);
 
         // Only collect referenced image addresses when compact mode needs them.
@@ -1790,7 +1821,7 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
         KSReferencedImageSet *referencedImages = g_compactBinaryImages ? &referencedImageStorage : NULL;
 
         if (!monitorContext->omitBinaryImages && !g_compactBinaryImages) {
-            writeBinaryImages(writer, KSCrashField_BinaryImages, NULL);
+            writeBinaryImages(writer, KSCrashField_BinaryImages, monitorContext, NULL);
             ksfu_flushBufferedWriter(&bufferedWriter);
         }
 
@@ -1820,7 +1851,7 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
         writer->endContainer(writer);
 
         if (!monitorContext->omitBinaryImages && g_compactBinaryImages) {
-            writeBinaryImages(writer, KSCrashField_BinaryImages, referencedImages);
+            writeBinaryImages(writer, KSCrashField_BinaryImages, monitorContext, referencedImages);
             ksfu_flushBufferedWriter(&bufferedWriter);
         }
 
