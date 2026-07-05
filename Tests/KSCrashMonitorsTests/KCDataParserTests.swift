@@ -80,6 +80,36 @@ final class KCDataParserTests: XCTestCase {
         XCTAssertEqual(info?.machException, .EXC_BAD_ACCESS)
     }
 
+    // The code word is a packed CrashReporter value, not a Mach code: reporting it verbatim
+    // would write mach.code 0x0B100001 where an in-process report writes KERN_INVALID_ADDRESS.
+    func testMachCodeUnpacksOrdinaryCrashes() {
+        let info = KCDataParser.parse(
+            buildKCData([(kExceptionCodes, le64(0x0B10_0001) + le64(0))]), exception: EXC_BAD_ACCESS)?.crashInfo
+        XCTAssertEqual(info?.exceptionCode, 0x0B10_0001)
+        XCTAssertEqual(info?.machCode(for: .EXC_BAD_ACCESS), 1)
+    }
+
+    // EXC_RESOURCE and EXC_GUARD define the whole word as a payload, so it passes through.
+    func testMachCodeKeepsPayloadCarryingExceptions() {
+        let resourceCode: UInt64 = 0x6400_0000_0900_0D30
+        let resource = KCDataParser.parse(
+            buildKCData([(kExceptionCodes, le64(resourceCode) + le64(0))]), exception: EXC_RESOURCE)?.crashInfo
+        XCTAssertEqual(resource?.machCode(for: .EXC_RESOURCE), resourceCode)
+
+        let guardCode: UInt64 = 0x2000_0002_0000_0005
+        let guarded = KCDataParser.parse(
+            buildKCData([(kExceptionCodes, le64(guardCode) + le64(0))]), exception: EXC_GUARD)?.crashInfo
+        XCTAssertEqual(guarded?.machCode(for: .EXC_GUARD), guardCode)
+    }
+
+    // No Mach exception in the packed word (an EXC_CRASH from a signal) leaves no code to report.
+    func testMachCodeIsZeroWithoutAMachException() {
+        let info = KCDataParser.parse(
+            buildKCData([(kExceptionCodes, le64(0x0600_0000) + le64(0))]), exception: EXC_CRASH)?.crashInfo
+        XCTAssertNil(info?.machException)
+        XCTAssertEqual(info?.machCode(for: .EXC_CRASH), 0)
+    }
+
     func testUncaughtNSExceptionIsAbort() {
         let info = KCDataParser.parse(
             buildKCData([(kExceptionCodes, le64(0x0600_0000) + le64(0))]), exception: EXC_CRASH)?.crashInfo
