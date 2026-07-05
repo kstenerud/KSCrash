@@ -186,6 +186,16 @@ let warningFlags = [
     //"-Wnullable-to-nonnull-conversion",
 ]
 
+// Test targets that pull in the C++ standard library (via .mm/.cpp using std:: and
+// throw) must link the C++ runtime explicitly. Xcode 27's SwiftPM stopped auto-linking
+// it into test bundles, so std:: and __cxa_* symbols would otherwise be undefined at
+// link time. Harmless on toolchains that already link it (duplicate libraries are
+// allowed via -no_warn_duplicate_libraries).
+let cxxTestLinkerSettings: [LinkerSetting] = [
+    .linkedLibrary("c++"),
+    .linkedLibrary("c++abi"),
+]
+
 let package = Package(
     name: "KSCrash",
     platforms: [
@@ -287,7 +297,8 @@ let package = Package(
                 .headerSearchPath("../../Sources/\(Targets.recording)/Monitors"),
                 .headerSearchPath("../../Sources/\(Targets.recordingCore)/include"),  // For internal Unwind/ headers
                 .unsafeFlags(warningFlags),
-            ]
+            ],
+            linkerSettings: cxxTestLinkerSettings
         ),
 
         .target(
@@ -383,7 +394,8 @@ let package = Package(
             ],
             cSettings: [
                 .unsafeFlags(warningFlags)
-            ]
+            ],
+            linkerSettings: cxxTestLinkerSettings
         ),
         .testTarget(
             name: Targets.recordingCoreSwift.tests,
@@ -563,7 +575,8 @@ let package = Package(
             ],
             cSettings: [
                 .headerSearchPath("../../Sources/\(Targets.recording)")
-            ]
+            ],
+            linkerSettings: cxxTestLinkerSettings
         ),
 
         .testTarget(
