@@ -321,6 +321,7 @@
 #define kscrash_getRunID KSCRASH_NS(kscrash_getRunID)
 #define kscrash_getUserInfoJSON KSCRASH_NS(kscrash_getUserInfoJSON)
 #define kscrash_install KSCRASH_NS(kscrash_install)
+#define kscrash_installForExtensionReporting KSCRASH_NS(kscrash_installForExtensionReporting)
 #define kscrash_loadRunIDFromCorpse KSCRASH_NS(kscrash_loadRunIDFromCorpse)
 #define kscrash_namespaceIdentifier KSCRASH_NS(kscrash_namespaceIdentifier)
 #define kscrash_removeUserInfoValue KSCRASH_NS(kscrash_removeUserInfoValue)
