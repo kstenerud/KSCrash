@@ -1242,7 +1242,10 @@ static void writeThread(const KSCrashReportWriter *const writer, const char *con
             writer->addStringElement(writer, KSCrashField_State, state);
         }
         writer->addBooleanElement(writer, KSCrashField_Crashed, isCrashedThread);
-        writer->addBooleanElement(writer, KSCrashField_CurrentThread, thread == ksthread_self());
+        // The context carries the task-guarded answer (a remote thread's port name is allocated
+        // in this process's IPC space and can collide with ksthread_self()), so ask it rather
+        // than comparing port names here.
+        writer->addBooleanElement(writer, KSCrashField_CurrentThread, machineContext->isCurrentThread);
         if (isCrashedThread) {
             writeStackContents(writer, KSCrashField_Stack, machineContext, stackCursor.state.stackOverflow);
             // Notable-address introspection (ObjC objects, zombies, C strings) dereferences
@@ -1290,13 +1293,9 @@ static void writeThreads(const KSCrashReportWriter *const writer, const char *co
             if (thread == offendingThread) {
                 writeThread(writer, NULL, crash, context, i, writeNotableAddresses, threadRunState, referencedImages);
             } else if (shouldRecordAllThreads) {
-                ksmc_getContextForThread(thread, &machineContext, false);
-                // Read this thread from the same task and image set as the crashed thread. For a
-                // normal in-process report both are the defaults (current task, live dyld); for an
-                // out-of-process report (a corpse) this makes every thread unwind from that target
-                // rather than the reporter's own process.
-                machineContext.task = context->task;
-                machineContext.imageSet = context->imageSet;
+                // Born in the crashed thread's task and image set, so sibling threads unwind
+                // the subject task rather than this one.
+                ksmc_getContextForSiblingThread(thread, context, &machineContext);
                 writeThread(writer, NULL, crash, &machineContext, i, writeNotableAddresses, threadRunState,
                             referencedImages);
             }
@@ -1436,9 +1435,15 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
 #endif
         writer->beginObject(writer, KSCrashField_Signal);
         {
-            const char *sigName = kssignal_signalName(crash->signal.signum);
-            const char *sigCodeName = kssignal_signalCodeName(crash->signal.signum, crash->signal.sigcode);
-            writer->addUIntegerElement(writer, KSCrashField_Signal, (unsigned)crash->signal.signum);
+            // Default: a mach-shaped producer (the Mach monitor sets it itself, a corpse
+            // capture may not) only needs type/code; no signal is ever 0, so 0 means unset.
+            int signum = crash->signal.signum;
+            if (signum == 0 && crash->mach.type != 0) {
+                signum = ksmach_signalForMachException(crash->mach.type, crash->mach.code);
+            }
+            const char *sigName = kssignal_signalName(signum);
+            const char *sigCodeName = kssignal_signalCodeName(signum, crash->signal.sigcode);
+            writer->addUIntegerElement(writer, KSCrashField_Signal, (unsigned)signum);
             if (sigName != NULL) {
                 writer->addStringElement(writer, KSCrashField_Name, sigName);
             }

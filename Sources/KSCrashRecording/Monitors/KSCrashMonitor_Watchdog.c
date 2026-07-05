@@ -746,7 +746,8 @@ static void monitorInit(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused v
  */
 static void addContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext, __unused void *context)
 {
-    if (!eventContext->requirements.isFatal) {
+    // Only a fatal event in THIS process supersedes an in-progress hang report.
+    if (!kscexc_isLocallyFatal(eventContext->requirements)) {
         return;
     }
 
