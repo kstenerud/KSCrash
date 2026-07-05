@@ -448,39 +448,12 @@ static bool deriveReportsSiblingDir(const char *reportsPath, const char *install
     return written >= 0 && written < (int)outSize;
 }
 
-// ============================================================================
-#pragma mark - API -
-// ============================================================================
-
-KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const installPath,
-                                        KSCrashCConfiguration *configuration)
+/** Fill any unset report store paths with their defaults under installPath, and the app name.
+ *  Shared by both install entry points so a store configured either way scans the same layout.
+ */
+static KSCrashInstallErrorCode resolveStoreConfigDefaults(const char *appName, const char *const installPath)
 {
-    KSLOG_DEBUG("Installing crash reporter.");
-
-    if (g_installed) {
-        KSLOG_DEBUG("Crash reporter already installed.");
-        return KSCrashInstallErrorAlreadyInstalled;
-    }
-
-    if (appName == NULL || installPath == NULL) {
-        KSLOG_ERROR("Invalid parameters: appName or installPath is NULL.");
-        return KSCrashInstallErrorInvalidParameter;
-    }
-
-    handleConfiguration(configuration);
-
-    // Create Data directory early so run IDs are available
-    // before report store initialization.
     char path[KSFU_MAX_PATH_LENGTH];
-    if (snprintf(path, sizeof(path), "%s/Data", installPath) >= (int)sizeof(path)) {
-        KSLOG_ERROR("Data path is too long.");
-        return KSCrashInstallErrorPathTooLong;
-    }
-    if (ksfu_makePath(path) == false) {
-        KSLOG_ERROR("Could not create path: %s", path);
-        return KSCrashInstallErrorCouldNotCreatePath;
-    }
-    rotateRunID(installPath);
 
     if (g_reportStoreConfig.appName == NULL) {
         g_reportStoreConfig.appName = strdup(appName);
@@ -520,6 +493,48 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
             return KSCrashInstallErrorPathTooLong;
         }
         g_reportStoreConfig.runSummariesPath = strdup(path);
+    }
+
+    return KSCrashInstallErrorNone;
+}
+
+// ============================================================================
+#pragma mark - API -
+// ============================================================================
+
+KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const installPath,
+                                        KSCrashCConfiguration *configuration)
+{
+    KSLOG_DEBUG("Installing crash reporter.");
+
+    if (g_installed) {
+        KSLOG_DEBUG("Crash reporter already installed.");
+        return KSCrashInstallErrorAlreadyInstalled;
+    }
+
+    if (appName == NULL || installPath == NULL) {
+        KSLOG_ERROR("Invalid parameters: appName or installPath is NULL.");
+        return KSCrashInstallErrorInvalidParameter;
+    }
+
+    handleConfiguration(configuration);
+
+    // Create Data directory early so run IDs are available
+    // before report store initialization.
+    char path[KSFU_MAX_PATH_LENGTH];
+    if (snprintf(path, sizeof(path), "%s/Data", installPath) >= (int)sizeof(path)) {
+        KSLOG_ERROR("Data path is too long.");
+        return KSCrashInstallErrorPathTooLong;
+    }
+    if (ksfu_makePath(path) == false) {
+        KSLOG_ERROR("Could not create path: %s", path);
+        return KSCrashInstallErrorCouldNotCreatePath;
+    }
+    rotateRunID(installPath);
+
+    KSCrashInstallErrorCode pathResult = resolveStoreConfigDefaults(appName, installPath);
+    if (pathResult != KSCrashInstallErrorNone) {
+        return pathResult;
     }
 
     KSCrashInstallErrorCode storeInitResult = kscrs_initialize(&g_reportStoreConfig);
@@ -586,6 +601,57 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
 
     g_installed = true;
     KSLOG_DEBUG("Installation complete.");
+
+    return KSCrashInstallErrorNone;
+}
+
+KSCrashInstallErrorCode kscrash_installForExtensionReporting(const char *appName, const char *const installPath,
+                                                             KSCrashMonitorAPI *pluginAPIs, int pluginCount)
+{
+    KSLOG_DEBUG("Installing crash reporter in extension (reporter-only) mode.");
+
+    if (g_installed) {
+        KSLOG_DEBUG("Crash reporter already installed.");
+        return KSCrashInstallErrorAlreadyInstalled;
+    }
+    if (appName == NULL || installPath == NULL) {
+        KSLOG_ERROR("Invalid parameters: appName or installPath is NULL.");
+        return KSCrashInstallErrorInvalidParameter;
+    }
+
+    // A reporter-only process: it writes reports about other processes into its own report
+    // area (typically in an App Group container the app reads later) and runs none of the
+    // app-lifecycle machinery. No run id (a capture loads the crashed run's), no last_run_id
+    // chain, no RunContext or run summaries (previous-run analysis and session counting are
+    // the app's job), no console log, no crash-detection monitors, no report pruning, no
+    // sidecar or stitch wiring (a corpse report carries its data directly and is stitched by
+    // the app at read time), no thread cache (it only knows this process's threads, and the
+    // writer degrades to nameless threads without it), and no dynamic-linker symbol cache
+    // (a subject's frames must resolve against its provided images, never this process's).
+    g_reportStoreConfig = KSCrashReportStoreCConfiguration_Default();
+    g_reportStoreConfig.maxReportCount = 0;  // Never prune from here.
+    KSCrashInstallErrorCode pathResult = resolveStoreConfigDefaults(appName, installPath);
+    if (pathResult != KSCrashInstallErrorNone) {
+        return pathResult;
+    }
+    KSCrashInstallErrorCode storeInitResult = kscrs_initialize(&g_reportStoreConfig);
+    if (storeInitResult != KSCrashInstallErrorNone) {
+        return storeInitResult;
+    }
+
+    kscm_setEventCallbackWithResult(onExceptionEvent);
+
+    setPluginMonitors(pluginAPIs, pluginCount);
+    // Plugins are excluded from the "any crash monitor active" verdict by design, and a
+    // reporter-only process has no crash monitors, so the verdict is meaningless here.
+    (void)kscm_enableMonitors();
+    // Same post-enable step as kscrash_install. kscm_notifyPostSystemEnable is deliberately
+    // NOT fired: its contract is "RunContext is ready", and RunContext never initializes in
+    // extension mode.
+    kscm_notifyPostMonitorsEnabled();
+
+    g_installed = true;
+    KSLOG_DEBUG("Extension installation complete.");
 
     return KSCrashInstallErrorNone;
 }

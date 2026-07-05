@@ -212,6 +212,28 @@ bool kscrash_loadRunIDFromCorpse(task_t corpse, const uint64_t *imageLoadAddress
  */
 void kscrash_clearRunID(void);
 
+/** Install in extension (reporter-only) mode: this process writes reports about other
+ * processes and detects no crashes of its own.
+ *
+ * For a crash extension (iOS 27 CrashReportExtension). The install
+ * directory is the extension's OWN report area, typically inside an App Group container so
+ * the app can read the reports from it later; it is not the app's install directory. This
+ * initializes the report store and the report-writing pipeline and registers the given
+ * plugin monitors, and nothing else: no crash handlers, no last-run-id chain, no run
+ * summaries, no previous-run analysis, no console log, and no report pruning.
+ *
+ * @param appName The APP's name, exactly as the app passes to kscrash_install. Report
+ *        filenames embed it and the app's store scans by it when reading this area;
+ *        a mismatched name writes reports the app never finds.
+ * @param installPath The extension's report directory (e.g. <app group container>/KSCrash).
+ * @param pluginAPIs Plugin monitors to register (e.g. the crash-report-extension monitor).
+ *        May be NULL.
+ * @param pluginCount The number of entries in @c pluginAPIs.
+ * @return KSCrashInstallErrorNone on success.
+ */
+KSCrashInstallErrorCode kscrash_installForExtensionReporting(const char *appName, const char *const installPath,
+                                                             KSCrashMonitorAPI *pluginAPIs, int pluginCount);
+
 /** Get the run ID from the previous process run.
  *
  * Returns the UUID string that was saved during the previous call to
