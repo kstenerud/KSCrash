@@ -35,6 +35,7 @@ public struct InstallConfig: Codable {
     public var isWatchdogEnabled: Bool?
     public var isHangReportingEnabled: Bool?
     public var isCompactBinaryImagesEnabled: Bool?
+    public var ignoreSIGPIPEBeforeInstall: Bool?
 
     public init(installPath: String) {
         self.installPath = installPath
@@ -43,6 +44,13 @@ public struct InstallConfig: Codable {
 
 extension InstallConfig {
     func install() throws {
+        if ignoreSIGPIPEBeforeInstall == true {
+            let error = integrationTestIgnoreSIGPIPE()
+            guard error == 0 else {
+                throw POSIXError(POSIXErrorCode(rawValue: error) ?? .EINVAL)
+            }
+        }
+
         let config = CrashInstallConfiguration()
         config.installPath = installPath
         if let isCxaThrowEnabled {
