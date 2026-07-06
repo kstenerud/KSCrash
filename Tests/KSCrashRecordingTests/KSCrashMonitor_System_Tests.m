@@ -164,7 +164,6 @@ static bool stubRunSidecarPath(const char *monitorId, char *pathBuffer, size_t p
     XCTAssertEqual(sc.binaryArchitecture[0], '\0');
 
     api->setEnabled(false, NULL);
-    ksdl_init();
 }
 
 - (void)testOSVersionMatchesPlatform

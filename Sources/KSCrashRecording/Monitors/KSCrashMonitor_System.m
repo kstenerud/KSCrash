@@ -453,10 +453,7 @@ static void initialize(void)
     safeStrlcpy(sd->cpuArchitecture, getCurrentCPUArch(), sizeof(sd->cpuArchitecture));
     sd->cpuType = kssysctl_int32ForName("hw.cputype");
     sd->cpuSubType = kssysctl_int32ForName("hw.cpusubtype");
-    if (header != NULL) {
-        sd->binaryCPUType = header->cputype;
-        sd->binaryCPUSubType = header->cpusubtype;
-    }
+
     safeNSStringCopy(sd->timezone, [NSTimeZone localTimeZone].abbreviation, sizeof(sd->timezone));
     safeNSStringCopy(sd->processName, [NSProcessInfo processInfo].processName, sizeof(sd->processName));
     sd->processID = [NSProcessInfo processInfo].processIdentifier;
@@ -466,6 +463,9 @@ static void initialize(void)
     sd->memorySize = kssysctl_uint64ForName("hw.memsize");
 
     if (header != NULL) {
+        sd->binaryCPUType = header->cputype;
+        sd->binaryCPUSubType = header->cpusubtype;
+
         const char *binaryArch = getCPUArchForCPUType(header->cputype, header->cpusubtype);
         safeStrlcpy(sd->binaryArchitecture, binaryArch != NULL ? binaryArch : "", sizeof(sd->binaryArchitecture));
     }
