@@ -148,7 +148,7 @@ static void restoreHandlersUpTo(const int *fatalSignals, int fatalSignalsCount)
 {
     for (int i = 0; i < fatalSignalsCount; i++) {
         if (g_state.previousSignalHandlers[i].sa_handler == SIG_IGN) {
-                continue;
+            continue;
         }
         sigaction(fatalSignals[i], &g_state.previousSignalHandlers[i], NULL);
     }
