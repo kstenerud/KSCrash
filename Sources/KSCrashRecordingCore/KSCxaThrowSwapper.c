@@ -385,10 +385,25 @@ static bool process_segment_direct(const segment_command_t *segment, intptr_t sl
     return false;
 }
 
+// MH_DYLIB_IN_CACHE marks images resident in the dyld shared cache; older SDK
+// headers may not define it.
+#ifndef MH_DYLIB_IN_CACHE
+#define MH_DYLIB_IN_CACHE 0x80000000
+#endif
+
 static void rebind_symbols_for_image(const struct mach_header *header, intptr_t slide)
 {
     // Skip if handler is NULL (we're in reset state)
     if (atomic_load_explicit(&g_cxa_throw_handler, memory_order_acquire) == NULL) {
+        return;
+    }
+
+    // Skip images in the dyld shared cache: their __DATA_CONST is a shared,
+    // OS-managed read-only mapping. Rewriting it is tolerated on older systems
+    // but corrupts the mapping on newer ones (observed faulting the ObjC
+    // runtime's map_images on iOS 26.5), so only the app and its own
+    // (non-cache) dylibs are rebound.
+    if ((header->flags & MH_DYLIB_IN_CACHE) != 0) {
         return;
     }
 
