@@ -133,6 +133,27 @@ exit_immediately:
     raise(sigNum);
 }
 
+static void logSigactionError(int sigNum, int error)
+{
+    char sigNameBuff[30];
+    const char *sigName = kssignal_signalName(sigNum);
+    if (sigName == NULL) {
+        snprintf(sigNameBuff, sizeof(sigNameBuff), "%d", sigNum);
+        sigName = sigNameBuff;
+    }
+    KSLOG_ERROR("sigaction (%s): %s", sigName, strerror(error));
+}
+
+static void restoreHandlersUpTo(const int *fatalSignals, int fatalSignalsCount)
+{
+    for (int i = 0; i < fatalSignalsCount; i++) {
+        if (g_state.previousSignalHandlers[i].sa_handler == SIG_IGN) {
+            continue;
+        }
+        sigaction(fatalSignals[i], &g_state.previousSignalHandlers[i], NULL);
+    }
+}
+
 // ============================================================================
 #pragma mark - API -
 // ============================================================================
@@ -178,19 +199,24 @@ static void install(void)
     action.sa_sigaction = &handleSignal;
 
     for (int i = 0; i < fatalSignalsCount; i++) {
+        if (sigaction(fatalSignals[i], NULL, &g_state.previousSignalHandlers[i]) != 0) {
+            logSigactionError(fatalSignals[i], errno);
+            restoreHandlersUpTo(fatalSignals, i);
+            goto failed;
+        }
+
+        // If the application or runtime explicitly ignored this signal before
+        // KSCrash was installed, preserve that behavior. Otherwise KSCrash would
+        // turn an ignored signal (for example SIGPIPE) into a reported fatal
+        // crash even though the process would normally continue running.
+        if (g_state.previousSignalHandlers[i].sa_handler == SIG_IGN) {
+            continue;
+        }
+
         KSLOG_DEBUG("Assigning handler for signal %d", fatalSignals[i]);
-        if (sigaction(fatalSignals[i], &action, &g_state.previousSignalHandlers[i]) != 0) {
-            char sigNameBuff[30];
-            const char *sigName = kssignal_signalName(fatalSignals[i]);
-            if (sigName == NULL) {
-                snprintf(sigNameBuff, sizeof(sigNameBuff), "%d", fatalSignals[i]);
-                sigName = sigNameBuff;
-            }
-            KSLOG_ERROR("sigaction (%s): %s", sigName, strerror(errno));
-            // Try to reverse the damage
-            for (i--; i >= 0; i--) {
-                sigaction(fatalSignals[i], &g_state.previousSignalHandlers[i], NULL);
-            }
+        if (sigaction(fatalSignals[i], &action, NULL) != 0) {
+            logSigactionError(fatalSignals[i], errno);
+            restoreHandlersUpTo(fatalSignals, i);
             goto failed;
         }
     }
@@ -214,10 +240,7 @@ static void restoreHandlers(void)
     const int *fatalSignals = kssignal_fatalSignals();
     int fatalSignalsCount = kssignal_numFatalSignals();
 
-    for (int i = 0; i < fatalSignalsCount; i++) {
-        KSLOG_DEBUG("Restoring original handler for signal %d", fatalSignals[i]);
-        sigaction(fatalSignals[i], &g_state.previousSignalHandlers[i], NULL);
-    }
+    restoreHandlersUpTo(fatalSignals, fatalSignalsCount);
 }
 
 static const char *monitorId(__unused void *context) { return "Signal"; }

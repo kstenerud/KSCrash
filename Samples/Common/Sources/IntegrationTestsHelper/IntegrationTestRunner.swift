@@ -32,11 +32,18 @@ public final class IntegrationTestRunner {
         var delay: TimeInterval?
         var stateSavePath: String?
         var runEarly: Bool?
+        var completionMarkerPath: String?
 
-        public init(delay: TimeInterval? = nil, stateSavePath: String? = nil, runEarly: Bool? = nil) {
+        public init(
+            delay: TimeInterval? = nil,
+            stateSavePath: String? = nil,
+            runEarly: Bool? = nil,
+            completionMarkerPath: String? = nil
+        ) {
             self.delay = delay
             self.stateSavePath = stateSavePath
             self.runEarly = runEarly
+            self.completionMarkerPath = completionMarkerPath
         }
     }
 
@@ -100,6 +107,9 @@ public final class IntegrationTestRunner {
             }
             if let report = script.report {
                 report.report()
+            }
+            if let completionMarkerPath = script.config?.completionMarkerPath {
+                try! Data().write(to: URL(fileURLWithPath: completionMarkerPath))
             }
         }
     }

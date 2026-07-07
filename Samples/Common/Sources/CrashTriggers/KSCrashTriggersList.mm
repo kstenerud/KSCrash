@@ -208,6 +208,11 @@ NSString *const KSCrashNSExceptionStacktraceFuncName = @"exceptionWithStacktrace
     abort();  // This will raise a SIGABRT signal
 }
 
++ (void)trigger_signal_sigpipe
+{
+    raise(SIGPIPE);
+}
+
 + (void)trigger_user_nonfatal
 {
     trigger_user_nonfatal();

@@ -39,6 +39,7 @@ class IntegrationTestBase: XCTestCase {
     private(set) var installUrl: URL!
     private(set) var appleReportsUrl: URL!
     private(set) var stateUrl: URL!
+    private(set) var actionCompletedUrl: URL!
 
     var appLaunchTimeout: TimeInterval = 10.0
     var appTerminateTimeout: TimeInterval = 5.0
@@ -64,6 +65,14 @@ class IntegrationTestBase: XCTestCase {
         )
     }
 
+    private var runConfigWithCompletionMarker: IntegrationTestRunner.RunConfig {
+        .init(
+            delay: actionDelay,
+            stateSavePath: stateUrl.path,
+            completionMarkerPath: actionCompletedUrl.path
+        )
+    }
+
     override func setUpWithError() throws {
         try super.setUpWithError()
 
@@ -75,6 +84,7 @@ class IntegrationTestBase: XCTestCase {
             .appendingPathComponent(UUID().uuidString)
         appleReportsUrl = installUrl.appendingPathComponent("__TEST_REPORTS__")
         stateUrl = installUrl.appendingPathComponent("__test_state__.json")
+        actionCompletedUrl = installUrl.appendingPathComponent("__test_action_completed__")
 
         try FileManager.default.createDirectory(at: appleReportsUrl, withIntermediateDirectories: true)
         log.info("KSCrash install path: \(installUrl.path)")
@@ -131,6 +141,21 @@ class IntegrationTestBase: XCTestCase {
             XCTAssert(app.wait(for: .notRunning, timeout: actionDelay + appCrashTimeout), "App crash is expected")
         #endif
         logFile(name: "Data/ConsoleLog.txt", path: installUrl.path.appending("/Data/ConsoleLog.txt"))
+    }
+
+    private func waitForFile(at url: URL, timeout: TimeInterval) throws {
+        enum Error: Swift.Error {
+            case fileNotFound
+        }
+
+        let fileExpectation = XCTNSPredicateExpectation(
+            predicate: .init { _, _ in FileManager.default.fileExists(atPath: url.path) },
+            object: nil
+        )
+        wait(for: [fileExpectation], timeout: timeout)
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            throw Error.fileNotFound
+        }
     }
 
     private func waitForFile(in dir: URL, timeout: TimeInterval? = nil) throws -> URL {
@@ -247,6 +272,24 @@ class IntegrationTestBase: XCTestCase {
 
         launchAppAndRunScript()
         waitForCrash()
+    }
+
+    func launchAndRunTrigger(
+        _ triggerId: CrashTriggerId, installOverride: ((inout InstallConfig) throws -> Void)? = nil
+    )
+        throws
+    {
+        var installConfig = InstallConfig(installPath: installUrl.path)
+        try installOverride?(&installConfig)
+        try? FileManager.default.removeItem(at: actionCompletedUrl)
+        app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
+            crash: .init(triggerId: triggerId),
+            install: installConfig,
+            config: runConfigWithCompletionMarker
+        )
+
+        launchAppAndRunScript()
+        try waitForFile(at: actionCompletedUrl, timeout: appLaunchTimeout + actionDelay + appCrashTimeout)
     }
 
     func launchAndMakeUserReport(
