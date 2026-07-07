@@ -287,7 +287,7 @@ class IntegrationTestBase: XCTestCase {
         )
 
         launchAppAndRunScript()
-        try waitForFile(at: actionCompletedUrl, timeout: actionDelay + appCrashTimeout)
+        try waitForFile(at: actionCompletedUrl, timeout: appLaunchTimeout + actionDelay + appCrashTimeout)
     }
 
     func launchAndMakeUserReport(
