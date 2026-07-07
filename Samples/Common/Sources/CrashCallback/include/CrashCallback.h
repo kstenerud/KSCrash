@@ -29,6 +29,8 @@ void integrationTestDidWriteReportCallback(const KSCrash_ExceptionHandlingPlan *
 
 void setIntegrationTestDidWriteReportCallback(void (^ _Nonnull implementation)(const KSCrash_ExceptionHandlingPlan *const _Nonnull plan, int64_t reportID));
 
+int integrationTestIgnoreSIGPIPE(void);
+
 #ifdef __cplusplus
 }
 #endif

@@ -4,7 +4,10 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
+      - 'Sources/KSCrashRecording/Monitors/KSCrashMonitor_Signal.c'
       - 'Samples/Tests/**'
+      - 'Samples/Common/Sources/CrashCallback/**'
+      - 'Samples/Common/Sources/CrashTriggers/**'
       - 'Samples/Common/Sources/IntegrationTestsHelper/**'
       - '.github/workflows/integration-tests.yml'
   push:

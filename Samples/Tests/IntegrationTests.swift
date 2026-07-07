@@ -296,6 +296,16 @@ final class CppTests: IntegrationTestBase {
             XCTAssertEqual(state.terminationReason, .crash)
         }
 
+        func testIgnoredSIGPIPEDoesNotProduceCrashReport() throws {
+            // KSCrash must not turn an application/runtime-ignored signal into a reported crash.
+            try launchAndRunTrigger(.signal_sigpipe) { configuration in
+                configuration.ignoreSIGPIPEBeforeInstall = true
+            }
+
+            XCTAssertNotEqual(app.state, .notRunning)
+            XCTAssertFalse(try hasCrashReport())
+        }
+
         func testTermination() throws {
             // SIGTERM is caught to record a clean exit but no crash report is written
             try launchAndInstall()

@@ -6,6 +6,8 @@
 //
 
 #import "CrashCallback.h"
+#import <errno.h>
+#import <signal.h>
 #import <stdio.h>
 #import "KSCrashC.h"
 
@@ -46,4 +48,15 @@ void integrationTestDidWriteReportCallback(const KSCrash_ExceptionHandlingPlan *
 
 void setIntegrationTestDidWriteReportCallback(void (^ _Nonnull implementation)(const KSCrash_ExceptionHandlingPlan *const _Nonnull plan, int64_t reportID)) {
     g_integrationTestDidWriteReportCallback = implementation;
+}
+
+int integrationTestIgnoreSIGPIPE(void)
+{
+    struct sigaction action = { { 0 } };
+    action.sa_handler = SIG_IGN;
+    sigemptyset(&action.sa_mask);
+    if (sigaction(SIGPIPE, &action, NULL) != 0) {
+        return errno;
+    }
+    return 0;
 }
