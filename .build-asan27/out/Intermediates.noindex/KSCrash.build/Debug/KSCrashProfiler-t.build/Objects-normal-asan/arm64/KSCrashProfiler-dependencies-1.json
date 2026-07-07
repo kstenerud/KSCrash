@@ -1,0 +1,375 @@
+[
+  {
+    "isFramework" : true,
+    "moduleName" : "Combine",
+    "modulePath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.0\/Combine.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "CoreFoundation",
+    "modulePath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.0\/CoreFoundation.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "Darwin",
+    "modulePath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.0\/Darwin.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "Dispatch",
+    "modulePath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.0\/Dispatch.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : true,
+    "moduleName" : "Foundation",
+    "modulePath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.0\/Foundation.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "IOKit",
+    "modulePath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.0\/IOKit.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "KSCrashSwiftCore",
+    "modulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/Products\/Debug\/KSCrashSwiftCore.swiftmodule\/arm64-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "ObjectiveC",
+    "modulePath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.0\/ObjectiveC.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "Observation",
+    "modulePath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.0\/Observation.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "Swift",
+    "modulePath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.0\/Swift.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "SwiftOnoneSupport",
+    "modulePath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.0\/SwiftOnoneSupport.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "System",
+    "modulePath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.0\/System.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "XPC",
+    "modulePath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.0\/XPC.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "_Builtin_float",
+    "modulePath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.0\/_Builtin_float.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "_Concurrency",
+    "modulePath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.0\/_Concurrency.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "_DarwinFoundation1",
+    "modulePath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.0\/_DarwinFoundation1.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "_DarwinFoundation2",
+    "modulePath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.0\/_DarwinFoundation2.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "_DarwinFoundation3",
+    "modulePath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.0\/_DarwinFoundation3.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "_StringProcessing",
+    "modulePath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.0\/_StringProcessing.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "isFramework" : false,
+    "moduleName" : "os",
+    "modulePath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/swift\/macosx\/prebuilt-modules\/27.0\/os.swiftmodule\/arm64e-apple-macos.swiftmodule"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/CFNetwork.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/SDKExplicitPrecompiledModules\/CFNetwork-11IE9XQ9CWX44NABSE8WJAMA9.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "CFNetwork"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/CoreFoundation.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/SDKExplicitPrecompiledModules\/CoreFoundation-BL19M834R7E8Y72AQQX87DEXT.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "CoreFoundation"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/CoreServices.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/SDKExplicitPrecompiledModules\/CoreServices-A6IUTTH21YXLW8PW0TVIPIF25.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "CoreServices"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/Darwin.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/SDKExplicitPrecompiledModules\/Darwin-9VSO0F65D5GKR9FYLII91WE5O.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "Darwin"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/DiskArbitration.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/SDKExplicitPrecompiledModules\/DiskArbitration-4FO98E613AYWH8J2ASSENZ3CQ.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "DiskArbitration"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/dispatch.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/SDKExplicitPrecompiledModules\/Dispatch-44FQ5B6LHYDH75SOZSRNE2IFG.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "Dispatch"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/Foundation.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/SDKExplicitPrecompiledModules\/Foundation-EK88BTAA4NA0DFI54648QH7JR.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "Foundation"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/IOKit.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/SDKExplicitPrecompiledModules\/IOKit-8KX0PIAFQION4ENL46E6TE09E.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "IOKit"
+  },
+  {
+    "clangModuleMapPath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/Intermediates.noindex\/GeneratedModuleMaps\/KSCrashCore.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/Intermediates.noindex\/SwiftExplicitPrecompiledModules\/KSCrashCore-AUEG63AQDUMTW1N3LJMOUNB6J.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "KSCrashCore"
+  },
+  {
+    "clangModuleMapPath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/Intermediates.noindex\/GeneratedModuleMaps\/KSCrashRecording.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/Intermediates.noindex\/SwiftExplicitPrecompiledModules\/KSCrashRecording-C0R1T7XZCX5DP80666FRBH9FB.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "KSCrashRecording"
+  },
+  {
+    "clangModuleMapPath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/Intermediates.noindex\/GeneratedModuleMaps\/KSCrashRecordingCore.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/Intermediates.noindex\/SwiftExplicitPrecompiledModules\/KSCrashRecordingCore-8J9JSP6VMUGV8CHUTF9T3DSTG.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "KSCrashRecordingCore"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/DarwinBasic.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/SDKExplicitPrecompiledModules\/MachO-7E6M3KU97RZLNLRBVMN09YAHN.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "MachO"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/ObjectiveC.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/SDKExplicitPrecompiledModules\/ObjectiveC-253TQC0YGP5Z5R7V6EBUQGROG.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "ObjectiveC"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/System\/Library\/Frameworks\/Security.framework\/Modules\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/SDKExplicitPrecompiledModules\/Security-8SL994KD7MINRYUYDMR5604VT.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "Security"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/lib\/swift\/shims\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/SDKExplicitPrecompiledModules\/SwiftShims-9MYR4J1DPKOREK70IIG80QO5L.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "SwiftShims"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/xpc.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/SDKExplicitPrecompiledModules\/XPC-9K6ZAAM4DQRSCF61BQOEGQ5FN.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "XPC"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/DarwinFoundation1.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/SDKExplicitPrecompiledModules\/_AvailabilityInternal-8IHNOODWWQ2UYK48R1ZHQUKMG.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "_AvailabilityInternal"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/SDKExplicitPrecompiledModules\/_Builtin_float-DI58HKJ23W3RWKIDY0203M3N.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "_Builtin_float"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/SDKExplicitPrecompiledModules\/_Builtin_inttypes-47GCTO7T1I1M0EWQM6S5Y2BMS.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "_Builtin_inttypes"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/SDKExplicitPrecompiledModules\/_Builtin_limits-CWKNR16I475UWFQ7BKQ8YROFI.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "_Builtin_limits"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/SDKExplicitPrecompiledModules\/_Builtin_stdarg-5ENNIJ7TIGM5R13B7XIEBFU1P.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "_Builtin_stdarg"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/SDKExplicitPrecompiledModules\/_Builtin_stdatomic-RLJRN7EF5NWSCZZ40K04OPL2.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "_Builtin_stdatomic"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/SDKExplicitPrecompiledModules\/_Builtin_stdbool-BP9Z8HND4MERME4KC4DCDRFJ5.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "_Builtin_stdbool"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/SDKExplicitPrecompiledModules\/_Builtin_stddef-8ONCUAG8VW31DMBUJJY4D1QVL.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "_Builtin_stddef"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/SDKExplicitPrecompiledModules\/_Builtin_stdint-8O74TLT3R3OFM8BGZRXNRY8YP.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "_Builtin_stdint"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/DarwinFoundation1.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/SDKExplicitPrecompiledModules\/_DarwinFoundation1-EODKYZ6CNVZQGP11V5I7VTP28.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "_DarwinFoundation1"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/DarwinFoundation2.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/SDKExplicitPrecompiledModules\/_DarwinFoundation2-82Y772M09YYE0APLT6IWH8ZV6.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "_DarwinFoundation2"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/DarwinFoundation3.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/SDKExplicitPrecompiledModules\/_DarwinFoundation3-2TIKRC83TPX2A0Z9OQ1NMHE8N.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "_DarwinFoundation3"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/lib\/swift\/shims\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/SDKExplicitPrecompiledModules\/_SwiftConcurrencyShims-3WWURSDNT6XZSMX4FG58KTF2G.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "_SwiftConcurrencyShims"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/launch.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/SDKExplicitPrecompiledModules\/launch-37PYH3AOH2H9V6L98MJCB9JFD.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "launch"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/libDER\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/SDKExplicitPrecompiledModules\/libDER-55YGV90YU4JNLDHF5K0ZIQ37S.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "libDER"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/libkern.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/SDKExplicitPrecompiledModules\/libkern-921D5J6HE6E2IQ7MVPSAADK0P.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "libkern"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/os.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/SDKExplicitPrecompiledModules\/os-5ML2DCH9Z7MVNELNFKVAMI19P.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "os"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/os.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/SDKExplicitPrecompiledModules\/os_object-7W4ZWKJWQQV3LRFK89B957B1L.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "os_object"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/os.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/SDKExplicitPrecompiledModules\/os_workgroup-4U95WWME4QWHI92XAJ8XYPBI3.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "os_workgroup"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/SDKExplicitPrecompiledModules\/ptrauth-KRP7QTFG1T5030TJ7LO3VJYP.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "ptrauth"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Toolchains\/XcodeDefault.xctoolchain\/usr\/lib\/clang\/21\/include\/module.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/SDKExplicitPrecompiledModules\/ptrcheck-456MU0UJ3PGVT80W1B2T1SC31.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "ptrcheck"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/c_standard_library.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/SDKExplicitPrecompiledModules\/string_h-O5R4W1HSDUTS0MNMX02OVLBD.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "string_h"
+  },
+  {
+    "clangModuleMapPath" : "\/Applications\/Xcode-27.0.0-Beta.3.app\/Contents\/Developer\/Platforms\/MacOSX.platform\/Developer\/SDKs\/MacOSX.sdk\/usr\/include\/DarwinFoundation2.modulemap",
+    "clangModulePath" : "\/private\/tmp\/claude-501\/-Users-alex-Documents-Code-Github-KSCrash\/970ce29a-b378-4e24-bd72-2d2a41382f5a\/scratchpad\/pr855\/.build-asan27\/out\/SDKExplicitPrecompiledModules\/sys_types-3O2AD24VJ8JFJB9F2J550O20Y.pcm",
+    "isBridgingHeaderDependency" : false,
+    "isFramework" : false,
+    "moduleName" : "sys_types"
+  }
+]

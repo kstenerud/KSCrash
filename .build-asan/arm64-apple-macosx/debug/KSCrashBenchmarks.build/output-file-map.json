@@ -1,0 +1,61 @@
+{
+  "": {
+    "swift-dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/master.swiftdeps"
+  },
+  "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Tests/KSCrashBenchmarks/KSBacktraceBenchmarks.swift": {
+    "dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/KSBacktraceBenchmarks.d",
+    "object": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/KSBacktraceBenchmarks.swift.o",
+    "swiftmodule": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/KSBacktraceBenchmarks~partial.swiftmodule",
+    "swift-dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/KSBacktraceBenchmarks.swiftdeps",
+    "diagnostics": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/KSBacktraceBenchmarks.dia"
+  },
+  "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Tests/KSCrashBenchmarks/KSBenchmarkTestCase.swift": {
+    "dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/KSBenchmarkTestCase.d",
+    "object": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/KSBenchmarkTestCase.swift.o",
+    "swiftmodule": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/KSBenchmarkTestCase~partial.swiftmodule",
+    "swift-dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/KSBenchmarkTestCase.swiftdeps",
+    "diagnostics": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/KSBenchmarkTestCase.dia"
+  },
+  "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Tests/KSCrashBenchmarks/KSDynamicLinkerBenchmarks.swift": {
+    "dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/KSDynamicLinkerBenchmarks.d",
+    "object": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/KSDynamicLinkerBenchmarks.swift.o",
+    "swiftmodule": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/KSDynamicLinkerBenchmarks~partial.swiftmodule",
+    "swift-dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/KSDynamicLinkerBenchmarks.swiftdeps",
+    "diagnostics": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/KSDynamicLinkerBenchmarks.dia"
+  },
+  "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Tests/KSCrashBenchmarks/KSJSONCodecBenchmarks.swift": {
+    "dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/KSJSONCodecBenchmarks.d",
+    "object": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/KSJSONCodecBenchmarks.swift.o",
+    "swiftmodule": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/KSJSONCodecBenchmarks~partial.swiftmodule",
+    "swift-dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/KSJSONCodecBenchmarks.swiftdeps",
+    "diagnostics": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/KSJSONCodecBenchmarks.dia"
+  },
+  "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Tests/KSCrashBenchmarks/KSMemoryBenchmarks.swift": {
+    "dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/KSMemoryBenchmarks.d",
+    "object": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/KSMemoryBenchmarks.swift.o",
+    "swiftmodule": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/KSMemoryBenchmarks~partial.swiftmodule",
+    "swift-dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/KSMemoryBenchmarks.swiftdeps",
+    "diagnostics": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/KSMemoryBenchmarks.dia"
+  },
+  "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Tests/KSCrashBenchmarks/KSThreadBenchmarks.swift": {
+    "dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/KSThreadBenchmarks.d",
+    "object": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/KSThreadBenchmarks.swift.o",
+    "swiftmodule": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/KSThreadBenchmarks~partial.swiftmodule",
+    "swift-dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/KSThreadBenchmarks.swiftdeps",
+    "diagnostics": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/KSThreadBenchmarks.dia"
+  },
+  "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Tests/KSCrashBenchmarks/KSTimeProfilerBenchmarks.swift": {
+    "dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/KSTimeProfilerBenchmarks.d",
+    "object": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/KSTimeProfilerBenchmarks.swift.o",
+    "swiftmodule": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/KSTimeProfilerBenchmarks~partial.swiftmodule",
+    "swift-dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/KSTimeProfilerBenchmarks.swiftdeps",
+    "diagnostics": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/KSTimeProfilerBenchmarks.dia"
+  },
+  "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Tests/KSCrashBenchmarks/ProfilerSampleMetric.swift": {
+    "dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/ProfilerSampleMetric.d",
+    "object": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/ProfilerSampleMetric.swift.o",
+    "swiftmodule": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/ProfilerSampleMetric~partial.swiftmodule",
+    "swift-dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/ProfilerSampleMetric.swiftdeps",
+    "diagnostics": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashBenchmarks.build/ProfilerSampleMetric.dia"
+  }
+}

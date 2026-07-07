@@ -1,0 +1,32 @@
+{
+    "report": {
+        "id": "test",
+        "type": "standard",
+        "version": "3.7.0"
+    },
+    "crash": {
+        "error": {
+            "mach": {
+                "code": 9,
+                "exception_name": "EXC_CRASH",
+                "subcode": 37,
+                "exception": 10
+            },
+            "hang": {
+                "hang_start_nanos": 775158658202750,
+                "hang_end_nanos": 775162643280333
+            },
+            "type": "mach",
+            "signal": {
+                "signal": 9,
+                "code": 0
+            },
+            "exit_reason": {
+                "code": 2343432205
+            },
+            "address": 0
+        },
+        "threads": []
+    },
+    "binary_images": []
+}

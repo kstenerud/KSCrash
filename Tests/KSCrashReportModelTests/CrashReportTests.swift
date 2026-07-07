@@ -74,6 +74,29 @@ final class CrashReportTests: XCTestCase {
     func testCrashErrorSubtypeRawValues() {
         XCTAssertEqual(CrashErrorSubtype.hang.rawValue, "hang")
         XCTAssertEqual(CrashErrorSubtype(rawValue: "hang"), .hang)
+        XCTAssertEqual(CrashErrorSubtype.memoryException.rawValue, "memory_exception")
+        XCTAssertEqual(CrashErrorSubtype(rawValue: "memory_exception"), .memoryException)
+    }
+
+    // The MetricKit memory exception (iOS 27) is modelled like an OOM: a fatal .termination with
+    // terminationReason == .memoryLimit, tagged subtype == .memoryException so it can be told
+    // apart from other terminations. Make sure the whole shape survives a Codable round trip.
+    func testMemoryExceptionErrorRoundTrips() throws {
+        let error = CrashError(
+            type: .termination,
+            subtype: .memoryException,
+            isFatal: true,
+            isCleanExit: false,
+            terminationReason: .memoryLimit
+        )
+        let data = try JSONEncoder().encode(error)
+        let decoded = try JSONDecoder().decode(CrashError.self, from: data)
+        XCTAssertEqual(decoded.type, .termination)
+        XCTAssertEqual(decoded.subtype, .memoryException)
+        XCTAssertEqual(decoded.terminationReason, .memoryLimit)
+        XCTAssertEqual(decoded.isFatal, true)
+        XCTAssertEqual(decoded.isCleanExit, false)
+        XCTAssertFalse(decoded.subtype?.isUnknown ?? true)
     }
 
     func testCrashErrorSubtypeUnknown() {

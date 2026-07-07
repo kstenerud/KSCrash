@@ -79,6 +79,21 @@ import os.log
             }
         }
 
+        /// Encodes a `Codable` value as pretty JSON and writes it to
+        /// Documents/<namespace>/MetricKit/<type>/<type>_<runId>_<uuid>.json.
+        ///
+        /// Used for the iOS 27+ MetricKit Swift API (`DiagnosticReport` and friends), which
+        /// vends `Codable` structs instead of the older `jsonRepresentation()`-based payloads.
+        static func dump<T: Encodable>(encodable value: T, type: String) {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            guard let data = try? encoder.encode(value) else {
+                os_log(.error, log: metricKitLog, "[MONITORS] Failed to encode %{public}@ for dump", type)
+                return
+            }
+            dump(data, type: type)
+        }
+
         /// Writes a JSON-serializable object to Documents/<namespace>/MetricKit/<type>/<type>_<runId>_<uuid>.json
         static func dump(_ json: Any, type: String) {
             guard JSONSerialization.isValidJSONObject(json) else {

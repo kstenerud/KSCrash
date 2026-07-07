@@ -1,0 +1,4 @@
+module KSCrashSwiftCore {
+header "KSCrashSwiftCore-Swift.h"
+export *
+}

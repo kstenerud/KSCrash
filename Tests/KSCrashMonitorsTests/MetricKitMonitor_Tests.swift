@@ -37,6 +37,13 @@ import XCTest
 
         private var monitor: MetricKitMonitor { Monitors.metricKit }
 
+        override func setUp() {
+            super.setUp()
+            // The monitor is a shared singleton, so reset the accumulated diagnostic report ids
+            // for test isolation.
+            monitor.lock.withLock { $0.diagnosticReportIDs = [] }
+        }
+
         // MARK: - Monitor API Lifecycle
 
         func testMonitorId() {
@@ -78,75 +85,43 @@ import XCTest
             XCTAssertNotNil(Monitors.metricKit.api)
         }
 
-        // MARK: - State Change Notifications
+        // MARK: - Diagnostic Report Notifications
 
-        func testStateChangeNotificationPostedOnDiagnosticsStateChange() {
-            let api = monitor.api.pointee
-            api.setEnabled(true, api.context)
-            defer { api.setEnabled(false, api.context) }
+        // The monitor is a shared singleton and posts asynchronously on the main queue, so a
+        // post from another test can land during a wait here. Each test below filters to its own
+        // unique id and tolerates extra posts (assertForOverFulfill = false).
 
-            let notificationExpectation = expectation(description: "State change notification")
+        func testNotificationPostedWhenDiagnosticReportRecorded() {
+            let notificationExpectation = expectation(description: "Diagnostic report notification")
             notificationExpectation.assertForOverFulfill = false
-            var sawProcessingState = false
+            var observedID: Int64?
 
             let observer = NotificationCenter.default.addObserver(
-                forName: MetricKitMonitor.processingStateDidChangeNotification,
+                forName: MetricKitMonitor.diagnosticReportAddedNotification,
                 object: Monitors.metricKit,
                 queue: nil
-            ) { _ in
-                if self.monitor.diagnosticsState == .processing {
-                    sawProcessingState = true
-                }
+            ) { notification in
+                guard let id = notification.userInfo?[MetricKitMonitor.diagnosticReportIDUserInfoKey] as? Int64,
+                    id == 4242
+                else { return }
+                observedID = id
                 notificationExpectation.fulfill()
             }
             defer { NotificationCenter.default.removeObserver(observer) }
 
-            monitor.updateDiagnosticsState(.processing)
+            monitor.recordDiagnosticReport(4242)
 
             wait(for: [notificationExpectation], timeout: 2.0)
-
-            XCTAssertTrue(sawProcessingState, "Should have received notification when state became .processing")
+            XCTAssertEqual(observedID, 4242)
         }
 
-        func testStateChangeNotificationPostedOnMetricsStateChange() {
-            let api = monitor.api.pointee
-            api.setEnabled(true, api.context)
-            defer { api.setEnabled(false, api.context) }
-
-            let notificationExpectation = expectation(description: "State change notification")
-            notificationExpectation.assertForOverFulfill = false
-            var sawCompletedState = false
-
-            let observer = NotificationCenter.default.addObserver(
-                forName: MetricKitMonitor.processingStateDidChangeNotification,
-                object: Monitors.metricKit,
-                queue: nil
-            ) { _ in
-                if self.monitor.metricsState == .completed {
-                    sawCompletedState = true
-                }
-                notificationExpectation.fulfill()
-            }
-            defer { NotificationCenter.default.removeObserver(observer) }
-
-            monitor.updateMetricsState(.completed)
-
-            wait(for: [notificationExpectation], timeout: 2.0)
-
-            XCTAssertTrue(sawCompletedState, "Should have received notification when state became .completed")
-        }
-
-        func testStateChangeNotificationPostedOnMainThread() {
-            let api = monitor.api.pointee
-            api.setEnabled(true, api.context)
-            defer { api.setEnabled(false, api.context) }
-
+        func testNotificationPostedOnMainThread() {
             let notificationExpectation = expectation(description: "Notification received")
             notificationExpectation.assertForOverFulfill = false
             var allOnMainThread = true
 
             let observer = NotificationCenter.default.addObserver(
-                forName: MetricKitMonitor.processingStateDidChangeNotification,
+                forName: MetricKitMonitor.diagnosticReportAddedNotification,
                 object: Monitors.metricKit,
                 queue: nil
             ) { _ in
@@ -158,40 +133,32 @@ import XCTest
             defer { NotificationCenter.default.removeObserver(observer) }
 
             DispatchQueue.global().async {
-                self.monitor.updateDiagnosticsState(.completed)
+                self.monitor.recordDiagnosticReport(1)
             }
 
             wait(for: [notificationExpectation], timeout: 2.0)
-
-            XCTAssertTrue(allOnMainThread, "All notifications should be posted on main thread")
+            XCTAssertTrue(allOnMainThread, "Notification should be posted on the main thread")
         }
 
-        func testStateChangeNotificationObjectIsPlugin() {
-            let api = monitor.api.pointee
-            api.setEnabled(true, api.context)
-            defer { api.setEnabled(false, api.context) }
-
+        func testNotificationObjectIsPlugin() {
             let notificationExpectation = expectation(description: "Notification received")
             notificationExpectation.assertForOverFulfill = false
-            var allObjectsCorrect = true
+            var objectIsPlugin = false
 
             let observer = NotificationCenter.default.addObserver(
-                forName: MetricKitMonitor.processingStateDidChangeNotification,
+                forName: MetricKitMonitor.diagnosticReportAddedNotification,
                 object: nil,
                 queue: nil
             ) { notification in
-                if (notification.object as AnyObject) !== Monitors.metricKit {
-                    allObjectsCorrect = false
-                }
+                objectIsPlugin = (notification.object as AnyObject) === Monitors.metricKit
                 notificationExpectation.fulfill()
             }
             defer { NotificationCenter.default.removeObserver(observer) }
 
-            monitor.updateMetricsState(.completed)
+            monitor.recordDiagnosticReport(1)
 
             wait(for: [notificationExpectation], timeout: 2.0)
-
-            XCTAssertTrue(allObjectsCorrect, "All notification objects should be the plugin instance")
+            XCTAssertTrue(objectIsPlugin, "Notification object should be the plugin instance")
         }
 
         // MARK: - Diagnostic Report IDs
@@ -200,48 +167,37 @@ import XCTest
             XCTAssertTrue(monitor.diagnosticReportIDs.isEmpty)
         }
 
-        func testDiagnosticReportIDsSetOnCompleted() {
-            monitor.updateDiagnosticsState(.processing)
-            XCTAssertTrue(monitor.diagnosticReportIDs.isEmpty)
-
-            monitor.updateDiagnosticsState(.completed, reportIDs: [42, 99])
+        func testDiagnosticReportIDsAccumulateInOrder() {
+            monitor.recordDiagnosticReport(42)
+            monitor.recordDiagnosticReport(99)
             XCTAssertEqual(monitor.diagnosticReportIDs, [42, 99])
         }
 
-        func testDiagnosticReportIDsClearedOnNextProcessing() {
-            monitor.updateDiagnosticsState(.completed, reportIDs: [1, 2, 3])
-            XCTAssertEqual(monitor.diagnosticReportIDs, [1, 2, 3])
-
-            monitor.updateDiagnosticsState(.processing)
-            XCTAssertTrue(monitor.diagnosticReportIDs.isEmpty)
-        }
-
-        func testDiagnosticReportIDsVisibleInNotification() {
-            let api = monitor.api.pointee
-            api.setEnabled(true, api.context)
-            defer { api.setEnabled(false, api.context) }
-
-            let notificationExpectation = expectation(description: "State change notification")
+        func testNotificationCarriesOnlyTheAddedID() {
+            var observedIDs: [Int64] = []
+            let notificationExpectation = expectation(description: "Two notifications")
+            notificationExpectation.expectedFulfillmentCount = 2
             notificationExpectation.assertForOverFulfill = false
-            var observedIDs: [Int64]?
 
             let observer = NotificationCenter.default.addObserver(
-                forName: MetricKitMonitor.processingStateDidChangeNotification,
+                forName: MetricKitMonitor.diagnosticReportAddedNotification,
                 object: Monitors.metricKit,
                 queue: nil
-            ) { _ in
-                if self.monitor.diagnosticsState == .completed {
-                    observedIDs = self.monitor.diagnosticReportIDs
-                    notificationExpectation.fulfill()
-                }
+            ) { notification in
+                guard let id = notification.userInfo?[MetricKitMonitor.diagnosticReportIDUserInfoKey] as? Int64,
+                    id == 7707 || id == 1313
+                else { return }
+                observedIDs.append(id)
+                notificationExpectation.fulfill()
             }
             defer { NotificationCenter.default.removeObserver(observer) }
 
-            monitor.updateDiagnosticsState(.completed, reportIDs: [7, 13])
+            monitor.recordDiagnosticReport(7707)
+            monitor.recordDiagnosticReport(1313)
 
             wait(for: [notificationExpectation], timeout: 2.0)
-
-            XCTAssertEqual(observedIDs, [7, 13])
+            // Each post carries exactly the id that was just added, never the accumulated array.
+            XCTAssertEqual(Set(observedIDs), [7707, 1313])
         }
 
         // MARK: - Call Stack Tree Flattening
@@ -773,6 +729,61 @@ import XCTest
             // A second diagnostic from the same run still resolves, served from the cache.
             let second = handler.decode(from: callStackData, pathProvider: provider)
             XCTAssertEqual(second, runId, "Repeated diagnostics from the same run must keep the run ID")
+        }
+
+        func testConcurrentDecodesOfSameRunAllResolve() {
+            // The legacy subscriber and the iOS 27 memory stream can decode diagnostics from the
+            // same dead run on different threads at once. Decoding consumes the shared sidecar,
+            // so every concurrent decode must still resolve (one from the file, the rest from
+            // the cache), never nil.
+            let handler = MetricKitRunIdHandler()
+            let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+            defer { try? FileManager.default.removeItem(at: tempDir) }
+
+            let runId = UUID().uuidString
+            let strippedRunId = runId.replacingOccurrences(of: "-", with: "")
+            let threadcrumb = KSCrashThreadcrumb(identifier: "test")
+            let addresses = threadcrumb.log(strippedRunId)
+
+            let hash = MetricKitRunIdHandler.computeHash(from: addresses)
+            let name = String(format: "%016llx", hash)
+            let sidecarURL = tempDir.appendingPathComponent("\(name).stacksym")
+            try? runId.write(to: sidecarURL, atomically: true, encoding: .utf8)
+
+            var stackFrames: [StackFrame] = []
+            for i in 0..<4 {
+                stackFrames.append(StackFrame(instructionAddr: UInt64(0xF000 + i), objectName: "libsystem"))
+            }
+            for addr in addresses {
+                stackFrames.append(StackFrame(instructionAddr: addr.uint64Value, objectName: "TestBinary"))
+            }
+            for i in 0..<3 {
+                stackFrames.append(StackFrame(instructionAddr: UInt64(0xE000 + i), objectName: "libpthread"))
+            }
+
+            let thread = BasicCrashReport.Thread(
+                backtrace: Backtrace(contents: stackFrames, skipped: 0),
+                crashed: false, currentThread: false, index: 0)
+            let callStackData = CallStackData(threads: [thread], crashedThreadIndex: 0, binaryImages: [])
+            let provider: MetricKitRunIdHandler.SidecarPathProvider = { name, ext in
+                tempDir.appendingPathComponent("\(name).\(ext)")
+            }
+
+            let iterations = 8
+            let resultsLock = NSLock()
+            var results: [String?] = []
+            DispatchQueue.concurrentPerform(iterations: iterations) { _ in
+                let decoded = handler.decode(from: callStackData, pathProvider: provider)
+                resultsLock.lock()
+                results.append(decoded)
+                resultsLock.unlock()
+            }
+
+            XCTAssertEqual(results.count, iterations)
+            XCTAssertTrue(
+                results.allSatisfy { $0 == runId },
+                "Every concurrent decode of the same run must resolve its run ID, got \(results)")
         }
 
         func testDecodeReturnsNilWhenNoMatchingFrames() {

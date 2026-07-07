@@ -54,6 +54,7 @@ public final class MetricKitRunIdHandler {
     /// can produce several diagnostics (e.g. multiple non-fatal hangs), all sharing one
     /// threadcrumb sidecar; decoding removes that file, so later diagnostics from the same run
     /// would otherwise fail to resolve. Serving repeats from here keeps their run IDs intact.
+    /// The lock also serializes whole decodes; see `decode(from:pathProvider:)`.
     private let decodedRunIds = UnfairLock([UInt64: String]())
 
     /// Callback type for obtaining sidecar file URLs.
@@ -109,53 +110,60 @@ public final class MetricKitRunIdHandler {
     ///   - pathProvider: Callback to get the sidecar file path for a given name and extension
     /// - Returns: The run ID if found
     func decode(from callStackData: CallStackData, pathProvider: SidecarPathProvider) -> String? {
-        for thread in callStackData.threads {
-            guard let backtrace = thread.backtrace else { continue }
-            let frames = backtrace.contents
+        // The whole check-read-cache-remove sequence holds the lock. The legacy subscriber and
+        // the iOS 27 memory stream can decode diagnostics from the same dead run concurrently,
+        // and one removing the sidecar between the other's cache miss and file read would
+        // silently cost that report its run ID. Decodes are rare and the file is tiny, so the
+        // I/O under the lock is fine (writeSkeletonReport makes the same tradeoff).
+        decodedRunIds.withLock { cache in
+            for thread in callStackData.threads {
+                guard let backtrace = thread.backtrace else { continue }
+                let frames = backtrace.contents
 
-            // Must have exactly 39 frames for a threadcrumb stack
-            guard frames.count == Self.expectedTotalFrameCount else { continue }
+                // Must have exactly 39 frames for a threadcrumb stack
+                guard frames.count == Self.expectedTotalFrameCount else { continue }
 
-            // Extract data frames at indices 4-35 (32 frames)
-            let dataFrames = Array(
-                frames[Self.dataStartIndex..<(Self.dataStartIndex + Self.expectedDataFrameCount)])
+                // Extract data frames at indices 4-35 (32 frames)
+                let dataFrames = Array(
+                    frames[Self.dataStartIndex..<(Self.dataStartIndex + Self.expectedDataFrameCount)])
 
-            // Convert to addresses for hashing
-            let addresses = dataFrames.map { NSNumber(value: $0.instructionAddr) }
-            let hash = Self.computeHash(from: addresses)
+                // Convert to addresses for hashing (threadcrumb frames always carry an address)
+                let addresses = dataFrames.map { NSNumber(value: $0.instructionAddr ?? 0) }
+                let hash = Self.computeHash(from: addresses)
 
-            // A previous diagnostic from the same run already consumed the sidecar.
-            if let cached = decodedRunIds.withLock({ $0[hash] }) {
-                return cached
-            }
+                // A previous diagnostic from the same run already consumed the sidecar.
+                if let cached = cache[hash] {
+                    return cached
+                }
 
-            // Look up sidecar
-            let name = String(format: "%016llx", hash)
-            guard let url = pathProvider(name, "stacksym") else {
-                continue
-            }
+                // Look up sidecar
+                let name = String(format: "%016llx", hash)
+                guard let url = pathProvider(name, "stacksym") else {
+                    continue
+                }
 
-            guard let contents = try? String(contentsOf: url, encoding: .utf8) else {
-                continue
-            }
+                guard let contents = try? String(contentsOf: url, encoding: .utf8) else {
+                    continue
+                }
 
-            let runId = contents.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+                let runId = contents.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
 
-            // An empty sidecar isn't a usable run ID; treat it as a miss so we don't cache or
-            // return it (which would hand later diagnostics the same bogus value).
-            guard !runId.isEmpty else {
+                // An empty sidecar isn't a usable run ID; treat it as a miss so we don't cache or
+                // return it (which would hand later diagnostics the same bogus value).
+                guard !runId.isEmpty else {
+                    try? FileManager.default.removeItem(at: url)
+                    continue
+                }
+
+                // Cache before removing the sidecar so later diagnostics from this run still resolve.
+                cache[hash] = runId
                 try? FileManager.default.removeItem(at: url)
-                continue
+
+                return runId
             }
 
-            // Cache before removing the sidecar so later diagnostics from this run still resolve.
-            decodedRunIds.withLock { $0[hash] = runId }
-            try? FileManager.default.removeItem(at: url)
-
-            return runId
+            return nil
         }
-
-        return nil
     }
 
     /// Compute hash from stack addresses (XOR with rotation).

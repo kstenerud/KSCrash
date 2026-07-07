@@ -1,0 +1,68 @@
+{
+  "": {
+    "swift-dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/master.swiftdeps"
+  },
+  "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Sources/KSCrashProfiler/Private/TimeProfile.Report.swift": {
+    "dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/TimeProfile.Report.d",
+    "object": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/TimeProfile.Report.swift.o",
+    "swiftmodule": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/TimeProfile.Report~partial.swiftmodule",
+    "swift-dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/TimeProfile.Report.swiftdeps",
+    "diagnostics": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/TimeProfile.Report.dia"
+  },
+  "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Sources/KSCrashProfiler/Private/TimeProfileMetrics.swift": {
+    "dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/TimeProfileMetrics.d",
+    "object": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/TimeProfileMetrics.swift.o",
+    "swiftmodule": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/TimeProfileMetrics~partial.swiftmodule",
+    "swift-dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/TimeProfileMetrics.swiftdeps",
+    "diagnostics": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/TimeProfileMetrics.dia"
+  },
+  "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Sources/KSCrashProfiler/Private/UnsafeReportWriter.swift": {
+    "dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/UnsafeReportWriter.d",
+    "object": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/UnsafeReportWriter.swift.o",
+    "swiftmodule": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/UnsafeReportWriter~partial.swiftmodule",
+    "swift-dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/UnsafeReportWriter.swiftdeps",
+    "diagnostics": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/UnsafeReportWriter.dia"
+  },
+  "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Sources/KSCrashProfiler/Profile.swift": {
+    "dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/Profile.d",
+    "object": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/Profile.swift.o",
+    "swiftmodule": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/Profile~partial.swiftmodule",
+    "swift-dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/Profile.swiftdeps",
+    "diagnostics": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/Profile.dia"
+  },
+  "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Sources/KSCrashProfiler/Profiler.swift": {
+    "dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/Profiler.d",
+    "object": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/Profiler.swift.o",
+    "swiftmodule": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/Profiler~partial.swiftmodule",
+    "swift-dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/Profiler.swiftdeps",
+    "diagnostics": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/Profiler.dia"
+  },
+  "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Sources/KSCrashProfiler/Sample.swift": {
+    "dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/Sample.d",
+    "object": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/Sample.swift.o",
+    "swiftmodule": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/Sample~partial.swiftmodule",
+    "swift-dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/Sample.swiftdeps",
+    "diagnostics": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/Sample.dia"
+  },
+  "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Sources/KSCrashProfiler/TimeProfile.swift": {
+    "dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/TimeProfile.d",
+    "object": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/TimeProfile.swift.o",
+    "swiftmodule": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/TimeProfile~partial.swiftmodule",
+    "swift-dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/TimeProfile.swiftdeps",
+    "diagnostics": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/TimeProfile.dia"
+  },
+  "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Sources/KSCrashProfiler/TimeProfiler.swift": {
+    "dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/TimeProfiler.d",
+    "object": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/TimeProfiler.swift.o",
+    "swiftmodule": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/TimeProfiler~partial.swiftmodule",
+    "swift-dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/TimeProfiler.swiftdeps",
+    "diagnostics": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/TimeProfiler.dia"
+  },
+  "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/DerivedSources/resource_bundle_accessor.swift": {
+    "dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/resource_bundle_accessor.d",
+    "object": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/resource_bundle_accessor.swift.o",
+    "swiftmodule": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/resource_bundle_accessor~partial.swiftmodule",
+    "swift-dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/resource_bundle_accessor.swiftdeps",
+    "diagnostics": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-tsan263/arm64-apple-macosx/debug/KSCrashProfiler.build/resource_bundle_accessor.dia"
+  }
+}
