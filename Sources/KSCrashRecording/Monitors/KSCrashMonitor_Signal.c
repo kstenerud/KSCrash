@@ -147,6 +147,9 @@ static void logSigactionError(int sigNum, int error)
 static void restoreHandlersUpTo(const int *fatalSignals, int fatalSignalsCount)
 {
     for (int i = 0; i < fatalSignalsCount; i++) {
+        if (g_state.previousSignalHandlers[i].sa_handler == SIG_IGN) {
+                continue;
+        }
         sigaction(fatalSignals[i], &g_state.previousSignalHandlers[i], NULL);
     }
 }
