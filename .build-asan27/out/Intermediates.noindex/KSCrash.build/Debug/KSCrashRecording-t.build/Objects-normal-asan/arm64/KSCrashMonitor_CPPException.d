@@ -1,0 +1,24 @@
+dependencies: \
+  /Applications/Xcode-27.0.0-Beta.3.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk/SDKSettings.json \
+  /private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Sources/KSCrashRecording/Monitors/KSCrashMonitor_CPPException.cpp \
+  /private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Sources/KSCrashRecording/Monitors/KSCrashMonitor_CPPException.h \
+  /private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Sources/KSCrashRecordingCore/include/KSCrashMonitorAPI.h \
+  /private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Sources/KSCrashRecordingCore/include/KSCrashMonitorContext.h \
+  /private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Sources/KSCrashRecordingCore/include/KSCrashExceptionHandlingRequirements.h \
+  /private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Sources/KSCrashRecordingCore/include/KSCrashMonitorFlag.h \
+  /private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Sources/KSCrashCore/include/KSCrashNamespace.h \
+  /private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Sources/KSCrashRecordingCore/include/KSMachineContext.h \
+  /private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Sources/KSCrashRecordingCore/include/KSMachineContext_Apple.h \
+  /private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Sources/KSCrashRecordingCore/include/KSThread.h \
+  /private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Sources/KSCrashRecordingCore/include/KSCrashReportWriter.h \
+  /private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Sources/KSCrashRecordingCore/include/KSCrashExceptionHandlingPlan.h \
+  /private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Sources/KSCrashCore/include/KSCompilerDefines.h \
+  /private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Sources/KSCrashRecordingCore/include/KSCrashMonitorHelper.h \
+  /private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Sources/KSCrashRecordingCore/include/KSCrashMonitor.h \
+  /private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Sources/KSCrashRecording/Monitors/KSCrashMonitor_CPPException+Private.h \
+  /private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Sources/KSCrashCore/include/KSSystemCapabilities.h \
+  /private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Sources/KSCrashRecordingCore/include/KSID.h \
+  /private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Sources/KSCrashRecordingCore/include/KSStackCursor_SelfThread.h \
+  /private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Sources/KSCrashRecordingCore/include/KSStackCursor.h \
+  /private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Sources/KSCrashRecordingCore/include/KSCxaThrowSwapper.h \
+  /private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Sources/KSCrashRecordingCore/include/KSLogger.h

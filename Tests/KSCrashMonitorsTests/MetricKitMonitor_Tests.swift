@@ -731,6 +731,61 @@ import XCTest
             XCTAssertEqual(second, runId, "Repeated diagnostics from the same run must keep the run ID")
         }
 
+        func testConcurrentDecodesOfSameRunAllResolve() {
+            // The legacy subscriber and the iOS 27 memory stream can decode diagnostics from the
+            // same dead run on different threads at once. Decoding consumes the shared sidecar,
+            // so every concurrent decode must still resolve (one from the file, the rest from
+            // the cache), never nil.
+            let handler = MetricKitRunIdHandler()
+            let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+            defer { try? FileManager.default.removeItem(at: tempDir) }
+
+            let runId = UUID().uuidString
+            let strippedRunId = runId.replacingOccurrences(of: "-", with: "")
+            let threadcrumb = KSCrashThreadcrumb(identifier: "test")
+            let addresses = threadcrumb.log(strippedRunId)
+
+            let hash = MetricKitRunIdHandler.computeHash(from: addresses)
+            let name = String(format: "%016llx", hash)
+            let sidecarURL = tempDir.appendingPathComponent("\(name).stacksym")
+            try? runId.write(to: sidecarURL, atomically: true, encoding: .utf8)
+
+            var stackFrames: [StackFrame] = []
+            for i in 0..<4 {
+                stackFrames.append(StackFrame(instructionAddr: UInt64(0xF000 + i), objectName: "libsystem"))
+            }
+            for addr in addresses {
+                stackFrames.append(StackFrame(instructionAddr: addr.uint64Value, objectName: "TestBinary"))
+            }
+            for i in 0..<3 {
+                stackFrames.append(StackFrame(instructionAddr: UInt64(0xE000 + i), objectName: "libpthread"))
+            }
+
+            let thread = BasicCrashReport.Thread(
+                backtrace: Backtrace(contents: stackFrames, skipped: 0),
+                crashed: false, currentThread: false, index: 0)
+            let callStackData = CallStackData(threads: [thread], crashedThreadIndex: 0, binaryImages: [])
+            let provider: MetricKitRunIdHandler.SidecarPathProvider = { name, ext in
+                tempDir.appendingPathComponent("\(name).\(ext)")
+            }
+
+            let iterations = 8
+            let resultsLock = NSLock()
+            var results: [String?] = []
+            DispatchQueue.concurrentPerform(iterations: iterations) { _ in
+                let decoded = handler.decode(from: callStackData, pathProvider: provider)
+                resultsLock.lock()
+                results.append(decoded)
+                resultsLock.unlock()
+            }
+
+            XCTAssertEqual(results.count, iterations)
+            XCTAssertTrue(
+                results.allSatisfy { $0 == runId },
+                "Every concurrent decode of the same run must resolve its run ID, got \(results)")
+        }
+
         func testDecodeReturnsNilWhenNoMatchingFrames() {
             let handler = MetricKitRunIdHandler()
             let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

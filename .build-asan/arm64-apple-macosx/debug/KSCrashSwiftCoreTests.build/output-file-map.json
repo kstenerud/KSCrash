@@ -1,0 +1,12 @@
+{
+  "": {
+    "swift-dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashSwiftCoreTests.build/master.swiftdeps"
+  },
+  "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Tests/KSCrashSwiftCoreTests/UnfairLock_Tests.swift": {
+    "dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashSwiftCoreTests.build/UnfairLock_Tests.d",
+    "object": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashSwiftCoreTests.build/UnfairLock_Tests.swift.o",
+    "swiftmodule": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashSwiftCoreTests.build/UnfairLock_Tests~partial.swiftmodule",
+    "swift-dependencies": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashSwiftCoreTests.build/UnfairLock_Tests.swiftdeps",
+    "diagnostics": "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan/arm64-apple-macosx/debug/KSCrashSwiftCoreTests.build/UnfairLock_Tests.dia"
+  }
+}

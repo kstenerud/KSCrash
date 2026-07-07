@@ -1,0 +1,23 @@
+{
+  "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Sources/KSCrashReportModel/Models/ProcessState.swift" : {
+    "const-values" : "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan27/out/Intermediates.noindex/KSCrash.build/Debug/KSCrashReportModel-t.build/Objects-normal-asan/arm64/ProcessState.swiftconstvalues",
+    "dependencies" : "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan27/out/Intermediates.noindex/KSCrash.build/Debug/KSCrashReportModel-t.build/Objects-normal-asan/arm64/ProcessState.d",
+    "diagnostics" : "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan27/out/Intermediates.noindex/KSCrash.build/Debug/KSCrashReportModel-t.build/Objects-normal-asan/arm64/ProcessState.dia",
+    "object" : "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan27/out/Intermediates.noindex/KSCrash.build/Debug/KSCrashReportModel-t.build/Objects-normal-asan/arm64/ProcessState.o",
+    "swift-dependencies" : "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan27/out/Intermediates.noindex/KSCrash.build/Debug/KSCrashReportModel-t.build/Objects-normal-asan/arm64/ProcessState.swiftdeps"
+  },
+  "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Sources/KSCrashReportModel/Models/ProfileInfo.swift" : {
+    "const-values" : "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan27/out/Intermediates.noindex/KSCrash.build/Debug/KSCrashReportModel-t.build/Objects-normal-asan/arm64/ProfileInfo.swiftconstvalues",
+    "dependencies" : "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan27/out/Intermediates.noindex/KSCrash.build/Debug/KSCrashReportModel-t.build/Objects-normal-asan/arm64/ProfileInfo.d",
+    "diagnostics" : "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan27/out/Intermediates.noindex/KSCrash.build/Debug/KSCrashReportModel-t.build/Objects-normal-asan/arm64/ProfileInfo.dia",
+    "object" : "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan27/out/Intermediates.noindex/KSCrash.build/Debug/KSCrashReportModel-t.build/Objects-normal-asan/arm64/ProfileInfo.o",
+    "swift-dependencies" : "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan27/out/Intermediates.noindex/KSCrash.build/Debug/KSCrashReportModel-t.build/Objects-normal-asan/arm64/ProfileInfo.swiftdeps"
+  },
+  "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/Sources/KSCrashReportModel/Models/ReferencedObject.swift" : {
+    "const-values" : "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan27/out/Intermediates.noindex/KSCrash.build/Debug/KSCrashReportModel-t.build/Objects-normal-asan/arm64/ReferencedObject.swiftconstvalues",
+    "dependencies" : "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan27/out/Intermediates.noindex/KSCrash.build/Debug/KSCrashReportModel-t.build/Objects-normal-asan/arm64/ReferencedObject.d",
+    "diagnostics" : "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan27/out/Intermediates.noindex/KSCrash.build/Debug/KSCrashReportModel-t.build/Objects-normal-asan/arm64/ReferencedObject.dia",
+    "object" : "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan27/out/Intermediates.noindex/KSCrash.build/Debug/KSCrashReportModel-t.build/Objects-normal-asan/arm64/ReferencedObject.o",
+    "swift-dependencies" : "/private/tmp/claude-501/-Users-alex-Documents-Code-Github-KSCrash/970ce29a-b378-4e24-bd72-2d2a41382f5a/scratchpad/pr855/.build-asan27/out/Intermediates.noindex/KSCrash.build/Debug/KSCrashReportModel-t.build/Objects-normal-asan/arm64/ReferencedObject.swiftdeps"
+  }
+}

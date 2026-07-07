@@ -1,0 +1,3 @@
+Apple Swift version 6.2 (swift-6.2-RELEASE)
+Target: arm64-apple-macosx26.0
+Build config: +assertions
