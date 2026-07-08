@@ -140,6 +140,9 @@ public struct SystemInfo: Codable, Sendable, Equatable {
     /// Whether the process is running under Rosetta translation.
     public let procTranslated: Bool?
 
+    /// Whether a debugger was attached to the process.
+    public let isBeingDebugged: Bool?
+
     /// Darwin kernel version string.
     public let kernelVersion: String?
 
@@ -250,6 +253,7 @@ public struct SystemInfo: Codable, Sendable, Equatable {
         deviceAppHash: String? = nil,
         jailbroken: Bool? = nil,
         procTranslated: Bool? = nil,
+        isBeingDebugged: Bool? = nil,
         kernelVersion: String? = nil,
         machine: String? = nil,
         memory: MemoryInfo? = nil,
@@ -300,6 +304,7 @@ public struct SystemInfo: Codable, Sendable, Equatable {
         self.deviceAppHash = deviceAppHash
         self.jailbroken = jailbroken
         self.procTranslated = procTranslated
+        self.isBeingDebugged = isBeingDebugged
         self.kernelVersion = kernelVersion
         self.machine = machine
         self.memory = memory
@@ -352,6 +357,7 @@ public struct SystemInfo: Codable, Sendable, Equatable {
         case deviceAppHash = "device_app_hash"
         case jailbroken
         case procTranslated = "proc_translated"
+        case isBeingDebugged = "is_being_debugged"
         case kernelVersion = "kernel_version"
         case machine
         case memory
@@ -411,6 +417,7 @@ public struct SystemInfo: Codable, Sendable, Equatable {
         deviceAppHash = try c.decodeIfPresent(String.self, forKey: .deviceAppHash)
         jailbroken = try c.decodeIfPresent(Bool.self, forKey: .jailbroken)
         procTranslated = try c.decodeIfPresent(Bool.self, forKey: .procTranslated)
+        isBeingDebugged = try c.decodeIfPresent(Bool.self, forKey: .isBeingDebugged)
         kernelVersion = try c.decodeIfPresent(String.self, forKey: .kernelVersion)
         machine = try c.decodeIfPresent(String.self, forKey: .machine)
         memory = try c.decodeIfPresent(MemoryInfo.self, forKey: .memory)
@@ -474,6 +481,7 @@ public struct SystemInfo: Codable, Sendable, Equatable {
         try c.encodeIfPresent(deviceAppHash, forKey: .deviceAppHash)
         try c.encodeIfPresent(jailbroken, forKey: .jailbroken)
         try c.encodeIfPresent(procTranslated, forKey: .procTranslated)
+        try c.encodeIfPresent(isBeingDebugged, forKey: .isBeingDebugged)
         try c.encodeIfPresent(kernelVersion, forKey: .kernelVersion)
         try c.encodeIfPresent(machine, forKey: .machine)
         try c.encodeIfPresent(memory, forKey: .memory)

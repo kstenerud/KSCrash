@@ -42,6 +42,7 @@
 #import "KSCrashMonitorContext.h"
 #include "KSCrashMonitorHelper.h"
 #import "KSDate.h"
+#import "KSDebug.h"
 #import "KSFileUtils.h"
 #import "KSJailbreak.h"
 #import "KSSpinLock.h"
@@ -434,6 +435,7 @@ static void initialize(void)
     }
     sd->isJailbroken = isJailbroken();
     sd->procTranslated = procTranslated();
+    sd->isBeingDebugged = ksdebug_isBeingTraced();
 
     sd->appStartTimestamp = (int64_t)ksdate_seconds();
 

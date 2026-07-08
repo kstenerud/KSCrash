@@ -47,7 +47,7 @@ extern "C" {
 
 #define KSSYS_MAGIC ((int32_t)0x6B737973)  // 'ksys'
 
-static const uint8_t KSCrash_System_CurrentVersion = 1;
+static const uint8_t KSCrash_System_CurrentVersion = 2;
 
 /** mmap'd struct written once at init and flushed to disk by the kernel.
  *  No pointers — all data is inline so it survives across launches.
@@ -98,9 +98,10 @@ typedef struct {
     uint64_t usableMemory;
     uint64_t processStartWallClockNs;  // unix epoch nanoseconds at sidecar creation
     uint64_t processStartMonotonicNs;  // CLOCK_MONOTONIC_RAW nanoseconds at sidecar creation
+    uint8_t isBeingDebugged;           // a debugger was attached (P_TRACED) at sidecar creation
 } KSCrash_SystemData;
 
-_Static_assert(sizeof(KSCrash_SystemData) == 2984, "KSCrash_SystemData size changed — update sidecar version");
+_Static_assert(sizeof(KSCrash_SystemData) == 2992, "KSCrash_SystemData size changed — update sidecar version");
 
 // ============================================================================
 #pragma mark - API -
