@@ -107,7 +107,6 @@ static atomic_bool g_installed = false;
 static bool g_shouldAddConsoleLogToReport = false;
 static bool g_shouldPrintPreviousLog = false;
 static char g_consoleLogPath[KSFU_MAX_PATH_LENGTH];
-static KSCrashMonitorType g_monitoring = KSCrashMonitorTypeProductionSafeMinimal;
 static char g_lastCrashReportFilePath[KSFU_MAX_PATH_LENGTH];
 static KSCrashReportStoreCConfiguration g_reportStoreConfig;
 // TODO: Remove in 3.0
@@ -305,12 +304,12 @@ static void setMonitors(KSCrashMonitorType monitorTypes)
     // Infrastructure monitors (System, Lifecycle, UserInfo, Resource) are
     // always enabled. They collect context that every report depends on
     // and are not crash detectors, so there is no reason to disable them.
-    g_monitoring = monitorTypes | KSCrashMonitorTypeRequired;
+    const KSCrashMonitorType effectiveMonitorTypes = monitorTypes | KSCrashMonitorTypeRequired;
 
     for (size_t i = 0; i < g_monitorMappingCount; i++) {
         KSCrashMonitorAPI *api = g_monitorMappings[i].getAPI();
         if (api != NULL) {
-            if (monitorTypes & g_monitorMappings[i].type) {
+            if (effectiveMonitorTypes & g_monitorMappings[i].type) {
                 kscm_addMonitor(api);
             } else {
                 kscm_removeMonitor(api);
@@ -652,6 +651,9 @@ bool kscrash_testcode_deriveReportsSiblingDir(const char *reportsPath, const cha
 {
     return deriveReportsSiblingDir(reportsPath, installPath, subdir, out, outSize);
 }
+
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+void kscrash_testcode_setMonitors(KSCrashMonitorType monitorTypes) { setMonitors(monitorTypes); }
 
 __attribute__((unused))  // For tests. Declared as extern in TestCase
 void kscrash_testcode_setLastRunID(const char *runID)
