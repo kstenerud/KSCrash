@@ -653,7 +653,10 @@ bool kscrash_testcode_deriveReportsSiblingDir(const char *reportsPath, const cha
 }
 
 __attribute__((unused))  // For tests. Declared as extern in TestCase
-void kscrash_testcode_setMonitors(KSCrashMonitorType monitorTypes) { setMonitors(monitorTypes); }
+void kscrash_testcode_setMonitors(KSCrashMonitorType monitorTypes)
+{
+    setMonitors(monitorTypes);
+}
 
 __attribute__((unused))  // For tests. Declared as extern in TestCase
 void kscrash_testcode_setLastRunID(const char *runID)
