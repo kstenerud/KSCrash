@@ -42,6 +42,16 @@ extern "C" {
  */
 void kssc_initSelfThread(KSStackCursor *cursor, int skipEntries);
 
+/** Enable or disable Swift async continuation stitching for current-thread stack capture.
+ *
+ * When enabled and `backtrace_async()` is available at both build time and runtime,
+ * kssc_initSelfThread() uses it instead of `backtrace()`. If unavailable, kssc_initSelfThread()
+ * falls back to `backtrace()`.
+ *
+ * Default: false.
+ */
+void kssc_setSwiftAsyncStackTracesEnabled(bool enabled);
+
 #ifdef __cplusplus
 }
 #endif

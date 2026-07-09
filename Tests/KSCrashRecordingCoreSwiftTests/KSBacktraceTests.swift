@@ -46,6 +46,82 @@ import XCTest
             }
         }
 
+        func testSwiftAsyncStackTracesToggleStillCapturesCurrentThread() {
+            defer { kssc_setSwiftAsyncStackTracesEnabled(false) }
+
+            let entries = 128
+            var addresses: [UInt] = Array(repeating: 0, count: entries)
+            kssc_setSwiftAsyncStackTracesEnabled(false)
+            let defaultCount = captureBacktrace(thread: pthread_self(), addresses: &addresses, count: Int32(entries))
+            XCTAssertGreaterThan(defaultCount, 0)
+
+            addresses = Array(repeating: 0, count: entries)
+            kssc_setSwiftAsyncStackTracesEnabled(true)
+            let enabledCount = captureBacktrace(thread: pthread_self(), addresses: &addresses, count: Int32(entries))
+            XCTAssertGreaterThan(enabledCount, 0)
+        }
+
+        @available(macOS 12.0, iOS 15.0, tvOS 15.0, watchOS 8.0, *)
+        func testSwiftAsyncStackTracesEnabledCapturesAsyncCallers() async {
+            defer { kssc_setSwiftAsyncStackTracesEnabled(false) }
+
+            kssc_setSwiftAsyncStackTracesEnabled(false)
+            let symbolsWithoutAsync = await swiftAsyncOuterFrame()
+            let callerSymbolsWithoutAsync = Self.swiftAsyncCallerSymbolCount(in: symbolsWithoutAsync)
+
+            kssc_setSwiftAsyncStackTracesEnabled(true)
+            let symbolsWithAsync = await swiftAsyncOuterFrame()
+            let callerSymbolsWithAsync = Self.swiftAsyncCallerSymbolCount(in: symbolsWithAsync)
+
+            XCTAssertGreaterThanOrEqual(
+                callerSymbolsWithAsync, 3,
+                "backtrace_async should include the suspended Swift async caller chain. Symbols: \(symbolsWithAsync)"
+            )
+            XCTAssertGreaterThanOrEqual(
+                callerSymbolsWithAsync, callerSymbolsWithoutAsync,
+                "Enabling Swift async stack traces must not lose async caller frames. Without: \(symbolsWithoutAsync), with: \(symbolsWithAsync)"
+            )
+        }
+
+        @available(macOS 12.0, iOS 15.0, tvOS 15.0, watchOS 8.0, *)
+        private func swiftAsyncOuterFrame() async -> [String] {
+            await swiftAsyncMiddleFrame()
+        }
+
+        @available(macOS 12.0, iOS 15.0, tvOS 15.0, watchOS 8.0, *)
+        private func swiftAsyncMiddleFrame() async -> [String] {
+            await Task { @MainActor in }.value
+            return await swiftAsyncInnerFrame()
+        }
+
+        @available(macOS 12.0, iOS 15.0, tvOS 15.0, watchOS 8.0, *)
+        private func swiftAsyncInnerFrame() async -> [String] {
+            let entries = 128
+            var addresses: [UInt] = Array(repeating: 0, count: entries)
+            let count = captureBacktrace(thread: pthread_self(), addresses: &addresses, count: Int32(entries))
+            return Self.symbolNames(for: addresses.prefix(Int(count)))
+        }
+
+        private static func swiftAsyncCallerSymbolCount(in symbolNames: [String]) -> Int {
+            let expectedCallers = ["swiftAsyncOuterFrame", "swiftAsyncMiddleFrame", "swiftAsyncInnerFrame"]
+            return symbolNames.filter { symbolName in
+                expectedCallers.contains { expectedCaller in
+                    symbolName.contains(expectedCaller)
+                }
+            }.count
+        }
+
+        private static func symbolNames(for addresses: ArraySlice<UInt>) -> [String] {
+            addresses.compactMap { address in
+                guard address != 0 else { return nil }
+                var result = SymbolInformation()
+                guard quickSymbolicate(address: address, result: &result), let symbolName = result.symbolName else {
+                    return nil
+                }
+                return String(cString: symbolName)
+            }
+        }
+
         func testOtherThreadSymbolicate() async {
             nonisolated(unsafe) let thread = pthread_self()
             let entries = 10

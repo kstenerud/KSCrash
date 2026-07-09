@@ -369,6 +369,17 @@ typedef struct {
     KSReportWrittenCallback reportWrittenCallback
         __attribute__((deprecated("Use `didWriteReportCallback` for async-safety awareness (since v2.4.0).")));
 #pragma clang diagnostic pop
+
+    /** If true, use `backtrace_async()` for KSCrash's current-thread stack capture paths.
+     *
+     * This can stitch Swift async continuation frames into self-thread backtraces such as
+     * C++ exception throw-site and handler cursors, user-reported fallbacks, and current-thread
+     * `ksbt_captureBacktrace` calls. When `backtrace_async()` is not available at build time or
+     * runtime, KSCrash falls back to `backtrace()`.
+     *
+     * **Default**: false
+     */
+    bool enableSwiftAsyncStackTraces;
 } KSCrashCConfiguration;
 
 static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
@@ -396,6 +407,7 @@ static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
         .addConsoleLogToReport = false,
         .printPreviousLogOnStartup = false,
         .enableSwapCxaThrow = true,
+        .enableSwiftAsyncStackTraces = false,
         .enableHangReporting = false,
         .enableCPUExceptionReporting = false,
 #pragma clang diagnostic push
