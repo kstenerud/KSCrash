@@ -60,6 +60,7 @@
 #include <fcntl.h>
 #include <mach/mach.h>
 #include <stdatomic.h>
+#include <sys/stat.h>
 
 static KSCrash_SystemData *g_systemData = NULL;
 static KSSpinLock g_systemDataLock = KSSPINLOCK_INIT;
@@ -577,7 +578,19 @@ bool kscm_system_getSystemDataForPath(const char *path, KSCrash_SystemData *outD
     if (fd == -1) return false;
 
     KSCrash_SystemData data = { 0 };
-    bool readOK = ksfu_readBytesFromFD(fd, (char *)&data, (int)sizeof(data));
+    // Tolerate short reads: a sidecar written by an older (version < current)
+    // build is smaller than the current struct. Read what's on disk and leave
+    // the trailing newer fields zero-filled — the version check below still
+    // gates the file, and stitch consumers gate newer fields per-version.
+    // Mirrors kslifecycle_readData(). Reading exactly sizeof(data) would
+    // EOF-fail on an older sidecar and drop the previous run's system data.
+    struct stat st;
+    if (fstat(fd, &st) != 0) {
+        close(fd);
+        return false;
+    }
+    size_t bytesToRead = (size_t)st.st_size < sizeof(data) ? (size_t)st.st_size : sizeof(data);
+    bool readOK = (bytesToRead > 0) && ksfu_readBytesFromFD(fd, (char *)&data, (int)bytesToRead);
     close(fd);
 
     if (!readOK || data.magic != KSSYS_MAGIC || data.version == 0 || data.version > KSCrash_System_CurrentVersion) {
