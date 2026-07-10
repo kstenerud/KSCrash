@@ -295,4 +295,28 @@ static bool stubRunSidecarPath(const char *monitorId, char *pathBuffer, size_t p
     XCTAssertTrue(result == nil, @"createStitchedReport should return NULL for invalid magic");
 }
 
+- (void)testGetSystemDataForPath_v1Sidecar_toleratesShortReadAndZeroFills
+{
+    // A sidecar written by a v1 build ends before the appended isBeingDebugged
+    // field. The reader must tolerate the short file (not EOF-fail) and leave
+    // the new field zero-filled, rather than dropping the previous run's data.
+    KSCrash_SystemData sc = {};
+    sc.magic = KSSYS_MAGIC;
+    sc.version = 1;  // pretend this is a v1 sidecar
+    strlcpy(sc.systemName, "iOS", sizeof(sc.systemName));
+    sc.isBeingDebugged = 1;  // trailing byte we deliberately do NOT write
+
+    NSData *full = [NSData dataWithBytes:&sc length:sizeof(sc)];
+    NSData *v1 = [full subdataWithRange:NSMakeRange(0, offsetof(KSCrash_SystemData, isBeingDebugged))];
+    NSString *sidecarFile = [self.tempDir stringByAppendingPathComponent:@"System-v1.ksscr"];
+    XCTAssertTrue([v1 writeToFile:sidecarFile atomically:YES]);
+
+    KSCrash_SystemData out = {};
+    XCTAssertTrue(kscm_system_getSystemDataForPath(sidecarFile.fileSystemRepresentation, &out));
+    XCTAssertEqual(out.version, 1);
+    XCTAssertEqualObjects(@(out.systemName), @"iOS");
+    // isBeingDebugged wasn't in the v1 file → zero-filled, not the struct's garbage.
+    XCTAssertEqual(out.isBeingDebugged, 0);
+}
+
 @end

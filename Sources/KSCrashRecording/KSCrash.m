@@ -263,6 +263,7 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
         COPY_SYS_STR(osVersion, "osVersion");
         dict[@"isJailbroken"] = @(sd.isJailbroken);
         dict[@"procTranslated"] = @(sd.procTranslated);
+        dict[@"isBeingDebugged"] = @(sd.isBeingDebugged);
         COPY_SYS_TIMESTAMP(appStartTimestamp, "appStartTime");
         COPY_SYS_STR(executablePath, "executablePath");
         COPY_SYS_STR(executableName, "executableName");

@@ -83,6 +83,12 @@ CFDictionaryRef kscm_system_createStitchedReport(CFDictionaryRef reportDict, con
     setStringIfNonEmpty(systemDict, KSCrashField_OSVersion, sc.osVersion);
     systemDict[KSCrashField_Jailbroken] = sc.isJailbroken ? @YES : @NO;
     systemDict[KSCrashField_ProcTranslated] = sc.procTranslated ? @YES : @NO;
+    // Only emit for sidecars that actually recorded it (version >= 2). For an
+    // older sidecar the field is zero-filled, and emitting `false` would read as
+    // "definitely not debugged" rather than "unknown".
+    if (sc.version >= 2) {
+        systemDict[KSCrashField_IsBeingDebugged] = sc.isBeingDebugged ? @YES : @NO;
+    }
     setTimestamp(systemDict, KSCrashField_AppStartTime, sc.appStartTimestamp);
     systemDict[KSCrashField_ProcessStartWallClockNs] = @(sc.processStartWallClockNs);
     systemDict[KSCrashField_ProcessStartMonotonicNs] = @(sc.processStartMonotonicNs);
