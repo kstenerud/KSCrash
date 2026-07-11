@@ -454,12 +454,12 @@ static KSCrashRunSummaryHostKind hostKindFromWireString(NSString *value)
     if (userIDValue != nil && userIDValue != (id)kCFNull) {
         if (![userIDValue isKindOfClass:[NSString class]]) {
             if (error != NULL) {
-                *error = [NSError
-                    errorWithDomain:NSCocoaErrorDomain
-                               code:NSFileReadCorruptFileError
-                           userInfo:@{
-                               NSLocalizedDescriptionKey : @"Run summary JSON has a wrong-typed optional field."
-                           }];
+                *error =
+                    [NSError errorWithDomain:NSCocoaErrorDomain
+                                        code:NSFileReadCorruptFileError
+                                    userInfo:@{
+                                        NSLocalizedDescriptionKey : @"Run summary JSON has a wrong-typed user_id field."
+                                    }];
             }
             return nil;
         }
@@ -474,12 +474,12 @@ static KSCrashRunSummaryHostKind hostKindFromWireString(NSString *value)
     if (isBeingDebuggedValue != nil && isBeingDebuggedValue != (id)kCFNull) {
         if (!isJSONBoolean(isBeingDebuggedValue)) {
             if (error != NULL) {
-                *error = [NSError
-                    errorWithDomain:NSCocoaErrorDomain
-                               code:NSFileReadCorruptFileError
-                           userInfo:@{
-                               NSLocalizedDescriptionKey : @"Run summary JSON has a wrong-typed optional field."
-                           }];
+                *error = [NSError errorWithDomain:NSCocoaErrorDomain
+                                             code:NSFileReadCorruptFileError
+                                         userInfo:@{
+                                             NSLocalizedDescriptionKey :
+                                                 @"Run summary JSON has a wrong-typed is_being_debugged field."
+                                         }];
             }
             return nil;
         }
