@@ -82,6 +82,7 @@
                                                       users:users
                                                 startedAtMs:0
                                                   endedAtMs:100
+                                            isBeingDebugged:NO
                                                     outcome:outcome
                                                   durations:durations
                                                    sessions:sessions

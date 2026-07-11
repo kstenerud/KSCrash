@@ -172,6 +172,7 @@
                                                    users:users
                                              startedAtMs:1744000000000
                                                endedAtMs:1744000180000
+                                         isBeingDebugged:YES
                                                  outcome:outcome
                                                durations:durations
                                                 sessions:sessions
@@ -186,6 +187,7 @@
     XCTAssertEqualObjects(summary.userID, @"bob");
     XCTAssertEqual(summary.startedAtMs, 1744000000000);
     XCTAssertEqual(summary.endedAtMs, 1744000180000);
+    XCTAssertTrue(summary.isBeingDebugged);
     XCTAssertIdentical(summary.outcome, outcome);
     XCTAssertIdentical(summary.durations, durations);
     XCTAssertIdentical(summary.sessions, sessions);
@@ -226,6 +228,7 @@
                                                                             users:users
                                                                       startedAtMs:0
                                                                         endedAtMs:0
+                                                                  isBeingDebugged:NO
                                                                           outcome:outcome
                                                                         durations:durations
                                                                          sessions:sessions
@@ -251,6 +254,7 @@
         @"users" : @ { @"perceptible_count" : @0, @"imperceptible_count" : @0 },
         @"started_at_ms" : @0,
         @"ended_at_ms" : @0,
+        @"is_being_debugged" : @NO,
         @"outcome" : @ {
             @"termination_reason" : @"clean",
             @"clean_shutdown" : @YES,
@@ -344,6 +348,42 @@
     XCTAssertNil(summary.userID);
 }
 
+- (void)test_decoder_readsIsBeingDebugged
+{
+    NSMutableDictionary *dict = [self fullyValidWireDict];
+    dict[@"is_being_debugged"] = @YES;
+    KSCrashRunSummary *summary = [KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil];
+    XCTAssertNotNil(summary);
+    XCTAssertTrue(summary.isBeingDebugged);
+}
+
+- (void)test_decoder_toleratesMissingIsBeingDebugged
+{
+    NSMutableDictionary *dict = [self fullyValidWireDict];
+    // Payloads written before the field existed lack the key; unknown decodes
+    // as NO rather than failing.
+    [dict removeObjectForKey:@"is_being_debugged"];
+    KSCrashRunSummary *summary = [KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil];
+    XCTAssertNotNil(summary);
+    XCTAssertFalse(summary.isBeingDebugged);
+}
+
+- (void)test_encoder_roundTripsIsBeingDebugged
+{
+    NSMutableDictionary *dict = [self fullyValidWireDict];
+    dict[@"is_being_debugged"] = @YES;
+    KSCrashRunSummary *summary = [KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil];
+
+    NSData *encoded = summary.jsonData;
+    XCTAssertNotNil(encoded);
+    NSDictionary *json = [NSJSONSerialization JSONObjectWithData:encoded options:0 error:nil];
+    XCTAssertEqualObjects(json[@"is_being_debugged"], @YES);
+
+    KSCrashRunSummary *decoded = [KSCrashRunSummary summaryFromJSONData:encoded error:nil];
+    XCTAssertNotNil(decoded);
+    XCTAssertTrue(decoded.isBeingDebugged);
+}
+
 - (void)test_decoder_rejectsNonDictionaryRoot
 {
     NSData *rootArray = [NSJSONSerialization dataWithJSONObject:@[ @"not a dict" ] options:0 error:nil];
@@ -422,6 +462,12 @@
     NSMutableDictionary *device = [dict[@"device"] mutableCopy];
     device[@"is_translated"] = @1;
     dict[@"device"] = device;
+    XCTAssertNil([KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil]);
+
+    // is_being_debugged is optional, but a present non-boolean is a schema
+    // violation and rejects the whole summary, same as user_id.
+    dict = [self fullyValidWireDict];
+    dict[@"is_being_debugged"] = @1;
     XCTAssertNil([KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil]);
 }
 

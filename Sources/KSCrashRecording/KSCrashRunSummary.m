@@ -154,6 +154,7 @@
                                 users:(KSCrashRunSummaryUsers *)users
                           startedAtMs:(int64_t)startedAtMs
                             endedAtMs:(int64_t)endedAtMs
+                      isBeingDebugged:(BOOL)isBeingDebugged
                               outcome:(KSCrashRunSummaryOutcome *)outcome
                             durations:(KSCrashRunSummaryDurations *)durations
                              sessions:(KSCrashRunSummarySessions *)sessions
@@ -170,6 +171,7 @@
         _users = users;
         _startedAtMs = startedAtMs;
         _endedAtMs = endedAtMs;
+        _isBeingDebugged = isBeingDebugged;
         _outcome = outcome;
         _durations = durations;
         _sessions = sessions;
@@ -213,6 +215,7 @@ static NSString *hostKindWireString(KSCrashRunSummaryHostKind kind)
     };
     dict[@"started_at_ms"] = @(self.startedAtMs);
     dict[@"ended_at_ms"] = @(self.endedAtMs);
+    dict[@"is_being_debugged"] = self.isBeingDebugged ? @YES : @NO;
     dict[@"outcome"] = @{
         @"termination_reason" : @(kstermination_reasonToString(self.outcome.terminationReason)),
         // @YES / @NO wrap CFBoolean so KSJSONCodec emits JSON booleans; a
@@ -451,16 +454,36 @@ static KSCrashRunSummaryHostKind hostKindFromWireString(NSString *value)
     if (userIDValue != nil && userIDValue != (id)kCFNull) {
         if (![userIDValue isKindOfClass:[NSString class]]) {
             if (error != NULL) {
-                *error = [NSError
-                    errorWithDomain:NSCocoaErrorDomain
-                               code:NSFileReadCorruptFileError
-                           userInfo:@{
-                               NSLocalizedDescriptionKey : @"Run summary JSON has a wrong-typed optional field."
-                           }];
+                *error =
+                    [NSError errorWithDomain:NSCocoaErrorDomain
+                                        code:NSFileReadCorruptFileError
+                                    userInfo:@{
+                                        NSLocalizedDescriptionKey : @"Run summary JSON has a wrong-typed user_id field."
+                                    }];
             }
             return nil;
         }
         userID = (NSString *)userIDValue;
+    }
+
+    // is_being_debugged was added after the first shipped summaries, so a
+    // payload written by an older SDK lacks the key; that decodes as NO
+    // rather than failing. A present non-boolean still fails the decode.
+    id isBeingDebuggedValue = dict[@"is_being_debugged"];
+    BOOL isBeingDebugged = NO;
+    if (isBeingDebuggedValue != nil && isBeingDebuggedValue != (id)kCFNull) {
+        if (!isJSONBoolean(isBeingDebuggedValue)) {
+            if (error != NULL) {
+                *error = [NSError errorWithDomain:NSCocoaErrorDomain
+                                             code:NSFileReadCorruptFileError
+                                         userInfo:@{
+                                             NSLocalizedDescriptionKey :
+                                                 @"Run summary JSON has a wrong-typed is_being_debugged field."
+                                         }];
+            }
+            return nil;
+        }
+        isBeingDebugged = [(NSNumber *)isBeingDebuggedValue boolValue];
     }
 
     KSCrashRunSummaryOutcome *outcome = [[KSCrashRunSummaryOutcome alloc]
@@ -495,6 +518,7 @@ static KSCrashRunSummaryHostKind hostKindFromWireString(NSString *value)
                                                       users:users
                                                 startedAtMs:startedAtMs
                                                   endedAtMs:endedAtMs
+                                            isBeingDebugged:isBeingDebugged
                                                     outcome:outcome
                                                   durations:durations
                                                    sessions:sessions
