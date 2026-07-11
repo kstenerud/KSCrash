@@ -1,7 +1,7 @@
 //
-//  KSCrashMonitorProperty.h
+//  AtomicFlag.swift
 //
-//  Created by Gleb Linnik on 29.05.2024.
+//  Created by Alexander Cohen on 2026-07-19.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,37 +24,33 @@
 // THE SOFTWARE.
 //
 
-#ifndef KSCrashMonitorProperty_h
-#define KSCrashMonitorProperty_h
+import KSCrashCore
 
-#include <CoreFoundation/CFBase.h>
+/// A boolean readable and writable without a lock, backed by the C11 atomic cell in
+/// `KSAtomicFlag.h`. Reads use relaxed ordering, so the flag guards nothing but itself.
+///
+/// The cell is heap-allocated because the atomic needs a stable address; Swift makes no such
+/// promise for a stored property.
+public final class AtomicFlag {
+    private let cell = UnsafeMutablePointer<KSAtomicFlag>.allocate(capacity: 1)
 
-#include "KSCrashNamespace.h"
+    public init(_ value: Bool = false) {
+        cell.initialize(to: KSAtomicFlag())
+        ksatomicflag_set(cell, value)
+    }
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+    deinit {
+        cell.deinitialize(count: 1)
+        cell.deallocate()
+    }
 
-typedef CF_OPTIONS(unsigned int, KSCrashMonitorFlag) {
-    /** Indicates that no flags are set. */
-    KSCrashMonitorFlagNone = 0,
+    public var value: Bool {
+        get { ksatomicflag_get(cell) }
+        set { ksatomicflag_set(cell, newValue) }
+    }
 
-    /** Indicates that the monitor with this flag will not be enabled if a debugger is attached. */
-    KSCrashMonitorFlagDebuggerUnsafe = 1 << 0,
-
-    /** Indicates that the monitor is safe to be used in an asynchronous environment.
-     * Monitors without this flag are considered unsafe for asynchronous operations by default. */
-    KSCrashMonitorFlagAsyncSafe = 1 << 1,
-
-    /** Plugin monitor — not registered through the type system.
-     * Plugin monitors do not count toward the "any active monitor"
-     * check during activation. */
-    KSCrashMonitorFlagPlugin = 1 << 2,
-
-} CF_SWIFT_NAME(MonitorFlags);
-
-#ifdef __cplusplus
+    /// Sets the flag and returns its previous value.
+    public func exchange(_ newValue: Bool) -> Bool {
+        ksatomicflag_exchange(cell, newValue)
+    }
 }
-#endif
-
-#endif /* KSCrashMonitorProperty_h */

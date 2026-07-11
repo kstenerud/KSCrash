@@ -113,7 +113,21 @@ typedef struct {
      */
     unsigned shouldExitImmediately : 1;
 
-} KSCrash_ExceptionHandlingRequirements;
+    /**
+     * The event describes a subject other than the current process (e.g. another process's
+     * corpse, or a previous run of this app). The reporting process itself is healthy.
+     *
+     * When set, the machinery skips every process-local effect: no threads of this
+     * process are suspended (`shouldRecordAllThreads` becomes purely a directive to
+     * record all of the subject's threads, which are frozen in their own task), `isFatal`
+     * describes the event rather than this process (no fatal handler state is latched,
+     * monitors stay enabled, and the current run is not marked as crashed).
+     *
+     * Note: Do not test this value directly! Use `kscexc_isRemoteSubject`.
+     */
+    unsigned isRemoteSubject : 1;
+
+} KSCrash_ExceptionHandlingRequirements CF_SWIFT_NAME(EventRequirements);
 
 static inline bool kscexc_requiresAsyncSafety(KSCrash_ExceptionHandlingRequirements requirements)
 {
