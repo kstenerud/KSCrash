@@ -1223,7 +1223,9 @@ int ksjson_addJSONFromFile(KSJSONEncodeContext *const encodeContext, const char 
 
     int result = decodeElement(name, &decodeContext);
     close(fd);
-    while (closeLastContainer && encodeContext->containerLevel > containerLevel) {
+    // On failure, always rebalance: a partial decode leaves containers open, and leaving
+    // them dangling would nest everything written afterwards inside this element.
+    while ((closeLastContainer || result != KSJSON_OK) && encodeContext->containerLevel > containerLevel) {
         ksjson_endContainer(encodeContext);
     }
 
@@ -1272,7 +1274,9 @@ int ksjson_addJSONElement(KSJSONEncodeContext *const encodeContext, const char *
     int containerLevel = encodeContext->containerLevel;
 
     int result = decodeElement(name, &decodeContext);
-    while (closeLastContainer && encodeContext->containerLevel > containerLevel) {
+    // On failure, always rebalance: a partial decode leaves containers open, and leaving
+    // them dangling would nest everything written afterwards inside this element.
+    while ((closeLastContainer || result != KSJSON_OK) && encodeContext->containerLevel > containerLevel) {
         ksjson_endContainer(encodeContext);
     }
 
