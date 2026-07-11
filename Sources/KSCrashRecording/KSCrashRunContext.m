@@ -590,6 +590,7 @@ static KSCrashRunSummary *buildSummary(const KSCrashRunContext *ctx, const char 
                                                       users:users
                                                 startedAtMs:startedAtMs
                                                   endedAtMs:endedAtMs
+                                            isBeingDebugged:sys->isBeingDebugged != 0
                                                     outcome:outcome
                                                   durations:durations
                                                    sessions:sessions

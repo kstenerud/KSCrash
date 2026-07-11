@@ -246,6 +246,11 @@ __attribute__((objc_subclassing_restricted))
 /** Unix epoch milliseconds (wall clock). */
 @property(nonatomic, readonly) int64_t endedAtMs;
 
+/** Whether a debugger was attached (P_TRACED) to the run, sampled at process
+ *  start. NO when the run's sidecar predates the field.
+ */
+@property(nonatomic, readonly) BOOL isBeingDebugged;
+
 @property(nonatomic, readonly, strong) KSCrashRunSummaryOutcome *outcome;
 @property(nonatomic, readonly, strong) KSCrashRunSummaryDurations *durations;
 @property(nonatomic, readonly, strong) KSCrashRunSummarySessions *sessions;
@@ -264,6 +269,7 @@ __attribute__((objc_subclassing_restricted))
                                 users:(KSCrashRunSummaryUsers *)users
                           startedAtMs:(int64_t)startedAtMs
                             endedAtMs:(int64_t)endedAtMs
+                      isBeingDebugged:(BOOL)isBeingDebugged
                               outcome:(KSCrashRunSummaryOutcome *)outcome
                             durations:(KSCrashRunSummaryDurations *)durations
                              sessions:(KSCrashRunSummarySessions *)sessions

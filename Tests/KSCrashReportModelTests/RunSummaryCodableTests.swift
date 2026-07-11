@@ -35,6 +35,7 @@ final class RunSummaryCodableTests: XCTestCase {
         userID: String? = "bob",
         perceptibleUserCount: Int = 2,
         imperceptibleUserCount: Int = 1,
+        isBeingDebugged: Bool = false,
         terminationReason: KSCrashRecording.TerminationReason = .clean,
         hostKind: RunSummary.HostKind = .app
     ) -> RunSummary {
@@ -70,6 +71,7 @@ final class RunSummaryCodableTests: XCTestCase {
             users: users,
             startedAtMs: 1_744_000_000_000,
             endedAtMs: 1_744_000_180_000,
+            isBeingDebugged: isBeingDebugged,
             outcome: outcome,
             durations: durations,
             sessions: sessions,
@@ -98,6 +100,7 @@ final class RunSummaryCodableTests: XCTestCase {
         XCTAssertEqual(decoded.users.imperceptibleCount, original.users.imperceptibleCount)
         XCTAssertEqual(decoded.startedAtMs, original.startedAtMs)
         XCTAssertEqual(decoded.endedAtMs, original.endedAtMs)
+        XCTAssertEqual(decoded.isBeingDebugged, original.isBeingDebugged)
         XCTAssertEqual(decoded.outcome.terminationReason, original.outcome.terminationReason)
         XCTAssertEqual(decoded.outcome.cleanShutdown, original.outcome.cleanShutdown)
         XCTAssertEqual(decoded.outcome.fatalReported, original.outcome.fatalReported)
@@ -128,6 +131,13 @@ final class RunSummaryCodableTests: XCTestCase {
         XCTAssertNil(decoded.userID)
     }
 
+    func test_roundtrip_isBeingDebugged() throws {
+        let original = makeSummary(isBeingDebugged: true)
+        let data = try XCTUnwrap(original.jsonData())
+        let decoded = try RunSummary.decode(from: data)
+        XCTAssertTrue(decoded.isBeingDebugged)
+    }
+
     // MARK: - Wire format
 
     func test_wireFormat_usesSnakeCaseKeys() throws {
@@ -142,6 +152,7 @@ final class RunSummaryCodableTests: XCTestCase {
         XCTAssertNotNil(json["users"])
         XCTAssertNotNil(json["started_at_ms"])
         XCTAssertNotNil(json["ended_at_ms"])
+        XCTAssertNotNil(json["is_being_debugged"])
         XCTAssertNotNil(json["durations_ms"])
 
         let outcome = try XCTUnwrap(json["outcome"] as? [String: Any])

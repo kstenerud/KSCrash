@@ -84,6 +84,7 @@ static void populateContext(KSCrashRunContext *ctx)
     strlcpy(ctx->system.deviceAppHash, "0123456789abcdef0123456789abcdef", sizeof(ctx->system.deviceAppHash));
     ctx->system.procTranslated = 0;
     ctx->system.isJailbroken = 0;
+    ctx->system.isBeingDebugged = 0;
 }
 
 @interface KSCrashRunContext_Summary_Tests : XCTestCase
@@ -126,6 +127,7 @@ static void populateContext(KSCrashRunContext *ctx)
 
     XCTAssertEqual(summary.startedAtMs, 1744000000000LL);
     XCTAssertEqual(summary.endedAtMs, 1744000180000LL);
+    XCTAssertFalse(summary.isBeingDebugged);
 
     XCTAssertEqual(summary.outcome.terminationReason, KSTerminationReasonCrash);
     XCTAssertFalse(summary.outcome.cleanShutdown);
@@ -175,6 +177,19 @@ static void populateContext(KSCrashRunContext *ctx)
     KSCrashRunSummary *summary = ksruncontext_testcode_buildSummary(&ctx, NULL);
 
     XCTAssertEqual(summary.app.hostKind, KSCrashRunSummaryHostKindExtension);
+}
+
+// Like hostKind, the flag comes from the *previous* run's stored sidecar
+// byte, not from the current process's debugger state.
+- (void)test_buildSummary_isBeingDebuggedComesFromSidecar
+{
+    KSCrashRunContext ctx;
+    populateContext(&ctx);
+    ctx.system.isBeingDebugged = 1;
+
+    KSCrashRunSummary *summary = ksruncontext_testcode_buildSummary(&ctx, NULL);
+
+    XCTAssertTrue(summary.isBeingDebugged);
 }
 
 - (void)test_buildSummary_extendsActiveWithOpenTailSlice
