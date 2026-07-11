@@ -38,8 +38,13 @@
 extern "C" {
 #endif
 
+/** The id of a monitor that never set one. Not an identity: several monitors can be
+ *  unconfigured at once, so the registry does not treat it as a duplicate.
+ */
+#define KSCRASH_MONITOR_ID_UNSET "unset"
+
 /** Scope of a sidecar file being stitched into a report. */
-typedef enum {
+typedef CF_CLOSED_ENUM(int, KSCrashSidecarScope) {
     /** Per-report sidecar: one file per report, stored in Sidecars/<monitorId>/<reportID>.ksscr */
     KSCrashSidecarScopeReport = 0,
     /** Per-run sidecar: one file per process run, stored in RunSidecars/<runID>/<monitorId>.ksscr */
@@ -51,7 +56,7 @@ typedef enum {
      *  nothing to add return the input retained, the same convention as an unhandled scope.
      */
     KSCrashSidecarScopeFinal = 2,
-} KSCrashSidecarScope;
+} CF_SWIFT_NAME(SidecarScope);
 
 /** The built-in monitors' stitch layers (see KSCrashMonitorAPI.priority): one total order in one
  *  place, spaced by 10 so a new monitor can slot between layers. Watchdog must stay highest among

@@ -69,7 +69,7 @@ extension TimeProfile {
             return nil
         }
 
-        let requirements = KSCrash_ExceptionHandlingRequirements(
+        let requirements = EventRequirements(
             shouldRecordAllThreads: 0,
             shouldWriteReport: 1,
             isFatal: 0,
@@ -302,8 +302,8 @@ private func profileMonitorGetId(_ context: UnsafeMutableRawPointer?) -> UnsafeP
     ProfileMonitor.monitorId
 }
 
-private func profileMonitorGetFlags(_ context: UnsafeMutableRawPointer?) -> KSCrashMonitorFlag {
-    KSCrashMonitorFlagPlugin
+private func profileMonitorGetFlags(_ context: UnsafeMutableRawPointer?) -> MonitorFlags {
+    .plugin
 }
 
 private func profileMonitorSetEnabled(_ enabled: Bool, _ context: UnsafeMutableRawPointer?) {

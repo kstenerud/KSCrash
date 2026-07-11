@@ -246,6 +246,10 @@ let package = Package(
             targets: [Targets.profiler]
         ),
         .library(
+            name: "MonitorPlugins",
+            targets: [Targets.monitorPlugins]
+        ),
+        .library(
             name: "Monitors",
             targets: [Targets.monitors]
         ),
@@ -557,7 +561,10 @@ let package = Package(
         ),
 
         .target(
-            name: Targets.swiftCore
+            name: Targets.swiftCore,
+            dependencies: [
+                .target(name: Targets.core)
+            ]
         ),
         .testTarget(
             name: Targets.swiftCore.tests,
@@ -572,6 +579,7 @@ let package = Package(
                 .target(name: Targets.recordingCore),
                 .target(name: Targets.recording),
                 .target(name: Targets.swiftCore),
+                .target(name: Targets.monitorPlugins),
             ],
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy")
@@ -585,12 +593,31 @@ let package = Package(
         ),
 
         .target(
+            name: Targets.monitorPlugins,
+            dependencies: [
+                .target(name: Targets.recordingCore),
+                .target(name: Targets.recording),
+                .target(name: Targets.swiftCore),
+            ],
+            resources: [
+                .copy("Resources/PrivacyInfo.xcprivacy")
+            ]
+        ),
+        .testTarget(
+            name: Targets.monitorPlugins.tests,
+            dependencies: [
+                .target(name: Targets.monitorPlugins)
+            ]
+        ),
+
+        .target(
             name: Targets.monitors,
             dependencies: [
                 .target(name: Targets.recordingCore),
                 .target(name: Targets.recording),
                 .target(name: Targets.report),
                 .target(name: Targets.swiftCore),
+                .target(name: Targets.monitorPlugins),
             ],
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy")
@@ -628,6 +655,7 @@ enum Targets {
     static let swiftCore = "KSCrashSwiftCore"
     static let profiler = "KSCrashProfiler"
     static let monitors = "KSCrashMonitors"
+    static let monitorPlugins = "KSCrashMonitorPlugins"
 }
 
 extension String {

@@ -127,7 +127,7 @@ typedef struct {
      */
     unsigned isRemoteSubject : 1;
 
-} KSCrash_ExceptionHandlingRequirements;
+} KSCrash_ExceptionHandlingRequirements CF_SWIFT_NAME(EventRequirements);
 
 static inline bool kscexc_requiresAsyncSafety(KSCrash_ExceptionHandlingRequirements requirements)
 {
