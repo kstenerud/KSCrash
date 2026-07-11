@@ -24,6 +24,7 @@ Thumbs.db
 Carthage/Build
 ### SPM ###
 .build
+.build-*
 .swiftpm/xcode/xcuserdata
 .swiftpm/package.xcworkspace/xcuserdata
 ### Ruby ###

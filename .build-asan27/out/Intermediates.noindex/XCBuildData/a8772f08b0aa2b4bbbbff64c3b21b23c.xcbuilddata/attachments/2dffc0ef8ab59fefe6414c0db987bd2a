@@ -1,4 +1,0 @@
-module KSCrashProfiler {
-header "KSCrashProfiler-Swift.h"
-export *
-}

@@ -1,4 +1,0 @@
-module KSCrashReportModel {
-header "KSCrashReportModel-Swift.h"
-export *
-}

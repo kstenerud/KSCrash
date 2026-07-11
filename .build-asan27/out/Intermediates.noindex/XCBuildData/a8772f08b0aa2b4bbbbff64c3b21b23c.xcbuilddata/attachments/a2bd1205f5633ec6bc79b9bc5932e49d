@@ -1,4 +1,0 @@
-module KSCrashMonitors {
-header "KSCrashMonitors-Swift.h"
-export *
-}
