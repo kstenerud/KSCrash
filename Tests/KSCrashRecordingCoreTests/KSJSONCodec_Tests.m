@@ -1388,22 +1388,52 @@ static int addJSONData(const char *data, int length, void *userData)
     [self expectEquivalentJSON:encodedData.bytes toJSON:expectedJson];
 }
 
-- (void)testFailedAddJSONElementRebalancesContainers
+/** JSON whose string value overflows either decoder's string buffer (500 bytes reading from a
+ * file, 5000 in memory), so the element fails mid-parse with its object container already open.
+ */
+- (NSString *)jsonWithOversizedString
 {
-    // A string value longer than the decoder's 5000-byte string buffer fails the element
-    // mid-parse. The opened containers must be closed again, or everything written
-    // afterwards would nest inside the failed element.
     NSMutableString *json = [NSMutableString stringWithString:@"{\"blob\":\""];
     for (int i = 0; i < 6000; i++) {
         [json appendString:@"A"];
     }
     [json appendString:@"\"}"];
+    return json;
+}
+
+- (void)testFailedAddJSONElementRebalancesContainers
+{
+    // The containers the failed element opened must be closed again, or everything written
+    // afterwards would nest inside it.
+    const char *json = [self jsonWithOversizedString].UTF8String;
 
     NSMutableData *encodedData = [NSMutableData data];
     KSJSONEncodeContext context = { 0 };
     ksjson_beginEncode(&context, false, addJSONData, (__bridge void *)(encodedData));
     ksjson_beginObject(&context, NULL);
-    int result = ksjson_addJSONElement(&context, "bad", json.UTF8String, (int)json.length, false);
+    int result = ksjson_addJSONElement(&context, "bad", json, (int)strlen(json), false);
+    XCTAssertNotEqual(result, KSJSON_OK);
+    ksjson_addStringElement(&context, "after", "value", KSJSON_SIZE_AUTOMATIC);
+    ksjson_endContainer(&context);
+    ksjson_endEncode(&context);
+
+    NSError *error = nil;
+    id decoded = [NSJSONSerialization JSONObjectWithData:encodedData options:0 error:&error];
+    XCTAssertNotNil(decoded, @"report must stay well-formed after a failed element: %@", error);
+    XCTAssertEqualObjects(decoded[@"after"], @"value", @"the next element must land at the original level");
+}
+
+- (void)testFailedAddJSONFromFileRebalancesContainers
+{
+    NSString *savedFilename = [self.tempPath stringByAppendingPathComponent:@"oversized.json"];
+    NSData *savedData = [[self jsonWithOversizedString] dataUsingEncoding:NSUTF8StringEncoding];
+    XCTAssertTrue([savedData writeToFile:savedFilename atomically:YES]);
+
+    NSMutableData *encodedData = [NSMutableData data];
+    KSJSONEncodeContext context = { 0 };
+    ksjson_beginEncode(&context, false, addJSONData, (__bridge void *)(encodedData));
+    ksjson_beginObject(&context, NULL);
+    int result = ksjson_addJSONFromFile(&context, "bad", savedFilename.UTF8String, false);
     XCTAssertNotEqual(result, KSJSON_OK);
     ksjson_addStringElement(&context, "after", "value", KSJSON_SIZE_AUTOMATIC);
     ksjson_endContainer(&context);
