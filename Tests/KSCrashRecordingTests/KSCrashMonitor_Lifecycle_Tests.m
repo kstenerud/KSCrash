@@ -652,18 +652,28 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     XCTAssertTrue(readCurrentSidecar(&data));
 
     NSString *path = [NSString stringWithFormat:@"%@/current/Sessions.ksscr", self.tempPath];
-    int64_t runEndedAtMs = kslifecycle_epochMsFromMonotonicNs(data.appStateTransitionTimeNs, data.wallClockAtStartNs,
-                                                              data.monotonicAtStartNs);
-    NSArray<KSCrashRunSummarySession *> *sessions = [KSCrashSessionLog sessionsAtPath:path
-                                                                   wallClockAtStartNs:data.wallClockAtStartNs
-                                                                   monotonicAtStartNs:data.monotonicAtStartNs
-                                                                         runEndedAtMs:runEndedAtMs];
+    NSArray<KSCrashRunSummarySession *> *sessions = [KSCrashSessionLog sessionsAtPath:path];
 
     XCTAssertEqual(sessions.count, 3u);
     for (KSCrashRunSummarySession *session in sessions) {
         XCTAssertEqual(session.users.count, 1u);
         XCTAssertEqualObjects(session.users.firstObject.userID, @"alice");
     }
+}
+
+- (void)testObserveUser_beforeFirstSessionIsCarriedInByFirstSessionBegin
+{
+    // Users observed before any session begins are held in g_currentUserID
+    // (not written to the log — no session to attach to). The first
+    // SESSION_BEGIN attaches the current user via recordSessionBeginWithID:...:userID:.
+    [self enableMonitor];
+    kscm_lifecycle_observeUser("alice");
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+
+    NSString *path = [NSString stringWithFormat:@"%@/current/Sessions.ksscr", self.tempPath];
+    NSArray<KSCrashRunSummarySession *> *sessions = [KSCrashSessionLog sessionsAtPath:path];
+    XCTAssertEqual(sessions.count, 1u);
+    XCTAssertEqualObjects(sessions.firstObject.users.firstObject.userID, @"alice");
 }
 
 - (void)testReadData_v1Sidecar_zeroFillsNewFields

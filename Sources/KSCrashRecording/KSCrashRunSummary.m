@@ -30,8 +30,11 @@
 // used by the schema, so we reuse it rather than duplicating the mapping.
 #import "KSTerminationReason.h"
 
+#import "KSCrashSessionLog.h"
 #import "KSJSONCodecObjC.h"
 #import "KSLogger.h"
+
+#import <os/lock.h>
 
 @implementation KSCrashRunSummaryOutcome
 
@@ -177,7 +180,12 @@
 
 @end
 
-@implementation KSCrashRunSummary
+@implementation KSCrashRunSummary {
+    os_unfair_lock _sessionsLock;
+    NSString *_sessionLogPath;  // nil once faulted or when constructed eagerly
+}
+
+@synthesize sessions = _sessions;
 
 - (instancetype)initWithSchemaVersion:(NSInteger)schemaVersion
                            sdkVersion:(NSString *)sdkVersion
@@ -197,6 +205,7 @@
                              sessions:(NSArray<KSCrashRunSummarySession *> *)sessions
 {
     if ((self = [super init])) {
+        _sessionsLock = OS_UNFAIR_LOCK_INIT;
         _schemaVersion = schemaVersion;
         _sdkVersion = [sdkVersion copy];
         _runID = [runID copy];
@@ -217,6 +226,57 @@
     return self;
 }
 
+- (instancetype)initWithSchemaVersion:(NSInteger)schemaVersion
+                           sdkVersion:(NSString *)sdkVersion
+                                runID:(NSString *)runID
+                             deviceID:(NSString *)deviceID
+                               userID:(nullable NSString *)userID
+                                users:(KSCrashRunSummaryUsers *)users
+                          startedAtMs:(int64_t)startedAtMs
+                            endedAtMs:(int64_t)endedAtMs
+                      isBeingDebugged:(BOOL)isBeingDebugged
+                              outcome:(KSCrashRunSummaryOutcome *)outcome
+                            durations:(KSCrashRunSummaryDurations *)durations
+                        sessionCounts:(KSCrashRunSummarySessionCounts *)sessionCounts
+                                  app:(KSCrashRunSummaryApp *)app
+                                   os:(KSCrashRunSummaryOS *)os
+                               device:(KSCrashRunSummaryDevice *)device
+                       sessionLogPath:(nullable NSString *)sessionLogPath
+{
+    if ((self = [super init])) {
+        _sessionsLock = OS_UNFAIR_LOCK_INIT;
+        _schemaVersion = schemaVersion;
+        _sdkVersion = [sdkVersion copy];
+        _runID = [runID copy];
+        _deviceID = [deviceID copy];
+        _userID = [userID copy];
+        _users = users;
+        _startedAtMs = startedAtMs;
+        _endedAtMs = endedAtMs;
+        _isBeingDebugged = isBeingDebugged;
+        _outcome = outcome;
+        _durations = durations;
+        _sessionCounts = sessionCounts;
+        _app = app;
+        _os = os;
+        _device = device;
+        _sessions = nil;
+        _sessionLogPath = [sessionLogPath copy];
+    }
+    return self;
+}
+
+- (NSArray<KSCrashRunSummarySession *> *)sessions
+{
+    os_unfair_lock_lock(&_sessionsLock);
+    if (_sessions == nil) {
+        _sessions = [KSCrashSessionLog sessionsAtPath:_sessionLogPath ?: @""] ?: @[];
+    }
+    NSArray *result = _sessions;
+    os_unfair_lock_unlock(&_sessionsLock);
+    return result;
+}
+
 #pragma mark - JSON encoding
 
 static NSString *hostKindWireString(KSCrashRunSummaryHostKind kind)
@@ -234,10 +294,13 @@ static NSString *hostKindWireString(KSCrashRunSummaryHostKind kind)
     }
 }
 
-- (NSDictionary<NSString *, id> *)wireDictionary
+- (NSDictionary<NSString *, id> *)wireDictionaryWithoutSessions
 {
-    NSMutableDictionary *dict = [NSMutableDictionary dictionaryWithCapacity:14];
-    dict[@"schema_version"] = @(self.schemaVersion);
+    NSMutableDictionary *dict = [NSMutableDictionary dictionaryWithCapacity:13];
+    // This encoder always writes the v2 shape (`session_counts` plus the
+    // per-session `sessions` array), including when the object was decoded
+    // from a historical v1 payload.
+    dict[@"schema_version"] = @(KSCrashRunSummary_CurrentSchemaVersion);
     dict[@"sdk_version"] = self.sdkVersion;
     dict[@"run_id"] = self.runID;
     dict[@"device_id"] = self.deviceID;
@@ -286,8 +349,13 @@ static NSString *hostKindWireString(KSCrashRunSummaryHostKind kind)
         @"is_translated" : self.device.isTranslated ? @YES : @NO,
         @"is_jailbroken" : self.device.isJailbroken ? @YES : @NO,
     };
-    NSMutableArray *sessionArray = [NSMutableArray arrayWithCapacity:self.sessions.count];
-    for (KSCrashRunSummarySession *session in self.sessions) {
+    return dict;
+}
+
+- (NSArray<NSDictionary *> *)sessionsWireArrayFromObjects:(NSArray<KSCrashRunSummarySession *> *)sessions
+{
+    NSMutableArray *sessionArray = [NSMutableArray arrayWithCapacity:sessions.count];
+    for (KSCrashRunSummarySession *session in sessions) {
         NSMutableArray *userArray = [NSMutableArray arrayWithCapacity:session.users.count];
         for (KSCrashRunSummarySessionUser *user in session.users) {
             [userArray addObject:@{ @"user_id" : user.userID, @"at_ms" : @(user.atMs) }];
@@ -300,18 +368,62 @@ static NSString *hostKindWireString(KSCrashRunSummaryHostKind kind)
             @"users" : userArray,
         }];
     }
-    dict[@"sessions"] = sessionArray;
-    return dict;
+    return sessionArray;
 }
 
 - (nullable NSData *)jsonData
 {
-    NSError *error = nil;
-    NSData *data = [KSJSONCodec encode:[self wireDictionary] options:KSJSONEncodeOptionNone error:&error];
-    if (data == nil) {
-        KSLOG_ERROR(@"Failed to encode RunSummary JSON: %@", error);
+    // Determine splice source. If sessions haven't been faulted yet AND we
+    // have a session log path, inline the file bytes directly — they are
+    // already in the same shape as the sessions[] wire format. Otherwise the
+    // list is materialized (eager init or a prior fault) and we encode it.
+    NSString *pathForSplice = nil;
+    NSArray<KSCrashRunSummarySession *> *materialized = nil;
+    os_unfair_lock_lock(&_sessionsLock);
+    if (_sessions == nil && _sessionLogPath.length > 0) {
+        pathForSplice = _sessionLogPath;
+    } else {
+        materialized = _sessions ?: @[];
     }
-    return data;
+    os_unfair_lock_unlock(&_sessionsLock);
+
+    NSError *error = nil;
+    NSData *base = [KSJSONCodec encode:[self wireDictionaryWithoutSessions]
+                               options:KSJSONEncodeOptionNone
+                                 error:&error];
+    if (base == nil) {
+        KSLOG_ERROR(@"Failed to encode RunSummary JSON: %@", error);
+        return nil;
+    }
+
+    NSMutableData *out = [base mutableCopy];
+    const uint8_t *bytes = out.bytes;
+    if (out.length == 0 || bytes[out.length - 1] != '}') {
+        KSLOG_ERROR(@"RunSummary base JSON is malformed (no trailing '}').");
+        return nil;
+    }
+    [out setLength:out.length - 1];
+    [out appendBytes:",\"sessions\":" length:12];
+
+    if (pathForSplice != nil) {
+        NSData *fileBytes = [NSData dataWithContentsOfFile:pathForSplice options:NSDataReadingMappedIfSafe error:NULL];
+        if (fileBytes.length > 0) {
+            [out appendData:fileBytes];
+        } else {
+            [out appendBytes:"[]" length:2];
+        }
+    } else {
+        NSData *sessionsData = [KSJSONCodec encode:[self sessionsWireArrayFromObjects:materialized]
+                                           options:KSJSONEncodeOptionNone
+                                             error:&error];
+        if (sessionsData == nil) {
+            KSLOG_ERROR(@"Failed to encode RunSummary sessions: %@", error);
+            return nil;
+        }
+        [out appendData:sessionsData];
+    }
+    [out appendBytes:"}" length:1];
+    return out;
 }
 
 #pragma mark - JSON decoding

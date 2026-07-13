@@ -249,7 +249,7 @@
 - (NSMutableDictionary *)fullyValidWireDict
 {
     return [@{
-        @"schema_version" : @1,
+        @"schema_version" : @(KSCrashRunSummary_CurrentSchemaVersion),
         @"sdk_version" : @"2.6.0-beta.1",
         @"run_id" : @"r",
         @"device_id" : @"d",
@@ -346,6 +346,7 @@
     // `session_counts` (a per-session list moved into `sessions`). The decoder
     // accepts the v1 key as a fallback so historical payloads still decode.
     NSMutableDictionary *dict = [self fullyValidWireDict];
+    dict[@"schema_version"] = @1;
     dict[@"sessions"] = dict[@"session_counts"];
     [dict removeObjectForKey:@"session_counts"];
     KSCrashRunSummary *summary = [KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil];
@@ -353,6 +354,25 @@
     XCTAssertEqual(summary.sessionCounts.perceptibleCount, 0);
     XCTAssertEqual(summary.sessionCounts.imperceptibleCount, 0);
     XCTAssertEqualObjects(summary.sessions, @[]);
+}
+
+- (void)test_encoder_upgradesDecodedV1SummaryToCurrentWireSchema
+{
+    NSMutableDictionary *dict = [self fullyValidWireDict];
+    dict[@"schema_version"] = @1;
+    dict[@"sessions"] = dict[@"session_counts"];
+    [dict removeObjectForKey:@"session_counts"];
+
+    KSCrashRunSummary *summary = [KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil];
+    XCTAssertNotNil(summary);
+    XCTAssertEqual(summary.schemaVersion, 1);
+
+    NSData *encoded = [summary jsonData];
+    XCTAssertNotNil(encoded);
+    NSDictionary *wire = [NSJSONSerialization JSONObjectWithData:encoded options:0 error:nil];
+    XCTAssertEqualObjects(wire[@"schema_version"], @(KSCrashRunSummary_CurrentSchemaVersion));
+    XCTAssertTrue([wire[@"session_counts"] isKindOfClass:[NSDictionary class]]);
+    XCTAssertTrue([wire[@"sessions"] isKindOfClass:[NSArray class]]);
 }
 
 - (void)test_decoder_toleratesMissingUserID

@@ -587,10 +587,8 @@ static KSCrashRunSummary *buildSummary(const KSCrashRunContext *ctx, const char 
     NSString *runID = [NSString stringWithUTF8String:ctx->runID] ?: @"";
     NSString *deviceID = safeString(sys->deviceAppHash);
     NSString *userID = readUserIDFromSidecar(userInfoSidecarPath);
-    NSArray<KSCrashRunSummarySession *> *sessions = [KSCrashSessionLog sessionsAtPath:@(sessionsSidecarPath ?: "")
-                                                                   wallClockAtStartNs:lc->wallClockAtStartNs
-                                                                   monotonicAtStartNs:lc->monotonicAtStartNs
-                                                                         runEndedAtMs:endedAtMs];
+    NSString *sessionLogPath =
+        (sessionsSidecarPath != NULL && sessionsSidecarPath[0] != '\0') ? @(sessionsSidecarPath) : nil;
 
     return [[KSCrashRunSummary alloc] initWithSchemaVersion:KSCrashRunSummary_CurrentSchemaVersion
                                                  sdkVersion:sdkVersion
@@ -607,7 +605,7 @@ static KSCrashRunSummary *buildSummary(const KSCrashRunContext *ctx, const char 
                                                         app:app
                                                          os:os
                                                      device:device
-                                                   sessions:sessions];
+                                             sessionLogPath:sessionLogPath];
 }
 
 // ============================================================================

@@ -24,25 +24,23 @@
 // THE SOFTWARE.
 //
 
-/* Growable per-run session log.
+/* Per-run session log stored as JSON on disk.
  *
- * The Lifecycle monitor's mmap'd sidecar is a fixed-size struct — it holds the
- * session *counts* but not one record per session. This is the companion
- * variable-length store: an ordered stream of session/user events, one appended
- * as each event happens, so the previous run's summary can carry each session
- * with its own start/end time and the user(s) active during it.
+ * The Lifecycle monitor's mmap'd sidecar carries the session *counts* but not
+ * one record per session. This companion file holds the itemized view: an
+ * ordered array of session objects, each with its own start/end time and the
+ * user(s) active during it. The on-disk shape matches the `sessions` array in
+ * the persisted RunSummary JSON, so the next launch's install path can splice
+ * these bytes straight into the `.run` file with no parse-and-re-encode.
  *
- * Crash-safety: every event here (a foreground/background transition, a user
- * change) happens during normal runtime, never in a crash/signal handler, so
- * the writer is plain buffered I/O. Durability against an abnormal termination
- * comes from a header commit marker: a record's bytes are written first, then
- * the header's committed size/count are published in a single small write. A
- * reader trusts only the committed region, so a record that was mid-write when
- * the process died sits past the committed size and is ignored.
+ * Durability: every mutating call rewrites the whole file via an atomic
+ * temp+rename, so the file on disk is always either the last committed state
+ * or the previous one, never torn. Crash safety is inherited from that
+ * atomicity — no commit markers, no header.
  *
- * One writer instance owns the run's log; it keeps its own file handle, commit
- * offsets, and lock, so there is no shared module state. Reading is a class
- * method that replays the log straight into the per-session RunSummary list.
+ * One writer instance owns the run's log; it keeps its own in-memory session
+ * list and lock, so there is no shared module state. Reading is a class
+ * method that decodes the JSON into KSCrashRunSummarySession objects.
  */
 
 #import <Foundation/Foundation.h>
@@ -58,34 +56,37 @@ __attribute__((objc_subclassing_restricted))
 @interface KSCrashSessionLog : NSObject
 
 /// Open (creating and truncating) a session log for writing at @c path. One
-/// instance per run. Returns nil if the file can't be created.
+/// instance per run. Returns nil if @c path is empty or the file can't be
+/// created.
 - (nullable instancetype)initForWritingAtPath:(NSString *)path;
 
 - (instancetype)init NS_UNAVAILABLE;
 + (instancetype)new NS_UNAVAILABLE;
 
-/// Append and commit a session-begin event. @c perceptible marks a foreground
-/// reach (true) vs a background entry (false). @c monotonicNs is the event time
-/// on the caller's monotonic clock. Thread-safe.
-- (BOOL)recordSessionBeginWithID:(NSString *)sessionID perceptible:(BOOL)perceptible monotonicNs:(uint64_t)monotonicNs;
+/// Close the currently-open session (if any) at @c atMs, then open a new one
+/// with @c userID (if non-empty) already attached. @c atMs is unix epoch
+/// milliseconds; the caller has the anchor (lifecycle sidecar's
+/// @c wallClockAtStartNs / @c monotonicAtStartNs) and converts.
+- (BOOL)recordSessionBeginWithID:(NSString *)sessionID
+                     perceptible:(BOOL)perceptible
+                            atMs:(int64_t)atMs
+                          userID:(nullable NSString *)userID;
 
-/// Append and commit a user-change event. Thread-safe.
-- (BOOL)recordUserID:(NSString *)userID monotonicNs:(uint64_t)monotonicNs;
+/// Attach a user-id change to the currently-open session. No-op (returns NO)
+/// if no session is open — user changes observed before the first session
+/// begin are dropped, and the first session's user is carried in via
+/// @c recordSessionBeginWithID:perceptible:atMs:userID: instead.
+- (BOOL)recordUserID:(NSString *)userID atMs:(int64_t)atMs;
 
-/// Close the underlying file. Also happens on dealloc.
+/// Flush any pending state and stop accepting writes. Also called from
+/// @c dealloc.
 - (void)close;
 
-/// Replay the committed log at @c path into an ordered list of sessions, each
-/// with its start/end time and the user(s) active during it. Event times are
-/// converted from the log's monotonic clock to unix epoch milliseconds using
-/// the run's anchor (@c wallClockAtStartNs / @c monotonicAtStartNs, captured
-/// together at sidecar creation); the last open session ends at @c runEndedAtMs.
-/// Tolerates a torn tail. Returns an empty array for a missing, invalid, or
-/// empty log.
-+ (NSArray<KSCrashRunSummarySession *> *)sessionsAtPath:(NSString *)path
-                                     wallClockAtStartNs:(uint64_t)wallClockAtStartNs
-                                     monotonicAtStartNs:(uint64_t)monotonicAtStartNs
-                                           runEndedAtMs:(int64_t)runEndedAtMs;
+/// Decode the JSON session log at @c path into KSCrashRunSummarySession
+/// objects. Returns an empty array for a missing or malformed file (so a v1
+/// binary Sessions.ksscr from an older SDK degrades to no per-session detail
+/// rather than a crash).
++ (NSArray<KSCrashRunSummarySession *> *)sessionsAtPath:(NSString *)path;
 
 @end
 

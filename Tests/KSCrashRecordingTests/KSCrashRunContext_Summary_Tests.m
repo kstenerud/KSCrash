@@ -500,19 +500,16 @@ extern void ksruncontext_testcode_setLifecycleData(const KSCrash_LifecycleData *
     KSCrashRunContext ctx;
     populateContext(&ctx);
 
-    // Events are timestamped in the monotonic clock the lifecycle sidecar anchors
-    // against; buildSummary converts them to epoch ms via wall/monotonic-at-start,
-    // so the assertions below are the converted wall-clock values.
-    int64_t monoStart = (int64_t)ctx.lifecycle.monotonicAtStartNs;
+    // Writers hand at_ms values directly to the log — the caller has the anchor
+    // (lifecycle sidecar's wall / monotonic pair) and does the conversion.
+    int64_t startedAtMs = (int64_t)(ctx.lifecycle.wallClockAtStartNs / 1000000ULL);
     NSString *path = [self.tempDir stringByAppendingPathComponent:@"Sessions"];
     KSCrashSessionLog *log = [[KSCrashSessionLog alloc] initForWritingAtPath:path];
     XCTAssertNotNil(log);
-    XCTAssertTrue([log recordSessionBeginWithID:@"session-A" perceptible:YES monotonicNs:(uint64_t)monoStart]);
-    XCTAssertTrue([log recordUserID:@"alice" monotonicNs:(uint64_t)(monoStart + 500LL * 1000000)]);  // +500 ms
-    XCTAssertTrue([log recordUserID:@"bob" monotonicNs:(uint64_t)(monoStart + 10000LL * 1000000)]);  // +10 s
-    XCTAssertTrue([log recordSessionBeginWithID:@"session-B"
-                                    perceptible:NO
-                                    monotonicNs:(uint64_t)(monoStart + 100000LL * 1000000)]);  // +100 s
+    XCTAssertTrue([log recordSessionBeginWithID:@"session-A" perceptible:YES atMs:startedAtMs userID:nil]);
+    XCTAssertTrue([log recordUserID:@"alice" atMs:startedAtMs + 500]);
+    XCTAssertTrue([log recordUserID:@"bob" atMs:startedAtMs + 10000]);
+    XCTAssertTrue([log recordSessionBeginWithID:@"session-B" perceptible:NO atMs:startedAtMs + 100000 userID:@"bob"]);
     [log close];
 
     KSCrashRunSummary *summary = ksruncontext_testcode_buildSummaryWithSessions(&ctx, NULL, path.UTF8String);
@@ -523,19 +520,20 @@ extern void ksruncontext_testcode_setLifecycleData(const KSCrash_LifecycleData *
     KSCrashRunSummarySession *a = summary.sessions[0];
     XCTAssertEqualObjects(a.sessionID, @"session-A");
     XCTAssertTrue(a.perceptible);
-    XCTAssertEqual(a.startedAtMs, 1744000000000LL);
-    XCTAssertEqual(a.endedAtMs, 1744000100000LL);  // closed at session-B's start
+    XCTAssertEqual(a.startedAtMs, startedAtMs);
+    XCTAssertEqual(a.endedAtMs, startedAtMs + 100000);  // closed at session-B's start
     XCTAssertEqual(a.users.count, 2u);
     XCTAssertEqualObjects(a.users[0].userID, @"alice");
-    XCTAssertEqual(a.users[0].atMs, 1744000000500LL);
+    XCTAssertEqual(a.users[0].atMs, startedAtMs + 500);
     XCTAssertEqualObjects(a.users[1].userID, @"bob");
 
     KSCrashRunSummarySession *b = summary.sessions[1];
     XCTAssertEqualObjects(b.sessionID, @"session-B");
     XCTAssertFalse(b.perceptible);
-    XCTAssertEqual(b.startedAtMs, 1744000100000LL);
-    XCTAssertEqual(b.endedAtMs, summary.endedAtMs);  // last open session ends at run end
-    XCTAssertEqual(b.users.count, 0u);
+    XCTAssertEqual(b.startedAtMs, startedAtMs + 100000);
+    XCTAssertEqual(b.endedAtMs, startedAtMs + 100000);  // still-open session reflects last write
+    XCTAssertEqual(b.users.count, 1u);
+    XCTAssertEqualObjects(b.users[0].userID, @"bob");
 
     // The session list survives a RunSummary JSON round-trip.
     NSData *json = [summary jsonData];
@@ -556,6 +554,27 @@ extern void ksruncontext_testcode_setLifecycleData(const KSCrash_LifecycleData *
     KSCrashRunSummary *summary = ksruncontext_testcode_buildSummaryWithSessions(&ctx, NULL, "/nonexistent/Sessions");
     XCTAssertNotNil(summary);
     XCTAssertEqualObjects(summary.sessions, @[]);
+}
+
+- (void)test_buildSummary_faultsSessionListOnlyOnFirstAccess
+{
+    // The install-path build should not touch the session log — the accessor
+    // faults it in on first read. Confirm by observing that _sessions is nil
+    // until the accessor runs.
+    KSCrashRunContext ctx;
+    populateContext(&ctx);
+    int64_t startedAtMs = (int64_t)(ctx.lifecycle.wallClockAtStartNs / 1000000ULL);
+
+    NSString *path = [self.tempDir stringByAppendingPathComponent:@"Sessions"];
+    KSCrashSessionLog *log = [[KSCrashSessionLog alloc] initForWritingAtPath:path];
+    XCTAssertTrue([log recordSessionBeginWithID:@"session-A" perceptible:YES atMs:startedAtMs userID:nil]);
+    [log close];
+
+    KSCrashRunSummary *summary = ksruncontext_testcode_buildSummaryWithSessions(&ctx, NULL, path.UTF8String);
+    XCTAssertNotNil(summary);
+    XCTAssertNil([summary valueForKey:@"_sessions"]);  // not faulted yet
+    XCTAssertEqual(summary.sessions.count, 1u);
+    XCTAssertNotNil([summary valueForKey:@"_sessions"]);
 }
 
 @end

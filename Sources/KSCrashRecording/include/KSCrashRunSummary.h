@@ -327,12 +327,20 @@ __attribute__((objc_subclassing_restricted))
  *  each with its own start/end time and the user(s) active during it. Empty if
  *  the run's session log was absent or unreadable. The aggregate `sessionCounts`
  *  above remains the stability denominator; this is the itemized view.
+ *
+ *  Loading is lazy for summaries built from a session-log path (see
+ *  @c initWithSchemaVersion:...sessionLogPath:) — the first access parses the
+ *  JSON on disk and caches. Summaries built from an explicit @c sessions:
+ *  array (decoded JSON, tests) have the array already in hand.
  */
 @property(nonatomic, readonly, strong) NSArray<KSCrashRunSummarySession *> *sessions;
 
 - (instancetype)init NS_UNAVAILABLE;
 + (instancetype)new NS_UNAVAILABLE;
 
+/** Initializer for summaries whose per-session list is already materialized
+ *  (JSON decoder, tests, filters constructing summaries by hand).
+ */
 - (instancetype)initWithSchemaVersion:(NSInteger)schemaVersion
                            sdkVersion:(NSString *)sdkVersion
                                 runID:(NSString *)runID
@@ -349,6 +357,27 @@ __attribute__((objc_subclassing_restricted))
                                    os:(KSCrashRunSummaryOS *)os
                                device:(KSCrashRunSummaryDevice *)device
                              sessions:(NSArray<KSCrashRunSummarySession *> *)sessions NS_DESIGNATED_INITIALIZER;
+
+/** Initializer used by the install path: everything except @c sessions[] is
+ *  known up front; the per-session list is faulted from @c sessionLogPath on
+ *  first read. Keeps @c ksruncontext_init off the session-log parse.
+ */
+- (instancetype)initWithSchemaVersion:(NSInteger)schemaVersion
+                           sdkVersion:(NSString *)sdkVersion
+                                runID:(NSString *)runID
+                             deviceID:(NSString *)deviceID
+                               userID:(nullable NSString *)userID
+                                users:(KSCrashRunSummaryUsers *)users
+                          startedAtMs:(int64_t)startedAtMs
+                            endedAtMs:(int64_t)endedAtMs
+                      isBeingDebugged:(BOOL)isBeingDebugged
+                              outcome:(KSCrashRunSummaryOutcome *)outcome
+                            durations:(KSCrashRunSummaryDurations *)durations
+                        sessionCounts:(KSCrashRunSummarySessionCounts *)sessionCounts
+                                  app:(KSCrashRunSummaryApp *)app
+                                   os:(KSCrashRunSummaryOS *)os
+                               device:(KSCrashRunSummaryDevice *)device
+                       sessionLogPath:(nullable NSString *)sessionLogPath NS_DESIGNATED_INITIALIZER;
 
 /** Encode this summary as JSON. Returns nil on encoding failure. */
 - (nullable NSData *)jsonData;

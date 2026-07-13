@@ -26,7 +26,9 @@
 
 #import <XCTest/XCTest.h>
 
+#import <fcntl.h>
 #import <string.h>
+#import <unistd.h>
 
 #import "KSCrashRunSummary.h"
 #import "KSCrashSessionLog.h"
@@ -55,27 +57,17 @@
     [super tearDown];
 }
 
-// A zero anchor makes epoch-ms = monotonicNs / 1e6, so ns written in whole-ms
-// multiples read back as those ms values.
-- (NSArray<KSCrashRunSummarySession *> *)sessionsWithRunEndedAtMs:(int64_t)runEndedAtMs
-{
-    return [KSCrashSessionLog sessionsAtPath:self.path
-                          wallClockAtStartNs:0
-                          monotonicAtStartNs:0
-                                runEndedAtMs:runEndedAtMs];
-}
-
 - (void)test_sessions_builtFromLogInOrderWithUsers
 {
     KSCrashSessionLog *log = [[KSCrashSessionLog alloc] initForWritingAtPath:self.path];
     XCTAssertNotNil(log);
-    XCTAssertTrue([log recordSessionBeginWithID:@"sess-A" perceptible:YES monotonicNs:1000000]);  // 1 ms
-    XCTAssertTrue([log recordUserID:@"alice" monotonicNs:2000000]);                               // 2 ms
-    XCTAssertTrue([log recordUserID:@"bob" monotonicNs:3000000]);                                 // 3 ms
-    XCTAssertTrue([log recordSessionBeginWithID:@"sess-B" perceptible:NO monotonicNs:5000000]);   // 5 ms
+    XCTAssertTrue([log recordSessionBeginWithID:@"sess-A" perceptible:YES atMs:1 userID:nil]);
+    XCTAssertTrue([log recordUserID:@"alice" atMs:2]);
+    XCTAssertTrue([log recordUserID:@"bob" atMs:3]);
+    XCTAssertTrue([log recordSessionBeginWithID:@"sess-B" perceptible:NO atMs:5 userID:nil]);
     [log close];
 
-    NSArray<KSCrashRunSummarySession *> *sessions = [self sessionsWithRunEndedAtMs:10];
+    NSArray<KSCrashRunSummarySession *> *sessions = [KSCrashSessionLog sessionsAtPath:self.path];
     XCTAssertEqual(sessions.count, 2u);
 
     KSCrashRunSummarySession *a = sessions[0];
@@ -92,32 +84,57 @@
     XCTAssertEqualObjects(b.sessionID, @"sess-B");
     XCTAssertFalse(b.perceptible);
     XCTAssertEqual(b.startedAtMs, 5);
-    XCTAssertEqual(b.endedAtMs, 10);  // last open session ends at the run end
+    XCTAssertEqual(b.endedAtMs, 5);  // still-open session's end reflects last write
     XCTAssertEqual(b.users.count, 0u);
 }
 
-- (void)test_tornTail_ignoresUncommittedTrailingBytes
+- (void)test_newSessionInheritsCurrentUser
 {
+    // Callers of recordSessionBeginWithID:...:userID: pass the current user
+    // in with the new session, so the first user record in a new session is
+    // written up front rather than as a separate USER call.
     KSCrashSessionLog *log = [[KSCrashSessionLog alloc] initForWritingAtPath:self.path];
-    XCTAssertTrue([log recordSessionBeginWithID:@"sess-A" perceptible:YES monotonicNs:1000000]);
-    XCTAssertTrue([log recordUserID:@"alice" monotonicNs:2000000]);
+    XCTAssertTrue([log recordSessionBeginWithID:@"sess-A" perceptible:YES atMs:1 userID:@"alice"]);
+    XCTAssertTrue([log recordSessionBeginWithID:@"sess-B" perceptible:NO atMs:5 userID:@"alice"]);
     [log close];
 
-    // Simulate a record that was mid-write when the process died: append raw
-    // bytes past the committed region. The header's committedSize is unchanged,
-    // so the reader must ignore them.
-    NSFileHandle *handle = [NSFileHandle fileHandleForWritingAtPath:self.path];
-    [handle seekToEndOfFile];
-    uint8_t garbage[40];
-    memset(garbage, 0xAB, sizeof(garbage));
-    [handle writeData:[NSData dataWithBytes:garbage length:sizeof(garbage)]];
-    [handle closeFile];
-
-    NSArray<KSCrashRunSummarySession *> *sessions = [self sessionsWithRunEndedAtMs:10];
-    XCTAssertEqual(sessions.count, 1u);
-    XCTAssertEqualObjects(sessions[0].sessionID, @"sess-A");
+    NSArray<KSCrashRunSummarySession *> *sessions = [KSCrashSessionLog sessionsAtPath:self.path];
+    XCTAssertEqual(sessions.count, 2u);
     XCTAssertEqual(sessions[0].users.count, 1u);
     XCTAssertEqualObjects(sessions[0].users[0].userID, @"alice");
+    XCTAssertEqual(sessions[1].users.count, 1u);
+    XCTAssertEqualObjects(sessions[1].users[0].userID, @"alice");
+}
+
+- (void)test_recordUserID_withoutOpenSession_isDropped
+{
+    // Users observed before the first SESSION_BEGIN don't attach to anything:
+    // callers hand the current user in when they open the first session.
+    KSCrashSessionLog *log = [[KSCrashSessionLog alloc] initForWritingAtPath:self.path];
+    XCTAssertFalse([log recordUserID:@"alice" atMs:1]);
+    XCTAssertTrue([log recordSessionBeginWithID:@"sess-A" perceptible:YES atMs:5 userID:@"bob"]);
+    [log close];
+
+    NSArray<KSCrashRunSummarySession *> *sessions = [KSCrashSessionLog sessionsAtPath:self.path];
+    XCTAssertEqual(sessions.count, 1u);
+    XCTAssertEqual(sessions[0].users.count, 1u);
+    XCTAssertEqualObjects(sessions[0].users[0].userID, @"bob");
+}
+
+- (void)test_recordUserID_dedupsAdjacentSameID
+{
+    KSCrashSessionLog *log = [[KSCrashSessionLog alloc] initForWritingAtPath:self.path];
+    XCTAssertTrue([log recordSessionBeginWithID:@"sess-A" perceptible:YES atMs:1 userID:@"alice"]);
+    XCTAssertTrue([log recordUserID:@"alice" atMs:2]);  // no-op — already current
+    XCTAssertTrue([log recordUserID:@"bob" atMs:3]);
+    XCTAssertTrue([log recordUserID:@"bob" atMs:4]);  // no-op — already current
+    [log close];
+
+    NSArray<KSCrashRunSummarySession *> *sessions = [KSCrashSessionLog sessionsAtPath:self.path];
+    XCTAssertEqual(sessions.count, 1u);
+    XCTAssertEqual(sessions[0].users.count, 2u);
+    XCTAssertEqualObjects(sessions[0].users[0].userID, @"alice");
+    XCTAssertEqualObjects(sessions[0].users[1].userID, @"bob");
 }
 
 - (void)test_emptyLog_readsAsNoSessions
@@ -125,37 +142,77 @@
     KSCrashSessionLog *log = [[KSCrashSessionLog alloc] initForWritingAtPath:self.path];
     XCTAssertNotNil(log);
     [log close];
-    XCTAssertEqual([self sessionsWithRunEndedAtMs:10].count, 0u);
+    XCTAssertEqual([KSCrashSessionLog sessionsAtPath:self.path].count, 0u);
 }
 
 - (void)test_open_truncatesExistingLog
 {
     KSCrashSessionLog *first = [[KSCrashSessionLog alloc] initForWritingAtPath:self.path];
-    XCTAssertTrue([first recordSessionBeginWithID:@"sess-A" perceptible:YES monotonicNs:1000000]);
+    XCTAssertTrue([first recordSessionBeginWithID:@"sess-A" perceptible:YES atMs:1 userID:nil]);
     [first close];
 
-    // Reopening the same path resets it to empty (one log per run).
     KSCrashSessionLog *second = [[KSCrashSessionLog alloc] initForWritingAtPath:self.path];
     XCTAssertNotNil(second);
     [second close];
-    XCTAssertEqual([self sessionsWithRunEndedAtMs:10].count, 0u);
+    XCTAssertEqual([KSCrashSessionLog sessionsAtPath:self.path].count, 0u);
 }
 
 - (void)test_missingFile_readsAsNoSessions
 {
-    NSArray<KSCrashRunSummarySession *> *sessions = [KSCrashSessionLog sessionsAtPath:@"/nonexistent/path/Sessions"
-                                                                   wallClockAtStartNs:0
-                                                                   monotonicAtStartNs:0
-                                                                         runEndedAtMs:10];
+    NSArray<KSCrashRunSummarySession *> *sessions = [KSCrashSessionLog sessionsAtPath:@"/nonexistent/path/Sessions"];
     XCTAssertEqual(sessions.count, 0u);
+}
+
+- (void)test_malformedFile_readsAsNoSessions
+{
+    // A leftover binary-format Sessions.ksscr from an older SDK, or any garbage,
+    // isn't valid JSON — the reader treats it as no per-session detail rather
+    // than crashing or returning something misleading.
+    NSData *junk = [@"kssl\x01not-json" dataUsingEncoding:NSUTF8StringEncoding];
+    [junk writeToFile:self.path atomically:YES];
+    XCTAssertEqual([KSCrashSessionLog sessionsAtPath:self.path].count, 0u);
 }
 
 - (void)test_writeAfterClose_returnsNO
 {
     KSCrashSessionLog *log = [[KSCrashSessionLog alloc] initForWritingAtPath:self.path];
     [log close];
-    XCTAssertFalse([log recordSessionBeginWithID:@"sess-A" perceptible:YES monotonicNs:1000000]);
-    XCTAssertFalse([log recordUserID:@"alice" monotonicNs:2000000]);
+    XCTAssertFalse([log recordSessionBeginWithID:@"sess-A" perceptible:YES atMs:1 userID:nil]);
+    XCTAssertFalse([log recordUserID:@"alice" atMs:2]);
+}
+
+- (void)test_emptyPathDoesNotCloseStandardInput
+{
+    BOOL installedTemporaryStdin = NO;
+    if (fcntl(STDIN_FILENO, F_GETFD) == -1) {
+        int fd = open("/dev/null", O_RDONLY);
+        XCTAssertEqual(fd, STDIN_FILENO);
+        installedTemporaryStdin = fd == STDIN_FILENO;
+    }
+
+    KSCrashSessionLog *log = [[KSCrashSessionLog alloc] initForWritingAtPath:@""];
+
+    XCTAssertNil(log);
+    XCTAssertNotEqual(fcntl(STDIN_FILENO, F_GETFD), -1);
+    if (installedTemporaryStdin) {
+        close(STDIN_FILENO);
+    }
+}
+
+- (void)test_openSessionEndAdvancesWithEachEvent
+{
+    // The currently-open session's ended_at_ms tracks the time of its most
+    // recent event, so a consumer can compute a reasonable duration even
+    // without seeing a subsequent SESSION_BEGIN.
+    KSCrashSessionLog *log = [[KSCrashSessionLog alloc] initForWritingAtPath:self.path];
+    XCTAssertTrue([log recordSessionBeginWithID:@"sess-A" perceptible:YES atMs:1 userID:nil]);
+    XCTAssertTrue([log recordUserID:@"alice" atMs:5]);
+    [log close];
+
+    NSArray<KSCrashRunSummarySession *> *sessions = [KSCrashSessionLog sessionsAtPath:self.path];
+    XCTAssertEqual(sessions.count, 1u);
+    XCTAssertEqual(sessions[0].users.firstObject.atMs, 5);
+    XCTAssertEqual(sessions[0].endedAtMs, 5);
 }
 
 @end
