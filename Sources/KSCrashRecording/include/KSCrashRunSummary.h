@@ -31,6 +31,11 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+/** The on-disk schema version emitted by @c KSCrashRunSummary's JSON encoder.
+ *  A produced payload always uses this version's key shape; a decoded summary
+ *  carries whatever version its source declared, which may be older. */
+static const NSInteger KSCrashRunSummary_CurrentSchemaVersion = 2;
+
 /** Kind of host process that produced a run summary. Lets the backend bucket
  *  extension / test runs separately from main-app runs so stability metrics
  *  aren't dragged by differently-shaped run patterns.
@@ -44,11 +49,13 @@ typedef NS_ENUM(NSInteger, KSCrashRunSummaryHostKind) {
 
 @class KSCrashRunSummaryOutcome;
 @class KSCrashRunSummaryDurations;
-@class KSCrashRunSummarySessions;
+@class KSCrashRunSummarySessionCounts;
 @class KSCrashRunSummaryUsers;
 @class KSCrashRunSummaryApp;
 @class KSCrashRunSummaryOS;
 @class KSCrashRunSummaryDevice;
+@class KSCrashRunSummarySession;
+@class KSCrashRunSummarySessionUser;
 
 // ============================================================================
 #pragma mark - Outcome -
@@ -92,12 +99,15 @@ __attribute__((objc_subclassing_restricted))
 @end
 
 // ============================================================================
-#pragma mark - Sessions -
+#pragma mark - Session Count -
 // ============================================================================
 
-NS_SWIFT_NAME(RunSummary.Sessions)
+/** Aggregate session counts for the run, straight from the lifecycle counters.
+ *  Authoritative even if the per-session log (`RunSummary.sessions`) was torn
+ *  or lost. */
+NS_SWIFT_NAME(RunSummary.SessionCounts)
 __attribute__((objc_subclassing_restricted))
-@interface KSCrashRunSummarySessions : NSObject
+@interface KSCrashRunSummarySessionCounts : NSObject
 
 /** Number of times the app reached the foreground this run: a launch that
  *  actually foregrounds, plus each resume from background. A launch that never
@@ -209,6 +219,61 @@ __attribute__((objc_subclassing_restricted))
 @end
 
 // ============================================================================
+#pragma mark - Session -
+// ============================================================================
+
+NS_SWIFT_NAME(RunSummary.SessionUser)
+__attribute__((objc_subclassing_restricted))
+@interface KSCrashRunSummarySessionUser : NSObject
+
+/** A user id that was active during the session. */
+@property(nonatomic, readonly, copy) NSString *userID;
+
+/** Unix epoch milliseconds (wall clock) when this user became active. */
+@property(nonatomic, readonly) int64_t atMs;
+
+- (instancetype)init NS_UNAVAILABLE;
++ (instancetype)new NS_UNAVAILABLE;
+
+- (instancetype)initWithUserID:(NSString *)userID atMs:(int64_t)atMs NS_DESIGNATED_INITIALIZER;
+
+@end
+
+/** One session within a run: a perceptible foreground reach or an imperceptible
+ *  background entry, with its own start/end time and the user(s) active during
+ *  it. More than one user means the session crossed a user change.
+ */
+NS_SWIFT_NAME(RunSummary.Session)
+__attribute__((objc_subclassing_restricted))
+@interface KSCrashRunSummarySession : NSObject
+
+@property(nonatomic, readonly, copy) NSString *sessionID;
+
+/** true: a foreground reach; false: a background entry. */
+@property(nonatomic, readonly) BOOL perceptible;
+
+/** Unix epoch milliseconds (wall clock). */
+@property(nonatomic, readonly) int64_t startedAtMs;
+
+/** Unix epoch milliseconds (wall clock). The last open session's end is the
+ *  run's end. */
+@property(nonatomic, readonly) int64_t endedAtMs;
+
+/** Users active during the session, in the order they became active. */
+@property(nonatomic, readonly, strong) NSArray<KSCrashRunSummarySessionUser *> *users;
+
+- (instancetype)init NS_UNAVAILABLE;
++ (instancetype)new NS_UNAVAILABLE;
+
+- (instancetype)initWithSessionID:(NSString *)sessionID
+                      perceptible:(BOOL)perceptible
+                      startedAtMs:(int64_t)startedAtMs
+                        endedAtMs:(int64_t)endedAtMs
+                            users:(NSArray<KSCrashRunSummarySessionUser *> *)users NS_DESIGNATED_INITIALIZER;
+
+@end
+
+// ============================================================================
 #pragma mark - Run Summary -
 // ============================================================================
 
@@ -253,10 +318,17 @@ __attribute__((objc_subclassing_restricted))
 
 @property(nonatomic, readonly, strong) KSCrashRunSummaryOutcome *outcome;
 @property(nonatomic, readonly, strong) KSCrashRunSummaryDurations *durations;
-@property(nonatomic, readonly, strong) KSCrashRunSummarySessions *sessions;
+@property(nonatomic, readonly, strong) KSCrashRunSummarySessionCounts *sessionCounts;
 @property(nonatomic, readonly, strong) KSCrashRunSummaryApp *app;
 @property(nonatomic, readonly, strong) KSCrashRunSummaryOS *os;
 @property(nonatomic, readonly, strong) KSCrashRunSummaryDevice *device;
+
+/** Per-session detail: one entry per foreground/background session in the run,
+ *  each with its own start/end time and the user(s) active during it. Empty if
+ *  the run's session log was absent or unreadable. The aggregate `sessionCounts`
+ *  above remains the stability denominator; this is the itemized view.
+ */
+@property(nonatomic, readonly, strong) NSArray<KSCrashRunSummarySession *> *sessions;
 
 - (instancetype)init NS_UNAVAILABLE;
 + (instancetype)new NS_UNAVAILABLE;
@@ -272,10 +344,11 @@ __attribute__((objc_subclassing_restricted))
                       isBeingDebugged:(BOOL)isBeingDebugged
                               outcome:(KSCrashRunSummaryOutcome *)outcome
                             durations:(KSCrashRunSummaryDurations *)durations
-                             sessions:(KSCrashRunSummarySessions *)sessions
+                        sessionCounts:(KSCrashRunSummarySessionCounts *)sessionCounts
                                   app:(KSCrashRunSummaryApp *)app
                                    os:(KSCrashRunSummaryOS *)os
-                               device:(KSCrashRunSummaryDevice *)device NS_DESIGNATED_INITIALIZER;
+                               device:(KSCrashRunSummaryDevice *)device
+                             sessions:(NSArray<KSCrashRunSummarySession *> *)sessions NS_DESIGNATED_INITIALIZER;
 
 /** Encode this summary as JSON. Returns nil on encoding failure. */
 - (nullable NSData *)jsonData;

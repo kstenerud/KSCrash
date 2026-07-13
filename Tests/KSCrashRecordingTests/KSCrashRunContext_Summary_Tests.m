@@ -28,11 +28,15 @@
 
 #import "KSCrashRunContext.h"
 #import "KSCrashRunSummary.h"
+#import "KSCrashSessionLog.h"
 #import "KSKeyValueStore.h"
 
-// Test helper exposed from KSCrashRunContext.m.
+// Test helpers exposed from KSCrashRunContext.m.
 extern KSCrashRunSummary *ksruncontext_testcode_buildSummary(const KSCrashRunContext *ctx,
                                                              const char *userInfoSidecarPath);
+extern KSCrashRunSummary *ksruncontext_testcode_buildSummaryWithSessions(const KSCrashRunContext *ctx,
+                                                                         const char *userInfoSidecarPath,
+                                                                         const char *sessionsSidecarPath);
 
 // Wall-clock ns → zero-padded "<digits>.run" filename, matching the format
 // written by persistPreviousRunSummary.
@@ -119,7 +123,7 @@ static void populateContext(KSCrashRunContext *ctx)
     KSCrashRunSummary *summary = ksruncontext_testcode_buildSummary(&ctx, NULL);
 
     XCTAssertNotNil(summary);
-    XCTAssertEqual(summary.schemaVersion, 1);
+    XCTAssertEqual(summary.schemaVersion, 2);
     XCTAssertTrue(summary.sdkVersion.length > 0);
     XCTAssertEqualObjects(summary.runID, @"a1b2c3d4-e5f6-7890-abcd-ef1234567890");
     XCTAssertEqualObjects(summary.deviceID, @"0123456789abcdef0123456789abcdef");
@@ -137,8 +141,8 @@ static void populateContext(KSCrashRunContext *ctx)
     XCTAssertEqual(summary.durations.activeMs, 123456LL);
     XCTAssertEqual(summary.durations.backgroundMs, 45678LL);
 
-    XCTAssertEqual(summary.sessions.perceptibleCount, 3);
-    XCTAssertEqual(summary.sessions.imperceptibleCount, 2);
+    XCTAssertEqual(summary.sessionCounts.perceptibleCount, 3);
+    XCTAssertEqual(summary.sessionCounts.imperceptibleCount, 2);
 
     XCTAssertEqual(summary.users.perceptibleCount, 4);
     XCTAssertEqual(summary.users.imperceptibleCount, 1);
@@ -486,6 +490,72 @@ extern void ksruncontext_testcode_setLifecycleData(const KSCrash_LifecycleData *
     ksruncontext_pruneRunSummaries(NULL, 5);
     ksruncontext_pruneRunSummaries("", 5);
     // No crash = pass.
+}
+
+#pragma mark - Session List
+
+- (void)test_buildSummary_assemblesSessionListFromLog
+{
+    // Two sessions; the first crosses a user change (alice → bob).
+    KSCrashRunContext ctx;
+    populateContext(&ctx);
+
+    // Events are timestamped in the monotonic clock the lifecycle sidecar anchors
+    // against; buildSummary converts them to epoch ms via wall/monotonic-at-start,
+    // so the assertions below are the converted wall-clock values.
+    int64_t monoStart = (int64_t)ctx.lifecycle.monotonicAtStartNs;
+    NSString *path = [self.tempDir stringByAppendingPathComponent:@"Sessions"];
+    KSCrashSessionLog *log = [[KSCrashSessionLog alloc] initForWritingAtPath:path];
+    XCTAssertNotNil(log);
+    XCTAssertTrue([log recordSessionBeginWithID:@"session-A" perceptible:YES monotonicNs:(uint64_t)monoStart]);
+    XCTAssertTrue([log recordUserID:@"alice" monotonicNs:(uint64_t)(monoStart + 500LL * 1000000)]);  // +500 ms
+    XCTAssertTrue([log recordUserID:@"bob" monotonicNs:(uint64_t)(monoStart + 10000LL * 1000000)]);  // +10 s
+    XCTAssertTrue([log recordSessionBeginWithID:@"session-B"
+                                    perceptible:NO
+                                    monotonicNs:(uint64_t)(monoStart + 100000LL * 1000000)]);  // +100 s
+    [log close];
+
+    KSCrashRunSummary *summary = ksruncontext_testcode_buildSummaryWithSessions(&ctx, NULL, path.UTF8String);
+
+    XCTAssertNotNil(summary);
+    XCTAssertEqual(summary.sessions.count, 2u);
+
+    KSCrashRunSummarySession *a = summary.sessions[0];
+    XCTAssertEqualObjects(a.sessionID, @"session-A");
+    XCTAssertTrue(a.perceptible);
+    XCTAssertEqual(a.startedAtMs, 1744000000000LL);
+    XCTAssertEqual(a.endedAtMs, 1744000100000LL);  // closed at session-B's start
+    XCTAssertEqual(a.users.count, 2u);
+    XCTAssertEqualObjects(a.users[0].userID, @"alice");
+    XCTAssertEqual(a.users[0].atMs, 1744000000500LL);
+    XCTAssertEqualObjects(a.users[1].userID, @"bob");
+
+    KSCrashRunSummarySession *b = summary.sessions[1];
+    XCTAssertEqualObjects(b.sessionID, @"session-B");
+    XCTAssertFalse(b.perceptible);
+    XCTAssertEqual(b.startedAtMs, 1744000100000LL);
+    XCTAssertEqual(b.endedAtMs, summary.endedAtMs);  // last open session ends at run end
+    XCTAssertEqual(b.users.count, 0u);
+
+    // The session list survives a RunSummary JSON round-trip.
+    NSData *json = [summary jsonData];
+    XCTAssertNotNil(json);
+    KSCrashRunSummary *decoded = [KSCrashRunSummary summaryFromJSONData:json error:nil];
+    XCTAssertNotNil(decoded);
+    XCTAssertEqual(decoded.sessions.count, 2u);
+    XCTAssertEqualObjects(decoded.sessions[0].sessionID, @"session-A");
+    XCTAssertEqual(decoded.sessions[0].users.count, 2u);
+    XCTAssertEqualObjects(decoded.sessions[0].users[1].userID, @"bob");
+    XCTAssertEqualObjects(decoded.sessions[1].sessionID, @"session-B");
+}
+
+- (void)test_buildSummary_emptySessionListWhenNoLog
+{
+    KSCrashRunContext ctx;
+    populateContext(&ctx);
+    KSCrashRunSummary *summary = ksruncontext_testcode_buildSummaryWithSessions(&ctx, NULL, "/nonexistent/Sessions");
+    XCTAssertNotNil(summary);
+    XCTAssertEqualObjects(summary.sessions, @[]);
 }
 
 @end

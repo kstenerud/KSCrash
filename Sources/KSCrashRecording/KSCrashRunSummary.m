@@ -64,7 +64,7 @@
 
 @end
 
-@implementation KSCrashRunSummarySessions
+@implementation KSCrashRunSummarySessionCounts
 
 - (instancetype)initWithPerceptibleCount:(NSInteger)perceptibleCount imperceptibleCount:(NSInteger)imperceptibleCount
 {
@@ -144,6 +144,39 @@
 
 @end
 
+@implementation KSCrashRunSummarySessionUser
+
+- (instancetype)initWithUserID:(NSString *)userID atMs:(int64_t)atMs
+{
+    if ((self = [super init])) {
+        _userID = [userID copy];
+        _atMs = atMs;
+    }
+    return self;
+}
+
+@end
+
+@implementation KSCrashRunSummarySession
+
+- (instancetype)initWithSessionID:(NSString *)sessionID
+                      perceptible:(BOOL)perceptible
+                      startedAtMs:(int64_t)startedAtMs
+                        endedAtMs:(int64_t)endedAtMs
+                            users:(NSArray<KSCrashRunSummarySessionUser *> *)users
+{
+    if ((self = [super init])) {
+        _sessionID = [sessionID copy];
+        _perceptible = perceptible;
+        _startedAtMs = startedAtMs;
+        _endedAtMs = endedAtMs;
+        _users = [users copy] ?: @[];
+    }
+    return self;
+}
+
+@end
+
 @implementation KSCrashRunSummary
 
 - (instancetype)initWithSchemaVersion:(NSInteger)schemaVersion
@@ -157,10 +190,11 @@
                       isBeingDebugged:(BOOL)isBeingDebugged
                               outcome:(KSCrashRunSummaryOutcome *)outcome
                             durations:(KSCrashRunSummaryDurations *)durations
-                             sessions:(KSCrashRunSummarySessions *)sessions
+                        sessionCounts:(KSCrashRunSummarySessionCounts *)sessionCounts
                                   app:(KSCrashRunSummaryApp *)app
                                    os:(KSCrashRunSummaryOS *)os
                                device:(KSCrashRunSummaryDevice *)device
+                             sessions:(NSArray<KSCrashRunSummarySession *> *)sessions
 {
     if ((self = [super init])) {
         _schemaVersion = schemaVersion;
@@ -174,10 +208,11 @@
         _isBeingDebugged = isBeingDebugged;
         _outcome = outcome;
         _durations = durations;
-        _sessions = sessions;
+        _sessionCounts = sessionCounts;
         _app = app;
         _os = os;
         _device = device;
+        _sessions = [sessions copy] ?: @[];
     }
     return self;
 }
@@ -228,9 +263,9 @@ static NSString *hostKindWireString(KSCrashRunSummaryHostKind kind)
         @"active" : @(self.durations.activeMs),
         @"background" : @(self.durations.backgroundMs),
     };
-    dict[@"sessions"] = @{
-        @"perceptible_count" : @(self.sessions.perceptibleCount),
-        @"imperceptible_count" : @(self.sessions.imperceptibleCount),
+    dict[@"session_counts"] = @{
+        @"perceptible_count" : @(self.sessionCounts.perceptibleCount),
+        @"imperceptible_count" : @(self.sessionCounts.imperceptibleCount),
     };
     dict[@"app"] = @{
         @"bundle_id" : self.app.bundleID,
@@ -251,6 +286,21 @@ static NSString *hostKindWireString(KSCrashRunSummaryHostKind kind)
         @"is_translated" : self.device.isTranslated ? @YES : @NO,
         @"is_jailbroken" : self.device.isJailbroken ? @YES : @NO,
     };
+    NSMutableArray *sessionArray = [NSMutableArray arrayWithCapacity:self.sessions.count];
+    for (KSCrashRunSummarySession *session in self.sessions) {
+        NSMutableArray *userArray = [NSMutableArray arrayWithCapacity:session.users.count];
+        for (KSCrashRunSummarySessionUser *user in session.users) {
+            [userArray addObject:@{ @"user_id" : user.userID, @"at_ms" : @(user.atMs) }];
+        }
+        [sessionArray addObject:@{
+            @"session_id" : session.sessionID,
+            @"perceptible" : session.perceptible ? @YES : @NO,
+            @"started_at_ms" : @(session.startedAtMs),
+            @"ended_at_ms" : @(session.endedAtMs),
+            @"users" : userArray,
+        }];
+    }
+    dict[@"sessions"] = sessionArray;
     return dict;
 }
 
@@ -380,7 +430,22 @@ static KSCrashRunSummaryHostKind hostKindFromWireString(NSString *value)
 
     NSDictionary *outcomeDict = requiredDictionary(dict, @"outcome", &ok);
     NSDictionary *durationsDict = requiredDictionary(dict, @"durations_ms", &ok);
-    NSDictionary *sessionsDict = requiredDictionary(dict, @"sessions", &ok);
+    // Schema v1 wrote the aggregate counts under `sessions`. v2 renamed the key
+    // to `session_counts` (a per-session list moved into `sessions`), so accept
+    // either — but require at least one to be present.
+    NSDictionary *sessionCountsDict = nil;
+    id sessionCountsRaw = dict[@"session_counts"];
+    if ([sessionCountsRaw isKindOfClass:[NSDictionary class]]) {
+        sessionCountsDict = sessionCountsRaw;
+    } else {
+        id v1Counts = dict[@"sessions"];
+        if ([v1Counts isKindOfClass:[NSDictionary class]]) {
+            sessionCountsDict = v1Counts;
+        }
+    }
+    if (sessionCountsDict == nil) {
+        ok = NO;
+    }
     NSDictionary *usersDict = requiredDictionary(dict, @"users", &ok);
     NSDictionary *appDict = requiredDictionary(dict, @"app", &ok);
     NSDictionary *osDict = requiredDictionary(dict, @"os", &ok);
@@ -414,8 +479,8 @@ static KSCrashRunSummaryHostKind hostKindFromWireString(NSString *value)
     int64_t activeMs = requiredInt64(durationsDict, @"active", &ok);
     int64_t backgroundMs = requiredInt64(durationsDict, @"background", &ok);
 
-    NSInteger sessionsPerceptible = requiredInteger(sessionsDict, @"perceptible_count", &ok);
-    NSInteger sessionsImperceptible = requiredInteger(sessionsDict, @"imperceptible_count", &ok);
+    NSInteger sessionsPerceptible = requiredInteger(sessionCountsDict, @"perceptible_count", &ok);
+    NSInteger sessionsImperceptible = requiredInteger(sessionCountsDict, @"imperceptible_count", &ok);
 
     NSInteger usersPerceptible = requiredInteger(usersDict, @"perceptible_count", &ok);
     NSInteger usersImperceptible = requiredInteger(usersDict, @"imperceptible_count", &ok);
@@ -493,9 +558,9 @@ static KSCrashRunSummaryHostKind hostKindFromWireString(NSString *value)
                   userPerceptible:userPerceptible];
     KSCrashRunSummaryDurations *durations = [[KSCrashRunSummaryDurations alloc] initWithActiveMs:activeMs
                                                                                     backgroundMs:backgroundMs];
-    KSCrashRunSummarySessions *sessions =
-        [[KSCrashRunSummarySessions alloc] initWithPerceptibleCount:sessionsPerceptible
-                                                 imperceptibleCount:sessionsImperceptible];
+    KSCrashRunSummarySessionCounts *sessionCounts =
+        [[KSCrashRunSummarySessionCounts alloc] initWithPerceptibleCount:sessionsPerceptible
+                                                      imperceptibleCount:sessionsImperceptible];
     KSCrashRunSummaryUsers *users = [[KSCrashRunSummaryUsers alloc] initWithPerceptibleCount:usersPerceptible
                                                                           imperceptibleCount:usersImperceptible];
     KSCrashRunSummaryApp *app = [[KSCrashRunSummaryApp alloc] initWithBundleID:bundleID
@@ -510,6 +575,51 @@ static KSCrashRunSummaryHostKind hostKindFromWireString(NSString *value)
                                                                         isTranslated:isTranslated
                                                                         isJailbroken:isJailbroken];
 
+    // The per-session list is a schema v2 addition and optional. Missing decodes
+    // as empty; a malformed entry is skipped rather than failing the whole summary
+    // (per-session detail is auxiliary to the required run-level fields).
+    NSMutableArray<KSCrashRunSummarySession *> *sessions = [NSMutableArray array];
+    id sessionsValue = dict[@"sessions"];
+    if ([sessionsValue isKindOfClass:[NSArray class]]) {
+        for (id entry in (NSArray *)sessionsValue) {
+            if (![entry isKindOfClass:[NSDictionary class]]) {
+                continue;
+            }
+            NSDictionary *sessionDict = entry;
+            BOOL sessionOK = YES;
+            NSString *sessionID = requiredString(sessionDict, @"session_id", &sessionOK);
+            BOOL perceptible = requiredBool(sessionDict, @"perceptible", &sessionOK);
+            int64_t sessionStart = requiredInt64(sessionDict, @"started_at_ms", &sessionOK);
+            int64_t sessionEnd = requiredInt64(sessionDict, @"ended_at_ms", &sessionOK);
+            if (!sessionOK) {
+                continue;
+            }
+            NSMutableArray<KSCrashRunSummarySessionUser *> *sessionUsers = [NSMutableArray array];
+            id usersValue = sessionDict[@"users"];
+            if ([usersValue isKindOfClass:[NSArray class]]) {
+                for (id userEntry in (NSArray *)usersValue) {
+                    if (![userEntry isKindOfClass:[NSDictionary class]]) {
+                        continue;
+                    }
+                    NSDictionary *userDict = userEntry;
+                    BOOL userOK = YES;
+                    NSString *sessionUserID = requiredString(userDict, @"user_id", &userOK);
+                    int64_t atMs = requiredInt64(userDict, @"at_ms", &userOK);
+                    if (!userOK) {
+                        continue;
+                    }
+                    [sessionUsers addObject:[[KSCrashRunSummarySessionUser alloc] initWithUserID:sessionUserID
+                                                                                            atMs:atMs]];
+                }
+            }
+            [sessions addObject:[[KSCrashRunSummarySession alloc] initWithSessionID:sessionID
+                                                                        perceptible:perceptible
+                                                                        startedAtMs:sessionStart
+                                                                          endedAtMs:sessionEnd
+                                                                              users:sessionUsers]];
+        }
+    }
+
     return [[KSCrashRunSummary alloc] initWithSchemaVersion:schemaVersion
                                                  sdkVersion:sdkVersion
                                                       runID:runID
@@ -521,10 +631,11 @@ static KSCrashRunSummaryHostKind hostKindFromWireString(NSString *value)
                                             isBeingDebugged:isBeingDebugged
                                                     outcome:outcome
                                                   durations:durations
-                                                   sessions:sessions
+                                              sessionCounts:sessionCounts
                                                         app:app
                                                          os:os
-                                                     device:device];
+                                                     device:device
+                                                   sessions:sessions];
 }
 
 @end

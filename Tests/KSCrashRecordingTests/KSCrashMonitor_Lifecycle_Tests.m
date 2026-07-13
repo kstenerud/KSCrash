@@ -32,6 +32,8 @@
 #import "KSCrashMonitor_Lifecycle.h"
 #import "KSCrashMonitor_Termination.h"
 #import "KSCrashRunContext.h"
+#import "KSCrashRunSummary.h"
+#import "KSCrashSessionLog.h"
 
 #include <mach/task_policy.h>
 
@@ -227,9 +229,9 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
 
 - (void)testLifecycleDataStructLayout
 {
-    XCTAssertEqual(sizeof(KSCrash_LifecycleData), 112u);
+    XCTAssertEqual(sizeof(KSCrash_LifecycleData), 144u);
     XCTAssertEqual(KSLIFECYCLE_MAGIC, (int32_t)0x6B736C63);
-    XCTAssertEqual(KSCrash_Lifecycle_CurrentVersion, 3);
+    XCTAssertEqual(KSCrash_Lifecycle_CurrentVersion, 4);
 }
 
 - (void)testRelaunchAfterCrash
@@ -634,6 +636,34 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     // alice counted in both buckets: 1 + 1 = 2 total distinctness across buckets.
     XCTAssertEqual(data.distinctPerceptibleUserCount, 1u);
     XCTAssertEqual(data.distinctImperceptibleUserCount, 1u);
+}
+
+- (void)testSessionLog_newSessionsInheritCurrentUser
+{
+    [self enableMonitor];
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+    kscm_lifecycle_observeUser("alice");
+
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateDeactivating);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateBackground);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateForegrounding);
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+
+    NSString *path = [NSString stringWithFormat:@"%@/current/Sessions.ksscr", self.tempPath];
+    int64_t runEndedAtMs = kslifecycle_epochMsFromMonotonicNs(data.appStateTransitionTimeNs, data.wallClockAtStartNs,
+                                                              data.monotonicAtStartNs);
+    NSArray<KSCrashRunSummarySession *> *sessions = [KSCrashSessionLog sessionsAtPath:path
+                                                                   wallClockAtStartNs:data.wallClockAtStartNs
+                                                                   monotonicAtStartNs:data.monotonicAtStartNs
+                                                                         runEndedAtMs:runEndedAtMs];
+
+    XCTAssertEqual(sessions.count, 3u);
+    for (KSCrashRunSummarySession *session in sessions) {
+        XCTAssertEqual(session.users.count, 1u);
+        XCTAssertEqualObjects(session.users.firstObject.userID, @"alice");
+    }
 }
 
 - (void)testReadData_v1Sidecar_zeroFillsNewFields

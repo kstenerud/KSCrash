@@ -57,9 +57,22 @@ extern "C" {
 
 #define KSLIFECYCLE_MAGIC ((int32_t)'kslc')
 
-static const uint8_t KSCrash_Lifecycle_CurrentVersion = 3;
+static const uint8_t KSCrash_Lifecycle_CurrentVersion = 4;
 
 static inline double kslifecycle_nsToSeconds(uint64_t ns) { return (double)ns / 1000000000.0; }
+
+/** Convert a CLOCK_MONOTONIC_RAW nanosecond timestamp to unix epoch
+ *  milliseconds using the run's anchor pair (@c wallClockAtStartNs and
+ *  @c monotonicAtStartNs, captured together at sidecar creation). Monotonic
+ *  time is drift-free, so this stays correct across wall-clock jumps. Any
+ *  event stamped before the anchor clamps to the anchor time.
+ */
+static inline int64_t kslifecycle_epochMsFromMonotonicNs(uint64_t eventMonoNs, uint64_t wallClockAtStartNs,
+                                                         uint64_t monotonicAtStartNs)
+{
+    uint64_t elapsedNs = eventMonoNs > monotonicAtStartNs ? eventMonoNs - monotonicAtStartNs : 0;
+    return (int64_t)((wallClockAtStartNs + elapsedNs) / 1000000ULL);
+}
 
 /** mmap'd struct written to a run sidecar per process.
  *  No pointers — all data is inline so it survives across launches.
@@ -139,9 +152,18 @@ typedef struct {
     // launch and on entering background; cleared when the app first becomes
     // perceptible. See countPerceptibleSessionIfPending.
     uint8_t perceptibleSessionPending;
+
+    // --- v4 additions ---
+    //
+    // The session_id (UUID string) of the session currently open, restamped on
+    // each session begin (a perceptible foreground reach or an imperceptible
+    // background entry). Empty until the first session begins. Read at report
+    // stitch time and emitted as `session_id`, so a crash report references its
+    // session in the growable session log with no crash-time work.
+    char currentSessionID[37];  // UUID (36) + null
 } KSCrash_LifecycleData;
 
-_Static_assert(sizeof(KSCrash_LifecycleData) == 112, "KSCrash_LifecycleData size changed — bump version");
+_Static_assert(sizeof(KSCrash_LifecycleData) == 144, "KSCrash_LifecycleData size changed — bump version");
 
 // ============================================================================
 #pragma mark - Public State (computed from sidecar) -

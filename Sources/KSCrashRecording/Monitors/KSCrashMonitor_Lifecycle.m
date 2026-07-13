@@ -33,8 +33,10 @@
 #import "KSCrashMonitorHelper.h"
 #import "KSCrashRunContext.h"
 #import "KSCrashRunSummary.h"
+#import "KSCrashSessionLog.h"
 #import "KSDate.h"
 #import "KSFileUtils.h"
+#import "KSID.h"
 #import "KSSpinLock.h"
 #import "KSSystemCapabilities.h"
 
@@ -59,6 +61,19 @@
 
 static KSCrash_LifecycleData *g_sidecar = NULL;
 static KSSpinLock g_sidecarLock = KSSPINLOCK_INIT;
+// The run's growable session log, created and cleared alongside g_sidecar; its
+// pointer is read/written under g_sidecarLock. The object has its own lock for
+// the actual writes.
+static KSCrashSessionLog *g_sessionLog = nil;
+// Serializes session-log writes across the transition thread (SESSION_BEGIN)
+// and observeUser callers (USER). Both take this lock around their log
+// write and around the sidecar update that precedes it, so a USER record can
+// never slip between a session's currentSessionID mint and its SESSION_BEGIN
+// entry — which would otherwise attach the user to the wrong session on
+// replay. Held outside g_sidecarLock; g_sidecarLock is briefly acquired inside
+// to touch sidecar bytes, never the reverse.
+static os_unfair_lock g_sessionLogWriteLock = OS_UNFAIR_LOCK_INIT;
+static NSString *g_lastLoggedSessionUserID = nil;
 static KSCrash_ExceptionHandlerCallbacks g_callbacks = { 0 };
 static id g_appStateObserver = nil;
 static KSHangObserverToken g_hangObserverToken = KSHangObserverTokenNotFound;
@@ -235,6 +250,23 @@ static NSUInteger recordUserInBucket(NSString *userID, bool perceptible)
     return count;
 }
 
+/** Append a USER record while holding g_sessionLogWriteLock. When force is
+ *  false, duplicate adjacent user IDs are skipped; when true, the caller is
+ *  opening a new session and the current user must be restated for that
+ *  session even if it is unchanged from the previous one.
+ */
+static void recordSessionUserLocked(KSCrashSessionLog *log, NSString *userID, uint64_t monotonicNs, bool force)
+{
+    if (userID.length == 0) {
+        return;
+    }
+    if (!force && [userID isEqualToString:g_lastLoggedSessionUserID]) {
+        return;
+    }
+    [log recordUserID:userID monotonicNs:monotonicNs];
+    g_lastLoggedSessionUserID = [userID copy];
+}
+
 void kscm_lifecycle_observeUser(const char *userID)
 {
     // Gate on enable so pre-install writes can't stash a g_currentUserID that
@@ -247,11 +279,30 @@ void kscm_lifecycle_observeUser(const char *userID)
     NSString *asString = (userID != NULL && userID[0] != '\0') ? [NSString stringWithUTF8String:userID] : nil;
 
     os_unfair_lock_lock(&g_userLock);
+    NSString *previousUserID = g_currentUserID;
     g_currentUserID = [asString copy];
     os_unfair_lock_unlock(&g_userLock);
 
     if (asString.length == 0) {
-        return;  // nothing to count
+        os_unfair_lock_lock(&g_sessionLogWriteLock);
+        g_lastLoggedSessionUserID = nil;
+        os_unfair_lock_unlock(&g_sessionLogWriteLock);
+        return;  // nothing to count or log (a sign-out is not a session user)
+    }
+
+    // Log a USER event on an actual change to a non-empty id, deduped against the
+    // immediately-previous user so repeated same-id calls don't spam the log.
+    // Messaging a nil log (none open for this run) is a no-op. The ordering lock
+    // pairs with onTransitionState: it guarantees any USER we append lands
+    // strictly after the current session's SESSION_BEGIN, so replay attaches
+    // the user to the right session.
+    if (![asString isEqualToString:previousUserID]) {
+        os_unfair_lock_lock(&g_sessionLogWriteLock);
+        ks_spinlock_lock(&g_sidecarLock);
+        KSCrashSessionLog *log = g_sessionLog;
+        ks_spinlock_unlock(&g_sidecarLock);
+        recordSessionUserLocked(log, asString, ksdate_continuousNanoseconds(), false);
+        os_unfair_lock_unlock(&g_sessionLogWriteLock);
     }
 
     // Read perceptibility from the sidecar. createSidecar() populates this
@@ -329,25 +380,47 @@ bool kslifecycle_getSnapshotForRunID(const char *runID, KSCrash_LifecycleData *o
 #pragma mark - State Transition Observer -
 // ============================================================================
 
-/** Count the owed perceptible session, once. Call under g_sidecarLock. */
-static void countPerceptibleSessionIfPending(KSCrash_LifecycleData *sc)
+/** Count the owed perceptible session, once. Returns true if it counted on
+ *  this call, so the caller can mint the session's id. Call under g_sidecarLock. */
+static bool countPerceptibleSessionIfPending(KSCrash_LifecycleData *sc)
 {
     if (sc->perceptibleSessionPending) {
         sc->perceptibleSessionPending = 0;
         sc->perceptibleSessionsSinceLaunch++;
+        return true;
     }
+    return false;
+}
+
+/** Mint a new session id directly into the sidecar's current-session field
+ *  (stitched into a crash report as session_id) and mirror it into `outID`
+ *  (a buffer of exactly KSRUNCONTEXT_RUN_ID_LENGTH bytes). Call under
+ *  g_sidecarLock. */
+static void beginSessionLocked(KSCrash_LifecycleData *sc, char *outID)
+{
+    _Static_assert(sizeof(sc->currentSessionID) == KSRUNCONTEXT_RUN_ID_LENGTH,
+                   "session id field must match ksid_generate output size");
+    ksid_generate(sc->currentSessionID);
+    memcpy(outID, sc->currentSessionID, sizeof(sc->currentSessionID));
 }
 
 static void onTransitionState(KSCrashAppTransitionState transitionState)
 {
     atomic_store_explicit(&g_transitionState, transitionState, memory_order_relaxed);
 
+    // Held across the sidecar's currentSessionID mint AND the SESSION_BEGIN
+    // log write below, so observeUser (which takes the same lock) can't
+    // interleave a USER record between them.
+    os_unfair_lock_lock(&g_sessionLogWriteLock);
     ks_spinlock_lock(&g_sidecarLock);
     KSCrash_LifecycleData *sc = g_sidecar;
     if (sc == NULL) {
         ks_spinlock_unlock(&g_sidecarLock);
+        os_unfair_lock_unlock(&g_sessionLogWriteLock);
         return;
     }
+
+    bool imperceptibleBegan = false;
 
     switch (transitionState) {
         case KSCrashAppTransitionStateActive:
@@ -369,6 +442,7 @@ static void onTransitionState(KSCrashAppTransitionState transitionState)
             sc->applicationIsInForeground = false;
             sc->imperceptibleSessionsSinceLaunch++;
             sc->perceptibleSessionPending = 1;
+            imperceptibleBegan = true;
             break;
 
         case KSCrashAppTransitionStateForegrounding:
@@ -390,8 +464,27 @@ static void onTransitionState(KSCrashAppTransitionState transitionState)
 
     // Count the owed perceptible session the first time the app is genuinely
     // perceptible. Maybe (Startup/Launching) waits; No re-arms it on Background.
+    bool perceptibleBegan = false;
     if (perceptibilityForState(transitionState) == KSCrashLifecyclePerceptibilityYes) {
-        countPerceptibleSessionIfPending(sc);
+        perceptibleBegan = countPerceptibleSessionIfPending(sc);
+    }
+
+    // A session begins the instant it is counted. Mint its id under the sidecar
+    // lock and record it as the sidecar's current session. The SESSION_BEGIN
+    // log write happens after the sidecar lock is released (log I/O should not
+    // spin on the sidecar spinlock) but before g_sessionLogWriteLock is
+    // released — that lock keeps observeUser out until the append is done, so
+    // a USER can never land between the currentSessionID mint and the
+    // SESSION_BEGIN record. Perceptible and imperceptible begins are mutually
+    // exclusive within a single transition.
+    bool sessionBegan = perceptibleBegan || imperceptibleBegan;
+    bool sessionPerceptible = perceptibleBegan;
+    char newSessionID[KSRUNCONTEXT_RUN_ID_LENGTH];
+    newSessionID[0] = '\0';
+    bool hadPriorSession = false;
+    if (sessionBegan) {
+        hadPriorSession = sc->currentSessionID[0] != '\0';
+        beginSessionLocked(sc, newSessionID);
     }
 
     bool previousPerceptible = sc->userPerceptible != 0;
@@ -399,7 +492,20 @@ static void onTransitionState(KSCrashAppTransitionState transitionState)
     sc->transitionState = (uint8_t)transitionState;
     sc->userPerceptible = newPerceptible;
     updateSidecarTaskRole(sc);
+    KSCrashSessionLog *sessionLog = g_sessionLog;
     ks_spinlock_unlock(&g_sidecarLock);
+
+    if (sessionBegan) {
+        uint64_t sessionBeginNs = ksdate_continuousNanoseconds();
+        [sessionLog recordSessionBeginWithID:@(newSessionID) perceptible:sessionPerceptible monotonicNs:sessionBeginNs];
+        if (hadPriorSession) {
+            os_unfair_lock_lock(&g_userLock);
+            NSString *currentUser = g_currentUserID;
+            os_unfair_lock_unlock(&g_userLock);
+            recordSessionUserLocked(sessionLog, currentUser, sessionBeginNs, true);
+        }
+    }
+    os_unfair_lock_unlock(&g_sessionLogWriteLock);
 
     // Perceptibility flipped: the current user (if any) is now in a new
     // bucket. Recording happens after the sidecar lock is released so the
@@ -517,8 +623,12 @@ static void carryForwardFromPreviousRun(void)
     }
 }
 
-/** Create and initialize the mmap'd sidecar for the current run. Returns NULL on failure. */
-static KSCrash_LifecycleData *createSidecar(void)
+/** Create and initialize the mmap'd sidecar for the current run. On success
+ *  also opens the run's growable session log and returns it via @c outLog (the
+ *  caller publishes it under g_sidecarLock alongside g_sidecar). Returns NULL
+ *  on sidecar-mmap failure; the session log is best-effort and may be nil even
+ *  when the sidecar is returned. */
+static KSCrash_LifecycleData *createSidecar(KSCrashSessionLog **outLog)
 {
     char sidecarPath[KSFU_MAX_PATH_LENGTH];
     if (!g_callbacks.getRunSidecarPath ||
@@ -566,19 +676,39 @@ static KSCrash_LifecycleData *createSidecar(void)
     sc->hostKind = (uint8_t)hostKindForCurrentBundle();
     sc->magic = KSLIFECYCLE_MAGIC;
     sc->version = KSCrash_Lifecycle_CurrentVersion;
+
+    // Open the growable session log for this run (best-effort). SESSION_BEGIN /
+    // USER events append here as they happen; the next launch reads it back into
+    // the previous run summary's per-session list. Independent of the mmap'd
+    // sidecar above — that holds counts, this holds one record per event. The
+    // caller publishes the log under g_sidecarLock together with g_sidecar so
+    // observers never see one without the other.
+    char sessionLogPath[KSFU_MAX_PATH_LENGTH];
+    if (outLog && g_callbacks.getRunSidecarPath &&
+        g_callbacks.getRunSidecarPath("Sessions", sessionLogPath, sizeof(sessionLogPath))) {
+        *outLog = [[KSCrashSessionLog alloc] initForWritingAtPath:@(sessionLogPath)];
+    }
+
     return sc;
 }
 
 static void releaseSidecar(void)
 {
+    os_unfair_lock_lock(&g_sessionLogWriteLock);
     ks_spinlock_lock(&g_sidecarLock);
     KSCrash_LifecycleData *old = g_sidecar;
     g_sidecar = NULL;
+    KSCrashSessionLog *log = g_sessionLog;
+    g_sessionLog = nil;
     ks_spinlock_unlock(&g_sidecarLock);
 
     if (old) {
         ksfu_munmap(old, sizeof(KSCrash_LifecycleData));
     }
+
+    [log close];
+    g_lastLoggedSessionUserID = nil;
+    os_unfair_lock_unlock(&g_sessionLogWriteLock);
 }
 
 static void onHangChange(KSHangChangeType change, __unused uint64_t startTimestamp, __unused uint64_t endTimestamp,
@@ -603,34 +733,41 @@ static void setEnabled(bool isEnabled, __unused void *context)
     }
 
     if (isEnabled) {
-        KSCrash_LifecycleData *sc = createSidecar();
+        KSCrashSessionLog *newLog = nil;
+        KSCrash_LifecycleData *sc = createSidecar(&newLog);
         if (!sc) {
             atomic_store(&g_isEnabled, false);
             return;
         }
 
+        // Close the enable race: g_isEnabled flips before the sidecar/log are
+        // published. Hold the session-log ordering lock while publishing and
+        // replaying the current user. A concurrent observeUser either lands in
+        // this replay snapshot or waits here until sidecar/log are visible.
+        os_unfair_lock_lock(&g_sessionLogWriteLock);
         ks_spinlock_lock(&g_sidecarLock);
         g_sidecar = sc;
+        g_sessionLog = newLog;
         ks_spinlock_unlock(&g_sidecarLock);
 
-        // Close the enable race: g_isEnabled is flipped before the sidecar is
-        // published, so a concurrent kscm_lifecycle_observeUser() could have
-        // passed the gate, stashed g_currentUserID, then bailed at the
-        // !haveSidecar check without counting the user. Now that the sidecar
-        // exists, replay the stashed user into its bucket. recordUserInBucket
-        // is a set insert, so this is idempotent if it already counted.
         os_unfair_lock_lock(&g_userLock);
         NSString *pendingUser = g_currentUserID;
         os_unfair_lock_unlock(&g_userLock);
         if (pendingUser.length > 0) {
-            ks_spinlock_lock(&g_sidecarLock);
-            bool perceptible = g_sidecar->userPerceptible != 0;
-            ks_spinlock_unlock(&g_sidecarLock);
+            bool perceptible = sc->userPerceptible != 0;
             NSUInteger count = recordUserInBucket(pendingUser, perceptible);
             if (count > 0) {
-                writeDistinctUserCountToSidecar(perceptible, count);
+                ks_spinlock_lock(&g_sidecarLock);
+                if (perceptible) {
+                    sc->distinctPerceptibleUserCount = (uint32_t)count;
+                } else {
+                    sc->distinctImperceptibleUserCount = (uint32_t)count;
+                }
+                ks_spinlock_unlock(&g_sidecarLock);
             }
+            recordSessionUserLocked(newLog, pendingUser, ksdate_continuousNanoseconds(), false);
         }
+        os_unfair_lock_unlock(&g_sessionLogWriteLock);
 
         g_appStateObserver =
             [KSCrashAppStateTracker.sharedInstance addObserverWithBlock:^(KSCrashAppTransitionState transitionState) {

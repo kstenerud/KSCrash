@@ -31,6 +31,7 @@
 #import "KSCrashReportFields.h"
 
 #import <Foundation/Foundation.h>
+#import <string.h>
 
 #import "KSLogger.h"
 
@@ -80,6 +81,32 @@ CFDictionaryRef kscm_lifecycle_createStitchedReport(CFDictionaryRef reportDict, 
 
     systemDict[KSCrashField_AppStats] = statsDict;
     dict[KSCrashField_System] = systemDict;
+
+    // The session_id of the session open at crash sits alongside run_id in the
+    // report section — the two run/session correlation keys together. Written
+    // here at delivery time rather than by the crash-time report writer because
+    // the current session id changes per session, so a crash-time read could
+    // catch a torn write.
+    if (lc.currentSessionID[0] != '\0') {
+        // Bound the read to the 37-byte field: strnlen stops at the first null
+        // OR at the field boundary, so a torn write leaving no terminator
+        // can't walk past the struct into adjacent stack memory.
+        size_t sessionIDLen = strnlen(lc.currentSessionID, sizeof(lc.currentSessionID));
+        NSString *sessionID = [[NSString alloc] initWithBytes:lc.currentSessionID
+                                                       length:sessionIDLen
+                                                     encoding:NSUTF8StringEncoding];
+        if (sessionID.length > 0) {
+            NSMutableDictionary *reportSection;
+            id reportVal = dict[KSCrashField_Report];
+            if ([reportVal isKindOfClass:[NSDictionary class]]) {
+                reportSection = [reportVal mutableCopy];
+            } else {
+                reportSection = [NSMutableDictionary dictionary];
+            }
+            reportSection[KSCrashField_SessionID] = sessionID;
+            dict[KSCrashField_Report] = reportSection;
+        }
+    }
 
     return (__bridge_retained CFDictionaryRef)dict;
 }

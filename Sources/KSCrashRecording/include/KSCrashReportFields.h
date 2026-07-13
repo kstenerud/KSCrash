@@ -197,6 +197,7 @@ KSCRF_DEFINE_CONSTANT(KSCrashField, BGTimeSinceLaunch, bgTimeSinceLaunch, "backg
 KSCRF_DEFINE_CONSTANT(KSCrashField, LaunchesSinceCrash, launchesSinceCrash, "launches_since_last_crash")
 KSCRF_DEFINE_CONSTANT(KSCrashField, SessionsSinceCrash, sessionsSinceCrash, "sessions_since_last_crash")
 KSCRF_DEFINE_CONSTANT(KSCrashField, SessionsSinceLaunch, sessionsSinceLaunch, "sessions_since_launch")
+KSCRF_DEFINE_CONSTANT(KSCrashField, SessionID, sessionID, "session_id")
 
 #pragma mark - Report -
 

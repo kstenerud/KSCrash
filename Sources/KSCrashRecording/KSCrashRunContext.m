@@ -30,6 +30,7 @@
 #import "KSCrashC.h"
 #import "KSCrashCPUTracker.h"
 #import "KSCrashRunSummary.h"
+#import "KSCrashSessionLog.h"
 #import "KSFileUtils.h"
 #import "KSKeyValueStore.h"
 
@@ -62,7 +63,8 @@ static KSCrashRunSummary *g_summary = nil;
 // impossible.
 #define KSRUN_SUMMARY_FILENAME_DIGITS 19
 
-static KSCrashRunSummary *buildSummary(const KSCrashRunContext *ctx, const char *userInfoSidecarPath);
+static KSCrashRunSummary *buildSummary(const KSCrashRunContext *ctx, const char *userInfoSidecarPath,
+                                       const char *sessionsSidecarPath);
 
 // ============================================================================
 #pragma mark - Sidecar Reading -
@@ -201,7 +203,12 @@ void ksruncontext_init(KSCrashSidecarRunPathForRunIDProviderFunc pathForRunID)
     if (pathForRunID != NULL && pathForRunID("UserInfo", lastRunID, userInfoPath, sizeof(userInfoPath))) {
         userInfoPathPtr = userInfoPath;
     }
-    g_summary = buildSummary(&g_context, userInfoPathPtr);
+    char sessionsPathBuffer[KSFU_MAX_PATH_LENGTH];
+    const char *sessionsPath = NULL;
+    if (pathForRunID != NULL && pathForRunID("Sessions", lastRunID, sessionsPathBuffer, sizeof(sessionsPathBuffer))) {
+        sessionsPath = sessionsPathBuffer;
+    }
+    g_summary = buildSummary(&g_context, userInfoPathPtr, sessionsPath);
 
     KSLOG_DEBUG(@"Previous run %s: %s", lastRunID, kstermination_reasonToString(g_context.terminationReason));
 }
@@ -502,7 +509,8 @@ static NSString *safeString(const char *cstr)
     return [NSString stringWithUTF8String:cstr] ?: @"";
 }
 
-static KSCrashRunSummary *buildSummary(const KSCrashRunContext *ctx, const char *userInfoSidecarPath)
+static KSCrashRunSummary *buildSummary(const KSCrashRunContext *ctx, const char *userInfoSidecarPath,
+                                       const char *sessionsSidecarPath)
 {
     if (ctx == NULL || !ctx->systemValid || !ctx->lifecycleValid) {
         return nil;
@@ -511,16 +519,14 @@ static KSCrashRunSummary *buildSummary(const KSCrashRunContext *ctx, const char 
     const KSCrash_LifecycleData *lc = &ctx->lifecycle;
     const KSCrash_SystemData *sys = &ctx->system;
 
-    // Wall-clock timestamps. `started_at` is captured at sidecar creation.
-    // `ended_at` = started + (mostRecentMonotonic - monotonicAtStart). If
-    // the monotonic delta is non-positive (shouldn't happen, but defend
-    // against corrupt sidecars), fall back to the start timestamp.
+    // Wall-clock timestamps. `started_at` is the anchor's wall time; `ended_at`
+    // is the last observed monotonic timestamp projected onto that anchor.
+    // kslifecycle_epochMsFromMonotonicNs clamps a pre-anchor event to the
+    // anchor time, so a corrupt sidecar with a monotonic run-backwards falls
+    // back to the start timestamp.
     int64_t startedAtMs = (int64_t)(lc->wallClockAtStartNs / 1000000ULL);
-    int64_t endedAtMs = startedAtMs;
-    if (ctx->mostRecentTimestampNs >= lc->monotonicAtStartNs) {
-        uint64_t elapsedNs = ctx->mostRecentTimestampNs - lc->monotonicAtStartNs;
-        endedAtMs = (int64_t)((lc->wallClockAtStartNs + elapsedNs) / 1000000ULL);
-    }
+    int64_t endedAtMs =
+        kslifecycle_epochMsFromMonotonicNs(ctx->mostRecentTimestampNs, lc->wallClockAtStartNs, lc->monotonicAtStartNs);
 
     KSCrashRunSummaryOutcome *outcome =
         [[KSCrashRunSummaryOutcome alloc] initWithTerminationReason:ctx->terminationReason
@@ -553,9 +559,9 @@ static KSCrashRunSummary *buildSummary(const KSCrashRunContext *ctx, const char 
         [[KSCrashRunSummaryDurations alloc] initWithActiveMs:(int64_t)(activeNs / 1000000ULL)
                                                 backgroundMs:(int64_t)(backgroundNs / 1000000ULL)];
 
-    KSCrashRunSummarySessions *sessions =
-        [[KSCrashRunSummarySessions alloc] initWithPerceptibleCount:(NSInteger)lc->perceptibleSessionsSinceLaunch
-                                                 imperceptibleCount:(NSInteger)lc->imperceptibleSessionsSinceLaunch];
+    KSCrashRunSummarySessionCounts *sessionCounts = [[KSCrashRunSummarySessionCounts alloc]
+        initWithPerceptibleCount:(NSInteger)lc->perceptibleSessionsSinceLaunch
+              imperceptibleCount:(NSInteger)lc->imperceptibleSessionsSinceLaunch];
 
     KSCrashRunSummaryUsers *users =
         [[KSCrashRunSummaryUsers alloc] initWithPerceptibleCount:(NSInteger)lc->distinctPerceptibleUserCount
@@ -581,8 +587,12 @@ static KSCrashRunSummary *buildSummary(const KSCrashRunContext *ctx, const char 
     NSString *runID = [NSString stringWithUTF8String:ctx->runID] ?: @"";
     NSString *deviceID = safeString(sys->deviceAppHash);
     NSString *userID = readUserIDFromSidecar(userInfoSidecarPath);
+    NSArray<KSCrashRunSummarySession *> *sessions = [KSCrashSessionLog sessionsAtPath:@(sessionsSidecarPath ?: "")
+                                                                   wallClockAtStartNs:lc->wallClockAtStartNs
+                                                                   monotonicAtStartNs:lc->monotonicAtStartNs
+                                                                         runEndedAtMs:endedAtMs];
 
-    return [[KSCrashRunSummary alloc] initWithSchemaVersion:1
+    return [[KSCrashRunSummary alloc] initWithSchemaVersion:KSCrashRunSummary_CurrentSchemaVersion
                                                  sdkVersion:sdkVersion
                                                       runID:runID
                                                    deviceID:deviceID
@@ -593,10 +603,11 @@ static KSCrashRunSummary *buildSummary(const KSCrashRunContext *ctx, const char 
                                             isBeingDebugged:sys->isBeingDebugged != 0
                                                     outcome:outcome
                                                   durations:durations
-                                                   sessions:sessions
+                                              sessionCounts:sessionCounts
                                                         app:app
                                                          os:os
-                                                     device:device];
+                                                     device:device
+                                                   sessions:sessions];
 }
 
 // ============================================================================
@@ -635,7 +646,15 @@ __attribute__((unused))  // For tests. Declared as extern in TestCase
 KSCrashRunSummary *
 ksruncontext_testcode_buildSummary(const KSCrashRunContext *ctx, const char *userInfoSidecarPath)
 {
-    return buildSummary(ctx, userInfoSidecarPath);
+    return buildSummary(ctx, userInfoSidecarPath, NULL);
+}
+
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+KSCrashRunSummary *
+ksruncontext_testcode_buildSummaryWithSessions(const KSCrashRunContext *ctx, const char *userInfoSidecarPath,
+                                               const char *sessionsSidecarPath)
+{
+    return buildSummary(ctx, userInfoSidecarPath, sessionsSidecarPath);
 }
 
 __attribute__((unused))  // For tests. Declared as extern in TestCase

@@ -72,6 +72,12 @@ public struct ReportInfo: Codable, Sendable, Equatable {
     /// The run ID of the process that generated this report.
     public let runId: String?
 
+    /// The session ID of the session that was open when this report was
+    /// generated. Usually corresponds to an entry in the previous run summary's
+    /// `sessions` list, but that list is best-effort (the per-session log can
+    /// be torn or absent), so the same id is not guaranteed to appear there.
+    public let sessionId: String?
+
     /// Identifier of the monitor that generated this report.
     public let monitorId: String?
 
@@ -85,6 +91,7 @@ public struct ReportInfo: Codable, Sendable, Equatable {
         type: ReportType? = nil,
         version: ReportVersion? = nil,
         runId: String? = nil,
+        sessionId: String? = nil,
         monitorId: String? = nil,
         finalized: Bool? = nil
     ) {
@@ -94,6 +101,7 @@ public struct ReportInfo: Codable, Sendable, Equatable {
         self.type = type
         self.version = version
         self.runId = runId
+        self.sessionId = sessionId
         self.monitorId = monitorId
         self.finalized = finalized
     }
@@ -105,6 +113,7 @@ public struct ReportInfo: Codable, Sendable, Equatable {
         case type
         case version
         case runId = "run_id"
+        case sessionId = "session_id"
         case monitorId = "monitor_id"
         case finalized
     }
@@ -116,6 +125,7 @@ public struct ReportInfo: Codable, Sendable, Equatable {
         self.type = try container.decodeIfPresent(ReportType.self, forKey: .type)
         self.version = try container.decodeIfPresent(ReportVersion.self, forKey: .version)
         self.runId = try container.decodeIfPresent(String.self, forKey: .runId)
+        self.sessionId = try container.decodeIfPresent(String.self, forKey: .sessionId)
         self.monitorId = try container.decodeIfPresent(String.self, forKey: .monitorId)
         self.finalized = try container.decodeIfPresent(Bool.self, forKey: .finalized)
 
@@ -143,6 +153,7 @@ public struct ReportInfo: Codable, Sendable, Equatable {
         try container.encodeIfPresent(type, forKey: .type)
         try container.encodeIfPresent(version, forKey: .version)
         try container.encodeIfPresent(runId, forKey: .runId)
+        try container.encodeIfPresent(sessionId, forKey: .sessionId)
         try container.encodeIfPresent(monitorId, forKey: .monitorId)
         try container.encodeIfPresent(finalized, forKey: .finalized)
         if let timestamp {

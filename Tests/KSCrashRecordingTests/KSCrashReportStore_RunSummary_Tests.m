@@ -91,8 +91,8 @@
                                                       fatalReported:NO
                                                     userPerceptible:YES];
     KSCrashRunSummaryDurations *durations = [[KSCrashRunSummaryDurations alloc] initWithActiveMs:100 backgroundMs:50];
-    KSCrashRunSummarySessions *sessions = [[KSCrashRunSummarySessions alloc] initWithPerceptibleCount:1
-                                                                                   imperceptibleCount:0];
+    KSCrashRunSummarySessionCounts *sessions = [[KSCrashRunSummarySessionCounts alloc] initWithPerceptibleCount:1
+                                                                                             imperceptibleCount:0];
     KSCrashRunSummaryUsers *users = [[KSCrashRunSummaryUsers alloc] initWithPerceptibleCount:1 imperceptibleCount:0];
     KSCrashRunSummaryApp *app = [[KSCrashRunSummaryApp alloc] initWithBundleID:@"com.test"
                                                                        version:@"1.0"
@@ -105,7 +105,7 @@
                                                                   binaryArchitecture:@"arm64e"
                                                                         isTranslated:NO
                                                                         isJailbroken:NO];
-    return [[KSCrashRunSummary alloc] initWithSchemaVersion:1
+    return [[KSCrashRunSummary alloc] initWithSchemaVersion:KSCrashRunSummary_CurrentSchemaVersion
                                                  sdkVersion:@"2.6.0-beta.1"
                                                       runID:runID
                                                    deviceID:@"d"
@@ -116,10 +116,11 @@
                                             isBeingDebugged:NO
                                                     outcome:outcome
                                                   durations:durations
-                                                   sessions:sessions
+                                              sessionCounts:sessions
                                                         app:app
                                                          os:os
-                                                     device:device];
+                                                     device:device
+                                                   sessions:@[]];
 }
 
 - (NSString *)runsDir

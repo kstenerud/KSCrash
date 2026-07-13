@@ -64,8 +64,8 @@
 
 - (void)test_sessions_storesAllFields
 {
-    KSCrashRunSummarySessions *sessions = [[KSCrashRunSummarySessions alloc] initWithPerceptibleCount:3
-                                                                                   imperceptibleCount:2];
+    KSCrashRunSummarySessionCounts *sessions = [[KSCrashRunSummarySessionCounts alloc] initWithPerceptibleCount:3
+                                                                                             imperceptibleCount:2];
 
     XCTAssertEqual(sessions.perceptibleCount, 3);
     XCTAssertEqual(sessions.imperceptibleCount, 2);
@@ -148,8 +148,8 @@
                                                     userPerceptible:YES];
     KSCrashRunSummaryDurations *durations = [[KSCrashRunSummaryDurations alloc] initWithActiveMs:123456
                                                                                     backgroundMs:45678];
-    KSCrashRunSummarySessions *sessions = [[KSCrashRunSummarySessions alloc] initWithPerceptibleCount:3
-                                                                                   imperceptibleCount:2];
+    KSCrashRunSummarySessionCounts *sessions = [[KSCrashRunSummarySessionCounts alloc] initWithPerceptibleCount:3
+                                                                                             imperceptibleCount:2];
     KSCrashRunSummaryUsers *users = [[KSCrashRunSummaryUsers alloc] initWithPerceptibleCount:2 imperceptibleCount:1];
     KSCrashRunSummaryApp *app = [[KSCrashRunSummaryApp alloc] initWithBundleID:@"com.acme.app"
                                                                        version:@"2.6.0.1234"
@@ -164,7 +164,7 @@
                                                                         isJailbroken:NO];
 
     KSCrashRunSummary *summary =
-        [[KSCrashRunSummary alloc] initWithSchemaVersion:1
+        [[KSCrashRunSummary alloc] initWithSchemaVersion:KSCrashRunSummary_CurrentSchemaVersion
                                               sdkVersion:@"2.6.0-beta.1"
                                                    runID:@"a1b2c3d4-e5f6-7890-abcd-ef1234567890"
                                                 deviceID:@"0123456789abcdef"
@@ -175,12 +175,13 @@
                                          isBeingDebugged:YES
                                                  outcome:outcome
                                                durations:durations
-                                                sessions:sessions
+                                           sessionCounts:sessions
                                                      app:app
                                                       os:os
-                                                  device:device];
+                                                  device:device
+                                                sessions:@[]];
 
-    XCTAssertEqual(summary.schemaVersion, 1);
+    XCTAssertEqual(summary.schemaVersion, KSCrashRunSummary_CurrentSchemaVersion);
     XCTAssertEqualObjects(summary.sdkVersion, @"2.6.0-beta.1");
     XCTAssertEqualObjects(summary.runID, @"a1b2c3d4-e5f6-7890-abcd-ef1234567890");
     XCTAssertEqualObjects(summary.deviceID, @"0123456789abcdef");
@@ -190,7 +191,7 @@
     XCTAssertTrue(summary.isBeingDebugged);
     XCTAssertIdentical(summary.outcome, outcome);
     XCTAssertIdentical(summary.durations, durations);
-    XCTAssertIdentical(summary.sessions, sessions);
+    XCTAssertIdentical(summary.sessionCounts, sessions);
     XCTAssertIdentical(summary.users, users);
     XCTAssertIdentical(summary.app, app);
     XCTAssertIdentical(summary.os, os);
@@ -205,8 +206,8 @@
                                                       fatalReported:NO
                                                     userPerceptible:NO];
     KSCrashRunSummaryDurations *durations = [[KSCrashRunSummaryDurations alloc] initWithActiveMs:0 backgroundMs:0];
-    KSCrashRunSummarySessions *sessions = [[KSCrashRunSummarySessions alloc] initWithPerceptibleCount:0
-                                                                                   imperceptibleCount:1];
+    KSCrashRunSummarySessionCounts *sessions = [[KSCrashRunSummarySessionCounts alloc] initWithPerceptibleCount:0
+                                                                                             imperceptibleCount:1];
     KSCrashRunSummaryUsers *users = [[KSCrashRunSummaryUsers alloc] initWithPerceptibleCount:0 imperceptibleCount:0];
     KSCrashRunSummaryApp *app = [[KSCrashRunSummaryApp alloc] initWithBundleID:@"com.acme.app"
                                                                        version:@"1"
@@ -220,7 +221,7 @@
                                                                         isTranslated:NO
                                                                         isJailbroken:NO];
 
-    KSCrashRunSummary *summary = [[KSCrashRunSummary alloc] initWithSchemaVersion:1
+    KSCrashRunSummary *summary = [[KSCrashRunSummary alloc] initWithSchemaVersion:KSCrashRunSummary_CurrentSchemaVersion
                                                                        sdkVersion:@"2.6.0-beta.1"
                                                                             runID:@"r"
                                                                          deviceID:@"d"
@@ -231,10 +232,11 @@
                                                                   isBeingDebugged:NO
                                                                           outcome:outcome
                                                                         durations:durations
-                                                                         sessions:sessions
+                                                                    sessionCounts:sessions
                                                                               app:app
                                                                                os:os
-                                                                           device:device];
+                                                                           device:device
+                                                                         sessions:@[]];
 
     XCTAssertNil(summary.userID);
 }
@@ -262,7 +264,7 @@
             @"user_perceptible" : @YES,
         },
         @"durations_ms" : @ { @"active" : @0, @"background" : @0 },
-        @"sessions" : @ { @"perceptible_count" : @0, @"imperceptible_count" : @0 },
+        @"session_counts" : @ { @"perceptible_count" : @0, @"imperceptible_count" : @0 },
         @"app" : @ { @"bundle_id" : @"x", @"version" : @"1", @"short_version" : @"1", @"host_kind" : @"app" },
         @"os" : @ { @"name" : @"iOS", @"version" : @"18", @"build" : @"X" },
         @"device" : @ {
@@ -292,7 +294,7 @@
 {
     NSArray<NSString *> *requiredKeys = @[
         @"schema_version", @"sdk_version", @"run_id", @"device_id", @"started_at_ms", @"ended_at_ms", @"users",
-        @"outcome", @"durations_ms", @"sessions", @"app", @"os", @"device"
+        @"outcome", @"durations_ms", @"session_counts", @"app", @"os", @"device"
     ];
     for (NSString *key in requiredKeys) {
         NSMutableDictionary *dict = [self fullyValidWireDict];
@@ -336,6 +338,21 @@
     [app removeObjectForKey:@"host_kind"];
     dict[@"app"] = app;
     XCTAssertNil([KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil]);
+}
+
+- (void)test_decoder_v1SessionsKeyDecodesAsSessionCounts
+{
+    // v1 wrote the aggregate counts under `sessions`; v2 renamed the key to
+    // `session_counts` (a per-session list moved into `sessions`). The decoder
+    // accepts the v1 key as a fallback so historical payloads still decode.
+    NSMutableDictionary *dict = [self fullyValidWireDict];
+    dict[@"sessions"] = dict[@"session_counts"];
+    [dict removeObjectForKey:@"session_counts"];
+    KSCrashRunSummary *summary = [KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil];
+    XCTAssertNotNil(summary);
+    XCTAssertEqual(summary.sessionCounts.perceptibleCount, 0);
+    XCTAssertEqual(summary.sessionCounts.imperceptibleCount, 0);
+    XCTAssertEqualObjects(summary.sessions, @[]);
 }
 
 - (void)test_decoder_toleratesMissingUserID
@@ -438,9 +455,9 @@
     XCTAssertNil([KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil]);
 
     dict = [self fullyValidWireDict];
-    NSMutableDictionary *sessions = [dict[@"sessions"] mutableCopy];
+    NSMutableDictionary *sessions = [dict[@"session_counts"] mutableCopy];
     sessions[@"perceptible_count"] = @(3.7);
-    dict[@"sessions"] = sessions;
+    dict[@"session_counts"] = sessions;
     XCTAssertNil([KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil]);
 }
 
