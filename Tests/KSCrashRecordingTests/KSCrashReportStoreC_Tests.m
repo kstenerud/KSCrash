@@ -234,6 +234,19 @@
     XCTAssertEqual(count, 0);
 }
 
+// Several short-lived writer processes can share one store (extension reporters in an App
+// Group), so a store seeded twice in the same instant must still mint distinct, increasing
+// IDs; the old seconds-derived seed re-minted the same first ID within a second.
+- (void)testReinitializedStoreMintsDistinctReportIDs
+{
+    [self prepareReportStoreWithPathEnd:@"testReinitializedStoreMintsDistinctReportIDs"];
+    char path[KSCRS_MAX_PATH_LENGTH];
+    int64_t firstID = kscrs_getNextCrashReport(path, &_storeConfig);
+    kscrs_initialize(&_storeConfig);
+    int64_t secondID = kscrs_getNextCrashReport(path, &_storeConfig);
+    XCTAssertGreaterThan(secondID, firstID);
+}
+
 - (void)testNextReportIDWithOneReport
 {
     [self prepareReportStoreWithPathEnd:@"testNextReportIDWithOneReport"];

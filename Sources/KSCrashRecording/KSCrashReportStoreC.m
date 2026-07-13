@@ -33,6 +33,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 #include <uuid/uuid.h>
 
@@ -41,7 +42,6 @@
 #include "KSCrashMonitorRegistry.h"
 #include "KSCrashReportRunId.h"
 #include "KSCrashReportStoreC+Private.h"
-#include "KSDate.h"
 #include "KSFileUtils.h"
 #include "KSLogger.h"
 
@@ -461,23 +461,21 @@ static void pruneReports(const KSCrashReportStoreCConfiguration *const config)
         }
     }
 }
-// clang-format off
 static void initializeIDs(void)
 {
-    time_t rawTime = (time_t)ksdate_seconds();
-    struct tm time;
-    gmtime_r(&rawTime, &time);
-    int64_t baseID = (int64_t)time.tm_sec
-                   + (int64_t)time.tm_min * 61
-                   + (int64_t)time.tm_hour * 61 * 60
-                   + (int64_t)time.tm_yday * 61 * 60 * 24
-                   + (int64_t)time.tm_year * 61 * 60 * 24 * 366;
-    baseID <<= 23;
+    // Wall-clock nanoseconds: IDs roughly track creation time (pruning deletes lowest
+    // first; concurrent writers can still interleave numerically), and two writer
+    // processes seeding in the same instant (several short-lived extension reporters
+    // sharing one store) cannot collide the way the old seconds-derived seed could.
+    // Positive int64 until the year 2262.
+    int64_t baseID = (int64_t)clock_gettime_nsec_np(CLOCK_REALTIME);
 
-    g_nextUniqueIDHigh = baseID & ~(int64_t)0xffffffff;
-    g_nextUniqueIDLow = (uint32_t)(baseID & 0xffffffff);
+    // The counter starts at zero rather than carrying the seed's arbitrary low bits,
+    // which could start it near the 32-bit wrap and send IDs backwards after a handful
+    // of reports.
+    g_nextUniqueIDHigh = baseID;
+    g_nextUniqueIDLow = 0;
 }
-// clang-format on
 
 // Public API
 
