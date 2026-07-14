@@ -26,9 +26,11 @@
 
 
 import clang.cindex
+from functools import lru_cache
 from pathlib import Path
 import os
 import re
+import subprocess
 import sys
 
 
@@ -176,11 +178,27 @@ VARIABLE_NAME_IGNORED = [
                             re.compile("^FOUNDATION_EXPORT$"),
                             re.compile("^id$"),
                             re.compile("^instancetype$"),
+                            # Stdint and standard C size types. Belt to the
+                            # -I-path suspenders: even if a translation unit
+                            # can't resolve its ObjC-runtime headers and
+                            # clang.cindex degrades a function/method decl
+                            # to a VAR_DECL typed as one of these, don't
+                            # let the stdlib name leak into the namespace
+                            # map.
+                            re.compile("^bool$"),
+                            re.compile("^void$"),
+                            re.compile("^int(8|16|32|64)_t$"),
+                            re.compile("^uint(8|16|32|64)_t$"),
+                            re.compile("^intptr_t$"),
+                            re.compile("^uintptr_t$"),
+                            re.compile("^size_t$"),
+                            re.compile("^ssize_t$"),
+                            re.compile("^ptrdiff_t$"),
+                            re.compile("^off_t$"),
                             re.compile("^namespace$"),
                             re.compile("^NS.*"),
                             re.compile("^nullable$"),
                             re.compile("^objc_debug_.*"),
-                            re.compile("^uintptr_t$"),
                         ]
 
 # Ignore any objective-c classes, protocols, categories etc that match any of these:
@@ -274,15 +292,94 @@ def matches_any(str, matchers):
     return False
 
 
-def get_translation_unit(file_name):
+@lru_cache(maxsize=1)
+def get_apple_clang_arguments():
+    """Return the SDK and builtin-header arguments used by Apple's clang."""
+    if sys.platform != "darwin":
+        raise RuntimeError("namespacer requires macOS so Objective-C headers can be parsed with the Apple SDK")
+
+    try:
+        sdk_path = subprocess.run(
+            ["xcrun", "--sdk", "macosx", "--show-sdk-path"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        resource_dir = subprocess.run(
+            ["xcrun", "clang", "-print-resource-dir"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    except (OSError, subprocess.CalledProcessError) as error:
+        raise RuntimeError(f"failed to discover the Apple clang toolchain: {error}") from error
+
+    if not sdk_path or not resource_dir:
+        raise RuntimeError("xcrun returned an empty SDK or clang resource directory")
+    return ["-isysroot", sdk_path, "-resource-dir", resource_dir]
+
+
+def get_source_language(file_name):
+    path = Path(file_name)
+    if path.suffix == ".m":
+        return "objective-c"
+    if path.suffix == ".mm":
+        return "objective-c++"
+    if path.suffix in [".cpp", ".hpp"]:
+        return "c++"
+    if path.suffix == ".h":
+        contents = path.read_text(errors="ignore")
+        if re.search(r"@(class|interface|protocol|property|end)\b|#import\s+<Foundation/|\bid\s*<", contents):
+            if re.search(r"\b(namespace|template)\b", contents):
+                return "objective-c++"
+            return "objective-c"
+    return "c"
+
+
+def get_translation_unit(file_name, include_paths=None):
+    # Parse with the same Apple SDK and builtin headers that a real build
+    # sees. Without these arguments, libclang enters recovery after missing
+    # Foundation/stdint imports and can surface ObjC return types as bogus
+    # top-level variables or silently lose class implementations.
+    language = get_source_language(file_name)
+    args = get_apple_clang_arguments() + ["-x", language, "-fblocks"]
+    if language in ["objective-c", "objective-c++"]:
+        args.append("-fobjc-arc")
+    if include_paths:
+        for p in include_paths:
+            args += ["-I", str(p)]
     index = clang.cindex.Index.create()
-    return index.parse(file_name)
+    return index.parse(str(file_name), args=args)
 
 
-def get_compilation_unit_files(path, ignore_matching):
+def find_include_paths(base_path):
+    # Private headers live next to implementations as well as in public
+    # `include/` directories. Add every header-owning directory so each
+    # translation unit resolves the same project imports as the real build.
+    return sorted(
+        {p.parent for p in Path(base_path).rglob("*") if p.is_file() and p.suffix in [".h", ".hpp"]},
+        key=str,
+    )
+
+
+def reject_fatal_diagnostics(path, translation_unit):
+    fatal = [
+        diagnostic
+        for diagnostic in translation_unit.diagnostics
+        if diagnostic.severity >= clang.cindex.Diagnostic.Fatal
+    ]
+    if fatal:
+        details = "; ".join(diagnostic.spelling for diagnostic in fatal)
+        raise RuntimeError(f"failed to parse {path}: {details}")
+
+
+def get_compilation_unit_files(path, ignore_matching, exclude_paths=None):
+    excluded = {Path(p).resolve() for p in (exclude_paths or [])}
     paths = []
     for p in Path(path).rglob("*"):
         if not p.is_file():
+            continue
+        if p.resolve() in excluded:
             continue
         if not p.suffix in [".h", ".hpp", ".c", ".cpp", ".m", ".mm"]:
             continue
@@ -292,11 +389,16 @@ def get_compilation_unit_files(path, ignore_matching):
     return paths
 
 
-def get_symbols_of_kind(translation_unit, kinds, ignore_matching):
+def get_symbols_of_kind(translation_unit, kinds, ignore_matching, source_path=None):
     symbols = []
+    resolved_source = Path(source_path).resolve() if source_path is not None else None
     for func_cursor in translation_unit.cursor.get_children():
         if not func_cursor.kind in kinds:
             continue
+        if resolved_source is not None:
+            location_file = func_cursor.location.file
+            if location_file is None or Path(location_file.name).resolve() != resolved_source:
+                continue
         if func_cursor.storage_class == clang.cindex.StorageClass.STATIC:
             continue
         func_name = re.sub(r"\(.*", "", func_cursor.displayname).strip()
@@ -313,24 +415,27 @@ def extract_swift_names(contents, ignore_matching):
     return [name for name in names if not matches_any(name, ignore_matching)]
 
 
-def collect_symbols(path):
-    tu = get_translation_unit(path)
+def collect_symbols(path, include_paths=None):
+    tu = get_translation_unit(path, include_paths=include_paths)
+    reject_fatal_diagnostics(path, tu)
     contents = Path(path).read_text()
     symbols = []
     symbols += extract_swift_names(contents, SWIFT_NAME_IGNORED)
-    symbols += get_symbols_of_kind(tu, [clang.cindex.CursorKind.FUNCTION_DECL], FUNCTION_NAME_IGNORED + LIBC_IGNORED)
-    symbols += get_symbols_of_kind(tu, [clang.cindex.CursorKind.VAR_DECL], VARIABLE_NAME_IGNORED)
+    symbols += get_symbols_of_kind(
+        tu, [clang.cindex.CursorKind.FUNCTION_DECL], FUNCTION_NAME_IGNORED + LIBC_IGNORED, source_path=path
+    )
+    symbols += get_symbols_of_kind(tu, [clang.cindex.CursorKind.VAR_DECL], VARIABLE_NAME_IGNORED, source_path=path)
     symbols += get_symbols_of_kind(tu, [
                                         clang.cindex.CursorKind.OBJC_INTERFACE_DECL,
                                         clang.cindex.CursorKind.OBJC_CATEGORY_DECL,
                                         clang.cindex.CursorKind.OBJC_PROTOCOL_DECL,
                                         clang.cindex.CursorKind.OBJC_IMPLEMENTATION_DECL,
                                         clang.cindex.CursorKind.OBJC_CATEGORY_IMPL_DECL,
-                                       ], OBJC_NAME_IGNORED)
+                                       ], OBJC_NAME_IGNORED, source_path=path)
     symbols += get_symbols_of_kind(tu, [
                                         clang.cindex.CursorKind.CLASS_DECL,
                                         clang.cindex.CursorKind.CLASS_TEMPLATE,
-                                       ], CPP_NAME_IGNORED)
+                                       ], CPP_NAME_IGNORED, source_path=path)
     # Can't use this because the demangler has a namespace "swift", and blanket
     # replacing "swift" in this codebase will wreak havoc!
     # symbols += get_symbols_of_kind(tu, [clang.cindex.CursorKind.NAMESPACE], NAMESPACE_IGNORED)
@@ -339,24 +444,24 @@ def collect_symbols(path):
     return symbols
 
 
-def load_symbols_from_compilation_units(base_path):
+def load_symbols_from_compilation_units(base_path, exclude_paths=None):
     paths = get_compilation_unit_files(base_path, [ # Paths matching these regexes are ignored
                                                     re.compile(".*KSCrashTestTools.*"),
-                                                  ])
+                                                  ], exclude_paths=exclude_paths)
+    include_paths = find_include_paths(base_path)
     symbols = []
     for path in paths:
-        symbols += collect_symbols(path)
+        symbols += collect_symbols(path, include_paths=include_paths)
     symbols = list(dict.fromkeys(symbols))
     symbols.sort()
     return symbols
 
 
 def generate_header_file(src_dir, dst_file):
-    # Clear before generating so that we don't load our own generated symbols.
-    with open(dst_file, "w") as f:
-        f.write("")
-
-    symbols = load_symbols_from_compilation_units(src_dir)
+    # Exclude the generated header from its own input, and don't replace the
+    # existing file until every translation unit has been scanned. A fatal
+    # diagnostic must leave the last known-good namespace header intact.
+    symbols = load_symbols_from_compilation_units(src_dir, exclude_paths=[dst_file])
     contents = generate_header_contents(symbols)
 
     with open(dst_file, "w") as f:
