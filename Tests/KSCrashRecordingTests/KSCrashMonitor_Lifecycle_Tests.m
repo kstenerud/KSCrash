@@ -259,7 +259,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
 
 - (void)testLifecycleDataStructLayout
 {
-    XCTAssertEqual(sizeof(KSCrash_LifecycleData), 144u);
+    XCTAssertEqual(sizeof(KSCrash_LifecycleData), 184u);
     XCTAssertEqual(KSLIFECYCLE_MAGIC, (int32_t)0x6B736C63);
     XCTAssertEqual(KSCrash_Lifecycle_CurrentVersion, 4);
 }
@@ -826,6 +826,69 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     XCTAssertEqualObjects(sessions[0].users.lastObject.userID, @"alice");
     XCTAssertEqualObjects(sessions[1].users.firstObject.userID, @"alice");
     XCTAssertEqualObjects(sessions[1].users.lastObject.userID, @"bob");
+}
+
+- (void)testSessionID_bothSlotsAreUsedAcrossSessions
+{
+    // The double-buffered layout guarantees a mid-generation crash reads
+    // the *previous* slot's UUID intact. That only works if the writer
+    // actually alternates slots across session begins — otherwise a new
+    // session's write clobbers the very bytes the reader would fall back
+    // to. Confirm both slots hold plausible UUIDs after enough cycles.
+    [self enableMonitor];
+    for (int i = 0; i < 3; i++) {
+        kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+        kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateDeactivating);
+        kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateBackground);
+        kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateForegrounding);
+    }
+
+    KSCrash_LifecycleData snapshot = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&snapshot));
+    XCTAssertLessThanOrEqual(snapshot.currentSessionIDSlot, 1);
+    for (int slot = 0; slot < 2; slot++) {
+        NSString *slotID = [NSString stringWithUTF8String:snapshot.currentSessionIDs[slot]];
+        XCTAssertEqual(slotID.length, 36u, @"slot %d holds a full UUID", slot);
+    }
+    XCTAssertNotEqualObjects([NSString stringWithUTF8String:snapshot.currentSessionIDs[0]],
+                             [NSString stringWithUTF8String:snapshot.currentSessionIDs[1]]);
+
+    // The reader picks the slot the selector points at.
+    NSString *reported = [NSString stringWithUTF8String:kslifecycle_currentSessionIDSnapshot(&snapshot)];
+    NSString *fromSelector = [NSString stringWithUTF8String:snapshot.currentSessionIDs[snapshot.currentSessionIDSlot]];
+    XCTAssertEqualObjects(reported, fromSelector);
+}
+
+- (void)testSessionID_snapshotIgnoresGarbageInInactiveSlot
+{
+    // Simulate a mid-`ksid_generate` crash: the inactive slot's bytes get
+    // clobbered before the selector flip. Reader must read from the
+    // selector-pointed slot and ignore the corrupted one entirely.
+    [self enableMonitor];
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+
+    KSCrash_LifecycleData snapshot = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&snapshot));
+    NSString *goodID = @(kslifecycle_currentSessionIDSnapshot(&snapshot));
+
+    uint8_t activeSlot = snapshot.currentSessionIDSlot;
+    uint8_t inactiveSlot = activeSlot ^ 1;
+    memset(snapshot.currentSessionIDs[inactiveSlot], 'X', sizeof(snapshot.currentSessionIDs[inactiveSlot]) - 1);
+    snapshot.currentSessionIDs[inactiveSlot][sizeof(snapshot.currentSessionIDs[inactiveSlot]) - 1] = '\0';
+
+    // Selector still points at the active slot; the reader keys off it,
+    // so the garbage in the inactive slot is invisible.
+    const char *afterCorruption = kslifecycle_currentSessionIDSnapshot(&snapshot);
+    XCTAssertEqualObjects(@(afterCorruption), goodID);
+}
+
+- (void)testSessionID_snapshotReturnsNullForFreshSidecar
+{
+    // A zero-filled sidecar (fresh mmap, or v3 short-read where the
+    // v4 fields default to zero) must surface as "no session yet"
+    // rather than a slot-0 pointer to 37 null bytes.
+    KSCrash_LifecycleData fresh = { 0 };
+    XCTAssertTrue(kslifecycle_currentSessionIDSnapshot(&fresh) == NULL);
 }
 
 - (void)testReadData_v1Sidecar_zeroFillsNewFields

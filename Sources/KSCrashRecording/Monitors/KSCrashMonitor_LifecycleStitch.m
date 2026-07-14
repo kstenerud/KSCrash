@@ -82,17 +82,22 @@ CFDictionaryRef kscm_lifecycle_createStitchedReport(CFDictionaryRef reportDict, 
     systemDict[KSCrashField_AppStats] = statsDict;
     dict[KSCrashField_System] = systemDict;
 
-    // The session_id of the session open at crash sits alongside run_id in the
-    // report section — the two run/session correlation keys together. Written
-    // here at delivery time rather than by the crash-time report writer because
-    // the current session id changes per session, so a crash-time read could
-    // catch a torn write.
-    if (lc.currentSessionID[0] != '\0') {
-        // Bound the read to the 37-byte field: strnlen stops at the first null
+    // The session_id of the session open at crash sits alongside run_id in
+    // the report section — the two run/session correlation keys together.
+    // Written here at delivery time rather than by the crash-time report
+    // writer because the current session id changes per session; the
+    // double-buffered sidecar layout means a crash mid-`ksid_generate`
+    // still leaves a valid (previous) UUID visible via the slot selector,
+    // never a torn mix of old and new bytes. See
+    // `kslifecycle_currentSessionIDSnapshot`.
+    const char *sessionIDBytes = kslifecycle_currentSessionIDSnapshot(&lc);
+    if (sessionIDBytes != NULL) {
+        // Bound the read to the slot size: strnlen stops at the first null
         // OR at the field boundary, so a torn write leaving no terminator
-        // can't walk past the struct into adjacent stack memory.
-        size_t sessionIDLen = strnlen(lc.currentSessionID, sizeof(lc.currentSessionID));
-        NSString *sessionID = [[NSString alloc] initWithBytes:lc.currentSessionID
+        // (impossible under the double-buffered layout, but defense in
+        // depth for older on-disk formats) can't walk past the struct.
+        size_t sessionIDLen = strnlen(sessionIDBytes, sizeof(lc.currentSessionIDs[0]));
+        NSString *sessionID = [[NSString alloc] initWithBytes:sessionIDBytes
                                                        length:sessionIDLen
                                                      encoding:NSUTF8StringEncoding];
         if (sessionID.length > 0) {

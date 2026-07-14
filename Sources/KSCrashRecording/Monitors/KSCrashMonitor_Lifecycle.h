@@ -40,6 +40,7 @@
 #define HDR_KSCrashMonitor_Lifecycle_h
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include "KSCrashAppTransitionState.h"
@@ -155,15 +156,48 @@ typedef struct {
 
     // --- v4 additions ---
     //
-    // The session_id (UUID string) of the session currently open, restamped on
-    // each session begin (a perceptible foreground reach or an imperceptible
-    // background entry). Empty until the first session begins. Read at report
-    // stitch time and emitted as `session_id`, so a crash report references its
-    // session in the growable session log with no crash-time work.
-    char currentSessionID[37];  // UUID (36) + null
+    // The session_id (UUID string) of the session currently open, restamped
+    // on each session begin (a perceptible foreground reach or an
+    // imperceptible background entry). Empty until the first session begins.
+    // Read at report stitch time and emitted as `session_id`, so a crash
+    // report references its session in the growable session log with no
+    // crash-time work.
+    //
+    // Stored double-buffered so a crash mid-`ksid_generate` cannot leave a
+    // hybrid old/new UUID on disk. `currentSessionIDSlot` selects which of
+    // `currentSessionIDs[0]` or `currentSessionIDs[1]` holds the live UUID
+    // string; writers fill the *inactive* slot fully and then flip the
+    // one-byte selector in a single write, so the reader always keys off a
+    // slot that isn't being touched. See `beginSessionLocked` /
+    // `kslifecycle_currentSessionIDSnapshot`.
+    //
+    // A selector value of 0 or 1 addresses a slot; any other value means
+    // "no session written yet" (a fresh sidecar zero-fills to slot 0 whose
+    // bytes are also all zero, so first-byte-nul is the only real signal).
+    uint8_t currentSessionIDSlot;
+    char currentSessionIDs[2][37];  // slot 0, slot 1 — see comment above
 } KSCrash_LifecycleData;
 
-_Static_assert(sizeof(KSCrash_LifecycleData) == 144, "KSCrash_LifecycleData size changed — bump version");
+_Static_assert(sizeof(KSCrash_LifecycleData) == 184, "KSCrash_LifecycleData size changed — bump version");
+
+/** Return a pointer to the null-terminated session_id string in @c sc, or
+ *  NULL if no session has been recorded yet. The caller must ensure @c sc
+ *  is a stable snapshot — either loaded from a disk sidecar file (frozen)
+ *  or accessed under @c g_sidecarLock — so the slot selector cannot
+ *  advance while the string is being read. The double-buffered layout
+ *  guarantees that whichever slot the selector points at is not the one a
+ *  writer would be currently touching, so the string is not torn even if
+ *  a crash mid-`ksid_generate` was the cause of the snapshot.
+ */
+static inline const char *kslifecycle_currentSessionIDSnapshot(const KSCrash_LifecycleData *sc)
+{
+    uint8_t slot = sc->currentSessionIDSlot;
+    if (slot > 1) {
+        return NULL;
+    }
+    const char *bytes = sc->currentSessionIDs[slot];
+    return bytes[0] == '\0' ? NULL : bytes;
+}
 
 // ============================================================================
 #pragma mark - Public State (computed from sidecar) -

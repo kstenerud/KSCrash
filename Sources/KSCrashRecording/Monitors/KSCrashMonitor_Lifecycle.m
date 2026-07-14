@@ -371,13 +371,30 @@ static bool countPerceptibleSessionIfPending(KSCrash_LifecycleData *sc)
     return false;
 }
 
-/** Mint a new session id directly into the sidecar's current-session field.
- *  Call under g_sidecarLock. */
+/** Mint a new session id into the inactive slot of the sidecar's
+ *  double-buffered session_id field, then publish it by flipping the
+ *  one-byte slot selector. Call under g_sidecarLock.
+ *
+ *  The double-buffered layout exists so a crash mid-`ksid_generate`
+ *  cannot leave a hybrid old/new UUID visible to the next launch: the
+ *  writer only ever touches the *inactive* slot, and the release fence
+ *  before the selector flip keeps the compiler (and CPU) from making
+ *  the slot write visible after the flip. `ksid_generate` writes
+ *  character-by-character, so without this the on-disk snapshot could
+ *  end up with the first N chars of the new UUID and the last (37-N)
+ *  chars of the previous one. See @c kslifecycle_currentSessionIDSnapshot. */
 static void beginSessionLocked(KSCrash_LifecycleData *sc)
 {
-    _Static_assert(sizeof(sc->currentSessionID) == KSRUNCONTEXT_RUN_ID_LENGTH,
-                   "session id field must match ksid_generate output size");
-    ksid_generate(sc->currentSessionID);
+    _Static_assert(sizeof(sc->currentSessionIDs[0]) == KSRUNCONTEXT_RUN_ID_LENGTH,
+                   "session id slot must match ksid_generate output size");
+    uint8_t currentSlot = sc->currentSessionIDSlot;
+    // Any value other than 0 or 1 is "no session yet" — start with slot 1
+    // so the reader keying off slot 0's zero bytes still sees "no session"
+    // if this write itself gets partially clobbered before it lands.
+    uint8_t nextSlot = currentSlot <= 1 ? (uint8_t)(currentSlot ^ 1) : (uint8_t)1;
+    ksid_generate(sc->currentSessionIDs[nextSlot]);
+    atomic_thread_fence(memory_order_release);
+    sc->currentSessionIDSlot = nextSlot;
 }
 
 static void onTransitionState(KSCrashAppTransitionState transitionState)
@@ -456,7 +473,12 @@ static void onTransitionState(KSCrashAppTransitionState transitionState)
     uint64_t monotonicAtStartNs = 0;
     if (sessionBegan) {
         beginSessionLocked(sc);
-        memcpy(newSessionID, sc->currentSessionID, sizeof(sc->currentSessionID));
+        const char *sessionIDBytes = kslifecycle_currentSessionIDSnapshot(sc);
+        if (sessionIDBytes != NULL) {
+            // sessionIDs slot size == sizeof(newSessionID) by construction
+            // (both are KSRUNCONTEXT_RUN_ID_LENGTH).
+            memcpy(newSessionID, sessionIDBytes, sizeof(newSessionID));
+        }
         wallClockAtStartNs = sc->wallClockAtStartNs;
         monotonicAtStartNs = sc->monotonicAtStartNs;
     }
