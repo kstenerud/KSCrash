@@ -88,6 +88,14 @@ __attribute__((objc_subclassing_restricted))
 /// rather than a crash).
 + (NSArray<KSCrashRunSummarySession *> *)sessionsAtPath:(NSString *)path;
 
+/// Decode an already-loaded JSON session log. This lets RunSummary retain a
+/// mapped view whose lifetime is independent of sidecar cleanup.
++ (NSArray<KSCrashRunSummarySession *> *)sessionsFromData:(NSData *)data;
+
+/// Validate that @c data is a complete JSON array without materializing its
+/// object graph. Used by the RunSummary raw-splice fast path.
++ (BOOL)isValidSessionsData:(NSData *)data;
+
 @end
 
 NS_ASSUME_NONNULL_END

@@ -27,14 +27,11 @@
 #import "KSCrashSessionLog.h"
 
 #import "KSCrashRunSummary.h"
+#import "KSJSONCodec.h"
 #import "KSLogger.h"
 
+#import <limits.h>
 #import <os/lock.h>
-
-// Cap the number of sessions kept in memory (and therefore on disk). A run
-// with more transitions than this drops the oldest sessions; the counts on
-// the Lifecycle sidecar remain authoritative for aggregate metrics.
-#define KSSESSIONLOG_MAX_SESSIONS 512
 
 // Cap on a user-id string length. Trims one absurd id before it ever hits the
 // in-memory array or the disk file.
@@ -115,10 +112,6 @@
                    @"users" : users,
                } mutableCopy]];
 
-    if (_sessions.count > KSSESSIONLOG_MAX_SESSIONS) {
-        [_sessions removeObjectsInRange:NSMakeRange(0, _sessions.count - KSSESSIONLOG_MAX_SESSIONS)];
-    }
-
     BOOL ok = [self syncLocked];
     os_unfair_lock_unlock(&_lock);
     return ok;
@@ -192,6 +185,11 @@ static NSString *trimUserID(NSString *userID)
     if (data.length == 0) {
         return @[];
     }
+    return [self sessionsFromData:data];
+}
+
++ (NSArray<KSCrashRunSummarySession *> *)sessionsFromData:(NSData *)data
+{
     id decoded = [NSJSONSerialization JSONObjectWithData:data options:0 error:NULL];
     if (![decoded isKindOfClass:[NSArray class]]) {
         return @[];
@@ -210,7 +208,6 @@ static NSString *trimUserID(NSString *userID)
         BOOL perceptible = [dict[@"perceptible"] boolValue];
         int64_t startedAtMs = [dict[@"started_at_ms"] longLongValue];
         int64_t endedAtMs = [dict[@"ended_at_ms"] longLongValue];
-
         NSMutableArray<KSCrashRunSummarySessionUser *> *users = [NSMutableArray array];
         for (id userEntry in (NSArray *)dict[@"users"]) {
             if (![userEntry isKindOfClass:[NSDictionary class]]) {
@@ -232,6 +229,121 @@ static NSString *trimUserID(NSString *userID)
                                                                           users:users]];
     }
     return sessions;
+}
+
+typedef struct {
+    int depth;
+    bool rootIsArray;
+    bool rootEnded;
+} KSSessionJSONValidationContext;
+
+static int validationElement(const char *name, void *userData)
+{
+    (void)name;
+    (void)userData;
+    return KSJSON_OK;
+}
+
+static int validationBoolean(const char *name, bool value, void *userData)
+{
+    (void)value;
+    return validationElement(name, userData);
+}
+
+static int validationFloat(const char *name, double value, void *userData)
+{
+    (void)value;
+    return validationElement(name, userData);
+}
+
+static int validationInteger(const char *name, int64_t value, void *userData)
+{
+    (void)value;
+    return validationElement(name, userData);
+}
+
+static int validationUnsignedInteger(const char *name, uint64_t value, void *userData)
+{
+    (void)value;
+    return validationElement(name, userData);
+}
+
+static int validationString(const char *name, const char *value, void *userData)
+{
+    (void)value;
+    return validationElement(name, userData);
+}
+
+static int validationBeginObject(const char *name, void *userData)
+{
+    (void)name;
+    KSSessionJSONValidationContext *context = userData;
+    context->depth++;
+    return KSJSON_OK;
+}
+
+static int validationBeginArray(const char *name, void *userData)
+{
+    (void)name;
+    KSSessionJSONValidationContext *context = userData;
+    if (context->depth == 0) {
+        context->rootIsArray = true;
+    }
+    context->depth++;
+    return KSJSON_OK;
+}
+
+static int validationEndContainer(void *userData)
+{
+    KSSessionJSONValidationContext *context = userData;
+    context->depth--;
+    if (context->depth == 0) {
+        context->rootEnded = true;
+    }
+    return KSJSON_OK;
+}
+
+static int validationEndData(void *userData)
+{
+    KSSessionJSONValidationContext *context = userData;
+    return context->rootIsArray && context->rootEnded && context->depth == 0 ? KSJSON_OK : KSJSON_ERROR_INVALID_DATA;
+}
+
++ (BOOL)isValidSessionsData:(NSData *)data
+{
+    if (data.length == 0 || data.length > INT_MAX) {
+        return NO;
+    }
+    const uint8_t *bytes = data.bytes;
+    NSUInteger first = 0;
+    while (first < data.length &&
+           (bytes[first] == ' ' || bytes[first] == '\t' || bytes[first] == '\r' || bytes[first] == '\n')) {
+        first++;
+    }
+    NSUInteger last = data.length;
+    while (last > first &&
+           (bytes[last - 1] == ' ' || bytes[last - 1] == '\t' || bytes[last - 1] == '\r' || bytes[last - 1] == '\n')) {
+        last--;
+    }
+    if (first == last || bytes[first] != '[' || bytes[last - 1] != ']') {
+        return NO;
+    }
+    KSSessionJSONValidationContext context = { 0 };
+    KSJSONDecodeCallbacks callbacks = {
+        .onBooleanElement = validationBoolean,
+        .onFloatingPointElement = validationFloat,
+        .onIntegerElement = validationInteger,
+        .onUnsignedIntegerElement = validationUnsignedInteger,
+        .onNullElement = validationElement,
+        .onStringElement = validationString,
+        .onBeginObject = validationBeginObject,
+        .onBeginArray = validationBeginArray,
+        .onEndContainer = validationEndContainer,
+        .onEndData = validationEndData,
+    };
+    char stringBuffer[4096];
+    return ksjson_decode(data.bytes, (int)data.length, stringBuffer, sizeof(stringBuffer), &callbacks, &context,
+                         NULL) == KSJSON_OK;
 }
 
 @end

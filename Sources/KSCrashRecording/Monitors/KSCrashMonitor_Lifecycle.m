@@ -219,25 +219,27 @@ static void writeDistinctUserCountToSidecar(bool perceptible, NSUInteger count)
     ks_spinlock_unlock(&g_sidecarLock);
 }
 
-/** Record `userID` in the bucket for `perceptible`. Return the new bucket
- *  size, or 0 if there was nothing to record. Grabs g_userLock.
- */
-static NSUInteger recordUserInBucket(NSString *userID, bool perceptible)
+/** Record `userID` in the bucket for `perceptible`. Call under g_userLock. */
+static NSUInteger recordUserInBucketLocked(NSString *userID, bool perceptible)
 {
     if (userID.length == 0) {
         return 0;
     }
-    NSUInteger count = 0;
-    os_unfair_lock_lock(&g_userLock);
     if (perceptible) {
         if (g_perceptibleUsers == nil) g_perceptibleUsers = [NSMutableSet set];
         [g_perceptibleUsers addObject:userID];
-        count = g_perceptibleUsers.count;
-    } else {
-        if (g_imperceptibleUsers == nil) g_imperceptibleUsers = [NSMutableSet set];
-        [g_imperceptibleUsers addObject:userID];
-        count = g_imperceptibleUsers.count;
+        return g_perceptibleUsers.count;
     }
+    if (g_imperceptibleUsers == nil) g_imperceptibleUsers = [NSMutableSet set];
+    [g_imperceptibleUsers addObject:userID];
+    return g_imperceptibleUsers.count;
+}
+
+/** Locking wrapper for callers that are not already sequencing a user event. */
+static NSUInteger recordUserInBucket(NSString *userID, bool perceptible)
+{
+    os_unfair_lock_lock(&g_userLock);
+    NSUInteger count = recordUserInBucketLocked(userID, perceptible);
     os_unfair_lock_unlock(&g_userLock);
     return count;
 }
@@ -253,19 +255,20 @@ void kscm_lifecycle_observeUser(const char *userID)
 
     NSString *asString = (userID != NULL && userID[0] != '\0') ? [NSString stringWithUTF8String:userID] : nil;
 
+    // g_userLock is the ordering point shared with session begins. Keep it
+    // through the log write so a lifecycle transition cannot snapshot one
+    // user and open its session after a newer user has already been appended
+    // to the preceding session.
     os_unfair_lock_lock(&g_userLock);
     g_currentUserID = [asString copy];
-    os_unfair_lock_unlock(&g_userLock);
-
     if (asString.length == 0) {
+        os_unfair_lock_unlock(&g_userLock);
         return;  // sign-out: nothing to attribute to the current session
     }
 
-    // Snapshot the log pointer and the anchor under the sidecar lock, then
-    // append. The SessionLog no-ops the USER record when no session is open
-    // (users observed before the first SESSION_BEGIN are dropped; the first
-    // session picks up the current user via recordSessionBeginWithID:...:userID:
-    // instead), and dedups adjacent same-id calls internally.
+    // Snapshot the log pointer, current bucket, and anchor while this user
+    // event owns the ordering lock. Both event paths acquire g_userLock before
+    // g_sidecarLock, then release the spinlock before doing log I/O.
     ks_spinlock_lock(&g_sidecarLock);
     KSCrashSessionLog *log = g_sessionLog;
     bool haveSidecar = g_sidecar != NULL;
@@ -281,10 +284,12 @@ void kscm_lifecycle_observeUser(const char *userID)
     }
 
     if (!haveSidecar) {
+        os_unfair_lock_unlock(&g_userLock);
         return;
     }
 
-    NSUInteger count = recordUserInBucket(asString, perceptible);
+    NSUInteger count = recordUserInBucketLocked(asString, perceptible);
+    os_unfair_lock_unlock(&g_userLock);
     if (count > 0) {
         writeDistinctUserCountToSidecar(perceptible, count);
     }
@@ -369,10 +374,15 @@ static void onTransitionState(KSCrashAppTransitionState transitionState)
 {
     atomic_store_explicit(&g_transitionState, transitionState, memory_order_relaxed);
 
+    // Serialize the transition's session-log event with observeUser. The
+    // sidecar spinlock is still released before disk I/O; g_userLock only
+    // establishes a single order for current-user snapshots and log writes.
+    os_unfair_lock_lock(&g_userLock);
     ks_spinlock_lock(&g_sidecarLock);
     KSCrash_LifecycleData *sc = g_sidecar;
     if (sc == NULL) {
         ks_spinlock_unlock(&g_sidecarLock);
+        os_unfair_lock_unlock(&g_userLock);
         return;
     }
 
@@ -452,29 +462,21 @@ static void onTransitionState(KSCrashAppTransitionState transitionState)
     if (sessionBegan && sessionLog != nil) {
         int64_t atMs =
             kslifecycle_epochMsFromMonotonicNs(ksdate_continuousNanoseconds(), wallClockAtStartNs, monotonicAtStartNs);
-        // Capture the current user (if any) and hand it to the log so the
-        // new session opens with its user already attached — no separate
-        // USER record needed for the carry-over case.
-        os_unfair_lock_lock(&g_userLock);
         NSString *currentUser = g_currentUserID;
-        os_unfair_lock_unlock(&g_userLock);
         [sessionLog recordSessionBeginWithID:@(newSessionID)
                                  perceptible:sessionPerceptible
                                         atMs:atMs
                                       userID:currentUser];
     }
 
-    // Perceptibility flipped: the current user (if any) is now in a new
-    // bucket. Recording happens after the sidecar lock is released so the
-    // two locks never nest.
+    NSUInteger count = 0;
     if (newPerceptible != previousPerceptible) {
-        os_unfair_lock_lock(&g_userLock);
-        NSString *user = g_currentUserID;
-        os_unfair_lock_unlock(&g_userLock);
-        NSUInteger count = recordUserInBucket(user, newPerceptible);
-        if (count > 0) {
-            writeDistinctUserCountToSidecar(newPerceptible, count);
-        }
+        count = recordUserInBucketLocked(g_currentUserID, newPerceptible);
+    }
+    os_unfair_lock_unlock(&g_userLock);
+
+    if (count > 0) {
+        writeDistinctUserCountToSidecar(newPerceptible, count);
     }
 }
 

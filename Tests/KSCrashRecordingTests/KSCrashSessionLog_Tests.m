@@ -173,6 +173,18 @@
     XCTAssertEqual([KSCrashSessionLog sessionsAtPath:self.path].count, 0u);
 }
 
+- (void)test_sessionsDataValidatorRequiresCompleteJSONArray
+{
+    NSData * (^data)(NSString *) = ^NSData *(NSString *string) {
+        return [string dataUsingEncoding:NSUTF8StringEncoding];
+    };
+    XCTAssertTrue([KSCrashSessionLog isValidSessionsData:data(@"[]")]);
+    XCTAssertTrue([KSCrashSessionLog isValidSessionsData:data(@"[{\"session_id\":\"a\"}]")]);
+    XCTAssertFalse([KSCrashSessionLog isValidSessionsData:data(@"{}")]);
+    XCTAssertFalse([KSCrashSessionLog isValidSessionsData:data(@"[not valid JSON]")]);
+    XCTAssertFalse([KSCrashSessionLog isValidSessionsData:data(@"[] trailing")]);
+}
+
 - (void)test_writeAfterClose_returnsNO
 {
     KSCrashSessionLog *log = [[KSCrashSessionLog alloc] initForWritingAtPath:self.path];
@@ -213,6 +225,37 @@
     XCTAssertEqual(sessions.count, 1u);
     XCTAssertEqual(sessions[0].users.firstObject.atMs, 5);
     XCTAssertEqual(sessions[0].endedAtMs, 5);
+}
+
+- (void)test_allUserChangesArePreserved
+{
+    KSCrashSessionLog *log = [[KSCrashSessionLog alloc] initForWritingAtPath:self.path];
+    XCTAssertTrue([log recordSessionBeginWithID:@"sess-A" perceptible:YES atMs:1 userID:nil]);
+
+    for (NSUInteger i = 0; i < 400; i++) {
+        NSString *userID = [NSString stringWithFormat:@"user-%lu", (unsigned long)i];
+        XCTAssertTrue([log recordUserID:userID atMs:(int64_t)i + 2]);
+    }
+
+    NSArray<KSCrashRunSummarySession *> *sessions = [KSCrashSessionLog sessionsAtPath:self.path];
+    XCTAssertEqual(sessions.count, 1u);
+    XCTAssertEqual(sessions.firstObject.users.count, 400u);
+    XCTAssertEqualObjects(sessions.firstObject.users.firstObject.userID, @"user-0");
+    XCTAssertEqualObjects(sessions.firstObject.users.lastObject.userID, @"user-399");
+}
+
+- (void)test_allSessionsArePreserved
+{
+    KSCrashSessionLog *log = [[KSCrashSessionLog alloc] initForWritingAtPath:self.path];
+    for (NSUInteger i = 0; i < 600; i++) {
+        NSString *sessionID = [NSString stringWithFormat:@"session-%lu", (unsigned long)i];
+        XCTAssertTrue([log recordSessionBeginWithID:sessionID perceptible:(i % 2) == 0 atMs:(int64_t)i userID:nil]);
+    }
+
+    NSArray<KSCrashRunSummarySession *> *sessions = [KSCrashSessionLog sessionsAtPath:self.path];
+    XCTAssertEqual(sessions.count, 600u);
+    XCTAssertEqualObjects(sessions.firstObject.sessionID, @"session-0");
+    XCTAssertEqualObjects(sessions.lastObject.sessionID, @"session-599");
 }
 
 @end

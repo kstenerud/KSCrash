@@ -36,6 +36,7 @@
 #import "KSCrashSessionLog.h"
 
 #include <mach/task_policy.h>
+#include <objc/runtime.h>
 
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -55,6 +56,21 @@ extern void ksruncontext_testcode_setLifecycleData(const KSCrash_LifecycleData *
 
 // Global test directory for path callbacks
 static char g_testDir[1024];
+
+typedef BOOL (*SessionBeginIMP)(id, SEL, NSString *, BOOL, int64_t, NSString *);
+static SessionBeginIMP g_originalSessionBegin = NULL;
+static dispatch_semaphore_t g_sessionBeginEntered;
+static dispatch_semaphore_t g_sessionBeginRelease;
+
+static BOOL blockingSessionBegin(id self, SEL command, NSString *sessionID, BOOL perceptible, int64_t atMs,
+                                 NSString *userID)
+{
+    if (g_sessionBeginEntered != nil) {
+        dispatch_semaphore_signal(g_sessionBeginEntered);
+        dispatch_semaphore_wait(g_sessionBeginRelease, DISPATCH_TIME_FOREVER);
+    }
+    return g_originalSessionBegin(self, command, sessionID, perceptible, atMs, userID);
+}
 
 static bool testGetRunSidecarPath(const char *monitorId, char *pathBuffer, size_t pathBufferLength)
 {
@@ -674,6 +690,54 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     NSArray<KSCrashRunSummarySession *> *sessions = [KSCrashSessionLog sessionsAtPath:path];
     XCTAssertEqual(sessions.count, 1u);
     XCTAssertEqualObjects(sessions.firstObject.users.firstObject.userID, @"alice");
+}
+
+- (void)testSessionBeginSerializesWithConcurrentUserChange
+{
+    [self enableMonitor];
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+    kscm_lifecycle_observeUser("alice");
+
+    Method method = class_getInstanceMethod(KSCrashSessionLog.class, @selector(recordSessionBeginWithID:
+                                                                                            perceptible:atMs:userID:));
+    g_originalSessionBegin = (SessionBeginIMP)method_setImplementation(method, (IMP)blockingSessionBegin);
+    g_sessionBeginEntered = dispatch_semaphore_create(0);
+    g_sessionBeginRelease = dispatch_semaphore_create(0);
+
+    dispatch_group_t group = dispatch_group_create();
+    dispatch_group_async(group, dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateDeactivating);
+        kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateBackground);
+    });
+    XCTAssertEqual(dispatch_semaphore_wait(g_sessionBeginEntered, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC)), 0);
+
+    dispatch_semaphore_t userStarted = dispatch_semaphore_create(0);
+    dispatch_semaphore_t userFinished = dispatch_semaphore_create(0);
+    dispatch_group_async(group, dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        dispatch_semaphore_signal(userStarted);
+        kscm_lifecycle_observeUser("bob");
+        dispatch_semaphore_signal(userFinished);
+    });
+    XCTAssertEqual(dispatch_semaphore_wait(userStarted, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC)), 0);
+    long finishedWhileBeginWasPaused =
+        dispatch_semaphore_wait(userFinished, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC / 10));
+
+    dispatch_semaphore_signal(g_sessionBeginRelease);
+    XCTAssertEqual(dispatch_group_wait(group, dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC)), 0);
+    method_setImplementation(method, (IMP)g_originalSessionBegin);
+    g_originalSessionBegin = NULL;
+    g_sessionBeginEntered = nil;
+    g_sessionBeginRelease = nil;
+
+    XCTAssertNotEqual(finishedWhileBeginWasPaused, 0,
+                      @"User changes must wait while a session begin owns the shared ordering lock");
+
+    NSString *path = [NSString stringWithFormat:@"%@/current/Sessions.ksscr", self.tempPath];
+    NSArray<KSCrashRunSummarySession *> *sessions = [KSCrashSessionLog sessionsAtPath:path];
+    XCTAssertEqual(sessions.count, 2u);
+    XCTAssertEqualObjects(sessions[0].users.lastObject.userID, @"alice");
+    XCTAssertEqualObjects(sessions[1].users.firstObject.userID, @"alice");
+    XCTAssertEqualObjects(sessions[1].users.lastObject.userID, @"bob");
 }
 
 - (void)testReadData_v1Sidecar_zeroFillsNewFields

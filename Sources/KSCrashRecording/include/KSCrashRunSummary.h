@@ -329,9 +329,10 @@ __attribute__((objc_subclassing_restricted))
  *  above remains the stability denominator; this is the itemized view.
  *
  *  Loading is lazy for summaries built from a session-log path (see
- *  @c initWithSchemaVersion:...sessionLogPath:) — the first access parses the
- *  JSON on disk and caches. Summaries built from an explicit @c sessions:
- *  array (decoded JSON, tests) have the array already in hand.
+ *  @c initWithSchemaVersion:...sessionLogPath:) — construction retains a
+ *  mapped view of the JSON and the first access parses and caches it. The
+ *  mapping keeps lazy access valid after sidecar cleanup. Summaries built from
+ *  an explicit @c sessions: array already have the objects in hand.
  */
 @property(nonatomic, readonly, strong) NSArray<KSCrashRunSummarySession *> *sessions;
 
@@ -359,8 +360,8 @@ __attribute__((objc_subclassing_restricted))
                              sessions:(NSArray<KSCrashRunSummarySession *> *)sessions NS_DESIGNATED_INITIALIZER;
 
 /** Initializer used by the install path: everything except @c sessions[] is
- *  known up front; the per-session list is faulted from @c sessionLogPath on
- *  first read. Keeps @c ksruncontext_init off the session-log parse.
+ *  known up front; the session log is mapped but not parsed, and the object
+ *  list is faulted on first read. Keeps @c ksruncontext_init off the parse.
  */
 - (instancetype)initWithSchemaVersion:(NSInteger)schemaVersion
                            sdkVersion:(NSString *)sdkVersion

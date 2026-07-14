@@ -35,6 +35,7 @@
 #import "KSLogger.h"
 
 #import <os/lock.h>
+#import <string.h>
 
 @implementation KSCrashRunSummaryOutcome
 
@@ -182,7 +183,7 @@
 
 @implementation KSCrashRunSummary {
     os_unfair_lock _sessionsLock;
-    NSString *_sessionLogPath;  // nil once faulted or when constructed eagerly
+    NSData *_sessionLogData;  // nil once faulted or when constructed eagerly
 }
 
 @synthesize sessions = _sessions;
@@ -261,7 +262,10 @@
         _os = os;
         _device = device;
         _sessions = nil;
-        _sessionLogPath = [sessionLogPath copy];
+        _sessionLogData = sessionLogPath.length > 0 ? [NSData dataWithContentsOfFile:sessionLogPath
+                                                                             options:NSDataReadingMappedIfSafe
+                                                                               error:NULL]
+                                                    : nil;
     }
     return self;
 }
@@ -270,7 +274,21 @@
 {
     os_unfair_lock_lock(&_sessionsLock);
     if (_sessions == nil) {
-        _sessions = [KSCrashSessionLog sessionsAtPath:_sessionLogPath ?: @""] ?: @[];
+        NSArray<KSCrashRunSummarySession *> *loaded =
+            [KSCrashSessionLog sessionsFromData:_sessionLogData ?: [NSData data]];
+        if (loaded.count > 0) {
+            NSMutableArray<KSCrashRunSummarySession *> *finalized = [loaded mutableCopy];
+            KSCrashRunSummarySession *tail = finalized.lastObject;
+            int64_t tailEnd = self.endedAtMs >= tail.startedAtMs ? self.endedAtMs : tail.startedAtMs;
+            finalized[finalized.count - 1] = [[KSCrashRunSummarySession alloc] initWithSessionID:tail.sessionID
+                                                                                     perceptible:tail.perceptible
+                                                                                     startedAtMs:tail.startedAtMs
+                                                                                       endedAtMs:tailEnd
+                                                                                           users:tail.users];
+            loaded = finalized;
+        }
+        _sessions = loaded;
+        _sessionLogData = nil;
     }
     NSArray *result = _sessions;
     os_unfair_lock_unlock(&_sessionsLock);
@@ -371,17 +389,89 @@ static NSString *hostKindWireString(KSCrashRunSummaryHostKind kind)
     return sessionArray;
 }
 
+static BOOL findLastJSONInteger(NSData *data, const char *key, NSRange *valueRange, int64_t *value)
+{
+    NSData *needle = [NSData dataWithBytes:key length:strlen(key)];
+    NSRange keyRange = [data rangeOfData:needle options:NSDataSearchBackwards range:NSMakeRange(0, data.length)];
+    if (keyRange.location == NSNotFound) {
+        return NO;
+    }
+
+    const uint8_t *bytes = data.bytes;
+    NSUInteger start = NSMaxRange(keyRange);
+    while (start < data.length &&
+           (bytes[start] == ' ' || bytes[start] == '\t' || bytes[start] == '\r' || bytes[start] == '\n')) {
+        start++;
+    }
+    if (start >= data.length || bytes[start] != ':') {
+        return NO;
+    }
+    start++;
+    while (start < data.length &&
+           (bytes[start] == ' ' || bytes[start] == '\t' || bytes[start] == '\r' || bytes[start] == '\n')) {
+        start++;
+    }
+    NSUInteger end = start;
+    if (end < data.length && bytes[end] == '-') {
+        end++;
+    }
+    NSUInteger firstDigit = end;
+    while (end < data.length && bytes[end] >= '0' && bytes[end] <= '9') {
+        end++;
+    }
+    if (end == firstDigit) {
+        return NO;
+    }
+
+    NSData *numberData = [data subdataWithRange:NSMakeRange(start, end - start)];
+    NSString *number = [[NSString alloc] initWithData:numberData encoding:NSUTF8StringEncoding];
+    if (number == nil) {
+        return NO;
+    }
+    if (valueRange != NULL) {
+        *valueRange = NSMakeRange(start, end - start);
+    }
+    if (value != NULL) {
+        *value = number.longLongValue;
+    }
+    return YES;
+}
+
+static void appendFinalizedSessionsData(NSMutableData *output, NSData *data, int64_t runEndedAtMs)
+{
+    if (![KSCrashSessionLog isValidSessionsData:data]) {
+        [output appendBytes:"[]" length:2];
+        return;
+    }
+
+    NSRange endRange;
+    int64_t ignoredEnd = 0;
+    if (!findLastJSONInteger(data, "\"ended_at_ms\"", &endRange, &ignoredEnd)) {
+        [output appendData:data];  // Valid empty/forward-compatible array with no session tail.
+        return;
+    }
+
+    int64_t tailStartedAtMs = runEndedAtMs;
+    findLastJSONInteger(data, "\"started_at_ms\"", NULL, &tailStartedAtMs);
+    int64_t finalizedEnd = runEndedAtMs >= tailStartedAtMs ? runEndedAtMs : tailStartedAtMs;
+    NSData *replacement = [[NSString stringWithFormat:@"%lld", finalizedEnd] dataUsingEncoding:NSUTF8StringEncoding];
+    const uint8_t *bytes = data.bytes;
+    [output appendBytes:bytes length:endRange.location];
+    [output appendData:replacement];
+    NSUInteger suffixStart = NSMaxRange(endRange);
+    [output appendBytes:bytes + suffixStart length:data.length - suffixStart];
+}
+
 - (nullable NSData *)jsonData
 {
-    // Determine splice source. If sessions haven't been faulted yet AND we
-    // have a session log path, inline the file bytes directly — they are
-    // already in the same shape as the sessions[] wire format. Otherwise the
-    // list is materialized (eager init or a prior fault) and we encode it.
-    NSString *pathForSplice = nil;
+    // Preserve the startup fast path: when sessions are still lazy, validate
+    // the mapped JSON stream without building an object graph and splice it
+    // directly. The mapping remains readable after sidecar cleanup.
+    NSData *dataForSplice = nil;
     NSArray<KSCrashRunSummarySession *> *materialized = nil;
     os_unfair_lock_lock(&_sessionsLock);
-    if (_sessions == nil && _sessionLogPath.length > 0) {
-        pathForSplice = _sessionLogPath;
+    if (_sessions == nil && _sessionLogData.length > 0) {
+        dataForSplice = _sessionLogData;
     } else {
         materialized = _sessions ?: @[];
     }
@@ -405,13 +495,8 @@ static NSString *hostKindWireString(KSCrashRunSummaryHostKind kind)
     [out setLength:out.length - 1];
     [out appendBytes:",\"sessions\":" length:12];
 
-    if (pathForSplice != nil) {
-        NSData *fileBytes = [NSData dataWithContentsOfFile:pathForSplice options:NSDataReadingMappedIfSafe error:NULL];
-        if (fileBytes.length > 0) {
-            [out appendData:fileBytes];
-        } else {
-            [out appendBytes:"[]" length:2];
-        }
+    if (dataForSplice != nil) {
+        appendFinalizedSessionsData(out, dataForSplice, self.endedAtMs);
     } else {
         NSData *sessionsData = [KSJSONCodec encode:[self sessionsWireArrayFromObjects:materialized]
                                            options:KSJSONEncodeOptionNone

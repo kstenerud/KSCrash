@@ -531,7 +531,7 @@ extern void ksruncontext_testcode_setLifecycleData(const KSCrash_LifecycleData *
     XCTAssertEqualObjects(b.sessionID, @"session-B");
     XCTAssertFalse(b.perceptible);
     XCTAssertEqual(b.startedAtMs, startedAtMs + 100000);
-    XCTAssertEqual(b.endedAtMs, startedAtMs + 100000);  // still-open session reflects last write
+    XCTAssertEqual(b.endedAtMs, summary.endedAtMs);  // final session closes at the run's best-known end
     XCTAssertEqual(b.users.count, 1u);
     XCTAssertEqualObjects(b.users[0].userID, @"bob");
 
@@ -545,6 +545,7 @@ extern void ksruncontext_testcode_setLifecycleData(const KSCrash_LifecycleData *
     XCTAssertEqual(decoded.sessions[0].users.count, 2u);
     XCTAssertEqualObjects(decoded.sessions[0].users[1].userID, @"bob");
     XCTAssertEqualObjects(decoded.sessions[1].sessionID, @"session-B");
+    XCTAssertEqual(decoded.sessions[1].endedAtMs, decoded.endedAtMs);
 }
 
 - (void)test_buildSummary_emptySessionListWhenNoLog
@@ -573,8 +574,48 @@ extern void ksruncontext_testcode_setLifecycleData(const KSCrash_LifecycleData *
     KSCrashRunSummary *summary = ksruncontext_testcode_buildSummaryWithSessions(&ctx, NULL, path.UTF8String);
     XCTAssertNotNil(summary);
     XCTAssertNil([summary valueForKey:@"_sessions"]);  // not faulted yet
+    NSData *json = summary.jsonData;
+    XCTAssertNotNil(json);
+    XCTAssertNil([summary valueForKey:@"_sessions"]);  // raw splice does not materialize the session graph
+    KSCrashRunSummary *decoded = [KSCrashRunSummary summaryFromJSONData:json error:nil];
+    XCTAssertEqual(decoded.sessions.firstObject.endedAtMs, decoded.endedAtMs);
     XCTAssertEqual(summary.sessions.count, 1u);
     XCTAssertNotNil([summary valueForKey:@"_sessions"]);
+}
+
+- (void)test_buildSummary_keepsLazySessionsAfterSidecarIsRemoved
+{
+    KSCrashRunContext ctx;
+    populateContext(&ctx);
+    int64_t startedAtMs = (int64_t)(ctx.lifecycle.wallClockAtStartNs / 1000000ULL);
+
+    NSString *path = [self.tempDir stringByAppendingPathComponent:@"Sessions"];
+    KSCrashSessionLog *log = [[KSCrashSessionLog alloc] initForWritingAtPath:path];
+    XCTAssertTrue([log recordSessionBeginWithID:@"session-A" perceptible:YES atMs:startedAtMs userID:@"alice"]);
+    [log close];
+
+    KSCrashRunSummary *summary = ksruncontext_testcode_buildSummaryWithSessions(&ctx, NULL, path.UTF8String);
+    XCTAssertNil([summary valueForKey:@"_sessions"]);
+    XCTAssertTrue([[NSFileManager defaultManager] removeItemAtPath:path error:nil]);
+
+    XCTAssertEqual(summary.sessions.count, 1u);
+    XCTAssertEqualObjects(summary.sessions.firstObject.sessionID, @"session-A");
+    XCTAssertEqual(summary.sessions.firstObject.endedAtMs, summary.endedAtMs);
+}
+
+- (void)test_buildSummary_malformedSessionSidecarPersistsEmptySessions
+{
+    KSCrashRunContext ctx;
+    populateContext(&ctx);
+    NSString *path = [self.tempDir stringByAppendingPathComponent:@"Sessions"];
+    [@"[not valid JSON]" writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
+
+    KSCrashRunSummary *summary = ksruncontext_testcode_buildSummaryWithSessions(&ctx, NULL, path.UTF8String);
+    NSData *json = summary.jsonData;
+    XCTAssertNotNil(json);
+    KSCrashRunSummary *decoded = [KSCrashRunSummary summaryFromJSONData:json error:nil];
+    XCTAssertNotNil(decoded);
+    XCTAssertEqualObjects(decoded.sessions, @[]);
 }
 
 @end
