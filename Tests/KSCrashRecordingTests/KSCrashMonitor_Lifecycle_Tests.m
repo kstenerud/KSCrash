@@ -62,6 +62,11 @@ static SessionBeginIMP g_originalSessionBegin = NULL;
 static dispatch_semaphore_t g_sessionBeginEntered;
 static dispatch_semaphore_t g_sessionBeginRelease;
 
+typedef void (*ForgetLastUserIDIMP)(id, SEL);
+static ForgetLastUserIDIMP g_originalForgetLastUserID = NULL;
+static dispatch_semaphore_t g_forgetLastUserIDEntered;
+static dispatch_semaphore_t g_forgetLastUserIDRelease;
+
 static BOOL blockingSessionBegin(id self, SEL command, NSString *sessionID, BOOL perceptible, int64_t atMs,
                                  NSString *userID)
 {
@@ -70,6 +75,15 @@ static BOOL blockingSessionBegin(id self, SEL command, NSString *sessionID, BOOL
         dispatch_semaphore_wait(g_sessionBeginRelease, DISPATCH_TIME_FOREVER);
     }
     return g_originalSessionBegin(self, command, sessionID, perceptible, atMs, userID);
+}
+
+static void blockingForgetLastUserID(id self, SEL command)
+{
+    if (g_forgetLastUserIDEntered != nil) {
+        dispatch_semaphore_signal(g_forgetLastUserIDEntered);
+        dispatch_semaphore_wait(g_forgetLastUserIDRelease, DISPATCH_TIME_FOREVER);
+    }
+    g_originalForgetLastUserID(self, command);
 }
 
 static bool testGetRunSidecarPath(const char *monitorId, char *pathBuffer, size_t pathBufferLength)
@@ -690,6 +704,80 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     NSArray<KSCrashRunSummarySession *> *sessions = [KSCrashSessionLog sessionsAtPath:path];
     XCTAssertEqual(sessions.count, 1u);
     XCTAssertEqualObjects(sessions.firstObject.users.firstObject.userID, @"alice");
+}
+
+- (void)testObserveUser_logoutBreaksAdjacentUserDedup
+{
+    // Sign-out clears g_currentUserID but records nothing in the log.
+    // A subsequent activation of the same user must land as a fresh
+    // record with a new at_ms — the "when did this user become active"
+    // contract — instead of being deduped against the pre-logout id.
+    [self enableMonitor];
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+    kscm_lifecycle_observeUser("alice");
+    kscm_lifecycle_observeUser(NULL);     // sign-out — no record, but breaks dedup
+    kscm_lifecycle_observeUser("alice");  // must record: alice reactivated
+
+    NSString *path = [NSString stringWithFormat:@"%@/current/Sessions.ksscr", self.tempPath];
+    NSArray<KSCrashRunSummarySession *> *sessions = [KSCrashSessionLog sessionsAtPath:path];
+    XCTAssertEqual(sessions.count, 1u);
+    XCTAssertEqual(sessions[0].users.count, 2u);
+    XCTAssertEqualObjects(sessions[0].users[0].userID, @"alice");
+    XCTAssertEqualObjects(sessions[0].users[1].userID, @"alice");
+    // Two distinct entries prove the dedup was broken; the ms
+    // timestamps may collide in fast test runs, but the second at_ms
+    // is never *earlier* than the first.
+    XCTAssertGreaterThanOrEqual(sessions[0].users[1].atMs, sessions[0].users[0].atMs);
+}
+
+- (void)testObserveUser_concurrentReloginWaitsForLogoutDedupReset
+{
+    [self enableMonitor];
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+    kscm_lifecycle_observeUser("alice");
+
+    Method method = class_getInstanceMethod(KSCrashSessionLog.class, @selector(forgetLastUserID));
+    g_originalForgetLastUserID = (ForgetLastUserIDIMP)method_setImplementation(method, (IMP)blockingForgetLastUserID);
+    g_forgetLastUserIDEntered = dispatch_semaphore_create(0);
+    g_forgetLastUserIDRelease = dispatch_semaphore_create(0);
+
+    dispatch_group_t group = dispatch_group_create();
+    dispatch_group_async(group, dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        kscm_lifecycle_observeUser(NULL);
+    });
+    XCTAssertEqual(dispatch_semaphore_wait(g_forgetLastUserIDEntered,
+                                           dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC)),
+                   0);
+
+    dispatch_semaphore_t reloginStarted = dispatch_semaphore_create(0);
+    dispatch_semaphore_t reloginFinished = dispatch_semaphore_create(0);
+    dispatch_group_async(group, dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        dispatch_semaphore_signal(reloginStarted);
+        kscm_lifecycle_observeUser("alice");
+        dispatch_semaphore_signal(reloginFinished);
+    });
+    XCTAssertEqual(dispatch_semaphore_wait(reloginStarted, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC)), 0);
+    long finishedWhileLogoutResetWasPaused =
+        dispatch_semaphore_wait(reloginFinished, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC / 10));
+
+    dispatch_semaphore_signal(g_forgetLastUserIDRelease);
+    XCTAssertEqual(dispatch_group_wait(group, dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC)), 0);
+    method_setImplementation(method, (IMP)g_originalForgetLastUserID);
+    g_originalForgetLastUserID = NULL;
+    g_forgetLastUserIDEntered = nil;
+    g_forgetLastUserIDRelease = nil;
+
+    XCTAssertNotEqual(finishedWhileLogoutResetWasPaused, 0,
+                      @"Re-login must wait until logout resets the session log's adjacent-user dedup state");
+
+    NSString *path = [NSString stringWithFormat:@"%@/current/Sessions.ksscr", self.tempPath];
+    NSArray<KSCrashRunSummarySession *> *sessions = [KSCrashSessionLog sessionsAtPath:path];
+    XCTAssertEqual(sessions.count, 1u);
+    XCTAssertEqual(sessions[0].users.count, 2u);
+    if (sessions[0].users.count == 2) {
+        XCTAssertEqualObjects(sessions[0].users[0].userID, @"alice");
+        XCTAssertEqualObjects(sessions[0].users[1].userID, @"alice");
+    }
 }
 
 - (void)testSessionBeginSerializesWithConcurrentUserChange

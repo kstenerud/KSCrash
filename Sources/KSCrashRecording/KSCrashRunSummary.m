@@ -35,7 +35,6 @@
 #import "KSLogger.h"
 
 #import <os/lock.h>
-#import <string.h>
 
 @implementation KSCrashRunSummaryOutcome
 
@@ -266,6 +265,18 @@
                                                                              options:NSDataReadingMappedIfSafe
                                                                                error:NULL]
                                                     : nil;
+        // Run's endedAtMs comes from monitors (resource/lifecycle
+        // observers); the session log can carry a more recent
+        // observation (a user change right before an OOM) that no
+        // monitor saw. Floor the run's end against the log so downstream
+        // consumers never see user.at_ms > run.ended_at_ms. Cheap byte
+        // scan; parses nothing.
+        if (_sessionLogData.length > 0) {
+            int64_t observed = [KSCrashSessionLog maxObservedTimestampInData:_sessionLogData];
+            if (observed > _endedAtMs) {
+                _endedAtMs = observed;
+            }
+        }
     }
     return self;
 }
@@ -279,7 +290,13 @@
         if (loaded.count > 0) {
             NSMutableArray<KSCrashRunSummarySession *> *finalized = [loaded mutableCopy];
             KSCrashRunSummarySession *tail = finalized.lastObject;
-            int64_t tailEnd = self.endedAtMs >= tail.startedAtMs ? self.endedAtMs : tail.startedAtMs;
+            // Floor the tail's end against the run's end and its own
+            // inferred end (which the reader already set to the last
+            // observation in the log). Whichever is higher wins.
+            int64_t tailEnd = self.endedAtMs >= tail.endedAtMs ? self.endedAtMs : tail.endedAtMs;
+            if (tailEnd < tail.startedAtMs) {
+                tailEnd = tail.startedAtMs;
+            }
             finalized[finalized.count - 1] = [[KSCrashRunSummarySession alloc] initWithSessionID:tail.sessionID
                                                                                      perceptible:tail.perceptible
                                                                                      startedAtMs:tail.startedAtMs
@@ -389,84 +406,13 @@ static NSString *hostKindWireString(KSCrashRunSummaryHostKind kind)
     return sessionArray;
 }
 
-static BOOL findLastJSONInteger(NSData *data, const char *key, NSRange *valueRange, int64_t *value)
-{
-    NSData *needle = [NSData dataWithBytes:key length:strlen(key)];
-    NSRange keyRange = [data rangeOfData:needle options:NSDataSearchBackwards range:NSMakeRange(0, data.length)];
-    if (keyRange.location == NSNotFound) {
-        return NO;
-    }
-
-    const uint8_t *bytes = data.bytes;
-    NSUInteger start = NSMaxRange(keyRange);
-    while (start < data.length &&
-           (bytes[start] == ' ' || bytes[start] == '\t' || bytes[start] == '\r' || bytes[start] == '\n')) {
-        start++;
-    }
-    if (start >= data.length || bytes[start] != ':') {
-        return NO;
-    }
-    start++;
-    while (start < data.length &&
-           (bytes[start] == ' ' || bytes[start] == '\t' || bytes[start] == '\r' || bytes[start] == '\n')) {
-        start++;
-    }
-    NSUInteger end = start;
-    if (end < data.length && bytes[end] == '-') {
-        end++;
-    }
-    NSUInteger firstDigit = end;
-    while (end < data.length && bytes[end] >= '0' && bytes[end] <= '9') {
-        end++;
-    }
-    if (end == firstDigit) {
-        return NO;
-    }
-
-    NSData *numberData = [data subdataWithRange:NSMakeRange(start, end - start)];
-    NSString *number = [[NSString alloc] initWithData:numberData encoding:NSUTF8StringEncoding];
-    if (number == nil) {
-        return NO;
-    }
-    if (valueRange != NULL) {
-        *valueRange = NSMakeRange(start, end - start);
-    }
-    if (value != NULL) {
-        *value = number.longLongValue;
-    }
-    return YES;
-}
-
-static void appendFinalizedSessionsData(NSMutableData *output, NSData *data, int64_t runEndedAtMs)
-{
-    if (![KSCrashSessionLog isValidSessionsData:data]) {
-        [output appendBytes:"[]" length:2];
-        return;
-    }
-
-    NSRange endRange;
-    int64_t ignoredEnd = 0;
-    if (!findLastJSONInteger(data, "\"ended_at_ms\"", &endRange, &ignoredEnd)) {
-        [output appendData:data];  // Valid empty/forward-compatible array with no session tail.
-        return;
-    }
-
-    int64_t tailStartedAtMs = runEndedAtMs;
-    findLastJSONInteger(data, "\"started_at_ms\"", NULL, &tailStartedAtMs);
-    int64_t finalizedEnd = runEndedAtMs >= tailStartedAtMs ? runEndedAtMs : tailStartedAtMs;
-    NSData *replacement = [[NSString stringWithFormat:@"%lld", finalizedEnd] dataUsingEncoding:NSUTF8StringEncoding];
-    const uint8_t *bytes = data.bytes;
-    [output appendBytes:bytes length:endRange.location];
-    [output appendData:replacement];
-    NSUInteger suffixStart = NSMaxRange(endRange);
-    [output appendBytes:bytes + suffixStart length:data.length - suffixStart];
-}
-
 - (nullable NSData *)jsonData
 {
-    // Preserve the startup fast path: when sessions are still lazy, validate
-    // the mapped JSON stream without building an object graph and splice it
-    // directly. The mapping remains readable after sidecar cleanup.
+    // Preserve the startup fast path: when sessions are still lazy, splice
+    // the mapped on-disk bytes into the wire JSON without materializing the
+    // object graph. The mapping remains readable after sidecar cleanup.
+    // See KSCrashSessionLog.h for the on-disk shape and why splicing is
+    // legal here.
     NSData *dataForSplice = nil;
     NSArray<KSCrashRunSummarySession *> *materialized = nil;
     os_unfair_lock_lock(&_sessionsLock);
@@ -496,7 +442,7 @@ static void appendFinalizedSessionsData(NSMutableData *output, NSData *data, int
     [out appendBytes:",\"sessions\":" length:12];
 
     if (dataForSplice != nil) {
-        appendFinalizedSessionsData(out, dataForSplice, self.endedAtMs);
+        [KSCrashSessionLog appendSessionsJSONFromData:dataForSplice runEndedAtMs:self.endedAtMs toOutput:out];
     } else {
         NSData *sessionsData = [KSJSONCodec encode:[self sessionsWireArrayFromObjects:materialized]
                                            options:KSJSONEncodeOptionNone

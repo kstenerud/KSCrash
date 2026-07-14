@@ -24,23 +24,93 @@
 // THE SOFTWARE.
 //
 
-/* Per-run session log stored as JSON on disk.
+/* Per-run session log stored as append-only JSON on disk.
  *
- * The Lifecycle monitor's mmap'd sidecar carries the session *counts* but not
- * one record per session. This companion file holds the itemized view: an
- * ordered array of session objects, each with its own start/end time and the
- * user(s) active during it. The on-disk shape matches the `sessions` array in
- * the persisted RunSummary JSON, so the next launch's install path can splice
- * these bytes straight into the `.run` file with no parse-and-re-encode.
+ * Records session begins and user-id changes for the run. Every event
+ * survives process termination — no batching, no debouncing, no caps.
+ * The log is metrics data: every event matters and the count is
+ * unbounded. Note that "survives process termination" is not the same
+ * as "survives power loss"; we don't `F_FULLFSYNC` on each write, so a
+ * kernel crash or sudden power off can still lose events the OS hadn't
+ * flushed to storage yet.
  *
- * Durability: every mutating call rewrites the whole file via an atomic
- * temp+rename, so the file on disk is always either the last committed state
- * or the previous one, never torn. Crash safety is inherited from that
- * atomicity — no commit markers, no header.
+ * ## Three invariants drive this shape
  *
- * One writer instance owns the run's log; it keeps its own in-memory session
- * list and lock, so there is no shared module state. Reading is a class
- * method that decodes the JSON into KSCrashRunSummarySession objects.
+ *   1. **Every event lands on disk before the writer returns.** No
+ *      buffering in memory; a crash between the observation and the next
+ *      event cannot lose the observation itself.
+ *   2. **Reading at startup runs at memcpy speed.** KSCrash runs on the
+ *      app's startup path and must not spend the app's ~400ms launch
+ *      budget on parsing. In particular, the RunSummary raw-splice path
+ *      does no JSON parse — it copies bytes and appends a closing
+ *      suffix.
+ *   3. **The log is unbounded.** Sessions and user changes are metrics;
+ *      nothing may be dropped or capped.
+ *
+ * ## On-disk shape
+ *
+ * The file is intentionally not a complete JSON document. Every write
+ * ends with a `\n` commit-delimiter; between the outer `[` and the last
+ * `\n` the file is a sequence of session bodies whose tail session is
+ * still open — its `users` array is unclosed, and the session object
+ * itself is missing its `ended_at_ms` field and closing `}`. Each write
+ * is a single delta (one `write()` per event, ~50-300 bytes) that ends
+ * with the delimiter.
+ *
+ * The reader (and the RunSummary raw-splice path) mmaps the file, cuts
+ * off any bytes past the last `\n` (that tail belongs to a partial
+ * write), and appends a fixed closing suffix — `],"ended_at_ms":<N>}]`
+ * — that closes the tail session's users array, stamps its
+ * `ended_at_ms`, and closes the outer array. The whole read-side
+ * operation is memcpy + a ~30-byte append; no NSJSONSerialization on
+ * the splice path.
+ *
+ * Total write cost across a run with N events is O(N). Total read cost
+ * is O(file_size) with a memcpy constant.
+ *
+ * ## Ruled-out alternatives
+ *
+ * The following were considered and rejected. If a future change is
+ * tempted to move back to one of these, one of the three invariants
+ * above is being violated:
+ *
+ *   - **Rewrite the whole file on every event** (the previous shape).
+ *     Simple, but O(N²) total bytes written across a run — real cost
+ *     for apps with heavy session or user-change churn.
+ *   - **JSONL append-only.** O(N) writes, but the reader has to parse
+ *     each line to reconstruct sessions. Parse cost for thousands of
+ *     records is milliseconds — non-trivial against the launch budget.
+ *   - **Two-file split** (canonical JSON array + append-only user
+ *     delta). Preserves memcpy startup only when the delta is empty. In
+ *     the common case (any user change since the last session begin)
+ *     it requires parsing the delta and reshaping the tail, costing
+ *     1-3ms.
+ *   - **Append without a commit delimiter.** Recovery would need to
+ *     parse to find valid boundaries — which drops us back into parsing
+ *     on the hot read path.
+ *   - **Session or user-change caps.** Bounds file size but violates
+ *     the "metrics, no bounds" invariant.
+ *   - **Debounce or batch flushes.** Reduces write frequency but
+ *     forfeits durability — events since the last flush are lost on
+ *     crash.
+ *   - **Move disk writes off the main thread.** Would return stale
+ *     state to readers between the observation and the flush; the
+ *     caller expects the log to reflect state immediately.
+ *
+ * ## Recovery
+ *
+ * If the process dies mid-`write()`, the file's tail past the last
+ * `\n` may be a partial record. The reader truncates to the last `\n`
+ * boundary and appends the closing suffix. `\n` cannot appear literally
+ * inside a JSON string (Foundation encodes it as `\n`), so a `\n` in
+ * the on-disk bytes is unambiguously a commit boundary — no chance of
+ * mistaking the last byte of an in-flight write for a good stopping
+ * point.
+ *
+ * ## Concurrency
+ *
+ * One writer instance owns the run's log; it keeps its own state and
+ * lock, so there is no shared module state. Reading is a class method.
  */
 
 #import <Foundation/Foundation.h>
@@ -78,23 +148,47 @@ __attribute__((objc_subclassing_restricted))
 /// @c recordSessionBeginWithID:perceptible:atMs:userID: instead.
 - (BOOL)recordUserID:(NSString *)userID atMs:(int64_t)atMs;
 
-/// Flush any pending state and stop accepting writes. Also called from
-/// @c dealloc.
+/// Break the adjacent-user dedup so the next @c recordUserID: cannot be
+/// suppressed by matching against the previously recorded id. Called by
+/// the lifecycle monitor when the current user signs out: a subsequent
+/// alice → nil → alice sequence must record alice's second activation
+/// (the "at_ms when this user became active" contract), even though
+/// alice is technically adjacent to alice in the id stream.
+- (void)forgetLastUserID;
+
+/// Stop accepting writes and release the underlying file descriptor. Also
+/// called from @c dealloc.
 - (void)close;
 
-/// Decode the JSON session log at @c path into KSCrashRunSummarySession
-/// objects. Returns an empty array for a missing or malformed file (so a v1
-/// binary Sessions.ksscr from an older SDK degrades to no per-session detail
-/// rather than a crash).
+/// Decode the on-disk session log at @c path into KSCrashRunSummarySession
+/// objects. Handles the append-only format's implicit closing suffix, and
+/// returns an empty array for a missing or malformed file (so a leftover
+/// binary Sessions.ksscr from an older SDK degrades to no per-session
+/// detail rather than a crash).
 + (NSArray<KSCrashRunSummarySession *> *)sessionsAtPath:(NSString *)path;
 
-/// Decode an already-loaded JSON session log. This lets RunSummary retain a
-/// mapped view whose lifetime is independent of sidecar cleanup.
+/// Decode already-loaded on-disk bytes. Same behavior and recovery as
+/// @c sessionsAtPath:. This lets @c KSCrashRunSummary retain a mapped
+/// view whose lifetime is independent of sidecar cleanup.
 + (NSArray<KSCrashRunSummarySession *> *)sessionsFromData:(NSData *)data;
 
-/// Validate that @c data is a complete JSON array without materializing its
-/// object graph. Used by the RunSummary raw-splice fast path.
-+ (BOOL)isValidSessionsData:(NSData *)data;
+/// Splice on-disk session-log bytes into a wire-format `sessions` JSON
+/// array in @c output. Trims to the last committed newline, appends
+/// the closing suffix that finalizes the tail against @c runEndedAtMs
+/// (floored against any observation still recorded in the log so a
+/// user event cannot land past its session's end), and closes the
+/// outer array. No JSON parse on this path; used by the RunSummary
+/// raw-splice fast path. Appends @c "[]" on garbage or a file with no
+/// committed events.
++ (void)appendSessionsJSONFromData:(NSData *)data runEndedAtMs:(int64_t)runEndedAtMs toOutput:(NSMutableData *)output;
+
+/// Highest observed timestamp in @c data — max of the last
+/// `"started_at_ms":` and last `"at_ms":` in the committed portion.
+/// Zero if the log has no committed events. Callers use this to bump
+/// the RunSummary's ended_at_ms when a user observation is more recent
+/// than any monitor-observed transition (e.g. OOM shortly after a
+/// user change with the resource monitor disabled).
++ (int64_t)maxObservedTimestampInData:(NSData *)data;
 
 @end
 

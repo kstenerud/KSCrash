@@ -262,8 +262,18 @@ void kscm_lifecycle_observeUser(const char *userID)
     os_unfair_lock_lock(&g_userLock);
     g_currentUserID = [asString copy];
     if (asString.length == 0) {
+        // Sign-out doesn't record an event, but it must break the
+        // session log's adjacent-user dedup: alice → nil → alice is
+        // two distinct activations, and the session log's contract is
+        // "at_ms is when this user became active." Without this the
+        // second alice call is suppressed as adjacent-same, and we
+        // lose the activation timestamp.
+        ks_spinlock_lock(&g_sidecarLock);
+        KSCrashSessionLog *log = g_sessionLog;
+        ks_spinlock_unlock(&g_sidecarLock);
+        [log forgetLastUserID];
         os_unfair_lock_unlock(&g_userLock);
-        return;  // sign-out: nothing to attribute to the current session
+        return;
     }
 
     // Snapshot the log pointer, current bucket, and anchor while this user

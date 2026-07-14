@@ -33,6 +33,7 @@
 #import "KSCrashMonitor_System.h"
 #import "KSCrashRunContext.h"
 #import "KSCrashRunSummary.h"
+#import "KSCrashSessionLog.h"
 
 // Driving ksruncontext_init directly would require kscrash_getLastRunID to
 // return a fake ID and g_reportStoreConfig to be set — too much wiring. Instead
@@ -42,6 +43,9 @@
 // would have populated in production.
 extern KSCrashRunSummary *ksruncontext_testcode_buildSummary(const KSCrashRunContext *ctx,
                                                              const char *userInfoSidecarPath);
+extern KSCrashRunSummary *ksruncontext_testcode_buildSummaryWithSessions(const KSCrashRunContext *ctx,
+                                                                         const char *userInfoSidecarPath,
+                                                                         const char *sessionsSidecarPath);
 extern void ksruncontext_testcode_setCachedSummary(KSCrashRunSummary *summary, const char *runID);
 extern void ksruncontext_testcode_setLifecycleData(const KSCrash_LifecycleData *data);
 
@@ -55,11 +59,11 @@ static bool benchPathForRunID(const char *monitorId, __unused const char *runID,
     if (g_benchTempDir == nil) {
         return false;
     }
-    // Seeding only Lifecycle + System + UserInfo keeps the benchmark focused
-    // on the new branch's hot path. Resource is optional for buildSummary,
-    // so return false for anything we haven't seeded — matches the
-    // no-sidecar branch exercised in production on a first launch after the
-    // Resource monitor being disabled.
+    // Seeding only Lifecycle + System + UserInfo + Sessions keeps the
+    // benchmark focused on the new branch's hot path. Resource is optional
+    // for buildSummary, so return false for anything we haven't seeded —
+    // matches the no-sidecar branch exercised in production on a first
+    // launch after the Resource monitor being disabled.
     NSString *path = nil;
     if (strcmp(monitorId, "Lifecycle") == 0) {
         path = [g_benchTempDir stringByAppendingPathComponent:@"Lifecycle.ksscr"];
@@ -67,6 +71,8 @@ static bool benchPathForRunID(const char *monitorId, __unused const char *runID,
         path = [g_benchTempDir stringByAppendingPathComponent:@"System.ksscr"];
     } else if (strcmp(monitorId, "UserInfo") == 0) {
         path = [g_benchTempDir stringByAppendingPathComponent:@"UserInfo.kvs"];
+    } else if (strcmp(monitorId, "Sessions") == 0) {
+        path = [g_benchTempDir stringByAppendingPathComponent:@"Sessions.ksscr"];
     } else {
         return false;
     }
@@ -77,6 +83,30 @@ static bool benchPathForRunID(const char *monitorId, __unused const char *runID,
     }
     memcpy(pathBuffer, utf8, len + 1);
     return true;
+}
+
+// Seed a Sessions.ksscr in the benchmark's temp dir with the specified
+// scale. Uses the real KSCrashSessionLog writer so the on-disk shape
+// matches production (append-only, newline commit delimiters, etc.) —
+// which is the whole point of the raw-splice hot path we want to time.
+static NSString *seedSessionLog(NSString *tempDir, NSUInteger sessionCount, NSUInteger userChangesPerSession)
+{
+    NSString *path = [tempDir stringByAppendingPathComponent:@"Sessions.ksscr"];
+    KSCrashSessionLog *log = [[KSCrashSessionLog alloc] initForWritingAtPath:path];
+    for (NSUInteger i = 0; i < sessionCount; i++) {
+        NSString *sessionID = [NSString stringWithFormat:@"%08lu-e5f6-7890-abcd-ef1234567890", (unsigned long)i];
+        int64_t sessionStartMs = 1744000000000ULL + ((int64_t)i * 60000);
+        [log recordSessionBeginWithID:sessionID
+                          perceptible:(i % 2) == 0
+                                 atMs:sessionStartMs
+                               userID:i == 0 ? @"initial-user" : nil];
+        for (NSUInteger j = 0; j < userChangesPerSession; j++) {
+            NSString *userID = [NSString stringWithFormat:@"user-%lu-%lu", (unsigned long)i, (unsigned long)j];
+            [log recordUserID:userID atMs:sessionStartMs + ((int64_t)j * 1000) + 1];
+        }
+    }
+    [log close];
+    return path;
 }
 
 static void writeBytes(NSString *path, const void *bytes, size_t length)
@@ -214,6 +244,74 @@ static KSCrash_SystemData makeSystemData(void)
         KSCrashRunContext ctx;
         ksruncontext_contextForRunID(runID, benchPathForRunID, &ctx);
         KSCrashRunSummary *summary = ksruncontext_testcode_buildSummary(&ctx, NULL);
+        ksruncontext_testcode_setCachedSummary(summary, runID);
+        ksruncontext_testcode_setLifecycleData(&ctx.lifecycle);
+        ksruncontext_persistPreviousRunSummary(runsDir.UTF8String);
+    }];
+}
+
+// ============================================================================
+// Session-log raw-splice benchmarks
+//
+// The append-only session log's on-disk shape exists so the raw-splice
+// path in `-[KSCrashRunSummary jsonData]` can memcpy the previous run's
+// bytes into the persisted summary without parsing. These benchmarks
+// exercise that path with realistic small and large logs, and the sized
+// suffixes let you spot regressions the moment they show up: a jump from
+// microseconds to milliseconds on `large` indicates someone introduced a
+// parse or object-materialization step on the hot path.
+// ============================================================================
+
+/// Small session log: a handful of sessions and user changes — what most
+/// runs look like. Expected to stay in the tens-of-µs range.
+- (void)testBenchmarkPersistWithSmallSessionLog
+{
+    NSString *sessionsPath = seedSessionLog(_tempDir, 3, 2);
+    const char *runID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+    KSCrashRunContext ctx;
+    ksruncontext_contextForRunID(runID, benchPathForRunID, &ctx);
+    KSCrashRunSummary *summary = ksruncontext_testcode_buildSummaryWithSessions(&ctx, NULL, sessionsPath.UTF8String);
+    ksruncontext_testcode_setCachedSummary(summary, runID);
+    ksruncontext_testcode_setLifecycleData(&ctx.lifecycle);
+
+    NSString *runsDir = _runsDir;
+    [self measureBlock:^{
+        ksruncontext_persistPreviousRunSummary(runsDir.UTF8String);
+    }];
+}
+
+/// Large session log: 500 sessions × 8 user changes each — well past the
+/// point where any accidental parse-per-record would dominate. The
+/// raw-splice should keep this at memcpy scale.
+- (void)testBenchmarkPersistWithLargeSessionLog
+{
+    NSString *sessionsPath = seedSessionLog(_tempDir, 500, 8);
+    const char *runID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+    KSCrashRunContext ctx;
+    ksruncontext_contextForRunID(runID, benchPathForRunID, &ctx);
+    KSCrashRunSummary *summary = ksruncontext_testcode_buildSummaryWithSessions(&ctx, NULL, sessionsPath.UTF8String);
+    ksruncontext_testcode_setCachedSummary(summary, runID);
+    ksruncontext_testcode_setLifecycleData(&ctx.lifecycle);
+
+    NSString *runsDir = _runsDir;
+    [self measureBlock:^{
+        ksruncontext_persistPreviousRunSummary(runsDir.UTF8String);
+    }];
+}
+
+/// Same large log, but measured through the full install path (build
+/// summary + persist). Catches a regression that pulls parsing into the
+/// constructor instead of leaving it lazy behind `.sessions`.
+- (void)testBenchmarkBuildAndPersistWithLargeSessionLog
+{
+    NSString *sessionsPath = seedSessionLog(_tempDir, 500, 8);
+    const char *runID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+    NSString *runsDir = _runsDir;
+    [self measureBlock:^{
+        KSCrashRunContext ctx;
+        ksruncontext_contextForRunID(runID, benchPathForRunID, &ctx);
+        KSCrashRunSummary *summary =
+            ksruncontext_testcode_buildSummaryWithSessions(&ctx, NULL, sessionsPath.UTF8String);
         ksruncontext_testcode_setCachedSummary(summary, runID);
         ksruncontext_testcode_setLifecycleData(&ctx.lifecycle);
         ksruncontext_persistPreviousRunSummary(runsDir.UTF8String);
