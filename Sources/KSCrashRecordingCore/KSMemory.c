@@ -128,6 +128,12 @@ int ksmem_copyMaxPossible(const void *restrict const src, void *restrict const d
     return copyMaxPossible(mach_task_self(), src, dst, byteCount);
 }
 
+int ksmem_copyMaxPossibleFromTask(task_t task, const void *restrict const src, void *restrict const dst,
+                                  const int byteCount)
+{
+    return copyMaxPossible(task, src, dst, byteCount);
+}
+
 bool ksmem_copySafely(const void *restrict const src, void *restrict const dst, const int byteCount)
 {
     return copySafely(mach_task_self(), src, dst, byteCount) != 0;

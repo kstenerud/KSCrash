@@ -86,6 +86,22 @@ bool ksmem_copySafely(const void *restrict const src, void *restrict const dst, 
  */
 bool ksmem_copySafelyFromTask(task_t task, const void *restrict const src, void *restrict const dst, int byteCount);
 
+/** Copies up to byteCount bytes from a specific task's address space, stopping if memory
+ * becomes inaccessible.
+ *
+ * @param task The task to read from. Pass mach_task_self() to read the current process; pass a
+ *             remote (e.g. corpse) task port to read another task's memory.
+ *
+ * @param src The source location to copy from, in the address space of @c task.
+ *
+ * @param dst The location to copy to, in the current process.
+ *
+ * @param byteCount The number of bytes to copy.
+ *
+ * @return The number of bytes actually copied.
+ */
+int ksmem_copyMaxPossibleFromTask(task_t task, const void *restrict const src, void *restrict const dst, int byteCount);
+
 /** Copies up to numBytes of data from src to dest, stopping if memory
  * becomes inaccessible.
  *
