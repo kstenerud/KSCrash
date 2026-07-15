@@ -34,8 +34,8 @@
 #include "KSCrashExceptionHandlingRequirements.h"
 #include "KSCrashMonitorFlag.h"
 #include "KSCrashNamespace.h"
-#include "KSID.h"
 #include "KSDynamicLinker.h"
+#include "KSID.h"
 #include "KSMachineContext.h"
 
 #ifdef __cplusplus

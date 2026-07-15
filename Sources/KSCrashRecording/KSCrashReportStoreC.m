@@ -463,9 +463,9 @@ static const KSCrashMonitorAPI *runSidecarMonitorForEntry(const struct dirent *e
 // collects each entry's monitor via `monitorForEntry`, sorts by priority, and applies the
 // stitches. `reportID` drives the report scope's sidecar paths, `runID` the run scope's.
 static NSDictionary *stitchSidecarsIntoReport(NSDictionary *report, DIR *dir, KSCrashSidecarScope scope,
-                                              const KSCrashReportStoreCConfiguration *const config, const char *reportID,
-                                              const char *runID, SidecarMonitorForEntryFunc monitorForEntry,
-                                              bool *stitchFailed)
+                                              const KSCrashReportStoreCConfiguration *const config,
+                                              const char *reportID, const char *runID,
+                                              SidecarMonitorForEntryFunc monitorForEntry, bool *stitchFailed)
 {
     // Copy each matching API by value so the walk never holds registry pointers across the
     // readdir/sort/stitch phases (a concurrently removed monitor would leave them dangling).
