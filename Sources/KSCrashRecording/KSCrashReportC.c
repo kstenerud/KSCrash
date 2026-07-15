@@ -1746,6 +1746,14 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
         // Acquire lock to read userInfo (async-signal-safe bounded spin)
         bool userInfoLocked = ks_spinlock_lock_bounded(&g_userInfoLock);
 
+        // Success with an object payload leaves the user container open
+        // (closeLastContainer=false) for the user-section callback below. Everything else
+        // must not run the callback: a failed decode rebalances everything closed (having
+        // already emitted a complete "user" error element) and a scalar payload is rejected
+        // the same way, so there is nothing to write into; an array payload leaves an array
+        // open, which cannot take the callback's keyed fields (array elements are nameless),
+        // so it is only closed.
+        const int entryLevel = getJsonContext(writer)->containerLevel;
         if (userInfoLocked && g_userInfoJSON != NULL) {
             addJSONElement(writer, KSCrashField_User, g_userInfoJSON, false);
             ksfu_flushBufferedWriter(&bufferedWriter);
@@ -1758,12 +1766,15 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
             ks_spinlock_unlock(&g_userInfoLock);
         }
 
-        if (g_userSectionWriteCallback != NULL) {
-            ksfu_flushBufferedWriter(&bufferedWriter);
-            KSCrash_ExceptionHandlingPlan plan = ksexc_monitorContextToPlan(monitorContext);
-            g_userSectionWriteCallback(&plan, writer);
+        KSJSONEncodeContext *userJsonContext = getJsonContext(writer);
+        if (userJsonContext->containerLevel > entryLevel) {
+            if (g_userSectionWriteCallback != NULL && userJsonContext->isObject[userJsonContext->containerLevel]) {
+                ksfu_flushBufferedWriter(&bufferedWriter);
+                KSCrash_ExceptionHandlingPlan plan = ksexc_monitorContextToPlan(monitorContext);
+                g_userSectionWriteCallback(&plan, writer);
+            }
+            writer->endContainer(writer);
         }
-        writer->endContainer(writer);
         ksfu_flushBufferedWriter(&bufferedWriter);
 
         writeDebugInfo(writer, KSCrashField_Debug, monitorContext);

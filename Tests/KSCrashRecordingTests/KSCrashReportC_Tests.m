@@ -296,6 +296,103 @@
 #endif
 }
 
+// A user-info payload the codec cannot re-decode (here: a string over the decoder's
+// per-string buffer) must not unbalance the report: sections after the user info have to
+// land in the report root and the file must stay valid JSON.
+- (void)testWriteStandardReportSurvivesOversizedUserInfoString
+{
+    struct KSMachineContext machineContext = { 0 };
+    XCTAssertTrue(ksmc_getContextForThread(pthread_mach_thread_np(pthread_self()), &machineContext, true));
+    KSCrash_MonitorContext context = { 0 };
+    snprintf(context.eventID, sizeof(context.eventID), "USERINFOTEST");
+    context.offendingMachineContext = &machineContext;
+    context.registersAreValid = true;
+    context.omitBinaryImages = true;
+    context.monitorId = kscm_machexception_getAPI()->monitorId(NULL);
+    context.mach.type = EXC_BAD_ACCESS;
+    context.signal.signum = SIGBUS;
+
+    NSString *bigValue = [@"" stringByPaddingToLength:6000 withString:@"x" startingAtIndex:0];
+    NSString *userJSON = [NSString stringWithFormat:@"{\"big\":\"%@\"}", bigValue];
+    kscrashreport_setUserInfoJSON(userJSON.UTF8String);
+
+    NSString *path = [self temporaryReportPath];
+    @try {
+        kscrashreport_writeStandardReport(&context, path.UTF8String);
+
+        NSDictionary *json = [self readJSONObjectAtPath:path];
+        XCTAssertNotNil(json[@"debug"], @"sections after a failed user info must stay in the report root");
+        XCTAssertTrue([json[@"user"] isKindOfClass:[NSDictionary class]],
+                      @"the codec's error element is the report's user section");
+    } @finally {
+        [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+        kscrashreport_setUserInfoJSON(NULL);
+    }
+}
+
+// An array user-info payload leaves an array open where the callback's keyed fields cannot
+// land; the writer closes it and keeps the payload verbatim under a single user key.
+- (void)testWriteStandardReportSurvivesArrayUserInfo
+{
+    struct KSMachineContext machineContext = { 0 };
+    XCTAssertTrue(ksmc_getContextForThread(pthread_mach_thread_np(pthread_self()), &machineContext, true));
+    KSCrash_MonitorContext context = { 0 };
+    snprintf(context.eventID, sizeof(context.eventID), "USERINFOTEST3");
+    context.offendingMachineContext = &machineContext;
+    context.registersAreValid = true;
+    context.omitBinaryImages = true;
+    context.monitorId = kscm_machexception_getAPI()->monitorId(NULL);
+    context.mach.type = EXC_BAD_ACCESS;
+    context.signal.signum = SIGBUS;
+
+    kscrashreport_setUserInfoJSON("[1,2,3]");
+
+    NSString *path = [self temporaryReportPath];
+    @try {
+        kscrashreport_writeStandardReport(&context, path.UTF8String);
+
+        NSDictionary *json = [self readJSONObjectAtPath:path];
+        XCTAssertNotNil(json[@"debug"]);
+        NSArray *expected = @[ @1, @2, @3 ];
+        XCTAssertEqualObjects(json[@"user"], expected);
+    } @finally {
+        [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+        kscrashreport_setUserInfoJSON(NULL);
+    }
+}
+
+// A scalar user-info payload is rejected by the codec (its error element becomes the user
+// section, closed); the writer must skip the user-section callback instead of spilling
+// into the report root.
+- (void)testWriteStandardReportSurvivesScalarUserInfo
+{
+    struct KSMachineContext machineContext = { 0 };
+    XCTAssertTrue(ksmc_getContextForThread(pthread_mach_thread_np(pthread_self()), &machineContext, true));
+    KSCrash_MonitorContext context = { 0 };
+    snprintf(context.eventID, sizeof(context.eventID), "USERINFOTEST2");
+    context.offendingMachineContext = &machineContext;
+    context.registersAreValid = true;
+    context.omitBinaryImages = true;
+    context.monitorId = kscm_machexception_getAPI()->monitorId(NULL);
+    context.mach.type = EXC_BAD_ACCESS;
+    context.signal.signum = SIGBUS;
+
+    kscrashreport_setUserInfoJSON("42");
+
+    NSString *path = [self temporaryReportPath];
+    @try {
+        kscrashreport_writeStandardReport(&context, path.UTF8String);
+
+        NSDictionary *json = [self readJSONObjectAtPath:path];
+        XCTAssertNotNil(json[@"debug"]);
+        XCTAssertEqualObjects(json[@"user"][@"json_data"], @"42",
+                              @"the rejected payload is preserved in the codec's error element");
+    } @finally {
+        [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+        kscrashreport_setUserInfoJSON(NULL);
+    }
+}
+
 /**
  * Test concurrent reads don't interfere with each other.
  */
