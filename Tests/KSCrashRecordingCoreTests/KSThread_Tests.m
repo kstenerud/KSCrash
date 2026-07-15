@@ -82,6 +82,54 @@
     XCTAssertEqual(ksthread_main(), capturedThread, @"ksthread_main should match the actual main thread");
 }
 
+- (void)testGetThreadNameFromKernel
+{
+    NSString *expectedName = @"kernel-name-test";
+    TestThread *thread = [TestThread new];
+    thread.name = expectedName;
+    [thread start];
+
+    // Poll until the thread starts and Foundation applies its pthread name (up to 10 s).
+    char buffer[64] = { 0 };
+    bool found = false;
+    NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:10.0];
+    while ([deadline timeIntervalSinceNow] > 0) {
+        if (thread.thread != MACH_PORT_NULL &&
+            ksthread_getThreadNameFromKernel(thread.thread, buffer, sizeof(buffer))) {
+            found = true;
+            break;
+        }
+        [NSThread sleepForTimeInterval:0.05];
+    }
+
+    XCTAssertTrue(found, @"Failed to get thread name within 10 seconds");
+    XCTAssertEqualObjects([NSString stringWithUTF8String:buffer], expectedName);
+
+    // A buffer smaller than the name truncates but stays terminated.
+    char small[8] = { 0 };
+    XCTAssertTrue(ksthread_getThreadNameFromKernel(thread.thread, small, sizeof(small)));
+    XCTAssertEqualObjects([NSString stringWithUTF8String:small], @"kernel-");
+
+    [thread cancel];
+}
+
+- (void)testGetThreadNameFromKernelUnnamedThread
+{
+    TestThread *thread = [TestThread new];
+    [thread start];
+
+    NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:10.0];
+    while (thread.thread == MACH_PORT_NULL && [deadline timeIntervalSinceNow] > 0) {
+        [NSThread sleepForTimeInterval:0.05];
+    }
+    XCTAssertNotEqual(thread.thread, MACH_PORT_NULL);
+
+    char buffer[64];
+    XCTAssertFalse(ksthread_getThreadNameFromKernel(thread.thread, buffer, sizeof(buffer)));
+
+    [thread cancel];
+}
+
 - (void)testStateName
 {
     int state = 0;
