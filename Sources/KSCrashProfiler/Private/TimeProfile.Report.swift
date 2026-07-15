@@ -25,16 +25,17 @@
 //
 
 import Foundation
+import KSCrashMonitorPlugins
 import KSCrashRecording
 import KSCrashRecordingCore
-import KSCrashSwiftCore
 
 // MARK: - Time Profile Report Writing
 
 /// Extension that provides crash report writing functionality for time-sampled profiles.
 ///
-/// This extension registers a custom KSCrash monitor that allows profiles to be written
-/// as crash reports. The report format uses frame deduplication to minimize file size:
+/// This extension routes profiles through `ProfileMonitor`, the profiler's monitor on the
+/// Swift monitor layer, which allows profiles to be written as crash reports. The report
+/// format uses frame deduplication to minimize file size:
 /// - Unique frames are collected and symbolicated once
 /// - Each sample references frames by index rather than duplicating addresses
 ///
@@ -54,75 +55,24 @@ extension TimeProfile {
 
     /// Writes this profile to a crash report file.
     ///
-    /// This method triggers the KSCrash report writing machinery to generate a JSON report
-    /// containing the profile data. The report is written synchronously to the KSCrash
-    /// reports directory.
-    ///
-    /// The profile data is passed to the monitor's `writeInReportSection` callback via
-    /// the `callbackContext` field in the monitor context.
+    /// This method drives the profile through the exception-handling pipeline via
+    /// `ProfileMonitor.shared`, which produces a JSON report containing the profile data.
+    /// The report is written synchronously to the KSCrash reports directory.
     ///
     /// - Returns: The URL of the written report file, or `nil` if the report could not be written.
     internal func _writeReport() -> URL? {
-
-        let api = ProfileMonitor.api
-        guard let callbacks = ProfileMonitor.callbacks else {
-            return nil
+        let bridge = ProfileMonitor.shared
+        guard bridge.isInstalled else { return nil }
+        let written = try? bridge.monitor.host.handle(
+            payload: self, requirements: .nonFatal, subjectThread: thread, finalize: true
+        ) { context in
+            // Profile frames already include object_uuid, so binary_images is redundant.
+            context.pointee.omitBinaryImages = true
         }
-
-        let requirements = EventRequirements(
-            shouldRecordAllThreads: 0,
-            shouldWriteReport: 1,
-            isFatal: 0,
-            isCleanExit: 0,
-            asyncSafety: 0,
-            asyncSafetyBecauseThreadsSuspended: 0,
-            crashedDuringExceptionHandling: 0,
-            shouldExitImmediately: 0,
-            isRemoteSubject: 0
-        )
-
-        let context = callbacks.notify(thread, requirements)
-        kscm_fillMonitorContext(context, api)
-        let callbackContext = Unmanaged.passRetained(BoxedTimeProfile(self)).toOpaque()
-        defer {
-            Unmanaged<BoxedTimeProfile>.fromOpaque(callbackContext).release()
-        }
-        context?.pointee.callbackContext = callbackContext
-        // Profile frames already include object_uuid, so binary_images is redundant.
-        context?.pointee.omitBinaryImages = true
-
-        var result = KSCrash_ReportResult()
-        callbacks.handleWithResult(context, &result, true)
-
-        let path = withUnsafePointer(to: &result.path) {
-            $0.withMemoryRebound(to: CChar.self, capacity: Int(PATH_MAX)) {
-                String(cString: $0)
-            }
-        }
-
-        guard !path.isEmpty else {
-            return nil
-        }
-
-        return URL(fileURLWithPath: path)
-    }
-}
-
-// MARK: - BoxedTimeProfile
-
-/// A class wrapper around `TimeProfile` for passing through C callbacks.
-///
-/// Since `TimeProfile` is a struct, we need a reference type to pass through the
-/// `void*` context in the monitor callbacks. This class boxes the profile and
-/// provides the `write(with:)` method to serialize it to JSON.
-private class BoxedTimeProfile {
-    let profile: TimeProfile
-
-    init(_ profile: TimeProfile) {
-        self.profile = profile
+        return written?.url
     }
 
-    /// Writes the profile data to the report using the given writer.
+    /// Writes this profile's data to the report using the given writer.
     ///
     /// Single-pass frame deduplication:
     /// 1. Walk samples once, assigning each new address an index in `addrToIdx`
@@ -138,8 +88,7 @@ private class BoxedTimeProfile {
     /// extra pass and allocation.
     ///
     /// - Parameter writer: The report writer to use for JSON output.
-    func write(with writer: UnsafeReportWriter) {
-        let samples = profile.samples
+    func write(with writer: ReportSectionWriter) {
         var addrToIdx: [UInt: Int32] = [:]
         // One unique address per sample is a reasonable starting estimate;
         // the dictionary will grow on its own if the profile has more variety.
@@ -165,15 +114,15 @@ private class BoxedTimeProfile {
             sampleIndexes.append(idxs)
         }
 
-        writer.add("name", profile.name)
-        writer.add("id", profile.id.uuidString)
-        writer.add("time_start_epoch", UInt64(profile.startTime.timeIntervalSince1970 * 1_000_000_000.0))
-        writer.add("time_start_uptime", profile.startTimestampNs)
-        writer.add("time_end_uptime", profile.endTimestampNs)
-        writer.add("expected_sample_interval", profile.expectedSampleIntervalNs)
-        writer.add("duration", profile.durationNs)
+        writer.add("name", name)
+        writer.add("id", id.uuidString)
+        writer.add("time_start_epoch", UInt64(startTime.timeIntervalSince1970 * 1_000_000_000.0))
+        writer.add("time_start_uptime", startTimestampNs)
+        writer.add("time_end_uptime", endTimestampNs)
+        writer.add("expected_sample_interval", expectedSampleIntervalNs)
+        writer.add("duration", durationNs)
         writer.add("time_units", "nanoseconds")
-        writer.add("truncated_count", UInt64(profile.truncatedSampleCount))
+        writer.add("truncated_count", UInt64(truncatedSampleCount))
 
         writer.beginArray("frames")
         for addr in uniqueAddrs {
@@ -233,108 +182,41 @@ private class BoxedTimeProfile {
     }
 }
 
-// MARK: - Profile Monitor API Functions
+// MARK: - Profile Monitor
 
-final private class ProfileMonitor: Sendable {
+/// The profiler's monitor on the Swift monitor layer (`.claude/rules/swift-monitors.md`).
+/// Writes a profile's frames and samples into its report section.
+final class ProfileMonitor: CrashMonitor {
+    typealias EventPayload = TimeProfile
+    /// Doubles as the report wire format: the writer emits this as crash.error.type and as
+    /// the monitor section's key, and the report model decodes CrashError.profile from the
+    /// exact string "profile". Never rename it.
+    static let id = "profile"
 
-    static private let lock = UnfairLock()
+    let host: MonitorHost<TimeProfile>
 
-    /// Whether the profile monitor is enabled.
-    static private var _enabled: Bool = true
-    static var enabled: Bool {
-        set {
-            lock.withLock { _enabled = newValue }
-        }
-        get {
-            lock.withLock { _enabled }
-        }
+    init(host: MonitorHost<TimeProfile>, configuration: Void) {
+        self.host = host
     }
 
-    /// The monitor ID string. Allocated once and never freed (intentional for static lifetime).
-    static private let _monitorId = strdup("profile")
-    static var monitorId: UnsafePointer<CChar>? {
-        lock.withLock { _monitorId.map { UnsafePointer($0) } }
+    func writeReportSection(payload: TimeProfile, writer: ReportSectionWriter) {
+        payload.write(with: writer)
     }
+}
 
-    /// Cached exception handler callbacks from KSCrash initialization.
-    static private var _callbacks: KSCrash_ExceptionHandlerCallbacks? = nil
-    static var callbacks: KSCrash_ExceptionHandlerCallbacks? {
-        set {
-            lock.withLock { _callbacks = newValue }
-        }
-        get {
-            lock.withLock { _callbacks }
-        }
-    }
-
-    /// The KSCrash monitor API for profile reports. Lazily initialized and registered.
-    static let api: UnsafeMutablePointer<KSCrashMonitorAPI> = {
-        var api = KSCrashMonitorAPI(
-            context: nil,
-            priority: 0,
-            init: profileMonitorInit,
-            monitorId: profileMonitorGetId,
-            monitorFlags: profileMonitorGetFlags,
-            setEnabled: profileMonitorSetEnabled,
-            isEnabled: profileMonitorIsEnabled,
-            addContextualInfoToEvent: profileMonitorAddContextualInfoToEvent,
-            notifyPostMonitorsEnabled: nil,
-            notifyPostSystemEnable: profileMonitorNotifyPostSystemEnable,
-            writeInReportSection: profileMonitorWriteInReportSection,
-            createStitchedReport: nil
-        )
-
-        let p = UnsafeMutablePointer<KSCrashMonitorAPI>.allocate(capacity: 1)  // never deallocated
-        p.initialize(to: api)
-        kscm_addMonitor(p)
-        return p
+extension ProfileMonitor {
+    /// The profiler's bridge, registered by the profiler's install hook exactly where the old
+    /// api table was: unlike the developer-facing monitors (MetricKit, Corpse), the profiler
+    /// has always self-registered on first use rather than requiring `config.plugins` wiring,
+    /// so this lazy static keeps that contract by calling `kscm_addMonitor` itself.
+    static let shared: Monitor<ProfileMonitor> = {
+        let bridge = ProfileMonitor.plugin()
+        kscm_addMonitor(bridge.api)
+        // kscm_addMonitor registers but does not enable, and the bulk enable pass ran during
+        // install, long before this lazy static is first touched. Without this the monitor
+        // would stay disabled for the process lifetime, where the pre-bridge implementation
+        // defaulted to enabled.
+        kscm_setMonitorEnabled(bridge.api, true)
+        return bridge
     }()
-}
-
-private func profileMonitorInit(
-    _ callbacks: UnsafeMutablePointer<KSCrash_ExceptionHandlerCallbacks>?,
-    _ context: UnsafeMutableRawPointer?
-) {
-    ProfileMonitor.callbacks = callbacks?.pointee
-}
-
-private func profileMonitorGetId(_ context: UnsafeMutableRawPointer?) -> UnsafePointer<CChar>? {
-    ProfileMonitor.monitorId
-}
-
-private func profileMonitorGetFlags(_ context: UnsafeMutableRawPointer?) -> MonitorFlags {
-    .plugin
-}
-
-private func profileMonitorSetEnabled(_ enabled: Bool, _ context: UnsafeMutableRawPointer?) {
-    ProfileMonitor.enabled = enabled
-}
-
-private func profileMonitorIsEnabled(_ context: UnsafeMutableRawPointer?) -> Bool {
-    ProfileMonitor.enabled
-}
-
-private func profileMonitorAddContextualInfoToEvent(
-    _ eventContext: UnsafeMutablePointer<KSCrash_MonitorContext>?,
-    _ context: UnsafeMutableRawPointer?
-) {
-}
-
-private func profileMonitorNotifyPostSystemEnable(_ context: UnsafeMutableRawPointer?) {
-}
-
-private func profileMonitorWriteInReportSection(
-    _ context: UnsafePointer<KSCrash_MonitorContext>?,
-    _ writerRef: UnsafePointer<ReportWriter>?,
-    _ monitorContext: UnsafeMutableRawPointer?
-) {
-    guard let writer = UnsafeReportWriter(writerRef) else {
-        return
-    }
-    guard let callbackContext = context?.pointee.callbackContext else {
-        return
-    }
-
-    let profileBox = Unmanaged<BoxedTimeProfile>.fromOpaque(callbackContext).takeUnretainedValue()
-    profileBox.write(with: writer)
 }
