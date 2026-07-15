@@ -24,7 +24,9 @@
 // THE SOFTWARE.
 //
 
+import KSCrashMonitorPlugins
 import KSCrashRecording
+import KSCrashRecordingCore
 import KSCrashReportModel
 import XCTest
 
@@ -35,7 +37,18 @@ import XCTest
     @available(iOS 14.0, macOS 12.0, *)
     final class MetricKitMonitorTests: XCTestCase {
 
-        private var monitor: MetricKitMonitor { Monitors.metricKit }
+        /// One bridge for the whole class (constructing `Monitor<MetricKitMonitor>` more than
+        /// once per process would trip the duplicate-id precondition), installed with an empty
+        /// callbacks table the way `Monitor_Tests` drives the bridge, enough for every test
+        /// here, none of which write an actual report through the host.
+        private static let bridge: Monitor<MetricKitMonitor> = {
+            let bridge = MetricKitMonitor.plugin(.init())
+            var callbacks = KSCrash_ExceptionHandlerCallbacks()
+            withUnsafeMutablePointer(to: &callbacks) { bridge.api.pointee.`init`($0, bridge.api.pointee.context) }
+            return bridge
+        }()
+
+        private var monitor: MetricKitMonitor { Self.bridge.monitor }
 
         override func setUp() {
             super.setUp()
@@ -47,20 +60,20 @@ import XCTest
         // MARK: - Monitor API Lifecycle
 
         func testMonitorId() {
-            let api = monitor.api.pointee
+            let api = Self.bridge.api.pointee
             let monitorId = api.monitorId(api.context)
             XCTAssertNotNil(monitorId)
             XCTAssertEqual(String(cString: monitorId!), "MetricKit")
         }
 
         func testMonitorFlags() {
-            let api = monitor.api.pointee
+            let api = Self.bridge.api.pointee
             let flags = api.monitorFlags(api.context)
             XCTAssertEqual(flags, .plugin)
         }
 
         func testEnableDisable() {
-            let api = monitor.api.pointee
+            let api = Self.bridge.api.pointee
             XCTAssertFalse(api.isEnabled(api.context))
 
             api.setEnabled(true, api.context)
@@ -71,7 +84,7 @@ import XCTest
         }
 
         func testIdempotentEnable() {
-            let api = monitor.api.pointee
+            let api = Self.bridge.api.pointee
             api.setEnabled(true, api.context)
             api.setEnabled(true, api.context)
             XCTAssertTrue(api.isEnabled(api.context))
@@ -82,7 +95,7 @@ import XCTest
         }
 
         func testMonitorPlugin() {
-            XCTAssertNotNil(Monitors.metricKit.api)
+            XCTAssertTrue(Self.bridge.isInstalled)
         }
 
         // MARK: - Diagnostic Report Notifications
@@ -98,7 +111,7 @@ import XCTest
 
             let observer = NotificationCenter.default.addObserver(
                 forName: MetricKitMonitor.diagnosticReportAddedNotification,
-                object: Monitors.metricKit,
+                object: monitor,
                 queue: nil
             ) { notification in
                 guard let id = notification.userInfo?[MetricKitMonitor.diagnosticReportIDUserInfoKey] as? Int64,
@@ -122,7 +135,7 @@ import XCTest
 
             let observer = NotificationCenter.default.addObserver(
                 forName: MetricKitMonitor.diagnosticReportAddedNotification,
-                object: Monitors.metricKit,
+                object: monitor,
                 queue: nil
             ) { _ in
                 if !Thread.isMainThread {
@@ -150,7 +163,7 @@ import XCTest
                 object: nil,
                 queue: nil
             ) { notification in
-                objectIsPlugin = (notification.object as AnyObject) === Monitors.metricKit
+                objectIsPlugin = (notification.object as AnyObject) === self.monitor
                 notificationExpectation.fulfill()
             }
             defer { NotificationCenter.default.removeObserver(observer) }
@@ -181,7 +194,7 @@ import XCTest
 
             let observer = NotificationCenter.default.addObserver(
                 forName: MetricKitMonitor.diagnosticReportAddedNotification,
-                object: Monitors.metricKit,
+                object: monitor,
                 queue: nil
             ) { notification in
                 guard let id = notification.userInfo?[MetricKitMonitor.diagnosticReportIDUserInfoKey] as? Int64,
