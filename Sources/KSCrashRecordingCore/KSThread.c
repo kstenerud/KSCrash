@@ -79,6 +79,27 @@ bool ksthread_getThreadName(const KSThread thread, char *const buffer, int bufLe
     return pthread_getname_np(pthread, buffer, (unsigned)bufLength) == 0;
 }
 
+bool ksthread_getThreadNameFromKernel(const KSThread thread, char *const buffer, int bufLength)
+{
+    if (bufLength < 1) {
+        return false;
+    }
+    thread_extended_info_data_t info = { 0 };
+    mach_msg_type_number_t count = THREAD_EXTENDED_INFO_COUNT;
+    if (thread_info((thread_t)thread, THREAD_EXTENDED_INFO, (thread_info_t)&info, &count) != KERN_SUCCESS) {
+        return false;
+    }
+    // pth_name is not guaranteed terminated at its full width; bound the copy and
+    // terminate ourselves instead of trusting a terminator to be there.
+    int copyLength = bufLength - 1;
+    if (copyLength > (int)sizeof(info.pth_name)) {
+        copyLength = (int)sizeof(info.pth_name);
+    }
+    memcpy(buffer, info.pth_name, (size_t)copyLength);
+    buffer[copyLength] = 0;
+    return buffer[0] != 0;
+}
+
 int ksthread_getThreadState(const KSThread thread)
 {
     integer_t infoBuffer[THREAD_BASIC_INFO_COUNT] = { 0 };
