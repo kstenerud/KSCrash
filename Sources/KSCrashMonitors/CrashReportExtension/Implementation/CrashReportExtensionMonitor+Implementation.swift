@@ -90,7 +90,7 @@ extension CrashReportExtensionMonitor {
         defer {
             for uuid in ownedUUIDs { uuid?.deallocate() }
         }
-        let providedImages = zip(images, zip(ownedPaths, ownedUUIDs)).map { image, owned in
+        var providedImages = zip(images, zip(ownedPaths, ownedUUIDs)).map { image, owned in
             var provided = KSBinaryImage()
             // The extension hands us a load address, a size and a uuid and nothing else, and the
             // size is untrustworthy for shared-cache images (it is computed to the end of the
@@ -108,6 +108,26 @@ extension CrashReportExtensionMonitor {
             provided.cpuType = image.cpuType
             provided.cpuSubType = image.cpuSubType
             return provided
+        }
+
+        // The corpse's __crash_info strings (abort messages, dyld errors), read out of the
+        // corpse per image; the report writer emits them with each provided image.
+        var crashInfoStrings: [KSCrashInfoStrings] = []
+        defer {
+            for var strings in crashInfoStrings {
+                ksdl_freeCrashInfoStrings(&strings)
+            }
+        }
+        for index in providedImages.indices {
+            var strings = KSCrashInfoStrings()
+            guard ksdl_readCrashInfoFromTaskImage(corpse, UInt(providedImages[index].address), &strings) else {
+                continue
+            }
+            crashInfoStrings.append(strings)
+            providedImages[index].crashInfoMessage = UnsafePointer(strings.message)
+            providedImages[index].crashInfoMessage2 = UnsafePointer(strings.message2)
+            providedImages[index].crashInfoBacktrace = UnsafePointer(strings.backtrace)
+            providedImages[index].crashInfoSignature = UnsafePointer(strings.signature)
         }
 
         let written = try withUnsafeMutablePointer(to: &machineContext) { machineContextPointer in
