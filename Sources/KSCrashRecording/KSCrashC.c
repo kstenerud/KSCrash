@@ -264,6 +264,12 @@ static void onExceptionEvent(struct KSCrash_MonitorContext *monitorContext, KSCr
         kscrashreport_writeRecrashReport(monitorContext, g_lastCrashReportFilePath);
     } else if (monitorContext->reportPath) {
         kscrashreport_writeStandardReport(monitorContext, monitorContext->reportPath);
+        // No store ID for a caller-supplied path, but report the write in the result so a
+        // caller can tell it happened; an event rerouted away from this branch (recrash,
+        // vetoed write) leaves the result empty.
+        if (result) {
+            strlcpy(result->path, monitorContext->reportPath, sizeof(result->path));
+        }
     } else {
         char crashReportFilePath[KSFU_MAX_PATH_LENGTH];
         int64_t reportID = kscrs_getNextCrashReport(crashReportFilePath, &g_reportStoreConfig);

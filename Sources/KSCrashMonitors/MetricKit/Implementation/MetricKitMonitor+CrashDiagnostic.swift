@@ -48,7 +48,7 @@ private typealias _MachError = KSCrashReportModel.MachError
 
         @discardableResult
         func processCrashDiagnostic(_ diagnostic: MXCrashDiagnostic, timestamp: Date) -> Int64? {
-            // Phase 1: Write skeleton report to a temp file via C callbacks.
+            // Phase 1: Write skeleton report to a temp file via the host.
             guard let tempURL = writeSkeletonReport() else { return nil }
             defer { try? FileManager.default.removeItem(at: tempURL) }
 
