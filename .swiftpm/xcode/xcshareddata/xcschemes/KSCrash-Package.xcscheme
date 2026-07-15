@@ -225,9 +225,9 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "ReportTests"
-               BuildableName = "ReportTests"
-               BlueprintName = "ReportTests"
+               BlueprintIdentifier = "KSCrashReportModelTests"
+               BuildableName = "KSCrashReportModelTests"
+               BlueprintName = "KSCrashReportModelTests"
                ReferencedContainer = "container:">
             </BuildableReference>
          </TestableReference>
@@ -265,9 +265,9 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "MonitorsTests"
-               BuildableName = "MonitorsTests"
-               BlueprintName = "MonitorsTests"
+               BlueprintIdentifier = "KSCrashMonitorsTests"
+               BuildableName = "KSCrashMonitorsTests"
+               BlueprintName = "KSCrashMonitorsTests"
                ReferencedContainer = "container:">
             </BuildableReference>
          </TestableReference>
@@ -275,9 +275,9 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "SwiftCoreTests"
-               BuildableName = "SwiftCoreTests"
-               BlueprintName = "SwiftCoreTests"
+               BlueprintIdentifier = "KSCrashSwiftCoreTests"
+               BuildableName = "KSCrashSwiftCoreTests"
+               BlueprintName = "KSCrashSwiftCoreTests"
                ReferencedContainer = "container:">
             </BuildableReference>
          </TestableReference>
