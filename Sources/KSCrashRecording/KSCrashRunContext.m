@@ -29,7 +29,7 @@
 #import "KSCrashAppMemory.h"
 #import "KSCrashC.h"
 #import "KSCrashCPUTracker.h"
-#import "KSCrashRunSummary.h"
+#import "KSCrashRunSummary+Private.h"
 #import "KSCrashSessionLog.h"
 #import "KSFileUtils.h"
 #import "KSKeyValueStore.h"
@@ -424,11 +424,6 @@ void ksruncontext_persistPreviousRunSummary(const char *runSummariesPath)
         return;
     }
 
-    NSData *data = [g_summary jsonData];
-    if (data == nil) {
-        return;  // Error already logged in -jsonData.
-    }
-
     // C write — the decoder rejects truncated / invalid JSON on read, so a
     // crash mid-write is self-correcting; no atomic rename needed.
     int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
@@ -436,7 +431,7 @@ void ksruncontext_persistPreviousRunSummary(const char *runSummariesPath)
         KSLOG_ERROR(@"Failed to open run summary file %s: errno=%d", path, errno);
         return;
     }
-    if (!ksfu_writeBytesToFD(fd, (const char *)data.bytes, (int)data.length)) {
+    if (![g_summary writeJSONToFileDescriptor:fd]) {
         KSLOG_ERROR(@"Failed to write run summary to %s: errno=%d", path, errno);
     }
     close(fd);

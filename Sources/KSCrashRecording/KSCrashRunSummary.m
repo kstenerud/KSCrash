@@ -25,6 +25,7 @@
 //
 
 #import "KSCrashRunSummary.h"
+#import "KSCrashRunSummary+Private.h"
 
 // kstermination_reasonToString already returns the snake_case wire strings
 // used by the schema, so we reuse it rather than duplicating the mapping.
@@ -34,7 +35,10 @@
 #import "KSJSONCodecObjC.h"
 #import "KSLogger.h"
 
+#import <errno.h>
+#import <limits.h>
 #import <os/lock.h>
+#import <unistd.h>
 
 @implementation KSCrashRunSummaryOutcome
 
@@ -183,6 +187,7 @@
 @implementation KSCrashRunSummary {
     os_unfair_lock _sessionsLock;
     NSData *_sessionLogData;  // nil once faulted or when constructed eagerly
+    KSCrashSessionLogInspection _sessionLogInspection;
 }
 
 @synthesize sessions = _sessions;
@@ -262,20 +267,18 @@
         _device = device;
         _sessions = nil;
         _sessionLogData = sessionLogPath.length > 0 ? [NSData dataWithContentsOfFile:sessionLogPath
-                                                                             options:NSDataReadingMappedIfSafe
+                                                                             options:NSDataReadingMappedAlways
                                                                                error:NULL]
                                                     : nil;
+        _sessionLogInspection = [KSCrashSessionLog inspectionForData:_sessionLogData];
         // Run's endedAtMs comes from monitors (resource/lifecycle
         // observers); the session log can carry a more recent
         // observation (a user change right before an OOM) that no
         // monitor saw. Floor the run's end against the log so downstream
         // consumers never see user.at_ms > run.ended_at_ms. Cheap byte
         // scan; parses nothing.
-        if (_sessionLogData.length > 0) {
-            int64_t observed = [KSCrashSessionLog maxObservedTimestampInData:_sessionLogData];
-            if (observed > _endedAtMs) {
-                _endedAtMs = observed;
-            }
+        if (_sessionLogInspection.maxObservedTimestampMs > _endedAtMs) {
+            _endedAtMs = _sessionLogInspection.maxObservedTimestampMs;
         }
     }
     return self;
@@ -283,29 +286,42 @@
 
 - (NSArray<KSCrashRunSummarySession *> *)sessions
 {
+    NSData *sessionLogData = nil;
+    int64_t endedAtMs = 0;
+    os_unfair_lock_lock(&_sessionsLock);
+    if (_sessions != nil) {
+        NSArray *result = _sessions;
+        os_unfair_lock_unlock(&_sessionsLock);
+        return result;
+    }
+    sessionLogData = _sessionLogData;
+    endedAtMs = _endedAtMs;
+    os_unfair_lock_unlock(&_sessionsLock);
+
+    NSArray<KSCrashRunSummarySession *> *loaded = [KSCrashSessionLog sessionsFromData:sessionLogData ?: [NSData data]];
+    if (loaded.count > 0) {
+        NSMutableArray<KSCrashRunSummarySession *> *finalized = [loaded mutableCopy];
+        KSCrashRunSummarySession *tail = finalized.lastObject;
+        // Floor the tail's end against the run's end and its own inferred end
+        // (which the reader already set to the last observation in the log).
+        // Whichever is higher wins.
+        int64_t tailEnd = endedAtMs >= tail.endedAtMs ? endedAtMs : tail.endedAtMs;
+        if (tailEnd < tail.startedAtMs) {
+            tailEnd = tail.startedAtMs;
+        }
+        finalized[finalized.count - 1] = [[KSCrashRunSummarySession alloc] initWithSessionID:tail.sessionID
+                                                                                 perceptible:tail.perceptible
+                                                                                 startedAtMs:tail.startedAtMs
+                                                                                   endedAtMs:tailEnd
+                                                                                       users:tail.users];
+        loaded = finalized;
+    }
+
     os_unfair_lock_lock(&_sessionsLock);
     if (_sessions == nil) {
-        NSArray<KSCrashRunSummarySession *> *loaded =
-            [KSCrashSessionLog sessionsFromData:_sessionLogData ?: [NSData data]];
-        if (loaded.count > 0) {
-            NSMutableArray<KSCrashRunSummarySession *> *finalized = [loaded mutableCopy];
-            KSCrashRunSummarySession *tail = finalized.lastObject;
-            // Floor the tail's end against the run's end and its own
-            // inferred end (which the reader already set to the last
-            // observation in the log). Whichever is higher wins.
-            int64_t tailEnd = self.endedAtMs >= tail.endedAtMs ? self.endedAtMs : tail.endedAtMs;
-            if (tailEnd < tail.startedAtMs) {
-                tailEnd = tail.startedAtMs;
-            }
-            finalized[finalized.count - 1] = [[KSCrashRunSummarySession alloc] initWithSessionID:tail.sessionID
-                                                                                     perceptible:tail.perceptible
-                                                                                     startedAtMs:tail.startedAtMs
-                                                                                       endedAtMs:tailEnd
-                                                                                           users:tail.users];
-            loaded = finalized;
-        }
         _sessions = loaded;
         _sessionLogData = nil;
+        _sessionLogInspection = (KSCrashSessionLogInspection) { 0 };
     }
     NSArray *result = _sessions;
     os_unfair_lock_unlock(&_sessionsLock);
@@ -414,10 +430,12 @@ static NSString *hostKindWireString(KSCrashRunSummaryHostKind kind)
     // See KSCrashSessionLog.h for the on-disk shape and why splicing is
     // legal here.
     NSData *dataForSplice = nil;
+    KSCrashSessionLogInspection inspection = { 0 };
     NSArray<KSCrashRunSummarySession *> *materialized = nil;
     os_unfair_lock_lock(&_sessionsLock);
     if (_sessions == nil && _sessionLogData.length > 0) {
         dataForSplice = _sessionLogData;
+        inspection = _sessionLogInspection;
     } else {
         materialized = _sessions ?: @[];
     }
@@ -442,7 +460,10 @@ static NSString *hostKindWireString(KSCrashRunSummaryHostKind kind)
     [out appendBytes:",\"sessions\":" length:12];
 
     if (dataForSplice != nil) {
-        [KSCrashSessionLog appendSessionsJSONFromData:dataForSplice runEndedAtMs:self.endedAtMs toOutput:out];
+        [KSCrashSessionLog appendSessionsJSONFromData:dataForSplice
+                                           inspection:inspection
+                                         runEndedAtMs:self.endedAtMs
+                                             toOutput:out];
     } else {
         NSData *sessionsData = [KSJSONCodec encode:[self sessionsWireArrayFromObjects:materialized]
                                            options:KSJSONEncodeOptionNone
@@ -455,6 +476,178 @@ static NSString *hostKindWireString(KSCrashRunSummaryHostKind kind)
     }
     [out appendBytes:"}" length:1];
     return out;
+}
+
+#pragma mark - Synchronous JSON persistence
+
+// Keep the stack view small and fixed. POSIX guarantees at least 16 iovecs per
+// writev call; querying the runtime limit prevents exceeding a smaller
+// platform-specific value while still allowing arbitrarily many source
+// vectors to be drained in bounded batches.
+#define KSRUNSUMMARY_STACK_IOV_COUNT 16
+
+static int writevVectorLimit(void)
+{
+    long limit = sysconf(_SC_IOV_MAX);
+    if (limit <= 0 || limit > KSRUNSUMMARY_STACK_IOV_COUNT) {
+        return KSRUNSUMMARY_STACK_IOV_COUNT;
+    }
+    return (int)limit;
+}
+
+static BOOL writeAllVectors(int fileDescriptor, const struct iovec *vectors, int count,
+                            KSCrashRunSummaryWritevBlock writevBlock)
+{
+    if (fileDescriptor < 0 || vectors == NULL || count < 0 || writevBlock == nil) {
+        errno = EINVAL;
+        return NO;
+    }
+
+    int vectorIndex = 0;
+    size_t vectorOffset = 0;
+    while (vectorIndex < count) {
+        while (vectorIndex < count && vectorOffset == vectors[vectorIndex].iov_len) {
+            vectorIndex++;
+            vectorOffset = 0;
+        }
+        if (vectorIndex == count) {
+            return YES;
+        }
+
+        struct iovec view[KSRUNSUMMARY_STACK_IOV_COUNT];
+        int viewCount = 0;
+        size_t viewBytes = 0;
+        int sourceIndex = vectorIndex;
+        size_t sourceOffset = vectorOffset;
+        int vectorLimit = writevVectorLimit();
+        while (sourceIndex < count && viewCount < vectorLimit && viewBytes < (size_t)SSIZE_MAX) {
+            size_t sourceLength = vectors[sourceIndex].iov_len;
+            if (sourceOffset == sourceLength) {
+                sourceIndex++;
+                sourceOffset = 0;
+                continue;
+            }
+            if (sourceOffset > sourceLength || vectors[sourceIndex].iov_base == NULL) {
+                errno = EINVAL;
+                return NO;
+            }
+
+            size_t remaining = sourceLength - sourceOffset;
+            size_t callCapacity = (size_t)SSIZE_MAX - viewBytes;
+            size_t length = remaining < callCapacity ? remaining : callCapacity;
+            view[viewCount].iov_base = (uint8_t *)vectors[sourceIndex].iov_base + sourceOffset;
+            view[viewCount].iov_len = length;
+            viewCount++;
+            viewBytes += length;
+            if (length < remaining) {
+                break;
+            }
+            sourceIndex++;
+            sourceOffset = 0;
+        }
+
+        ssize_t written = writevBlock(fileDescriptor, view, viewCount);
+        if (written < 0 && errno == EINTR) {
+            continue;
+        }
+        if (written <= 0 || (size_t)written > viewBytes) {
+            if (written == 0 || (written > 0 && (size_t)written > viewBytes)) {
+                errno = EIO;
+            }
+            return NO;
+        }
+
+        size_t advance = (size_t)written;
+        while (advance > 0 && vectorIndex < count) {
+            size_t available = vectors[vectorIndex].iov_len - vectorOffset;
+            if (advance < available) {
+                vectorOffset += advance;
+                advance = 0;
+            } else {
+                advance -= available;
+                vectorIndex++;
+                vectorOffset = 0;
+            }
+        }
+    }
+    return YES;
+}
+
++ (BOOL)testcode_writeAllVectors:(const struct iovec *)vectors
+                           count:(int)count
+                  fileDescriptor:(int)fileDescriptor
+                     writevBlock:(KSCrashRunSummaryWritevBlock)writevBlock
+{
+    return writeAllVectors(fileDescriptor, vectors, count, writevBlock);
+}
+
+- (BOOL)writeJSONToFileDescriptor:(int)fileDescriptor
+{
+    NSData *sessionLogData = nil;
+    KSCrashSessionLogInspection inspection = { 0 };
+    BOOL sessionsAreLazy = NO;
+    os_unfair_lock_lock(&_sessionsLock);
+    sessionsAreLazy = _sessions == nil;
+    if (sessionsAreLazy) {
+        sessionLogData = _sessionLogData;
+        inspection = _sessionLogInspection;
+    }
+    os_unfair_lock_unlock(&_sessionsLock);
+
+    KSCrashRunSummaryWritevBlock systemWritev = ^ssize_t(int fd, const struct iovec *vectors, int count) {
+        return writev(fd, vectors, count);
+    };
+
+    if (!sessionsAreLazy) {
+        NSData *data = [self jsonData];
+        if (data == nil) {
+            errno = EINVAL;
+            return NO;
+        }
+        struct iovec vector = { .iov_base = (void *)data.bytes, .iov_len = data.length };
+        return writeAllVectors(fileDescriptor, &vector, 1, systemWritev);
+    }
+
+    NSError *error = nil;
+    NSData *base = [KSJSONCodec encode:[self wireDictionaryWithoutSessions]
+                               options:KSJSONEncodeOptionNone
+                                 error:&error];
+    if (base == nil) {
+        KSLOG_ERROR(@"Failed to encode RunSummary JSON: %@", error);
+        errno = EINVAL;
+        return NO;
+    }
+    const uint8_t *baseBytes = base.bytes;
+    if (base.length == 0 || baseBytes[base.length - 1] != '}') {
+        KSLOG_ERROR(@"RunSummary base JSON is malformed (no trailing '}').");
+        errno = EINVAL;
+        return NO;
+    }
+
+    BOOL hasMappedSessions = inspection.isValid && inspection.hasSessions;
+    if (hasMappedSessions &&
+        (inspection.committedRange.location > sessionLogData.length ||
+         inspection.committedRange.length > sessionLogData.length - inspection.committedRange.location)) {
+        inspection = (KSCrashSessionLogInspection) { 0 };
+        hasMappedSessions = NO;
+    }
+    NSData *closingData = [KSCrashSessionLog closingDataForInspection:inspection runEndedAtMs:self.endedAtMs];
+
+    static const char sessionsKey[] = ",\"sessions\":";
+    static const char objectClose[] = "}";
+    struct iovec vectors[5];
+    int count = 0;
+    vectors[count++] = (struct iovec) { .iov_base = (void *)baseBytes, .iov_len = base.length - 1 };
+    vectors[count++] = (struct iovec) { .iov_base = (void *)sessionsKey, .iov_len = sizeof(sessionsKey) - 1 };
+    if (hasMappedSessions) {
+        vectors[count++] = (struct iovec) {
+            .iov_base = (uint8_t *)sessionLogData.bytes + inspection.committedRange.location,
+            .iov_len = inspection.committedRange.length,
+        };
+    }
+    vectors[count++] = (struct iovec) { .iov_base = (void *)closingData.bytes, .iov_len = closingData.length };
+    vectors[count++] = (struct iovec) { .iov_base = (void *)objectClose, .iov_len = sizeof(objectClose) - 1 };
+    return writeAllVectors(fileDescriptor, vectors, count, systemWritev);
 }
 
 #pragma mark - JSON decoding

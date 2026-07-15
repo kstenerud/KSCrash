@@ -121,6 +121,13 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+typedef struct {
+    NSRange committedRange;
+    int64_t maxObservedTimestampMs;
+    BOOL isValid;
+    BOOL hasSessions;
+} KSCrashSessionLogInspection;
+
 NS_SWIFT_NAME(SessionLog)
 __attribute__((objc_subclassing_restricted))
 @interface KSCrashSessionLog : NSObject
@@ -172,6 +179,20 @@ __attribute__((objc_subclassing_restricted))
 /// view whose lifetime is independent of sidecar cleanup.
 + (NSArray<KSCrashRunSummarySession *> *)sessionsFromData:(NSData *)data;
 
+/// Inspect the last newline-committed range without allocating storage that
+/// scales with @c data. Invalid committed bytes produce an invalid inspection.
++ (KSCrashSessionLogInspection)inspectionForData:(NSData *)data;
+
+/// Splice a previously inspected log without scanning it again.
++ (void)appendSessionsJSONFromData:(NSData *)data
+                        inspection:(KSCrashSessionLogInspection)inspection
+                      runEndedAtMs:(int64_t)runEndedAtMs
+                          toOutput:(NSMutableData *)output;
+
+/// Return either the suffix that closes a valid non-empty inspection or the
+/// complete empty array encoding for an invalid or empty inspection.
++ (NSData *)closingDataForInspection:(KSCrashSessionLogInspection)inspection runEndedAtMs:(int64_t)runEndedAtMs;
+
 /// Splice on-disk session-log bytes into a wire-format `sessions` JSON
 /// array in @c output. Trims to the last committed newline, appends
 /// the closing suffix that finalizes the tail against @c runEndedAtMs
@@ -182,8 +203,8 @@ __attribute__((objc_subclassing_restricted))
 /// committed events.
 + (void)appendSessionsJSONFromData:(NSData *)data runEndedAtMs:(int64_t)runEndedAtMs toOutput:(NSMutableData *)output;
 
-/// Highest observed timestamp in @c data — max of the last
-/// `"started_at_ms":` and last `"at_ms":` in the committed portion.
+/// Highest observed timestamp in @c data — max of every
+/// `"started_at_ms":` and `"at_ms":` in the committed portion.
 /// Zero if the log has no committed events. Callers use this to bump
 /// the RunSummary's ended_at_ms when a user observation is more recent
 /// than any monitor-observed transition (e.g. OOM shortly after a

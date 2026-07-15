@@ -31,7 +31,9 @@
 
 #import <errno.h>
 #import <fcntl.h>
+#import <inttypes.h>
 #import <os/lock.h>
+#import <stdio.h>
 #import <string.h>
 #import <unistd.h>
 
@@ -45,47 +47,269 @@
 // write and discards it. See the file header for the shape rationale.
 static const uint8_t KSSESSIONLOG_COMMIT_DELIMITER = '\n';
 
-// Backwards search for a JSON integer value keyed by @c keyNeedle. The
-// needle must include the trailing colon (e.g. `"at_ms":`); anchoring on
-// the colon keeps the search from matching the key text inside a string
-// value like `"user_id":"at_ms"`. Returns YES with @c *value set on
-// success.
-static BOOL findLastJSONInteger(NSData *data, const char *keyNeedle, int64_t *value)
+static BOOL isJSONBoolean(id value)
 {
-    NSData *needle = [NSData dataWithBytes:keyNeedle length:strlen(keyNeedle)];
-    NSRange keyRange = [data rangeOfData:needle options:NSDataSearchBackwards range:NSMakeRange(0, data.length)];
-    if (keyRange.location == NSNotFound) {
+    return value != nil && CFGetTypeID((__bridge CFTypeRef)value) == CFBooleanGetTypeID();
+}
+
+static BOOL isJSONInteger(id value)
+{
+    if (![value isKindOfClass:[NSNumber class]] || isJSONBoolean(value)) {
         return NO;
     }
-
-    const uint8_t *bytes = data.bytes;
-    NSUInteger start = NSMaxRange(keyRange);
-    while (start < data.length &&
-           (bytes[start] == ' ' || bytes[start] == '\t' || bytes[start] == '\r' || bytes[start] == '\n')) {
-        start++;
-    }
-
-    NSUInteger end = start;
-    if (end < data.length && bytes[end] == '-') {
-        end++;
-    }
-    NSUInteger firstDigit = end;
-    while (end < data.length && bytes[end] >= '0' && bytes[end] <= '9') {
-        end++;
-    }
-    if (end == firstDigit) {
+    const char *type = [(NSNumber *)value objCType];
+    if (type == NULL || type[0] == 'f' || type[0] == 'd') {
         return NO;
     }
+    NSNumber *number = value;
+    return [number compare:@(INT64_MIN)] != NSOrderedAscending && [number compare:@(INT64_MAX)] != NSOrderedDescending;
+}
 
-    NSData *numberData = [data subdataWithRange:NSMakeRange(start, end - start)];
-    NSString *number = [[NSString alloc] initWithData:numberData encoding:NSUTF8StringEncoding];
-    if (number == nil) {
+typedef struct {
+    const uint8_t *bytes;
+    NSUInteger length;
+    NSUInteger position;
+} KSCrashSessionLogCursor;
+
+// The inspection path below only advances this cursor over NSData's existing
+// bytes. It creates no substrings, temporary NSData objects, or collections,
+// so its allocation cost is independent of the number of recorded events.
+
+static BOOL cursorHasBytes(KSCrashSessionLogCursor *cursor, const char *expected, NSUInteger length)
+{
+    return length <= cursor->length - cursor->position &&
+           memcmp(cursor->bytes + cursor->position, expected, length) == 0;
+}
+
+static BOOL cursorConsumeBytes(KSCrashSessionLogCursor *cursor, const char *expected, NSUInteger length)
+{
+    if (!cursorHasBytes(cursor, expected, length)) {
         return NO;
+    }
+    cursor->position += length;
+    return YES;
+}
+
+#define KSSESSIONLOG_CURSOR_HAS(cursor, literal) cursorHasBytes((cursor), (literal), sizeof(literal) - 1)
+#define KSSESSIONLOG_CURSOR_CONSUME(cursor, literal) cursorConsumeBytes((cursor), (literal), sizeof(literal) - 1)
+
+static BOOL cursorConsumeHexQuad(KSCrashSessionLogCursor *cursor, uint16_t *value)
+{
+    if (4 > cursor->length - cursor->position) {
+        return NO;
+    }
+    uint16_t result = 0;
+    for (NSUInteger i = 0; i < 4; i++) {
+        uint8_t c = cursor->bytes[cursor->position++];
+        uint8_t digit;
+        if (c >= '0' && c <= '9') {
+            digit = (uint8_t)(c - '0');
+        } else if (c >= 'a' && c <= 'f') {
+            digit = (uint8_t)(c - 'a' + 10);
+        } else if (c >= 'A' && c <= 'F') {
+            digit = (uint8_t)(c - 'A' + 10);
+        } else {
+            return NO;
+        }
+        result = (uint16_t)((result << 4) | digit);
     }
     if (value != NULL) {
-        *value = number.longLongValue;
+        *value = result;
     }
     return YES;
+}
+
+static BOOL cursorConsumeJSONString(KSCrashSessionLogCursor *cursor)
+{
+    if (!KSSESSIONLOG_CURSOR_CONSUME(cursor, "\"")) {
+        return NO;
+    }
+
+    while (cursor->position < cursor->length) {
+        uint8_t c = cursor->bytes[cursor->position];
+        if (c == '"') {
+            cursor->position++;
+            return YES;
+        }
+        if (c == '\\') {
+            cursor->position++;
+            if (cursor->position >= cursor->length) {
+                return NO;
+            }
+            uint8_t escape = cursor->bytes[cursor->position++];
+            if (escape == '"' || escape == '\\' || escape == '/' || escape == 'b' || escape == 'f' || escape == 'n' ||
+                escape == 'r' || escape == 't') {
+                continue;
+            }
+            if (escape != 'u') {
+                return NO;
+            }
+            uint16_t codeUnit;
+            if (!cursorConsumeHexQuad(cursor, &codeUnit)) {
+                return NO;
+            }
+            if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
+                uint16_t lowSurrogate;
+                if (!KSSESSIONLOG_CURSOR_CONSUME(cursor, "\\u") || !cursorConsumeHexQuad(cursor, &lowSurrogate) ||
+                    lowSurrogate < 0xdc00 || lowSurrogate > 0xdfff) {
+                    return NO;
+                }
+            } else if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
+                return NO;
+            }
+            continue;
+        }
+        if (c < 0x20) {
+            return NO;
+        }
+        if (c < 0x80) {
+            cursor->position++;
+            continue;
+        }
+
+        NSUInteger sequenceLength;
+        uint8_t secondMinimum = 0x80;
+        uint8_t secondMaximum = 0xbf;
+        if (c >= 0xc2 && c <= 0xdf) {
+            sequenceLength = 2;
+        } else if (c >= 0xe0 && c <= 0xef) {
+            sequenceLength = 3;
+            if (c == 0xe0) {
+                secondMinimum = 0xa0;
+            } else if (c == 0xed) {
+                secondMaximum = 0x9f;
+            }
+        } else if (c >= 0xf0 && c <= 0xf4) {
+            sequenceLength = 4;
+            if (c == 0xf0) {
+                secondMinimum = 0x90;
+            } else if (c == 0xf4) {
+                secondMaximum = 0x8f;
+            }
+        } else {
+            return NO;
+        }
+        if (sequenceLength > cursor->length - cursor->position) {
+            return NO;
+        }
+        uint8_t second = cursor->bytes[cursor->position + 1];
+        if (second < secondMinimum || second > secondMaximum) {
+            return NO;
+        }
+        for (NSUInteger i = 2; i < sequenceLength; i++) {
+            uint8_t continuation = cursor->bytes[cursor->position + i];
+            if (continuation < 0x80 || continuation > 0xbf) {
+                return NO;
+            }
+        }
+        cursor->position += sequenceLength;
+    }
+    return NO;
+}
+
+static BOOL cursorConsumeInt64(KSCrashSessionLogCursor *cursor, int64_t *value)
+{
+    BOOL negative = NO;
+    if (cursor->position < cursor->length && cursor->bytes[cursor->position] == '-') {
+        negative = YES;
+        cursor->position++;
+    }
+    if (cursor->position >= cursor->length || cursor->bytes[cursor->position] < '0' ||
+        cursor->bytes[cursor->position] > '9') {
+        return NO;
+    }
+
+    uint64_t limit = negative ? (uint64_t)INT64_MAX + 1 : (uint64_t)INT64_MAX;
+    uint64_t magnitude = 0;
+    if (cursor->bytes[cursor->position] == '0') {
+        cursor->position++;
+        if (negative || (cursor->position < cursor->length && cursor->bytes[cursor->position] >= '0' &&
+                         cursor->bytes[cursor->position] <= '9')) {
+            return NO;
+        }
+    } else {
+        while (cursor->position < cursor->length) {
+            uint8_t c = cursor->bytes[cursor->position];
+            if (c < '0' || c > '9') {
+                break;
+            }
+            uint8_t digit = (uint8_t)(c - '0');
+            if (magnitude > (limit - digit) / 10) {
+                return NO;
+            }
+            magnitude = magnitude * 10 + digit;
+            cursor->position++;
+        }
+    }
+
+    if (value != NULL) {
+        if (negative && magnitude == (uint64_t)INT64_MAX + 1) {
+            *value = INT64_MIN;
+        } else if (negative) {
+            *value = -(int64_t)magnitude;
+        } else {
+            *value = (int64_t)magnitude;
+        }
+    }
+    return YES;
+}
+
+static void updateMaximumTimestamp(int64_t timestamp, BOOL *hasTimestamp, int64_t *maximum)
+{
+    if (!*hasTimestamp || timestamp > *maximum) {
+        *maximum = timestamp;
+        *hasTimestamp = YES;
+    }
+}
+
+static BOOL cursorConsumeUser(KSCrashSessionLogCursor *cursor, BOOL *hasTimestamp, int64_t *maximum)
+{
+    if (!KSSESSIONLOG_CURSOR_CONSUME(cursor, "{\"user_id\":") || !cursorConsumeJSONString(cursor) ||
+        !KSSESSIONLOG_CURSOR_CONSUME(cursor, ",\"at_ms\":")) {
+        return NO;
+    }
+    int64_t atMs;
+    if (!cursorConsumeInt64(cursor, &atMs) || !KSSESSIONLOG_CURSOR_CONSUME(cursor, "}")) {
+        return NO;
+    }
+    updateMaximumTimestamp(atMs, hasTimestamp, maximum);
+    return YES;
+}
+
+static BOOL cursorConsumeSession(KSCrashSessionLogCursor *cursor, BOOL hasPreviousSession, BOOL *hasUsers,
+                                 BOOL *hasTimestamp, int64_t *maximum)
+{
+    if (hasPreviousSession) {
+        int64_t ignoredEnd;
+        if (!KSSESSIONLOG_CURSOR_CONSUME(cursor, "],\"ended_at_ms\":") || !cursorConsumeInt64(cursor, &ignoredEnd) ||
+            !KSSESSIONLOG_CURSOR_CONSUME(cursor, "},")) {
+            return NO;
+        }
+    }
+    if (!KSSESSIONLOG_CURSOR_CONSUME(cursor, "{\"session_id\":") || !cursorConsumeJSONString(cursor) ||
+        !KSSESSIONLOG_CURSOR_CONSUME(cursor, ",\"perceptible\":")) {
+        return NO;
+    }
+    if (!KSSESSIONLOG_CURSOR_CONSUME(cursor, "true") && !KSSESSIONLOG_CURSOR_CONSUME(cursor, "false")) {
+        return NO;
+    }
+    if (!KSSESSIONLOG_CURSOR_CONSUME(cursor, ",\"started_at_ms\":")) {
+        return NO;
+    }
+    int64_t startedAtMs;
+    if (!cursorConsumeInt64(cursor, &startedAtMs) || !KSSESSIONLOG_CURSOR_CONSUME(cursor, ",\"users\":[")) {
+        return NO;
+    }
+    updateMaximumTimestamp(startedAtMs, hasTimestamp, maximum);
+
+    *hasUsers = NO;
+    if (!KSSESSIONLOG_CURSOR_HAS(cursor, "\n")) {
+        if (!cursorConsumeUser(cursor, hasTimestamp, maximum)) {
+            return NO;
+        }
+        *hasUsers = YES;
+    }
+    return KSSESSIONLOG_CURSOR_CONSUME(cursor, "\n");
 }
 
 // Escape a Foundation string as a bare JSON string literal (leading and
@@ -101,84 +325,6 @@ static NSData *jsonEncodedString(NSString *s)
         return nil;
     }
     return [arrayData subdataWithRange:NSMakeRange(1, arrayData.length - 2)];
-}
-
-// Return the range of @c data ending at (and including) the file's last
-// commit-delimiter newline. Everything past that newline is treated as an
-// uncommitted partial write and dropped. Returns an empty range if @c data
-// is empty, doesn't start with the outer `[`, or contains no newline
-// (which means even the initial seed's '\n' didn't land — nothing is
-// safely readable).
-static NSData *committedPrefix(NSData *data)
-{
-    if (data.length == 0) {
-        return data;
-    }
-    const uint8_t *bytes = data.bytes;
-    if (bytes[0] != '[') {
-        return [data subdataWithRange:NSMakeRange(0, 0)];
-    }
-    NSInteger i = (NSInteger)data.length - 1;
-    while (i >= 0 && bytes[i] != KSSESSIONLOG_COMMIT_DELIMITER) {
-        i--;
-    }
-    if (i < 0) {
-        return [data subdataWithRange:NSMakeRange(0, 0)];
-    }
-    return [data subdataWithRange:NSMakeRange(0, (NSUInteger)(i + 1))];
-}
-
-// YES when the committed prefix carries no session data — either it is
-// empty (garbage or no committed newline) or it is only the outer `[`
-// plus whitespace (writer opened the file but no session_begin landed).
-// The scan stops at the first non-whitespace byte after `[`, so this is
-// O(1) even on large files.
-static BOOL isEmptyCommittedPrefix(NSData *committed)
-{
-    if (committed.length == 0) {
-        return YES;
-    }
-    const uint8_t *bytes = committed.bytes;
-    if (bytes[0] != '[') {
-        return YES;
-    }
-    for (NSUInteger i = 1; i < committed.length; i++) {
-        uint8_t c = bytes[i];
-        if (c != ' ' && c != '\t' && c != '\r' && c != '\n') {
-            return NO;
-        }
-    }
-    return YES;
-}
-
-// Append the closing suffix `],"ended_at_ms":<N>}]` that finalizes the
-// implicit-array shape from @c committed against @c endedAtMs. Assumes
-// @c committed already ends in a delimiter newline (which is JSON
-// whitespace) so `]` closes the tail session's users array cleanly.
-static void appendClosingSuffix(NSMutableData *output, int64_t endedAtMs)
-{
-    NSString *suffix = [NSString stringWithFormat:@"],\"ended_at_ms\":%lld}]", endedAtMs];
-    [output appendData:[suffix dataUsingEncoding:NSUTF8StringEncoding]];
-}
-
-// Highest event timestamp observable in the committed portion of @c data
-// — the max of the last `"started_at_ms":` and the last `"at_ms":` in
-// the file, or 0 if neither is present. Callers use this to floor the
-// tail session's ended_at_ms (so a user event cannot land past its own
-// session's end) and to bump the outer run's ended_at_ms when a user
-// observation is more recent than any monitor-observed transition.
-static int64_t maxObservedTimestampInCommitted(NSData *committed)
-{
-    int64_t observed = 0;
-    int64_t tailStart = 0;
-    if (findLastJSONInteger(committed, "\"started_at_ms\":", &tailStart) && tailStart > observed) {
-        observed = tailStart;
-    }
-    int64_t lastAtMs = 0;
-    if (findLastJSONInteger(committed, "\"at_ms\":", &lastAtMs) && lastAtMs > observed) {
-        observed = lastAtMs;
-    }
-    return observed;
 }
 
 @implementation KSCrashSessionLog {
@@ -422,50 +568,102 @@ static NSString *trimUserID(NSString *userID)
     return [self sessionsFromData:data];
 }
 
-+ (NSArray<KSCrashRunSummarySession *> *)sessionsFromData:(NSData *)data
++ (KSCrashSessionLogInspection)inspectionForData:(NSData *)data
 {
-    NSData *committed = committedPrefix(data);
-    if (isEmptyCommittedPrefix(committed)) {
-        return @[];
+    KSCrashSessionLogInspection inspection = {
+        .committedRange = NSMakeRange(0, 0),
+        .maxObservedTimestampMs = 0,
+        .isValid = NO,
+        .hasSessions = NO,
+    };
+    const uint8_t *bytes = data.bytes;
+    NSUInteger committedLength = 0;
+    for (NSUInteger i = data.length; i > 0; i--) {
+        if (bytes[i - 1] == KSSESSIONLOG_COMMIT_DELIMITER) {
+            committedLength = i;
+            break;
+        }
+    }
+    if (committedLength == 0) {
+        return inspection;
+    }
+    inspection.committedRange = NSMakeRange(0, committedLength);
+
+    KSCrashSessionLogCursor cursor = {
+        .bytes = bytes,
+        .length = committedLength,
+        .position = 0,
+    };
+    if (!KSSESSIONLOG_CURSOR_CONSUME(&cursor, "[\n")) {
+        return inspection;
+    }
+    if (cursor.position == cursor.length) {
+        inspection.isValid = YES;
+        return inspection;
     }
 
-    // Object reader path: build the closed JSON, parse, and materialize
-    // session/user objects. Parse cost is real here but only paid by
-    // callers that actually want the objects (tests, filters), not the
-    // startup raw-splice path.
-    int64_t tailEnd = maxObservedTimestampInCommitted(committed);
-    NSMutableData *closed = [committed mutableCopy];
-    appendClosingSuffix(closed, tailEnd);
+    BOOL hasSession = NO;
+    BOOL hasUsers = NO;
+    BOOL hasTimestamp = NO;
+    int64_t maximumTimestamp = 0;
+    while (cursor.position < cursor.length) {
+        if (!hasSession || KSSESSIONLOG_CURSOR_HAS(&cursor, "],\"ended_at_ms\":")) {
+            if (!cursorConsumeSession(&cursor, hasSession, &hasUsers, &hasTimestamp, &maximumTimestamp)) {
+                return inspection;
+            }
+            hasSession = YES;
+            continue;
+        }
 
-    id decoded = [NSJSONSerialization JSONObjectWithData:closed options:0 error:NULL];
-    if (![decoded isKindOfClass:[NSArray class]]) {
-        return @[];
+        if (hasUsers && !KSSESSIONLOG_CURSOR_CONSUME(&cursor, ",")) {
+            return inspection;
+        }
+        if (!cursorConsumeUser(&cursor, &hasTimestamp, &maximumTimestamp) ||
+            !KSSESSIONLOG_CURSOR_CONSUME(&cursor, "\n")) {
+            return inspection;
+        }
+        hasUsers = YES;
     }
 
+    inspection.maxObservedTimestampMs = maximumTimestamp;
+    inspection.isValid = YES;
+    inspection.hasSessions = hasSession;
+    return inspection;
+}
+
++ (NSArray<KSCrashRunSummarySession *> *)testcode_sessionsFromDecodedArray:(NSArray *)decoded
+{
     NSMutableArray<KSCrashRunSummarySession *> *sessions = [NSMutableArray array];
-    for (id entry in (NSArray *)decoded) {
+    for (id entry in decoded) {
         if (![entry isKindOfClass:[NSDictionary class]]) {
             continue;
         }
         NSDictionary *dict = entry;
         NSString *sessionID = dict[@"session_id"];
-        if (![sessionID isKindOfClass:[NSString class]]) {
+        id perceptibleValue = dict[@"perceptible"];
+        id startedAtMsValue = dict[@"started_at_ms"];
+        id endedAtMsValue = dict[@"ended_at_ms"];
+        id usersValue = dict[@"users"];
+        if (![sessionID isKindOfClass:[NSString class]] || !isJSONBoolean(perceptibleValue) ||
+            !isJSONInteger(startedAtMsValue) || !isJSONInteger(endedAtMsValue) ||
+            ![usersValue isKindOfClass:[NSArray class]]) {
             continue;
         }
-        BOOL perceptible = [dict[@"perceptible"] boolValue];
-        int64_t startedAtMs = [dict[@"started_at_ms"] longLongValue];
-        int64_t endedAtMs = [dict[@"ended_at_ms"] longLongValue];
+        BOOL perceptible = [perceptibleValue boolValue];
+        int64_t startedAtMs = [startedAtMsValue longLongValue];
+        int64_t endedAtMs = [endedAtMsValue longLongValue];
         NSMutableArray<KSCrashRunSummarySessionUser *> *users = [NSMutableArray array];
-        for (id userEntry in (NSArray *)dict[@"users"]) {
+        for (id userEntry in (NSArray *)usersValue) {
             if (![userEntry isKindOfClass:[NSDictionary class]]) {
                 continue;
             }
             NSDictionary *userDict = userEntry;
             NSString *userID = userDict[@"user_id"];
-            if (![userID isKindOfClass:[NSString class]]) {
+            id atMsValue = userDict[@"at_ms"];
+            if (![userID isKindOfClass:[NSString class]] || !isJSONInteger(atMsValue)) {
                 continue;
             }
-            int64_t atMs = [userDict[@"at_ms"] longLongValue];
+            int64_t atMs = [atMsValue longLongValue];
             [users addObject:[[KSCrashRunSummarySessionUser alloc] initWithUserID:userID atMs:atMs]];
         }
 
@@ -478,38 +676,76 @@ static NSString *trimUserID(NSString *userID)
     return sessions;
 }
 
++ (NSArray<KSCrashRunSummarySession *> *)sessionsFromData:(NSData *)data
+{
+    KSCrashSessionLogInspection inspection = [self inspectionForData:data];
+    if (!inspection.isValid || !inspection.hasSessions) {
+        return @[];
+    }
+
+    // Object reader path: build the closed JSON, parse, and materialize
+    // session/user objects. Parse cost is real here but only paid by
+    // callers that actually want the objects (tests, filters), not the
+    // startup raw-splice path.
+    NSMutableData *closed = [NSMutableData dataWithCapacity:inspection.committedRange.length + 32];
+    [self appendSessionsJSONFromData:data
+                          inspection:inspection
+                        runEndedAtMs:inspection.maxObservedTimestampMs
+                            toOutput:closed];
+
+    id decoded = [NSJSONSerialization JSONObjectWithData:closed options:0 error:NULL];
+    if (![decoded isKindOfClass:[NSArray class]]) {
+        return @[];
+    }
+    return [self testcode_sessionsFromDecodedArray:(NSArray *)decoded];
+}
+
 + (void)appendSessionsJSONFromData:(NSData *)data runEndedAtMs:(int64_t)runEndedAtMs toOutput:(NSMutableData *)output
 {
-    NSData *committed = committedPrefix(data);
-    if (isEmptyCommittedPrefix(committed)) {
-        [output appendBytes:"[]" length:2];
-        return;
+    KSCrashSessionLogInspection inspection = [self inspectionForData:data];
+    [self appendSessionsJSONFromData:data inspection:inspection runEndedAtMs:runEndedAtMs toOutput:output];
+}
+
++ (void)appendSessionsJSONFromData:(NSData *)data
+                        inspection:(KSCrashSessionLogInspection)inspection
+                      runEndedAtMs:(int64_t)runEndedAtMs
+                          toOutput:(NSMutableData *)output
+{
+    if (inspection.isValid && inspection.hasSessions) {
+        if (inspection.committedRange.location > data.length ||
+            inspection.committedRange.length > data.length - inspection.committedRange.location) {
+            [output appendBytes:"[]" length:2];
+            return;
+        }
+        const uint8_t *bytes = data.bytes;
+        [output appendBytes:bytes + inspection.committedRange.location length:inspection.committedRange.length];
     }
-    // The tail session's ended_at_ms is stamped with the outer run's end
-    // time, floored against any observation still recorded in the log —
-    // in particular the last user event. Without that floor, a user
-    // observation more recent than any monitor-observed run transition
-    // (e.g. OOM shortly after a user change with the resource monitor
-    // disabled) would emit `user.at_ms > session.ended_at_ms`.
+    [output appendData:[self closingDataForInspection:inspection runEndedAtMs:runEndedAtMs]];
+}
+
++ (NSData *)closingDataForInspection:(KSCrashSessionLogInspection)inspection runEndedAtMs:(int64_t)runEndedAtMs
+{
+    if (!inspection.isValid || !inspection.hasSessions) {
+        return [NSData dataWithBytes:"[]" length:2];
+    }
+    // The tail session's ended_at_ms is floored against every observation
+    // recorded in the log, so a user event cannot land past its session end.
     int64_t finalizedEnd = runEndedAtMs;
-    int64_t observed = maxObservedTimestampInCommitted(committed);
-    if (observed > finalizedEnd) {
-        finalizedEnd = observed;
+    if (inspection.maxObservedTimestampMs > finalizedEnd) {
+        finalizedEnd = inspection.maxObservedTimestampMs;
     }
-    [output appendData:committed];
-    appendClosingSuffix(output, finalizedEnd);
+    char suffix[64];
+    int length = snprintf(suffix, sizeof(suffix), "],\"ended_at_ms\":%" PRId64 "}]", finalizedEnd);
+    if (length <= 0 || (NSUInteger)length >= sizeof(suffix)) {
+        return [NSData data];
+    }
+    return [NSData dataWithBytes:suffix length:(NSUInteger)length];
 }
 
 + (int64_t)maxObservedTimestampInData:(NSData *)data
 {
-    if (data.length == 0) {
-        return 0;
-    }
-    NSData *committed = committedPrefix(data);
-    if (committed.length == 0) {
-        return 0;
-    }
-    return maxObservedTimestampInCommitted(committed);
+    KSCrashSessionLogInspection inspection = [self inspectionForData:data];
+    return inspection.isValid ? inspection.maxObservedTimestampMs : 0;
 }
 
 #pragma mark - Test helpers

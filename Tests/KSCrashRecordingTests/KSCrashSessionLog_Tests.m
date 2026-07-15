@@ -35,6 +35,7 @@
 
 @interface KSCrashSessionLog (TestHelpers)
 - (void)_testcode_invalidateFileDescriptor;
++ (NSArray<KSCrashRunSummarySession *> *)testcode_sessionsFromDecodedArray:(NSArray *)decoded;
 @end
 
 @interface KSCrashSessionLog_Tests : XCTestCase
@@ -43,6 +44,15 @@
 @end
 
 @implementation KSCrashSessionLog_Tests
+
+- (nullable NSDictionary *)summaryBySplicingSessionData:(NSData *)sessionData
+{
+    NSMutableData *summaryData = [[@"{\"sessions\":" dataUsingEncoding:NSUTF8StringEncoding] mutableCopy];
+    [KSCrashSessionLog appendSessionsJSONFromData:sessionData runEndedAtMs:10 toOutput:summaryData];
+    [summaryData appendBytes:"}" length:1];
+    id decoded = [NSJSONSerialization JSONObjectWithData:summaryData options:0 error:NULL];
+    return [decoded isKindOfClass:[NSDictionary class]] ? decoded : nil;
+}
 
 - (void)setUp
 {
@@ -90,6 +100,213 @@
     XCTAssertEqual(b.startedAtMs, 5);
     XCTAssertEqual(b.endedAtMs, 5);  // still-open session's end reflects last write
     XCTAssertEqual(b.users.count, 0u);
+}
+
+- (void)test_sessionsFromDecodedArray_wrongTypedPerceptibleSkipsSession
+{
+    NSArray *decoded = @[
+        @{
+            @"session_id" : @"session",
+            @"perceptible" : @[],
+            @"started_at_ms" : @1,
+            @"ended_at_ms" : @2,
+            @"users" : @[],
+        },
+    ];
+    NSArray<KSCrashRunSummarySession *> *sessions = nil;
+
+    XCTAssertNoThrow(sessions = [KSCrashSessionLog testcode_sessionsFromDecodedArray:decoded]);
+    XCTAssertEqualObjects(sessions, @[]);
+}
+
+- (void)test_sessionsFromDecodedArray_wrongTypedUserTimestampSkipsOnlyInvalidUser
+{
+    NSArray *decoded = @[
+        @{
+            @"session_id" : @"session",
+            @"perceptible" : @YES,
+            @"started_at_ms" : @1,
+            @"ended_at_ms" : @3,
+            @"users" : @[
+                @{ @"user_id" : @"invalid", @"at_ms" : @[] },
+                @{ @"user_id" : @"valid", @"at_ms" : @2 },
+            ],
+        },
+    ];
+    NSArray<KSCrashRunSummarySession *> *sessions = nil;
+
+    XCTAssertNoThrow(sessions = [KSCrashSessionLog testcode_sessionsFromDecodedArray:decoded]);
+    XCTAssertEqual(sessions.count, 1u);
+    XCTAssertEqual(sessions[0].users.count, 1u);
+    XCTAssertEqualObjects(sessions[0].users[0].userID, @"valid");
+    XCTAssertEqual(sessions[0].users[0].atMs, 2);
+}
+
+- (void)test_sessionsFromDecodedArray_wrongTypedUsersSkipsSession
+{
+    NSArray *decoded = @[
+        @{
+            @"session_id" : @"session",
+            @"perceptible" : @YES,
+            @"started_at_ms" : @1,
+            @"ended_at_ms" : @2,
+            @"users" : @"not-an-array",
+        },
+    ];
+    NSArray<KSCrashRunSummarySession *> *sessions = nil;
+
+    XCTAssertNoThrow(sessions = [KSCrashSessionLog testcode_sessionsFromDecodedArray:decoded]);
+    XCTAssertEqualObjects(sessions, @[]);
+}
+
+- (void)test_sessionsFromDecodedArray_wrongTypedSessionTimestampsSkipSessions
+{
+    NSArray *decoded = @[
+        @{
+            @"session_id" : @"bad-start",
+            @"perceptible" : @YES,
+            @"started_at_ms" : @[],
+            @"ended_at_ms" : @2,
+            @"users" : @[],
+        },
+        @{
+            @"session_id" : @"bad-end",
+            @"perceptible" : @YES,
+            @"started_at_ms" : @1,
+            @"ended_at_ms" : @[],
+            @"users" : @[],
+        },
+    ];
+    NSArray<KSCrashRunSummarySession *> *sessions = nil;
+
+    XCTAssertNoThrow(sessions = [KSCrashSessionLog testcode_sessionsFromDecodedArray:decoded]);
+    XCTAssertEqualObjects(sessions, @[]);
+}
+
+- (void)test_sessionsFromDecodedArray_numberForBooleanSkipsSession
+{
+    NSArray *decoded = @[
+        @{
+            @"session_id" : @"session",
+            @"perceptible" : @1,
+            @"started_at_ms" : @1,
+            @"ended_at_ms" : @2,
+            @"users" : @[],
+        },
+    ];
+
+    NSArray *sessions = [KSCrashSessionLog testcode_sessionsFromDecodedArray:decoded];
+
+    XCTAssertEqualObjects(sessions, @[]);
+}
+
+- (void)test_sessionsFromDecodedArray_booleanForIntegerSkipsSession
+{
+    NSArray *decoded = @[
+        @{
+            @"session_id" : @"session",
+            @"perceptible" : @YES,
+            @"started_at_ms" : @YES,
+            @"ended_at_ms" : @2,
+            @"users" : @[],
+        },
+    ];
+
+    NSArray *sessions = [KSCrashSessionLog testcode_sessionsFromDecodedArray:decoded];
+
+    XCTAssertEqualObjects(sessions, @[]);
+}
+
+- (void)test_sessionsFromDecodedArray_fractionalTimestampSkipsSession
+{
+    NSArray *decoded = @[
+        @{
+            @"session_id" : @"session",
+            @"perceptible" : @YES,
+            @"started_at_ms" : @1.5,
+            @"ended_at_ms" : @2,
+            @"users" : @[],
+        },
+    ];
+
+    NSArray *sessions = [KSCrashSessionLog testcode_sessionsFromDecodedArray:decoded];
+
+    XCTAssertEqualObjects(sessions, @[]);
+}
+
+- (void)test_sessionsFromDecodedArray_nullTimestampSkipsSession
+{
+    NSArray *decoded = @[
+        @{
+            @"session_id" : @"session",
+            @"perceptible" : @YES,
+            @"started_at_ms" : [NSNull null],
+            @"ended_at_ms" : @2,
+            @"users" : @[],
+        },
+    ];
+
+    NSArray *sessions = [KSCrashSessionLog testcode_sessionsFromDecodedArray:decoded];
+
+    XCTAssertEqualObjects(sessions, @[]);
+}
+
+- (void)test_sessionsFromDecodedArray_signedIntegerBoundariesAreAccepted
+{
+    NSArray *decoded = @[
+        @{
+            @"session_id" : @"session",
+            @"perceptible" : @YES,
+            @"started_at_ms" : @(INT64_MIN),
+            @"ended_at_ms" : @(INT64_MAX),
+            @"users" : @[
+                @{ @"user_id" : @"minimum", @"at_ms" : @(INT64_MIN) },
+                @{ @"user_id" : @"maximum", @"at_ms" : @(INT64_MAX) },
+            ],
+        },
+    ];
+
+    NSArray<KSCrashRunSummarySession *> *sessions = [KSCrashSessionLog testcode_sessionsFromDecodedArray:decoded];
+
+    XCTAssertEqual(sessions.count, 1u);
+    XCTAssertEqual(sessions[0].startedAtMs, INT64_MIN);
+    XCTAssertEqual(sessions[0].endedAtMs, INT64_MAX);
+    XCTAssertEqual(sessions[0].users.count, 2u);
+    XCTAssertEqual(sessions[0].users[0].atMs, INT64_MIN);
+    XCTAssertEqual(sessions[0].users[1].atMs, INT64_MAX);
+}
+
+- (void)test_sessionsFromDecodedArray_unsignedOverflowIsRejectedWithoutWrapping
+{
+    NSNumber *tooLarge = @((unsigned long long)INT64_MAX + 1);
+    NSArray *decoded = @[
+        @{
+            @"session_id" : @"overflow-session",
+            @"perceptible" : @YES,
+            @"started_at_ms" : tooLarge,
+            @"ended_at_ms" : @2,
+            @"users" : @[],
+        },
+        @{
+            @"session_id" : @"valid-session",
+            @"perceptible" : @YES,
+            @"started_at_ms" : @1,
+            @"ended_at_ms" : @3,
+            @"users" : @[
+                @{ @"user_id" : @"overflow-user", @"at_ms" : tooLarge },
+                @{ @"user_id" : @"valid-user", @"at_ms" : @2 },
+            ],
+        },
+    ];
+
+    NSArray<KSCrashRunSummarySession *> *sessions = [KSCrashSessionLog testcode_sessionsFromDecodedArray:decoded];
+
+    XCTAssertEqual(sessions.count, 1u);
+    XCTAssertEqualObjects([sessions valueForKey:@"sessionID"], (@[ @"valid-session" ]));
+    XCTAssertEqualObjects([sessions valueForKey:@"startedAtMs"], (@[ @1 ]));
+    KSCrashRunSummarySession *validSession = sessions.lastObject;
+    XCTAssertEqualObjects([validSession.users valueForKey:@"userID"], (@[ @"valid-user" ]));
+    XCTAssertEqualObjects([validSession.users valueForKey:@"atMs"], (@[ @2 ]));
 }
 
 - (void)test_newSessionInheritsCurrentUser
@@ -175,6 +392,130 @@
     NSData *junk = [@"kssl\x01not-json" dataUsingEncoding:NSUTF8StringEncoding];
     [junk writeToFile:self.path atomically:YES];
     XCTAssertEqual([KSCrashSessionLog sessionsAtPath:self.path].count, 0u);
+}
+
+- (void)test_committedGarbage_splicesAsEmptySessions
+{
+    NSData *garbage = [@"[not-json\n" dataUsingEncoding:NSUTF8StringEncoding];
+
+    NSDictionary *summary = [self summaryBySplicingSessionData:garbage];
+
+    XCTAssertNotNil(summary);
+    XCTAssertEqualObjects(summary[@"sessions"], @[]);
+}
+
+- (void)test_closingDataForInvalidInspection_isEmptyArray
+{
+    NSData *garbage = [@"[not-json\n" dataUsingEncoding:NSUTF8StringEncoding];
+    KSCrashSessionLogInspection inspection = [KSCrashSessionLog inspectionForData:garbage];
+
+    NSData *closing = [KSCrashSessionLog closingDataForInspection:inspection runEndedAtMs:10];
+
+    XCTAssertFalse(inspection.isValid);
+    XCTAssertEqualObjects([[NSString alloc] initWithData:closing encoding:NSUTF8StringEncoding], @"[]");
+}
+
+- (void)test_closingDataForValidEmptyInspection_isEmptyArray
+{
+    NSData *emptyLog = [@"[\n" dataUsingEncoding:NSUTF8StringEncoding];
+    KSCrashSessionLogInspection inspection = [KSCrashSessionLog inspectionForData:emptyLog];
+
+    NSData *closing = [KSCrashSessionLog closingDataForInspection:inspection runEndedAtMs:10];
+
+    XCTAssertTrue(inspection.isValid);
+    XCTAssertFalse(inspection.hasSessions);
+    XCTAssertEqualObjects([[NSString alloc] initWithData:closing encoding:NSUTF8StringEncoding], @"[]");
+}
+
+- (void)test_corruptCommittedWriterToken_splicesAsEmptySessions
+{
+    KSCrashSessionLog *log = [[KSCrashSessionLog alloc] initForWritingAtPath:self.path];
+    XCTAssertTrue([log recordSessionBeginWithID:@"sess-A" perceptible:YES atMs:1 userID:@"alice"]);
+    XCTAssertTrue([log recordUserID:@"bob" atMs:2]);
+    [log close];
+
+    NSMutableData *corrupt = [[NSData dataWithContentsOfFile:self.path] mutableCopy];
+    NSData *token = [@"\"at_ms\":2" dataUsingEncoding:NSUTF8StringEncoding];
+    NSRange tokenRange = [corrupt rangeOfData:token options:0 range:NSMakeRange(0, corrupt.length)];
+    XCTAssertNotEqual(tokenRange.location, NSNotFound);
+    uint8_t replacement = '!';
+    [corrupt replaceBytesInRange:NSMakeRange(tokenRange.location, 1) withBytes:&replacement];
+
+    NSDictionary *summary = [self summaryBySplicingSessionData:corrupt];
+
+    XCTAssertNotNil(summary);
+    XCTAssertEqualObjects(summary[@"sessions"], @[]);
+}
+
+- (void)test_invalidJSONStringEscapes_spliceAsEmptySessions
+{
+    NSArray<NSString *> *invalidLogs = @[
+        @"[\n{\"session_id\":\"bad\\x\",\"perceptible\":true,\"started_at_ms\":1,\"users\":[\n",
+        @"[\n{\"session_id\":\"bad\\u12G4\",\"perceptible\":true,\"started_at_ms\":1,\"users\":[\n",
+        @"[\n{\"session_id\":\"bad\\uD800\",\"perceptible\":true,\"started_at_ms\":1,\"users\":[\n",
+    ];
+
+    for (NSString *invalidLog in invalidLogs) {
+        NSDictionary *summary = [self summaryBySplicingSessionData:[invalidLog dataUsingEncoding:NSUTF8StringEncoding]];
+        XCTAssertNotNil(summary);
+        XCTAssertEqualObjects(summary[@"sessions"], @[]);
+    }
+}
+
+- (void)test_invalidUTF8InJSONString_splicesAsEmptySessions
+{
+    const uint8_t overlong[] = { 0xc0, 0xaf };
+    const uint8_t surrogate[] = { 0xed, 0xa0, 0x80 };
+    const uint8_t outOfRange[] = { 0xf4, 0x90, 0x80, 0x80 };
+    const uint8_t incomplete[] = { 0xe2, 0x82 };
+    const uint8_t rawControl[] = { 0x01 };
+    NSArray<NSData *> *invalidStrings = @[
+        [NSData dataWithBytes:overlong length:sizeof(overlong)],
+        [NSData dataWithBytes:surrogate length:sizeof(surrogate)],
+        [NSData dataWithBytes:outOfRange length:sizeof(outOfRange)],
+        [NSData dataWithBytes:incomplete length:sizeof(incomplete)],
+        [NSData dataWithBytes:rawControl length:sizeof(rawControl)],
+    ];
+    NSData *prefix = [@"[\n{\"session_id\":\"" dataUsingEncoding:NSUTF8StringEncoding];
+    NSData *suffix =
+        [@"\",\"perceptible\":true,\"started_at_ms\":1,\"users\":[\n" dataUsingEncoding:NSUTF8StringEncoding];
+
+    for (NSData *invalidString in invalidStrings) {
+        NSMutableData *logData = [prefix mutableCopy];
+        [logData appendData:invalidString];
+        [logData appendData:suffix];
+        NSDictionary *summary = [self summaryBySplicingSessionData:logData];
+        XCTAssertNotNil(summary);
+        XCTAssertEqualObjects(summary[@"sessions"], @[]);
+    }
+}
+
+- (void)test_signedIntegerBoundaries_areAccepted
+{
+    NSData *logData = [[NSString stringWithFormat:@"[\n{\"session_id\":\"s\",\"perceptible\":true,\"started_at_ms\":%"
+                                                  @"lld,\"users\":[{\"user_id\":\"u\",\"at_ms\":%lld}\n",
+                                                  INT64_MIN, INT64_MAX] dataUsingEncoding:NSUTF8StringEncoding];
+
+    NSDictionary *summary = [self summaryBySplicingSessionData:logData];
+
+    XCTAssertEqual([summary[@"sessions"] count], 1u);
+    XCTAssertEqual([KSCrashSessionLog maxObservedTimestampInData:logData], INT64_MAX);
+}
+
+- (void)test_overflowingIntegers_spliceAsEmptySessions
+{
+    NSArray<NSString *> *invalidLogs = @[
+        @"[\n{\"session_id\":\"s\",\"perceptible\":true,\"started_at_ms\":9223372036854775808,\"users\":[\n",
+        @"[\n{\"session_id\":\"s\",\"perceptible\":true,\"started_at_ms\":-9223372036854775809,\"users\":[\n",
+    ];
+
+    for (NSString *invalidLog in invalidLogs) {
+        NSData *logData = [invalidLog dataUsingEncoding:NSUTF8StringEncoding];
+        NSDictionary *summary = [self summaryBySplicingSessionData:logData];
+        XCTAssertNotNil(summary);
+        XCTAssertEqualObjects(summary[@"sessions"], @[]);
+        XCTAssertEqual([KSCrashSessionLog maxObservedTimestampInData:logData], 0);
+    }
 }
 
 - (void)test_partialWriteAfterUserRecord_recoversPreviousEvents

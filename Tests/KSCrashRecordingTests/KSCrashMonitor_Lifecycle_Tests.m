@@ -745,8 +745,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     dispatch_group_async(group, dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         kscm_lifecycle_observeUser(NULL);
     });
-    XCTAssertEqual(dispatch_semaphore_wait(g_forgetLastUserIDEntered,
-                                           dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC)),
+    XCTAssertEqual(dispatch_semaphore_wait(g_forgetLastUserIDEntered, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC)),
                    0);
 
     dispatch_semaphore_t reloginStarted = dispatch_semaphore_create(0);

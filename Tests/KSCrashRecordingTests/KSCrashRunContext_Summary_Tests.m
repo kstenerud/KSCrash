@@ -25,9 +25,12 @@
 //
 
 #import <XCTest/XCTest.h>
+#import <dispatch/dispatch.h>
+#import <objc/runtime.h>
+#import <sys/uio.h>
 
 #import "KSCrashRunContext.h"
-#import "KSCrashRunSummary.h"
+#import "KSCrashRunSummary+Private.h"
 #import "KSCrashSessionLog.h"
 #import "KSKeyValueStore.h"
 
@@ -415,6 +418,305 @@ extern void ksruncontext_testcode_setLifecycleData(const KSCrash_LifecycleData *
     ksruncontext_testcode_setLifecycleData(NULL);
 }
 
+- (void)test_persistPreviousRunSummary_lazyValidSessionsStayLazy
+{
+    KSCrashRunContext ctx;
+    populateContext(&ctx);
+    int64_t startedAtMs = (int64_t)(ctx.lifecycle.wallClockAtStartNs / 1000000ULL);
+    NSString *sessionsPath = [self.tempDir stringByAppendingPathComponent:@"Sessions-valid"];
+    KSCrashSessionLog *log = [[KSCrashSessionLog alloc] initForWritingAtPath:sessionsPath];
+    XCTAssertTrue([log recordSessionBeginWithID:@"session-A" perceptible:YES atMs:startedAtMs userID:@"alice"]);
+    XCTAssertTrue([log recordUserID:@"bob" atMs:startedAtMs + 500]);
+    [log close];
+
+    KSCrashRunSummary *summary = ksruncontext_testcode_buildSummaryWithSessions(&ctx, NULL, sessionsPath.UTF8String);
+    XCTAssertNil([summary valueForKey:@"_sessions"]);
+    NSDictionary *expected = [NSJSONSerialization JSONObjectWithData:summary.jsonData options:0 error:nil];
+    XCTAssertNotNil(expected);
+    XCTAssertNil([summary valueForKey:@"_sessions"]);
+
+    ksruncontext_testcode_setCachedSummary(summary, ctx.runID);
+    ksruncontext_testcode_setLifecycleData(&ctx.lifecycle);
+    ksruncontext_persistPreviousRunSummary(self.runsDir.UTF8String);
+
+    NSString *outputPath =
+        [self.runsDir stringByAppendingPathComponent:runFilenameForNs((long long)ctx.lifecycle.wallClockAtStartNs)];
+    NSData *output = [NSData dataWithContentsOfFile:outputPath];
+    NSDictionary *actual = [NSJSONSerialization JSONObjectWithData:output options:0 error:nil];
+    XCTAssertEqualObjects(actual, expected);
+    XCTAssertNil([summary valueForKey:@"_sessions"]);
+
+    ksruncontext_testcode_setCachedSummary(nil, NULL);
+    ksruncontext_testcode_setLifecycleData(NULL);
+}
+
+- (void)test_persistPreviousRunSummary_committedGarbageWritesEmptySessions
+{
+    KSCrashRunContext ctx;
+    populateContext(&ctx);
+    NSString *sessionsPath = [self.tempDir stringByAppendingPathComponent:@"Sessions-garbage"];
+    [@"[committed garbage\n" writeToFile:sessionsPath atomically:YES encoding:NSUTF8StringEncoding error:nil];
+    KSCrashRunSummary *summary = ksruncontext_testcode_buildSummaryWithSessions(&ctx, NULL, sessionsPath.UTF8String);
+    NSDictionary *expected = [NSJSONSerialization JSONObjectWithData:summary.jsonData options:0 error:nil];
+    XCTAssertEqualObjects(expected[@"sessions"], @[]);
+    XCTAssertNil([summary valueForKey:@"_sessions"]);
+
+    ksruncontext_testcode_setCachedSummary(summary, ctx.runID);
+    ksruncontext_testcode_setLifecycleData(&ctx.lifecycle);
+    ksruncontext_persistPreviousRunSummary(self.runsDir.UTF8String);
+
+    NSString *outputPath =
+        [self.runsDir stringByAppendingPathComponent:runFilenameForNs((long long)ctx.lifecycle.wallClockAtStartNs)];
+    NSData *output = [NSData dataWithContentsOfFile:outputPath];
+    NSDictionary *actual = [NSJSONSerialization JSONObjectWithData:output options:0 error:nil];
+    XCTAssertEqualObjects(actual, expected);
+    XCTAssertEqualObjects(actual[@"sessions"], @[]);
+    XCTAssertNil([summary valueForKey:@"_sessions"]);
+
+    ksruncontext_testcode_setCachedSummary(nil, NULL);
+    ksruncontext_testcode_setLifecycleData(NULL);
+}
+
+- (void)test_persistPreviousRunSummary_emptyLazyLogMatchesPublicJSON
+{
+    KSCrashRunContext ctx;
+    populateContext(&ctx);
+    NSString *sessionsPath = [self.tempDir stringByAppendingPathComponent:@"Sessions-empty"];
+    KSCrashSessionLog *log = [[KSCrashSessionLog alloc] initForWritingAtPath:sessionsPath];
+    XCTAssertNotNil(log);
+    [log close];
+
+    KSCrashRunSummary *summary = ksruncontext_testcode_buildSummaryWithSessions(&ctx, NULL, sessionsPath.UTF8String);
+    NSDictionary *expected = [NSJSONSerialization JSONObjectWithData:summary.jsonData options:0 error:nil];
+    XCTAssertEqualObjects(expected[@"sessions"], @[]);
+    XCTAssertNil([summary valueForKey:@"_sessions"]);
+
+    ksruncontext_testcode_setCachedSummary(summary, ctx.runID);
+    ksruncontext_testcode_setLifecycleData(&ctx.lifecycle);
+    ksruncontext_persistPreviousRunSummary(self.runsDir.UTF8String);
+
+    NSString *outputPath =
+        [self.runsDir stringByAppendingPathComponent:runFilenameForNs((long long)ctx.lifecycle.wallClockAtStartNs)];
+    NSData *output = [NSData dataWithContentsOfFile:outputPath];
+    NSDictionary *actual = [NSJSONSerialization JSONObjectWithData:output options:0 error:nil];
+    XCTAssertEqualObjects(actual, expected);
+    XCTAssertNil([summary valueForKey:@"_sessions"]);
+
+    ksruncontext_testcode_setCachedSummary(nil, NULL);
+    ksruncontext_testcode_setLifecycleData(NULL);
+}
+
+- (void)test_persistPreviousRunSummary_lazySummaryDoesNotCallJSONData
+{
+    KSCrashRunContext ctx;
+    populateContext(&ctx);
+    int64_t startedAtMs = (int64_t)(ctx.lifecycle.wallClockAtStartNs / 1000000ULL);
+    NSString *sessionsPath = [self.tempDir stringByAppendingPathComponent:@"Sessions-no-json-data"];
+    KSCrashSessionLog *log = [[KSCrashSessionLog alloc] initForWritingAtPath:sessionsPath];
+    XCTAssertTrue([log recordSessionBeginWithID:@"session-A" perceptible:YES atMs:startedAtMs userID:nil]);
+    [log close];
+    KSCrashRunSummary *summary = ksruncontext_testcode_buildSummaryWithSessions(&ctx, NULL, sessionsPath.UTF8String);
+    XCTAssertNil([summary valueForKey:@"_sessions"]);
+
+    ksruncontext_testcode_setCachedSummary(summary, ctx.runID);
+    ksruncontext_testcode_setLifecycleData(&ctx.lifecycle);
+
+    Method method = class_getInstanceMethod(KSCrashRunSummary.class, @selector(jsonData));
+    IMP original = method_getImplementation(method);
+    __block NSUInteger callCount = 0;
+    IMP replacement = imp_implementationWithBlock(^NSData *(KSCrashRunSummary *object) {
+        (void)object;
+        callCount++;
+        return nil;
+    });
+    @try {
+        method_setImplementation(method, replacement);
+        ksruncontext_persistPreviousRunSummary(self.runsDir.UTF8String);
+        NSString *outputPath =
+            [self.runsDir stringByAppendingPathComponent:runFilenameForNs((long long)ctx.lifecycle.wallClockAtStartNs)];
+        NSData *output = [NSData dataWithContentsOfFile:outputPath];
+        XCTAssertEqual(callCount, 0u);
+        XCTAssertNotNil(output);
+        id outputObject = output != nil ? [NSJSONSerialization JSONObjectWithData:output options:0 error:nil] : nil;
+        XCTAssertNotNil(outputObject);
+        XCTAssertNil([summary valueForKey:@"_sessions"]);
+    } @finally {
+        method_setImplementation(method, original);
+        imp_removeBlock(replacement);
+        ksruncontext_testcode_setCachedSummary(nil, NULL);
+        ksruncontext_testcode_setLifecycleData(NULL);
+    }
+}
+
+- (void)test_writeAllVectors_retriesInterruptedAndAdvancesPartialWrite
+{
+    const char first[] = "abc";
+    const char second[] = "defgh";
+    const char third[] = "ij";
+    struct iovec vectors[] = {
+        { .iov_base = (void *)first, .iov_len = sizeof(first) - 1 },
+        { .iov_base = (void *)second, .iov_len = sizeof(second) - 1 },
+        { .iov_base = (void *)third, .iov_len = sizeof(third) - 1 },
+    };
+    __block NSUInteger calls = 0;
+    __block NSMutableData *written = [NSMutableData data];
+    KSCrashRunSummaryWritevBlock writevBlock = ^ssize_t(int fileDescriptor, const struct iovec *current, int count) {
+        XCTAssertEqual(fileDescriptor, 42);
+        calls++;
+        if (calls == 1) {
+            errno = EINTR;
+            return -1;
+        }
+
+        size_t permitted = calls == 2 ? 5 : SIZE_MAX;
+        size_t emitted = 0;
+        for (int i = 0; i < count && emitted < permitted; i++) {
+            size_t length = MIN(current[i].iov_len, permitted - emitted);
+            [written appendBytes:current[i].iov_base length:length];
+            emitted += length;
+        }
+        if (calls == 2) {
+            XCTAssertEqual(emitted, 5u);
+        } else {
+            XCTAssertEqual(count, 2);
+            XCTAssertEqual(current[0].iov_len, 3u);
+            XCTAssertEqual(memcmp(current[0].iov_base, "fgh", 3), 0);
+            XCTAssertEqual(current[1].iov_len, 2u);
+            XCTAssertEqual(memcmp(current[1].iov_base, "ij", 2), 0);
+        }
+        return (ssize_t)emitted;
+    };
+
+    XCTAssertTrue([KSCrashRunSummary testcode_writeAllVectors:vectors
+                                                        count:(int)(sizeof(vectors) / sizeof(vectors[0]))
+                                               fileDescriptor:42
+                                                  writevBlock:writevBlock]);
+    XCTAssertEqual(calls, 3u);
+    XCTAssertEqualObjects([[NSString alloc] initWithData:written encoding:NSUTF8StringEncoding], @"abcdefghij");
+}
+
+- (void)test_writeAllVectors_skipsZeroLengthVectors
+{
+    const char first[] = "ab";
+    const char second[] = "cd";
+    struct iovec vectors[] = {
+        { .iov_base = (void *)first, .iov_len = sizeof(first) - 1 },
+        { .iov_base = NULL, .iov_len = 0 },
+        { .iov_base = (void *)second, .iov_len = sizeof(second) - 1 },
+    };
+    __block NSUInteger calls = 0;
+    KSCrashRunSummaryWritevBlock writevBlock = ^ssize_t(int fileDescriptor, const struct iovec *current, int count) {
+        XCTAssertEqual(fileDescriptor, 42);
+        calls++;
+        XCTAssertEqual(count, 2);
+        XCTAssertEqual(current[0].iov_len, 2u);
+        XCTAssertEqual(current[1].iov_len, 2u);
+        return 4;
+    };
+
+    XCTAssertTrue([KSCrashRunSummary testcode_writeAllVectors:vectors
+                                                        count:(int)(sizeof(vectors) / sizeof(vectors[0]))
+                                               fileDescriptor:42
+                                                  writevBlock:writevBlock]);
+    XCTAssertEqual(calls, 1u);
+}
+
+- (void)test_writeAllVectors_rejectsZeroProgress
+{
+    const char bytes[] = "ab";
+    struct iovec vector = { .iov_base = (void *)bytes, .iov_len = sizeof(bytes) - 1 };
+
+    errno = 0;
+    XCTAssertFalse([KSCrashRunSummary
+        testcode_writeAllVectors:&vector
+                           count:1
+                  fileDescriptor:42
+                     writevBlock:^ssize_t(__unused int fd, __unused const struct iovec *iov, __unused int count) {
+                         return 0;
+                     }]);
+    XCTAssertEqual(errno, EIO);
+}
+
+- (void)test_writeAllVectors_rejectsResultLargerThanOffered
+{
+    const char bytes[] = "ab";
+    struct iovec vector = { .iov_base = (void *)bytes, .iov_len = sizeof(bytes) - 1 };
+
+    errno = 0;
+    XCTAssertFalse([KSCrashRunSummary
+        testcode_writeAllVectors:&vector
+                           count:1
+                  fileDescriptor:42
+                     writevBlock:^ssize_t(__unused int fd, __unused const struct iovec *iov, __unused int count) {
+                         return 3;
+                     }]);
+    XCTAssertEqual(errno, EIO);
+}
+
+- (void)test_writeAllVectors_preservesNonInterruptedError
+{
+    const char bytes[] = "ab";
+    struct iovec vector = { .iov_base = (void *)bytes, .iov_len = sizeof(bytes) - 1 };
+    __block NSUInteger calls = 0;
+
+    errno = 0;
+    XCTAssertFalse([KSCrashRunSummary
+        testcode_writeAllVectors:&vector
+                           count:1
+                  fileDescriptor:42
+                     writevBlock:^ssize_t(__unused int fd, __unused const struct iovec *iov, __unused int count) {
+                         calls++;
+                         errno = ENOSPC;
+                         return -1;
+                     }]);
+    XCTAssertEqual(calls, 1u);
+    XCTAssertEqual(errno, ENOSPC);
+}
+
+- (void)test_writeAllVectors_batchesMoreVectorsThanItsStackView
+{
+    const char byte = 'x';
+    struct iovec vectors[20];
+    for (NSUInteger i = 0; i < sizeof(vectors) / sizeof(vectors[0]); i++) {
+        vectors[i] = (struct iovec) { .iov_base = (void *)&byte, .iov_len = 1 };
+    }
+    __block NSUInteger calls = 0;
+    __block NSUInteger offered = 0;
+    KSCrashRunSummaryWritevBlock writevBlock =
+        ^ssize_t(__unused int fileDescriptor, __unused const struct iovec *current, int count) {
+            XCTAssertLessThanOrEqual(count, 16);
+            calls++;
+            offered += (NSUInteger)count;
+            return count;
+        };
+
+    XCTAssertTrue([KSCrashRunSummary testcode_writeAllVectors:vectors
+                                                        count:(int)(sizeof(vectors) / sizeof(vectors[0]))
+                                               fileDescriptor:42
+                                                  writevBlock:writevBlock]);
+    XCTAssertEqual(calls, 2u);
+    XCTAssertEqual(offered, 20u);
+}
+
+- (void)test_writeAllVectors_capsOfferedBytesAtSSIZEMax
+{
+    const char byte = 'x';
+    struct iovec vector = { .iov_base = (void *)&byte, .iov_len = SIZE_MAX };
+
+    errno = 0;
+    XCTAssertFalse([KSCrashRunSummary
+        testcode_writeAllVectors:&vector
+                           count:1
+                  fileDescriptor:42
+                     writevBlock:^ssize_t(__unused int fd, const struct iovec *iov, int count) {
+                         XCTAssertEqual(count, 1);
+                         XCTAssertEqual(iov[0].iov_len, (size_t)SSIZE_MAX);
+                         errno = EFBIG;
+                         return -1;
+                     }]);
+    XCTAssertEqual(errno, EFBIG);
+}
+
 - (void)test_persistPreviousRunSummary_noOpWhenSummaryMissing
 {
     ksruncontext_testcode_setCachedSummary(nil, NULL);
@@ -581,6 +883,67 @@ extern void ksruncontext_testcode_setLifecycleData(const KSCrash_LifecycleData *
     XCTAssertEqual(decoded.sessions.firstObject.endedAtMs, decoded.endedAtMs);
     XCTAssertEqual(summary.sessions.count, 1u);
     XCTAssertNotNil([summary valueForKey:@"_sessions"]);
+}
+
+- (void)test_buildSummary_jsonDataDoesNotWaitForConcurrentSessionMaterialization
+{
+    KSCrashRunContext ctx;
+    populateContext(&ctx);
+    int64_t startedAtMs = (int64_t)(ctx.lifecycle.wallClockAtStartNs / 1000000ULL);
+    NSString *path = [self.tempDir stringByAppendingPathComponent:@"Sessions-concurrent"];
+    KSCrashSessionLog *log = [[KSCrashSessionLog alloc] initForWritingAtPath:path];
+    XCTAssertTrue([log recordSessionBeginWithID:@"session-A" perceptible:YES atMs:startedAtMs userID:@"alice"]);
+    [log close];
+
+    KSCrashRunSummary *summary = ksruncontext_testcode_buildSummaryWithSessions(&ctx, NULL, path.UTF8String);
+    XCTAssertNil([summary valueForKey:@"_sessions"]);
+
+    SEL selector = @selector(sessionsFromData:);
+    Method method = class_getClassMethod(KSCrashSessionLog.class, selector);
+    IMP original = method_getImplementation(method);
+    NSArray *(*originalFunction)(id, SEL, NSData *) = (NSArray * (*)(id, SEL, NSData *)) original;
+    dispatch_semaphore_t materializationEntered = dispatch_semaphore_create(0);
+    dispatch_semaphore_t allowMaterialization = dispatch_semaphore_create(0);
+    dispatch_semaphore_t materializationFinished = dispatch_semaphore_create(0);
+    dispatch_semaphore_t jsonFinished = dispatch_semaphore_create(0);
+    __block NSArray<KSCrashRunSummarySession *> *materializedSessions = nil;
+    __block NSData *json = nil;
+    IMP replacement = imp_implementationWithBlock(^NSArray *(id receiver, NSData *data) {
+        dispatch_semaphore_signal(materializationEntered);
+        dispatch_semaphore_wait(allowMaterialization, DISPATCH_TIME_FOREVER);
+        return originalFunction(receiver, selector, data);
+    });
+
+    __block long jsonWaitResult = -1;
+    @try {
+        method_setImplementation(method, replacement);
+        dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+            materializedSessions = summary.sessions;
+            dispatch_semaphore_signal(materializationFinished);
+        });
+        XCTAssertEqual(dispatch_semaphore_wait(materializationEntered, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC)),
+                       0);
+
+        dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+            json = summary.jsonData;
+            dispatch_semaphore_signal(jsonFinished);
+        });
+        jsonWaitResult = dispatch_semaphore_wait(jsonFinished, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC));
+    } @finally {
+        dispatch_semaphore_signal(allowMaterialization);
+        XCTAssertEqual(dispatch_semaphore_wait(materializationFinished, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC)),
+                       0);
+        if (jsonWaitResult != 0) {
+            XCTAssertEqual(dispatch_semaphore_wait(jsonFinished, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC)), 0);
+        }
+        method_setImplementation(method, original);
+        imp_removeBlock(replacement);
+    }
+
+    XCTAssertEqual(jsonWaitResult, 0);
+    XCTAssertNotNil(json);
+    XCTAssertEqual(materializedSessions.count, 1u);
+    XCTAssertEqualObjects(materializedSessions.firstObject.sessionID, @"session-A");
 }
 
 - (void)test_buildSummary_keepsLazySessionsAfterSidecarIsRemoved
