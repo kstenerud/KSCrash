@@ -581,6 +581,7 @@
 #define kstermination_reasonToString KSCRASH_NS(kstermination_reasonToString)
 #define ksthread_getQueueName KSCRASH_NS(ksthread_getQueueName)
 #define ksthread_getThreadName KSCRASH_NS(ksthread_getThreadName)
+#define ksthread_getThreadNameFromKernel KSCRASH_NS(ksthread_getThreadNameFromKernel)
 #define ksthread_getThreadState KSCRASH_NS(ksthread_getThreadState)
 #define ksthread_main KSCRASH_NS(ksthread_main)
 #define ksthread_self KSCRASH_NS(ksthread_self)

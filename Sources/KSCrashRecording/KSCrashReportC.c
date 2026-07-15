@@ -66,6 +66,7 @@
 // #define KSLogger_LocalLevel TRACE
 #include <errno.h>
 #include <fcntl.h>
+#include <mach/thread_info.h>
 #include <math.h>
 #include <pthread.h>
 #include <stdatomic.h>
@@ -1245,13 +1246,23 @@ static void writeThread(const KSCrashReportWriter *const writer, const char *con
             writeRegisters(writer, KSCrashField_Registers, machineContext);
         }
         writer->addIntegerElement(writer, KSCrashField_Index, threadIndex);
-        const char *name = kstc_getThreadName(thread);
-        if (name != NULL) {
-            writer->addStringElement(writer, KSCrashField_Name, name);
-        }
-        name = kstc_getQueueName(thread);
-        if (name != NULL) {
-            writer->addStringElement(writer, KSCrashField_DispatchQueue, name);
+        if (machineContext->task == mach_task_self()) {
+            const char *name = kstc_getThreadName(thread);
+            if (name != NULL) {
+                writer->addStringElement(writer, KSCrashField_Name, name);
+            }
+            name = kstc_getQueueName(thread);
+            if (name != NULL) {
+                writer->addStringElement(writer, KSCrashField_DispatchQueue, name);
+            }
+        } else {
+            // A remote (corpse) thread: the cache only knows this process's threads, but the
+            // kernel names any thread port we hold. No queue name; that would take a
+            // cross-task walk of libdispatch structures.
+            char nameBuffer[MAXTHREADNAMESIZE];
+            if (ksthread_getThreadNameFromKernel(thread, nameBuffer, sizeof(nameBuffer))) {
+                writer->addStringElement(writer, KSCrashField_Name, nameBuffer);
+            }
         }
         if (state != NULL) {
             writer->addStringElement(writer, KSCrashField_State, state);
