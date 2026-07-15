@@ -69,7 +69,7 @@ import os.log
 
             // Optional raw dump for debugging/exploration. The whole report carries the
             // environment metadata and time range, so dump it alongside the diagnostic.
-            if dumpPayloadsToDocuments {
+            if configuration.dumpsPayloadsToDocuments {
                 MetricKitJSONDumper.dump(encodable: report, type: "MemoryException/Report")
                 MetricKitJSONDumper.dump(encodable: diagnostic, type: "MemoryException/Diagnostic")
             }

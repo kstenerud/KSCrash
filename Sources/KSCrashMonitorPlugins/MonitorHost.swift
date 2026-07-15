@@ -57,7 +57,9 @@ public struct MonitorHost<Payload> {
 
     /// A report the pipeline wrote for one handled event.
     public struct WrittenReport {
-        public let id: Int64
+        /// The store's ID for the report, or nil when the event wrote to a caller-supplied
+        /// `reportPath` (the store mints no ID there).
+        public let id: Int64?
         /// The report file's location, when the pipeline reported one.
         public let url: URL?
     }
@@ -119,11 +121,20 @@ public struct MonitorHost<Payload> {
 
         var result = KSCrash_ReportResult()
         callbacks.handleWithResult(context, &result, finalize)
-        guard result.reportId > 0 else { throw EventError.notWritten }
         let path = withUnsafePointer(to: &result.path) {
             $0.withMemoryRebound(to: CChar.self, capacity: Int(PATH_MAX)) { String(cString: $0) }
         }
-        return WrittenReport(id: result.reportId, url: path.isEmpty ? nil : URL(fileURLWithPath: path))
+        if result.reportId > 0 {
+            return WrittenReport(id: result.reportId, url: path.isEmpty ? nil : URL(fileURLWithPath: path))
+        }
+        if !path.isEmpty {
+            // A caller-supplied reportPath write: the pipeline reports the path but the store
+            // mints no ID.
+            return WrittenReport(id: nil, url: URL(fileURLWithPath: path))
+        }
+        // Neither an ID nor a path: the pipeline accepted the event but dropped the write
+        // (vetoed by a callback, or rerouted while the process handles a fatal exception).
+        throw EventError.notWritten
     }
 
     /// This monitor's per-report sidecar path for `reportID`, or nil when sidecars are not

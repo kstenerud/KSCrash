@@ -109,7 +109,7 @@ extension CrashReportExtensionMonitor {
             return provided
         }
 
-        return try withUnsafeMutablePointer(to: &machineContext) { machineContextPointer in
+        let written = try withUnsafeMutablePointer(to: &machineContext) { machineContextPointer in
             try providedImages.withUnsafeBufferPointer { imageBuffer in
                 // A nil snapshot writes the report without the monitor's snapshot section.
                 try host.handle(payload: snapshot, requirements: .fatalRemoteSubject) { context in
@@ -132,8 +132,12 @@ extension CrashReportExtensionMonitor {
                     context.pointee.providedBinaryImageCount = Int32(imageBuffer.count)
                     context.pointee.processName = UnsafePointer(ownedProcessName)
                     context.pointee.errorTypeOverride = UnsafePointer(ownedErrorType)
-                }.id
+                }
             }
         }
+        // Corpse captures never set a custom reportPath, so the store always mints an ID; a
+        // missing one means the write did not really happen.
+        guard let reportID = written.id else { throw CaptureFailure() }
+        return reportID
     }
 }
