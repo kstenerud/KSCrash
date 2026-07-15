@@ -631,8 +631,8 @@ KSCrashInstallErrorCode kscrash_installForExtensionReporting(const char *appName
     // chain, no RunContext or run summaries (previous-run analysis and session counting are
     // the app's job), no console log, no crash-detection monitors, no report pruning, no
     // sidecar or stitch wiring (a corpse report carries its data directly and is stitched by
-    // the app at read time), no thread cache (it only knows this process's threads, and the
-    // writer degrades to nameless threads without it), and no dynamic-linker symbol cache
+    // the app at read time), no thread cache (it only knows this process's threads; remote
+    // threads are named straight from the kernel), and no dynamic-linker symbol cache
     // (a subject's frames must resolve against its provided images, never this process's).
     g_reportStoreConfig = KSCrashReportStoreCConfiguration_Default();
     g_reportStoreConfig.maxReportCount = 0;  // Never prune from here.

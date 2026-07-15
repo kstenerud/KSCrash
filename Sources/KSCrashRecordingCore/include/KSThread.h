@@ -63,6 +63,22 @@ const char *ksthread_state_name(int state);
  */
 bool ksthread_getThreadName(const KSThread thread, char *const buffer, int bufLength);
 
+/** Get a thread's name by asking the kernel (THREAD_EXTENDED_INFO).
+ *
+ * Unlike ksthread_getThreadName, this works for any thread port this process holds,
+ * including a thread of another task (e.g. a corpse), because it never touches
+ * in-process pthread structures.
+ *
+ * @param thread The thread whose name to get.
+ *
+ * @param buffer Buffer to hold the name. Always terminated on success.
+ *
+ * @param bufLength The length of the buffer.
+ *
+ * @return true if the thread has a non-empty name.
+ */
+bool ksthread_getThreadNameFromKernel(const KSThread thread, char *const buffer, int bufLength);
+
 /** Get a thread's state.
  *
  * @param thread The thread whose state to get.
