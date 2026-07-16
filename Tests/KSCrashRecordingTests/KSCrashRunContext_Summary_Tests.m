@@ -898,21 +898,25 @@ extern void ksruncontext_testcode_setLifecycleData(const KSCrash_LifecycleData *
     KSCrashRunSummary *summary = ksruncontext_testcode_buildSummaryWithSessions(&ctx, NULL, path.UTF8String);
     XCTAssertNil([summary valueForKey:@"_sessions"]);
 
-    SEL selector = @selector(sessionsFromData:);
+    // The lazy accessor materializes via sessionsFromData:inspection: (reusing
+    // the inspection cached at build time); intercept that to hold materialization.
+    SEL selector = @selector(sessionsFromData:inspection:);
     Method method = class_getClassMethod(KSCrashSessionLog.class, selector);
     IMP original = method_getImplementation(method);
-    NSArray *(*originalFunction)(id, SEL, NSData *) = (NSArray * (*)(id, SEL, NSData *)) original;
+    NSArray *(*originalFunction)(id, SEL, NSData *, KSCrashSessionLogInspection) =
+        (NSArray * (*)(id, SEL, NSData *, KSCrashSessionLogInspection)) original;
     dispatch_semaphore_t materializationEntered = dispatch_semaphore_create(0);
     dispatch_semaphore_t allowMaterialization = dispatch_semaphore_create(0);
     dispatch_semaphore_t materializationFinished = dispatch_semaphore_create(0);
     dispatch_semaphore_t jsonFinished = dispatch_semaphore_create(0);
     __block NSArray<KSCrashRunSummarySession *> *materializedSessions = nil;
     __block NSData *json = nil;
-    IMP replacement = imp_implementationWithBlock(^NSArray *(id receiver, NSData *data) {
-        dispatch_semaphore_signal(materializationEntered);
-        dispatch_semaphore_wait(allowMaterialization, DISPATCH_TIME_FOREVER);
-        return originalFunction(receiver, selector, data);
-    });
+    IMP replacement =
+        imp_implementationWithBlock(^NSArray *(id receiver, NSData *data, KSCrashSessionLogInspection inspection) {
+            dispatch_semaphore_signal(materializationEntered);
+            dispatch_semaphore_wait(allowMaterialization, DISPATCH_TIME_FOREVER);
+            return originalFunction(receiver, selector, data, inspection);
+        });
 
     __block long jsonWaitResult = -1;
     @try {

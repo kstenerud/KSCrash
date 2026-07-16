@@ -39,11 +39,14 @@
  *   1. **Every event lands on disk before the writer returns.** No
  *      buffering in memory; a crash between the observation and the next
  *      event cannot lose the observation itself.
- *   2. **Reading at startup runs at memcpy speed.** KSCrash runs on the
- *      app's startup path and must not spend the app's ~400ms launch
- *      budget on parsing. In particular, the RunSummary raw-splice path
- *      does no JSON parse — it copies bytes and appends a closing
- *      suffix.
+ *   2. **Reading at startup avoids the Foundation JSON parser and object
+ *      graph.** KSCrash runs on the app's startup path and must not spend
+ *      the app's ~400ms launch budget materializing an object tree. The
+ *      RunSummary raw-splice path copies the committed bytes and appends a
+ *      closing suffix with no NSJSONSerialization. It still makes one
+ *      allocation-free C scan over the committed range (to find the commit
+ *      boundary and the finalized end) — O(committed length), not a memcpy
+ *      constant — but no per-record object work.
  *   3. **The log is unbounded.** Sessions and user changes are metrics;
  *      nothing may be dropped or capped.
  *
@@ -61,12 +64,14 @@
  * off any bytes past the last `\n` (that tail belongs to a partial
  * write), and appends a fixed closing suffix — `],"ended_at_ms":<N>}]`
  * — that closes the tail session's users array, stamps its
- * `ended_at_ms`, and closes the outer array. The whole read-side
- * operation is memcpy + a ~30-byte append; no NSJSONSerialization on
- * the splice path.
+ * `ended_at_ms`, and closes the outer array. The splice itself is a
+ * memcpy plus a ~30-byte append; the only work beyond it is one
+ * allocation-free validation pass over the committed range (no
+ * NSJSONSerialization on the splice path).
  *
  * Total write cost across a run with N events is O(N). Total read cost
- * is O(file_size) with a memcpy constant.
+ * is O(file_size): a single allocation-free byte scan, with no
+ * per-record object materialization.
  *
  * ## Ruled-out alternatives
  *
@@ -74,12 +79,14 @@
  * tempted to move back to one of these, one of the three invariants
  * above is being violated:
  *
- *   - **Rewrite the whole file on every event** (the previous shape).
- *     Simple, but O(N²) total bytes written across a run — real cost
- *     for apps with heavy session or user-change churn.
- *   - **JSONL append-only.** O(N) writes, but the reader has to parse
- *     each line to reconstruct sessions. Parse cost for thousands of
- *     records is milliseconds — non-trivial against the launch budget.
+ *   - **Rewrite the whole file on every event.** Simple, but O(N²) total
+ *     bytes written across a run — real cost for apps with heavy session
+ *     or user-change churn.
+ *   - **JSONL append-only.** O(N) writes, but the reader has to run the
+ *     Foundation JSON parser on each line and allocate per-record objects
+ *     to reconstruct sessions. The current shape still scans every
+ *     committed byte, but in one allocation-free C pass with no
+ *     NSJSONSerialization — materially cheaper against the launch budget.
  *   - **Two-file split** (canonical JSON array + append-only user
  *     delta). Preserves memcpy startup only when the delta is empty. In
  *     the common case (any user change since the last session begin)
@@ -178,6 +185,11 @@ __attribute__((objc_subclassing_restricted))
 /// @c sessionsAtPath:. This lets @c KSCrashRunSummary retain a mapped
 /// view whose lifetime is independent of sidecar cleanup.
 + (NSArray<KSCrashRunSummarySession *> *)sessionsFromData:(NSData *)data;
+
+/// Same as @c sessionsFromData:, but reuses an inspection the caller already
+/// computed so the committed-range byte scan isn't repeated.
++ (NSArray<KSCrashRunSummarySession *> *)sessionsFromData:(NSData *)data
+                                               inspection:(KSCrashSessionLogInspection)inspection;
 
 /// Inspect the last newline-committed range without allocating storage that
 /// scales with @c data. Invalid committed bytes produce an invalid inspection.

@@ -431,10 +431,17 @@ void ksruncontext_persistPreviousRunSummary(const char *runSummariesPath)
         KSLOG_ERROR(@"Failed to open run summary file %s: errno=%d", path, errno);
         return;
     }
-    if (![g_summary writeJSONToFileDescriptor:fd]) {
-        KSLOG_ERROR(@"Failed to write run summary to %s: errno=%d", path, errno);
-    }
+    BOOL wrote = [g_summary writeJSONToFileDescriptor:fd];
+    int writeErrno = errno;
     close(fd);
+    if (!wrote) {
+        KSLOG_ERROR(@"Failed to write run summary to %s: errno=%d", path, writeErrno);
+        // Serialization now happens inside writeJSONToFileDescriptor:, after
+        // the O_TRUNC above already emptied any prior file. Remove the empty
+        // (or partial) file on failure so the send path doesn't keep failing
+        // to decode a zero-length summary until pruning reclaims it.
+        unlink(path);
+    }
 }
 
 // ============================================================================

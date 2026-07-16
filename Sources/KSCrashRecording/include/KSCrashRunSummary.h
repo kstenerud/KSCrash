@@ -360,8 +360,10 @@ __attribute__((objc_subclassing_restricted))
                              sessions:(NSArray<KSCrashRunSummarySession *> *)sessions NS_DESIGNATED_INITIALIZER;
 
 /** Initializer used by the install path: everything except @c sessions[] is
- *  known up front; the session log is mapped but not parsed, and the object
- *  list is faulted on first read. Keeps @c ksruncontext_init off the parse.
+ *  known up front. The session log is mapped and scanned once (a lightweight
+ *  allocation-free byte pass, no NSJSONSerialization); the
+ *  @c KSCrashRunSummarySession object list is faulted in on first access. Keeps
+ *  @c ksruncontext_init off the Foundation JSON parse and object graph.
  */
 - (instancetype)initWithSchemaVersion:(NSInteger)schemaVersion
                            sdkVersion:(NSString *)sdkVersion

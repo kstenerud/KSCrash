@@ -199,10 +199,15 @@ static void updateSidecarDurations(KSCrash_LifecycleData *sc)
 // ============================================================================
 //
 // The two sets and g_currentUserID are guarded by g_userLock. The sidecar's
-// distinct-count fields are guarded by g_sidecarLock. These locks are never
-// held together: each call site updates the in-memory state first, grabs
-// the new count, then writes it into the sidecar in a separate critical
-// section.
+// distinct-count fields are guarded by g_sidecarLock. Where both are needed
+// the acquisition order is always g_userLock first, then g_sidecarLock (see
+// onTransitionState and kscm_lifecycle_observeUser), never the reverse. The
+// session-log write also runs under g_userLock (to keep user events and
+// session begins totally ordered), but the sidecar spinlock is dropped before
+// that I/O, so g_sidecarLock and the SessionLog's own lock are never held
+// together. The distinct-count write path deliberately does not nest: it takes
+// the new count under g_userLock, releases it, then grabs g_sidecarLock in a
+// separate critical section.
 
 /** Write a user bucket's count into the sidecar. Grabs g_sidecarLock. */
 static void writeDistinctUserCountToSidecar(bool perceptible, NSUInteger count)
@@ -253,7 +258,16 @@ void kscm_lifecycle_observeUser(const char *userID)
         return;
     }
 
-    NSString *asString = (userID != NULL && userID[0] != '\0') ? [NSString stringWithUTF8String:userID] : nil;
+    BOOL isSignOut = (userID == NULL || userID[0] == '\0');
+    NSString *asString = isSignOut ? nil : [NSString stringWithUTF8String:userID];
+
+    // A non-empty id that isn't valid UTF-8 is neither a sign-in we can record
+    // nor a sign-out; ignore it without disturbing the current user or the
+    // dedup anchor. The one in-tree caller passes an NSString's UTF8String
+    // (always valid); this guards direct callers of the exported C entry point.
+    if (!isSignOut && asString == nil) {
+        return;
+    }
 
     // g_userLock is the ordering point shared with session begins. Keep it
     // through the log write so a lifecycle transition cannot snapshot one
@@ -261,7 +275,7 @@ void kscm_lifecycle_observeUser(const char *userID)
     // to the preceding session.
     os_unfair_lock_lock(&g_userLock);
     g_currentUserID = [asString copy];
-    if (asString.length == 0) {
+    if (isSignOut) {
         // Sign-out doesn't record an event, but it must break the
         // session log's adjacent-user dedup: alice → nil → alice is
         // two distinct activations, and the session log's contract is

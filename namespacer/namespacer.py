@@ -319,6 +319,22 @@ def get_apple_clang_arguments():
     return ["-isysroot", sdk_path, "-resource-dir", resource_dir]
 
 
+# Comments and double-quoted strings are blanked before the .h language sniff
+# so a marker that only appears in prose (e.g. a doc comment mentioning
+# "<namespace>", or an @interface reference in a comment) can't flip a header's
+# detected language and make it parse in the wrong mode.
+_COMMENT_OR_STRING_RE = re.compile(
+    r"//[^\n]*"  # line comment
+    r"|/\*.*?\*/"  # block comment
+    r'|"(?:\\.|[^"\\])*"',  # double-quoted string literal
+    re.DOTALL,
+)
+
+
+def _strip_comments_and_strings(text):
+    return _COMMENT_OR_STRING_RE.sub(" ", text)
+
+
 def get_source_language(file_name):
     path = Path(file_name)
     if path.suffix == ".m":
@@ -328,9 +344,9 @@ def get_source_language(file_name):
     if path.suffix in [".cpp", ".hpp"]:
         return "c++"
     if path.suffix == ".h":
-        contents = path.read_text(errors="ignore")
-        if re.search(r"@(class|interface|protocol|property|end)\b|#import\s+<Foundation/|\bid\s*<", contents):
-            if re.search(r"\b(namespace|template)\b", contents):
+        code = _strip_comments_and_strings(path.read_text(errors="ignore"))
+        if re.search(r"@(class|interface|protocol|property|end)\b|#import\s+<Foundation/|\bid\s*<", code):
+            if re.search(r"\b(namespace|template)\b", code):
                 return "objective-c++"
             return "objective-c"
     return "c"
@@ -352,12 +368,15 @@ def get_translation_unit(file_name, include_paths=None):
     return index.parse(str(file_name), args=args)
 
 
-def find_include_paths(base_path):
+def find_include_paths(base_path, files=None):
     # Private headers live next to implementations as well as in public
     # `include/` directories. Add every header-owning directory so each
     # translation unit resolves the same project imports as the real build.
+    # `files` lets a caller pass a pre-walked file list to avoid re-globbing.
+    if files is None:
+        files = (p for p in Path(base_path).rglob("*") if p.is_file())
     return sorted(
-        {p.parent for p in Path(base_path).rglob("*") if p.is_file() and p.suffix in [".h", ".hpp"]},
+        {p.parent for p in files if p.suffix in [".h", ".hpp"]},
         key=str,
     )
 
@@ -373,12 +392,12 @@ def reject_fatal_diagnostics(path, translation_unit):
         raise RuntimeError(f"failed to parse {path}: {details}")
 
 
-def get_compilation_unit_files(path, ignore_matching, exclude_paths=None):
+def get_compilation_unit_files(path, ignore_matching, exclude_paths=None, files=None):
     excluded = {Path(p).resolve() for p in (exclude_paths or [])}
+    if files is None:
+        files = (p for p in Path(path).rglob("*") if p.is_file())
     paths = []
-    for p in Path(path).rglob("*"):
-        if not p.is_file():
-            continue
+    for p in files:
         if p.resolve() in excluded:
             continue
         if not p.suffix in [".h", ".hpp", ".c", ".cpp", ".m", ".mm"]:
@@ -445,10 +464,13 @@ def collect_symbols(path, include_paths=None):
 
 
 def load_symbols_from_compilation_units(base_path, exclude_paths=None):
+    # Walk the tree once and feed both the compilation-unit list and the
+    # include-path set, instead of rglob'ing the same tree twice.
+    all_files = [p for p in Path(base_path).rglob("*") if p.is_file()]
     paths = get_compilation_unit_files(base_path, [ # Paths matching these regexes are ignored
                                                     re.compile(".*KSCrashTestTools.*"),
-                                                  ], exclude_paths=exclude_paths)
-    include_paths = find_include_paths(base_path)
+                                                  ], exclude_paths=exclude_paths, files=all_files)
+    include_paths = find_include_paths(base_path, files=all_files)
     symbols = []
     for path in paths:
         symbols += collect_symbols(path, include_paths=include_paths)

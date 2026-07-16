@@ -31,6 +31,7 @@
 // used by the schema, so we reuse it rather than duplicating the mapping.
 #import "KSTerminationReason.h"
 
+#import "KSCrashJSONNumber.h"
 #import "KSCrashSessionLog.h"
 #import "KSJSONCodecObjC.h"
 #import "KSLogger.h"
@@ -192,6 +193,45 @@
 
 @synthesize sessions = _sessions;
 
+// Assign every field shared by the two designated initializers. Each public
+// initializer calls this after -[super init], then handles only its own
+// sessions tail (a materialized array, or a mapped log faulted on first read).
+// Keeps the two from drifting when a field is added or its copy semantics
+// change.
+- (void)assignCommonFieldsWithSchemaVersion:(NSInteger)schemaVersion
+                                 sdkVersion:(NSString *)sdkVersion
+                                      runID:(NSString *)runID
+                                   deviceID:(NSString *)deviceID
+                                     userID:(nullable NSString *)userID
+                                      users:(KSCrashRunSummaryUsers *)users
+                                startedAtMs:(int64_t)startedAtMs
+                                  endedAtMs:(int64_t)endedAtMs
+                            isBeingDebugged:(BOOL)isBeingDebugged
+                                    outcome:(KSCrashRunSummaryOutcome *)outcome
+                                  durations:(KSCrashRunSummaryDurations *)durations
+                              sessionCounts:(KSCrashRunSummarySessionCounts *)sessionCounts
+                                        app:(KSCrashRunSummaryApp *)app
+                                         os:(KSCrashRunSummaryOS *)os
+                                     device:(KSCrashRunSummaryDevice *)device
+{
+    _sessionsLock = OS_UNFAIR_LOCK_INIT;
+    _schemaVersion = schemaVersion;
+    _sdkVersion = [sdkVersion copy];
+    _runID = [runID copy];
+    _deviceID = [deviceID copy];
+    _userID = [userID copy];
+    _users = users;
+    _startedAtMs = startedAtMs;
+    _endedAtMs = endedAtMs;
+    _isBeingDebugged = isBeingDebugged;
+    _outcome = outcome;
+    _durations = durations;
+    _sessionCounts = sessionCounts;
+    _app = app;
+    _os = os;
+    _device = device;
+}
+
 - (instancetype)initWithSchemaVersion:(NSInteger)schemaVersion
                            sdkVersion:(NSString *)sdkVersion
                                 runID:(NSString *)runID
@@ -210,22 +250,21 @@
                              sessions:(NSArray<KSCrashRunSummarySession *> *)sessions
 {
     if ((self = [super init])) {
-        _sessionsLock = OS_UNFAIR_LOCK_INIT;
-        _schemaVersion = schemaVersion;
-        _sdkVersion = [sdkVersion copy];
-        _runID = [runID copy];
-        _deviceID = [deviceID copy];
-        _userID = [userID copy];
-        _users = users;
-        _startedAtMs = startedAtMs;
-        _endedAtMs = endedAtMs;
-        _isBeingDebugged = isBeingDebugged;
-        _outcome = outcome;
-        _durations = durations;
-        _sessionCounts = sessionCounts;
-        _app = app;
-        _os = os;
-        _device = device;
+        [self assignCommonFieldsWithSchemaVersion:schemaVersion
+                                       sdkVersion:sdkVersion
+                                            runID:runID
+                                         deviceID:deviceID
+                                           userID:userID
+                                            users:users
+                                      startedAtMs:startedAtMs
+                                        endedAtMs:endedAtMs
+                                  isBeingDebugged:isBeingDebugged
+                                          outcome:outcome
+                                        durations:durations
+                                    sessionCounts:sessionCounts
+                                              app:app
+                                               os:os
+                                           device:device];
         _sessions = [sessions copy] ?: @[];
     }
     return self;
@@ -249,35 +288,34 @@
                        sessionLogPath:(nullable NSString *)sessionLogPath
 {
     if ((self = [super init])) {
-        _sessionsLock = OS_UNFAIR_LOCK_INIT;
-        _schemaVersion = schemaVersion;
-        _sdkVersion = [sdkVersion copy];
-        _runID = [runID copy];
-        _deviceID = [deviceID copy];
-        _userID = [userID copy];
-        _users = users;
-        _startedAtMs = startedAtMs;
-        _endedAtMs = endedAtMs;
-        _isBeingDebugged = isBeingDebugged;
-        _outcome = outcome;
-        _durations = durations;
-        _sessionCounts = sessionCounts;
-        _app = app;
-        _os = os;
-        _device = device;
+        [self assignCommonFieldsWithSchemaVersion:schemaVersion
+                                       sdkVersion:sdkVersion
+                                            runID:runID
+                                         deviceID:deviceID
+                                           userID:userID
+                                            users:users
+                                      startedAtMs:startedAtMs
+                                        endedAtMs:endedAtMs
+                                  isBeingDebugged:isBeingDebugged
+                                          outcome:outcome
+                                        durations:durations
+                                    sessionCounts:sessionCounts
+                                              app:app
+                                               os:os
+                                           device:device];
         _sessions = nil;
         _sessionLogData = sessionLogPath.length > 0 ? [NSData dataWithContentsOfFile:sessionLogPath
                                                                              options:NSDataReadingMappedAlways
                                                                                error:NULL]
                                                     : nil;
         _sessionLogInspection = [KSCrashSessionLog inspectionForData:_sessionLogData];
-        // Run's endedAtMs comes from monitors (resource/lifecycle
-        // observers); the session log can carry a more recent
-        // observation (a user change right before an OOM) that no
-        // monitor saw. Floor the run's end against the log so downstream
-        // consumers never see user.at_ms > run.ended_at_ms. Cheap byte
-        // scan; parses nothing.
-        if (_sessionLogInspection.maxObservedTimestampMs > _endedAtMs) {
+        // Run's endedAtMs comes from monitors (resource/lifecycle observers);
+        // the session log can carry a more recent observation (a user change
+        // right before an OOM) that no monitor saw. Floor the run's end against
+        // the log so downstream consumers never see user.at_ms > run.ended_at_ms.
+        // Gated on isValid so the dependency on maxObservedTimestampMs being
+        // meaningful only for a well-formed log is explicit rather than implied.
+        if (_sessionLogInspection.isValid && _sessionLogInspection.maxObservedTimestampMs > _endedAtMs) {
             _endedAtMs = _sessionLogInspection.maxObservedTimestampMs;
         }
     }
@@ -287,6 +325,7 @@
 - (NSArray<KSCrashRunSummarySession *> *)sessions
 {
     NSData *sessionLogData = nil;
+    KSCrashSessionLogInspection inspection = { 0 };
     int64_t endedAtMs = 0;
     os_unfair_lock_lock(&_sessionsLock);
     if (_sessions != nil) {
@@ -295,10 +334,14 @@
         return result;
     }
     sessionLogData = _sessionLogData;
+    inspection = _sessionLogInspection;
     endedAtMs = _endedAtMs;
     os_unfair_lock_unlock(&_sessionsLock);
 
-    NSArray<KSCrashRunSummarySession *> *loaded = [KSCrashSessionLog sessionsFromData:sessionLogData ?: [NSData data]];
+    // Reuse the inspection captured at init so the committed-range byte scan
+    // isn't repeated on first materialization.
+    NSArray<KSCrashRunSummarySession *> *loaded = [KSCrashSessionLog sessionsFromData:sessionLogData ?: [NSData data]
+                                                                           inspection:inspection];
     if (loaded.count > 0) {
         NSMutableArray<KSCrashRunSummarySession *> *finalized = [loaded mutableCopy];
         KSCrashRunSummarySession *tail = finalized.lastObject;
@@ -503,6 +546,8 @@ static BOOL writeAllVectors(int fileDescriptor, const struct iovec *vectors, int
         return NO;
     }
 
+    // IOV_MAX is stable for the process, so query it once rather than per batch.
+    int vectorLimit = writevVectorLimit();
     int vectorIndex = 0;
     size_t vectorOffset = 0;
     while (vectorIndex < count) {
@@ -519,7 +564,6 @@ static BOOL writeAllVectors(int fileDescriptor, const struct iovec *vectors, int
         size_t viewBytes = 0;
         int sourceIndex = vectorIndex;
         size_t sourceOffset = vectorOffset;
-        int vectorLimit = writevVectorLimit();
         while (sourceIndex < count && viewCount < vectorLimit && viewBytes < (size_t)SSIZE_MAX) {
             size_t sourceLength = vectors[sourceIndex].iov_len;
             if (sourceOffset == sourceLength) {
@@ -583,7 +627,12 @@ static BOOL writeAllVectors(int fileDescriptor, const struct iovec *vectors, int
 
 - (BOOL)writeJSONToFileDescriptor:(int)fileDescriptor
 {
-    NSData *sessionLogData = nil;
+    // The iovecs below capture raw .bytes pointers into NSData objects that
+    // writeAllVectors dereferences while calling writev. ARC may release a
+    // strong local after its last message-send; for an NSData whose interior
+    // pointer is still in flight that would free the buffer mid-write. Pin
+    // every such NSData to the end of scope so the pointers stay valid.
+    NSData *sessionLogData NS_VALID_UNTIL_END_OF_SCOPE = nil;
     KSCrashSessionLogInspection inspection = { 0 };
     BOOL sessionsAreLazy = NO;
     os_unfair_lock_lock(&_sessionsLock);
@@ -599,7 +648,7 @@ static BOOL writeAllVectors(int fileDescriptor, const struct iovec *vectors, int
     };
 
     if (!sessionsAreLazy) {
-        NSData *data = [self jsonData];
+        NSData *data NS_VALID_UNTIL_END_OF_SCOPE = [self jsonData];
         if (data == nil) {
             errno = EINVAL;
             return NO;
@@ -609,9 +658,9 @@ static BOOL writeAllVectors(int fileDescriptor, const struct iovec *vectors, int
     }
 
     NSError *error = nil;
-    NSData *base = [KSJSONCodec encode:[self wireDictionaryWithoutSessions]
-                               options:KSJSONEncodeOptionNone
-                                 error:&error];
+    NSData *base NS_VALID_UNTIL_END_OF_SCOPE = [KSJSONCodec encode:[self wireDictionaryWithoutSessions]
+                                                           options:KSJSONEncodeOptionNone
+                                                             error:&error];
     if (base == nil) {
         KSLOG_ERROR(@"Failed to encode RunSummary JSON: %@", error);
         errno = EINVAL;
@@ -631,7 +680,8 @@ static BOOL writeAllVectors(int fileDescriptor, const struct iovec *vectors, int
         inspection = (KSCrashSessionLogInspection) { 0 };
         hasMappedSessions = NO;
     }
-    NSData *closingData = [KSCrashSessionLog closingDataForInspection:inspection runEndedAtMs:self.endedAtMs];
+    NSData *closingData NS_VALID_UNTIL_END_OF_SCOPE = [KSCrashSessionLog closingDataForInspection:inspection
+                                                                                     runEndedAtMs:self.endedAtMs];
 
     static const char sessionsKey[] = ",\"sessions\":";
     static const char objectClose[] = "}";
@@ -659,29 +709,6 @@ static BOOL writeAllVectors(int fileDescriptor, const struct iovec *vectors, int
 // (missing required keys, wrong types) never decodes as a "valid" summary
 // full of zeros.
 
-// NSJSONSerialization represents JSON booleans as __NSCFBoolean, a subclass
-// of NSNumber — so `isKindOfClass:[NSNumber class]` accepts booleans as
-// numbers and vice versa. We disambiguate via CFBooleanGetTypeID so
-// {"schema_version": true} or {"clean_shutdown": 2} are rejected as
-// malformed instead of silently coerced. Callers must null-check before
-// invoking; CFGetTypeID(NULL) is undefined.
-static BOOL isJSONBoolean(id value) { return CFGetTypeID((__bridge CFTypeRef)value) == CFBooleanGetTypeID(); }
-
-// True only for NSNumber values whose backing type is integral. The schema
-// uses integer fields for every scalar (counts, ms timestamps, schema_version),
-// so a JSON fractional value like {"started_at_ms": 1.5e9} is malformed and
-// must be rejected rather than silently truncated via -longLongValue.
-static BOOL isJSONInteger(id value)
-{
-    if (![value isKindOfClass:[NSNumber class]] || isJSONBoolean(value)) {
-        return NO;
-    }
-    const char *type = [(NSNumber *)value objCType];
-    // Float/double carry 'f' / 'd'; every integral type code is something
-    // else (c, i, s, l, q, C, I, S, L, Q). Bool ('B') is already filtered.
-    return type != NULL && type[0] != 'f' && type[0] != 'd';
-}
-
 static NSString *requiredString(NSDictionary *dict, NSString *key, BOOL *outOK)
 {
     id value = dict[key];
@@ -695,7 +722,7 @@ static NSString *requiredString(NSDictionary *dict, NSString *key, BOOL *outOK)
 static int64_t requiredInt64(NSDictionary *dict, NSString *key, BOOL *outOK)
 {
     id value = dict[key];
-    if (!isJSONInteger(value)) {
+    if (!ksjson_isInteger(value)) {
         *outOK = NO;
         return 0;
     }
@@ -705,7 +732,7 @@ static int64_t requiredInt64(NSDictionary *dict, NSString *key, BOOL *outOK)
 static NSInteger requiredInteger(NSDictionary *dict, NSString *key, BOOL *outOK)
 {
     id value = dict[key];
-    if (!isJSONInteger(value)) {
+    if (!ksjson_isInteger(value)) {
         *outOK = NO;
         return 0;
     }
@@ -715,7 +742,7 @@ static NSInteger requiredInteger(NSDictionary *dict, NSString *key, BOOL *outOK)
 static BOOL requiredBool(NSDictionary *dict, NSString *key, BOOL *outOK)
 {
     id value = dict[key];
-    if (value == nil || !isJSONBoolean(value)) {
+    if (value == nil || !ksjson_isBoolean(value)) {
         *outOK = NO;
         return NO;
     }
@@ -873,7 +900,7 @@ static KSCrashRunSummaryHostKind hostKindFromWireString(NSString *value)
     id isBeingDebuggedValue = dict[@"is_being_debugged"];
     BOOL isBeingDebugged = NO;
     if (isBeingDebuggedValue != nil && isBeingDebuggedValue != (id)kCFNull) {
-        if (!isJSONBoolean(isBeingDebuggedValue)) {
+        if (!ksjson_isBoolean(isBeingDebuggedValue)) {
             if (error != NULL) {
                 *error = [NSError errorWithDomain:NSCocoaErrorDomain
                                              code:NSFileReadCorruptFileError

@@ -26,6 +26,7 @@
 
 #import "KSCrashSessionLog.h"
 
+#import "KSCrashJSONNumber.h"
 #import "KSCrashRunSummary.h"
 #import "KSLogger.h"
 
@@ -46,24 +47,6 @@
 // reader treats anything past the file's last '\n' as an incomplete
 // write and discards it. See the file header for the shape rationale.
 static const uint8_t KSSESSIONLOG_COMMIT_DELIMITER = '\n';
-
-static BOOL isJSONBoolean(id value)
-{
-    return value != nil && CFGetTypeID((__bridge CFTypeRef)value) == CFBooleanGetTypeID();
-}
-
-static BOOL isJSONInteger(id value)
-{
-    if (![value isKindOfClass:[NSNumber class]] || isJSONBoolean(value)) {
-        return NO;
-    }
-    const char *type = [(NSNumber *)value objCType];
-    if (type == NULL || type[0] == 'f' || type[0] == 'd') {
-        return NO;
-    }
-    NSNumber *number = value;
-    return [number compare:@(INT64_MIN)] != NSOrderedAscending && [number compare:@(INT64_MAX)] != NSOrderedDescending;
-}
 
 typedef struct {
     const uint8_t *bytes;
@@ -327,6 +310,32 @@ static NSData *jsonEncodedString(NSString *s)
     return [arrayData subdataWithRange:NSMakeRange(1, arrayData.length - 2)];
 }
 
+// Write every byte of @c bytes, retrying @c EINTR and draining partial writes
+// so a recoverable interruption still lands the whole event (upholding the
+// header's "every event lands on disk before the writer returns" invariant).
+// Returns NO only on a hard write error, with @c errno preserved — in that
+// case a partial fragment may already be on disk, so the caller must poison
+// the writer to stop a later append from committing it.
+static BOOL writeAllBytes(int fd, const uint8_t *bytes, size_t length)
+{
+    size_t total = 0;
+    while (total < length) {
+        ssize_t written = write(fd, bytes + total, length - total);
+        if (written < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            return NO;
+        }
+        if (written == 0) {
+            errno = EIO;
+            return NO;
+        }
+        total += (size_t)written;
+    }
+    return YES;
+}
+
 @implementation KSCrashSessionLog {
     NSString *_path;
     os_unfair_lock _lock;
@@ -364,7 +373,7 @@ static NSData *jsonEncodedString(NSString *s)
         // it the reader would see a file with no committed prefix and
         // return an empty sessions array.
         static const uint8_t opener[] = { '[', KSSESSIONLOG_COMMIT_DELIMITER };
-        if (write(_fd, opener, sizeof(opener)) != (ssize_t)sizeof(opener)) {
+        if (!writeAllBytes(_fd, opener, sizeof(opener))) {
             KSLOG_ERROR(@"Failed to seed session log %@: %s", _path, strerror(errno));
             close(_fd);
             _fd = -1;
@@ -455,16 +464,16 @@ static NSData *jsonEncodedString(NSString *s)
     // disk here.
     [delta appendBytes:&KSSESSIONLOG_COMMIT_DELIMITER length:1];
 
-    ssize_t written = write(_fd, delta.bytes, delta.length);
-    if (written != (ssize_t)delta.length) {
+    if (!writeAllBytes(_fd, delta.bytes, delta.length)) {
         KSLOG_ERROR(@"Failed to write session begin to %@: %s", _path, strerror(errno));
-        // A *short* write left partial event bytes past the last '\n'
-        // that the fd is still positioned after. If we kept the writer
-        // open, the next successful append would end with '\n' and
-        // silently commit that fragment as part of a bogus event.
-        // Poison the writer instead — subsequent writes return NO, and
-        // whatever is on disk stays truncated to the last valid commit
-        // by the reader's normal newline recovery.
+        // A hard write error can leave partial event bytes past the last
+        // '\n' the fd is positioned after. If we kept the writer open, the
+        // next successful append would end with '\n' and silently commit
+        // that fragment as part of a bogus event. Poison the writer instead
+        // — subsequent writes return NO, and whatever is on disk stays
+        // truncated to the last valid commit by the reader's newline
+        // recovery. EINTR and short writes are drained by writeAllBytes and
+        // never reach here.
         [self closeLocked];
         os_unfair_lock_unlock(&_lock);
         return NO;
@@ -512,12 +521,11 @@ static NSData *jsonEncodedString(NSString *s)
     [delta appendData:[tail dataUsingEncoding:NSUTF8StringEncoding]];
     [delta appendBytes:&KSSESSIONLOG_COMMIT_DELIMITER length:1];
 
-    ssize_t written = write(_fd, delta.bytes, delta.length);
-    if (written != (ssize_t)delta.length) {
+    if (!writeAllBytes(_fd, delta.bytes, delta.length)) {
         KSLOG_ERROR(@"Failed to write user change to %@: %s", _path, strerror(errno));
-        // See recordSessionBeginWithID: — a short write leaves partial
-        // bytes past the last committed newline. Poison the writer so a
-        // subsequent successful append can't commit them.
+        // See recordSessionBeginWithID: — a hard write error can leave
+        // partial bytes past the last committed newline; poison the writer
+        // so a subsequent successful append can't commit them.
         [self closeLocked];
         os_unfair_lock_unlock(&_lock);
         return NO;
@@ -644,8 +652,8 @@ static NSString *trimUserID(NSString *userID)
         id startedAtMsValue = dict[@"started_at_ms"];
         id endedAtMsValue = dict[@"ended_at_ms"];
         id usersValue = dict[@"users"];
-        if (![sessionID isKindOfClass:[NSString class]] || !isJSONBoolean(perceptibleValue) ||
-            !isJSONInteger(startedAtMsValue) || !isJSONInteger(endedAtMsValue) ||
+        if (![sessionID isKindOfClass:[NSString class]] || !ksjson_isBoolean(perceptibleValue) ||
+            !ksjson_isInteger(startedAtMsValue) || !ksjson_isInteger(endedAtMsValue) ||
             ![usersValue isKindOfClass:[NSArray class]]) {
             continue;
         }
@@ -660,7 +668,7 @@ static NSString *trimUserID(NSString *userID)
             NSDictionary *userDict = userEntry;
             NSString *userID = userDict[@"user_id"];
             id atMsValue = userDict[@"at_ms"];
-            if (![userID isKindOfClass:[NSString class]] || !isJSONInteger(atMsValue)) {
+            if (![userID isKindOfClass:[NSString class]] || !ksjson_isInteger(atMsValue)) {
                 continue;
             }
             int64_t atMs = [atMsValue longLongValue];
@@ -678,7 +686,12 @@ static NSString *trimUserID(NSString *userID)
 
 + (NSArray<KSCrashRunSummarySession *> *)sessionsFromData:(NSData *)data
 {
-    KSCrashSessionLogInspection inspection = [self inspectionForData:data];
+    return [self sessionsFromData:data inspection:[self inspectionForData:data]];
+}
+
++ (NSArray<KSCrashRunSummarySession *> *)sessionsFromData:(NSData *)data
+                                               inspection:(KSCrashSessionLogInspection)inspection
+{
     if (!inspection.isValid || !inspection.hasSessions) {
         return @[];
     }
@@ -686,7 +699,8 @@ static NSString *trimUserID(NSString *userID)
     // Object reader path: build the closed JSON, parse, and materialize
     // session/user objects. Parse cost is real here but only paid by
     // callers that actually want the objects (tests, filters), not the
-    // startup raw-splice path.
+    // startup raw-splice path. Callers that already inspected the data pass
+    // the inspection back in so the committed-range byte scan isn't repeated.
     NSMutableData *closed = [NSMutableData dataWithCapacity:inspection.committedRange.length + 32];
     [self appendSessionsJSONFromData:data
                           inspection:inspection
@@ -750,19 +764,21 @@ static NSString *trimUserID(NSString *userID)
 
 #pragma mark - Test helpers
 
-// Close the underlying file descriptor while leaving @c _fd's stored
-// value intact (i.e., non-negative), so the next `recordSessionBegin`
-// or `recordUserID` call will actually attempt a write, hit EBADF from
-// the kernel, and exercise the poison-on-write-failure path. Used by
-// the short-write regression test — poisoning is triggered by the same
-// `write() != expected` check for full failures as for genuine short
-// writes, so this closes the loop without needing to actually fill the
-// disk.
+// Redirect @c _fd to a read-only /dev/null so the next `recordSessionBegin`
+// or `recordUserID` write() deterministically fails with EBADF and exercises
+// the poison-on-write-failure path, without needing to fill the disk. @c _fd
+// stays a valid, open descriptor: a bare close() here would free the fd
+// number, letting another thread's open() reuse it (sending the next delta to
+// an unrelated file) and making the poison path's own close() a double-close.
 - (void)_testcode_invalidateFileDescriptor
 {
     os_unfair_lock_lock(&_lock);
     if (_fd >= 0) {
-        close(_fd);
+        int devNull = open("/dev/null", O_RDONLY | O_CLOEXEC);
+        if (devNull >= 0) {
+            dup2(devNull, _fd);
+            close(devNull);
+        }
     }
     os_unfair_lock_unlock(&_lock);
 }
