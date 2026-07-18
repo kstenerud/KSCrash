@@ -108,7 +108,7 @@ It also runs **under the report store's mutex**, which is not recursive, so a st
 
 ### Configuration
 
-The sidecars directories are configured via `KSCrashReportStoreCConfiguration.reportSidecarsPath` and `runSidecarsPath`. If left `NULL` (the default), they are automatically set to `Sidecars` and `RunSidecars` siblings of `reportsPath` during `kscrash_install` (the folder names are the exported `KSCRS_DEFAULT_*_FOLDER` constants the Swift `InstallConfiguration.locations` mirrors). The report store creates these directories at initialization. Orphaned run sidecar directories are removed by `kscrs_reclaimOrphanedRunData`, which the send flows run automatically (see `sessions.md`).
+The sidecars directories are configured via `KSCrashReportStoreCConfiguration.reportSidecarsPath` and `runSidecarsPath`. If left `NULL` (the default), they are automatically set to `Sidecars` and `RunSidecars` siblings of `reportsPath` during `kscrash_install` (the folder names are the exported `KSCRS_DEFAULT_*_FOLDER` constants the Swift `InstallConfiguration.locations` mirrors). The report store creates these directories at initialization. Orphaned run sidecar directories are removed by `kscrs_reclaimOrphanedRunData`, which the send flows run automatically (see `sessions.md`). Run-sidecar directories referenced by a report or summary are always kept; unreferenced directories are deleted only once older than `runSidecarRetentionSeconds` (default 30 days; zero or negative deletes on sight). The window exists because a crash extension's report can sit in the App Group container until the next app launch, and deleting the run's sidecars before it is ingested would make it unenrichable.
 
 ### Key Files
 

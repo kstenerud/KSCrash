@@ -35,6 +35,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
 #include <uuid/uuid.h>
@@ -737,7 +738,23 @@ static void reclaimOrphanedRunData(const KSCrashReportStoreCConfiguration *const
             NSString *dir = @(config->runSidecarsPath);
             for (NSString *entry in [fm contentsOfDirectoryAtPath:dir error:nil]) {
                 if (![entry hasPrefix:@"."] && ![refs containsObject:entry]) {
-                    [fm removeItemAtPath:[dir stringByAppendingPathComponent:entry] error:nil];
+                    NSString *runDir = [dir stringByAppendingPathComponent:entry];
+                    // Unreferenced is not the same as orphaned: a report for this run may still
+                    // be waiting in a crash extension's store, so keep the directory until it
+                    // ages past the retention window.
+                    if (config->runSidecarRetentionSeconds > 0) {
+                        // An unknown age keeps the directory. stat can fail for reasons that say
+                        // nothing about age (data protection while the device is locked, or the
+                        // entry going away under us), and deleting a run's sidecars early is the
+                        // exact loss the window exists to prevent, so only a positive "this is
+                        // old enough" answer may delete.
+                        struct stat dirStat;
+                        if (stat(runDir.fileSystemRepresentation, &dirStat) != 0 ||
+                            difftime(time(NULL), dirStat.st_mtimespec.tv_sec) < config->runSidecarRetentionSeconds) {
+                            continue;
+                        }
+                    }
+                    [fm removeItemAtPath:runDir error:nil];
                 }
             }
         }
