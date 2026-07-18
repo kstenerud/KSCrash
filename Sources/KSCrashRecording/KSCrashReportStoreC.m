@@ -1324,3 +1324,69 @@ void kscrs_reclaimOrphanedRunData(const KSCrashReportStoreCConfiguration *const 
     reclaimOrphanedRunData(configuration);
     pthread_mutex_unlock(&g_mutex);
 }
+
+
+static void ingestExtensionReports(const KSCrashReportStoreCConfiguration *const config)
+{
+    if (config->extensionReportsPath == NULL) {
+        return;
+    }
+    DIR *dir = opendir(config->extensionReportsPath);
+    if (dir == NULL) {
+        KSLOG_ERROR(@"Could not open extension reports path %s: %s", config->extensionReportsPath, strerror(errno));
+        return;
+    }
+
+    // Collect first, rename after closedir. Removing entries from a directory while readdir is
+    // walking it is unspecified: the offsets the next getdirentries refill resumes from are
+    // invalidated, so entries can be skipped and the directory would not reliably drain in one
+    // pass. Only the names are kept, since both paths are derivable from a name.
+    ReportName *names = NULL;
+    size_t nameCount = 0;
+    size_t nameCapacity = 0;
+    struct dirent *ent;
+    while ((ent = readdir(dir)) != NULL) {
+        char reportID[KSCRS_REPORT_ID_LENGTH + 1];
+        if (!kscrs_parseReportFilename(ent->d_name, reportID)) {
+            continue;
+        }
+        if (nameCount == nameCapacity) {
+            size_t newCapacity = nameCapacity == 0 ? 16 : nameCapacity * 2;
+            ReportName *grown = realloc(names, newCapacity * sizeof(*names));
+            if (grown == NULL) {
+                KSLOG_ERROR(@"Out of memory collecting extension reports; ingesting the %zu found so far", nameCount);
+                break;
+            }
+            names = grown;
+            nameCapacity = newCapacity;
+        }
+        strlcpy(names[nameCount].name, ent->d_name, sizeof(names[nameCount].name));
+        nameCount++;
+    }
+    closedir(dir);
+
+    for (size_t i = 0; i < nameCount; i++) {
+        char sourcePath[KSCRS_MAX_PATH_LENGTH];
+        char destinationPath[KSCRS_MAX_PATH_LENGTH];
+        if (snprintf(sourcePath, sizeof(sourcePath), "%s/%s", config->extensionReportsPath, names[i].name) >=
+                (int)sizeof(sourcePath) ||
+            snprintf(destinationPath, sizeof(destinationPath), "%s/%s", config->reportsPath, names[i].name) >=
+                (int)sizeof(destinationPath)) {
+            continue;
+        }
+        // RENAME_EXCL: never replace an existing report. The app and group containers
+        // share a volume on iOS, so no cross-device fallback is needed; if a macOS setup
+        // ever crosses volumes, the file stays put and the error is logged each send.
+        if (renamex_np(sourcePath, destinationPath, RENAME_EXCL) != 0) {
+            KSLOG_ERROR(@"Could not ingest extension report %s: %s", names[i].name, strerror(errno));
+        }
+    }
+    free(names);
+}
+
+void kscrs_ingestExtensionReports(const KSCrashReportStoreCConfiguration *const configuration)
+{
+    pthread_mutex_lock(&g_mutex);
+    ingestExtensionReports(configuration);
+    pthread_mutex_unlock(&g_mutex);
+}
