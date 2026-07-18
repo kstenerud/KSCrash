@@ -80,6 +80,7 @@ struct Store: Sendable {
             maxRunCount: maxRunCount,
             reports: ReportBridge(
                 list: { try Store.listReportIDs(in: reportsDirectory) },
+                ingest: { kscrs_ingestExtensionReports(config.pointer) },
                 read: { id in try config.read(id) },
                 runID: { id in config.runID(of: id) },
                 remove: { id in try config.remove(id) }
@@ -107,9 +108,13 @@ struct Store: Sendable {
     /// Every pending crash report, newest first. Throws when the Reports
     /// directory cannot be enumerated; the runs half is not touched.
     func snapshotReportIDs() throws -> [Report.ID] {
+        // A crash extension's reports for this app are moved in before the
+        // listing, so the same send that finds them delivers them. No-op
+        // without an extensionReportsPath.
+        reports.ingest()
         // The listing is oldest first (the filenames carry the write time),
         // so newest first is its reverse.
-        Array(try reports.list().reversed())
+        return Array(try reports.list().reversed())
     }
 
     /// Every past run with data on disk, as inert values: all artifacts
@@ -386,6 +391,11 @@ struct ReportBridge: Sendable {
     /// store's snapshot derives newest-first by reversal. Throws when the
     /// directory cannot be enumerated; an empty store is an empty array.
     let list: @Sendable () throws -> [Report.ID]
+
+    /// Moves a crash extension's reports into the store before a listing, so
+    /// the same send that finds them delivers them. Defaults to a no-op: only
+    /// the production bridge has an extension report area to drain.
+    var ingest: @Sendable () -> Void = {}
 
     /// One report's stitched JSON. nil when it cannot be read right now.
     /// Throws when the file was read but does not hold a JSON report; that is
