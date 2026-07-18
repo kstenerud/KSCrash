@@ -27,8 +27,10 @@
 #import "KSCrashInstallConfiguration.h"
 #import <objc/runtime.h>
 #import "KSCrash+Private.h"
+#import "KSCrashC.h"
 #import "KSCrashInstallConfiguration+Private.h"
 #import "KSCrashReportStore.h"
+#import "KSLogger.h"
 
 @implementation KSCrashInstallConfiguration
 
@@ -282,6 +284,25 @@
         config.runSummariesPath = strdup(resolvedRunSummariesPath.UTF8String);
     }
 
+    NSString *extensionReportsPath = self.extensionReportsPathOverride;
+    if (extensionReportsPath == nil && self.extensionAppGroupIdentifier != nil) {
+        NSURL *container = [NSFileManager.defaultManager
+            containerURLForSecurityApplicationGroupIdentifier:self.extensionAppGroupIdentifier];
+        if (container != nil) {
+            // Mirrors the extension's write side exactly: <container>/<namespace>/Reports
+            // (ExtensionReporting derives the root, its install appends Reports).
+            extensionReportsPath = [[container.path
+                stringByAppendingPathComponent:[NSString stringWithUTF8String:kscrash_namespaceIdentifier()]]
+                stringByAppendingPathComponent:[KSCrashReportStore defaultInstallSubfolder]];
+        } else {
+            KSLOG_ERROR(@"Could not resolve the App Group container for %@; extension reports will not be ingested",
+                        self.extensionAppGroupIdentifier);
+        }
+    }
+    if (extensionReportsPath != nil) {
+        config.extensionReportsPath = strdup(extensionReportsPath.UTF8String);
+    }
+
     return config;
 }
 
@@ -296,6 +317,8 @@
     copy.maxReportCount = self.maxReportCount;
     copy.maxRunSummaryCount = self.maxRunSummaryCount;
     copy.runSidecarRetention = self.runSidecarRetention;
+    copy.extensionAppGroupIdentifier = [self.extensionAppGroupIdentifier copyWithZone:zone];
+    copy.extensionReportsPathOverride = [self.extensionReportsPathOverride copyWithZone:zone];
     return copy;
 }
 

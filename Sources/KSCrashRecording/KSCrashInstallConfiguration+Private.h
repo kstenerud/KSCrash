@@ -38,6 +38,9 @@
 
 @interface KSCrashReportStoreConfiguration ()
 
+/** Test seam: bypasses App Group resolution with a direct Reports-directory path. */
+@property(nonatomic, copy, nullable) NSString *extensionReportsPathOverride;
+
 - (KSCrashReportStoreCConfiguration)toCConfiguration;
 
 @end

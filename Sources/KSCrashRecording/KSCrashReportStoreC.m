@@ -93,10 +93,15 @@ static int compareInt64(const void *a, const void *b)
 
 static inline int64_t getNextUniqueID(void) { return g_nextUniqueID++; }
 
+static void getCrashReportPathByIDInDir(const char *dirPath, int64_t id, char *pathBuffer,
+                                        const KSCrashReportStoreCConfiguration *const config)
+{
+    snprintf(pathBuffer, KSCRS_MAX_PATH_LENGTH, "%s/%s-report-%016llx.json", dirPath, config->appName, (uint64_t)id);
+}
+
 static void getCrashReportPathByID(int64_t id, char *pathBuffer, const KSCrashReportStoreCConfiguration *const config)
 {
-    snprintf(pathBuffer, KSCRS_MAX_PATH_LENGTH, "%s/%s-report-%016llx.json", config->reportsPath, config->appName,
-             (uint64_t)id);
+    getCrashReportPathByIDInDir(config->reportsPath, id, pathBuffer, config);
 }
 
 static int64_t getReportIDFromFilename(const char *filename, const KSCrashReportStoreCConfiguration *const config)
@@ -987,5 +992,71 @@ void kscrs_cleanupOrphanedRunSidecars(const KSCrashReportStoreCConfiguration *co
 {
     pthread_mutex_lock(&g_mutex);
     cleanupOrphanedRunSidecars(configuration);
+    pthread_mutex_unlock(&g_mutex);
+}
+
+static void ingestExtensionReports(const KSCrashReportStoreCConfiguration *const config)
+{
+    if (config->extensionReportsPath == NULL) {
+        return;
+    }
+    DIR *dir = opendir(config->extensionReportsPath);
+    if (dir == NULL) {
+        KSLOG_ERROR(@"Could not open extension reports path %s: %s", config->extensionReportsPath, strerror(errno));
+        return;
+    }
+
+    // Collect first, rename after closedir. Removing entries from a directory while readdir is
+    // walking it is unspecified: the offsets the next getdirentries refill resumes from are
+    // invalidated, so entries can be skipped and the directory would not reliably drain in one
+    // pass. Only the ids are kept, since both paths are derivable from an id.
+    int64_t *reportIDs = NULL;
+    size_t idCount = 0;
+    size_t idCapacity = 0;
+    struct dirent *ent;
+    while ((ent = readdir(dir)) != NULL) {
+        int64_t reportID = getReportIDFromFilename(ent->d_name, config);
+        if (reportID <= 0) {
+            continue;
+        }
+        if (idCount == idCapacity) {
+            size_t newCapacity = idCapacity == 0 ? 16 : idCapacity * 2;
+            int64_t *grown = realloc(reportIDs, newCapacity * sizeof(*reportIDs));
+            if (grown == NULL) {
+                KSLOG_ERROR(@"Out of memory collecting extension reports; ingesting the %zu found so far", idCount);
+                break;
+            }
+            reportIDs = grown;
+            idCapacity = newCapacity;
+        }
+        reportIDs[idCount++] = reportID;
+    }
+    closedir(dir);
+
+    for (size_t i = 0; i < idCount; i++) {
+        char sourcePath[KSCRS_MAX_PATH_LENGTH];
+        getCrashReportPathByIDInDir(config->extensionReportsPath, reportIDs[i], sourcePath, config);
+        char destinationPath[KSCRS_MAX_PATH_LENGTH];
+        getCrashReportPathByID(reportIDs[i], destinationPath, config);
+        // RENAME_EXCL: never replace an existing report. The app and group containers
+        // share a volume on iOS, so no cross-device fallback is needed; if a macOS setup
+        // ever crosses volumes, the file stays put and the error is logged each send.
+        if (renamex_np(sourcePath, destinationPath, RENAME_EXCL) != 0) {
+            // The source file stays put either way and is retried on the next send.
+            if (errno == EEXIST) {
+                KSLOG_WARN(@"Not ingesting report %llx: a report with this ID already exists",
+                           (unsigned long long)reportIDs[i]);
+            } else {
+                KSLOG_ERROR(@"Could not ingest report %llx: %s", (unsigned long long)reportIDs[i], strerror(errno));
+            }
+        }
+    }
+    free(reportIDs);
+}
+
+void kscrs_ingestExtensionReports(const KSCrashReportStoreCConfiguration *const configuration)
+{
+    pthread_mutex_lock(&g_mutex);
+    ingestExtensionReports(configuration);
     pthread_mutex_unlock(&g_mutex);
 }

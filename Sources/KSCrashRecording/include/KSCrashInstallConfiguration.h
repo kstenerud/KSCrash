@@ -338,6 +338,17 @@ NS_SWIFT_NAME(CrashReportStoreConfiguration)
  */
 @property(nonatomic, assign) NSTimeInterval runSidecarRetention;
 
+/** The App Group your crash report extension writes into.
+ *
+ * Must carry the same group as ExtensionReportingConfiguration.appGroupIdentifier on
+ * the extension side. When set, sendAllReports first moves any reports the extension
+ * wrote for this app into this store, so they list, stitch, and send like any other
+ * report.
+ *
+ * **Default**: nil (no ingestion)
+ */
+@property(nonatomic, copy, nullable) NSString *extensionAppGroupIdentifier;
+
 @end
 
 NS_ASSUME_NONNULL_END

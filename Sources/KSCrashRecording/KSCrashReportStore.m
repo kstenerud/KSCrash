@@ -131,6 +131,10 @@ typedef void (^KSChainApplyFilter)(id filter, NSArray *items, KSChainStepComplet
 - (void)sendAllReportsWithConfiguration:(KSCrashSendConfiguration *)configuration
                              completion:(KSCrashReportFilterCompletion)onCompletion
 {
+    // Reports a crash extension wrote for this app join the store first, so this send
+    // lists, stitches, and delivers them like any report this process wrote.
+    kscrs_ingestExtensionReports(&_cConfig);
+
     NSArray<id<KSCrashReportFilter>> *filters = configuration.reportFilters;
     KSCrashReportCleanupPolicy cleanupPolicy = configuration.reportCleanupPolicy;
 
