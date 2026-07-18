@@ -30,6 +30,7 @@
 #import "KSCrashInstallConfiguration+Private.h"
 #import "KSCrashReportFilter.h"
 #import "KSCrashReportStore.h"
+#import "KSCrashReportStoreC+Private.h"
 #import "KSCrashReportStoreC.h"
 #import "KSCrashSendConfiguration.h"
 
@@ -195,6 +196,30 @@
     kscrs_ingestExtensionReports(&_appConfig);
 
     XCTAssertEqual(kscrs_getReportCount(&_appConfig), 0);
+}
+
+- (void)testGetReportRunIDReadsTheRawRunID
+{
+    [self prepareStores];
+    NSString *json = @"{\"report\":{\"id\":\"x\",\"run_id\":\"22222222-2222-2222-2222-222222222222\"}}";
+    NSData *data = [json dataUsingEncoding:NSUTF8StringEncoding];
+    int64_t reportID = kscrs_addUserReport(data.bytes, (int)data.length, &_appConfig);
+
+    char runId[64] = { 0 };
+    XCTAssertTrue(kscrs_getReportRunID(reportID, &_appConfig, runId, sizeof(runId)));
+    XCTAssertEqualObjects([NSString stringWithUTF8String:runId], @"22222222-2222-2222-2222-222222222222");
+}
+
+- (void)testGetReportRunIDFailsWithoutARunID
+{
+    [self prepareStores];
+    NSString *json = @"{\"report\":{\"id\":\"x\"}}";
+    NSData *data = [json dataUsingEncoding:NSUTF8StringEncoding];
+    int64_t reportID = kscrs_addUserReport(data.bytes, (int)data.length, &_appConfig);
+
+    char runId[64] = { 0 };
+    XCTAssertFalse(kscrs_getReportRunID(reportID, &_appConfig, runId, sizeof(runId)));
+    XCTAssertFalse(kscrs_getReportRunID(987654, &_appConfig, runId, sizeof(runId)), @"missing file");
 }
 
 #pragma mark - Through the ObjC store

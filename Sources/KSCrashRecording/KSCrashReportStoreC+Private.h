@@ -144,6 +144,13 @@ char *kscrs_readReportByPathAndID(const char *path, int64_t reportID);
  */
 bool kscrs_finalizeReport(const char *reportPath, int64_t reportID);
 
+/** Read just the run_id out of a report on disk, without decoding or stitching it.
+ *
+ * @return true if a valid UUID run_id was extracted.
+ */
+bool kscrs_getReportRunID(int64_t reportID, const KSCrashReportStoreCConfiguration *const configuration, char *runIdOut,
+                          size_t runIdOutLen);
+
 #ifdef __cplusplus
 }
 #endif

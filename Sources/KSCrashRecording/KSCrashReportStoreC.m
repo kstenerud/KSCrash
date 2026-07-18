@@ -1054,6 +1054,17 @@ static void ingestExtensionReports(const KSCrashReportStoreCConfiguration *const
     free(reportIDs);
 }
 
+bool kscrs_getReportRunID(int64_t reportID, const KSCrashReportStoreCConfiguration *const configuration, char *runIdOut,
+                          size_t runIdOutLen)
+{
+    char path[KSCRS_MAX_PATH_LENGTH];
+    pthread_mutex_lock(&g_mutex);
+    getCrashReportPathByID(reportID, path, configuration);
+    bool result = kscrs_extractRunIdFromReportFile(path, runIdOut, runIdOutLen);
+    pthread_mutex_unlock(&g_mutex);
+    return result;
+}
+
 void kscrs_ingestExtensionReports(const KSCrashReportStoreCConfiguration *const configuration)
 {
     pthread_mutex_lock(&g_mutex);
