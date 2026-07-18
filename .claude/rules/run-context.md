@@ -73,6 +73,6 @@ Loads context for any run ID, not just the previous one. Takes the path resolver
 
 - `KSCrashRunContext.h/.m`: `KSCrashRunContext` struct, `ksruncontext_init()`, `ksruncontext_contextForRunID()`, `ksruncontext_previousRunContext()`
 - `KSTerminationReason.h/.c`: `KSTerminationReason` enum, `kstermination_reasonToString()`, `kstermination_producesReport()`
-- `KSTaskRole.h/.c` (KSCrashRecordingCore): `kstaskrole_current()`, `kstaskrole_forTask()` (failure-reporting, for corpse ports), `kstaskrole_toString()` — queries the Mach task role from the kernel
+- `KSTaskRole.h/.c` (KSCrashRecordingCore): `kstaskrole_current()`, `kstaskrole_forTask()` (failure-reporting, for corpse ports), `kstaskrole_toString()`, which query the Mach task role from the kernel
 - `KSCrashMonitor_Termination.h/.m`: The Termination monitor — reads RunContext in `notifyPostSystemEnable` and injects a retroactive report if needed
 - `KSCrashC.c`: Wires the four-step startup sequence in `kscrash_install()`
