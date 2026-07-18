@@ -355,6 +355,7 @@
 #define kscrs_getNextCrashReport KSCRASH_NS(kscrs_getNextCrashReport)
 #define kscrs_getReportCount KSCRASH_NS(kscrs_getReportCount)
 #define kscrs_getReportIDs KSCRASH_NS(kscrs_getReportIDs)
+#define kscrs_getReportRunID KSCRASH_NS(kscrs_getReportRunID)
 #define kscrs_getReportSidecarFilePath KSCRASH_NS(kscrs_getReportSidecarFilePath)
 #define kscrs_getReportSidecarFilePathForReport KSCRASH_NS(kscrs_getReportSidecarFilePathForReport)
 #define kscrs_getRunSidecarFilePath KSCRASH_NS(kscrs_getRunSidecarFilePath)

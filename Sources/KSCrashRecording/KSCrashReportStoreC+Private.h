@@ -111,8 +111,8 @@ char *kscrs_readReportByPathAndID(const char *path, const char *reportID);
 
 /** Finalize a report in-place by stitching all sidecars and writing back.
  *
- * Reads the report from disk, applies fixup and all stitch passes
- * (run sidecars, per-report sidecars, then the final pass), adds a "finalized" flag
+ * Reads the report from disk, applies fixup and all stitch callbacks
+ * (both run sidecars and per-report sidecars), adds a "finalized" flag
  * to the report.report section, and atomically writes the result back.
  * Sidecars are left on disk (reads skip stitching for finalized reports)
  * and cleaned up when the report is deleted after consumption.
