@@ -44,7 +44,7 @@ Built-in monitors are registered via `KSCrashMonitorType` flags in `KSCrashC.c`.
 
 | Monitor | ID | Module | Detects | postSystemEnable |
 |---|---|---|---|---|
-| MetricKit | `"MetricKit"` | Monitors | Apple MetricKit diagnostics (async, hours/days post-crash). Built on the Swift monitor layer (`.claude/rules/swift-monitors.md`). | Yes |
+| MetricKit | `"MetricKit"` | Monitors | Apple MetricKit diagnostics (async, hours/days post-crash). Built on the Swift monitor layer (`.claude/rules/swift-monitors.md`). | No |
 | Profiler | `"profile"` (the id doubles as the report's `crash.error.type` and section key; never rename) | KSCrashProfiler | Sampling profiler (thread backtraces at intervals) | No |
 | Corpse | `"Corpse"` | Monitors | Other processes' corpses, from an iOS 27 CrashReportExtension. In the extension, `KSCrash.installForExtensionReporting(with:)` registers it and `KSCrash.captureCrashReport` drives it. In the app that ingests the extension's reports, register it via `config.plugins = [CrashReportExtensionMonitor.plugin()]`: it detects nothing there and stitches in the final pass (priority `KSCrashStitchPriorityCorpse`, above every sidecar layer), replacing run-cached values with the report's embedded at-death snapshot data and then moving that snapshot out of `crash.error.Corpse` to the report root as `corpse` (a monitor section can only be written inside the error, but the snapshot describes the whole dead process). Its reports carry `error.type = "mach"` (context `errorTypeOverride`). Built on the Swift monitor layer (`.claude/rules/swift-monitors.md`). | No (never fires in extension mode) |
 

@@ -15,6 +15,13 @@ Do **not** comment:
 
 A good test: if removing the comment would make a future change risky, keep it. If the code reads fine without it, skip it.
 
+## C String Copies
+
+Use `strlcpy`, never `strncpy`, to copy NUL-terminated strings into fixed-size buffers.
+`strncpy` does not guarantee termination and zero-fills the remainder of the buffer;
+`strlcpy` is purpose-built for this: it always terminates and returns the source length.
+(`snprintf` remains banned on signal paths; see async-signal-safety.md.)
+
 ## Formatting
 
 - C/C++/Objective-C: Follow clang-format style defined in the project

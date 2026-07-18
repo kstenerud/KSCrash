@@ -6,7 +6,7 @@ paths:
   - "Sources/KSCrashRecording/include/KSCrashReportFields.h"
   - "Sources/KSCrashRecording/KSCrashReportStore.m"
   - "Sources/KSCrashRecording/include/KSCrashReportStore.h"
-  - "Sources/Report/Models/ReportInfo.swift"
+  - "Sources/KSCrashReportModel/Models/ReportInfo.swift"
 ---
 
 ## Run ID
