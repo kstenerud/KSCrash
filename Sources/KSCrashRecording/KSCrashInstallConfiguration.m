@@ -242,6 +242,7 @@
         KSCrashReportStoreCConfiguration cConfig = KSCrashReportStoreCConfiguration_Default();
         _maxReportCount = (NSInteger)cConfig.maxReportCount;
         _maxRunSummaryCount = (NSInteger)cConfig.maxRunSummaryCount;
+        _runSidecarRetention = cConfig.runSidecarRetentionSeconds;
     }
     return self;
 }
@@ -262,6 +263,7 @@
     config.reportsPath = resolvedReportsPath != nil ? strdup(resolvedReportsPath.UTF8String) : NULL;
     config.maxReportCount = (int)self.maxReportCount;
     config.maxRunSummaryCount = (int)self.maxRunSummaryCount;
+    config.runSidecarRetentionSeconds = self.runSidecarRetention;
 
     if (resolvedReportsPath != nil) {
         NSString *parentPath = [resolvedReportsPath stringByDeletingLastPathComponent];
@@ -293,6 +295,7 @@
     copy.appName = [self.appName copyWithZone:zone];
     copy.maxReportCount = self.maxReportCount;
     copy.maxRunSummaryCount = self.maxRunSummaryCount;
+    copy.runSidecarRetention = self.runSidecarRetention;
     return copy;
 }
 

@@ -43,6 +43,9 @@
 extern "C" {
 #endif
 
+/** Default retention window for unreferenced run-sidecar directories: 30 days. */
+#define KSCRS_DEFAULT_RUN_SIDECAR_RETENTION_SECONDS (30.0 * 24.0 * 60.0 * 60.0)
+
 /** Configuration for managing crash reports through the report store API.
  */
 typedef struct {
@@ -95,6 +98,20 @@ typedef struct {
      * **Default**: 50
      */
     int maxRunSummaryCount;
+
+    /** How long to keep run-sidecar directories that no report references, in seconds.
+     *
+     * A crash caught by the app's crash extension sits in the App Group container until
+     * the user next opens the app. If this store deletes that run's sidecar directory
+     * before the report is ingested, the report can never be enriched with it. Keeping
+     * unreferenced directories for this window costs a few kilobytes per run.
+     *
+     * Directories referenced by a report on disk are always kept, whatever their age.
+     * Zero or negative deletes unreferenced directories immediately.
+     *
+     * **Default**: 30 days.
+     */
+    double runSidecarRetentionSeconds;
 } KSCrashReportStoreCConfiguration;
 
 static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_Default(void)
@@ -107,6 +124,7 @@ static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_
         .runSummariesPath = NULL,
         .maxReportCount = 5,
         .maxRunSummaryCount = 50,
+        .runSidecarRetentionSeconds = KSCRS_DEFAULT_RUN_SIDECAR_RETENTION_SECONDS,
     };
 }
 
@@ -121,6 +139,7 @@ static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_
         .runSummariesPath = configuration->runSummariesPath ? strdup(configuration->runSummariesPath) : NULL,
         .maxReportCount = configuration->maxReportCount,
         .maxRunSummaryCount = configuration->maxRunSummaryCount,
+        .runSidecarRetentionSeconds = configuration->runSidecarRetentionSeconds,
     };
 }
 

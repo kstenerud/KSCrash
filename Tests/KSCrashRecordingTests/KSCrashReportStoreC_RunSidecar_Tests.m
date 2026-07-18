@@ -250,6 +250,10 @@ static CFDictionaryRef throwingStitchReport(__unused CFDictionaryRef reportDict,
 
 #pragma mark - Run Sidecar Orphan Cleanup
 
+// The tests in this group leave runSidecarRetentionSeconds at 0 (the setUp memset), which
+// means delete-on-sight; they double as coverage for the zero-retention behavior. The
+// retention-window tests further down set it explicitly.
+
 - (void)testInitializationCleansOrphanedRunSidecars
 {
     [self prepareStoreWithRunSidecars:@"testOrphanCleanup"];
@@ -333,6 +337,69 @@ static CFDictionaryRef throwingStitchReport(__unused CFDictionaryRef reportDict,
     for (NSString *runDir in runDirs) {
         XCTAssertTrue([fm fileExistsAtPath:runDir], @"Run sidecar wrongly deleted: %@", runDir);
     }
+}
+
+#pragma mark - Run Sidecar Retention Window
+
+- (void)setModificationDate:(NSDate *)date forRunSidecarDirWithRunID:(NSString *)runId
+{
+    NSString *runDir =
+        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:runId];
+    NSError *error = nil;
+    XCTAssertTrue([[NSFileManager defaultManager] setAttributes:@{ NSFileModificationDate : date }
+                                                   ofItemAtPath:runDir
+                                                          error:&error],
+                  @"%@", error);
+}
+
+- (void)testOrphanCleanupKeepsYoungUnreferencedRunSidecarDir
+{
+    [self prepareStoreWithRunSidecars:@"testRetentionYoung"];
+    _storeConfig.runSidecarRetentionSeconds = KSCRS_DEFAULT_RUN_SIDECAR_RETENTION_SECONDS;
+    NSString *runId = [[NSUUID UUID] UUIDString];
+    [self writeRunSidecar:@"System" runId:runId contents:@"system data"];
+
+    kscrs_cleanupOrphanedRunSidecars(&_storeConfig);
+
+    NSString *runDir =
+        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:runId];
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir],
+                  @"An unreferenced dir inside the retention window must survive");
+}
+
+- (void)testOrphanCleanupDeletesAgedUnreferencedRunSidecarDir
+{
+    [self prepareStoreWithRunSidecars:@"testRetentionAged"];
+    _storeConfig.runSidecarRetentionSeconds = KSCRS_DEFAULT_RUN_SIDECAR_RETENTION_SECONDS;
+    NSString *runId = [[NSUUID UUID] UUIDString];
+    [self writeRunSidecar:@"System" runId:runId contents:@"system data"];
+    [self setModificationDate:[NSDate dateWithTimeIntervalSinceNow:-31.0 * 24.0 * 60.0 * 60.0]
+        forRunSidecarDirWithRunID:runId];
+
+    kscrs_cleanupOrphanedRunSidecars(&_storeConfig);
+
+    NSString *runDir =
+        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:runId];
+    XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:runDir],
+                   @"An unreferenced dir past the retention window must be deleted");
+}
+
+- (void)testOrphanCleanupKeepsAgedReferencedRunSidecarDir
+{
+    [self prepareStoreWithRunSidecars:@"testRetentionReferenced"];
+    _storeConfig.runSidecarRetentionSeconds = KSCRS_DEFAULT_RUN_SIDECAR_RETENTION_SECONDS;
+    NSString *runId = [[NSUUID UUID] UUIDString];
+    [self writeReportWithRunId:runId];
+    [self writeRunSidecar:@"System" runId:runId contents:@"system data"];
+    [self setModificationDate:[NSDate dateWithTimeIntervalSinceNow:-31.0 * 24.0 * 60.0 * 60.0]
+        forRunSidecarDirWithRunID:runId];
+
+    kscrs_cleanupOrphanedRunSidecars(&_storeConfig);
+
+    NSString *runDir =
+        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:runId];
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir],
+                  @"A referenced dir is kept regardless of age");
 }
 
 - (void)testDeleteReportWithNoRunSidecarsPathDoesNotCrash

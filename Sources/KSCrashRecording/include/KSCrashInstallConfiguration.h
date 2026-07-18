@@ -326,6 +326,18 @@ NS_SWIFT_NAME(CrashReportStoreConfiguration)
  */
 @property(nonatomic, assign) NSInteger maxRunSummaryCount;
 
+/** How long to keep run-sidecar directories that no report references.
+ *
+ * A crash caught by your crash extension sits in the App Group container until the user
+ * next opens the app. If this store deletes that run's sidecars first, the ingested
+ * report can never be enriched with them. The cost of waiting is a few kilobytes per
+ * run. Directories referenced by a report are always kept, whatever their age.
+ * Zero or negative deletes unreferenced directories immediately.
+ *
+ * **Default**: 30 days.
+ */
+@property(nonatomic, assign) NSTimeInterval runSidecarRetention;
+
 @end
 
 NS_ASSUME_NONNULL_END
