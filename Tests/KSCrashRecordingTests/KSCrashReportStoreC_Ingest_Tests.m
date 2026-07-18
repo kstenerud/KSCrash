@@ -27,6 +27,7 @@
 #import <XCTest/XCTest.h>
 
 #import "FileBasedTestCase.h"
+#import "KSCrashReportStoreC+Private.h"
 #import "KSCrashReportStoreC.h"
 
 /** The send path refuses to run with no filters, so pass reports through unchanged. */
