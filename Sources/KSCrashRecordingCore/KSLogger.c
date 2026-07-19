@@ -321,7 +321,7 @@ bool kslog_setLogFilename(const char *filename, bool overwrite)
             return false;
         }
         if (filename != g_logFilename) {
-            strncpy(g_logFilename, filename, sizeof(g_logFilename));
+            strlcpy(g_logFilename, filename, sizeof(g_logFilename));
         }
     }
 
@@ -375,7 +375,7 @@ bool kslog_setLogFilename(const char *filename, bool overwrite)
         }
     }
     if (filename != g_logFilename) {
-        strncpy(g_logFilename, filename, sizeof(g_logFilename));
+        strlcpy(g_logFilename, filename, sizeof(g_logFilename));
     }
 
     if (oldFile != NULL) {

@@ -272,7 +272,7 @@ static KSCRASH_NOINLINE void *__kscrash_threadcrumb_start__(void *arg) KSCRASH_K
         // Copy to C buffer.
         memset(_data, 0, KSCrashThreadcrumbMaximumMessageLength + 1);
         if (sanitized.UTF8String) {
-            strncpy(_data, sanitized.UTF8String, KSCrashThreadcrumbMaximumMessageLength);
+            strlcpy(_data, sanitized.UTF8String, KSCrashThreadcrumbMaximumMessageLength + 1);
         }
         _index = 0;
         _messageLength = sanitized.length;
