@@ -385,8 +385,13 @@ static bool tryUnwindWithMethod(UnwindCursorContext *ctx, KSUnwindMethod method,
  * instruction pointer where the crash/sample occurred, not a return address.
  * The LR value (which IS a return address) will be stored to ctx->pc after
  * this function returns.
+ *
+ * @param consumedLR The LR value the caller already emitted as a frame. ctx->lr has been
+ *        cleared by then (so a frameless-leaf encoding cannot hand it back as a duplicate
+ *        return address), but the frame-pointer fallback still has to restore PC to it, so
+ *        it is passed explicitly rather than read back off the context.
  */
-static bool tryUpdateStateAfterLR(UnwindCursorContext *ctx)
+static bool tryUpdateStateAfterLR(UnwindCursorContext *ctx, uintptr_t consumedLR)
 {
     KSCompactUnwindResult result;
 
@@ -431,7 +436,7 @@ static bool tryUpdateStateAfterLR(UnwindCursorContext *ctx)
                     }
                     ctx->fp = newFP;
                     ctx->framePointerRestored = true;  // Frame pointer walking always restores FP
-                    ctx->pc = ctx->lr;
+                    ctx->pc = consumedLR;
                     return true;
                 }
                 break;
@@ -498,11 +503,14 @@ static bool advanceCursor(KSStackCursor *cursor)
         // entries return it as the return address. If LR still holds the
         // original register value, any such encoding deep in the stack would
         // produce a spurious duplicate of frame [1].
+        // The value itself is still needed: the frame-pointer fallbacks below set PC to it,
+        // so keep it in a local rather than reading the (now zero) register back.
+        const uintptr_t consumedLR = ctx->lr;
         ctx->lr = 0;
 
         // After using LR, we need to unwind to get the next return address
         // Try methods in order to update our register state
-        if (!tryUpdateStateAfterLR(ctx)) {
+        if (!tryUpdateStateAfterLR(ctx, consumedLR)) {
             // Fallback: advance FP if possible and set PC to LR
             FrameEntry frame;
             if (ctx->fp != 0 && ksmem_copySafely((const void *)ctx->fp, &frame, sizeof(frame))) {
@@ -530,9 +538,9 @@ static bool advanceCursor(KSStackCursor *cursor)
                 // Couldn't read frame from stack - FP was not restored
                 ctx->framePointerRestored = false;
             }
-            // Always update PC to LR, even if FP read failed. This ensures the next
-            // unwind step starts from the correct address rather than a stale PC.
-            ctx->pc = ctx->lr;
+            // Always update PC to the LR we consumed, even if FP read failed. This ensures the
+            // next unwind step starts from the correct address rather than a stale PC.
+            ctx->pc = consumedLR;
         }
 
         // The LR frame itself wasn't unwound - we just read the register.
