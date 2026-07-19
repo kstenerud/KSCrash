@@ -935,12 +935,11 @@ static void writeBacktrace(const KSCrashReportWriter *const writer, const char *
  *
  * @param key The object key, if needed.
  *
- * @param machineContext The context to retrieve the stack from.
- *
- * @param isStackOverflow If true, the stack has overflowed.
+ * @param machineContext The context to retrieve the stack from. Its stack-overflow verdict is
+ *                       what the report records; see KSCrashField_Overflow below.
  */
 static void writeStackContents(const KSCrashReportWriter *const writer, const char *const key,
-                               const struct KSMachineContext *const machineContext, const bool isStackOverflow)
+                               const struct KSMachineContext *const machineContext)
 {
     uintptr_t sp = kscpu_stackPointer(machineContext);
     if ((void *)sp == NULL) {
@@ -962,7 +961,11 @@ static void writeStackContents(const KSCrashReportWriter *const writer, const ch
         writer->addUIntegerElement(writer, KSCrashField_DumpStart, lowAddress);
         writer->addUIntegerElement(writer, KSCrashField_DumpEnd, highAddress);
         writer->addUIntegerElement(writer, KSCrashField_StackPtr, sp);
-        writer->addBooleanElement(writer, KSCrashField_Overflow, isStackOverflow);
+        // The context's own verdict, not "the backtrace stopped early". Consumers read this as
+        // "the stack overflowed" (KSCrashDoctor diagnoses one from it, and the report model
+        // documents it that way), and the cursor's give-up flag answers a different question at
+        // a threshold that varies by code path.
+        writer->addBooleanElement(writer, KSCrashField_Overflow, machineContext->isStackOverflow);
         uint8_t stackBuffer[kStackContentsTotalDistance * sizeof(sp)];
         int copyLength = (int)(highAddress - lowAddress);
         if (ksmem_copySafely((void *)lowAddress, stackBuffer, copyLength)) {
@@ -1193,7 +1196,7 @@ static void writeThread(const KSCrashReportWriter *const writer, const char *con
         writer->addBooleanElement(writer, KSCrashField_Crashed, isCrashedThread);
         writer->addBooleanElement(writer, KSCrashField_CurrentThread, thread == ksthread_self());
         if (isCrashedThread) {
-            writeStackContents(writer, KSCrashField_Stack, machineContext, stackCursor.state.hasGivenUp);
+            writeStackContents(writer, KSCrashField_Stack, machineContext);
             if (shouldWriteNotableAddresses) {
                 writeNotableAddresses(writer, KSCrashField_NotableAddresses, machineContext);
             }

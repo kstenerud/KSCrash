@@ -256,6 +256,84 @@
     }
 }
 
+static dispatch_semaphore_t g_overflowWorkerReady;
+static dispatch_semaphore_t g_overflowWorkerRelease;
+static thread_t g_overflowWorkerThread;
+
+static void *overflowWorkerMain(__unused void *arg)
+{
+    g_overflowWorkerThread = pthread_mach_thread_np(pthread_self());
+    dispatch_semaphore_signal(g_overflowWorkerReady);
+    dispatch_semaphore_wait(g_overflowWorkerRelease, DISPATCH_TIME_FOREVER);
+    return NULL;
+}
+
+- (void)testStackOverflowFieldReportsTheContextVerdictNotCursorTruncation
+{
+#if KSCRASH_HAS_MACH
+    // crash.threads[].stack.overflow is consumed as "the stack overflowed": KSCrashDoctor
+    // diagnoses a stack overflow from it and the report model documents it that way. It must
+    // therefore come from the machine context's verdict, not from whether the backtrace cursor
+    // stopped early, which is a different question asked at a threshold that varies by path
+    // (the crashed thread's pre-captured cursor uses KSSC_MAX_STACK_DEPTH, everything else uses
+    // KSSC_STACK_OVERFLOW_THRESHOLD).
+    ksdl_init();
+
+    // A suspended second thread, because the stack dump needs readable registers and you cannot
+    // read CPU state for the thread doing the reading.
+    g_overflowWorkerReady = dispatch_semaphore_create(0);
+    g_overflowWorkerRelease = dispatch_semaphore_create(0);
+    g_overflowWorkerThread = MACH_PORT_NULL;
+    pthread_t worker;
+    XCTAssertEqual(pthread_create(&worker, NULL, overflowWorkerMain, NULL), 0);
+    dispatch_semaphore_wait(g_overflowWorkerReady, DISPATCH_TIME_FOREVER);
+    usleep(10000);
+    XCTAssertEqual(thread_suspend(g_overflowWorkerThread), KERN_SUCCESS);
+
+    NSString *path = [self temporaryReportPath];
+    @try {
+        struct KSMachineContext machineContext = { 0 };
+        XCTAssertTrue(ksmc_getContextForThread(g_overflowWorkerThread, &machineContext, true));
+        XCTAssertFalse(machineContext.isStackOverflow, @"a parked worker has not overflowed its stack");
+
+        // A cursor that has given up. If the report took its value from here it would claim the
+        // stack overflowed, which is exactly the conflation being removed.
+        KSStackCursor stackCursor;
+        kssc_initWithUnwind(&stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
+        stackCursor.state.hasGivenUp = true;
+
+        KSCrash_MonitorContext context = { 0 };
+        snprintf(context.eventID, sizeof(context.eventID), "OVERFLOWFIELDTEST");
+        context.offendingMachineContext = &machineContext;
+        context.stackCursor = &stackCursor;
+        context.registersAreValid = true;
+        context.omitBinaryImages = true;
+        context.monitorId = kscm_machexception_getAPI()->monitorId(NULL);
+        context.mach.type = EXC_BAD_ACCESS;
+
+        kscrashreport_writeStandardReport(&context, path.UTF8String);
+
+        NSDictionary *json = [self readJSONObjectAtPath:path];
+        NSArray *threads = json[@"crash"][@"threads"];
+        NSDictionary *stack = nil;
+        for (NSDictionary *t in threads) {
+            if ([t[@"crashed"] boolValue]) {
+                stack = t[@"stack"];
+                break;
+            }
+        }
+        XCTAssertNotNil(stack, @"the crashed thread must carry a stack dump");
+        XCTAssertEqualObjects(stack[@"overflow"], @NO,
+                              @"overflow must follow the machine context, not the cursor giving up");
+    } @finally {
+        thread_resume(g_overflowWorkerThread);
+        dispatch_semaphore_signal(g_overflowWorkerRelease);
+        pthread_join(worker, NULL);
+        [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+    }
+#endif
+}
+
 - (void)testWriteStandardReportPreserves64BitMachCodeAndSubcode
 {
 #if KSCRASH_HAS_MACH
