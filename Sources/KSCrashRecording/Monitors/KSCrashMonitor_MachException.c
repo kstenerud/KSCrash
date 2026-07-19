@@ -440,7 +440,10 @@ static void handleException(ExceptionContext *exceptionCtx)
     monitorCtx->mach.type = exceptionCtx->request->exception;
     monitorCtx->mach.code = machCodeFromRequest(exceptionCtx->request);
     monitorCtx->mach.subcode = machSubcodeFromRequest(exceptionCtx->request);
-    if (monitorCtx->mach.code == KERN_PROTECTION_FAILURE && monitorCtx->isStackOverflow) {
+    // machineContext, not monitorCtx: the stack-overflow verdict is produced by
+    // ksmc_getContextForThread above and lives on the machine context. (The monitor context
+    // carried a same-named field that nothing ever wrote, so this correction never fired.)
+    if (monitorCtx->mach.code == KERN_PROTECTION_FAILURE && machineContext.isStackOverflow) {
         // A stack overflow should return KERN_INVALID_ADDRESS, but
         // when a stack blasts through the guard pages at the top of the stack,
         // it generates KERN_PROTECTION_FAILURE. Correct for this.
