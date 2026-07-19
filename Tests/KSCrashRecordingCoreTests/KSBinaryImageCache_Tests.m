@@ -755,4 +755,60 @@ static void testImageAddedCallback(const struct mach_header *mh, intptr_t vmaddr
     XCTAssertEqual(infoByHeader.hasEhFrame, infoByAddress.hasEhFrame, @"hasEhFrame should match");
 }
 
+extern void ksbic_testcode_setMaxCacheEntries(uint32_t maxEntries);
+
+- (void)testUnwindInfoLookupFillsOutInfoWhenTheCacheIsFull
+{
+    // A full cache must still answer the lookup. Returning true without writing *outInfo hands
+    // the unwinder an uninitialized KSBinaryImageUnwindInfo, and its caller keys off the return
+    // value alone, so it would read a garbage hasCompactUnwind and then unwind through a garbage
+    // section pointer, inside a crash handler.
+    uint32_t imageCount = 0;
+    const ks_dyld_image_info *images = ksbic_getImages(&imageCount);
+    XCTAssertGreaterThan(imageCount, 2u);
+
+    // Baseline: what each image's header address resolves to with a normal cache.
+    const uint32_t sampleCount = MIN(imageCount, 8u);
+    KSBinaryImageUnwindInfo expected[8] = { 0 };
+    bool found[8] = { false };
+    for (uint32_t i = 0; i < sampleCount; i++) {
+        found[i] = ksbic_getUnwindInfoForAddress((uintptr_t)images[i].imageLoadAddress, &expected[i]);
+    }
+
+    // Capping trims the cache to one entry, so every other address now misses against a cache
+    // that cannot grow, which is the branch under test. (Capping alone would not do it: a
+    // pre-populated cache answers every real address from its entries and never misses.)
+    ksbic_testcode_setMaxCacheEntries(1);
+    @try {
+        int compared = 0;
+        for (uint32_t i = 0; i < sampleCount; i++) {
+            if (!found[i]) {
+                continue;
+            }
+            // Poison, so a path that returns true without writing is caught rather than
+            // reading back a stale-but-plausible value.
+            KSBinaryImageUnwindInfo actual;
+            memset(&actual, 0xA5, sizeof(actual));
+            XCTAssertTrue(ksbic_getUnwindInfoForAddress((uintptr_t)images[i].imageLoadAddress, &actual),
+                          @"a full cache must still find image %u", i);
+            XCTAssertEqual(actual.header, expected[i].header, @"outInfo must be filled, not left poisoned");
+            XCTAssertEqual(actual.unwindInfo, expected[i].unwindInfo);
+            XCTAssertEqual(actual.unwindInfoSize, expected[i].unwindInfoSize);
+            XCTAssertEqual(actual.hasCompactUnwind, expected[i].hasCompactUnwind);
+            compared++;
+        }
+        XCTAssertGreaterThan(compared, 0, @"no image resolved, so the full-cache path was never exercised");
+    } @finally {
+        // Restore the cap, then repopulate what trimming discarded, so later tests in this
+        // bundle see a normal cache.
+        ksbic_testcode_setMaxCacheEntries(0);
+        extern void ksbic_resetCache(void);
+        ksbic_resetCache();
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        ksbic_init();
+#pragma clang diagnostic pop
+    }
+}
+
 @end
