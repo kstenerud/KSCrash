@@ -66,6 +66,12 @@ typedef struct KSStackCursor {
 
         /** If true, cursor has given up walking the stack. */
         bool hasGivenUp;
+
+        /** True once the walk has reached KSSC_STACK_OVERFLOW_THRESHOLD frames, which is what
+         * reports mean by a stack overflow. Deliberately independent of the cursor's configured
+         * maximum depth, so cursors built with different limits agree: hasGivenUp only says the
+         * walk hit whatever limit it was given, which is a different question. */
+        bool stackOverflow;
     } state;
 
     /** Reset the cursor back to the beginning. */

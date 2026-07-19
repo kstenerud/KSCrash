@@ -937,10 +937,10 @@ static void writeBacktrace(const KSCrashReportWriter *const writer, const char *
  *
  * @param machineContext The context to retrieve the stack from.
  *
- * @param isStackOverflow If true, the stack has overflowed.
+ * @param stackOverflow Whether the walk reached the stack-overflow threshold.
  */
 static void writeStackContents(const KSCrashReportWriter *const writer, const char *const key,
-                               const struct KSMachineContext *const machineContext, const bool isStackOverflow)
+                               const struct KSMachineContext *const machineContext, const bool stackOverflow)
 {
     uintptr_t sp = kscpu_stackPointer(machineContext);
     if ((void *)sp == NULL) {
@@ -962,7 +962,7 @@ static void writeStackContents(const KSCrashReportWriter *const writer, const ch
         writer->addUIntegerElement(writer, KSCrashField_DumpStart, lowAddress);
         writer->addUIntegerElement(writer, KSCrashField_DumpEnd, highAddress);
         writer->addUIntegerElement(writer, KSCrashField_StackPtr, sp);
-        writer->addBooleanElement(writer, KSCrashField_Overflow, isStackOverflow);
+        writer->addBooleanElement(writer, KSCrashField_Overflow, stackOverflow);
         uint8_t stackBuffer[kStackContentsTotalDistance * sizeof(sp)];
         int copyLength = (int)(highAddress - lowAddress);
         if (ksmem_copySafely((void *)lowAddress, stackBuffer, copyLength)) {
@@ -1193,7 +1193,7 @@ static void writeThread(const KSCrashReportWriter *const writer, const char *con
         writer->addBooleanElement(writer, KSCrashField_Crashed, isCrashedThread);
         writer->addBooleanElement(writer, KSCrashField_CurrentThread, thread == ksthread_self());
         if (isCrashedThread) {
-            writeStackContents(writer, KSCrashField_Stack, machineContext, stackCursor.state.hasGivenUp);
+            writeStackContents(writer, KSCrashField_Stack, machineContext, stackCursor.state.stackOverflow);
             if (shouldWriteNotableAddresses) {
                 writeNotableAddresses(writer, KSCrashField_NotableAddresses, machineContext);
             }
