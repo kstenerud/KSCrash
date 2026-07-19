@@ -121,10 +121,14 @@ static int32_t binarySearchFirstLevelIndex(const struct unwind_info_section_head
         }
     }
 
-    // The last index entry is a sentinel with functionOffset = end of last function
-    // So we need to return the entry before it if we hit the sentinel
+    // The last index entry is a sentinel whose functionOffset is the end of the last function,
+    // so landing on it means the target is past everything this section describes (a __stubs
+    // address, for instance). That is a miss, not the last page: clamping to indexCount - 2
+    // would return the last real function's encoding for an unrelated address, and because the
+    // lookup "succeeded" the cursor would never fall through to DWARF or the frame-pointer
+    // walker. Apple's libunwind bails out here too.
     if (result >= 0 && (uint32_t)result >= indexCount - 1) {
-        result = (int32_t)indexCount - 2;
+        return -1;
     }
 
     return result;
@@ -329,6 +333,23 @@ bool kscu_findEntry(const void *unwindInfo, size_t unwindInfoSize, uintptr_t tar
 
     // Calculate target offset relative to image base
     uint32_t targetOffset = (uint32_t)(targetPC - imageBase);
+
+    // The index table gates everything below, and both its offset and its count are read out of
+    // the section rather than known. Bound it before the search walks it: a truncated or
+    // malformed __unwind_info would otherwise send the binary search outside the mapped section,
+    // here in a crash handler. Subtracting only after the offset check keeps the remaining-space
+    // arithmetic from wrapping, and the count is widened because indexCount * 8 overflows a
+    // 32-bit size_t.
+    if (header->indexSectionOffset > unwindInfoSize) {
+        KSLOG_TRACE("Index section offset 0x%x is past the end of the section", header->indexSectionOffset);
+        return false;
+    }
+    const uint64_t indexTableSize =
+        (uint64_t)header->indexCount * sizeof(struct unwind_info_section_header_index_entry);
+    if (indexTableSize > (uint64_t)(unwindInfoSize - header->indexSectionOffset)) {
+        KSLOG_TRACE("Index table of %u entries does not fit in the section", header->indexCount);
+        return false;
+    }
 
     // Binary search the first-level index
     const struct unwind_info_section_header_index_entry *indices =
