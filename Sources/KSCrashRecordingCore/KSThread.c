@@ -107,6 +107,12 @@ bool ksthread_getQueueName(const KSThread thread, char *const buffer, int bufLen
 {
     // WARNING: This implementation is no longer async-safe!
 
+    // The copy below casts bufLength to size_t, so a non-positive length would turn into an
+    // enormous one.
+    if (bufLength < 1) {
+        return false;
+    }
+
     integer_t infoBuffer[THREAD_IDENTIFIER_INFO_COUNT] = { 0 };
     thread_info_t info = infoBuffer;
     mach_msg_type_number_t inOutSize = THREAD_IDENTIFIER_INFO_COUNT;
@@ -161,9 +167,7 @@ bool ksthread_getQueueName(const KSThread thread, char *const buffer, int bufLen
         KSLOG_TRACE("Queue label contains invalid chars");
         return false;
     }
-    bufLength = MIN(length, bufLength - 1);  // just strlen, without null-terminator
-    strncpy(buffer, queue_name, (size_t)bufLength);
-    buffer[bufLength] = 0;  // terminate string
+    strlcpy(buffer, queue_name, (size_t)bufLength);
     KSLOG_TRACE("Queue label = %s", buffer);
     return true;
 }
