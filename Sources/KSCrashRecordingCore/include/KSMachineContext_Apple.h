@@ -51,7 +51,6 @@ typedef struct KSMachineContext {
     int threadCount;
     bool isCrashedContext;
     bool isCurrentThread;
-    bool isStackOverflow;
     bool isSignalContext;
     STRUCT_MCONTEXT_L machineContext;
 } KSMachineContext;

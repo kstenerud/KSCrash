@@ -220,6 +220,8 @@ static void *ksunwind_test_thread_main(void *arg)
 @end
 #endif  // TARGET_OS_WATCH
 
+static void testStackOverflowSentinel(void) {}
+
 @implementation KSUnwind_Tests
 
 // =============================================================================
@@ -420,6 +422,52 @@ static KSTestUnwindSection validTestUnwindSection(void)
     section.header.indexCount = 0xFFFFFFFF;
     XCTAssertFalse(kscu_findEntry(&section, sizeof(section), 0x1000, 0, 0, &entry),
                    @"an index count whose table size overflows 32 bits must not be searched");
+}
+
+- (void)testStackOverflowFlagIsIndependentOfTheCursorDepthLimit
+{
+    // stack.overflow means "the stack reached KSSC_STACK_OVERFLOW_THRESHOLD frames". It must not
+    // depend on the limit the cursor happened to be built with: the crashed thread's cursor uses
+    // KSSC_MAX_STACK_DEPTH while every other path uses the threshold, and before this the flag
+    // was the cursor's give-up state, so the same stack answered differently by code path.
+    uintptr_t backtrace[KSSC_STACK_OVERFLOW_THRESHOLD + 50];
+    for (size_t i = 0; i < sizeof(backtrace) / sizeof(backtrace[0]); i++) {
+        backtrace[i] = (uintptr_t)&testStackOverflowSentinel + i * 4;
+    }
+
+    // Walked to exhaustion with a generous limit: never gives up, but does reach the threshold.
+    KSStackCursor deep;
+    kssc_initWithBacktrace(&deep, backtrace, (int)(sizeof(backtrace) / sizeof(backtrace[0])), 0);
+    while (deep.advanceCursor(&deep)) {
+    }
+    XCTAssertFalse(deep.state.hasGivenUp, @"a backtrace cursor runs out of entries, it does not give up");
+    XCTAssertTrue(deep.state.stackOverflow, @"reaching the threshold must set the flag");
+
+    // A short stack sets neither.
+    KSStackCursor shallow;
+    kssc_initWithBacktrace(&shallow, backtrace, 10, 0);
+    while (shallow.advanceCursor(&shallow)) {
+    }
+    XCTAssertFalse(shallow.state.stackOverflow, @"a short stack has not overflowed");
+
+    // The threshold frame itself counts, one frame short of it does not. This is the boundary the
+    // old hasGivenUp reading had: a cursor limited to the threshold gave up on the walk that came
+    // back for frame 151, so a stack of exactly 150 frames already read as overflowed.
+    KSStackCursor atThreshold;
+    kssc_initWithBacktrace(&atThreshold, backtrace, KSSC_STACK_OVERFLOW_THRESHOLD, 0);
+    while (atThreshold.advanceCursor(&atThreshold)) {
+    }
+    XCTAssertTrue(atThreshold.state.stackOverflow, @"a stack of exactly the threshold has overflowed");
+
+    KSStackCursor belowThreshold;
+    kssc_initWithBacktrace(&belowThreshold, backtrace, KSSC_STACK_OVERFLOW_THRESHOLD - 1, 0);
+    while (belowThreshold.advanceCursor(&belowThreshold)) {
+    }
+    XCTAssertFalse(belowThreshold.state.stackOverflow, @"one frame short of the threshold has not");
+
+    // Reset clears it.
+    deep.resetCursor(&deep);
+    XCTAssertFalse(deep.state.stackOverflow, @"reset must clear the flag");
 }
 
 - (void)testCompactUnwind_EncodingRequiresDwarf

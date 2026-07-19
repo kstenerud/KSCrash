@@ -43,6 +43,7 @@ void kssc_resetCursor(KSStackCursor *cursor)
 {
     cursor->state.currentDepth = 0;
     cursor->state.hasGivenUp = false;
+    cursor->state.stackOverflow = false;
     cursor->stackEntry.address = 0;
     cursor->stackEntry.imageAddress = 0;
     cursor->stackEntry.imageName = NULL;
