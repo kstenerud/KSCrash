@@ -194,6 +194,7 @@
 #define ksbic_init KSCRASH_NS(ksbic_init)
 #define ksbic_registerForImageAdded KSCRASH_NS(ksbic_registerForImageAdded)
 #define ksbic_resetCache KSCRASH_NS(ksbic_resetCache)
+#define ksbic_testcode_setMaxCacheEntries KSCRASH_NS(ksbic_testcode_setMaxCacheEntries)
 #define ksbt_captureBacktrace KSCRASH_NS(ksbt_captureBacktrace)
 #define ksbt_captureBacktraceFromMachThread KSCRASH_NS(ksbt_captureBacktraceFromMachThread)
 #define ksbt_captureBacktraceFromMachThreadWithMethods KSCRASH_NS(ksbt_captureBacktraceFromMachThreadWithMethods)
