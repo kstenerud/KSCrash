@@ -1576,8 +1576,8 @@ void kscrashreport_writeRecrashReport(const KSCrash_MonitorContext *const monito
     char writeBuffer[1024];
     KSBufferedWriter bufferedWriter;
     static char tempPath[KSFU_MAX_PATH_LENGTH];
-    strncpy(tempPath, path, sizeof(tempPath) - 10);
-    strncpy(tempPath + strlen(tempPath) - 5, ".old", 5);
+    strlcpy(tempPath, path, sizeof(tempPath) - 10);
+    strlcpy(tempPath + strlen(tempPath) - 5, ".old", 5);
     KSLOG_INFO("Writing recrash report to %s", path);
 
     if (rename(path, tempPath) < 0) {

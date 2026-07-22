@@ -266,12 +266,12 @@ static void onExceptionEvent(struct KSCrash_MonitorContext *monitorContext, KSCr
     } else {
         char crashReportFilePath[KSFU_MAX_PATH_LENGTH];
         int64_t reportID = kscrs_getNextCrashReport(crashReportFilePath, &g_reportStoreConfig);
-        strncpy(g_lastCrashReportFilePath, crashReportFilePath, sizeof(g_lastCrashReportFilePath));
+        strlcpy(g_lastCrashReportFilePath, crashReportFilePath, sizeof(g_lastCrashReportFilePath));
         kscrashreport_writeStandardReport(monitorContext, crashReportFilePath);
 
         if (result) {
             result->reportId = reportID;
-            strncpy(result->path, g_lastCrashReportFilePath, sizeof(result->path));
+            strlcpy(result->path, g_lastCrashReportFilePath, sizeof(result->path));
         }
 
         if (g_didWriteReportCallback != NULL) {
@@ -662,8 +662,7 @@ __attribute__((unused))  // For tests. Declared as extern in TestCase
 void kscrash_testcode_setLastRunID(const char *runID)
 {
     if (runID != NULL) {
-        strncpy(g_lastRunID, runID, sizeof(g_lastRunID) - 1);
-        g_lastRunID[sizeof(g_lastRunID) - 1] = '\0';
+        strlcpy(g_lastRunID, runID, sizeof(g_lastRunID));
     } else {
         g_lastRunID[0] = '\0';
     }
