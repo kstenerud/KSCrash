@@ -338,7 +338,7 @@ bool kscu_findEntry(const void *unwindInfo, size_t unwindInfoSize, uintptr_t tar
     // the section rather than known. Bound it before the search walks it: a truncated or
     // malformed __unwind_info would otherwise send the binary search outside the mapped section,
     // here in a crash handler. Subtracting only after the offset check keeps the remaining-space
-    // arithmetic from wrapping, and the count is widened because indexCount * 8 overflows a
+    // arithmetic from wrapping, and the count is widened because indexCount * 12 overflows a
     // 32-bit size_t.
     if (header->indexSectionOffset > unwindInfoSize) {
         KSLOG_TRACE("Index section offset 0x%x is past the end of the section", header->indexSectionOffset);
