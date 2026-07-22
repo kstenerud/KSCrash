@@ -43,7 +43,16 @@
 // MARK: - Image Address Range Cache
 
 #define KSBIC_MAX_CACHE_ENTRIES 2048
+
+// The effective capacity, which is the compile-time one except when a test lowers it. The
+// cache-full branch is unreachable otherwise: saturating it needs 2048 distinct images and a
+// test host has a few hundred. Atomic because the readers below run in crash handlers, where a
+// test thread's write would otherwise be a data race; relaxed, since it orders nothing but
+// itself, and lock-free so the crash-time read stays async-signal-safe.
+static _Atomic uint32_t g_maxCacheEntries = KSBIC_MAX_CACHE_ENTRIES;
 #define KSBIC_MAX_SEGMENTS_PER_IMAGE 16
+
+static inline uint32_t maxCacheEntries(void) { return atomic_load_explicit(&g_maxCacheEntries, memory_order_relaxed); }
 
 /**
  * Cached segment range for fast address-in-segment checks.
@@ -130,7 +139,7 @@ static inline int32_t binarySearchCache(const KSBinaryImageRangeCache *cache, ui
 // Avoid libc calls here to keep this async-signal-safe.
 static void insertSortedCacheEntry(KSBinaryImageRangeCache *cache, const KSBinaryImageRange *entry)
 {
-    if (cache->count >= KSBIC_MAX_CACHE_ENTRIES) {
+    if (cache->count >= maxCacheEntries()) {
         return;
     }
 
@@ -443,7 +452,7 @@ static void ksbic_dyld_image_notifier(enum dyld_image_mode mode, uint32_t infoCo
         // Pre-populate cache so data is available immediately during crash handling.
         KSBinaryImageRangeCache *cache = atomic_exchange(&g_cache_ptr, NULL);
         if (cache != NULL) {
-            for (uint32_t i = 0; i < infoCount && cache->count < KSBIC_MAX_CACHE_ENTRIES; i++) {
+            for (uint32_t i = 0; i < infoCount && cache->count < maxCacheEntries(); i++) {
                 const struct mach_header *header = info[i].imageLoadAddress;
                 const char *name = info[i].imageFilePath;
 
@@ -576,6 +585,33 @@ const char *ksbic_getDyldPath(void)
 }
 
 // For testing purposes only. Used with extern in test files.
+// Test seam: lower (or restore) the cache's effective capacity so the cache-full branch becomes
+// reachable. Pass 0 to restore the compile-time capacity.
+//
+// Also trims what is already cached down to the new capacity, because that branch is reached
+// only on a cache MISS against a full cache: merely capping growth would leave the pre-populated
+// entries in place and every real address would still be answered from them. Trimming keeps the
+// remaining entries sorted, so lookups against them behave normally.
+void ksbic_testcode_setMaxCacheEntries(uint32_t maxEntries)
+{
+    // Clamped, not just defaulted: the backing array is fixed at KSBIC_MAX_CACHE_ENTRIES, and
+    // the readers treat this value as the array's capacity. A larger one would let
+    // insertSortedCacheEntry run count off the end of g_cache_storage.entries.
+    uint32_t newMax = maxEntries == 0 ? KSBIC_MAX_CACHE_ENTRIES : maxEntries;
+    if (newMax > KSBIC_MAX_CACHE_ENTRIES) {
+        newMax = KSBIC_MAX_CACHE_ENTRIES;
+    }
+    atomic_store_explicit(&g_maxCacheEntries, newMax, memory_order_relaxed);
+
+    KSBinaryImageRangeCache *cache = atomic_exchange(&g_cache_ptr, NULL);
+    if (cache != NULL) {
+        if (cache->count > newMax) {
+            cache->count = newMax;
+        }
+        atomic_store(&g_cache_ptr, cache);
+    }
+}
+
 void ksbic_resetCache(void)
 {
     // Restore the original dyld notifier before resetting
@@ -645,7 +681,7 @@ const struct mach_header *ksbic_getImageDetailsForAddress(uintptr_t address, uin
         KSBinaryImageRange newEntry;
         const struct mach_header *header = linearScanForAddress(address, &newEntry);
 
-        if (header != NULL && cache->count < KSBIC_MAX_CACHE_ENTRIES) {
+        if (header != NULL && cache->count < maxCacheEntries()) {
             // Add to cache maintaining sorted order
             insertSortedCacheEntry(cache, &newEntry);
         }
@@ -714,7 +750,7 @@ bool ksbic_getUnwindInfoForHeader(const struct mach_header *header, KSBinaryImag
         // Not in cache - populate and add maintaining sorted order
         KSBinaryImageRange newEntry;
         if (populateCacheEntry(header, NULL, &newEntry)) {
-            if (cache->count < KSBIC_MAX_CACHE_ENTRIES) {
+            if (cache->count < maxCacheEntries()) {
                 insertSortedCacheEntry(cache, &newEntry);
             }
             if (outInfo) {
@@ -762,15 +798,20 @@ bool ksbic_getUnwindInfoForAddress(uintptr_t address, KSBinaryImageUnwindInfo *o
         }
 
         // Cache miss — populate and add
+        // Answering the lookup and caching the answer are separate concerns, as in
+        // ksbic_getImageDetailsForAddress above: a full cache must still fill *outInfo, because
+        // callers key off the return value alone. tryCompactUnwindForPC reads an uninitialized
+        // KSBinaryImageUnwindInfo the moment this returns true without writing it, then unwinds
+        // through a garbage section pointer inside the crash handler.
         KSBinaryImageRange newEntry;
         const struct mach_header *header = linearScanForAddress(address, &newEntry);
-        if (header != NULL && cache->count < KSBIC_MAX_CACHE_ENTRIES) {
-            insertSortedCacheEntry(cache, &newEntry);
+        if (header != NULL) {
+            if (cache->count < maxCacheEntries()) {
+                insertSortedCacheEntry(cache, &newEntry);
+            }
             if (outInfo) {
                 *outInfo = newEntry.unwindInfo;
             }
-            atomic_store(&g_cache_ptr, cache);
-            return true;
         }
 
         atomic_store(&g_cache_ptr, cache);
@@ -808,7 +849,7 @@ const uint8_t *ksbic_getUUIDForHeader(const struct mach_header *header)
         KSBinaryImageRange newEntry;
         if (populateCacheEntry(header, NULL, &newEntry)) {
             const uint8_t *uuid = newEntry.uuid;
-            if (cache->count < KSBIC_MAX_CACHE_ENTRIES) {
+            if (cache->count < maxCacheEntries()) {
                 insertSortedCacheEntry(cache, &newEntry);
             }
             atomic_store(&g_cache_ptr, cache);
