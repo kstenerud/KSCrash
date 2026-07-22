@@ -6,6 +6,7 @@
 
 #import <TargetConditionals.h>
 #import <XCTest/XCTest.h>
+#import <mach-o/compact_unwind_encoding.h>
 #import <mach-o/dyld.h>
 #import <mach-o/loader.h>
 #import <pthread.h>
@@ -295,6 +296,130 @@ static void *ksunwind_test_thread_main(void *arg)
             // Encoding should be valid (not zero for real functions)
         }
     }
+}
+
+- (void)testCompactUnwind_AddressAtSentinelIsNotFound
+{
+    // The first-level index ends with a sentinel whose functionOffset is the end of the last
+    // function it describes. An address at or past that offset is outside everything the section
+    // covers, so the lookup must fail rather than return the last function's encoding: a caller
+    // that gets a hit never falls through to DWARF or the frame-pointer walker.
+
+    // Any loaded image with compact unwind info and a real page plus the sentinel will do.
+    ksdl_init();
+    uint32_t imageCount = 0;
+    const ks_dyld_image_info *images = ksbic_getImages(&imageCount);
+    KSBinaryImageUnwindInfo imageInfo = { 0 };
+    const struct unwind_info_section_header *header = NULL;
+    for (uint32_t i = 0; i < imageCount && header == NULL; i++) {
+        KSBinaryImageUnwindInfo candidate = { 0 };
+        if (!ksbic_getUnwindInfoForAddress((uintptr_t)images[i].imageLoadAddress, &candidate) ||
+            !candidate.hasCompactUnwind || candidate.unwindInfoSize < sizeof(struct unwind_info_section_header)) {
+            continue;
+        }
+        const struct unwind_info_section_header *candidateHeader =
+            (const struct unwind_info_section_header *)candidate.unwindInfo;
+        if (candidateHeader->version != 1 || candidateHeader->indexCount < 2 ||
+            candidateHeader->indexSectionOffset > candidate.unwindInfoSize) {
+            continue;
+        }
+        // This walks every loaded image, so take the index table only when it fits inside the
+        // section the image reported: the reads below index it directly. Subtracting after the
+        // offset check keeps the remaining-space arithmetic from wrapping.
+        const uint64_t indexTableSize =
+            (uint64_t)candidateHeader->indexCount * sizeof(struct unwind_info_section_header_index_entry);
+        if (indexTableSize <= (uint64_t)(candidate.unwindInfoSize - candidateHeader->indexSectionOffset)) {
+            imageInfo = candidate;
+            header = candidateHeader;
+        }
+    }
+    if (header == NULL) {
+        XCTFail(@"No loaded image exposed a usable __unwind_info index");
+        return;
+    }
+
+    const uint8_t *sectionBase = (const uint8_t *)imageInfo.unwindInfo;
+    const struct unwind_info_section_header_index_entry *indices =
+        (const struct unwind_info_section_header_index_entry *)(const void *)(sectionBase + header->indexSectionOffset);
+    const uint32_t sentinelOffset = indices[header->indexCount - 1].functionOffset;
+    const uint32_t firstFunctionOffset = indices[0].functionOffset;
+
+    // kscu_findEntry derives its offset as targetPC - imageBase, so this lands exactly on the
+    // sentinel, and one byte further lands past it.
+    const uintptr_t imageBase = (uintptr_t)imageInfo.header;
+    KSCompactUnwindEntry entry;
+    XCTAssertFalse(kscu_findEntry(imageInfo.unwindInfo, imageInfo.unwindInfoSize, imageBase + sentinelOffset, imageBase,
+                                  imageInfo.slide, &entry),
+                   @"an address at the sentinel is past every described function");
+    XCTAssertFalse(kscu_findEntry(imageInfo.unwindInfo, imageInfo.unwindInfoSize, imageBase + sentinelOffset + 1,
+                                  imageBase, imageInfo.slide, &entry),
+                   @"an address past the sentinel is past every described function");
+
+    // Control: the first described function still resolves, so the assertions above are not
+    // passing merely because the lookup stopped working for everything.
+    XCTAssertTrue(kscu_findEntry(imageInfo.unwindInfo, imageInfo.unwindInfoSize, imageBase + firstFunctionOffset,
+                                 imageBase, imageInfo.slide, &entry),
+                  @"a described function must still be found");
+}
+
+typedef struct {
+    struct unwind_info_section_header header;
+    struct unwind_info_section_header_index_entry indices[2];
+    struct unwind_info_regular_second_level_page_header page;
+    struct unwind_info_regular_second_level_entry entry;
+} __attribute__((packed)) KSTestUnwindSection;
+
+/** A minimal but genuinely resolvable __unwind_info: one described function at 0x1000. */
+static KSTestUnwindSection validTestUnwindSection(void)
+{
+    KSTestUnwindSection section = { 0 };
+    section.header.version = 1;
+    section.header.indexSectionOffset = offsetof(KSTestUnwindSection, indices);
+    section.header.indexCount = 2;
+    section.indices[0].functionOffset = 0x1000;
+    section.indices[0].secondLevelPagesSectionOffset = offsetof(KSTestUnwindSection, page);
+    section.indices[1].functionOffset = 0x2000;  // sentinel: end of the last function
+    section.page.kind = UNWIND_SECOND_LEVEL_REGULAR;
+    section.page.entryPageOffset = sizeof(section.page);
+    section.page.entryCount = 1;
+    section.entry.functionOffset = 0x1000;
+    section.entry.encoding = 0x04000000;
+    return section;
+}
+
+- (void)testCompactUnwind_IndexTableOutsideSectionIsRejected
+{
+    // indexSectionOffset and indexCount are read out of the section, so a truncated or malformed
+    // __unwind_info can describe an index table that does not fit in it. The lookup must reject
+    // that rather than binary-search past the end of the mapping.
+    //
+    // The section below is fully valid; what varies is the size handed to the lookup. Passing a
+    // size that stops before the index table is the truncation, and it makes the check's absence
+    // observable as a wrong ANSWER rather than only as a bad read: the entries are really there,
+    // so an unbounded search finds the function and returns true. The reads stay inside this
+    // object either way, so the test itself is well-defined.
+    KSTestUnwindSection section = validTestUnwindSection();
+    KSCompactUnwindEntry entry;
+
+    // Control: at its true size the fixture resolves, so the assertions below mean something.
+    XCTAssertTrue(kscu_findEntry(&section, sizeof(section), 0x1000, 0, 0, &entry),
+                  @"the fixture must describe a findable function");
+    XCTAssertEqual(entry.functionStart, (uintptr_t)0x1000, @"the fixture must resolve to its one function");
+
+    // Truncated so the index table starts at the section's end.
+    XCTAssertFalse(kscu_findEntry(&section, sizeof(section.header), 0x1000, 0, 0, &entry),
+                   @"an index table starting at the end of the section must not be searched");
+
+    // Truncated mid-table: the offset is inside, the table it claims is not.
+    XCTAssertFalse(kscu_findEntry(&section, offsetof(KSTestUnwindSection, page) - sizeof(section.indices[0]), 0x1000, 0,
+                                  0, &entry),
+                   @"an index table running past the section must not be searched");
+
+    // A count whose table size overflows 32 bits must be rejected on the size, not wrapped into
+    // a small one that looks like it fits.
+    section.header.indexCount = 0xFFFFFFFF;
+    XCTAssertFalse(kscu_findEntry(&section, sizeof(section), 0x1000, 0, 0, &entry),
+                   @"an index count whose table size overflows 32 bits must not be searched");
 }
 
 - (void)testCompactUnwind_EncodingRequiresDwarf
