@@ -1014,7 +1014,9 @@ static int decodeElement(const char *const name, KSJSONDecodeContext *context)
                 KSLOG_DEBUG("Number is too long.");
                 return KSJSON_ERROR_DATA_TOO_LONG;
             }
-            strncpy(context->stringBuffer, start, (size_t)len);
+            // memcpy, not strlcpy: `start` points into the JSON buffer and is not
+            // NUL-terminated, so only the counted bytes may be read. Terminated explicitly.
+            memcpy(context->stringBuffer, start, (size_t)len);
             context->stringBuffer[len] = '\0';
 
             sscanf(context->stringBuffer, "%lg", &value);
