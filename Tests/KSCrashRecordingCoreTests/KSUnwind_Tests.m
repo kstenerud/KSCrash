@@ -873,6 +873,83 @@ static void *ksunwind_test_thread_main(void *arg)
 // These tests verify DWARF CFI parsing using synthetic .eh_frame data.
 // They test specific CFI instructions that need coverage.
 
+/** Does an expression of @c len bytes at @c expr end at or before @c bufferEnd?
+ *
+ * Checked in integer space on purpose. The lengths under test are deliberately implausible, and
+ * forming @c expr+len would already be undefined before the comparison could reject it.
+ */
+static bool expressionEndsWithin(const uint8_t *expr, size_t len, const uint8_t *bufferEnd)
+{
+    return (uintptr_t)expr <= (uintptr_t)bufferEnd && len <= (uintptr_t)bufferEnd - (uintptr_t)expr;
+}
+
+- (void)testDwarf_ExpressionLengthPastEndOfBufferIsRejected
+{
+    // DW_CFA_def_cfa_expression, DW_CFA_expression and DW_CFA_val_expression each read their
+    // length as a ULEB128 straight out of the section. The evaluator later derives its end as
+    // expr + len, so a length larger than what is left must not be recorded: doing so walks off
+    // the buffer. Under ASan an unbounded read here is a heap-buffer-overflow.
+    const uint8_t cieData[] = {
+        0x00, 0x00, 0x00, 0x00,  // CIE ID
+        0x03,                    // version
+        'z',  'R',  0x00,        // augmentation "zR"
+        0x01,                    // code alignment
+        0x78,                    // data alignment (-8)
+        0x10,                    // return address register
+        0x01,                    // augmentation data length
+        0x03,                    // FDE pointer encoding: udata4
+        0x0C, 0x07, 0x08,        // DW_CFA_def_cfa r7, 8
+    };
+
+    // Each FDE ends with an expression opcode whose declared length runs far past the buffer.
+    const uint8_t defCfaExpr[] = {
+        0x00, 0x00, 0x00, 0x00,  // CIE pointer
+        0x00, 0x10, 0x00, 0x00,  // PC start 0x1000
+        0x00, 0x01, 0x00, 0x00,  // PC range 0x100
+        0x00,                    // augmentation data length
+        0x0F, 0xFF, 0xFF, 0x7F,  // DW_CFA_def_cfa_expression, len = huge ULEB128
+    };
+    const uint8_t regExpr[] = {
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x01,
+        0x00, 0x00, 0x00, 0x10, 0x1E, 0xFF, 0xFF, 0xFF, 0x7F,  // DW_CFA_expression, reg 30, len = huge
+    };
+    const uint8_t valExpr[] = {
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x01,
+        0x00, 0x00, 0x00, 0x16, 0x1E, 0xFF, 0xFF, 0xFF, 0x7F,  // DW_CFA_val_expression, reg 30, len = huge
+    };
+
+    const struct {
+        const uint8_t *fde;
+        size_t size;
+        const char *name;
+    } cases[] = {
+        { defCfaExpr, sizeof(defCfaExpr), "DW_CFA_def_cfa_expression" },
+        { regExpr, sizeof(regExpr), "DW_CFA_expression" },
+        { valExpr, sizeof(valExpr), "DW_CFA_val_expression" },
+    };
+
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+        KSDwarfCFIRow row;
+        // The contract is only that this returns without reading past the buffer. Whatever it
+        // reports, it must not have recorded an expression rule pointing outside the section.
+        bool built = ksdwarf_buildCFIRow(cieData, sizeof(cieData), cases[i].fde, cases[i].size, 0x1000, false, &row);
+        if (built) {
+            const uint8_t *fdeEnd = cases[i].fde + cases[i].size;
+            if (row.cfaRule == KSDwarfRuleExpression) {
+                XCTAssertTrue(expressionEndsWithin(row.cfaExpression, row.cfaExpressionLen, fdeEnd),
+                              @"%s: recorded a CFA expression running past the section", cases[i].name);
+            }
+            for (size_t r = 0; r < KSDWARF_MAX_REGISTERS; r++) {
+                if (row.registers[r].type == KSDwarfRuleExpression ||
+                    row.registers[r].type == KSDwarfRuleValExpression) {
+                    XCTAssertTrue(expressionEndsWithin(row.registers[r].expr, row.registers[r].exprLen, fdeEnd),
+                                  @"%s: recorded a register expression running past the section", cases[i].name);
+                }
+            }
+        }
+    }
+}
+
 - (void)testDwarf_BuildCFIRow_OffsetWithNegativeDataAlign
 {
     // Test: DW_CFA_offset with positive ULEB128 operand and negative data alignment factor
