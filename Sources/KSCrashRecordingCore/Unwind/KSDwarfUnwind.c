@@ -155,6 +155,26 @@ static inline bool readerHasData(const KSDwarfReader *reader, size_t bytes)
     return reader->data + bytes <= reader->end;
 }
 
+/** Take a CFI expression of @c exprLen bytes from the reader.
+ *
+ * The length comes straight off the eh_frame bytes and is not otherwise bounded, so an
+ * implausible one must not be recorded: evaluateDwarfExpression derives its end as expr + len
+ * and would walk off the section. On rejection the reader is drained so the instruction loop
+ * stops rather than resuming at a misaligned offset.
+ *
+ * @return true if the expression fit, with @c outExpr set and the reader advanced past it.
+ */
+static inline bool readerTakeExpression(KSDwarfReader *reader, uint64_t exprLen, const uint8_t **outExpr)
+{
+    if (exprLen > (uint64_t)(reader->end - reader->data)) {
+        reader->data = reader->end;
+        return false;
+    }
+    *outExpr = reader->data;
+    reader->data += exprLen;
+    return true;
+}
+
 static inline uint8_t readU8(KSDwarfReader *reader)
 {
     if (!readerHasData(reader, 1)) return 0;
@@ -645,22 +665,28 @@ static bool executeCFIInstructions(const uint8_t *instructions, size_t len, cons
 
                 case DW_CFA_def_cfa_expression: {
                     uint64_t exprLen = readULEB128(&reader);
+                    const uint8_t *expr = NULL;
+                    if (!readerTakeExpression(&reader, exprLen, &expr)) {
+                        break;
+                    }
                     row->cfaRule = KSDwarfRuleExpression;
-                    row->cfaExpression = reader.data;
+                    row->cfaExpression = expr;
                     row->cfaExpressionLen = (size_t)exprLen;
-                    reader.data += exprLen;
                     break;
                 }
 
                 case DW_CFA_expression: {
                     uint64_t reg = readULEB128(&reader);
                     uint64_t exprLen = readULEB128(&reader);
+                    const uint8_t *expr = NULL;
+                    if (!readerTakeExpression(&reader, exprLen, &expr)) {
+                        break;
+                    }
                     if (reg < KSDWARF_MAX_REGISTERS) {
                         row->registers[reg].type = KSDwarfRuleExpression;
-                        row->registers[reg].expr = reader.data;
+                        row->registers[reg].expr = expr;
                         row->registers[reg].exprLen = (size_t)exprLen;
                     }
-                    reader.data += exprLen;
                     break;
                 }
 
@@ -712,12 +738,15 @@ static bool executeCFIInstructions(const uint8_t *instructions, size_t len, cons
                 case DW_CFA_val_expression: {
                     uint64_t reg = readULEB128(&reader);
                     uint64_t exprLen = readULEB128(&reader);
+                    const uint8_t *expr = NULL;
+                    if (!readerTakeExpression(&reader, exprLen, &expr)) {
+                        break;
+                    }
                     if (reg < KSDWARF_MAX_REGISTERS) {
                         row->registers[reg].type = KSDwarfRuleValExpression;
-                        row->registers[reg].expr = reader.data;
+                        row->registers[reg].expr = expr;
                         row->registers[reg].exprLen = (size_t)exprLen;
                     }
-                    reader.data += exprLen;
                     break;
                 }
 
@@ -1110,6 +1139,17 @@ bool ksdwarf_findFDE(const void *ehFrame, size_t ehFrameSize, uintptr_t targetPC
         const uint8_t *entryEnd = ptr + actualLength;
         if (entryEnd > end) break;
 
+        // The entry must be long enough to hold the CIE pointer/ID field that is read next.
+        // actualLength is untrusted and the loop guard only guarantees one byte past the length
+        // field, so without this a short entry reads past the end of the section. Skip it rather
+        // than abandoning the scan: entryEnd is already known to be inside the section and past
+        // ptr, so where the next entry starts is still known and later entries may hold the FDE.
+        const uint64_t ciePointerSize = entryIs64bit ? 8 : 4;
+        if (actualLength < ciePointerSize) {
+            ptr = entryEnd;
+            continue;
+        }
+
         // Read CIE pointer/ID
         uint64_t ciePointer = 0;
         if (entryIs64bit) {
@@ -1131,11 +1171,26 @@ bool ksdwarf_findFDE(const void *ehFrame, size_t ehFrameSize, uintptr_t targetPC
         // This is an FDE
         // ciePointer is an offset back to the CIE from the CIE pointer field
         // Per .eh_frame spec, this points to the CIE's length field (start of CIE record)
-        const uint8_t *cieLengthField = (entryStart - (uintptr_t)ciePointer);
-        if (cieLengthField < (const uint8_t *)ehFrame) {
+        //
+        // Every address below is derived in integer space and only turned back into a pointer
+        // once it is known to be inside the section. ciePointer and the CIE length are both read
+        // out of the eh_frame bytes, and forming an out-of-section address as a POINTER is
+        // already undefined at the moment it is computed, before any check could reject it.
+        const uintptr_t sectionStart = (uintptr_t)ehFrame;
+        const uintptr_t sectionEnd = (uintptr_t)end;
+
+        // Bounded at BOTH ends: below the section start, and with room for the four-byte length
+        // field read next, so one sitting within three bytes of the end cannot overread.
+        if (ciePointer > (uintptr_t)entryStart - sectionStart) {
             ptr = entryEnd;
             continue;
         }
+        const uintptr_t cieLengthFieldAddr = (uintptr_t)entryStart - (uintptr_t)ciePointer;
+        if (sectionEnd - cieLengthFieldAddr < 4) {
+            ptr = entryEnd;
+            continue;
+        }
+        const uint8_t *cieLengthField = (const uint8_t *)cieLengthFieldAddr;
 
         // Parse FDE to get PC range
         // First, parse the CIE - read length from the length field
@@ -1143,23 +1198,31 @@ bool ksdwarf_findFDE(const void *ehFrame, size_t ehFrameSize, uintptr_t targetPC
         memcpy(&cieLength32, cieLengthField, sizeof(cieLength32));
         bool cieIs64bit = false;
         uint64_t cieLength = cieLength32;
-        const uint8_t *cieIdField = NULL;
-        const uint8_t *cieDataStart = NULL;
+        uintptr_t cieIdFieldAddr = 0;
+        uintptr_t cieDataStartAddr = 0;
 
         if (cieLength32 == 0xFFFFFFFF) {
-            if (cieLengthField + 12 > end) {
+            if (sectionEnd - cieLengthFieldAddr < 12) {
                 ptr = entryEnd;
                 continue;
             }
             memcpy(&cieLength, cieLengthField + 4, sizeof(cieLength));
             cieIs64bit = true;
-            cieIdField = cieLengthField + 12;  // length marker (4) + length (8)
-            cieDataStart = cieIdField + 8;
+            cieIdFieldAddr = cieLengthFieldAddr + 12;  // length marker (4) + length (8)
+            cieDataStartAddr = cieIdFieldAddr + 8;
         } else {
             // CIE structure: [4: length][4: CIE_id=0][rest: CIE data]
-            cieIdField = cieLengthField + 4;
-            cieDataStart = cieIdField + 4;
+            cieIdFieldAddr = cieLengthFieldAddr + 4;
+            cieDataStartAddr = cieIdFieldAddr + 4;
         }
+
+        // Both forms step past the length field, so the data start can land outside a section
+        // that only just had room for the field itself.
+        if (cieDataStartAddr > sectionEnd) {
+            ptr = entryEnd;
+            continue;
+        }
+        const uint8_t *cieIdField = (const uint8_t *)cieIdFieldAddr;
 
         if (cieIs64bit != entryIs64bit) {
             ptr = entryEnd;
@@ -1173,10 +1236,11 @@ bool ksdwarf_findFDE(const void *ehFrame, size_t ehFrameSize, uintptr_t targetPC
         }
 
         size_t cieDataSize = (size_t)(cieLength - cieIdSize);
-        if (cieDataStart + cieDataSize > end) {
+        if (cieDataSize > sectionEnd - cieDataStartAddr) {
             ptr = entryEnd;
             continue;
         }
+        const uint8_t *cieDataStart = (const uint8_t *)cieDataStartAddr;
 
         KSDwarfCIE cie;
         if (!parseCIE(cieDataStart, cieDataSize, &cie)) {
