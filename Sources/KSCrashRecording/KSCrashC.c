@@ -663,7 +663,6 @@ void kscrash_testcode_setLastRunID(const char *runID)
 {
     if (runID != NULL) {
         strlcpy(g_lastRunID, runID, sizeof(g_lastRunID));
-        g_lastRunID[sizeof(g_lastRunID) - 1] = '\0';
     } else {
         g_lastRunID[0] = '\0';
     }
