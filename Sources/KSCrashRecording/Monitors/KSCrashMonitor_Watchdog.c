@@ -296,7 +296,7 @@ static void populateReportForCurrentHang(KSHangMonitor *monitor)
             .asyncSafety = false, .isFatal = false, .shouldRecordAllThreads = true, .shouldWriteReport = true });
 
     KSMachineContext machineContext = { 0 };
-    ksmc_getContextForThreadCheckingStackOverflow(ksthread_main(), &machineContext, true, false);
+    ksmc_getContextForThread(ksthread_main(), &machineContext, true);
     KSStackCursor stackCursor;
     kssc_initWithUnwind(&stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
 

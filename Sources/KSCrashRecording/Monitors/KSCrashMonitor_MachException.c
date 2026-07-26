@@ -423,8 +423,17 @@ static void handleException(ExceptionContext *exceptionCtx)
     KSMachineContext machineContext = { 0 };
     monitorCtx->offendingMachineContext = &machineContext;
     kssc_initCursor(&exceptionCtx->stackCursor, NULL, NULL);
+    bool stackOverflow = false;
     if (ksmc_getContextForThread(exceptionCtx->request->thread.name, &machineContext, true)) {
         kssc_initWithUnwind(&exceptionCtx->stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
+        // The mach code correction below needs to know whether the stack overflowed, and that is
+        // only knowable by walking. Stop as soon as the threshold is reached so this costs no
+        // more than the old eager check, then rewind so the report writer walks from frame zero.
+        while (!exceptionCtx->stackCursor.state.stackOverflow &&
+               exceptionCtx->stackCursor.advanceCursor(&exceptionCtx->stackCursor)) {
+        }
+        stackOverflow = exceptionCtx->stackCursor.state.stackOverflow;
+        exceptionCtx->stackCursor.resetCursor(&exceptionCtx->stackCursor);
         KSLOG_TRACE("Thread %s: Fault address %p, instruction address %p", exceptionCtx->threadName,
                     kscpu_faultAddress(&machineContext), kscpu_instructionAddress(&machineContext));
         if (exceptionCtx->request->exception == EXC_BAD_ACCESS) {
@@ -440,7 +449,7 @@ static void handleException(ExceptionContext *exceptionCtx)
     monitorCtx->mach.type = exceptionCtx->request->exception;
     monitorCtx->mach.code = machCodeFromRequest(exceptionCtx->request);
     monitorCtx->mach.subcode = machSubcodeFromRequest(exceptionCtx->request);
-    if (monitorCtx->mach.code == KERN_PROTECTION_FAILURE && monitorCtx->isStackOverflow) {
+    if (monitorCtx->mach.code == KERN_PROTECTION_FAILURE && stackOverflow) {
         // A stack overflow should return KERN_INVALID_ADDRESS, but
         // when a stack blasts through the guard pages at the top of the stack,
         // it generates KERN_PROTECTION_FAILURE. Correct for this.

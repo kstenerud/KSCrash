@@ -451,7 +451,6 @@
 #define ksmc_contextSize KSCRASH_NS(ksmc_contextSize)
 #define ksmc_getContextForSignal KSCRASH_NS(ksmc_getContextForSignal)
 #define ksmc_getContextForThread KSCRASH_NS(ksmc_getContextForThread)
-#define ksmc_getContextForThreadCheckingStackOverflow KSCRASH_NS(ksmc_getContextForThreadCheckingStackOverflow)
 #define ksmc_getThreadAtIndex KSCRASH_NS(ksmc_getThreadAtIndex)
 #define ksmc_getThreadCount KSCRASH_NS(ksmc_getThreadCount)
 #define ksmc_getThreadFromContext KSCRASH_NS(ksmc_getThreadFromContext)

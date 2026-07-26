@@ -61,15 +61,6 @@ static KSThread g_reservedThreads[10];
 static int g_reservedThreadsMaxIndex = sizeof(g_reservedThreads) / sizeof(g_reservedThreads[0]) - 1;
 static int g_reservedThreadsCount = 0;
 
-static inline bool isStackOverflow(const KSMachineContext *const context)
-{
-    KSStackCursor stackCursor;
-    kssc_initWithUnwind(&stackCursor, KSSC_STACK_OVERFLOW_THRESHOLD, context);
-    while (stackCursor.advanceCursor(&stackCursor)) {
-    }
-    return stackCursor.state.hasGivenUp;
-}
-
 static inline bool getThreadList(KSMachineContext *context)
 {
     const task_t thisTask = mach_task_self();
@@ -116,8 +107,7 @@ int ksmc_contextSize(void) { return sizeof(KSMachineContext); }
 
 KSThread ksmc_getThreadFromContext(const KSMachineContext *const context) { return context->thisThread; }
 
-bool ksmc_getContextForThreadCheckingStackOverflow(KSThread thread, KSMachineContext *destinationContext,
-                                                   bool isCrashedContext, bool checkForStackOverflow)
+bool ksmc_getContextForThread(KSThread thread, KSMachineContext *destinationContext, bool isCrashedContext)
 {
     KSLOG_DEBUG("Fill thread 0x%x context into %p. is crashed = %d", thread, destinationContext, isCrashedContext);
     memset(destinationContext, 0, sizeof(*destinationContext));
@@ -129,18 +119,10 @@ bool ksmc_getContextForThreadCheckingStackOverflow(KSThread thread, KSMachineCon
         kscpu_getState(destinationContext);
     }
     if (ksmc_isCrashedContext(destinationContext)) {
-        if (checkForStackOverflow) {
-            destinationContext->isStackOverflow = isStackOverflow(destinationContext);
-        }
         getThreadList(destinationContext);
     }
     KSLOG_TRACE("Context retrieved.");
     return true;
-}
-
-bool ksmc_getContextForThread(KSThread thread, KSMachineContext *destinationContext, bool isCrashedContext)
-{
-    return ksmc_getContextForThreadCheckingStackOverflow(thread, destinationContext, isCrashedContext, true);
 }
 
 bool ksmc_getContextForSignal(void *signalUserContext, KSMachineContext *destinationContext)
@@ -151,7 +133,6 @@ bool ksmc_getContextForSignal(void *signalUserContext, KSMachineContext *destina
     destinationContext->thisThread = (thread_t)ksthread_self();
     destinationContext->isCrashedContext = true;
     destinationContext->isSignalContext = true;
-    destinationContext->isStackOverflow = isStackOverflow(destinationContext);
     getThreadList(destinationContext);
     KSLOG_TRACE("Context retrieved.");
     return true;
