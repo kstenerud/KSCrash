@@ -30,6 +30,7 @@
 #import "KSCrashC.h"
 #import "KSCrashCPUTracker.h"
 #import "KSCrashRunSummary.h"
+#import "KSDate.h"
 #import "KSFileUtils.h"
 #import "KSKeyValueStore.h"
 
@@ -511,16 +512,14 @@ static KSCrashRunSummary *buildSummary(const KSCrashRunContext *ctx, const char 
     const KSCrash_LifecycleData *lc = &ctx->lifecycle;
     const KSCrash_SystemData *sys = &ctx->system;
 
-    // Wall-clock timestamps. `started_at` is captured at sidecar creation.
-    // `ended_at` = started + (mostRecentMonotonic - monotonicAtStart). If
-    // the monotonic delta is non-positive (shouldn't happen, but defend
-    // against corrupt sidecars), fall back to the start timestamp.
+    // Wall-clock timestamps. `started_at` is the sidecar-creation wall anchor;
+    // `ended_at` converts the last-seen monotonic timestamp through the same
+    // reference pair, falling back to the start when it can't be computed
+    // (corrupt sidecar or a non-positive delta).
     int64_t startedAtMs = (int64_t)(lc->wallClockAtStartNs / 1000000ULL);
-    int64_t endedAtMs = startedAtMs;
-    if (ctx->mostRecentTimestampNs >= lc->monotonicAtStartNs) {
-        uint64_t elapsedNs = ctx->mostRecentTimestampNs - lc->monotonicAtStartNs;
-        endedAtMs = (int64_t)((lc->wallClockAtStartNs + elapsedNs) / 1000000ULL);
-    }
+    uint64_t endedWallNs = ksdate_monotonicToWallClockNanoseconds(ctx->mostRecentTimestampNs, lc->wallClockAtStartNs,
+                                                                  lc->monotonicAtStartNs);
+    int64_t endedAtMs = endedWallNs != 0 ? (int64_t)(endedWallNs / 1000000ULL) : startedAtMs;
 
     KSCrashRunSummaryOutcome *outcome =
         [[KSCrashRunSummaryOutcome alloc] initWithTerminationReason:ctx->terminationReason

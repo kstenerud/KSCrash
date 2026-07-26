@@ -84,6 +84,16 @@ uint64_t ksdate_continuousNanoseconds(void);
  */
 uint64_t ksdate_wallClockNanoseconds(void);
 
+/** Convert a CLOCK_MONOTONIC_RAW timestamp to unix epoch nanoseconds using a
+ *  (wall, monotonic) reference pair captured together at some earlier moment:
+ *  wallRefNs + (monotonicNs - monotonicRefNs). Relying only on the monotonic
+ *  delta plus one wall anchor keeps the result correct across a reboot and
+ *  immune to wall-clock jumps. Returns 0 (treat as "unknown") when the reference
+ *  pair is invalid (either is 0), `monotonicNs` predates it, or the conversion
+ *  would overflow.
+ */
+uint64_t ksdate_monotonicToWallClockNanoseconds(uint64_t monotonicNs, uint64_t wallRefNs, uint64_t monotonicRefNs);
+
 #ifdef __cplusplus
 }
 #endif

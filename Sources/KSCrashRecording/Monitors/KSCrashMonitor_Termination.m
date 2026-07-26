@@ -31,6 +31,7 @@
 #import "KSCrashReportFields.h"
 #import "KSCrashReportVersion.h"
 #import "KSCrashRunContext.h"
+#import "KSDate.h"
 #import "KSJSONCodecObjC.h"
 
 #import <Foundation/Foundation.h>
@@ -71,13 +72,8 @@ static bool needsStitch(KSTerminationReason reason)
 /** Convert a monotonic timestamp to unix epoch microseconds using the lifecycle reference pair. */
 static uint64_t monotonicToWallClockUs(const KSCrash_LifecycleData *lifecycle, uint64_t monotonicNs)
 {
-    if (lifecycle->wallClockAtStartNs == 0 || lifecycle->monotonicAtStartNs == 0 || monotonicNs == 0) {
-        return 0;
-    }
-    if (monotonicNs < lifecycle->monotonicAtStartNs) {
-        return 0;
-    }
-    uint64_t wallNs = lifecycle->wallClockAtStartNs + (monotonicNs - lifecycle->monotonicAtStartNs);
+    uint64_t wallNs = ksdate_monotonicToWallClockNanoseconds(monotonicNs, lifecycle->wallClockAtStartNs,
+                                                             lifecycle->monotonicAtStartNs);
     return wallNs / 1000;
 }
 

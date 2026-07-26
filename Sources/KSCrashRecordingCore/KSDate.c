@@ -24,6 +24,7 @@
 
 #include "KSDate.h"
 
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/time.h>
@@ -88,3 +89,15 @@ uint64_t ksdate_uptimeNanoseconds(void) { return clock_gettime_nsec_np(CLOCK_UPT
 uint64_t ksdate_continuousNanoseconds(void) { return clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW); }
 
 uint64_t ksdate_wallClockNanoseconds(void) { return clock_gettime_nsec_np(CLOCK_REALTIME); }
+
+uint64_t ksdate_monotonicToWallClockNanoseconds(uint64_t monotonicNs, uint64_t wallRefNs, uint64_t monotonicRefNs)
+{
+    if (wallRefNs == 0 || monotonicRefNs == 0 || monotonicNs < monotonicRefNs) {
+        return 0;
+    }
+    uint64_t delta = monotonicNs - monotonicRefNs;
+    if (delta > UINT64_MAX - wallRefNs) {
+        return 0;  // conversion would overflow the epoch; treat as unknown
+    }
+    return wallRefNs + delta;
+}

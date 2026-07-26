@@ -356,6 +356,7 @@
 #define kscu_getMode KSCRASH_NS(kscu_getMode)
 #define ksdate_continuousNanoseconds KSCRASH_NS(ksdate_continuousNanoseconds)
 #define ksdate_microseconds KSCRASH_NS(ksdate_microseconds)
+#define ksdate_monotonicToWallClockNanoseconds KSCRASH_NS(ksdate_monotonicToWallClockNanoseconds)
 #define ksdate_seconds KSCRASH_NS(ksdate_seconds)
 #define ksdate_uptimeNanoseconds KSCRASH_NS(ksdate_uptimeNanoseconds)
 #define ksdate_utcStringFromMicroseconds KSCRASH_NS(ksdate_utcStringFromMicroseconds)
