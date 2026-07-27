@@ -24,12 +24,12 @@
 
 #include "KSStackCursor_SelfThread.h"
 
-#include <Availability.h>
 #include <execinfo.h>
 #include <stdatomic.h>
 
 #include "KSCompilerDefines.h"
 #include "KSStackCursor_Backtrace.h"
+#include "KSSystemCapabilities.h"
 
 // #define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
@@ -40,21 +40,6 @@ typedef struct {
     KSStackCursor_Backtrace_Context SelfThreadContextSpacer;
     uintptr_t backtrace[0];
 } SelfThreadContext;
-
-#if defined(__clang_major__) && __clang_major__ >= 13 &&                                                             \
-    ((defined(__MAC_OS_X_VERSION_MAX_ALLOWED) && defined(__MAC_12_0) &&                                              \
-      __MAC_OS_X_VERSION_MAX_ALLOWED >= __MAC_12_0) ||                                                               \
-     (defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && defined(__IPHONE_15_0) &&                                          \
-      __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_15_0) ||                                                           \
-     (defined(__TV_OS_VERSION_MAX_ALLOWED) && defined(__TVOS_15_0) && __TV_OS_VERSION_MAX_ALLOWED >= __TVOS_15_0) || \
-     (defined(__WATCH_OS_VERSION_MAX_ALLOWED) && defined(__WATCHOS_8_0) &&                                           \
-      __WATCH_OS_VERSION_MAX_ALLOWED >= __WATCHOS_8_0) ||                                                            \
-     (defined(__VISION_OS_VERSION_MAX_ALLOWED) && defined(__VISIONOS_1_0) &&                                         \
-      __VISION_OS_VERSION_MAX_ALLOWED >= __VISIONOS_1_0))
-#define KSCRASH_HAS_BACKTRACE_ASYNC 1
-#else
-#define KSCRASH_HAS_BACKTRACE_ASYNC 0
-#endif
 
 static atomic_bool g_swiftAsyncStackTracesEnabled = false;
 
