@@ -22,7 +22,13 @@ concurrency:
 
 jobs:
   unit-tests:
-    runs-on: "macos-${{ matrix.macos-version || 'latest' }}"
+    # Most entries pick a runner by macOS version. The Xcode 27 preview image is
+    # published under a bare "xcode-27" label instead, so entries may override the
+    # whole label via matrix.runner.
+    runs-on: ${{ matrix.runner || format('macos-{0}', matrix.macos-version || 'latest') }}
+    # The Xcode 27 image is a preview: unstable software and capacity queuing are
+    # expected, so it reports signal without gating merges.
+    continue-on-error: ${{ matrix.experimental || false }}
     strategy:
       fail-fast: false
       matrix:
@@ -64,11 +70,27 @@ jobs:
           - platform: mac-catalyst
           - platform: mac-catalyst
             macos-version: "14"
+
+          # Xcode 27 preview (macOS 26 + Xcode 27.0 beta). Non-blocking early
+          # warning on the 27.0 SDKs. See actions/runner-images#14404.
+          - platform: iOS
+            runner: xcode-27
+            xcode-version: latest
+            experimental: true
+          - platform: macOS
+            runner: xcode-27
+            xcode-version: latest
+            experimental: true
     steps:
       - name: Checkout Code
         uses: actions/checkout@v6
 
-      - name: Use Latest Stable Xcode
+      # Beta-only images must ask for 'latest', not 'latest-stable': setup-xcode
+      # marks any Xcode whose LicenseInfo.plist says "beta" as unstable, and
+      # ignores the /Applications/Xcode_27.0.app symlinks because it skips
+      # symlinks entirely. On the xcode-27 image that leaves 'latest-stable'
+      # matching nothing, which fails the step rather than falling back.
+      - name: Select Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: ${{ matrix.xcode-version || 'latest-stable' }}
