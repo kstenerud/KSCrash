@@ -107,6 +107,8 @@ void KSStacktraceCheckCrash() __attribute__((disable_tail_calls))
 
 NSString *const KSCrashNSExceptionStacktraceFuncName = @"exceptionWithStacktraceForException";
 
+static void trigger_user_swiftAsync(void) { integrationTestSwiftAsyncTrigger(); }
+
 @implementation KSCrashTriggersList
 
 + (void)trigger_nsException_genericNSException
@@ -221,6 +223,11 @@ NSString *const KSCrashNSExceptionStacktraceFuncName = @"exceptionWithStacktrace
 + (void)trigger_user_fatal
 {
     trigger_user_fatal();
+}
+
++ (void)trigger_user_swiftAsync
+{
+    trigger_user_swiftAsync();
 }
 
 + (void)trigger_memory_oom

@@ -26,39 +26,39 @@
 
 #include "KSDynamicLinker.h"
 
-/** Remove any pointer tagging from an instruction address
- * On armv7 the least significant bit of the pointer distinguishes
- * between thumb mode (2-byte instructions) and normal mode (4-byte instructions).
- * On arm64 all instructions are 4-bytes wide so the two least significant
- * bytes should always be 0.
- * On x86_64 and i386, instructions are variable length so all bits are
- * signficant.
- */
-#if defined(__arm__)
-#define DETAG_INSTRUCTION_ADDRESS(A) ((A) & ~(1UL))
-#elif defined(__arm64__)
-#define DETAG_INSTRUCTION_ADDRESS(A) ((A) & ~(3UL))
-#else
-#define DETAG_INSTRUCTION_ADDRESS(A) (A)
-#endif
-
 /** Step backwards by one instruction.
  * The backtrace of an objective-C program is expected to contain return
  * addresses not call instructions, as that is what can easily be read from
  * the stack. This is not a problem except for a few cases where the return
  * address is inside a different symbol than the call address.
+ *
+ * On armv7 the least significant bit of the pointer distinguishes between thumb
+ * mode (2-byte instructions) and normal mode (4-byte instructions), so it is a
+ * tag and has to be cleared before stepping back.
+ *
+ * Everywhere else every bit of the address is significant. On arm64 in particular
+ * instructions are 4-byte aligned, so a real instruction address never has its low
+ * bits set, and backtrace_async() uses that spare encoding deliberately: Swift async
+ * continuation addresses are reported biased by +1 so that this same step back by one
+ * lands on the continuation funclet's first instruction. Masking those bits off first
+ * would consume the bias and then step back a second time, resolving one byte below
+ * the funclet, i.e. to whatever symbol happens to precede it.
+ *
+ * Pointer tags and PAC bits are stripped a layer up, by kscpu_normaliseInstructionPointer().
  */
-#define CALL_INSTRUCTION_FROM_RETURN_ADDRESS(A) (DETAG_INSTRUCTION_ADDRESS((A)) - 1)
-
 uintptr_t kssymbolicator_callInstructionAddress(const uintptr_t returnAddress)
 {
-    return CALL_INSTRUCTION_FROM_RETURN_ADDRESS(returnAddress);
+#if defined(__arm__)
+    return (returnAddress & ~(1UL)) - 1;
+#else
+    return returnAddress - 1;
+#endif
 }
 
 bool kssymbolicator_symbolicate(KSStackCursor *cursor)
 {
     Dl_info symbolsBuffer;
-    if (ksdl_dladdr(CALL_INSTRUCTION_FROM_RETURN_ADDRESS(cursor->stackEntry.address), &symbolsBuffer)) {
+    if (ksdl_dladdr(kssymbolicator_callInstructionAddress(cursor->stackEntry.address), &symbolsBuffer)) {
         cursor->stackEntry.imageAddress = (uintptr_t)symbolsBuffer.dli_fbase;
         cursor->stackEntry.imageName = symbolsBuffer.dli_fname;
         cursor->stackEntry.symbolAddress = (uintptr_t)symbolsBuffer.dli_saddr;

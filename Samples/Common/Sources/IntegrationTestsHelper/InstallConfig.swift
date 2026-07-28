@@ -36,6 +36,7 @@ public struct InstallConfig: Codable {
     public var isHangReportingEnabled: Bool?
     public var isCompactBinaryImagesEnabled: Bool?
     public var ignoreSIGPIPEBeforeInstall: Bool?
+    public var isSwiftAsyncStackTracesEnabled: Bool?
 
     public init(installPath: String) {
         self.installPath = installPath
@@ -64,6 +65,9 @@ extension InstallConfig {
         }
         if let isCompactBinaryImagesEnabled {
             config.enableCompactBinaryImages = isCompactBinaryImagesEnabled
+        }
+        if let isSwiftAsyncStackTracesEnabled {
+            config.enableSwiftAsyncStackTraces = isSwiftAsyncStackTracesEnabled
         }
         setIntegrationTestWillWriteReportCallback({
             (plan: UnsafeMutablePointer<ExceptionHandlingPlan>, ctx: UnsafePointer<KSCrash_MonitorContext>) in

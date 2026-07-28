@@ -50,6 +50,17 @@ void setIntegrationTestDidWriteReportCallback(void (^ _Nonnull implementation)(c
     g_integrationTestDidWriteReportCallback = implementation;
 }
 
+static void (^g_integrationTestSwiftAsyncTrigger)(void) = ^void(void) {
+    printf("No Swift async crash trigger registered\n");
+};
+
+void integrationTestSwiftAsyncTrigger(void) { g_integrationTestSwiftAsyncTrigger(); }
+
+void setIntegrationTestSwiftAsyncTrigger(void (^implementation)(void))
+{
+    g_integrationTestSwiftAsyncTrigger = implementation;
+}
+
 int integrationTestIgnoreSIGPIPE(void)
 {
     struct sigaction action = { { 0 } };
