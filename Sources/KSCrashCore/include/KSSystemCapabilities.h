@@ -26,6 +26,7 @@
 #define HDR_KSSystemCapabilities_h
 
 #ifdef __APPLE__
+#include <Availability.h>
 #include <TargetConditionals.h>
 #define KSCRASH_HOST_APPLE 1
 #endif
@@ -58,6 +59,21 @@
 #else
 #define KSCRASH_HAS_OBJC 0
 #define KSCRASH_HAS_SWIFT 0
+#endif
+
+#if defined(__clang_major__) && __clang_major__ >= 13 &&                                                             \
+    ((defined(__MAC_OS_X_VERSION_MAX_ALLOWED) && defined(__MAC_12_0) &&                                              \
+      __MAC_OS_X_VERSION_MAX_ALLOWED >= __MAC_12_0) ||                                                               \
+     (defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && defined(__IPHONE_15_0) &&                                          \
+      __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_15_0) ||                                                           \
+     (defined(__TV_OS_VERSION_MAX_ALLOWED) && defined(__TVOS_15_0) && __TV_OS_VERSION_MAX_ALLOWED >= __TVOS_15_0) || \
+     (defined(__WATCH_OS_VERSION_MAX_ALLOWED) && defined(__WATCHOS_8_0) &&                                           \
+      __WATCH_OS_VERSION_MAX_ALLOWED >= __WATCHOS_8_0) ||                                                            \
+     (defined(__VISION_OS_VERSION_MAX_ALLOWED) && defined(__VISIONOS_1_0) &&                                         \
+      __VISION_OS_VERSION_MAX_ALLOWED >= __VISIONOS_1_0))
+#define KSCRASH_HAS_BACKTRACE_ASYNC 1
+#else
+#define KSCRASH_HAS_BACKTRACE_ASYNC 0
 #endif
 
 #if KSCRASH_HOST_APPLE

@@ -64,6 +64,7 @@
     XCTAssertEqual(config.reportStoreConfiguration.maxReportCount, 5);
     XCTAssertEqual(config.reportStoreConfiguration.maxRunSummaryCount, 50);
     XCTAssertTrue(config.enableSwapCxaThrow);
+    XCTAssertFalse(config.enableSwiftAsyncStackTraces);
     XCTAssertFalse(config.enableHangReporting);
     XCTAssertFalse(config.enableCPUExceptionReporting);
     XCTAssertFalse(config.enableCompactBinaryImages);
@@ -83,6 +84,7 @@
     config.reportStoreConfiguration.maxReportCount = 10;
     config.reportStoreConfiguration.maxRunSummaryCount = 7;
     config.enableSwapCxaThrow = NO;
+    config.enableSwiftAsyncStackTraces = YES;
     config.enableHangReporting = YES;
     config.enableCPUExceptionReporting = YES;
     config.enableCompactBinaryImages = YES;
@@ -103,6 +105,7 @@
     XCTAssertEqual(cConfig.reportStoreConfiguration.maxReportCount, 10);
     XCTAssertEqual(cConfig.reportStoreConfiguration.maxRunSummaryCount, 7);
     XCTAssertFalse(cConfig.enableSwapCxaThrow);
+    XCTAssertTrue(cConfig.enableSwiftAsyncStackTraces);
     XCTAssertTrue(cConfig.enableHangReporting);
     XCTAssertTrue(cConfig.enableCPUExceptionReporting);
     XCTAssertTrue(cConfig.enableCompactBinaryImages);
@@ -125,6 +128,7 @@
     config.reportStoreConfiguration.maxReportCount = 10;
     config.reportStoreConfiguration.maxRunSummaryCount = 7;
     config.enableSwapCxaThrow = NO;
+    config.enableSwiftAsyncStackTraces = YES;
     config.enableHangReporting = YES;
     config.enableCPUExceptionReporting = YES;
     config.enableCompactBinaryImages = YES;
@@ -142,6 +146,7 @@
     XCTAssertEqual(copy.reportStoreConfiguration.maxReportCount, 10);
     XCTAssertEqual(copy.reportStoreConfiguration.maxRunSummaryCount, 7);
     XCTAssertFalse(copy.enableSwapCxaThrow);
+    XCTAssertTrue(copy.enableSwiftAsyncStackTraces);
     XCTAssertTrue(copy.enableHangReporting);
     XCTAssertTrue(copy.enableCPUExceptionReporting);
     XCTAssertTrue(copy.enableCompactBinaryImages);
@@ -561,6 +566,7 @@ static bool testPluginIsEnabled(__unused void *context) { return g_testPluginEna
     XCTAssertEqual(cConfig.plugins.apis, NULL);
     XCTAssertEqual(cConfig.plugins.length, 0);
     XCTAssertEqual(cConfig.plugins.release, NULL);
+    XCTAssertFalse(cConfig.enableSwiftAsyncStackTraces);
     KSCrashCConfiguration_Release(&cConfig);
 }
 

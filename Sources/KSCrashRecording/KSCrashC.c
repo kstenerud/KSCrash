@@ -52,6 +52,7 @@
 #include "KSDynamicLinker.h"
 #include "KSFileUtils.h"
 #include "KSObjC.h"
+#include "KSStackCursor_SelfThread.h"
 #include "KSString.h"
 #include "KSSystemCapabilities.h"
 #include "KSThreadCache.h"
@@ -368,6 +369,7 @@ static void handleConfiguration(KSCrashCConfiguration *configuration)
     kscm_watchdog_setReportsHangs(configuration->enableHangReporting);
     kscm_resource_setReportsCPUExceptions(configuration->enableCPUExceptionReporting);
     kscrashreport_setCompactBinaryImages(configuration->enableCompactBinaryImages);
+    kssc_setSwiftAsyncStackTracesEnabled(configuration->enableSwiftAsyncStackTraces);
     g_shouldAddConsoleLogToReport = configuration->addConsoleLogToReport;
     g_shouldPrintPreviousLog = configuration->printPreviousLogOnStartup;
     g_willWriteReportCallback = configuration->willWriteReportCallback;

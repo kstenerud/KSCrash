@@ -186,6 +186,17 @@ NS_SWIFT_NAME(CrashInstallConfiguration)
  */
 @property(nonatomic, assign) BOOL enableSwapCxaThrow;
 
+/** If true, use `backtrace_async()` for KSCrash's current-thread stack capture paths.
+ *
+ * This can stitch Swift async continuation frames into self-thread backtraces such as
+ * C++ exception throw-site and handler cursors, user-reported fallbacks, and current-thread
+ * `captureBacktrace` calls. When `backtrace_async()` is not available at build time or runtime,
+ * KSCrash falls back to `backtrace()`.
+ *
+ * **Default**: false
+ */
+@property(nonatomic, assign) BOOL enableSwiftAsyncStackTraces;
+
 /** If true, enables monitoring for SIGTERM signals.
  *
  * @deprecated SIGTERM is now always caught to record a clean exit. No crash report is written. This property is
