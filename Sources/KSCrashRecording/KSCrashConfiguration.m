@@ -63,6 +63,7 @@
         _addConsoleLogToReport = cConfig.addConsoleLogToReport ? YES : NO;
         _printPreviousLogOnStartup = cConfig.printPreviousLogOnStartup ? YES : NO;
         _enableSwapCxaThrow = cConfig.enableSwapCxaThrow ? YES : NO;
+        _enableSwiftAsyncStackTraces = cConfig.enableSwiftAsyncStackTraces ? YES : NO;
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
         _enableSigTermMonitoring = cConfig.enableSigTermMonitoring ? YES : NO;
@@ -133,6 +134,7 @@
     config.addConsoleLogToReport = self.addConsoleLogToReport;
     config.printPreviousLogOnStartup = self.printPreviousLogOnStartup;
     config.enableSwapCxaThrow = self.enableSwapCxaThrow;
+    config.enableSwiftAsyncStackTraces = self.enableSwiftAsyncStackTraces;
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
     config.enableSigTermMonitoring = self.enableSigTermMonitoring;
@@ -213,6 +215,7 @@
     copy.addConsoleLogToReport = self.addConsoleLogToReport;
     copy.printPreviousLogOnStartup = self.printPreviousLogOnStartup;
     copy.enableSwapCxaThrow = self.enableSwapCxaThrow;
+    copy.enableSwiftAsyncStackTraces = self.enableSwiftAsyncStackTraces;
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
     copy.enableSigTermMonitoring = self.enableSigTermMonitoring;

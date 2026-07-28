@@ -510,6 +510,7 @@
 #define kssc_initWithUnwind KSCRASH_NS(kssc_initWithUnwind)
 #define kssc_initWithUnwindMethods KSCRASH_NS(kssc_initWithUnwindMethods)
 #define kssc_resetCursor KSCRASH_NS(kssc_resetCursor)
+#define kssc_setSwiftAsyncStackTracesEnabled KSCRASH_NS(kssc_setSwiftAsyncStackTracesEnabled)
 #define kssc_unwindMethodName KSCRASH_NS(kssc_unwindMethodName)
 #define kssignal_fatalSignals KSCRASH_NS(kssignal_fatalSignals)
 #define kssignal_numFatalSignals KSCRASH_NS(kssignal_numFatalSignals)
