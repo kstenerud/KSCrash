@@ -59,6 +59,7 @@ extern NSString *const KSCrashNSExceptionStacktraceFuncName;
     __PROCESS_TRIGGER(signal, sigpipe, @"SIGPIPE")                                                     \
     __PROCESS_TRIGGER(user, nonfatal, @"Nonfatal")                                                     \
     __PROCESS_TRIGGER(user, fatal, @"Fatal")                                                           \
+    __PROCESS_TRIGGER(user, swiftAsync, @"Fatal (from Swift async)")                                   \
     __PROCESS_TRIGGER(multiple, mach_mach, @"Mach + Mach")                                             \
     __PROCESS_TRIGGER(multiple, mach_signal, @"Mach + Signal")                                         \
     __PROCESS_TRIGGER(multiple, mach_cpp, @"Mach + CPP")                                               \
