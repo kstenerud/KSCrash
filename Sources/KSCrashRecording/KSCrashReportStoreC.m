@@ -30,6 +30,7 @@
 #include <fcntl.h>
 #include <inttypes.h>
 #include <pthread.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -50,9 +51,10 @@
 #import "KSCrashReportFixer.h"
 #import "KSJSONCodecObjC.h"
 
-// Have to use max 32-bit atomics because of MIPS.
-static _Atomic(uint32_t) g_nextUniqueIDLow;
-static int64_t g_nextUniqueIDHigh;
+// Minted from the crash handler without g_mutex: threads are suspended there, so whoever
+// holds the lock may never resume. Must stay lock-free for that same reason.
+_Static_assert(ATOMIC_LLONG_LOCK_FREE == 2, "report ID counter is minted in the crash handler");
+static _Atomic(int64_t) g_nextUniqueID;
 static pthread_mutex_t g_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // The stitch config used by the no-config readers (readReportAtPath,
@@ -88,7 +90,7 @@ static int compareInt64(const void *a, const void *b)
     return 0;
 }
 
-static inline int64_t getNextUniqueID(void) { return g_nextUniqueIDHigh + g_nextUniqueIDLow++; }
+static inline int64_t getNextUniqueID(void) { return g_nextUniqueID++; }
 
 static void getCrashReportPathByID(int64_t id, char *pathBuffer, const KSCrashReportStoreCConfiguration *const config)
 {
@@ -463,18 +465,14 @@ static void pruneReports(const KSCrashReportStoreCConfiguration *const config)
 }
 static void initializeIDs(void)
 {
-    // Wall-clock nanoseconds: IDs roughly track creation time (pruning deletes lowest
-    // first; concurrent writers can still interleave numerically), and two writer
-    // processes seeding in the same instant (several short-lived extension reporters
-    // sharing one store) cannot collide the way the old seconds-derived seed could.
-    // Positive int64 until the year 2262.
-    int64_t baseID = (int64_t)clock_gettime_nsec_np(CLOCK_REALTIME);
-
-    // The counter starts at zero rather than carrying the seed's arbitrary low bits,
-    // which could start it near the 32-bit wrap and send IDs backwards after a handful
-    // of reports.
-    g_nextUniqueIDHigh = baseID;
-    g_nextUniqueIDLow = 0;
+    // CLOCK_REALTIME is gettimeofday-derived, so this is microsecond resolution expressed in
+    // nanoseconds: every seed is a multiple of 1000, and that scale factor doubles as the
+    // counter's headroom. Two processes sharing one store (short-lived extension reporters in
+    // an App Group) now have to initialize within the same microsecond to mint the same ID,
+    // where the old seconds-derived seed only needed the same second. Minting past 1000 IDs
+    // walks into later microseconds' seed space, widening that window rather than breaking;
+    // IDs stay unique and increasing within the process either way. Positive int64 until 2262.
+    g_nextUniqueID = (int64_t)clock_gettime_nsec_np(CLOCK_REALTIME);
 }
 
 // Public API
@@ -503,6 +501,8 @@ KSCrashInstallErrorCode kscrs_initialize(const KSCrashReportStoreCConfiguration 
 int64_t kscrs_getNextCrashReport(char *crashReportPathBuffer,
                                  const KSCrashReportStoreCConfiguration *const configuration)
 {
+    // Deliberately outside g_mutex: this runs in the crash handler. The atomic counter is
+    // what keeps concurrent minting unique.
     int64_t nextID = getNextUniqueID();
     if (crashReportPathBuffer) {
         getCrashReportPathByID(nextID, crashReportPathBuffer, configuration);
