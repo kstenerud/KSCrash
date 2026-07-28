@@ -31,6 +31,13 @@ void setIntegrationTestDidWriteReportCallback(void (^ _Nonnull implementation)(c
 
 int integrationTestIgnoreSIGPIPE(void);
 
+/** Runs the Swift async crash trigger. Swift async code cannot live in the Objective-C
+ * CrashTriggers target, so Swift registers the implementation here at startup.
+ */
+void integrationTestSwiftAsyncTrigger(void);
+
+void setIntegrationTestSwiftAsyncTrigger(void (^_Nonnull implementation)(void));
+
 #ifdef __cplusplus
 }
 #endif
