@@ -331,9 +331,11 @@ class KSJSONCodecBenchmarks: KSBenchmarkTestCase {
         let payload = userInfoPayload(fieldCount: 20)
         payload.withCString { payloadPtr in
             let length = Int32(strlen(payloadPtr))
+            var destination = KSJSONEncodeContext()
+            ksjson_beginEncode(&destination, false, { _, _, _ in Int32(KSJSON_OK) }, nil)
             measure {
                 for _ in 0..<100 {
-                    _ = ksjson_checkJSONElement(payloadPtr, length)
+                    _ = ksjson_checkJSONElement(&destination, payloadPtr, length)
                 }
             }
         }

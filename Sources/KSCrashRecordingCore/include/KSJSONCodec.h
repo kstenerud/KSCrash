@@ -44,20 +44,23 @@ extern "C" {
  */
 #define KSJSON_SIZE_AUTOMATIC -1
 
-/* Limits on JSON embedded via ksjson_addJSONElement() and ksjson_addJSONFromFile().
+/* The longest key or string value, in decoded bytes, that may appear in JSON embedded via
+ * ksjson_addJSONElement() or ksjson_addJSONFromFile().
  *
- * Embedding re-decodes the payload, and decoding runs at crash time where memory cannot
- * be allocated, so every key and string value has to fit in a buffer sized up front.
- * These are the sizes of those buffers. Note that they bound the individual pieces, not
- * the payload: a megabyte of short strings is fine, a single over-long one is not.
+ * Embedding re-decodes the payload, and decoding runs at crash time where memory cannot be
+ * allocated, so each key and value has to fit a buffer sized up front. The limit is on what
+ * a value decodes to, not on how it was written: escapes only ever shrink, so "\u0061" costs
+ * the one byte it becomes. It also bounds the individual pieces, not the payload, so a
+ * megabyte of short strings is fine while one over-long string is not.
  *
- * ksjson_checkJSONElement() answers whether a given payload is within them.
+ * ksjson_checkJSONElement() answers whether a given payload is within it.
  */
 #define KSJSON_MAX_EMBEDDED_STRING_LENGTH 8192
 
 /* How much of a file the decoder keeps in view at once, which also bounds how long one
- * string's *source* text may be. Heavily escaped strings therefore run out of window before
- * they reach KSJSON_MAX_EMBEDDED_STRING_LENGTH. Either way the payload is rejected whole.
+ * element's *source* text may be. A heavily escaped string can therefore run out of window
+ * before it reaches KSJSON_MAX_EMBEDDED_STRING_LENGTH. Either way the payload is rejected
+ * whole rather than embedded in part.
  */
 #define KSJSON_EMBEDDED_FILE_WINDOW (KSJSON_MAX_EMBEDDED_STRING_LENGTH * 2)
 
@@ -327,11 +330,15 @@ int ksjson_endDataElement(KSJSONEncodeContext *const context);
 int ksjson_addJSONElement(KSJSONEncodeContext *const encodeContext, const char *restrict const name,
                           const char *restrict const jsonData, const int jsonDataLength, const bool closeLastContainer);
 
-/** Check whether a payload can be embedded by ksjson_addJSONElement().
+/** Check whether a payload can be embedded into a given destination.
  *
- * Valid JSON can still be rejected: a key or string value over
- * KSJSON_MAX_EMBEDDED_STRING_LENGTH bytes, or nesting past KSJSON_MAX_CONTAINER_DEPTH.
- * This runs the same decoder the embedding does, so the answer matches, but writes nothing.
+ * Valid JSON can still be rejected: a key or string value decoding to more than
+ * KSJSON_MAX_EMBEDDED_STRING_LENGTH bytes, or nesting the destination has no room for.
+ * How much nesting is left depends on how deep the destination already is, which is why
+ * this takes one rather than answering in the abstract. It runs the same decoder against
+ * the same limits as the embedding, so the answer matches, but it writes nothing.
+ *
+ * @param destination The context the payload would be embedded into.
  *
  * @param jsonData The payload to check.
  *
@@ -339,7 +346,8 @@ int ksjson_addJSONElement(KSJSONEncodeContext *const encodeContext, const char *
  *
  * @return KSJSON_OK if it can be embedded, otherwise the error the embedding would return.
  */
-int ksjson_checkJSONElement(const char *const jsonData, const int jsonDataLength);
+int ksjson_checkJSONElement(const KSJSONEncodeContext *const destination, const char *const jsonData,
+                            const int jsonDataLength);
 
 /** Begin a new object container.
  *
@@ -408,13 +416,17 @@ int ksjson_endContainer(KSJSONEncodeContext *context);
 int ksjson_addJSONFromFile(KSJSONEncodeContext *const context, const char *restrict const name,
                            const char *restrict const filename, const bool closeLastContainer);
 
-/** Check whether a file's contents can be embedded by ksjson_addJSONFromFile().
+/** Check whether a file's contents can be embedded into a given destination.
+ *
+ * See ksjson_checkJSONElement() for why the destination is needed.
+ *
+ * @param destination The context the file's contents would be embedded into.
  *
  * @param filename The file to check.
  *
  * @return KSJSON_OK if it can be embedded, otherwise the error the embedding would return.
  */
-int ksjson_checkJSONFile(const char *const filename);
+int ksjson_checkJSONFile(const KSJSONEncodeContext *const destination, const char *const filename);
 
 // ============================================================================
 // Decode

@@ -533,7 +533,12 @@ int ksjson_endEncode(KSJSONEncodeContext *const context)
 
 #define INV 0x11111
 
-typedef struct {
+struct KSJSONDecodeContext;
+
+/** Pull more data into the decode window. See requestMoreData(). */
+typedef int (*KSJSONRefillFunc)(struct KSJSONDecodeContext *context, const char *preserveFrom);
+
+typedef struct KSJSONDecodeContext {
     /** Pointer to current work area in the buffer. */
     const char *bufferPtr;
     /** Pointer to the end of the buffer. */
@@ -546,11 +551,88 @@ typedef struct {
     char *stringBuffer;
     /** Length of the string buffer. */
     int stringBufferLength;
+    /** True when bufferEnd is the end of the data itself rather than the end of a window
+     * onto more of it. A number has no closing delimiter, so this is what separates "the
+     * number ends here" from "read more before deciding". */
+    bool bufferEndIsEOF;
+    /** Pulls more data into the window, or NULL when the data is all in memory. Set by
+     * whoever owns the buffer, since only they know where the rest of it lives. */
+    KSJSONRefillFunc refill;
     /** The callbacks to call while decoding. */
     KSJSONDecodeCallbacks *const callbacks;
     /** Data that was specified when calling ksjson_decode(). */
     void *userData;
 } KSJSONDecodeContext;
+
+/** Ask for more data when an element runs past the end of the window.
+ *
+ * Everything from the current position onward is kept and moved to the front, so an element
+ * straddling a window boundary can be rescanned from its start once the rest arrives.
+ *
+ * @return KSJSON_OK if the window changed at all, which includes learning that the data has
+ *         ended. KSJSON_ERROR_INCOMPLETE if there is nothing more to read.
+ *         KSJSON_ERROR_DATA_TOO_LONG if what must be preserved already fills the window.
+ */
+static int requestMoreData(KSJSONDecodeContext *context)
+{
+    unlikely_if(context->bufferEndIsEOF || context->refill == NULL) { return KSJSON_ERROR_INCOMPLETE; }
+    return context->refill(context, context->bufferPtr);
+}
+
+/** Skip whitespace, pulling in more data whenever the window runs out while doing it.
+ *
+ * Whitespace is the one thing that can consume a whole window without any element being
+ * parsed, so a file with enough leading space would otherwise look truncated before the
+ * decoder ever asked for the rest of it.
+ */
+static void skipWhitespace(KSJSONDecodeContext *context)
+{
+    for (;;) {
+        while (context->bufferPtr < context->bufferEnd && isspace((unsigned char)*context->bufferPtr)) {
+            context->bufferPtr++;
+        }
+        if (context->bufferPtr < context->bufferEnd || requestMoreData(context) != KSJSON_OK) {
+            return;
+        }
+    }
+}
+
+/** Make sure at least `count` bytes are in the window, for elements whose length is known
+ * up front. Anything scanned to an unknown length refills from its own start instead.
+ *
+ * @return false if the data ended before that many bytes were available.
+ */
+static bool ensureBuffered(KSJSONDecodeContext *context, const int count)
+{
+    while (context->bufferEnd - context->bufferPtr < count) {
+        unlikely_if(requestMoreData(context) != KSJSON_OK) { return false; }
+    }
+    return true;
+}
+
+/** Anything that may legally follow a JSON value. A number has no closing delimiter of its
+ * own, so this is the only thing separating "1" from the first half of "1x".
+ */
+static bool isJSONValueDelimiter(const char ch)
+{
+    return isspace((unsigned char)ch) || ch == ',' || ch == ']' || ch == '}';
+}
+
+/** Skip trailing whitespace and require that nothing else follows.
+ *
+ * Without this a payload is only ever as valid as its first element, so "1 2", "truejunk"
+ * and "{}[]" would all pass by decoding the part that parses and ignoring the rest.
+ */
+static int requireEndOfData(KSJSONDecodeContext *context)
+{
+    skipWhitespace(context);
+    unlikely_if(context->bufferPtr < context->bufferEnd)
+    {
+        KSLOG_DEBUG("Trailing data after the top level element");
+        return KSJSON_ERROR_INVALID_CHARACTER;
+    }
+    return KSJSON_OK;
+}
 
 /** Lookup table for converting hex values to integers.
  * INV (0x11111) is used to mark invalid characters so that any attempted
@@ -604,45 +686,7 @@ static int decodeString(KSJSONDecodeContext *context, char *dstBuffer, int dstBu
  */
 static int decodeElement(const char *const name, KSJSONDecodeContext *context);
 
-/** Skip past any whitespace.
- *
- * @param CONTEXT The decoding context.
- */
-#define SKIP_WHITESPACE(CONTEXT)                                                      \
-    while (CONTEXT->bufferPtr < CONTEXT->bufferEnd && isspace(*CONTEXT->bufferPtr)) { \
-        CONTEXT->bufferPtr++;                                                         \
-    }
-
-/** Check if a character is valid for representing part of a floating point
- * number.
- *
- * @param ch The character to test.
- *
- * @return true if the character is valid for floating point.
- */
-static inline bool isFPChar(char ch)
-{
-    switch (ch) {
-        case '0':
-        case '1':
-        case '2':
-        case '3':
-        case '4':
-        case '5':
-        case '6':
-        case '7':
-        case '8':
-        case '9':
-        case '.':
-        case 'e':
-        case 'E':
-        case '+':
-        case '-':
-            return true;
-        default:
-            return false;
-    }
-}
+static int decodeNumber(const char *const name, KSJSONDecodeContext *context, const int sign);
 
 static int writeUTF8(unsigned int character, char **dst)
 {
@@ -689,25 +733,42 @@ static int decodeString(KSJSONDecodeContext *context, char *dstBuffer, int dstBu
         return KSJSON_ERROR_INVALID_CHARACTER;
     }
 
-    const char *src = context->bufferPtr + 1;
+    // The closing quote is at an unknown distance, so when the window runs out before it
+    // turns up, pull more in and scan the whole string again from its opening quote.
+    // Refilling moves the string to the front, so bufferPtr stays valid across the retry.
+    const char *srcEnd = NULL;
     bool fastCopy = true;
-
-    for (; src < context->bufferEnd && *src != '\"'; src++) {
-        unlikely_if(*src == '\\')
-        {
-            fastCopy = false;
-            src++;
+    for (;;) {
+        const char *src = context->bufferPtr + 1;
+        fastCopy = true;
+        for (; src < context->bufferEnd && *src != '\"'; src++) {
+            unlikely_if(*src == '\\')
+            {
+                fastCopy = false;
+                src++;
+            }
         }
+        likely_if(src < context->bufferEnd)
+        {
+            srcEnd = src;
+            break;
+        }
+
+        const int result = requestMoreData(context);
+        unlikely_if(result == KSJSON_ERROR_INCOMPLETE)
+        {
+            KSLOG_DEBUG("Premature end of data");
+            return KSJSON_ERROR_INCOMPLETE;
+        }
+        unlikely_if(result != KSJSON_OK) { return result; }
     }
-    unlikely_if(src >= context->bufferEnd)
-    {
-        KSLOG_DEBUG("Premature end of data");
-        return KSJSON_ERROR_INCOMPLETE;
-    }
-    const char *srcEnd = src;
-    src = context->bufferPtr + 1;
+
+    const char *src = context->bufferPtr + 1;
     int length = (int)(srcEnd - src);
-    if (length >= dstBufferLength) {
+    // With no escapes the source span is exactly what it decodes to, so this is the limit
+    // itself. With escapes the source is longer than the value, and charging the source
+    // would refuse values that do fit, so the unescape loop below measures its own output.
+    if (fastCopy && length >= dstBufferLength) {
         KSLOG_DEBUG("String is too long");
         return KSJSON_ERROR_DATA_TOO_LONG;
     }
@@ -723,8 +784,17 @@ static int decodeString(KSJSONDecodeContext *context, char *dstBuffer, int dstBu
     }
 
     char *dst = dstBuffer;
+    // One byte held back for the terminator, so a write is in bounds while dst < dstEnd.
+    // Room is always compared by subtracting, never by forming dst + width, which could
+    // point past the end of the buffer.
+    char *const dstEnd = dstBuffer + dstBufferLength - 1;
 
     for (; src < srcEnd; src++) {
+        unlikely_if(dstEnd - dst < 1)
+        {
+            KSLOG_DEBUG("String is too long");
+            return KSJSON_ERROR_DATA_TOO_LONG;
+        }
         likely_if(*src != '\\') { *dst++ = *src; }
         else
         {
@@ -800,9 +870,22 @@ static int decodeString(KSJSONDecodeContext *context, char *dstBuffer, int dstBu
                             return KSJSON_ERROR_INVALID_CHARACTER;
                         }
                         // And combine 20 bit result.
-                        accum = ((accum - 0xd800) << 10) | (accum2 - 0xdc00);
+                        // The pair encodes the code point biased down by 0x10000, which is
+                        // why the surrogate range can cover the whole astral plane in 20
+                        // bits. Leaving the bias off turns every emoji into an unrelated
+                        // character in the private use area.
+                        accum = 0x10000 + (((accum - 0xd800) << 10) | (accum2 - 0xdc00));
                     }
 
+                    // Charge the code point what it actually costs. The check at the top of
+                    // the loop only accounted for one byte, and reserving the widest
+                    // encoding for every escape would refuse values that do fit.
+                    const ptrdiff_t utf8Width = accum < 0x80 ? 1 : accum < 0x800 ? 2 : accum < 0x10000 ? 3 : 4;
+                    unlikely_if(dstEnd - dst < utf8Width)
+                    {
+                        KSLOG_DEBUG("String is too long");
+                        return KSJSON_ERROR_DATA_TOO_LONG;
+                    }
                     int result = writeUTF8(accum, &dst);
                     unlikely_if(result != KSJSON_OK) { return result; }
                     src += 4;
@@ -819,9 +902,190 @@ static int decodeString(KSJSONDecodeContext *context, char *dstBuffer, int dstBu
     return KSJSON_OK;
 }
 
+/** How a number token ended. */
+typedef enum {
+    /** A whole number, correctly delimited. */
+    NumberScan_Complete,
+    /** The window ran out mid-token; more data would settle it. */
+    NumberScan_NeedsMoreData,
+    /** The data ran out mid-token. */
+    NumberScan_Truncated,
+    /** Not a number, or not one JSON accepts. */
+    NumberScan_Invalid,
+} NumberScanResult;
+
+/** Match a number against the JSON grammar without converting or consuming it:
+ *
+ *     -?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?
+ *
+ * The sign is the caller's, already consumed. Every place the scan can run out of window is
+ * reported separately from running out of data, because only the second one ends a number:
+ * a number has no closing delimiter, so the end of a file window says nothing about whether
+ * more digits follow.
+ *
+ * @param outEnd Set to one past the last character of the token.
+ * @param outIsInteger Set false if a fraction or exponent means it cannot be one.
+ */
+static NumberScanResult scanNumberToken(const KSJSONDecodeContext *const context, const char **outEnd,
+                                        bool *outIsInteger)
+{
+    const char *ptr = context->bufferPtr;
+    const char *const end = context->bufferEnd;
+    bool isInteger = true;
+    // Whether the token would be whole if the data stopped right here.
+    bool completeAtEnd = false;
+
+#define NUMBER_RAN_OUT()                                               \
+    do {                                                               \
+        if (!context->bufferEndIsEOF) return NumberScan_NeedsMoreData; \
+        if (!completeAtEnd) return NumberScan_Truncated;               \
+        *outEnd = ptr;                                                 \
+        *outIsInteger = isInteger;                                     \
+        return NumberScan_Complete;                                    \
+    } while (0)
+
+    if (ptr >= end) NUMBER_RAN_OUT();
+    if (!isdigit((unsigned char)*ptr)) return NumberScan_Invalid;
+
+    // Integer part: a lone zero, or a non-zero digit and whatever follows it.
+    if (*ptr == '0') {
+        ptr++;
+        if (ptr < end && isdigit((unsigned char)*ptr)) return NumberScan_Invalid;
+    } else {
+        while (ptr < end && isdigit((unsigned char)*ptr)) {
+            ptr++;
+        }
+    }
+    completeAtEnd = true;
+    if (ptr >= end) NUMBER_RAN_OUT();
+
+    // Fraction: '.' must be followed by at least one digit.
+    if (*ptr == '.') {
+        isInteger = false;
+        completeAtEnd = false;
+        ptr++;
+        if (ptr >= end) NUMBER_RAN_OUT();
+        if (!isdigit((unsigned char)*ptr)) return NumberScan_Invalid;
+        while (ptr < end && isdigit((unsigned char)*ptr)) {
+            ptr++;
+        }
+        completeAtEnd = true;
+        if (ptr >= end) NUMBER_RAN_OUT();
+    }
+
+    // Exponent: 'e' must be followed by an optional sign and at least one digit.
+    if (*ptr == 'e' || *ptr == 'E') {
+        isInteger = false;
+        completeAtEnd = false;
+        ptr++;
+        if (ptr >= end) NUMBER_RAN_OUT();
+        if (*ptr == '+' || *ptr == '-') {
+            ptr++;
+            if (ptr >= end) NUMBER_RAN_OUT();
+        }
+        if (!isdigit((unsigned char)*ptr)) return NumberScan_Invalid;
+        while (ptr < end && isdigit((unsigned char)*ptr)) {
+            ptr++;
+        }
+        completeAtEnd = true;
+        if (ptr >= end) NUMBER_RAN_OUT();
+    }
+
+#undef NUMBER_RAN_OUT
+
+    // Something follows, and it has to be something a value may be followed by, or this is
+    // the leading part of a longer piece of nonsense such as "1x" or "1.2.3".
+    if (!isJSONValueDelimiter(*ptr)) return NumberScan_Invalid;
+
+    *outEnd = ptr;
+    *outIsInteger = isInteger;
+    return NumberScan_Complete;
+}
+
+/** Decode a JSON number.
+ *
+ * sscanf stops at the first character it cannot use, so it would read "1e" as 1 and "1.2.3"
+ * as 1.2 rather than rejecting either. Nothing reaches it until the whole token has matched
+ * the grammar.
+ *
+ * @param sign Already consumed by the caller, along with the '-' it came from.
+ */
+static int decodeNumber(const char *const name, KSJSONDecodeContext *context, const int sign)
+{
+    const char *tokenEnd = NULL;
+    bool isInteger = true;
+
+    for (bool scanned = false; !scanned;) {
+        switch (scanNumberToken(context, &tokenEnd, &isInteger)) {
+            case NumberScan_Complete:
+                scanned = true;
+                break;
+            case NumberScan_Invalid:
+                KSLOG_DEBUG("Not a valid number");
+                return KSJSON_ERROR_INVALID_CHARACTER;
+            case NumberScan_Truncated:
+                KSLOG_DEBUG("Premature end of number");
+                return KSJSON_ERROR_INCOMPLETE;
+            case NumberScan_NeedsMoreData:
+            default: {
+                // Refilling moves the token to the front of the window, so the next scan
+                // starts from bufferPtr again rather than from anything cached here.
+                const int result = requestMoreData(context);
+                unlikely_if(result != KSJSON_OK) { return result; }
+                break;
+            }
+        }
+    }
+
+    const char *const start = context->bufferPtr;
+    const int length = (int)(tokenEnd - start);
+    context->bufferPtr = tokenEnd;
+
+    if (isInteger) {
+        uint64_t accum = 0;
+        bool isOverflow = false;
+        for (const char *digit = start; digit < tokenEnd; digit++) {
+            const uint64_t nextDigit = (uint64_t)(*digit - '0');
+            unlikely_if((isOverflow = accum > (ULLONG_MAX / 10))) { break; }
+            accum *= 10;
+            unlikely_if((isOverflow = accum > (ULLONG_MAX - nextDigit))) { break; }
+            accum += nextDigit;
+        }
+
+        if (!isOverflow) {
+            if (sign > 0) {
+                if (accum <= (uint64_t)LLONG_MAX) {
+                    return context->callbacks->onIntegerElement(name, (int64_t)accum, context->userData);
+                }
+                return context->callbacks->onUnsignedIntegerElement(name, accum, context->userData);
+            }
+            if (accum <= ((uint64_t)LLONG_MAX + 1)) {
+                const int64_t signedAccum = accum == ((uint64_t)LLONG_MAX + 1) ? LLONG_MIN : -(int64_t)accum;
+                return context->callbacks->onIntegerElement(name, signedAccum, context->userData);
+            }
+        }
+        // Too big for either integer type, so take it as floating point instead.
+    }
+
+    // The buffer is not necessarily NULL-terminated, so copy the validated token out before
+    // handing it to sscanf.
+    unlikely_if(length >= context->stringBufferLength)
+    {
+        KSLOG_DEBUG("Number is too long.");
+        return KSJSON_ERROR_DATA_TOO_LONG;
+    }
+    memcpy(context->stringBuffer, start, (size_t)length);
+    context->stringBuffer[length] = '\0';
+
+    double value;
+    sscanf(context->stringBuffer, "%lg", &value);
+    value *= sign;
+    return context->callbacks->onFloatingPointElement(name, value, context->userData);
+}
+
 static int decodeElement(const char *const name, KSJSONDecodeContext *context)
 {
-    SKIP_WHITESPACE(context);
+    skipWhitespace(context);
     unlikely_if(context->bufferPtr >= context->bufferEnd)
     {
         KSLOG_DEBUG("Premature end of data");
@@ -837,7 +1101,7 @@ static int decodeElement(const char *const name, KSJSONDecodeContext *context)
             result = context->callbacks->onBeginArray(name, context->userData);
             unlikely_if(result != KSJSON_OK) return result;
             while (context->bufferPtr < context->bufferEnd) {
-                SKIP_WHITESPACE(context);
+                skipWhitespace(context);
                 unlikely_if(context->bufferPtr >= context->bufferEnd) { break; }
                 unlikely_if(*context->bufferPtr == ']')
                 {
@@ -846,7 +1110,7 @@ static int decodeElement(const char *const name, KSJSONDecodeContext *context)
                 }
                 result = decodeElement(NULL, context);
                 unlikely_if(result != KSJSON_OK) return result;
-                SKIP_WHITESPACE(context);
+                skipWhitespace(context);
                 unlikely_if(context->bufferPtr >= context->bufferEnd) { break; }
                 likely_if(*context->bufferPtr == ',') { context->bufferPtr++; }
             }
@@ -858,7 +1122,7 @@ static int decodeElement(const char *const name, KSJSONDecodeContext *context)
             result = context->callbacks->onBeginObject(name, context->userData);
             unlikely_if(result != KSJSON_OK) return result;
             while (context->bufferPtr < context->bufferEnd) {
-                SKIP_WHITESPACE(context);
+                skipWhitespace(context);
                 unlikely_if(context->bufferPtr >= context->bufferEnd) { break; }
                 unlikely_if(*context->bufferPtr == '}')
                 {
@@ -867,7 +1131,7 @@ static int decodeElement(const char *const name, KSJSONDecodeContext *context)
                 }
                 result = decodeString(context, context->nameBuffer, context->nameBufferLength);
                 unlikely_if(result != KSJSON_OK) return result;
-                SKIP_WHITESPACE(context);
+                skipWhitespace(context);
                 unlikely_if(context->bufferPtr >= context->bufferEnd) { break; }
                 unlikely_if(*context->bufferPtr != ':')
                 {
@@ -875,10 +1139,10 @@ static int decodeElement(const char *const name, KSJSONDecodeContext *context)
                     return KSJSON_ERROR_INVALID_CHARACTER;
                 }
                 context->bufferPtr++;
-                SKIP_WHITESPACE(context);
+                skipWhitespace(context);
                 result = decodeElement(context->nameBuffer, context);
                 unlikely_if(result != KSJSON_OK) return result;
-                SKIP_WHITESPACE(context);
+                skipWhitespace(context);
                 unlikely_if(context->bufferPtr >= context->bufferEnd) { break; }
                 likely_if(*context->bufferPtr == ',') { context->bufferPtr++; }
             }
@@ -892,7 +1156,7 @@ static int decodeElement(const char *const name, KSJSONDecodeContext *context)
             return result;
         }
         case 'f': {
-            unlikely_if(context->bufferEnd - context->bufferPtr < 5)
+            unlikely_if(!ensureBuffered(context, 5))
             {
                 KSLOG_DEBUG("Premature end of data");
                 return KSJSON_ERROR_INCOMPLETE;
@@ -908,7 +1172,7 @@ static int decodeElement(const char *const name, KSJSONDecodeContext *context)
             return context->callbacks->onBooleanElement(name, false, context->userData);
         }
         case 't': {
-            unlikely_if(context->bufferEnd - context->bufferPtr < 4)
+            unlikely_if(!ensureBuffered(context, 4))
             {
                 KSLOG_DEBUG("Premature end of data");
                 return KSJSON_ERROR_INCOMPLETE;
@@ -923,7 +1187,7 @@ static int decodeElement(const char *const name, KSJSONDecodeContext *context)
             return context->callbacks->onBooleanElement(name, true, context->userData);
         }
         case 'n': {
-            unlikely_if(context->bufferEnd - context->bufferPtr < 4)
+            unlikely_if(!ensureBuffered(context, 4))
             {
                 KSLOG_DEBUG("Premature end of data");
                 return KSJSON_ERROR_INCOMPLETE;
@@ -940,11 +1204,6 @@ static int decodeElement(const char *const name, KSJSONDecodeContext *context)
         case '-':
             sign = -1;
             context->bufferPtr++;
-            unlikely_if(!isdigit(*context->bufferPtr))
-            {
-                KSLOG_DEBUG("Not a digit: '%c'", *context->bufferPtr);
-                return KSJSON_ERROR_INVALID_CHARACTER;
-            }
             // Fallthrough
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wimplicit-fallthrough"
@@ -958,78 +1217,8 @@ static int decodeElement(const char *const name, KSJSONDecodeContext *context)
         case '6':
         case '7':
         case '8':
-        case '9': {
-            // Try integer conversion.
-            uint64_t accum = 0;
-            bool isOverflow = false;
-            const char *const start = context->bufferPtr;
-
-            for (; context->bufferPtr < context->bufferEnd && isdigit(*context->bufferPtr); context->bufferPtr++) {
-                unlikely_if((isOverflow = accum > (ULLONG_MAX / 10))) { break; }
-                accum *= 10;
-                uint64_t nextDigit = (uint64_t)(*context->bufferPtr - '0');
-                unlikely_if((isOverflow = accum > (ULLONG_MAX - nextDigit))) { break; }
-                accum += nextDigit;
-            }
-
-            unlikely_if(context->bufferPtr >= context->bufferEnd)
-            {
-                KSLOG_DEBUG("Premature end of data");
-                return KSJSON_ERROR_INCOMPLETE;
-            }
-
-            if (!isFPChar(*context->bufferPtr) && !isOverflow) {
-                if (sign > 0) {
-                    if (accum <= (uint64_t)LLONG_MAX) {
-                        // Positive number within int64_t range
-                        return context->callbacks->onIntegerElement(name, (int64_t)accum, context->userData);
-                    } else {
-                        // Positive number exceeding int64_t range, use unsigned
-                        return context->callbacks->onUnsignedIntegerElement(name, accum, context->userData);
-                    }
-                } else {
-                    if (accum <= ((uint64_t)LLONG_MAX + 1)) {
-                        int64_t signedAccum;
-                        if (accum == ((uint64_t)LLONG_MAX + 1)) {
-                            signedAccum = LLONG_MIN;
-                        } else {
-                            signedAccum = -(int64_t)accum;
-                        }
-                        return context->callbacks->onIntegerElement(name, signedAccum, context->userData);
-                    }
-                    // If negative and exceeding int64_t range, fall through to floating point
-                }
-            }
-
-            while (context->bufferPtr < context->bufferEnd && isFPChar(*context->bufferPtr)) {
-                context->bufferPtr++;
-            }
-
-            unlikely_if(context->bufferPtr >= context->bufferEnd)
-            {
-                KSLOG_DEBUG("Premature end of data");
-                return KSJSON_ERROR_INCOMPLETE;
-            }
-
-            // our buffer is not necessarily NULL-terminated, so
-            // it would be undefined to call sscanf/sttod etc. directly.
-            // instead we create a temporary string.
-            double value;
-            int len = (int)(context->bufferPtr - start);
-            if (len >= context->stringBufferLength) {
-                KSLOG_DEBUG("Number is too long.");
-                return KSJSON_ERROR_DATA_TOO_LONG;
-            }
-            // memcpy, not strlcpy: `start` points into the JSON buffer and is not
-            // NUL-terminated, so only the counted bytes may be read. Terminated explicitly.
-            memcpy(context->stringBuffer, start, (size_t)len);
-            context->stringBuffer[len] = '\0';
-
-            sscanf(context->stringBuffer, "%lg", &value);
-
-            value *= sign;
-            return context->callbacks->onFloatingPointElement(name, value, context->userData);
-        }
+        case '9':
+            return decodeNumber(name, context, sign);
         default:
             KSLOG_DEBUG("Invalid character '%c'", *context->bufferPtr);
             return KSJSON_ERROR_INVALID_CHARACTER;
@@ -1045,6 +1234,7 @@ int ksjson_decode(const char *const data, int length, char *stringBuffer, int st
     stringBufferLength -= nameBufferLength;
     KSJSONDecodeContext context = { .bufferPtr = (char *)data,
                                     .bufferEnd = (char *)data + length,
+                                    .bufferEndIsEOF = true,
                                     .nameBuffer = nameBuffer,
                                     .nameBufferLength = nameBufferLength,
                                     .stringBuffer = stringBuffer,
@@ -1052,12 +1242,13 @@ int ksjson_decode(const char *const data, int length, char *stringBuffer, int st
                                     .callbacks = callbacks,
                                     .userData = userData };
 
-    const char *ptr = data;
-
     int result = decodeElement(NULL, &context);
+    likely_if(result == KSJSON_OK) { result = requireEndOfData(&context); }
     likely_if(result == KSJSON_OK) { result = callbacks->onEndData(userData); }
 
-    unlikely_if(result != KSJSON_OK && errorOffset != NULL) { *errorOffset = (int)(ptr - data); }
+    // Where the decoder actually stopped. This used to report a pointer that was never
+    // advanced, so every error came back at offset 0.
+    unlikely_if(result != KSJSON_OK && errorOffset != NULL) { *errorOffset = (int)(context.bufferPtr - data); }
     return result;
 }
 
@@ -1068,6 +1259,9 @@ typedef struct JSONFromFileContext {
     KSJSONEncodeContext *encodeContext;
     KSJSONDecodeContext *decodeContext;
     char *bufferStart;
+    /** How much bufferStart can hold. bufferEnd moves as the window fills and drains, so it
+     * cannot stand in for this. */
+    int bufferCapacity;
     const char *sourceFilename;
     int fd;
     bool isEOF;
@@ -1080,35 +1274,56 @@ typedef struct JSONFromFileContext {
 
 static void updateDecoder_doNothing(__unused struct JSONFromFileContext *context) {}
 
+static int refillDecoder_readFile(KSJSONDecodeContext *decodeContext, const char *const preserveFrom)
+{
+    JSONFromFileContext *context = (JSONFromFileContext *)decodeContext->userData;
+
+    char *const start = context->bufferStart;
+    const int keep = (int)(decodeContext->bufferEnd - preserveFrom);
+    unlikely_if(keep >= context->bufferCapacity)
+    {
+        // The element already spans the whole window, so there is nowhere to put more of it.
+        KSLOG_DEBUG("Element is longer than the read window");
+        return KSJSON_ERROR_DATA_TOO_LONG;
+    }
+
+    // Move what is still needed to the front, keeping the cursor pointing at the same byte.
+    const ptrdiff_t shift = preserveFrom - start;
+    memmove(start, preserveFrom, (size_t)keep);
+    decodeContext->bufferPtr -= shift;
+
+    const int fillLength = context->bufferCapacity - keep;
+    int bytesRead = (int)read(context->fd, start + keep, (unsigned)fillLength);
+    unlikely_if(bytesRead < 0)
+    {
+        // errno numerically, not via strerror: this runs at crash time and Apple's strerror
+        // calloc()s its return buffer.
+        KSLOG_ERROR("Error reading file %s: errno %d", context->sourceFilename, errno);
+        bytesRead = 0;
+    }
+
+    // Only ever point at bytes read() actually wrote; the rest of the window is whatever
+    // was there before.
+    decodeContext->bufferEnd = start + keep + bytesRead;
+    unlikely_if(bytesRead < fillLength)
+    {
+        // A short read is the only proof of EOF we get. Until one happens, the end of the
+        // window says nothing about the end of the file.
+        context->isEOF = true;
+        decodeContext->bufferEndIsEOF = true;
+    }
+    return KSJSON_OK;
+}
+
 static void updateDecoder_readFile(struct JSONFromFileContext *context)
 {
     likely_if(!context->isEOF)
     {
-        const char *end = context->decodeContext->bufferEnd;
-        char *start = context->bufferStart;
-        const char *ptr = context->decodeContext->bufferPtr;
-        int bufferLength = (int)(end - start);
-        int remainingLength = (int)(end - ptr);
-        unlikely_if(remainingLength < bufferLength / 2)
+        const char *const ptr = context->decodeContext->bufferPtr;
+        const int remaining = (int)(context->decodeContext->bufferEnd - ptr);
+        unlikely_if(remaining < context->bufferCapacity / 2)
         {
-            int fillLength = bufferLength - remainingLength;
-            memcpy(start, ptr, (size_t)remainingLength);
-            context->decodeContext->bufferPtr = start;
-            int bytesRead = (int)read(context->fd, start + remainingLength, (unsigned)fillLength);
-            unlikely_if(bytesRead < fillLength)
-            {
-                if (bytesRead < 0) {
-                    // errno numerically, not via strerror: this runs at crash time and
-                    // Apple's strerror calloc()s its return buffer.
-                    KSLOG_ERROR("Error reading file %s: errno %d", context->sourceFilename, errno);
-                    bytesRead = 0;
-                }
-                // The read fell short, so the file is done. Pull the end in to the last byte
-                // actually read: the tail past it was never written, and leaving it in range
-                // would have the decoder parse whatever the stack happened to leave there.
-                context->decodeContext->bufferEnd = start + remainingLength + bytesRead;
-                context->isEOF = true;
-            }
+            (void)refillDecoder_readFile(context->decodeContext, ptr);
         }
     }
 }
@@ -1314,10 +1529,12 @@ static int decodeJSONElement(const char *const jsonData, const int jsonDataLengt
     KSJSONDecodeContext decodeContext = {
         .bufferPtr = jsonData,
         .bufferEnd = jsonData + jsonDataLength,
+        // The whole payload is in hand, so its end is the end of the data.
+        .bufferEndIsEOF = true,
         .nameBuffer = nameBuffer,
-        .nameBufferLength = KSJSON_MAX_EMBEDDED_STRING_LENGTH,
+        .nameBufferLength = KSJSON_MAX_EMBEDDED_STRING_LENGTH + 1,
         .stringBuffer = stringBuffer,
-        .stringBufferLength = KSJSON_MAX_EMBEDDED_STRING_LENGTH,
+        .stringBufferLength = KSJSON_MAX_EMBEDDED_STRING_LENGTH + 1,
         .callbacks = callbacks,
         .userData = NULL,
     };
@@ -1334,7 +1551,9 @@ static int decodeJSONElement(const char *const jsonData, const int jsonDataLengt
     };
     decodeContext.userData = &jsonContext;
 
-    return decodeElement(name, &decodeContext);
+    const int result = decodeElement(name, &decodeContext);
+    unlikely_if(result != KSJSON_OK) { return result; }
+    return requireEndOfData(&decodeContext);
 }
 
 /** One decode pass over an already-open file. See decodeJSONElement() for the buffers. */
@@ -1346,10 +1565,12 @@ static int decodeJSONFile(const int fd, const char *const filename, const char *
     KSJSONDecodeContext decodeContext = {
         .bufferPtr = fileBuffer,
         .bufferEnd = fileBuffer + KSJSON_EMBEDDED_FILE_WINDOW,
+        .bufferEndIsEOF = false,
+        .refill = refillDecoder_readFile,
         .nameBuffer = nameBuffer,
-        .nameBufferLength = KSJSON_MAX_EMBEDDED_STRING_LENGTH,
+        .nameBufferLength = KSJSON_MAX_EMBEDDED_STRING_LENGTH + 1,
         .stringBuffer = stringBuffer,
-        .stringBufferLength = KSJSON_MAX_EMBEDDED_STRING_LENGTH,
+        .stringBufferLength = KSJSON_MAX_EMBEDDED_STRING_LENGTH + 1,
         .callbacks = callbacks,
         .userData = NULL,
     };
@@ -1357,6 +1578,7 @@ static int decodeJSONFile(const int fd, const char *const filename, const char *
         .encodeContext = encodeContext,
         .decodeContext = &decodeContext,
         .bufferStart = fileBuffer,
+        .bufferCapacity = KSJSON_EMBEDDED_FILE_WINDOW,
         .sourceFilename = filename,
         .fd = fd,
         .closeLastContainer = closeLastContainer,
@@ -1370,29 +1592,34 @@ static int decodeJSONFile(const int fd, const char *const filename, const char *
     decodeContext.bufferPtr = decodeContext.bufferEnd;
     jsonContext.updateDecoderCallback(&jsonContext);
 
-    return decodeElement(name, &decodeContext);
+    const int result = decodeElement(name, &decodeContext);
+    unlikely_if(result != KSJSON_OK) { return result; }
+    return requireEndOfData(&decodeContext);
 }
 
-int ksjson_checkJSONElement(const char *const jsonData, const int jsonDataLength)
+int ksjson_checkJSONElement(const KSJSONEncodeContext *const destination, const char *const jsonData,
+                            const int jsonDataLength)
 {
-    char nameBuffer[KSJSON_MAX_EMBEDDED_STRING_LENGTH];
-    char stringBuffer[KSJSON_MAX_EMBEDDED_STRING_LENGTH];
+    char nameBuffer[KSJSON_MAX_EMBEDDED_STRING_LENGTH + 1];
+    char stringBuffer[KSJSON_MAX_EMBEDDED_STRING_LENGTH + 1];
     KSJSONDecodeCallbacks callbacks = checkCallbacks();
 
-    return decodeJSONElement(jsonData, jsonDataLength, NULL, &callbacks, NULL, true, 0, nameBuffer, stringBuffer);
+    return decodeJSONElement(jsonData, jsonDataLength, NULL, &callbacks, NULL, true, destination->containerLevel,
+                             nameBuffer, stringBuffer);
 }
 
-int ksjson_checkJSONFile(const char *const filename)
+int ksjson_checkJSONFile(const KSJSONEncodeContext *const destination, const char *const filename)
 {
-    char nameBuffer[KSJSON_MAX_EMBEDDED_STRING_LENGTH];
-    char stringBuffer[KSJSON_MAX_EMBEDDED_STRING_LENGTH];
+    char nameBuffer[KSJSON_MAX_EMBEDDED_STRING_LENGTH + 1];
+    char stringBuffer[KSJSON_MAX_EMBEDDED_STRING_LENGTH + 1];
     char fileBuffer[KSJSON_EMBEDDED_FILE_WINDOW];
     KSJSONDecodeCallbacks callbacks = checkCallbacks();
 
     int fd = open(filename, O_RDONLY);
     unlikely_if(fd < 0) { return KSJSON_ERROR_CANNOT_ADD_DATA; }
 
-    int result = decodeJSONFile(fd, filename, NULL, &callbacks, NULL, true, 0, nameBuffer, stringBuffer, fileBuffer);
+    int result = decodeJSONFile(fd, filename, NULL, &callbacks, NULL, true, destination->containerLevel, nameBuffer,
+                                stringBuffer, fileBuffer);
     close(fd);
     return result;
 }
@@ -1400,8 +1627,8 @@ int ksjson_checkJSONFile(const char *const filename)
 int ksjson_addJSONFromFile(KSJSONEncodeContext *const encodeContext, const char *restrict const name,
                            const char *restrict const filename, const bool closeLastContainer)
 {
-    char nameBuffer[KSJSON_MAX_EMBEDDED_STRING_LENGTH];
-    char stringBuffer[KSJSON_MAX_EMBEDDED_STRING_LENGTH];
+    char nameBuffer[KSJSON_MAX_EMBEDDED_STRING_LENGTH + 1];
+    char stringBuffer[KSJSON_MAX_EMBEDDED_STRING_LENGTH + 1];
     char fileBuffer[KSJSON_EMBEDDED_FILE_WINDOW];
 
     int fd = open(filename, O_RDONLY);
@@ -1438,8 +1665,8 @@ int ksjson_addJSONFromFile(KSJSONEncodeContext *const encodeContext, const char 
 int ksjson_addJSONElement(KSJSONEncodeContext *const encodeContext, const char *restrict const name,
                           const char *restrict const jsonData, const int jsonDataLength, const bool closeLastContainer)
 {
-    char nameBuffer[KSJSON_MAX_EMBEDDED_STRING_LENGTH];
-    char stringBuffer[KSJSON_MAX_EMBEDDED_STRING_LENGTH];
+    char nameBuffer[KSJSON_MAX_EMBEDDED_STRING_LENGTH + 1];
+    char stringBuffer[KSJSON_MAX_EMBEDDED_STRING_LENGTH + 1];
 
     // Rejected before anything is written. See ksjson_addJSONFromFile().
     KSJSONDecodeCallbacks callbacks = checkCallbacks();
