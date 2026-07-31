@@ -1334,17 +1334,15 @@ static int addJSONData(const char *data, int length, void *userData)
     [self expectData:encodedData encodesObject:expectedObject];
 }
 
+// A truncated file is rejected whole rather than embedded as far as it parsed, so the
+// element it would have written is simply absent and the caller's name is still free.
 - (void)testAddJSONFromBrokenFile
 {
     NSString *savedFilename = [self.tempPath stringByAppendingPathComponent:@"broken.json"];
     char *savedJSON = "{"
                       "\"an_object\": {";
     char *expectedJSON = "{"
-                         "\"1\": \"one\","
-                         "\"from_file\": {"
-                         "\"an_object\": {"
-                         "}"
-                         "}"
+                         "\"1\": \"one\""
                          "}";
 
     NSData *data = [NSData dataWithBytes:savedJSON length:strlen(savedJSON)];
@@ -1363,7 +1361,7 @@ static int addJSONData(const char *data, int length, void *userData)
     ksjson_beginEncode(&context, false, addJSONData, (__bridge void *)(encodedData));
     ksjson_beginObject(&context, NULL);
     ksjson_addStringElement(&context, "1", "one", KSJSON_SIZE_AUTOMATIC);
-    ksjson_addJSONFromFile(&context, "from_file", savedFilename.UTF8String, true);
+    XCTAssertNotEqual(ksjson_addJSONFromFile(&context, "from_file", savedFilename.UTF8String, true), KSJSON_OK);
     ksjson_endContainer(&context);
     ksjson_endEncode(&context);
 
@@ -1388,23 +1386,39 @@ static int addJSONData(const char *data, int length, void *userData)
     [self expectEquivalentJSON:encodedData.bytes toJSON:expectedJson];
 }
 
-/** JSON whose string value overflows either decoder's string buffer (500 bytes reading from a
- * file, 5000 in memory), so the element fails mid-parse with its object container already open.
+/** Valid JSON whose string value is past KSJSON_MAX_EMBEDDED_STRING_LENGTH, so the decoder
+ * refuses it even though the payload itself is well-formed.
  */
 - (NSString *)jsonWithOversizedString
 {
     NSMutableString *json = [NSMutableString stringWithString:@"{\"blob\":\""];
-    for (int i = 0; i < 6000; i++) {
+    for (int i = 0; i < KSJSON_MAX_EMBEDDED_STRING_LENGTH + 1000; i++) {
         [json appendString:@"A"];
     }
     [json appendString:@"\"}"];
     return json;
 }
 
-- (void)testFailedAddJSONElementRebalancesContainers
+/** Valid JSON nested past KSJSON_MAX_CONTAINER_DEPTH. */
+- (NSString *)jsonNestedTooDeep
 {
-    // The containers the failed element opened must be closed again, or everything written
-    // afterwards would nest inside it.
+    NSMutableString *json = [NSMutableString string];
+    int depth = KSJSON_MAX_CONTAINER_DEPTH + 50;
+    for (int i = 0; i < depth; i++) {
+        [json appendString:@"["];
+    }
+    [json appendString:@"1"];
+    for (int i = 0; i < depth; i++) {
+        [json appendString:@"]"];
+    }
+    return json;
+}
+
+- (void)testRejectedAddJSONElementWritesNothing
+{
+    // The encoder emits as it decodes, so a payload that only fails partway would leave a
+    // truncated element the caller can neither see nor take back. Rejection has to happen
+    // before the first byte, which is what lets the caller put its own element here instead.
     const char *json = [self jsonWithOversizedString].UTF8String;
 
     NSMutableData *encodedData = [NSMutableData data];
@@ -1412,18 +1426,21 @@ static int addJSONData(const char *data, int length, void *userData)
     ksjson_beginEncode(&context, false, addJSONData, (__bridge void *)(encodedData));
     ksjson_beginObject(&context, NULL);
     int result = ksjson_addJSONElement(&context, "bad", json, (int)strlen(json), false);
-    XCTAssertNotEqual(result, KSJSON_OK);
+    XCTAssertEqual(result, KSJSON_ERROR_DATA_TOO_LONG);
+    XCTAssertEqual(encodedData.length, 1u, @"a rejected payload must not write anything past the '{'");
+
     ksjson_addStringElement(&context, "after", "value", KSJSON_SIZE_AUTOMATIC);
     ksjson_endContainer(&context);
     ksjson_endEncode(&context);
 
     NSError *error = nil;
     id decoded = [NSJSONSerialization JSONObjectWithData:encodedData options:0 error:&error];
-    XCTAssertNotNil(decoded, @"report must stay well-formed after a failed element: %@", error);
+    XCTAssertNotNil(decoded, @"output must stay well-formed after a rejected element: %@", error);
+    XCTAssertNil(decoded[@"bad"], @"the rejected element must be absent, not partially present");
     XCTAssertEqualObjects(decoded[@"after"], @"value", @"the next element must land at the original level");
 }
 
-- (void)testFailedAddJSONFromFileRebalancesContainers
+- (void)testRejectedAddJSONFromFileWritesNothing
 {
     NSString *savedFilename = [self.tempPath stringByAppendingPathComponent:@"oversized.json"];
     NSData *savedData = [[self jsonWithOversizedString] dataUsingEncoding:NSUTF8StringEncoding];
@@ -1434,15 +1451,120 @@ static int addJSONData(const char *data, int length, void *userData)
     ksjson_beginEncode(&context, false, addJSONData, (__bridge void *)(encodedData));
     ksjson_beginObject(&context, NULL);
     int result = ksjson_addJSONFromFile(&context, "bad", savedFilename.UTF8String, false);
-    XCTAssertNotEqual(result, KSJSON_OK);
+    XCTAssertEqual(result, KSJSON_ERROR_DATA_TOO_LONG);
+    XCTAssertEqual(encodedData.length, 1u, @"a rejected file must not write anything past the '{'");
+
     ksjson_addStringElement(&context, "after", "value", KSJSON_SIZE_AUTOMATIC);
     ksjson_endContainer(&context);
     ksjson_endEncode(&context);
 
     NSError *error = nil;
     id decoded = [NSJSONSerialization JSONObjectWithData:encodedData options:0 error:&error];
-    XCTAssertNotNil(decoded, @"report must stay well-formed after a failed element: %@", error);
+    XCTAssertNotNil(decoded, @"output must stay well-formed after a rejected element: %@", error);
+    XCTAssertNil(decoded[@"bad"]);
     XCTAssertEqualObjects(decoded[@"after"], @"value", @"the next element must land at the original level");
+}
+
+- (void)testRejectedAddJSONElementLeavesContainerLevelUntouched
+{
+    // closeLastContainer=false hands the caller an open container on success. On rejection
+    // there is nothing to hand back, and the level must not drift either way or the caller's
+    // matching endContainer would close something else.
+    const char *json = [self jsonWithOversizedString].UTF8String;
+
+    NSMutableData *encodedData = [NSMutableData data];
+    KSJSONEncodeContext context = { 0 };
+    ksjson_beginEncode(&context, false, addJSONData, (__bridge void *)(encodedData));
+    ksjson_beginObject(&context, NULL);
+    int levelBefore = context.containerLevel;
+
+    XCTAssertNotEqual(ksjson_addJSONElement(&context, "bad", json, (int)strlen(json), false), KSJSON_OK);
+    XCTAssertEqual(context.containerLevel, levelBefore);
+
+    XCTAssertNotEqual(ksjson_addJSONElement(&context, "bad", json, (int)strlen(json), true), KSJSON_OK);
+    XCTAssertEqual(context.containerLevel, levelBefore);
+}
+
+- (void)testCheckJSONElementAgreesWithAdd
+{
+    NSDictionary<NSString *, NSString *> *cases = @{
+        @"valid object" : @"{\"a\":1}",
+        @"valid array" : @"[1,2,3]",
+        @"valid string" : @"\"hello\"",
+        @"malformed" : @"{\"a\":",
+        @"oversized string" : [self jsonWithOversizedString],
+        @"too deep" : [self jsonNestedTooDeep],
+    };
+
+    for (NSString *label in cases) {
+        const char *json = cases[label].UTF8String;
+        int checkResult = ksjson_checkJSONElement(json, (int)strlen(json));
+
+        NSMutableData *encodedData = [NSMutableData data];
+        KSJSONEncodeContext context = { 0 };
+        ksjson_beginEncode(&context, false, addJSONData, (__bridge void *)(encodedData));
+        ksjson_beginObject(&context, NULL);
+        int addResult = ksjson_addJSONElement(&context, "x", json, (int)strlen(json), true);
+
+        XCTAssertEqual(checkResult, addResult, @"check and add must agree for %@", label);
+    }
+}
+
+- (void)testCheckJSONElementRejectsOversizedKey
+{
+    NSMutableString *json = [NSMutableString stringWithString:@"{\""];
+    for (int i = 0; i < KSJSON_MAX_EMBEDDED_STRING_LENGTH + 1000; i++) {
+        [json appendString:@"k"];
+    }
+    [json appendString:@"\":1}"];
+
+    const char *bytes = json.UTF8String;
+    XCTAssertEqual(ksjson_checkJSONElement(bytes, (int)strlen(bytes)), KSJSON_ERROR_DATA_TOO_LONG);
+}
+
+- (void)testCheckJSONElementAcceptsPayloadLargerThanTheStringLimit
+{
+    // The limit is on each key and value, not on the payload, so a long run of short
+    // strings has to pass however big it gets.
+    NSMutableString *json = [NSMutableString stringWithString:@"{"];
+    for (int i = 0; i < 5000; i++) {
+        [json appendFormat:@"%@\"k%d\":\"v\"", i == 0 ? @"" : @",", i];
+    }
+    [json appendString:@"}"];
+
+    const char *bytes = json.UTF8String;
+    XCTAssertGreaterThan(strlen(bytes), (size_t)KSJSON_MAX_EMBEDDED_STRING_LENGTH);
+    XCTAssertEqual(ksjson_checkJSONElement(bytes, (int)strlen(bytes)), KSJSON_OK);
+}
+
+- (void)testCheckJSONFile
+{
+    NSString *goodPath = [self.tempPath stringByAppendingPathComponent:@"good.json"];
+    XCTAssertTrue([[@"{\"a\":1}" dataUsingEncoding:NSUTF8StringEncoding] writeToFile:goodPath atomically:YES]);
+    XCTAssertEqual(ksjson_checkJSONFile(goodPath.UTF8String), KSJSON_OK);
+
+    NSString *badPath = [self.tempPath stringByAppendingPathComponent:@"bad.json"];
+    NSData *badData = [[self jsonWithOversizedString] dataUsingEncoding:NSUTF8StringEncoding];
+    XCTAssertTrue([badData writeToFile:badPath atomically:YES]);
+    XCTAssertEqual(ksjson_checkJSONFile(badPath.UTF8String), KSJSON_ERROR_DATA_TOO_LONG);
+
+    NSString *missingPath = [self.tempPath stringByAppendingPathComponent:@"nope.json"];
+    XCTAssertNotEqual(ksjson_checkJSONFile(missingPath.UTF8String), KSJSON_OK);
+}
+
+- (void)testEncoderRefusesToNestPastItsLimit
+{
+    // isObject[] is indexed by containerLevel, so this is a bounds check, not a policy.
+    NSMutableData *encodedData = [NSMutableData data];
+    KSJSONEncodeContext context = { 0 };
+    ksjson_beginEncode(&context, false, addJSONData, (__bridge void *)(encodedData));
+
+    int depth = 0;
+    while (ksjson_beginArray(&context, NULL) == KSJSON_OK) {
+        depth++;
+        XCTAssertLessThan(depth, KSJSON_MAX_CONTAINER_DEPTH + 1, @"beginArray must stop before overrunning isObject");
+    }
+    XCTAssertLessThan(context.containerLevel, KSJSON_MAX_CONTAINER_DEPTH);
 }
 
 - (void)testSerializeDeserializeIntegerEdgeCases

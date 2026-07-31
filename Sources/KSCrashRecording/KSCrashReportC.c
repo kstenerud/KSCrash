@@ -305,35 +305,54 @@ static void addUUIDElement(const KSCrashReportWriter *const writer, const char *
     }
 }
 
+/** Stand in for a payload the codec refused.
+ *
+ * The codec rejects whole, writing nothing, so this error object becomes the element
+ * rather than appearing beside a half-written one. It honors closeLastContainer so that
+ * success and failure hand the caller back the same shape.
+ *
+ * @param source The rejected payload, or the path it came from, recorded verbatim.
+ */
+static void addJSONErrorElement(const KSCrashReportWriter *const writer, const char *const key, const int jsonResult,
+                                const char *const source, bool closeLastContainer)
+{
+    char errorBuff[100];
+    const char *errStr = ksjson_stringForError(jsonResult);
+    size_t prefixLen = sizeof("Invalid JSON data: ") - 1;
+    size_t errLen = strlen(errStr);
+    size_t totalLen = prefixLen + errLen;
+    if (totalLen >= sizeof(errorBuff)) {
+        totalLen = sizeof(errorBuff) - 1;
+        errLen = totalLen - prefixLen;
+    }
+    memcpy(errorBuff, "Invalid JSON data: ", prefixLen);
+    memcpy(errorBuff + prefixLen, errStr, errLen);
+    errorBuff[totalLen] = '\0';
+    ksjson_beginObject(getJsonContext(writer), key);
+    ksjson_addStringElement(getJsonContext(writer), KSCrashField_Error, errorBuff, KSJSON_SIZE_AUTOMATIC);
+    ksjson_addStringElement(getJsonContext(writer), KSCrashField_JSONData, source, KSJSON_SIZE_AUTOMATIC);
+    if (closeLastContainer) {
+        ksjson_endContainer(getJsonContext(writer));
+    }
+}
+
 static void addJSONElement(const KSCrashReportWriter *const writer, const char *const key,
                            const char *const jsonElement, bool closeLastContainer)
 {
     int jsonResult =
         ksjson_addJSONElement(getJsonContext(writer), key, jsonElement, (int)strlen(jsonElement), closeLastContainer);
     if (jsonResult != KSJSON_OK) {
-        char errorBuff[100];
-        const char *errStr = ksjson_stringForError(jsonResult);
-        size_t prefixLen = sizeof("Invalid JSON data: ") - 1;
-        size_t errLen = strlen(errStr);
-        size_t totalLen = prefixLen + errLen;
-        if (totalLen >= sizeof(errorBuff)) {
-            totalLen = sizeof(errorBuff) - 1;
-            errLen = totalLen - prefixLen;
-        }
-        memcpy(errorBuff, "Invalid JSON data: ", prefixLen);
-        memcpy(errorBuff + prefixLen, errStr, errLen);
-        errorBuff[totalLen] = '\0';
-        ksjson_beginObject(getJsonContext(writer), key);
-        ksjson_addStringElement(getJsonContext(writer), KSCrashField_Error, errorBuff, KSJSON_SIZE_AUTOMATIC);
-        ksjson_addStringElement(getJsonContext(writer), KSCrashField_JSONData, jsonElement, KSJSON_SIZE_AUTOMATIC);
-        ksjson_endContainer(getJsonContext(writer));
+        addJSONErrorElement(writer, key, jsonResult, jsonElement, closeLastContainer);
     }
 }
 
 static void addJSONElementFromFile(const KSCrashReportWriter *const writer, const char *const key,
                                    const char *const filePath, bool closeLastContainer)
 {
-    ksjson_addJSONFromFile(getJsonContext(writer), key, filePath, closeLastContainer);
+    int jsonResult = ksjson_addJSONFromFile(getJsonContext(writer), key, filePath, closeLastContainer);
+    if (jsonResult != KSJSON_OK) {
+        addJSONErrorElement(writer, key, jsonResult, filePath, closeLastContainer);
+    }
 }
 
 static void beginObject(const KSCrashReportWriter *const writer, const char *const key)
@@ -1746,13 +1765,6 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
         // Acquire lock to read userInfo (async-signal-safe bounded spin)
         bool userInfoLocked = ks_spinlock_lock_bounded(&g_userInfoLock);
 
-        // Success with an object payload leaves the user container open
-        // (closeLastContainer=false) for the user-section callback below. Everything else
-        // must not run the callback: a failed decode rebalances everything closed (having
-        // already emitted a complete "user" error element) and a scalar payload is rejected
-        // the same way, so there is nothing to write into; an array payload leaves an array
-        // open, which cannot take the callback's keyed fields (array elements are nameless),
-        // so it is only closed.
         const int entryLevel = getJsonContext(writer)->containerLevel;
         if (userInfoLocked && g_userInfoJSON != NULL) {
             addJSONElement(writer, KSCrashField_User, g_userInfoJSON, false);
@@ -1766,6 +1778,12 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
             ks_spinlock_unlock(&g_userInfoLock);
         }
 
+        // What "user" turned out to be decides what happens here. An object, whether the
+        // payload's own or the error object standing in for a rejected one, takes the
+        // callback's fields and is closed. An array is closed unwritten, since array
+        // elements are nameless and the callback writes keyed fields. A scalar payload
+        // (legal JSON, "user":"..." ) opened nothing at all, so closing here would close
+        // the report root instead.
         KSJSONEncodeContext *userJsonContext = getJsonContext(writer);
         if (userJsonContext->containerLevel > entryLevel) {
             if (g_userSectionWriteCallback != NULL && userJsonContext->isObject[userJsonContext->containerLevel]) {

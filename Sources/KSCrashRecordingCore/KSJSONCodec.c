@@ -454,6 +454,9 @@ int ksjson_endDataElement(KSJSONEncodeContext *const context) { return ksjson_en
 
 int ksjson_beginArray(KSJSONEncodeContext *const context, const char *const name)
 {
+    // isObject[] is indexed by containerLevel, so refuse rather than run off the end.
+    unlikely_if(context->containerLevel + 1 >= KSJSON_MAX_CONTAINER_DEPTH) { return KSJSON_ERROR_DATA_TOO_LONG; }
+
     likely_if(context->containerLevel >= 0)
     {
         int result = ksjson_beginElement(context, name);
@@ -469,6 +472,9 @@ int ksjson_beginArray(KSJSONEncodeContext *const context, const char *const name
 
 int ksjson_beginObject(KSJSONEncodeContext *const context, const char *const name)
 {
+    // isObject[] is indexed by containerLevel, so refuse rather than run off the end.
+    unlikely_if(context->containerLevel + 1 >= KSJSON_MAX_CONTAINER_DEPTH) { return KSJSON_ERROR_DATA_TOO_LONG; }
+
     likely_if(context->containerLevel >= 0)
     {
         int result = ksjson_beginElement(context, name);
@@ -1066,6 +1072,9 @@ typedef struct JSONFromFileContext {
     int fd;
     bool isEOF;
     bool closeLastContainer;
+    /** Containers open right now. Only the checking callbacks maintain this; the embedding
+     * callbacks let the encoder track depth for them. */
+    int containerDepth;
     UpdateDecoderCallback updateDecoderCallback;
 } JSONFromFileContext;
 
@@ -1090,7 +1099,12 @@ static void updateDecoder_readFile(struct JSONFromFileContext *context)
             {
                 if (bytesRead < 0) {
                     KSLOG_ERROR("Error reading file %s: %s", context->sourceFilename, strerror(errno));
+                    bytesRead = 0;
                 }
+                // The read fell short, so the file is done. Pull the end in to the last byte
+                // actually read: the tail past it was never written, and leaving it in range
+                // would have the decoder parse whatever the stack happened to leave there.
+                context->decodeContext->bufferEnd = start + remainingLength + bytesRead;
                 context->isEOF = true;
             }
         }
@@ -1174,10 +1188,100 @@ static int addJSONFromFile_onEndContainer(void *const userData)
 
 static int addJSONFromFile_onEndData(__unused void *const userData) { return KSJSON_OK; }
 
-int ksjson_addJSONFromFile(KSJSONEncodeContext *const encodeContext, const char *restrict const name,
-                           const char *restrict const filename, const bool closeLastContainer)
+// The checking callbacks below run the same decoder the embedding callbacks do, but reach
+// no encoder, so a payload that fails leaves nothing written anywhere. They still pump the
+// buffer refill, because decodeElement only advances the file window from its callbacks,
+// and they count containers, because the decoder has no depth limit of its own while the
+// encoder's isObject[] does.
+
+static int check_onScalarElement(void *const userData)
 {
-    KSJSONDecodeCallbacks callbacks = {
+    JSONFromFileContext *context = (JSONFromFileContext *)userData;
+    context->updateDecoderCallback(context);
+    return KSJSON_OK;
+}
+
+static int check_onBooleanElement(__unused const char *const name, __unused const bool value, void *const userData)
+{
+    return check_onScalarElement(userData);
+}
+
+static int check_onFloatingPointElement(__unused const char *const name, __unused const double value,
+                                        void *const userData)
+{
+    return check_onScalarElement(userData);
+}
+
+static int check_onIntegerElement(__unused const char *const name, __unused const int64_t value, void *const userData)
+{
+    return check_onScalarElement(userData);
+}
+
+static int check_onUnsignedIntegerElement(__unused const char *const name, __unused const uint64_t value,
+                                          void *const userData)
+{
+    return check_onScalarElement(userData);
+}
+
+static int check_onNullElement(__unused const char *const name, void *const userData)
+{
+    return check_onScalarElement(userData);
+}
+
+static int check_onStringElement(__unused const char *const name, __unused const char *const value,
+                                 void *const userData)
+{
+    return check_onScalarElement(userData);
+}
+
+static int check_onBeginContainer(void *const userData)
+{
+    JSONFromFileContext *context = (JSONFromFileContext *)userData;
+    unlikely_if(context->containerDepth + 1 >= KSJSON_MAX_CONTAINER_DEPTH) { return KSJSON_ERROR_DATA_TOO_LONG; }
+    context->containerDepth++;
+    context->updateDecoderCallback(context);
+    return KSJSON_OK;
+}
+
+static int check_onBeginObject(__unused const char *const name, void *const userData)
+{
+    return check_onBeginContainer(userData);
+}
+
+static int check_onBeginArray(__unused const char *const name, void *const userData)
+{
+    return check_onBeginContainer(userData);
+}
+
+static int check_onEndContainer(void *const userData)
+{
+    JSONFromFileContext *context = (JSONFromFileContext *)userData;
+    context->containerDepth--;
+    context->updateDecoderCallback(context);
+    return KSJSON_OK;
+}
+
+static int check_onEndData(__unused void *const userData) { return KSJSON_OK; }
+
+static KSJSONDecodeCallbacks checkCallbacks(void)
+{
+    return (KSJSONDecodeCallbacks) {
+        .onBeginArray = check_onBeginArray,
+        .onBeginObject = check_onBeginObject,
+        .onBooleanElement = check_onBooleanElement,
+        .onEndContainer = check_onEndContainer,
+        .onEndData = check_onEndData,
+        .onFloatingPointElement = check_onFloatingPointElement,
+        .onIntegerElement = check_onIntegerElement,
+        .onUnsignedIntegerElement = check_onUnsignedIntegerElement,
+        .onNullElement = check_onNullElement,
+        .onStringElement = check_onStringElement,
+    };
+}
+
+static KSJSONDecodeCallbacks embedCallbacks(void)
+{
+    return (KSJSONDecodeCallbacks) {
         .onBeginArray = addJSONFromFile_onBeginArray,
         .onBeginObject = addJSONFromFile_onBeginObject,
         .onBooleanElement = addJSONFromFile_onBooleanElement,
@@ -1189,21 +1293,64 @@ int ksjson_addJSONFromFile(KSJSONEncodeContext *const encodeContext, const char 
         .onNullElement = addJSONFromFile_onNullElement,
         .onStringElement = addJSONFromFile_onStringElement,
     };
-    char nameBuffer[100] = { 0 };
-    char stringBuffer[500] = { 0 };
-    char fileBuffer[1000] = { 0 };
+}
+
+/** One decode pass over a payload already in memory.
+ *
+ * The caller owns the buffers so that the checking pass and the embedding pass share one
+ * set instead of stacking two of them on the crash-time stack.
+ *
+ * @param encodeContext Where to emit, or NULL when only checking.
+ * @param startDepth Containers already open at the destination, so a payload is judged
+ *                   against the depth actually left to it rather than the whole limit.
+ */
+static int decodeJSONElement(const char *const jsonData, const int jsonDataLength, const char *const name,
+                             KSJSONDecodeCallbacks *const callbacks, KSJSONEncodeContext *const encodeContext,
+                             const bool closeLastContainer, const int startDepth, char *const nameBuffer,
+                             char *const stringBuffer)
+{
     KSJSONDecodeContext decodeContext = {
-        .bufferPtr = fileBuffer,
-        .bufferEnd = fileBuffer + sizeof(fileBuffer),
+        .bufferPtr = jsonData,
+        .bufferEnd = jsonData + jsonDataLength,
         .nameBuffer = nameBuffer,
-        .nameBufferLength = sizeof(nameBuffer),
+        .nameBufferLength = KSJSON_MAX_EMBEDDED_STRING_LENGTH,
         .stringBuffer = stringBuffer,
-        .stringBufferLength = sizeof(stringBuffer),
-        .callbacks = &callbacks,
+        .stringBufferLength = KSJSON_MAX_EMBEDDED_STRING_LENGTH,
+        .callbacks = callbacks,
         .userData = NULL,
     };
+    JSONFromFileContext jsonContext = {
+        .encodeContext = encodeContext,
+        .decodeContext = &decodeContext,
+        .bufferStart = (char *)jsonData,
+        .sourceFilename = NULL,
+        .fd = -1,
+        .closeLastContainer = closeLastContainer,
+        .containerDepth = startDepth,
+        .isEOF = false,
+        .updateDecoderCallback = updateDecoder_doNothing,
+    };
+    decodeContext.userData = &jsonContext;
 
-    int fd = open(filename, O_RDONLY);
+    return decodeElement(name, &decodeContext);
+}
+
+/** One decode pass over an already-open file. See decodeJSONElement() for the buffers. */
+static int decodeJSONFile(const int fd, const char *const filename, const char *const name,
+                          KSJSONDecodeCallbacks *const callbacks, KSJSONEncodeContext *const encodeContext,
+                          const bool closeLastContainer, const int startDepth, char *const nameBuffer,
+                          char *const stringBuffer, char *const fileBuffer)
+{
+    KSJSONDecodeContext decodeContext = {
+        .bufferPtr = fileBuffer,
+        .bufferEnd = fileBuffer + KSJSON_EMBEDDED_FILE_WINDOW,
+        .nameBuffer = nameBuffer,
+        .nameBufferLength = KSJSON_MAX_EMBEDDED_STRING_LENGTH,
+        .stringBuffer = stringBuffer,
+        .stringBufferLength = KSJSON_MAX_EMBEDDED_STRING_LENGTH,
+        .callbacks = callbacks,
+        .userData = NULL,
+    };
     JSONFromFileContext jsonContext = {
         .encodeContext = encodeContext,
         .decodeContext = &decodeContext,
@@ -1211,71 +1358,97 @@ int ksjson_addJSONFromFile(KSJSONEncodeContext *const encodeContext, const char 
         .sourceFilename = filename,
         .fd = fd,
         .closeLastContainer = closeLastContainer,
+        .containerDepth = startDepth,
         .isEOF = false,
         .updateDecoderCallback = updateDecoder_readFile,
     };
     decodeContext.userData = &jsonContext;
-    int containerLevel = encodeContext->containerLevel;
 
     // Manually trigger a data load.
     decodeContext.bufferPtr = decodeContext.bufferEnd;
     jsonContext.updateDecoderCallback(&jsonContext);
 
-    int result = decodeElement(name, &decodeContext);
+    return decodeElement(name, &decodeContext);
+}
+
+int ksjson_checkJSONElement(const char *const jsonData, const int jsonDataLength)
+{
+    char nameBuffer[KSJSON_MAX_EMBEDDED_STRING_LENGTH];
+    char stringBuffer[KSJSON_MAX_EMBEDDED_STRING_LENGTH];
+    KSJSONDecodeCallbacks callbacks = checkCallbacks();
+
+    return decodeJSONElement(jsonData, jsonDataLength, NULL, &callbacks, NULL, true, 0, nameBuffer, stringBuffer);
+}
+
+int ksjson_checkJSONFile(const char *const filename)
+{
+    char nameBuffer[KSJSON_MAX_EMBEDDED_STRING_LENGTH];
+    char stringBuffer[KSJSON_MAX_EMBEDDED_STRING_LENGTH];
+    char fileBuffer[KSJSON_EMBEDDED_FILE_WINDOW];
+    KSJSONDecodeCallbacks callbacks = checkCallbacks();
+
+    int fd = open(filename, O_RDONLY);
+    unlikely_if(fd < 0) { return KSJSON_ERROR_CANNOT_ADD_DATA; }
+
+    int result = decodeJSONFile(fd, filename, NULL, &callbacks, NULL, true, 0, nameBuffer, stringBuffer, fileBuffer);
     close(fd);
-    // On failure, always rebalance: a partial decode leaves containers open, and leaving
-    // them dangling would nest everything written afterwards inside this element.
-    while ((closeLastContainer || result != KSJSON_OK) && encodeContext->containerLevel > containerLevel) {
-        ksjson_endContainer(encodeContext);
+    return result;
+}
+
+int ksjson_addJSONFromFile(KSJSONEncodeContext *const encodeContext, const char *restrict const name,
+                           const char *restrict const filename, const bool closeLastContainer)
+{
+    char nameBuffer[KSJSON_MAX_EMBEDDED_STRING_LENGTH];
+    char stringBuffer[KSJSON_MAX_EMBEDDED_STRING_LENGTH];
+    char fileBuffer[KSJSON_EMBEDDED_FILE_WINDOW];
+
+    int fd = open(filename, O_RDONLY);
+    unlikely_if(fd < 0) { return KSJSON_ERROR_CANNOT_ADD_DATA; }
+
+    // Check before emitting anything. The encoder writes as the decoder reads, so a file
+    // that only fails partway would leave a truncated element behind that the caller can
+    // neither see nor take back. Rejecting up front leaves the name free for the caller.
+    KSJSONDecodeCallbacks callbacks = checkCallbacks();
+    int result = decodeJSONFile(fd, filename, NULL, &callbacks, NULL, true, encodeContext->containerLevel, nameBuffer,
+                                stringBuffer, fileBuffer);
+
+    if (result == KSJSON_OK) {
+        unlikely_if(lseek(fd, 0, SEEK_SET) != 0) { result = KSJSON_ERROR_CANNOT_ADD_DATA; }
+        else
+        {
+            int containerLevel = encodeContext->containerLevel;
+            callbacks = embedCallbacks();
+            result = decodeJSONFile(fd, filename, name, &callbacks, encodeContext, closeLastContainer, 0, nameBuffer,
+                                    stringBuffer, fileBuffer);
+            // The file passed the check, so a failure here is the encoder refusing to take
+            // data, meaning the destination is already lost. Rebalance anyway so whatever
+            // the caller does next is at least not nested inside this element.
+            while ((closeLastContainer || result != KSJSON_OK) && encodeContext->containerLevel > containerLevel) {
+                ksjson_endContainer(encodeContext);
+            }
+        }
     }
 
+    close(fd);
     return result;
 }
 
 int ksjson_addJSONElement(KSJSONEncodeContext *const encodeContext, const char *restrict const name,
                           const char *restrict const jsonData, const int jsonDataLength, const bool closeLastContainer)
 {
-    KSJSONDecodeCallbacks callbacks = {
-        .onBeginArray = addJSONFromFile_onBeginArray,
-        .onBeginObject = addJSONFromFile_onBeginObject,
-        .onBooleanElement = addJSONFromFile_onBooleanElement,
-        .onEndContainer = addJSONFromFile_onEndContainer,
-        .onEndData = addJSONFromFile_onEndData,
-        .onFloatingPointElement = addJSONFromFile_onFloatingPointElement,
-        .onIntegerElement = addJSONFromFile_onIntegerElement,
-        .onUnsignedIntegerElement = addJSONFromFile_onUnsignedIntegerElement,
-        .onNullElement = addJSONFromFile_onNullElement,
-        .onStringElement = addJSONFromFile_onStringElement,
-    };
-    char nameBuffer[100] = { 0 };
-    char stringBuffer[5000] = { 0 };
-    KSJSONDecodeContext decodeContext = {
-        .bufferPtr = jsonData,
-        .bufferEnd = jsonData + jsonDataLength,
-        .nameBuffer = nameBuffer,
-        .nameBufferLength = sizeof(nameBuffer),
-        .stringBuffer = stringBuffer,
-        .stringBufferLength = sizeof(stringBuffer),
-        .callbacks = &callbacks,
-        .userData = NULL,
-    };
+    char nameBuffer[KSJSON_MAX_EMBEDDED_STRING_LENGTH];
+    char stringBuffer[KSJSON_MAX_EMBEDDED_STRING_LENGTH];
 
-    JSONFromFileContext jsonContext = {
-        .encodeContext = encodeContext,
-        .decodeContext = &decodeContext,
-        .bufferStart = (char *)jsonData,
-        .sourceFilename = NULL,
-        .fd = 0,
-        .closeLastContainer = closeLastContainer,
-        .isEOF = false,
-        .updateDecoderCallback = updateDecoder_doNothing,
-    };
-    decodeContext.userData = &jsonContext;
+    // Rejected before anything is written. See ksjson_addJSONFromFile().
+    KSJSONDecodeCallbacks callbacks = checkCallbacks();
+    int result = decodeJSONElement(jsonData, jsonDataLength, NULL, &callbacks, NULL, true,
+                                   encodeContext->containerLevel, nameBuffer, stringBuffer);
+    unlikely_if(result != KSJSON_OK) { return result; }
+
     int containerLevel = encodeContext->containerLevel;
-
-    int result = decodeElement(name, &decodeContext);
-    // On failure, always rebalance: a partial decode leaves containers open, and leaving
-    // them dangling would nest everything written afterwards inside this element.
+    callbacks = embedCallbacks();
+    result = decodeJSONElement(jsonData, jsonDataLength, name, &callbacks, encodeContext, closeLastContainer, 0,
+                               nameBuffer, stringBuffer);
     while ((closeLastContainer || result != KSJSON_OK) && encodeContext->containerLevel > containerLevel) {
         ksjson_endContainer(encodeContext);
     }

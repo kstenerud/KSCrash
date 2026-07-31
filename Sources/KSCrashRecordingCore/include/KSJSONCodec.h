@@ -44,6 +44,26 @@ extern "C" {
  */
 #define KSJSON_SIZE_AUTOMATIC -1
 
+/* Limits on JSON embedded via ksjson_addJSONElement() and ksjson_addJSONFromFile().
+ *
+ * Embedding re-decodes the payload, and decoding runs at crash time where memory cannot
+ * be allocated, so every key and string value has to fit in a buffer sized up front.
+ * These are the sizes of those buffers. Note that they bound the individual pieces, not
+ * the payload: a megabyte of short strings is fine, a single over-long one is not.
+ *
+ * ksjson_checkJSONElement() answers whether a given payload is within them.
+ */
+#define KSJSON_MAX_EMBEDDED_STRING_LENGTH 8192
+
+/* How much of a file the decoder keeps in view at once, which also bounds how long one
+ * string's *source* text may be. Heavily escaped strings therefore run out of window before
+ * they reach KSJSON_MAX_EMBEDDED_STRING_LENGTH. Either way the payload is rejected whole.
+ */
+#define KSJSON_EMBEDDED_FILE_WINDOW (KSJSON_MAX_EMBEDDED_STRING_LENGTH * 2)
+
+/* The deepest nesting the encoder can track, counting containers already open. */
+#define KSJSON_MAX_CONTAINER_DEPTH 200
+
 enum {
     /** Encoding or decoding: Everything completed without error */
     KSJSON_OK = 0,
@@ -107,7 +127,7 @@ typedef struct {
     int containerLevel;
 
     /** Whether or not the current container is an object. */
-    bool isObject[200];
+    bool isObject[KSJSON_MAX_CONTAINER_DEPTH];
 
     /** true if this is the first entry at the current container level. */
     bool containerFirstEntry;
@@ -287,6 +307,11 @@ int ksjson_endDataElement(KSJSONEncodeContext *const context);
 
 /** Add a pre-formatted JSON element.
  *
+ * The payload is re-decoded and re-encoded rather than copied, so it must be valid JSON
+ * and must be within the limits described at KSJSON_MAX_EMBEDDED_STRING_LENGTH. A payload
+ * that isn't is rejected whole: nothing at all is written, and the caller is free to write
+ * something else under the same name. Use ksjson_checkJSONElement() to ask in advance.
+ *
  * @param encodeContext The encoding context.
  *
  * @param name The element's name.
@@ -301,6 +326,20 @@ int ksjson_endDataElement(KSJSONEncodeContext *const context);
  */
 int ksjson_addJSONElement(KSJSONEncodeContext *const encodeContext, const char *restrict const name,
                           const char *restrict const jsonData, const int jsonDataLength, const bool closeLastContainer);
+
+/** Check whether a payload can be embedded by ksjson_addJSONElement().
+ *
+ * Valid JSON can still be rejected: a key or string value over
+ * KSJSON_MAX_EMBEDDED_STRING_LENGTH bytes, or nesting past KSJSON_MAX_CONTAINER_DEPTH.
+ * This runs the same decoder the embedding does, so the answer matches, but writes nothing.
+ *
+ * @param jsonData The payload to check.
+ *
+ * @param jsonDataLength The length of the payload.
+ *
+ * @return KSJSON_OK if it can be embedded, otherwise the error the embedding would return.
+ */
+int ksjson_checkJSONElement(const char *const jsonData, const int jsonDataLength);
 
 /** Begin a new object container.
  *
@@ -355,6 +394,9 @@ int ksjson_endContainer(KSJSONEncodeContext *context);
 
 /** Decode and add JSON data from a file.
  *
+ * Same contract as ksjson_addJSONElement(): the file's contents must be valid JSON within
+ * the embedding limits, and a file that isn't is rejected whole, writing nothing.
+ *
  * @param context The encoding context.
  *
  * @param name The name to give the top element from the file.
@@ -365,6 +407,14 @@ int ksjson_endContainer(KSJSONEncodeContext *context);
  */
 int ksjson_addJSONFromFile(KSJSONEncodeContext *const context, const char *restrict const name,
                            const char *restrict const filename, const bool closeLastContainer);
+
+/** Check whether a file's contents can be embedded by ksjson_addJSONFromFile().
+ *
+ * @param filename The file to check.
+ *
+ * @return KSJSON_OK if it can be embedded, otherwise the error the embedding would return.
+ */
+int ksjson_checkJSONFile(const char *const filename);
 
 // ============================================================================
 // Decode
