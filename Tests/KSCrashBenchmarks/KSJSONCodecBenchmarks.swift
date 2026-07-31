@@ -283,4 +283,82 @@ class KSJSONCodecBenchmarks: KSBenchmarkTestCase {
             }
         }
     }
+
+    // MARK: - Embedding Pre-Formatted JSON
+
+    // ksjson_addJSONElement re-decodes and re-encodes its payload rather than copying it,
+    // and checks it through the same decoder first so a payload it cannot embed writes
+    // nothing. These measure that whole path, which is what the user-info section costs.
+
+    /// A payload shaped like typical user info: flat, short keys, short values.
+    private func userInfoPayload(fieldCount: Int) -> String {
+        var json = "{"
+        for i in 0..<fieldCount {
+            json += "\(i == 0 ? "" : ",")\"key\(i)\":\"value\(i)\""
+        }
+        return json + "}"
+    }
+
+    private func embedBenchmark(payload: String, bufferCapacity: Int) {
+        payload.withCString { payloadPtr in
+            let length = Int32(strlen(payloadPtr))
+            measure {
+                withJSONEncoder(bufferCapacity: bufferCapacity) { context in
+                    ksjson_beginObject(&context, nil)
+                    _ = "user".withCString {
+                        ksjson_addJSONElement(&context, $0, payloadPtr, length, true)
+                    }
+                    ksjson_endContainer(&context)
+                }
+            }
+        }
+    }
+
+    /// Benchmark embedding a small pre-formatted payload
+    func testBenchmarkEmbedJSONElement() {
+        embedBenchmark(payload: userInfoPayload(fieldCount: 20), bufferCapacity: 4096)
+    }
+
+    /// Benchmark embedding a large pre-formatted payload
+    func testBenchmarkEmbedLargeJSONElement() {
+        embedBenchmark(payload: userInfoPayload(fieldCount: 500), bufferCapacity: 65536)
+    }
+
+    /// Benchmark checking a payload without embedding it
+    func testBenchmarkCheckJSONElement() {
+        // The gap between this and testBenchmarkEmbedJSONElement is what the checking pass
+        // costs on its own, since embedding runs this and then decodes a second time.
+        let payload = userInfoPayload(fieldCount: 20)
+        payload.withCString { payloadPtr in
+            let length = Int32(strlen(payloadPtr))
+            measure {
+                for _ in 0..<100 {
+                    _ = ksjson_checkJSONElement(payloadPtr, length)
+                }
+            }
+        }
+    }
+
+    /// Benchmark embedding a pre-formatted payload read from a file
+    func testBenchmarkEmbedJSONFromFile() {
+        let path = NSTemporaryDirectory() + "/kscrash-benchmark-embed.json"
+        let payload = userInfoPayload(fieldCount: 20)
+        guard (try? payload.write(toFile: path, atomically: true, encoding: .utf8)) != nil else {
+            XCTFail("could not stage the benchmark payload")
+            return
+        }
+        defer { try? FileManager.default.removeItem(atPath: path) }
+
+        path.withCString { pathPtr in
+            measure {
+                withJSONEncoder(bufferCapacity: 4096) { context in
+                    ksjson_beginObject(&context, nil)
+                    _ = "user".withCString {
+                        ksjson_addJSONFromFile(&context, $0, pathPtr, true)
+                    }
+                    ksjson_endContainer(&context)
+                }
+            }
+        }
+    }
 }
