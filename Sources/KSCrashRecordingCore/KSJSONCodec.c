@@ -1098,7 +1098,9 @@ static void updateDecoder_readFile(struct JSONFromFileContext *context)
             unlikely_if(bytesRead < fillLength)
             {
                 if (bytesRead < 0) {
-                    KSLOG_ERROR("Error reading file %s: %s", context->sourceFilename, strerror(errno));
+                    // errno numerically, not via strerror: this runs at crash time and
+                    // Apple's strerror calloc()s its return buffer.
+                    KSLOG_ERROR("Error reading file %s: errno %d", context->sourceFilename, errno);
                     bytesRead = 0;
                 }
                 // The read fell short, so the file is done. Pull the end in to the last byte
