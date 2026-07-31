@@ -414,6 +414,8 @@
 #define ksjson_beginEncode KSCRASH_NS(ksjson_beginEncode)
 #define ksjson_beginObject KSCRASH_NS(ksjson_beginObject)
 #define ksjson_beginStringElement KSCRASH_NS(ksjson_beginStringElement)
+#define ksjson_checkJSONElement KSCRASH_NS(ksjson_checkJSONElement)
+#define ksjson_checkJSONFile KSCRASH_NS(ksjson_checkJSONFile)
 #define ksjson_decode KSCRASH_NS(ksjson_decode)
 #define ksjson_endContainer KSCRASH_NS(ksjson_endContainer)
 #define ksjson_endDataElement KSCRASH_NS(ksjson_endDataElement)
