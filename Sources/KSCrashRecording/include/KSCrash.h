@@ -67,6 +67,10 @@ NS_ASSUME_NONNULL_BEGIN
  *  The value is attributed to this run (used for crash attribution and any
  *  stability reporting this run produces). Pass nil to clear, e.g. on logout.
  *
+ *  Only recorded once KSCrash has been installed; a value set before install
+ *  has no effect. To attribute the launch itself, set it as soon as install
+ *  returns.
+ *
  *  Write-only: there is no getter. Track the current user in your own
  *  application state if you need to read it back at runtime.
  */

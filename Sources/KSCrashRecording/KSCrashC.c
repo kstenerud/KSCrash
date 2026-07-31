@@ -403,6 +403,14 @@ static bool getRunSidecarPathForRunIDCallback(const char *monitorId, const char 
     return kscrs_getRunSidecarFilePathForRunID(monitorId, runID, pathBuffer, pathBufferLength, &g_reportStoreConfig);
 }
 
+static bool getSummarySidecarPathCallback(const char *runID, const char *extension, char *pathBuffer,
+                                          size_t pathBufferLength)
+{
+    // Sessions are always recorded when a run-summaries path exists; not gated on
+    // maxRunSummaryCount (that only gates .run persistence).
+    return kscrs_getSummarySidecarFilePath(runID, extension, pathBuffer, pathBufferLength, &g_reportStoreConfig);
+}
+
 /** Derive a default store directory (e.g. "Runs", "Sidecars", "RunSidecars")
  *  as a sibling of reportsPath, matching the ObjC KSCrashReportStoreConfiguration
  *  which derives these via -stringByDeletingLastPathComponent. Trailing '/' are
@@ -522,6 +530,7 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     kscm_setReportSidecarPathProvider(getReportSidecarPathCallback);
     kscm_setRunSidecarPathProvider(getRunSidecarPathCallback);
     kscm_setRunSidecarPathForRunIDProvider(getRunSidecarPathForRunIDCallback);
+    kscm_setSummarySidecarPathProvider(getSummarySidecarPathCallback);
 
     if (snprintf(g_consoleLogPath, sizeof(g_consoleLogPath), "%s/Data/ConsoleLog.txt", installPath) >=
         (int)sizeof(g_consoleLogPath)) {

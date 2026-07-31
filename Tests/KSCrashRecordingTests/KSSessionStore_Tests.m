@@ -168,9 +168,45 @@
     XCTAssertNotEqualObjects(id1, [self currentID]);
 }
 
+- (void)testUpdateUserKeepsPerceptibility
+{
+    [self makeWriter];
+    XCTAssertTrue(kssw_update(_writer, false, "user-1") != NULL);  // open: imperceptible, user-1
+    XCTAssertTrue(kssw_updateUser(_writer, "user-2") != NULL, @"a user change cuts a session");
+    [self openReader];
+    XCTAssertEqual(kssr_count(_reader), 2);
+    KSSessionRecord r = [self recordAt:1];
+    XCTAssertEqualObjects(@(r.user), @"user-2");
+    XCTAssertFalse(r.perceptible, @"perceptibility carried over from the open session");
+}
+
+- (void)testUpdatePerceptibleKeepsUser
+{
+    [self makeWriter];
+    XCTAssertTrue(kssw_update(_writer, true, "user-1") != NULL);  // open: perceptible, user-1
+    XCTAssertTrue(kssw_updatePerceptible(_writer, false) != NULL, @"a perceptibility change cuts a session");
+    [self openReader];
+    XCTAssertEqual(kssr_count(_reader), 2);
+    KSSessionRecord r = [self recordAt:1];
+    XCTAssertEqualObjects(@(r.user), @"user-1", @"user carried over from the open session");
+    XCTAssertFalse(r.perceptible);
+}
+
+- (void)testSplitUpdatesAreNoOpWhenTheirDimensionIsUnchanged
+{
+    [self makeWriter];
+    kssw_update(_writer, true, "user-1");
+    XCTAssertTrue(kssw_updateUser(_writer, "user-1") == NULL, @"same user is a no-op");
+    XCTAssertTrue(kssw_updatePerceptible(_writer, true) == NULL, @"same perceptibility is a no-op");
+    [self openReader];
+    XCTAssertEqual(kssr_count(_reader), 1);
+}
+
 - (void)testNullObjectsAreSafe
 {
     XCTAssertTrue(kssw_update(NULL, true, "user-1") == NULL);
+    XCTAssertTrue(kssw_updateUser(NULL, "user-1") == NULL);
+    XCTAssertTrue(kssw_updatePerceptible(NULL, true) == NULL);
     XCTAssertTrue(kssw_current(NULL) == NULL);
     kssw_close(NULL);  // must not crash
 
@@ -188,6 +224,30 @@
     XCTAssertTrue(_writer != NULL, @"open is lazy, so creating the writer still succeeds");
     XCTAssertTrue(kssw_update(_writer, true, "user-1") == NULL, @"a failed write reports no session");
     XCTAssertNil([self currentID], @"the failed cut rolled back to no open session");
+}
+
+- (void)testRetryableWriteFailureCarriesUserToNextCut
+{
+    // The first cut fails (its directory doesn't exist), which advances the
+    // intended user but writes nothing. Once writing works, a cut of the OTHER
+    // dimension (perceptibility) must still carry that user, not anonymous.
+    NSString *dir = [_dir stringByAppendingPathComponent:@"pending"];
+    NSString *path = [dir stringByAppendingPathComponent:@"x.sessions"];
+    _writer = kssw_open(path.fileSystemRepresentation);
+    XCTAssertTrue(_writer != NULL);
+
+    XCTAssertTrue(kssw_updateUser(_writer, "alice") == NULL, @"first write fails: directory is missing");
+    [[NSFileManager defaultManager] createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:nil];
+    XCTAssertTrue(kssw_updatePerceptible(_writer, true) != NULL, @"the perceptibility cut now writes");
+
+    _reader = kssr_open(path.fileSystemRepresentation);
+    XCTAssertTrue(_reader != NULL);
+    XCTAssertEqual(kssr_count(_reader), 1);
+    KSSessionRecord r;
+    memset(&r, 0, sizeof(r));
+    XCTAssertTrue(kssr_sessionAt(_reader, 0, &r));
+    XCTAssertEqualObjects(@(r.user), @"alice", @"the user set during the failed write is preserved");
+    XCTAssertTrue(r.perceptible);
 }
 
 #pragma mark - Reader

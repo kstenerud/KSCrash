@@ -103,11 +103,12 @@ struct KSSessionWriter {
     char filePath[KSFU_MAX_PATH_LENGTH];
     uint64_t wallRefNs;  // reference pair written into the file header
     uint64_t monoRefNs;
-    bool hasOpenSession;
-    uuid_string_t openID;  // current session id; kssw_update's borrowed return
+    bool hasOpenSession;   // a session was durably written; openID names it
+    bool pendingWrite;     // the intended (openPerceptible, openUser) is not yet durable (last write failed)
+    uuid_string_t openID;  // last durable session id; kssw_current's borrowed return
     uint64_t openMonoNs;
-    bool openPerceptible;
-    char openUser[KSSESSION_MAX_USER_LENGTH];
+    bool openPerceptible;                      // current *intended* perceptibility (advances even on a failed write)
+    char openUser[KSSESSION_MAX_USER_LENGTH];  // current *intended* user (advances even on a failed write)
 };
 
 /** Append one session entry, opening the file (and writing its header) on first
@@ -207,40 +208,83 @@ static void copyUtf8Truncated(char *dst, const char *src, size_t dstSize)
     dst[n] = '\0';
 }
 
+/** Cut a new session for `(perceptible, user)` if it differs from the open one.
+ *  `user` is already normalized (NULL-free, UTF-8-safe truncated). Returns the
+ *  new id, or NULL on a no-op or a failed write. */
+static const char *reconcileSession(KSSessionWriter *writer, bool perceptible, const char *user)
+{
+    // openPerceptible/openUser are the current *intended* (perceptible, user):
+    // they advance even when a write fails, so a later update of the OTHER
+    // dimension still carries the intended value (a failed setUserID isn't lost).
+    // pendingWrite marks that intended tuple as not-yet-durable, which also forces
+    // the next call to retry the write. openID/hasOpenSession name the last
+    // session that IS in the file (what kssw_current returns) and never advance on
+    // a failed write.
+    if (writer->hasOpenSession && !writer->pendingWrite && writer->openPerceptible == perceptible &&
+        strcmp(writer->openUser, user) == 0) {
+        return NULL;  // already the durable open session
+    }
+
+    // Advance the intended tuple before writing so a failure still carries it.
+    writer->openPerceptible = perceptible;
+    strlcpy(writer->openUser, user, sizeof(writer->openUser));
+
+    uuid_string_t newID;
+    ksid_generate(newID);
+    uint64_t now = ksdate_continuousNanoseconds();
+    if (!appendSession(writer, newID, now, perceptible, user)) {
+        // Not durable: keep the previous session as kssw_current's answer (the
+        // report never names a session not in the file) and retry next time.
+        writer->pendingWrite = true;
+        return NULL;
+    }
+
+    strlcpy(writer->openID, newID, sizeof(writer->openID));
+    writer->openMonoNs = now;
+    writer->hasOpenSession = true;
+    writer->pendingWrite = false;
+    return writer->openID;
+}
+
 const char *kssw_update(KSSessionWriter *writer, bool perceptible, const char *userID)
 {
     if (writer == NULL) {
         return NULL;
     }
-
     // Normalize (NULL -> "", UTF-8-safe truncate) up front so the change check
     // compares the stored, already-truncated user against an identically-
     // truncated value; a userID longer than the buffer must not re-cut a session
     // on every update.
     char user[KSSESSION_MAX_USER_LENGTH];
     copyUtf8Truncated(user, (userID != NULL) ? userID : "", sizeof(user));
+    return reconcileSession(writer, perceptible, user);
+}
 
-    if (writer->hasOpenSession && writer->openPerceptible == perceptible && strcmp(writer->openUser, user) == 0) {
-        return NULL;  // no change to (perceptible, user)
-    }
-
-    uuid_string_t newID;
-    ksid_generate(newID);
-    uint64_t now = ksdate_continuousNanoseconds();
-
-    // Record durably first. If the write fails, the cut did not happen: leave the
-    // previous session as the open one so the report never names a session that
-    // isn't in the file, and tell the caller nothing changed.
-    if (!appendSession(writer, newID, now, perceptible, user)) {
+const char *kssw_updateUser(KSSessionWriter *writer, const char *userID)
+{
+    if (writer == NULL) {
         return NULL;
     }
+    // Only the user is changing: keep the open session's perceptibility. This is
+    // why the caller never has to fetch perceptibility (and so can't read a stale
+    // value that races a concurrent perceptibility change).
+    char user[KSSESSION_MAX_USER_LENGTH];
+    copyUtf8Truncated(user, (userID != NULL) ? userID : "", sizeof(user));
+    return reconcileSession(writer, writer->openPerceptible, user);
+}
 
-    strlcpy(writer->openID, newID, sizeof(writer->openID));
-    writer->openMonoNs = now;
-    writer->openPerceptible = perceptible;
-    strlcpy(writer->openUser, user, sizeof(writer->openUser));
-    writer->hasOpenSession = true;
-    return writer->openID;
+const char *kssw_updatePerceptible(KSSessionWriter *writer, bool perceptible)
+{
+    if (writer == NULL) {
+        return NULL;
+    }
+    // Only perceptibility is changing: keep the open session's user (already
+    // normalized when stored). Copy it to a local first — reconcileSession
+    // strlcpy's `user` back into writer->openUser, and strlcpy with overlapping
+    // src/dst is undefined.
+    char user[KSSESSION_MAX_USER_LENGTH];
+    strlcpy(user, writer->openUser, sizeof(user));
+    return reconcileSession(writer, perceptible, user);
 }
 
 const char *kssw_current(const KSSessionWriter *writer)

@@ -32,6 +32,7 @@
 #import "KSCrashMonitor_Lifecycle.h"
 #import "KSCrashMonitor_Termination.h"
 #import "KSCrashRunContext.h"
+#import "KSSessionStore.h"
 
 #include <mach/task_policy.h>
 
@@ -67,6 +68,16 @@ static bool testGetRunSidecarPathForRunID(const char *monitorId, const char *run
 {
     return snprintf(pathBuffer, pathBufferLength, "%s/%s/%s.ksscr", g_testDir, runID, monitorId) <
            (int)pathBufferLength;
+}
+
+// The run ID is empty without kscrash_install, so key the test path on the extension.
+static bool testGetSummarySidecarPath(__unused const char *runID, const char *extension, char *pathBuffer,
+                                      size_t pathBufferLength)
+{
+    char dir[1024];
+    snprintf(dir, sizeof(dir), "%s/runs", g_testDir);
+    mkdir(dir, 0755);
+    return snprintf(pathBuffer, pathBufferLength, "%s/session.%s", dir, extension) < (int)pathBufferLength;
 }
 
 /** Write a KSCrash_LifecycleData struct to a file at the given path. */
@@ -142,6 +153,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     KSCrash_ExceptionHandlerCallbacks callbacks = { 0 };
     callbacks.getRunSidecarPath = testGetRunSidecarPath;
     callbacks.getRunSidecarPathForRunID = testGetRunSidecarPathForRunID;
+    callbacks.getSummarySidecarPath = testGetSummarySidecarPath;
     api->init(&callbacks, api->context);
     api->setEnabled(true, api->context);
     // Counter carry-forward is deferred to notifyPostSystemEnable (runs after
@@ -569,72 +581,8 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
                       data.perceptibleSessionsSinceLaunch + data.imperceptibleSessionsSinceLaunch);
 }
 
-#pragma mark - Distinct user tracking (v2)
-
-- (void)testObserveUser_firstSeenBumpsPerceptibleCount
-{
-    [self enableMonitor];  // Default state is Active (perceptible).
-    kscm_lifecycle_observeUser("alice");
-
-    KSCrash_LifecycleData data = { 0 };
-    XCTAssertTrue(readCurrentSidecar(&data));
-    XCTAssertEqual(data.distinctPerceptibleUserCount, 1u);
-    XCTAssertEqual(data.distinctImperceptibleUserCount, 0u);
-}
-
-- (void)testObserveUser_duplicateDoesNotDoubleCount
-{
-    [self enableMonitor];
-    kscm_lifecycle_observeUser("alice");
-    kscm_lifecycle_observeUser("alice");
-    kscm_lifecycle_observeUser("alice");
-
-    KSCrash_LifecycleData data = { 0 };
-    XCTAssertTrue(readCurrentSidecar(&data));
-    XCTAssertEqual(data.distinctPerceptibleUserCount, 1u);
-}
-
-- (void)testObserveUser_distinctUsersEachCountedOnce
-{
-    [self enableMonitor];
-    kscm_lifecycle_observeUser("alice");
-    kscm_lifecycle_observeUser("bob");
-    kscm_lifecycle_observeUser("alice");  // already seen
-    kscm_lifecycle_observeUser("carol");
-
-    KSCrash_LifecycleData data = { 0 };
-    XCTAssertTrue(readCurrentSidecar(&data));
-    XCTAssertEqual(data.distinctPerceptibleUserCount, 3u);
-}
-
-- (void)testObserveUser_nilAndEmptyAreNoOps
-{
-    [self enableMonitor];
-    kscm_lifecycle_observeUser(NULL);
-    kscm_lifecycle_observeUser("");
-
-    KSCrash_LifecycleData data = { 0 };
-    XCTAssertTrue(readCurrentSidecar(&data));
-    XCTAssertEqual(data.distinctPerceptibleUserCount, 0u);
-    XCTAssertEqual(data.distinctImperceptibleUserCount, 0u);
-}
-
-- (void)testObserveUser_perceptibilityTransitionReaccountsCurrentUser
-{
-    [self enableMonitor];
-    kscm_lifecycle_observeUser("alice");  // counted in perceptible bucket
-
-    // Drive a transition that flips perceptibility from true → false.
-    // Background is not user-perceptible.
-    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateDeactivating);
-    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateBackground);
-
-    KSCrash_LifecycleData data = { 0 };
-    XCTAssertTrue(readCurrentSidecar(&data));
-    // alice counted in both buckets: 1 + 1 = 2 total distinctness across buckets.
-    XCTAssertEqual(data.distinctPerceptibleUserCount, 1u);
-    XCTAssertEqual(data.distinctImperceptibleUserCount, 1u);
-}
+// Distinct-user counts are no longer tracked in the monitor; they are derived
+// from the .sessions file at send time (Piece 4). See project memory.
 
 - (void)testReadData_v1Sidecar_zeroFillsNewFields
 {
@@ -895,6 +843,107 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     }
     XCTAssertTrue(corrected, @"Heartbeat did not update taskRole within 5 seconds");
     XCTAssertEqual(data.taskRole, kstaskrole_current());
+}
+
+#pragma mark - Sessions (Piece 2 wire-in)
+
+- (NSString *)sessionsFilePath
+{
+    return [NSString stringWithFormat:@"%@/runs/session.sessions", self.tempPath];
+}
+
+- (int)sessionCount
+{
+    KSSessionReader *reader = kssr_open(self.sessionsFilePath.fileSystemRepresentation);
+    int count = kssr_count(reader);
+    kssr_close(reader);
+    return count;
+}
+
+- (KSSessionRecord)lastSession
+{
+    KSSessionReader *reader = kssr_open(self.sessionsFilePath.fileSystemRepresentation);
+    KSSessionRecord rec;
+    memset(&rec, 0, sizeof(rec));
+    int count = kssr_count(reader);
+    if (count > 0) {
+        kssr_sessionAt(reader, count - 1, &rec);
+    }
+    kssr_close(reader);
+    return rec;
+}
+
+- (void)testLaunchSessionRecordedOnEnable
+{
+    [self enableMonitor];
+    XCTAssertGreaterThanOrEqual([self sessionCount], 1, @"enable records the launch session");
+    KSSessionRecord r = [self lastSession];
+    XCTAssertNotNil([[NSUUID alloc] initWithUUIDString:@(r.guid)], @"a valid session id");
+    XCTAssertEqual(r.user[0], '\0', @"launch session is anonymous until a user is set");
+}
+
+- (void)testPerceptibilityFlipCutsSession
+{
+    [self enableMonitor];
+    // Drive to a known imperceptible state. From here each active<->background
+    // alternation is a guaranteed perceptibility flip, so the deltas below are
+    // deterministic regardless of the (host-dependent) launch perceptibility.
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateBackground);
+    int base = [self sessionCount];
+    XCTAssertGreaterThanOrEqual(base, 1);
+
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);  // NO -> YES
+    XCTAssertEqual([self sessionCount], base + 1);
+    XCTAssertTrue([self lastSession].perceptible, @"newest session is perceptible");
+
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateBackground);  // YES -> NO
+    XCTAssertEqual([self sessionCount], base + 2);
+    XCTAssertFalse([self lastSession].perceptible);
+
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);        // NO -> YES
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateDeactivating);  // YES -> YES (no flip)
+    XCTAssertEqual([self sessionCount], base + 3, @"a non-flip transition does not cut a session");
+}
+
+- (void)testUserChangeCutsSessionIncludingLogout
+{
+    [self enableMonitor];
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);  // known perceptible
+    int base = [self sessionCount];
+
+    kscm_lifecycle_observeUser("bob");
+    XCTAssertEqual([self sessionCount], base + 1);
+    XCTAssertEqualObjects(@([self lastSession].user), @"bob");
+    XCTAssertTrue([self lastSession].perceptible);
+
+    kscm_lifecycle_observeUser("bob");  // unchanged
+    XCTAssertEqual([self sessionCount], base + 1, @"the same user is a no-op");
+
+    kscm_lifecycle_observeUser("alice");
+    XCTAssertEqual([self sessionCount], base + 2);
+    XCTAssertEqualObjects(@([self lastSession].user), @"alice");
+
+    kscm_lifecycle_observeUser(NULL);  // logout is still a session change
+    XCTAssertEqual([self sessionCount], base + 3);
+    XCTAssertEqual([self lastSession].user[0], '\0');
+}
+
+- (void)testNoWriterWhenSummaryPathUnavailable
+{
+    // Enable with no summary-sidecar provider (feature disabled): no writer, no file.
+    KSCrashMonitorAPI *api = kscm_lifecycle_getAPI();
+    KSCrash_ExceptionHandlerCallbacks callbacks = { 0 };
+    callbacks.getRunSidecarPath = testGetRunSidecarPath;
+    callbacks.getRunSidecarPathForRunID = testGetRunSidecarPathForRunID;
+    callbacks.getSummarySidecarPath = NULL;
+    api->init(&callbacks, api->context);
+    api->setEnabled(true, api->context);
+
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateBackground);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+    kscm_lifecycle_observeUser("bob");
+
+    XCTAssertEqual([self sessionCount], 0, @"no provider => no writer => no sessions file");
 }
 
 @end

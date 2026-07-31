@@ -119,9 +119,10 @@ typedef struct {
     uint32_t perceptibleSessionsSinceLaunch;
     uint32_t imperceptibleSessionsSinceLaunch;
 
-    // Counts of distinct user IDs observed in each perceptibility bucket
-    // during this run. Distinctness is tracked in-memory (lost on crash);
-    // only the counts are persisted. See kscm_lifecycle_observeUser.
+    // Counts of distinct user IDs observed in each perceptibility bucket during
+    // this run. No longer written by the monitor; derived from the per-run
+    // .sessions file at send time. Kept for wire/layout compatibility (currently
+    // zero here).
     uint32_t distinctPerceptibleUserCount;
     uint32_t distinctImperceptibleUserCount;
 
@@ -217,18 +218,11 @@ KSCrashAppTransitionState kslifecycle_currentTransitionState(void);
 
 /** Observe that the given user ID is active right now.
  *
- *  The monitor maintains distinct-user counts, split by the current
- *  perceptibility state, and persists them into the Lifecycle sidecar as
- *  `distinctPerceptibleUserCount` / `distinctImperceptibleUserCount`.
- *  Distinctness tracking itself is in-memory only; the counts at crash
- *  time are what survive.
+ *  Cuts a new session for the user change, keeping the current perceptibility.
+ *  Pass NULL or an empty string for an anonymous user. No-op before the monitor
+ *  is enabled or when session recording is unavailable.
  *
- *  Pass NULL or an empty string to record no user. No-op before the
- *  monitor is enabled.
- *
- *  Called from `-[KSCrash setUserID:]` on every user change, and
- *  internally whenever a perceptibility transition reveals the current
- *  user in a new bucket.
+ *  Called from `-[KSCrash setUserID:]` on every user change.
  */
 void kscm_lifecycle_observeUser(const char *userID);
 

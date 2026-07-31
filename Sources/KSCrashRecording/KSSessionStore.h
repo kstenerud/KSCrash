@@ -95,6 +95,20 @@ KSSessionWriter *kssw_open(const char *path);
  */
 const char *kssw_update(KSSessionWriter *writer, bool perceptible, const char *userID);
 
+/** Cut a new session for a userID change, keeping the open session's
+ *  perceptibility. Use this when only the user changed so the caller never has
+ *  to supply (or fetch) a perceptibility value. No-op if the user is unchanged.
+ *  Same return contract as kssw_update.
+ */
+const char *kssw_updateUser(KSSessionWriter *writer, const char *userID);
+
+/** Cut a new session for a perceptibility change, keeping the open session's
+ *  user. Use this when only perceptibility changed (the caller already has the
+ *  new value). No-op if perceptibility is unchanged. Same return contract as
+ *  kssw_update.
+ */
+const char *kssw_updatePerceptible(KSSessionWriter *writer, bool perceptible);
+
 /** The currently-open session's id, or NULL if none is open. Borrowed from the
  *  writer and valid only until the next kssw_update / kssw_close on it; copy it
  *  to keep it.

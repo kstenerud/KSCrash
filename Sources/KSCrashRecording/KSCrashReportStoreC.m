@@ -839,6 +839,31 @@ bool kscrs_getRunSidecarFilePathForRunID(const char *monitorId, const char *runI
     return true;
 }
 
+bool kscrs_getSummarySidecarFilePath(const char *runID, const char *extension, char *pathBuffer,
+                                     size_t pathBufferLength,
+                                     const KSCrashReportStoreCConfiguration *const configuration)
+{
+    if (configuration == NULL || runID == NULL || runID[0] == '\0' || extension == NULL || extension[0] == '\0' ||
+        pathBuffer == NULL || pathBufferLength == 0) {
+        return false;
+    }
+    const char *runSummariesPath = configuration->runSummariesPath;
+    if (runSummariesPath == NULL) {
+        return false;
+    }
+    // Reject non-UUID runIDs to prevent path traversal.
+    uuid_t parsed;
+    if (uuid_parse(runID, parsed) != 0) {
+        return false;
+    }
+    ksfu_makePath(runSummariesPath);
+    if (snprintf(pathBuffer, pathBufferLength, "%s/%s.%s", runSummariesPath, runID, extension) >=
+        (int)pathBufferLength) {
+        return false;
+    }
+    return true;
+}
+
 void kscrs_cleanupOrphanedRunSidecars(const KSCrashReportStoreCConfiguration *const configuration)
 {
     pthread_mutex_lock(&g_mutex);

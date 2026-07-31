@@ -422,6 +422,12 @@ void kscm_setRunSidecarPathForRunIDProvider(KSCrashSidecarRunPathForRunIDProvide
     g_exceptionCallbacks.getRunSidecarPathForRunID = provider;
 }
 
+void kscm_setSummarySidecarPathProvider(KSCrashSummarySidecarPathProviderFunc provider)
+{
+    init();
+    g_exceptionCallbacks.getSummarySidecarPath = provider;
+}
+
 // ============================================================================
 #pragma mark - Testing API -
 // ============================================================================

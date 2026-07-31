@@ -181,6 +181,16 @@ void kscm_setRunSidecarPathProvider(KSCrashSidecarRunPathProviderFunc provider);
  */
 void kscm_setRunSidecarPathForRunIDProvider(KSCrashSidecarRunPathForRunIDProviderFunc provider);
 
+/**
+ * Sets the callback used by monitors to obtain run-summary "summary sidecar" file paths.
+ *
+ * Summary sidecars attach to the run summary, not to crash reports.
+ * This must be called before monitors are activated.
+ *
+ * @param provider The callback function, or NULL to disable.
+ */
+void kscm_setSummarySidecarPathProvider(KSCrashSummarySidecarPathProviderFunc provider);
+
 #ifdef __cplusplus
 }
 #endif
