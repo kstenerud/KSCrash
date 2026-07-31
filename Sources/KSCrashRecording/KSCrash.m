@@ -229,6 +229,12 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
     kscm_lifecycle_observeUser(userIDString);
 }
 
+- (NSString *)sessionID
+{
+    const char *sid = kslifecycle_currentSessionID();
+    return sid != NULL ? @(sid) : nil;
+}
+
 - (BOOL)reportsMemoryTerminations
 {
     KSCrashMonitorAPI *api = kscm_termination_getAPI();

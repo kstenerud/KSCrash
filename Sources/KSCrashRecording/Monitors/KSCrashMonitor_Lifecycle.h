@@ -40,6 +40,7 @@
 #define HDR_KSCrashMonitor_Lifecycle_h
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include "KSCrashAppTransitionState.h"
@@ -211,10 +212,24 @@ bool kslifecycle_readData(const char *path, KSCrash_LifecycleData *out);
  */
 bool kslifecycle_getSnapshotForRunID(const char *runID, KSCrash_LifecycleData *outData);
 
+/** Copy the last recorded session id for `runID` (the final entry of that run's
+ *  `.sessions` file) into `buf`. Sets `buf` to "" and returns false when the run
+ *  has no sessions file or no readable session.
+ */
+bool kslifecycle_copyLastSessionIDForRunID(const char *runID, char *buf, size_t bufLen);
+
 /** Returns the most recently observed app transition state.
  *  Lock-free (atomic load). Safe to call from any thread.
  */
 KSCrashAppTransitionState kslifecycle_currentTransitionState(void);
+
+/** The current session id, or NULL if none is open. Borrowed: points at a
+ *  thread-local buffer valid until the next kslifecycle_currentSessionID() call
+ *  on the same thread; copy it to keep it.
+ *
+ *  Not async-signal-safe; never call from a crash or signal handler.
+ */
+const char *kslifecycle_currentSessionID(void);
 
 /** Observe that the given user ID is active right now.
  *

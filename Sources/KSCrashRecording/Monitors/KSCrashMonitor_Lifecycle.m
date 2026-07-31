@@ -232,6 +232,48 @@ void kscm_lifecycle_observeUser(const char *userID)
     os_unfair_lock_unlock(&g_sessionLock);
 }
 
+const char *kslifecycle_currentSessionID(void)
+{
+    // kssw_current's buffer is overwritten by the next cut; copy it out.
+    static _Thread_local char buf[37];
+    os_unfair_lock_lock(&g_sessionLock);
+    const char *id = (g_sessionWriter != NULL) ? kssw_current(g_sessionWriter) : NULL;
+    if (id != NULL) {
+        strlcpy(buf, id, sizeof(buf));
+    } else {
+        buf[0] = '\0';
+    }
+    os_unfair_lock_unlock(&g_sessionLock);
+    return buf[0] != '\0' ? buf : NULL;
+}
+
+bool kslifecycle_copyLastSessionIDForRunID(const char *runID, char *buf, size_t bufLen)
+{
+    if (buf == NULL || bufLen == 0) {
+        return false;
+    }
+    buf[0] = '\0';
+    if (runID == NULL || runID[0] == '\0' || g_callbacks.getSummarySidecarPath == NULL) {
+        return false;
+    }
+    char path[KSFU_MAX_PATH_LENGTH];
+    if (!g_callbacks.getSummarySidecarPath(runID, "sessions", path, sizeof(path))) {
+        return false;
+    }
+    KSSessionReader *reader = kssr_open(path);
+    bool found = false;
+    int count = kssr_count(reader);
+    if (count > 0) {
+        KSSessionRecord rec;
+        if (kssr_sessionAt(reader, count - 1, &rec)) {
+            strlcpy(buf, rec.guid, bufLen);
+            found = buf[0] != '\0';
+        }
+    }
+    kssr_close(reader);
+    return found;
+}
+
 bool kslifecycle_readData(const char *path, KSCrash_LifecycleData *out)
 {
     if (!path || !out) {

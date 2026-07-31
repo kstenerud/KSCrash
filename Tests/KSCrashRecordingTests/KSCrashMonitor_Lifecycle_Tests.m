@@ -946,6 +946,30 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     XCTAssertEqual([self sessionCount], 0, @"no provider => no writer => no sessions file");
 }
 
+- (void)testCurrentSessionIDMatchesLastCut
+{
+    [self enableMonitor];
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+    kscm_lifecycle_observeUser("dave");  // cut a session for the user
+
+    const char *sid = kslifecycle_currentSessionID();
+    XCTAssertTrue(sid != NULL, @"a session is open after a cut");
+    XCTAssertEqualObjects(@(sid), @([self lastSession].guid), @"getter matches the .sessions last entry");
+}
+
+- (void)testCopyLastSessionIDForRunIDReturnsLastGuid
+{
+    [self enableMonitor];
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+    kscm_lifecycle_observeUser("erin");
+
+    // The test provider keys on the extension, not the runID, so any id resolves
+    // to the one sessions file this run wrote.
+    char buf[64] = "";
+    XCTAssertTrue(kslifecycle_copyLastSessionIDForRunID("any-run-id", buf, sizeof(buf)));
+    XCTAssertEqualObjects(@(buf), @([self lastSession].guid));
+}
+
 @end
 
 #pragma clang diagnostic pop

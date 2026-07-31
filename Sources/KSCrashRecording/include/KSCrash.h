@@ -76,6 +76,16 @@ NS_ASSUME_NONNULL_BEGIN
  */
 - (void)setUserID:(nullable NSString *)userID;
 
+/** The id of the currently-open session, or nil if none is open yet.
+ *
+ *  A session is a span of this run over which the user id and perceptibility
+ *  (foreground/background) are constant; a new one is cut whenever either
+ *  changes. Reports produced during a session carry this id as
+ *  `report.session_id`. Only available after install; nil before the first
+ *  session is recorded.
+ */
+@property(nonatomic, readonly, nullable) NSString *sessionID;
+
 #pragma mark - Information -
 
 /** Exposes the uncaughtExceptionHandler if set from KSCrash. Is nil if debugger is running. */
