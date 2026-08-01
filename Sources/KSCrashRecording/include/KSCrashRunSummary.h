@@ -95,6 +95,36 @@ __attribute__((objc_subclassing_restricted))
 #pragma mark - Sessions -
 // ============================================================================
 
+NS_SWIFT_NAME(RunSummary.Session)
+__attribute__((objc_subclassing_restricted))
+@interface KSCrashRunSummarySession : NSObject
+
+/** This session's id. */
+@property(nonatomic, readonly, copy) NSString *sessionID;
+
+/** The user id active during the session, or nil when anonymous. */
+@property(nonatomic, readonly, copy, nullable) NSString *userID;
+
+/** Whether the session was user-perceptible (foreground). */
+@property(nonatomic, readonly) BOOL perceptible;
+
+/** Unix epoch milliseconds (wall clock). */
+@property(nonatomic, readonly) int64_t startedAtMs;
+
+/** Unix epoch milliseconds (wall clock). */
+@property(nonatomic, readonly) int64_t endedAtMs;
+
+- (instancetype)init NS_UNAVAILABLE;
++ (instancetype)new NS_UNAVAILABLE;
+
+- (instancetype)initWithSessionID:(NSString *)sessionID
+                           userID:(nullable NSString *)userID
+                      perceptible:(BOOL)perceptible
+                      startedAtMs:(int64_t)startedAtMs
+                        endedAtMs:(int64_t)endedAtMs NS_DESIGNATED_INITIALIZER;
+
+@end
+
 NS_SWIFT_NAME(RunSummary.Sessions)
 __attribute__((objc_subclassing_restricted))
 @interface KSCrashRunSummarySessions : NSObject
@@ -107,11 +137,15 @@ __attribute__((objc_subclassing_restricted))
 /** Number of times the app entered the background this run. */
 @property(nonatomic, readonly) NSInteger imperceptibleCount;
 
+/** The individual sessions recorded this run, oldest first. */
+@property(nonatomic, readonly, copy) NSArray<KSCrashRunSummarySession *> *records;
+
 - (instancetype)init NS_UNAVAILABLE;
 + (instancetype)new NS_UNAVAILABLE;
 
 - (instancetype)initWithPerceptibleCount:(NSInteger)perceptibleCount
-                      imperceptibleCount:(NSInteger)imperceptibleCount NS_DESIGNATED_INITIALIZER;
+                      imperceptibleCount:(NSInteger)imperceptibleCount
+                                 records:(NSArray<KSCrashRunSummarySession *> *)records NS_DESIGNATED_INITIALIZER;
 
 @end
 

@@ -552,9 +552,12 @@ static KSCrashRunSummary *buildSummary(const KSCrashRunContext *ctx, const char 
         [[KSCrashRunSummaryDurations alloc] initWithActiveMs:(int64_t)(activeNs / 1000000ULL)
                                                 backgroundMs:(int64_t)(backgroundNs / 1000000ULL)];
 
+    // Records are merged from the run's .sessions file at send time, never on
+    // this synchronous startup path.
     KSCrashRunSummarySessions *sessions =
         [[KSCrashRunSummarySessions alloc] initWithPerceptibleCount:(NSInteger)lc->perceptibleSessionsSinceLaunch
-                                                 imperceptibleCount:(NSInteger)lc->imperceptibleSessionsSinceLaunch];
+                                                 imperceptibleCount:(NSInteger)lc->imperceptibleSessionsSinceLaunch
+                                                            records:@[]];
 
     KSCrashRunSummaryUsers *users =
         [[KSCrashRunSummaryUsers alloc] initWithPerceptibleCount:(NSInteger)lc->distinctPerceptibleUserCount

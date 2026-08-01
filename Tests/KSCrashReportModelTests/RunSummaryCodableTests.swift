@@ -45,7 +45,7 @@ final class RunSummaryCodableTests: XCTestCase {
             fatalReported: false,
             userPerceptible: true)
         let durations = RunSummary.Durations(activeMs: 123_456, backgroundMs: 45_678)
-        let sessions = RunSummary.Sessions(perceptibleCount: 3, imperceptibleCount: 2)
+        let sessions = RunSummary.Sessions(perceptibleCount: 3, imperceptibleCount: 2, records: [])
         let users = RunSummary.Users(
             perceptibleCount: perceptibleUserCount,
             imperceptibleCount: imperceptibleUserCount)

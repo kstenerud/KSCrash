@@ -64,11 +64,94 @@
 
 - (void)test_sessions_storesAllFields
 {
+    KSCrashRunSummarySession *session = [[KSCrashRunSummarySession alloc] initWithSessionID:@"s1"
+                                                                                     userID:@"bob"
+                                                                                perceptible:YES
+                                                                                startedAtMs:1000
+                                                                                  endedAtMs:2000];
     KSCrashRunSummarySessions *sessions = [[KSCrashRunSummarySessions alloc] initWithPerceptibleCount:3
-                                                                                   imperceptibleCount:2];
+                                                                                   imperceptibleCount:2
+                                                                                              records:@[ session ]];
 
     XCTAssertEqual(sessions.perceptibleCount, 3);
     XCTAssertEqual(sessions.imperceptibleCount, 2);
+    XCTAssertEqual(sessions.records.count, 1u);
+    KSCrashRunSummarySession *stored = sessions.records.firstObject;
+    XCTAssertEqualObjects(stored.sessionID, @"s1");
+    XCTAssertEqualObjects(stored.userID, @"bob");
+    XCTAssertTrue(stored.perceptible);
+    XCTAssertEqual(stored.startedAtMs, 1000);
+    XCTAssertEqual(stored.endedAtMs, 2000);
+}
+
+- (void)test_sessionRecords_roundTrip
+{
+    NSMutableDictionary *dict = [self fullyValidWireDict];
+    dict[@"sessions"] = @{
+        @"perceptible_count" : @2,
+        @"imperceptible_count" : @1,
+        @"records" : @[
+            @{
+                @"session_id" : @"s1",
+                @"user_id" : @"bob",
+                @"perceptible" : @YES,
+                @"started_at_ms" : @1000,
+                @"ended_at_ms" : @2000,
+            },
+            @{
+                @"session_id" : @"s2",
+                @"perceptible" : @NO,
+                @"started_at_ms" : @2000,
+                @"ended_at_ms" : @3000,
+            },
+        ],
+    };
+
+    KSCrashRunSummary *summary = [KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil];
+    XCTAssertNotNil(summary);
+    XCTAssertEqual(summary.sessions.records.count, 2u);
+    KSCrashRunSummarySession *s1 = summary.sessions.records[0];
+    XCTAssertEqualObjects(s1.sessionID, @"s1");
+    XCTAssertEqualObjects(s1.userID, @"bob");
+    XCTAssertTrue(s1.perceptible);
+    XCTAssertEqual(s1.startedAtMs, 1000);
+    XCTAssertEqual(s1.endedAtMs, 2000);
+    XCTAssertNil(summary.sessions.records[1].userID, @"anonymous session decodes to nil userID");
+    XCTAssertFalse(summary.sessions.records[1].perceptible);
+
+    // Records survive the encoder too.
+    KSCrashRunSummary *reDecoded = [KSCrashRunSummary summaryFromJSONData:summary.jsonData error:nil];
+    XCTAssertEqual(reDecoded.sessions.records.count, 2u);
+    XCTAssertEqualObjects(reDecoded.sessions.records[1].sessionID, @"s2");
+    XCTAssertNil(reDecoded.sessions.records[1].userID);
+}
+
+- (void)test_decoder_rejectsMalformedSessionRecord
+{
+    NSMutableDictionary *dict = [self fullyValidWireDict];
+    dict[@"sessions"] = @{
+        @"perceptible_count" : @0,
+        @"imperceptible_count" : @0,
+        @"records" : @[ @{ @"perceptible" : @YES, @"started_at_ms" : @1, @"ended_at_ms" : @2 } ],  // no session_id
+    };
+    XCTAssertNil([KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil]);
+}
+
+- (void)test_decoder_rejectsWrongTypedSessionUserID
+{
+    NSMutableDictionary *dict = [self fullyValidWireDict];
+    dict[@"sessions"] = @{
+        @"perceptible_count" : @0,
+        @"imperceptible_count" : @0,
+        @"records" : @[ @{
+            @"session_id" : @"s1",
+            @"user_id" : @42,  // present but not a string
+            @"perceptible" : @YES,
+            @"started_at_ms" : @1,
+            @"ended_at_ms" : @2,
+        } ],
+    };
+    XCTAssertNil([KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil]);
 }
 
 #pragma mark - Users
@@ -149,7 +232,8 @@
     KSCrashRunSummaryDurations *durations = [[KSCrashRunSummaryDurations alloc] initWithActiveMs:123456
                                                                                     backgroundMs:45678];
     KSCrashRunSummarySessions *sessions = [[KSCrashRunSummarySessions alloc] initWithPerceptibleCount:3
-                                                                                   imperceptibleCount:2];
+                                                                                   imperceptibleCount:2
+                                                                                              records:@[]];
     KSCrashRunSummaryUsers *users = [[KSCrashRunSummaryUsers alloc] initWithPerceptibleCount:2 imperceptibleCount:1];
     KSCrashRunSummaryApp *app = [[KSCrashRunSummaryApp alloc] initWithBundleID:@"com.acme.app"
                                                                        version:@"2.6.0.1234"
@@ -206,7 +290,8 @@
                                                     userPerceptible:NO];
     KSCrashRunSummaryDurations *durations = [[KSCrashRunSummaryDurations alloc] initWithActiveMs:0 backgroundMs:0];
     KSCrashRunSummarySessions *sessions = [[KSCrashRunSummarySessions alloc] initWithPerceptibleCount:0
-                                                                                   imperceptibleCount:1];
+                                                                                   imperceptibleCount:1
+                                                                                              records:@[]];
     KSCrashRunSummaryUsers *users = [[KSCrashRunSummaryUsers alloc] initWithPerceptibleCount:0 imperceptibleCount:0];
     KSCrashRunSummaryApp *app = [[KSCrashRunSummaryApp alloc] initWithBundleID:@"com.acme.app"
                                                                        version:@"1"

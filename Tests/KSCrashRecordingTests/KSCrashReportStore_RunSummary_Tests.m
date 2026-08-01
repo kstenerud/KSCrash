@@ -92,7 +92,8 @@
                                                     userPerceptible:YES];
     KSCrashRunSummaryDurations *durations = [[KSCrashRunSummaryDurations alloc] initWithActiveMs:100 backgroundMs:50];
     KSCrashRunSummarySessions *sessions = [[KSCrashRunSummarySessions alloc] initWithPerceptibleCount:1
-                                                                                   imperceptibleCount:0];
+                                                                                   imperceptibleCount:0
+                                                                                              records:@[]];
     KSCrashRunSummaryUsers *users = [[KSCrashRunSummaryUsers alloc] initWithPerceptibleCount:1 imperceptibleCount:0];
     KSCrashRunSummaryApp *app = [[KSCrashRunSummaryApp alloc] initWithBundleID:@"com.test"
                                                                        version:@"1.0"

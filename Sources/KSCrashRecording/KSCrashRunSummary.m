@@ -66,13 +66,36 @@
 
 @end
 
+@implementation KSCrashRunSummarySession
+
+- (instancetype)initWithSessionID:(NSString *)sessionID
+                           userID:(nullable NSString *)userID
+                      perceptible:(BOOL)perceptible
+                      startedAtMs:(int64_t)startedAtMs
+                        endedAtMs:(int64_t)endedAtMs
+{
+    if ((self = [super init])) {
+        _sessionID = [sessionID copy];
+        _userID = [userID copy];
+        _perceptible = perceptible;
+        _startedAtMs = startedAtMs;
+        _endedAtMs = endedAtMs;
+    }
+    return self;
+}
+
+@end
+
 @implementation KSCrashRunSummarySessions
 
-- (instancetype)initWithPerceptibleCount:(NSInteger)perceptibleCount imperceptibleCount:(NSInteger)imperceptibleCount
+- (instancetype)initWithPerceptibleCount:(NSInteger)perceptibleCount
+                      imperceptibleCount:(NSInteger)imperceptibleCount
+                                 records:(NSArray<KSCrashRunSummarySession *> *)records
 {
     if ((self = [super init])) {
         _perceptibleCount = perceptibleCount;
         _imperceptibleCount = imperceptibleCount;
+        _records = [records copy] ?: @[];
     }
     return self;
 }
@@ -230,10 +253,27 @@ static NSString *hostKindWireString(KSCrashRunSummaryHostKind kind)
         KSCrashRunSummaryField_Active : @(self.durations.activeMs),
         KSCrashRunSummaryField_Background : @(self.durations.backgroundMs),
     };
-    dict[KSCrashRunSummaryField_Sessions] = @{
+    NSMutableDictionary *sessionsDict = [@{
         KSCrashRunSummaryField_PerceptibleCount : @(self.sessions.perceptibleCount),
         KSCrashRunSummaryField_ImperceptibleCount : @(self.sessions.imperceptibleCount),
-    };
+    } mutableCopy];
+    if (self.sessions.records.count > 0) {
+        NSMutableArray *records = [NSMutableArray arrayWithCapacity:self.sessions.records.count];
+        for (KSCrashRunSummarySession *session in self.sessions.records) {
+            NSMutableDictionary *record = [@{
+                KSCrashRunSummaryField_SessionID : session.sessionID,
+                KSCrashRunSummaryField_Perceptible : session.perceptible ? @YES : @NO,
+                KSCrashRunSummaryField_StartedAtMs : @(session.startedAtMs),
+                KSCrashRunSummaryField_EndedAtMs : @(session.endedAtMs),
+            } mutableCopy];
+            if (session.userID != nil) {
+                record[KSCrashRunSummaryField_UserID] = session.userID;
+            }
+            [records addObject:record];
+        }
+        sessionsDict[KSCrashRunSummaryField_Records] = records;
+    }
+    dict[KSCrashRunSummaryField_Sessions] = sessionsDict;
     dict[KSCrashRunSummaryField_App] = @{
         KSCrashRunSummaryField_BundleID : self.app.bundleID,
         KSCrashRunSummaryField_Version : self.app.version,
@@ -488,6 +528,65 @@ static KSCrashRunSummaryHostKind hostKindFromWireString(NSString *value)
         isBeingDebugged = [(NSNumber *)isBeingDebuggedValue boolValue];
     }
 
+    // Optional per-session records; absent in summaries not yet merged with a
+    // session file. A present value must be a well-formed array.
+    NSMutableArray<KSCrashRunSummarySession *> *sessionRecords = [NSMutableArray array];
+    id recordsValue = sessionsDict[KSCrashRunSummaryField_Records];
+    if (recordsValue != nil && recordsValue != (id)kCFNull) {
+        if (![recordsValue isKindOfClass:[NSArray class]]) {
+            if (error != NULL) {
+                *error = [NSError
+                    errorWithDomain:NSCocoaErrorDomain
+                               code:NSFileReadCorruptFileError
+                           userInfo:@{
+                               NSLocalizedDescriptionKey : @"Run summary JSON has a wrong-typed sessions.records field."
+                           }];
+            }
+            return nil;
+        }
+        for (id element in (NSArray *)recordsValue) {
+            if (![element isKindOfClass:[NSDictionary class]]) {
+                ok = NO;
+                break;
+            }
+            NSDictionary *recordDict = element;
+            NSString *sessionID = requiredString(recordDict, KSCrashRunSummaryField_SessionID, &ok);
+            BOOL sessionPerceptible = requiredBool(recordDict, KSCrashRunSummaryField_Perceptible, &ok);
+            int64_t sessionStartedAtMs = requiredInt64(recordDict, KSCrashRunSummaryField_StartedAtMs, &ok);
+            int64_t sessionEndedAtMs = requiredInt64(recordDict, KSCrashRunSummaryField_EndedAtMs, &ok);
+            if (!ok) {
+                break;
+            }
+            // user_id is nullable: missing or null is anonymous, but a present
+            // non-string fails the decode, matching the top-level user_id.
+            id sessionUserIDValue = recordDict[KSCrashRunSummaryField_UserID];
+            NSString *sessionUserID = nil;
+            if (sessionUserIDValue != nil && sessionUserIDValue != (id)kCFNull) {
+                if (![sessionUserIDValue isKindOfClass:[NSString class]]) {
+                    ok = NO;
+                    break;
+                }
+                sessionUserID = (NSString *)sessionUserIDValue;
+            }
+            [sessionRecords addObject:[[KSCrashRunSummarySession alloc] initWithSessionID:sessionID
+                                                                                   userID:sessionUserID
+                                                                              perceptible:sessionPerceptible
+                                                                              startedAtMs:sessionStartedAtMs
+                                                                                endedAtMs:sessionEndedAtMs]];
+        }
+        if (!ok) {
+            if (error != NULL) {
+                *error =
+                    [NSError errorWithDomain:NSCocoaErrorDomain
+                                        code:NSFileReadCorruptFileError
+                                    userInfo:@{
+                                        NSLocalizedDescriptionKey : @"Run summary JSON has a malformed session record."
+                                    }];
+            }
+            return nil;
+        }
+    }
+
     KSCrashRunSummaryOutcome *outcome = [[KSCrashRunSummaryOutcome alloc]
         initWithTerminationReason:kstermination_reasonFromString(reasonString.UTF8String)
                     cleanShutdown:cleanShutdown
@@ -497,7 +596,8 @@ static KSCrashRunSummaryHostKind hostKindFromWireString(NSString *value)
                                                                                     backgroundMs:backgroundMs];
     KSCrashRunSummarySessions *sessions =
         [[KSCrashRunSummarySessions alloc] initWithPerceptibleCount:sessionsPerceptible
-                                                 imperceptibleCount:sessionsImperceptible];
+                                                 imperceptibleCount:sessionsImperceptible
+                                                            records:sessionRecords];
     KSCrashRunSummaryUsers *users = [[KSCrashRunSummaryUsers alloc] initWithPerceptibleCount:usersPerceptible
                                                                           imperceptibleCount:usersImperceptible];
     KSCrashRunSummaryApp *app = [[KSCrashRunSummaryApp alloc] initWithBundleID:bundleID

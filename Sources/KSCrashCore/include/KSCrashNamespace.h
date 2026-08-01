@@ -145,6 +145,7 @@
 #define KSCrashRunSummaryDurations KSCRASH_NS(KSCrashRunSummaryDurations)
 #define KSCrashRunSummaryOS KSCRASH_NS(KSCrashRunSummaryOS)
 #define KSCrashRunSummaryOutcome KSCRASH_NS(KSCrashRunSummaryOutcome)
+#define KSCrashRunSummarySession KSCRASH_NS(KSCrashRunSummarySession)
 #define KSCrashRunSummarySessions KSCRASH_NS(KSCrashRunSummarySessions)
 #define KSCrashRunSummaryUsers KSCRASH_NS(KSCrashRunSummaryUsers)
 #define KSCrashSendConfiguration KSCRASH_NS(KSCrashSendConfiguration)
