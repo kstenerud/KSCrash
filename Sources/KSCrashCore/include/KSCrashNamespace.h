@@ -168,6 +168,7 @@
 #define ReportType KSCRASH_NS(ReportType)
 #define ReportWriter KSCRASH_NS(ReportWriter)
 #define RunSummary KSCRASH_NS(RunSummary)
+#define RunSummaryField KSCRASH_NS(RunSummaryField)
 #define TerminationReason KSCRASH_NS(TerminationReason)
 #define i_kslog_logC KSCRASH_NS(i_kslog_logC)
 #define i_kslog_logCBasic KSCRASH_NS(i_kslog_logCBasic)

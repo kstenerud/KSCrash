@@ -295,6 +295,55 @@ KSCRF_DEFINE_CONSTANT(KSCrashField, HangEndRole, hangEndRole, "hang_end_role")
 KSCRF_DEFINE_CONSTANT(KSCrashField, HangEndTransitionState, hangEndTransitionState, "hang_end_transition_state")
 KSCRF_DEFINE_CONSTANT(KSCrashField, HangRecovered, hangRecovered, "hang_recovered")
 
+#pragma mark - Run Summary -
+
+typedef KSCrashReportField KSCrashRunSummaryField NS_TYPED_ENUM NS_SWIFT_NAME(RunSummaryField);
+
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, SchemaVersion, schemaVersion, "schema_version")
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, SDKVersion, sdkVersion, "sdk_version")
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, RunID, runID, "run_id")
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, DeviceID, deviceID, "device_id")
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, UserID, userID, "user_id")
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, StartedAtMs, startedAtMs, "started_at_ms")
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, EndedAtMs, endedAtMs, "ended_at_ms")
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, IsBeingDebugged, isBeingDebugged, "is_being_debugged")
+
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, Users, users, "users")
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, Sessions, sessions, "sessions")
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, PerceptibleCount, perceptibleCount, "perceptible_count")
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, ImperceptibleCount, imperceptibleCount, "imperceptible_count")
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, Records, records, "records")
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, SessionID, sessionID, "session_id")
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, Perceptible, perceptible, "perceptible")
+
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, Outcome, outcome, "outcome")
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, TerminationReason, terminationReason, "termination_reason")
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, CleanShutdown, cleanShutdown, "clean_shutdown")
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, FatalReported, fatalReported, "fatal_reported")
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, UserPerceptible, userPerceptible, "user_perceptible")
+
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, DurationsMs, durationsMs, "durations_ms")
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, Active, active, "active")
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, Background, background, "background")
+
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, App, app, "app")
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, BundleID, bundleID, "bundle_id")
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, Version, version, "version")
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, ShortVersion, shortVersion, "short_version")
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, HostKind, hostKind, "host_kind")
+
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, OS, os, "os")
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, Name, name, "name")
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, Build, build, "build")
+
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, Device, device, "device")
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, Model, model, "model")
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, ModelFamily, modelFamily, "model_family")
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, Architecture, architecture, "architecture")
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, BinaryArchitecture, binaryArchitecture, "binary_architecture")
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, IsTranslated, isTranslated, "is_translated")
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, IsJailbroken, isJailbroken, "is_jailbroken")
+
 #ifdef __cplusplus
 }
 #endif

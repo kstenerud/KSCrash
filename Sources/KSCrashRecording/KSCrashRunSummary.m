@@ -26,6 +26,8 @@
 
 #import "KSCrashRunSummary.h"
 
+#import "KSCrashReportFields.h"
+
 // kstermination_reasonToString already returns the snake_case wire strings
 // used by the schema, so we reuse it rather than duplicating the mapping.
 #import "KSTerminationReason.h"
@@ -202,54 +204,54 @@ static NSString *hostKindWireString(KSCrashRunSummaryHostKind kind)
 - (NSDictionary<NSString *, id> *)wireDictionary
 {
     NSMutableDictionary *dict = [NSMutableDictionary dictionaryWithCapacity:14];
-    dict[@"schema_version"] = @(self.schemaVersion);
-    dict[@"sdk_version"] = self.sdkVersion;
-    dict[@"run_id"] = self.runID;
-    dict[@"device_id"] = self.deviceID;
+    dict[KSCrashRunSummaryField_SchemaVersion] = @(self.schemaVersion);
+    dict[KSCrashRunSummaryField_SDKVersion] = self.sdkVersion;
+    dict[KSCrashRunSummaryField_RunID] = self.runID;
+    dict[KSCrashRunSummaryField_DeviceID] = self.deviceID;
     if (self.userID != nil) {
-        dict[@"user_id"] = self.userID;
+        dict[KSCrashRunSummaryField_UserID] = self.userID;
     }
-    dict[@"users"] = @{
-        @"perceptible_count" : @(self.users.perceptibleCount),
-        @"imperceptible_count" : @(self.users.imperceptibleCount),
+    dict[KSCrashRunSummaryField_Users] = @{
+        KSCrashRunSummaryField_PerceptibleCount : @(self.users.perceptibleCount),
+        KSCrashRunSummaryField_ImperceptibleCount : @(self.users.imperceptibleCount),
     };
-    dict[@"started_at_ms"] = @(self.startedAtMs);
-    dict[@"ended_at_ms"] = @(self.endedAtMs);
-    dict[@"is_being_debugged"] = self.isBeingDebugged ? @YES : @NO;
-    dict[@"outcome"] = @{
-        @"termination_reason" : @(kstermination_reasonToString(self.outcome.terminationReason)),
+    dict[KSCrashRunSummaryField_StartedAtMs] = @(self.startedAtMs);
+    dict[KSCrashRunSummaryField_EndedAtMs] = @(self.endedAtMs);
+    dict[KSCrashRunSummaryField_IsBeingDebugged] = self.isBeingDebugged ? @YES : @NO;
+    dict[KSCrashRunSummaryField_Outcome] = @{
+        KSCrashRunSummaryField_TerminationReason : @(kstermination_reasonToString(self.outcome.terminationReason)),
         // @YES / @NO wrap CFBoolean so KSJSONCodec emits JSON booleans; a
         // plain @(BOOL) would be an integer NSNumber and serialize as 0/1.
-        @"clean_shutdown" : self.outcome.cleanShutdown ? @YES : @NO,
-        @"fatal_reported" : self.outcome.fatalReported ? @YES : @NO,
-        @"user_perceptible" : self.outcome.userPerceptible ? @YES : @NO,
+        KSCrashRunSummaryField_CleanShutdown : self.outcome.cleanShutdown ? @YES : @NO,
+        KSCrashRunSummaryField_FatalReported : self.outcome.fatalReported ? @YES : @NO,
+        KSCrashRunSummaryField_UserPerceptible : self.outcome.userPerceptible ? @YES : @NO,
     };
-    dict[@"durations_ms"] = @{
-        @"active" : @(self.durations.activeMs),
-        @"background" : @(self.durations.backgroundMs),
+    dict[KSCrashRunSummaryField_DurationsMs] = @{
+        KSCrashRunSummaryField_Active : @(self.durations.activeMs),
+        KSCrashRunSummaryField_Background : @(self.durations.backgroundMs),
     };
-    dict[@"sessions"] = @{
-        @"perceptible_count" : @(self.sessions.perceptibleCount),
-        @"imperceptible_count" : @(self.sessions.imperceptibleCount),
+    dict[KSCrashRunSummaryField_Sessions] = @{
+        KSCrashRunSummaryField_PerceptibleCount : @(self.sessions.perceptibleCount),
+        KSCrashRunSummaryField_ImperceptibleCount : @(self.sessions.imperceptibleCount),
     };
-    dict[@"app"] = @{
-        @"bundle_id" : self.app.bundleID,
-        @"version" : self.app.version,
-        @"short_version" : self.app.shortVersion,
-        @"host_kind" : hostKindWireString(self.app.hostKind),
+    dict[KSCrashRunSummaryField_App] = @{
+        KSCrashRunSummaryField_BundleID : self.app.bundleID,
+        KSCrashRunSummaryField_Version : self.app.version,
+        KSCrashRunSummaryField_ShortVersion : self.app.shortVersion,
+        KSCrashRunSummaryField_HostKind : hostKindWireString(self.app.hostKind),
     };
-    dict[@"os"] = @{
-        @"name" : self.os.name,
-        @"version" : self.os.version,
-        @"build" : self.os.build,
+    dict[KSCrashRunSummaryField_OS] = @{
+        KSCrashRunSummaryField_Name : self.os.name,
+        KSCrashRunSummaryField_Version : self.os.version,
+        KSCrashRunSummaryField_Build : self.os.build,
     };
-    dict[@"device"] = @{
-        @"model" : self.device.model,
-        @"model_family" : self.device.modelFamily,
-        @"architecture" : self.device.architecture,
-        @"binary_architecture" : self.device.binaryArchitecture,
-        @"is_translated" : self.device.isTranslated ? @YES : @NO,
-        @"is_jailbroken" : self.device.isJailbroken ? @YES : @NO,
+    dict[KSCrashRunSummaryField_Device] = @{
+        KSCrashRunSummaryField_Model : self.device.model,
+        KSCrashRunSummaryField_ModelFamily : self.device.modelFamily,
+        KSCrashRunSummaryField_Architecture : self.device.architecture,
+        KSCrashRunSummaryField_BinaryArchitecture : self.device.binaryArchitecture,
+        KSCrashRunSummaryField_IsTranslated : self.device.isTranslated ? @YES : @NO,
+        KSCrashRunSummaryField_IsJailbroken : self.device.isJailbroken ? @YES : @NO,
     };
     return dict;
 }
@@ -378,13 +380,13 @@ static KSCrashRunSummaryHostKind hostKindFromWireString(NSString *value)
 
     BOOL ok = YES;
 
-    NSDictionary *outcomeDict = requiredDictionary(dict, @"outcome", &ok);
-    NSDictionary *durationsDict = requiredDictionary(dict, @"durations_ms", &ok);
-    NSDictionary *sessionsDict = requiredDictionary(dict, @"sessions", &ok);
-    NSDictionary *usersDict = requiredDictionary(dict, @"users", &ok);
-    NSDictionary *appDict = requiredDictionary(dict, @"app", &ok);
-    NSDictionary *osDict = requiredDictionary(dict, @"os", &ok);
-    NSDictionary *deviceDict = requiredDictionary(dict, @"device", &ok);
+    NSDictionary *outcomeDict = requiredDictionary(dict, KSCrashRunSummaryField_Outcome, &ok);
+    NSDictionary *durationsDict = requiredDictionary(dict, KSCrashRunSummaryField_DurationsMs, &ok);
+    NSDictionary *sessionsDict = requiredDictionary(dict, KSCrashRunSummaryField_Sessions, &ok);
+    NSDictionary *usersDict = requiredDictionary(dict, KSCrashRunSummaryField_Users, &ok);
+    NSDictionary *appDict = requiredDictionary(dict, KSCrashRunSummaryField_App, &ok);
+    NSDictionary *osDict = requiredDictionary(dict, KSCrashRunSummaryField_OS, &ok);
+    NSDictionary *deviceDict = requiredDictionary(dict, KSCrashRunSummaryField_Device, &ok);
     if (!ok) {
         if (error != NULL) {
             *error = [NSError
@@ -399,42 +401,42 @@ static KSCrashRunSummaryHostKind hostKindFromWireString(NSString *value)
     // instead of threading `ok` through each nested initializer. Missing any
     // required field → nil return; no partial object is built.
 
-    NSInteger schemaVersion = requiredInteger(dict, @"schema_version", &ok);
-    NSString *sdkVersion = requiredString(dict, @"sdk_version", &ok);
-    NSString *runID = requiredString(dict, @"run_id", &ok);
-    NSString *deviceID = requiredString(dict, @"device_id", &ok);
-    int64_t startedAtMs = requiredInt64(dict, @"started_at_ms", &ok);
-    int64_t endedAtMs = requiredInt64(dict, @"ended_at_ms", &ok);
+    NSInteger schemaVersion = requiredInteger(dict, KSCrashRunSummaryField_SchemaVersion, &ok);
+    NSString *sdkVersion = requiredString(dict, KSCrashRunSummaryField_SDKVersion, &ok);
+    NSString *runID = requiredString(dict, KSCrashRunSummaryField_RunID, &ok);
+    NSString *deviceID = requiredString(dict, KSCrashRunSummaryField_DeviceID, &ok);
+    int64_t startedAtMs = requiredInt64(dict, KSCrashRunSummaryField_StartedAtMs, &ok);
+    int64_t endedAtMs = requiredInt64(dict, KSCrashRunSummaryField_EndedAtMs, &ok);
 
-    NSString *reasonString = requiredString(outcomeDict, @"termination_reason", &ok);
-    BOOL cleanShutdown = requiredBool(outcomeDict, @"clean_shutdown", &ok);
-    BOOL fatalReported = requiredBool(outcomeDict, @"fatal_reported", &ok);
-    BOOL userPerceptible = requiredBool(outcomeDict, @"user_perceptible", &ok);
+    NSString *reasonString = requiredString(outcomeDict, KSCrashRunSummaryField_TerminationReason, &ok);
+    BOOL cleanShutdown = requiredBool(outcomeDict, KSCrashRunSummaryField_CleanShutdown, &ok);
+    BOOL fatalReported = requiredBool(outcomeDict, KSCrashRunSummaryField_FatalReported, &ok);
+    BOOL userPerceptible = requiredBool(outcomeDict, KSCrashRunSummaryField_UserPerceptible, &ok);
 
-    int64_t activeMs = requiredInt64(durationsDict, @"active", &ok);
-    int64_t backgroundMs = requiredInt64(durationsDict, @"background", &ok);
+    int64_t activeMs = requiredInt64(durationsDict, KSCrashRunSummaryField_Active, &ok);
+    int64_t backgroundMs = requiredInt64(durationsDict, KSCrashRunSummaryField_Background, &ok);
 
-    NSInteger sessionsPerceptible = requiredInteger(sessionsDict, @"perceptible_count", &ok);
-    NSInteger sessionsImperceptible = requiredInteger(sessionsDict, @"imperceptible_count", &ok);
+    NSInteger sessionsPerceptible = requiredInteger(sessionsDict, KSCrashRunSummaryField_PerceptibleCount, &ok);
+    NSInteger sessionsImperceptible = requiredInteger(sessionsDict, KSCrashRunSummaryField_ImperceptibleCount, &ok);
 
-    NSInteger usersPerceptible = requiredInteger(usersDict, @"perceptible_count", &ok);
-    NSInteger usersImperceptible = requiredInteger(usersDict, @"imperceptible_count", &ok);
+    NSInteger usersPerceptible = requiredInteger(usersDict, KSCrashRunSummaryField_PerceptibleCount, &ok);
+    NSInteger usersImperceptible = requiredInteger(usersDict, KSCrashRunSummaryField_ImperceptibleCount, &ok);
 
-    NSString *bundleID = requiredString(appDict, @"bundle_id", &ok);
-    NSString *appVersion = requiredString(appDict, @"version", &ok);
-    NSString *appShortVersion = requiredString(appDict, @"short_version", &ok);
-    NSString *hostKindString = requiredString(appDict, @"host_kind", &ok);
+    NSString *bundleID = requiredString(appDict, KSCrashRunSummaryField_BundleID, &ok);
+    NSString *appVersion = requiredString(appDict, KSCrashRunSummaryField_Version, &ok);
+    NSString *appShortVersion = requiredString(appDict, KSCrashRunSummaryField_ShortVersion, &ok);
+    NSString *hostKindString = requiredString(appDict, KSCrashRunSummaryField_HostKind, &ok);
 
-    NSString *osName = requiredString(osDict, @"name", &ok);
-    NSString *osVersion = requiredString(osDict, @"version", &ok);
-    NSString *osBuild = requiredString(osDict, @"build", &ok);
+    NSString *osName = requiredString(osDict, KSCrashRunSummaryField_Name, &ok);
+    NSString *osVersion = requiredString(osDict, KSCrashRunSummaryField_Version, &ok);
+    NSString *osBuild = requiredString(osDict, KSCrashRunSummaryField_Build, &ok);
 
-    NSString *deviceModel = requiredString(deviceDict, @"model", &ok);
-    NSString *deviceModelFamily = requiredString(deviceDict, @"model_family", &ok);
-    NSString *deviceArchitecture = requiredString(deviceDict, @"architecture", &ok);
-    NSString *deviceBinaryArchitecture = requiredString(deviceDict, @"binary_architecture", &ok);
-    BOOL isTranslated = requiredBool(deviceDict, @"is_translated", &ok);
-    BOOL isJailbroken = requiredBool(deviceDict, @"is_jailbroken", &ok);
+    NSString *deviceModel = requiredString(deviceDict, KSCrashRunSummaryField_Model, &ok);
+    NSString *deviceModelFamily = requiredString(deviceDict, KSCrashRunSummaryField_ModelFamily, &ok);
+    NSString *deviceArchitecture = requiredString(deviceDict, KSCrashRunSummaryField_Architecture, &ok);
+    NSString *deviceBinaryArchitecture = requiredString(deviceDict, KSCrashRunSummaryField_BinaryArchitecture, &ok);
+    BOOL isTranslated = requiredBool(deviceDict, KSCrashRunSummaryField_IsTranslated, &ok);
+    BOOL isJailbroken = requiredBool(deviceDict, KSCrashRunSummaryField_IsJailbroken, &ok);
 
     if (!ok) {
         if (error != NULL) {
@@ -449,7 +451,7 @@ static KSCrashRunSummaryHostKind hostKindFromWireString(NSString *value)
     // user_id is explicitly nullable — missing or null maps to nil, but a
     // present non-string value is a schema violation and fails the decode,
     // matching the strictness of the required-field checks above.
-    id userIDValue = dict[@"user_id"];
+    id userIDValue = dict[KSCrashRunSummaryField_UserID];
     NSString *userID = nil;
     if (userIDValue != nil && userIDValue != (id)kCFNull) {
         if (![userIDValue isKindOfClass:[NSString class]]) {
@@ -469,7 +471,7 @@ static KSCrashRunSummaryHostKind hostKindFromWireString(NSString *value)
     // is_being_debugged was added after the first shipped summaries, so a
     // payload written by an older SDK lacks the key; that decodes as NO
     // rather than failing. A present non-boolean still fails the decode.
-    id isBeingDebuggedValue = dict[@"is_being_debugged"];
+    id isBeingDebuggedValue = dict[KSCrashRunSummaryField_IsBeingDebugged];
     BOOL isBeingDebugged = NO;
     if (isBeingDebuggedValue != nil && isBeingDebuggedValue != (id)kCFNull) {
         if (!isJSONBoolean(isBeingDebuggedValue)) {
