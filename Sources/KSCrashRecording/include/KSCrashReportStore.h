@@ -190,13 +190,13 @@ NS_SWIFT_NAME(CrashReportStore)
  */
 - (void)deleteReportWithID:(KSCrashReportID)reportID NS_SWIFT_NAME(deleteReport(with:));
 
-/** Remove run sidecar directories that no longer have matching reports.
+/** Remove on-disk run data (run sidecar directories and session sidecars) for
+ * runs no longer referenced by any report or run summary.
  *
- * Called automatically within @c sendAllReportsWithConfiguration:completion:.
- * If you handle report delivery yourself, call this periodically or after sending reports.
- * May block, so prefer calling from a background thread.
+ * Called automatically within the send flows. If you handle delivery yourself,
+ * call this periodically or after sending. May block, so prefer a background thread.
  */
-- (void)cleanupOrphanedRunSidecars;
+- (void)reclaimOrphanedRunData;
 
 @end
 

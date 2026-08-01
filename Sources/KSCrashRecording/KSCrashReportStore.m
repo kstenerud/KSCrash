@@ -223,7 +223,7 @@ static KSCrashRunSummary *runSummaryByMergingSessions(KSCrashRunSummary *summary
                      [strongSelf deleteReportWithID:reportID.longLongValue];
                  }
              }
-             kscrs_cleanupOrphanedRunSidecars(&strongSelf->_cConfig);
+             kscrs_reclaimOrphanedRunData(&strongSelf->_cConfig);
              kscrash_callCompletion(onCompletion, filteredReports, error);
          }];
 }
@@ -296,9 +296,9 @@ static KSCrashRunSummary *runSummaryByMergingSessions(KSCrashRunSummary *summary
     kscrs_deleteReportWithID(reportID, &_cConfig);
 }
 
-- (void)cleanupOrphanedRunSidecars
+- (void)reclaimOrphanedRunData
 {
-    kscrs_cleanupOrphanedRunSidecars(&_cConfig);
+    kscrs_reclaimOrphanedRunData(&_cConfig);
 }
 
 #pragma mark - Run summaries
@@ -451,6 +451,9 @@ static KSCrashRunSummary *runSummaryByMergingSessions(KSCrashRunSummary *summary
                                      }
                                  }
                              }
+                             // Now that sent .run files are gone, reclaim any
+                             // .sessions (and run sidecars) no longer referenced.
+                             kscrs_reclaimOrphanedRunData(&deleteSelf->_cConfig);
                              deleteSelf->_isSendingRunSummaries = NO;
                              os_unfair_lock_unlock(&deleteSelf->_runSummaryLock);
                          }

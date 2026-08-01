@@ -336,6 +336,73 @@
     XCTAssertNotNil(sent.jsonData, @"merged summary still serializes");
 }
 
+- (void)test_sendAllRunSummaries_reclaimsOrphanedSessionsAfterSend
+{
+    [[NSFileManager defaultManager] createDirectoryAtPath:self.runsDir
+                              withIntermediateDirectories:YES
+                                               attributes:nil
+                                                    error:nil];
+    NSString *runID = @"A1B2C3D4-E5F6-7890-ABCD-EF1234567890";
+    NSString *sessionsPath =
+        [self.runsDir stringByAppendingPathComponent:[runID stringByAppendingPathExtension:@"sessions"]];
+    KSSessionWriter *writer = kssw_open(sessionsPath.fileSystemRepresentation);
+    kssw_update(writer, true, "alice");
+    kssw_close(writer);
+    [self writeSummaryWithRunID:runID];
+
+    KSCrashReportStore_StubRunSink *sink = [KSCrashReportStore_StubRunSink new];  // echoes -> run is sent
+    XCTestExpectation *done = [self expectationWithDescription:@"completion"];
+    [self.store
+        sendAllRunSummariesWithConfiguration:[self cfgWithRunFilters:@[ sink ]]
+                                  completion:^(NSArray<KSCrashRunSummary *> *_Nullable runs, NSError *_Nullable error) {
+                                      XCTAssertNil(error);
+                                      XCTAssertEqual(runs.count, 1u);
+                                      [done fulfill];
+                                  }];
+    [self waitForExpectations:@[ done ] timeout:2.0];
+
+    NSFileManager *fm = [NSFileManager defaultManager];
+    XCTAssertFalse(
+        [fm fileExistsAtPath:[self.runsDir
+                                 stringByAppendingPathComponent:[runID stringByAppendingPathExtension:@"run"]]],
+        @"summary sent");
+    XCTAssertFalse([fm fileExistsAtPath:sessionsPath], @"no report or summary references the run: .sessions reclaimed");
+}
+
+- (void)test_sendAllRunSummaries_retainsSessionsWhileSummaryRemains
+{
+    [[NSFileManager defaultManager] createDirectoryAtPath:self.runsDir
+                              withIntermediateDirectories:YES
+                                               attributes:nil
+                                                    error:nil];
+    NSString *runID = @"A1B2C3D4-E5F6-7890-ABCD-EF1234567890";
+    NSString *sessionsPath =
+        [self.runsDir stringByAppendingPathComponent:[runID stringByAppendingPathExtension:@"sessions"]];
+    KSSessionWriter *writer = kssw_open(sessionsPath.fileSystemRepresentation);
+    kssw_update(writer, true, "alice");
+    kssw_close(writer);
+    [self writeSummaryWithRunID:runID];
+
+    KSCrashReportStore_StubRunSink *sink = [KSCrashReportStore_StubRunSink new];
+    sink.runsToReturn = @[];  // sink confirms nothing -> .run kept
+    XCTestExpectation *done = [self expectationWithDescription:@"completion"];
+    [self.store
+        sendAllRunSummariesWithConfiguration:[self cfgWithRunFilters:@[ sink ]]
+                                  completion:^(NSArray<KSCrashRunSummary *> *_Nullable runs, NSError *_Nullable error) {
+                                      XCTAssertNil(error);
+                                      XCTAssertEqual(runs.count, 0u);
+                                      [done fulfill];
+                                  }];
+    [self waitForExpectations:@[ done ] timeout:2.0];
+
+    NSFileManager *fm = [NSFileManager defaultManager];
+    XCTAssertTrue(
+        [fm fileExistsAtPath:[self.runsDir
+                                 stringByAppendingPathComponent:[runID stringByAppendingPathExtension:@"run"]]],
+        @"summary retained");
+    XCTAssertTrue([fm fileExistsAtPath:sessionsPath], @"a still-queued summary keeps its .sessions");
+}
+
 - (void)test_sendAllRunSummaries_retainsFilesWhenSinkReturnsError
 {
     [self writeSummaryWithRunID:@"run-A"];

@@ -195,7 +195,7 @@ static CFDictionaryRef testStitchReport(CFDictionaryRef reportDict, const char *
     XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir]);
 
     // Cleanup orphans — orphan should be removed
-    kscrs_cleanupOrphanedRunSidecars(&_storeConfig);
+    kscrs_reclaimOrphanedRunData(&_storeConfig);
     XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:runDir]);
 }
 
@@ -211,7 +211,7 @@ static CFDictionaryRef testStitchReport(CFDictionaryRef reportDict, const char *
     XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir]);
 
     // Cleanup orphans — run sidecar should survive since report still exists
-    kscrs_cleanupOrphanedRunSidecars(&_storeConfig);
+    kscrs_reclaimOrphanedRunData(&_storeConfig);
     XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir]);
 }
 
@@ -233,9 +233,43 @@ static CFDictionaryRef testStitchReport(CFDictionaryRef reportDict, const char *
     XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:orphanDir]);
 
     // Cleanup orphans — only orphan should be removed
-    kscrs_cleanupOrphanedRunSidecars(&_storeConfig);
+    kscrs_reclaimOrphanedRunData(&_storeConfig);
     XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:activeDir]);
     XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:orphanDir]);
+}
+
+// Regression: a leftover ".json.tmp" (atomic-write remnant) or ".old" (recrash
+// backup) parses to a report id via the permissive filename scan, but its
+// canonical .json may be gone. Reclamation must skip such artifacts, not treat
+// the missing canonical report as a read failure and abort, so genuine orphans
+// are still cleaned.
+- (void)testCleanupIgnoresLeftoverReportArtifacts
+{
+    [self prepareStoreWithRunSidecars:@"testReclaimArtifacts"];
+    NSString *activeRunId = [[NSUUID UUID] UUIDString];
+    NSString *orphanRunId = [[NSUUID UUID] UUIDString];
+
+    [self writeReportWithRunId:activeRunId];
+    [self writeRunSidecar:@"System" runId:activeRunId contents:@"active data"];
+    [self writeRunSidecar:@"System" runId:orphanRunId contents:@"orphan data"];
+
+    // Artifacts whose canonical testapp-report-<id>.json does not exist.
+    NSString *reportsDir = [NSString stringWithUTF8String:_storeConfig.reportsPath];
+    for (NSString *name in @[ @"testapp-report-00000000deadbeef.json.tmp", @"testapp-report-00000000deadbee0.old" ]) {
+        NSString *path = [reportsDir stringByAppendingPathComponent:name];
+        XCTAssertTrue([@"leftover" writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil]);
+    }
+
+    NSString *activeDir =
+        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:activeRunId];
+    NSString *orphanDir =
+        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:orphanRunId];
+
+    kscrs_reclaimOrphanedRunData(&_storeConfig);
+
+    // Reclamation ran to completion despite the artifacts: orphan gone, active kept.
+    XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:orphanDir]);
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:activeDir]);
 }
 
 // Regression: cleanup used to enumerate reports into a fixed 512-slot buffer, so
@@ -255,7 +289,7 @@ static CFDictionaryRef testStitchReport(CFDictionaryRef reportDict, const char *
                                stringByAppendingPathComponent:runId]];
     }
 
-    kscrs_cleanupOrphanedRunSidecars(&_storeConfig);
+    kscrs_reclaimOrphanedRunData(&_storeConfig);
 
     NSFileManager *fm = [NSFileManager defaultManager];
     for (NSString *runDir in runDirs) {
@@ -419,7 +453,7 @@ static CFDictionaryRef testStitchReport(CFDictionaryRef reportDict, const char *
         [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:runId];
     XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir]);
 
-    kscrs_cleanupOrphanedRunSidecars(&_storeConfig);
+    kscrs_reclaimOrphanedRunData(&_storeConfig);
     XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir],
                   @"Run sidecar should be preserved when report section is past 2 KB");
 }
@@ -435,7 +469,7 @@ static CFDictionaryRef testStitchReport(CFDictionaryRef reportDict, const char *
         [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:runId];
     XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir]);
 
-    kscrs_cleanupOrphanedRunSidecars(&_storeConfig);
+    kscrs_reclaimOrphanedRunData(&_storeConfig);
     XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir],
                   @"Run sidecar should be preserved when run_id is deep inside report section");
 }
@@ -455,7 +489,7 @@ static CFDictionaryRef testStitchReport(CFDictionaryRef reportDict, const char *
     NSString *orphanDir =
         [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:orphanRunId];
 
-    kscrs_cleanupOrphanedRunSidecars(&_storeConfig);
+    kscrs_reclaimOrphanedRunData(&_storeConfig);
     XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:activeDir],
                   @"Active large-report sidecar should be preserved");
     XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:orphanDir],
@@ -476,7 +510,7 @@ static CFDictionaryRef testStitchReport(CFDictionaryRef reportDict, const char *
     NSString *runDir =
         [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:runId];
 
-    kscrs_cleanupOrphanedRunSidecars(&_storeConfig);
+    kscrs_reclaimOrphanedRunData(&_storeConfig);
     XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir],
                   @"Run sidecar should be preserved when arrays precede run_id in report section");
 }
@@ -495,7 +529,7 @@ static CFDictionaryRef testStitchReport(CFDictionaryRef reportDict, const char *
     NSString *runDir =
         [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:runId];
 
-    kscrs_cleanupOrphanedRunSidecars(&_storeConfig);
+    kscrs_reclaimOrphanedRunData(&_storeConfig);
     XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir],
                   @"Run sidecar should be preserved when nested 'report' key precedes top-level one");
 }
@@ -519,7 +553,7 @@ static CFDictionaryRef testStitchReport(CFDictionaryRef reportDict, const char *
     NSString *runDir =
         [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:runId];
 
-    kscrs_cleanupOrphanedRunSidecars(&_storeConfig);
+    kscrs_reclaimOrphanedRunData(&_storeConfig);
     XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir],
                   @"Run sidecar should be preserved via ObjC fallback when streaming decoder fails on oversized key");
 }

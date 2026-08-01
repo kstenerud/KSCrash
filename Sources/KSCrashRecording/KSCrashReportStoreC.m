@@ -360,82 +360,124 @@ static NSDictionary *stitchRunSidecarsIntoReport(NSDictionary *report,
  * Any run sidecar directory whose name isn't in the active set is deleted.
  * Runs after report sending and via the explicit cleanup entry point.
  */
-static void cleanupOrphanedRunSidecars(const KSCrashReportStoreCConfiguration *const config)
+// Run ids that keep a run's on-disk data alive via a still-queued report: the
+// current run, plus one per report (a report references its run's sidecars and
+// its .sessions, which the report stitch reads for session_id).
+static NSSet<NSString *> *reportReferencedRunIDs(const KSCrashReportStoreCConfiguration *const config)
 {
-    if (config->runSidecarsPath == NULL) {
-        return;
+    NSMutableSet<NSString *> *runIDs = [NSMutableSet setWithObject:@(kscrash_getRunID())];
+    DIR *dir = opendir(config->reportsPath);
+    if (dir == NULL) {
+        // Can't read the reports dir (e.g. fd exhaustion): return nil so the
+        // caller aborts rather than treating every reported run as an orphan.
+        return nil;
     }
-
-    const char *currentRunID = kscrash_getRunID();
-
-    // Declared up front so the single `done:` cleanup path frees them regardless
-    // of which early exit is taken.
-    int64_t *reportIDs = NULL;
-    char (*activeRunIds)[KSCRS_UUID_STRING_LENGTH + 1] = NULL;
-
-    // Enumerate every report, not a fixed cap. A run sidecar is an orphan only
-    // when no surviving report references it, so under-counting reports here
-    // would delete sidecars still in use (e.g. when maxReportCount exceeds the
-    // buffer size). Sizing to the actual count mirrors pruneReports.
-    int reportCount = getReportCount(config);
-    if (reportCount > 0) {
-        reportIDs = calloc((size_t)reportCount, sizeof(*reportIDs));
-        if (reportIDs == NULL) {
-            goto done;
+    for (;;) {
+        errno = 0;
+        struct dirent *ent = readdir(dir);
+        if (ent == NULL) {
+            // readdir returns NULL for both end-of-directory and error; a
+            // nonzero errno means a real failure, so abort rather than reclaim
+            // on a partial listing.
+            if (errno != 0) {
+                closedir(dir);
+                return nil;
+            }
+            break;
         }
-        reportCount = getReportIDs(reportIDs, reportCount, config);
-    }
-
-    int capacity = reportCount + 1;  // +1 for current run
-    activeRunIds = calloc((size_t)capacity, sizeof(*activeRunIds));
-    if (activeRunIds == NULL) {
-        goto done;
-    }
-    int activeCount = 0;
-
-    // Always preserve the current run's sidecar directory
-    memcpy(activeRunIds[activeCount], currentRunID, KSCRS_UUID_STRING_LENGTH);
-    activeRunIds[activeCount][KSCRS_UUID_STRING_LENGTH] = '\0';
-    activeCount++;
-
-    for (int i = 0; i < reportCount; i++) {
+        int64_t reportID = getReportIDFromFilename(ent->d_name, config);
+        if (reportID <= 0) {
+            continue;
+        }
         char reportPath[KSCRS_MAX_PATH_LENGTH];
-        getCrashReportPathByID(reportIDs[i], reportPath, config);
-        if (kscrs_extractRunIdFromReportFile(reportPath, activeRunIds[activeCount],
-                                             sizeof(activeRunIds[activeCount]))) {
-            activeCount++;
+        getCrashReportPathByID(reportID, reportPath, config);
+        // getReportIDFromFilename parses permissively, so it also accepts
+        // artifacts like "<report>.json.tmp" and "<report>.old". Only the exact
+        // canonical name references a run; skip the rest, whose canonical report
+        // may be gone and would otherwise abort reclamation on every pass.
+        const char *canonicalName = strrchr(reportPath, '/');
+        canonicalName = canonicalName != NULL ? canonicalName + 1 : reportPath;
+        if (strcmp(ent->d_name, canonicalName) != 0) {
+            continue;
+        }
+        char runID[KSCRS_UUID_STRING_LENGTH + 1];
+        KSCrashRunIdResult result = kscrs_extractRunIdFromReportFile(reportPath, runID, sizeof(runID));
+        if (result == KSCrashRunIdResultReadError) {
+            // Couldn't read a queued report: abort rather than risk reclaiming
+            // run data it still references.
+            closedir(dir);
+            return nil;
+        }
+        if (result == KSCrashRunIdResultFound) {
+            [runIDs addObject:@(runID)];
         }
     }
+    closedir(dir);
+    return runIDs;
+}
 
-    DIR *dir = opendir(config->runSidecarsPath);
-    if (dir != NULL) {
-        struct dirent *ent;
-        while ((ent = readdir(dir)) != NULL) {
-            if (ent->d_name[0] == '.') {
-                continue;
-            }
-            bool found = false;
-            for (int i = 0; i < activeCount; i++) {
-                if (strcmp(ent->d_name, activeRunIds[i]) == 0) {
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) {
-                char runDir[KSCRS_MAX_PATH_LENGTH];
-                if (snprintf(runDir, sizeof(runDir), "%s/%s", config->runSidecarsPath, ent->d_name) <
-                    (int)sizeof(runDir)) {
-                    ksfu_deleteContentsOfPath(runDir);
-                    ksfu_removeFile(runDir, false);
+// Run ids referenced by the .run summaries still on disk (a summary keeps its
+// .sessions alive for the send-time merge). run_id is a top-level summary key.
+static NSSet<NSString *> *summaryReferencedRunIDs(const char *runSummariesPath)
+{
+    NSMutableSet<NSString *> *runIDs = [NSMutableSet set];
+    NSString *dir = @(runSummariesPath);
+    for (NSString *entry in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:dir error:nil]) {
+        if (![entry.pathExtension.lowercaseString isEqualToString:@"run"]) {
+            continue;
+        }
+        NSData *data = [NSData dataWithContentsOfFile:[dir stringByAppendingPathComponent:entry]];
+        id json = data != nil
+                      ? [KSJSONCodec decode:data
+                                    options:KSJSONDecodeOptionIgnoreNullInArray | KSJSONDecodeOptionIgnoreNullInObject |
+                                            KSJSONDecodeOptionKeepPartialObject
+                                      error:nil]
+                      : nil;
+        id runID = [json isKindOfClass:[NSDictionary class]] ? json[KSCrashRunSummaryField_RunID] : nil;
+        if ([runID isKindOfClass:[NSString class]] && [runID length] > 0) {
+            [runIDs addObject:runID];
+        }
+    }
+    return runIDs;
+}
+
+// Reclaim on-disk data for runs nothing references any more. Idempotent: it
+// recomputes the reference sets each call, so it can run at the end of any send
+// flow. RunSidecars are kept only by a report; .sessions by a report OR a summary
+// (a summary-only, non-crashed run's RunSidecar is still reclaimed).
+static void reclaimOrphanedRunData(const KSCrashReportStoreCConfiguration *const config)
+{
+    @autoreleasepool {
+        NSSet<NSString *> *reportRefs = reportReferencedRunIDs(config);
+        if (reportRefs == nil) {
+            // Couldn't enumerate reports; skip rather than orphan live run data.
+            return;
+        }
+        NSFileManager *fm = [NSFileManager defaultManager];
+
+        if (config->runSidecarsPath != NULL) {
+            NSString *dir = @(config->runSidecarsPath);
+            for (NSString *entry in [fm contentsOfDirectoryAtPath:dir error:nil]) {
+                if (![entry hasPrefix:@"."] && ![reportRefs containsObject:entry]) {
+                    [fm removeItemAtPath:[dir stringByAppendingPathComponent:entry] error:nil];
                 }
             }
         }
-        closedir(dir);
-    }
 
-done:
-    free(activeRunIds);
-    free(reportIDs);
+        if (config->runSummariesPath != NULL) {
+            NSMutableSet<NSString *> *sessionRefs = [reportRefs mutableCopy];
+            [sessionRefs unionSet:summaryReferencedRunIDs(config->runSummariesPath)];
+            NSString *dir = @(config->runSummariesPath);
+            for (NSString *entry in [fm contentsOfDirectoryAtPath:dir error:nil]) {
+                if (![entry.pathExtension.lowercaseString isEqualToString:@"sessions"]) {
+                    continue;
+                }
+                if (![sessionRefs containsObject:entry.stringByDeletingPathExtension]) {
+                    [fm removeItemAtPath:[dir stringByAppendingPathComponent:entry] error:nil];
+                }
+            }
+        }
+    }
 }
 
 static void deleteReportWithID(int64_t reportID, const KSCrashReportStoreCConfiguration *const config)
@@ -444,8 +486,8 @@ static void deleteReportWithID(int64_t reportID, const KSCrashReportStoreCConfig
     getCrashReportPathByID(reportID, path, config);
     ksfu_removeFile(path, true);
     deleteReportSidecarsForReport(reportID, config);
-    // Run sidecar orphan cleanup is deferred to kscrs_cleanupOrphanedRunSidecars,
-    // called during sendAllReports — not on the startup path.
+    // Orphaned run-data cleanup is deferred to kscrs_reclaimOrphanedRunData,
+    // called from the send flows — not on the startup path.
 }
 
 static void pruneReports(const KSCrashReportStoreCConfiguration *const config)
@@ -864,9 +906,9 @@ bool kscrs_getSummarySidecarFilePath(const char *runID, const char *extension, c
     return true;
 }
 
-void kscrs_cleanupOrphanedRunSidecars(const KSCrashReportStoreCConfiguration *const configuration)
+void kscrs_reclaimOrphanedRunData(const KSCrashReportStoreCConfiguration *const configuration)
 {
     pthread_mutex_lock(&g_mutex);
-    cleanupOrphanedRunSidecars(configuration);
+    reclaimOrphanedRunData(configuration);
     pthread_mutex_unlock(&g_mutex);
 }
