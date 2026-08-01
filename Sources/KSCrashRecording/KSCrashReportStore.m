@@ -34,12 +34,15 @@
 #import "KSCrashReportFilter.h"
 #import "KSCrashReportStoreC+Private.h"
 #import "KSCrashRunContext.h"
+#import "KSCrashRunSummary+Merge.h"
 #import "KSCrashRunSummary.h"
 #import "KSCrashSendConfiguration.h"
 #import "KSJSONCodecObjC.h"
 #import "KSNSErrorHelper.h"
+#import "KSSessionStore.h"
 
 #import <os/lock.h>
+#import <uuid/uuid.h>
 
 // #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -68,6 +71,51 @@ typedef void (^KSChainApplyFilter)(id filter, NSArray *items, KSChainStepComplet
              onCompletion:(KSCrashRunFilterCompletion)onCompletion;
 
 @end
+
+/** Merge the run's `<runID>.sessions` records into `summary`, or return it
+ *  unchanged when the run recorded no sessions. `runsDir` is where both the
+ *  `.run` and `.sessions` files live. */
+static KSCrashRunSummary *runSummaryByMergingSessions(KSCrashRunSummary *summary, NSString *runsDir)
+{
+    // Reject non-UUID run ids so a malformed .run can't build a path that
+    // traverses out of runsDir.
+    uuid_t parsed;
+    if (uuid_parse(summary.runID.UTF8String, parsed) != 0) {
+        return summary;
+    }
+    NSString *sessionsPath =
+        [runsDir stringByAppendingPathComponent:[summary.runID stringByAppendingPathExtension:@"sessions"]];
+    KSSessionReader *reader = kssr_open(sessionsPath.fileSystemRepresentation);
+    if (reader == NULL) {
+        return summary;
+    }
+    int count = kssr_count(reader);
+    if (count <= 0) {
+        kssr_close(reader);
+        return summary;
+    }
+    NSMutableArray<KSCrashRunSummarySession *> *records = [NSMutableArray arrayWithCapacity:(NSUInteger)count];
+    for (int i = 0; i < count; i++) {
+        KSSessionRecord rec = { 0 };
+        if (!kssr_sessionAt(reader, i, &rec)) {
+            continue;
+        }
+        NSString *sessionID = @(rec.guid);
+        if (sessionID == nil) {
+            continue;  // corrupt on-disk guid (invalid UTF-8); skip the record
+        }
+        NSString *userID = rec.user[0] != '\0' ? @(rec.user) : nil;
+        // Final (open) session's end comes from the run's end, floored to its start.
+        int64_t endedAtMs = rec.endInferred ? MAX(summary.endedAtMs, rec.startedAtMs) : rec.endedAtMs;
+        [records addObject:[[KSCrashRunSummarySession alloc] initWithSessionID:sessionID
+                                                                        userID:userID
+                                                                   perceptible:rec.perceptible
+                                                                   startedAtMs:rec.startedAtMs
+                                                                     endedAtMs:endedAtMs]];
+    }
+    kssr_close(reader);
+    return [summary summaryByMergingSessions:records];
+}
 
 @implementation KSCrashReportStore {
     KSCrashReportStoreCConfiguration _cConfig;
@@ -346,6 +394,7 @@ typedef void (^KSChainApplyFilter)(id filter, NSArray *items, KSChainStepComplet
                         KSLOG_ERROR(@"Run summary at %@ has empty runID; skipping", path);
                         continue;
                     }
+                    summary = runSummaryByMergingSessions(summary, runsDir);
                     [summaries addObject:summary];
                     NSMutableArray<NSString *> *bucket = runIDToPaths[summary.runID];
                     if (bucket == nil) {

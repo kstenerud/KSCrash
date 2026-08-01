@@ -31,6 +31,7 @@
 #import "KSCrashRunFilter.h"
 #import "KSCrashRunSummary.h"
 #import "KSCrashSendConfiguration.h"
+#import "KSSessionStore.h"
 
 // Stub sink that captures received runs and responds per-test.
 @interface KSCrashReportStore_StubRunSink : NSObject <KSCrashRunFilter>
@@ -222,6 +223,117 @@
         [[NSFileManager defaultManager] fileExistsAtPath:[self.runsDir stringByAppendingPathComponent:@"run-A.run"]]);
     XCTAssertFalse(
         [[NSFileManager defaultManager] fileExistsAtPath:[self.runsDir stringByAppendingPathComponent:@"run-B.run"]]);
+}
+
+- (void)test_sendAllRunSummaries_mergesSessionRecordsAndDerivesUsers
+{
+    [[NSFileManager defaultManager] createDirectoryAtPath:self.runsDir
+                              withIntermediateDirectories:YES
+                                               attributes:nil
+                                                    error:nil];
+    NSString *runID = @"A1B2C3D4-E5F6-7890-ABCD-EF1234567890";
+    NSString *sessionsPath =
+        [self.runsDir stringByAppendingPathComponent:[runID stringByAppendingPathExtension:@"sessions"]];
+    KSSessionWriter *writer = kssw_open(sessionsPath.fileSystemRepresentation);
+    kssw_update(writer, true, "alice");  // perceptible alice
+    kssw_update(writer, false, "bob");   // imperceptible bob
+    kssw_update(writer, true, "alice");  // perceptible alice again; final, still open
+    kssw_close(writer);
+
+    [self writeSummaryWithRunID:runID];  // sample summary: endedAtMs = 100
+
+    KSCrashReportStore_StubRunSink *sink = [KSCrashReportStore_StubRunSink new];
+    XCTestExpectation *done = [self expectationWithDescription:@"completion"];
+    [self.store
+        sendAllRunSummariesWithConfiguration:[self cfgWithRunFilters:@[ sink ]]
+                                  completion:^(NSArray<KSCrashRunSummary *> *_Nullable runs, NSError *_Nullable error) {
+                                      XCTAssertNil(error);
+                                      XCTAssertEqual(runs.count, 1u);
+                                      [done fulfill];
+                                  }];
+    [self waitForExpectations:@[ done ] timeout:2.0];
+
+    XCTAssertEqual(sink.lastReceivedRuns.count, 1u);
+    KSCrashRunSummary *sent = sink.lastReceivedRuns.firstObject;
+    XCTAssertEqual(sent.sessions.records.count, 3u, @"records merged from the .sessions file");
+    XCTAssertEqual(sent.users.perceptibleCount, 1, @"distinct perceptible users: {alice}");
+    XCTAssertEqual(sent.users.imperceptibleCount, 1, @"distinct imperceptible users: {bob}");
+
+    KSCrashRunSummarySession *first = sent.sessions.records.firstObject;
+    XCTAssertEqualObjects(first.userID, @"alice");
+    XCTAssertTrue(first.perceptible);
+
+    KSCrashRunSummarySession *last = sent.sessions.records.lastObject;
+    XCTAssertEqualObjects(last.userID, @"alice");
+    // The run ended before the real wall-clock session start, so the open
+    // session's end floors to its own start.
+    XCTAssertEqual(last.endedAtMs, last.startedAtMs, @"final session end floored to its start");
+}
+
+- (void)test_sendAllRunSummaries_doesNotMergeSessionsForNonUUIDRunID
+{
+    // A non-UUID run id must never be used as a sidecar path component, so its
+    // sessions are not read even if a matching file exists next to the .run.
+    [[NSFileManager defaultManager] createDirectoryAtPath:self.runsDir
+                              withIntermediateDirectories:YES
+                                               attributes:nil
+                                                    error:nil];
+    NSString *sessionsPath = [self.runsDir stringByAppendingPathComponent:@"run-A.sessions"];
+    KSSessionWriter *writer = kssw_open(sessionsPath.fileSystemRepresentation);
+    kssw_update(writer, true, "alice");
+    kssw_close(writer);
+
+    [self writeSummaryWithRunID:@"run-A"];  // non-UUID run id
+
+    KSCrashReportStore_StubRunSink *sink = [KSCrashReportStore_StubRunSink new];
+    XCTestExpectation *done = [self expectationWithDescription:@"completion"];
+    [self.store
+        sendAllRunSummariesWithConfiguration:[self cfgWithRunFilters:@[ sink ]]
+                                  completion:^(NSArray<KSCrashRunSummary *> *_Nullable runs, NSError *_Nullable error) {
+                                      XCTAssertNil(error);
+                                      XCTAssertEqual(runs.count, 1u);
+                                      [done fulfill];
+                                  }];
+    [self waitForExpectations:@[ done ] timeout:2.0];
+
+    KSCrashRunSummary *sent = sink.lastReceivedRuns.firstObject;
+    XCTAssertEqual(sent.sessions.records.count, 0u, @"non-UUID run id: sidecar not read");
+}
+
+- (void)test_sendAllRunSummaries_skipsSessionWithCorruptGUID
+{
+    [[NSFileManager defaultManager] createDirectoryAtPath:self.runsDir
+                              withIntermediateDirectories:YES
+                                               attributes:nil
+                                                    error:nil];
+    NSString *runID = @"A1B2C3D4-E5F6-7890-ABCD-EF1234567890";
+    NSString *sessionsPath =
+        [self.runsDir stringByAppendingPathComponent:[runID stringByAppendingPathExtension:@"sessions"]];
+    KSSessionWriter *writer = kssw_open(sessionsPath.fileSystemRepresentation);
+    kssw_update(writer, true, "alice");  // one valid session
+    kssw_close(writer);
+    // Append a raw entry whose guid is invalid UTF-8: the reader returns it, but a
+    // nil @(guid) must not become a session (it would throw on JSON encode).
+    kssession_testcode_appendRawEntry(sessionsPath.fileSystemRepresentation, 2000000000000000000ULL, false,
+                                      "\xff\xff\xff\xff", "bob", false);
+
+    [self writeSummaryWithRunID:runID];
+
+    KSCrashReportStore_StubRunSink *sink = [KSCrashReportStore_StubRunSink new];
+    XCTestExpectation *done = [self expectationWithDescription:@"completion"];
+    [self.store
+        sendAllRunSummariesWithConfiguration:[self cfgWithRunFilters:@[ sink ]]
+                                  completion:^(NSArray<KSCrashRunSummary *> *_Nullable runs, NSError *_Nullable error) {
+                                      XCTAssertNil(error);
+                                      XCTAssertEqual(runs.count, 1u);
+                                      [done fulfill];
+                                  }];
+    [self waitForExpectations:@[ done ] timeout:2.0];
+
+    KSCrashRunSummary *sent = sink.lastReceivedRuns.firstObject;
+    XCTAssertEqual(sent.sessions.records.count, 1u, @"corrupt-guid record skipped");
+    XCTAssertEqualObjects(sent.sessions.records.firstObject.userID, @"alice");
+    XCTAssertNotNil(sent.jsonData, @"merged summary still serializes");
 }
 
 - (void)test_sendAllRunSummaries_retainsFilesWhenSinkReturnsError

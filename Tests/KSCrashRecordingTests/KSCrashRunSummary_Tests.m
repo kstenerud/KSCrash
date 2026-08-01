@@ -26,6 +26,7 @@
 
 #import <XCTest/XCTest.h>
 
+#import "KSCrashRunSummary+Merge.h"
 #import "KSCrashRunSummary.h"
 
 @interface KSCrashRunSummary_Tests : XCTestCase
@@ -152,6 +153,79 @@
         } ],
     };
     XCTAssertNil([KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil]);
+}
+
+#pragma mark - Merge
+
+- (KSCrashRunSummary *)summaryForMergeWithSessionCounts:(NSInteger)perceptible imperceptible:(NSInteger)imperceptible
+{
+    KSCrashRunSummaryOutcome *outcome =
+        [[KSCrashRunSummaryOutcome alloc] initWithTerminationReason:KSTerminationReasonClean
+                                                      cleanShutdown:YES
+                                                      fatalReported:NO
+                                                    userPerceptible:YES];
+    KSCrashRunSummaryDurations *durations = [[KSCrashRunSummaryDurations alloc] initWithActiveMs:0 backgroundMs:0];
+    KSCrashRunSummarySessions *sessions = [[KSCrashRunSummarySessions alloc] initWithPerceptibleCount:perceptible
+                                                                                   imperceptibleCount:imperceptible
+                                                                                              records:@[]];
+    KSCrashRunSummaryUsers *users = [[KSCrashRunSummaryUsers alloc] initWithPerceptibleCount:0 imperceptibleCount:0];
+    KSCrashRunSummaryApp *app = [[KSCrashRunSummaryApp alloc] initWithBundleID:@"b"
+                                                                       version:@"v"
+                                                                  shortVersion:@"sv"
+                                                                      hostKind:KSCrashRunSummaryHostKindApp];
+    KSCrashRunSummaryOS *os = [[KSCrashRunSummaryOS alloc] initWithName:@"n" version:@"v" build:@"bd"];
+    KSCrashRunSummaryDevice *device = [[KSCrashRunSummaryDevice alloc] initWithModel:@"m"
+                                                                         modelFamily:@"mf"
+                                                                        architecture:@"a"
+                                                                  binaryArchitecture:@"ba"
+                                                                        isTranslated:NO
+                                                                        isJailbroken:NO];
+    return [[KSCrashRunSummary alloc] initWithSchemaVersion:1
+                                                 sdkVersion:@"1"
+                                                      runID:@"r"
+                                                   deviceID:@"d"
+                                                     userID:nil
+                                                      users:users
+                                                startedAtMs:0
+                                                  endedAtMs:0
+                                            isBeingDebugged:NO
+                                                    outcome:outcome
+                                                  durations:durations
+                                                   sessions:sessions
+                                                        app:app
+                                                         os:os
+                                                     device:device];
+}
+
+- (KSCrashRunSummarySession *)sessionWithUser:(nullable NSString *)user perceptible:(BOOL)perceptible
+{
+    return [[KSCrashRunSummarySession alloc] initWithSessionID:[[NSUUID UUID] UUIDString]
+                                                        userID:user
+                                                   perceptible:perceptible
+                                                   startedAtMs:0
+                                                     endedAtMs:0];
+}
+
+- (void)test_summaryByMergingSessions_derivesDistinctUsersExcludingAnonymous
+{
+    KSCrashRunSummary *base = [self summaryForMergeWithSessionCounts:7 imperceptible:4];
+    NSArray<KSCrashRunSummarySession *> *sessions = @[
+        [self sessionWithUser:@"alice" perceptible:YES],
+        [self sessionWithUser:@"alice" perceptible:YES],  // same user again: still one distinct
+        [self sessionWithUser:@"bob" perceptible:NO],
+        [self sessionWithUser:@"alice" perceptible:NO],  // alice imperceptible too
+        [self sessionWithUser:nil perceptible:YES],      // anonymous: excluded
+    ];
+
+    KSCrashRunSummary *merged = [base summaryByMergingSessions:sessions];
+
+    XCTAssertEqual(merged.sessions.records.count, 5u);
+    XCTAssertEqual(merged.users.perceptibleCount, 1, @"{alice}");
+    XCTAssertEqual(merged.users.imperceptibleCount, 2, @"{bob, alice}");
+    // Existing session counts and identity carried over unchanged.
+    XCTAssertEqual(merged.sessions.perceptibleCount, 7);
+    XCTAssertEqual(merged.sessions.imperceptibleCount, 4);
+    XCTAssertEqualObjects(merged.runID, @"r");
 }
 
 #pragma mark - Users

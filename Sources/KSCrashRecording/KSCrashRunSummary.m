@@ -25,6 +25,7 @@
 //
 
 #import "KSCrashRunSummary.h"
+#import "KSCrashRunSummary+Merge.h"
 
 #import "KSCrashReportFields.h"
 
@@ -627,6 +628,41 @@ static KSCrashRunSummaryHostKind hostKindFromWireString(NSString *value)
                                                         app:app
                                                          os:os
                                                      device:device];
+}
+
+- (instancetype)summaryByMergingSessions:(NSArray<KSCrashRunSummarySession *> *)sessions
+{
+    NSMutableSet<NSString *> *perceptibleUsers = [NSMutableSet set];
+    NSMutableSet<NSString *> *imperceptibleUsers = [NSMutableSet set];
+    for (KSCrashRunSummarySession *session in sessions) {
+        if (session.userID == nil) {
+            continue;  // anonymous sessions have no user to count
+        }
+        [(session.perceptible ? perceptibleUsers : imperceptibleUsers) addObject:session.userID];
+    }
+
+    KSCrashRunSummaryUsers *users =
+        [[KSCrashRunSummaryUsers alloc] initWithPerceptibleCount:(NSInteger)perceptibleUsers.count
+                                              imperceptibleCount:(NSInteger)imperceptibleUsers.count];
+    KSCrashRunSummarySessions *mergedSessions =
+        [[KSCrashRunSummarySessions alloc] initWithPerceptibleCount:self.sessions.perceptibleCount
+                                                 imperceptibleCount:self.sessions.imperceptibleCount
+                                                            records:sessions];
+    return [[KSCrashRunSummary alloc] initWithSchemaVersion:self.schemaVersion
+                                                 sdkVersion:self.sdkVersion
+                                                      runID:self.runID
+                                                   deviceID:self.deviceID
+                                                     userID:self.userID
+                                                      users:users
+                                                startedAtMs:self.startedAtMs
+                                                  endedAtMs:self.endedAtMs
+                                            isBeingDebugged:self.isBeingDebugged
+                                                    outcome:self.outcome
+                                                  durations:self.durations
+                                                   sessions:mergedSessions
+                                                        app:self.app
+                                                         os:self.os
+                                                     device:self.device];
 }
 
 @end
