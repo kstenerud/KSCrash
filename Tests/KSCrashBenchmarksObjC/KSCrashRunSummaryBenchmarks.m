@@ -103,10 +103,6 @@ static KSCrash_LifecycleData makeLifecycleData(void)
     lc.launchesSinceLastCrash = 5;
     lc.sessionsSinceLastCrash = 10;
     lc.sessionsSinceLaunch = 3;
-    lc.perceptibleSessionsSinceLaunch = 3;
-    lc.imperceptibleSessionsSinceLaunch = 0;
-    lc.distinctPerceptibleUserCount = 1;
-    lc.distinctImperceptibleUserCount = 0;
     lc.activeDurationSinceLaunchNs = 60000000000ULL;
     lc.backgroundDurationSinceLaunchNs = 30000000000ULL;
     lc.activeDurationSinceLastCrashNs = 120000000000ULL;

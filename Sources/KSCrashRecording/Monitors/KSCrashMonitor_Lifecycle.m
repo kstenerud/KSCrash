@@ -68,30 +68,6 @@ static dispatch_source_t g_taskRoleHeartbeatTimer = NULL;
 static atomic_bool g_isEnabled = false;
 static _Atomic KSCrashAppTransitionState g_transitionState = KSCrashAppTransitionStateStartup;
 
-// Tri-state perceptibility of an app transition state, internal to session
-// counting. Yes: user-perceptible. No: not. Maybe: launch states where it is
-// not yet known whether the app will reach the foreground.
-typedef enum {
-    KSCrashLifecyclePerceptibilityNo = 0,
-    KSCrashLifecyclePerceptibilityYes,
-    KSCrashLifecyclePerceptibilityMaybe,
-} KSCrashLifecyclePerceptibility;
-
-static KSCrashLifecyclePerceptibility perceptibilityForState(KSCrashAppTransitionState state)
-{
-    switch (state) {
-        case KSCrashAppTransitionStateActive:
-        case KSCrashAppTransitionStateDeactivating:
-        case KSCrashAppTransitionStateForegrounding:
-            return KSCrashLifecyclePerceptibilityYes;
-        case KSCrashAppTransitionStateStartup:
-        case KSCrashAppTransitionStateLaunching:
-            return KSCrashLifecyclePerceptibilityMaybe;
-        default:
-            return KSCrashLifecyclePerceptibilityNo;
-    }
-}
-
 // Maps the currently-running bundle to the matching host kind enum. Called
 // once at sidecar creation — the bundle doesn't change during a run, so we
 // capture the producer's host kind into the sidecar where it survives for
@@ -328,15 +304,6 @@ bool kslifecycle_getSnapshotForRunID(const char *runID, KSCrash_LifecycleData *o
 #pragma mark - State Transition Observer -
 // ============================================================================
 
-/** Count the owed perceptible session, once. Call under g_sidecarLock. */
-static void countPerceptibleSessionIfPending(KSCrash_LifecycleData *sc)
-{
-    if (sc->perceptibleSessionPending) {
-        sc->perceptibleSessionPending = 0;
-        sc->perceptibleSessionsSinceLaunch++;
-    }
-}
-
 static void onTransitionState(KSCrashAppTransitionState transitionState)
 {
     atomic_store_explicit(&g_transitionState, transitionState, memory_order_relaxed);
@@ -360,14 +327,11 @@ static void onTransitionState(KSCrashAppTransitionState transitionState)
             break;
 
         case KSCrashAppTransitionStateBackground:
-            // Background starts an imperceptible session and owes the next
-            // foreground a perceptible one. The public sessionsSinceLaunch /
-            // sessionsSinceLastCrash keep their historical "launch + foreground
-            // resume" meaning and are not touched here.
+            // The public sessionsSinceLaunch / sessionsSinceLastCrash keep their
+            // historical "launch + foreground resume" meaning and are not touched
+            // here.
             updateSidecarDurations(sc);
             sc->applicationIsInForeground = false;
-            sc->imperceptibleSessionsSinceLaunch++;
-            sc->perceptibleSessionPending = 1;
             break;
 
         case KSCrashAppTransitionStateForegrounding:
@@ -385,12 +349,6 @@ static void onTransitionState(KSCrashAppTransitionState transitionState)
 
         default:
             break;
-    }
-
-    // Count the owed perceptible session the first time the app is genuinely
-    // perceptible. Maybe (Startup/Launching) waits; No re-arms it on Background.
-    if (perceptibilityForState(transitionState) == KSCrashLifecyclePerceptibilityYes) {
-        countPerceptibleSessionIfPending(sc);
     }
 
     bool previousPerceptible = sc->userPerceptible != 0;
@@ -551,12 +509,9 @@ static KSCrash_LifecycleData *createSidecar(void)
          ts == KSCrashAppTransitionStateForegrounding);
     sc->userPerceptible = ksapp_transitionStateIsUserPerceptible(ts);
 
-    // The launch owes a perceptible session, counted only when the app
-    // actually reaches the foreground (perceptibilityForState == Yes). The
-    // public sessionsSinceLaunch keeps its historical meaning (launch == 1,
-    // plus each foreground resume), independent of the perceptibility buckets.
+    // The public sessionsSinceLaunch keeps its historical meaning (launch == 1,
+    // plus each foreground resume).
     sc->sessionsSinceLaunch = 1;
-    sc->perceptibleSessionPending = 1;
 
     sc->taskRole = (int32_t)kstaskrole_current();
     sc->hostKind = (uint8_t)hostKindForCurrentBundle();

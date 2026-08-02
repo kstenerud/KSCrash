@@ -112,20 +112,15 @@ typedef struct {
     // (shorter) can be read into this struct with the trailing fields left
     // zero-filled. kslifecycle_readData tolerates short reads to enable this.
     //
-    // Per-run session counts split by user perceptibility, consumed by the
-    // RunSummary pipeline. These are independent of `sessionsSinceLaunch`
-    // above, which keeps its historical "launch + foreground resume" meaning
-    // (backgrounding bumps imperceptible here but never the public counter),
-    // so the two are NOT related by a sum invariant.
-    uint32_t perceptibleSessionsSinceLaunch;
-    uint32_t imperceptibleSessionsSinceLaunch;
-
-    // Counts of distinct user IDs observed in each perceptibility bucket during
-    // this run. No longer written by the monitor; derived from the per-run
-    // .sessions file at send time. Kept for wire/layout compatibility (currently
-    // zero here).
-    uint32_t distinctPerceptibleUserCount;
-    uint32_t distinctImperceptibleUserCount;
+    // Unused reserved slots. These once held per-run session and distinct-user
+    // counts that the RunSummary carried; the summary now derives everything
+    // from the per-run .sessions records, so nothing reads or writes these.
+    // Kept (not removed) so the slots can be reused for future per-run fields
+    // without shifting the layout.
+    uint32_t perceptibleSessionsSinceLaunch_UNUSED;
+    uint32_t imperceptibleSessionsSinceLaunch_UNUSED;
+    uint32_t distinctPerceptibleUserCount_UNUSED;
+    uint32_t distinctImperceptibleUserCount_UNUSED;
 
     // --- v3 additions ---
     //
@@ -137,10 +132,10 @@ typedef struct {
     // 2=xctest, 3=other). v2 sidecars short-read to 0 = app.
     uint8_t hostKind;
 
-    // Per-run: a perceptible session is owed but not yet counted. Set at
-    // launch and on entering background; cleared when the app first becomes
-    // perceptible. See countPerceptibleSessionIfPending.
-    uint8_t perceptibleSessionPending;
+    // Unused reserved slot. Once flagged an owed perceptible session for the
+    // retired per-run counters above; kept so it can be reused without shifting
+    // the layout.
+    uint8_t perceptibleSessionPending_UNUSED;
 } KSCrash_LifecycleData;
 
 _Static_assert(sizeof(KSCrash_LifecycleData) == 112, "KSCrash_LifecycleData size changed — bump version");

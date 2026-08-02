@@ -45,7 +45,6 @@ typedef NS_ENUM(NSInteger, KSCrashRunSummaryHostKind) {
 @class KSCrashRunSummaryOutcome;
 @class KSCrashRunSummaryDurations;
 @class KSCrashRunSummarySessions;
-@class KSCrashRunSummaryUsers;
 @class KSCrashRunSummaryApp;
 @class KSCrashRunSummaryOS;
 @class KSCrashRunSummaryDevice;
@@ -129,45 +128,13 @@ NS_SWIFT_NAME(RunSummary.Sessions)
 __attribute__((objc_subclassing_restricted))
 @interface KSCrashRunSummarySessions : NSObject
 
-/** Number of times the app reached the foreground this run: a launch that
- *  actually foregrounds, plus each resume from background. A launch that never
- *  foregrounds counts zero. */
-@property(nonatomic, readonly) NSInteger perceptibleCount;
-
-/** Number of times the app entered the background this run. */
-@property(nonatomic, readonly) NSInteger imperceptibleCount;
-
 /** The individual sessions recorded this run, oldest first. */
 @property(nonatomic, readonly, copy) NSArray<KSCrashRunSummarySession *> *records;
 
 - (instancetype)init NS_UNAVAILABLE;
 + (instancetype)new NS_UNAVAILABLE;
 
-- (instancetype)initWithPerceptibleCount:(NSInteger)perceptibleCount
-                      imperceptibleCount:(NSInteger)imperceptibleCount
-                                 records:(NSArray<KSCrashRunSummarySession *> *)records NS_DESIGNATED_INITIALIZER;
-
-@end
-
-// ============================================================================
-#pragma mark - UserIDs -
-// ============================================================================
-
-NS_SWIFT_NAME(RunSummary.Users)
-__attribute__((objc_subclassing_restricted))
-@interface KSCrashRunSummaryUsers : NSObject
-
-/** Number of distinct user IDs seen during perceptible portions of the run. */
-@property(nonatomic, readonly) NSInteger perceptibleCount;
-
-/** Number of distinct user IDs seen during imperceptible portions of the run. */
-@property(nonatomic, readonly) NSInteger imperceptibleCount;
-
-- (instancetype)init NS_UNAVAILABLE;
-+ (instancetype)new NS_UNAVAILABLE;
-
-- (instancetype)initWithPerceptibleCount:(NSInteger)perceptibleCount
-                      imperceptibleCount:(NSInteger)imperceptibleCount NS_DESIGNATED_INITIALIZER;
+- (instancetype)initWithRecords:(NSArray<KSCrashRunSummarySession *> *)records NS_DESIGNATED_INITIALIZER;
 
 @end
 
@@ -269,11 +236,6 @@ __attribute__((objc_subclassing_restricted))
  */
 @property(nonatomic, readonly, copy, nullable) NSString *userID;
 
-/** Aggregate distinct-user counts across the run; identifiers themselves
- *  are not retained.
- */
-@property(nonatomic, readonly, strong) KSCrashRunSummaryUsers *users;
-
 /** Unix epoch milliseconds (wall clock). */
 @property(nonatomic, readonly) int64_t startedAtMs;
 
@@ -300,7 +262,6 @@ __attribute__((objc_subclassing_restricted))
                                 runID:(NSString *)runID
                              deviceID:(NSString *)deviceID
                                userID:(nullable NSString *)userID
-                                users:(KSCrashRunSummaryUsers *)users
                           startedAtMs:(int64_t)startedAtMs
                             endedAtMs:(int64_t)endedAtMs
                       isBeingDebugged:(BOOL)isBeingDebugged

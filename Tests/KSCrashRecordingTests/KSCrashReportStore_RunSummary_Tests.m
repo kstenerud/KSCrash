@@ -92,10 +92,7 @@
                                                       fatalReported:NO
                                                     userPerceptible:YES];
     KSCrashRunSummaryDurations *durations = [[KSCrashRunSummaryDurations alloc] initWithActiveMs:100 backgroundMs:50];
-    KSCrashRunSummarySessions *sessions = [[KSCrashRunSummarySessions alloc] initWithPerceptibleCount:1
-                                                                                   imperceptibleCount:0
-                                                                                              records:@[]];
-    KSCrashRunSummaryUsers *users = [[KSCrashRunSummaryUsers alloc] initWithPerceptibleCount:1 imperceptibleCount:0];
+    KSCrashRunSummarySessions *sessions = [[KSCrashRunSummarySessions alloc] initWithRecords:@[]];
     KSCrashRunSummaryApp *app = [[KSCrashRunSummaryApp alloc] initWithBundleID:@"com.test"
                                                                        version:@"1.0"
                                                                   shortVersion:@"1.0"
@@ -112,7 +109,6 @@
                                                       runID:runID
                                                    deviceID:@"d"
                                                      userID:nil
-                                                      users:users
                                                 startedAtMs:0
                                                   endedAtMs:100
                                             isBeingDebugged:NO
@@ -225,7 +221,7 @@
         [[NSFileManager defaultManager] fileExistsAtPath:[self.runsDir stringByAppendingPathComponent:@"run-B.run"]]);
 }
 
-- (void)test_sendAllRunSummaries_mergesSessionRecordsAndDerivesUsers
+- (void)test_sendAllRunSummaries_mergesSessionRecords
 {
     [[NSFileManager defaultManager] createDirectoryAtPath:self.runsDir
                               withIntermediateDirectories:YES
@@ -256,8 +252,6 @@
     XCTAssertEqual(sink.lastReceivedRuns.count, 1u);
     KSCrashRunSummary *sent = sink.lastReceivedRuns.firstObject;
     XCTAssertEqual(sent.sessions.records.count, 3u, @"records merged from the .sessions file");
-    XCTAssertEqual(sent.users.perceptibleCount, 1, @"distinct perceptible users: {alice}");
-    XCTAssertEqual(sent.users.imperceptibleCount, 1, @"distinct imperceptible users: {bob}");
 
     KSCrashRunSummarySession *first = sent.sessions.records.firstObject;
     XCTAssertEqualObjects(first.userID, @"alice");

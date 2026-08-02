@@ -55,10 +55,6 @@ static void populateContext(KSCrashRunContext *ctx)
     ctx->lifecycle.backgroundDurationSinceLaunchNs = 45678901000ULL;  // 45678.901 ms
     ctx->lifecycle.wallClockAtStartNs = 1744000000000000000ULL;       // arbitrary epoch ns
     ctx->lifecycle.monotonicAtStartNs = 1000ULL;
-    ctx->lifecycle.perceptibleSessionsSinceLaunch = 3;
-    ctx->lifecycle.imperceptibleSessionsSinceLaunch = 2;
-    ctx->lifecycle.distinctPerceptibleUserCount = 4;
-    ctx->lifecycle.distinctImperceptibleUserCount = 1;
 
     // mostRecent - monotonicAtStart = 180000000000 ns = 180000 ms.
     // ended = started + 180000 ms = 1744000000000 + 180000 = 1744000180000 ms
@@ -137,11 +133,9 @@ static void populateContext(KSCrashRunContext *ctx)
     XCTAssertEqual(summary.durations.activeMs, 123456LL);
     XCTAssertEqual(summary.durations.backgroundMs, 45678LL);
 
-    XCTAssertEqual(summary.sessions.perceptibleCount, 3);
-    XCTAssertEqual(summary.sessions.imperceptibleCount, 2);
-
-    XCTAssertEqual(summary.users.perceptibleCount, 4);
-    XCTAssertEqual(summary.users.imperceptibleCount, 1);
+    // buildSummary emits no session records on the synchronous startup path;
+    // they are merged from the .sessions file at send time.
+    XCTAssertEqual(summary.sessions.records.count, 0u);
 
     XCTAssertEqualObjects(summary.app.bundleID, @"com.acme.app");
     XCTAssertEqualObjects(summary.app.version, @"2.6.0.1234");

@@ -60,10 +60,7 @@
                                                       fatalReported:NO
                                                     userPerceptible:YES];
     KSCrashRunSummaryDurations *durations = [[KSCrashRunSummaryDurations alloc] initWithActiveMs:100 backgroundMs:50];
-    KSCrashRunSummarySessions *sessions = [[KSCrashRunSummarySessions alloc] initWithPerceptibleCount:1
-                                                                                   imperceptibleCount:0
-                                                                                              records:@[]];
-    KSCrashRunSummaryUsers *users = [[KSCrashRunSummaryUsers alloc] initWithPerceptibleCount:1 imperceptibleCount:0];
+    KSCrashRunSummarySessions *sessions = [[KSCrashRunSummarySessions alloc] initWithRecords:@[]];
     KSCrashRunSummaryApp *app = [[KSCrashRunSummaryApp alloc] initWithBundleID:@"com.test"
                                                                        version:@"1.0.0"
                                                                   shortVersion:@"1.0"
@@ -80,7 +77,6 @@
                                                       runID:@"test-run"
                                                    deviceID:@"test-device"
                                                      userID:nil
-                                                      users:users
                                                 startedAtMs:0
                                                   endedAtMs:100
                                             isBeingDebugged:NO

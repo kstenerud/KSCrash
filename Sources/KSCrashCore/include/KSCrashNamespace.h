@@ -147,7 +147,6 @@
 #define KSCrashRunSummaryOutcome KSCRASH_NS(KSCrashRunSummaryOutcome)
 #define KSCrashRunSummarySession KSCRASH_NS(KSCrashRunSummarySession)
 #define KSCrashRunSummarySessions KSCRASH_NS(KSCrashRunSummarySessions)
-#define KSCrashRunSummaryUsers KSCRASH_NS(KSCrashRunSummaryUsers)
 #define KSCrashSendConfiguration KSCRASH_NS(KSCrashSendConfiguration)
 #define KSCrashThreadcrumb KSCRASH_NS(KSCrashThreadcrumb)
 #define KSCrashThreadcrumbMaximumMessageLength KSCRASH_NS(KSCrashThreadcrumbMaximumMessageLength)

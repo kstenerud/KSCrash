@@ -554,14 +554,7 @@ static KSCrashRunSummary *buildSummary(const KSCrashRunContext *ctx, const char 
 
     // Records are merged from the run's .sessions file at send time, never on
     // this synchronous startup path.
-    KSCrashRunSummarySessions *sessions =
-        [[KSCrashRunSummarySessions alloc] initWithPerceptibleCount:(NSInteger)lc->perceptibleSessionsSinceLaunch
-                                                 imperceptibleCount:(NSInteger)lc->imperceptibleSessionsSinceLaunch
-                                                            records:@[]];
-
-    KSCrashRunSummaryUsers *users =
-        [[KSCrashRunSummaryUsers alloc] initWithPerceptibleCount:(NSInteger)lc->distinctPerceptibleUserCount
-                                              imperceptibleCount:(NSInteger)lc->distinctImperceptibleUserCount];
+    KSCrashRunSummarySessions *sessions = [[KSCrashRunSummarySessions alloc] initWithRecords:@[]];
 
     KSCrashRunSummaryApp *app = [[KSCrashRunSummaryApp alloc] initWithBundleID:safeString(sys->bundleID)
                                                                        version:safeString(sys->bundleVersion)
@@ -589,7 +582,6 @@ static KSCrashRunSummary *buildSummary(const KSCrashRunContext *ctx, const char 
                                                       runID:runID
                                                    deviceID:deviceID
                                                      userID:userID
-                                                      users:users
                                                 startedAtMs:startedAtMs
                                                   endedAtMs:endedAtMs
                                             isBeingDebugged:sys->isBeingDebugged != 0

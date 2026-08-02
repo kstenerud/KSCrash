@@ -33,8 +33,6 @@ final class RunSummaryCodableTests: XCTestCase {
 
     private func makeSummary(
         userID: String? = "bob",
-        perceptibleUserCount: Int = 2,
-        imperceptibleUserCount: Int = 1,
         isBeingDebugged: Bool = false,
         terminationReason: KSCrashRecording.TerminationReason = .clean,
         hostKind: RunSummary.HostKind = .app
@@ -45,10 +43,7 @@ final class RunSummaryCodableTests: XCTestCase {
             fatalReported: false,
             userPerceptible: true)
         let durations = RunSummary.Durations(activeMs: 123_456, backgroundMs: 45_678)
-        let sessions = RunSummary.Sessions(perceptibleCount: 3, imperceptibleCount: 2, records: [])
-        let users = RunSummary.Users(
-            perceptibleCount: perceptibleUserCount,
-            imperceptibleCount: imperceptibleUserCount)
+        let sessions = RunSummary.Sessions(records: [])
         let app = RunSummary.App(
             bundleID: "com.acme.app",
             version: "2.6.0.1234",
@@ -68,7 +63,6 @@ final class RunSummaryCodableTests: XCTestCase {
             runID: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
             deviceID: "0123456789abcdef",
             userID: userID,
-            users: users,
             startedAtMs: 1_744_000_000_000,
             endedAtMs: 1_744_000_180_000,
             isBeingDebugged: isBeingDebugged,
@@ -96,8 +90,6 @@ final class RunSummaryCodableTests: XCTestCase {
         XCTAssertEqual(decoded.runID, original.runID)
         XCTAssertEqual(decoded.deviceID, original.deviceID)
         XCTAssertEqual(decoded.userID, original.userID)
-        XCTAssertEqual(decoded.users.perceptibleCount, original.users.perceptibleCount)
-        XCTAssertEqual(decoded.users.imperceptibleCount, original.users.imperceptibleCount)
         XCTAssertEqual(decoded.startedAtMs, original.startedAtMs)
         XCTAssertEqual(decoded.endedAtMs, original.endedAtMs)
         XCTAssertEqual(decoded.isBeingDebugged, original.isBeingDebugged)
@@ -107,8 +99,7 @@ final class RunSummaryCodableTests: XCTestCase {
         XCTAssertEqual(decoded.outcome.userPerceptible, original.outcome.userPerceptible)
         XCTAssertEqual(decoded.durations.activeMs, original.durations.activeMs)
         XCTAssertEqual(decoded.durations.backgroundMs, original.durations.backgroundMs)
-        XCTAssertEqual(decoded.sessions.perceptibleCount, original.sessions.perceptibleCount)
-        XCTAssertEqual(decoded.sessions.imperceptibleCount, original.sessions.imperceptibleCount)
+        XCTAssertEqual(decoded.sessions.records.count, original.sessions.records.count)
         XCTAssertEqual(decoded.app.bundleID, original.app.bundleID)
         XCTAssertEqual(decoded.app.version, original.app.version)
         XCTAssertEqual(decoded.app.shortVersion, original.app.shortVersion)
@@ -149,7 +140,6 @@ final class RunSummaryCodableTests: XCTestCase {
         XCTAssertNotNil(json["run_id"])
         XCTAssertNotNil(json["device_id"])
         XCTAssertNotNil(json["user_id"])
-        XCTAssertNotNil(json["users"])
         XCTAssertNotNil(json["started_at_ms"])
         XCTAssertNotNil(json["ended_at_ms"])
         XCTAssertNotNil(json["is_being_debugged"])
@@ -161,9 +151,7 @@ final class RunSummaryCodableTests: XCTestCase {
         XCTAssertNotNil(outcome["fatal_reported"])
         XCTAssertNotNil(outcome["user_perceptible"])
 
-        let sessions = try XCTUnwrap(json["sessions"] as? [String: Any])
-        XCTAssertNotNil(sessions["perceptible_count"])
-        XCTAssertNotNil(sessions["imperceptible_count"])
+        XCTAssertNotNil(json["sessions"])
 
         let app = try XCTUnwrap(json["app"] as? [String: Any])
         XCTAssertNotNil(app["bundle_id"])
@@ -191,16 +179,6 @@ final class RunSummaryCodableTests: XCTestCase {
         XCTAssertEqual(app["host_kind"] as? String, "extension")
     }
 
-    // MARK: - users counts
-
-    func test_wireFormat_usersAreCounts() throws {
-        let data = try XCTUnwrap(makeSummary(perceptibleUserCount: 5, imperceptibleUserCount: 2).jsonData())
-        let json = try asJSONObject(data)
-        let users = try XCTUnwrap(json["users"] as? [String: Any])
-        XCTAssertEqual(users["perceptible_count"] as? Int, 5)
-        XCTAssertEqual(users["imperceptible_count"] as? Int, 2)
-    }
-
     // MARK: - Unknown tolerance
 
     func test_decode_unknownTerminationReasonFallsBackToNone() throws {
@@ -211,7 +189,6 @@ final class RunSummaryCodableTests: XCTestCase {
               "run_id": "r",
               "device_id": "d",
               "user_id": null,
-              "users": { "perceptible_count": 0, "imperceptible_count": 0 },
               "started_at_ms": 0,
               "ended_at_ms": 0,
               "outcome": {
@@ -221,7 +198,7 @@ final class RunSummaryCodableTests: XCTestCase {
                 "user_perceptible": false
               },
               "durations_ms": { "active": 0, "background": 0 },
-              "sessions": { "perceptible_count": 0, "imperceptible_count": 0 },
+              "sessions": {},
               "app": { "bundle_id": "x", "version": "1", "short_version": "1", "host_kind": "app" },
               "os": { "name": "iOS", "version": "18", "build": "X" },
               "device": {

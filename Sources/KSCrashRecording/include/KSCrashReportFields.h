@@ -308,10 +308,7 @@ KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, StartedAtMs, startedAtMs, "started
 KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, EndedAtMs, endedAtMs, "ended_at_ms")
 KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, IsBeingDebugged, isBeingDebugged, "is_being_debugged")
 
-KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, Users, users, "users")
 KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, Sessions, sessions, "sessions")
-KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, PerceptibleCount, perceptibleCount, "perceptible_count")
-KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, ImperceptibleCount, imperceptibleCount, "imperceptible_count")
 KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, Records, records, "records")
 KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, SessionID, sessionID, "session_id")
 KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, Perceptible, perceptible, "perceptible")

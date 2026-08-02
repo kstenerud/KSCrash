@@ -89,27 +89,10 @@
 
 @implementation KSCrashRunSummarySessions
 
-- (instancetype)initWithPerceptibleCount:(NSInteger)perceptibleCount
-                      imperceptibleCount:(NSInteger)imperceptibleCount
-                                 records:(NSArray<KSCrashRunSummarySession *> *)records
+- (instancetype)initWithRecords:(NSArray<KSCrashRunSummarySession *> *)records
 {
     if ((self = [super init])) {
-        _perceptibleCount = perceptibleCount;
-        _imperceptibleCount = imperceptibleCount;
         _records = [records copy] ?: @[];
-    }
-    return self;
-}
-
-@end
-
-@implementation KSCrashRunSummaryUsers
-
-- (instancetype)initWithPerceptibleCount:(NSInteger)perceptibleCount imperceptibleCount:(NSInteger)imperceptibleCount
-{
-    if ((self = [super init])) {
-        _perceptibleCount = perceptibleCount;
-        _imperceptibleCount = imperceptibleCount;
     }
     return self;
 }
@@ -177,7 +160,6 @@
                                 runID:(NSString *)runID
                              deviceID:(NSString *)deviceID
                                userID:(nullable NSString *)userID
-                                users:(KSCrashRunSummaryUsers *)users
                           startedAtMs:(int64_t)startedAtMs
                             endedAtMs:(int64_t)endedAtMs
                       isBeingDebugged:(BOOL)isBeingDebugged
@@ -194,7 +176,6 @@
         _runID = [runID copy];
         _deviceID = [deviceID copy];
         _userID = [userID copy];
-        _users = users;
         _startedAtMs = startedAtMs;
         _endedAtMs = endedAtMs;
         _isBeingDebugged = isBeingDebugged;
@@ -235,10 +216,6 @@ static NSString *hostKindWireString(KSCrashRunSummaryHostKind kind)
     if (self.userID != nil) {
         dict[KSCrashRunSummaryField_UserID] = self.userID;
     }
-    dict[KSCrashRunSummaryField_Users] = @{
-        KSCrashRunSummaryField_PerceptibleCount : @(self.users.perceptibleCount),
-        KSCrashRunSummaryField_ImperceptibleCount : @(self.users.imperceptibleCount),
-    };
     dict[KSCrashRunSummaryField_StartedAtMs] = @(self.startedAtMs);
     dict[KSCrashRunSummaryField_EndedAtMs] = @(self.endedAtMs);
     dict[KSCrashRunSummaryField_IsBeingDebugged] = self.isBeingDebugged ? @YES : @NO;
@@ -254,10 +231,7 @@ static NSString *hostKindWireString(KSCrashRunSummaryHostKind kind)
         KSCrashRunSummaryField_Active : @(self.durations.activeMs),
         KSCrashRunSummaryField_Background : @(self.durations.backgroundMs),
     };
-    NSMutableDictionary *sessionsDict = [@{
-        KSCrashRunSummaryField_PerceptibleCount : @(self.sessions.perceptibleCount),
-        KSCrashRunSummaryField_ImperceptibleCount : @(self.sessions.imperceptibleCount),
-    } mutableCopy];
+    NSMutableDictionary *sessionsDict = [NSMutableDictionary dictionary];
     if (self.sessions.records.count > 0) {
         NSMutableArray *records = [NSMutableArray arrayWithCapacity:self.sessions.records.count];
         for (KSCrashRunSummarySession *session in self.sessions.records) {
@@ -424,7 +398,6 @@ static KSCrashRunSummaryHostKind hostKindFromWireString(NSString *value)
     NSDictionary *outcomeDict = requiredDictionary(dict, KSCrashRunSummaryField_Outcome, &ok);
     NSDictionary *durationsDict = requiredDictionary(dict, KSCrashRunSummaryField_DurationsMs, &ok);
     NSDictionary *sessionsDict = requiredDictionary(dict, KSCrashRunSummaryField_Sessions, &ok);
-    NSDictionary *usersDict = requiredDictionary(dict, KSCrashRunSummaryField_Users, &ok);
     NSDictionary *appDict = requiredDictionary(dict, KSCrashRunSummaryField_App, &ok);
     NSDictionary *osDict = requiredDictionary(dict, KSCrashRunSummaryField_OS, &ok);
     NSDictionary *deviceDict = requiredDictionary(dict, KSCrashRunSummaryField_Device, &ok);
@@ -456,12 +429,6 @@ static KSCrashRunSummaryHostKind hostKindFromWireString(NSString *value)
 
     int64_t activeMs = requiredInt64(durationsDict, KSCrashRunSummaryField_Active, &ok);
     int64_t backgroundMs = requiredInt64(durationsDict, KSCrashRunSummaryField_Background, &ok);
-
-    NSInteger sessionsPerceptible = requiredInteger(sessionsDict, KSCrashRunSummaryField_PerceptibleCount, &ok);
-    NSInteger sessionsImperceptible = requiredInteger(sessionsDict, KSCrashRunSummaryField_ImperceptibleCount, &ok);
-
-    NSInteger usersPerceptible = requiredInteger(usersDict, KSCrashRunSummaryField_PerceptibleCount, &ok);
-    NSInteger usersImperceptible = requiredInteger(usersDict, KSCrashRunSummaryField_ImperceptibleCount, &ok);
 
     NSString *bundleID = requiredString(appDict, KSCrashRunSummaryField_BundleID, &ok);
     NSString *appVersion = requiredString(appDict, KSCrashRunSummaryField_Version, &ok);
@@ -595,12 +562,7 @@ static KSCrashRunSummaryHostKind hostKindFromWireString(NSString *value)
                   userPerceptible:userPerceptible];
     KSCrashRunSummaryDurations *durations = [[KSCrashRunSummaryDurations alloc] initWithActiveMs:activeMs
                                                                                     backgroundMs:backgroundMs];
-    KSCrashRunSummarySessions *sessions =
-        [[KSCrashRunSummarySessions alloc] initWithPerceptibleCount:sessionsPerceptible
-                                                 imperceptibleCount:sessionsImperceptible
-                                                            records:sessionRecords];
-    KSCrashRunSummaryUsers *users = [[KSCrashRunSummaryUsers alloc] initWithPerceptibleCount:usersPerceptible
-                                                                          imperceptibleCount:usersImperceptible];
+    KSCrashRunSummarySessions *sessions = [[KSCrashRunSummarySessions alloc] initWithRecords:sessionRecords];
     KSCrashRunSummaryApp *app = [[KSCrashRunSummaryApp alloc] initWithBundleID:bundleID
                                                                        version:appVersion
                                                                   shortVersion:appShortVersion
@@ -618,7 +580,6 @@ static KSCrashRunSummaryHostKind hostKindFromWireString(NSString *value)
                                                       runID:runID
                                                    deviceID:deviceID
                                                      userID:userID
-                                                      users:users
                                                 startedAtMs:startedAtMs
                                                   endedAtMs:endedAtMs
                                             isBeingDebugged:isBeingDebugged
@@ -632,28 +593,12 @@ static KSCrashRunSummaryHostKind hostKindFromWireString(NSString *value)
 
 - (instancetype)summaryByMergingSessions:(NSArray<KSCrashRunSummarySession *> *)sessions
 {
-    NSMutableSet<NSString *> *perceptibleUsers = [NSMutableSet set];
-    NSMutableSet<NSString *> *imperceptibleUsers = [NSMutableSet set];
-    for (KSCrashRunSummarySession *session in sessions) {
-        if (session.userID == nil) {
-            continue;  // anonymous sessions have no user to count
-        }
-        [(session.perceptible ? perceptibleUsers : imperceptibleUsers) addObject:session.userID];
-    }
-
-    KSCrashRunSummaryUsers *users =
-        [[KSCrashRunSummaryUsers alloc] initWithPerceptibleCount:(NSInteger)perceptibleUsers.count
-                                              imperceptibleCount:(NSInteger)imperceptibleUsers.count];
-    KSCrashRunSummarySessions *mergedSessions =
-        [[KSCrashRunSummarySessions alloc] initWithPerceptibleCount:self.sessions.perceptibleCount
-                                                 imperceptibleCount:self.sessions.imperceptibleCount
-                                                            records:sessions];
+    KSCrashRunSummarySessions *mergedSessions = [[KSCrashRunSummarySessions alloc] initWithRecords:sessions];
     return [[KSCrashRunSummary alloc] initWithSchemaVersion:self.schemaVersion
                                                  sdkVersion:self.sdkVersion
                                                       runID:self.runID
                                                    deviceID:self.deviceID
                                                      userID:self.userID
-                                                      users:users
                                                 startedAtMs:self.startedAtMs
                                                   endedAtMs:self.endedAtMs
                                             isBeingDebugged:self.isBeingDebugged
