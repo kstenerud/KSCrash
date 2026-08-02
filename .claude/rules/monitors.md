@@ -27,7 +27,7 @@ Built-in monitors are registered via `KSCrashMonitorType` flags in `KSCrashC.c`.
 | User | `"UserReported"` | User-triggered reports (API call) | — | — | No |
 | System | `"System"` | Device/OS/app info (model, OS version, memory, disk) | — | Run (`KSCrash_SystemData`) | No |
 | Termination | `"Termination"` | OS-level terminations that cannot be caught at runtime (OOM, thermal kill, CPU watchdog, reboot, upgrades) | — | — | Yes |
-| Lifecycle | `"Lifecycle"` | App state transitions, cleanShutdown flag | — | Run (`KSCrash_LifecycleData`) | Yes |
+| Lifecycle | `"Lifecycle"` | App state transitions, cleanExit flag | — | Run (`KSCrash_LifecycleData`) | Yes |
 | Zombie | `"Zombie"` | Messages sent to deallocated ObjC objects | — | — | No |
 | Watchdog | `"Watchdog"` | Main thread hangs (250ms threshold); also fatal when the OS kills the app during a hang | — | Run (`KSHangSidecar`) | No |
 | UserInfo | `"UserInfo"` | User-supplied key-value info (survives crashes) | — | Run (`KSKeyValueStore`) | No |
@@ -55,13 +55,13 @@ Three fields classify each event. See `run-context.md` for how these feed into t
 |---|---|---|
 | `isFatal` | Report | Whether the event killed or will kill the process |
 | `isCleanExit` | Report | Only meaningful when `isFatal=true`; distinguishes clean exit (SIGTERM) from dirty crash |
-| `cleanShutdown` | Lifecycle sidecar | Per-run flag — determines `crashedLastLaunch` on next launch |
+| `cleanExit` | Lifecycle sidecar | Per-run flag — determines `crashedLastLaunch` on next launch |
 
-Rules: when `isFatal=true`, `isCleanExit` must be explicitly set. When `isFatal=false`, `isCleanExit` is meaningless. Only the Lifecycle observer and clean-exit signal handler set `cleanShutdown=true`; dirty crashes explicitly set it to `false`.
+Rules: when `isFatal=true`, `isCleanExit` must be explicitly set. When `isFatal=false`, `isCleanExit` is meaningless. Only the Lifecycle observer and clean-exit signal handler set `cleanExit=true`; dirty crashes explicitly set it to `false`.
 
 **Event matrix:**
 
-| Event | Monitor | isFatal | isCleanExit | cleanShutdown |
+| Event | Monitor | isFatal | isCleanExit | cleanExit |
 |---|---|---|---|---|
 | Signal (SIGABRT, SIGSEGV, etc.) | Signal | true | false | false |
 | SIGTERM | Signal | true | true | true |
@@ -113,7 +113,7 @@ The watchdog monitor uses a fixed 250ms threshold to detect hangs on the main th
 
 The MetricKit monitor turns each received diagnostic into a report. It consumes two delivery mechanisms: the legacy `MXMetricManagerSubscriber` handles `MXDiagnosticPayload`s (crash, hang, metrics) on every OS version, and on iOS 27+ the `MetricManager.diagnosticReports` async stream adds memory exceptions, the only source of `MemoryExceptionDiagnostic`. Every other case of that stream is ignored, so the two paths never overlap. The stream code is gated to Xcode 27+ (Swift 6.4) targeting iOS device or simulator; under Xcode 26 the package builds without it. The two mechanisms deliver on different threads, so skeleton-report production is serialized with a dedicated lock (`skeletonLock`). Each added report posts `diagnosticReportAddedNotification` with that report's id in `userInfo`; per-diagnostic handling lives in one `MetricKitMonitor+<Kind>Diagnostic.swift` file per kind.
 
-`MXCrashDiagnostic` becomes a normal (fatal) crash report. A `MemoryExceptionDiagnostic` is modelled like the heuristic OOMs so `KSCrashDoctor` diagnoses it the same way: a fatal `.termination` with `terminationReason == .memoryLimit`, tagged `error.subtype == .memoryException` to tell it apart from other terminations, carrying the call stack the diagnostic provides. Crash and memory reports are the dead run's last moment, so they are left unfinalized and the store stitches that run's aligned sidecars in on read. `MXHangDiagnostic` becomes a **profile report**: its `callStackTree` is a sample-merged trie across all threads, not a single backtrace, so it is converted to weighted per-thread samples (`MXCallStackTree.extractProfileData`) and stored in `ProfileInfo`. The report's `error.type` is `.profile` and it carries the generic `error.subtype == .hang` to identify the hang; this is the same discriminator the watchdog-driven `HangProfiler` should use, rather than matching on a profile name. Because a hang has no per-sample timing, each sample carries a `count` (multiplicity) and the profile's monotonic timing fields are nil; only `duration` (the hang duration) is set. Hang reports are non-fatal, describe a moment within a run that kept going, and stay finalized, so they do not touch current-run `cleanShutdown` and no sidecar stitching applies. CPU/diskWrite/appLaunch diagnostics are not yet ingested (dump-only).
+`MXCrashDiagnostic` becomes a normal (fatal) crash report. A `MemoryExceptionDiagnostic` is modelled like the heuristic OOMs so `KSCrashDoctor` diagnoses it the same way: a fatal `.termination` with `terminationReason == .memoryLimit`, tagged `error.subtype == .memoryException` to tell it apart from other terminations, carrying the call stack the diagnostic provides. Crash and memory reports are the dead run's last moment, so they are left unfinalized and the store stitches that run's aligned sidecars in on read. `MXHangDiagnostic` becomes a **profile report**: its `callStackTree` is a sample-merged trie across all threads, not a single backtrace, so it is converted to weighted per-thread samples (`MXCallStackTree.extractProfileData`) and stored in `ProfileInfo`. The report's `error.type` is `.profile` and it carries the generic `error.subtype == .hang` to identify the hang; this is the same discriminator the watchdog-driven `HangProfiler` should use, rather than matching on a profile name. Because a hang has no per-sample timing, each sample carries a `count` (multiplicity) and the profile's monotonic timing fields are nil; only `duration` (the hang duration) is set. Hang reports are non-fatal, describe a moment within a run that kept going, and stay finalized, so they do not touch current-run `cleanExit` and no sidecar stitching applies. CPU/diskWrite/appLaunch diagnostics are not yet ingested (dump-only).
 
 ### KSCrashMonitorFlagAsyncSafe
 

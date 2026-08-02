@@ -344,7 +344,7 @@ static void onTransitionState(KSCrashAppTransitionState transitionState)
         case KSCrashAppTransitionStateTerminating:
         case KSCrashAppTransitionStateExiting:
             updateSidecarDurations(sc);
-            sc->cleanShutdown = true;
+            sc->cleanExit = true;
             break;
 
         default:
@@ -541,7 +541,7 @@ static void onHangChange(KSHangChangeType change, __unused uint64_t startTimesta
     ks_spinlock_lock(&g_sidecarLock);
     KSCrash_LifecycleData *sc = g_sidecar;
     if (sc != NULL) {
-        sc->hangInProgress = (change == KSHangChangeTypeStarted);
+        sc->hangActive = (change == KSHangChangeTypeStarted);
     }
     ks_spinlock_unlock(&g_sidecarLock);
 }
@@ -630,14 +630,14 @@ static void notifyPostSystemEnable(__unused void *context)
 static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext, __unused void *context)
 {
     bool isFatal = eventContext != NULL && eventContext->requirements.isFatal;
-    // For fatal events, write cleanShutdown and fatalReported before acquiring the
+    // For fatal events, write cleanExit and monitorHandlerRan before acquiring the
     // lock. These are small stores to mmap'd memory that must succeed unconditionally
     // — if the bounded lock times out we still need the next launch to see the correct
     // state. In practice, fatal events run with other threads suspended so lock
     // contention is unlikely, but this is defense-in-depth.
     if (isFatal && g_sidecar != NULL) {
-        g_sidecar->cleanShutdown = eventContext->requirements.isCleanExit;
-        g_sidecar->fatalReported = true;
+        g_sidecar->cleanExit = eventContext->requirements.isCleanExit;
+        g_sidecar->monitorHandlerRan = true;
     }
     if (!ks_spinlock_lock_bounded(&g_sidecarLock)) {
         return;

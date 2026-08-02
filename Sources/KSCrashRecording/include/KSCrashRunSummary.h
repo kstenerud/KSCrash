@@ -58,16 +58,12 @@ __attribute__((objc_subclassing_restricted))
 @interface KSCrashRunSummaryOutcome : NSObject
 
 @property(nonatomic, readonly) KSTerminationReason terminationReason;
-@property(nonatomic, readonly) BOOL cleanShutdown;
-@property(nonatomic, readonly) BOOL fatalReported;
 @property(nonatomic, readonly) BOOL userPerceptible;
 
 - (instancetype)init NS_UNAVAILABLE;
 + (instancetype)new NS_UNAVAILABLE;
 
 - (instancetype)initWithTerminationReason:(KSTerminationReason)terminationReason
-                            cleanShutdown:(BOOL)cleanShutdown
-                            fatalReported:(BOOL)fatalReported
                           userPerceptible:(BOOL)userPerceptible NS_DESIGNATED_INITIALIZER;
 
 @end

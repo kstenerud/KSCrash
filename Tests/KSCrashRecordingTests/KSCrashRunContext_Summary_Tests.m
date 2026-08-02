@@ -48,8 +48,8 @@ static void populateContext(KSCrashRunContext *ctx)
     ctx->producedReport = true;
 
     ctx->lifecycleValid = true;
-    ctx->lifecycle.cleanShutdown = 0;
-    ctx->lifecycle.fatalReported = 1;
+    ctx->lifecycle.cleanExit = 0;
+    ctx->lifecycle.monitorHandlerRan = 1;
     ctx->lifecycle.userPerceptible = 1;
     ctx->lifecycle.activeDurationSinceLaunchNs = 123456789000ULL;     // 123456.789 ms
     ctx->lifecycle.backgroundDurationSinceLaunchNs = 45678901000ULL;  // 45678.901 ms
@@ -126,8 +126,6 @@ static void populateContext(KSCrashRunContext *ctx)
     XCTAssertFalse(summary.isBeingDebugged);
 
     XCTAssertEqual(summary.outcome.terminationReason, KSTerminationReasonCrash);
-    XCTAssertFalse(summary.outcome.cleanShutdown);
-    XCTAssertTrue(summary.outcome.fatalReported);
     XCTAssertTrue(summary.outcome.userPerceptible);
 
     XCTAssertEqual(summary.durations.activeMs, 123456LL);

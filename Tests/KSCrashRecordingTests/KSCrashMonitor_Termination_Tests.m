@@ -41,13 +41,13 @@ extern KSTerminationReason ksruncontext_testcode_determineReason(const KSCrash_L
 
 #pragma mark - Helpers
 
-static KSCrash_LifecycleData makeLifecycle(bool cleanShutdown, bool fatalReported)
+static KSCrash_LifecycleData makeLifecycle(bool cleanExit, bool monitorHandlerRan)
 {
     KSCrash_LifecycleData lc = { 0 };
     lc.magic = KSLIFECYCLE_MAGIC;
     lc.version = KSCrash_Lifecycle_CurrentVersion;
-    lc.cleanShutdown = cleanShutdown;
-    lc.fatalReported = fatalReported;
+    lc.cleanExit = cleanExit;
+    lc.monitorHandlerRan = monitorHandlerRan;
     return lc;
 }
 
@@ -111,7 +111,7 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
 - (void)testHangInProgressReturnsHang
 {
     KSCrash_LifecycleData lc = makeLifecycle(false, false);
-    lc.hangInProgress = true;
+    lc.hangActive = true;
     KSCrash_ResourceData res = makeResource();
     res.memoryLevel = KSCrashAppMemoryStateCritical;
     KSCrash_SystemData sys = sameSystem();

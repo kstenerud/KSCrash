@@ -69,6 +69,5 @@ final class SessionTests: IntegrationTestBase {
         let data = try Data(contentsOf: runsDir.appendingPathComponent(try XCTUnwrap(runFiles.first)))
         let summary = try RunSummary.decode(from: data)
         XCTAssertEqual(summary.outcome.terminationReason, .crash)
-        XCTAssertFalse(summary.outcome.cleanShutdown, "a crashed run did not shut down cleanly")
     }
 }

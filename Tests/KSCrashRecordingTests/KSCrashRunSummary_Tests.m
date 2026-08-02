@@ -39,14 +39,9 @@
 - (void)test_outcome_storesAllFields
 {
     KSCrashRunSummaryOutcome *outcome =
-        [[KSCrashRunSummaryOutcome alloc] initWithTerminationReason:KSTerminationReasonCrash
-                                                      cleanShutdown:NO
-                                                      fatalReported:YES
-                                                    userPerceptible:YES];
+        [[KSCrashRunSummaryOutcome alloc] initWithTerminationReason:KSTerminationReasonCrash userPerceptible:YES];
 
     XCTAssertEqual(outcome.terminationReason, KSTerminationReasonCrash);
-    XCTAssertFalse(outcome.cleanShutdown);
-    XCTAssertTrue(outcome.fatalReported);
     XCTAssertTrue(outcome.userPerceptible);
 }
 
@@ -150,10 +145,7 @@
 - (KSCrashRunSummary *)makeMergeBaseSummary
 {
     KSCrashRunSummaryOutcome *outcome =
-        [[KSCrashRunSummaryOutcome alloc] initWithTerminationReason:KSTerminationReasonClean
-                                                      cleanShutdown:YES
-                                                      fatalReported:NO
-                                                    userPerceptible:YES];
+        [[KSCrashRunSummaryOutcome alloc] initWithTerminationReason:KSTerminationReasonClean userPerceptible:YES];
     KSCrashRunSummaryDurations *durations = [[KSCrashRunSummaryDurations alloc] initWithActiveMs:0 backgroundMs:0];
     KSCrashRunSummarySessions *sessions = [[KSCrashRunSummarySessions alloc] initWithRecords:@[]];
     KSCrashRunSummaryApp *app = [[KSCrashRunSummaryApp alloc] initWithBundleID:@"b"
@@ -269,10 +261,7 @@
 - (void)test_runSummary_storesAllFields
 {
     KSCrashRunSummaryOutcome *outcome =
-        [[KSCrashRunSummaryOutcome alloc] initWithTerminationReason:KSTerminationReasonClean
-                                                      cleanShutdown:YES
-                                                      fatalReported:NO
-                                                    userPerceptible:YES];
+        [[KSCrashRunSummaryOutcome alloc] initWithTerminationReason:KSTerminationReasonClean userPerceptible:YES];
     KSCrashRunSummaryDurations *durations = [[KSCrashRunSummaryDurations alloc] initWithActiveMs:123456
                                                                                     backgroundMs:45678];
     KSCrashRunSummarySessions *sessions = [[KSCrashRunSummarySessions alloc] initWithRecords:@[]];
@@ -323,10 +312,7 @@
 - (void)test_runSummary_acceptsNilUserID
 {
     KSCrashRunSummaryOutcome *outcome =
-        [[KSCrashRunSummaryOutcome alloc] initWithTerminationReason:KSTerminationReasonClean
-                                                      cleanShutdown:YES
-                                                      fatalReported:NO
-                                                    userPerceptible:NO];
+        [[KSCrashRunSummaryOutcome alloc] initWithTerminationReason:KSTerminationReasonClean userPerceptible:NO];
     KSCrashRunSummaryDurations *durations = [[KSCrashRunSummaryDurations alloc] initWithActiveMs:0 backgroundMs:0];
     KSCrashRunSummarySessions *sessions = [[KSCrashRunSummarySessions alloc] initWithRecords:@[]];
     KSCrashRunSummaryApp *app = [[KSCrashRunSummaryApp alloc] initWithBundleID:@"com.acme.app"
@@ -376,8 +362,6 @@
         @"is_being_debugged" : @NO,
         @"outcome" : @ {
             @"termination_reason" : @"clean",
-            @"clean_shutdown" : @YES,
-            @"fatal_reported" : @NO,
             @"user_perceptible" : @YES,
         },
         @"durations_ms" : @ { @"active" : @0, @"background" : @0 },
@@ -446,7 +430,7 @@
 {
     NSMutableDictionary *dict = [self fullyValidWireDict];
     NSMutableDictionary *outcome = [dict[@"outcome"] mutableCopy];
-    [outcome removeObjectForKey:@"clean_shutdown"];
+    [outcome removeObjectForKey:@"user_perceptible"];
     dict[@"outcome"] = outcome;
     XCTAssertNil([KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil]);
 
@@ -487,6 +471,19 @@
     XCTAssertFalse(summary.isBeingDebugged);
 }
 
+- (void)test_decoder_ignoresLegacyOutcomeFlags
+{
+    // .run files written before the outcome cleanup carry clean_shutdown and
+    // fatal_reported in the outcome; both are ignored, not rejected.
+    NSMutableDictionary *dict = [self fullyValidWireDict];
+    NSMutableDictionary *outcome = [dict[@"outcome"] mutableCopy];
+    outcome[@"clean_shutdown"] = @YES;
+    outcome[@"fatal_reported"] = @NO;
+    dict[@"outcome"] = outcome;
+    KSCrashRunSummary *summary = [KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil];
+    XCTAssertNotNil(summary);
+}
+
 - (void)test_encoder_roundTripsIsBeingDebugged
 {
     NSMutableDictionary *dict = [self fullyValidWireDict];
@@ -511,7 +508,7 @@
 
 // Under NSJSONSerialization JSON booleans are __NSCFBoolean (an NSNumber
 // subclass), so a naive isKindOfClass:[NSNumber class] check accepts
-// {"schema_version": true} and {"clean_shutdown": 2} alike. These tests
+// {"schema_version": true} and {"user_perceptible": 2} alike. These tests
 // lock in that the decoder distinguishes the two.
 - (void)test_decoder_rejectsBooleanWhereNumberRequired
 {
@@ -531,7 +528,7 @@
 
     dict = [self fullyValidWireDict];
     NSMutableDictionary *outcomeTypes = [dict[@"outcome"] mutableCopy];
-    outcomeTypes[@"clean_shutdown"] = @"nope";  // string where boolean is required
+    outcomeTypes[@"user_perceptible"] = @"nope";  // string where boolean is required
     dict[@"outcome"] = outcomeTypes;
     XCTAssertNil([KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil]);
 }
@@ -567,13 +564,13 @@
 {
     NSMutableDictionary *dict = [self fullyValidWireDict];
     NSMutableDictionary *outcome = [dict[@"outcome"] mutableCopy];
-    outcome[@"clean_shutdown"] = @2;
+    outcome[@"user_perceptible"] = @2;
     dict[@"outcome"] = outcome;
     XCTAssertNil([KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil]);
 
     dict = [self fullyValidWireDict];
     outcome = [dict[@"outcome"] mutableCopy];
-    outcome[@"fatal_reported"] = @0;  // 0 also rejected — bool is not a synonym for "zero"
+    outcome[@"user_perceptible"] = @0;  // 0 also rejected — bool is not a synonym for "zero"
     dict[@"outcome"] = outcome;
     XCTAssertNil([KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil]);
 

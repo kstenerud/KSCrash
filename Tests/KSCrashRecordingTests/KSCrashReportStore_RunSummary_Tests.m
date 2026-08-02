@@ -87,10 +87,7 @@
 - (KSCrashRunSummary *)sampleSummaryWithRunID:(NSString *)runID
 {
     KSCrashRunSummaryOutcome *outcome =
-        [[KSCrashRunSummaryOutcome alloc] initWithTerminationReason:KSTerminationReasonClean
-                                                      cleanShutdown:YES
-                                                      fatalReported:NO
-                                                    userPerceptible:YES];
+        [[KSCrashRunSummaryOutcome alloc] initWithTerminationReason:KSTerminationReasonClean userPerceptible:YES];
     KSCrashRunSummaryDurations *durations = [[KSCrashRunSummaryDurations alloc] initWithActiveMs:100 backgroundMs:50];
     KSCrashRunSummarySessions *sessions = [[KSCrashRunSummarySessions alloc] initWithRecords:@[]];
     KSCrashRunSummaryApp *app = [[KSCrashRunSummaryApp alloc] initWithBundleID:@"com.test"

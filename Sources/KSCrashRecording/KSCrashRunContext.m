@@ -112,13 +112,13 @@ static KSTerminationReason determineReason(const KSCrash_LifecycleData *prevLife
     // records a crash or hang, a missing resource/system sidecar must not
     // erase that evidence.
 
-    if (prevLifecycle->cleanShutdown) {
+    if (prevLifecycle->cleanExit) {
         return KSTerminationReasonClean;
     }
-    if (prevLifecycle->fatalReported) {
+    if (prevLifecycle->monitorHandlerRan) {
         return KSTerminationReasonCrash;
     }
-    if (prevLifecycle->hangInProgress) {
+    if (prevLifecycle->hangActive) {
         return KSTerminationReasonHang;
     }
 
@@ -523,8 +523,6 @@ static KSCrashRunSummary *buildSummary(const KSCrashRunContext *ctx, const char 
 
     KSCrashRunSummaryOutcome *outcome =
         [[KSCrashRunSummaryOutcome alloc] initWithTerminationReason:ctx->terminationReason
-                                                      cleanShutdown:lc->cleanShutdown != 0
-                                                      fatalReported:lc->fatalReported != 0
                                                     userPerceptible:lc->userPerceptible != 0];
 
     // Durations accumulate in the sidecar only on state transitions, so the

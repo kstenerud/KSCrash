@@ -200,7 +200,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     KSCrash_LifecycleData prev = { 0 };
     prev.magic = KSLIFECYCLE_MAGIC;
     prev.version = KSCrash_Lifecycle_CurrentVersion;
-    prev.cleanShutdown = clean;
+    prev.cleanExit = clean;
     prev.launchesSinceLastCrash = launches;
     prev.sessionsSinceLastCrash = sessions;
     prev.activeDurationSinceLastCrashNs = activeNs;
@@ -324,7 +324,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     XCTAssertEqual(current.magic, KSLIFECYCLE_MAGIC);
 
     // Mark it as clean shutdown
-    current.cleanShutdown = true;
+    current.cleanExit = true;
 
     // Write as previous
     NSString *prevRunID2 = @"00000000-0000-0000-0000-000000000002";
@@ -524,7 +524,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
 
     KSCrash_LifecycleData data = { 0 };
     XCTAssertTrue(readCurrentSidecar(&data));
-    XCTAssertTrue(data.cleanShutdown);
+    XCTAssertTrue(data.cleanExit);
 }
 
 - (void)testNonFatalEventDoesNotClearCleanShutdown
@@ -542,7 +542,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
 
     KSCrash_LifecycleData data = { 0 };
     XCTAssertTrue(readCurrentSidecar(&data));
-    XCTAssertTrue(data.cleanShutdown);
+    XCTAssertTrue(data.cleanExit);
 }
 
 - (void)testFatalEventClearsCleanShutdown
@@ -560,7 +560,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
 
     KSCrash_LifecycleData data = { 0 };
     XCTAssertTrue(readCurrentSidecar(&data));
-    XCTAssertFalse(data.cleanShutdown);
+    XCTAssertFalse(data.cleanExit);
 }
 
 - (void)testFatalCleanExitSetsCleanShutdown
@@ -576,7 +576,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
 
     KSCrash_LifecycleData data = { 0 };
     XCTAssertTrue(readCurrentSidecar(&data));
-    XCTAssertTrue(data.cleanShutdown);
+    XCTAssertTrue(data.cleanExit);
 }
 
 - (void)testFatalCrashExitClearsCleanShutdown
@@ -595,7 +595,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
 
     KSCrash_LifecycleData data = { 0 };
     XCTAssertTrue(readCurrentSidecar(&data));
-    XCTAssertFalse(data.cleanShutdown);
+    XCTAssertFalse(data.cleanExit);
 }
 
 - (void)testActiveDurationAccumulates
@@ -653,7 +653,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
 
     KSCrash_LifecycleData data = { 0 };
     XCTAssertTrue(readCurrentSidecar(&data));
-    XCTAssertTrue(data.hangInProgress);
+    XCTAssertTrue(data.hangActive);
 }
 
 - (void)testHangEndedClearsFlag
@@ -664,7 +664,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
 
     KSCrash_LifecycleData data = { 0 };
     XCTAssertTrue(readCurrentSidecar(&data));
-    XCTAssertFalse(data.hangInProgress);
+    XCTAssertFalse(data.hangActive);
 }
 
 #pragma mark - Task Role Tests -

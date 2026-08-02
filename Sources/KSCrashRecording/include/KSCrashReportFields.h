@@ -315,8 +315,6 @@ KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, Perceptible, perceptible, "percept
 
 KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, Outcome, outcome, "outcome")
 KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, TerminationReason, terminationReason, "termination_reason")
-KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, CleanShutdown, cleanShutdown, "clean_shutdown")
-KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, FatalReported, fatalReported, "fatal_reported")
 KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, UserPerceptible, userPerceptible, "user_perceptible")
 
 KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, DurationsMs, durationsMs, "durations_ms")

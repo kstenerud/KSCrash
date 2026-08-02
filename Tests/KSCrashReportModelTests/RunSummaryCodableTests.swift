@@ -39,8 +39,6 @@ final class RunSummaryCodableTests: XCTestCase {
     ) -> RunSummary {
         let outcome = RunSummary.Outcome(
             terminationReason: terminationReason,
-            cleanShutdown: true,
-            fatalReported: false,
             userPerceptible: true)
         let durations = RunSummary.Durations(activeMs: 123_456, backgroundMs: 45_678)
         let sessions = RunSummary.Sessions(records: [])
@@ -94,8 +92,6 @@ final class RunSummaryCodableTests: XCTestCase {
         XCTAssertEqual(decoded.endedAtMs, original.endedAtMs)
         XCTAssertEqual(decoded.isBeingDebugged, original.isBeingDebugged)
         XCTAssertEqual(decoded.outcome.terminationReason, original.outcome.terminationReason)
-        XCTAssertEqual(decoded.outcome.cleanShutdown, original.outcome.cleanShutdown)
-        XCTAssertEqual(decoded.outcome.fatalReported, original.outcome.fatalReported)
         XCTAssertEqual(decoded.outcome.userPerceptible, original.outcome.userPerceptible)
         XCTAssertEqual(decoded.durations.activeMs, original.durations.activeMs)
         XCTAssertEqual(decoded.durations.backgroundMs, original.durations.backgroundMs)
@@ -147,8 +143,6 @@ final class RunSummaryCodableTests: XCTestCase {
 
         let outcome = try XCTUnwrap(json["outcome"] as? [String: Any])
         XCTAssertNotNil(outcome["termination_reason"])
-        XCTAssertNotNil(outcome["clean_shutdown"])
-        XCTAssertNotNil(outcome["fatal_reported"])
         XCTAssertNotNil(outcome["user_perceptible"])
 
         XCTAssertNotNil(json["sessions"])
@@ -193,8 +187,6 @@ final class RunSummaryCodableTests: XCTestCase {
               "ended_at_ms": 0,
               "outcome": {
                 "termination_reason": "some_future_reason",
-                "clean_shutdown": false,
-                "fatal_reported": false,
                 "user_perceptible": false
               },
               "durations_ms": { "active": 0, "background": 0 },

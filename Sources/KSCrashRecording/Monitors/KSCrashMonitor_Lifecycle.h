@@ -27,8 +27,8 @@
 /* Lifecycle monitor — tracks app lifecycle data in an mmap'd run sidecar.
  *
  * Replaces the old CrashState.json approach with a fixed-layout struct
- * that is flushed to disk by the kernel. The "cleanShutdown" flag defaults
- * to false; clean exit paths set it true. On next launch, cleanShutdown==false
+ * that is flushed to disk by the kernel. The "cleanExit" flag defaults
+ * to false; clean exit paths set it true. On next launch, cleanExit==false
  * means the previous run ended abnormally.
  *
  * All durations are stored as uint64_t nanoseconds from
@@ -73,7 +73,7 @@ typedef struct {
     int32_t magic;
     uint8_t version;
 
-    uint8_t cleanShutdown;
+    uint8_t cleanExit;
     uint8_t applicationIsActive;
     uint8_t applicationIsInForeground;
 
@@ -97,13 +97,13 @@ typedef struct {
     int32_t taskRole;  // task_role_t — updated by heartbeat and on lifecycle events
 
     uint8_t crashedLastLaunch KSCRASH_DEPRECATED("Use ksruncontext_previousRunContext()->terminationReason");
-    uint8_t transitionState;  // KSCrashAppTransitionState at last update
-    uint8_t fatalReported;    // true if a crash handler ran (distinguishes crash from OS kill)
-    uint8_t userPerceptible;  // true if the user could perceive the app as part of their
-                              // experience (e.g. active, launching, or even tapping the icon
-                              // while still technically backgrounded)
-    uint8_t hangInProgress;   // true while the watchdog is tracking an active hang;
-                              // if still true on next launch, the app was killed during a hang
+    uint8_t transitionState;    // KSCrashAppTransitionState at last update
+    uint8_t monitorHandlerRan;  // true if a crash handler ran (distinguishes crash from OS kill)
+    uint8_t userPerceptible;    // true if the user could perceive the app as part of their
+                                // experience (e.g. active, launching, or even tapping the icon
+                                // while still technically backgrounded)
+    uint8_t hangActive;         // true while the watchdog is tracking an active hang;
+                                // if still true on next launch, the app was killed during a hang
 
     // --- v2 additions ---
     //

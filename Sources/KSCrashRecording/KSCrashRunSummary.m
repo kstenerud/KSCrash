@@ -38,15 +38,10 @@
 
 @implementation KSCrashRunSummaryOutcome
 
-- (instancetype)initWithTerminationReason:(KSTerminationReason)terminationReason
-                            cleanShutdown:(BOOL)cleanShutdown
-                            fatalReported:(BOOL)fatalReported
-                          userPerceptible:(BOOL)userPerceptible
+- (instancetype)initWithTerminationReason:(KSTerminationReason)terminationReason userPerceptible:(BOOL)userPerceptible
 {
     if ((self = [super init])) {
         _terminationReason = terminationReason;
-        _cleanShutdown = cleanShutdown;
-        _fatalReported = fatalReported;
         _userPerceptible = userPerceptible;
     }
     return self;
@@ -223,8 +218,6 @@ static NSString *hostKindWireString(KSCrashRunSummaryHostKind kind)
         KSCrashRunSummaryField_TerminationReason : @(kstermination_reasonToString(self.outcome.terminationReason)),
         // @YES / @NO wrap CFBoolean so KSJSONCodec emits JSON booleans; a
         // plain @(BOOL) would be an integer NSNumber and serialize as 0/1.
-        KSCrashRunSummaryField_CleanShutdown : self.outcome.cleanShutdown ? @YES : @NO,
-        KSCrashRunSummaryField_FatalReported : self.outcome.fatalReported ? @YES : @NO,
         KSCrashRunSummaryField_UserPerceptible : self.outcome.userPerceptible ? @YES : @NO,
     };
     dict[KSCrashRunSummaryField_DurationsMs] = @{
@@ -293,7 +286,7 @@ static NSString *hostKindWireString(KSCrashRunSummaryHostKind kind)
 // NSJSONSerialization represents JSON booleans as __NSCFBoolean, a subclass
 // of NSNumber — so `isKindOfClass:[NSNumber class]` accepts booleans as
 // numbers and vice versa. We disambiguate via CFBooleanGetTypeID so
-// {"schema_version": true} or {"clean_shutdown": 2} are rejected as
+// {"schema_version": true} or {"user_perceptible": 2} are rejected as
 // malformed instead of silently coerced. Callers must null-check before
 // invoking; CFGetTypeID(NULL) is undefined.
 static BOOL isJSONBoolean(id value) { return CFGetTypeID((__bridge CFTypeRef)value) == CFBooleanGetTypeID(); }
@@ -423,8 +416,7 @@ static KSCrashRunSummaryHostKind hostKindFromWireString(NSString *value)
     int64_t endedAtMs = requiredInt64(dict, KSCrashRunSummaryField_EndedAtMs, &ok);
 
     NSString *reasonString = requiredString(outcomeDict, KSCrashRunSummaryField_TerminationReason, &ok);
-    BOOL cleanShutdown = requiredBool(outcomeDict, KSCrashRunSummaryField_CleanShutdown, &ok);
-    BOOL fatalReported = requiredBool(outcomeDict, KSCrashRunSummaryField_FatalReported, &ok);
+    // Older .run files also carry clean_shutdown / fatal_reported here; both are ignored.
     BOOL userPerceptible = requiredBool(outcomeDict, KSCrashRunSummaryField_UserPerceptible, &ok);
 
     int64_t activeMs = requiredInt64(durationsDict, KSCrashRunSummaryField_Active, &ok);
@@ -557,8 +549,6 @@ static KSCrashRunSummaryHostKind hostKindFromWireString(NSString *value)
 
     KSCrashRunSummaryOutcome *outcome = [[KSCrashRunSummaryOutcome alloc]
         initWithTerminationReason:kstermination_reasonFromString(reasonString.UTF8String)
-                    cleanShutdown:cleanShutdown
-                    fatalReported:fatalReported
                   userPerceptible:userPerceptible];
     KSCrashRunSummaryDurations *durations = [[KSCrashRunSummaryDurations alloc] initWithActiveMs:activeMs
                                                                                     backgroundMs:backgroundMs];
