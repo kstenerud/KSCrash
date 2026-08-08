@@ -9,10 +9,12 @@ New Features:
 - Hang observers: Real-time hang state change callbacks via KSCrash+Hang.h.
 - Per-key user info API: Type-safe, mmap'd key-value store (KSCrash+UserInfo.h) replaces the deprecated dictionary-based userInfo property. Zero crash-time overhead.
 - previousTerminationReason: Query why the previous run ended (13 distinct reason codes).
-- Report module (Swift): Strongly-typed CrashReport<UserData> model for parsing crash reports. AppMemoryInfo.memoryLevel/memoryPressure are typed as a new MemoryState enum and AppMemoryInfo.appTransitionState is typed as AppTransitionState, replacing the raw String? fields used during early beta. A matching ObjC KSCrashExcType_Profile constant covers profile reports.
-- Monitors module (Swift): MetricKit plugin for receiving Apple diagnostic payloads.
-- Profiler module (Swift): Sampling profiler for thread backtraces at regular intervals. Profile/Profiler are protocols; TimeProfile/TimeProfiler are the concrete time-sampling implementation. Configurable maxFrames (runtime), opt-in fast unwind via KSBacktraceUnwindMethods, ring storage ~1.5 MB at defaults.
+- Report module (Swift, import KSCrashReportModel): Strongly-typed CrashReport<UserData> model for parsing crash reports. AppMemoryInfo.memoryLevel/memoryPressure are typed as a new MemoryState enum and AppMemoryInfo.appTransitionState is typed as AppTransitionState, replacing the raw String? fields used during early beta. A matching ObjC KSCrashExcType_Profile constant covers profile reports.
+- Monitors module (Swift, import KSCrashMonitors): MetricKit plugin for receiving Apple diagnostic payloads.
+- Profiler module (Swift, import KSCrashProfiler): Sampling profiler for thread backtraces at regular intervals. Profile/Profiler are protocols; TimeProfile/TimeProfiler are the concrete time-sampling implementation. Configurable maxFrames (runtime), opt-in fast unwind via KSBacktraceUnwindMethods, ring storage ~1.5 MB at defaults.
 - Backtrace capture API: Direct access to crash-time backtrace infrastructure (KSCrash+Backtrace.h). Adds ksbt_captureBacktraceFromSuspendedMachThread for callers that have already suspended a target thread.
+- Swift async stack traces: Opt-in enableSwiftAsyncStackTraces switches current-thread capture paths (C++ throw-site and handler cursors, user-reported fallbacks, current-thread captureBacktrace) to backtrace_async(), stitching Swift async continuation frames into the backtrace. Falls back to backtrace() where unavailable.
+- Nonatomic-property race diagnosis: KSCrashDoctor recognizes the Objective-C runtime's nonatomic-setter sentinel (0x400000000000bad0, 0xbad0 on 32-bit) and reports a probable thread-safety bug on a nonatomic property instead of a generic garbage-pointer message.
 - Threadcrumbs: Encode short messages into thread call stacks for recovery via symbolication.
 - Plugin monitor API: Register custom monitors via KSCrashConfiguration.plugins.
 - Compact binary images: Optional filtering to only include backtrace-referenced images (enableCompactBinaryImages).
@@ -39,12 +41,21 @@ Behavioral Changes:
 - KSCrashMonitorTypeRequired now includes UserInfo and Resource (auto-enabled regardless of user selection).
 - KSCRS_MAX_PATH_LENGTH increased from 500 to 1024 bytes.
 - New KSCrashMonitorTypeCompatible251 composite mask for gradual migration from 2.5.1.
+- Signal handlers explicitly set to SIG_IGN before install are left in place; KSCrash no longer intercepts those signals and records a fatal report (e.g. an intentionally ignored SIGPIPE).
 
 Bug Fixes:
 
 - Constructing a KSCrashReportStore after install no longer silently replaces the install's sidecar/stitch config, so the no-config readers (readReportAtPath, readReportByPathAndID, finalizeReport) keep finding sidecars in the install's directories instead of the store's.
 - Watchdog stitch no longer overwrites is_fatal on non-watchdog reports when both monitors emit sidecars for the same report.
 - JSON codec and KSLogger callsites that ran inside signal handlers were using non-async-signal-safe primitives; replaced with ksstring_uint64ToHex / ksstring_intToDecimal where applicable.
+- arm64 symbolication of Swift async continuation frames no longer resolves to the preceding symbol with a large bogus offset.
+- stack.overflow on a crashed thread is now judged at the same 150-frame threshold as every other thread; the crashed thread of a signal or Mach crash was judged at its 512-frame walk limit, so the stack-overflow diagnosis effectively never fired for it.
+- The always-enabled infrastructure monitors (System, Lifecycle, UserInfo, Resource) are now registered even when the configured monitor mask leaves them out; the mask was previously applied without the required set.
+- last_exception_backtrace no longer carries a stale backtrace when a raw Objective-C object is thrown; the throw site is captured instead.
+- The C++ exception monitor routes NSException subclasses to the NSException handling path and correctly reports thrown raw Objective-C objects.
+- Run-sidecar cleanup no longer deletes live sidecars when more than 512 reports are on disk.
+- System binary CPU metadata comes from the binary image cache instead of a dyld lookup at collection time.
+- Unwinder and crash-time hardening: the link register value an LR frame consumed is preserved for the next frame, compact-unwind lookups fail cleanly at the index sentinel, eh_frame reads are bounded by their section, the unwind-info out-param is filled when the binary image cache is full, queue-name reads guard against non-positive buffer lengths, and NULL-terminated string copies use strlcpy.
 
 See the migration guide for details: https://github.com/kstenerud/KSCrash/wiki/Migration-Guide-for-KSCrash-2.5-to-2.6
 
