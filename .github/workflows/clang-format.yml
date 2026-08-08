@@ -16,7 +16,7 @@ jobs:
     env:
       DIRS: 'Sources Tests Samples/Common/Sources/CrashTriggers'
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
 
     - name: Install clang-format-20
       run: |

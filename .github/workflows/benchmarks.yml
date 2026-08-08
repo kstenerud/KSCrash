@@ -30,7 +30,7 @@ jobs:
       has_browserstack_scheme: ${{ steps.check.outputs.has_scheme }}
     steps:
       - name: Checkout base branch
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.base_ref }}
 
@@ -77,7 +77,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Download PR Results
         uses: actions/download-artifact@v8
