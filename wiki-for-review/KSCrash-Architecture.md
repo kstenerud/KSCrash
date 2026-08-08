@@ -61,6 +61,7 @@ Detect application errors and non-fatal events. Built-in monitors are registered
 | CPPException  | `cpp_exception` | Uncaught C++ exceptions                                            |
 | NSException   | `nsexception`   | Uncaught ObjC exceptions and user-reported errors                  |
 | Watchdog      | `hang`          | Main thread hangs (250ms+), fatal when OS kills during hang        |
+| Deadlock      | `deadlock`      | Main thread blocked; deprecated, use Watchdog                      |
 | Termination   | `termination`   | OS-level terminations (OOM, thermal, CPU, reboot)                  |
 | Zombie        | —               | Messages sent to deallocated ObjC objects (enhances other reports) |
 | User          | `user`          | User-triggered reports via API                                     |
@@ -74,15 +75,21 @@ Detect application errors and non-fatal events. Built-in monitors are registered
 | UserInfo  | —           | Per-key user data via mmap'd store        |
 | System    | —           | Device/OS/app info                        |
 
-Required monitors don't generate reports on their own. They store per-run state in sidecar files
-that other monitors and RunContext use for analysis.
+Required monitors store per-run state in sidecar files that other monitors and RunContext use for
+analysis. They don't generate reports on their own, with one exception: Resource can emit non-fatal
+CPU exception reports when `enableCPUExceptionReporting` is set.
 
 **Plugin monitors** (registered via `KSCrashConfiguration.plugins`):
 
-| Monitor   | Module          | Report type       | Detects                        |
-| --------- | --------------- | ----------------- | ------------------------------ |
-| MetricKit | KSCrashMonitors | `mach` / `signal` | Apple MetricKit diagnostics    |
-| Profiler  | KSCrashProfiler | non-fatal         | Thread backtraces at intervals |
+| Monitor   | Module          | Report type                       | Detects                     |
+| --------- | --------------- | --------------------------------- | --------------------------- |
+| MetricKit | KSCrashMonitors | `mach` / `signal` / `nsexception` | Apple MetricKit diagnostics |
+
+**Self-registering monitors** (register themselves on first use):
+
+| Monitor  | Module          | Report type           | Purpose                        |
+| -------- | --------------- | --------------------- | ------------------------------ |
+| Profiler | KSCrashProfiler | `profile` (non-fatal) | Thread backtraces at intervals |
 
 **Auto-registered monitors** (linked via SPM module):
 
@@ -98,10 +105,11 @@ Primary entry point: KSCrashMonitor.h
 Monitors can store auxiliary data alongside crash reports without modifying the main report JSON.
 There are two scopes:
 
-- **Per-report sidecars** (`Sidecars/`): Tied to a specific crash report ID. Used by the Watchdog
-  monitor to store hang timing and recovery state.
+- **Per-report sidecars** (`Sidecars/`): Tied to a specific crash report. Used by the MetricKit
+  monitor to store diagnostic payload data for later stitching.
 - **Per-run sidecars** (`RunSidecars/`): Shared across all reports from one process run. Used by
-  Lifecycle, Resource, System, and UserInfo monitors to store mmap'd state that survives crashes.
+  the Watchdog, Lifecycle, Resource, System, and UserInfo monitors to store mmap'd state that
+  survives crashes; the Watchdog's holds hang timing and recovery state.
 
 At report delivery time (next app launch), the stitch pipeline reads each monitor's sidecar and
 merges it into the report JSON via `createStitchedReport` callbacks. This runs at normal startup, so
@@ -116,7 +124,7 @@ determines a `KSTerminationReason` for why the previous process ended.
 The result is cached and available via `ksruncontext_previousRunContext()`. The Termination monitor
 reads this to decide whether to inject a retroactive report.
 
-Primary entry point: KSCrashRunContext.h
+Primary entry point: KSCrashRunContext.h (internal header)
 
 ### Filters
 

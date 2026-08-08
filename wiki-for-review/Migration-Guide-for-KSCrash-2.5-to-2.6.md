@@ -44,9 +44,9 @@ safe to call ObjC/Swift or allocate memory.
 | `userInfo` property (NSDictionary)         | Per-key API in `KSCrash+UserInfo.h` |
 | `KSCrashAppStateTrackerObserving` protocol | `addObserverWithBlock:`             |
 
-The per-key user info API (`setUserInfoString:forKey:`, `setUserInfoInteger:forKey:`, etc.) uses an
-mmap'd key-value store instead of JSON serialization, making it async-signal-safe with zero
-crash-time overhead.
+The per-key user info API (`setUserInfoString:forKey:`, `setUserInfoInteger:forKey:`, etc.;
+imported into Swift as overloads of `setUserInfo(_:forKey:)`) uses an mmap'd key-value store
+instead of JSON serialization, making it async-signal-safe with zero crash-time overhead.
 
 ## Behavioral Changes
 
@@ -55,8 +55,9 @@ crash-time overhead.
 `KSCrash.crashedLastLaunch` now returns `true` for:
 
 - Crashes (same as before)
-- Resource terminations (OOM, thermal, CPU watchdog)
+- Resource terminations (OOM, memory pressure, thermal, CPU watchdog, low battery)
 - Unrecovered hangs
+- Unexplained dirty exits (the previous run ended without a recorded cause)
 
 It does **not** return `true` for clean exits, reboots, OS/app upgrades, or non-fatal events.
 
@@ -83,7 +84,8 @@ If you want to keep exactly the same behavior as 2.5.1 while you evaluate the ne
 config.monitors = .compatible251
 ```
 
-This excludes Watchdog, Termination, and the new infrastructure monitors from the active set.
+This excludes Watchdog and Termination from the active set. The infrastructure monitors are still
+always enabled via `KSCrashMonitorTypeRequired`.
 
 ### Typed fields on `AppMemoryInfo` (Swift `Report`)
 
@@ -116,10 +118,10 @@ break, but you may want to start consuming the new fields.
 
 ### Removed Fields
 
-| Field                | Notes             |
-| -------------------- | ----------------- |
-| `system.freeStorage` | Always 0, removed |
-| `system.storage`     | Always 0, removed |
+| Field                | Notes                                                                                             |
+| -------------------- | ------------------------------------------------------------------------------------------------- |
+| `system.freeStorage` | No longer written as an always-0 base field. Present with a real value when the optional DiscSpace monitor module is linked |
+| `system.storage`     | Same as `system.freeStorage`                                                                      |
 
 ### Moved Fields
 
@@ -153,7 +155,7 @@ break, but you may want to start consuming the new fields.
 
 | Field              | Description                                                               |
 | ------------------ | ------------------------------------------------------------------------- |
-| `task_role`        | Process task role (`"FOREGROUND"`, `"BACKGROUND"`, `"UNSPECIFIED"`, etc.) |
+| `task_role`        | Process task role (`"FOREGROUND_APPLICATION"`, `"BACKGROUND_APPLICATION"`, `"UNSPECIFIED"`, etc.) |
 | `user_perceptible` | Whether the app was visible to the user at crash time                     |
 
 **Resource snapshots** (in `system`):
@@ -218,16 +220,17 @@ timing and state from the mmap'd sidecar:
 | Field                                          | Description                                                                               |
 | ---------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | `crash.error.hang.hang_start_nanos`            | Monotonic timestamp when the hang began                                                   |
-| `crash.error.hang.hang_start_role`             | Task role at hang start (`"FOREGROUND"`, `"BACKGROUND"`, `"UNSPECIFIED"`)                 |
-| `crash.error.hang.hang_start_transition_state` | App transition state at hang start (`"startup"`, `"active"`, `"terminating"`)             |
+| `crash.error.hang.hang_start_role`             | Task role at hang start (`"FOREGROUND_APPLICATION"`, `"BACKGROUND_APPLICATION"`, `"UNSPECIFIED"`, etc.) |
+| `crash.error.hang.hang_start_transition_state` | App transition state at hang start (`"startup"`, `"active"`, `"terminating"`, etc.)       |
 | `crash.error.hang.hang_end_nanos`              | Monotonic timestamp when the hang ended (recovery or kill)                                |
 | `crash.error.hang.hang_end_role`               | Task role at hang end                                                                     |
 | `crash.error.hang.hang_end_transition_state`   | App transition state at hang end                                                          |
 | `crash.error.hang.hang_recovered`              | `true` if the hang resolved before the OS killed the app. Only present on recovered hangs |
 | `crash.error.exit_reason.code`                 | Darwin exit reason code from the previous termination                                     |
 
-For recovered (non-fatal) hangs, the `signal` and `mach` sections are removed and `crash.error.type`
-is changed to `"hang"`.
+For recovered (non-fatal) hangs, the `signal`, `mach`, and `exit_reason` sections are removed,
+`is_fatal` becomes false, `is_clean_exit` is removed, and `crash.error.type` is changed to
+`"hang"`.
 
 The `report.monitor_id` is `"Watchdog"` for hang reports.
 
@@ -329,8 +332,8 @@ continuation frames into the backtrace. Falls back to `backtrace()` where unavai
 ### Per-Key User Info
 
 ```swift
-KSCrash.shared.setUserInfoString("premium", forKey: "accountType")
-KSCrash.shared.setUserInfoBool(true, forKey: "hasOnboarded")
+KSCrash.shared.setUserInfo("premium", forKey: "accountType")
+KSCrash.shared.setUserInfo(true, forKey: "hasOnboarded")
 KSCrash.shared.removeUserInfoValue(forKey: "oldKey")  // removeUserInfoValueForKey: in ObjC
 ```
 
@@ -401,7 +404,7 @@ config.enableCompactBinaryImages = true  // only include images referenced by ba
 if let store = KSCrash.shared.reportStore {
     let reportID = store.nextReportID
     if reportID != KSCrashReportNoID {
-        store.sendReport(withID: reportID) { reports, completed, error in
+        store.sendReport(withID: reportID) { reports, error in
             // handle result
         }
     }

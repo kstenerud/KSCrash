@@ -68,8 +68,8 @@ Key monitors to understand:
   RunContext's termination reason, and injects a retroactive report if needed.
 - **Lifecycle** (`KSCrashMonitor_Lifecycle.m`): Tracks app state transitions and maintains the
   `cleanShutdown` flag in its sidecar.
-- **Resource** (`KSCrashMonitor_Resource.m`): Periodically snapshots memory, CPU, thermal, and
-  battery state into its sidecar.
+- **Resource** (`KSCrashMonitor_Resource.m`): Tracks memory, CPU, thermal, and battery state in its
+  sidecar; CPU via a polling timer, the rest via system notifications.
 
 ### Sidecar System
 
@@ -77,12 +77,13 @@ Monitors that need to update data after writing the initial report use sidecar f
 small mmap'd binary structs that can be updated with simple memory writes (the kernel flushes dirty
 pages to disk).
 
-- **Per-report sidecars** (`Sidecars/<monitorId>/<reportID>.ksscr`): The Watchdog monitor uses this
-  to store hang timing and recovery state.
-- **Per-run sidecars** (`RunSidecars/<runID>/<monitorId>.ksscr`): Lifecycle, Resource, System, and
-  UserInfo use these to store state that applies to all reports from a process run.
+- **Per-report sidecars** (`Sidecars/<monitorId>/`): Tied to a specific report. The MetricKit
+  monitor uses these to store diagnostic payload data.
+- **Per-run sidecars** (`RunSidecars/<runID>/<monitorId>.ksscr`): Watchdog, Lifecycle, Resource,
+  System, and UserInfo use these to store state that applies to all reports from a process run; the
+  Watchdog's holds hang timing and recovery state.
 
-At next launch, the stitch pipeline in `KSCrashReportStoreC.c` reads each sidecar and calls the
+At next launch, the stitch pipeline in `KSCrashReportStoreC.m` reads each sidecar and calls the
 monitor's `createStitchedReport` callback to merge the data into the report JSON. Run sidecars are
 stitched first, then per-report sidecars.
 
@@ -108,7 +109,7 @@ this.
 ### Report Management
 
 Report management is primarily done in
-[`KSCrashReportStoreC.c`](https://github.com/kstenerud/KSCrash/blob/master/Sources/KSCrashRecording/KSCrashReportStoreC.c).
+[`KSCrashReportStoreC.m`](https://github.com/kstenerud/KSCrash/blob/master/Sources/KSCrashRecording/KSCrashReportStoreC.m).
 This file also handles sidecar path generation, sidecar stitching into reports, report finalization,
 and orphaned sidecar cleanup.
 
