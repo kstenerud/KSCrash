@@ -35,6 +35,8 @@
 #import "KSThread.h"
 
 #import <Foundation/Foundation.h>
+#import <mach/exception_types.h>
+#import <signal.h>
 #import <stdatomic.h>
 
 // #define KSLogger_LocalLevel TRACE
@@ -56,13 +58,13 @@ static struct {
     OnNSExceptionHandlerEnabled *onEnabled;
 } g_state;
 
-static bool isEnabled(void) { return g_state.isEnabled && g_state.installedState == KSCM_Installed; }
+static bool isEnabled(__unused void *context) { return g_state.isEnabled && g_state.installedState == KSCM_Installed; }
 
 // ============================================================================
 #pragma mark - Callbacks -
 // ============================================================================
 
-static KS_NOINLINE void initStackCursor(KSStackCursor *cursor, NSException *exception, uintptr_t *callstack,
+static KS_NOINLINE void initStackCursor(KSStackCursor *cursor, NSException *exception, uintptr_t **callstack,
                                         BOOL isUserReported) KS_KEEP_FUNCTION_IN_STACKTRACE
 {
     // Use stacktrace from NSException if present,
@@ -70,11 +72,11 @@ static KS_NOINLINE void initStackCursor(KSStackCursor *cursor, NSException *exce
     NSArray *addresses = [exception callStackReturnAddresses];
     NSUInteger numFrames = addresses.count;
     if (numFrames != 0) {
-        callstack = malloc(numFrames * sizeof(*callstack));
+        *callstack = malloc(numFrames * sizeof(**callstack));
         for (NSUInteger i = 0; i < numFrames; i++) {
-            callstack[i] = (uintptr_t)[addresses[i] unsignedLongLongValue];
+            (*callstack)[i] = (uintptr_t)[addresses[i] unsignedLongLongValue];
         }
-        kssc_initWithBacktrace(cursor, callstack, (int)numFrames, 0);
+        kssc_initWithBacktrace(cursor, *callstack, (int)numFrames, 0);
     } else {
         /* Skip frames for user-reported:
          * 1. `initStackCursor`
@@ -102,31 +104,45 @@ static KS_NOINLINE void handleException(NSException *exception, BOOL isUserRepor
                                         BOOL logAllThreads) KS_KEEP_FUNCTION_IN_STACKTRACE
 {
     KSLOG_DEBUG(@"Trapped exception %@", exception);
-    if (isEnabled()) {
-        // Gather this info before we require async-safety:
+    if (isEnabled(NULL)) {
+        // Gather this info before we require async-safety (ObjC messaging is not signal-safe):
         const char *exceptionName = exception.name.UTF8String;
         const char *exceptionReason = exception.reason.UTF8String;
         NS_VALID_UNTIL_END_OF_SCOPE NSString *userInfoString =
             exception.userInfo != nil ? [NSString stringWithFormat:@"%@", exception.userInfo] : nil;
         const char *userInfo = userInfoString.UTF8String;
+
+        // Capture the exception's own backtrace (from callStackReturnAddresses).
+        // This uses ObjC, so it must happen before notify() enters async-safe mode.
+        KSStackCursor exceptionCursor;
+        uintptr_t *callstack = NULL;
+        initStackCursor(&exceptionCursor, exception, &callstack, isUserReported);
+
+        // Capture the handler's actual call stack while we're still in the handler frame.
+        // User-reported skip 3: handleException + customNSExceptionReporter + reportNSException:
+        // Uncaught skip 2: handleException + handleUncaughtException
+        KSStackCursor handlerCursor;
+        int const handlerSkipFrames = isUserReported ? 3 : 2;
+        kssc_initSelfThread(&handlerCursor, handlerSkipFrames);
+
         KSLOG_DEBUG(@"Filling out context.");
         thread_t thisThread = (thread_t)ksthread_self();
-        KSMachineContext machineContext = { 0 };
-        ksmc_getContextForThread(thisThread, &machineContext, true);
-        KSStackCursor cursor;
-        uintptr_t *callstack = NULL;
-        initStackCursor(&cursor, exception, callstack, isUserReported);
 
-        // Now start exception handling
+        // Notify suspends other threads, establishing async-safe mode.
         KSCrash_MonitorContext *crashContext = g_state.callbacks.notify(
             thisThread, (KSCrash_ExceptionHandlingRequirements) { .asyncSafety = false,
                                                                   // User-reported exceptions are not considered fatal.
                                                                   .isFatal = !isUserReported,
+                                                                  .isCleanExit = false,
                                                                   .shouldRecordAllThreads = logAllThreads != NO,
                                                                   .shouldWriteReport = true });
         if (crashContext->requirements.shouldExitImmediately) {
             goto exit_immediately;
         }
+
+        // Capture machine context after notify() so the thread list matches the suspended state.
+        KSMachineContext machineContext = { 0 };
+        ksmc_getContextForThread(thisThread, &machineContext, true);
 
         kscm_fillMonitorContext(crashContext, kscm_nsexception_getAPI());
         crashContext->offendingMachineContext = &machineContext;
@@ -135,11 +151,17 @@ static KS_NOINLINE void handleException(NSException *exception, BOOL isUserRepor
         crashContext->NSException.userInfo = userInfo;
         crashContext->exceptionName = exceptionName;
         crashContext->crashReason = exceptionReason;
-        crashContext->stackCursor = &cursor;
-        crashContext->currentSnapshotUserReported = isUserReported;
+        crashContext->mach.type = EXC_CRASH;
+        crashContext->signal.signum = SIGABRT;
+
+        // The handler backtrace goes into stackCursor (shown as the crashed thread's backtrace).
+        // The exception's origin backtrace goes into exceptionStackCursor (last_exception_backtrace).
+        crashContext->stackCursor = &handlerCursor;
+        crashContext->exceptionStackCursor = &exceptionCursor;
 
         KSLOG_DEBUG(@"Calling main crash handler.");
-        g_state.callbacks.handle(crashContext);
+        KSCrash_ReportResult result = { 0 };
+        g_state.callbacks.handleWithResult(crashContext, &result, isUserReported);
 
     exit_immediately:
         free(callstack);
@@ -180,7 +202,7 @@ static void install(void)
 #pragma mark - API -
 // ============================================================================
 
-static void setEnabled(bool enabled)
+static void setEnabled(bool enabled, __unused void *context)
 {
     bool expectedState = !enabled;
     if (!atomic_compare_exchange_strong(&g_state.isEnabled, &expectedState, enabled)) {
@@ -190,17 +212,20 @@ static void setEnabled(bool enabled)
 
     if (enabled) {
         install();
-        if (isEnabled() && g_state.onEnabled != NULL) {
+        if (isEnabled(NULL) && g_state.onEnabled != NULL) {
             g_state.onEnabled(handleUncaughtException, customNSExceptionReporter);
         }
     }
 }
 
-static const char *monitorId(void) { return "NSException"; }
+static const char *monitorId(__unused void *context) { return "NSException"; }
 
-static KSCrashMonitorFlag monitorFlags(void) { return KSCrashMonitorFlagNone; }
+static KSCrashMonitorFlag monitorFlags(__unused void *context) { return KSCrashMonitorFlagNone; }
 
-static void init(KSCrash_ExceptionHandlerCallbacks *callbacks) { g_state.callbacks = *callbacks; }
+static void init(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused void *context)
+{
+    g_state.callbacks = *callbacks;
+}
 
 KSCrashMonitorAPI *kscm_nsexception_getAPI(void)
 {

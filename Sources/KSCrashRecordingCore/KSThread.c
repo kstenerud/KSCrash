@@ -30,10 +30,12 @@
 #include "KSSystemCapabilities.h"
 
 // #define KSLogger_LocalLevel TRACE
+#include <assert.h>
 #include <dispatch/dispatch.h>
 #include <mach/mach.h>
 #include <mach/thread_info.h>
 #include <pthread.h>
+#include <stdatomic.h>
 #include <sys/sysctl.h>
 
 #include "KSLogger.h"
@@ -59,6 +61,15 @@ KSThread ksthread_self(void)
     mach_port_deallocate(mach_task_self(), thread_self);
     return (KSThread)thread_self;
 }
+
+static _Atomic KSThread g_mainThread;
+
+void ksthread_storeMainThreadValue(KSThread thread)
+{
+    atomic_store_explicit(&g_mainThread, thread, memory_order_release);
+}
+
+KSThread ksthread_main(void) { return atomic_load_explicit(&g_mainThread, memory_order_acquire); }
 
 bool ksthread_getThreadName(const KSThread thread, char *const buffer, int bufLength)
 {
@@ -95,6 +106,12 @@ int ksthread_getThreadState(const KSThread thread)
 bool ksthread_getQueueName(const KSThread thread, char *const buffer, int bufLength)
 {
     // WARNING: This implementation is no longer async-safe!
+
+    // The copy below casts bufLength to size_t, so a non-positive length would turn into an
+    // enormous one.
+    if (bufLength < 1) {
+        return false;
+    }
 
     integer_t infoBuffer[THREAD_IDENTIFIER_INFO_COUNT] = { 0 };
     thread_info_t info = infoBuffer;
@@ -150,9 +167,7 @@ bool ksthread_getQueueName(const KSThread thread, char *const buffer, int bufLen
         KSLOG_TRACE("Queue label contains invalid chars");
         return false;
     }
-    bufLength = MIN(length, bufLength - 1);  // just strlen, without null-terminator
-    strncpy(buffer, queue_name, (size_t)bufLength);
-    buffer[bufLength] = 0;  // terminate string
+    strlcpy(buffer, queue_name, (size_t)bufLength);
     KSLOG_TRACE("Queue label = %s", buffer);
     return true;
 }

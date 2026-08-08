@@ -26,6 +26,7 @@
 
 #if defined(__arm64__)
 
+#include <ptrauth.h>
 #include <stdlib.h>
 
 #include "KSCPU.h"
@@ -35,8 +36,6 @@
 
 // #define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
-
-#define KSPACStrippingMask_ARM64e 0x0000000fffffffff
 
 static const char *g_registerNames[] = { "x0",  "x1",  "x2",  "x3",  "x4",  "x5",  "x6",  "x7",  "x8",
                                          "x9",  "x10", "x11", "x12", "x13", "x14", "x15", "x16", "x17",
@@ -143,6 +142,29 @@ uintptr_t kscpu_faultAddress(const KSMachineContext *const context)
 
 int kscpu_stackGrowDirection(void) { return -1; }
 
-uintptr_t kscpu_normaliseInstructionPointer(uintptr_t ip) { return ip & KSPACStrippingMask_ARM64e; }
+uintptr_t kscpu_normaliseInstructionPointer(uintptr_t ip)
+{
+#if __has_feature(ptrauth_calls)
+    // arm64e build - use the ptrauth intrinsic which handles PAC correctly.
+    // Use ptrauth_key_return_address since we're primarily stripping return addresses.
+    return (uintptr_t)ptrauth_strip((void *)ip, ptrauth_key_return_address);
+#else
+    // Non-arm64e build that may run on arm64e hardware:
+    // When an arm64 binary calls into arm64e system libraries (libdispatch, etc.),
+    // the return addresses pushed onto the stack by those libraries contain PAC
+    // signature bits. Since ptrauth_strip is a no-op on arm64, we must manually
+    // strip the PAC bits.
+    //
+    // On Apple platforms, user space virtual addresses fit in 47 bits (bits 0-46).
+    // The PAC signature occupies the upper bits (47-63). We mask to 47 bits to
+    // extract the canonical address while stripping any PAC signature.
+    //
+    // This mask is safe because:
+    // 1. Valid user addresses have high bits = 0, so masking is harmless
+    // 2. PAC-signed addresses need the high bits stripped
+    // 3. Kernel addresses (0xFFFF...) aren't processed during user crash handling
+    return ip & 0x00007FFFFFFFFFFFULL;
+#endif
+}
 
 #endif

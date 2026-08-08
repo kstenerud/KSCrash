@@ -37,7 +37,7 @@
 extern "C" {
 #endif
 
-#define KSCRS_MAX_PATH_LENGTH 500
+#define KSCRS_MAX_PATH_LENGTH 1024
 
 /** The default name of a folder (inside the KSCrash install path) that is used for report store.
  */
@@ -112,6 +112,33 @@ void kscrs_deleteAllReports(const KSCrashReportStoreCConfiguration *const config
  * @param configuration The store configuretion (e.g. reports path, app name etc).
  */
 void kscrs_deleteReportWithID(int64_t reportID, const KSCrashReportStoreCConfiguration *const configuration);
+
+/** Get a sidecar file path.
+ *
+ * Creates the sidecar subdirectory if it doesn't exist.
+ *
+ * @param monitorId The unique identifier of the monitor.
+ * @param name The filename (without extension).
+ * @param extension The file extension (without dot).
+ * @param pathBuffer Buffer to receive the file path.
+ * @param pathBufferLength The size of the path buffer.
+ * @param configuration The store configuration containing the sidecars base path.
+ *
+ * @return true if the path was successfully written, false on failure.
+ */
+bool kscrs_getReportSidecarFilePath(const char *monitorId, const char *name, const char *extension, char *pathBuffer,
+                                    size_t pathBufferLength,
+                                    const KSCrashReportStoreCConfiguration *const configuration);
+
+/** Remove run sidecar directories that no longer have matching reports.
+ *
+ * Called automatically within sendAllReports. If you handle report delivery
+ * yourself, call this periodically or after sending reports.
+ * May block, so prefer calling from a background thread.
+ *
+ * @param configuration The store configuration.
+ */
+void kscrs_cleanupOrphanedRunSidecars(const KSCrashReportStoreCConfiguration *const configuration);
 
 #ifdef __cplusplus
 }

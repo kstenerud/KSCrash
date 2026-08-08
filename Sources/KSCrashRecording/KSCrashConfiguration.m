@@ -51,7 +51,10 @@
             _userInfoJSON = nil;
         }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         _deadlockWatchdogInterval = cConfig.deadlockWatchdogInterval;
+#pragma clang diagnostic pop
         _enableQueueNameSearch = cConfig.enableQueueNameSearch ? YES : NO;
         _enableMemoryIntrospection = cConfig.enableMemoryIntrospection ? YES : NO;
         _doNotIntrospectClasses = nil;
@@ -60,7 +63,15 @@
         _addConsoleLogToReport = cConfig.addConsoleLogToReport ? YES : NO;
         _printPreviousLogOnStartup = cConfig.printPreviousLogOnStartup ? YES : NO;
         _enableSwapCxaThrow = cConfig.enableSwapCxaThrow ? YES : NO;
+        _enableSwiftAsyncStackTraces = cConfig.enableSwiftAsyncStackTraces ? YES : NO;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         _enableSigTermMonitoring = cConfig.enableSigTermMonitoring ? YES : NO;
+#pragma clang diagnostic pop
+        _enableHangReporting = cConfig.enableHangReporting ? YES : NO;
+        _enableCPUExceptionReporting = cConfig.enableCPUExceptionReporting ? YES : NO;
+        _enableCompactBinaryImages = cConfig.enableCompactBinaryImages ? YES : NO;
+        _plugins = nil;
         _willWriteReportCallback = cConfig.willWriteReportCallback;
 
         _reportStoreConfiguration = [KSCrashReportStoreConfiguration new];
@@ -90,7 +101,10 @@
     config.reportStoreConfiguration = [self.reportStoreConfiguration toCConfiguration];
     config.monitors = self.monitors;
     config.userInfoJSON = self.userInfoJSON ? [self jsonStringFromDictionary:self.userInfoJSON] : NULL;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     config.deadlockWatchdogInterval = self.deadlockWatchdogInterval;
+#pragma clang diagnostic pop
     config.enableQueueNameSearch = self.enableQueueNameSearch;
     config.enableMemoryIntrospection = self.enableMemoryIntrospection;
     config.doNotIntrospectClasses.strings = [self createCStringArrayFromNSArray:self.doNotIntrospectClasses];
@@ -120,8 +134,26 @@
     config.addConsoleLogToReport = self.addConsoleLogToReport;
     config.printPreviousLogOnStartup = self.printPreviousLogOnStartup;
     config.enableSwapCxaThrow = self.enableSwapCxaThrow;
+    config.enableSwiftAsyncStackTraces = self.enableSwiftAsyncStackTraces;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     config.enableSigTermMonitoring = self.enableSigTermMonitoring;
+#pragma clang diagnostic pop
+    config.enableHangReporting = self.enableHangReporting;
+    config.enableCPUExceptionReporting = self.enableCPUExceptionReporting;
+    config.enableCompactBinaryImages = self.enableCompactBinaryImages;
     config.willWriteReportCallback = self.willWriteReportCallback;
+
+    if (self.plugins.count > 0) {
+        int count = (int)self.plugins.count;
+        KSCrashMonitorAPI *apis = malloc(sizeof(KSCrashMonitorAPI) * (size_t)count);
+        for (int i = 0; i < count; i++) {
+            apis[i] = *self.plugins[(NSUInteger)i].api;
+        }
+        config.plugins.apis = apis;
+        config.plugins.length = count;
+        config.plugins.release = free;
+    }
 
     return config;
 }
@@ -162,7 +194,10 @@
     copy.installPath = [self.installPath copyWithZone:zone];
     copy.monitors = self.monitors;
     copy.userInfoJSON = [self.userInfoJSON copyWithZone:zone];
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     copy.deadlockWatchdogInterval = self.deadlockWatchdogInterval;
+#pragma clang diagnostic pop
     copy.enableQueueNameSearch = self.enableQueueNameSearch;
     copy.enableMemoryIntrospection = self.enableMemoryIntrospection;
     copy.doNotIntrospectClasses = self.doNotIntrospectClasses
@@ -180,7 +215,15 @@
     copy.addConsoleLogToReport = self.addConsoleLogToReport;
     copy.printPreviousLogOnStartup = self.printPreviousLogOnStartup;
     copy.enableSwapCxaThrow = self.enableSwapCxaThrow;
+    copy.enableSwiftAsyncStackTraces = self.enableSwiftAsyncStackTraces;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     copy.enableSigTermMonitoring = self.enableSigTermMonitoring;
+#pragma clang diagnostic pop
+    copy.enableHangReporting = self.enableHangReporting;
+    copy.enableCPUExceptionReporting = self.enableCPUExceptionReporting;
+    copy.enableCompactBinaryImages = self.enableCompactBinaryImages;
+    copy.plugins = [self.plugins copy];
     return copy;
 }
 
@@ -217,6 +260,14 @@
     config.appName = resolvedAppName != nil ? strdup(resolvedAppName.UTF8String) : NULL;
     config.reportsPath = resolvedReportsPath != nil ? strdup(resolvedReportsPath.UTF8String) : NULL;
     config.maxReportCount = (int)self.maxReportCount;
+
+    if (resolvedReportsPath != nil) {
+        NSString *parentPath = [resolvedReportsPath stringByDeletingLastPathComponent];
+        NSString *sidecarsPath = [parentPath stringByAppendingPathComponent:@"Sidecars"];
+        NSString *runSidecarsPath = [parentPath stringByAppendingPathComponent:@"RunSidecars"];
+        config.reportSidecarsPath = strdup(sidecarsPath.UTF8String);
+        config.runSidecarsPath = strdup(runSidecarsPath.UTF8String);
+    }
 
     return config;
 }

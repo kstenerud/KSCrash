@@ -82,7 +82,11 @@ KSCRF_DEFINE_CONSTANT(KSCrashExcType, Mach, mach, "mach")
 KSCRF_DEFINE_CONSTANT(KSCrashExcType, NSException, nsException, "nsexception")
 KSCRF_DEFINE_CONSTANT(KSCrashExcType, Signal, signal, "signal")
 KSCRF_DEFINE_CONSTANT(KSCrashExcType, User, user, "user")
+KSCRF_DEFINE_CONSTANT(KSCrashExcType, Termination, termination, "termination")
+/** @deprecated Use KSCrashExcType_Termination instead. Kept for reading legacy reports. */
 KSCRF_DEFINE_CONSTANT(KSCrashExcType, MemoryTermination, memoryTermination, "memory_termination")
+KSCRF_DEFINE_CONSTANT(KSCrashExcType, Hang, hang, "hang")
+KSCRF_DEFINE_CONSTANT(KSCrashExcType, Profile, profile, "profile")
 
 #pragma mark - Common -
 
@@ -103,6 +107,8 @@ KSCRF_DEFINE_CONSTANT(KSCrashField, UUID, uuid, "uuid")
 KSCRF_DEFINE_CONSTANT(KSCrashField, Value, value, "value")
 KSCRF_DEFINE_CONSTANT(KSCrashField, MemoryLimit, memoryLimit, "memory_limit")
 KSCRF_DEFINE_CONSTANT(KSCrashField, Error, error, "error")
+KSCRF_DEFINE_CONSTANT(KSCrashField, IsFatal, isFatal, "is_fatal")
+KSCRF_DEFINE_CONSTANT(KSCrashField, IsCleanExit, isCleanExit, "is_clean_exit")
 KSCRF_DEFINE_CONSTANT(KSCrashField, JSONData, jsonData, "json_data")
 
 #pragma mark - Notable Address -
@@ -116,6 +122,7 @@ KSCRF_DEFINE_CONSTANT(KSCrashField, InstructionAddr, instructionAddr, "instructi
 KSCRF_DEFINE_CONSTANT(KSCrashField, LineOfCode, lineOfCode, "line_of_code")
 KSCRF_DEFINE_CONSTANT(KSCrashField, ObjectAddr, objectAddr, "object_addr")
 KSCRF_DEFINE_CONSTANT(KSCrashField, ObjectName, objectName, "object_name")
+KSCRF_DEFINE_CONSTANT(KSCrashField, ObjectUUID, objectUUID, "object_uuid")
 KSCRF_DEFINE_CONSTANT(KSCrashField, SymbolAddr, symbolAddr, "symbol_addr")
 KSCRF_DEFINE_CONSTANT(KSCrashField, SymbolName, symbolName, "symbol_name")
 
@@ -172,6 +179,7 @@ KSCRF_DEFINE_CONSTANT(KSCrashField, Reason, reason, "reason")
 KSCRF_DEFINE_CONSTANT(KSCrashField, Signal, signal, "signal")
 KSCRF_DEFINE_CONSTANT(KSCrashField, Subcode, subcode, "subcode")
 KSCRF_DEFINE_CONSTANT(KSCrashField, UserReported, userReported, "user_reported")
+KSCRF_DEFINE_CONSTANT(KSCrashField, ExitReason, exitReason, "exit_reason")
 
 #pragma mark - Process State -
 
@@ -201,7 +209,7 @@ KSCRF_DEFINE_CONSTANT(KSCrashField, Report, report, "report")
 KSCRF_DEFINE_CONSTANT(KSCrashField, Timestamp, timestamp, "timestamp")
 KSCRF_DEFINE_CONSTANT(KSCrashField, Version, version, "version")
 KSCRF_DEFINE_CONSTANT(KSCrashField, AppMemory, appMemory, "app_memory")
-KSCRF_DEFINE_CONSTANT(KSCrashField, MemoryTermination, memoryTermination, "memory_termination")
+KSCRF_DEFINE_CONSTANT(KSCrashField, Hang, hang, "hang")
 
 KSCRF_DEFINE_CONSTANT(KSCrashField, CrashedThread, crashedThread, "crashed_thread")
 KSCRF_DEFINE_CONSTANT(KSCrashField, AppStats, appStats, "application_stats")
@@ -209,13 +217,19 @@ KSCRF_DEFINE_CONSTANT(KSCrashField, BinaryImages, binaryImages, "binary_images")
 KSCRF_DEFINE_CONSTANT(KSCrashField, System, system, "system")
 KSCRF_DEFINE_CONSTANT(KSCrashField, Memory, memory, "memory")
 KSCRF_DEFINE_CONSTANT(KSCrashField, Threads, threads, "threads")
+KSCRF_DEFINE_CONSTANT(KSCrashField, LastExceptionBacktrace, lastExceptionBacktrace, "last_exception_backtrace")
 KSCRF_DEFINE_CONSTANT(KSCrashField, User, user, "user")
 KSCRF_DEFINE_CONSTANT(KSCrashField, ConsoleLog, consoleLog, "console_log")
 KSCRF_DEFINE_CONSTANT(KSCrashField, Incomplete, incomplete, "incomplete")
+KSCRF_DEFINE_CONSTANT(KSCrashField, RunID, runID, "run_id")
+KSCRF_DEFINE_CONSTANT(KSCrashField, MonitorId, monitorId, "monitor_id")
+KSCRF_DEFINE_CONSTANT(KSCrashField, Finalized, finalized, "finalized")
 KSCRF_DEFINE_CONSTANT(KSCrashField, RecrashReport, recrashReport, "recrash_report")
 
 KSCRF_DEFINE_CONSTANT(KSCrashField, AppStartTime, appStartTime, "app_start_time")
 KSCRF_DEFINE_CONSTANT(KSCrashField, AppUUID, appUUID, "app_uuid")
+KSCRF_DEFINE_CONSTANT(KSCrashField, ProcessStartWallClockNs, processStartWallClockNs, "process_start_wall_clock_ns")
+KSCRF_DEFINE_CONSTANT(KSCrashField, ProcessStartMonotonicNs, processStartMonotonicNs, "process_start_monotonic_ns")
 KSCRF_DEFINE_CONSTANT(KSCrashField, BootTime, bootTime, "boot_time")
 KSCRF_DEFINE_CONSTANT(KSCrashField, BundleID, bundleID, "CFBundleIdentifier")
 KSCRF_DEFINE_CONSTANT(KSCrashField, BundleName, bundleName, "CFBundleName")
@@ -250,6 +264,34 @@ KSCRF_DEFINE_CONSTANT(KSCrashField, MemoryRemaining, memoryRemaining, "memory_re
 KSCRF_DEFINE_CONSTANT(KSCrashField, MemoryPressure, memoryPressure, "memory_pressure")
 KSCRF_DEFINE_CONSTANT(KSCrashField, MemoryLevel, memoryLevel, "memory_level")
 KSCRF_DEFINE_CONSTANT(KSCrashField, AppTransitionState, appTransitionState, "app_transition_state")
+
+KSCRF_DEFINE_CONSTANT(KSCrashField, BatteryLevel, batteryLevel, "battery_level")
+KSCRF_DEFINE_CONSTANT(KSCrashField, BatteryState, batteryState, "battery_state")
+KSCRF_DEFINE_CONSTANT(KSCrashField, LowPowerModeEnabled, lowPowerModeEnabled, "low_power_mode_enabled")
+KSCRF_DEFINE_CONSTANT(KSCrashField, CPUCoreCount, cpuCoreCount, "cpu_core_count")
+KSCRF_DEFINE_CONSTANT(KSCrashField, CPUUsageUser, cpuUsageUser, "cpu_usage_user")
+KSCRF_DEFINE_CONSTANT(KSCrashField, CPUUsageSystem, cpuUsageSystem, "cpu_usage_system")
+KSCRF_DEFINE_CONSTANT(KSCrashField, CPUState, cpuState, "cpu_state")
+KSCRF_DEFINE_CONSTANT(KSCrashField, CPUAverageUsagePermil, cpuAverageUsagePermil, "cpu_average_usage_permil")
+KSCRF_DEFINE_CONSTANT(KSCrashField, CPUTimeInWindow, cpuTimeInWindow, "cpu_time_in_window")
+KSCRF_DEFINE_CONSTANT(KSCrashField, CPUWallTimeInWindow, cpuWallTimeInWindow, "cpu_wall_time_in_window")
+KSCRF_DEFINE_CONSTANT(KSCrashField, ThermalState, thermalState, "thermal_state")
+KSCRF_DEFINE_CONSTANT(KSCrashField, ThreadCount, threadCount, "thread_count")
+KSCRF_DEFINE_CONSTANT(KSCrashField, DataProtectionActive, dataProtectionActive, "data_protection_active")
+
+KSCRF_DEFINE_CONSTANT(KSCrashField, TerminationReason, terminationReason, "termination_reason")
+/** Deprecated: kept for reading legacy reports that contain a "memory_termination" section. */
+KSCRF_DEFINE_CONSTANT(KSCrashField, MemoryTermination, memoryTermination, "memory_termination")
+KSCRF_DEFINE_CONSTANT(KSCrashField, UserPerceptible, userPerceptible, "user_perceptible")
+KSCRF_DEFINE_CONSTANT(KSCrashField, TaskRole, taskRole, "task_role")
+
+KSCRF_DEFINE_CONSTANT(KSCrashField, HangStartNanoseconds, hangStartNanoseconds, "hang_start_nanos")
+KSCRF_DEFINE_CONSTANT(KSCrashField, HangStartRole, hangStartRole, "hang_start_role")
+KSCRF_DEFINE_CONSTANT(KSCrashField, HangStartTransitionState, hangStartTransitionState, "hang_start_transition_state")
+KSCRF_DEFINE_CONSTANT(KSCrashField, HangEndNanoseconds, hangEndNanoseconds, "hang_end_nanos")
+KSCRF_DEFINE_CONSTANT(KSCrashField, HangEndRole, hangEndRole, "hang_end_role")
+KSCRF_DEFINE_CONSTANT(KSCrashField, HangEndTransitionState, hangEndTransitionState, "hang_end_transition_state")
+KSCRF_DEFINE_CONSTANT(KSCrashField, HangRecovered, hangRecovered, "hang_recovered")
 
 #ifdef __cplusplus
 }

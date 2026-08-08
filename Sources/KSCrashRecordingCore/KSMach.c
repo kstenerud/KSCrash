@@ -44,6 +44,7 @@ const char *ksmach_exceptionName(const int64_t exceptionType)
         RETURN_NAME_FOR_ENUM(EXC_MACH_SYSCALL);
         RETURN_NAME_FOR_ENUM(EXC_RPC_ALERT);
         RETURN_NAME_FOR_ENUM(EXC_CRASH);
+        RETURN_NAME_FOR_ENUM(EXC_RESOURCE);
         default:
             return NULL;
     }

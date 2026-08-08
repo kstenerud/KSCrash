@@ -124,7 +124,7 @@ FOUNDATION_EXPORT void testsupport_KSCrashAppMemorySetProvider(KSCrashAppMemoryP
 
     // memory pressure
     uintptr_t mask = DISPATCH_MEMORYPRESSURE_NORMAL | DISPATCH_MEMORYPRESSURE_WARN | DISPATCH_MEMORYPRESSURE_CRITICAL;
-    _pressureSource = dispatch_source_create(DISPATCH_SOURCE_TYPE_MEMORYPRESSURE, 0, mask, dispatch_get_main_queue());
+    _pressureSource = dispatch_source_create(DISPATCH_SOURCE_TYPE_MEMORYPRESSURE, 0, mask, _heartbeatQueue);
 
     __weak __typeof(self) weakMe = self;
 
@@ -197,8 +197,8 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
 
 #if TARGET_OS_SIMULATOR
     // in simulator, remaining is always 0. So let's fake it.
-    // How about a limit of 6GB.
-    uint64_t limit = 6000000000;
+    // How about a limit of 3GB.
+    uint64_t limit = 3000000000;
     uint64_t remaining = limit < info.phys_footprint ? 0 : limit - info.phys_footprint;
 #elif KSCRASH_HOST_MAC
     // macOS doesn't limit memory usage the same way as it's implemented for other OSs.
@@ -234,7 +234,7 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
 
 // in case of unsigned values
 // ie: MAX(x,y) - MIN(x,y)
-#define KSABS_DIFF(x, y) x > y ? x - y : y - x
+#define KSABS_DIFF(x, y) ((x) > (y) ? (x) - (y) : (y) - (x))
 
 - (void)_heartbeat:(BOOL)sendObservers
 {
@@ -254,7 +254,7 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
         _level = newLevel;
 
         // the amount footprint needs to change for any footprint notifs.
-        const uint64_t kKSCrashFootprintMinChange = 1 << 20;  // 1 MiB
+        const uint64_t kKSCrashFootprintMinChange = 1ULL << 20;  // 1 MiB
 
         // For the footprint, we don't need very granular changes,
         // changing a few bytes here or there won't mke a difference,
@@ -298,15 +298,13 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
         // NOTE: Some teams might want to do this in prod.
         // For example, we could send a SIGTERM so the system
         // catches a stack trace.
-        static BOOL sIsRunningInTests;
         static BOOL sSimulatorMemoryKillEnabled;
         static dispatch_once_t onceToken;
         dispatch_once(&onceToken, ^{
-            NSDictionary<NSString *, NSString *> *env = NSProcessInfo.processInfo.environment;
-            sIsRunningInTests = env[@"XCTestSessionIdentifier"] != nil;
-            sSimulatorMemoryKillEnabled = [env[@"KSCRASH_SIM_MEMORY_TERMINATION_ENABLED"] boolValue];
+            sSimulatorMemoryKillEnabled =
+                [NSProcessInfo.processInfo.environment[@"KSCRASH_SIM_MEMORY_TERMINATION_ENABLED"] boolValue];
         });
-        if (sSimulatorMemoryKillEnabled && !sIsRunningInTests && newLevel == KSCrashAppMemoryStateTerminal) {
+        if (sSimulatorMemoryKillEnabled && newLevel == KSCrashAppMemoryStateTerminal) {
             kill(getpid(), SIGKILL);
             _exit(0);
         }
@@ -348,12 +346,14 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
         [self _handleMemoryChange:[self currentAppMemory]
                              type:KSCrashAppMemoryTrackerChangeTypePressure
                         observers:observers];
-        [[NSNotificationCenter defaultCenter] postNotificationName:KSCrashAppMemoryPressureChangedNotification
-                                                            object:self
-                                                          userInfo:@{
-                                                              KSCrashAppMemoryNewValueKey : @(newPressure),
-                                                              KSCrashAppMemoryOldValueKey : @(oldPressure)
-                                                          }];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [[NSNotificationCenter defaultCenter] postNotificationName:KSCrashAppMemoryPressureChangedNotification
+                                                                object:self
+                                                              userInfo:@{
+                                                                  KSCrashAppMemoryNewValueKey : @(newPressure),
+                                                                  KSCrashAppMemoryOldValueKey : @(oldPressure)
+                                                              }];
+        });
     }
 }
 

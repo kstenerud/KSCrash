@@ -35,6 +35,15 @@ extern "C" {
 #endif /* __cplusplus */
 
 /**
+ * Get the address of the first load command following a Mach-O header.
+ * Works with both 32-bit and 64-bit headers by checking the magic number at runtime.
+ *
+ * @param header Pointer to the mach_header structure.
+ * @return Address of the first load command, or 0 if the header is invalid/corrupt.
+ */
+uintptr_t ksmacho_firstCmdAfterHeader(const struct mach_header *header);
+
+/**
  * This routine returns the `load_command` structure for the specified command type
  * if it exists in the passed mach header. Otherwise, it returns `NULL`.
  *
@@ -73,6 +82,35 @@ const section_t *ksmacho_getSectionByTypeFlagFromSegment(const segment_command_t
  * @return Protection attributes of the section.
  */
 vm_prot_t ksmacho_getSectionProtection(void *sectionStart);
+
+/**
+ * This routine returns the section structure for the named section within the named segment
+ * if it exists in the passed mach header. Otherwise, it returns `NULL`.
+ *
+ * This function is async-signal-safe.
+ *
+ * @param header Pointer to the mach_header structure.
+ * @param segmentName The name of the segment containing the section (e.g., "__TEXT").
+ * @param sectionName The name of the section to search for (e.g., "__unwind_info").
+ * @return Pointer to the section structure if found, otherwise `NULL`.
+ */
+const section_t *ksmacho_getSectionByNameFromHeader(const mach_header_t *header, const char *segmentName,
+                                                    const char *sectionName);
+
+/**
+ * This routine returns the in-memory address and size of a section.
+ * Use this to get the actual mapped location of section data.
+ *
+ * This function is async-signal-safe.
+ *
+ * @param header Pointer to the mach_header structure.
+ * @param segmentName The name of the segment containing the section (e.g., "__TEXT").
+ * @param sectionName The name of the section to search for (e.g., "__unwind_info").
+ * @param outSize If not NULL, receives the size of the section in bytes.
+ * @return Pointer to the section data in memory if found, otherwise `NULL`.
+ */
+const void *ksmacho_getSectionDataByNameFromHeader(const mach_header_t *header, const char *segmentName,
+                                                   const char *sectionName, size_t *outSize);
 
 #ifdef __cplusplus
 }

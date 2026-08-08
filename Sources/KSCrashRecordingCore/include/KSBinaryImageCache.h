@@ -47,15 +47,164 @@ extern "C" {
  */
 typedef struct dyld_image_info ks_dyld_image_info;
 
-/** Initialize the binary image cache.
- * Should be called during KSCrash activation.
+/**
+ * Callback type for image addition notifications.
+ * Same signature as _dyld_register_func_for_add_image callbacks.
+ *
+ * @param mh The mach_header of the added image.
+ * @param vmaddr_slide The ASLR slide of the image.
  */
-void ksbic_init(void);
+typedef void (*ksbic_imageCallback)(const struct mach_header *_Nonnull mh, intptr_t vmaddr_slide);
+
+/**
+ * Register a callback to be invoked when new images are loaded.
+ *
+ * The callback will be called for each image as it is added to the process.
+ * This uses the dyld notification mechanism internally.
+ *
+ * Note: Only one callback can be registered at a time. Registering a new
+ * callback replaces any previously registered callback.
+ *
+ * @param callback The callback function to invoke, or NULL to unregister.
+ */
+void ksbic_registerForImageAdded(ksbic_imageCallback _Nullable callback);
+
+/** Initialize the binary image cache.
+ * @deprecated Use ksdl_init() instead, which initializes both symbol and image caches.
+ */
+__attribute__((deprecated("Use ksdl_init() instead"))) void ksbic_init(void);
 
 /**
  * Get a C array of _count_ `ks_dyld_image_info`.
  */
 const ks_dyld_image_info *_Nullable ksbic_getImages(uint32_t *_Nullable count);
+
+/**
+ * Find the binary image containing the given address.
+ *
+ * Uses a lazily-populated cache with lock-free exclusive access.
+ * The cache pointer is atomically swapped to NULL during use, so concurrent
+ * callers fall back to linear scan without blocking.
+ *
+ * This function is async-signal-safe.
+ *
+ * @param address The memory address to search for.
+ * @param outSlide If not NULL and found, receives the pre-computed ASLR slide.
+ * @param outName If not NULL and found, receives the image file path.
+ * @return The mach_header of the containing image, or NULL if not found.
+ */
+const struct mach_header *_Nullable ksbic_findImageForAddress(uintptr_t address, uintptr_t *_Nullable outSlide,
+                                                              const char *_Nullable *_Nullable outName);
+
+/**
+ * Find the binary image containing the given address with full details.
+ *
+ * Same as ksbic_findImageForAddress but also returns the segment base
+ * needed for symbol table lookups.
+ *
+ * This function is async-signal-safe.
+ *
+ * @param address The memory address to search for.
+ * @param outSlide If not NULL and found, receives the pre-computed ASLR slide.
+ * @param outSegmentBase If not NULL and found, receives the segment base for symbol lookups.
+ * @param outName If not NULL and found, receives the image file path.
+ * @return The mach_header of the containing image, or NULL if not found.
+ */
+const struct mach_header *_Nullable ksbic_getImageDetailsForAddress(uintptr_t address, uintptr_t *_Nullable outSlide,
+                                                                    uintptr_t *_Nullable outSegmentBase,
+                                                                    const char *_Nullable *_Nullable outName);
+
+/**
+ * Compute the ASLR slide for a Mach-O image from its header.
+ *
+ * The slide is calculated by finding the __TEXT segment and computing
+ * the difference between the load address and the segment's vmaddr.
+ *
+ * This function is async-signal-safe and does not use locks.
+ *
+ * @param header The mach_header of the image.
+ * @return The ASLR slide, or 0 if the header is NULL or __TEXT segment not found.
+ */
+intptr_t ksbic_getImageSlide(const struct mach_header *_Nullable header);
+
+/**
+ * Cached unwind information for a binary image.
+ */
+typedef struct {
+    const struct mach_header *_Nullable header;
+    const void *_Nullable unwindInfo;
+    size_t unwindInfoSize;
+    const void *_Nullable ehFrame;
+    size_t ehFrameSize;
+    uintptr_t slide;
+    bool hasCompactUnwind;
+    bool hasEhFrame;
+} KSBinaryImageUnwindInfo;
+
+/**
+ * Get the mach_header of the main executable.
+ *
+ * The main executable is always the first entry in the dyld image list.
+ *
+ * @return The mach_header of the main executable, or NULL if not available.
+ */
+const struct mach_header *_Nullable ksbic_getAppHeader(void);
+
+/**
+ * Get the mach_header of the dyld shared library.
+ *
+ * dyld is not included in the normal image list returned by ksbic_getImages().
+ * This function provides access to dyld's header for cache lookups and
+ * binary image reporting.
+ *
+ * @return The mach_header of dyld, or NULL if not available.
+ */
+const struct mach_header *_Nullable ksbic_getDyldHeader(void);
+
+/**
+ * Get the file path of the dyld shared library.
+ *
+ * @return The file path of dyld.
+ */
+const char *_Nonnull ksbic_getDyldPath(void);
+
+/**
+ * Get the LC_UUID for a binary image.
+ *
+ * Returns a pointer to the 16-byte UUID in the Mach-O header, or NULL if not found.
+ * The pointer is valid for the lifetime of the loaded image.
+ *
+ * This function is async-signal-safe. On a cache miss the fallback path
+ * includes KSLOG_DEBUG calls, but these are compiled out at the default
+ * log level (ERROR) so this is not an issue in production builds.
+ *
+ * @param header The mach_header of the image.
+ * @return Pointer to 16-byte UUID data, or NULL if not found.
+ */
+const uint8_t *_Nullable ksbic_getUUIDForHeader(const struct mach_header *_Nullable header);
+
+/**
+ * Get cached unwind information for a binary image.
+ *
+ * This function is async-signal-safe.
+ *
+ * @param header The mach_header of the image.
+ * @param outInfo If not NULL and found, receives the cached unwind info.
+ * @return true if the image was found, false otherwise.
+ */
+bool ksbic_getUnwindInfoForHeader(const struct mach_header *_Nullable header,
+                                  KSBinaryImageUnwindInfo *_Nullable outInfo);
+
+/**
+ * Get cached unwind information for an address.
+ *
+ * This function is async-signal-safe.
+ *
+ * @param address The memory address to look up.
+ * @param outInfo If not NULL and found, receives the cached unwind info.
+ * @return true if the image was found, false otherwise.
+ */
+bool ksbic_getUnwindInfoForAddress(uintptr_t address, KSBinaryImageUnwindInfo *_Nullable outInfo);
 
 #ifdef __cplusplus
 }

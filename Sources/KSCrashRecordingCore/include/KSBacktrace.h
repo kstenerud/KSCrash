@@ -28,6 +28,7 @@
 #define HDR_KSBacktrace_h
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <mach/mach.h>
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -37,6 +38,22 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/**
+ * Captures the backtrace (call stack) for the specified mach thread.
+ *
+ * @param machThread The identifier of the mach thread whose backtrace should be captured.
+ * @param addresses  A pointer to a buffer to receive the backtrace addresses. Must not be NULL.
+ * @param count      The maximum number of addresses to capture. Must be greater than zero.
+ *
+ * @return The number of frames captured and written to @c addresses, or 0 if @c addresses is NULL, @c count is zero, or
+ * an error occurs.
+ *
+ * @discussion This function is not async-signal-safe and therefore must not be called from within a signal handler.
+ *             It may also briefly suspend the target thread while unwinding its stack.
+ */
+int ksbt_captureBacktraceFromMachThread(thread_t machThread, uintptr_t *_Nonnull addresses, int count)
+    CF_SWIFT_NAME(captureBacktrace(machThread:addresses:count:));
 
 /**
  * Captures the backtrace (call stack) for the specified pthread.
@@ -52,9 +69,137 @@ extern "C" {
  * @discussion This function is not async-signal-safe and therefore must not be called from within a signal handler.
  *             It may also briefly suspend the target thread while unwinding its stack.
  */
-
 int ksbt_captureBacktrace(pthread_t _Nonnull thread, uintptr_t *_Nonnull addresses, int count)
     CF_SWIFT_NAME(captureBacktrace(thread:addresses:count:));
+
+/**
+ * Captures the backtrace (call stack) for the specified mach thread with truncation detection.
+ *
+ * @param machThread   The identifier of the mach thread whose backtrace should be captured.
+ * @param addresses    A pointer to a buffer to receive the backtrace addresses. Must not be NULL.
+ * @param count        The maximum number of addresses to capture. Must be greater than zero.
+ * @param isTruncated  If non-NULL, set to @c true when the stack is deeper than @c count
+ *                     (i.e. the backtrace was truncated), or @c false otherwise.
+ *
+ * @return The number of frames captured and written to @c addresses, or 0 if @c addresses is NULL, @c count is zero, or
+ * an error occurs.
+ *
+ * @discussion This function is not async-signal-safe and therefore must not be called from within a signal handler.
+ *             It may also briefly suspend the target thread while unwinding its stack.
+ */
+int ksbt_captureBacktraceFromMachThreadWithTruncation(thread_t machThread, uintptr_t *_Nonnull addresses, int count,
+                                                      bool *_Nullable isTruncated)
+    CF_SWIFT_NAME(captureBacktrace(machThread:addresses:count:isTruncated:));
+
+/**
+ * Captures the backtrace (call stack) for the specified pthread with truncation detection.
+ *
+ * @param thread       The identifier of the pthread whose backtrace should be captured. Must be a valid, non-null
+ * thread.
+ * @param addresses    A pointer to a buffer to receive the backtrace addresses. Must not be NULL.
+ * @param count        The maximum number of addresses to capture. Must be greater than zero.
+ * @param isTruncated  If non-NULL, set to @c true when the stack is deeper than @c count
+ *                     (i.e. the backtrace was truncated), or @c false otherwise.
+ *
+ * @return The number of frames captured and written to @c addresses, or 0 if @c addresses is NULL, @c count is zero, or
+ * an error occurs.
+ *
+ * @discussion This function is not async-signal-safe and therefore must not be called from within a signal handler.
+ *             It may also briefly suspend the target thread while unwinding its stack.
+ */
+int ksbt_captureBacktraceWithTruncation(pthread_t _Nonnull thread, uintptr_t *_Nonnull addresses, int count,
+                                        bool *_Nullable isTruncated)
+    CF_SWIFT_NAME(captureBacktrace(thread:addresses:count:isTruncated:));
+
+/**
+ * Bitmask of stack-unwinding strategies.
+ *
+ * The unwinder tries the selected methods per frame in fixed natural order
+ * (compact unwind, then DWARF, then frame pointer) and accepts the first one
+ * that yields a valid next frame. The natural order is "most accurate first,
+ * fall through to faster fallbacks", which is what you almost always want.
+ *
+ * Common combinations:
+ * - @c KSBacktraceUnwindFast (compact unwind + frame pointer): skips DWARF, the slow
+ *   fallback only needed for frames without compact-unwind info. For typical Apple-toolchain
+ *   binaries (Swift/ObjC) this is as accurate as the full chain at substantially lower
+ *   per-sample cost. Recommended for sampling profilers.
+ * - @c KSBacktraceUnwindAccurate (compact unwind + DWARF + frame pointer): matches the
+ *   chain used by KSCrash's crash handlers. Pays the DWARF cost on the rare frame that
+ *   needs it.
+ * - @c KSBacktraceUnwindFramePointer alone: pure FP walk; fastest but breaks for code
+ *   compiled with @c -fomit-frame-pointer.
+ */
+typedef CF_OPTIONS(uint32_t, KSBacktraceUnwindMethods) {
+    KSBacktraceUnwindNone = 0,
+
+    /** Apple's compact unwind data (`__unwind_info` section). */
+    KSBacktraceUnwindCompactUnwind = 1u << 0,
+
+    /** DWARF CFI (`__eh_frame` section). Slow fallback for code without compact unwind. */
+    KSBacktraceUnwindDwarf = 1u << 1,
+
+    /** Frame-pointer walk. Fastest, but requires the target was compiled with frame pointers. */
+    KSBacktraceUnwindFramePointer = 1u << 2,
+
+    /** Compact unwind + frame pointer fallback. Recommended for sampling profilers. */
+    KSBacktraceUnwindFast = KSBacktraceUnwindCompactUnwind | KSBacktraceUnwindFramePointer,
+
+    /** Compact unwind + DWARF + frame pointer. Matches the crash-handler chain. */
+    KSBacktraceUnwindAccurate = KSBacktraceUnwindCompactUnwind | KSBacktraceUnwindDwarf | KSBacktraceUnwindFramePointer,
+};
+
+/**
+ * Captures the backtrace using a caller-specified set of unwind strategies.
+ *
+ * @param machThread   The identifier of the mach thread whose backtrace should be captured.
+ * @param addresses    A pointer to a buffer to receive the backtrace addresses. Must not be NULL.
+ * @param count        The maximum number of addresses to capture. Must be greater than zero.
+ * @param isTruncated  If non-NULL, set to @c true when the stack is deeper than @c count
+ *                     (i.e. the backtrace was truncated), or @c false otherwise.
+ * @param methods      Bitmask of unwind methods to enable. If no recognized bits are set
+ *                     (including @c KSBacktraceUnwindNone), falls back to the default chain
+ *                     (@c KSBacktraceUnwindAccurate) so callers always get a usable backtrace.
+ *
+ * @return The number of frames captured and written to @c addresses, or 0 if @c addresses is NULL,
+ *         @c count is zero, or an error occurs.
+ *
+ * @discussion Use this when you want a different speed/accuracy trade-off than
+ *             @c ksbt_captureBacktraceFromMachThreadWithTruncation provides. Like the standard
+ *             variant, this function is not async-signal-safe and may briefly suspend the
+ *             target thread.
+ */
+int ksbt_captureBacktraceFromMachThreadWithMethods(thread_t machThread, uintptr_t *_Nonnull addresses, int count,
+                                                   bool *_Nullable isTruncated, KSBacktraceUnwindMethods methods)
+    CF_SWIFT_NAME(captureBacktrace(machThread:addresses:count:isTruncated:methods:));
+
+/**
+ * Captures the backtrace (call stack) for an already-suspended mach thread with truncation detection.
+ *
+ * @param machThread   The identifier of the mach thread whose backtrace should be captured. The thread must already
+ *                     be suspended by the caller.
+ * @param addresses    A pointer to a buffer to receive the backtrace addresses. Must not be NULL.
+ * @param count        The maximum number of addresses to capture. Must be greater than zero.
+ * @param isTruncated  If non-NULL, set to @c true when the stack is deeper than @c count
+ *                     (i.e. the backtrace was truncated), or @c false otherwise.
+ *
+ * @return The number of frames captured and written to @c addresses, or 0 if @c addresses is NULL, @c count is zero,
+ *         an error occurs, or another backtrace capture is already in progress (caller should retry).
+ *
+ * @discussion This function assumes the target thread is already suspended by the caller. The caller is responsible
+ *             for suspending the thread before calling this function and resuming it afterward. Mach thread suspension
+ *             is reference-counted, so this works correctly even if the thread is suspended by multiple parties (e.g.,
+ *             during crash handling), as long as each caller balances their suspend/resume calls.
+ *
+ *             This function is not async-signal-safe and must not be called from within a signal handler.
+ *
+ *             To prevent concurrent unwinding operations, this function acquires an internal lock. If another backtrace
+ *             capture is in progress, this function returns 0 immediately. Callers should treat this as "capture
+ *             unavailable, retry later".
+ */
+int ksbt_captureBacktraceFromSuspendedMachThread(thread_t machThread, uintptr_t *_Nonnull addresses, int count,
+                                                 bool *_Nullable isTruncated)
+    CF_SWIFT_NAME(captureBacktraceFromSuspended(machThread:addresses:count:isTruncated:));
 
 /**
  * Information about a symbol and the image in which it resides.
@@ -91,11 +236,30 @@ struct KSSymbolInformation {
  *
  * @return @c true if symbolication succeeded and @c result is populated, @c false otherwise.
  *
- * @discussion On success, @c result will contain the symbol name, symbol address, image name,
- *             image load address, image size, and image UUID associated with @c address.
+ * @discussion The @c returnAddress and @c callInstruction fields are always populated regardless
+ *             of whether symbolication succeeds. On success, @c result will additionally contain
+ *             the symbol name, symbol address, image name, image load address, image size, and
+ *             image UUID associated with @c address.
  */
 bool ksbt_symbolicateAddress(uintptr_t address, struct KSSymbolInformation *_Nonnull result)
     CF_SWIFT_NAME(symbolicate(address:result:));
+
+/**
+ * Quickly resolves symbol information for a given instruction address.
+ *
+ * @param address  The instruction address to symbolize.
+ * @param result   A pointer to a KSSymbolInformation structure to be populated. Must not be NULL.
+ *
+ * @return @c true if symbolication succeeded and @c result is populated, @c false otherwise.
+ *
+ * @discussion This is a faster variant of @c ksbt_symbolicateAddress that omits the @c imageSize and
+ *             @c imageUUID fields to avoid additional binary image lookups. The @c returnAddress and
+ *             @c callInstruction fields are always populated regardless of whether symbolication succeeds.
+ *             On success, @c result will additionally contain the symbol name, symbol address, image name,
+ *             and image load address associated with @c address.
+ */
+bool ksbt_quickSymbolicateAddress(uintptr_t address, struct KSSymbolInformation *_Nonnull result)
+    CF_SWIFT_NAME(quickSymbolicate(address:result:));
 
 #ifdef __cplusplus
 }

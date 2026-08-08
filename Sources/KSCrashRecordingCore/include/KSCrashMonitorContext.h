@@ -28,6 +28,7 @@
 #define HDR_KSCrashMonitorContext_h
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include "KSCrashExceptionHandlingRequirements.h"
@@ -60,16 +61,8 @@ typedef struct KSCrash_MonitorContext {
     thread_act_array_t suspendedThreads;
     mach_msg_type_number_t suspendedThreadsCount;
 
-    /**
-     If true, so reported user exception will have the current snapshot.
-     */
-    bool currentSnapshotUserReported;
-
     /** If true, the registers contain valid information about the crash. */
     bool registersAreValid;
-
-    /** True if the crash system has detected a stack overflow. */
-    bool isStackOverflow;
 
     /** The machine context that generated the event. */
     struct KSMachineContext *offendingMachineContext;
@@ -95,10 +88,30 @@ typedef struct KSCrash_MonitorContext {
      */
     void *stackCursor;
 
+    /** The stack cursor for the exception backtrace (e.g., from NSException.callStackReturnAddresses
+     *  or __cxa_throw). Written to last_exception_backtrace in the report.
+     *  When set, stackCursor should contain the handler's actual call stack instead.
+     *  Note: Actual type is KSStackCursor*
+     */
+    void *exceptionStackCursor;
+
     /** If true, don't output binary images.
      *  This can be useful in cases where we have no stack.
      */
     bool omitBinaryImages;
+
+    /** Context available to you in monitor API context.
+     */
+    void *callbackContext;
+
+    struct {
+        /**
+         * If available, this will be the termination reason code.
+         * For now, only 0x8badf00d is available for watchdog timeouts.
+         */
+        uint32_t code;
+
+    } exitReason;
 
     struct {
         /** The mach exception type. */
@@ -146,84 +159,12 @@ typedef struct KSCrash_MonitorContext {
         const char *customStackTrace;
     } userException;
 
-    struct {
-        /** Total active time elapsed since the last crash. */
-        double activeDurationSinceLastCrash;
-
-        /** Total time backgrounded elapsed since the last crash. */
-        double backgroundDurationSinceLastCrash;
-
-        /** Number of app launches since the last crash. */
-        int launchesSinceLastCrash;
-
-        /** Number of sessions (launch, resume from suspend) since last crash. */
-        int sessionsSinceLastCrash;
-
-        /** Total active time elapsed since launch. */
-        double activeDurationSinceLaunch;
-
-        /** Total time backgrounded elapsed since launch. */
-        double backgroundDurationSinceLaunch;
-
-        /** Number of sessions (launch, resume from suspend) since app launch. */
-        int sessionsSinceLaunch;
-
-        /** If true, the application crashed on the previous launch. */
-        bool crashedLastLaunch;
-
-        /** If true, the application crashed on this launch. */
-        bool crashedThisLaunch;
-
-        /** Timestamp for when the app state was last changed (active<->inactive,
-         * background<->foreground) */
-        double appStateTransitionTime;
-
-        /** If true, the application is currently active. */
-        bool applicationIsActive;
-
-        /** If true, the application is currently in the foreground. */
-        bool applicationIsInForeground;
-
-    } AppState;
-
-    /* Misc system information */
-    struct {
-        const char *systemName;
-        const char *systemVersion;
-        const char *machine;
-        const char *model;
-        const char *kernelVersion;
-        const char *osVersion;
-        bool isJailbroken;
-        bool procTranslated;
-        const char *bootTime;
-        const char *appStartTime;
-        const char *executablePath;
-        const char *executableName;
-        const char *bundleID;
-        const char *bundleName;
-        const char *bundleVersion;
-        const char *bundleShortVersion;
-        const char *appID;
-        const char *cpuArchitecture;
-        const char *binaryArchitecture;
-        const char *clangVersion;
-        int cpuType;
-        int cpuSubType;
-        int binaryCPUType;
-        int binaryCPUSubType;
-        const char *timezone;
-        const char *processName;
-        int processID;
-        int parentProcessID;
-        const char *deviceAppHash;
-        const char *buildType;
-        uint64_t storageSize;
-        uint64_t freeStorageSize;
-        uint64_t memorySize;
-        uint64_t freeMemory;
-        uint64_t usableMemory;
-    } System;
+    /* Misc system information.
+     * All system fields (device, OS, bundle, CPU, memory, storage, boot time, etc.)
+     * are now in the system monitor's mmap'd run sidecar and stitched at delivery time.
+     * Other monitors (BootTime, DiscSpace) write their data into the sidecar via
+     * notifyPostSystemEnable.
+     */
 
     struct {
         /** Address of the last deallocated exception. */
@@ -236,29 +177,6 @@ typedef struct KSCrash_MonitorContext {
         const char *reason;
     } ZombieException;
 
-    struct {
-        /** measurement taken time in microseconds. */
-        uint64_t timestamp;
-
-        /** memory pressure  `KSCrashAppMemoryPressure` */
-        const char *pressure;
-
-        /** amount of app memory used */
-        uint64_t footprint;
-
-        /** amount of app memory remaining */
-        uint64_t remaining;
-
-        /** high water mark for footprint (footprint +  remaining)*/
-        uint64_t limit;
-
-        /** memory level  `KSCrashAppMemoryLevel` (KSCrashAppMemory.level) */
-        const char *level;
-
-        /** transition state of the app */
-        const char *state;
-    } AppMemory;
-
     /** Full path to the console log, if any. */
     const char *consoleLogPath;
 
@@ -266,6 +184,67 @@ typedef struct KSCrash_MonitorContext {
     const char *reportPath;
 
 } KSCrash_MonitorContext;
+
+typedef struct KSCrash_ReportResult {
+    /** id as used by the report API */
+    int64_t reportId;
+
+    /** the path on disk of this report */
+    char path[PATH_MAX];
+} KSCrash_ReportResult;
+
+/**
+ * Function type for obtaining a sidecar file path with a custom name and extension.
+ *
+ * @param monitorId The calling monitor's unique identifier.
+ * @param name The filename (without extension).
+ * @param extension The file extension (without dot).
+ * @param pathBuffer Buffer to receive the sidecar file path.
+ * @param pathBufferLength The size of pathBuffer in bytes.
+ * @return true if the path was successfully written, false on failure.
+ */
+typedef bool (*KSCrashReportSidecarFilePathProviderFunc)(const char *monitorId, const char *name, const char *extension,
+                                                         char *pathBuffer, size_t pathBufferLength);
+
+/**
+ * Function type for obtaining a sidecar file path for a given monitor and report.
+ *
+ * @param monitorId The calling monitor's unique identifier.
+ * @param reportID The report ID to associate the sidecar with.
+ * @param pathBuffer Buffer to receive the sidecar file path.
+ * @param pathBufferLength The size of pathBuffer in bytes.
+ * @return true if the path was successfully written, false on failure.
+ */
+typedef bool (*KSCrashReportSidecarPathProviderFunc)(const char *monitorId, int64_t reportID, char *pathBuffer,
+                                                     size_t pathBufferLength);
+
+/**
+ * Function type for obtaining a run-scoped sidecar file path.
+ *
+ * Run sidecars are written once per process run and stitched into all reports from that run.
+ * Layout: <runSidecarsPath>/<runID>/<monitorId>.ksscr
+ *
+ * @param monitorId The calling monitor's unique identifier.
+ * @param pathBuffer Buffer to receive the sidecar file path.
+ * @param pathBufferLength The size of pathBuffer in bytes.
+ * @return true if the path was successfully written, false on failure.
+ */
+typedef bool (*KSCrashSidecarRunPathProviderFunc)(const char *monitorId, char *pathBuffer, size_t pathBufferLength);
+
+/**
+ * Function type for obtaining a run-scoped sidecar file path for a specific run ID.
+ *
+ * Same layout as KSCrashSidecarRunPathProviderFunc but takes an explicit run ID
+ * instead of using the current process run. Does NOT create directories (read-only).
+ *
+ * @param monitorId The calling monitor's unique identifier.
+ * @param runID The run ID to look up.
+ * @param pathBuffer Buffer to receive the sidecar file path.
+ * @param pathBufferLength The size of pathBuffer in bytes.
+ * @return true if the path was successfully written, false on failure.
+ */
+typedef bool (*KSCrashSidecarRunPathForRunIDProviderFunc)(const char *monitorId, const char *runID, char *pathBuffer,
+                                                          size_t pathBufferLength);
 
 /**
  * Callbacks to be used by monitors.
@@ -289,11 +268,11 @@ typedef struct {
      * sure anything async-unsafe you need is done BEFORE calling this function with `shouldRecordThreads` set!
      *
      * After calling this function, you should fill out any pertinent information in the returned context, and then call
-     * handle().
+     * handleWithResult().
      *
      * @param offendingThread The thread that caused the exception.
      * @param requirements Requirements and information about how this exception should be handled.
-     * @return a monitor context to be filled out and passed to `handle()`.
+     * @return a monitor context to be filled out and passed to `handleWithResult()`.
      */
     KSCrash_MonitorContext *(*notify)(thread_t offendingThread, KSCrash_ExceptionHandlingRequirements requirements);
 
@@ -307,8 +286,28 @@ typedef struct {
      * handler.
      *
      * @param context The monitor context that was returned by `notify()`
+     * @param result Contains the result of handling the exception.
+     * @param finalize If true, finalize the report immediately by stitching
+     *        in sidecar data. Use this for non-fatal reports where the app
+     *        continues running. Not async-signal-safe. Ignored when isFatal
+     *        is true or when context->reportPath is set.
      */
+    void (*handleWithResult)(KSCrash_MonitorContext *context, KSCrash_ReportResult *result, bool finalize);
+
+    /** Deprecated: Use `handleWithResult` instead. */
     void (*handle)(KSCrash_MonitorContext *context);
+
+    /** Get a sidecar file path with custom name and extension. */
+    KSCrashReportSidecarFilePathProviderFunc getReportSidecarFilePath;
+
+    /** Get a sidecar file path for storing auxiliary monitor data alongside a report. */
+    KSCrashReportSidecarPathProviderFunc getReportSidecarPath;
+
+    /** Get a run-scoped sidecar file path for storing data shared across all reports in a run. */
+    KSCrashSidecarRunPathProviderFunc getRunSidecarPath;
+
+    /** Get a run-scoped sidecar file path for a specific (e.g. previous) run ID. Read-only — no directory creation. */
+    KSCrashSidecarRunPathForRunIDProviderFunc getRunSidecarPathForRunID;
 } KSCrash_ExceptionHandlerCallbacks;
 
 #ifdef __cplusplus

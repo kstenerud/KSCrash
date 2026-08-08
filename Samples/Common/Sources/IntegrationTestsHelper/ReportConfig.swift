@@ -32,9 +32,11 @@ import Logging
 
 public struct ReportConfig: Codable {
     public var directoryPath: String
+    public var rawJSON: Bool
 
-    public init(directoryPath: String) {
+    public init(directoryPath: String, rawJSON: Bool = false) {
         self.directoryPath = directoryPath
+        self.rawJSON = rawJSON
     }
 }
 
@@ -44,10 +46,17 @@ extension ReportConfig {
         guard let store = KSCrash.shared.reportStore else {
             return
         }
-        store.sink = CrashReportFilterPipeline(filters: [
-            CrashReportFilterAppleFmt(),
-            DirectorySink(url),
-        ])
+        if rawJSON {
+            store.sink = CrashReportFilterPipeline(filters: [
+                CrashReportFilterJSONEncode(),
+                DirectorySink(url),
+            ])
+        } else {
+            store.sink = CrashReportFilterPipeline(filters: [
+                CrashReportFilterAppleFmt(),
+                DirectorySink(url),
+            ])
+        }
         store.sendAllReports()
     }
 }

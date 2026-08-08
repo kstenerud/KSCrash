@@ -1,0 +1,102 @@
+# NOTE: Every library target in Package.swift must have a corresponding
+# BuildActionEntry in KSCrash-Package.xcscheme, otherwise xcodebuild won't
+# produce a .o for it and it will be missing from the size report.
+name: Binary Size
+
+on:
+  pull_request:
+    paths:
+      - "Sources/**"
+      - "Package.swift"
+      - ".swiftpm/xcode/xcshareddata/xcschemes/**"
+      - ".github/workflows/binary-size.yml"
+      - ".github/scripts/binary_size.py"
+
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  binary-size:
+    runs-on: macos-15
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v6
+        with:
+          path: pr
+
+      - name: Checkout Base
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+
+      - name: Use Latest Stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Build PR (iOS Release)
+        run: |
+          xcodebuild build \
+            -workspace pr/.swiftpm/xcode/package.xcworkspace \
+            -scheme KSCrash-Package \
+            -destination 'generic/platform=iOS' \
+            -configuration Release \
+            -derivedDataPath pr/DerivedData \
+            -quiet
+
+      - name: Build Base (iOS Release)
+        if: github.event_name == 'pull_request'
+        run: |
+          xcodebuild build \
+            -workspace base/.swiftpm/xcode/package.xcworkspace \
+            -scheme KSCrash-Package \
+            -destination 'generic/platform=iOS' \
+            -configuration Release \
+            -derivedDataPath base/DerivedData \
+            -quiet
+
+      - name: Install bloaty
+        run: brew install bloaty
+
+      - name: Measure Binary Sizes
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            python3 pr/.github/scripts/binary_size.py \
+              --build-dir pr/DerivedData \
+              --base-build-dir base/DerivedData \
+              --output binary_size.md
+          else
+            python3 pr/.github/scripts/binary_size.py \
+              --build-dir pr/DerivedData \
+              --output binary_size.md
+          fi
+
+      - name: Job Summary
+        run: cat binary_size.md >> $GITHUB_STEP_SUMMARY
+
+      - name: Comment PR with Results
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          file-path: binary_size.md
+          comment-tag: binary-size
+
+      - name: Upload Report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: binary-size-report
+          path: binary_size.md

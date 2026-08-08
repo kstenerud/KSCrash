@@ -24,7 +24,15 @@
 // THE SOFTWARE.
 //
 
-/* Catches deadlocks in threads and queues.
+/**
+ * @file KSCrashMonitor_Deadlock.h
+ * @brief Catches deadlocks in threads and queues.
+ *
+ * @deprecated This monitor is deprecated. Use KSCrashMonitor_Watchdog instead,
+ * which provides better hang detection, watchdog timeout reporting, and an
+ * observer API for monitoring hang state changes.
+ *
+ * @see KSCrashMonitor_Watchdog.h
  */
 
 #ifndef HDR_KSCrashMonitor_Deadlock_h
@@ -38,16 +46,23 @@ extern "C" {
 
 #include "KSCrashMonitorAPI.h"
 #include "KSCrashNamespace.h"
+#include "KSSystemCapabilities.h"
 
 /** Set the interval between watchdog checks on the main thread.
  * Default is 5 seconds.
  *
  * @param value The number of seconds between checks (0 = disabled).
+ *
+ * @deprecated Use KSCrashMonitor_Watchdog instead.
  */
+KSCRASH_DEPRECATED("Use KSCrashMonitor_Watchdog instead")
 void kscm_setDeadlockHandlerWatchdogInterval(double value);
 
 /** Access the Monitor API.
+ *
+ * @deprecated Use kscm_watchdog_getAPI() from KSCrashMonitor_Watchdog.h instead.
  */
+KSCRASH_DEPRECATED("Use kscm_watchdog_getAPI() instead")
 KSCrashMonitorAPI *kscm_deadlock_getAPI(void);
 
 #ifdef __cplusplus

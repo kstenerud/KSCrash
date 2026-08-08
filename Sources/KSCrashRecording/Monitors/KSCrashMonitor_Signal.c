@@ -28,13 +28,13 @@
 
 #include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorHelper.h"
-#include "KSCrashMonitor_MachException.h"
-#include "KSCrashMonitor_Memory.h"
 #include "KSID.h"
+#include "KSMach.h"
 #include "KSMachineContext.h"
 #include "KSSignalInfo.h"
 #include "KSStackCursor_MachineContext.h"
 #include "KSSystemCapabilities.h"
+#include "Unwind/KSStackCursor_Unwind.h"
 
 // #define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
@@ -55,7 +55,6 @@
 static struct {
     _Atomic(KSCM_InstalledState) installedState;
     atomic_bool isEnabled;
-    bool sigtermMonitoringEnabled;
 
 #if KSCRASH_HAS_SIGNAL_STACK
     /** Our custom signal stack. The signal handler will use this as its stack. */
@@ -68,14 +67,13 @@ static struct {
     KSCrash_ExceptionHandlerCallbacks callbacks;
 } g_state;
 
-static bool isEnabled(void) { return g_state.isEnabled && g_state.installedState == KSCM_Installed; }
+static bool isEnabled(__unused void *context) { return g_state.isEnabled && g_state.installedState == KSCM_Installed; }
 
 // ============================================================================
 #pragma mark - Private -
 // ============================================================================
 
-static void uninstall(void);
-static bool shouldWriteReport(int sigNum) { return !(sigNum == SIGTERM && !g_state.sigtermMonitoringEnabled); }
+static void restoreHandlers(void);
 
 // ============================================================================
 #pragma mark - Callbacks -
@@ -96,13 +94,14 @@ static bool shouldWriteReport(int sigNum) { return !(sigNum == SIGTERM && !g_sta
 static void handleSignal(int sigNum, siginfo_t *signalInfo, void *userContext)
 {
     KSLOG_DEBUG("Trapped signal %d", sigNum);
-    if (isEnabled()) {
+    if (isEnabled(NULL)) {
         thread_t thisThread = (thread_t)ksthread_self();
         KSCrash_MonitorContext *crashContext = g_state.callbacks.notify(
             thisThread, (KSCrash_ExceptionHandlingRequirements) { .asyncSafety = true,
                                                                   .isFatal = true,
-                                                                  .shouldRecordAllThreads = true,
-                                                                  .shouldWriteReport = shouldWriteReport(sigNum) });
+                                                                  .isCleanExit = (sigNum == SIGTERM),
+                                                                  .shouldRecordAllThreads = (sigNum != SIGTERM),
+                                                                  .shouldWriteReport = (sigNum != SIGTERM) });
         if (crashContext->requirements.shouldExitImmediately) {
             goto exit_immediately;
         }
@@ -111,7 +110,7 @@ static void handleSignal(int sigNum, siginfo_t *signalInfo, void *userContext)
         KSStackCursor stackCursor = { 0 };
         KSMachineContext machineContext = { 0 };
         ksmc_getContextForSignal(userContext, &machineContext);
-        kssc_initWithMachineContext(&stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
+        kssc_initWithUnwind(&stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
 
         kscm_fillMonitorContext(crashContext, kscm_signal_getAPI());
         crashContext->offendingMachineContext = &machineContext;
@@ -120,6 +119,7 @@ static void handleSignal(int sigNum, siginfo_t *signalInfo, void *userContext)
         crashContext->signal.userContext = userContext;
         crashContext->signal.signum = signalInfo->si_signo;
         crashContext->signal.sigcode = signalInfo->si_code;
+        crashContext->mach.type = ksmach_machExceptionForSignal(signalInfo->si_signo);
         crashContext->stackCursor = &stackCursor;
 
         g_state.callbacks.handle(crashContext);
@@ -127,8 +127,31 @@ static void handleSignal(int sigNum, siginfo_t *signalInfo, void *userContext)
 
     KSLOG_DEBUG("Re-raising signal for regular handlers to catch.");
 exit_immediately:
-    uninstall();
+    // Restore original handlers only — don't free the signal stack while we're
+    // executing on it, and don't call free() which isn't async-signal-safe.
+    restoreHandlers();
     raise(sigNum);
+}
+
+static void logSigactionError(int sigNum, int error)
+{
+    char sigNameBuff[30];
+    const char *sigName = kssignal_signalName(sigNum);
+    if (sigName == NULL) {
+        snprintf(sigNameBuff, sizeof(sigNameBuff), "%d", sigNum);
+        sigName = sigNameBuff;
+    }
+    KSLOG_ERROR("sigaction (%s): %s", sigName, strerror(error));
+}
+
+static void restoreHandlersUpTo(const int *fatalSignals, int fatalSignalsCount)
+{
+    for (int i = 0; i < fatalSignalsCount; i++) {
+        if (g_state.previousSignalHandlers[i].sa_handler == SIG_IGN) {
+            continue;
+        }
+        sigaction(fatalSignals[i], &g_state.previousSignalHandlers[i], NULL);
+    }
 }
 
 // ============================================================================
@@ -176,19 +199,24 @@ static void install(void)
     action.sa_sigaction = &handleSignal;
 
     for (int i = 0; i < fatalSignalsCount; i++) {
+        if (sigaction(fatalSignals[i], NULL, &g_state.previousSignalHandlers[i]) != 0) {
+            logSigactionError(fatalSignals[i], errno);
+            restoreHandlersUpTo(fatalSignals, i);
+            goto failed;
+        }
+
+        // If the application or runtime explicitly ignored this signal before
+        // KSCrash was installed, preserve that behavior. Otherwise KSCrash would
+        // turn an ignored signal (for example SIGPIPE) into a reported fatal
+        // crash even though the process would normally continue running.
+        if (g_state.previousSignalHandlers[i].sa_handler == SIG_IGN) {
+            continue;
+        }
+
         KSLOG_DEBUG("Assigning handler for signal %d", fatalSignals[i]);
-        if (sigaction(fatalSignals[i], &action, &g_state.previousSignalHandlers[i]) != 0) {
-            char sigNameBuff[30];
-            const char *sigName = kssignal_signalName(fatalSignals[i]);
-            if (sigName == NULL) {
-                snprintf(sigNameBuff, sizeof(sigNameBuff), "%d", fatalSignals[i]);
-                sigName = sigNameBuff;
-            }
-            KSLOG_ERROR("sigaction (%s): %s", sigName, strerror(errno));
-            // Try to reverse the damage
-            for (i--; i >= 0; i--) {
-                sigaction(fatalSignals[i], &g_state.previousSignalHandlers[i], NULL);
-            }
+        if (sigaction(fatalSignals[i], &action, NULL) != 0) {
+            logSigactionError(fatalSignals[i], errno);
+            restoreHandlersUpTo(fatalSignals, i);
             goto failed;
         }
     }
@@ -200,33 +228,26 @@ failed:
     g_state.installedState = KSCM_FailedInstall;
 }
 
-static void uninstall(void)
+/// Restore original signal handlers. Async-signal-safe — no heap operations.
+static void restoreHandlers(void)
 {
     KSCM_InstalledState expectedState = KSCM_Installed;
     if (!atomic_compare_exchange_strong(&g_state.installedState, &expectedState, KSCM_Uninstalled)) {
         return;
     }
-    KSLOG_DEBUG("Uninstalling signal handlers.");
+    KSLOG_DEBUG("Restoring signal handlers.");
 
     const int *fatalSignals = kssignal_fatalSignals();
     int fatalSignalsCount = kssignal_numFatalSignals();
 
-    for (int i = 0; i < fatalSignalsCount; i++) {
-        KSLOG_DEBUG("Restoring original handler for signal %d", fatalSignals[i]);
-        sigaction(fatalSignals[i], &g_state.previousSignalHandlers[i], NULL);
-    }
-
-#if KSCRASH_HAS_SIGNAL_STACK
-    g_state.signalStack = (stack_t) { 0 };
-#endif
-    KSLOG_DEBUG("Signal handlers uninstalled.");
+    restoreHandlersUpTo(fatalSignals, fatalSignalsCount);
 }
 
-static const char *monitorId(void) { return "Signal"; }
+static const char *monitorId(__unused void *context) { return "Signal"; }
 
-static KSCrashMonitorFlag monitorFlags(void) { return KSCrashMonitorFlagAsyncSafe; }
+static KSCrashMonitorFlag monitorFlags(__unused void *context) { return KSCrashMonitorFlagAsyncSafe; }
 
-static void setEnabled(bool enabled)
+static void setEnabled(bool enabled, __unused void *context)
 {
     bool expectedState = !enabled;
     if (!atomic_compare_exchange_strong(&g_state.isEnabled, &expectedState, enabled)) {
@@ -239,25 +260,14 @@ static void setEnabled(bool enabled)
     }
 }
 
-static void addContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext)
-{
-    const char *machName = kscm_machexception_getAPI()->monitorId();
+static void addContextualInfoToEvent(__unused struct KSCrash_MonitorContext *eventContext, __unused void *context) {}
 
-    if (!(strcmp(eventContext->monitorId, monitorId()) == 0 ||
-          (machName && strcmp(eventContext->monitorId, machName) == 0))) {
-        eventContext->signal.signum = SIGABRT;
-    }
+static void init(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused void *context)
+{
+    g_state.callbacks = *callbacks;
 }
 
-static void init(KSCrash_ExceptionHandlerCallbacks *callbacks) { g_state.callbacks = *callbacks; }
-
 #endif /* KSCRASH_HAS_SIGNAL */
-
-#if KSCRASH_HAS_SIGNAL
-void kscm_signal_sigterm_setMonitoringEnabled(bool enabled) { g_state.sigtermMonitoringEnabled = enabled; }
-#else
-void kscm_signal_sigterm_setMonitoringEnabled(__unused bool enabled) {}
-#endif
 
 KSCrashMonitorAPI *kscm_signal_getAPI(void)
 {

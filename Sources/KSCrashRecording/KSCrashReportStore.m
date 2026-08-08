@@ -27,16 +27,19 @@
 #import "KSCrashReportStore.h"
 
 #import "KSCrash+Private.h"
+#import "KSCrashC.h"
 #import "KSCrashConfiguration+Private.h"
 #import "KSCrashReport.h"
 #import "KSCrashReportFields.h"
 #import "KSCrashReportFilter.h"
-#import "KSCrashReportStoreC.h"
+#import "KSCrashReportStoreC+Private.h"
 #import "KSJSONCodecObjC.h"
 #import "KSNSErrorHelper.h"
 
 // #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
+
+const KSCrashReportID KSCrashReportNoID = 0;
 
 @implementation KSCrashReportStore {
     KSCrashReportStoreCConfiguration _cConfig;
@@ -80,22 +83,108 @@
     return kscrs_getReportCount(&_cConfig);
 }
 
+- (KSCrashReportID)nextReportID
+{
+    KSCrashReportID reportID = KSCrashReportNoID;
+    if (kscrs_getReportIDs(&reportID, 1, &_cConfig) <= 0) {
+        return KSCrashReportNoID;
+    }
+    return reportID;
+}
+
 - (void)sendAllReportsWithCompletion:(KSCrashReportFilterCompletion)onCompletion
 {
-    NSArray *reports = [self allReports];
+    NSArray<NSNumber *> *allIDs = [self reportIDs];
+    NSString *currentRunID = [NSString stringWithUTF8String:kscrash_getRunID()];
+
+    // Load reports, skipping ones from the current run (they may still be updated).
+    NSMutableArray *reports = [NSMutableArray arrayWithCapacity:allIDs.count];
+    NSMutableArray<NSNumber *> *sentIDs = [NSMutableArray arrayWithCapacity:allIDs.count];
+    for (NSNumber *numericID in allIDs) {
+        KSCrashReportDictionary *report = [self reportForID:numericID.longLongValue];
+        if (report == nil) {
+            continue;
+        }
+        NSString *reportRunID = report.value[@"report"][@"run_id"];
+        if ([reportRunID isEqualToString:currentRunID]) {
+            KSLOG_INFO(@"Skipping report from current run (run_id: %@)", currentRunID);
+            continue;
+        }
+        [reports addObject:report];
+        [sentIDs addObject:numericID];
+    }
 
     KSLOG_INFO(@"Sending %d crash reports", [reports count]);
 
     __weak __typeof(self) weakSelf = self;
     [self sendReports:reports
          onCompletion:^(NSArray *filteredReports, NSError *error) {
+             __strong __typeof(weakSelf) strongSelf = weakSelf;
+             if (strongSelf == nil) {
+                 kscrash_callCompletion(onCompletion, filteredReports, error);
+                 return;
+             }
              KSLOG_DEBUG(@"Process finished");
              if (error != nil) {
                  KSLOG_ERROR(@"Failed to send reports: %@", error);
              }
-             if ((self.reportCleanupPolicy == KSCrashReportCleanupPolicyOnSuccess && error == nil) ||
-                 self.reportCleanupPolicy == KSCrashReportCleanupPolicyAlways) {
-                 [weakSelf deleteAllReports];
+             if ((strongSelf.reportCleanupPolicy == KSCrashReportCleanupPolicyOnSuccess && error == nil) ||
+                 strongSelf.reportCleanupPolicy == KSCrashReportCleanupPolicyAlways) {
+                 for (NSNumber *reportID in sentIDs) {
+                     [strongSelf deleteReportWithID:reportID.longLongValue];
+                 }
+             }
+             kscrs_cleanupOrphanedRunSidecars(&strongSelf->_cConfig);
+             kscrash_callCompletion(onCompletion, filteredReports, error);
+         }];
+}
+
+- (void)sendReportWithID:(KSCrashReportID)reportID completion:(nullable KSCrashReportFilterCompletion)onCompletion
+{
+    [self sendReportWithID:reportID includeCurrentRun:YES completion:onCompletion];
+}
+
+- (void)sendReportWithID:(KSCrashReportID)reportID
+       includeCurrentRun:(BOOL)includeCurrentRun
+              completion:(nullable KSCrashReportFilterCompletion)onCompletion
+{
+    KSCrashReportDictionary *report = [self reportForID:reportID];
+    if (report == nil) {
+        kscrash_callCompletion(onCompletion, @[],
+                               [KSNSErrorHelper errorWithDomain:[[self class] description]
+                                                           code:0
+                                                    description:@"Report not found."]);
+        return;
+    }
+
+    if (!includeCurrentRun) {
+        NSString *currentRunID = [NSString stringWithUTF8String:kscrash_getRunID()];
+        NSString *reportRunID = report.value[@"report"][@"run_id"];
+        if ([reportRunID isEqualToString:currentRunID]) {
+            KSLOG_INFO(@"Skipping report from current run (run_id: %@)", currentRunID);
+            kscrash_callCompletion(
+                onCompletion, @[],
+                [KSNSErrorHelper errorWithDomain:[[self class] description]
+                                            code:0
+                                     description:@"Report belongs to the current run and may still be updated."]);
+            return;
+        }
+    }
+
+    __weak __typeof(self) weakSelf = self;
+    [self sendReports:@[ report ]
+         onCompletion:^(NSArray *filteredReports, NSError *error) {
+             __strong __typeof(weakSelf) strongSelf = weakSelf;
+             if (strongSelf == nil) {
+                 kscrash_callCompletion(onCompletion, filteredReports, error);
+                 return;
+             }
+             if (error != nil) {
+                 KSLOG_ERROR(@"Failed to send report: %@", error);
+             }
+             if ((strongSelf.reportCleanupPolicy == KSCrashReportCleanupPolicyOnSuccess && error == nil) ||
+                 strongSelf.reportCleanupPolicy == KSCrashReportCleanupPolicyAlways) {
+                 [strongSelf deleteReportWithID:reportID];
              }
              kscrash_callCompletion(onCompletion, filteredReports, error);
          }];
@@ -109,6 +198,11 @@
 - (void)deleteReportWithID:(int64_t)reportID
 {
     kscrs_deleteReportWithID(reportID, &_cConfig);
+}
+
+- (void)cleanupOrphanedRunSidecars
+{
+    kscrs_cleanupOrphanedRunSidecars(&_cConfig);
 }
 
 #pragma mark - Private API
@@ -134,7 +228,7 @@
                 }];
 }
 
-- (NSData *)loadCrashReportJSONWithID:(int64_t)reportID
+- (nullable NSData *)loadCrashReportJSONWithID:(int64_t)reportID
 {
     char *report = kscrs_readReport(reportID, &_cConfig);
     if (report != NULL) {
@@ -160,6 +254,15 @@
     }
     free(reportIDsC);
     return [reportIDs copy];
+}
+
+- (KSCrashReportData *)reportDataForID:(int64_t)reportID
+{
+    NSData *jsonData = [self loadCrashReportJSONWithID:reportID];
+    if (jsonData == nil) {
+        return nil;
+    }
+    return [KSCrashReportData reportWithValue:jsonData];
 }
 
 - (KSCrashReportDictionary *)reportForID:(int64_t)reportID
@@ -189,6 +292,9 @@
 - (NSArray<KSCrashReportDictionary *> *)allReports
 {
     int reportCount = kscrs_getReportCount(&_cConfig);
+    if (reportCount <= 0) {
+        return @[];
+    }
     int64_t reportIDs[reportCount];
     reportCount = kscrs_getReportIDs(reportIDs, reportCount, &_cConfig);
     NSMutableArray<KSCrashReportDictionary *> *reports = [NSMutableArray arrayWithCapacity:(NSUInteger)reportCount];

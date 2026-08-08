@@ -36,6 +36,7 @@ static inline KSCrash_ExceptionHandlingPlan ksexc_monitorContextToPlan(const KSC
         .shouldRecordAllThreads = context->requirements.shouldRecordAllThreads,
         .shouldWriteReport = context->requirements.shouldWriteReport,
         .isFatal = context->requirements.isFatal,
+        .isCleanExit = context->requirements.isCleanExit,
         .requiresAsyncSafety = kscexc_requiresAsyncSafety(context->requirements),
         .crashedDuringExceptionHandling = context->requirements.crashedDuringExceptionHandling,
     };

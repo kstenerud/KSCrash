@@ -84,7 +84,7 @@
  * @param depth Current depth of the path
  * @return An updated object or `nil` if no changes were applied.
  */
-+ (id)demangleReportObj:(id)reportObj path:(NSArray<NSString *> *)path depth:(NSUInteger)depth
++ (nullable id)demangleReportObj:(nonnull id)reportObj path:(nonnull NSArray<NSString *> *)path depth:(NSUInteger)depth
 {
     // Check for NSString and try demangle
     if (depth == path.count) {
@@ -123,6 +123,9 @@
         return nil;
     }
     NSDictionary *reportDict = reportObj;
+    if (reportDict[pathComponent] == nil) {
+        return nil;
+    }
     id demangledElement = [self demangleReportObj:reportDict[pathComponent] path:path depth:depth + 1];
     if (demangledElement == nil) {
         return nil;
@@ -155,7 +158,7 @@
     NSMutableArray<id<KSCrashReport>> *filteredReports = [NSMutableArray arrayWithCapacity:[reports count]];
     for (KSCrashReportDictionary *report in reports) {
         if ([report isKindOfClass:[KSCrashReportDictionary class]] == NO) {
-            KSLOG_ERROR(@"Unexpected non-dictionary report: %@", report);
+            KSLOG_ERROR(@"Unexpected non-dictionary report (got %@)", NSStringFromClass([report class]));
             continue;
         }
         NSDictionary *reportDict = report.value;

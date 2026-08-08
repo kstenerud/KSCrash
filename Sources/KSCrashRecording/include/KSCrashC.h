@@ -70,8 +70,7 @@ extern "C" {
  * ```
  * KSCrashCConfiguration config = KSCrashCConfiguration_Default();
  * config.monitors = KSCrashMonitorTypeAll;
- * config.userInfoJSON = "{ \"user\": \"example\" }";
- * KSCrashInstallErrorCode result = kscrash_install("MyApp", "/path/to/install", config);
+ * KSCrashInstallErrorCode result = kscrash_install("MyApp", "/path/to/install", &config);
  * if (result != 0) {
  *     // Handle installation error
  * }
@@ -88,18 +87,58 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
 
 /** Set the user-supplied data in JSON format.
  *
+ * @deprecated Use the per-key API (kscrash_setUserInfoString, etc.) instead.
+ * The per-key API is backed by an mmap'd run sidecar with zero crash-time cost.
+ *
+ * This function is thread-safe. Under extreme contention, the update
+ * may be skipped (very unlikely in practice).
+ *
  * @param userInfoJSON Pre-baked JSON containing user-supplied information.
  *                     NULL = delete.
  */
-void kscrash_setUserInfoJSON(const char *const userInfoJSON);
+void kscrash_setUserInfoJSON(const char *const userInfoJSON)
+    KSCRASH_DEPRECATED("Use the per-key API (kscrash_setUserInfoString, etc.) instead");
 
 /** Get a copy of the user-supplied data in JSON format.
+ *
+ * @deprecated Use the per-key API instead.
+ *
+ * This function is thread-safe. Under extreme contention, may return
+ * NULL even if information is set (very unlikely in practice).
  *
  * @return A string containing the JSON user-supplied information,
  *         or NULL if no information is set.
  *         The caller is responsible for freeing the returned string.
  */
-const char *kscrash_getUserInfoJSON(void);
+const char *kscrash_getUserInfoJSON(void) KSCRASH_DEPRECATED("Use the per-key API instead");
+
+#pragma mark-- Per-Key User Info --
+
+/** Set a string value for the given key.
+ *  Passing NULL for value removes the key.
+ *  Strings longer than 1024 bytes are truncated.
+ *  Requires kscrash_install() to have completed successfully before use.
+ *  To set initial user info before install, use KSCrashConfiguration.userInfoJSON.
+ */
+void kscrash_setUserInfoString(const char *key, const char *value);
+
+/** Set a signed 64-bit integer value for the given key. */
+void kscrash_setUserInfoInt(const char *key, int64_t value);
+
+/** Set an unsigned 64-bit integer value for the given key. */
+void kscrash_setUserInfoUInt(const char *key, uint64_t value);
+
+/** Set a double-precision floating-point value for the given key. */
+void kscrash_setUserInfoDouble(const char *key, double value);
+
+/** Set a boolean value for the given key. */
+void kscrash_setUserInfoBool(const char *key, bool value);
+
+/** Set a date value for the given key (nanoseconds since 1970-01-01 00:00:00 UTC). */
+void kscrash_setUserInfoDate(const char *key, uint64_t nanosecondsSince1970);
+
+/** Remove the value for the given key. */
+void kscrash_removeUserInfoValue(const char *key);
 
 /** Report a custom, user defined exception.
  * This can be useful when dealing with scripting languages.
@@ -126,33 +165,6 @@ const char *kscrash_getUserInfoJSON(void);
 void kscrash_reportUserException(const char *name, const char *reason, const char *language, const char *lineOfCode,
                                  const char *stackTrace, bool logAllThreads, bool terminateProgram);
 
-#pragma mark-- Notifications --
-
-/** Notify the crash reporter of KSCrash being added to Objective-C runtime system.
- */
-void kscrash_notifyObjCLoad(void);
-
-/** Notify the crash reporter of the application active state.
- *
- * @param isActive true if the application is active, otherwise false.
- */
-void kscrash_notifyAppActive(bool isActive);
-
-/** Notify the crash reporter of the application foreground/background state.
- *
- * @param isInForeground true if the application is in the foreground, false if
- *                 it is in the background.
- */
-void kscrash_notifyAppInForeground(bool isInForeground);
-
-/** Notify the crash reporter that the application is terminating.
- */
-void kscrash_notifyAppTerminate(void);
-
-/** Notify the crash reporter that the application has crashed.
- */
-void kscrash_notifyAppCrash(void);
-
 #pragma mark-- Reporting --
 
 /** Add a custom report to the store.
@@ -163,6 +175,93 @@ void kscrash_notifyAppCrash(void);
  * @return the new report's ID.
  */
 int64_t kscrash_addUserReport(const char *report, int reportLength);
+
+/** Get the run ID for the current process.
+ *
+ * Returns a UUID string generated once during kscrash_install().
+ * The returned buffer is read-only after install, so this is
+ * async-signal-safe and can be called from crash handlers.
+ *
+ * @return A null-terminated UUID string (lowercase, 36 characters).
+ *         The returned pointer is valid for the lifetime of the process.
+ */
+const char *kscrash_getRunID(void);
+
+/** Get the run ID from the previous process run.
+ *
+ * Returns the UUID string that was saved during the previous call to
+ * kscrash_install(). Used by the Lifecycle monitor to locate the previous
+ * run's sidecar and determine crashedLastLaunch.
+ *
+ * @return A null-terminated UUID string, or an empty string if this is
+ *         the first run or the previous ID could not be read.
+ *         The returned pointer is valid for the lifetime of the process.
+ */
+const char *kscrash_getLastRunID(void);
+
+/** Get the namespaced KSCrash name.
+ *
+ * Returns "KSCrash" by default, or "KSCrash<namespace>" when
+ * KSCRASH_NAMESPACE is defined.
+ *
+ * @return A null-terminated string. The pointer is to static storage.
+ */
+const char *kscrash_namespaceIdentifier(void);
+
+/** Get the namespaced KSCrash path under the Documents directory.
+ *
+ * Returns "<Documents>/KSCrash" (or "<Documents>/KSCrash<namespace>").
+ * The path is computed once and cached for the lifetime of the process.
+ *
+ * @return A null-terminated path string, or NULL if the directory
+ *         could not be resolved. The pointer is valid for the
+ *         lifetime of the process.
+ */
+const char *kscrash_documentsPath(void);
+
+/** Get the namespaced KSCrash path under the Application Support directory.
+ *
+ * Returns "<AppSupport>/KSCrash" (or "<AppSupport>/KSCrash<namespace>").
+ * The path is computed once and cached for the lifetime of the process.
+ *
+ * @return A null-terminated path string, or NULL if the directory
+ *         could not be resolved. The pointer is valid for the
+ *         lifetime of the process.
+ */
+const char *kscrash_applicationSupportPath(void);
+
+/** Get the namespaced KSCrash path under the Caches directory.
+ *
+ * Returns "<Caches>/KSCrash" (or "<Caches>/KSCrash<namespace>").
+ * The path is computed once and cached for the lifetime of the process.
+ *
+ * @return A null-terminated path string, or NULL if the directory
+ *         could not be resolved. The pointer is valid for the
+ *         lifetime of the process.
+ */
+const char *kscrash_cachesPath(void);
+
+#pragma mark-- Deprecated --
+
+/** @deprecated The Lifecycle monitor observes state transitions directly. */
+void kscrash_notifyObjCLoad(void)
+    KSCRASH_DEPRECATED("No longer needed. The Lifecycle monitor observes state directly.");
+
+/** @deprecated The Lifecycle monitor observes state transitions directly. */
+void kscrash_notifyAppActive(bool isActive)
+    KSCRASH_DEPRECATED("No longer needed. The Lifecycle monitor observes state directly.");
+
+/** @deprecated The Lifecycle monitor observes state transitions directly. */
+void kscrash_notifyAppInForeground(bool isInForeground)
+    KSCRASH_DEPRECATED("No longer needed. The Lifecycle monitor observes state directly.");
+
+/** @deprecated The Lifecycle monitor observes state transitions directly. */
+void kscrash_notifyAppTerminate(void)
+    KSCRASH_DEPRECATED("No longer needed. The Lifecycle monitor observes state directly.");
+
+/** @deprecated The Lifecycle monitor observes state transitions directly. */
+void kscrash_notifyAppCrash(void)
+    KSCRASH_DEPRECATED("No longer needed. The Lifecycle monitor observes state directly.");
 
 #ifdef __cplusplus
 }

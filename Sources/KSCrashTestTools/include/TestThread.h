@@ -29,6 +29,6 @@
 
 @interface TestThread : NSThread
 
-@property(nonatomic, readwrite, assign) thread_t thread;
+@property(atomic, readwrite, assign) thread_t thread;
 
 @end

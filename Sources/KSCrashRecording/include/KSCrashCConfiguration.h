@@ -31,11 +31,13 @@
 #include <string.h>
 
 #include "KSCrashExceptionHandlingPlan.h"
+#include "KSCrashMonitorAPI.h"
 #include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorType.h"
 #include "KSCrashNamespace.h"
 #include "KSCrashReportWriter.h"
 #include "KSCrashReportWriterCallbacks.h"
+#include "KSSystemCapabilities.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -60,6 +62,18 @@ typedef struct {
      */
     const char *reportsPath;
 
+    /** The directory path for storing per-report sidecar files.
+     * Layout: <reportSidecarsPath>/<monitorId>/<reportID>.ksscr
+     * If NULL, defaults to a "Sidecars" sibling directory alongside reportsPath.
+     */
+    const char *reportSidecarsPath;
+
+    /** The directory path for storing per-run sidecar files.
+     * Layout: <runSidecarsPath>/<runID>/<monitorId>.ksscr
+     * If NULL, defaults to a "RunSidecars" sibling directory alongside reportsPath.
+     */
+    const char *runSidecarsPath;
+
     /** The maximum number of crash reports to retain on disk.
      *
      * Defines the upper limit of crash reports to keep in storage. When this threshold
@@ -75,16 +89,20 @@ static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_
     return (KSCrashReportStoreCConfiguration) {
         .appName = NULL,
         .reportsPath = NULL,
+        .reportSidecarsPath = NULL,
+        .runSidecarsPath = NULL,
         .maxReportCount = 5,
     };
 }
 
 static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_Copy(
-    KSCrashReportStoreCConfiguration *configuration)
+    const KSCrashReportStoreCConfiguration *configuration)
 {
     return (KSCrashReportStoreCConfiguration) {
         .appName = configuration->appName ? strdup(configuration->appName) : NULL,
         .reportsPath = configuration->reportsPath ? strdup(configuration->reportsPath) : NULL,
+        .reportSidecarsPath = configuration->reportSidecarsPath ? strdup(configuration->reportSidecarsPath) : NULL,
+        .runSidecarsPath = configuration->runSidecarsPath ? strdup(configuration->runSidecarsPath) : NULL,
         .maxReportCount = configuration->maxReportCount,
     };
 }
@@ -93,6 +111,8 @@ static inline void KSCrashReportStoreCConfiguration_Release(KSCrashReportStoreCC
 {
     free((void *)configuration->appName);
     free((void *)configuration->reportsPath);
+    free((void *)configuration->reportSidecarsPath);
+    free((void *)configuration->runSidecarsPath);
 }
 
 /** Configuration for KSCrash settings.
@@ -109,11 +129,13 @@ typedef struct {
 
     /** User-supplied data in JSON format. NULL to delete.
      *
-     * This JSON string contains user-specific data that will be included in
-     * the crash report. If NULL is passed, any existing user data will be deleted.
+     * This JSON string is written into the crash report's "user" section at install time.
+     * After install, use the per-key API (kscrash_setUserInfoString, etc.) to update values.
      */
     const char *userInfoJSON;
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     /** The maximum time to allow the main thread to run without returning.
      *
      * If the main thread is occupied by a task for longer than this interval, the
@@ -124,8 +146,13 @@ typedef struct {
      * this value, including application startup. You may need to initialize your
      * application on a different thread or set this to a higher value until initialization
      * is complete.
+     *
+     * @note Deprecated. Use `KSCrashMonitorTypeWatchdog` in the `monitors` field instead.
+     * The watchdog monitor provides better hang detection with a fixed 250ms threshold.
      */
-    double deadlockWatchdogInterval;
+    double deadlockWatchdogInterval
+        KSCRASH_DEPRECATED("Use `KSCrashMonitorTypeWatchdog` in the `monitors` field instead");
+#pragma clang diagnostic pop
 
     /** If true, attempt to fetch dispatch queue names for each running thread.
      *
@@ -221,20 +248,73 @@ typedef struct {
      * accurate stack traces even in dynamically linked libraries and allows overriding
      * the original `__cxa_throw` with a custom implementation.
      *
+     * @note This feature is automatically disabled when the binary is compiled with
+     * sanitizers (ASan, TSan, etc.) as they also intercept `__cxa_throw` and conflict
+     * with this swapping mechanism.
+     *
      * **Default**: true
      */
     bool enableSwapCxaThrow;
 
     /** If true, enables monitoring for SIGTERM signals.
      *
-     * A SIGTERM is usually sent to the application by the OS during a graceful shutdown,
-     * but it can also happen on some Watchdog events.
-     * Enabling this can provide more insights into the cause of the SIGTERM, but
-     * it can also generate many false-positive crash reports.
+     * @deprecated SIGTERM is now always caught to record a clean exit. No crash report is written. This field is
+     * ignored.
+     */
+    bool enableSigTermMonitoring
+        KSCRASH_DEPRECATED("SIGTERM is now always caught to record a clean exit. This field is ignored.");
+
+    /** If true, resolved hangs are kept as non-fatal reports.
+     *
+     * When enabled, hangs that resolve on their own are preserved as reports
+     * with duration and stack trace information. When disabled (default),
+     * resolved hangs are discarded.
+     *
+     * Only applies when `KSCrashMonitorTypeWatchdog` is included in `monitors`.
      *
      * **Default**: false
      */
-    bool enableSigTermMonitoring;
+    bool enableHangReporting;
+
+    /** If true, generate non-fatal reports when sustained CPU usage reaches
+     *  warning or critical thresholds.
+     *
+     * Each upward state transition (normal to warning, warning to critical,
+     * or normal to critical) produces one report with all thread stacks.
+     *
+     * Only applies when `KSCrashMonitorTypeResource` is included in `monitors`.
+     *
+     * **Default**: false
+     */
+    bool enableCPUExceptionReporting;
+
+    /** If true, use compact binary image reporting.
+     *
+     * When enabled, the `binary_images` array is filtered to only include
+     * images referenced by backtrace frames. Images that only have
+     * crash_info but no backtrace reference are omitted — in practice
+     * the crashing image is almost always referenced by the backtrace.
+     *
+     * **Default**: false
+     */
+    bool enableCompactBinaryImages;
+
+    /** Plugin monitors to register at install time.
+     *
+     * An array of `KSCrashMonitorAPI` structs that will be copied into static
+     * storage and registered via `kscm_addMonitor()` during installation.
+     *
+     * If `release` is non-NULL, it will be called with `apis` during
+     * `KSCrashCConfiguration_Release()`. Set it to `free` for heap-allocated
+     * arrays, or leave it NULL for static/stack arrays.
+     *
+     * **Default**: `{ .apis = NULL, .length = 0, .release = NULL }`
+     */
+    struct {
+        KSCrashMonitorAPI *apis;
+        int length;
+        void (*release)(void *apis);
+    } plugins;
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -271,6 +351,17 @@ typedef struct {
     KSReportWrittenCallback reportWrittenCallback
         __attribute__((deprecated("Use `didWriteReportCallback` for async-safety awareness (since v2.4.0).")));
 #pragma clang diagnostic pop
+
+    /** If true, use `backtrace_async()` for KSCrash's current-thread stack capture paths.
+     *
+     * This can stitch Swift async continuation frames into self-thread backtraces such as
+     * C++ exception throw-site and handler cursors, user-reported fallbacks, and current-thread
+     * `ksbt_captureBacktrace` calls. When `backtrace_async()` is not available at build time or
+     * runtime, KSCrash falls back to `backtrace()`.
+     *
+     * **Default**: false
+     */
+    bool enableSwiftAsyncStackTraces;
 } KSCrashCConfiguration;
 
 static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
@@ -279,7 +370,10 @@ static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
         .reportStoreConfiguration = KSCrashReportStoreCConfiguration_Default(),
         .monitors = KSCrashMonitorTypeProductionSafeMinimal,
         .userInfoJSON = NULL,
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         .deadlockWatchdogInterval = 0.0,
+#pragma clang diagnostic pop
         .enableQueueNameSearch = false,
         .enableMemoryIntrospection = false,
         .doNotIntrospectClasses = { .strings = NULL, .length = 0 },
@@ -295,7 +389,15 @@ static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
         .addConsoleLogToReport = false,
         .printPreviousLogOnStartup = false,
         .enableSwapCxaThrow = true,
+        .enableSwiftAsyncStackTraces = false,
+        .enableHangReporting = false,
+        .enableCPUExceptionReporting = false,
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         .enableSigTermMonitoring = false,
+#pragma clang diagnostic pop
+        .enableCompactBinaryImages = false,
+        .plugins = { .apis = NULL, .length = 0, .release = NULL },
     };
 }
 
@@ -307,6 +409,9 @@ static inline void KSCrashCConfiguration_Release(KSCrashCConfiguration *configur
         free((void *)(configuration->doNotIntrospectClasses.strings[idx]));
     }
     free(configuration->doNotIntrospectClasses.strings);
+    if (configuration->plugins.release) {
+        configuration->plugins.release(configuration->plugins.apis);
+    }
 }
 
 #ifdef __cplusplus

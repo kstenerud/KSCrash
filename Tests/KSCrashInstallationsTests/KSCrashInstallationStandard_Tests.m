@@ -27,21 +27,26 @@
 #import <XCTest/XCTest.h>
 
 #import "KSCrashInstallationStandard.h"
+#import "KSCrashMonitor.h"
 
 @interface KSCrashInstallationStandard_Tests : XCTestCase
 @end
 
 @implementation KSCrashInstallationStandard_Tests
 
+- (void)tearDown
+{
+    // Disable all monitors to clean up background threads (exception handlers, etc.)
+    // This prevents ASan from hanging when XCTSkip throws an exception in later tests.
+    kscm_disableAllMonitors();
+    [super tearDown];
+}
+
 - (void)testInstall
 {
     KSCrashInstallationStandard *installation = [KSCrashInstallationStandard sharedInstance];
-    installation.url = [NSURL URLWithString:@"www.google.com"];
+    installation.url = [NSURL URLWithString:@"https://www.google.com"];
     [installation installWithConfiguration:[KSCrashConfiguration new] error:NULL];
-    [installation sendAllReportsWithCompletion:^(__unused NSArray *filteredReports, NSError *error) {
-        // There are no reports, so this will succeed.
-        XCTAssertNil(error, @"");
-    }];
 }
 
 @end

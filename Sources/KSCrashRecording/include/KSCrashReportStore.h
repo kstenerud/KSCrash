@@ -32,6 +32,7 @@
 NS_ASSUME_NONNULL_BEGIN
 
 @class KSCrashReportDictionary;
+@class KSCrashReportData;
 @class KSCrashReportStoreConfiguration;
 
 typedef NS_ENUM(NSUInteger, KSCrashReportCleanupPolicy) {
@@ -39,6 +40,12 @@ typedef NS_ENUM(NSUInteger, KSCrashReportCleanupPolicy) {
     KSCrashReportCleanupPolicyOnSuccess,
     KSCrashReportCleanupPolicyAlways,
 } NS_SWIFT_NAME(CrashReportCleanupPolicy);
+
+/** A unique identifier for a crash report. */
+typedef int64_t KSCrashReportID NS_SWIFT_NAME(CrashReportID);
+
+/** Sentinel value indicating no report is available. */
+FOUNDATION_EXTERN const KSCrashReportID KSCrashReportNoID;
 
 NS_SWIFT_NAME(CrashReportStore)
 @interface KSCrashReportStore : NSObject
@@ -102,10 +109,17 @@ NS_SWIFT_NAME(CrashReportStore)
 /** Get all unsent report IDs. */
 @property(nonatomic, readonly, strong) NSArray<NSNumber *> *reportIDs;
 
+/** Get the oldest unsent report ID, or KSCrashReportNoID if the store is empty. */
+@property(nonatomic, readonly, assign) KSCrashReportID nextReportID;
+
 /** Send all outstanding crash reports to the current sink.
  * It will only attempt to send the most recent 5 reports. All others will be
  * deleted. Once the reports are successfully sent to the server, they may be
  * deleted locally, depending on the property "reportCleanupPolicy".
+ *
+ * Reports from the current process run are excluded because they may still
+ * be updated while the process is alive. To send a specific report by ID
+ * (including current-run reports), use @c sendReportWithID:completion:.
  *
  * @note Property "sink" MUST be set or else this method will call `onCompletion` with an error.
  *
@@ -113,13 +127,42 @@ NS_SWIFT_NAME(CrashReportStore)
  */
 - (void)sendAllReportsWithCompletion:(nullable KSCrashReportFilterCompletion)onCompletion;
 
+/** Send a single report by ID.
+ *
+ * Equivalent to calling @c sendReportWithID:includeCurrentRun:completion: with @c YES.
+ *
+ * @param reportID The ID of the report to send.
+ * @param onCompletion Called when sending is complete (nil = ignore).
+ */
+- (void)sendReportWithID:(KSCrashReportID)reportID completion:(nullable KSCrashReportFilterCompletion)onCompletion;
+
+/** Send a single report by ID, optionally including current-run reports.
+ *
+ * @param reportID The ID of the report to send.
+ * @param includeCurrentRun If YES, sends the report even if it belongs to the current run.
+ *                          If NO and the report is from the current run, calls onCompletion
+ *                          with an error.
+ * @param onCompletion Called when sending is complete (nil = ignore).
+ */
+- (void)sendReportWithID:(KSCrashReportID)reportID
+       includeCurrentRun:(BOOL)includeCurrentRun
+              completion:(nullable KSCrashReportFilterCompletion)onCompletion;
+
 /** Get report.
  *
  * @param reportID An ID of report.
  *
- * @return A crash report with a dictionary value. The dectionary fields are described in KSCrashReportFields.h.
+ * @return A crash report with a dictionary value. The dictionary fields are described in KSCrashReportFields.h.
  */
-- (nullable KSCrashReportDictionary *)reportForID:(int64_t)reportID NS_SWIFT_NAME(report(for:));
+- (nullable KSCrashReportDictionary *)reportForID:(KSCrashReportID)reportID NS_SWIFT_NAME(report(for:));
+
+/** Get report Data.
+ *
+ * @param reportID An ID of report.
+ *
+ * @return A crash report with a data value.
+ */
+- (nullable KSCrashReportData *)reportDataForID:(int64_t)reportID NS_SWIFT_NAME(reportData(for:));
 
 /** Delete all unsent reports.
  */
@@ -129,7 +172,15 @@ NS_SWIFT_NAME(CrashReportStore)
  *
  * @param reportID An ID of report to delete.
  */
-- (void)deleteReportWithID:(int64_t)reportID NS_SWIFT_NAME(deleteReport(with:));
+- (void)deleteReportWithID:(KSCrashReportID)reportID NS_SWIFT_NAME(deleteReport(with:));
+
+/** Remove run sidecar directories that no longer have matching reports.
+ *
+ * Called automatically within @c sendAllReportsWithCompletion:.
+ * If you handle report delivery yourself, call this periodically or after sending reports.
+ * May block, so prefer calling from a background thread.
+ */
+- (void)cleanupOrphanedRunSidecars;
 
 @end
 

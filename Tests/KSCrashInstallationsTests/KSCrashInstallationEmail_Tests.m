@@ -24,14 +24,26 @@
 // THE SOFTWARE.
 //
 
+#import <TargetConditionals.h>
 #import <XCTest/XCTest.h>
 
 #import "KSCrashInstallationEmail.h"
+#import "KSCrashMonitor.h"
+
+#if TARGET_OS_IOS
 
 @interface KSCrashInstallationEmail_Tests : XCTestCase
 @end
 
 @implementation KSCrashInstallationEmail_Tests
+
+- (void)tearDown
+{
+    // Disable all monitors to clean up background threads (exception handlers, etc.)
+    // This prevents ASan from hanging when XCTSkip throws an exception in later tests.
+    kscm_disableAllMonitors();
+    [super tearDown];
+}
 
 - (void)testInstall
 {
@@ -66,3 +78,5 @@
 }
 
 @end
+
+#endif

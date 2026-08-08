@@ -31,8 +31,12 @@ import KSCrashRecording
 public struct InstallConfig: Codable {
     public var installPath: String
     public var isCxaThrowEnabled: Bool?
-    public var isSigTermMonitoringEnabled: Bool?
     public var shouldRecordAllThreads: Bool?
+    public var isWatchdogEnabled: Bool?
+    public var isHangReportingEnabled: Bool?
+    public var isCompactBinaryImagesEnabled: Bool?
+    public var ignoreSIGPIPEBeforeInstall: Bool?
+    public var isSwiftAsyncStackTracesEnabled: Bool?
 
     public init(installPath: String) {
         self.installPath = installPath
@@ -41,13 +45,29 @@ public struct InstallConfig: Codable {
 
 extension InstallConfig {
     func install() throws {
+        if ignoreSIGPIPEBeforeInstall == true {
+            let error = integrationTestIgnoreSIGPIPE()
+            guard error == 0 else {
+                throw POSIXError(POSIXErrorCode(rawValue: error) ?? .EINVAL)
+            }
+        }
+
         let config = KSCrashConfiguration()
         config.installPath = installPath
         if let isCxaThrowEnabled {
             config.enableSwapCxaThrow = isCxaThrowEnabled
         }
-        if let isSigTermMonitoringEnabled {
-            config.enableSigTermMonitoring = isSigTermMonitoringEnabled
+        if isWatchdogEnabled == true {
+            config.monitors = [config.monitors, .watchdog]
+        }
+        if let isHangReportingEnabled {
+            config.enableHangReporting = isHangReportingEnabled
+        }
+        if let isCompactBinaryImagesEnabled {
+            config.enableCompactBinaryImages = isCompactBinaryImagesEnabled
+        }
+        if let isSwiftAsyncStackTracesEnabled {
+            config.enableSwiftAsyncStackTraces = isSwiftAsyncStackTracesEnabled
         }
         setIntegrationTestWillWriteReportCallback({
             (plan: UnsafeMutablePointer<ExceptionHandlingPlan>, ctx: UnsafePointer<KSCrash_MonitorContext>) in

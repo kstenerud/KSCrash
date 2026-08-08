@@ -24,6 +24,7 @@
 // THE SOFTWARE.
 //
 
+import IntegrationTestsHelper
 import SampleUI
 import SwiftUI
 
@@ -32,6 +33,12 @@ struct SampleApp: App {
     #if os(macOS)
         @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     #endif
+
+    init() {
+        runLeaksTestIfRequired()
+        registerSwiftAsyncCrashTrigger()
+        IntegrationTestRunner.runEarlyIfNeeded()
+    }
 
     var body: some Scene {
         WindowGroup {

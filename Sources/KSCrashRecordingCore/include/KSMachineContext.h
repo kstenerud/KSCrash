@@ -69,7 +69,7 @@ int ksmc_contextSize(void);
  *
  * @param thread The thread to get information from.
  * @param destinationContext The context to fill.
- * @param isCrashedContext Used to indicate that this is the thread that crashed,
+ * @param isCrashedContext Used to indicate that this is the thread that crashed.
  *
  * @return true if successful.
  */

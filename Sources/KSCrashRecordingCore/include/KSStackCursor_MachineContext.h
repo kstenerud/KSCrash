@@ -27,12 +27,16 @@
 
 #include "KSCrashNamespace.h"
 #include "KSStackCursor.h"
+#include "KSSystemCapabilities.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/** Initialize a stack cursor for a machine context.
+/** Initialize a stack cursor for a machine context using frame pointer walking.
+ *
+ * @deprecated Use kssc_initWithUnwind() instead, which provides more accurate
+ * stack traces using compact unwind and DWARF data with frame pointer fallback.
  *
  * @param cursor The stack cursor to initialize.
  *
@@ -40,6 +44,7 @@ extern "C" {
  *
  * @param machineContext The machine context whose stack to walk.
  */
+KSCRASH_DEPRECATED("Use kssc_initWithUnwind() instead")
 void kssc_initWithMachineContext(KSStackCursor *cursor, int maxStackDepth,
                                  const struct KSMachineContext *machineContext);
 

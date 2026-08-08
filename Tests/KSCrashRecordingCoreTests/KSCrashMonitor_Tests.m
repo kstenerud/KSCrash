@@ -39,43 +39,47 @@
 #pragma mark - Dummy monitors -
 
 // First monitor
-static bool g_dummyEnabledState = false;
-static bool g_dummyPostSystemEnabled = false;
+static _Atomic bool g_dummyEnabledState = false;
+static _Atomic bool g_dummyPostSystemEnabled = false;
 static const char *const g_eventID = "TestEventID";
 static const char *g_copiedEventID = NULL;
+static int64_t g_dummyResultReportId = 1;
 
 static KSCrash_ExceptionHandlerCallbacks dummyExceptionHandlerCallbacks;
-static void dummyInit(KSCrash_ExceptionHandlerCallbacks *callbacks) { dummyExceptionHandlerCallbacks = *callbacks; }
+static void dummyInit(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused void *context)
+{
+    dummyExceptionHandlerCallbacks = *callbacks;
+}
 
-static const char *dummyMonitorId(void) { return "Dummy Monitor"; }
+static const char *dummyMonitorId(__unused void *context) { return "Dummy Monitor"; }
 
-static KSCrashMonitorFlag dummyMonitorFlags(void) { return KSCrashMonitorFlagAsyncSafe; }
+static KSCrashMonitorFlag dummyMonitorFlags(__unused void *context) { return KSCrashMonitorFlagAsyncSafe; }
 
-static void dummySetEnabled(bool isEnabled) { g_dummyEnabledState = isEnabled; }
-static bool dummyIsEnabled(void) { return g_dummyEnabledState; }
-static void dummyAddContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext)
+static void dummySetEnabled(bool isEnabled, __unused void *context) { g_dummyEnabledState = isEnabled; }
+static bool dummyIsEnabled(__unused void *context) { return g_dummyEnabledState; }
+static void dummyAddContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext, __unused void *context)
 {
     if (eventContext != NULL) {
         strncpy(eventContext->eventID, g_eventID, sizeof(eventContext->eventID));
     }
 }
 
-static void dummyNotifyPostSystemEnable(void) { g_dummyPostSystemEnabled = true; }
+static void dummyNotifyPostSystemEnable(__unused void *context) { g_dummyPostSystemEnabled = true; }
 
 // Second monitor
 static KSCrash_ExceptionHandlerCallbacks secondDummyExceptionHandlerCallbacks;
-static void secondDummyInit(KSCrash_ExceptionHandlerCallbacks *callbacks)
+static void secondDummyInit(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused void *context)
 {
     secondDummyExceptionHandlerCallbacks = *callbacks;
 }
 
-static const char *secondDummyMonitorId(void) { return "Second Dummy Monitor"; }
+static const char *secondDummyMonitorId(__unused void *context) { return "Second Dummy Monitor"; }
 
 static bool g_secondDummyEnabledState = false;
 // static const char *const g_secondEventID = "SecondEventID";
 
-static void secondDummySetEnabled(bool isEnabled) { g_secondDummyEnabledState = isEnabled; }
-static bool secondDummyIsEnabled(void) { return g_secondDummyEnabledState; }
+static void secondDummySetEnabled(bool isEnabled, __unused void *context) { g_secondDummyEnabledState = isEnabled; }
+static bool secondDummyIsEnabled(__unused void *context) { return g_secondDummyEnabledState; }
 
 static KSCrashMonitorAPI g_dummyMonitor = {};
 static KSCrashMonitorAPI g_secondDummyMonitor = {};
@@ -83,11 +87,22 @@ static KSCrashMonitorAPI g_secondDummyMonitor = {};
 #pragma mark - Tests -
 
 static BOOL g_exceptionHandled = NO;
+static BOOL g_finalizeCalled = NO;
+static int64_t g_finalizedReportId = 0;
 
-static void myEventCallback(struct KSCrash_MonitorContext *context)
+static void myEventCallback(struct KSCrash_MonitorContext *context, KSCrash_ReportResult *result)
 {
+    if (result) {
+        result->reportId = g_dummyResultReportId;
+    }
     g_exceptionHandled = YES;
     g_copiedEventID = strdup(context->eventID);
+}
+
+static void myFinalizeCallback(__unused struct KSCrash_MonitorContext *context, const KSCrash_ReportResult *result)
+{
+    g_finalizeCalled = YES;
+    g_finalizedReportId = result->reportId;
 }
 
 extern void kscm_testcode_resetState(void);
@@ -136,6 +151,7 @@ extern void kscm_testcode_resetState(void);
             block();
             dispatch_group_leave(group);
         }];
+        thread.qualityOfService = NSQualityOfServiceUserInteractive;
         [thread start];
     }
     return group;
@@ -153,23 +169,41 @@ extern void kscm_testcode_resetState(void);
 - (void)testAddingAndActivatingMonitors
 {
     XCTAssertTrue(kscm_addMonitor(&g_dummyMonitor), @"Monitor should be successfully added.");
-    kscm_activateMonitors();  // Activate all monitors
-    XCTAssertTrue(g_dummyMonitor.isEnabled(), @"The monitor should be enabled after activation.");
+    kscm_enableMonitors();
+    XCTAssertTrue(g_dummyMonitor.isEnabled(NULL), @"The monitor should be enabled after activation.");
+}
+
+- (void)testNotifyPostSystemEnableFiresCallback
+{
+    kscm_addMonitor(&g_dummyMonitor);
+    kscm_enableMonitors();
+    XCTAssertFalse(g_dummyPostSystemEnabled, @"Post-system-enable should not have fired yet.");
+    kscm_notifyPostSystemEnable();
+    XCTAssertTrue(g_dummyPostSystemEnabled, @"Post-system-enable callback should have fired.");
+}
+
+- (void)testNotifyPostSystemEnableSkipsDisabledMonitors
+{
+    kscm_addMonitor(&g_dummyMonitor);
+    // Don't enable — monitor stays disabled
+    XCTAssertFalse(g_dummyEnabledState);
+    kscm_notifyPostSystemEnable();
+    XCTAssertFalse(g_dummyPostSystemEnabled, @"Disabled monitors should not receive post-system-enable.");
 }
 
 - (void)testDisablingAllMonitors
 {
     kscm_addMonitor(&g_dummyMonitor);
-    kscm_activateMonitors();
-    XCTAssertTrue(g_dummyMonitor.isEnabled(), @"The monitor should be enabled before disabling.");
+    kscm_enableMonitors();
+    XCTAssertTrue(g_dummyMonitor.isEnabled(NULL), @"The monitor should be enabled before disabling.");
     kscm_disableAllMonitors();  // Disable all monitors
-    XCTAssertFalse(g_dummyMonitor.isEnabled(), @"The monitor should be disabled after calling disable all.");
+    XCTAssertFalse(g_dummyMonitor.isEnabled(NULL), @"The monitor should be disabled after calling disable all.");
 }
 
 - (void)testAddMonitorWithNullAPI
 {
     XCTAssertFalse(kscm_addMonitor(NULL), @"Adding a NULL monitor should return false.");
-    kscm_activateMonitors();
+    kscm_enableMonitors();
     // No assertion needed, just verifying no crash occurred
 }
 
@@ -177,13 +211,13 @@ extern void kscm_testcode_resetState(void);
 {
     // Add the dummy monitor first
     XCTAssertTrue(kscm_addMonitor(&g_dummyMonitor), @"Monitor should be successfully added.");
-    kscm_activateMonitors();
-    XCTAssertTrue(g_dummyMonitor.isEnabled(), @"The monitor should be enabled after adding.");
+    kscm_enableMonitors();
+    XCTAssertTrue(g_dummyMonitor.isEnabled(NULL), @"The monitor should be enabled after adding.");
 
     // Remove the dummy monitor
     kscm_removeMonitor(&g_dummyMonitor);
-    kscm_activateMonitors();
-    XCTAssertFalse(g_dummyMonitor.isEnabled(), @"The monitor should be disabled after removal.");
+    kscm_enableMonitors();
+    XCTAssertFalse(g_dummyMonitor.isEnabled(NULL), @"The monitor should be disabled after removal.");
 }
 
 #pragma mark - Monitor Exception Handling Tests
@@ -191,8 +225,8 @@ extern void kscm_testcode_resetState(void);
 - (void)testHandlingFatalException
 {
     kscm_addMonitor(&g_dummyMonitor);
-    kscm_activateMonitors();
-    kscm_setEventCallback(myEventCallback);
+    kscm_enableMonitors();
+    kscm_setEventCallbackWithResult(myEventCallback);
     KSCrash_MonitorContext *ctx = NULL;
     ctx = dummyExceptionHandlerCallbacks.notify(
         (thread_t)ksthread_self(),
@@ -211,8 +245,8 @@ extern void kscm_testcode_resetState(void);
 - (void)testHandlingNonFatalException
 {
     kscm_addMonitor(&g_dummyMonitor);
-    kscm_activateMonitors();
-    kscm_setEventCallback(myEventCallback);
+    kscm_enableMonitors();
+    kscm_setEventCallbackWithResult(myEventCallback);
     KSCrash_MonitorContext *ctx = NULL;
     ctx = dummyExceptionHandlerCallbacks.notify(
         (thread_t)ksthread_self(),
@@ -231,8 +265,8 @@ extern void kscm_testcode_resetState(void);
 - (void)testHeapAllocAsyncSafety
 {
     kscm_addMonitor(&g_dummyMonitor);
-    kscm_activateMonitors();
-    kscm_setEventCallback(myEventCallback);
+    kscm_enableMonitors();
+    kscm_setEventCallbackWithResult(myEventCallback);
     KSCrash_MonitorContext *ctx = NULL;
     ctx = dummyExceptionHandlerCallbacks.notify(
         (thread_t)ksthread_self(),
@@ -249,7 +283,7 @@ extern void kscm_testcode_resetState(void);
 - (void)testHeapAllocNoAsyncSafety
 {
     kscm_addMonitor(&g_dummyMonitor);
-    kscm_activateMonitors();
+    kscm_enableMonitors();
     KSCrash_MonitorContext *ctx = NULL;
     ctx = dummyExceptionHandlerCallbacks.notify(
         (thread_t)ksthread_self(),
@@ -263,31 +297,35 @@ extern void kscm_testcode_resetState(void);
                   @"When async safety is not required, the context should be allocated on the heap");
 }
 
-static volatile int g_counter = 0;
+static atomic_int g_counter = 0;
 
 - (bool)isCounterIncrementing
 {
-    int counter = g_counter;
+    int counter = atomic_load(&g_counter);
     usleep(1000);  // 1ms
-    return g_counter != counter;
+    return atomic_load(&g_counter) != counter;
 }
 
 #if KSCRASH_HAS_THREADS_API
 - (void)testThreadsStoppedToCaptureTraces
 {
     kscm_addMonitor(&g_dummyMonitor);
-    kscm_activateMonitors();
+    kscm_enableMonitors();
     KSCrash_MonitorContext *ctx = NULL;
+
+    // Reset counter to ensure clean state
+    atomic_store(&g_counter, 0);
 
     dispatch_semaphore_t threadStarted = dispatch_semaphore_create(0);
 
     NSThread *thread = [[NSThread alloc] initWithBlock:^{
         dispatch_semaphore_signal(threadStarted);
         while (!NSThread.currentThread.isCancelled) {
-            g_counter++;
+            atomic_fetch_add(&g_counter, 1);
             usleep(100);
         }
     }];
+    thread.qualityOfService = NSQualityOfServiceUserInteractive;
     [thread start];
 
     // Wait for the thread to signal it has started
@@ -295,7 +333,12 @@ static volatile int g_counter = 0;
     XCTAssertEqual(result, 0, @"Counter thread should start");
 
     // Verify thread is actually running by checking counter increments
-    XCTAssertTrue([self isCounterIncrementing], @"Counter thread should be incrementing");
+    // Use a retry loop since thread scheduling on CI can be slow
+    bool incrementing = false;
+    for (int i = 0; i < 100 && !incrementing; i++) {
+        incrementing = [self isCounterIncrementing];
+    }
+    XCTAssertTrue(incrementing, @"Counter thread should be incrementing");
 
     ctx = dummyExceptionHandlerCallbacks.notify(
         (thread_t)ksthread_self(),
@@ -332,7 +375,7 @@ static volatile int g_counter = 0;
     // - clear shouldRecordThreads
 
     kscm_addMonitor(&g_dummyMonitor);
-    kscm_activateMonitors();
+    kscm_enableMonitors();
     KSCrash_MonitorContext *ctx = NULL;
 
     ctx = dummyExceptionHandlerCallbacks.notify(
@@ -351,6 +394,7 @@ static volatile int g_counter = 0;
     XCTAssertTrue(ctx->requirements.crashedDuringExceptionHandling,
                   @"The second exception should be detected as a recrash.");
     XCTAssertTrue(ctx->requirements.isFatal, @"A recrash should set isFatal");
+    XCTAssertFalse(ctx->requirements.isCleanExit, @"A recrash should set isCleanExit to false");
     XCTAssertTrue(ctx->requirements.asyncSafety, @"A recrash should set requiresAsyncSafety");
     XCTAssertFalse(ctx->requirements.shouldExitImmediately);
     XCTAssertFalse(ctx->requirements.shouldRecordAllThreads, @"A recrash should clear shouldRecordThreads");
@@ -365,7 +409,7 @@ static volatile int g_counter = 0;
     // - clear shouldRecordThreads
 
     kscm_addMonitor(&g_dummyMonitor);
-    kscm_activateMonitors();
+    kscm_enableMonitors();
     KSCrash_MonitorContext *ctx = NULL;
 
     ctx = dummyExceptionHandlerCallbacks.notify(
@@ -384,6 +428,7 @@ static volatile int g_counter = 0;
     XCTAssertTrue(ctx->requirements.crashedDuringExceptionHandling,
                   @"The second exception should be detected as a recrash.");
     XCTAssertTrue(ctx->requirements.isFatal, @"A recrash should set isFatal");
+    XCTAssertFalse(ctx->requirements.isCleanExit, @"A recrash should set isCleanExit to false");
     XCTAssertTrue(ctx->requirements.asyncSafety, @"A recrash should set requiresAsyncSafety");
     XCTAssertFalse(ctx->requirements.shouldExitImmediately);
     XCTAssertFalse(ctx->requirements.shouldRecordAllThreads, @"A recrash should clear shouldRecordThreads");
@@ -394,7 +439,7 @@ static volatile int g_counter = 0;
     // Unrelated exceptions after a non-fatal exception should process normally (not be delayed).
 
     kscm_addMonitor(&g_dummyMonitor);
-    kscm_activateMonitors();
+    kscm_enableMonitors();
     __block KSCrash_MonitorContext *ctx = NULL;
 
     ctx = dummyExceptionHandlerCallbacks.notify(
@@ -442,7 +487,7 @@ static volatile int g_counter = 0;
     // Unrelated exceptions after a fatal exception should be delayed (blocked).
 
     kscm_addMonitor(&g_dummyMonitor);
-    kscm_activateMonitors();
+    kscm_enableMonitors();
     __block KSCrash_MonitorContext *ctx = NULL;
 
     ctx = dummyExceptionHandlerCallbacks.notify(
@@ -494,7 +539,7 @@ static volatile int g_counter = 0;
     // ignored.
 
     kscm_addMonitor(&g_dummyMonitor);
-    kscm_activateMonitors();
+    kscm_enableMonitors();
     KSCrash_MonitorContext *ctx = NULL;
     __block _Atomic(int) exitImmediatelyCount = 0;
 
@@ -527,8 +572,8 @@ static volatile int g_counter = 0;
 - (void)testHandleExceptionAddsContextualInfoFatal
 {
     kscm_addMonitor(&g_dummyMonitor);
-    kscm_activateMonitors();
-    kscm_setEventCallback(myEventCallback);
+    kscm_enableMonitors();
+    kscm_setEventCallbackWithResult(myEventCallback);
     KSCrash_MonitorContext *ctx = NULL;
 
     ctx = dummyExceptionHandlerCallbacks.notify(
@@ -543,8 +588,8 @@ static volatile int g_counter = 0;
 - (void)testHandleExceptionAddsContextualInfoNonFatal
 {
     kscm_addMonitor(&g_dummyMonitor);
-    kscm_activateMonitors();
-    kscm_setEventCallback(myEventCallback);
+    kscm_enableMonitors();
+    kscm_setEventCallbackWithResult(myEventCallback);
     KSCrash_MonitorContext *ctx = NULL;
 
     ctx = dummyExceptionHandlerCallbacks.notify(
@@ -559,16 +604,81 @@ static volatile int g_counter = 0;
 - (void)testHandleExceptionRestoresOriginalHandlers
 {
     kscm_addMonitor(&g_dummyMonitor);
-    kscm_activateMonitors();
-    XCTAssertTrue(g_dummyMonitor.isEnabled(), @"The monitor should be enabled after activation.");
+    kscm_enableMonitors();
+    XCTAssertTrue(g_dummyMonitor.isEnabled(NULL), @"The monitor should be enabled after activation.");
     KSCrash_MonitorContext *ctx = NULL;
     ctx = dummyExceptionHandlerCallbacks.notify(
         (thread_t)ksthread_self(),
         (KSCrash_ExceptionHandlingRequirements) { .asyncSafety = false, .isFatal = true, .shouldWriteReport = true });
-    XCTAssertTrue(g_dummyMonitor.isEnabled(),
+    XCTAssertTrue(g_dummyMonitor.isEnabled(NULL),
                   @"The monitor should still be enabled before fatal exception handling logic.");
     dummyExceptionHandlerCallbacks.handle(ctx);
-    XCTAssertFalse(g_dummyMonitor.isEnabled(), @"The monitor should be disabled after handling a fatal exception.");
+    XCTAssertFalse(g_dummyMonitor.isEnabled(NULL), @"The monitor should be disabled after handling a fatal exception.");
+}
+
+- (void)testHandleExceptionReturnsResult
+{
+    kscm_addMonitor(&g_dummyMonitor);
+    kscm_enableMonitors();
+    kscm_setEventCallbackWithResult(myEventCallback);
+    KSCrash_MonitorContext *ctx = NULL;
+    ctx = dummyExceptionHandlerCallbacks.notify(
+        (thread_t)ksthread_self(),
+        (KSCrash_ExceptionHandlingRequirements) { .isFatal = false, .asyncSafety = true, .shouldWriteReport = true });
+
+    KSCrash_ReportResult result = {};
+    dummyExceptionHandlerCallbacks.handleWithResult(ctx, &result, false);
+    XCTAssert(result.reportId == g_dummyResultReportId);
+}
+
+- (void)testFinalizeCalledForNonFatalWithFinalizeTrue
+{
+    kscm_addMonitor(&g_dummyMonitor);
+    kscm_enableMonitors();
+    kscm_setEventCallbackWithResult(myEventCallback);
+    kscm_setFinalizeReportCallback(myFinalizeCallback);
+    g_finalizeCalled = NO;
+    g_finalizedReportId = 0;
+
+    KSCrash_MonitorContext *ctx = dummyExceptionHandlerCallbacks.notify(
+        (thread_t)ksthread_self(),
+        (KSCrash_ExceptionHandlingRequirements) { .isFatal = false, .shouldWriteReport = true });
+    dummyExceptionHandlerCallbacks.handleWithResult(ctx, NULL, true);
+
+    XCTAssertTrue(g_finalizeCalled);
+    XCTAssertEqual(g_finalizedReportId, g_dummyResultReportId);
+}
+
+- (void)testFinalizeNotCalledForFatalWithFinalizeTrue
+{
+    kscm_addMonitor(&g_dummyMonitor);
+    kscm_enableMonitors();
+    kscm_setEventCallbackWithResult(myEventCallback);
+    kscm_setFinalizeReportCallback(myFinalizeCallback);
+    g_finalizeCalled = NO;
+
+    KSCrash_MonitorContext *ctx = dummyExceptionHandlerCallbacks.notify(
+        (thread_t)ksthread_self(),
+        (KSCrash_ExceptionHandlingRequirements) { .isFatal = true, .shouldWriteReport = true });
+    dummyExceptionHandlerCallbacks.handleWithResult(ctx, NULL, true);
+
+    XCTAssertFalse(g_finalizeCalled);
+}
+
+- (void)testFinalizeNotCalledWithFinalizeFalse
+{
+    kscm_addMonitor(&g_dummyMonitor);
+    kscm_enableMonitors();
+    kscm_setEventCallbackWithResult(myEventCallback);
+    kscm_setFinalizeReportCallback(myFinalizeCallback);
+    g_finalizeCalled = NO;
+
+    KSCrash_MonitorContext *ctx = dummyExceptionHandlerCallbacks.notify(
+        (thread_t)ksthread_self(),
+        (KSCrash_ExceptionHandlingRequirements) { .isFatal = false, .shouldWriteReport = true });
+    dummyExceptionHandlerCallbacks.handleWithResult(ctx, NULL, false);
+
+    XCTAssertFalse(g_finalizeCalled);
 }
 
 @end

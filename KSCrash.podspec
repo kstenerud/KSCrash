@@ -1,10 +1,10 @@
 Pod::Spec.new do |s|
   IOS_DEPLOYMENT_TARGET = '12.0' unless defined? IOS_DEPLOYMENT_TARGET
   s.name         = "KSCrash"
-  s.version      = "2.5.1"
+  s.version      = "2.6.0"
   s.summary      = "The Ultimate iOS Crash Reporter"
   s.homepage     = "https://github.com/kstenerud/KSCrash"
-  s.license      = { :type => 'KSCrash license agreement', :file => 'LICENSE' }
+  s.license      = { :type => 'MIT', :file => 'LICENSE' }
   s.author       = { "Karl Stenerud" => "kstenerud@gmail.com" }
   s.ios.deployment_target = IOS_DEPLOYMENT_TARGET
   s.osx.deployment_target = '10.14'
@@ -16,13 +16,17 @@ Pod::Spec.new do |s|
   s.libraries    = 'c++', 'z'
   s.xcconfig     = { 'GCC_ENABLE_CPP_EXCEPTIONS' => 'YES' }
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
+  s.swift_versions = ['5.9']
   s.default_subspecs = 'Installations'
 
   configure_subspec = lambda do |subs|
     module_name = subs.name.gsub('/', '')
     subs.source_files = "Sources/#{module_name}/**/*.{h,m,mm,c,cpp,def}"
-    subs.public_header_files = "Sources/#{module_name}/include/*.h"
+    subs.public_header_files = "Sources/#{module_name}/include/**/*.h"
     subs.resource_bundles = { module_name => "Sources/#{module_name}/Resources/PrivacyInfo.xcprivacy" }
+    subs.pod_target_xcconfig = {
+      'HEADER_SEARCH_PATHS' => '"${PODS_TARGET_SRCROOT}/Sources/' + module_name + '/include"'
+    }
   end
 
   s.subspec 'Recording' do |recording|
@@ -64,12 +68,14 @@ Pod::Spec.new do |s|
 
   s.subspec 'BootTimeMonitor' do |boot_time_monitor|
     boot_time_monitor.dependency 'KSCrash/RecordingCore'
+    boot_time_monitor.dependency 'KSCrash/Recording'
 
     configure_subspec.call(boot_time_monitor)
   end
 
   s.subspec 'DiscSpaceMonitor' do |disc_space_monitor|
     disc_space_monitor.dependency 'KSCrash/RecordingCore'
+    disc_space_monitor.dependency 'KSCrash/Recording'
 
     configure_subspec.call(disc_space_monitor)
   end
@@ -78,6 +84,43 @@ Pod::Spec.new do |s|
     demangle_filter.dependency 'KSCrash/Recording'
 
     configure_subspec.call(demangle_filter)
+  end
+
+  s.subspec 'SwiftCore' do |swift_core|
+    module_name = 'KSCrashSwiftCore'
+    swift_core.source_files = "Sources/#{module_name}/**/*.swift"
+  end
+
+  s.subspec 'Profiler' do |profiler|
+    profiler.dependency 'KSCrash/RecordingCore'
+    profiler.dependency 'KSCrash/Recording'
+    profiler.dependency 'KSCrash/SwiftCore'
+
+    module_name = 'KSCrashProfiler'
+    profiler.source_files = "Sources/#{module_name}/**/*.swift"
+    profiler.resource_bundles = { module_name => "Sources/#{module_name}/Resources/PrivacyInfo.xcprivacy" }
+  end
+
+  s.subspec 'Report' do |report|
+    module_name = 'KSCrashReportModel'
+    report.source_files = "Sources/#{module_name}/**/*.swift"
+    report.resource_bundles = { module_name => "Sources/#{module_name}/Resources/PrivacyInfo.xcprivacy" }
+  end
+
+  s.subspec 'Monitors' do |monitors|
+    monitors.dependency 'KSCrash/RecordingCore'
+    monitors.dependency 'KSCrash/Recording'
+    monitors.dependency 'KSCrash/Report'
+    monitors.dependency 'KSCrash/SwiftCore'
+
+    module_name = 'KSCrashMonitors'
+    monitors.source_files = "Sources/#{module_name}/**/*.swift"
+    monitors.resource_bundles = { module_name => "Sources/#{module_name}/Resources/PrivacyInfo.xcprivacy" }
+
+    # Must match metricKitSwiftSettings in Package.swift
+    monitors.ios.pod_target_xcconfig = { 'OTHER_SWIFT_FLAGS' => '-DKSCRASH_HAS_METRICKIT' }
+    monitors.osx.pod_target_xcconfig = { 'OTHER_SWIFT_FLAGS' => '-DKSCRASH_HAS_METRICKIT' }
+    monitors.visionos.pod_target_xcconfig = { 'OTHER_SWIFT_FLAGS' => '-DKSCRASH_HAS_METRICKIT' }
   end
 
   s.subspec 'ReportingCore' do |reporting_core|

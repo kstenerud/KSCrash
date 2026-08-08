@@ -55,6 +55,12 @@ typedef struct {
     const bool isFatal;
 
     /**
+     * The exit was expected and not a crash (e.g., SIGTERM).
+     * Only meaningful when `isFatal` is true.
+     */
+    const bool isCleanExit;
+
+    /**
      * Only async-safe (aka signal-safe) functions may be called.
      *
      * This means that you cannot call anything that acquires locks or allocates

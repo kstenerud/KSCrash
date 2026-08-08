@@ -38,7 +38,7 @@ extern "C" {
 #endif
 
 NSString *kscrash_getBundleName(void);
-NSString *kscrash_getDefaultInstallPath(void);
+NSString *_Nullable kscrash_getDefaultInstallPath(void);
 
 #ifdef __cplusplus
 }

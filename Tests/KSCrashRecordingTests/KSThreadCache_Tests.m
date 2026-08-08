@@ -48,18 +48,26 @@ extern void kstc_reset(void);
     thread.name = expectedName;
 
     kstc_init(1);
-    [NSThread sleepForTimeInterval:0.5];
     [thread start];
-    [NSThread sleepForTimeInterval:1.0];
-    kstc_freeze();
 
-    const char *cName = kstc_getThreadName(thread.thread);
+    // Poll until the cache picks up the thread name (up to 10 s).
+    const char *cName = NULL;
+    NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:10.0];
+    while ([deadline timeIntervalSinceNow] > 0) {
+        kstc_freeze();
+        cName = kstc_getThreadName(thread.thread);
+        if (cName != NULL) {
+            break;
+        }
+        kstc_unfreeze();
+        [NSThread sleepForTimeInterval:0.05];
+    }
 
     if (cName != NULL) {
         NSString *name = [NSString stringWithUTF8String:cName];
         XCTAssertEqualObjects(name, expectedName, @"Thread name didn't match expected name");
     } else {
-        XCTFail(@"Failed to get thread name (got NULL)");
+        XCTFail(@"Failed to get thread name within 10 seconds");
     }
 
     [thread cancel];

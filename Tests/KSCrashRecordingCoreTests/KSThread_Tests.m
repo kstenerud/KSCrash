@@ -62,6 +62,26 @@
     XCTAssertTrue(success, @"");
 }
 
+- (void)testMainThread
+{
+    KSThread mainThread = ksthread_main();
+    XCTAssertNotEqual(mainThread, 0);
+}
+
+- (void)testMainThreadMatchesActualMainThread
+{
+    XCTestExpectation *expectation = [self expectationWithDescription:@"captured main thread"];
+    __block KSThread capturedThread = 0;
+
+    dispatch_async(dispatch_get_main_queue(), ^{
+        capturedThread = ksthread_self();
+        [expectation fulfill];
+    });
+
+    [self waitForExpectationsWithTimeout:2 handler:nil];
+    XCTAssertEqual(ksthread_main(), capturedThread, @"ksthread_main should match the actual main thread");
+}
+
 - (void)testStateName
 {
     int state = 0;
@@ -77,4 +97,21 @@
     NSString *stateString = @"TH_STATE_STOPPED";
     XCTAssertEqual(strcmp(stateName, stateString.UTF8String), 0);
 }
+
+- (void)testGetQueueNameRejectsNonPositiveBufferLengths
+{
+    // bufLength is cast to size_t for the copy, so a non-positive length would become enormous
+    // and the copy unbounded. The guard for a real buffer with a bogus length must come before
+    // any writing, so pass a real buffer and check it is untouched.
+    char buffer[64];
+    memset(buffer, 'x', sizeof(buffer));
+
+    XCTAssertFalse(ksthread_getQueueName(ksthread_self(), buffer, 0));
+    XCTAssertFalse(ksthread_getQueueName(ksthread_self(), buffer, -1));
+
+    for (size_t i = 0; i < sizeof(buffer); i++) {
+        XCTAssertEqual(buffer[i], 'x', @"a rejected call must not write to the buffer");
+    }
+}
+
 @end

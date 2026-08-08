@@ -34,30 +34,35 @@
 
 @implementation KSCrashMonitor_Deadlock_Tests
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 - (void)testInstallAndRemove
 {
     KSCrashMonitorAPI *api = kscm_deadlock_getAPI();
     kscm_setDeadlockHandlerWatchdogInterval(10);
-    api->setEnabled(true);
-    XCTAssertTrue(api->isEnabled());
+    api->setEnabled(true, NULL);
+    XCTAssertTrue(api->isEnabled(NULL));
     [NSThread sleepForTimeInterval:0.1];
-    api->setEnabled(false);
-    XCTAssertFalse(api->isEnabled());
+    api->setEnabled(false, NULL);
+    XCTAssertFalse(api->isEnabled(NULL));
 }
 
 - (void)testDoubleInstallAndRemove
 {
     KSCrashMonitorAPI *api = kscm_deadlock_getAPI();
 
-    api->setEnabled(true);
-    XCTAssertTrue(api->isEnabled());
-    api->setEnabled(true);
-    XCTAssertTrue(api->isEnabled());
+    api->setEnabled(true, NULL);
+    XCTAssertTrue(api->isEnabled(NULL));
+    api->setEnabled(true, NULL);
+    XCTAssertTrue(api->isEnabled(NULL));
 
-    api->setEnabled(false);
-    XCTAssertFalse(api->isEnabled());
-    api->setEnabled(false);
-    XCTAssertFalse(api->isEnabled());
+    api->setEnabled(false, NULL);
+    XCTAssertFalse(api->isEnabled(NULL));
+    api->setEnabled(false, NULL);
+    XCTAssertFalse(api->isEnabled(NULL));
 }
+
+#pragma clang diagnostic pop
 
 @end
