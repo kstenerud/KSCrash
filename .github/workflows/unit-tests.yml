@@ -83,7 +83,7 @@ jobs:
             experimental: true
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       # Beta-only images must ask for 'latest', not 'latest-stable': setup-xcode
       # marks any Xcode whose LicenseInfo.plist says "beta" as unstable, and
