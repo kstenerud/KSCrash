@@ -26,6 +26,9 @@
 
 #import <XCTest/XCTest.h>
 
+#import "KSCrash.h"
+#import "KSCrashConfiguration.h"
+#import "KSCrashMonitor.h"
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitor_NSException.h"
 
@@ -34,29 +37,75 @@
 
 @implementation KSCrashMonitor_NSException_Tests
 
+- (void)tearDown
+{
+    kscm_disableAllMonitors();
+    [super tearDown];
+}
+
 - (void)testInstallAndRemove
 {
     KSCrashMonitorAPI *api = kscm_nsexception_getAPI();
-    api->setEnabled(true);
-    XCTAssertTrue(api->isEnabled());
+    api->setEnabled(true, NULL);
+    XCTAssertTrue(api->isEnabled(NULL));
     [NSThread sleepForTimeInterval:0.1];
-    api->setEnabled(false);
-    XCTAssertFalse(api->isEnabled());
+    api->setEnabled(false, NULL);
+    XCTAssertFalse(api->isEnabled(NULL));
 }
 
 - (void)testDoubleInstallAndRemove
 {
     KSCrashMonitorAPI *api = kscm_nsexception_getAPI();
 
-    api->setEnabled(true);
-    XCTAssertTrue(api->isEnabled());
-    api->setEnabled(true);
-    XCTAssertTrue(api->isEnabled());
+    api->setEnabled(true, NULL);
+    XCTAssertTrue(api->isEnabled(NULL));
+    api->setEnabled(true, NULL);
+    XCTAssertTrue(api->isEnabled(NULL));
 
-    api->setEnabled(false);
-    XCTAssertFalse(api->isEnabled());
-    api->setEnabled(false);
-    XCTAssertFalse(api->isEnabled());
+    api->setEnabled(false, NULL);
+    XCTAssertFalse(api->isEnabled(NULL));
+    api->setEnabled(false, NULL);
+    XCTAssertFalse(api->isEnabled(NULL));
+}
+
+- (void)testReportUserNSException
+{
+    // Install KSCrash to enable the NSException monitor (ignore if already installed)
+    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+    [[KSCrash sharedInstance] installWithConfiguration:config error:NULL];
+
+    // Create an exception with a real call stack by throwing and catching
+    NSException *exception = nil;
+    @try {
+        @throw [NSException exceptionWithName:@"TestException" reason:@"Testing exception handling" userInfo:nil];
+    } @catch (NSException *e) {
+        exception = e;
+    }
+
+    XCTAssertNotNil(exception);
+    XCTAssertNotNil(exception.callStackReturnAddresses);
+    XCTAssertGreaterThan(exception.callStackReturnAddresses.count, 0);
+
+    // Report the exception - this exercises handleException and initStackCursor
+    [[KSCrash sharedInstance] reportNSException:exception logAllThreads:NO];
+}
+
+- (void)testReportUserNSExceptionWithEmptyCallStack
+{
+    // Install KSCrash to enable the NSException monitor (ignore if already installed)
+    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+    [[KSCrash sharedInstance] installWithConfiguration:config error:NULL];
+
+    // Create an exception without throwing (no call stack)
+    NSException *exception = [NSException exceptionWithName:@"TestException"
+                                                     reason:@"Testing exception without callstack"
+                                                   userInfo:nil];
+
+    XCTAssertNotNil(exception);
+    XCTAssertEqual(exception.callStackReturnAddresses.count, 0);
+
+    // Report the exception - this exercises the else branch in initStackCursor
+    [[KSCrash sharedInstance] reportNSException:exception logAllThreads:NO];
 }
 
 @end

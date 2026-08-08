@@ -1,0 +1,74 @@
+name: Unrelease
+
+# Post-hoc rollback of a release. Use when the Release workflow succeeded
+# but you need to pull the release afterwards (bad build, wrong version, etc.).
+#
+# Caveats:
+#   - pod trunk delete only works within ~30 minutes of publish.
+#   - The tag is removed from the remote. Any consumer that already fetched
+#     it keeps their copy until they re-resolve.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to unrelease (e.g. 2.5.2)"
+        required: true
+      branch:
+        description: "Branch the release was made from"
+        required: true
+        default: "master"
+      delete_trunk:
+        description: "Attempt pod trunk delete (works within ~30 min of publish)"
+        type: boolean
+        default: true
+
+jobs:
+  unrelease:
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.branch }}
+
+      - name: Set up Ruby
+        if: ${{ github.event.inputs.delete_trunk == 'true' }}
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2.2"
+
+      - name: Install Ruby Gems
+        if: ${{ github.event.inputs.delete_trunk == 'true' }}
+        run: bundle install
+
+      - name: Configure git identity
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - name: Delete tag
+        run: |
+          git push --delete origin "${{ github.event.inputs.version }}" \
+            || echo "Tag not found on remote"
+
+      - name: Revert version commit
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          SHA=$(git log --format="%H" --grep="Update version to ${VERSION}$" -n 1)
+          if [[ -n "$SHA" ]]; then
+            echo "Reverting $SHA"
+            git revert --no-edit "$SHA"
+            git push origin HEAD:${{ github.event.inputs.branch }}
+          else
+            echo "No version commit found for ${VERSION} — nothing to revert."
+          fi
+
+      - name: Pod trunk delete
+        if: ${{ github.event.inputs.delete_trunk == 'true' }}
+        env:
+          COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_PASSWORD }}
+        run: |
+          pod trunk delete KSCrash "${{ github.event.inputs.version }}" \
+            || echo "Trunk delete failed — likely outside the 30-minute window."

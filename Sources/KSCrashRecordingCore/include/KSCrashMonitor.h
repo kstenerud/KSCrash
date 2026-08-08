@@ -45,18 +45,33 @@ extern "C" {
 // ============================================================================
 
 /**
- * Activates all added crash monitors.
+ * Enable all added crash monitors.
  *
  * Enables all monitors that have been added to the system. However, not all
  * monitors may be activated due to certain conditions. Monitors that are
  * considered unsafe in a debugging environment or require specific safety
- * measures for asynchronous operations may not be activated. The function
- * checks the current environment and adjusts the activation status of each
- * monitor accordingly.
+ * measures for asynchronous operations may not be activated.
  *
- * @return bool True if at least one monitor was successfully activated, false if no monitors were activated.
+ * @return bool True if at least one monitor was successfully enabled, false if no monitors were enabled.
  */
-bool kscm_activateMonitors(void);
+bool kscm_enableMonitors(void);
+
+/**
+ * Notify all enabled monitors that monitors have been enabled.
+ *
+ * Called after enableMonitors but before RunContext init.  Monitors that
+ * populate current-run sidecar data needed by RunContext (e.g. boot time)
+ * should do so here.
+ */
+void kscm_notifyPostMonitorsEnabled(void);
+
+/**
+ * Notify all enabled monitors that the system is fully initialized.
+ *
+ * Monitors may use this callback to read previous-run analysis from RunContext.
+ * Must only be called after RunContext has been initialized.
+ */
+void kscm_notifyPostSystemEnable(void);
 
 /**
  * Disables all active crash monitors.
@@ -90,13 +105,81 @@ bool kscm_addMonitor(const KSCrashMonitorAPI *api);
 void kscm_removeMonitor(const KSCrashMonitorAPI *api);
 
 /**
+ * Sets the callback for event capture allowing to capture the result of capturing the event.
+ *
+ * @param onEvent Callback function for events.
+ *
+ * Registers a callback to be invoked when an event occurs.
+ */
+void kscm_setEventCallbackWithResult(void (*onEvent)(struct KSCrash_MonitorContext *monitorContext,
+                                                     KSCrash_ReportResult *result));
+
+/** Sets the callback for finalizing non-fatal reports.
+ *
+ * Called after threads are resumed and the exception slot is freed.
+ * Not async-signal-safe. Only called for non-fatal reports when
+ * handleWithResult is invoked with finalize=true.
+ */
+void kscm_setFinalizeReportCallback(void (*onFinalize)(struct KSCrash_MonitorContext *monitorContext,
+                                                       const KSCrash_ReportResult *result));
+
+/**
  * Sets the callback for event capture.
  *
  * @param onEvent Callback function for events.
  *
  * Registers a callback to be invoked when an event occurs.
  */
-void kscm_setEventCallback(void (*onEvent)(struct KSCrash_MonitorContext *monitorContext));
+void kscm_setEventCallback(void (*onEvent)(struct KSCrash_MonitorContext *monitorContext))
+    __attribute__((deprecated("Use `kscm_setEventCallbackWithResult`")));
+
+/**
+ * Retrieves a monitor by its unique identifier.
+ *
+ * @param monitorId The unique identifier of the monitor to retrieve (e.g., "mach", "signal", "profile").
+ * @return A pointer to the monitor's API, or NULL if no monitor with the given ID exists.
+ */
+const KSCrashMonitorAPI *kscm_getMonitor(const char *monitorId);
+
+/**
+ * Sets the callback used by monitors to obtain sidecar file paths for generic files.
+ *
+ * This must be called before monitors are activated. The callback is passed
+ * to monitors via the exception handler callbacks struct.
+ *
+ * @param provider The callback function, or NULL to disable sidecar support.
+ */
+void kscm_setReportSidecarFilePathProvider(KSCrashReportSidecarFilePathProviderFunc provider);
+
+/**
+ * Sets the callback used by monitors to obtain sidecar file paths for report-specific files.
+ *
+ * This must be called before monitors are activated. The callback is passed
+ * to monitors via the exception handler callbacks struct.
+ *
+ * @param provider The callback function, or NULL to disable sidecar support.
+ */
+void kscm_setReportSidecarPathProvider(KSCrashReportSidecarPathProviderFunc provider);
+
+/**
+ * Sets the callback used by monitors to obtain run-scoped sidecar file paths.
+ *
+ * Run sidecars are written once per process run and stitched into all reports from that run.
+ * This must be called before monitors are activated.
+ *
+ * @param provider The callback function, or NULL to disable run sidecar support.
+ */
+void kscm_setRunSidecarPathProvider(KSCrashSidecarRunPathProviderFunc provider);
+
+/**
+ * Sets the callback used by monitors to obtain run-scoped sidecar file paths for a specific run ID.
+ *
+ * This allows monitors to read a previous run's sidecar. Does NOT create directories (read-only).
+ * This must be called before monitors are activated.
+ *
+ * @param provider The callback function, or NULL to disable.
+ */
+void kscm_setRunSidecarPathForRunIDProvider(KSCrashSidecarRunPathForRunIDProviderFunc provider);
 
 #ifdef __cplusplus
 }

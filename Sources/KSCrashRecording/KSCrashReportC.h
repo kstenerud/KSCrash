@@ -47,11 +47,15 @@ extern "C" {
 
 /** Set custom user information to be stored in the report.
  *
+ * This function is thread-safe.
+ *
  * @param userInfoJSON The user information, in JSON format.
  */
 void kscrashreport_setUserInfoJSON(const char *const userInfoJSON);
 
 /** Get a copy of the custom user information stored in the report.
+ *
+ * This function is thread-safe.
  *
  * @return A JSON string representing the user information,
  *         or NULL if no information is set.
@@ -80,6 +84,15 @@ void kscrashreport_setDoNotIntrospectClasses(const char **doNotIntrospectClasses
  * @param userSectionWriteCallback The user section write callback.
  */
 void kscrashreport_setIsWritingReportCallback(const KSCrashIsWritingReportCallback userSectionWriteCallback);
+
+/** Configure compact binary image mode.
+ *
+ *  When enabled, the `binary_images` array is filtered to only include
+ *  images referenced by backtrace frames.
+ *
+ * @param enabled If true, enable compact binary image reporting.
+ */
+void kscrashreport_setCompactBinaryImages(bool enabled);
 
 // ============================================================================
 #pragma mark - Main API -

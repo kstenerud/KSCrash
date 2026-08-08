@@ -36,10 +36,10 @@
 - (void)testInstallAndRemove
 {
     KSCrashMonitorAPI *api = kscm_user_getAPI();
-    api->setEnabled(true);
-    XCTAssertTrue(api->isEnabled());
-    api->setEnabled(false);
-    XCTAssertFalse(api->isEnabled());
+    api->setEnabled(true, NULL);
+    XCTAssertTrue(api->isEnabled(NULL));
+    api->setEnabled(false, NULL);
+    XCTAssertFalse(api->isEnabled(NULL));
 }
 
 @end

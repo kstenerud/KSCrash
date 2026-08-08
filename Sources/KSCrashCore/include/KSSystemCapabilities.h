@@ -26,6 +26,7 @@
 #define HDR_KSSystemCapabilities_h
 
 #ifdef __APPLE__
+#include <Availability.h>
 #include <TargetConditionals.h>
 #define KSCRASH_HOST_APPLE 1
 #endif
@@ -58,6 +59,21 @@
 #else
 #define KSCRASH_HAS_OBJC 0
 #define KSCRASH_HAS_SWIFT 0
+#endif
+
+#if defined(__clang_major__) && __clang_major__ >= 13 &&                                                             \
+    ((defined(__MAC_OS_X_VERSION_MAX_ALLOWED) && defined(__MAC_12_0) &&                                              \
+      __MAC_OS_X_VERSION_MAX_ALLOWED >= __MAC_12_0) ||                                                               \
+     (defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && defined(__IPHONE_15_0) &&                                          \
+      __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_15_0) ||                                                           \
+     (defined(__TV_OS_VERSION_MAX_ALLOWED) && defined(__TVOS_15_0) && __TV_OS_VERSION_MAX_ALLOWED >= __TVOS_15_0) || \
+     (defined(__WATCH_OS_VERSION_MAX_ALLOWED) && defined(__WATCHOS_8_0) &&                                           \
+      __WATCH_OS_VERSION_MAX_ALLOWED >= __WATCHOS_8_0) ||                                                            \
+     (defined(__VISION_OS_VERSION_MAX_ALLOWED) && defined(__VISIONOS_1_0) &&                                         \
+      __VISION_OS_VERSION_MAX_ALLOWED >= __VISIONOS_1_0))
+#define KSCRASH_HAS_BACKTRACE_ASYNC 1
+#else
+#define KSCRASH_HAS_BACKTRACE_ASYNC 0
 #endif
 
 #if KSCRASH_HOST_APPLE
@@ -155,6 +171,43 @@
 #define KSCRASH_HAS_REACHABILITY 1
 #else
 #define KSCRASH_HAS_REACHABILITY 0
+#endif
+
+#if __has_include(<MetricKit/MetricKit.h>)
+#define KSCRASH_HAS_METRICKIT 1
+#else
+#define KSCRASH_HAS_METRICKIT 0
+#endif
+
+// ============================================================================
+#pragma mark - Sanitizer Detection -
+// ============================================================================
+
+// Detect if sanitizers are enabled at compile time.
+// Sanitizers (ASan, TSan, etc.) intercept certain functions and may conflict
+// with KSCrash's own interception mechanisms.
+#if defined(__SANITIZE_ADDRESS__) || defined(__SANITIZE_THREAD__) || defined(__SANITIZE_UNDEFINED__)
+#define KSCRASH_HAS_SANITIZER 1
+#elif defined(__has_feature)
+#if __has_feature(address_sanitizer) || __has_feature(thread_sanitizer) || __has_feature(undefined_behavior_sanitizer)
+#define KSCRASH_HAS_SANITIZER 1
+#endif
+#endif
+
+#ifndef KSCRASH_HAS_SANITIZER
+#define KSCRASH_HAS_SANITIZER 0
+#endif
+
+// ============================================================================
+#pragma mark - Compiler Attributes -
+// ============================================================================
+
+#ifndef KSCRASH_DEPRECATED
+#if defined(__has_attribute) && __has_attribute(deprecated)
+#define KSCRASH_DEPRECATED(msg) __attribute__((deprecated(msg)))
+#else
+#define KSCRASH_DEPRECATED(msg)
+#endif
 #endif
 
 #endif  // HDR_KSSystemCapabilities_h

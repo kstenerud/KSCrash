@@ -37,6 +37,7 @@
 #include "KSMachineContext_Apple.h"
 #include "KSStackCursor_MachineContext.h"
 #include "KSSystemCapabilities.h"
+#include "Unwind/KSStackCursor_Unwind.h"
 
 // #define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
@@ -59,15 +60,6 @@ typedef ucontext_t SignalUserContext;
 static KSThread g_reservedThreads[10];
 static int g_reservedThreadsMaxIndex = sizeof(g_reservedThreads) / sizeof(g_reservedThreads[0]) - 1;
 static int g_reservedThreadsCount = 0;
-
-static inline bool isStackOverflow(const KSMachineContext *const context)
-{
-    KSStackCursor stackCursor;
-    kssc_initWithMachineContext(&stackCursor, KSSC_STACK_OVERFLOW_THRESHOLD, context);
-    while (stackCursor.advanceCursor(&stackCursor)) {
-    }
-    return stackCursor.state.hasGivenUp;
-}
 
 static inline bool getThreadList(KSMachineContext *context)
 {
@@ -127,7 +119,6 @@ bool ksmc_getContextForThread(KSThread thread, KSMachineContext *destinationCont
         kscpu_getState(destinationContext);
     }
     if (ksmc_isCrashedContext(destinationContext)) {
-        destinationContext->isStackOverflow = isStackOverflow(destinationContext);
         getThreadList(destinationContext);
     }
     KSLOG_TRACE("Context retrieved.");
@@ -142,7 +133,6 @@ bool ksmc_getContextForSignal(void *signalUserContext, KSMachineContext *destina
     destinationContext->thisThread = (thread_t)ksthread_self();
     destinationContext->isCrashedContext = true;
     destinationContext->isSignalContext = true;
-    destinationContext->isStackOverflow = isStackOverflow(destinationContext);
     getThreadList(destinationContext);
     KSLOG_TRACE("Context retrieved.");
     return true;

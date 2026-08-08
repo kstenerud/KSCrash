@@ -36,6 +36,8 @@
 #include "KSLogger.h"
 
 #if !KSCRASH_HOST_VISION
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 static inline const char *currentArch_nx(void)
 {
     const NXArchInfo *archInfo = NXGetLocalArchInfo();
@@ -47,6 +49,7 @@ static inline const char *archForCPU_nx(cpu_type_t majorCode, cpu_subtype_t mino
     const NXArchInfo *info = NXGetArchInfoFromCpuType(majorCode, minorCode);
     return info == NULL ? NULL : info->name;
 }
+#pragma clang diagnostic pop
 #endif
 
 const char *kscpu_currentArch(void)

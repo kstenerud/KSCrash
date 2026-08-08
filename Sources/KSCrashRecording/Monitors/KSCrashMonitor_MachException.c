@@ -70,6 +70,7 @@
 #include "KSStackCursor_MachineContext.h"
 #include "KSSystemCapabilities.h"
 #include "KSThread.h"
+#include "Unwind/KSStackCursor_Unwind.h"
 
 // #define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
@@ -111,11 +112,26 @@ static const exception_mask_t kInterestingExceptions =
 #pragma mark - Types -
 // ============================================================================
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wused-but-marked-unused"
-typedef __Request__exception_raise_t ExceptionRequest;
-typedef __Reply__exception_raise_t ExceptionReply;
-#pragma clang diagnostic pop
+// Match the EXCEPTION_DEFAULT | MACH_EXCEPTION_CODES request layout even on
+// SDKs that don't expose the mach_exc MIG request typedefs.
+#pragma pack(push, 4)
+typedef struct {
+    mach_msg_header_t Head;
+    mach_msg_body_t msgh_body;
+    mach_msg_port_descriptor_t thread;
+    mach_msg_port_descriptor_t task;
+    NDR_record_t NDR;
+    exception_type_t exception;
+    mach_msg_type_number_t codeCnt;
+    mach_exception_data_type_t code[2];
+} ExceptionRequest;
+
+typedef struct {
+    mach_msg_header_t Head;
+    NDR_record_t NDR;
+    kern_return_t RetCode;
+} ExceptionReply;
+#pragma pack(pop)
 
 typedef struct {
     exception_mask_t masks[EXC_TYPES_COUNT];
@@ -167,7 +183,7 @@ static struct {
     int currentRestorePoint;
 } g_state;
 
-static bool isEnabled(void) { return g_state.isEnabled && g_state.installedState == KSCM_Installed; }
+static bool isEnabled(__unused void *context) { return g_state.isEnabled && g_state.installedState == KSCM_Installed; }
 
 // ============================================================================
 #pragma mark - Utility -
@@ -214,39 +230,20 @@ static int signalForMachException(exception_type_t exception, mach_exception_cod
     }
 }
 
-static exception_type_t machExceptionForSignal(int sigNum)
-{
-    switch (sigNum) {
-        case SIGFPE:
-            return EXC_ARITHMETIC;
-        case SIGSEGV:
-            return EXC_BAD_ACCESS;
-        case SIGBUS:
-            return EXC_BAD_ACCESS;
-        case SIGILL:
-            return EXC_BAD_INSTRUCTION;
-        case SIGTRAP:
-            return EXC_BREAKPOINT;
-        case SIGEMT:
-            return EXC_EMULATION;
-        case SIGSYS:
-            return EXC_UNIX_BAD_SYSCALL;
-        case SIGPIPE:
-            return EXC_UNIX_BAD_PIPE;
-        case SIGABRT:
-            // The Apple reporter uses EXC_CRASH instead of EXC_UNIX_ABORT
-            return EXC_CRASH;
-        case SIGKILL:
-            return EXC_SOFT_SIGNAL;
-        default:
-            return 0;
-    }
-}
-
 static exception_mask_t maskForException(exception_type_t exc)
 {
     // In mach/excepton_types.h, these are all set up as 1 << type
     return 1 << exc;
+}
+
+static mach_exception_code_t machCodeFromRequest(const ExceptionRequest *request)
+{
+    return (mach_exception_code_t)(request->code[0] & (mach_exception_data_type_t)MACH_ERROR_CODE_MASK);
+}
+
+static mach_exception_subcode_t machSubcodeFromRequest(const ExceptionRequest *request)
+{
+    return (mach_exception_subcode_t)(request->code[1] & (mach_exception_data_type_t)MACH_ERROR_CODE_MASK);
 }
 
 static bool canCurrentPortsHandleException(exception_type_t exc)
@@ -354,7 +351,7 @@ static void deallocExceptionHandler(ExceptionContext *ctx)
             MACH_ERROR(kr, "mach_port_deallocate");
         }
     }
-    if (posixThread != 0 && machThread != mach_thread_self()) {
+    if (posixThread != 0 && machThread != ksthread_self()) {
         pthread_cancel(posixThread);
     }
 }
@@ -412,9 +409,11 @@ static void sendExceptionReply(ExceptionContext *ctx, bool exceptionPortsCanHand
 static void handleException(ExceptionContext *exceptionCtx)
 {
     KSCrash_MonitorContext *monitorCtx = g_state.callbacks.notify(
-        exceptionCtx->request->thread.name,
-        (KSCrash_ExceptionHandlingRequirements) {
-            .asyncSafety = true, .isFatal = true, .shouldRecordAllThreads = true, .shouldWriteReport = true });
+        exceptionCtx->request->thread.name, (KSCrash_ExceptionHandlingRequirements) { .asyncSafety = true,
+                                                                                      .isFatal = true,
+                                                                                      .isCleanExit = false,
+                                                                                      .shouldRecordAllThreads = true,
+                                                                                      .shouldWriteReport = true });
     if (monitorCtx->requirements.shouldExitImmediately) {
         KSLOG_DEBUG("Thread %s: Should exit immediately, so returning", exceptionCtx->threadName);
         return;
@@ -424,8 +423,17 @@ static void handleException(ExceptionContext *exceptionCtx)
     KSMachineContext machineContext = { 0 };
     monitorCtx->offendingMachineContext = &machineContext;
     kssc_initCursor(&exceptionCtx->stackCursor, NULL, NULL);
+    bool stackOverflow = false;
     if (ksmc_getContextForThread(exceptionCtx->request->thread.name, &machineContext, true)) {
-        kssc_initWithMachineContext(&exceptionCtx->stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
+        kssc_initWithUnwind(&exceptionCtx->stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
+        // The mach code correction below needs to know whether the stack overflowed, and that is
+        // only knowable by walking. Stop as soon as the threshold is reached so this costs no
+        // more than the old eager check, then rewind so the report writer walks from frame zero.
+        while (!exceptionCtx->stackCursor.state.stackOverflow &&
+               exceptionCtx->stackCursor.advanceCursor(&exceptionCtx->stackCursor)) {
+        }
+        stackOverflow = exceptionCtx->stackCursor.state.stackOverflow;
+        exceptionCtx->stackCursor.resetCursor(&exceptionCtx->stackCursor);
         KSLOG_TRACE("Thread %s: Fault address %p, instruction address %p", exceptionCtx->threadName,
                     kscpu_faultAddress(&machineContext), kscpu_instructionAddress(&machineContext));
         if (exceptionCtx->request->exception == EXC_BAD_ACCESS) {
@@ -439,9 +447,9 @@ static void handleException(ExceptionContext *exceptionCtx)
     kscm_fillMonitorContext(monitorCtx, kscm_machexception_getAPI());
     monitorCtx->registersAreValid = true;
     monitorCtx->mach.type = exceptionCtx->request->exception;
-    monitorCtx->mach.code = exceptionCtx->request->code[0] & (int64_t)MACH_ERROR_CODE_MASK;
-    monitorCtx->mach.subcode = exceptionCtx->request->code[1] & (int64_t)MACH_ERROR_CODE_MASK;
-    if (monitorCtx->mach.code == KERN_PROTECTION_FAILURE && monitorCtx->isStackOverflow) {
+    monitorCtx->mach.code = machCodeFromRequest(exceptionCtx->request);
+    monitorCtx->mach.subcode = machSubcodeFromRequest(exceptionCtx->request);
+    if (monitorCtx->mach.code == KERN_PROTECTION_FAILURE && stackOverflow) {
         // A stack overflow should return KERN_INVALID_ADDRESS, but
         // when a stack blasts through the guard pages at the top of the stack,
         // it generates KERN_PROTECTION_FAILURE. Correct for this.
@@ -464,7 +472,7 @@ static void *exceptionHandlerThreadMain(void *data)
     // We start by restoring the ports for the next level exception handler
     // in case we crash while handling this exception.
 
-    if (isEnabled()) {
+    if (isEnabled(NULL)) {
         if (restoreNextLevelExceptionPorts(ctx)) {
             KSLOG_DEBUG("Thread %s: Handling mach exception %x", ctx->threadName, exc);
             ctx->isHandlingException = true;
@@ -570,11 +578,14 @@ static void install(void)
 #pragma mark - API -
 // ============================================================================
 
-static const char *monitorId(void) { return "MachException"; }
+static const char *monitorId(__unused void *context) { return "MachException"; }
 
-static KSCrashMonitorFlag monitorFlags(void) { return KSCrashMonitorFlagAsyncSafe | KSCrashMonitorFlagDebuggerUnsafe; }
+static KSCrashMonitorFlag monitorFlags(__unused void *context)
+{
+    return KSCrashMonitorFlagAsyncSafe | KSCrashMonitorFlagDebuggerUnsafe;
+}
 
-static void setEnabled(bool enabled)
+static void setEnabled(bool enabled, __unused void *context)
 {
     bool expectedState = !enabled;
     if (!atomic_compare_exchange_strong(&g_state.isEnabled, &expectedState, enabled)) {
@@ -587,18 +598,12 @@ static void setEnabled(bool enabled)
     }
 }
 
-static void addContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext)
+static void addContextualInfoToEvent(__unused struct KSCrash_MonitorContext *eventContext, __unused void *context) {}
+
+static void init(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused void *context)
 {
-    const char *signalName = kscm_signal_getAPI()->monitorId();
-
-    if (signalName && strcmp(eventContext->monitorId, signalName) == 0) {
-        eventContext->mach.type = machExceptionForSignal(eventContext->signal.signum);
-    } else if (strcmp(eventContext->monitorId, monitorId()) != 0) {
-        eventContext->mach.type = EXC_CRASH;
-    }
+    g_state.callbacks = *callbacks;
 }
-
-static void init(KSCrash_ExceptionHandlerCallbacks *callbacks) { g_state.callbacks = *callbacks; }
 
 #endif
 

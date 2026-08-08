@@ -55,6 +55,17 @@ typedef struct {
     const char *crashInfoSignature;
 } KSBinaryImage;
 
+/** Initialize the dynamic linker module.
+ * Sets up the symbol cache for fast lookups.
+ * Should be called during KSCrash activation.
+ */
+void ksdl_init(void);
+
+/** Reset all caches (symbol cache and binary image cache).
+ * For testing purposes only.
+ */
+void ksdl_resetCache(void);
+
 /** Get information about a binary image based on mach_header.
  *
  * @param header_ptr The pointer to mach_header of the image.

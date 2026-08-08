@@ -180,8 +180,11 @@ extension InstallBridge {
         (.signal, "Signal", "UNIX-style signals indicating abnormal program termination"),
         (.cppException, "C++ Exception", "Unhandled exceptions in C++ code"),
         (.nsException, "NSException", "Unhandled Objective-C exceptions"),
-        (.mainThreadDeadlock, "Main Thread Deadlock", "Situations where the main thread becomes unresponsive"),
-        (.memoryTermination, "Memory Termination", "Termination due to excessive memory usage"),
+        (.watchdog, "Watchdog", "Hangs and watchdog timeout terminations"),
+        (
+            .termination, "Termination",
+            "OS terminations from resource exhaustion (OOM, thermal) or maintenance (reboot, app upgrade)"
+        ),
         (.zombie, "Zombie", "Attempts to access deallocated objects"),
         (.userReported, "User Reported", "Custom crash reports"),
         (.system, "System", "Additional system information added to reports"),
@@ -194,7 +197,6 @@ extension InstallBridge {
 
         (.productionSafe, "Production-safe"),
         (.productionSafeMinimal, "Production-safe Minimal"),
-        (.experimental, "Experimental"),
 
         (.required, "Required"),
         (.optional, "Optional"),

@@ -5,6 +5,7 @@ on:
       - 'Sources/**/*.swift'
       - 'Tests/**/*.swift'
       - 'Samples/**/*.swift'
+      - 'Benchmarks/**/*.swift'
       - '.github/workflows/swift-format.yml'
       - '.swift-format'
       - 'Makefile'
@@ -15,9 +16,9 @@ jobs:
     name: Swift Formatting Check
     runs-on: ubuntu-latest
     container:
-      image: swift:6.0
+      image: swift:6.2
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
 
     - name: Install make
       run: |

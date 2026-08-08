@@ -40,6 +40,9 @@ static bool advanceCursor(KSStackCursor *cursor)
         if (nextAddress > 1) {
             cursor->stackEntry.address = kscpu_normaliseInstructionPointer(nextAddress);
             cursor->state.currentDepth++;
+            if (cursor->state.currentDepth >= KSSC_STACK_OVERFLOW_THRESHOLD) {
+                cursor->state.stackOverflow = true;
+            }
             return true;
         }
     }

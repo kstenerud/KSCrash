@@ -28,17 +28,19 @@
 
 #include "KSBinaryImageCache.h"
 #include "KSCPU.h"
+#include "KSCrashC.h"
 #include "KSCrashExceptionHandlingPlan+Private.h"
 #include "KSCrashMonitorHelper.h"
-#include "KSCrashMonitor_AppState.h"
 #include "KSCrashMonitor_CPPException.h"
 #include "KSCrashMonitor_Deadlock.h"
+#include "KSCrashMonitor_Lifecycle.h"
 #include "KSCrashMonitor_MachException.h"
-#include "KSCrashMonitor_Memory.h"
 #include "KSCrashMonitor_NSException.h"
+#include "KSCrashMonitor_Resource.h"
 #include "KSCrashMonitor_Signal.h"
 #include "KSCrashMonitor_System.h"
 #include "KSCrashMonitor_User.h"
+#include "KSCrashMonitor_Watchdog.h"
 #include "KSCrashMonitor_Zombie.h"
 #include "KSCrashReportFields.h"
 #include "KSCrashReportVersion.h"
@@ -52,17 +54,21 @@
 #include "KSMemory.h"
 #include "KSObjC.h"
 #include "KSSignalInfo.h"
+#include "KSSpinLock.h"
 #include "KSStackCursor_Backtrace.h"
 #include "KSStackCursor_MachineContext.h"
 #include "KSString.h"
 #include "KSSystemCapabilities.h"
+#include "KSTaskRole.h"
 #include "KSThread.h"
 #include "KSThreadCache.h"
+#include "Unwind/KSStackCursor_Unwind.h"
 
 // #define KSLogger_LocalLevel TRACE
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -118,11 +124,74 @@ typedef struct {
     int restrictedClassesCount;
 } KSCrash_IntrospectionRules;
 
-static const char *g_userInfoJSON;
-static pthread_mutex_t g_userInfoMutex = PTHREAD_MUTEX_INITIALIZER;
+/** User-provided JSON data to include in crash reports */
+static char *g_userInfoJSON = NULL;
 
-static KSCrash_IntrospectionRules g_introspectionRules;
-static KSCrashIsWritingReportCallback g_userSectionWriteCallback;
+/** Spin lock protecting g_userInfoJSON */
+static KSSpinLock g_userInfoLock = KSSPINLOCK_INIT;
+
+static KSCrash_IntrospectionRules g_introspectionRules = { 0 };
+static KSCrashIsWritingReportCallback g_userSectionWriteCallback = NULL;
+static bool g_compactBinaryImages = false;
+
+// Tracks unique binary image addresses referenced by backtrace frames.
+// Stack-allocated by the caller, passed through writeThreads → writeBacktrace,
+// then consumed by writeBinaryImages for compact mode filtering.
+// If the set overflows, writeBinaryImages falls back to writing all images
+// so that symbolication is never broken by a missing image.
+//
+// 512 entries ≈ 4 KB of stack. Most apps load 300–500 dylibs total and a
+// crash report typically references 10–30 unique images across all threads,
+// so overflow should never happen in practice.
+#define MAX_REFERENCED_IMAGES 512
+typedef struct {
+    uintptr_t addrs[MAX_REFERENCED_IMAGES];
+    uint32_t count;
+    bool overflowed;
+} KSReferencedImageSet;
+
+static bool referencedImageSet_contains(const KSReferencedImageSet *set, uintptr_t imageAddr)
+{
+    if (set == NULL) {
+        return false;
+    }
+    for (uint32_t i = 0; i < set->count; i++) {
+        if (set->addrs[i] == imageAddr) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static void referencedImageSet_add(KSReferencedImageSet *set, uintptr_t imageAddr)
+{
+    if (set == NULL || imageAddr == 0 || set->overflowed) {
+        return;
+    }
+    if (referencedImageSet_contains(set, imageAddr)) {
+        return;
+    }
+    if (set->count < MAX_REFERENCED_IMAGES) {
+        set->addrs[set->count] = imageAddr;
+        set->count++;
+    } else {
+        set->overflowed = true;
+    }
+}
+
+// ============================================================================
+#pragma mark - Unwind Method Selection -
+// ============================================================================
+
+/** Maximum number of unwind methods. */
+#define MAX_UNWIND_METHODS 3
+
+/** Current unwind methods for report generation. */
+static KSUnwindMethod g_unwindMethods[MAX_UNWIND_METHODS] = {
+    KSUnwindMethod_CompactUnwind,
+    KSUnwindMethod_Dwarf,
+    KSUnwindMethod_FramePointer,
+};
 
 #pragma mark Callbacks
 
@@ -243,7 +312,17 @@ static void addJSONElement(const KSCrashReportWriter *const writer, const char *
         ksjson_addJSONElement(getJsonContext(writer), key, jsonElement, (int)strlen(jsonElement), closeLastContainer);
     if (jsonResult != KSJSON_OK) {
         char errorBuff[100];
-        snprintf(errorBuff, sizeof(errorBuff), "Invalid JSON data: %s", ksjson_stringForError(jsonResult));
+        const char *errStr = ksjson_stringForError(jsonResult);
+        size_t prefixLen = sizeof("Invalid JSON data: ") - 1;
+        size_t errLen = strlen(errStr);
+        size_t totalLen = prefixLen + errLen;
+        if (totalLen >= sizeof(errorBuff)) {
+            totalLen = sizeof(errorBuff) - 1;
+            errLen = totalLen - prefixLen;
+        }
+        memcpy(errorBuff, "Invalid JSON data: ", prefixLen);
+        memcpy(errorBuff + prefixLen, errStr, errLen);
+        errorBuff[totalLen] = '\0';
         ksjson_beginObject(getJsonContext(writer), key);
         ksjson_addStringElement(getJsonContext(writer), KSCrashField_Error, errorBuff, KSJSON_SIZE_AUTOMATIC);
         ksjson_addStringElement(getJsonContext(writer), KSCrashField_JSONData, jsonElement, KSJSON_SIZE_AUTOMATIC);
@@ -328,17 +407,25 @@ static bool isValidString(const void *const address)
     return ksstring_isNullTerminatedUTF8String(buffer, kMinStringLength, sizeof(buffer));
 }
 
+/** Initialize a stack cursor using the currently selected unwind method.
+ *
+ * @param cursor The stack cursor to initialize.
+ * @param maxDepth Maximum stack depth to walk.
+ * @param machineContext The machine context to walk.
+ */
+static void initStackCursor(KSStackCursor *cursor, int maxDepth, const struct KSMachineContext *machineContext)
+{
+    kssc_initWithUnwindMethods(cursor, maxDepth, machineContext, g_unwindMethods, MAX_UNWIND_METHODS);
+}
+
 /** Get the backtrace for the specified machine context.
  *
  * This function will choose how to fetch the backtrace based on the crash and
- * machine context. It may store the backtrace in backtraceBuffer unless it can
- * be fetched directly from memory. Do not count on backtraceBuffer containing
- * anything. Always use the return value.
+ * machine context. For the crashed thread with the new unwinder, it uses the
+ * pre-captured cursor. For other threads or legacy mode, it initializes a new cursor.
  *
  * @param crash The crash handler context.
- *
  * @param machineContext The machine context.
- *
  * @param cursor The stack cursor to fill.
  *
  * @return True if the cursor was filled.
@@ -346,13 +433,17 @@ static bool isValidString(const void *const address)
 static bool getStackCursor(const KSCrash_MonitorContext *const crash,
                            const struct KSMachineContext *const machineContext, KSStackCursor *cursor)
 {
+    // For the crashed thread, always use pre-captured cursor if available.
+    // This is critical for C++ exceptions, NSException, and other cases where
+    // the stack cursor was captured at the actual crash/exception point,
+    // but the machine context was captured later (registersAreValid = false).
     if (ksmc_getThreadFromContext(machineContext) == ksmc_getThreadFromContext(crash->offendingMachineContext) &&
         crash->stackCursor != NULL) {
         *cursor = *((KSStackCursor *)crash->stackCursor);
         return true;
     }
 
-    kssc_initWithMachineContext(cursor, KSSC_STACK_OVERFLOW_THRESHOLD, machineContext);
+    initStackCursor(cursor, KSSC_STACK_OVERFLOW_THRESHOLD, machineContext);
     return true;
 }
 
@@ -796,7 +887,8 @@ static void writeAddressReferencedByString(const KSCrashReportWriter *const writ
  *
  * @param stackCursor The stack cursor to read from.
  */
-static void writeBacktrace(const KSCrashReportWriter *const writer, const char *const key, KSStackCursor *stackCursor)
+static void writeBacktrace(const KSCrashReportWriter *const writer, const char *const key, KSStackCursor *stackCursor,
+                           KSReferencedImageSet *referencedImages)
 {
     writer->beginObject(writer, key);
     {
@@ -810,8 +902,13 @@ static void writeBacktrace(const KSCrashReportWriter *const writer, const char *
                             writer->addStringElement(writer, KSCrashField_ObjectName,
                                                      ksfu_lastPathEntry(stackCursor->stackEntry.imageName));
                         }
-                        writer->addUIntegerElement(writer, KSCrashField_ObjectAddr,
-                                                   stackCursor->stackEntry.imageAddress);
+                        uintptr_t imageAddr = stackCursor->stackEntry.imageAddress;
+                        writer->addUIntegerElement(writer, KSCrashField_ObjectAddr, imageAddr);
+                        referencedImageSet_add(referencedImages, imageAddr);
+                        const uint8_t *uuid = ksbic_getUUIDForHeader((const struct mach_header *)imageAddr);
+                        if (uuid != NULL) {
+                            writer->addUUIDElement(writer, KSCrashField_ObjectUUID, uuid);
+                        }
                         if (stackCursor->stackEntry.symbolName != NULL) {
                             writer->addStringElement(writer, KSCrashField_SymbolName,
                                                      stackCursor->stackEntry.symbolName);
@@ -840,10 +937,10 @@ static void writeBacktrace(const KSCrashReportWriter *const writer, const char *
  *
  * @param machineContext The context to retrieve the stack from.
  *
- * @param isStackOverflow If true, the stack has overflowed.
+ * @param stackOverflow Whether the walk reached the stack-overflow threshold.
  */
 static void writeStackContents(const KSCrashReportWriter *const writer, const char *const key,
-                               const struct KSMachineContext *const machineContext, const bool isStackOverflow)
+                               const struct KSMachineContext *const machineContext, const bool stackOverflow)
 {
     uintptr_t sp = kscpu_stackPointer(machineContext);
     if ((void *)sp == NULL) {
@@ -865,7 +962,7 @@ static void writeStackContents(const KSCrashReportWriter *const writer, const ch
         writer->addUIntegerElement(writer, KSCrashField_DumpStart, lowAddress);
         writer->addUIntegerElement(writer, KSCrashField_DumpEnd, highAddress);
         writer->addUIntegerElement(writer, KSCrashField_StackPtr, sp);
-        writer->addBooleanElement(writer, KSCrashField_Overflow, isStackOverflow);
+        writer->addBooleanElement(writer, KSCrashField_Overflow, stackOverflow);
         uint8_t stackBuffer[kStackContentsTotalDistance * sizeof(sp)];
         int copyLength = (int)(highAddress - lowAddress);
         if (ksmem_copySafely((void *)lowAddress, stackBuffer, copyLength)) {
@@ -907,13 +1004,24 @@ static void writeNotableStackContents(const KSCrashReportWriter *const writer,
     char nameBuffer[40];
     for (uintptr_t address = lowAddress; address < highAddress; address += sizeof(address)) {
         if (ksmem_copySafely((void *)address, &contentsAsPointer, sizeof(contentsAsPointer))) {
-            snprintf(nameBuffer, sizeof(nameBuffer), "stack@%p", (void *)address);
+            memcpy(nameBuffer, "stack@0x", 8);
+            ksstring_uint64ToHex((uint64_t)address, nameBuffer + 8, sizeof(nameBuffer) - 8, 1, false);
             writeMemoryContentsIfNotable(writer, nameBuffer, contentsAsPointer);
         }
     }
 }
 
 #pragma mark Registers
+
+static const char *fallbackRegisterName(char *buf, size_t bufSize, int reg)
+{
+    if (bufSize < 2) {
+        return "";
+    }
+    buf[0] = 'r';
+    ksstring_intToDecimal(reg, buf + 1, bufSize - 1);
+    return buf;
+}
 
 /** Write the contents of all regular registers to the report.
  *
@@ -934,8 +1042,7 @@ static void writeBasicRegisters(const KSCrashReportWriter *const writer, const c
         for (int reg = 0; reg < numRegisters; reg++) {
             registerName = kscpu_registerName(reg);
             if (registerName == NULL) {
-                snprintf(registerNameBuff, sizeof(registerNameBuff), "r%d", reg);
-                registerName = registerNameBuff;
+                registerName = fallbackRegisterName(registerNameBuff, sizeof(registerNameBuff), reg);
             }
             writer->addUIntegerElement(writer, registerName, kscpu_registerValue(machineContext, reg));
         }
@@ -962,8 +1069,7 @@ static void writeExceptionRegisters(const KSCrashReportWriter *const writer, con
         for (int reg = 0; reg < numRegisters; reg++) {
             registerName = kscpu_exceptionRegisterName(reg);
             if (registerName == NULL) {
-                snprintf(registerNameBuff, sizeof(registerNameBuff), "r%d", reg);
-                registerName = registerNameBuff;
+                registerName = fallbackRegisterName(registerNameBuff, sizeof(registerNameBuff), reg);
             }
             writer->addUIntegerElement(writer, registerName, kscpu_exceptionRegisterValue(machineContext, reg));
         }
@@ -1007,8 +1113,7 @@ static void writeNotableRegisters(const KSCrashReportWriter *const writer,
     for (int reg = 0; reg < numRegisters; reg++) {
         registerName = kscpu_registerName(reg);
         if (registerName == NULL) {
-            snprintf(registerNameBuff, sizeof(registerNameBuff), "r%d", reg);
-            registerName = registerNameBuff;
+            registerName = fallbackRegisterName(registerNameBuff, sizeof(registerNameBuff), reg);
         }
         writeMemoryContentsIfNotable(writer, registerName, (uintptr_t)kscpu_registerValue(machineContext, reg));
     }
@@ -1054,7 +1159,8 @@ static void writeNotableAddresses(const KSCrashReportWriter *const writer, const
  */
 static void writeThread(const KSCrashReportWriter *const writer, const char *const key,
                         const KSCrash_MonitorContext *const crash, const struct KSMachineContext *const machineContext,
-                        const int threadIndex, const bool shouldWriteNotableAddresses, const int threadState)
+                        const int threadIndex, const bool shouldWriteNotableAddresses, const int threadState,
+                        KSReferencedImageSet *referencedImages)
 {
     bool isCrashedThread = ksmc_isCrashedContext(machineContext);
     KSThread thread = ksmc_getThreadFromContext(machineContext);
@@ -1067,7 +1173,7 @@ static void writeThread(const KSCrashReportWriter *const writer, const char *con
     writer->beginObject(writer, key);
     {
         if (hasBacktrace) {
-            writeBacktrace(writer, KSCrashField_Backtrace, &stackCursor);
+            writeBacktrace(writer, KSCrashField_Backtrace, &stackCursor, referencedImages);
         }
         if (ksmc_canHaveCPUState(machineContext)) {
             writeRegisters(writer, KSCrashField_Registers, machineContext);
@@ -1087,7 +1193,7 @@ static void writeThread(const KSCrashReportWriter *const writer, const char *con
         writer->addBooleanElement(writer, KSCrashField_Crashed, isCrashedThread);
         writer->addBooleanElement(writer, KSCrashField_CurrentThread, thread == ksthread_self());
         if (isCrashedThread) {
-            writeStackContents(writer, KSCrashField_Stack, machineContext, stackCursor.state.hasGivenUp);
+            writeStackContents(writer, KSCrashField_Stack, machineContext, stackCursor.state.stackOverflow);
             if (shouldWriteNotableAddresses) {
                 writeNotableAddresses(writer, KSCrashField_NotableAddresses, machineContext);
             }
@@ -1105,9 +1211,16 @@ static void writeThread(const KSCrashReportWriter *const writer, const char *con
  * @param crash The crash handler context.
  */
 static void writeThreads(const KSCrashReportWriter *const writer, const char *const key,
-                         const KSCrash_MonitorContext *const crash, bool writeNotableAddresses)
+                         const KSCrash_MonitorContext *const crash, bool writeNotableAddresses,
+                         KSReferencedImageSet *referencedImages)
 {
     const struct KSMachineContext *const context = crash->offendingMachineContext;
+
+    // Some custom monitors may not have an offending context.
+    if (!context) {
+        return;
+    }
+
     KSThread offendingThread = ksmc_getThreadFromContext(context);
     int threadCount = ksmc_getThreadCount(context);
     KSMachineContext machineContext = { 0 };
@@ -1121,10 +1234,11 @@ static void writeThreads(const KSCrashReportWriter *const writer, const char *co
             KSThread thread = ksmc_getThreadAtIndex(context, i);
             int threadRunState = ksthread_getThreadState(thread);
             if (thread == offendingThread) {
-                writeThread(writer, NULL, crash, context, i, writeNotableAddresses, threadRunState);
+                writeThread(writer, NULL, crash, context, i, writeNotableAddresses, threadRunState, referencedImages);
             } else if (shouldRecordAllThreads) {
                 ksmc_getContextForThread(thread, &machineContext, false);
-                writeThread(writer, NULL, crash, &machineContext, i, writeNotableAddresses, threadRunState);
+                writeThread(writer, NULL, crash, &machineContext, i, writeNotableAddresses, threadRunState,
+                            referencedImages);
             }
         }
     }
@@ -1175,45 +1289,59 @@ static void writeBinaryImage(const KSCrashReportWriter *const writer, const KSBi
  *
  * @param key The object key, if needed.
  */
-static void writeBinaryImages(const KSCrashReportWriter *const writer, const char *const key)
+static void writeBinaryImages(const KSCrashReportWriter *const writer, const char *const key,
+                              const KSReferencedImageSet *referencedImages)
 {
     uint32_t count = 0;
     const ks_dyld_image_info *images = ksbic_getImages(&count);
+
+    const struct mach_header *dyldHeader = ksbic_getDyldHeader();
+    bool dyldAlreadyWritten = false;
 
     writer->beginArray(writer, key);
     {
         for (uint32_t iImg = 0; iImg < count; iImg++) {
             ks_dyld_image_info info = images[iImg];
+            // In compact mode, skip images not referenced by any backtrace frame.
+            // This avoids calling ksdl_binaryImageForHeader (which walks all Mach-O
+            // load commands + getsectiondata for crash_info) on the ~95% of images
+            // that aren't relevant. The trade-off is that images with crash_info but
+            // no backtrace reference are omitted, but in practice the crashing image
+            // is almost always referenced by the backtrace.
+            if (referencedImages != NULL && !referencedImages->overflowed &&
+                !referencedImageSet_contains(referencedImages, (uintptr_t)info.imageLoadAddress)) {
+                continue;
+            }
+            bool isDyld = (info.imageLoadAddress == dyldHeader);
+            if (isDyld) {
+                dyldAlreadyWritten = true;
+            }
+            const char *imagePath = isDyld && info.imageFilePath == NULL ? ksbic_getDyldPath() : info.imageFilePath;
             KSBinaryImage image = { 0 };
-            if (ksdl_binaryImageForHeader(info.imageLoadAddress, info.imageFilePath, &image)) {
-                writeBinaryImage(writer, &image);
+            if (!ksdl_binaryImageForHeader(info.imageLoadAddress, imagePath, &image)) {
+                continue;
+            }
+            writeBinaryImage(writer, &image);
+        }
+
+        // dyld is not in the infoArray today, but guard against future OS
+        // versions that might include it. In compact mode, only include dyld
+        // if a frame actually references it.
+        bool dyldReferenced = referencedImages == NULL || referencedImages->overflowed ||
+                              referencedImageSet_contains(referencedImages, (uintptr_t)dyldHeader);
+        if (dyldHeader != NULL && !dyldAlreadyWritten && dyldReferenced) {
+            KSBinaryImage dyldImage = { 0 };
+            if (ksdl_binaryImageForHeader(dyldHeader, ksbic_getDyldPath(), &dyldImage)) {
+                writeBinaryImage(writer, &dyldImage);
             }
         }
     }
     writer->endContainer(writer);
 }
 
-/** Write information about system memory to the report.
- *
- * @param writer The writer.
- *
- * @param key The object key, if needed.
- */
-static void writeMemoryInfo(const KSCrashReportWriter *const writer, const char *const key,
-                            const KSCrash_MonitorContext *const monitorContext)
-{
-    writer->beginObject(writer, key);
-    {
-        writer->addUIntegerElement(writer, KSCrashField_Size, monitorContext->System.memorySize);
-        writer->addUIntegerElement(writer, KSCrashField_Usable, monitorContext->System.usableMemory);
-        writer->addUIntegerElement(writer, KSCrashField_Free, monitorContext->System.freeMemory);
-    }
-    writer->endContainer(writer);
-}
-
 static inline bool isCrashOfMonitorType(const KSCrash_MonitorContext *const crash, const KSCrashMonitorAPI *monitorAPI)
 {
-    return ksstring_safeStrcmp(crash->monitorId, monitorAPI->monitorId()) == 0;
+    return ksstring_safeStrcmp(crash->monitorId, monitorAPI->monitorId(monitorAPI->context)) == 0;
 }
 
 /** Write information about the error leading to the crash to the report.
@@ -1238,11 +1366,11 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
             if (machExceptionName != NULL) {
                 writer->addStringElement(writer, KSCrashField_ExceptionName, machExceptionName);
             }
-            writer->addUIntegerElement(writer, KSCrashField_Code, (unsigned)crash->mach.code);
+            writer->addUIntegerElement(writer, KSCrashField_Code, (uint64_t)crash->mach.code);
             if (machCodeName != NULL) {
                 writer->addStringElement(writer, KSCrashField_CodeName, machCodeName);
             }
-            writer->addUIntegerElement(writer, KSCrashField_Subcode, (size_t)crash->mach.subcode);
+            writer->addUIntegerElement(writer, KSCrashField_Subcode, (uint64_t)crash->mach.subcode);
         }
         writer->endContainer(writer);
 #endif
@@ -1266,7 +1394,23 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
             writer->addStringElement(writer, KSCrashField_Reason, crash->crashReason);
         }
 
-        if (isCrashOfMonitorType(crash, kscm_nsexception_getAPI())) {
+        // Write the exit reason if it's available
+        if (crash->exitReason.code != 0) {
+            writer->beginObject(writer, KSCrashField_ExitReason);
+            {
+                writer->addUIntegerElement(writer, KSCrashField_Code, crash->exitReason.code);
+            }
+            writer->endContainer(writer);
+        }
+
+        if (isCrashOfMonitorType(crash, kscm_watchdog_getAPI())) {
+            // Hang details (timestamps, roles, transition states) come from
+            // the run sidecar stitch. The type may be changed to "hang" by
+            // the stitch if the hang recovers.
+            writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_Mach);
+        }
+
+        else if (isCrashOfMonitorType(crash, kscm_nsexception_getAPI())) {
             writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_NSException);
             writer->beginObject(writer, KSCrashField_NSException);
             {
@@ -1286,16 +1430,12 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
                 writer->addStringElement(writer, KSCrashField_Name, crash->CPPException.name);
             }
             writer->endContainer(writer);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         } else if (isCrashOfMonitorType(crash, kscm_deadlock_getAPI())) {
+#pragma clang diagnostic pop
             writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_Deadlock);
-        } else if (isCrashOfMonitorType(crash, kscm_memory_getAPI())) {
-            writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_MemoryTermination);
-            writer->beginObject(writer, KSCrashField_MemoryTermination);
-            {
-                writer->addStringElement(writer, KSCrashField_MemoryPressure, crash->AppMemory.pressure);
-                writer->addStringElement(writer, KSCrashField_MemoryLevel, crash->AppMemory.level);
-            }
-            writer->endContainer(writer);
+
         } else if (isCrashOfMonitorType(crash, kscm_user_getAPI())) {
             writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_User);
             writer->beginObject(writer, KSCrashField_UserReported);
@@ -1312,48 +1452,28 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
                 }
             }
             writer->endContainer(writer);
+        } else if (isCrashOfMonitorType(crash, kscm_resource_getAPI())) {
+            writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_Mach);
         } else if (isCrashOfMonitorType(crash, kscm_system_getAPI()) ||
-                   isCrashOfMonitorType(crash, kscm_appstate_getAPI()) ||
+                   isCrashOfMonitorType(crash, kscm_lifecycle_getAPI()) ||
                    isCrashOfMonitorType(crash, kscm_zombie_getAPI())) {
             KSLOG_ERROR("Crash monitor type %s shouldn't be able to cause events!", crash->monitorId);
         } else {
-            KSLOG_WARN("Unknown crash monitor type: %s", crash->monitorId);
+            // We now support custom monitors.
+            writer->addStringElement(writer, KSCrashField_Type, crash->monitorId);
+            const KSCrashMonitorAPI *api = kscm_getMonitor(crash->monitorId);
+            if (api && api->writeInReportSection) {
+                writer->beginObject(writer, crash->monitorId);
+                {
+                    api->writeInReportSection(crash, writer, api->context);
+                }
+                writer->endContainer(writer);
+            }
         }
-    }
-    writer->endContainer(writer);
-}
-
-/** Write information about app runtime, etc to the report.
- *
- * @param writer The writer.
- *
- * @param key The object key, if needed.
- *
- * @param monitorContext The event monitor context.
- */
-static void writeAppStats(const KSCrashReportWriter *const writer, const char *const key,
-                          const KSCrash_MonitorContext *const monitorContext)
-{
-    writer->beginObject(writer, key);
-    {
-        writer->addBooleanElement(writer, KSCrashField_AppActive, monitorContext->AppState.applicationIsActive);
-        writer->addBooleanElement(writer, KSCrashField_AppInFG, monitorContext->AppState.applicationIsInForeground);
-
-        writer->addIntegerElement(writer, KSCrashField_LaunchesSinceCrash,
-                                  monitorContext->AppState.launchesSinceLastCrash);
-        writer->addIntegerElement(writer, KSCrashField_SessionsSinceCrash,
-                                  monitorContext->AppState.sessionsSinceLastCrash);
-        writer->addFloatingPointElement(writer, KSCrashField_ActiveTimeSinceCrash,
-                                        monitorContext->AppState.activeDurationSinceLastCrash);
-        writer->addFloatingPointElement(writer, KSCrashField_BGTimeSinceCrash,
-                                        monitorContext->AppState.backgroundDurationSinceLastCrash);
-
-        writer->addIntegerElement(writer, KSCrashField_SessionsSinceLaunch,
-                                  monitorContext->AppState.sessionsSinceLaunch);
-        writer->addFloatingPointElement(writer, KSCrashField_ActiveTimeSinceLaunch,
-                                        monitorContext->AppState.activeDurationSinceLaunch);
-        writer->addFloatingPointElement(writer, KSCrashField_BGTimeSinceLaunch,
-                                        monitorContext->AppState.backgroundDurationSinceLaunch);
+        writer->addBooleanElement(writer, KSCrashField_IsFatal, crash->requirements.isFatal);
+        if (crash->requirements.isFatal) {
+            writer->addBooleanElement(writer, KSCrashField_IsCleanExit, crash->requirements.isCleanExit);
+        }
     }
     writer->endContainer(writer);
 }
@@ -1395,7 +1515,7 @@ static void writeProcessState(const KSCrashReportWriter *const writer, const cha
  * @param reportID The report ID.
  */
 static void writeReportInfo(const KSCrashReportWriter *const writer, const char *const key, const char *const type,
-                            const char *const reportID, const char *const processName)
+                            const char *const reportID, const char *const processName, const char *const monitorId)
 {
     writer->beginObject(writer, key);
     {
@@ -1404,6 +1524,10 @@ static void writeReportInfo(const KSCrashReportWriter *const writer, const char 
         writer->addStringElement(writer, KSCrashField_ProcessName, processName);
         writer->addUIntegerElement(writer, KSCrashField_Timestamp, ksdate_microseconds());
         writer->addStringElement(writer, KSCrashField_Type, type);
+        writer->addStringElement(writer, KSCrashField_RunID, kscrash_getRunID());
+        if (monitorId != NULL) {
+            writer->addStringElement(writer, KSCrashField_MonitorId, monitorId);
+        }
     }
     writer->endContainer(writer);
 }
@@ -1452,8 +1576,8 @@ void kscrashreport_writeRecrashReport(const KSCrash_MonitorContext *const monito
     char writeBuffer[1024];
     KSBufferedWriter bufferedWriter;
     static char tempPath[KSFU_MAX_PATH_LENGTH];
-    strncpy(tempPath, path, sizeof(tempPath) - 10);
-    strncpy(tempPath + strlen(tempPath) - 5, ".old", 5);
+    strlcpy(tempPath, path, sizeof(tempPath) - 10);
+    strlcpy(tempPath + strlen(tempPath) - 5, ".old", 5);
     KSLOG_INFO("Writing recrash report to %s", path);
 
     if (rename(path, tempPath) < 0) {
@@ -1480,8 +1604,8 @@ void kscrashreport_writeRecrashReport(const KSCrash_MonitorContext *const monito
         if (remove(tempPath) < 0) {
             KSLOG_ERROR("Could not remove %s: %s", tempPath, strerror(errno));
         }
-        writeReportInfo(writer, KSCrashField_Report, KSCrashReportType_Minimal, monitorContext->eventID,
-                        monitorContext->System.processName);
+        writeReportInfo(writer, KSCrashField_Report, KSCrashReportType_Minimal, monitorContext->eventID, NULL,
+                        monitorContext->monitorId);
         ksfu_flushBufferedWriter(&bufferedWriter);
 
         writer->beginObject(writer, KSCrashField_Crash);
@@ -1492,7 +1616,7 @@ void kscrashreport_writeRecrashReport(const KSCrash_MonitorContext *const monito
             int threadIndex = ksmc_indexOfThread(monitorContext->offendingMachineContext, thread);
             int threadRunState = ksthread_getThreadState(thread);
             writeThread(writer, KSCrashField_CrashedThread, monitorContext, monitorContext->offendingMachineContext,
-                        threadIndex, false, threadRunState);
+                        threadIndex, false, threadRunState, NULL);
             ksfu_flushBufferedWriter(&bufferedWriter);
         }
         writer->endContainer(writer);
@@ -1512,64 +1636,32 @@ void kscrashreport_writeRecrashReport(const KSCrash_MonitorContext *const monito
     kstc_unfreeze();
 }
 
-static void writeAppMemoryInfo(const KSCrashReportWriter *const writer, const char *const key,
-                               const KSCrash_MonitorContext *const monitorContext)
+/** Write system info that is still populated at crash time by other monitors.
+ *  System monitor fields (device, OS, bundle, CPU, memory, etc.) are now in
+ *  the mmap'd run sidecar and stitched into the report on next launch.
+ *  App memory is also stitched from the Resource sidecar.
+ */
+static void writeSystemInfo(const KSCrashReportWriter *const writer, const char *const key,
+                            __unused const KSCrash_MonitorContext *const monitorContext)
 {
     writer->beginObject(writer, key);
-    {
-        writer->addUIntegerElement(writer, KSCrashField_MemoryFootprint, monitorContext->AppMemory.footprint);
-        writer->addUIntegerElement(writer, KSCrashField_MemoryRemaining, monitorContext->AppMemory.remaining);
-        writer->addStringElement(writer, KSCrashField_MemoryPressure, monitorContext->AppMemory.pressure);
-        writer->addStringElement(writer, KSCrashField_MemoryLevel, monitorContext->AppMemory.level);
-        writer->addUIntegerElement(writer, KSCrashField_MemoryLimit, monitorContext->AppMemory.limit);
-        writer->addStringElement(writer, KSCrashField_AppTransitionState, monitorContext->AppMemory.state);
-    }
     writer->endContainer(writer);
 }
 
-static void writeSystemInfo(const KSCrashReportWriter *const writer, const char *const key,
-                            const KSCrash_MonitorContext *const monitorContext)
+static void writeLastExceptionBacktrace(const KSCrashReportWriter *const writer, const char *const key,
+                                        const KSCrash_MonitorContext *const crash,
+                                        KSReferencedImageSet *referencedImages)
 {
-    writer->beginObject(writer, key);
-    {
-        writer->addStringElement(writer, KSCrashField_SystemName, monitorContext->System.systemName);
-        writer->addStringElement(writer, KSCrashField_SystemVersion, monitorContext->System.systemVersion);
-        writer->addStringElement(writer, KSCrashField_Machine, monitorContext->System.machine);
-        writer->addStringElement(writer, KSCrashField_Model, monitorContext->System.model);
-        writer->addStringElement(writer, KSCrashField_KernelVersion, monitorContext->System.kernelVersion);
-        writer->addStringElement(writer, KSCrashField_OSVersion, monitorContext->System.osVersion);
-        writer->addBooleanElement(writer, KSCrashField_Jailbroken, monitorContext->System.isJailbroken);
-        writer->addBooleanElement(writer, KSCrashField_ProcTranslated, monitorContext->System.procTranslated);
-        writer->addStringElement(writer, KSCrashField_BootTime, monitorContext->System.bootTime);
-        writer->addStringElement(writer, KSCrashField_AppStartTime, monitorContext->System.appStartTime);
-        writer->addStringElement(writer, KSCrashField_ExecutablePath, monitorContext->System.executablePath);
-        writer->addStringElement(writer, KSCrashField_Executable, monitorContext->System.executableName);
-        writer->addStringElement(writer, KSCrashField_BundleID, monitorContext->System.bundleID);
-        writer->addStringElement(writer, KSCrashField_BundleName, monitorContext->System.bundleName);
-        writer->addStringElement(writer, KSCrashField_BundleVersion, monitorContext->System.bundleVersion);
-        writer->addStringElement(writer, KSCrashField_BundleShortVersion, monitorContext->System.bundleShortVersion);
-        writer->addStringElement(writer, KSCrashField_AppUUID, monitorContext->System.appID);
-        writer->addStringElement(writer, KSCrashField_CPUArch, monitorContext->System.cpuArchitecture);
-        writer->addStringElement(writer, KSCrashField_BinaryArch, monitorContext->System.binaryArchitecture);
-        writer->addIntegerElement(writer, KSCrashField_CPUType, monitorContext->System.cpuType);
-        writer->addStringElement(writer, KSCrashField_ClangVersion, monitorContext->System.clangVersion);
-        writer->addIntegerElement(writer, KSCrashField_CPUSubType, monitorContext->System.cpuSubType);
-        writer->addIntegerElement(writer, KSCrashField_BinaryCPUType, monitorContext->System.binaryCPUType);
-        writer->addIntegerElement(writer, KSCrashField_BinaryCPUSubType, monitorContext->System.binaryCPUSubType);
-        writer->addStringElement(writer, KSCrashField_TimeZone, monitorContext->System.timezone);
-        writer->addStringElement(writer, KSCrashField_ProcessName, monitorContext->System.processName);
-        writer->addIntegerElement(writer, KSCrashField_ProcessID, monitorContext->System.processID);
-        writer->addIntegerElement(writer, KSCrashField_ParentProcessID, monitorContext->System.parentProcessID);
-        writer->addStringElement(writer, KSCrashField_DeviceAppHash, monitorContext->System.deviceAppHash);
-        writer->addStringElement(writer, KSCrashField_BuildType, monitorContext->System.buildType);
-        writer->addIntegerElement(writer, KSCrashField_Storage, (int64_t)monitorContext->System.storageSize);
-        writer->addIntegerElement(writer, KSCrashField_FreeStorage, (int64_t)monitorContext->System.freeStorageSize);
-
-        writeMemoryInfo(writer, KSCrashField_Memory, monitorContext);
-        writeAppStats(writer, KSCrashField_AppStats, monitorContext);
-        writeAppMemoryInfo(writer, KSCrashField_AppMemory, monitorContext);
+    if (crash->exceptionStackCursor == NULL) {
+        return;
     }
-    writer->endContainer(writer);
+    // Peek at the first frame to avoid writing an empty backtrace key.
+    KSStackCursor peekCursor = *((KSStackCursor *)crash->exceptionStackCursor);
+    if (!peekCursor.advanceCursor(&peekCursor)) {
+        return;
+    }
+    KSStackCursor cursor = *((KSStackCursor *)crash->exceptionStackCursor);
+    writeBacktrace(writer, key, &cursor, referencedImages);
 }
 
 static void writeDebugInfo(const KSCrashReportWriter *const writer, const char *const key,
@@ -1606,12 +1698,18 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
 
     writer->beginObject(writer, KSCrashField_Report);
     {
-        writeReportInfo(writer, KSCrashField_Report, KSCrashReportType_Standard, monitorContext->eventID,
-                        monitorContext->System.processName);
+        writeReportInfo(writer, KSCrashField_Report, KSCrashReportType_Standard, monitorContext->eventID, NULL,
+                        monitorContext->monitorId);
         ksfu_flushBufferedWriter(&bufferedWriter);
 
-        if (!monitorContext->omitBinaryImages) {
-            writeBinaryImages(writer, KSCrashField_BinaryImages);
+        // Only collect referenced image addresses when compact mode needs them.
+        // The set is stack-allocated and the per-frame dedup scan is skipped entirely
+        // when the pointer is NULL, avoiding extra work in the crash handler path.
+        KSReferencedImageSet referencedImageStorage = { .count = 0 };
+        KSReferencedImageSet *referencedImages = g_compactBinaryImages ? &referencedImageStorage : NULL;
+
+        if (!monitorContext->omitBinaryImages && !g_compactBinaryImages) {
+            writeBinaryImages(writer, KSCrashField_BinaryImages, NULL);
             ksfu_flushBufferedWriter(&bufferedWriter);
         }
 
@@ -1625,7 +1723,9 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
         {
             writeError(writer, KSCrashField_Error, monitorContext);
             ksfu_flushBufferedWriter(&bufferedWriter);
-            writeThreads(writer, KSCrashField_Threads, monitorContext, g_introspectionRules.enabled);
+            writeThreads(writer, KSCrashField_Threads, monitorContext, g_introspectionRules.enabled, referencedImages);
+            ksfu_flushBufferedWriter(&bufferedWriter);
+            writeLastExceptionBacktrace(writer, KSCrashField_LastExceptionBacktrace, monitorContext, referencedImages);
             ksfu_flushBufferedWriter(&bufferedWriter);
             if (monitorContext->suspendedThreadsCount > 0) {
                 // Special case: If we only needed to suspend the environment to record the threads, then we can
@@ -1638,12 +1738,26 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
         }
         writer->endContainer(writer);
 
-        if (g_userInfoJSON != NULL) {
+        if (!monitorContext->omitBinaryImages && g_compactBinaryImages) {
+            writeBinaryImages(writer, KSCrashField_BinaryImages, referencedImages);
+            ksfu_flushBufferedWriter(&bufferedWriter);
+        }
+
+        // Acquire lock to read userInfo (async-signal-safe bounded spin)
+        bool userInfoLocked = ks_spinlock_lock_bounded(&g_userInfoLock);
+
+        if (userInfoLocked && g_userInfoJSON != NULL) {
             addJSONElement(writer, KSCrashField_User, g_userInfoJSON, false);
             ksfu_flushBufferedWriter(&bufferedWriter);
         } else {
             writer->beginObject(writer, KSCrashField_User);
         }
+
+        // Release the lock
+        if (userInfoLocked) {
+            ks_spinlock_unlock(&g_userInfoLock);
+        }
+
         if (g_userSectionWriteCallback != NULL) {
             ksfu_flushBufferedWriter(&bufferedWriter);
             KSCrash_ExceptionHandlingPlan plan = ksexc_monitorContextToPlan(monitorContext);
@@ -1665,29 +1779,29 @@ void kscrashreport_setUserInfoJSON(const char *const userInfoJSON)
 {
     KSLOG_TRACE("Setting userInfoJSON to %p", userInfoJSON);
 
-    pthread_mutex_lock(&g_userInfoMutex);
-    if (g_userInfoJSON != NULL) {
-        free((void *)g_userInfoJSON);
-    }
-    if (userInfoJSON == NULL) {
-        g_userInfoJSON = NULL;
-    } else {
-        g_userInfoJSON = strdup(userInfoJSON);
-    }
-    pthread_mutex_unlock(&g_userInfoMutex);
+    // Acquire lock
+    ks_spinlock_lock(&g_userInfoLock);
+
+    // Update the JSON
+    free(g_userInfoJSON);
+    g_userInfoJSON = (userInfoJSON != NULL) ? strdup(userInfoJSON) : NULL;
+
+    // Release lock
+    ks_spinlock_unlock(&g_userInfoLock);
 }
 
 const char *kscrashreport_getUserInfoJSON(void)
 {
-    const char *userInfoJSONCopy = NULL;
+    // Acquire lock
+    ks_spinlock_lock(&g_userInfoLock);
 
-    pthread_mutex_lock(&g_userInfoMutex);
-    if (g_userInfoJSON != NULL) {
-        userInfoJSONCopy = strdup(g_userInfoJSON);
-    }
-    pthread_mutex_unlock(&g_userInfoMutex);
+    // Copy the value
+    const char *copy = (g_userInfoJSON != NULL) ? strdup(g_userInfoJSON) : NULL;
 
-    return userInfoJSONCopy;
+    // Release lock
+    ks_spinlock_unlock(&g_userInfoLock);
+
+    return copy;
 }
 
 void kscrashreport_setIntrospectMemory(bool shouldIntrospectMemory)
@@ -1731,3 +1845,5 @@ void kscrashreport_setIsWritingReportCallback(const KSCrashIsWritingReportCallba
     KSLOG_TRACE("Set isWritingReportCallback to %p", isWritingReportCallback);
     g_userSectionWriteCallback = isWritingReportCallback;
 }
+
+void kscrashreport_setCompactBinaryImages(bool enabled) { g_compactBinaryImages = enabled; }

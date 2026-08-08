@@ -26,6 +26,7 @@
 #import <Foundation/Foundation.h>
 #import "KSCrashAppTransitionState.h"
 #include "KSCrashNamespace.h"
+#import "KSSystemCapabilities.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -36,14 +37,14 @@ NS_ASSUME_NONNULL_BEGIN
  * from launch to termination. One reason why this is useful is that when a user
  * brings a running process to the foreground, it goes through an animation from
  * background to foreground that is not accounted for in UIApplicationState but
- * is still visible to users. If the app crashes or is temrinated during that time, the
+ * is still visible to users. If the app crashes or is terminated during that time, the
  * application state is `UIApplicationStateBackground` which is usually not
  * accounted for in crash systems. This newer method with transitions included in
  * the state is much more complete and allows products to be much more reliable
  * and handle areas of the app that are very important to users but rarely handled
  * by apps.
  *
- * We'll keep it private for now until it is integrated with `KSCrashMonitor_AppState`.
+ * We'll keep it private for now until it is integrated with `KSCrashMonitor_Lifecycle`.
  */
 
 typedef void (^KSCrashAppStateTrackerObserverBlock)(KSCrashAppTransitionState transitionState)
@@ -65,33 +66,39 @@ NS_SWIFT_NAME(AppStateTracker)
 @property(atomic, readonly) KSCrashAppTransitionState transitionState;
 
 /**
- * Adds an observer that implements the _KSCrashAppStateTrackerObserving_ protocol.
- * You do not need to remove the observer as it is held weakly.
- */
-- (void)addObserver:(id<KSCrashAppStateTrackerObserving>)observer;
-
-/**
  * Adds a block based observer.
  *
- *@return An object you must hold on to in order to remove the observation at a later point.
+ *@return An object that when set to nil will remove the observer.
  */
-- (id<KSCrashAppStateTrackerObserving>)addObserverWithBlock:(KSCrashAppStateTrackerObserverBlock)block;
-
-/** Removes an observer */
-- (void)removeObserver:(id<KSCrashAppStateTrackerObserving>)observer;
+- (id)addObserverWithBlock:(KSCrashAppStateTrackerObserverBlock)block;
 
 /**
- * Start/Stop
+ * Start the tracker.
  *
- * WARNING: Don't call these on the shared tracker.
+ * @warning Don't call this on the shared tracker.
  */
 - (void)start;
+
+/**
+ * Stop the tracker.
+ *
+ * @warning Don't call this on the shared tracker.
+ */
 - (void)stop;
+
+/** @deprecated Use `addObserverWithBlock:` instead. */
+- (void)addObserver:(id<KSCrashAppStateTrackerObserving>)observer
+    KSCRASH_DEPRECATED("Use -addObserverWithBlock: instead");
+
+/** @deprecated Use `addObserverWithBlock:` instead. */
+- (void)removeObserver:(id<KSCrashAppStateTrackerObserving>)observer
+    KSCRASH_DEPRECATED("Use -addObserverWithBlock: instead");
 
 @end
 
-/** Implement this and add yourself to a tracker to observer transitions */
+/** @deprecated Use `addObserverWithBlock:` instead. */
 NS_SWIFT_NAME(AppStateTrackerObserving)
+KSCRASH_DEPRECATED("Use -addObserverWithBlock: instead")
 @protocol KSCrashAppStateTrackerObserving <NSObject>
 - (void)appStateTracker:(KSCrashAppStateTracker *)tracker didTransitionToState:(KSCrashAppTransitionState)state;
 @end

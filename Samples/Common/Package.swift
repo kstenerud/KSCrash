@@ -1,4 +1,4 @@
-// swift-tools-version:5.7
+// swift-tools-version:5.9
 
 import PackageDescription
 
@@ -66,6 +66,7 @@ let package = Package(
                 .target(name: "CrashCallback"),
                 .product(name: "Recording", package: "KSCrash"),
                 .product(name: "Reporting", package: "KSCrash"),
+                .product(name: "Report", package: "KSCrash"),
                 .product(name: "Logging", package: "swift-log"),
             ]
         ),

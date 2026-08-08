@@ -62,7 +62,9 @@ SWIFT_NAME_IGNORED = [
 FUNCTION_NAME_IGNORED = [
                             re.compile("^__CF.*"),
                             re.compile("^CF_.*"),
+                            re.compile("^KSCRASH_DEPRECATED$"),
                             re.compile("^NS_.*"),
+                            re.compile("^proc_pidinfo$"),
                         ]
 
 # Make sure libc functions don't get swept up
@@ -95,6 +97,7 @@ LIBC_IGNORED = [
                 re.compile("^__atanl$"),
                 re.compile("^__cbrt$"),
                 re.compile("^__cbrtf$"),
+                re.compile("^getentropy$"),
                 re.compile("^pthread_exit$"),
                 re.compile("^pthread_getcpuclockid$"),
                 re.compile("^pthread_getschedparam$"),
@@ -180,8 +183,9 @@ VARIABLE_NAME_IGNORED = [
                             re.compile("^uintptr_t$"),
                         ]
 
-# Ignore any objective-c classes, protocols, categries etc that match any of these:
+# Ignore any objective-c classes, protocols, categories etc that match any of these:
 OBJC_NAME_IGNORED = [
+                        re.compile("^UserInfo$"),
                     ]
 
 # Ignore any C++ names or templates that match any of these:

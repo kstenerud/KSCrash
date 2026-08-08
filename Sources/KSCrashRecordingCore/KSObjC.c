@@ -345,14 +345,9 @@ static uint64_t decodeExponent(uint64_t exp)
     //   distantFuture, except within about 1e-25 second of the reference date.
     static const int taggedDateExponentBias = 0x3ef;
 
-    // Sign-extend the 7-bit exponent to 64 bits
-    const uint64_t signBit = 1ULL << 6;
-    const uint64_t extendMask = ~((1ULL << 7) - 1);
-    exp = (exp ^ signBit) - signBit;
-    exp &= (1ULL << 7) - 1;
-    exp |= extendMask & -((exp & signBit) != 0);
-
-    // Add the bias to the sign-extended exponent
+    // Sign-extend 7-bit exponent to 64 bits (equivalent to llvm::SignExtend64<7>),
+    // then add the bias.
+    exp = ((exp & 0x7F) ^ 0x40) - 0x40;
     return exp + taggedDateExponentBias;
 }
 
@@ -765,6 +760,9 @@ int ksobjc_ivarList(const void *const classPtr, KSObjCIvar *dstIvars, int ivarsC
         count = ivarsCount;
     }
     const struct ivar_list_t *srcIvars = getClassRO(classPtr)->ivars;
+    if (srcIvars == NULL || srcIvars->entsizeAndFlags == 0) {
+        return 0;
+    }
     uintptr_t srcPtr = (uintptr_t)&srcIvars->first;
     const struct ivar_t *src = (void *)srcPtr;
     for (int i = 0; i < count; i++) {
@@ -784,6 +782,9 @@ bool ksobjc_ivarNamed(const void *const classPtr, const char *name, KSObjCIvar *
         return false;
     }
     const struct ivar_list_t *ivars = getClassRO(classPtr)->ivars;
+    if (ivars == NULL || ivars->entsizeAndFlags == 0) {
+        return false;
+    }
     uintptr_t ivarPtr = (uintptr_t)&ivars->first;
     const struct ivar_t *ivar = (void *)ivarPtr;
     for (int i = 0; i < (int)ivars->count; i++) {
@@ -820,7 +821,7 @@ bool ksobjc_ivarValue(const void *const objectPtr, int ivarIndex, void *dst)
 #endif
     const void *const classPtr = getIsaPointer(objectPtr);
     const struct ivar_list_t *ivars = getClassRO(classPtr)->ivars;
-    if (ivarIndex >= (int)ivars->count) {
+    if (ivars == NULL || ivars->entsizeAndFlags == 0 || ivarIndex >= (int)ivars->count) {
         return false;
     }
     uintptr_t ivarPtr = (uintptr_t)&ivars->first;

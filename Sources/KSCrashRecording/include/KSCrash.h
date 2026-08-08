@@ -31,6 +31,8 @@
 #import "KSCrashReportFilter.h"
 #import "KSCrashReportStore.h"
 #import "KSCrashReportWriter.h"
+#import "KSSystemCapabilities.h"
+#import "KSTerminationReason.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -50,9 +52,14 @@ NS_ASSUME_NONNULL_BEGIN
  * contain only JSON-safe data: NSString for keys, and NSDictionary, NSArray,
  * NSString, NSDate, and NSNumber for values.
  *
+ * @deprecated Use the per-key API in KSCrash+UserInfo.h instead
+ * (e.g. -setUserInfoString:forKey:, -setUserInfoInteger:forKey:).
+ * The per-key API is backed by an mmap'd sidecar with zero crash-time cost.
+ *
  * Default: nil
  */
-@property(atomic, readwrite, strong, nullable) NSDictionary<NSString *, id> *userInfo;
+@property(atomic, readwrite, strong, nullable) NSDictionary<NSString *, id> *userInfo KSCRASH_DEPRECATED(
+    "Use per-key API in KSCrash+UserInfo.h (e.g. -setUserInfoString:forKey:) instead");
 
 #pragma mark - Information -
 
@@ -87,8 +94,13 @@ NS_ASSUME_NONNULL_BEGIN
 /** Number of sessions (launch, resume from suspend) since app launch. */
 @property(nonatomic, readonly, assign) NSInteger sessionsSinceLaunch;
 
-/** If true, the application crashed on the previous launch. */
+/** If true, the previous run terminated in a way that KSCrash reports as an issue.
+ *  This includes crashes, resource terminations (OOM, thermal, CPU, etc.), and unrecovered hangs.
+ *  Non-fatal reports, profiler events, and clean exits do not count. */
 @property(nonatomic, readonly, assign) BOOL crashedLastLaunch;
+
+/** Why the previous run was terminated.  Only valid after install. */
+@property(nonatomic, readonly, assign) KSTerminationReason previousTerminationReason;
 
 /** Information about the operating system and environment.
  *

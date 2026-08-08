@@ -56,6 +56,12 @@ typedef struct {
     unsigned isFatal : 1;
 
     /**
+     * The exit was expected and not a crash (e.g., SIGTERM).
+     * Only meaningful when `isFatal` is true.
+     */
+    unsigned isCleanExit : 1;
+
+    /**
      * Only async-safe (aka signal-safe) functions may be called.
      *
      * This means that you cannot call anything that acquires locks or allocates

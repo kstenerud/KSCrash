@@ -27,7 +27,10 @@ let project = Project(
             ]),
             sources: ["Sources/**"],
             dependencies: [
-                .package(product: "SampleUI", type: .runtime)
+                .package(product: "SampleUI", type: .runtime),
+                .package(product: "Filters", type: .runtime),
+                .package(product: "Sinks", type: .runtime),
+                .package(product: "DemangleFilter", type: .runtime),
             ]
         ),
         .target(
@@ -42,6 +45,7 @@ let project = Project(
                 .package(product: "SampleUI", type: .runtime),
                 .package(product: "CrashTriggers", type: .runtime),
                 .package(product: "IntegrationTestsHelper", type: .runtime),
+                .package(product: "Report", type: .runtime),
             ],
             additionalFiles: ["Tests/Integration.xctestplan"]
         ),

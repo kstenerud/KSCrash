@@ -28,9 +28,11 @@
 
 #import <mach/mach.h>
 #import <signal.h>
+#import <exception>
 #import <stdexcept>
 #import <thread>
 #import "CrashCallback.h"
+#import "KSCrash+Hang.h"
 #import "KSCrash.h"
 
 namespace sample_namespace
@@ -41,6 +43,12 @@ class Report
     static void crash() { throw std::runtime_error("C++ exception"); }
 };
 }  // namespace sample_namespace
+
+@interface KSCrashTriggersList_TestNSExceptionSubclass : NSException
+@end
+
+@implementation KSCrashTriggersList_TestNSExceptionSubclass
+@end
 
 static void trigger_ns(void)
 {
@@ -99,12 +107,21 @@ void KSStacktraceCheckCrash() __attribute__((disable_tail_calls))
 
 NSString *const KSCrashNSExceptionStacktraceFuncName = @"exceptionWithStacktraceForException";
 
+static void trigger_user_swiftAsync(void) { integrationTestSwiftAsyncTrigger(); }
+
 @implementation KSCrashTriggersList
 
 + (void)trigger_nsException_genericNSException
 {
     NSException *exc = [NSException exceptionWithName:NSGenericException reason:@"Test" userInfo:@{ @"a" : @"b" }];
     [exc raise];
+}
+
++ (void)trigger_nsException_nsExceptionSubclass
+{
+    [[KSCrashTriggersList_TestNSExceptionSubclass exceptionWithName:@"TestNSExceptionSubclass"
+                                                             reason:@"Subclass Test"
+                                                           userInfo:nil] raise];
 }
 
 + (void)trigger_nsException_nsArrayOutOfBounds
@@ -131,10 +148,47 @@ NSString *const KSCrashNSExceptionStacktraceFuncName = @"exceptionWithStacktrace
     trigger_cpp_backgroundThread();
 }
 
++ (void)trigger_cpp_objcObjectException
+{
+    @throw @"Objective-C object exception";
+}
+
++ (void)trigger_cpp_objcObjectExceptionAfterCaughtCpp
+{
+    // A caught C++ exception leaves a throw-site backtrace cursor behind on this thread. The subsequent fatal
+    // Objective-C object throw is reported by the C++ monitor and must capture its own throw site, not reuse the
+    // earlier (already-handled) one.
+    try {
+        sample_namespace::Report::crash();
+    } catch (...) {
+    }
+    NSString *exception = @"Objective-C object exception after caught C++";
+    @throw exception;
+}
+
++ (void)trigger_cpp_terminateAfterCaughtCpp
+{
+    // A caught C++ exception leaves a throw-site backtrace cursor behind on this thread. A subsequent bare
+    // std::terminate() has no active exception, so the C++ monitor must recompute a fresh cursor from the terminate
+    // context rather than reusing the earlier (already-handled) throw site.
+    try {
+        sample_namespace::Report::crash();
+    } catch (...) {
+    }
+    std::terminate();
+}
+
 + (void)trigger_mach_badAccess
 {
     volatile int *ptr = (int *)0x42;
     *ptr = 42;  // This will cause an EXC_BAD_ACCESS (SIGSEGV)
+}
+
++ (void)trigger_mach_badAccessDeadbeef
+{
+    // Reproducer from https://github.com/kstenerud/KSCrash/issues/810
+    NSObject *a = (__bridge NSObject *)(void *)0xDEADBEEF;
+    [a class];
 }
 
 + (void)trigger_mach_busError
@@ -156,6 +210,11 @@ NSString *const KSCrashNSExceptionStacktraceFuncName = @"exceptionWithStacktrace
     abort();  // This will raise a SIGABRT signal
 }
 
++ (void)trigger_signal_sigpipe
+{
+    raise(SIGPIPE);
+}
+
 + (void)trigger_user_nonfatal
 {
     trigger_user_nonfatal();
@@ -164,6 +223,35 @@ NSString *const KSCrashNSExceptionStacktraceFuncName = @"exceptionWithStacktrace
 + (void)trigger_user_fatal
 {
     trigger_user_fatal();
+}
+
++ (void)trigger_user_swiftAsync
+{
+    trigger_user_swiftAsync();
+}
+
++ (void)trigger_memory_oom
+{
+    // Allocate memory in 500 MiB chunks on a background queue until the
+    // system kills us. Done off the main thread so the watchdog monitor
+    // doesn't misclassify this as a hang.
+    // Requires KSCRASH_SIM_MEMORY_TERMINATION_ENABLED=1 in the environment
+    // so the simulator OOM simulation fires SIGKILL at terminal level.
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+        const size_t chunkSize = 500 * 1024 * 1024;  // 500 MiB
+        NSMutableArray *chunks = [NSMutableArray array];
+        while (true) {
+            void *chunk = malloc(chunkSize);
+            if (chunk == NULL) {
+                break;
+            }
+            memset(chunk, 0xFF, chunkSize);
+            [chunks addObject:[NSValue valueWithPointer:chunk]];
+        }
+    });
+    // Keep main thread alive and responsive while background allocates.
+    // SIGKILL will terminate the process before this expires.
+    [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:100.0]];
 }
 
 + (void)trigger_other_manyThreads
@@ -196,6 +284,56 @@ NSString *const KSCrashNSExceptionStacktraceFuncName = @"exceptionWithStacktrace
 + (void)trigger_other_stackOverflow
 {
     [self trigger_other_stackOverflow];
+}
+
++ (void)trigger_other_watchdogTimeoutTermination
+{
+    // Schedule a SIGKILL from a background queue to terminate the app
+    // while the main thread is hung, simulating a watchdog termination
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(4.0 * NSEC_PER_SEC)),
+                   dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+                       kill(getpid(), SIGKILL);
+                   });
+
+    // Block the main thread to trigger hang detection
+    // The watchdog monitor should detect this and record a hang report
+    [NSThread sleepForTimeInterval:100.0];
+}
+
++ (void)trigger_other_appHang
+{
+    // Block the main thread long enough for the watchdog to detect a hang
+    // (threshold is 250ms), then spin the run loop so the BeforeWaiting
+    // observer fires and finalizes the recovered hang report in-place.
+    [NSThread sleepForTimeInterval:2.0];
+    [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:1.0]];
+}
+
++ (void)trigger_other_sigkill
+{
+    kill(getpid(), SIGKILL);
+}
+
++ (void)trigger_other_watchdogTimeoutWithException
+{
+    // Register a hang observer to throw an exception once a hang is detected.
+    // This ensures the exception occurs while we're definitely in a hang state.
+    static id observerToken = nil;
+    observerToken = [KSCrash.sharedInstance
+        addHangObserver:^(KSHangChangeType change, uint64_t startTimestamp, uint64_t endTimestamp) {
+            if (change == KSHangChangeTypeStarted) {
+                // Hang detected - throw exception from background thread
+                dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+                    NSException *exc = [NSException exceptionWithName:NSGenericException
+                                                               reason:@"Exception during hang"
+                                                             userInfo:nil];
+                    [exc raise];
+                });
+            }
+        }];
+
+    // Block the main thread to trigger hang detection
+    [NSThread sleepForTimeInterval:100.0];
 }
 
 #define TRIGGER_MULTIPLE(TYPE_A, TYPE_B)                                                               \

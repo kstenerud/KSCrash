@@ -9,6 +9,15 @@
 #import "KSCrashDoctor.h"
 #import "KSCrashReportFields.h"
 
+#import <mach/exception_types.h>
+
+/// Sentinel that synthesized nonatomic Objective-C setters briefly store mid-store;
+/// a concurrent unsafe read of the property faults on it, so a crash on this address
+/// signals a thread-safety bug on a nonatomic property (Apple ObjC runtime, rdar://148109501).
+/// 64-bit devices fault on the full value; 32-bit watchOS uses its low half, 0xbad0.
+static const unsigned long long kKSNonatomicRaceSentinel = 0x400000000000bad0ULL;
+static const unsigned long long kKSNonatomicRaceSentinel32 = 0xbad0ULL;
+
 typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } CPUFamily;
 
 @interface KSCrashDoctorParam : NSObject
@@ -35,7 +44,7 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
 
 @implementation KSCrashDoctorFunctionCall
 
-- (NSString *)descriptionForObjCCall
+- (nullable NSString *)descriptionForObjCCall
 {
     if (![self.name isEqualToString:@"objc_msgSend"]) {
         return nil;
@@ -162,7 +171,15 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
     return CPUFamilyUnknown;
 }
 
-- (NSString *)registerNameForFamily:(CPUFamily)family paramIndex:(int)index
+- (BOOL)is32BitReport:(NSDictionary *)report
+{
+    // 64-bit arch names (arm64, arm64e, x86_64) all contain "64". Treat an unknown
+    // or missing arch as not-32-bit so the ambiguous 0xbad0 sentinel is not matched.
+    NSString *cpuArch = [[self systemReport:report] objectForKey:KSCrashField_CPUArch];
+    return cpuArch != nil && [cpuArch rangeOfString:@"64"].location == NSNotFound;
+}
+
+- (nullable NSString *)registerNameForFamily:(CPUFamily)family paramIndex:(int)index
 {
     switch (family) {
         case CPUFamilyArm: {
@@ -218,7 +235,7 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
     return [info objectForKey:KSCrashField_ProcessName];
 }
 
-- (NSDictionary *)crashedThreadReport:(NSDictionary *)report
+- (nullable NSDictionary *)crashedThreadReport:(NSDictionary *)report
 {
     NSDictionary *crashReport = [self crashReport:report];
     NSDictionary *crashedThread = [crashReport objectForKey:KSCrashField_CrashedThread];
@@ -247,7 +264,7 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
     return basic;
 }
 
-- (NSDictionary *)lastInAppStackEntry:(NSDictionary *)report
+- (nullable NSDictionary *)lastInAppStackEntry:(NSDictionary *)report
 {
     NSString *executableName = [self mainExecutableNameForReport:report];
     NSDictionary *crashedThread = [self crashedThreadReport:report];
@@ -261,7 +278,7 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
     return nil;
 }
 
-- (NSDictionary *)lastStackEntry:(NSDictionary *)report
+- (nullable NSDictionary *)lastStackEntry:(NSDictionary *)report
 {
     NSDictionary *crashedThread = [self crashedThreadReport:report];
     NSArray *backtrace = [self backtraceFromThreadReport:crashedThread];
@@ -380,7 +397,7 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
     return function;
 }
 
-- (NSString *)zombieCall:(KSCrashDoctorFunctionCall *)functionCall
+- (nullable NSString *)zombieCall:(KSCrashDoctorFunctionCall *)functionCall
 {
     if ([functionCall.name isEqualToString:@"objc_msgSend"] && functionCall.params.count > 0 &&
         [[functionCall.params objectAtIndex:0] previousClassName] != nil) {
@@ -418,9 +435,64 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
     return [report[KSCrashField_Signal][KSCrashField_Signal] integerValue] == SIGTERM;
 }
 
-- (BOOL)isMemoryTermination:(NSDictionary *)report
+- (BOOL)isTermination:(NSDictionary *)report
 {
-    return [report[KSCrashField_Type] isEqualToString:KSCrashExcType_MemoryTermination];
+    NSString *type = report[KSCrashField_Type];
+    return [type isEqualToString:KSCrashExcType_Termination] || [type isEqualToString:KSCrashExcType_MemoryTermination];
+}
+
+- (BOOL)isWatchdogTimeoutTermination:(NSDictionary *)errorReport
+{
+    // Watchdog timeout terminations are characterized by:
+    // - EXC_CRASH mach exception
+    // - SIGKILL signal (signal 9)
+    // - Exit reason code 0x8badf00d ("ate bad food")
+
+    NSDictionary *machError = [errorReport objectForKey:KSCrashField_Mach];
+    if (machError == nil) {
+        return NO;
+    }
+
+    NSString *exceptionName = [machError objectForKey:KSCrashField_ExceptionName];
+    if (![exceptionName isEqualToString:@"EXC_CRASH"]) {
+        return NO;
+    }
+
+    NSDictionary *signal = [errorReport objectForKey:KSCrashField_Signal];
+    NSInteger signalCode = [[signal objectForKey:KSCrashField_Signal] integerValue];
+    if (signalCode != SIGKILL) {
+        return NO;
+    }
+
+    NSDictionary *exitReason = [errorReport objectForKey:KSCrashField_ExitReason];
+    if (exitReason == nil) {
+        return NO;
+    }
+
+    uint64_t code = [[exitReason objectForKey:KSCrashField_Code] unsignedLongLongValue];
+    return code == 0x8badf00d;
+}
+
+- (BOOL)isHang:(NSDictionary *)errorReport
+{
+    return [errorReport objectForKey:KSCrashField_Hang] != nil;
+}
+
+- (NSString *)hangDuration:(NSDictionary *)errorReport
+{
+    NSDictionary *hang = [errorReport objectForKey:KSCrashField_Hang];
+    if (hang == nil) {
+        return nil;
+    }
+
+    uint64_t startNanos = [[hang objectForKey:KSCrashField_HangStartNanoseconds] unsignedLongLongValue];
+    uint64_t endNanos = [[hang objectForKey:KSCrashField_HangEndNanoseconds] unsignedLongLongValue];
+
+    if (startNanos > 0 && endNanos > startNanos) {
+        double durationSeconds = (double)(endNanos - startNanos) / 1000000000.0;
+        return [NSString stringWithFormat:@"%.2f seconds", durationSeconds];
+    }
+    return nil;
 }
 
 - (NSString *)diagnoseCrash:(NSDictionary *)report
@@ -432,6 +504,14 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
 
         if ([self isDeadlock:report]) {
             return [NSString stringWithFormat:@"Main thread deadlocked in %@", lastFunctionName];
+        }
+
+        if ([self isWatchdogTimeoutTermination:errorReport]) {
+            NSString *duration = [self hangDuration:errorReport];
+            if (duration != nil) {
+                return [NSString stringWithFormat:@"App hung for %@. Terminated by watchdog.", duration];
+            }
+            return @"App terminated by watchdog.";
         }
 
         if ([self isStackOverflow:crashedThreadReport]) {
@@ -468,13 +548,23 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
         }
 
         if ([self isInvalidAddress:errorReport]) {
-            uintptr_t address = (uintptr_t)[[errorReport objectForKey:KSCrashField_Address] unsignedLongLongValue];
+            unsigned long long address = [[errorReport objectForKey:KSCrashField_Address] unsignedLongLongValue];
             if (address == 0) {
                 return [self appendOriginatingCall:@"Attempted to dereference null pointer." callName:lastFunctionName];
             }
+            // The 64-bit sentinel is unmistakable. The 32-bit half (0xbad0) is a plausible
+            // real garbage pointer on 64-bit, so only trust it on a 32-bit report.
+            if (address == kKSNonatomicRaceSentinel ||
+                (address == kKSNonatomicRaceSentinel32 && [self is32BitReport:report])) {
+                return [self
+                    appendOriginatingCall:@"Crashed on the Objective-C nonatomic-property race sentinel. A nonatomic "
+                                          @"property was read on one thread while being written on another "
+                                          @"(thread-safety bug)."
+                                 callName:lastFunctionName];
+            }
             return
                 [self appendOriginatingCall:[NSString stringWithFormat:@"Attempted to dereference garbage pointer %p.",
-                                                                       (void *)address]
+                                                                       (void *)(uintptr_t)address]
                                    callName:lastFunctionName];
         }
 
@@ -482,8 +572,33 @@ typedef enum { CPUFamilyUnknown, CPUFamilyArm, CPUFamilyX86, CPUFamilyX86_64 } C
             return @"The OS request the app be gracefully terminated.";
         }
 
-        if ([self isMemoryTermination:errorReport]) {
-            return @"The app was terminated due to running out of memory (OOM).";
+        NSDictionary *machError = errorReport[KSCrashField_Mach];
+        if ([[machError objectForKey:KSCrashField_Exception] intValue] == EXC_RESOURCE) {
+            NSString *reason = errorReport[KSCrashField_Reason];
+            return reason ?: @"Sustained CPU usage exceeded the warning threshold.";
+        }
+
+        if ([self isTermination:errorReport]) {
+            NSString *reason = errorReport[KSCrashField_TerminationReason];
+            if ([reason isEqualToString:@"memory_limit"]) {
+                return @"The app exceeded its memory limit and was terminated by the OS.";
+            } else if ([reason isEqualToString:@"memory_pressure"]) {
+                return @"The app was terminated due to system-wide memory pressure.";
+            } else if ([reason isEqualToString:@"cpu"]) {
+                return @"The app was terminated due to excessive CPU usage.";
+            } else if ([reason isEqualToString:@"thermal"]) {
+                return @"The app was terminated due to critical thermal state.";
+            } else if ([reason isEqualToString:@"low_battery"]) {
+                return @"The device shut down due to low battery.";
+            } else if ([reason isEqualToString:@"os_upgrade"]) {
+                return @"The previous run ended due to an OS upgrade.";
+            } else if ([reason isEqualToString:@"app_upgrade"]) {
+                return @"The previous run ended due to an app upgrade.";
+            } else if ([reason isEqualToString:@"reboot"]) {
+                return @"The previous run ended due to a device reboot.";
+            } else {
+                return @"The app was terminated for an unknown reason.";
+            }
         }
 
         return nil;

@@ -32,14 +32,17 @@
 #include "KSThread.h"
 
 // #define KSLogger_LocalLevel TRACE
+#include <mach/exception_types.h>
 #include <memory.h>
+#include <signal.h>
+#include <stdatomic.h>
 #include <stdlib.h>
 
 #include "KSLogger.h"
 
 /** Context to fill with crash information. */
 
-static volatile bool g_isEnabled = false;
+static atomic_bool g_isEnabled = false;
 
 static KSCrash_ExceptionHandlerCallbacks g_callbacks;
 
@@ -56,6 +59,7 @@ void kscm_reportUserException(const char *name, const char *reason, const char *
     KSCrash_MonitorContext *ctx = g_callbacks.notify(
         thisThread, (KSCrash_ExceptionHandlingRequirements) { .asyncSafety = false,
                                                               .isFatal = terminateProgram,
+                                                              .isCleanExit = false,
                                                               .shouldRecordAllThreads = logAllThreads,
                                                               .shouldWriteReport = true });
     if (ctx->requirements.shouldExitImmediately) {
@@ -76,10 +80,12 @@ void kscm_reportUserException(const char *name, const char *reason, const char *
     ctx->userException.language = language;
     ctx->userException.lineOfCode = lineOfCode;
     ctx->userException.customStackTrace = stackTrace;
+    ctx->mach.type = EXC_CRASH;
+    ctx->signal.signum = SIGABRT;
     ctx->stackCursor = &stackCursor;
-    ctx->currentSnapshotUserReported = true;
 
-    g_callbacks.handle(ctx);
+    KSCrash_ReportResult result = { 0 };
+    g_callbacks.handleWithResult(ctx, &result, !terminateProgram);
 
 exit_immediately:
     if (terminateProgram) {
@@ -89,13 +95,13 @@ exit_immediately:
     KS_THWART_TAIL_CALL_OPTIMISATION
 }
 
-static const char *monitorId(void) { return "UserReported"; }
+static const char *monitorId(__unused void *context) { return "UserReported"; }
 
-static void setEnabled(bool isEnabled) { g_isEnabled = isEnabled; }
+static void setEnabled(bool isEnabled, __unused void *context) { g_isEnabled = isEnabled; }
 
-static bool isEnabled(void) { return g_isEnabled; }
+static bool isEnabled(__unused void *context) { return g_isEnabled; }
 
-static void init(KSCrash_ExceptionHandlerCallbacks *callbacks) { g_callbacks = *callbacks; }
+static void init(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused void *context) { g_callbacks = *callbacks; }
 
 KSCrashMonitorAPI *kscm_user_getAPI(void)
 {

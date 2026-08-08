@@ -38,6 +38,9 @@
 
 @implementation KSCrashConfigurationTests
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 - (void)setUp
 {
     clearCallbackData();
@@ -60,6 +63,10 @@
     XCTAssertFalse(config.printPreviousLogOnStartup);
     XCTAssertEqual(config.reportStoreConfiguration.maxReportCount, 5);
     XCTAssertTrue(config.enableSwapCxaThrow);
+    XCTAssertFalse(config.enableSwiftAsyncStackTraces);
+    XCTAssertFalse(config.enableHangReporting);
+    XCTAssertFalse(config.enableCPUExceptionReporting);
+    XCTAssertFalse(config.enableCompactBinaryImages);
 }
 
 - (void)testToCConfiguration
@@ -75,6 +82,10 @@
     config.printPreviousLogOnStartup = YES;
     config.reportStoreConfiguration.maxReportCount = 10;
     config.enableSwapCxaThrow = NO;
+    config.enableSwiftAsyncStackTraces = YES;
+    config.enableHangReporting = YES;
+    config.enableCPUExceptionReporting = YES;
+    config.enableCompactBinaryImages = YES;
 
     KSCrashCConfiguration cConfig = [config toCConfiguration];
 
@@ -91,6 +102,10 @@
     XCTAssertTrue(cConfig.printPreviousLogOnStartup);
     XCTAssertEqual(cConfig.reportStoreConfiguration.maxReportCount, 10);
     XCTAssertFalse(cConfig.enableSwapCxaThrow);
+    XCTAssertTrue(cConfig.enableSwiftAsyncStackTraces);
+    XCTAssertTrue(cConfig.enableHangReporting);
+    XCTAssertTrue(cConfig.enableCPUExceptionReporting);
+    XCTAssertTrue(cConfig.enableCompactBinaryImages);
 
     // Free memory allocated for C string array
     KSCrashCConfiguration_Release(&cConfig);
@@ -109,6 +124,10 @@
     config.printPreviousLogOnStartup = YES;
     config.reportStoreConfiguration.maxReportCount = 10;
     config.enableSwapCxaThrow = NO;
+    config.enableSwiftAsyncStackTraces = YES;
+    config.enableHangReporting = YES;
+    config.enableCPUExceptionReporting = YES;
+    config.enableCompactBinaryImages = YES;
 
     KSCrashConfiguration *copy = [config copy];
 
@@ -122,6 +141,10 @@
     XCTAssertTrue(copy.printPreviousLogOnStartup);
     XCTAssertEqual(copy.reportStoreConfiguration.maxReportCount, 10);
     XCTAssertFalse(copy.enableSwapCxaThrow);
+    XCTAssertTrue(copy.enableSwiftAsyncStackTraces);
+    XCTAssertTrue(copy.enableHangReporting);
+    XCTAssertTrue(copy.enableCPUExceptionReporting);
+    XCTAssertTrue(copy.enableCompactBinaryImages);
 }
 
 - (void)testEmptyDictionaryForJSONConversion
@@ -282,9 +305,6 @@ static void didWriteReportCallback(const KSCrash_ExceptionHandlingPlan *const pl
 }
 
 #pragma mark - Backward Compatibility Tests
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
 static struct {
     BOOL legacyCrashNotifyCallbackCalled;
@@ -449,6 +469,120 @@ static void clearLegacyCallbackData(void) { memset(&g_legacyCallbackData, 0, siz
     XCTAssertEqual(cConfig.crashNotifyCallback, NULL);
     XCTAssertEqual(cConfig.reportWrittenCallback, NULL);
 
+    KSCrashCConfiguration_Release(&cConfig);
+}
+
+#pragma mark - Plugin Tests
+
+static const char *testPluginMonitorId(__unused void *context) { return "test_plugin"; }
+static KSCrashMonitorFlag testPluginMonitorFlags(__unused void *context) { return (KSCrashMonitorFlag)0; }
+static bool g_testPluginEnabled = false;
+static void testPluginSetEnabled(bool isEnabled, __unused void *context) { g_testPluginEnabled = isEnabled; }
+static bool testPluginIsEnabled(__unused void *context) { return g_testPluginEnabled; }
+
+- (void)testPluginInitWithAPI
+{
+    KSCrashMonitorAPI api = { 0 };
+    api.monitorId = testPluginMonitorId;
+    KSCrashBasicMonitorPlugin *plugin = [[KSCrashBasicMonitorPlugin alloc] initWithAPI:&api];
+    XCTAssertEqual(plugin.api, &api);
+    XCTAssertEqual(strcmp(plugin.api->monitorId(NULL), "test_plugin"), 0);
+}
+
+- (void)testPluginWithAPI
+{
+    KSCrashMonitorAPI api = { 0 };
+    api.monitorId = testPluginMonitorId;
+    KSCrashBasicMonitorPlugin *plugin = [KSCrashBasicMonitorPlugin pluginWithAPI:&api];
+    XCTAssertEqual(plugin.api, &api);
+}
+
+- (void)testPluginsDefaultNil
+{
+    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+    XCTAssertNil(config.plugins);
+}
+
+- (void)testPluginsToCConfiguration
+{
+    KSCrashMonitorAPI api1 = { 0 };
+    api1.monitorId = testPluginMonitorId;
+    api1.monitorFlags = testPluginMonitorFlags;
+    api1.setEnabled = testPluginSetEnabled;
+    api1.isEnabled = testPluginIsEnabled;
+
+    KSCrashBasicMonitorPlugin *plugin1 = [[KSCrashBasicMonitorPlugin alloc] initWithAPI:&api1];
+
+    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+    config.plugins = @[ plugin1 ];
+
+    KSCrashCConfiguration cConfig = [config toCConfiguration];
+
+    XCTAssertEqual(cConfig.plugins.length, 1);
+    XCTAssertNotEqual(cConfig.plugins.apis, NULL);
+    XCTAssertEqual(strcmp(cConfig.plugins.apis[0].monitorId(NULL), "test_plugin"), 0);
+    XCTAssertNotEqual(cConfig.plugins.release, NULL);
+
+    KSCrashCConfiguration_Release(&cConfig);
+}
+
+- (void)testPluginsToCConfigurationNil
+{
+    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+    config.plugins = nil;
+
+    KSCrashCConfiguration cConfig = [config toCConfiguration];
+
+    XCTAssertEqual(cConfig.plugins.length, 0);
+    XCTAssertEqual(cConfig.plugins.apis, NULL);
+    XCTAssertEqual(cConfig.plugins.release, NULL);
+
+    KSCrashCConfiguration_Release(&cConfig);
+}
+
+- (void)testPluginsCopyWithZone
+{
+    KSCrashMonitorAPI api = { 0 };
+    api.monitorId = testPluginMonitorId;
+    KSCrashBasicMonitorPlugin *plugin = [[KSCrashBasicMonitorPlugin alloc] initWithAPI:&api];
+
+    KSCrashConfiguration *config = [[KSCrashConfiguration alloc] init];
+    config.plugins = @[ plugin ];
+
+    KSCrashConfiguration *copy = [config copy];
+
+    XCTAssertEqual(copy.plugins.count, 1);
+    XCTAssertEqual(copy.plugins[0].api, &api);
+}
+
+- (void)testCConfigurationDefaultPlugins
+{
+    KSCrashCConfiguration cConfig = KSCrashCConfiguration_Default();
+    XCTAssertEqual(cConfig.plugins.apis, NULL);
+    XCTAssertEqual(cConfig.plugins.length, 0);
+    XCTAssertEqual(cConfig.plugins.release, NULL);
+    XCTAssertFalse(cConfig.enableSwiftAsyncStackTraces);
+    KSCrashCConfiguration_Release(&cConfig);
+}
+
+- (void)testCConfigurationReleaseWithReleaseFunc
+{
+    KSCrashCConfiguration cConfig = KSCrashCConfiguration_Default();
+    cConfig.plugins.apis = malloc(sizeof(KSCrashMonitorAPI) * 1);
+    cConfig.plugins.length = 1;
+    cConfig.plugins.release = free;
+    // Should not leak or crash
+    KSCrashCConfiguration_Release(&cConfig);
+}
+
+- (void)testCConfigurationReleaseWithoutReleaseFunc
+{
+    KSCrashMonitorAPI stackAPI = { 0 };
+    KSCrashCConfiguration cConfig = KSCrashCConfiguration_Default();
+    cConfig.plugins.apis = &stackAPI;
+    cConfig.plugins.length = 1;
+    cConfig.plugins.release = NULL;
+    // Should not crash — no free called on stack pointer
     KSCrashCConfiguration_Release(&cConfig);
 }
 

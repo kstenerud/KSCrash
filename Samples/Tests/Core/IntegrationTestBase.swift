@@ -26,6 +26,7 @@
 
 import CrashTriggers
 import IntegrationTestsHelper
+import KSCrashReportModel
 import Logging
 import SampleUI
 import XCTest
@@ -38,6 +39,7 @@ class IntegrationTestBase: XCTestCase {
     private(set) var installUrl: URL!
     private(set) var appleReportsUrl: URL!
     private(set) var stateUrl: URL!
+    private(set) var actionCompletedUrl: URL!
 
     var appLaunchTimeout: TimeInterval = 10.0
     var appTerminateTimeout: TimeInterval = 5.0
@@ -63,6 +65,14 @@ class IntegrationTestBase: XCTestCase {
         )
     }
 
+    private var runConfigWithCompletionMarker: IntegrationTestRunner.RunConfig {
+        .init(
+            delay: actionDelay,
+            stateSavePath: stateUrl.path,
+            completionMarkerPath: actionCompletedUrl.path
+        )
+    }
+
     override func setUpWithError() throws {
         try super.setUpWithError()
 
@@ -74,6 +84,7 @@ class IntegrationTestBase: XCTestCase {
             .appendingPathComponent(UUID().uuidString)
         appleReportsUrl = installUrl.appendingPathComponent("__TEST_REPORTS__")
         stateUrl = installUrl.appendingPathComponent("__test_state__.json")
+        actionCompletedUrl = installUrl.appendingPathComponent("__test_action_completed__")
 
         try FileManager.default.createDirectory(at: appleReportsUrl, withIntermediateDirectories: true)
         log.info("KSCrash install path: \(installUrl.path)")
@@ -130,6 +141,21 @@ class IntegrationTestBase: XCTestCase {
             XCTAssert(app.wait(for: .notRunning, timeout: actionDelay + appCrashTimeout), "App crash is expected")
         #endif
         logFile(name: "Data/ConsoleLog.txt", path: installUrl.path.appending("/Data/ConsoleLog.txt"))
+    }
+
+    private func waitForFile(at url: URL, timeout: TimeInterval) throws {
+        enum Error: Swift.Error {
+            case fileNotFound
+        }
+
+        let fileExpectation = XCTNSPredicateExpectation(
+            predicate: .init { _, _ in FileManager.default.fileExists(atPath: url.path) },
+            object: nil
+        )
+        wait(for: [fileExpectation], timeout: timeout)
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            throw Error.fileNotFound
+        }
     }
 
     private func waitForFile(in dir: URL, timeout: TimeInterval? = nil) throws -> URL {
@@ -195,20 +221,25 @@ class IntegrationTestBase: XCTestCase {
         return report
     }
 
-    func readPartialCrashReport() throws -> PartialCrashReport {
+    func readCrashReport() throws -> CrashReport<NoUserData> {
         let reportData = try readRawCrashReportData()
-        let report = try JSONDecoder().decode(PartialCrashReport.self, from: reportData)
+        let report = try JSONDecoder().decode(CrashReport<NoUserData>.self, from: reportData)
         return report
     }
 
-    func decodePartialCrashReport(reportData: Data) throws -> PartialCrashReport {
-        return try JSONDecoder().decode(PartialCrashReport.self, from: reportData)
+    func decodeCrashReport(reportData: Data) throws -> CrashReport<NoUserData> {
+        return try JSONDecoder().decode(CrashReport<NoUserData>.self, from: reportData)
     }
 
     func hasCrashReport() throws -> Bool {
         let reportsDirUrl = installUrl.appendingPathComponent("Reports")
         let files = try? FileManager.default.contentsOfDirectory(atPath: reportsDirUrl.path)
         return (files ?? []).isEmpty == false
+    }
+
+    func readAppleReportData() throws -> Data {
+        let url = try waitForFile(in: appleReportsUrl, timeout: reportTimeout)
+        return try Data(contentsOf: url)
     }
 
     func readAppleReport() throws -> String {
@@ -243,6 +274,24 @@ class IntegrationTestBase: XCTestCase {
         waitForCrash()
     }
 
+    func launchAndRunTrigger(
+        _ triggerId: CrashTriggerId, installOverride: ((inout InstallConfig) throws -> Void)? = nil
+    )
+        throws
+    {
+        var installConfig = InstallConfig(installPath: installUrl.path)
+        try installOverride?(&installConfig)
+        try? FileManager.default.removeItem(at: actionCompletedUrl)
+        app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
+            crash: .init(triggerId: triggerId),
+            install: installConfig,
+            config: runConfigWithCompletionMarker
+        )
+
+        launchAppAndRunScript()
+        try waitForFile(at: actionCompletedUrl, timeout: appLaunchTimeout + actionDelay + appCrashTimeout)
+    }
+
     func launchAndMakeUserReport(
         userException: UserReportConfig.UserException? = nil,
         nsException: UserReportConfig.NSExceptionReport? = nil,
@@ -259,6 +308,20 @@ class IntegrationTestBase: XCTestCase {
         launchAppAndRunScript()
     }
 
+    func launchAndSigkill(
+        env: [String: String] = [:],
+        installOverride: ((inout InstallConfig) throws -> Void)? = nil
+    ) throws {
+        for (key, value) in env {
+            app.launchEnvironment[key] = value
+        }
+        try launchAndCrash(.other_sigkill, installOverride: installOverride)
+        // Clear override env vars so the next launch reads real system/resource values.
+        for key in env.keys {
+            app.launchEnvironment.removeValue(forKey: key)
+        }
+    }
+
     func launchAndReportCrash() throws -> String {
         app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
             report: .init(directoryPath: appleReportsUrl.path),
@@ -269,6 +332,21 @@ class IntegrationTestBase: XCTestCase {
         launchAppAndRunScript()
         let report = try readAppleReport()
         return report
+    }
+
+    func launchAndReportCrashRaw(
+        installOverride: ((inout InstallConfig) throws -> Void)? = nil
+    ) throws -> Data {
+        var installConfig = InstallConfig(installPath: installUrl.path)
+        try installOverride?(&installConfig)
+        app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
+            report: .init(directoryPath: appleReportsUrl.path, rawJSON: true),
+            install: installConfig,
+            config: runConfig
+        )
+
+        launchAppAndRunScript()
+        return try readAppleReportData()
     }
 
     func readState() throws -> KSCrashState {

@@ -27,11 +27,13 @@
 #import <Foundation/Foundation.h>
 #import "KSCrashCConfiguration.h"
 #import "KSCrashExceptionHandlingPlan.h"
+#import "KSCrashMonitorPlugin.h"
 #import "KSCrashMonitorType.h"
 #include "KSCrashNamespace.h"
 #import "KSCrashReportStore.h"
 #import "KSCrashReportWriter.h"
 #import "KSCrashReportWriterCallbacks.h"
+#import "KSSystemCapabilities.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -59,10 +61,12 @@ NS_ASSUME_NONNULL_BEGIN
  */
 @property(nonatomic, assign) KSCrashMonitorType monitors;
 
-/** User-supplied data in JSON format. NULL to delete.
+/** Initial user-supplied data dictionary, written into the crash report's "user" section at install time.
+ * Set to nil to clear.
  *
- * This JSON string contains user-specific data that will be included in
- * the crash report. If NULL is passed, any existing user data will be deleted.
+ * After install, use the per-key API in KSCrash+UserInfo.h to update values.
+ *
+ * **Default**: nil
  */
 @property(nonatomic, copy, nullable) NSDictionary<NSString *, id> *userInfoJSON;
 
@@ -76,8 +80,12 @@ NS_ASSUME_NONNULL_BEGIN
  * this value, including application startup. You may need to initialize your
  * application on a different thread or set this to a higher value until initialization
  * is complete.
+ *
+ * @note Deprecated. Use `KSCrashMonitorTypeWatchdog` in the `monitors` property instead.
+ * The watchdog monitor provides better hang detection with a fixed 250ms threshold.
  */
-@property(nonatomic, assign) double deadlockWatchdogInterval;
+@property(nonatomic, assign)
+    double deadlockWatchdogInterval KSCRASH_DEPRECATED("Use KSCrashMonitorTypeWatchdog in monitors instead.");
 
 /** If true, attempt to fetch dispatch queue names for each running thread.
  *
@@ -169,20 +177,77 @@ NS_ASSUME_NONNULL_BEGIN
  * accurate stack traces even in dynamically linked libraries and allows overriding
  * the original `__cxa_throw` with a custom implementation.
  *
+ * @note This feature is automatically disabled when the binary is compiled with
+ * sanitizers (ASan, TSan, etc.) as they also intercept `__cxa_throw` and conflict
+ * with this swapping mechanism.
+ *
  * **Default**: true
  */
 @property(nonatomic, assign) BOOL enableSwapCxaThrow;
 
-/** If true, enables monitoring for SIGTERM signals.
+/** If true, use `backtrace_async()` for KSCrash's current-thread stack capture paths.
  *
- * A SIGTERM is usually sent to the application by the OS during a graceful shutdown,
- * but it can also happen on some Watchdog events.
- * Enabling this can provide more insights into the cause of the SIGTERM, but
- * it can also generate many false-positive crash reports.
+ * This can stitch Swift async continuation frames into self-thread backtraces such as
+ * C++ exception throw-site and handler cursors, user-reported fallbacks, and current-thread
+ * `captureBacktrace` calls. When `backtrace_async()` is not available at build time or runtime,
+ * KSCrash falls back to `backtrace()`.
  *
  * **Default**: false
  */
-@property(nonatomic, assign) BOOL enableSigTermMonitoring;
+@property(nonatomic, assign) BOOL enableSwiftAsyncStackTraces;
+
+/** If true, enables monitoring for SIGTERM signals.
+ *
+ * @deprecated SIGTERM is now always caught to record a clean exit. No crash report is written. This property is
+ * ignored.
+ */
+@property(nonatomic, assign) BOOL enableSigTermMonitoring KSCRASH_DEPRECATED(
+    "SIGTERM is now always caught to record a clean exit. This property is ignored.");
+
+/** If true, resolved hangs are kept as non-fatal reports.
+ *
+ * When enabled, hangs that resolve on their own are preserved as reports
+ * with duration and stack trace information. When disabled (default),
+ * resolved hangs are discarded.
+ *
+ * Only applies when `KSCrashMonitorTypeWatchdog` is included in `monitors`.
+ *
+ * **Default**: false
+ */
+@property(nonatomic, assign) BOOL enableHangReporting;
+
+/** If true, generate non-fatal reports when sustained CPU usage reaches
+ *  warning or critical thresholds.
+ *
+ * Each upward state transition (normal to warning, warning to critical,
+ * or normal to critical) produces one report with all thread stacks.
+ *
+ * Only applies when `KSCrashMonitorTypeResource` is included in `monitors`.
+ *
+ * **Default**: false
+ */
+@property(nonatomic, assign) BOOL enableCPUExceptionReporting;
+
+/** If true, use compact binary image reporting.
+ *
+ * When enabled, the `binary_images` array is filtered to only include
+ * images referenced by backtrace frames. Images that only have
+ * crash_info but no backtrace reference are omitted — in practice
+ * the crashing image is almost always referenced by the backtrace.
+ *
+ * **Default**: false
+ */
+@property(nonatomic, assign) BOOL enableCompactBinaryImages;
+
+/** Plugin monitors to register at install time.
+ *
+ * An array of objects conforming to `KSCrashMonitorPlugin` protocol.
+ * These monitors are copied into static storage and registered via `kscm_addMonitor()`
+ * during installation, alongside the built-in monitors.
+ *
+ * **Default**: nil
+ */
+@property(nonatomic, copy, nullable) NSArray<id<KSCrashMonitorPlugin>> *plugins;
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"

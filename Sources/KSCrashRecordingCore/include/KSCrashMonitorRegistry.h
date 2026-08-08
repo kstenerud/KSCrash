@@ -55,18 +55,33 @@ typedef struct {
 } KSCrashMonitorAPIList;
 
 /**
- * Activates all added crash monitors.
+ * Enable all added crash monitors.
  *
  * Enables all monitors that have been added to the system. However, not all
  * monitors may be activated due to certain conditions. Monitors that are
  * considered unsafe in a debugging environment or require specific safety
- * measures for asynchronous operations may not be activated. The function
- * checks the current environment and adjusts the activation status of each
- * monitor accordingly.
+ * measures for asynchronous operations may not be activated.
  *
- * @return bool True if at least one monitor was successfully activated, false if no monitors were activated.
+ * @return bool True if at least one monitor was successfully enabled, false if no monitors were enabled.
  */
-bool kscmr_activateMonitors(KSCrashMonitorAPIList *monitorList);
+bool kscmr_enableMonitors(KSCrashMonitorAPIList *monitorList);
+
+/**
+ * Notify all enabled monitors that monitors have been enabled.
+ *
+ * Called after enableMonitors but before RunContext init.  Monitors that
+ * populate current-run sidecar data needed by RunContext (e.g. boot time)
+ * should do so here.
+ */
+void kscmr_notifyPostMonitorsEnabled(KSCrashMonitorAPIList *monitorList);
+
+/**
+ * Notify all enabled monitors that the system is fully initialized.
+ *
+ * Monitors may use this callback to read previous-run analysis from RunContext.
+ * Must only be called after RunContext has been initialized.
+ */
+void kscmr_notifyPostSystemEnable(KSCrashMonitorAPIList *monitorList);
 
 /**
  * Disables all active crash monitors.
@@ -74,6 +89,17 @@ bool kscmr_activateMonitors(KSCrashMonitorAPIList *monitorList);
  * Turns off all currently active monitors.
  */
 void kscmr_disableAllMonitors(KSCrashMonitorAPIList *monitorList);
+
+/**
+ * Disables only crash monitors that have the KSCrashMonitorFlagAsyncSafe flag.
+ *
+ * This is safe to call from a crash handler (signal handler context) because
+ * it only disables monitors whose setEnabled() implementation is async-signal-safe.
+ * Non-async-safe monitors (e.g., Memory, Deadlock, Watchdog) are skipped since
+ * their cleanup may involve ObjC messaging or other non-signal-safe operations,
+ * and they don't need cleanup anyway since the process is terminating.
+ */
+void kscmr_disableAsyncSafeMonitors(KSCrashMonitorAPIList *monitorList);
 
 /**
  * Adds a crash monitor to the system.
@@ -99,7 +125,22 @@ bool kscmr_addMonitor(KSCrashMonitorAPIList *monitorList, const KSCrashMonitorAP
  */
 void kscmr_removeMonitor(KSCrashMonitorAPIList *monitorList, const KSCrashMonitorAPI *api);
 
+/**
+ * Iterates through all monitors and calls their `addContextualInfoToEvent` callback.
+ *
+ * @param monitorList The list of monitors to iterate.
+ * @param ctx The monitor context to be populated with contextual information.
+ */
 void kscmr_addContextualInfoToEvent(KSCrashMonitorAPIList *monitorList, struct KSCrash_MonitorContext *ctx);
+
+/**
+ * Retrieves a monitor from the list by its unique identifier.
+ *
+ * @param monitorList The list of monitors to search.
+ * @param monitorId The unique identifier of the monitor to retrieve.
+ * @return A pointer to the monitor's API, or NULL if no monitor with the given ID exists.
+ */
+const KSCrashMonitorAPI *kscmr_getMonitor(KSCrashMonitorAPIList *monitorList, const char *monitorId);
 
 #ifdef __cplusplus
 }

@@ -1,0 +1,17 @@
+# Patterns (Python regex, case-insensitive by default) for API-break lines that
+# should NOT fail the gate. Each non-blank, non-comment line is a regex applied
+# to a single break line as printed by swift-api-digester -diagnose-sdk
+# (e.g. "KSCrashRecording(KSCrashMonitorType.h): Var MonitorType.experimental has been removed").
+#
+# Add a comment above each pattern explaining why the break is acceptable.
+
+# Experimental APIs are not part of the public contract. Symbols whose path
+# contains the word "experimental" can be removed/changed without notice.
+\bexperimental\b
+
+# AppStateTracker.addObserver(_:) return-type change between 2.5.1 and 2.6.0.
+# 2.5.1's KSCrashAppStateTracker.h carried "We'll keep it private for now until
+# it is integrated with KSCrashMonitor_AppState" — de-facto private despite
+# being in a public header. Documented as a known break in the 2.6.0 release
+# notes. See PR #828 review thread (naftaly) and PR #829 (closed).
+AppStateTracker\.addObserver

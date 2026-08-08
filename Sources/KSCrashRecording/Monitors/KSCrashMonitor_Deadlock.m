@@ -31,8 +31,11 @@
 #import "KSID.h"
 #import "KSStackCursor_MachineContext.h"
 #import "KSThread.h"
+#import "Unwind/KSStackCursor_Unwind.h"
 
 #import <Foundation/Foundation.h>
+#import <mach/exception_types.h>
+#import <signal.h>
 #import <stdatomic.h>
 
 // #define KSLogger_LocalLevel TRACE
@@ -51,10 +54,8 @@ static atomic_bool g_isEnabled = false;
 /** Thread which monitors other threads. */
 static KSCrashDeadlockMonitor *g_monitor;
 
-static KSThread g_mainQueueThread;
-
 /** Interval between watchdog pulses. */
-static NSTimeInterval g_watchdogInterval = 0;
+static _Atomic(NSTimeInterval) g_watchdogInterval = 0;
 
 static KSCrash_ExceptionHandlerCallbacks g_callbacks;
 
@@ -105,24 +106,31 @@ static KSCrash_ExceptionHandlerCallbacks g_callbacks;
 {
     thread_t thisThread = (thread_t)ksthread_self();
     // This requires async-safety because the environment is suspended.
-    KSCrash_MonitorContext *crashContext = g_callbacks.notify(
-        thisThread,
-        (KSCrash_ExceptionHandlingRequirements) {
-            .asyncSafety = true, .isFatal = true, .shouldRecordAllThreads = true, .shouldWriteReport = true });
+    KSCrash_MonitorContext *crashContext =
+        g_callbacks.notify(thisThread, (KSCrash_ExceptionHandlingRequirements) { .asyncSafety = true,
+                                                                                 .isFatal = true,
+                                                                                 .isCleanExit = false,
+                                                                                 .shouldRecordAllThreads = true,
+                                                                                 .shouldWriteReport = true });
     if (crashContext->requirements.shouldExitImmediately) {
         goto exit_immediately;
     }
 
     KSMachineContext machineContext = { 0 };
-    ksmc_getContextForThread(g_mainQueueThread, &machineContext, false);
+    ksmc_getContextForThread(ksthread_main(), &machineContext, false);
     KSStackCursor stackCursor;
-    kssc_initWithMachineContext(&stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
+    kssc_initWithUnwind(&stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
 
     KSLOG_DEBUG(@"Filling out context.");
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     kscm_fillMonitorContext(crashContext, kscm_deadlock_getAPI());
+#pragma clang diagnostic pop
     crashContext->registersAreValid = false;
     crashContext->offendingMachineContext = &machineContext;
     crashContext->stackCursor = &stackCursor;
+    crashContext->mach.type = EXC_CRASH;
+    crashContext->signal.signum = SIGABRT;
 
     g_callbacks.handle(crashContext);
 
@@ -138,7 +146,7 @@ exit_immediately:
         // Only do a watchdog check if the watchdog interval is > 0.
         // If the interval is <= 0, just idle until the user changes it.
         @autoreleasepool {
-            NSTimeInterval sleepInterval = g_watchdogInterval;
+            NSTimeInterval sleepInterval = atomic_load_explicit(&g_watchdogInterval, memory_order_relaxed);
             BOOL runWatchdogCheck = sleepInterval > 0;
             if (!runWatchdogCheck) {
                 sleepInterval = kIdleInterval;
@@ -162,22 +170,11 @@ exit_immediately:
 #pragma mark - API -
 // ============================================================================
 
-static void initialize(void)
-{
-    static bool isInitialized = false;
-    if (!isInitialized) {
-        isInitialized = true;
-        dispatch_async(dispatch_get_main_queue(), ^{
-            g_mainQueueThread = ksthread_self();
-        });
-    }
-}
+static const char *monitorId(__unused void *context) { return "MainThreadDeadlock"; }
 
-static const char *monitorId(void) { return "MainThreadDeadlock"; }
+static KSCrashMonitorFlag monitorFlags(__unused void *context) { return KSCrashMonitorFlagNone; }
 
-static KSCrashMonitorFlag monitorFlags(void) { return KSCrashMonitorFlagNone; }
-
-static void setEnabled(bool isEnabled)
+static void setEnabled(bool isEnabled, __unused void *context)
 {
     bool expectEnabled = !isEnabled;
     if (!atomic_compare_exchange_strong(&g_isEnabled, &expectEnabled, isEnabled)) {
@@ -187,7 +184,6 @@ static void setEnabled(bool isEnabled)
 
     if (isEnabled) {
         KSLOG_DEBUG(@"Creating new deadlock monitor.");
-        initialize();
         g_monitor = [[KSCrashDeadlockMonitor alloc] init];
     } else {
         KSLOG_DEBUG(@"Stopping deadlock monitor.");
@@ -196,9 +192,9 @@ static void setEnabled(bool isEnabled)
     }
 }
 
-static bool isEnabled(void) { return g_isEnabled; }
+static bool isEnabled(__unused void *context) { return g_isEnabled; }
 
-static void init(KSCrash_ExceptionHandlerCallbacks *callbacks) { g_callbacks = *callbacks; }
+static void init(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused void *context) { g_callbacks = *callbacks; }
 
 KSCrashMonitorAPI *kscm_deadlock_getAPI(void)
 {
@@ -213,4 +209,7 @@ KSCrashMonitorAPI *kscm_deadlock_getAPI(void)
     return &api;
 }
 
-void kscm_setDeadlockHandlerWatchdogInterval(double value) { g_watchdogInterval = value; }
+void kscm_setDeadlockHandlerWatchdogInterval(double value)
+{
+    atomic_store_explicit(&g_watchdogInterval, value, memory_order_relaxed);
+}

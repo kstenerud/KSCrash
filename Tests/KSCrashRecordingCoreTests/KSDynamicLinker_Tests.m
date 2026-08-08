@@ -25,6 +25,7 @@
 //
 
 #import <XCTest/XCTest.h>
+#import <string.h>
 
 #import "KSBinaryImageCache.h"
 #import "KSDynamicLinker.h"
@@ -32,17 +33,13 @@
 @interface KSDynamicLinker_Tests : XCTestCase
 @end
 
-// Declare external function only for testing
-extern void ksbic_resetCache(void);
-extern void ksbic_init(void);
-
 @implementation KSDynamicLinker_Tests
 
 - (void)setUp
 {
     [super setUp];
-    ksbic_resetCache();
-    ksbic_init();
+    ksdl_resetCache();
+    ksdl_init();
     [NSThread sleepForTimeInterval:0.1];
 }
 
@@ -57,167 +54,134 @@ extern void ksbic_init(void);
     XCTAssertTrue(buffer.uuid != NULL, @"");
 }
 
-// Regression test for https://github.com/DataDog/dd-sdk-ios/issues/2645
-// Before the fix, imageContainingAddress() could return the wrong image due to
-// unsigned integer underflow when computing (address - slide) for images loaded
-// at addresses higher than the lookup address. This caused dli_fbase to be
-// higher than the lookup address, leading to arithmetic overflow in downstream
-// offset calculations.
-- (void)testDladdrReturnsCorrectImageBase
+- (void)testDladdr_FindsSymbol
 {
-    // Get address of this test function
-    uintptr_t testFunctionAddress = (uintptr_t)&KSDynamicLinker_Tests_testDladdrReturnsCorrectImageBase;
+    // Use the address of a known function
+    uintptr_t address = (uintptr_t)ksdl_init;
 
     Dl_info info = { 0 };
-    bool success = ksdl_dladdr(testFunctionAddress, &info);
+    bool result = ksdl_dladdr(address, &info);
 
-    XCTAssertTrue(success, @"ksdl_dladdr should succeed for a valid address");
-    XCTAssertNotEqual(info.dli_fbase, NULL, @"dli_fbase should not be NULL");
-
-    // Critical invariant: the image base address must be <= the lookup address.
-    // Before the fix, underflow could cause a wrong image with higher base to be returned.
-    uintptr_t imageBase = (uintptr_t)info.dli_fbase;
-    XCTAssertLessThanOrEqual(imageBase, testFunctionAddress,
-                             @"Image base (0x%lx) must be <= lookup address (0x%lx). "
-                              "If this fails, ksdl_dladdr returned the wrong image.",
-                             (unsigned long)imageBase, (unsigned long)testFunctionAddress);
-
-    // Also verify symbol address invariant
-    if (info.dli_saddr != NULL) {
-        uintptr_t symbolAddr = (uintptr_t)info.dli_saddr;
-        XCTAssertLessThanOrEqual(symbolAddr, testFunctionAddress,
-                                 @"Symbol address (0x%lx) must be <= lookup address (0x%lx)", (unsigned long)symbolAddr,
-                                 (unsigned long)testFunctionAddress);
-    }
+    XCTAssertTrue(result, @"Should find symbol for valid address");
+    XCTAssertNotEqual(info.dli_fname, NULL, @"Should have file name");
+    XCTAssertNotEqual(info.dli_fbase, NULL, @"Should have file base");
+    // Symbol name may or may not be available depending on stripping
 }
 
-// Helper function referenced by testDladdrReturnsCorrectImageBase
-static void KSDynamicLinker_Tests_testDladdrReturnsCorrectImageBase(void) {}
-
-// Direct test of the underflow condition that caused the bug.
-// This test demonstrates the arithmetic issue independent of memory layout.
-// See: https://github.com/DataDog/dd-sdk-ios/issues/2645
-- (void)testUnderflowArithmeticCondition
-{
-    // Simulate the bug scenario:
-    // - address: a low address we're looking up (e.g., 0x100001000)
-    // - slide: from an image loaded at a higher address (e.g., 0x180000000)
-    uintptr_t address = 0x100001000;
-    uintptr_t highSlide = 0x180000000;
-
-    // Without the fix, this subtraction would underflow
-    // addressWSlide = address - highSlide
-    // 0x100001000 - 0x180000000 = underflow to ~0xFFFFFFFF80001000 (on 64-bit)
-
-    // The fix adds this guard:
-    if (highSlide > address) {
-        // This image cannot contain the address - the fix skips it
-        XCTAssertTrue(YES, @"Fix correctly skips images where slide > address");
-    } else {
-        // Only compute the subtraction when it's safe
-        uintptr_t addressWSlide = address - highSlide;
-        (void)addressWSlide;  // suppress unused warning
-        XCTFail(@"This path should not be taken when slide > address");
-    }
-
-    // Verify that for a valid case (slide <= address), the math works correctly
-    uintptr_t validSlide = 0x1000;
-    XCTAssertTrue(validSlide <= address, @"Valid slide should be <= address");
-    uintptr_t validAddressWSlide = address - validSlide;
-    XCTAssertEqual(validAddressWSlide, 0x100000000, @"Subtraction should work correctly when slide <= address");
-}
-
-// Test that verifies the fix for the underflow bug.
-// The bug occurred when an image had slide > address, causing (address - slide) to underflow.
-// This test verifies that for a low address, we don't incorrectly match a high-slide image.
-- (void)testDladdrDoesNotMatchHighSlideImageForLowAddress
+- (void)testDladdr_ReturnsCorrectImageBase
 {
     uint32_t count = 0;
     const ks_dyld_image_info *images = ksbic_getImages(&count);
-    XCTAssertGreaterThan(count, 0, @"Should have at least one image");
+    XCTAssertGreaterThan(count, 0, @"Should have images");
 
-    // Find the image with the highest load address (highest slide)
-    uintptr_t highestImageBase = 0;
-    const void *highestHeader = NULL;
-    for (uint32_t i = 0; i < count; i++) {
-        const void *header = images[i].imageLoadAddress;
-        if (header != NULL && (uintptr_t)header > highestImageBase) {
-            highestImageBase = (uintptr_t)header;
-            highestHeader = header;
-        }
-    }
-    XCTAssertNotEqual(highestHeader, NULL, @"Should find at least one image");
+    // Use the header address itself
+    uintptr_t address = (uintptr_t)images[0].imageLoadAddress;
 
-    // Find an image with a lower load address
-    uintptr_t lowerImageBase = UINTPTR_MAX;
-    const void *lowerHeader = NULL;
-    for (uint32_t i = 0; i < count; i++) {
-        const void *header = images[i].imageLoadAddress;
-        if (header != NULL && (uintptr_t)header < highestImageBase && (uintptr_t)header < lowerImageBase) {
-            lowerImageBase = (uintptr_t)header;
-            lowerHeader = header;
-        }
-    }
-
-    // Only run this test if we have images at different addresses
-    if (lowerHeader == NULL || lowerImageBase >= highestImageBase) {
-        NSLog(@"Skipping underflow test: need images at different addresses");
-        return;
-    }
-
-    // Look up an address in the lower image
-    uintptr_t testAddress = lowerImageBase;
     Dl_info info = { 0 };
-    bool success = ksdl_dladdr(testAddress, &info);
+    bool result = ksdl_dladdr(address, &info);
 
-    if (success && info.dli_fbase != NULL) {
-        uintptr_t resultBase = (uintptr_t)info.dli_fbase;
-
-        // The returned image base should NOT be the highest image
-        // If underflow occurred, we might incorrectly match the high image
-        XCTAssertNotEqual(resultBase, highestImageBase,
-                          @"Low address (0x%lx) should not resolve to highest image (0x%lx). "
-                           "This may indicate an underflow bug in imageContainingAddress.",
-                          (unsigned long)testAddress, (unsigned long)highestImageBase);
-
-        // The returned base must be <= the test address
-        XCTAssertLessThanOrEqual(resultBase, testAddress, @"Result base (0x%lx) must be <= test address (0x%lx)",
-                                 (unsigned long)resultBase, (unsigned long)testAddress);
-    }
+    XCTAssertTrue(result, @"Should find image for header address");
+    XCTAssertEqual(info.dli_fbase, images[0].imageLoadAddress, @"File base should match image header");
 }
 
-// Test that ksdl_dladdr works correctly across multiple images
-- (void)testDladdrAcrossMultipleImages
+- (void)testDladdr_InvalidAddress
 {
-    uint32_t count = 0;
-    const ks_dyld_image_info *images = ksbic_getImages(&count);
-    XCTAssertGreaterThan(count, 0, @"Should have at least one image");
+    Dl_info info = { 0 };
+    bool result = ksdl_dladdr(0, &info);
 
-    // Test addresses from multiple loaded images
-    NSUInteger testedImages = 0;
-    for (uint32_t i = 0; i < count && testedImages < 10; i++) {
-        const void *header = images[i].imageLoadAddress;
-        if (header == NULL) {
-            continue;
-        }
+    XCTAssertFalse(result, @"Should return false for invalid address");
+}
 
-        // Use the header address itself as a test address (it's within the image)
-        uintptr_t testAddress = (uintptr_t)header;
+- (void)testDladdr_RepeatedCalls
+{
+    uintptr_t address = (uintptr_t)ksdl_init;
 
-        Dl_info info = { 0 };
-        bool success = ksdl_dladdr(testAddress, &info);
+    Dl_info info1 = { 0 };
+    Dl_info info2 = { 0 };
 
-        if (success && info.dli_fbase != NULL) {
-            uintptr_t imageBase = (uintptr_t)info.dli_fbase;
+    bool result1 = ksdl_dladdr(address, &info1);
+    bool result2 = ksdl_dladdr(address, &info2);
 
-            // Critical invariant check
-            XCTAssertLessThanOrEqual(imageBase, testAddress, @"Image %u: base (0x%lx) must be <= address (0x%lx)", i,
-                                     (unsigned long)imageBase, (unsigned long)testAddress);
-            testedImages++;
-        }
-    }
+    XCTAssertTrue(result1 && result2, @"Both calls should succeed");
+    XCTAssertEqual(info1.dli_fbase, info2.dli_fbase, @"Should return consistent results");
+    XCTAssertEqual(info1.dli_fname, info2.dli_fname, @"Should return consistent file name");
+}
 
-    XCTAssertGreaterThan(testedImages, 0, @"Should have tested at least one image");
+- (void)testDladdr_ExactMatchReturnsCorrectSymbol
+{
+    // Use the address of a known function - should be an exact match
+    uintptr_t address = (uintptr_t)ksdl_init;
+
+    Dl_info info = { 0 };
+    bool result = ksdl_dladdr(address, &info);
+
+    XCTAssertTrue(result, @"Should find symbol for function address");
+    XCTAssertNotEqual(info.dli_fbase, NULL, @"Should have file base");
+    // For exact match, symbol address should equal the lookup address
+    XCTAssertEqual((uintptr_t)info.dli_saddr, address, @"Symbol address should match for exact function entry");
+}
+
+- (void)testDladdr_NonExactMatchReturnsNearestSymbol
+{
+    // Use an address slightly after function entry
+    uintptr_t baseAddress = (uintptr_t)ksdl_init;
+    uintptr_t offsetAddress = baseAddress + 0x10;  // 16 bytes into function
+
+    Dl_info info = { 0 };
+    bool result = ksdl_dladdr(offsetAddress, &info);
+
+    XCTAssertTrue(result, @"Should find symbol for address inside function");
+    XCTAssertNotEqual(info.dli_fbase, NULL, @"Should have file base");
+    // Symbol address should be <= the lookup address (nearest preceding symbol)
+    XCTAssertLessThanOrEqual((uintptr_t)info.dli_saddr, offsetAddress, @"Symbol should precede or equal address");
+    // Symbol address should be the function entry point
+    XCTAssertEqual((uintptr_t)info.dli_saddr, baseAddress, @"Should find the containing function");
+}
+
+- (void)testDladdr_ReturnsCorrectSymbolName
+{
+    // Test that we get the actual function name, not GCC_except_table or other wrong symbols
+    uintptr_t address = (uintptr_t)ksdl_init;
+
+    Dl_info info = { 0 };
+    bool result = ksdl_dladdr(address, &info);
+
+    XCTAssertTrue(result, @"Should find symbol");
+    XCTAssertNotEqual(info.dli_sname, NULL, @"Should have symbol name");
+
+    NSString *symbolName = [NSString stringWithUTF8String:info.dli_sname];
+
+    // The symbol should contain "ksdl_init" (possibly with prefix like _ksdl_init)
+    XCTAssertTrue([symbolName containsString:@"ksdl_init"], @"Symbol name should be ksdl_init, got: %@", symbolName);
+
+    // Verify it's NOT a GCC_except_table (regression test)
+    XCTAssertFalse([symbolName containsString:@"GCC_except_tab"], @"Symbol should not be GCC_except_table, got: %@",
+                   symbolName);
+}
+
+- (void)testDladdr_DylibSymbolLookup
+{
+    // Test symbolication of a function in a system dylib
+    // This ensures cross-image lookups work correctly and don't return wrong symbols
+    // Use strlen from libsystem_c which is a simple C function
+    uintptr_t address = (uintptr_t)strlen;
+
+    Dl_info info = { 0 };
+    bool result = ksdl_dladdr(address, &info);
+
+    XCTAssertTrue(result, @"Should find symbol in dylib");
+    XCTAssertNotEqual(info.dli_fname, NULL, @"Should have file name");
+    XCTAssertNotEqual(info.dli_sname, NULL, @"Should have symbol name");
+
+    NSString *symbolName = [NSString stringWithUTF8String:info.dli_sname];
+    NSString *fileName = [NSString stringWithUTF8String:info.dli_fname];
+
+    // File should be a system library (not the test binary)
+    XCTAssertTrue([fileName containsString:@"/usr/lib/"], @"Should be from a system library, got: %@", fileName);
+
+    // Verify it's NOT a GCC_except_table (regression test for incorrect image matching)
+    XCTAssertFalse([symbolName containsString:@"GCC_except_tab"], @"Symbol should not be GCC_except_table, got: %@",
+                   symbolName);
 }
 
 @end

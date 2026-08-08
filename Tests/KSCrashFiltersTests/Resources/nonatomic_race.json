@@ -1,0 +1,29 @@
+{
+    "report": {
+        "version": "3.1.0",
+        "id": "5C3E1B8A-0000-0000-0000-000000000000",
+        "process_name": "Crash-Tester",
+        "type": "standard"
+    },
+    "crash": {
+        "error": {
+            "type": "mach",
+            "mach": {
+                "exception_name": "EXC_BAD_ACCESS",
+                "code_name": "KERN_INVALID_ADDRESS"
+            },
+            "signal": {
+                "name": "SIGSEGV"
+            },
+            "address": 4611686018427435728
+        },
+        "threads": [
+            {
+                "crashed": true,
+                "backtrace": {
+                    "contents": []
+                }
+            }
+        ]
+    }
+}

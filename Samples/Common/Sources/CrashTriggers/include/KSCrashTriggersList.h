@@ -37,21 +37,29 @@ extern NSString *const KSCrashNSExceptionStacktraceFuncName;
     __PROCESS_GROUP(mach, @"Mach")               \
     __PROCESS_GROUP(signal, @"Signal")           \
     __PROCESS_GROUP(user, @"User")               \
+    __PROCESS_GROUP(memory, @"Memory")           \
     __PROCESS_GROUP(multiple, @"Multiple")       \
     __PROCESS_GROUP(other, @"Other")
 
 #define __ALL_TRIGGERS                                                                                 \
     __PROCESS_TRIGGER(nsException, genericNSException, @"Generic NSException")                         \
+    __PROCESS_TRIGGER(nsException, nsExceptionSubclass, @"NSException Subclass")                       \
     __PROCESS_TRIGGER(nsException, nsArrayOutOfBounds, @"NSArray out-of-bounds")                       \
     __PROCESS_TRIGGER(nsException, user, @"User reported NSException")                                 \
     __PROCESS_TRIGGER(cpp, runtimeException, @"Runtime Exception")                                     \
     __PROCESS_TRIGGER(cpp, runtimeExceptionBackgroundThread, @"Runtime Exception (Background Thread)") \
+    __PROCESS_TRIGGER(cpp, objcObjectException, @"Objective-C Object Exception")                       \
+    __PROCESS_TRIGGER(cpp, objcObjectExceptionAfterCaughtCpp, @"ObjC Object (after caught C++)")       \
+    __PROCESS_TRIGGER(cpp, terminateAfterCaughtCpp, @"Terminate (after caught C++)")                   \
     __PROCESS_TRIGGER(mach, badAccess, @"EXC_BAD_ACCESS (SIGSEGV)")                                    \
+    __PROCESS_TRIGGER(mach, badAccessDeadbeef, @"EXC_BAD_ACCESS (0xDEADBEEF)")                         \
     __PROCESS_TRIGGER(mach, busError, @"EXC_BAD_ACCESS (SIGBUS)")                                      \
     __PROCESS_TRIGGER(mach, illegalInstruction, @"EXC_BAD_INSTRUCTION")                                \
     __PROCESS_TRIGGER(signal, abort, @"Abort")                                                         \
+    __PROCESS_TRIGGER(signal, sigpipe, @"SIGPIPE")                                                     \
     __PROCESS_TRIGGER(user, nonfatal, @"Nonfatal")                                                     \
     __PROCESS_TRIGGER(user, fatal, @"Fatal")                                                           \
+    __PROCESS_TRIGGER(user, swiftAsync, @"Fatal (from Swift async)")                                   \
     __PROCESS_TRIGGER(multiple, mach_mach, @"Mach + Mach")                                             \
     __PROCESS_TRIGGER(multiple, mach_signal, @"Mach + Signal")                                         \
     __PROCESS_TRIGGER(multiple, mach_cpp, @"Mach + CPP")                                               \
@@ -77,8 +85,13 @@ extern NSString *const KSCrashNSExceptionStacktraceFuncName;
     __PROCESS_TRIGGER(multiple, user_cpp, @"User + CPP")                                               \
     __PROCESS_TRIGGER(multiple, user_ns, @"User + NSException")                                        \
     __PROCESS_TRIGGER(multiple, user_user, @"User + User")                                             \
+    __PROCESS_TRIGGER(memory, oom, @"OOM (Simulator)")                                                 \
     __PROCESS_TRIGGER(other, manyThreads, @"Many Threads")                                             \
-    __PROCESS_TRIGGER(other, stackOverflow, @"Stack overflow")
+    __PROCESS_TRIGGER(other, stackOverflow, @"Stack overflow")                                         \
+    __PROCESS_TRIGGER(other, watchdogTimeoutTermination, @"Watchdog Timeout")                          \
+    __PROCESS_TRIGGER(other, watchdogTimeoutWithException, @"Watchdog Timeout + Exception")            \
+    __PROCESS_TRIGGER(other, appHang, @"App Hang (Recovery)")                                          \
+    __PROCESS_TRIGGER(other, sigkill, @"SIGKILL")
 
 NS_SWIFT_NAME(CrashTriggersList)
 @interface KSCrashTriggersList : NSObject
