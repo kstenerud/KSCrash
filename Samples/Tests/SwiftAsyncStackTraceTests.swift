@@ -65,9 +65,9 @@ import XCTest
             XCTAssertFalse(continuationFrames.isEmpty, "no async caller frames to check")
 
             for frame in continuationFrames {
-                guard let instructionAddr = frame.instructionAddr, let symbolAddr = frame.symbolAddr
-                else {
-                    XCTFail("async frame is missing addresses: \(frame)")
+                let instructionAddr = frame.instructionAddr
+                guard let symbolAddr = frame.symbolAddr else {
+                    XCTFail("async frame is missing a symbol address: \(frame)")
                     continue
                 }
                 // The +1 bias puts the reported address one past the funclet start, so a correctly
