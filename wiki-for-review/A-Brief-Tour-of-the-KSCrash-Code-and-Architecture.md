@@ -128,8 +128,10 @@ No code depends on the installation code, and KSCrash can work just fine without
 
 ### Swift Modules
 
-- **Report** (`Sources/Report/`): Strongly-typed Swift model for crash reports.
-  `CrashReport<UserData>` is the main entry point.
-- **Monitors** (`Sources/Monitors/`): Plugin monitors. Currently provides MetricKit integration.
-- **KSCrashProfiler** (`Sources/KSCrashProfiler/`): Sampling profiler with ring buffer architecture.
-- **SwiftCore** (`Sources/SwiftCore/`): Internal utilities (UnfairLock).
+- **Report** (`Sources/KSCrashReportModel/`, `import KSCrashReportModel`): Strongly-typed Swift
+  model for crash reports. `CrashReport<UserData>` is the main entry point.
+- **Monitors** (`Sources/KSCrashMonitors/`, `import KSCrashMonitors`): Plugin monitors. Currently
+  provides MetricKit integration.
+- **Profiler** (`Sources/KSCrashProfiler/`, `import KSCrashProfiler`): Sampling profiler with ring
+  buffer architecture.
+- **KSCrashSwiftCore** (`Sources/KSCrashSwiftCore/`): Internal utilities (UnfairLock).

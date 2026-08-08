@@ -69,6 +69,12 @@ For more granular classification, use the new `previousTerminationReason` proper
 of your monitor selection. They don't generate reports on their own, they store per-run state used
 by other monitors.
 
+### Ignored signals stay ignored
+
+Signal handlers explicitly set to `SIG_IGN` before install are left in place. KSCrash no longer
+replaces them, so a signal your app intentionally ignores (such as `SIGPIPE`) no longer produces a
+fatal crash report.
+
 ### Gradual migration
 
 If you want to keep exactly the same behavior as 2.5.1 while you evaluate the new monitors, use:
@@ -310,6 +316,16 @@ Returns one of: `.none`, `.clean`, `.crash`, `.hang`, `.firstLaunch`, `.osUpgrad
 config.enableCPUExceptionReporting = true  // non-fatal reports on CPU warning/critical
 ```
 
+### Swift Async Stack Traces
+
+```swift
+config.enableSwiftAsyncStackTraces = true
+```
+
+Uses `backtrace_async()` for current-thread capture paths (C++ throw-site and handler cursors,
+user-reported fallbacks, current-thread `captureBacktrace` calls), stitching Swift async
+continuation frames into the backtrace. Falls back to `backtrace()` where unavailable.
+
 ### Per-Key User Info
 
 ```swift
@@ -324,7 +340,7 @@ Currently processes `MXCrashDiagnostic` payloads only. Hang and CPU exception di
 yet supported.
 
 ```swift
-import Monitors
+import KSCrashMonitors
 
 config.plugins = [Monitors.metricKit]
 ```
@@ -332,7 +348,7 @@ config.plugins = [Monitors.metricKit]
 ### Report Module (Swift)
 
 ```swift
-import Report
+import KSCrashReportModel
 
 let data = try Data(contentsOf: reportURL)
 let report = try JSONDecoder().decode(BasicCrashReport.self, from: data)

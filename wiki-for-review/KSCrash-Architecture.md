@@ -81,7 +81,7 @@ that other monitors and RunContext use for analysis.
 
 | Monitor   | Module          | Report type       | Detects                        |
 | --------- | --------------- | ----------------- | ------------------------------ |
-| MetricKit | Monitors        | `mach` / `signal` | Apple MetricKit diagnostics    |
+| MetricKit | KSCrashMonitors | `mach` / `signal` | Apple MetricKit diagnostics    |
 | Profiler  | KSCrashProfiler | non-fatal         | Thread backtraces at intervals |
 
 **Auto-registered monitors** (linked via SPM module):
