@@ -40,7 +40,7 @@ typedef NS_ENUM(NSInteger, KSCrashRunSummaryHostKind) {
     KSCrashRunSummaryHostKindExtension,
     KSCrashRunSummaryHostKindXCTest,
     KSCrashRunSummaryHostKindOther,
-} NS_SWIFT_NAME(RunSummary.HostKind);
+};
 
 @class KSCrashRunSummaryOutcome;
 @class KSCrashRunSummaryDurations;
@@ -53,7 +53,6 @@ typedef NS_ENUM(NSInteger, KSCrashRunSummaryHostKind) {
 #pragma mark - Outcome -
 // ============================================================================
 
-NS_SWIFT_NAME(RunSummary.Outcome)
 __attribute__((objc_subclassing_restricted))
 @interface KSCrashRunSummaryOutcome : NSObject
 
@@ -72,7 +71,6 @@ __attribute__((objc_subclassing_restricted))
 #pragma mark - Durations -
 // ============================================================================
 
-NS_SWIFT_NAME(RunSummary.Durations)
 __attribute__((objc_subclassing_restricted))
 @interface KSCrashRunSummaryDurations : NSObject
 
@@ -90,7 +88,6 @@ __attribute__((objc_subclassing_restricted))
 #pragma mark - Sessions -
 // ============================================================================
 
-NS_SWIFT_NAME(RunSummary.Session)
 __attribute__((objc_subclassing_restricted))
 @interface KSCrashRunSummarySession : NSObject
 
@@ -120,7 +117,6 @@ __attribute__((objc_subclassing_restricted))
 
 @end
 
-NS_SWIFT_NAME(RunSummary.Sessions)
 __attribute__((objc_subclassing_restricted))
 @interface KSCrashRunSummarySessions : NSObject
 
@@ -138,7 +134,6 @@ __attribute__((objc_subclassing_restricted))
 #pragma mark - App -
 // ============================================================================
 
-NS_SWIFT_NAME(RunSummary.App)
 __attribute__((objc_subclassing_restricted))
 @interface KSCrashRunSummaryApp : NSObject
 
@@ -161,7 +156,6 @@ __attribute__((objc_subclassing_restricted))
 #pragma mark - OS -
 // ============================================================================
 
-NS_SWIFT_NAME(RunSummary.OS)
 __attribute__((objc_subclassing_restricted))
 @interface KSCrashRunSummaryOS : NSObject
 
@@ -182,7 +176,6 @@ __attribute__((objc_subclassing_restricted))
 #pragma mark - Device -
 // ============================================================================
 
-NS_SWIFT_NAME(RunSummary.Device)
 __attribute__((objc_subclassing_restricted))
 @interface KSCrashRunSummaryDevice : NSObject
 
@@ -218,7 +211,6 @@ __attribute__((objc_subclassing_restricted))
  * OOM rate, clean-exit rate, etc.). Crashed runs additionally ship a full
  * crash report via the existing filter/sink pipeline.
  */
-NS_SWIFT_NAME(RunSummary)
 __attribute__((objc_subclassing_restricted))
 @interface KSCrashRunSummary : NSObject
 

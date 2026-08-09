@@ -66,7 +66,7 @@ public class DirectorySink: NSObject, CrashReportFilter {
     }
 
     public func filterReports(
-        _ reports: [any CrashReport], onCompletion: (([any CrashReport]?, (any Error)?) -> Void)? = nil
+        _ reports: [any KSCrashReport], onCompletion: (([any KSCrashReport]?, (any Error)?) -> Void)? = nil
     ) {
         let prefix = UUID().uuidString
         for (idx, report) in reports.enumerated() {

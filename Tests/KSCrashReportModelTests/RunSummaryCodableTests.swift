@@ -34,28 +34,28 @@ final class RunSummaryCodableTests: XCTestCase {
     private func makeSummary(
         userID: String? = "bob",
         isBeingDebugged: Bool = false,
-        terminationReason: KSCrashRecording.TerminationReason = .clean,
-        hostKind: RunSummary.HostKind = .app
-    ) -> RunSummary {
-        let outcome = RunSummary.Outcome(
+        terminationReason: KSTerminationReason = .clean,
+        hostKind: KSCrashRunSummaryHostKind = .app
+    ) -> KSCrashRunSummary {
+        let outcome = KSCrashRunSummaryOutcome(
             terminationReason: terminationReason,
             userPerceptible: true)
-        let durations = RunSummary.Durations(activeMs: 123_456, backgroundMs: 45_678)
-        let sessions = RunSummary.Sessions(records: [])
-        let app = RunSummary.App(
+        let durations = KSCrashRunSummaryDurations(activeMs: 123_456, backgroundMs: 45_678)
+        let sessions = KSCrashRunSummarySessions(records: [])
+        let app = KSCrashRunSummaryApp(
             bundleID: "com.acme.app",
             version: "2.6.0.1234",
             shortVersion: "2.6.0",
             hostKind: hostKind)
-        let os = RunSummary.OS(name: "iOS", version: "18.0", build: "22A348")
-        let device = RunSummary.Device(
+        let os = KSCrashRunSummaryOS(name: "iOS", version: "18.0", build: "22A348")
+        let device = KSCrashRunSummaryDevice(
             model: "iPhone17,1",
             modelFamily: "iPhone",
             architecture: "arm64e",
             binaryArchitecture: "arm64e",
             isTranslated: false,
             isJailbroken: false)
-        return RunSummary(
+        return KSCrashRunSummary(
             schemaVersion: 1,
             sdkVersion: "2.6.0-beta.1",
             runID: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
@@ -81,7 +81,7 @@ final class RunSummaryCodableTests: XCTestCase {
     func test_roundtrip_preservesAllFields() throws {
         let original = makeSummary()
         let data = try XCTUnwrap(original.jsonData())
-        let decoded = try RunSummary.decode(from: data)
+        let decoded = try KSCrashRunSummary.decode(from: data)
 
         XCTAssertEqual(decoded.schemaVersion, original.schemaVersion)
         XCTAssertEqual(decoded.sdkVersion, original.sdkVersion)
@@ -114,14 +114,14 @@ final class RunSummaryCodableTests: XCTestCase {
     func test_roundtrip_nilUserID() throws {
         let original = makeSummary(userID: nil)
         let data = try XCTUnwrap(original.jsonData())
-        let decoded = try RunSummary.decode(from: data)
+        let decoded = try KSCrashRunSummary.decode(from: data)
         XCTAssertNil(decoded.userID)
     }
 
     func test_roundtrip_isBeingDebugged() throws {
         let original = makeSummary(isBeingDebugged: true)
         let data = try XCTUnwrap(original.jsonData())
-        let decoded = try RunSummary.decode(from: data)
+        let decoded = try KSCrashRunSummary.decode(from: data)
         XCTAssertTrue(decoded.isBeingDebugged)
     }
 
@@ -201,7 +201,7 @@ final class RunSummaryCodableTests: XCTestCase {
             }
             """
         let data = Data(jsonString.utf8)
-        let decoded = try RunSummary.decode(from: data)
+        let decoded = try KSCrashRunSummary.decode(from: data)
         XCTAssertEqual(decoded.outcome.terminationReason, .none)
     }
 }

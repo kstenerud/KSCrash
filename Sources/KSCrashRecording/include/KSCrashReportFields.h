@@ -55,7 +55,7 @@ extern "C" {
 
 #pragma mark - Report Types -
 
-typedef KSCrashReportField KSCrashReportType NS_TYPED_ENUM NS_SWIFT_NAME(ReportType);
+typedef KSCrashReportField KSCrashReportType NS_TYPED_ENUM;
 
 KSCRF_DEFINE_CONSTANT(KSCrashReportType, Minimal, minimal, "minimal")
 KSCRF_DEFINE_CONSTANT(KSCrashReportType, Standard, standard, "standard")

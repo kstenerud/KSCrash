@@ -31,7 +31,7 @@ import XCTest
 
 // Both modules export a `RunSummary`, so qualify by module.
 private typealias SwiftRunSummary = KSCrashReportModel.RunSummary
-private typealias ObjCRunSummary = KSCrashRecording.RunSummary
+private typealias ObjCRunSummary = KSCrashRecording.KSCrashRunSummary
 
 final class RunSummaryModelTests: XCTestCase {
     // MARK: - Helpers
@@ -147,7 +147,7 @@ final class RunSummaryModelTests: XCTestCase {
     // MARK: - Cross-check against the Objective-C writer
 
     func test_crossCheck_decodesObjCWriterOutput() throws {
-        let objcSession = ObjCRunSummary.Session(
+        let objcSession = KSCrashRunSummarySession(
             sessionID: "F0E1D2C3-B4A5-6879-8A9B-0C1D2E3F4A5B",
             userID: "bob",
             perceptible: true,

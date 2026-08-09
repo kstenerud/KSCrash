@@ -124,7 +124,7 @@ extension CrashReportStore {
     }
 }
 
-public class SampleCrashReport: NSObject, CrashReport {
+public class SampleCrashReport: NSObject, KSCrashReport {
     public struct CrashedThread {
         var index: Int
         var callStack: [String]
@@ -169,7 +169,7 @@ public class SampleCrashReport: NSObject, CrashReport {
 
 public class SampleFilter: NSObject, CrashReportFilter {
     public func filterReports(
-        _ reports: [any CrashReport], onCompletion: (([any CrashReport]?, (any Error)?) -> Void)? = nil
+        _ reports: [any KSCrashReport], onCompletion: (([any KSCrashReport]?, (any Error)?) -> Void)? = nil
     ) {
         let filtered = reports.compactMap { report -> SampleCrashReport? in
             guard let dictReport = report as? CrashReportDictionary else {
@@ -185,7 +185,7 @@ public class SampleSink: NSObject, CrashReportFilter {
     private static let logger = Logger(label: "SampleSink")
 
     public func filterReports(
-        _ reports: [any CrashReport], onCompletion: (([any CrashReport]?, (any Error)?) -> Void)? = nil
+        _ reports: [any KSCrashReport], onCompletion: (([any KSCrashReport]?, (any Error)?) -> Void)? = nil
     ) {
         for (idx, report) in reports.enumerated() {
             guard let sampleReport = report as? SampleCrashReport else {

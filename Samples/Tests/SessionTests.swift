@@ -67,7 +67,7 @@ final class SessionTests: IntegrationTestBase {
         XCTAssertEqual(runFiles.count, 1, "exactly one run summary should be persisted for the crashed run")
 
         let data = try Data(contentsOf: runsDir.appendingPathComponent(try XCTUnwrap(runFiles.first)))
-        let summary = try RunSummary.decode(from: data)
+        let summary = try JSONDecoder().decode(RunSummary.self, from: data)
         XCTAssertEqual(summary.outcome.terminationReason, .crash)
     }
 }

@@ -38,11 +38,11 @@ typedef NS_ENUM(NSUInteger, KSCrashCPUState) {
     KSCrashCPUStateWarning,
     /** Sustained CPU usage has reached the level at which the system will terminate the app. */
     KSCrashCPUStateCritical,
-} NS_SWIFT_NAME(CPUState);
+};
 
 /** Returns a string for the given CPU state ("normal", "warning", "critical").
  *  Async-signal-safe. */
-FOUNDATION_EXPORT const char *KSCrashCPUStateToString(KSCrashCPUState state) NS_SWIFT_NAME(CPUState.cString(self:));
+FOUNDATION_EXPORT const char *KSCrashCPUStateToString(KSCrashCPUState state);
 
 @class KSCrashCPU;
 
