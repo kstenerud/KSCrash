@@ -613,6 +613,7 @@ let package = Package(
             name: Targets.kscrash,
             dependencies: [
                 .target(name: Targets.recording),
+                .target(name: Targets.recordingCore),
                 .target(name: Targets.report),
             ]
         ),
