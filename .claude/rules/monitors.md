@@ -29,7 +29,7 @@ Built-in monitors are registered via `KSCrashMonitorType` flags in `KSCrashC.c`.
 | Termination | `"Termination"` | OS-level terminations that cannot be caught at runtime (OOM, thermal kill, CPU watchdog, reboot, upgrades) | — | — | Yes |
 | Lifecycle | `"Lifecycle"` | App state transitions, cleanShutdown flag | — | Run (`KSCrash_LifecycleData`) | Yes |
 | Zombie | `"Zombie"` | Messages sent to deallocated ObjC objects | — | — | No |
-| Watchdog | `"Watchdog"` | Main thread hangs (250ms threshold); also fatal when the OS kills the app during a hang | — | Report (`KSHangSidecar`) | No |
+| Watchdog | `"Watchdog"` | Main thread hangs (250ms threshold); also fatal when the OS kills the app during a hang | — | Run (`KSHangSidecar`) | No |
 | UserInfo | `"UserInfo"` | User-supplied key-value info (survives crashes) | — | Run (`KSKeyValueStore`) | No |
 | Resource | `"Resource"` | Memory level/pressure, CPU, thermal, battery snapshots; optionally emits non-fatal EXC_RESOURCE reports on CPU warning/critical transitions (`enableCPUExceptionReporting`) | — | Run (`KSCrash_ResourceData`) | No |
 
@@ -95,7 +95,7 @@ Monitors that write sidecar data each have a corresponding `*Stitch.m` file that
 | Resource | Run | `KSCrash_ResourceData` (mmap'd struct) | `KSCrashMonitor_ResourceStitch.m` |
 | System | Run | `KSCrash_SystemData` (mmap'd struct) | `KSCrashMonitor_SystemStitch.m` |
 | UserInfo | Run | `KSKeyValueStore` (key-value file) | `KSCrashMonitor_UserInfoStitch.m` |
-| Watchdog | Report | `KSHangSidecar` (mmap'd struct, 24 bytes) | `KSCrashMonitor_WatchdogStitch.m` |
+| Watchdog | Run | `KSHangSidecar` (mmap'd struct, 24 bytes) | `KSCrashMonitor_WatchdogStitch.m` |
 
 ### Monitor Lifecycle Callbacks
 

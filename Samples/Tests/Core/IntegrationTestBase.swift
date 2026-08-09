@@ -274,7 +274,9 @@ class IntegrationTestBase: XCTestCase {
         waitForCrash()
     }
 
-    func launchAndRunTrigger(_ triggerId: CrashTriggerId, installOverride: ((inout InstallConfig) throws -> Void)? = nil)
+    func launchAndRunTrigger(
+        _ triggerId: CrashTriggerId, installOverride: ((inout InstallConfig) throws -> Void)? = nil
+    )
         throws
     {
         var installConfig = InstallConfig(installPath: installUrl.path)
