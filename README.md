@@ -42,12 +42,29 @@ dependencies: [
 ```swift
 import KSCrashRecording
 
-let config = KSCrashConfiguration()
+let config = CrashInstallConfiguration()
 try KSCrash.shared.install(with: config)
 ```
 
-That's it. KSCrash will catch crashes and store reports on disk. To send reports to a server, use
-`KSCrashReportStore` with a `KSCrashSendConfiguration`. See `KSCrashReportStore.h` for details.
+That's it. KSCrash will catch crashes and store reports on disk.
+
+### Send
+
+A `CrashSendConfiguration` holds the ordered filter chain (last element = terminal sink) and the
+cleanup policy. There is no installation object and no held sink; the configuration is passed to
+each send call. Sinks and filters come from the `Sinks`, `Filters`, and `DemangleFilter` products
+(`import KSCrashSinks`, `KSCrashFilters`, `KSCrashDemangleFilter`).
+
+```swift
+let sink = CrashReportSinkStandard(url: URL(string: "http://put.your.url.here")!)
+let config = CrashSendConfiguration()
+config.reportFilters = [CrashReportFilterDemangle(), CrashReportFilterDoctor()] + sink.defaultCrashReportFilterSet
+config.reportCleanupPolicy = .onSuccess
+
+KSCrash.shared.sendAllReports(with: config) { reports, error in
+    // Stuff to do when report sending is complete
+}
+```
 
 ## Features
 
@@ -86,7 +103,7 @@ store with zero crash-time overhead.
 - **Custom Crashes**: Report exceptions from scripting languages via `reportUserException`
 - **Namespacing**: Embed KSCrash in your own library without symbol clashes
 
-For configuration options, see `KSCrashConfiguration.h`. For the full API, see `KSCrash.h`.
+For configuration options, see `KSCrashInstallConfiguration.h`. For the full API, see `KSCrash.h`.
 
 ## Deprecations in 2.6
 
