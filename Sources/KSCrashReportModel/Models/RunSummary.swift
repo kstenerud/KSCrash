@@ -273,6 +273,9 @@ public struct RunSummary: Codable, Sendable, Equatable {
     public let os: OS
     public let device: Device
 
+    /// App-supplied metadata, stitched in at send from the run's userInfo stitch file.
+    public let metadata: Metadata?
+
     public init(
         schemaVersion: Int,
         sdkVersion: String,
@@ -287,7 +290,8 @@ public struct RunSummary: Codable, Sendable, Equatable {
         sessions: Sessions,
         app: App,
         os: OS,
-        device: Device
+        device: Device,
+        metadata: Metadata? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.sdkVersion = sdkVersion
@@ -303,6 +307,7 @@ public struct RunSummary: Codable, Sendable, Equatable {
         self.app = app
         self.os = os
         self.device = device
+        self.metadata = metadata
     }
 
     enum CodingKeys: String, CodingKey {
@@ -320,6 +325,7 @@ public struct RunSummary: Codable, Sendable, Equatable {
         case app
         case os
         case device
+        case metadata
     }
 
     public init(from decoder: Decoder) throws {
@@ -338,6 +344,7 @@ public struct RunSummary: Codable, Sendable, Equatable {
         app = try container.decode(App.self, forKey: .app)
         os = try container.decode(OS.self, forKey: .os)
         device = try container.decode(Device.self, forKey: .device)
+        metadata = try container.decodeIfPresent(Metadata.self, forKey: .metadata)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -356,5 +363,6 @@ public struct RunSummary: Codable, Sendable, Equatable {
         try container.encode(app, forKey: .app)
         try container.encode(os, forKey: .os)
         try container.encode(device, forKey: .device)
+        try container.encodeIfPresent(metadata, forKey: .metadata)
     }
 }

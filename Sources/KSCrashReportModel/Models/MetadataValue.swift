@@ -1,0 +1,176 @@
+//
+//  MetadataValue.swift
+//
+//  Created by Alexander Cohen on 2026-08-09.
+//
+//  Copyright (c) 2012 Karl Stenerud. All rights reserved.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall remain in place
+// in this source code.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// THE SOFTWARE.
+//
+
+import Foundation
+
+/// A single JSON value.
+public enum MetadataValue: Equatable, Sendable {
+    case null
+    case bool(Bool)
+    case integer(Int64)
+    case unsignedInteger(UInt64)
+    case double(Double)
+    case string(String)
+    indirect case array([MetadataValue])
+    indirect case object([String: MetadataValue])
+}
+
+extension MetadataValue: Codable {
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if container.decodeNil() {
+            self = .null
+        } else if let value = try? container.decode(Bool.self) {
+            self = .bool(value)
+        } else if let value = try? container.decode(Int64.self) {
+            self = .integer(value)
+        } else if let value = try? container.decode(UInt64.self) {
+            self = .unsignedInteger(value)
+        } else if let value = try? container.decode(Double.self) {
+            self = .double(value)
+        } else if let value = try? container.decode(String.self) {
+            self = .string(value)
+        } else if let value = try? container.decode([MetadataValue].self) {
+            self = .array(value)
+        } else if let value = try? container.decode([String: MetadataValue].self) {
+            self = .object(value)
+        } else {
+            throw DecodingError.dataCorruptedError(
+                in: container, debugDescription: "Value is not valid JSON.")
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .null: try container.encodeNil()
+        case .bool(let value): try container.encode(value)
+        case .integer(let value): try container.encode(value)
+        case .unsignedInteger(let value): try container.encode(value)
+        case .double(let value): try container.encode(value)
+        case .string(let value): try container.encode(value)
+        case .array(let value): try container.encode(value)
+        case .object(let value): try container.encode(value)
+        }
+    }
+}
+
+/// A value that can be stored in a `Metadata` bag.
+public protocol MetadataValueConvertible {
+    var metadataValue: MetadataValue { get }
+}
+
+/// A value that can be read back from a `Metadata` bag.
+public protocol MetadataValueDecodable {
+    static func decode(from value: MetadataValue) -> Self?
+}
+
+/// A value that can be both stored in and read back from a `Metadata` bag.
+public protocol MetadataValueRepresentable: MetadataValueConvertible, MetadataValueDecodable {}
+
+// MARK: - Storable
+
+extension String: MetadataValueConvertible {
+    public var metadataValue: MetadataValue { .string(self) }
+}
+extension Bool: MetadataValueConvertible {
+    public var metadataValue: MetadataValue { .bool(self) }
+}
+extension Int: MetadataValueConvertible {
+    public var metadataValue: MetadataValue { .integer(Int64(self)) }
+}
+extension Int64: MetadataValueConvertible {
+    public var metadataValue: MetadataValue { .integer(self) }
+}
+extension UInt: MetadataValueConvertible {
+    public var metadataValue: MetadataValue { .unsignedInteger(UInt64(self)) }
+}
+extension UInt64: MetadataValueConvertible {
+    public var metadataValue: MetadataValue { .unsignedInteger(self) }
+}
+extension Double: MetadataValueConvertible {
+    public var metadataValue: MetadataValue { .double(self) }
+}
+extension Float: MetadataValueConvertible {
+    public var metadataValue: MetadataValue { .double(Double(self)) }
+}
+extension MetadataValue: MetadataValueConvertible {
+    public var metadataValue: MetadataValue { self }
+}
+extension Array: MetadataValueConvertible where Element: MetadataValueConvertible {
+    public var metadataValue: MetadataValue { .array(map(\.metadataValue)) }
+}
+extension Dictionary: MetadataValueConvertible where Key == String, Value: MetadataValueConvertible {
+    public var metadataValue: MetadataValue { .object(mapValues(\.metadataValue)) }
+}
+extension Optional: MetadataValueConvertible where Wrapped: MetadataValueConvertible {
+    public var metadataValue: MetadataValue {
+        switch self {
+        case .some(let value): value.metadataValue
+        case .none: .null
+        }
+    }
+}
+
+// MARK: - Readable
+
+extension String: MetadataValueDecodable {
+    public static func decode(from value: MetadataValue) -> String? {
+        guard case .string(let value) = value else { return nil }
+        return value
+    }
+}
+extension Bool: MetadataValueDecodable {
+    public static func decode(from value: MetadataValue) -> Bool? {
+        guard case .bool(let value) = value else { return nil }
+        return value
+    }
+}
+extension Int: MetadataValueDecodable {
+    public static func decode(from value: MetadataValue) -> Int? {
+        switch value {
+        case .integer(let value): Int(exactly: value)
+        case .unsignedInteger(let value): Int(exactly: value)
+        default: nil
+        }
+    }
+}
+extension Double: MetadataValueDecodable {
+    /// An integer reads as a `Double`; a fractional `Double` does not read as an integer.
+    public static func decode(from value: MetadataValue) -> Double? {
+        switch value {
+        case .double(let value): value
+        case .integer(let value): Double(value)
+        case .unsignedInteger(let value): Double(value)
+        default: nil
+        }
+    }
+}
+
+extension String: MetadataValueRepresentable {}
+extension Bool: MetadataValueRepresentable {}
+extension Int: MetadataValueRepresentable {}
+extension Double: MetadataValueRepresentable {}
