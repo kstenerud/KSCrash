@@ -62,6 +62,8 @@ Public modules (API surface): KSCrashRecording, KSCrashFilters, KSCrashSinks, KS
 
 A change is source-breaking **only if it breaks code that compiled against the most recent tagged release** (`git describe --tags --abbrev=0`), not against master. Symbols, types, or shapes that do not exist at the release tag cannot be source-breaking, no matter how they evolve on master. Always verify against the release tag before acting on a review comment, automated flag, or memory note that calls something source-breaking. See `.claude/rules/api-stability.md` for the full rule and the list of changes that warrant flagging.
 
+`develop` is the 3.0.0 line: source-breaking changes are expected and fine here. The public Objective-C API is being replaced by Swift and is going away, so removing or renaming ObjC declarations and dropping `NS_SWIFT_NAME` are normal on `develop` and must not be reported as problems. The tagged-release stability check above applies only to changes destined for a `release/*` maintenance branch.
+
 ## Verbose Logging
 
 KSLogger uses compile-time log levels for async-signal-safety:
