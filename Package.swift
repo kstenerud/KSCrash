@@ -199,10 +199,10 @@ let cxxTestLinkerSettings: [LinkerSetting] = [
 let package = Package(
     name: "KSCrash",
     platforms: [
-        .iOS(.v12),
-        .tvOS(.v12),
-        .watchOS(.v5),
-        .macOS(.v10_14),
+        .iOS(.v13),
+        .tvOS(.v13),
+        .watchOS(.v6),
+        .macOS(.v10_15),
         .visionOS(.v1),
     ],
     products: [
@@ -252,6 +252,10 @@ let package = Package(
         .library(
             name: "Report",
             targets: [Targets.report]
+        ),
+        .library(
+            name: "KSCrash",
+            targets: [Targets.kscrash]
         ),
     ],
     targets: [
@@ -605,6 +609,19 @@ let package = Package(
             ],
             swiftSettings: metricKitSwiftSettings
         ),
+        .target(
+            name: Targets.kscrash,
+            dependencies: [
+                .target(name: Targets.recording),
+                .target(name: Targets.report),
+            ]
+        ),
+        .testTarget(
+            name: Targets.kscrash.tests,
+            dependencies: [
+                .target(name: Targets.kscrash)
+            ]
+        ),
     ],
     cxxLanguageStandard: .gnucxx11
 )
@@ -621,6 +638,7 @@ enum Targets {
     static let bootTimeMonitor = "KSCrashBootTimeMonitor"
     static let demangleFilter = "KSCrashDemangleFilter"
     static let report = "KSCrashReportModel"
+    static let kscrash = "KSCrash"
     static let testTools = "KSCrashTestTools"
     static let benchmarks = "KSCrashBenchmarks"
     static let objcBenchmarks = "KSCrashBenchmarksObjC"
