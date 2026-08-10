@@ -127,4 +127,16 @@ final class MetadataTests: XCTestCase {
         let back = try Metadata.from(original).decoded(as: Extras.self)
         XCTAssertEqual(back, original)
     }
+
+    func test_date_roundTripsAsSecondsSince1970() throws {
+        var bag = Metadata()
+        let date = Date(timeIntervalSince1970: 1_700_000_000.25)
+        bag.set(date, forKey: "when")
+
+        XCTAssertEqual(bag.value(forKey: "when", as: Date.self), date)
+        // The wire form is a plain JSON double.
+        XCTAssertEqual(bag.value(forKey: "when", as: Double.self), 1_700_000_000.25)
+        let json = try String(decoding: JSONEncoder().encode(bag), as: UTF8.self)
+        XCTAssertTrue(json.contains("1700000000.25"), json)
+    }
 }

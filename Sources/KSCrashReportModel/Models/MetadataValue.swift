@@ -117,6 +117,10 @@ extension Double: MetadataValueConvertible {
 extension Float: MetadataValueConvertible {
     public var metadataValue: MetadataValue { .double(Double(self)) }
 }
+extension Date: MetadataValueConvertible {
+    /// Stored as seconds since 1970 (a JSON double).
+    public var metadataValue: MetadataValue { .double(timeIntervalSince1970) }
+}
 extension MetadataValue: MetadataValueConvertible {
     public var metadataValue: MetadataValue { self }
 }
@@ -158,6 +162,29 @@ extension Int: MetadataValueDecodable {
         }
     }
 }
+extension Int64: MetadataValueDecodable {
+    public static func decode(from value: MetadataValue) -> Int64? {
+        switch value {
+        case .integer(let value): value
+        case .unsignedInteger(let value): Int64(exactly: value)
+        default: nil
+        }
+    }
+}
+extension UInt64: MetadataValueDecodable {
+    public static func decode(from value: MetadataValue) -> UInt64? {
+        switch value {
+        case .integer(let value): UInt64(exactly: value)
+        case .unsignedInteger(let value): value
+        default: nil
+        }
+    }
+}
+extension Date: MetadataValueDecodable {
+    public static func decode(from value: MetadataValue) -> Date? {
+        Double.decode(from: value).map(Date.init(timeIntervalSince1970:))
+    }
+}
 extension Double: MetadataValueDecodable {
     /// An integer reads as a `Double`; a fractional `Double` does not read as an integer.
     public static func decode(from value: MetadataValue) -> Double? {
@@ -173,4 +200,7 @@ extension Double: MetadataValueDecodable {
 extension String: MetadataValueRepresentable {}
 extension Bool: MetadataValueRepresentable {}
 extension Int: MetadataValueRepresentable {}
+extension Int64: MetadataValueRepresentable {}
+extension UInt64: MetadataValueRepresentable {}
 extension Double: MetadataValueRepresentable {}
+extension Date: MetadataValueRepresentable {}
