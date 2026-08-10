@@ -628,6 +628,12 @@ int64_t kscrash_addUserReport(const char *report, int reportLength)
 
 const char *kscrash_getRunID(void) { return g_runID; }
 
+const char *kscrash_getRunSummariesPath(void) { return g_reportStoreConfig.runSummariesPath; }
+
+const char *kscrash_getRunSidecarsPath(void) { return g_reportStoreConfig.runSidecarsPath; }
+
+int kscrash_getMaxRunSummaryCount(void) { return g_reportStoreConfig.maxRunSummaryCount; }
+
 const char *kscrash_getLastRunID(void) { return g_lastRunID; }
 
 const char *kscrash_namespaceIdentifier(void) { return KSCRASH_NS_STRING("KSCrash"); }
