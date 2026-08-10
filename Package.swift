@@ -620,7 +620,8 @@ let package = Package(
         .testTarget(
             name: Targets.kscrash.tests,
             dependencies: [
-                .target(name: Targets.kscrash)
+                .target(name: Targets.kscrash),
+                .target(name: Targets.recordingCore),
             ]
         ),
     ],
