@@ -193,18 +193,6 @@ NS_ASSUME_NONNULL_BEGIN
               completion:(nullable KSCrashReportFilterCompletion)onCompletion
     NS_SWIFT_NAME(sendReport(id:with:completion:));
 
-/** Send all pending run summaries using the given send configuration.
- *
- * Forwards to the installed report store. If the crash reporter is not
- * installed, @c onCompletion is called with an error.
- *
- * @param configuration The run-filter chain to use (@c runSummaryFilters).
- * @param onCompletion Called when sending is complete (nil = ignore).
- */
-- (void)sendAllRunSummariesWithConfiguration:(KSCrashSendConfiguration *)configuration
-                                  completion:(nullable KSCrashRunFilterCompletion)onCompletion
-    NS_SWIFT_NAME(sendAllRunSummaries(with:completion:));
-
 /** Report a custom, user defined exception.
  * This can be useful when dealing with scripting languages.
  *

@@ -33,7 +33,6 @@
     self = [super init];
     if (self != nil) {
         _reportFilters = @[];
-        _runSummaryFilters = @[];
         _reportCleanupPolicy = KSCrashReportCleanupPolicyOnSuccess;
     }
     return self;
@@ -43,7 +42,6 @@
 {
     KSCrashSendConfiguration *copy = [[KSCrashSendConfiguration allocWithZone:zone] init];
     copy.reportFilters = [self.reportFilters copy];
-    copy.runSummaryFilters = [self.runSummaryFilters copy];
     copy.reportCleanupPolicy = self.reportCleanupPolicy;
     return copy;
 }

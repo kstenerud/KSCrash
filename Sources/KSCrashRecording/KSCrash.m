@@ -372,19 +372,6 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
     [store sendReportWithID:reportID configuration:configuration completion:onCompletion];
 }
 
-- (void)sendAllRunSummariesWithConfiguration:(KSCrashSendConfiguration *)configuration
-                                  completion:(KSCrashRunFilterCompletion)onCompletion
-{
-    KSCrashReportStore *store = self.reportStore;
-    if (store == nil) {
-        if (onCompletion != nil) {
-            onCompletion(@[], [self notInstalledError]);
-        }
-        return;
-    }
-    [store sendAllRunSummariesWithConfiguration:configuration completion:onCompletion];
-}
-
 - (void)reportUserException:(NSString *)name
                      reason:(NSString *)reason
                    language:(NSString *)language

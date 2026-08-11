@@ -26,7 +26,6 @@
 
 #import <XCTest/XCTest.h>
 
-#import "KSCrashRunSummary+Merge.h"
 #import "KSCrashRunSummary.h"
 
 @interface KSCrashRunSummary_Tests : XCTestCase
@@ -138,66 +137,6 @@
         } ],
     };
     XCTAssertNil([KSCrashRunSummary summaryFromJSONData:[self jsonDataFromDict:dict] error:nil]);
-}
-
-#pragma mark - Merge
-
-- (KSCrashRunSummary *)makeMergeBaseSummary
-{
-    KSCrashRunSummaryOutcome *outcome =
-        [[KSCrashRunSummaryOutcome alloc] initWithTerminationReason:KSTerminationReasonClean userPerceptible:YES];
-    KSCrashRunSummaryDurations *durations = [[KSCrashRunSummaryDurations alloc] initWithActiveMs:0 backgroundMs:0];
-    KSCrashRunSummarySessions *sessions = [[KSCrashRunSummarySessions alloc] initWithRecords:@[]];
-    KSCrashRunSummaryApp *app = [[KSCrashRunSummaryApp alloc] initWithBundleID:@"b"
-                                                                       version:@"v"
-                                                                  shortVersion:@"sv"
-                                                                      hostKind:KSCrashRunSummaryHostKindApp];
-    KSCrashRunSummaryOS *os = [[KSCrashRunSummaryOS alloc] initWithName:@"n" version:@"v" build:@"bd"];
-    KSCrashRunSummaryDevice *device = [[KSCrashRunSummaryDevice alloc] initWithModel:@"m"
-                                                                         modelFamily:@"mf"
-                                                                        architecture:@"a"
-                                                                  binaryArchitecture:@"ba"
-                                                                        isTranslated:NO
-                                                                        isJailbroken:NO];
-    return [[KSCrashRunSummary alloc] initWithSchemaVersion:1
-                                                 sdkVersion:@"1"
-                                                      runID:@"r"
-                                                   deviceID:@"d"
-                                                     userID:nil
-                                                startedAtMs:0
-                                                  endedAtMs:0
-                                            isBeingDebugged:NO
-                                                    outcome:outcome
-                                                  durations:durations
-                                                   sessions:sessions
-                                                        app:app
-                                                         os:os
-                                                     device:device];
-}
-
-- (KSCrashRunSummarySession *)sessionWithUser:(nullable NSString *)user perceptible:(BOOL)perceptible
-{
-    return [[KSCrashRunSummarySession alloc] initWithSessionID:[[NSUUID UUID] UUIDString]
-                                                        userID:user
-                                                   perceptible:perceptible
-                                                   startedAtMs:0
-                                                     endedAtMs:0];
-}
-
-- (void)test_summaryByMergingSessions_attachesRecords
-{
-    KSCrashRunSummary *base = [self makeMergeBaseSummary];
-    NSArray<KSCrashRunSummarySession *> *sessions = @[
-        [self sessionWithUser:@"alice" perceptible:YES],
-        [self sessionWithUser:@"bob" perceptible:NO],
-        [self sessionWithUser:nil perceptible:YES],
-    ];
-
-    KSCrashRunSummary *merged = [base summaryByMergingSessions:sessions];
-
-    XCTAssertEqual(merged.sessions.records.count, 3u);
-    XCTAssertEqualObjects(merged.sessions.records.firstObject.userID, @"alice");
-    XCTAssertEqualObjects(merged.runID, @"r", @"identity carried over unchanged");
 }
 
 #pragma mark - App

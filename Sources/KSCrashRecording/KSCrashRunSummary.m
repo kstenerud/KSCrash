@@ -25,7 +25,6 @@
 //
 
 #import "KSCrashRunSummary.h"
-#import "KSCrashRunSummary+Merge.h"
 
 #import "KSCrashReportFields.h"
 
@@ -579,25 +578,6 @@ static KSCrashRunSummaryHostKind hostKindFromWireString(NSString *value)
                                                         app:app
                                                          os:os
                                                      device:device];
-}
-
-- (instancetype)summaryByMergingSessions:(NSArray<KSCrashRunSummarySession *> *)sessions
-{
-    KSCrashRunSummarySessions *mergedSessions = [[KSCrashRunSummarySessions alloc] initWithRecords:sessions];
-    return [[KSCrashRunSummary alloc] initWithSchemaVersion:self.schemaVersion
-                                                 sdkVersion:self.sdkVersion
-                                                      runID:self.runID
-                                                   deviceID:self.deviceID
-                                                     userID:self.userID
-                                                startedAtMs:self.startedAtMs
-                                                  endedAtMs:self.endedAtMs
-                                            isBeingDebugged:self.isBeingDebugged
-                                                    outcome:self.outcome
-                                                  durations:self.durations
-                                                   sessions:mergedSessions
-                                                        app:self.app
-                                                         os:self.os
-                                                     device:self.device];
 }
 
 @end

@@ -188,12 +188,15 @@ final class RunDataStoreTests: XCTestCase {
         for ns in [100, 200, 300, 400] as [UInt64] {
             try writeSummary(makeSummary(runID: "RUN\(ns)"), startNs: ns)
         }
+        // Legacy unpadded filenames parse by value, so this is the oldest.
+        try JSONEncoder().encode(makeSummary(runID: "LEGACY")).write(
+            to: runsDirectory.appendingPathComponent("5.run"))
         try Data("x".utf8).write(to: runsDirectory.appendingPathComponent("notdigits.run"))
 
         let runs = try makeStore(maxRunCount: 2).runs()
         XCTAssertEqual(runs.map(\.runID), ["RUN400", "RUN300"])
         let remaining = try FileManager.default.contentsOfDirectory(atPath: runsDirectory.path).sorted()
-        // Oldest two writer-named files pruned; the non-writer-named file is untouched.
+        // Oldest three writer-named files pruned; the non-writer-named file is untouched.
         XCTAssertEqual(remaining, ["0000000000000000300.run", "0000000000000000400.run", "notdigits.run"])
     }
 
@@ -237,6 +240,44 @@ final class RunDataStoreTests: XCTestCase {
 
         let record = try XCTUnwrap(makeStore().runs()[0].summary()?.sessions.records.first)
         XCTAssertEqual(record.endedAtMs, record.startedAtMs)
+    }
+
+    func test_summary_skipsSessionRecordWithCorruptGUID() throws {
+        let runID = "CORRUPTGUID"
+        try writeSummary(makeSummary(runID: runID, endedAtMs: .max), startNs: 100)
+        writeSessions(runID: runID, cuts: [(true, nil), (true, "alice")])
+
+        // Append a raw entry whose guid is not valid UTF-8; its start must not
+        // regress, so use a far-future monotonic value.
+        let sessionsPath = runsDirectory.appendingPathComponent("\(runID).sessions").path
+        var badGUID: [CChar] = [CChar(bitPattern: 0xC3), CChar(bitPattern: 0x28), 0]
+        kssession_testcode_appendRawEntry(sessionsPath, UInt64.max / 2, true, &badGUID, "bob", false)
+
+        let records = try XCTUnwrap(makeStore().runs()[0].summary()).sessions.records
+        // The corrupt record is dropped; the valid ones survive, and the last
+        // valid one's end still comes from its (corrupt) successor's start,
+        // not from the run's end (which would be .max here).
+        XCTAssertEqual(records.count, 2)
+        XCTAssertEqual(records[1].userID, "alice")
+        XCTAssertNotEqual(records[1].endedAtMs, .max)
+    }
+
+    func test_summary_sessionUserWithoutTerminator_isTruncatedNotRejected() throws {
+        let runID = "NONULUSER"
+        try writeSummary(makeSummary(runID: runID, endedAtMs: .max), startNs: 100)
+
+        let sessionsPath = runsDirectory.appendingPathComponent("\(runID).sessions").path
+        let writer = kssw_open(sessionsPath)
+        kssw_update(writer, true, nil)
+        kssw_close(writer)
+        kssession_testcode_appendRawEntry(
+            sessionsPath, UInt64.max / 2, true, "AAAA1111-2222-3333-4444-555555555555", nil, true)
+
+        let records = try XCTUnwrap(makeStore().runs()[0].summary()).sessions.records
+        XCTAssertEqual(records.count, 2)
+        // 128 un-terminated bytes on disk; the reader's forced terminator caps
+        // the user at 127 characters.
+        XCTAssertEqual(records[1].userID, String(repeating: "A", count: 127))
     }
 
     func test_summary_withoutSessionsFile_keepsEmptyRecords() throws {

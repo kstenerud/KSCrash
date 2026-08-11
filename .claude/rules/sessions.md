@@ -44,14 +44,15 @@ is the Swift model field.
 
 ### Run summaries (`.run`) and the send merge
 
-The run summary (`KSCrashRunSummary`, `NS_SWIFT_NAME(RunSummary)`) is built from the
-previous run's context by `buildSummary` in `KSCrashRunContext.m` and persisted during
-install (`ksruncontext_persistPreviousRunSummary`). The persisted `.run` has an empty
+The run summary is built from the previous run's context by `buildSummary` in
+`KSCrashRunContext.m` and persisted during install
+(`ksruncontext_persistPreviousRunSummary`); the Swift-facing model is
+`RunSummary` in `KSCrashReportModel`. The persisted `.run` has an empty
 `sessions.records`; the records are the single source of truth for a run's sessions and
 are merged in only at send time.
 
-At send, `runSummaryByMergingSessions` reads `<run_id>.sessions` and attaches the
-records via `-[KSCrashRunSummary summaryByMergingSessions:]`. There are no aggregate
+At send, the Swift store (`RunStore.summary()` in the `KSCrash` module) reads
+`<run_id>.sessions` through the C reader and attaches the records. There are no aggregate
 session/user counts on the summary; a consumer derives whatever it needs from
 `records` (each record carries its perceptibility, user, and timestamps).
 
@@ -68,8 +69,8 @@ send-time merge). See `monitor-sidecars.md` for the run-sidecar side.
 - `KSSessionStore.{c,h}`: append-only `.sessions` reader/writer
 - `KSCrashMonitor_Lifecycle.{h,m}`: live session recording; `kslifecycle_currentSessionID`, `kslifecycle_copyLastSessionIDForRunID`
 - `KSCrashMonitor_LifecycleStitch.m`: adds `report.session_id` at delivery
-- `KSCrashRunSummary.{h,m}` / `KSCrashRunSummary+Merge.h`: the summary model, JSON codec, and `summaryByMergingSessions:`
+- `KSCrashRunSummary.{h,m}`: the ObjC summary model and JSON codec (write side)
 - `KSCrashRunContext.m`: `buildSummary`, `ksruncontext_persistPreviousRunSummary`
-- `KSCrashReportStore.m`: `runSummaryByMergingSessions`, send flows
+- `Sources/KSCrash/RunStore.swift` / `RunSummarySend.swift`: send-time merge, metadata stitch, and the async send
 - `KSCrashReportStoreC.m`: `kscrs_reclaimOrphanedRunData`
 - `KSCrashReportFields.h`: `KSCrashRunSummaryField_*` wire keys, `KSCrashField_SessionID`
