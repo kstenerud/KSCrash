@@ -45,6 +45,15 @@ struct RunStore: Sendable {
     /// The decoded newest `.run`, before merge and stitch.
     let baseSummary: RunSummary?
 
+    /// Whether any of this run's `.run` files still exists. A snapshot can go
+    /// stale (a concurrent send may deliver and delete a run after this store
+    /// was built), and `baseSummary` would happily outlive the file; checking
+    /// under a send's claim is race-free, because deletes only happen under
+    /// the claim.
+    var hasSummaryOnDisk: Bool {
+        summaryFiles.contains { FileManager.default.fileExists(atPath: $0.path) }
+    }
+
     /// The run's summary in deliverable form: session records merged from
     /// `.sessions`, metadata stitched from the run's UserInfo sidecar. nil when
     /// the run has no summary on disk. An unreadable `.sessions` degrades to

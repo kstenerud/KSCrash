@@ -31,7 +31,15 @@ public struct SendConfiguration: Sendable {
     /// The stages a run summary passes through, in order.
     public var runSummaryPipeline: [AnyPipelineStage<RunSummary>]
 
-    public init(runSummaryPipeline: [AnyPipelineStage<RunSummary>] = []) {
+    /// Whether delivered items carry their final payload in the result.
+    /// Defaults to false, so a send never accumulates payloads in memory.
+    public var includesDeliveredPayloads: Bool
+
+    public init(
+        runSummaryPipeline: [AnyPipelineStage<RunSummary>] = [],
+        includesDeliveredPayloads: Bool = false
+    ) {
         self.runSummaryPipeline = runSummaryPipeline
+        self.includesDeliveredPayloads = includesDeliveredPayloads
     }
 }

@@ -615,6 +615,7 @@ let package = Package(
                 .target(name: Targets.recording),
                 .target(name: Targets.recordingCore),
                 .target(name: Targets.report),
+                .target(name: Targets.swiftCore),
             ]
         ),
         .testTarget(
@@ -622,6 +623,7 @@ let package = Package(
             dependencies: [
                 .target(name: Targets.kscrash),
                 .target(name: Targets.recordingCore),
+                .target(name: Targets.swiftCore),
             ]
         ),
     ],
