@@ -36,7 +36,7 @@ jobs:
     name: ${{ matrix.name }}
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Use Latest Stable Xcode
         uses: maxim-lobanov/setup-xcode@v1

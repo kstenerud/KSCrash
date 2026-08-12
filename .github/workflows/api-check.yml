@@ -48,7 +48,7 @@ jobs:
           - { name: visionOS, target: arm64-apple-xros2,     sdk: xros,       xcode_platform: visionOS }
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
