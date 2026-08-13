@@ -34,7 +34,13 @@ import os
 /// time, inside the per-run loop, and are never accumulated.
 enum RunSummarySend {
 
-    @concurrent static func send(
+    // Pinned off the caller's actor wherever the attribute exists (Swift 6.2+);
+    // older toolchains run nonisolated async functions off-actor by default, so
+    // the guarantee holds under every supported compiler.
+    #if hasAttribute(concurrent)
+        @concurrent
+    #endif
+    static func send(
         store: RunDataStore?,
         pipeline: [AnyPipelineStage<RunSummary>],
         includesDeliveredPayloads: Bool,
