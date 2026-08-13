@@ -417,12 +417,27 @@ static NSSet<NSString *> *reportReferencedRunIDs(const KSCrashReportStoreCConfig
 }
 
 // Run ids referenced by the .run summaries still on disk (a summary keeps its
-// .sessions alive for the send-time merge). run_id is a top-level summary key.
+// .sessions and run sidecars alive for the send-time merge and metadata
+// stitch). run_id is a top-level summary key. Returns nil when a queued
+// summary cannot be read or decoded (it may be mid-write by another process
+// sharing the install dir), mirroring reportReferencedRunIDs: the caller must
+// then skip the pass rather than treat that run as unreferenced. A summary
+// that decodes but has no usable run_id is permanently malformed, references
+// nothing, and is left for pruning.
 static NSSet<NSString *> *summaryReferencedRunIDs(const char *runSummariesPath)
 {
     NSMutableSet<NSString *> *runIDs = [NSMutableSet set];
     NSString *dir = @(runSummariesPath);
-    for (NSString *entry in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:dir error:nil]) {
+    NSError *listError = nil;
+    NSArray<NSString *> *entries = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:dir error:&listError];
+    if (entries == nil) {
+        // A missing directory means no summaries were ever recorded; any other
+        // listing failure hides live references.
+        BOOL missing =
+            [listError.domain isEqualToString:NSCocoaErrorDomain] && listError.code == NSFileReadNoSuchFileError;
+        return missing ? runIDs : nil;
+    }
+    for (NSString *entry in entries) {
         if (![entry.pathExtension.lowercaseString isEqualToString:@"run"]) {
             continue;
         }
@@ -433,6 +448,9 @@ static NSSet<NSString *> *summaryReferencedRunIDs(const char *runSummariesPath)
                                             KSJSONDecodeOptionKeepPartialObject
                                       error:nil]
                       : nil;
+        if (json == nil) {
+            return nil;
+        }
         id runID = [json isKindOfClass:[NSDictionary class]] ? json[KSCrashRunSummaryField_RunID] : nil;
         if ([runID isKindOfClass:[NSString class]] && [runID length] > 0) {
             [runIDs addObject:runID];
@@ -443,8 +461,10 @@ static NSSet<NSString *> *summaryReferencedRunIDs(const char *runSummariesPath)
 
 // Reclaim on-disk data for runs nothing references any more. Idempotent: it
 // recomputes the reference sets each call, so it can run at the end of any send
-// flow. RunSidecars are kept only by a report; .sessions by a report OR a summary
-// (a summary-only, non-crashed run's RunSidecar is still reclaimed).
+// flow. RunSidecars and .sessions are both kept while a report OR a summary
+// references the run: reports stitch run sidecars and session ids at delivery,
+// and a pending summary needs its .sessions for the record merge and its
+// UserInfo run sidecar for the metadata stitch.
 static void reclaimOrphanedRunData(const KSCrashReportStoreCConfiguration *const config)
 {
     @autoreleasepool {
@@ -453,26 +473,32 @@ static void reclaimOrphanedRunData(const KSCrashReportStoreCConfiguration *const
             // Couldn't enumerate reports; skip rather than orphan live run data.
             return;
         }
+        NSSet<NSString *> *summaryRefs =
+            config->runSummariesPath != NULL ? summaryReferencedRunIDs(config->runSummariesPath) : [NSSet set];
+        if (summaryRefs == nil) {
+            // Couldn't read a queued summary; skip rather than orphan live run data.
+            return;
+        }
+        NSMutableSet<NSString *> *refs = [reportRefs mutableCopy];
+        [refs unionSet:summaryRefs];
         NSFileManager *fm = [NSFileManager defaultManager];
 
         if (config->runSidecarsPath != NULL) {
             NSString *dir = @(config->runSidecarsPath);
             for (NSString *entry in [fm contentsOfDirectoryAtPath:dir error:nil]) {
-                if (![entry hasPrefix:@"."] && ![reportRefs containsObject:entry]) {
+                if (![entry hasPrefix:@"."] && ![refs containsObject:entry]) {
                     [fm removeItemAtPath:[dir stringByAppendingPathComponent:entry] error:nil];
                 }
             }
         }
 
         if (config->runSummariesPath != NULL) {
-            NSMutableSet<NSString *> *sessionRefs = [reportRefs mutableCopy];
-            [sessionRefs unionSet:summaryReferencedRunIDs(config->runSummariesPath)];
             NSString *dir = @(config->runSummariesPath);
             for (NSString *entry in [fm contentsOfDirectoryAtPath:dir error:nil]) {
                 if (![entry.pathExtension.lowercaseString isEqualToString:@"sessions"]) {
                     continue;
                 }
-                if (![sessionRefs containsObject:entry.stringByDeletingPathExtension]) {
+                if (![refs containsObject:entry.stringByDeletingPathExtension]) {
                     [fm removeItemAtPath:[dir stringByAppendingPathComponent:entry] error:nil];
                 }
             }

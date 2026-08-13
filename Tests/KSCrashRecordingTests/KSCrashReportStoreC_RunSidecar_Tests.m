@@ -83,10 +83,12 @@ static CFDictionaryRef testStitchReport(CFDictionaryRef reportDict, const char *
     NSString *reportsPath = [self.tempPath stringByAppendingPathComponent:name];
     NSString *sidecarsPath = [self.tempPath stringByAppendingPathComponent:@"Sidecars"];
     NSString *runSidecarsPath = [self.tempPath stringByAppendingPathComponent:@"RunSidecars"];
+    NSString *runSummariesPath = [self.tempPath stringByAppendingPathComponent:@"Runs"];
     _storeConfig.appName = "testapp";
     _storeConfig.reportsPath = reportsPath.UTF8String;
     _storeConfig.reportSidecarsPath = sidecarsPath.UTF8String;
     _storeConfig.runSidecarsPath = runSidecarsPath.UTF8String;
+    _storeConfig.runSummariesPath = runSummariesPath.UTF8String;
     _storeConfig.maxReportCount = 10;
     kscrs_initialize(&_storeConfig);
     kscrs_setStitchConfig(&_storeConfig);
@@ -109,6 +111,25 @@ static CFDictionaryRef testStitchReport(CFDictionaryRef reportDict, const char *
                                                     error:nil];
     NSString *path = [runDir stringByAppendingPathComponent:[NSString stringWithFormat:@"%@.ksscr", monitorId]];
     [contents writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
+}
+
+- (NSString *)writeRunSummaryJSON:(NSString *)json named:(NSString *)filename
+{
+    NSString *dir = [NSString stringWithUTF8String:_storeConfig.runSummariesPath];
+    [[NSFileManager defaultManager] createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:nil];
+    NSString *path = [dir stringByAppendingPathComponent:filename];
+    [json writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
+    return path;
+}
+
+- (NSString *)writeSessionsFileForRunId:(NSString *)runId
+{
+    NSString *dir = [NSString stringWithUTF8String:_storeConfig.runSummariesPath];
+    [[NSFileManager defaultManager] createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:nil];
+    // Reclaim matches .sessions by filename only; contents are irrelevant here.
+    NSString *path = [dir stringByAppendingPathComponent:[runId stringByAppendingPathExtension:@"sessions"]];
+    [@"session bytes" writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
+    return path;
 }
 
 #pragma mark - kscrs_getRunSidecarFilePath
@@ -295,6 +316,76 @@ static CFDictionaryRef testStitchReport(CFDictionaryRef reportDict, const char *
     for (NSString *runDir in runDirs) {
         XCTAssertTrue([fm fileExistsAtPath:runDir], @"Run sidecar wrongly deleted: %@", runDir);
     }
+}
+
+#pragma mark - Reclaim with pending summaries
+
+- (void)testReclaimKeepsRunDataWhileSummaryPending
+{
+    [self prepareStoreWithRunSidecars:@"testSummaryRetention"];
+    NSString *runId = [[NSUUID UUID] UUIDString];
+    [self writeRunSidecar:@"UserInfo" runId:runId contents:@"user data"];
+    NSString *sessionsPath = [self writeSessionsFileForRunId:runId];
+    NSString *summaryPath = [self writeRunSummaryJSON:[NSString stringWithFormat:@"{\"run_id\":\"%@\"}", runId]
+                                                named:@"100.run"];
+    NSString *runDir =
+        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:runId];
+    NSFileManager *fm = [NSFileManager defaultManager];
+
+    // No report references the run: the pending summary alone must keep both
+    // the run sidecars (metadata stitch) and the .sessions (record merge).
+    kscrs_reclaimOrphanedRunData(&_storeConfig);
+    XCTAssertTrue([fm fileExistsAtPath:runDir]);
+    XCTAssertTrue([fm fileExistsAtPath:sessionsPath]);
+
+    // Summary delivered: nothing references the run any more.
+    [fm removeItemAtPath:summaryPath error:nil];
+    kscrs_reclaimOrphanedRunData(&_storeConfig);
+    XCTAssertFalse([fm fileExistsAtPath:runDir]);
+    XCTAssertFalse([fm fileExistsAtPath:sessionsPath]);
+}
+
+- (void)testReclaimAbortsWhenASummaryCannotBeRead
+{
+    [self prepareStoreWithRunSidecars:@"testUnreadableSummary"];
+    NSString *orphanRunId = [[NSUUID UUID] UUIDString];
+    [self writeRunSidecar:@"UserInfo" runId:orphanRunId contents:@"orphan"];
+    NSString *orphanSessions = [self writeSessionsFileForRunId:orphanRunId];
+    NSString *pendingRunId = [[NSUUID UUID] UUIDString];
+    NSString *summaryPath = [self writeRunSummaryJSON:[NSString stringWithFormat:@"{\"run_id\":\"%@\"}", pendingRunId]
+                                                named:@"200.run"];
+    NSString *orphanDir =
+        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:orphanRunId];
+    NSFileManager *fm = [NSFileManager defaultManager];
+
+    // An unreadable queued summary may be mid-write; the whole pass must be
+    // skipped rather than treating its run as unreferenced.
+    [fm setAttributes:@{ NSFilePosixPermissions : @0 } ofItemAtPath:summaryPath error:nil];
+    kscrs_reclaimOrphanedRunData(&_storeConfig);
+    XCTAssertTrue([fm fileExistsAtPath:orphanDir]);
+    XCTAssertTrue([fm fileExistsAtPath:orphanSessions]);
+
+    // Readable again: the pass proceeds, reclaiming only the true orphan.
+    [fm setAttributes:@{ NSFilePosixPermissions : @0644 } ofItemAtPath:summaryPath error:nil];
+    kscrs_reclaimOrphanedRunData(&_storeConfig);
+    XCTAssertFalse([fm fileExistsAtPath:orphanDir]);
+    XCTAssertFalse([fm fileExistsAtPath:orphanSessions]);
+    XCTAssertTrue([fm fileExistsAtPath:summaryPath]);
+}
+
+- (void)testReclaimProceedsPastSummaryWithoutRunId
+{
+    [self prepareStoreWithRunSidecars:@"testMalformedSummary"];
+    NSString *orphanRunId = [[NSUUID UUID] UUIDString];
+    [self writeRunSidecar:@"UserInfo" runId:orphanRunId contents:@"orphan"];
+    NSString *orphanDir =
+        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:orphanRunId];
+    // Decodes fine but references nothing: permanently malformed, must not
+    // block reclamation forever.
+    [self writeRunSummaryJSON:@"{\"not_run_id\":1}" named:@"300.run"];
+
+    kscrs_reclaimOrphanedRunData(&_storeConfig);
+    XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:orphanDir]);
 }
 
 - (void)testDeleteReportWithNoRunSidecarsPathDoesNotCrash

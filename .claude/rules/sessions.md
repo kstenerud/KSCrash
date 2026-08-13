@@ -61,9 +61,11 @@ session/user counts on the summary; a consumer derives whatever it needs from
 
 `kscrs_reclaimOrphanedRunData` (in `KSCrashReportStoreC.m`) runs under `g_mutex` at the
 end of both send flows. It computes the referenced run IDs once and removes run data
-nothing points at any more: run sidecars kept only by a report, and `.sessions` kept by
-a report **or** a `.run` summary (so a summary keeps its `.sessions` alive for the
-send-time merge). See `monitor-sidecars.md` for the run-sidecar side.
+nothing points at any more: run sidecars **and** `.sessions` are both kept while a
+report or a `.run` summary references the run (a pending summary needs its `.sessions`
+for the record merge and its UserInfo run sidecar for the metadata stitch). A queued
+summary that cannot be read or decoded aborts the pass, mirroring the unreadable-report
+rule. See `monitor-sidecars.md` for the run-sidecar side.
 
 ### Key Files
 
