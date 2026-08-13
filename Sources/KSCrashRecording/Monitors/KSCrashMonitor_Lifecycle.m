@@ -32,7 +32,6 @@
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitorHelper.h"
 #import "KSCrashRunContext.h"
-#import "KSCrashRunSummary.h"
 #import "KSDate.h"
 #import "KSFileUtils.h"
 #import "KSSessionStore.h"

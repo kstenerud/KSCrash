@@ -29,10 +29,12 @@
 #import "KSCrashAppMemory.h"
 #import "KSCrashC.h"
 #import "KSCrashCPUTracker.h"
-#import "KSCrashRunSummary.h"
+#import "KSCrashReportFields.h"
 #import "KSDate.h"
 #import "KSFileUtils.h"
+#import "KSJSONCodecObjC.h"
 #import "KSKeyValueStore.h"
+#import "KSTerminationReason.h"
 
 #import <Foundation/Foundation.h>
 #import <dirent.h>
@@ -52,7 +54,7 @@ FOUNDATION_EXPORT const unsigned char KSCrashFrameworkVersionString[];
 // ============================================================================
 
 static KSCrashRunContext g_context = { 0 };
-static KSCrashRunSummary *g_summary = nil;
+static NSDictionary *g_summary = nil;
 
 // Width of the zero-padded decimal ns prefix in "<ns>.run" filenames. 19 digits
 // covers INT64_MAX (9223372036854775807), so any unix-epoch nanosecond value
@@ -63,7 +65,7 @@ static KSCrashRunSummary *g_summary = nil;
 // impossible.
 #define KSRUN_SUMMARY_FILENAME_DIGITS 19
 
-static KSCrashRunSummary *buildSummary(const KSCrashRunContext *ctx, const char *userInfoSidecarPath);
+static NSDictionary *buildSummary(const KSCrashRunContext *ctx, const char *userInfoSidecarPath);
 
 // ============================================================================
 #pragma mark - Sidecar Reading -
@@ -286,8 +288,6 @@ bool ksruncontext_contextForRunID(const char *runID, KSCrashSidecarRunPathForRun
 
 const KSCrashRunContext *ksruncontext_previousRunContext(void) { return &g_context; }
 
-KSCrashRunSummary *ksruncontext_previousRunSummary(void) { return g_summary; }
-
 void ksruncontext_persistPreviousRunSummary(const char *runSummariesPath)
 {
     if (g_summary == nil || runSummariesPath == NULL || runSummariesPath[0] == '\0') {
@@ -314,9 +314,11 @@ void ksruncontext_persistPreviousRunSummary(const char *runSummariesPath)
         return;
     }
 
-    NSData *data = [g_summary jsonData];
+    NSError *error = nil;
+    NSData *data = [KSJSONCodec encode:g_summary options:KSJSONEncodeOptionNone error:&error];
     if (data == nil) {
-        return;  // Error already logged in -jsonData.
+        KSLOG_ERROR(@"Failed to encode run summary JSON: %@", error);
+        return;
     }
 
     // C write — the decoder rejects truncated / invalid JSON on read, so a
@@ -399,7 +401,23 @@ static NSString *safeString(const char *cstr)
     return [NSString stringWithUTF8String:cstr] ?: @"";
 }
 
-static KSCrashRunSummary *buildSummary(const KSCrashRunContext *ctx, const char *userInfoSidecarPath)
+// Wire string for the lifecycle sidecar's host kind byte.
+static NSString *hostKindWireString(uint8_t hostKind)
+{
+    switch (hostKind) {
+        case KSCrashRunSummaryHostKindApp:
+            return @"app";
+        case KSCrashRunSummaryHostKindExtension:
+            return @"extension";
+        case KSCrashRunSummaryHostKindXCTest:
+            return @"xctest";
+        case KSCrashRunSummaryHostKindOther:
+        default:
+            return @"other";
+    }
+}
+
+static NSDictionary *buildSummary(const KSCrashRunContext *ctx, const char *userInfoSidecarPath)
 {
     if (ctx == NULL || !ctx->systemValid || !ctx->lifecycleValid) {
         return nil;
@@ -416,10 +434,6 @@ static KSCrashRunSummary *buildSummary(const KSCrashRunContext *ctx, const char 
     uint64_t endedWallNs = ksdate_monotonicToWallClockNanoseconds(ctx->mostRecentTimestampNs, lc->wallClockAtStartNs,
                                                                   lc->monotonicAtStartNs);
     int64_t endedAtMs = endedWallNs != 0 ? (int64_t)(endedWallNs / 1000000ULL) : startedAtMs;
-
-    KSCrashRunSummaryOutcome *outcome =
-        [[KSCrashRunSummaryOutcome alloc] initWithTerminationReason:ctx->terminationReason
-                                                    userPerceptible:lc->userPerceptible != 0];
 
     // Durations accumulate in the sidecar only on state transitions, so the
     // currently-open slice (from the last transition to "now") is not yet
@@ -442,49 +456,53 @@ static KSCrashRunSummary *buildSummary(const KSCrashRunContext *ctx, const char 
         }
     }
 
-    KSCrashRunSummaryDurations *durations =
-        [[KSCrashRunSummaryDurations alloc] initWithActiveMs:(int64_t)(activeNs / 1000000ULL)
-                                                backgroundMs:(int64_t)(backgroundNs / 1000000ULL)];
-
-    // Records are merged from the run's .sessions file at send time, never on
-    // this synchronous startup path.
-    KSCrashRunSummarySessions *sessions = [[KSCrashRunSummarySessions alloc] initWithRecords:@[]];
-
-    KSCrashRunSummaryApp *app = [[KSCrashRunSummaryApp alloc] initWithBundleID:safeString(sys->bundleID)
-                                                                       version:safeString(sys->bundleVersion)
-                                                                  shortVersion:safeString(sys->bundleShortVersion)
-                                                                      hostKind:(KSCrashRunSummaryHostKind)lc->hostKind];
-
-    KSCrashRunSummaryOS *os = [[KSCrashRunSummaryOS alloc] initWithName:safeString(sys->systemName)
-                                                                version:safeString(sys->systemVersion)
-                                                                  build:safeString(sys->osVersion)];
-
-    KSCrashRunSummaryDevice *device = [[KSCrashRunSummaryDevice alloc] initWithModel:safeString(sys->machine)
-                                                                         modelFamily:safeString(sys->model)
-                                                                        architecture:safeString(sys->cpuArchitecture)
-                                                                  binaryArchitecture:safeString(sys->binaryArchitecture)
-                                                                        isTranslated:sys->procTranslated != 0
-                                                                        isJailbroken:sys->isJailbroken != 0];
-
     NSString *sdkVersion = [NSString stringWithUTF8String:(const char *)KSCrashFrameworkVersionString] ?: @"";
     NSString *runID = [NSString stringWithUTF8String:ctx->runID] ?: @"";
     NSString *deviceID = safeString(sys->deviceAppHash);
     NSString *userID = readUserIDFromSidecar(userInfoSidecarPath);
 
-    return [[KSCrashRunSummary alloc] initWithSchemaVersion:1
-                                                 sdkVersion:sdkVersion
-                                                      runID:runID
-                                                   deviceID:deviceID
-                                                     userID:userID
-                                                startedAtMs:startedAtMs
-                                                  endedAtMs:endedAtMs
-                                            isBeingDebugged:sys->isBeingDebugged != 0
-                                                    outcome:outcome
-                                                  durations:durations
-                                                   sessions:sessions
-                                                        app:app
-                                                         os:os
-                                                     device:device];
+    NSMutableDictionary *dict = [NSMutableDictionary dictionaryWithCapacity:14];
+    dict[KSCrashRunSummaryField_SchemaVersion] = @1;
+    dict[KSCrashRunSummaryField_SDKVersion] = sdkVersion;
+    dict[KSCrashRunSummaryField_RunID] = runID;
+    dict[KSCrashRunSummaryField_DeviceID] = deviceID;
+    if (userID != nil) {
+        dict[KSCrashRunSummaryField_UserID] = userID;
+    }
+    dict[KSCrashRunSummaryField_StartedAtMs] = @(startedAtMs);
+    dict[KSCrashRunSummaryField_EndedAtMs] = @(endedAtMs);
+    dict[KSCrashRunSummaryField_IsBeingDebugged] = sys->isBeingDebugged != 0 ? @YES : @NO;
+    dict[KSCrashRunSummaryField_Outcome] = @{
+        KSCrashRunSummaryField_TerminationReason : @(kstermination_reasonToString(ctx->terminationReason)),
+        KSCrashRunSummaryField_UserPerceptible : lc->userPerceptible != 0 ? @YES : @NO,
+    };
+    dict[KSCrashRunSummaryField_DurationsMs] = @{
+        KSCrashRunSummaryField_Active : @((int64_t)(activeNs / 1000000ULL)),
+        KSCrashRunSummaryField_Background : @((int64_t)(backgroundNs / 1000000ULL)),
+    };
+    // Records are merged from the run's .sessions file at send time, never on
+    // this synchronous startup path; the wire form omits the empty list.
+    dict[KSCrashRunSummaryField_Sessions] = @ {};
+    dict[KSCrashRunSummaryField_App] = @ {
+        KSCrashRunSummaryField_BundleID : safeString(sys->bundleID),
+        KSCrashRunSummaryField_Version : safeString(sys->bundleVersion),
+        KSCrashRunSummaryField_ShortVersion : safeString(sys->bundleShortVersion),
+        KSCrashRunSummaryField_HostKind : hostKindWireString(lc->hostKind),
+    };
+    dict[KSCrashRunSummaryField_OS] = @ {
+        KSCrashRunSummaryField_Name : safeString(sys->systemName),
+        KSCrashRunSummaryField_Version : safeString(sys->systemVersion),
+        KSCrashRunSummaryField_Build : safeString(sys->osVersion),
+    };
+    dict[KSCrashRunSummaryField_Device] = @{
+        KSCrashRunSummaryField_Model : safeString(sys->machine),
+        KSCrashRunSummaryField_ModelFamily : safeString(sys->model),
+        KSCrashRunSummaryField_Architecture : safeString(sys->cpuArchitecture),
+        KSCrashRunSummaryField_BinaryArchitecture : safeString(sys->binaryArchitecture),
+        KSCrashRunSummaryField_IsTranslated : sys->procTranslated != 0 ? @YES : @NO,
+        KSCrashRunSummaryField_IsJailbroken : sys->isJailbroken != 0 ? @YES : @NO,
+    };
+    return dict;
 }
 
 // ============================================================================
@@ -520,14 +538,14 @@ void ksruncontext_testcode_setLifecycleData(const KSCrash_LifecycleData *data)
 }
 
 __attribute__((unused))  // For tests. Declared as extern in TestCase
-KSCrashRunSummary *
+NSDictionary *
 ksruncontext_testcode_buildSummary(const KSCrashRunContext *ctx, const char *userInfoSidecarPath)
 {
     return buildSummary(ctx, userInfoSidecarPath);
 }
 
 __attribute__((unused))  // For tests. Declared as extern in TestCase
-void ksruncontext_testcode_setCachedSummary(KSCrashRunSummary *summary, const char *runID)
+void ksruncontext_testcode_setCachedSummary(NSDictionary *summary, const char *runID)
 {
     g_summary = summary;
     if (runID != NULL) {

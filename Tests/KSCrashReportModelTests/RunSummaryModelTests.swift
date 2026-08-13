@@ -25,14 +25,11 @@
 //
 
 import Foundation
-import KSCrashRecording
 import KSCrashReportModel
 import XCTest
 
 // Both modules export a `RunSummary`, so qualify by module.
 private typealias SwiftRunSummary = KSCrashReportModel.RunSummary
-private typealias ObjCRunSummary = KSCrashRecording.KSCrashRunSummary
-
 final class RunSummaryModelTests: XCTestCase {
     // MARK: - Helpers
 
@@ -142,79 +139,6 @@ final class RunSummaryModelTests: XCTestCase {
         let json = try asJSONObject(data)
         let sessions = try XCTUnwrap(json["sessions"] as? [String: Any])
         XCTAssertNil(sessions["records"])
-    }
-
-    // MARK: - Cross-check against the Objective-C writer
-
-    func test_crossCheck_decodesObjCWriterOutput() throws {
-        let objcSession = KSCrashRunSummarySession(
-            sessionID: "F0E1D2C3-B4A5-6879-8A9B-0C1D2E3F4A5B",
-            userID: "bob",
-            perceptible: true,
-            startedAtMs: 1_744_000_000_000,
-            endedAtMs: 1_744_000_090_000)
-        let objc = ObjCRunSummary(
-            schemaVersion: 1,
-            sdkVersion: "2.6.0-beta.1",
-            runID: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-            deviceID: "0123456789abcdef",
-            userID: "bob",
-            startedAtMs: 1_744_000_000_000,
-            endedAtMs: 1_744_000_180_000,
-            isBeingDebugged: true,
-            outcome: .init(terminationReason: .osUpgrade, userPerceptible: true),
-            durations: .init(activeMs: 123_456, backgroundMs: 45_678),
-            sessions: .init(records: [objcSession]),
-            app: .init(
-                bundleID: "com.acme.app",
-                version: "2.6.0.1234",
-                shortVersion: "2.6.0",
-                hostKind: .extension),
-            os: .init(name: "iOS", version: "18.0", build: "22A348"),
-            device: .init(
-                model: "iPhone17,1",
-                modelFamily: "iPhone",
-                architecture: "arm64e",
-                binaryArchitecture: "arm64e",
-                isTranslated: false,
-                isJailbroken: false))
-
-        let data = try XCTUnwrap(objc.jsonData())
-        let decoded = try JSONDecoder().decode(SwiftRunSummary.self, from: data)
-
-        XCTAssertEqual(decoded.schemaVersion, 1)
-        XCTAssertEqual(decoded.sdkVersion, "2.6.0-beta.1")
-        XCTAssertEqual(decoded.runID, "a1b2c3d4-e5f6-7890-abcd-ef1234567890")
-        XCTAssertEqual(decoded.deviceID, "0123456789abcdef")
-        XCTAssertEqual(decoded.userID, "bob")
-        XCTAssertEqual(decoded.startedAtMs, 1_744_000_000_000)
-        XCTAssertEqual(decoded.endedAtMs, 1_744_000_180_000)
-        XCTAssertTrue(decoded.isBeingDebugged)
-        XCTAssertEqual(decoded.outcome.terminationReason, .osUpgrade)
-        XCTAssertTrue(decoded.outcome.userPerceptible)
-        XCTAssertEqual(decoded.durations.activeMs, 123_456)
-        XCTAssertEqual(decoded.durations.backgroundMs, 45_678)
-        XCTAssertEqual(decoded.app.bundleID, "com.acme.app")
-        XCTAssertEqual(decoded.app.version, "2.6.0.1234")
-        XCTAssertEqual(decoded.app.shortVersion, "2.6.0")
-        XCTAssertEqual(decoded.app.hostKind, .extension)
-        XCTAssertEqual(decoded.os.name, "iOS")
-        XCTAssertEqual(decoded.os.version, "18.0")
-        XCTAssertEqual(decoded.os.build, "22A348")
-        XCTAssertEqual(decoded.device.model, "iPhone17,1")
-        XCTAssertEqual(decoded.device.modelFamily, "iPhone")
-        XCTAssertEqual(decoded.device.architecture, "arm64e")
-        XCTAssertEqual(decoded.device.binaryArchitecture, "arm64e")
-        XCTAssertFalse(decoded.device.isTranslated)
-        XCTAssertFalse(decoded.device.isJailbroken)
-
-        XCTAssertEqual(decoded.sessions.records.count, 1)
-        let record = try XCTUnwrap(decoded.sessions.records.first)
-        XCTAssertEqual(record.sessionID, "F0E1D2C3-B4A5-6879-8A9B-0C1D2E3F4A5B")
-        XCTAssertEqual(record.userID, "bob")
-        XCTAssertTrue(record.perceptible)
-        XCTAssertEqual(record.startedAtMs, 1_744_000_000_000)
-        XCTAssertEqual(record.endedAtMs, 1_744_000_090_000)
     }
 
     // MARK: - Absence tolerance and forward compatibility

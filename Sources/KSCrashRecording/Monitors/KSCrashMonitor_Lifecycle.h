@@ -56,6 +56,15 @@ extern "C" {
 #pragma mark - Sidecar Struct -
 // ============================================================================
 
+/** Kind of host process a run belongs to. Stored by value in the lifecycle
+ *  sidecar and written to the run summary wire format as a string. */
+typedef enum {
+    KSCrashRunSummaryHostKindApp = 0,
+    KSCrashRunSummaryHostKindExtension,
+    KSCrashRunSummaryHostKindXCTest,
+    KSCrashRunSummaryHostKindOther,
+} KSCrashRunSummaryHostKind;
+
 #define KSLIFECYCLE_MAGIC ((int32_t)'kslc')
 
 static const uint8_t KSCrash_Lifecycle_CurrentVersion = 3;

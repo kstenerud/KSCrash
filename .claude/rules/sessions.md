@@ -45,8 +45,9 @@ is the Swift model field.
 ### Run summaries (`.run`) and the send merge
 
 The run summary is built from the previous run's context by `buildSummary` in
-`KSCrashRunContext.m` and persisted during install
-(`ksruncontext_persistPreviousRunSummary`); the Swift-facing model is
+`KSCrashRunContext.m` (directly as the wire dictionary, keyed by
+`KSCrashRunSummaryField_*`) and persisted during install
+(`ksruncontext_persistPreviousRunSummary`); the model consumers see is
 `RunSummary` in `KSCrashReportModel`. The persisted `.run` has an empty
 `sessions.records`; the records are the single source of truth for a run's sessions and
 are merged in only at send time.
@@ -69,7 +70,6 @@ send-time merge). See `monitor-sidecars.md` for the run-sidecar side.
 - `KSSessionStore.{c,h}`: append-only `.sessions` reader/writer
 - `KSCrashMonitor_Lifecycle.{h,m}`: live session recording; `kslifecycle_currentSessionID`, `kslifecycle_copyLastSessionIDForRunID`
 - `KSCrashMonitor_LifecycleStitch.m`: adds `report.session_id` at delivery
-- `KSCrashRunSummary.{h,m}`: the ObjC summary model and JSON codec (write side)
 - `KSCrashRunContext.m`: `buildSummary`, `ksruncontext_persistPreviousRunSummary`
 - `Sources/KSCrash/RunStore.swift` / `RunSummarySend.swift`: send-time merge, metadata stitch, and the async send
 - `KSCrashReportStoreC.m`: `kscrs_reclaimOrphanedRunData`

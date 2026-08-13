@@ -121,18 +121,9 @@ void ksruncontext_persistPreviousRunSummary(const char *runSummariesPath);
 #ifdef __OBJC__
 #import <Foundation/Foundation.h>
 
-@class KSCrashRunSummary;
-
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-/** Returns the run summary for the previous run, or nil if there was no
- *  previous run or its data was incomplete.
- *
- *  Only valid after ksruncontext_init().
- */
-KSCrashRunSummary *ksruncontext_previousRunSummary(void);
 
 #ifdef __cplusplus
 }
