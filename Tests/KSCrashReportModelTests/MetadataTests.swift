@@ -128,6 +128,38 @@ final class MetadataTests: XCTestCase {
         XCTAssertEqual(back, original)
     }
 
+    func test_date_agreesAcrossPerKeyAndWholeBagPaths() throws {
+        struct HasDate: Codable, Equatable {
+            var when: Date
+        }
+        let date = Date(timeIntervalSince1970: 1_700_000_000.5)
+
+        // Your type in via from(), the key out via a typed read.
+        let fromBag = try Metadata.from(HasDate(when: date))
+        XCTAssertEqual(fromBag.value(forKey: "when", as: Date.self), date)
+
+        // The key in via set(), your type out via decoded().
+        var setBag = Metadata()
+        setBag.set(date, forKey: "when")
+        XCTAssertEqual(try setBag.decoded(as: HasDate.self), HasDate(when: date))
+    }
+
+    func test_numericValues_surviveCodableRoundTrip() throws {
+        var bag = Metadata()
+        bag.set(1.0, forKey: "double")
+        bag.set(UInt64(7), forKey: "unsigned")
+
+        let back = try JSONDecoder().decode(Metadata.self, from: JSONEncoder().encode(bag))
+
+        // JSON does not distinguish 1 from 1.0, so a round-trip may re-type
+        // numbers; equality and typed reads must not change because of it.
+        XCTAssertEqual(back, bag)
+        XCTAssertEqual(bag.value(forKey: "double", as: Int.self), 1)
+        XCTAssertEqual(back.value(forKey: "double", as: Int.self), 1)
+        XCTAssertEqual(back.value(forKey: "double", as: Double.self), 1.0)
+        XCTAssertEqual(back.value(forKey: "unsigned", as: UInt64.self), 7)
+    }
+
     func test_date_roundTripsAsSecondsSince1970() throws {
         var bag = Metadata()
         let date = Date(timeIntervalSince1970: 1_700_000_000.25)

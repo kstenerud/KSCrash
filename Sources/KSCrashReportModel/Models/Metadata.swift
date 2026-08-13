@@ -78,14 +78,25 @@ public struct Metadata: Equatable, Sendable {
         }
     }
 
-    /// The whole bag decoded into `type`.
+    /// The whole bag decoded into `type`. Dates are seconds since 1970, the
+    /// same representation `set`/`value(forKey:as:)` use for `Date`.
     public func decoded<Value: Decodable>(as type: Value.Type = Value.self) throws -> Value {
-        try JSONDecoder().decode(Value.self, from: JSONEncoder().encode(self))
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .secondsSince1970
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .secondsSince1970
+        return try decoder.decode(Value.self, from: encoder.encode(self))
     }
 
-    /// A bag built from any `Encodable` value; throws if `value` does not encode to a JSON object.
+    /// A bag built from any `Encodable` value; throws if `value` does not
+    /// encode to a JSON object. Dates are seconds since 1970, the same
+    /// representation `set`/`value(forKey:as:)` use for `Date`.
     public static func from(_ value: some Encodable) throws -> Metadata {
-        try JSONDecoder().decode(Metadata.self, from: JSONEncoder().encode(value))
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .secondsSince1970
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .secondsSince1970
+        return try decoder.decode(Metadata.self, from: encoder.encode(value))
     }
 }
 

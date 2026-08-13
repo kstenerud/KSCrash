@@ -27,7 +27,7 @@
 import Foundation
 
 /// A single JSON value.
-public enum MetadataValue: Equatable, Sendable {
+public enum MetadataValue: Sendable {
     case null
     case bool(Bool)
     case integer(Int64)
@@ -36,6 +36,31 @@ public enum MetadataValue: Equatable, Sendable {
     case string(String)
     indirect case array([MetadataValue])
     indirect case object([String: MetadataValue])
+}
+
+extension MetadataValue: Equatable {
+    /// Numeric cases compare by value: JSON does not distinguish `1`, `1.0`,
+    /// and an unsigned `1`, and a Codable round-trip may re-type them, so
+    /// equality must not either.
+    public static func == (lhs: MetadataValue, rhs: MetadataValue) -> Bool {
+        switch (lhs, rhs) {
+        case (.null, .null): return true
+        case (.bool(let l), .bool(let r)): return l == r
+        case (.string(let l), .string(let r)): return l == r
+        case (.array(let l), .array(let r)): return l == r
+        case (.object(let l), .object(let r)): return l == r
+        case (.integer(let l), .integer(let r)): return l == r
+        case (.unsignedInteger(let l), .unsignedInteger(let r)): return l == r
+        case (.double(let l), .double(let r)): return l == r
+        case (.integer(let l), .unsignedInteger(let r)), (.unsignedInteger(let r), .integer(let l)):
+            return l >= 0 && UInt64(l) == r
+        case (.integer(let l), .double(let r)), (.double(let r), .integer(let l)):
+            return Int64(exactly: r) == l
+        case (.unsignedInteger(let l), .double(let r)), (.double(let r), .unsignedInteger(let l)):
+            return UInt64(exactly: r) == l
+        default: return false
+        }
+    }
 }
 
 extension MetadataValue: Codable {
@@ -154,28 +179,37 @@ extension Bool: MetadataValueDecodable {
     }
 }
 extension Int: MetadataValueDecodable {
+    /// Accepts any numeric case whose value is exactly representable; a
+    /// Codable round-trip may re-type numbers, so typed reads must not care.
     public static func decode(from value: MetadataValue) -> Int? {
         switch value {
         case .integer(let value): Int(exactly: value)
         case .unsignedInteger(let value): Int(exactly: value)
+        case .double(let value): Int(exactly: value)
         default: nil
         }
     }
 }
 extension Int64: MetadataValueDecodable {
+    /// Accepts any numeric case whose value is exactly representable; a
+    /// Codable round-trip may re-type numbers, so typed reads must not care.
     public static func decode(from value: MetadataValue) -> Int64? {
         switch value {
         case .integer(let value): value
         case .unsignedInteger(let value): Int64(exactly: value)
+        case .double(let value): Int64(exactly: value)
         default: nil
         }
     }
 }
 extension UInt64: MetadataValueDecodable {
+    /// Accepts any numeric case whose value is exactly representable; a
+    /// Codable round-trip may re-type numbers, so typed reads must not care.
     public static func decode(from value: MetadataValue) -> UInt64? {
         switch value {
         case .integer(let value): UInt64(exactly: value)
         case .unsignedInteger(let value): value
+        case .double(let value): UInt64(exactly: value)
         default: nil
         }
     }
