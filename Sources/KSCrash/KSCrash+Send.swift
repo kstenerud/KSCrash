@@ -65,24 +65,23 @@ extension KSCrash {
     // early sends correctly see no store), and cross-send coordination lives
     // in SendClaims, not here. Nothing is gained by caching it.
     private static func runDataStore(reportStore: CrashReportStore?) -> RunDataStore? {
-        guard let runsPath = kscrash_getRunSummariesPath(),
+        // The resolved paths can be non-NULL while an install is still in
+        // flight or after one failed partway; a nonnil reportStore is what
+        // marks a completed install, and it also carries the reclaim. Without
+        // it there is no store, and the send stays empty as documented.
+        guard let reportStore,
+            let runsPath = kscrash_getRunSummariesPath(),
             let sidecarsPath = kscrash_getRunSidecarsPath()
         else {
             return nil
         }
         let liveRunID = String(cString: kscrash_getRunID())
-        let reclaim: @Sendable () -> Void
-        if let reportStore {
-            reclaim = { reportStore.reclaimOrphanedRunData() }
-        } else {
-            reclaim = {}
-        }
         return RunDataStore(
             runsDirectory: URL(fileURLWithPath: String(cString: runsPath), isDirectory: true),
             runSidecarsDirectory: URL(fileURLWithPath: String(cString: sidecarsPath), isDirectory: true),
             maxRunCount: Int(kscrash_getMaxRunSummaryCount()),
             liveRunID: liveRunID.isEmpty ? nil : liveRunID,
-            reclaim: reclaim
+            reclaim: { reportStore.reclaimOrphanedRunData() }
         )
     }
 }
