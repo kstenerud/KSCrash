@@ -88,7 +88,7 @@ struct RunDataStore: Sendable {
         // grouping problem: collect each artifact kind under its runID and
         // build one store per key at the end.
         struct Group {
-            var summaries: [(orderNs: UInt64, url: URL, summary: RunSummary)] = []
+            var summaries: [(orderNs: UInt64, url: URL)] = []
             var sessionsFile: URL?
         }
         var groups: [String: Group] = [:]
@@ -99,13 +99,14 @@ struct RunDataStore: Sendable {
             switch (name as NSString).pathExtension.lowercased() {
             case "run":
                 // A `.run` file's grouping key (its runID) lives inside the
-                // JSON, so decoding happens here at snapshot time; it also
-                // makes the snapshot immutable, since the send never has to
-                // go back to the file. A summary that cannot be decoded, or
-                // decodes without a runID, cannot be keyed or tied to its
-                // shared artifacts, so it is skipped and left on disk where
-                // pruning eventually reclaims it (the same policy as the
-                // previous ObjC send).
+                // JSON, so each file is decoded here transiently, just to
+                // extract its identity; the payload is discarded immediately
+                // and re-read per item under the send's claim, so a send
+                // never holds more than one summary regardless of backlog. A
+                // summary that cannot be decoded, or decodes without a runID,
+                // cannot be keyed or tied to its shared artifacts, so it is
+                // skipped and left on disk where pruning eventually reclaims
+                // it.
                 guard let data = try? Data(contentsOf: url),
                     let summary = try? decoder.decode(RunSummary.self, from: data),
                     !summary.runID.isEmpty
@@ -118,7 +119,7 @@ struct RunDataStore: Sendable {
                 // the writer (tests, hand-made) fall back to the decoded start
                 // time so they still order sensibly among the rest.
                 let orderNs = parsedRunFilenameNs(name) ?? UInt64(clamping: summary.startedAtMs) &* 1_000_000
-                groups[summary.runID, default: Group()].summaries.append((orderNs, url, summary))
+                groups[summary.runID, default: Group()].summaries.append((orderNs, url))
             case "sessions":
                 // `.sessions` filenames are `<runID>.sessions`, so the name
                 // alone keys the file; nothing needs to be read.
@@ -178,8 +179,7 @@ struct RunDataStore: Sendable {
                 runID: runID,
                 summaryFiles: summaries.map(\.url),
                 sessionsFile: group.sessionsFile,
-                sidecarDirectory: sidecarDirectories[runID],
-                baseSummary: summaries.first?.summary
+                sidecarDirectory: sidecarDirectories[runID]
             )
             if let newest = summaries.first {
                 withSummary.append((newest.orderNs, store))

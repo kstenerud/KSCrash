@@ -42,14 +42,10 @@ struct RunStore: Sendable {
     let sessionsFile: URL?
     let sidecarDirectory: URL?
 
-    /// The decoded newest `.run`, before merge and stitch.
-    let baseSummary: RunSummary?
-
     /// Whether any of this run's `.run` files still exists. A snapshot can go
     /// stale (a concurrent send may deliver and delete a run after this store
-    /// was built), and `baseSummary` would happily outlive the file; checking
-    /// under a send's claim is race-free, because deletes only happen under
-    /// the claim.
+    /// was built); checking under a send's claim is race-free, because
+    /// deletes only happen under the claim.
     var hasSummaryOnDisk: Bool {
         summaryFiles.contains { FileManager.default.fileExists(atPath: $0.path) }
     }
@@ -59,7 +55,10 @@ struct RunStore: Sendable {
     /// the run has no summary on disk. An unreadable `.sessions` degrades to
     /// empty records; a missing or empty sidecar to nil metadata.
     func summary() -> RunSummary? {
-        guard var summary = baseSummary else {
+        // The payload is read here, per item, never held by the snapshot: a
+        // send keeps at most one summary in memory no matter how many runs
+        // are pending. Newest file first; duplicates are fallbacks.
+        guard var summary = decodedBaseSummary() else {
             return nil
         }
         // The persisted `.run` deliberately carries neither session records nor
@@ -72,6 +71,18 @@ struct RunStore: Sendable {
             summary = summary.with(metadata: metadata)
         }
         return summary
+    }
+
+    private func decodedBaseSummary() -> RunSummary? {
+        let decoder = JSONDecoder()
+        for file in summaryFiles {
+            if let data = try? Data(contentsOf: file),
+                let summary = try? decoder.decode(RunSummary.self, from: data)
+            {
+                return summary
+            }
+        }
+        return nil
     }
 
     /// Delete this run's own `.run` files. Deletes every duplicate, so a run

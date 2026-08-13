@@ -141,7 +141,6 @@ final class RunDataStoreTests: XCTestCase {
 
         let runs = try makeStore().runs()
         XCTAssertEqual(runs.map(\.runID), ["WITHSUMMARY", "ORPHAN"])
-        XCTAssertNil(runs[1].baseSummary)
         XCTAssertNil(runs[1].summary())
     }
 
@@ -174,7 +173,7 @@ final class RunDataStoreTests: XCTestCase {
         let runs = try makeStore().runs()
         XCTAssertEqual(runs.count, 1)
         XCTAssertEqual(runs[0].summaryFiles.count, 2)
-        XCTAssertEqual(runs[0].baseSummary?.startedAtMs, 2)
+        XCTAssertEqual(runs[0].summary()?.startedAtMs, 2)
 
         try runs[0].removeSummary()
         XCTAssertEqual(
