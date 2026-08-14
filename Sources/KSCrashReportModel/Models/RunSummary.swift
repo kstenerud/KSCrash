@@ -282,7 +282,7 @@ public struct RunSummary: Codable, Sendable, Equatable {
     public let os: OS
     public let device: Device
 
-    /// App-supplied metadata, stitched in at send from the run's userInfo stitch file.
+    /// App-supplied metadata recorded for the run; nil when none was recorded.
     public let metadata: Metadata?
 
     public init(

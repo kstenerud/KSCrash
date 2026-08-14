@@ -28,7 +28,10 @@ import KSCrashReportModel
 
 /// Configuration for a send.
 public struct SendConfiguration: Sendable {
-    /// The stages a run summary passes through, in order.
+    /// The stages a run summary passes through, in order. An EMPTY pipeline
+    /// is a purge: every pending summary trivially reaches the end, so it is
+    /// deleted from disk and reported as delivered without any consumer
+    /// receiving it. Add a stage before sending if you want the data.
     public var runSummaryPipeline: [AnyPipelineStage<RunSummary>]
 
     /// Whether delivered items carry their final payload in the result.

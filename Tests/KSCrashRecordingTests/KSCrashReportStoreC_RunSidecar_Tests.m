@@ -59,6 +59,9 @@ static CFDictionaryRef testStitchReport(CFDictionaryRef reportDict, const char *
     }
 }
 
+// Test helpers exposed from KSCrashC.c.
+extern void kscrash_testcode_setRunID(const char *runID);
+
 @interface KSCrashReportStoreC_RunSidecar_Tests : FileBasedTestCase
 @end
 
@@ -75,6 +78,7 @@ static CFDictionaryRef testStitchReport(CFDictionaryRef reportDict, const char *
 - (void)tearDown
 {
     kscrs_setStitchConfig(NULL);
+    kscrash_testcode_setRunID(NULL);
     [super tearDown];
 }
 
@@ -92,6 +96,9 @@ static CFDictionaryRef testStitchReport(CFDictionaryRef reportDict, const char *
     _storeConfig.maxReportCount = 10;
     kscrs_initialize(&_storeConfig);
     kscrs_setStitchConfig(&_storeConfig);
+    // Reclaim refuses to run without a current run id (pre-install safety);
+    // these tests exercise a nominally installed process.
+    kscrash_testcode_setRunID("11111111-aaaa-bbbb-cccc-000000000001");
 }
 
 - (int64_t)writeReportWithRunId:(NSString *)runId
@@ -316,6 +323,74 @@ static CFDictionaryRef testStitchReport(CFDictionaryRef reportDict, const char *
     for (NSString *runDir in runDirs) {
         XCTAssertTrue([fm fileExistsAtPath:runDir], @"Run sidecar wrongly deleted: %@", runDir);
     }
+}
+
+#pragma mark - Shared constants
+
+- (void)testUserInfoSidecarFilenameComposesFromItsParts
+{
+    // Swift reads the composed filename constant while C composes the path
+    // from the id and extension; this is the lockstep guarantee.
+    NSString *composed = [NSString stringWithFormat:@"%s.%s", KSCRS_MONITOR_ID_USERINFO, KSCRS_RUN_SIDECAR_EXTENSION];
+    XCTAssertEqualObjects(@KSCRS_USERINFO_RUN_SIDECAR_FILENAME, composed);
+}
+
+#pragma mark - Reclaim guards
+
+- (void)testReclaimNoOpsBeforeInstall
+{
+    [self prepareStoreWithRunSidecars:@"testPreInstallReclaim"];
+    NSString *orphanRunId = [[NSUUID UUID] UUIDString];
+    [self writeRunSidecar:@"UserInfo" runId:orphanRunId contents:@"orphan"];
+    NSString *orphanSessions = [self writeSessionsFileForRunId:orphanRunId];
+    NSString *orphanDir =
+        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:orphanRunId];
+
+    // Pre-install (no current run id) the previous run's data is not yet
+    // referenced by anything; reclaim must not touch it.
+    kscrash_testcode_setRunID(NULL);
+    kscrs_reclaimOrphanedRunData(&_storeConfig);
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:orphanDir]);
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:orphanSessions]);
+
+    kscrash_testcode_setRunID("11111111-aaaa-bbbb-cccc-000000000001");
+    kscrs_reclaimOrphanedRunData(&_storeConfig);
+    XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:orphanDir]);
+    XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:orphanSessions]);
+}
+
+- (void)testReclaimDeletesTruncatedSummaryAndProceeds
+{
+    [self prepareStoreWithRunSidecars:@"testTruncatedSummary"];
+    NSString *orphanRunId = [[NSUUID UUID] UUIDString];
+    [self writeRunSidecar:@"UserInfo" runId:orphanRunId contents:@"orphan"];
+    NSString *orphanDir =
+        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:orphanRunId];
+    // A truncated summary (crash mid-persist): deterministic garbage in a
+    // single-process store, so it must not block the pass.
+    NSString *garbagePath = [self writeRunSummaryJSON:@"{\"run_id\": \"12345678-aaaa" named:@"400.run"];
+
+    kscrs_reclaimOrphanedRunData(&_storeConfig);
+
+    XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:orphanDir]);
+    XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:garbagePath]);
+}
+
+- (void)testReclaimDeletesEmptySummaryAndProceeds
+{
+    [self prepareStoreWithRunSidecars:@"testEmptySummary"];
+    NSString *orphanRunId = [[NSUUID UUID] UUIDString];
+    [self writeRunSidecar:@"UserInfo" runId:orphanRunId contents:@"orphan"];
+    NSString *orphanDir =
+        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:orphanRunId];
+    // A 0-byte summary (crash between O_TRUNC and the write): permanently
+    // malformed and deleted so it can never jam reclamation.
+    NSString *garbagePath = [self writeRunSummaryJSON:@"" named:@"500.run"];
+
+    kscrs_reclaimOrphanedRunData(&_storeConfig);
+
+    XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:orphanDir]);
+    XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:garbagePath]);
 }
 
 #pragma mark - Reclaim with pending summaries

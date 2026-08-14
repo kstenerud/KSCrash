@@ -43,6 +43,21 @@ extern "C" {
  */
 #define KSCRS_DEFAULT_REPORTS_FOLDER "Reports"
 
+/** The UserInfo monitor's id, and its per-run sidecar filename inside a run's
+ *  RunSidecars/<runID>/ directory. The filename is the id plus the sidecar
+ *  extension; a unit test enforces the composition, so keep all three in sync.
+ *  Written by the UserInfo monitor; read by the report userInfo stitch and the
+ *  run-summary metadata stitch. */
+#define KSCRS_MONITOR_ID_USERINFO "UserInfo"
+#define KSCRS_RUN_SIDECAR_EXTENSION "ksscr"
+#define KSCRS_USERINFO_RUN_SIDECAR_FILENAME "UserInfo.ksscr"
+
+/** Writer-named run summary files are "<digits>.run": the run's wall-clock
+ *  start in nanoseconds, zero-padded to at most this many digits. Shared by
+ *  the C writer and the Swift store's parser; change them together. */
+#define KSCRS_RUN_SUMMARY_FILENAME_DIGITS 19
+#define KSCRS_RUN_SUMMARY_FILENAME_EXTENSION "run"
+
 /** Initialize the report store.
  *
  * @param configuration The store configuretion (e.g. reports path, app name etc).

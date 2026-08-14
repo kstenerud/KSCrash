@@ -518,6 +518,7 @@
 #define kssignal_signalName KSCRASH_NS(kssignal_signalName)
 #define kssr_close KSCRASH_NS(kssr_close)
 #define kssr_count KSCRASH_NS(kssr_count)
+#define kssr_lastError KSCRASH_NS(kssr_lastError)
 #define kssr_open KSCRASH_NS(kssr_open)
 #define kssr_sessionAt KSCRASH_NS(kssr_sessionAt)
 #define ksstring_doubleToString KSCRASH_NS(ksstring_doubleToString)

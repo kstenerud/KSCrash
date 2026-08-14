@@ -36,7 +36,9 @@ extension KSCrash {
     /// `configuration.includesDeliveredPayloads` is set. Concurrent sends
     /// partition the pending runs between them. Throws only when the run
     /// store cannot be read; cancellation stops between runs and returns the
-    /// outcomes so far. Before `install`, the result is empty.
+    /// outcomes so far. Before `install`, the result is empty. An empty
+    /// `runSummaryPipeline` is a purge: every pending summary is deleted and
+    /// reported as delivered without any consumer receiving it.
     public func sendRunSummaries(with configuration: SendConfiguration) async throws -> SendResult<RunSummary> {
         try await RunSummarySend.send(
             store: Self.runDataStore(reportStore: reportStore),

@@ -167,6 +167,20 @@ static void updateSidecarDurations(KSCrash_LifecycleData *sc)
 #pragma mark - Session writer -
 // ============================================================================
 
+// Create the directory portion of `filePath`. The path getters are pure
+// (read paths must not mutate disk), so the writer's call site owns creation.
+static bool makeParentDirectory(const char *filePath)
+{
+    char dir[KSFU_MAX_PATH_LENGTH];
+    strlcpy(dir, filePath, sizeof(dir));
+    char *slash = strrchr(dir, '/');
+    if (slash == NULL) {
+        return false;
+    }
+    *slash = '\0';
+    return ksfu_makePath(dir);
+}
+
 /** Return the session writer, creating it on first use. Call under g_sessionLock.
  *  Returns NULL only when no summary-sidecar path is available (e.g. before
  *  install). kssw_open does no file I/O; the file opens on the first cut. */
@@ -183,7 +197,8 @@ static KSSessionWriter *ensureSessionWriterLocked(void)
     if (g_sessionWriter == NULL) {
         char path[KSFU_MAX_PATH_LENGTH];
         if (g_callbacks.getSummarySidecarPath != NULL &&
-            g_callbacks.getSummarySidecarPath(kscrash_getRunID(), "sessions", path, sizeof(path))) {
+            g_callbacks.getSummarySidecarPath(kscrash_getRunID(), "sessions", path, sizeof(path)) &&
+            makeParentDirectory(path)) {
             g_sessionWriter = kssw_open(path);
         }
     }
@@ -235,6 +250,14 @@ bool kslifecycle_copyLastSessionIDForRunID(const char *runID, char *buf, size_t 
     if (!g_callbacks.getSummarySidecarPath(runID, "sessions", path, sizeof(path))) {
         return false;
     }
+    // The live run's file may be mid-append (finalize-time stitches read it
+    // while the writer is active); the store's contract is one accessor at a
+    // time, so serialize against the writer for the current run only.
+    const char *currentRunID = kscrash_getRunID();
+    bool isLiveRun = currentRunID != NULL && strcmp(runID, currentRunID) == 0;
+    if (isLiveRun) {
+        os_unfair_lock_lock(&g_sessionLock);
+    }
     KSSessionReader *reader = kssr_open(path);
     bool found = false;
     int count = kssr_count(reader);
@@ -246,6 +269,9 @@ bool kslifecycle_copyLastSessionIDForRunID(const char *runID, char *buf, size_t 
         }
     }
     kssr_close(reader);
+    if (isLiveRun) {
+        os_unfair_lock_unlock(&g_sessionLock);
+    }
     return found;
 }
 

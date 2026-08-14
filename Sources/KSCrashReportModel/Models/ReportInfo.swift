@@ -72,7 +72,7 @@ public struct ReportInfo: Codable, Sendable, Equatable {
     /// The run ID of the process that generated this report.
     public let runId: String?
 
-    /// The session ID that was open when this report was generated.
+    /// The id of the latest session recorded when this report was finalized.
     public let sessionId: String?
 
     /// Identifier of the monitor that generated this report.

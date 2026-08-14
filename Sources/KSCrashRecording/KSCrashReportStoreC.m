@@ -197,7 +197,8 @@ static bool getRunSidecarFilePath(const char *runSidecarsPath, const char *monit
         return false;
     }
     ksfu_makePath(runDir);
-    if (snprintf(pathBuffer, pathBufferLength, "%s/%s.ksscr", runDir, monitorId) >= (int)pathBufferLength) {
+    if (snprintf(pathBuffer, pathBufferLength, "%s/%s." KSCRS_RUN_SIDECAR_EXTENSION, runDir, monitorId) >=
+        (int)pathBufferLength) {
         return false;
     }
     return true;
@@ -419,11 +420,14 @@ static NSSet<NSString *> *reportReferencedRunIDs(const KSCrashReportStoreCConfig
 // Run ids referenced by the .run summaries still on disk (a summary keeps its
 // .sessions and run sidecars alive for the send-time merge and metadata
 // stitch). run_id is a top-level summary key. Returns nil when a queued
-// summary cannot be read or decoded (it may be mid-write by another process
-// sharing the install dir), mirroring reportReferencedRunIDs: the caller must
-// then skip the pass rather than treat that run as unreferenced. A summary
-// that decodes but has no usable run_id is permanently malformed, references
-// nothing, and is left for pruning.
+// summary cannot be READ (a transient I/O failure must not be mistaken for
+// absence), mirroring reportReferencedRunIDs: the caller then skips the pass.
+// A summary that reads but does not DECODE is deterministic garbage (a store
+// is single-process, so the only source is a crash between O_TRUNC and the
+// write during persist): it references nothing and is deleted here, because
+// nothing else ever removes it and leaving it would jam reclamation forever.
+// A summary that decodes but has no usable run_id references nothing and is
+// left for pruning.
 static NSSet<NSString *> *summaryReferencedRunIDs(const char *runSummariesPath)
 {
     NSMutableSet<NSString *> *runIDs = [NSMutableSet set];
@@ -441,15 +445,18 @@ static NSSet<NSString *> *summaryReferencedRunIDs(const char *runSummariesPath)
         if (![entry.pathExtension.lowercaseString isEqualToString:@"run"]) {
             continue;
         }
-        NSData *data = [NSData dataWithContentsOfFile:[dir stringByAppendingPathComponent:entry]];
-        id json = data != nil
-                      ? [KSJSONCodec decode:data
-                                    options:KSJSONDecodeOptionIgnoreNullInArray | KSJSONDecodeOptionIgnoreNullInObject |
-                                            KSJSONDecodeOptionKeepPartialObject
-                                      error:nil]
-                      : nil;
-        if (json == nil) {
+        NSString *path = [dir stringByAppendingPathComponent:entry];
+        NSData *data = [NSData dataWithContentsOfFile:path];
+        if (data == nil) {
             return nil;
+        }
+        // Strict decode: a truncated file must FAIL here, not hand back a
+        // partial object without run_id and be mistaken for a summary that
+        // references nothing.
+        id json = [KSJSONCodec decode:data options:KSJSONDecodeOptionNone error:nil];
+        if (json == nil) {
+            [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+            continue;
         }
         id runID = [json isKindOfClass:[NSDictionary class]] ? json[KSCrashRunSummaryField_RunID] : nil;
         if ([runID isKindOfClass:[NSString class]] && [runID length] > 0) {
@@ -468,6 +475,14 @@ static NSSet<NSString *> *summaryReferencedRunIDs(const char *runSummariesPath)
 static void reclaimOrphanedRunData(const KSCrashReportStoreCConfiguration *const config)
 {
     @autoreleasepool {
+        // Before install there is no current run id, and the previous run's
+        // data is not yet referenced by anything (its .run is persisted BY
+        // install). Nothing can be judged orphaned yet, so a reclaim from a
+        // standalone pre-install store must be a no-op.
+        const char *currentRunID = kscrash_getRunID();
+        if (currentRunID == NULL || currentRunID[0] == '\0') {
+            return;
+        }
         NSSet<NSString *> *reportRefs = reportReferencedRunIDs(config);
         if (reportRefs == nil) {
             // Couldn't enumerate reports; skip rather than orphan live run data.
@@ -924,7 +939,9 @@ bool kscrs_getSummarySidecarFilePath(const char *runID, const char *extension, c
     if (uuid_parse(runID, parsed) != 0) {
         return false;
     }
-    ksfu_makePath(runSummariesPath);
+    // Path building only: read paths (the delivery stitches) must not mutate
+    // disk. The session writer's call site creates the directory before
+    // writing.
     if (snprintf(pathBuffer, pathBufferLength, "%s/%s.%s", runSummariesPath, runID, extension) >=
         (int)pathBufferLength) {
         return false;

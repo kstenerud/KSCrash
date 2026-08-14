@@ -80,9 +80,9 @@ NS_ASSUME_NONNULL_BEGIN
  *
  *  A session is a span of this run over which the user id and perceptibility
  *  (foreground/background) are constant; a new one is cut whenever either
- *  changes. Reports produced during a session carry this id as
- *  `report.session_id`. Only available after install; nil before the first
- *  session is recorded.
+ *  changes. A report carries the id of the latest session recorded at the
+ *  time the report was finalized, as `report.session_id`. Only available
+ *  after install; nil before the first session is recorded.
  */
 @property(nonatomic, readonly, nullable) NSString *sessionID;
 

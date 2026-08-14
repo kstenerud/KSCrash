@@ -27,6 +27,7 @@
 #include "KSCrashMonitor_UserInfo.h"
 
 #include "KSCrashMonitor.h"
+#include "KSCrashReportStoreC.h"
 #include "KSFileUtils.h"
 #include "KSKeyValueStore.h"
 
@@ -39,7 +40,7 @@
 #define KSUSERINFO_INITIAL_CAPACITY 4096
 #define KSUSERINFO_MAX_KEY_LENGTH 256
 #define KSUSERINFO_MAX_STRING_LENGTH 1024
-#define KSUSERINFO_MONITOR_ID "UserInfo"
+#define KSUSERINFO_MONITOR_ID KSCRS_MONITOR_ID_USERINFO
 
 // ============================================================================
 #pragma mark - State -

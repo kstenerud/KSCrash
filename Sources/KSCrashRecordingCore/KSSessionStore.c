@@ -26,6 +26,7 @@
 
 #include "KSSessionStore.h"
 
+#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -133,7 +134,14 @@ static bool appendSession(KSSessionWriter *writer, const char *guid, uint64_t st
         // Write the header only into a freshly created (empty) file; a unique
         // per-run id means this is normally always the case.
         struct stat st;
-        if (fstat(writer->fd, &st) == 0 && st.st_size == 0) {
+        if (fstat(writer->fd, &st) != 0) {
+            // Unknown file state: an entry appended to a possibly headerless
+            // file makes the whole file unreadable, so stop writing instead.
+            KSLOG_ERROR("Failed to stat session file %s", writer->filePath);
+            writer->broken = true;
+            return false;
+        }
+        if (st.st_size == 0) {
             KSSessionFileHeader header;
             memset(&header, 0, sizeof(header));
             header.magic = KSSESSION_FILE_MAGIC;
@@ -313,29 +321,44 @@ void kssw_close(KSSessionWriter *writer)
 struct KSSessionReader {
     KSSessionRecord *records;  // owned; freed on close
     int recordCount;
+    int lastError;  // errno when the file existed but could not be read; else 0
 };
 
-/** readFileHead outcome: data read, nothing to read, or out of memory. */
+/** readFileHead outcome: data read, nothing to read, unreadable, or OOM. */
 typedef enum {
-    KSSESSION_READ_OK = 0,    // buffer allocated and filled
-    KSSESSION_READ_NONE = 1,  // absent / empty / read error: zero sessions, not a failure
-    KSSESSION_READ_OOM = -1,  // allocation failed: propagate as a reader-open failure
+    KSSESSION_READ_OK = 0,     // buffer allocated and filled
+    KSSESSION_READ_NONE = 1,   // absent / empty: zero sessions, not a failure
+    KSSESSION_READ_ERROR = 2,  // file exists but could not be read: errno in *outError
+    KSSESSION_READ_OOM = -1,   // allocation failed: propagate as a reader-open failure
 } KSSessionReadResult;
 
 /** Read up to `maxBytes` from the START of `path` into a malloc'd buffer (caller
  *  frees on OK). ksfu_readEntireFile's cap reads the file's TAIL, which for an
  *  oversized session file would begin mid-entry and lose the header; reading the
  *  head keeps the header and the oldest entries. Logs when it truncates. */
-static KSSessionReadResult readFileHead(const char *path, char **outData, int *outLength, int maxBytes)
+static KSSessionReadResult readFileHead(const char *path, char **outData, int *outLength, int maxBytes, int *outError)
 {
     *outData = NULL;
     *outLength = 0;
+    *outError = 0;
     int fd = open(path, O_RDONLY);
     if (fd < 0) {
-        return KSSESSION_READ_NONE;
+        // Only a missing file means "no sessions"; any other failure (perms,
+        // descriptor pressure, I/O) means the sessions are unknown, which the
+        // caller must not confuse with absent.
+        if (errno == ENOENT) {
+            return KSSESSION_READ_NONE;
+        }
+        *outError = errno != 0 ? errno : EIO;
+        return KSSESSION_READ_ERROR;
     }
     struct stat st;
-    if (fstat(fd, &st) != 0 || st.st_size <= 0) {
+    if (fstat(fd, &st) != 0) {
+        *outError = errno != 0 ? errno : EIO;
+        close(fd);
+        return KSSESSION_READ_ERROR;
+    }
+    if (st.st_size <= 0) {
         close(fd);
         return KSSESSION_READ_NONE;
     }
@@ -349,11 +372,13 @@ static KSSessionReadResult readFileHead(const char *path, char **outData, int *o
         return KSSESSION_READ_OOM;
     }
     bool ok = ksfu_readBytesFromFD(fd, mem, toRead);
-    close(fd);
     if (!ok) {
+        *outError = errno != 0 ? errno : EIO;
+        close(fd);
         free(mem);
-        return KSSESSION_READ_NONE;
+        return KSSESSION_READ_ERROR;
     }
+    close(fd);
     *outData = mem;
     *outLength = toRead;
     return KSSESSION_READ_OK;
@@ -369,9 +394,14 @@ static bool decodeFile(KSSessionReader *reader, const char *path)
 {
     char *data = NULL;
     int length = 0;
-    KSSessionReadResult rr = readFileHead(path, &data, &length, KSSESSION_MAX_READ_BYTES);
+    int readError = 0;
+    KSSessionReadResult rr = readFileHead(path, &data, &length, KSSESSION_MAX_READ_BYTES, &readError);
     if (rr == KSSESSION_READ_OOM) {
         return false;
+    }
+    if (rr == KSSESSION_READ_ERROR) {
+        reader->lastError = readError;
+        return true;  // zero sessions, but flagged unknown rather than absent
     }
     if (rr != KSSESSION_READ_OK) {
         return true;  // nothing to read: zero sessions
@@ -466,6 +496,8 @@ KSSessionReader *kssr_open(const char *path)
 }
 
 int kssr_count(const KSSessionReader *reader) { return reader != NULL ? reader->recordCount : 0; }
+
+int kssr_lastError(const KSSessionReader *reader) { return reader != NULL ? reader->lastError : 0; }
 
 bool kssr_sessionAt(const KSSessionReader *reader, int index, KSSessionRecord *out)
 {

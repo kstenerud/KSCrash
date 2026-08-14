@@ -99,7 +99,8 @@ final class RunDataStoreTests: XCTestCase {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         var config = KSKVSConfig(initialCapacity: 4096, maxKeyLength: 256, maxStringLength: 1024)
         let store = kskvs_create(
-            directory.appendingPathComponent("UserInfo.ksscr").path, KSKVSModeReadWriteCreate, &config)
+            directory.appendingPathComponent(KSCRS_USERINFO_RUN_SIDECAR_FILENAME).path, KSKVSModeReadWriteCreate,
+            &config)
         XCTAssertNotNil(store)
         populate(store!)
         kskvs_destroy(store)
@@ -279,6 +280,23 @@ final class RunDataStoreTests: XCTestCase {
         XCTAssertEqual(records[1].userID, String(repeating: "A", count: 127))
     }
 
+    func test_summary_unreadableSessionsFile_skipsTheRunInsteadOfShippingEmpty() throws {
+        let runID = "UNREADABLE"
+        try writeSummary(makeSummary(runID: runID), startNs: 100)
+        writeSessions(runID: runID, cuts: [(true, "alice")])
+
+        let sessionsPath = runsDirectory.appendingPathComponent("\(runID).sessions").path
+        try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: sessionsPath)
+
+        // Unreadable is unknown, not absent: delivering would ship empty
+        // records and then destroy the intact file.
+        XCTAssertNil(try makeStore().runs()[0].summary())
+
+        try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: sessionsPath)
+        let records = try XCTUnwrap(makeStore().runs()[0].summary()).sessions.records
+        XCTAssertEqual(records.map(\.userID), ["alice"])
+    }
+
     func test_summary_withoutSessionsFile_keepsEmptyRecords() throws {
         try writeSummary(makeSummary(runID: "NOSESSIONS"), startNs: 100)
         let summary = try XCTUnwrap(makeStore().runs()[0].summary())
@@ -361,7 +379,8 @@ final class RunDataStoreTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: try XCTUnwrap(run.sessionsFile).path))
         XCTAssertTrue(
             FileManager.default.fileExists(
-                atPath: try XCTUnwrap(run.sidecarDirectory).appendingPathComponent("UserInfo.ksscr").path))
+                atPath: try XCTUnwrap(run.sidecarDirectory).appendingPathComponent(KSCRS_USERINFO_RUN_SIDECAR_FILENAME)
+                    .path))
 
         // The next snapshot sees the run as artifact-only.
         let after = try makeStore().runs()

@@ -675,6 +675,16 @@ void kscrash_testcode_setMonitors(KSCrashMonitorType monitorTypes)
 }
 
 __attribute__((unused))  // For tests. Declared as extern in TestCase
+void kscrash_testcode_setRunID(const char *runID)
+{
+    if (runID != NULL) {
+        strlcpy(g_runID, runID, sizeof(g_runID));
+    } else {
+        g_runID[0] = '\0';
+    }
+}
+
+__attribute__((unused))  // For tests. Declared as extern in TestCase
 void kscrash_testcode_setLastRunID(const char *runID)
 {
     if (runID != NULL) {

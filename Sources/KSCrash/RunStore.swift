@@ -25,6 +25,7 @@
 //
 
 import Foundation
+import KSCrashRecording
 import KSCrashRecordingCore
 import KSCrashReportModel
 
@@ -51,9 +52,11 @@ struct RunStore: Sendable {
     }
 
     /// The run's summary in deliverable form: session records merged from
-    /// `.sessions`, metadata stitched from the run's UserInfo sidecar. nil when
-    /// the run has no summary on disk. An unreadable `.sessions` degrades to
-    /// empty records; a missing or empty sidecar to nil metadata.
+    /// `.sessions`, metadata stitched from the run's UserInfo sidecar. nil
+    /// when the run has no summary on disk, or when its `.sessions` exists
+    /// but cannot be read (the records are unknown, so the run waits for a
+    /// later send). An absent `.sessions` means empty records; a missing or
+    /// empty sidecar means nil metadata.
     func summary() -> RunSummary? {
         // The payload is read here, per item, never held by the snapshot: a
         // send keeps at most one summary in memory no matter how many runs
@@ -64,9 +67,14 @@ struct RunStore: Sendable {
         // The persisted `.run` deliberately carries neither session records nor
         // metadata (the install path stays cheap; the records' and userInfo's
         // single source of truth are their own files). Both are attached here,
-        // at delivery, and each enrichment degrades independently: a problem
-        // with one file costs that enrichment, never the summary itself.
-        summary = mergingSessions(into: summary)
+        // at delivery. Absent session data degrades to empty records, but
+        // UNREADABLE session data means the records are unknown: delivering
+        // would ship an empty-records summary and then delete the intact
+        // file, so the run is skipped this send and retried by the next one.
+        guard let merged = mergingSessions(into: summary) else {
+            return nil
+        }
+        summary = merged
         if let metadata = stitchedMetadata() {
             summary = summary.with(metadata: metadata)
         }
@@ -97,16 +105,22 @@ struct RunStore: Sendable {
     // MARK: - Sessions
 
     /// Replace `base`'s (empty) session records with the run's recorded
-    /// sessions, read through the C `.sessions` reader.
-    private func mergingSessions(into base: RunSummary) -> RunSummary {
+    /// sessions, read through the C `.sessions` reader. nil when the file
+    /// exists but cannot be read: the records are unknown, not absent, and
+    /// the caller must not deliver.
+    private func mergingSessions(into base: RunSummary) -> RunSummary? {
         // No file means the run cut no sessions (the writer creates the file
-        // lazily on the first cut); an unopenable one is treated the same,
-        // matching the previous ObjC merge: the summary ships with empty
-        // records rather than not shipping.
-        guard let sessionsFile, let reader = kssr_open(sessionsFile.path) else {
+        // lazily on the first cut).
+        guard let sessionsFile else {
             return base
         }
+        guard let reader = kssr_open(sessionsFile.path) else {
+            return nil  // allocation failure: unknown, do not deliver
+        }
         defer { kssr_close(reader) }
+        guard kssr_lastError(reader) == 0 else {
+            return nil
+        }
         let count = kssr_count(reader)
         guard count > 0 else {
             return base
@@ -159,7 +173,7 @@ struct RunStore: Sendable {
         guard let sidecarDirectory else {
             return nil
         }
-        let path = sidecarDirectory.appendingPathComponent("UserInfo.ksscr").path
+        let path = sidecarDirectory.appendingPathComponent(KSCRS_USERINFO_RUN_SIDECAR_FILENAME).path
         // Read mode needs no config; failure to open just means the run
         // recorded no userInfo (the sidecar is created on the first write).
         guard let store = kskvs_create(path, KSKVSModeRead, nil) else {

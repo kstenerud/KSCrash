@@ -124,14 +124,23 @@ void kssw_close(KSSessionWriter *writer);
 
 /** Open a reader over the session file at `path`.
  *
- *  Decodes it immediately, stopping at any torn trailing record and pairing
- *  OPEN/CLOSE events by guid. A missing or unreadable file yields a reader with
- *  zero sessions. Returns NULL only on allocation failure.
+ *  Decodes it immediately. The file holds one entry per session OPEN (there
+ *  are no close events): each session's end is inferred from its successor's
+ *  start, and the final session comes back still open (`endInferred`).
+ *  Decoding stops at any torn trailing record. A missing or empty file yields
+ *  a reader with zero sessions; an unreadable one also yields zero sessions
+ *  but sets kssr_fileWasUnreadable. Returns NULL only on allocation failure.
  */
 KSSessionReader *kssr_open(const char *path);
 
 /** Number of sessions the reader decoded. */
 int kssr_count(const KSSessionReader *reader);
+
+/** The errno from the failed open or read when the file existed but could not
+ *  be read; 0 when reading succeeded or the file was absent. Nonzero means the
+ *  sessions are unknown rather than absent: a zero count must not be treated
+ *  as "recorded none". */
+int kssr_lastError(const KSSessionReader *reader);
 
 /** Copy the session at `index` (0 ..< kssr_count) into `out`. Returns false when
  *  `index` is out of range.

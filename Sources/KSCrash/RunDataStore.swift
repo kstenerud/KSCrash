@@ -25,6 +25,7 @@
 //
 
 import Foundation
+import KSCrashRecording
 import KSCrashReportModel
 import os
 
@@ -215,14 +216,19 @@ struct RunDataStore: Sendable {
     }
 }
 
-/// The start timestamp of a writer-named summary file (up to 19 digits +
-/// ".run"); nil for any other name.
+/// The start timestamp of a writer-named summary file; nil for any other
+/// name. The grammar (digit cap and extension) is shared with the C writer
+/// through the KSCRS_RUN_SUMMARY_FILENAME_* constants.
+private let runFilenameSuffix = "." + KSCRS_RUN_SUMMARY_FILENAME_EXTENSION
+
 private func parsedRunFilenameNs(_ name: String) -> UInt64? {
-    guard name.hasSuffix(".run") else {
+    guard name.hasSuffix(runFilenameSuffix) else {
         return nil
     }
-    let digits = name.dropLast(4)
-    guard (1...19).contains(digits.count), digits.allSatisfy({ $0.isASCII && $0.isNumber }) else {
+    let digits = name.dropLast(runFilenameSuffix.count)
+    guard (1...Int(KSCRS_RUN_SUMMARY_FILENAME_DIGITS)).contains(digits.count),
+        digits.allSatisfy({ $0.isASCII && $0.isNumber })
+    else {
         return nil
     }
     return UInt64(digits)

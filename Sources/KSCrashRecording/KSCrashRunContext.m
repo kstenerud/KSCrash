@@ -30,6 +30,7 @@
 #import "KSCrashC.h"
 #import "KSCrashCPUTracker.h"
 #import "KSCrashReportFields.h"
+#import "KSCrashReportStoreC.h"
 #import "KSDate.h"
 #import "KSFileUtils.h"
 #import "KSJSONCodecObjC.h"
@@ -56,14 +57,12 @@ FOUNDATION_EXPORT const unsigned char KSCrashFrameworkVersionString[];
 static KSCrashRunContext g_context = { 0 };
 static NSDictionary *g_summary = nil;
 
-// Width of the zero-padded decimal ns prefix in "<ns>.run" filenames. 19 digits
-// covers INT64_MAX (9223372036854775807), so any unix-epoch nanosecond value
-// (~1.76e18 today) fits without overflow and all files in the dir sort
-// lexically the same as they do numerically — tools that just `ls` the dir
-// get the right order for free. Nanosecond resolution on the wall clock makes
-// collisions between concurrent launches (e.g. app + extension) effectively
-// impossible.
-#define KSRUN_SUMMARY_FILENAME_DIGITS 19
+// KSCRS_RUN_SUMMARY_FILENAME_DIGITS is 19 because it covers INT64_MAX
+// (9223372036854775807): any unix-epoch nanosecond value (~1.76e18 today) fits
+// without overflow and all files in the dir sort lexically the same as they do
+// numerically — tools that just `ls` the dir get the right order for free.
+// Nanosecond resolution on the wall clock makes collisions between concurrent
+// launches (e.g. app + extension) effectively impossible.
 
 static NSDictionary *buildSummary(const KSCrashRunContext *ctx, const char *userInfoSidecarPath);
 
@@ -300,17 +299,17 @@ void ksruncontext_persistPreviousRunSummary(const char *runSummariesPath)
     }
 
     // Filename is the run's wall-clock start time in nanoseconds, zero-padded
-    // to KSRUN_SUMMARY_FILENAME_DIGITS so all files in the dir lexically sort
+    // to KSCRS_RUN_SUMMARY_FILENAME_DIGITS so all files in the dir lexically sort
     // the same as they do numerically. Nanoseconds (not ms) so concurrent
     // launches can't collide on the same prefix. `wallClockAtStartNs` comes
     // straight from the lifecycle sidecar that produced the summary, so it
     // matches the run being written.
     unsigned long long startedAtNs = (unsigned long long)g_context.lifecycle.wallClockAtStartNs;
     char path[KSFU_MAX_PATH_LENGTH];
-    if (snprintf(path, sizeof(path), "%s/%0*llu.run", runSummariesPath, KSRUN_SUMMARY_FILENAME_DIGITS, startedAtNs) >=
-        (int)sizeof(path)) {
-        KSLOG_ERROR(@"Run summary file path too long: %s/%0*llu.run", runSummariesPath, KSRUN_SUMMARY_FILENAME_DIGITS,
-                    startedAtNs);
+    if (snprintf(path, sizeof(path), "%s/%0*llu.run", runSummariesPath, KSCRS_RUN_SUMMARY_FILENAME_DIGITS,
+                 startedAtNs) >= (int)sizeof(path)) {
+        KSLOG_ERROR(@"Run summary file path too long: %s/%0*llu.run", runSummariesPath,
+                    KSCRS_RUN_SUMMARY_FILENAME_DIGITS, startedAtNs);
         return;
     }
 

@@ -31,8 +31,11 @@ also maintain are gone (their `KSCrash_LifecycleData` slots survive as
 
 ### session_id on reports
 
-A crash report carries the `session_id` of the run's last session under
-`report.session_id`. It is added at **stitch time** (when the store reads the report
+A report carries the id of the latest session recorded at the time it was
+finalized, under `report.session_id`. For reports finalized during their own run
+that is the session open at finalization; for unfinalized (fatal) reports the
+stitch runs when the store reads the report for delivery, and the dead run's
+last session is the latest recorded. It is added at **stitch time** (when the store reads the report
 for delivery), never written at crash time: `KSCrashMonitor_LifecycleStitch.m` reads
 the last guid from the crashed run's `.sessions` via `kslifecycle_copyLastSessionIDForRunID`.
 It is omitted when the run recorded no session. Because it is stitch-time, the raw
