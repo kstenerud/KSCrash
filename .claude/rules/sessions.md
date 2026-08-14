@@ -66,9 +66,13 @@ session/user counts on the summary; a consumer derives whatever it needs from
 end of both send flows. It computes the referenced run IDs once and removes run data
 nothing points at any more: run sidecars **and** `.sessions` are both kept while a
 report or a `.run` summary references the run (a pending summary needs its `.sessions`
-for the record merge and its UserInfo run sidecar for the metadata stitch). A queued
-summary that cannot be read or decoded aborts the pass, mirroring the unreadable-report
-rule. See `monitor-sidecars.md` for the run-sidecar side.
+for the record merge and its UserInfo run sidecar for the metadata stitch), and the
+live run is always kept. A queued summary that cannot be READ aborts the pass,
+mirroring the unreadable-report rule; one that reads but does not DECODE is
+deterministic garbage (a store is single-process, so the only source is a crash
+mid-persist) and is deleted on the spot. `kscrs_deleteAllReports` deletes only
+reports and report sidecars; run data is left for the next send-flow reclaim, so
+pending summaries keep their artifacts. See `monitor-sidecars.md` for the run-sidecar side.
 
 ### Key Files
 

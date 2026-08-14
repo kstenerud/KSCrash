@@ -863,9 +863,9 @@ void kscrs_deleteAllReports(const KSCrashReportStoreCConfiguration *const config
     if (configuration->reportSidecarsPath != NULL) {
         ksfu_deleteContentsOfPath(configuration->reportSidecarsPath);
     }
-    if (configuration->runSidecarsPath != NULL) {
-        ksfu_deleteContentsOfPath(configuration->runSidecarsPath);
-    }
+    // Run data (sidecars, .sessions) is shared with queued summaries and the
+    // live run; orphaned run-data cleanup is deferred to
+    // kscrs_reclaimOrphanedRunData, called from the send flows.
     pthread_mutex_unlock(&g_mutex);
 }
 

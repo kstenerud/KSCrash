@@ -189,19 +189,61 @@ extern void kscrash_testcode_setRunID(const char *runID);
     XCTAssertTrue(isDir);
 }
 
-- (void)testDeleteAllReportsCleansRunSidecars
+- (void)testDeleteAllReportsDefersRunSidecarCleanupToReclaim
 {
     [self prepareStoreWithRunSidecars:@"testDeleteAllRunSidecars"];
     NSString *runId = [[NSUUID UUID] UUIDString];
     [self writeReportWithRunId:runId];
     [self writeRunSidecar:@"System" runId:runId contents:@"system data"];
 
+    NSString *runDir =
+        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:runId];
+
     kscrs_deleteAllReports(&_storeConfig);
 
+    // Cleanup is deferred to reclaim, mirroring kscrs_deleteReportWithID.
     XCTAssertEqual(kscrs_getReportCount(&_storeConfig), 0);
-    NSString *runSidecarsDir = [NSString stringWithUTF8String:_storeConfig.runSidecarsPath];
-    NSArray *contents = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:runSidecarsDir error:nil];
-    XCTAssertEqual(contents.count, 0u);
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir]);
+
+    kscrs_reclaimOrphanedRunData(&_storeConfig);
+    XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:runDir]);
+}
+
+- (void)testDeleteAllReportsKeepsRunDataReferencedBySummariesAndLiveRun
+{
+    [self prepareStoreWithRunSidecars:@"testDeleteAllKeepsSummaryData"];
+    NSFileManager *fm = [NSFileManager defaultManager];
+
+    // Three runs: one referenced only by a queued summary, one referenced only
+    // by a report (about to be deleted), and the live run.
+    NSString *pendingRunId = [[NSUUID UUID] UUIDString];
+    [self writeRunSummaryJSON:[NSString stringWithFormat:@"{\"run_id\":\"%@\"}", pendingRunId] named:@"100.run"];
+    [self writeRunSidecar:@"UserInfo" runId:pendingRunId contents:@"pending metadata"];
+    NSString *pendingSessions = [self writeSessionsFileForRunId:pendingRunId];
+
+    NSString *reportRunId = [[NSUUID UUID] UUIDString];
+    [self writeReportWithRunId:reportRunId];
+    [self writeRunSidecar:@"System" runId:reportRunId contents:@"report run data"];
+    NSString *reportSessions = [self writeSessionsFileForRunId:reportRunId];
+
+    NSString *liveRunId = @"11111111-aaaa-bbbb-cccc-000000000001";
+    [self writeRunSidecar:@"Lifecycle" runId:liveRunId contents:@"live data"];
+    NSString *liveSessions = [self writeSessionsFileForRunId:liveRunId];
+
+    kscrs_deleteAllReports(&_storeConfig);
+    kscrs_reclaimOrphanedRunData(&_storeConfig);
+
+    XCTAssertEqual(kscrs_getReportCount(&_storeConfig), 0);
+    NSString *sidecars = [NSString stringWithUTF8String:_storeConfig.runSidecarsPath];
+    // The summary's run and the live run keep their data; the deleted report
+    // was the last reference to its run, so the reclaim that follows a send
+    // removes that run's data.
+    XCTAssertTrue([fm fileExistsAtPath:[sidecars stringByAppendingPathComponent:pendingRunId]]);
+    XCTAssertTrue([fm fileExistsAtPath:pendingSessions]);
+    XCTAssertTrue([fm fileExistsAtPath:[sidecars stringByAppendingPathComponent:liveRunId]]);
+    XCTAssertTrue([fm fileExistsAtPath:liveSessions]);
+    XCTAssertFalse([fm fileExistsAtPath:[sidecars stringByAppendingPathComponent:reportRunId]]);
+    XCTAssertFalse([fm fileExistsAtPath:reportSessions]);
 }
 
 #pragma mark - Run Sidecar Orphan Cleanup

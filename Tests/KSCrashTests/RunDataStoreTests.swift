@@ -113,6 +113,26 @@ final class RunDataStoreTests: XCTestCase {
         XCTAssertEqual(try makeStore().runs().count, 0)
     }
 
+    func test_runs_missingSidecarsDirectory_isEmptyNotAnError() throws {
+        try writeSummary(makeSummary(runID: "NOSIDE"), startNs: 100)
+        try FileManager.default.removeItem(at: sidecarsDirectory)
+        let runs = try makeStore().runs()
+        XCTAssertEqual(runs.count, 1)
+        XCTAssertNil(runs[0].sidecarDirectory)
+    }
+
+    func test_runs_throwsWhenSidecarsDirectoryUnreadable() throws {
+        try writeSummary(makeSummary(runID: "ANY"), startNs: 100)
+        try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: sidecarsDirectory.path)
+        defer {
+            try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: sidecarsDirectory.path)
+        }
+        // Unreadable is a broken store, not "no sidecars": mistaking it for
+        // absence would deliver pending summaries without their metadata and
+        // let reclaim drop the still-present sidecars.
+        XCTAssertThrowsError(try makeStore().runs())
+    }
+
     func test_runs_ordersNewestFirst() throws {
         try writeSummary(makeSummary(runID: "AAA"), startNs: 100)
         try writeSummary(makeSummary(runID: "BBB"), startNs: 300)
@@ -362,6 +382,24 @@ final class RunDataStoreTests: XCTestCase {
         try writeSummary(makeSummary(runID: "BARE"), startNs: 100)
         let summary = try XCTUnwrap(makeStore().runs()[0].summary())
         XCTAssertNil(summary.metadata)
+    }
+
+    func test_summary_unreadableUserInfoSidecar_skipsTheRunInsteadOfDroppingMetadata() throws {
+        let runID = "LOCKEDMETA"
+        try writeSummary(makeSummary(runID: runID), startNs: 100)
+        try writeUserInfo(runID: runID) { kskvs_setString($0, "k", "v") }
+
+        let path = sidecarsDirectory.appendingPathComponent(runID)
+            .appendingPathComponent(KSCRS_USERINFO_RUN_SIDECAR_FILENAME).path
+        try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: path)
+
+        // Unreadable is unknown, not absent: delivering would ship the
+        // summary without its metadata and then delete the intact `.run`.
+        XCTAssertNil(try makeStore().runs()[0].summary())
+
+        try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: path)
+        let metadata = try XCTUnwrap(makeStore().runs()[0].summary()?.metadata)
+        XCTAssertEqual(metadata.value(forKey: "k", as: String.self), "v")
     }
 
     // MARK: - Ownership

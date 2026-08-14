@@ -53,32 +53,29 @@ struct RunStore: Sendable {
 
     /// The run's summary in deliverable form: session records merged from
     /// `.sessions`, metadata stitched from the run's UserInfo sidecar. nil
-    /// when the run has no summary on disk, or when its `.sessions` exists
-    /// but cannot be read (the records are unknown, so the run waits for a
-    /// later send). An absent `.sessions` means empty records; a missing or
-    /// empty sidecar means nil metadata.
+    /// when the run has no summary on disk, or when its `.sessions` or
+    /// UserInfo sidecar exists but cannot be read (the data is unknown, so
+    /// the run waits for a later send). An absent `.sessions` means empty
+    /// records; an absent or empty sidecar means nil metadata.
     func summary() -> RunSummary? {
         // The payload is read here, per item, never held by the snapshot: a
         // send keeps at most one summary in memory no matter how many runs
         // are pending. Newest file first; duplicates are fallbacks.
-        guard var summary = decodedBaseSummary() else {
+        guard let summary = decodedBaseSummary() else {
             return nil
         }
         // The persisted `.run` deliberately carries neither session records nor
         // metadata (the install path stays cheap; the records' and userInfo's
         // single source of truth are their own files). Both are attached here,
-        // at delivery. Absent session data degrades to empty records, but
-        // UNREADABLE session data means the records are unknown: delivering
-        // would ship an empty-records summary and then delete the intact
-        // file, so the run is skipped this send and retried by the next one.
+        // at delivery. Absence degrades gracefully (empty records, nil
+        // metadata), but an UNREADABLE file means the data is unknown, not
+        // absent: delivering would ship an incomplete summary and then delete
+        // the intact file, so the run is skipped this send and retried by the
+        // next one.
         guard let merged = mergingSessions(into: summary) else {
             return nil
         }
-        summary = merged
-        if let metadata = stitchedMetadata() {
-            summary = summary.with(metadata: metadata)
-        }
-        return summary
+        return stitchingMetadata(into: merged)
     }
 
     private func decodedBaseSummary() -> RunSummary? {
@@ -162,22 +159,29 @@ struct RunStore: Sendable {
 
     // MARK: - Metadata
 
-    /// The app data recorded for this run via the userInfo API, as a `Metadata`
-    /// bag; nil when the run recorded none.
-    private func stitchedMetadata() -> Metadata? {
+    /// Attach the app data recorded for this run via the userInfo API, as a
+    /// `Metadata` bag on a copy of `base`. Returns `base` untouched when the
+    /// run recorded none, and nil when the sidecar exists but cannot be
+    /// opened: the metadata is unknown, not absent, and the caller must not
+    /// deliver.
+    private func stitchingMetadata(into base: RunSummary) -> RunSummary? {
         // Metadata is stitched at delivery from the run's UserInfo sidecar,
         // never read live and never baked into the `.run`, exactly like
         // session_id from `.sessions` and userInfo on reports. The sidecar is
         // the same file the report stitch reads, so a report and this run's
         // summary always agree on the run's app data.
         guard let sidecarDirectory else {
-            return nil
+            return base
         }
         let path = sidecarDirectory.appendingPathComponent(KSCRS_USERINFO_RUN_SIDECAR_FILENAME).path
-        // Read mode needs no config; failure to open just means the run
-        // recorded no userInfo (the sidecar is created on the first write).
+        // The sidecar is created on the first userInfo write, so a missing
+        // file is the normal no-metadata case, distinct from one that exists
+        // and cannot be opened. Read mode needs no config.
+        guard FileManager.default.fileExists(atPath: path) else {
+            return base
+        }
         guard let store = kskvs_create(path, KSKVSModeRead, nil) else {
-            return nil
+            return nil  // exists but cannot be opened: unknown, do not deliver
         }
         defer { kskvs_destroy(store) }
 
@@ -228,7 +232,7 @@ struct RunStore: Sendable {
 
         // A bag that nets out empty means the run persisted no effective
         // userInfo; absence is nil, never an empty bag.
-        return box.metadata.isEmpty ? nil : box.metadata
+        return box.metadata.isEmpty ? base : base.with(metadata: box.metadata)
     }
 }
 

@@ -142,17 +142,25 @@ struct RunDataStore: Sendable {
         // ever built from a decoded runID, so a corrupt `.run` cannot address
         // files outside the store.
         var sidecarDirectories: [String: URL] = [:]
-        if let names = try? FileManager.default.contentsOfDirectory(atPath: runSidecarsDirectory.path) {
-            for name in names {
-                let url = runSidecarsDirectory.appendingPathComponent(name)
-                var isDirectory: ObjCBool = false
-                if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
-                    isDirectory.boolValue
-                {
-                    sidecarDirectories[name] = url
-                    if groups[name] == nil {
-                        groups[name] = Group()
-                    }
+        let sidecarNames: [String]
+        do {
+            sidecarNames = try FileManager.default.contentsOfDirectory(atPath: runSidecarsDirectory.path)
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            // No run ever wrote a sidecar: a normal empty result. Any other
+            // failure propagates, exactly like the Runs enumeration above;
+            // mistaking it for absence would deliver pending summaries without
+            // their metadata and let reclaim drop the still-present sidecars.
+            sidecarNames = []
+        }
+        for name in sidecarNames {
+            let url = runSidecarsDirectory.appendingPathComponent(name)
+            var isDirectory: ObjCBool = false
+            if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
+                isDirectory.boolValue
+            {
+                sidecarDirectories[name] = url
+                if groups[name] == nil {
+                    groups[name] = Group()
                 }
             }
         }
