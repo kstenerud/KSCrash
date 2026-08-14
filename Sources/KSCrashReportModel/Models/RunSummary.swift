@@ -173,11 +173,19 @@ public struct RunSummary: Codable, Sendable, Equatable {
         public let shortVersion: String
         public let hostKind: HostKind
 
-        public init(bundleID: String, version: String, shortVersion: String, hostKind: HostKind) {
+        /// How the producing process was built and distributed (app store,
+        /// debug, simulator, ...). nil when the run recorded none.
+        public let buildType: BuildType?
+
+        public init(
+            bundleID: String, version: String, shortVersion: String, hostKind: HostKind,
+            buildType: BuildType? = nil
+        ) {
             self.bundleID = bundleID
             self.version = version
             self.shortVersion = shortVersion
             self.hostKind = hostKind
+            self.buildType = buildType
         }
 
         enum CodingKeys: String, CodingKey {
@@ -185,6 +193,7 @@ public struct RunSummary: Codable, Sendable, Equatable {
             case version
             case shortVersion = "short_version"
             case hostKind = "host_kind"
+            case buildType = "build_type"
         }
     }
 

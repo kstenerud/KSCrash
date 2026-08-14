@@ -326,6 +326,7 @@ KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, BundleID, bundleID, "bundle_id")
 KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, Version, version, "version")
 KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, ShortVersion, shortVersion, "short_version")
 KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, HostKind, hostKind, "host_kind")
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, BuildType, buildType, "build_type")
 
 KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, OS, os, "os")
 KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, Name, name, "name")

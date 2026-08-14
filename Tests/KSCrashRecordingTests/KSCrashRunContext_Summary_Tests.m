@@ -76,6 +76,7 @@ static void populateContext(KSCrashRunContext *ctx)
     strlcpy(ctx->system.bundleVersion, "2.6.0.1234", sizeof(ctx->system.bundleVersion));
     strlcpy(ctx->system.bundleShortVersion, "2.6.0", sizeof(ctx->system.bundleShortVersion));
     strlcpy(ctx->system.deviceAppHash, "0123456789abcdef0123456789abcdef", sizeof(ctx->system.deviceAppHash));
+    strlcpy(ctx->system.buildType, "app store", sizeof(ctx->system.buildType));
     ctx->system.procTranslated = 0;
     ctx->system.isJailbroken = 0;
     ctx->system.isBeingDebugged = 0;
@@ -144,6 +145,7 @@ static void populateContext(KSCrashRunContext *ctx)
     // left it at 0, which maps to "app" (the default v2-sidecar-loaded-into-v3
     // behavior).
     XCTAssertEqualObjects(app[@"host_kind"], @"app");
+    XCTAssertEqualObjects(app[@"build_type"], @"app store");
 
     NSDictionary *osDict = summary[@"os"];
     XCTAssertEqualObjects(osDict[@"name"], @"iOS");
@@ -157,6 +159,17 @@ static void populateContext(KSCrashRunContext *ctx)
     XCTAssertEqualObjects(device[@"binary_architecture"], @"arm64e");
     XCTAssertEqualObjects(device[@"is_translated"], @NO);
     XCTAssertEqualObjects(device[@"is_jailbroken"], @NO);
+}
+
+- (void)test_buildSummary_omitsBuildTypeWhenSidecarHasNone
+{
+    KSCrashRunContext ctx;
+    populateContext(&ctx);
+    ctx.system.buildType[0] = '\0';
+
+    NSDictionary *summary = ksruncontext_testcode_buildSummary(&ctx, NULL);
+
+    XCTAssertNil(summary[@"app"][@"build_type"]);
 }
 
 // Verifies that hostKind comes from the *previous* run's stored sidecar

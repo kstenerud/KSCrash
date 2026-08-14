@@ -483,12 +483,17 @@ static NSDictionary *buildSummary(const KSCrashRunContext *ctx, const char *user
     // Records are merged from the run's .sessions file at send time, never on
     // this synchronous startup path; the wire form omits the empty list.
     dict[KSCrashRunSummaryField_Sessions] = @ {};
-    dict[KSCrashRunSummaryField_App] = @ {
-        KSCrashRunSummaryField_BundleID : safeString(sys->bundleID),
-        KSCrashRunSummaryField_Version : safeString(sys->bundleVersion),
-        KSCrashRunSummaryField_ShortVersion : safeString(sys->bundleShortVersion),
-        KSCrashRunSummaryField_HostKind : hostKindWireString(lc->hostKind),
-    };
+    NSMutableDictionary *appDict = [NSMutableDictionary dictionary];
+    appDict[KSCrashRunSummaryField_BundleID] = safeString(sys->bundleID);
+    appDict[KSCrashRunSummaryField_Version] = safeString(sys->bundleVersion);
+    appDict[KSCrashRunSummaryField_ShortVersion] = safeString(sys->bundleShortVersion);
+    appDict[KSCrashRunSummaryField_HostKind] = hostKindWireString(lc->hostKind);
+    // Same producer-side value the reports carry; absent when the sidecar has
+    // none rather than an empty string.
+    if (sys->buildType[0] != '\0') {
+        appDict[KSCrashRunSummaryField_BuildType] = safeString(sys->buildType);
+    }
+    dict[KSCrashRunSummaryField_App] = appDict;
     dict[KSCrashRunSummaryField_OS] = @ {
         KSCrashRunSummaryField_Name : safeString(sys->systemName),
         KSCrashRunSummaryField_Version : safeString(sys->systemVersion),

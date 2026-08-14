@@ -56,7 +56,8 @@ final class RunSummaryModelTests: XCTestCase {
                 bundleID: "com.acme.app",
                 version: "2.6.0.1234",
                 shortVersion: "2.6.0",
-                hostKind: hostKind),
+                hostKind: hostKind,
+                buildType: .appStore),
             os: .init(name: "iOS", version: "18.0", build: "22A348"),
             device: .init(
                 model: "iPhone17,1",
@@ -181,6 +182,19 @@ final class RunSummaryModelTests: XCTestCase {
     func test_decode_missingUserIDIsNil() throws {
         let decoded = try decode(minimalJSON)
         XCTAssertNil(decoded.userID)
+    }
+
+    func test_decode_missingBuildTypeIsNil() throws {
+        let decoded = try decode(minimalJSON)
+        XCTAssertNil(decoded.app.buildType)
+    }
+
+    func test_decode_buildType() throws {
+        let json = minimalJSON.replacingOccurrences(
+            of: "\"host_kind\": \"app\"",
+            with: "\"host_kind\": \"app\", \"build_type\": \"app store\"")
+        let decoded = try decode(json)
+        XCTAssertEqual(decoded.app.buildType, .appStore)
     }
 
     func test_decode_unknownHostKindFallsBack() throws {
