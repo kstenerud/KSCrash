@@ -2,6 +2,13 @@
 
 When performing code reviews on this repository, follow these instructions to identify API breaking changes in the KSCrash crash reporting library.
 
+## Branch Lines: When Breaking Matters At All
+
+Check the pull request's base branch FIRST:
+
+- **Base branch `develop`**: this is the 3.0 line, where source-breaking and API-breaking changes are expected and intentional. The public Objective-C API is being replaced by Swift. Do NOT flag source-breaking or API-breaking changes on pull requests targeting `develop`, including removed or renamed declarations, dropped `NS_SWIFT_NAME` annotations, removed public functions, and changed signatures. Review these pull requests for correctness, not compatibility.
+- **Base branch `master` or `release/*`**: apply the breaking-change review below.
+
 ## What "Breaking" Means in This Repo
 
 A change is breaking **only if it breaks code that compiled against the most recent tagged release**, not against unreleased work on master. This is the only baseline that matters when reviewing.
@@ -15,7 +22,7 @@ The patterns below describe the changes that warrant scrutiny **when they would 
 
 ## Scope of Review
 
-Only review changes to public API surfaces. The public modules are: KSCrashRecording, KSCrashFilters, KSCrashSinks, KSCrashInstallations, KSCrashDiscSpaceMonitor, KSCrashBootTimeMonitor, and KSCrashDemangleFilter. Only examine files in `Sources/[ModuleName]/include/*.h` directories as these contain the public headers.
+Only review changes to public API surfaces. The public modules are: KSCrashRecording, KSCrashFilters, KSCrashSinks, KSCrashDiscSpaceMonitor, KSCrashBootTimeMonitor, and KSCrashDemangleFilter. Only examine files in `Sources/[ModuleName]/include/*.h` directories as these contain the public headers.
 
 ## Critical Breaking Changes - Always Flag
 
