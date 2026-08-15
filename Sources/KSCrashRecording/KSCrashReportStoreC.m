@@ -489,13 +489,6 @@ static NSDictionary *stitchRunSidecarsIntoReport(NSDictionary *report,
 // UUID: 8-4-4-4-12 hex digits with hyphens = 36 chars
 #define KSCRS_UUID_STRING_LENGTH 36
 
-/** Remove run sidecar directories that have no matching reports.
- *
- * Scans the RunSidecars directory and collects the set of active run_ids
- * from existing reports by JSON-decoding report["report"]["run_id"].
- * Any run sidecar directory whose name isn't in the active set is deleted.
- * Runs after report sending and via the explicit cleanup entry point.
- */
 // Run ids that keep a run's on-disk data alive via a still-queued report: the
 // current run, plus one per report (a report references its run's sidecars and
 // its .sessions, which the report stitch reads for session_id).
