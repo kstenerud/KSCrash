@@ -309,7 +309,7 @@ static void populateContext(KSCrashRunContext *ctx)
         .maxKeyLength = 256,
         .maxStringLength = 1024,
     };
-    KSKeyValueStore *store = kskvs_create(path.UTF8String, KSKVSModeReadWriteCreate, &cfg);
+    KSKeyValueStore *store = kskvs_create(path.UTF8String, KSKVSModeReadWriteCreate, &cfg, NULL);
     XCTAssertTrue(store != NULL);
     kskvs_setString(store, "com.kscrash.userid", "alice");
     kskvs_setString(store, "other.key", "ignored");
@@ -333,7 +333,7 @@ static void populateContext(KSCrashRunContext *ctx)
         .maxKeyLength = 256,
         .maxStringLength = 1024,
     };
-    KSKeyValueStore *store = kskvs_create(path.UTF8String, KSKVSModeReadWriteCreate, &cfg);
+    KSKeyValueStore *store = kskvs_create(path.UTF8String, KSKVSModeReadWriteCreate, &cfg, NULL);
     XCTAssertTrue(store != NULL);
     kskvs_setString(store, "com.kscrash.userid", "alice");
     kskvs_removeValue(store, "com.kscrash.userid");

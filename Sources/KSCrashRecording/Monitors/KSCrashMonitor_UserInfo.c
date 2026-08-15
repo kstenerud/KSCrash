@@ -153,7 +153,7 @@ static void setEnabled(bool isEnabled, __unused void *context)
 
     os_unfair_lock_lock(&g_lock);
 
-    g_store = kskvs_create(sidecarPath, KSKVSModeReadWriteCreate, &g_config);
+    g_store = kskvs_create(sidecarPath, KSKVSModeReadWriteCreate, &g_config, NULL);
     if (g_store == NULL) {
         KSLOG_ERROR("Failed to create UserInfo mmap store");
     }
@@ -205,7 +205,7 @@ __attribute__((unused)) bool kscm_userinfo_test_createStore(const char *path)
     if (g_store != NULL) {
         kskvs_destroy(g_store);
     }
-    g_store = kskvs_create(path, KSKVSModeReadWriteCreate, &g_config);
+    g_store = kskvs_create(path, KSKVSModeReadWriteCreate, &g_config, NULL);
     os_unfair_lock_unlock(&g_lock);
     return g_store != NULL;
 }

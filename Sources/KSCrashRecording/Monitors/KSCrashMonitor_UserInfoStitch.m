@@ -119,7 +119,7 @@ CFDictionaryRef kscm_userinfo_createStitchedReport(CFDictionaryRef reportDict, c
     }
 
     // Read sidecar via KSKeyValueStore (validates magic, version).
-    KSKeyValueStore *store = kskvs_create(sidecarPath, KSKVSModeRead, NULL);
+    KSKeyValueStore *store = kskvs_create(sidecarPath, KSKVSModeRead, NULL, NULL);
     if (store == NULL) {
         return NULL;
     }

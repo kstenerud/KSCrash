@@ -53,10 +53,11 @@ struct RunStore: Sendable {
 
     /// The run's summary in deliverable form: session records merged from
     /// `.sessions`, metadata stitched from the run's UserInfo sidecar. nil
-    /// when the run has no summary on disk, or when its `.sessions` or
-    /// UserInfo sidecar exists but cannot be read (the data is unknown, so
-    /// the run waits for a later send). An absent `.sessions` means empty
-    /// records; an absent or empty sidecar means nil metadata.
+    /// when the run has no summary on disk, or when reading its `.sessions`
+    /// or UserInfo sidecar fails in a way a retry could succeed at (the data
+    /// is unknown, so the run waits for a later send). An absent `.sessions`
+    /// means empty records; an absent, empty, or unrecoverably corrupt
+    /// sidecar means nil metadata.
     func summary() -> RunSummary? {
         // The payload is read here, per item, never held by the snapshot: a
         // send keeps at most one summary in memory no matter how many runs
@@ -161,9 +162,9 @@ struct RunStore: Sendable {
 
     /// Attach the app data recorded for this run via the userInfo API, as a
     /// `Metadata` bag on a copy of `base`. Returns `base` untouched when the
-    /// run recorded none, and nil when the sidecar exists but cannot be
-    /// opened: the metadata is unknown, not absent, and the caller must not
-    /// deliver.
+    /// run recorded none, and nil when reading the sidecar fails in a way a
+    /// retry could succeed at: the metadata is unknown, not absent, and the
+    /// caller must not deliver.
     private func stitchingMetadata(into base: RunSummary) -> RunSummary? {
         // Metadata is stitched at delivery from the run's UserInfo sidecar,
         // never read live and never baked into the `.run`, exactly like
@@ -174,14 +175,16 @@ struct RunStore: Sendable {
             return base
         }
         let path = sidecarDirectory.appendingPathComponent(KSCRS_USERINFO_RUN_SIDECAR_FILENAME).path
-        // The sidecar is created on the first userInfo write, so a missing
-        // file is the normal no-metadata case, distinct from one that exists
-        // and cannot be opened. Read mode needs no config.
-        guard FileManager.default.fileExists(atPath: path) else {
-            return base
-        }
-        guard let store = kskvs_create(path, KSKVSModeRead, nil) else {
-            return nil  // exists but cannot be opened: unknown, do not deliver
+        // The monitor creates the sidecar when it is enabled, so an absent
+        // file just means the run never enabled UserInfo. A corrupt file (a
+        // crash mid-creation) holds nothing any later read could recover, so
+        // both deliver without metadata, matching the report stitch on the
+        // same file. Only a failure that may not recur makes the run wait; a
+        // summary is telemetry and must never be lost to an unrecoverable
+        // file. Read mode needs no config.
+        var status = KSKVSOpenSuccess
+        guard let store = kskvs_create(path, KSKVSModeRead, nil, &status) else {
+            return status == KSKVSOpenFailure ? nil : base
         }
         defer { kskvs_destroy(store) }
 

@@ -374,7 +374,7 @@ static NSString *readUserIDFromSidecar(const char *sidecarPath)
     if (sidecarPath == NULL || sidecarPath[0] == '\0') {
         return nil;
     }
-    KSKeyValueStore *store = kskvs_create(sidecarPath, KSKVSModeRead, NULL);
+    KSKeyValueStore *store = kskvs_create(sidecarPath, KSKVSModeRead, NULL, NULL);
     if (store == NULL) {
         return nil;
     }

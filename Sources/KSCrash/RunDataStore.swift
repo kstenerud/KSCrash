@@ -62,8 +62,8 @@ struct RunDataStore: Sendable {
     /// then groups all artifacts (`.run` decodes, `.sessions` filenames,
     /// sidecar subdirectories) by runID. Runs with a summary come first,
     /// newest first; artifact-only runs follow. An undecodable or
-    /// runID-less `.run` is skipped and left on disk for pruning. Throws only
-    /// when the runs directory exists but cannot be read.
+    /// runID-less `.run` is skipped and left on disk for pruning. Throws when
+    /// the Runs or RunSidecars directory exists but cannot be read.
     func runs() throws -> [RunStore] {
         // Enforce retention before looking at anything: install only appends
         // (keeping launch cheap), so the send path is where the cap is applied.
@@ -76,8 +76,8 @@ struct RunDataStore: Sendable {
         // directory, so files appearing mid-send are simply not part of this
         // send. A missing directory means no run has ever recorded anything
         // (the install path creates it lazily), which is a normal empty result;
-        // any other failure means the store itself is unusable and is the one
-        // error worth surfacing to the caller.
+        // any other failure means the store itself is unusable and surfaces
+        // to the caller.
         let entries: [String]
         do {
             entries = try FileManager.default.contentsOfDirectory(atPath: runsDirectory.path)

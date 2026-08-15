@@ -100,7 +100,7 @@ final class RunDataStoreTests: XCTestCase {
         var config = KSKVSConfig(initialCapacity: 4096, maxKeyLength: 256, maxStringLength: 1024)
         let store = kskvs_create(
             directory.appendingPathComponent(KSCRS_USERINFO_RUN_SIDECAR_FILENAME).path, KSKVSModeReadWriteCreate,
-            &config)
+            &config, nil)
         XCTAssertNotNil(store)
         populate(store!)
         kskvs_destroy(store)
@@ -382,6 +382,24 @@ final class RunDataStoreTests: XCTestCase {
         try writeSummary(makeSummary(runID: "BARE"), startNs: 100)
         let summary = try XCTUnwrap(makeStore().runs()[0].summary())
         XCTAssertNil(summary.metadata)
+    }
+
+    func test_summary_corruptUserInfoSidecar_deliversWithoutMetadata() throws {
+        let runID = "TORNMETA"
+        try writeSummary(makeSummary(runID: runID), startNs: 100)
+        let directory = sidecarsDirectory.appendingPathComponent(runID)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let path = directory.appendingPathComponent(KSCRS_USERINFO_RUN_SIDECAR_FILENAME)
+
+        // A crash before the header write leaves a short file; no later read
+        // can recover anything, so the summary still delivers.
+        try Data([0x00, 0x01]).write(to: path)
+        XCTAssertNil(try XCTUnwrap(makeStore().runs()[0].summary()).metadata)
+
+        // A crash after ftruncate but before the header write leaves a full
+        // page of zeros (bad magic); same outcome.
+        try Data(repeating: 0, count: 4096).write(to: path)
+        XCTAssertNil(try XCTUnwrap(makeStore().runs()[0].summary()).metadata)
     }
 
     func test_summary_unreadableUserInfoSidecar_skipsTheRunInsteadOfDroppingMetadata() throws {

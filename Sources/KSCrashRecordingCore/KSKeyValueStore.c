@@ -320,24 +320,35 @@ static void appendRecord(KSKeyValueStore *store, const char *key, uint8_t type, 
 #pragma mark - Lifecycle -
 // ============================================================================
 
-KSKeyValueStore *kskvs_create(const char *path, KSKVSMode mode, const KSKVSConfig *config)
+KSKeyValueStore *kskvs_create(const char *path, KSKVSMode mode, const KSKVSConfig *config, KSKVSOpenStatus *outStatus)
 {
+    // Every exit funnels through done so the status write cannot be missed.
+    KSKVSOpenStatus status = KSKVSOpenFailure;
+    KSKeyValueStore *result = NULL;
+
     if (path == NULL) {
-        return NULL;
+        goto done;
     }
 
     if (mode == KSKVSModeRead) {
         // Read existing file into heap buffer.
+        uint8_t *buf = NULL;
         int fd = open(path, O_RDONLY);
         if (fd < 0) {
-            KSLOG_ERROR("Failed to open KVS file for reading %s: %s", path, strerror(errno));
-            return NULL;
+            if (errno == ENOENT) {
+                status = KSKVSOpenAbsent;
+            } else {
+                KSLOG_ERROR("Failed to open KVS file for reading %s: %s", path, strerror(errno));
+            }
+            goto done;
         }
 
-        uint8_t *buf = NULL;
-
         off_t fileSize = lseek(fd, 0, SEEK_END);
+        if (fileSize < 0) {
+            goto read_fail;  // seek failure is environmental, not a verdict on the file
+        }
         if (fileSize < (off_t)KSKVS_HEADER_SIZE) {
+            status = KSKVSOpenCorrupt;
             goto read_fail;
         }
         lseek(fd, 0, SEEK_SET);
@@ -359,10 +370,12 @@ KSKeyValueStore *kskvs_create(const char *path, KSKVSMode mode, const KSKVSConfi
         KSKVSHeader *hdr = (KSKVSHeader *)buf;
         if (hdr->magic != KSKVS_MAGIC) {
             KSLOG_ERROR("Invalid KVS magic 0x%x", hdr->magic);
+            status = KSKVSOpenCorrupt;
             goto read_fail;
         }
         if (hdr->version == 0 || hdr->version > KSKVS_CURRENT_VERSION) {
             KSLOG_ERROR("Unsupported KVS version %u", hdr->version);
+            status = KSKVSOpenCorrupt;
             goto read_fail;
         }
 
@@ -377,26 +390,32 @@ KSKeyValueStore *kskvs_create(const char *path, KSKVSMode mode, const KSKVSConfi
         store->maxKeyLength = (config != NULL && config->maxKeyLength > 0) ? config->maxKeyLength : 256;
         store->maxStringLength = (config != NULL && config->maxStringLength > 0) ? config->maxStringLength : 0;
 
-        return store;
+        result = store;
+        status = KSKVSOpenSuccess;
+        goto done;
 
     read_fail:
         free(buf);
         if (fd >= 0) {
             close(fd);
         }
-        return NULL;
+        goto done;
     }
 
     if (mode == KSKVSModeReadWriteCreate) {
         if (config == NULL || config->initialCapacity < KSKVS_HEADER_SIZE) {
             KSLOG_ERROR("Invalid KVS config for ReadWriteCreate mode");
-            return NULL;
+            goto done;
         }
 
         int fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0644);
         if (fd < 0) {
-            KSLOG_ERROR("Failed to create KVS file %s: %s", path, strerror(errno));
-            return NULL;
+            if (errno == ENOENT) {
+                status = KSKVSOpenAbsent;
+            } else {
+                KSLOG_ERROR("Failed to create KVS file %s: %s", path, strerror(errno));
+            }
+            goto done;
         }
 
         void *mapped = MAP_FAILED;
@@ -432,17 +451,23 @@ KSKeyValueStore *kskvs_create(const char *path, KSKVSMode mode, const KSKVSConfi
         store->maxStringLength = config->maxStringLength;
         initHeader(store->storage);
 
-        return store;
+        result = store;
+        status = KSKVSOpenSuccess;
+        goto done;
 
     rw_fail:
         if (mapped != MAP_FAILED) {
             munmap(mapped, capacity);
         }
         close(fd);
-        return NULL;
+        goto done;
     }
 
-    return NULL;
+done:
+    if (outStatus != NULL) {
+        *outStatus = status;
+    }
+    return result;
 }
 
 void kskvs_destroy(KSKeyValueStore *store)
