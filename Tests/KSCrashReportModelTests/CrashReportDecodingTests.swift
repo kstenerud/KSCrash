@@ -1002,6 +1002,7 @@ final class CrashReportDecodingTests: XCTestCase {
                 "report": {
                     "id": "test-termination",
                     "run_id": "prev-run-id",
+                    "session_id": "prev-session-id",
                     "type": "standard",
                     "monitor_id": "Termination"
                 }
@@ -1017,6 +1018,7 @@ final class CrashReportDecodingTests: XCTestCase {
         XCTAssertEqual(report.crash.error.signal?.signal, 9)
         XCTAssertEqual(report.crash.error.signal?.name, "SIGKILL")
         XCTAssertEqual(report.report.runId, "prev-run-id")
+        XCTAssertEqual(report.report.sessionId, "prev-session-id")
         XCTAssertEqual(report.report.monitorId, "Termination")
     }
 

@@ -34,9 +34,9 @@ This order is load-bearing: monitors must be enabled before RunContext reads the
 
 | Reason | Meaning | Produces report? |
 |---|---|---|
-| `Clean` | `cleanShutdown` flag was set — normal app termination | No |
-| `Crash` | `fatalReported` flag was set — a crash handler already wrote a report | Yes |
-| `Hang` | `hangInProgress` flag was set — app was hanging when killed | Yes |
+| `Clean` | `cleanExit` flag was set — normal app termination | No |
+| `Crash` | `monitorHandlerRan` flag was set — a crash handler already wrote a report | Yes |
+| `Hang` | `hangActive` flag was set — app was hanging when killed | Yes |
 
 **System changes** (explain an unclean exit without it being a crash):
 

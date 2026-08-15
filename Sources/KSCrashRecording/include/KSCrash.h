@@ -67,10 +67,24 @@ NS_ASSUME_NONNULL_BEGIN
  *  The value is attributed to this run (used for crash attribution and any
  *  stability reporting this run produces). Pass nil to clear, e.g. on logout.
  *
+ *  Only recorded once KSCrash has been installed; a value set before install
+ *  has no effect. To attribute the launch itself, set it as soon as install
+ *  returns.
+ *
  *  Write-only: there is no getter. Track the current user in your own
  *  application state if you need to read it back at runtime.
  */
 - (void)setUserID:(nullable NSString *)userID;
+
+/** The id of the currently-open session, or nil if none is open yet.
+ *
+ *  A session is a span of this run over which the user id and perceptibility
+ *  (foreground/background) are constant; a new one is cut whenever either
+ *  changes. A report carries the id of the latest session recorded at the
+ *  time the report was finalized, as `report.session_id`. Only available
+ *  after install; nil before the first session is recorded.
+ */
+@property(nonatomic, readonly, nullable) NSString *sessionID;
 
 #pragma mark - Information -
 
@@ -178,18 +192,6 @@ NS_ASSUME_NONNULL_BEGIN
            configuration:(KSCrashSendConfiguration *)configuration
               completion:(nullable KSCrashReportFilterCompletion)onCompletion
     NS_SWIFT_NAME(sendReport(id:with:completion:));
-
-/** Send all pending run summaries using the given send configuration.
- *
- * Forwards to the installed report store. If the crash reporter is not
- * installed, @c onCompletion is called with an error.
- *
- * @param configuration The run-filter chain to use (@c runSummaryFilters).
- * @param onCompletion Called when sending is complete (nil = ignore).
- */
-- (void)sendAllRunSummariesWithConfiguration:(KSCrashSendConfiguration *)configuration
-                                  completion:(nullable KSCrashRunFilterCompletion)onCompletion
-    NS_SWIFT_NAME(sendAllRunSummaries(with:completion:));
 
 /** Report a custom, user defined exception.
  * This can be useful when dealing with scripting languages.

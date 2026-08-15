@@ -45,41 +45,60 @@ CFDictionaryRef kscm_lifecycle_createStitchedReport(CFDictionaryRef reportDict, 
         return reportDict;
     }
 
+    // The sidecar is not session_id's data source (that is the run's
+    // .sessions file), so an unreadable or corrupt sidecar must not cost the
+    // report its session_id; only application_stats is skipped, and its data
+    // is equally unrecoverable on any later read.
     KSCrash_LifecycleData lc = {};
-    if (!kslifecycle_readData(sidecarPath, &lc)) {
+    bool haveLifecycleData = kslifecycle_readData(sidecarPath, &lc);
+    if (!haveLifecycleData) {
         KSLOG_ERROR(@"Failed to read lifecycle sidecar at %s", sidecarPath);
-        return NULL;
     }
 
     NSMutableDictionary *dict = [(__bridge NSDictionary *)reportDict mutableCopy];
 
-    // Navigate to or create report.system
-    NSMutableDictionary *systemDict;
-    id systemVal = dict[KSCrashField_System];
-    if ([systemVal isKindOfClass:[NSDictionary class]]) {
-        systemDict = [systemVal mutableCopy];
-    } else {
-        systemDict = [NSMutableDictionary dictionary];
+    if (haveLifecycleData) {
+        // Navigate to or create report.system
+        NSMutableDictionary *systemDict;
+        id systemVal = dict[KSCrashField_System];
+        if ([systemVal isKindOfClass:[NSDictionary class]]) {
+            systemDict = [systemVal mutableCopy];
+        } else {
+            systemDict = [NSMutableDictionary dictionary];
+        }
+
+        // Build application_stats from the sidecar struct
+        NSMutableDictionary *statsDict = [NSMutableDictionary dictionary];
+        statsDict[KSCrashField_AppActive] = @((BOOL)lc.applicationIsActive);
+        statsDict[KSCrashField_AppInFG] = @((BOOL)lc.applicationIsInForeground);
+        statsDict[KSCrashField_LaunchesSinceCrash] = @(lc.launchesSinceLastCrash);
+        statsDict[KSCrashField_SessionsSinceCrash] = @(lc.sessionsSinceLastCrash);
+        statsDict[KSCrashField_ActiveTimeSinceCrash] = @(kslifecycle_nsToSeconds(lc.activeDurationSinceLastCrashNs));
+        statsDict[KSCrashField_BGTimeSinceCrash] = @(kslifecycle_nsToSeconds(lc.backgroundDurationSinceLastCrashNs));
+        statsDict[KSCrashField_SessionsSinceLaunch] = @(lc.sessionsSinceLaunch);
+        statsDict[KSCrashField_ActiveTimeSinceLaunch] = @(kslifecycle_nsToSeconds(lc.activeDurationSinceLaunchNs));
+        statsDict[KSCrashField_BGTimeSinceLaunch] = @(kslifecycle_nsToSeconds(lc.backgroundDurationSinceLaunchNs));
+        statsDict[KSCrashField_AppTransitionState] =
+            @(ksapp_transitionStateToString((KSCrashAppTransitionState)lc.transitionState));
+        statsDict[KSCrashField_UserPerceptible] = @((BOOL)lc.userPerceptible);
+        statsDict[KSCrashField_TaskRole] = @(kstaskrole_toString(lc.taskRole));
+
+        systemDict[KSCrashField_AppStats] = statsDict;
+        dict[KSCrashField_System] = systemDict;
     }
 
-    // Build application_stats from the sidecar struct
-    NSMutableDictionary *statsDict = [NSMutableDictionary dictionary];
-    statsDict[KSCrashField_AppActive] = @((BOOL)lc.applicationIsActive);
-    statsDict[KSCrashField_AppInFG] = @((BOOL)lc.applicationIsInForeground);
-    statsDict[KSCrashField_LaunchesSinceCrash] = @(lc.launchesSinceLastCrash);
-    statsDict[KSCrashField_SessionsSinceCrash] = @(lc.sessionsSinceLastCrash);
-    statsDict[KSCrashField_ActiveTimeSinceCrash] = @(kslifecycle_nsToSeconds(lc.activeDurationSinceLastCrashNs));
-    statsDict[KSCrashField_BGTimeSinceCrash] = @(kslifecycle_nsToSeconds(lc.backgroundDurationSinceLastCrashNs));
-    statsDict[KSCrashField_SessionsSinceLaunch] = @(lc.sessionsSinceLaunch);
-    statsDict[KSCrashField_ActiveTimeSinceLaunch] = @(kslifecycle_nsToSeconds(lc.activeDurationSinceLaunchNs));
-    statsDict[KSCrashField_BGTimeSinceLaunch] = @(kslifecycle_nsToSeconds(lc.backgroundDurationSinceLaunchNs));
-    statsDict[KSCrashField_AppTransitionState] =
-        @(ksapp_transitionStateToString((KSCrashAppTransitionState)lc.transitionState));
-    statsDict[KSCrashField_UserPerceptible] = @((BOOL)lc.userPerceptible);
-    statsDict[KSCrashField_TaskRole] = @(kstaskrole_toString(lc.taskRole));
-
-    systemDict[KSCrashField_AppStats] = statsDict;
-    dict[KSCrashField_System] = systemDict;
+    // session_id is added at stitch time, never at crash time; absent when the
+    // run recorded no session.
+    id reportVal = dict[KSCrashField_Report];
+    id storedRunID = [reportVal isKindOfClass:[NSDictionary class]] ? reportVal[KSCrashField_RunID] : nil;
+    NSString *runID = [storedRunID isKindOfClass:[NSString class]] ? storedRunID : nil;
+    char sessionID[37] = "";
+    if (kslifecycle_copyLastSessionIDForRunID(runID.UTF8String, sessionID, sizeof(sessionID))) {
+        NSMutableDictionary *reportSection =
+            [reportVal isKindOfClass:[NSDictionary class]] ? [reportVal mutableCopy] : [NSMutableDictionary dictionary];
+        reportSection[KSCrashField_SessionID] = @(sessionID);
+        dict[KSCrashField_Report] = reportSection;
+    }
 
     return (__bridge_retained CFDictionaryRef)dict;
 }

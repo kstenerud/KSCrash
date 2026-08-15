@@ -29,17 +29,14 @@
 #include "KSCrashNamespace.h"
 #import "KSCrashReportFilter.h"
 #import "KSCrashReportStore.h"
-#import "KSCrashRunFilter.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
-/** Per-send configuration: the filter chains and cleanup policy used when
- *  sending crash reports or run summaries.
+/** Per-send configuration: the filter chain and cleanup policy used when
+ *  sending crash reports.
  *
  *  Pass an instance to the `KSCrash` / `KSCrashReportStore` send methods. The
- *  same configuration can be reused across calls; each method only reads the
- *  fields relevant to it (report sends ignore `runSummaryFilters`, run-summary
- *  sends ignore `reportFilters` and `reportCleanupPolicy`).
+ *  same configuration can be reused across calls.
  */
 NS_SWIFT_NAME(CrashSendConfiguration)
 @interface KSCrashSendConfiguration : NSObject <NSCopying>
@@ -52,16 +49,7 @@ NS_SWIFT_NAME(CrashSendConfiguration)
  */
 @property(nonatomic, copy) NSArray<id<KSCrashReportFilter>> *reportFilters;
 
-/** Ordered filter chain for run summaries. The output of each filter feeds the
- *  next; the last filter is the terminal sink that delivers the summaries.
- *  An empty chain causes run-summary sends to complete with an error.
- *
- *  **Default**: empty
- */
-@property(nonatomic, copy) NSArray<id<KSCrashRunFilter>> *runSummaryFilters;
-
-/** What to do with crash reports after sending. Has no effect on run summaries
- *  (delivered summaries are always removed; the rest are retried).
+/** What to do with crash reports after sending.
  *
  *  **Default**: `KSCrashReportCleanupPolicyOnSuccess`. With this default, a
  *  failed send (network error, configuration error, etc.) keeps the local

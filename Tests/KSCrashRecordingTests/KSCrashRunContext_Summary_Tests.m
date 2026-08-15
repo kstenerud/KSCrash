@@ -27,12 +27,10 @@
 #import <XCTest/XCTest.h>
 
 #import "KSCrashRunContext.h"
-#import "KSCrashRunSummary.h"
 #import "KSKeyValueStore.h"
 
 // Test helper exposed from KSCrashRunContext.m.
-extern KSCrashRunSummary *ksruncontext_testcode_buildSummary(const KSCrashRunContext *ctx,
-                                                             const char *userInfoSidecarPath);
+extern NSDictionary *ksruncontext_testcode_buildSummary(const KSCrashRunContext *ctx, const char *userInfoSidecarPath);
 
 // Wall-clock ns → zero-padded "<digits>.run" filename, matching the format
 // written by persistPreviousRunSummary.
@@ -48,17 +46,13 @@ static void populateContext(KSCrashRunContext *ctx)
     ctx->producedReport = true;
 
     ctx->lifecycleValid = true;
-    ctx->lifecycle.cleanShutdown = 0;
-    ctx->lifecycle.fatalReported = 1;
+    ctx->lifecycle.cleanExit = 0;
+    ctx->lifecycle.monitorHandlerRan = 1;
     ctx->lifecycle.userPerceptible = 1;
     ctx->lifecycle.activeDurationSinceLaunchNs = 123456789000ULL;     // 123456.789 ms
     ctx->lifecycle.backgroundDurationSinceLaunchNs = 45678901000ULL;  // 45678.901 ms
     ctx->lifecycle.wallClockAtStartNs = 1744000000000000000ULL;       // arbitrary epoch ns
     ctx->lifecycle.monotonicAtStartNs = 1000ULL;
-    ctx->lifecycle.perceptibleSessionsSinceLaunch = 3;
-    ctx->lifecycle.imperceptibleSessionsSinceLaunch = 2;
-    ctx->lifecycle.distinctPerceptibleUserCount = 4;
-    ctx->lifecycle.distinctImperceptibleUserCount = 1;
 
     // mostRecent - monotonicAtStart = 180000000000 ns = 180000 ms.
     // ended = started + 180000 ms = 1744000000000 + 180000 = 1744000180000 ms
@@ -82,6 +76,7 @@ static void populateContext(KSCrashRunContext *ctx)
     strlcpy(ctx->system.bundleVersion, "2.6.0.1234", sizeof(ctx->system.bundleVersion));
     strlcpy(ctx->system.bundleShortVersion, "2.6.0", sizeof(ctx->system.bundleShortVersion));
     strlcpy(ctx->system.deviceAppHash, "0123456789abcdef0123456789abcdef", sizeof(ctx->system.deviceAppHash));
+    strlcpy(ctx->system.buildType, "app store", sizeof(ctx->system.buildType));
     ctx->system.procTranslated = 0;
     ctx->system.isJailbroken = 0;
     ctx->system.isBeingDebugged = 0;
@@ -116,51 +111,65 @@ static void populateContext(KSCrashRunContext *ctx)
     KSCrashRunContext ctx;
     populateContext(&ctx);
 
-    KSCrashRunSummary *summary = ksruncontext_testcode_buildSummary(&ctx, NULL);
+    NSDictionary *summary = ksruncontext_testcode_buildSummary(&ctx, NULL);
 
     XCTAssertNotNil(summary);
-    XCTAssertEqual(summary.schemaVersion, 1);
-    XCTAssertTrue(summary.sdkVersion.length > 0);
-    XCTAssertEqualObjects(summary.runID, @"a1b2c3d4-e5f6-7890-abcd-ef1234567890");
-    XCTAssertEqualObjects(summary.deviceID, @"0123456789abcdef0123456789abcdef");
-    XCTAssertNil(summary.userID);
+    XCTAssertEqualObjects(summary[@"schema_version"], @1);
+    XCTAssertTrue([summary[@"sdk_version"] length] > 0);
+    XCTAssertEqualObjects(summary[@"run_id"], @"a1b2c3d4-e5f6-7890-abcd-ef1234567890");
+    XCTAssertEqualObjects(summary[@"device_id"], @"0123456789abcdef0123456789abcdef");
+    XCTAssertNil(summary[@"user_id"]);
 
-    XCTAssertEqual(summary.startedAtMs, 1744000000000LL);
-    XCTAssertEqual(summary.endedAtMs, 1744000180000LL);
-    XCTAssertFalse(summary.isBeingDebugged);
+    XCTAssertEqualObjects(summary[@"started_at_ms"], @1744000000000LL);
+    XCTAssertEqualObjects(summary[@"ended_at_ms"], @1744000180000LL);
+    XCTAssertEqualObjects(summary[@"is_being_debugged"], @NO);
 
-    XCTAssertEqual(summary.outcome.terminationReason, KSTerminationReasonCrash);
-    XCTAssertFalse(summary.outcome.cleanShutdown);
-    XCTAssertTrue(summary.outcome.fatalReported);
-    XCTAssertTrue(summary.outcome.userPerceptible);
+    NSDictionary *outcome = summary[@"outcome"];
+    XCTAssertEqualObjects(outcome[@"termination_reason"], @"crash");
+    XCTAssertEqualObjects(outcome[@"user_perceptible"], @YES);
 
-    XCTAssertEqual(summary.durations.activeMs, 123456LL);
-    XCTAssertEqual(summary.durations.backgroundMs, 45678LL);
+    NSDictionary *durations = summary[@"durations_ms"];
+    XCTAssertEqualObjects(durations[@"active"], @123456LL);
+    XCTAssertEqualObjects(durations[@"background"], @45678LL);
 
-    XCTAssertEqual(summary.sessions.perceptibleCount, 3);
-    XCTAssertEqual(summary.sessions.imperceptibleCount, 2);
+    // buildSummary emits no session records on the synchronous startup path;
+    // they are merged from the .sessions file at send time, and the wire form
+    // omits the empty list.
+    XCTAssertEqualObjects(summary[@"sessions"], @{});
 
-    XCTAssertEqual(summary.users.perceptibleCount, 4);
-    XCTAssertEqual(summary.users.imperceptibleCount, 1);
+    NSDictionary *app = summary[@"app"];
+    XCTAssertEqualObjects(app[@"bundle_id"], @"com.acme.app");
+    XCTAssertEqualObjects(app[@"version"], @"2.6.0.1234");
+    XCTAssertEqualObjects(app[@"short_version"], @"2.6.0");
+    // host_kind comes from the lifecycle sidecar's stored byte. populateContext
+    // left it at 0, which maps to "app" (the default v2-sidecar-loaded-into-v3
+    // behavior).
+    XCTAssertEqualObjects(app[@"host_kind"], @"app");
+    XCTAssertEqualObjects(app[@"build_type"], @"app store");
 
-    XCTAssertEqualObjects(summary.app.bundleID, @"com.acme.app");
-    XCTAssertEqualObjects(summary.app.version, @"2.6.0.1234");
-    XCTAssertEqualObjects(summary.app.shortVersion, @"2.6.0");
-    // hostKind comes from the lifecycle sidecar's stored byte. populateContext
-    // left it at 0, which maps to KSCrashRunSummaryHostKindApp (the default
-    // v2-sidecar-loaded-into-v3 behavior).
-    XCTAssertEqual(summary.app.hostKind, KSCrashRunSummaryHostKindApp);
+    NSDictionary *osDict = summary[@"os"];
+    XCTAssertEqualObjects(osDict[@"name"], @"iOS");
+    XCTAssertEqualObjects(osDict[@"version"], @"18.0");
+    XCTAssertEqualObjects(osDict[@"build"], @"22A348");
 
-    XCTAssertEqualObjects(summary.os.name, @"iOS");
-    XCTAssertEqualObjects(summary.os.version, @"18.0");
-    XCTAssertEqualObjects(summary.os.build, @"22A348");
+    NSDictionary *device = summary[@"device"];
+    XCTAssertEqualObjects(device[@"model"], @"iPhone17,1");
+    XCTAssertEqualObjects(device[@"model_family"], @"iPhone");
+    XCTAssertEqualObjects(device[@"architecture"], @"arm64e");
+    XCTAssertEqualObjects(device[@"binary_architecture"], @"arm64e");
+    XCTAssertEqualObjects(device[@"is_translated"], @NO);
+    XCTAssertEqualObjects(device[@"is_jailbroken"], @NO);
+}
 
-    XCTAssertEqualObjects(summary.device.model, @"iPhone17,1");
-    XCTAssertEqualObjects(summary.device.modelFamily, @"iPhone");
-    XCTAssertEqualObjects(summary.device.architecture, @"arm64e");
-    XCTAssertEqualObjects(summary.device.binaryArchitecture, @"arm64e");
-    XCTAssertFalse(summary.device.isTranslated);
-    XCTAssertFalse(summary.device.isJailbroken);
+- (void)test_buildSummary_omitsBuildTypeWhenSidecarHasNone
+{
+    KSCrashRunContext ctx;
+    populateContext(&ctx);
+    ctx.system.buildType[0] = '\0';
+
+    NSDictionary *summary = ksruncontext_testcode_buildSummary(&ctx, NULL);
+
+    XCTAssertNil(summary[@"app"][@"build_type"]);
 }
 
 // Verifies that hostKind comes from the *previous* run's stored sidecar
@@ -174,9 +183,9 @@ static void populateContext(KSCrashRunContext *ctx)
     populateContext(&ctx);
     ctx.lifecycle.hostKind = (uint8_t)KSCrashRunSummaryHostKindExtension;
 
-    KSCrashRunSummary *summary = ksruncontext_testcode_buildSummary(&ctx, NULL);
+    NSDictionary *summary = ksruncontext_testcode_buildSummary(&ctx, NULL);
 
-    XCTAssertEqual(summary.app.hostKind, KSCrashRunSummaryHostKindExtension);
+    XCTAssertEqualObjects(summary[@"app"][@"host_kind"], @"extension");
 }
 
 // Like hostKind, the flag comes from the *previous* run's stored sidecar
@@ -187,9 +196,9 @@ static void populateContext(KSCrashRunContext *ctx)
     populateContext(&ctx);
     ctx.system.isBeingDebugged = 1;
 
-    KSCrashRunSummary *summary = ksruncontext_testcode_buildSummary(&ctx, NULL);
+    NSDictionary *summary = ksruncontext_testcode_buildSummary(&ctx, NULL);
 
-    XCTAssertTrue(summary.isBeingDebugged);
+    XCTAssertEqualObjects(summary[@"is_being_debugged"], @YES);
 }
 
 - (void)test_buildSummary_extendsActiveWithOpenTailSlice
@@ -204,11 +213,11 @@ static void populateContext(KSCrashRunContext *ctx)
     ctx.lifecycle.applicationIsActive = 1;
     ctx.lifecycle.applicationIsInForeground = 1;
 
-    KSCrashRunSummary *summary = ksruncontext_testcode_buildSummary(&ctx, NULL);
+    NSDictionary *summary = ksruncontext_testcode_buildSummary(&ctx, NULL);
 
     // Stored activeDurationSinceLaunchNs (123456 ms) plus the 180000 ms tail.
-    XCTAssertEqual(summary.durations.activeMs, 123456LL + 180000LL);
-    XCTAssertEqual(summary.durations.backgroundMs, 45678LL);
+    XCTAssertEqualObjects(summary[@"durations_ms"][@"active"], @(123456LL + 180000LL));
+    XCTAssertEqualObjects(summary[@"durations_ms"][@"background"], @45678LL);
 }
 
 - (void)test_buildSummary_extendsBackgroundWithOpenTailSlice
@@ -223,10 +232,10 @@ static void populateContext(KSCrashRunContext *ctx)
     ctx.lifecycle.applicationIsActive = 0;
     ctx.lifecycle.applicationIsInForeground = 0;
 
-    KSCrashRunSummary *summary = ksruncontext_testcode_buildSummary(&ctx, NULL);
+    NSDictionary *summary = ksruncontext_testcode_buildSummary(&ctx, NULL);
 
-    XCTAssertEqual(summary.durations.activeMs, 123456LL);
-    XCTAssertEqual(summary.durations.backgroundMs, 45678LL + 180000LL);
+    XCTAssertEqualObjects(summary[@"durations_ms"][@"active"], @123456LL);
+    XCTAssertEqualObjects(summary[@"durations_ms"][@"background"], @(45678LL + 180000LL));
 }
 
 - (void)test_buildSummary_ignoresTailWhenTransitionAlreadyCurrent
@@ -239,10 +248,10 @@ static void populateContext(KSCrashRunContext *ctx)
     ctx.lifecycle.appStateTransitionTimeNs = ctx.mostRecentTimestampNs;
     ctx.lifecycle.applicationIsActive = 1;
 
-    KSCrashRunSummary *summary = ksruncontext_testcode_buildSummary(&ctx, NULL);
+    NSDictionary *summary = ksruncontext_testcode_buildSummary(&ctx, NULL);
 
-    XCTAssertEqual(summary.durations.activeMs, 123456LL);
-    XCTAssertEqual(summary.durations.backgroundMs, 45678LL);
+    XCTAssertEqualObjects(summary[@"durations_ms"][@"active"], @123456LL);
+    XCTAssertEqualObjects(summary[@"durations_ms"][@"background"], @45678LL);
 }
 
 - (void)test_buildSummary_usesStartWhenMostRecentIsBeforeStart
@@ -254,10 +263,10 @@ static void populateContext(KSCrashRunContext *ctx)
     ctx.mostRecentTimestampNs = 0;
     ctx.lifecycle.monotonicAtStartNs = 1000000;
 
-    KSCrashRunSummary *summary = ksruncontext_testcode_buildSummary(&ctx, NULL);
+    NSDictionary *summary = ksruncontext_testcode_buildSummary(&ctx, NULL);
 
     XCTAssertNotNil(summary);
-    XCTAssertEqual(summary.endedAtMs, summary.startedAtMs);
+    XCTAssertEqualObjects(summary[@"ended_at_ms"], summary[@"started_at_ms"]);
 }
 
 #pragma mark - Invalid Context
@@ -300,7 +309,7 @@ static void populateContext(KSCrashRunContext *ctx)
         .maxKeyLength = 256,
         .maxStringLength = 1024,
     };
-    KSKeyValueStore *store = kskvs_create(path.UTF8String, KSKVSModeReadWriteCreate, &cfg);
+    KSKeyValueStore *store = kskvs_create(path.UTF8String, KSKVSModeReadWriteCreate, &cfg, NULL);
     XCTAssertTrue(store != NULL);
     kskvs_setString(store, "com.kscrash.userid", "alice");
     kskvs_setString(store, "other.key", "ignored");
@@ -310,10 +319,10 @@ static void populateContext(KSCrashRunContext *ctx)
     KSCrashRunContext ctx;
     populateContext(&ctx);
 
-    KSCrashRunSummary *summary = ksruncontext_testcode_buildSummary(&ctx, path.UTF8String);
+    NSDictionary *summary = ksruncontext_testcode_buildSummary(&ctx, path.UTF8String);
 
     XCTAssertNotNil(summary);
-    XCTAssertEqualObjects(summary.userID, @"bob");
+    XCTAssertEqualObjects(summary[@"user_id"], @"bob");
 }
 
 - (void)test_buildSummary_userIDFromSidecar_tombstoneClears
@@ -324,7 +333,7 @@ static void populateContext(KSCrashRunContext *ctx)
         .maxKeyLength = 256,
         .maxStringLength = 1024,
     };
-    KSKeyValueStore *store = kskvs_create(path.UTF8String, KSKVSModeReadWriteCreate, &cfg);
+    KSKeyValueStore *store = kskvs_create(path.UTF8String, KSKVSModeReadWriteCreate, &cfg, NULL);
     XCTAssertTrue(store != NULL);
     kskvs_setString(store, "com.kscrash.userid", "alice");
     kskvs_removeValue(store, "com.kscrash.userid");
@@ -333,10 +342,10 @@ static void populateContext(KSCrashRunContext *ctx)
     KSCrashRunContext ctx;
     populateContext(&ctx);
 
-    KSCrashRunSummary *summary = ksruncontext_testcode_buildSummary(&ctx, path.UTF8String);
+    NSDictionary *summary = ksruncontext_testcode_buildSummary(&ctx, path.UTF8String);
 
     XCTAssertNotNil(summary);
-    XCTAssertNil(summary.userID);
+    XCTAssertNil(summary[@"user_id"]);
 }
 
 - (void)test_buildSummary_userIDFromSidecar_missingFileYieldsNilUserID
@@ -344,15 +353,15 @@ static void populateContext(KSCrashRunContext *ctx)
     KSCrashRunContext ctx;
     populateContext(&ctx);
 
-    KSCrashRunSummary *summary = ksruncontext_testcode_buildSummary(&ctx, "/nonexistent/path/to/userinfo.ksscr");
+    NSDictionary *summary = ksruncontext_testcode_buildSummary(&ctx, "/nonexistent/path/to/userinfo.ksscr");
 
     XCTAssertNotNil(summary);
-    XCTAssertNil(summary.userID);
+    XCTAssertNil(summary[@"user_id"]);
 }
 
 #pragma mark - Persistence
 
-extern void ksruncontext_testcode_setCachedSummary(KSCrashRunSummary *summary, const char *runID);
+extern void ksruncontext_testcode_setCachedSummary(NSDictionary *summary, const char *runID);
 extern void ksruncontext_testcode_setLifecycleData(const KSCrash_LifecycleData *data);
 
 - (NSString *)runsDir
@@ -386,7 +395,7 @@ extern void ksruncontext_testcode_setLifecycleData(const KSCrash_LifecycleData *
 {
     KSCrashRunContext ctx;
     populateContext(&ctx);
-    KSCrashRunSummary *summary = ksruncontext_testcode_buildSummary(&ctx, NULL);
+    NSDictionary *summary = ksruncontext_testcode_buildSummary(&ctx, NULL);
     ksruncontext_testcode_setCachedSummary(summary, ctx.runID);
     // The filename is derived from g_context.lifecycle.wallClockAtStartNs, so
     // seed lifecycle too. In production ksruncontext_init populates both in
@@ -419,73 +428,6 @@ extern void ksruncontext_testcode_setLifecycleData(const KSCrash_LifecycleData *
     ksruncontext_persistPreviousRunSummary(self.runsDir.UTF8String);
 
     XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:self.runsDir]);
-}
-
-#pragma mark - Prune
-
-- (void)test_pruneRunSummaries_dropsOldestWhenOverKeep
-{
-    // Seed 5 fake summaries, lowest filename = oldest.
-    [self seedSummariesCount:5];
-
-    ksruncontext_pruneRunSummaries(self.runsDir.UTF8String, 3);
-
-    NSArray<NSString *> *contents = [self runsDirContents];
-    XCTAssertEqual(contents.count, 3u);
-    XCTAssertTrue([contents containsObject:@"2.run"]);
-    XCTAssertTrue([contents containsObject:@"3.run"]);
-    XCTAssertTrue([contents containsObject:@"4.run"]);
-    XCTAssertFalse([contents containsObject:@"0.run"]);
-    XCTAssertFalse([contents containsObject:@"1.run"]);
-}
-
-- (void)test_pruneRunSummaries_noOpWhenUnderKeep
-{
-    [self seedSummariesCount:2];
-
-    ksruncontext_pruneRunSummaries(self.runsDir.UTF8String, 5);
-
-    NSArray<NSString *> *contents = [self runsDirContents];
-    XCTAssertEqual(contents.count, 2u);
-}
-
-- (void)test_pruneRunSummaries_ignoresNonRunFiles
-{
-    [self seedSummariesCount:3];
-    NSString *tmpPath = [self.runsDir stringByAppendingPathComponent:@"scratch.tmp"];
-    [[NSData data] writeToFile:tmpPath atomically:YES];
-    // A .run file whose prefix isn't numeric — doesn't match parseRunFilename
-    // and must be ignored by the prune.
-    NSString *oddPath = [self.runsDir stringByAppendingPathComponent:@"not-a-number.run"];
-    [[NSData data] writeToFile:oddPath atomically:YES];
-
-    ksruncontext_pruneRunSummaries(self.runsDir.UTF8String, 1);
-
-    NSArray<NSString *> *contents = [self runsDirContents];
-    XCTAssertTrue([contents containsObject:@"scratch.tmp"]);
-    XCTAssertTrue([contents containsObject:@"not-a-number.run"]);
-    XCTAssertTrue([contents containsObject:@"2.run"]);
-    XCTAssertFalse([contents containsObject:@"0.run"]);
-    XCTAssertFalse([contents containsObject:@"1.run"]);
-}
-
-- (void)test_pruneRunSummaries_keepZeroOrNegativeIsNoOp
-{
-    // A disabled retention cap (keepCount <= 0) must never delete the backlog.
-    [self seedSummariesCount:3];
-
-    ksruncontext_pruneRunSummaries(self.runsDir.UTF8String, 0);
-    XCTAssertEqual([self runsDirContents].count, 3u);
-
-    ksruncontext_pruneRunSummaries(self.runsDir.UTF8String, -1);
-    XCTAssertEqual([self runsDirContents].count, 3u);
-}
-
-- (void)test_pruneRunSummaries_noOpWhenPathInvalid
-{
-    ksruncontext_pruneRunSummaries(NULL, 5);
-    ksruncontext_pruneRunSummaries("", 5);
-    // No crash = pass.
 }
 
 @end

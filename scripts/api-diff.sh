@@ -84,6 +84,7 @@ ALLOWLIST = {
     "KSCrashProfiler",
     "Monitors",
     "Report",
+    "KSCrash",
 }
 d = json.load(sys.stdin)
 all_targets = {t.get("name") for t in d.get("targets", []) if t.get("name")}

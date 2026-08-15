@@ -56,8 +56,8 @@ extension KSCrashState {
         )
     }
 
-    public var terminationReason: TerminationReason {
-        TerminationReason(rawValue: previousTerminationReason) ?? .none
+    public var terminationReason: KSTerminationReason {
+        KSTerminationReason(rawValue: previousTerminationReason) ?? .none
     }
 
     func save(to path: String) throws {

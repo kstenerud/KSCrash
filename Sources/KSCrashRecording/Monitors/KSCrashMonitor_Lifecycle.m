@@ -32,9 +32,9 @@
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitorHelper.h"
 #import "KSCrashRunContext.h"
-#import "KSCrashRunSummary.h"
 #import "KSDate.h"
 #import "KSFileUtils.h"
+#import "KSSessionStore.h"
 #import "KSSpinLock.h"
 #import "KSSystemCapabilities.h"
 
@@ -67,30 +67,6 @@ static dispatch_source_t g_taskRoleHeartbeatTimer = NULL;
 static atomic_bool g_isEnabled = false;
 static _Atomic KSCrashAppTransitionState g_transitionState = KSCrashAppTransitionStateStartup;
 
-// Tri-state perceptibility of an app transition state, internal to session
-// counting. Yes: user-perceptible. No: not. Maybe: launch states where it is
-// not yet known whether the app will reach the foreground.
-typedef enum {
-    KSCrashLifecyclePerceptibilityNo = 0,
-    KSCrashLifecyclePerceptibilityYes,
-    KSCrashLifecyclePerceptibilityMaybe,
-} KSCrashLifecyclePerceptibility;
-
-static KSCrashLifecyclePerceptibility perceptibilityForState(KSCrashAppTransitionState state)
-{
-    switch (state) {
-        case KSCrashAppTransitionStateActive:
-        case KSCrashAppTransitionStateDeactivating:
-        case KSCrashAppTransitionStateForegrounding:
-            return KSCrashLifecyclePerceptibilityYes;
-        case KSCrashAppTransitionStateStartup:
-        case KSCrashAppTransitionStateLaunching:
-            return KSCrashLifecyclePerceptibilityMaybe;
-        default:
-            return KSCrashLifecyclePerceptibilityNo;
-    }
-}
-
 // Maps the currently-running bundle to the matching host kind enum. Called
 // once at sidecar creation — the bundle doesn't change during a run, so we
 // capture the producer's host kind into the sidecar where it survives for
@@ -111,12 +87,12 @@ static KSCrashRunSummaryHostKind hostKindForCurrentBundle(void)
     return KSCrashRunSummaryHostKindOther;
 }
 
-// In-memory state for the distinct-user tracking. Not persisted (only the
-// counts in the sidecar are). `g_userLock` guards all three variables.
-static os_unfair_lock g_userLock = OS_UNFAIR_LOCK_INIT;
-static NSMutableSet<NSString *> *g_perceptibleUsers = nil;
-static NSMutableSet<NSString *> *g_imperceptibleUsers = nil;
-static NSString *g_currentUserID = nil;
+// The session writer is the single source of truth for the current session and
+// user; the monitor keeps no parallel user state. Guarded by g_sessionLock,
+// which is never taken on the crash path, so the writer's file I/O is safe under
+// it. Created lazily (ensureSessionWriterLocked) and closed on disable.
+static os_unfair_lock g_sessionLock = OS_UNFAIR_LOCK_INIT;
+static KSSessionWriter *g_sessionWriter = NULL;
 
 /** Write the current task role to the sidecar if it changed.
  *  Call under the sidecar lock.
@@ -188,91 +164,115 @@ static void updateSidecarDurations(KSCrash_LifecycleData *sc)
 }
 
 // ============================================================================
-#pragma mark - Distinct user tracking -
+#pragma mark - Session writer -
 // ============================================================================
-//
-// The two sets and g_currentUserID are guarded by g_userLock. The sidecar's
-// distinct-count fields are guarded by g_sidecarLock. These locks are never
-// held together: each call site updates the in-memory state first, grabs
-// the new count, then writes it into the sidecar in a separate critical
-// section.
 
-/** Write a user bucket's count into the sidecar. Grabs g_sidecarLock. */
-static void writeDistinctUserCountToSidecar(bool perceptible, NSUInteger count)
+// Create the directory portion of `filePath`. The path getters are pure
+// (read paths must not mutate disk), so the writer's call site owns creation.
+static bool makeParentDirectory(const char *filePath)
 {
-    ks_spinlock_lock(&g_sidecarLock);
-    KSCrash_LifecycleData *sc = g_sidecar;
-    if (sc != NULL) {
-        if (perceptible) {
-            sc->distinctPerceptibleUserCount = (uint32_t)count;
-        } else {
-            sc->distinctImperceptibleUserCount = (uint32_t)count;
-        }
+    char dir[KSFU_MAX_PATH_LENGTH];
+    strlcpy(dir, filePath, sizeof(dir));
+    char *slash = strrchr(dir, '/');
+    if (slash == NULL) {
+        return false;
     }
-    ks_spinlock_unlock(&g_sidecarLock);
+    *slash = '\0';
+    return ksfu_makePath(dir);
 }
 
-/** Record `userID` in the bucket for `perceptible`. Return the new bucket
- *  size, or 0 if there was nothing to record. Grabs g_userLock.
- */
-static NSUInteger recordUserInBucket(NSString *userID, bool perceptible)
+/** Return the session writer, creating it on first use. Call under g_sessionLock.
+ *  Returns NULL only when no summary-sidecar path is available (e.g. before
+ *  install). kssw_open does no file I/O; the file opens on the first cut. */
+static KSSessionWriter *ensureSessionWriterLocked(void)
 {
-    if (userID.length == 0) {
-        return 0;
+    // Recheck enabled under g_sessionLock. observeUser and the transition can
+    // pass the atomic gate and then block here while setEnabled(false) closes the
+    // writer; without this recheck they would resurrect it and append after
+    // teardown. Disable clears g_isEnabled before taking g_sessionLock, so this
+    // (which holds it) always sees the cleared value.
+    if (!atomic_load(&g_isEnabled)) {
+        return NULL;
     }
-    NSUInteger count = 0;
-    os_unfair_lock_lock(&g_userLock);
-    if (perceptible) {
-        if (g_perceptibleUsers == nil) g_perceptibleUsers = [NSMutableSet set];
-        [g_perceptibleUsers addObject:userID];
-        count = g_perceptibleUsers.count;
-    } else {
-        if (g_imperceptibleUsers == nil) g_imperceptibleUsers = [NSMutableSet set];
-        [g_imperceptibleUsers addObject:userID];
-        count = g_imperceptibleUsers.count;
+    if (g_sessionWriter == NULL) {
+        char path[KSFU_MAX_PATH_LENGTH];
+        if (g_callbacks.getSummarySidecarPath != NULL &&
+            g_callbacks.getSummarySidecarPath(kscrash_getRunID(), "sessions", path, sizeof(path)) &&
+            makeParentDirectory(path)) {
+            g_sessionWriter = kssw_open(path);
+        }
     }
-    os_unfair_lock_unlock(&g_userLock);
-    return count;
+    return g_sessionWriter;
 }
 
 void kscm_lifecycle_observeUser(const char *userID)
 {
-    // Gate on enable so pre-install writes can't stash a g_currentUserID that
-    // would leak into a later setEnabled(true) session. The monitor always
-    // clears g_currentUserID on disable, so post-enable writes stay correct.
+    // Gate on the monitor being enabled so a userID set before install or after
+    // disable doesn't create a writer.
     if (!atomic_load(&g_isEnabled)) {
         return;
     }
-
-    NSString *asString = (userID != NULL && userID[0] != '\0') ? [NSString stringWithUTF8String:userID] : nil;
-
-    os_unfair_lock_lock(&g_userLock);
-    g_currentUserID = [asString copy];
-    os_unfair_lock_unlock(&g_userLock);
-
-    if (asString.length == 0) {
-        return;  // nothing to count
+    os_unfair_lock_lock(&g_sessionLock);
+    KSSessionWriter *writer = ensureSessionWriterLocked();
+    if (writer != NULL) {
+        // Only the user changed; keep the open session's perceptibility. A change
+        // to anonymous (logout) is still a cut.
+        kssw_updateUser(writer, userID);
     }
+    os_unfair_lock_unlock(&g_sessionLock);
+}
 
-    // Read perceptibility from the sidecar. createSidecar() populates this
-    // on install from the current app state, so it's accurate before any
-    // transition has fired (unlike the atomic g_transitionState which
-    // starts at Startup).
-    bool perceptible = false;
-    ks_spinlock_lock(&g_sidecarLock);
-    bool haveSidecar = g_sidecar != NULL;
-    if (haveSidecar) {
-        perceptible = g_sidecar->userPerceptible != 0;
+const char *kslifecycle_currentSessionID(void)
+{
+    // kssw_current's buffer is overwritten by the next cut; copy it out.
+    static _Thread_local char buf[37];
+    os_unfair_lock_lock(&g_sessionLock);
+    const char *id = (g_sessionWriter != NULL) ? kssw_current(g_sessionWriter) : NULL;
+    if (id != NULL) {
+        strlcpy(buf, id, sizeof(buf));
+    } else {
+        buf[0] = '\0';
     }
-    ks_spinlock_unlock(&g_sidecarLock);
-    if (!haveSidecar) {
-        return;
-    }
+    os_unfair_lock_unlock(&g_sessionLock);
+    return buf[0] != '\0' ? buf : NULL;
+}
 
-    NSUInteger count = recordUserInBucket(asString, perceptible);
+bool kslifecycle_copyLastSessionIDForRunID(const char *runID, char *buf, size_t bufLen)
+{
+    if (buf == NULL || bufLen == 0) {
+        return false;
+    }
+    buf[0] = '\0';
+    if (runID == NULL || runID[0] == '\0' || g_callbacks.getSummarySidecarPath == NULL) {
+        return false;
+    }
+    char path[KSFU_MAX_PATH_LENGTH];
+    if (!g_callbacks.getSummarySidecarPath(runID, "sessions", path, sizeof(path))) {
+        return false;
+    }
+    // The live run's file may be mid-append (finalize-time stitches read it
+    // while the writer is active); the store's contract is one accessor at a
+    // time, so serialize against the writer for the current run only.
+    const char *currentRunID = kscrash_getRunID();
+    bool isLiveRun = currentRunID != NULL && strcmp(runID, currentRunID) == 0;
+    if (isLiveRun) {
+        os_unfair_lock_lock(&g_sessionLock);
+    }
+    KSSessionReader *reader = kssr_open(path);
+    bool found = false;
+    int count = kssr_count(reader);
     if (count > 0) {
-        writeDistinctUserCountToSidecar(perceptible, count);
+        KSSessionRecord rec;
+        if (kssr_sessionAt(reader, count - 1, &rec)) {
+            strlcpy(buf, rec.guid, bufLen);
+            found = buf[0] != '\0';
+        }
     }
+    kssr_close(reader);
+    if (isLiveRun) {
+        os_unfair_lock_unlock(&g_sessionLock);
+    }
+    return found;
 }
 
 bool kslifecycle_readData(const char *path, KSCrash_LifecycleData *out)
@@ -329,15 +329,6 @@ bool kslifecycle_getSnapshotForRunID(const char *runID, KSCrash_LifecycleData *o
 #pragma mark - State Transition Observer -
 // ============================================================================
 
-/** Count the owed perceptible session, once. Call under g_sidecarLock. */
-static void countPerceptibleSessionIfPending(KSCrash_LifecycleData *sc)
-{
-    if (sc->perceptibleSessionPending) {
-        sc->perceptibleSessionPending = 0;
-        sc->perceptibleSessionsSinceLaunch++;
-    }
-}
-
 static void onTransitionState(KSCrashAppTransitionState transitionState)
 {
     atomic_store_explicit(&g_transitionState, transitionState, memory_order_relaxed);
@@ -361,14 +352,11 @@ static void onTransitionState(KSCrashAppTransitionState transitionState)
             break;
 
         case KSCrashAppTransitionStateBackground:
-            // Background starts an imperceptible session and owes the next
-            // foreground a perceptible one. The public sessionsSinceLaunch /
-            // sessionsSinceLastCrash keep their historical "launch + foreground
-            // resume" meaning and are not touched here.
+            // The public sessionsSinceLaunch / sessionsSinceLastCrash keep their
+            // historical "launch + foreground resume" meaning and are not touched
+            // here.
             updateSidecarDurations(sc);
             sc->applicationIsInForeground = false;
-            sc->imperceptibleSessionsSinceLaunch++;
-            sc->perceptibleSessionPending = 1;
             break;
 
         case KSCrashAppTransitionStateForegrounding:
@@ -381,17 +369,11 @@ static void onTransitionState(KSCrashAppTransitionState transitionState)
         case KSCrashAppTransitionStateTerminating:
         case KSCrashAppTransitionStateExiting:
             updateSidecarDurations(sc);
-            sc->cleanShutdown = true;
+            sc->cleanExit = true;
             break;
 
         default:
             break;
-    }
-
-    // Count the owed perceptible session the first time the app is genuinely
-    // perceptible. Maybe (Startup/Launching) waits; No re-arms it on Background.
-    if (perceptibilityForState(transitionState) == KSCrashLifecyclePerceptibilityYes) {
-        countPerceptibleSessionIfPending(sc);
     }
 
     bool previousPerceptible = sc->userPerceptible != 0;
@@ -401,17 +383,14 @@ static void onTransitionState(KSCrashAppTransitionState transitionState)
     updateSidecarTaskRole(sc);
     ks_spinlock_unlock(&g_sidecarLock);
 
-    // Perceptibility flipped: the current user (if any) is now in a new
-    // bucket. Recording happens after the sidecar lock is released so the
-    // two locks never nest.
+    // Perceptibility flipped: cut a new session, keeping the open session's user.
     if (newPerceptible != previousPerceptible) {
-        os_unfair_lock_lock(&g_userLock);
-        NSString *user = g_currentUserID;
-        os_unfair_lock_unlock(&g_userLock);
-        NSUInteger count = recordUserInBucket(user, newPerceptible);
-        if (count > 0) {
-            writeDistinctUserCountToSidecar(newPerceptible, count);
+        os_unfair_lock_lock(&g_sessionLock);
+        KSSessionWriter *writer = ensureSessionWriterLocked();
+        if (writer != NULL) {
+            kssw_updatePerceptible(writer, newPerceptible);
         }
+        os_unfair_lock_unlock(&g_sessionLock);
     }
 }
 
@@ -555,12 +534,9 @@ static KSCrash_LifecycleData *createSidecar(void)
          ts == KSCrashAppTransitionStateForegrounding);
     sc->userPerceptible = ksapp_transitionStateIsUserPerceptible(ts);
 
-    // The launch owes a perceptible session, counted only when the app
-    // actually reaches the foreground (perceptibilityForState == Yes). The
-    // public sessionsSinceLaunch keeps its historical meaning (launch == 1,
-    // plus each foreground resume), independent of the perceptibility buckets.
+    // The public sessionsSinceLaunch keeps its historical meaning (launch == 1,
+    // plus each foreground resume).
     sc->sessionsSinceLaunch = 1;
-    sc->perceptibleSessionPending = 1;
 
     sc->taskRole = (int32_t)kstaskrole_current();
     sc->hostKind = (uint8_t)hostKindForCurrentBundle();
@@ -590,7 +566,7 @@ static void onHangChange(KSHangChangeType change, __unused uint64_t startTimesta
     ks_spinlock_lock(&g_sidecarLock);
     KSCrash_LifecycleData *sc = g_sidecar;
     if (sc != NULL) {
-        sc->hangInProgress = (change == KSHangChangeTypeStarted);
+        sc->hangActive = (change == KSHangChangeTypeStarted);
     }
     ks_spinlock_unlock(&g_sidecarLock);
 }
@@ -605,7 +581,15 @@ static void setEnabled(bool isEnabled, __unused void *context)
     if (isEnabled) {
         KSCrash_LifecycleData *sc = createSidecar();
         if (!sc) {
+            // g_isEnabled was already true, so a concurrent setUserID could have
+            // opened g_sessionWriter. Clear the flag first (new callers bail at
+            // ensureSessionWriterLocked's recheck), then close any writer that
+            // slipped in — disable can't, its CAS no-ops on the already-false flag.
             atomic_store(&g_isEnabled, false);
+            os_unfair_lock_lock(&g_sessionLock);
+            kssw_close(g_sessionWriter);
+            g_sessionWriter = NULL;
+            os_unfair_lock_unlock(&g_sessionLock);
             return;
         }
 
@@ -613,24 +597,19 @@ static void setEnabled(bool isEnabled, __unused void *context)
         g_sidecar = sc;
         ks_spinlock_unlock(&g_sidecarLock);
 
-        // Close the enable race: g_isEnabled is flipped before the sidecar is
-        // published, so a concurrent kscm_lifecycle_observeUser() could have
-        // passed the gate, stashed g_currentUserID, then bailed at the
-        // !haveSidecar check without counting the user. Now that the sidecar
-        // exists, replay the stashed user into its bucket. recordUserInBucket
-        // is a set insert, so this is idempotent if it already counted.
-        os_unfair_lock_lock(&g_userLock);
-        NSString *pendingUser = g_currentUserID;
-        os_unfair_lock_unlock(&g_userLock);
-        if (pendingUser.length > 0) {
-            ks_spinlock_lock(&g_sidecarLock);
-            bool perceptible = g_sidecar->userPerceptible != 0;
-            ks_spinlock_unlock(&g_sidecarLock);
-            NSUInteger count = recordUserInBucket(pendingUser, perceptible);
-            if (count > 0) {
-                writeDistinctUserCountToSidecar(perceptible, count);
-            }
+        // Record the launch session. kssw_updatePerceptible establishes the
+        // launch perceptibility while keeping whatever user a setUserID racing
+        // this enable may already have set on the writer (else anonymous).
+        ks_spinlock_lock(&g_sidecarLock);
+        bool perceptible = g_sidecar->userPerceptible != 0;
+        ks_spinlock_unlock(&g_sidecarLock);
+
+        os_unfair_lock_lock(&g_sessionLock);
+        KSSessionWriter *writer = ensureSessionWriterLocked();
+        if (writer != NULL) {
+            kssw_updatePerceptible(writer, perceptible);
         }
+        os_unfair_lock_unlock(&g_sessionLock);
 
         g_appStateObserver =
             [KSCrashAppStateTracker.sharedInstance addObserverWithBlock:^(KSCrashAppTransitionState transitionState) {
@@ -649,11 +628,10 @@ static void setEnabled(bool isEnabled, __unused void *context)
 
         g_appStateObserver = nil;
 
-        os_unfair_lock_lock(&g_userLock);
-        g_perceptibleUsers = nil;
-        g_imperceptibleUsers = nil;
-        g_currentUserID = nil;
-        os_unfair_lock_unlock(&g_userLock);
+        os_unfair_lock_lock(&g_sessionLock);
+        kssw_close(g_sessionWriter);
+        g_sessionWriter = NULL;
+        os_unfair_lock_unlock(&g_sessionLock);
 
         releaseSidecar();
     }
@@ -677,14 +655,14 @@ static void notifyPostSystemEnable(__unused void *context)
 static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext, __unused void *context)
 {
     bool isFatal = eventContext != NULL && eventContext->requirements.isFatal;
-    // For fatal events, write cleanShutdown and fatalReported before acquiring the
+    // For fatal events, write cleanExit and monitorHandlerRan before acquiring the
     // lock. These are small stores to mmap'd memory that must succeed unconditionally
     // — if the bounded lock times out we still need the next launch to see the correct
     // state. In practice, fatal events run with other threads suspended so lock
     // contention is unlikely, but this is defense-in-depth.
     if (isFatal && g_sidecar != NULL) {
-        g_sidecar->cleanShutdown = eventContext->requirements.isCleanExit;
-        g_sidecar->fatalReported = true;
+        g_sidecar->cleanExit = eventContext->requirements.isCleanExit;
+        g_sidecar->monitorHandlerRan = true;
     }
     if (!ks_spinlock_lock_bounded(&g_sidecarLock)) {
         return;

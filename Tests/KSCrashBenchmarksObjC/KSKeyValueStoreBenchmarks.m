@@ -59,7 +59,7 @@ static const KSKVSConfig kDefaultConfig = {
 {
     [self measureBlock:^{
         NSString *path = [self tempFilePath];
-        KSKeyValueStore *store = kskvs_create([path UTF8String], KSKVSModeReadWriteCreate, &kDefaultConfig);
+        KSKeyValueStore *store = kskvs_create([path UTF8String], KSKVSModeReadWriteCreate, &kDefaultConfig, NULL);
         XCTAssertTrue(store != NULL);
 
         for (int i = 0; i < 100; i++) {
@@ -79,7 +79,7 @@ static const KSKVSConfig kDefaultConfig = {
 {
     [self measureBlock:^{
         NSString *path = [self tempFilePath];
-        KSKeyValueStore *store = kskvs_create([path UTF8String], KSKVSModeReadWriteCreate, &kDefaultConfig);
+        KSKeyValueStore *store = kskvs_create([path UTF8String], KSKVSModeReadWriteCreate, &kDefaultConfig, NULL);
         XCTAssertTrue(store != NULL);
 
         for (int i = 0; i < 100; i++) {
@@ -137,7 +137,7 @@ static const KSKVSCallbacks kBenchCallbacks = {
 - (void)testBenchmarkIterate
 {
     NSString *path = [self tempFilePath];
-    KSKeyValueStore *store = kskvs_create([path UTF8String], KSKVSModeReadWriteCreate, &kDefaultConfig);
+    KSKeyValueStore *store = kskvs_create([path UTF8String], KSKVSModeReadWriteCreate, &kDefaultConfig, NULL);
     XCTAssertTrue(store != NULL);
 
     for (int i = 0; i < 100; i++) {
@@ -164,7 +164,7 @@ static const KSKVSCallbacks kBenchCallbacks = {
 {
     [self measureBlock:^{
         NSString *path = [self tempFilePath];
-        KSKeyValueStore *store = kskvs_create([path UTF8String], KSKVSModeReadWriteCreate, &kDefaultConfig);
+        KSKeyValueStore *store = kskvs_create([path UTF8String], KSKVSModeReadWriteCreate, &kDefaultConfig, NULL);
         XCTAssertTrue(store != NULL);
 
         for (int i = 0; i < 100; i++) {
@@ -190,7 +190,7 @@ static const KSKVSCallbacks kBenchCallbacks = {
 
     [self measureBlock:^{
         NSString *path = [self tempFilePath];
-        KSKeyValueStore *store = kskvs_create([path UTF8String], KSKVSModeReadWriteCreate, &smallConfig);
+        KSKeyValueStore *store = kskvs_create([path UTF8String], KSKVSModeReadWriteCreate, &smallConfig, NULL);
         XCTAssertTrue(store != NULL);
 
         // Repeatedly overwrite a small set of keys to fill the log with dead entries,
@@ -220,7 +220,7 @@ static const KSKVSCallbacks kBenchCallbacks = {
 
     [self measureBlock:^{
         NSString *path = [self tempFilePath];
-        KSKeyValueStore *store = kskvs_create([path UTF8String], KSKVSModeReadWriteCreate, &smallConfig);
+        KSKeyValueStore *store = kskvs_create([path UTF8String], KSKVSModeReadWriteCreate, &smallConfig, NULL);
         XCTAssertTrue(store != NULL);
 
         // Each key is unique so no compaction benefit — forces pure growth.
@@ -243,7 +243,7 @@ static const KSKVSCallbacks kBenchCallbacks = {
 {
     [self measureBlock:^{
         NSString *path = [self tempFilePath];
-        KSKeyValueStore *store = kskvs_create([path UTF8String], KSKVSModeReadWriteCreate, &kDefaultConfig);
+        KSKeyValueStore *store = kskvs_create([path UTF8String], KSKVSModeReadWriteCreate, &kDefaultConfig, NULL);
         XCTAssertTrue(store != NULL);
         kskvs_destroy(store);
         [self cleanupFile:path];
@@ -254,7 +254,7 @@ static const KSKVSCallbacks kBenchCallbacks = {
 - (void)testBenchmarkReadOnly
 {
     NSString *path = [self tempFilePath];
-    KSKeyValueStore *store = kskvs_create([path UTF8String], KSKVSModeReadWriteCreate, &kDefaultConfig);
+    KSKeyValueStore *store = kskvs_create([path UTF8String], KSKVSModeReadWriteCreate, &kDefaultConfig, NULL);
     XCTAssertTrue(store != NULL);
 
     for (int i = 0; i < 100; i++) {
@@ -266,7 +266,7 @@ static const KSKVSCallbacks kBenchCallbacks = {
     kskvs_destroy(store);
 
     [self measureBlock:^{
-        KSKeyValueStore *roStore = kskvs_create([path UTF8String], KSKVSModeRead, NULL);
+        KSKeyValueStore *roStore = kskvs_create([path UTF8String], KSKVSModeRead, NULL, NULL);
         XCTAssertTrue(roStore != NULL);
 
         int count = 0;

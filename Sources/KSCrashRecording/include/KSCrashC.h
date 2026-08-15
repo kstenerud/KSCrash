@@ -187,6 +187,29 @@ int64_t kscrash_addUserReport(const char *report, int reportLength);
  */
 const char *kscrash_getRunID(void);
 
+/** Get the resolved run summaries directory.
+ *
+ * @return The directory holding per-run `.run` and `.sessions` files, or NULL
+ *         before kscrash_install(). Read-only after install; the returned
+ *         pointer is valid for the lifetime of the process.
+ */
+const char *kscrash_getRunSummariesPath(void);
+
+/** Get the resolved run sidecars directory.
+ *
+ * @return The directory holding per-run monitor sidecars, or NULL before
+ *         kscrash_install(). Read-only after install; the returned pointer is
+ *         valid for the lifetime of the process.
+ */
+const char *kscrash_getRunSidecarsPath(void);
+
+/** Get the installed run summary retention cap.
+ *
+ * @return The maximum number of run summaries kept on disk; 0 or negative
+ *         means run summaries are disabled.
+ */
+int kscrash_getMaxRunSummaryCount(void);
+
 /** Get the run ID from the previous process run.
  *
  * Returns the UUID string that was saved during the previous call to

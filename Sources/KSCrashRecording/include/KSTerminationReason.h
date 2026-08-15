@@ -91,7 +91,7 @@ enum
 
     /** The previous run did not exit cleanly but no specific cause was identified. */
     KSTerminationReasonUnexplained,
-} NS_SWIFT_NAME(TerminationReason);
+};
 #ifndef __OBJC__
 typedef int KSTerminationReason;
 #endif
