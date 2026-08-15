@@ -189,6 +189,20 @@
                ReferencedContainer = "container:">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "MonitorPlugins"
+               BuildableName = "MonitorPlugins"
+               BlueprintName = "MonitorPlugins"
+               ReferencedContainer = "container:">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
@@ -346,9 +360,19 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "ReportTests"
-               BuildableName = "ReportTests"
-               BlueprintName = "ReportTests"
+               BlueprintIdentifier = "KSCrashMonitorPluginsTests"
+               BuildableName = "KSCrashMonitorPluginsTests"
+               BlueprintName = "KSCrashMonitorPluginsTests"
+               ReferencedContainer = "container:">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "KSCrashReportModelTests"
+               BuildableName = "KSCrashReportModelTests"
+               BlueprintName = "KSCrashReportModelTests"
                ReferencedContainer = "container:">
             </BuildableReference>
          </TestableReference>
@@ -386,9 +410,9 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "MonitorsTests"
-               BuildableName = "MonitorsTests"
-               BlueprintName = "MonitorsTests"
+               BlueprintIdentifier = "KSCrashMonitorsTests"
+               BuildableName = "KSCrashMonitorsTests"
+               BlueprintName = "KSCrashMonitorsTests"
                ReferencedContainer = "container:">
             </BuildableReference>
          </TestableReference>
@@ -396,9 +420,9 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "SwiftCoreTests"
-               BuildableName = "SwiftCoreTests"
-               BlueprintName = "SwiftCoreTests"
+               BlueprintIdentifier = "KSCrashSwiftCoreTests"
+               BuildableName = "KSCrashSwiftCoreTests"
+               BlueprintName = "KSCrashSwiftCoreTests"
                ReferencedContainer = "container:">
             </BuildableReference>
          </TestableReference>

@@ -24,7 +24,9 @@
 // THE SOFTWARE.
 //
 
+import KSCrashMonitorPlugins
 import KSCrashRecording
+import KSCrashRecordingCore
 import KSCrashReportModel
 import XCTest
 
@@ -35,7 +37,18 @@ import XCTest
     @available(iOS 14.0, macOS 12.0, *)
     final class MetricKitMonitorTests: XCTestCase {
 
-        private var monitor: MetricKitMonitor { Monitors.metricKit }
+        /// One bridge for the whole class (constructing `Monitor<MetricKitMonitor>` more than
+        /// once per process would trip the duplicate-id precondition), installed with an empty
+        /// callbacks table the way `Monitor_Tests` drives the bridge, enough for every test
+        /// here, none of which write an actual report through the host.
+        private static let bridge: Monitor<MetricKitMonitor> = {
+            let bridge = MetricKitMonitor.plugin(.init())
+            var callbacks = KSCrash_ExceptionHandlerCallbacks()
+            withUnsafeMutablePointer(to: &callbacks) { bridge.api.pointee.`init`($0, bridge.api.pointee.context) }
+            return bridge
+        }()
+
+        private var monitor: MetricKitMonitor { Self.bridge.monitor }
 
         override func setUp() {
             super.setUp()
@@ -47,20 +60,20 @@ import XCTest
         // MARK: - Monitor API Lifecycle
 
         func testMonitorId() {
-            let api = monitor.api.pointee
+            let api = Self.bridge.api.pointee
             let monitorId = api.monitorId(api.context)
             XCTAssertNotNil(monitorId)
             XCTAssertEqual(String(cString: monitorId!), "MetricKit")
         }
 
         func testMonitorFlags() {
-            let api = monitor.api.pointee
+            let api = Self.bridge.api.pointee
             let flags = api.monitorFlags(api.context)
-            XCTAssertEqual(flags, KSCrashMonitorFlagPlugin)
+            XCTAssertEqual(flags, .plugin)
         }
 
         func testEnableDisable() {
-            let api = monitor.api.pointee
+            let api = Self.bridge.api.pointee
             XCTAssertFalse(api.isEnabled(api.context))
 
             api.setEnabled(true, api.context)
@@ -71,7 +84,7 @@ import XCTest
         }
 
         func testIdempotentEnable() {
-            let api = monitor.api.pointee
+            let api = Self.bridge.api.pointee
             api.setEnabled(true, api.context)
             api.setEnabled(true, api.context)
             XCTAssertTrue(api.isEnabled(api.context))
@@ -82,7 +95,98 @@ import XCTest
         }
 
         func testMonitorPlugin() {
-            XCTAssertNotNil(Monitors.metricKit.api)
+            XCTAssertTrue(Self.bridge.isInstalled)
+        }
+
+        // MARK: - End-to-End Skeleton Pipeline
+        //
+        // Everything above drives `Self.bridge` with an empty callbacks table, exercising the
+        // bridge's own lifecycle in isolation. This section instead hooks the SAME bridge (a
+        // second `Monitor<MetricKitMonitor>` would trip the duplicate-id precondition) up to a
+        // real, in-process report-writing pipeline and drives `writeSkeletonReport()` the way
+        // the subscriber does for a diagnostic, proving the ported skeleton path actually
+        // reaches a stored report: writeSkeletonReport -> host.handle -> real pipeline -> a
+        // report the store can read back.
+
+        /// Extension-reporting install is a single, process-wide install (see
+        /// `CrashReportExtensionMonitor_Tests`, the other consumer of it in this process), so
+        /// `AlreadyInstalled` is tolerated here: whichever suite gets there first, the pipeline
+        /// and its store both exist, and `ExtensionReporting.activeConfiguration` resolves to
+        /// whichever configuration won.
+        private static let pipelineInstalled: Bool = {
+            var config = ExtensionReportingConfiguration(
+                appName: "MetricKitE2EApp", appGroupIdentifier: "group.test")
+            config.installPathOverride =
+                URL(fileURLWithPath: NSTemporaryDirectory())
+                .appendingPathComponent(UUID().uuidString).path
+            do {
+                try KSCrash.shared.installForExtensionReporting(with: config)
+            } catch ExtensionReportingInstallError.install(.alreadyInstalled) {
+                // Another suite in this process already installed; the pipeline is up either way.
+            } catch {
+                return false
+            }
+            // The bridge's `init` callback already ran once above with an empty callbacks
+            // table; adding it to the live registry re-runs `init`, this time with the real
+            // exception-handling callbacks the install just brought up (see kscm_addMonitor).
+            kscm_addMonitor(bridge.api)
+            // Force store creation now, before any report is written: constructing a store
+            // re-runs the C store initialization, which reseeds the process-global report-ID
+            // counter, so doing this after a write exists would alias IDs (same precaution as
+            // CrashReportExtensionMonitor_Tests).
+            return pipelineStore != nil
+        }()
+
+        /// Reads back reports from whichever extension-reporting install won (see
+        /// `pipelineInstalled`), the same way the app later reads an extension's report area
+        /// with its own store instance.
+        private static let pipelineStore: CrashReportStore? = {
+            guard let activeConfig = ExtensionReporting.activeConfiguration,
+                let reportsDirectory = activeConfig.reportsDirectory
+            else { return nil }
+            let config = CrashReportStoreConfiguration()
+            config.appName = activeConfig.appName
+            config.reportsPath = reportsDirectory.path
+            return try? CrashReportStore(configuration: config)
+        }()
+
+        func testWriteSkeletonReportEndToEnd() throws {
+            // The class-level `@available(iOS 14.0, macOS 12.0, *)` already gates this scope
+            // (a nested #available check here is provably always true and the compiler flags
+            // it as dead code), so the availability floor MetricKitMonitor requires is already
+            // enforced by the time this method runs.
+            XCTAssertTrue(Self.pipelineInstalled, "extension-reporting pipeline should be available")
+            let store = try XCTUnwrap(Self.pipelineStore, "a report store should exist once the pipeline is up")
+
+            guard let url = monitor.writeSkeletonReport() else {
+                // When every test target shares one process (older SwiftPM aggregates them), an
+                // earlier suite's simulated fatal crash latches the pipeline's fatal state for
+                // the rest of the process and further writes are dropped by design.
+                try XCTSkipIf(
+                    kscm_testcode_isHandlingFatalException(),
+                    "an earlier suite simulated a fatal crash in this process")
+                XCTFail("writeSkeletonReport should produce a temp report URL once the pipeline is installed")
+                return
+            }
+            defer { try? FileManager.default.removeItem(at: url) }
+
+            let data = try Data(contentsOf: url)
+            XCTAssertNotNil(
+                try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                "the skeleton report file should contain a JSON object")
+
+            // Mirror what the diagnostic handlers do after post-processing the skeleton (see
+            // MetricKitMonitor+CrashDiagnostic.swift): add the resulting report to the store.
+            // This is what proves the path reaches an actual stored report, not just a temp file.
+            var reportID: Int64 = 0
+            data.withUnsafeBytes { buffer in
+                guard let ptr = buffer.baseAddress?.assumingMemoryBound(to: CChar.self) else { return }
+                reportID = kscrash_addUserReport(ptr, Int32(buffer.count))
+            }
+            XCTAssertGreaterThan(reportID, 0)
+
+            let report = try XCTUnwrap(store.report(for: reportID)).value
+            XCTAssertNotNil(report["report"] as? [String: Any], "the stored report should parse as JSON")
         }
 
         // MARK: - Diagnostic Report Notifications
@@ -98,7 +202,7 @@ import XCTest
 
             let observer = NotificationCenter.default.addObserver(
                 forName: MetricKitMonitor.diagnosticReportAddedNotification,
-                object: Monitors.metricKit,
+                object: monitor,
                 queue: nil
             ) { notification in
                 guard let id = notification.userInfo?[MetricKitMonitor.diagnosticReportIDUserInfoKey] as? Int64,
@@ -122,7 +226,7 @@ import XCTest
 
             let observer = NotificationCenter.default.addObserver(
                 forName: MetricKitMonitor.diagnosticReportAddedNotification,
-                object: Monitors.metricKit,
+                object: monitor,
                 queue: nil
             ) { _ in
                 if !Thread.isMainThread {
@@ -150,7 +254,7 @@ import XCTest
                 object: nil,
                 queue: nil
             ) { notification in
-                objectIsPlugin = (notification.object as AnyObject) === Monitors.metricKit
+                objectIsPlugin = (notification.object as AnyObject) === self.monitor
                 notificationExpectation.fulfill()
             }
             defer { NotificationCenter.default.removeObserver(observer) }
@@ -181,7 +285,7 @@ import XCTest
 
             let observer = NotificationCenter.default.addObserver(
                 forName: MetricKitMonitor.diagnosticReportAddedNotification,
-                object: Monitors.metricKit,
+                object: monitor,
                 queue: nil
             ) { notification in
                 guard let id = notification.userInfo?[MetricKitMonitor.diagnosticReportIDUserInfoKey] as? Int64,

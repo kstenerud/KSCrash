@@ -811,4 +811,200 @@ extern void ksbic_testcode_setMaxCacheEntries(uint32_t maxEntries);
     }
 }
 
+#pragma mark - Load-command walkers (synthetic images)
+
+extern bool ksbic_testcode_walkImageGeometry(const struct mach_header *header, const char *segName,
+                                             const char *sectName, uintptr_t *outSlide, uintptr_t *outSegmentBase,
+                                             uint8_t *outSegmentCount, bool *outHasUUID, uintptr_t *outSectionAddr);
+
+// A minimal, well-formed 32-bit Mach-O image built in memory: __TEXT (with one section),
+// __LINKEDIT, and a UUID. Real images on a 64-bit test host never exercise the 32-bit walker,
+// so synthetic ones stand in for arm64_32.
+typedef struct {
+    struct mach_header header;
+    struct segment_command text;
+    struct section textSection;
+    struct segment_command linkedit;
+    struct uuid_command uuid;
+} Synthetic32Image;
+
+static void buildSynthetic32(Synthetic32Image *image)
+{
+    memset(image, 0, sizeof(*image));
+    image->header.magic = MH_MAGIC;
+    image->header.ncmds = 3;
+    image->header.sizeofcmds = (uint32_t)(sizeof(*image) - sizeof(struct mach_header));
+
+    image->text.cmd = LC_SEGMENT;
+    image->text.cmdsize = sizeof(struct segment_command) + sizeof(struct section);
+    strlcpy(image->text.segname, "__TEXT", sizeof(image->text.segname));
+    image->text.vmaddr = 0x4000;
+    image->text.vmsize = 0x2000;
+    image->text.filesize = 0x2000;
+    image->text.nsects = 1;
+    strlcpy(image->textSection.sectname, "__ks_test", sizeof(image->textSection.sectname));
+    strlcpy(image->textSection.segname, "__TEXT", sizeof(image->textSection.segname));
+    image->textSection.addr = 0x4100;
+    image->textSection.size = 0x40;
+
+    image->linkedit.cmd = LC_SEGMENT;
+    image->linkedit.cmdsize = sizeof(struct segment_command);
+    strlcpy(image->linkedit.segname, "__LINKEDIT", sizeof(image->linkedit.segname));
+    image->linkedit.vmaddr = 0x8000;
+    image->linkedit.vmsize = 0x1000;
+    image->linkedit.filesize = 0x1000;
+    image->linkedit.fileoff = 0x3000;
+
+    image->uuid.cmd = LC_UUID;
+    image->uuid.cmdsize = sizeof(struct uuid_command);
+    image->uuid.uuid[0] = 0xAB;
+}
+
+- (void)testFillTaskImageMatchesTheInProcessReader
+{
+    // Cross-task against our own task: the filler must agree with what in-process reports
+    // record (ksdl) for a real image, field for field. An out-of-process report describes its
+    // images from this call alone, so any field that disagrees here ships wrong in every
+    // corpse report; vmAddress in particular feeds the symbolication slide.
+    Dl_info info = { 0 };
+    XCTAssertNotEqual(dladdr((const void *)&dladdr, &info), 0);
+
+    KSBinaryImage expected = { 0 };
+    XCTAssertTrue(ksdl_binaryImageForHeader(info.dli_fbase, info.dli_fname, &expected));
+
+    KSBinaryImage actual = { 0 };
+    XCTAssertTrue(ksbic_fillTaskImage(mach_task_self(), (uintptr_t)info.dli_fbase, &actual));
+    XCTAssertEqual(actual.address, expected.address);
+    XCTAssertEqual(actual.size, expected.size);
+    XCTAssertGreaterThan(actual.size, 0ULL);
+    // No lower bound on vmAddress: a position-independent dylib is linked at 0, so agreement
+    // with the in-process reader is the whole invariant.
+    XCTAssertEqual(actual.vmAddress, expected.vmAddress);
+    XCTAssertEqual(actual.vmAddressSlide, expected.vmAddressSlide);
+    XCTAssertEqual(actual.majorVersion, expected.majorVersion);
+    XCTAssertEqual(actual.minorVersion, expected.minorVersion);
+    XCTAssertEqual(actual.revisionVersion, expected.revisionVersion);
+
+    // The relationship symbolication relies on.
+    XCTAssertEqual((uint64_t)(uintptr_t)info.dli_fbase, actual.vmAddress + actual.vmAddressSlide);
+}
+
+- (void)testFillTaskImageLeavesCallerOwnedFieldsAlone
+{
+    // The caller fills name/uuid/cpu type; the header filler must not clobber them.
+    Dl_info info = { 0 };
+    XCTAssertNotEqual(dladdr((const void *)&dladdr, &info), 0);
+
+    const char *name = "caller-owned";
+    KSBinaryImage image = { 0 };
+    image.name = name;
+    image.cpuType = 0x1234;
+    XCTAssertTrue(ksbic_fillTaskImage(mach_task_self(), (uintptr_t)info.dli_fbase, &image));
+    XCTAssertEqual(image.name, name);
+    XCTAssertEqual(image.cpuType, 0x1234);
+}
+
+- (void)testFillTaskImageFailsOnGarbageAddress
+{
+    KSBinaryImage image = { 0 };
+    XCTAssertFalse(ksbic_fillTaskImage(mach_task_self(), 0x1000, &image));
+}
+
+- (void)test32BitWalkerRecoversGeometry
+{
+    Synthetic32Image image;
+    buildSynthetic32(&image);
+    const uintptr_t expectedSlide = (uintptr_t)&image - 0x4000;
+
+    uintptr_t slide = 0, segmentBase = 0, sectionAddr = 0;
+    uint8_t segmentCount = 0;
+    bool hasUUID = false;
+    XCTAssertTrue(ksbic_testcode_walkImageGeometry(&image.header, "__TEXT", "__ks_test", &slide, &segmentBase,
+                                                   &segmentCount, &hasUUID, &sectionAddr));
+    XCTAssertEqual(slide, expectedSlide);
+    XCTAssertEqual(segmentBase, (uintptr_t)(0x8000 - 0x3000));
+    XCTAssertEqual(segmentCount, 2);
+    XCTAssertTrue(hasUUID);
+    XCTAssertEqual(sectionAddr, 0x4100 + expectedSlide, @"section addresses come back slid");
+}
+
+- (void)test32BitWalkerMatchesTheImageSlideAPI
+{
+    Synthetic32Image image;
+    buildSynthetic32(&image);
+    XCTAssertEqual(ksbic_getImageSlide(&image.header), (intptr_t)((uintptr_t)&image - 0x4000));
+}
+
+- (void)test32BitWalkerSurvivesLyingSizes
+{
+    Synthetic32Image image;
+    buildSynthetic32(&image);
+    image.text.cmdsize = 0;  // smaller than a load_command: the walk must stop, not wander
+    uint8_t segmentCount = 0xFF;
+    XCTAssertTrue(ksbic_testcode_walkImageGeometry(&image.header, NULL, NULL, NULL, NULL, &segmentCount, NULL, NULL));
+    XCTAssertEqual(segmentCount, 0, @"a lying size yields empty geometry, never a crash");
+
+    buildSynthetic32(&image);
+    image.header.ncmds = 1000;  // more commands than the region holds: bounds must stop the walk
+    XCTAssertTrue(ksbic_testcode_walkImageGeometry(&image.header, NULL, NULL, NULL, NULL, &segmentCount, NULL, NULL));
+    XCTAssertEqual(segmentCount, 2, @"the real commands still parse; the walk stops at the region end");
+}
+
+- (void)testWalkerRejectsCorruptMagic
+{
+    Synthetic32Image image;
+    buildSynthetic32(&image);
+    image.header.magic = 0xDEADBEEF;
+    XCTAssertFalse(ksbic_testcode_walkImageGeometry(&image.header, NULL, NULL, NULL, NULL, NULL, NULL, NULL));
+    XCTAssertEqual(ksbic_getImageSlide(&image.header), 0);
+}
+
+- (void)test64BitWalkerAgreesWith32BitOnEquivalentImages
+{
+    Synthetic32Image image32;
+    buildSynthetic32(&image32);
+
+    struct {
+        struct mach_header_64 header;
+        struct segment_command_64 text;
+        struct section_64 textSection;
+        struct segment_command_64 linkedit;
+        struct uuid_command uuid;
+    } image64;
+    memset(&image64, 0, sizeof(image64));
+    image64.header.magic = MH_MAGIC_64;
+    image64.header.ncmds = 3;
+    image64.header.sizeofcmds = (uint32_t)(sizeof(image64) - sizeof(struct mach_header_64));
+    image64.text.cmd = LC_SEGMENT_64;
+    image64.text.cmdsize = sizeof(struct segment_command_64) + sizeof(struct section_64);
+    strlcpy(image64.text.segname, "__TEXT", sizeof(image64.text.segname));
+    image64.text.vmaddr = 0x4000;
+    image64.text.vmsize = 0x2000;
+    image64.text.filesize = 0x2000;
+    image64.text.nsects = 1;
+    strlcpy(image64.textSection.sectname, "__ks_test", sizeof(image64.textSection.sectname));
+    strlcpy(image64.textSection.segname, "__TEXT", sizeof(image64.textSection.segname));
+    image64.textSection.addr = 0x4100;
+    image64.textSection.size = 0x40;
+    image64.linkedit.cmd = LC_SEGMENT_64;
+    image64.linkedit.cmdsize = sizeof(struct segment_command_64);
+    strlcpy(image64.linkedit.segname, "__LINKEDIT", sizeof(image64.linkedit.segname));
+    image64.linkedit.vmaddr = 0x8000;
+    image64.linkedit.vmsize = 0x1000;
+    image64.linkedit.filesize = 0x1000;
+    image64.linkedit.fileoff = 0x3000;
+    image64.uuid.cmd = LC_UUID;
+    image64.uuid.cmdsize = sizeof(struct uuid_command);
+
+    uintptr_t slide32 = 0, base32 = 0, slide64 = 0, base64v = 0;
+    uint8_t count32 = 0, count64 = 0;
+    XCTAssertTrue(
+        ksbic_testcode_walkImageGeometry(&image32.header, NULL, NULL, &slide32, &base32, &count32, NULL, NULL));
+    XCTAssertTrue(ksbic_testcode_walkImageGeometry((const struct mach_header *)&image64.header, NULL, NULL, &slide64,
+                                                   &base64v, &count64, NULL, NULL));
+    // Slides differ (different buffer addresses); the layout-derived values must agree.
+    XCTAssertEqual(base32, base64v);
+    XCTAssertEqual(count32, count64);
+}
+
 @end

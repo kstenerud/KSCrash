@@ -30,25 +30,10 @@
 #include "KSMemory.h"
 #include "Unwind/KSCompactUnwind.h"
 
-// MARK: - Internal Functions
-
-/**
- * Read a 32-bit pointer value safely from memory.
- */
-static inline bool readPtr(uintptr_t addr, uintptr_t *outValue)
-{
-    uint32_t value;
-    if (!ksmem_copySafely((const void *)addr, &value, sizeof(value))) {
-        return false;
-    }
-    *outValue = value;
-    return true;
-}
-
 // MARK: - ARM32 Compact Unwind Decoder
 
 bool kscu_arm_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attribute__((unused)), uintptr_t sp,
-                     uintptr_t r7, uintptr_t lr, KSCompactUnwindResult *result)
+                     uintptr_t r7, uintptr_t lr, KSCompactUnwindResult *result, task_t task)
 {
     if (result == NULL) {
         return false;
@@ -81,14 +66,14 @@ bool kscu_arm_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attribut
 
         // Read return address from [R7+4]
         uintptr_t returnAddr;
-        if (!readPtr(r7 + 4, &returnAddr)) {
+        if (!kscu_readTaskPointer(task, r7 + 4, &returnAddr)) {
             KSLOG_TRACE("Failed to read return address from R7+4 (0x%lx)", (unsigned long)(r7 + 4));
             return false;
         }
 
         // Read previous frame pointer from [R7]
         uintptr_t prevR7;
-        if (!readPtr(r7, &prevR7)) {
+        if (!kscu_readTaskPointer(task, r7, &prevR7)) {
             KSLOG_TRACE("Failed to read previous R7 from R7 (0x%lx)", (unsigned long)r7);
             return false;
         }

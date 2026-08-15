@@ -30,7 +30,11 @@
 #import "KSCrashHang.h"
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitor_Lifecycle.h"
+#import "KSCrashMonitor_Resource.h"
+#import "KSCrashMonitor_System.h"
 #import "KSCrashMonitor_Termination.h"
+#import "KSCrashMonitor_UserInfo.h"
+#import "KSCrashMonitor_Watchdog.h"
 #import "KSCrashRunContext.h"
 #import "KSSessionStore.h"
 
@@ -563,6 +567,28 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     XCTAssertFalse(data.cleanExit);
 }
 
+- (void)testRemoteSubjectFatalEventLeavesSidecarUntouched
+{
+    [self enableMonitor];
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateDeactivating);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateBackground);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateTerminating);
+
+    KSCrashMonitorAPI *api = kscm_lifecycle_getAPI();
+    KSCrash_MonitorContext eventContext = { 0 };
+    // A fatal event about another task (a corpse): this process is healthy, so its
+    // run state must not be charged with the crash.
+    eventContext.requirements.isFatal = true;
+    eventContext.requirements.isRemoteSubject = true;
+    api->addContextualInfoToEvent(&eventContext, api->context);
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    XCTAssertTrue(data.cleanExit, @"A remote subject's fatal event must not clear cleanExit");
+    XCTAssertFalse(data.monitorHandlerRan, @"A remote subject's fatal event must not set monitorHandlerRan");
+}
+
 - (void)testFatalCleanExitSetsCleanShutdown
 {
     [self enableMonitor];
@@ -869,6 +895,31 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     char buf[64] = "";
     XCTAssertTrue(kslifecycle_copyLastSessionIDForRunID("any-run-id", buf, sizeof(buf)));
     XCTAssertEqualObjects(@(buf), @([self lastSession].guid));
+}
+
+// The built-in stitch ladder is a single total order: each monitor carries its named layer, the
+// layers are strictly ascending (a collision would silently demote ordering to the id
+// tie-break), and Watchdog is highest (its stitch can rewrite the report type and must win).
+- (void)testBuiltInStitchPriorityLadder
+{
+    KSCrashMonitorAPI *apis[] = {
+        kscm_lifecycle_getAPI(), kscm_resource_getAPI(), kscm_system_getAPI(),
+        kscm_userinfo_getAPI(),  kscm_watchdog_getAPI(),
+    };
+    int expected[] = {
+        KSCrashStitchPriorityLifecycle, KSCrashStitchPriorityResource, KSCrashStitchPrioritySystem,
+        KSCrashStitchPriorityUserInfo,  KSCrashStitchPriorityWatchdog,
+    };
+    const int count = 5;
+    for (int i = 0; i < count; i++) {
+        XCTAssertEqual(apis[i]->priority, expected[i]);
+        if (i > 0) {
+            XCTAssertLessThan(apis[i - 1]->priority, apis[i]->priority, @"Layers must be strictly ascending");
+        }
+    }
+    XCTAssertEqual(apis[count - 1], kscm_watchdog_getAPI(), @"Watchdog stitches last among the sidecar layers");
+    XCTAssertGreaterThan(KSCrashStitchPriorityCorpse, KSCrashStitchPriorityWatchdog,
+                         @"The corpse final-pass layer must sit above every sidecar layer");
 }
 
 @end

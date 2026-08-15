@@ -37,12 +37,16 @@
 CFDictionaryRef kscm_lifecycle_createStitchedReport(CFDictionaryRef reportDict, const char *sidecarPath,
                                                     KSCrashSidecarScope scope, __unused void *context)
 {
-    if (!reportDict || !sidecarPath) {
+    if (reportDict == NULL) {
         return NULL;
     }
     if (scope != KSCrashSidecarScopeRun) {
+        // Not this monitor's scope (e.g. the final pass, which has no sidecar file).
         CFRetain(reportDict);
         return reportDict;
+    }
+    if (sidecarPath == NULL) {
+        return NULL;
     }
 
     // The sidecar is not session_id's data source (that is the run's

@@ -817,7 +817,8 @@ static void monitorInit(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused v
  */
 static void addContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext, __unused void *context)
 {
-    if (!eventContext->requirements.isFatal) {
+    // Only a fatal event in THIS process supersedes an in-progress hang report.
+    if (!kscexc_isLocallyFatal(eventContext->requirements)) {
         return;
     }
 
@@ -846,6 +847,10 @@ KSCrashMonitorAPI *kscm_watchdog_getAPI(void)
         api.isEnabled = isEnabled;
         api.addContextualInfoToEvent = addContextualInfoToEvent;
         api.createStitchedReport = kscm_watchdog_createStitchedReport;
+        // Watchdog is last among the sidecar layers so its fatality resolution on its own
+        // reports wins; only the corpse final-pass layer sits above, and it never touches
+        // watchdog reports.
+        api.priority = KSCrashStitchPriorityWatchdog;
     }
     return &api;
 }

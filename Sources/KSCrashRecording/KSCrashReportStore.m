@@ -118,6 +118,10 @@ typedef void (^KSChainApplyFilter)(id filter, NSArray *items, KSChainStepComplet
 - (void)sendAllReportsWithConfiguration:(KSCrashSendConfiguration *)configuration
                              completion:(KSCrashReportFilterCompletion)onCompletion
 {
+    // Reports a crash extension wrote for this app join the store first, so this send
+    // lists, stitches, and delivers them like any report this process wrote.
+    kscrs_ingestExtensionReports(&_cConfig);
+
     NSArray<id<KSCrashReportFilter>> *filters = configuration.reportFilters;
     KSCrashReportCleanupPolicy cleanupPolicy = configuration.reportCleanupPolicy;
 
@@ -125,16 +129,19 @@ typedef void (^KSChainApplyFilter)(id filter, NSArray *items, KSChainStepComplet
     NSString *currentRunID = [NSString stringWithUTF8String:kscrash_getRunID()];
 
     // Load reports, skipping ones from the current run (they may still be updated).
+    // The skip check reads just the raw run_id, so skipped reports are never decoded
+    // or stitched.
     NSMutableArray *reports = [NSMutableArray arrayWithCapacity:allIDs.count];
     NSMutableArray<NSNumber *> *sentIDs = [NSMutableArray arrayWithCapacity:allIDs.count];
     for (NSNumber *numericID in allIDs) {
-        KSCrashReportDictionary *report = [self reportForID:numericID.longLongValue];
-        if (report == nil) {
+        char rawRunID[64] = { 0 };
+        if (kscrs_getReportRunID(numericID.longLongValue, &_cConfig, rawRunID, sizeof(rawRunID)) &&
+            [currentRunID isEqualToString:[NSString stringWithUTF8String:rawRunID]]) {
+            KSLOG_INFO(@"Skipping report from current run (run_id: %@)", currentRunID);
             continue;
         }
-        NSString *reportRunID = report.value[@"report"][@"run_id"];
-        if ([reportRunID isEqualToString:currentRunID]) {
-            KSLOG_INFO(@"Skipping report from current run (run_id: %@)", currentRunID);
+        KSCrashReportDictionary *report = [self reportForID:numericID.longLongValue];
+        if (report == nil) {
             continue;
         }
         [reports addObject:report];

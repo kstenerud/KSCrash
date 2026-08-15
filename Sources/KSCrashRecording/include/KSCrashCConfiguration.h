@@ -43,6 +43,9 @@
 extern "C" {
 #endif
 
+/** Default retention window for unreferenced run-sidecar directories: 30 days. */
+#define KSCRS_DEFAULT_RUN_SIDECAR_RETENTION_SECONDS (30.0 * 24.0 * 60.0 * 60.0)
+
 /** Configuration for managing crash reports through the report store API.
  */
 typedef struct {
@@ -95,6 +98,29 @@ typedef struct {
      * **Default**: 50
      */
     int maxRunSummaryCount;
+
+    /** How long to keep run-sidecar directories that no report references, in seconds.
+     *
+     * A crash caught by the app's crash extension sits in the App Group container until
+     * the user next opens the app. If this store deletes that run's sidecar directory
+     * before the report is ingested, the report can never be enriched with it. Keeping
+     * unreferenced directories for this window costs a few kilobytes per run.
+     *
+     * Directories referenced by a report on disk are always kept, whatever their age.
+     * Zero or negative deletes unreferenced directories immediately.
+     *
+     * **Default**: 30 days.
+     */
+    double runSidecarRetentionSeconds;
+
+    /** A crash extension's Reports directory to ingest from on send, or NULL.
+     * Report files found there are moved into reportsPath before sending, so they
+     * list, stitch, and send like reports this process wrote. Resolved from
+     * KSCrashReportStoreConfiguration.extensionAppGroupIdentifier.
+     *
+     * **Default**: NULL (no ingestion).
+     */
+    const char *extensionReportsPath;
 } KSCrashReportStoreCConfiguration;
 
 static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_Default(void)
@@ -107,6 +133,8 @@ static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_
         .runSummariesPath = NULL,
         .maxReportCount = 5,
         .maxRunSummaryCount = 50,
+        .runSidecarRetentionSeconds = KSCRS_DEFAULT_RUN_SIDECAR_RETENTION_SECONDS,
+        .extensionReportsPath = NULL,
     };
 }
 
@@ -121,6 +149,9 @@ static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_
         .runSummariesPath = configuration->runSummariesPath ? strdup(configuration->runSummariesPath) : NULL,
         .maxReportCount = configuration->maxReportCount,
         .maxRunSummaryCount = configuration->maxRunSummaryCount,
+        .runSidecarRetentionSeconds = configuration->runSidecarRetentionSeconds,
+        .extensionReportsPath =
+            configuration->extensionReportsPath ? strdup(configuration->extensionReportsPath) : NULL,
     };
 }
 
@@ -131,6 +162,7 @@ static inline void KSCrashReportStoreCConfiguration_Release(KSCrashReportStoreCC
     free((void *)configuration->reportSidecarsPath);
     free((void *)configuration->runSidecarsPath);
     free((void *)configuration->runSummariesPath);
+    free((void *)configuration->extensionReportsPath);
 }
 
 /** Configuration for KSCrash settings.

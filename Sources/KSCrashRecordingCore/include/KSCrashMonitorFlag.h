@@ -27,13 +27,15 @@
 #ifndef KSCrashMonitorProperty_h
 #define KSCrashMonitorProperty_h
 
+#include <CoreFoundation/CFBase.h>
+
 #include "KSCrashNamespace.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef enum {
+typedef CF_OPTIONS(unsigned int, KSCrashMonitorFlag) {
     /** Indicates that no flags are set. */
     KSCrashMonitorFlagNone = 0,
 
@@ -49,7 +51,7 @@ typedef enum {
      * check during activation. */
     KSCrashMonitorFlagPlugin = 1 << 2,
 
-} KSCrashMonitorFlag;
+} CF_SWIFT_NAME(MonitorFlags);
 
 #ifdef __cplusplus
 }

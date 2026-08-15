@@ -117,8 +117,11 @@ static int unwindSuspendedThreadWithMethods(thread_t machThread, uintptr_t *addr
 {
     // Lightweight context initialization - only set what's needed for unwinding.
     // Avoids the ~4KB memset that ksmc_getContextForThread does.
+    // task must be set explicitly: the unwinder reads stack memory through it, and a zero
+    // (MACH_PORT_NULL) task would make every read fail. machThread is a thread of this process.
     KSMachineContext machineContext = {
         .thisThread = machThread,
+        .task = mach_task_self(),
         .isCurrentThread = false,
         .isCrashedContext = false,
         .isSignalContext = false,

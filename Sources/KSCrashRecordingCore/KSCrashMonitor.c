@@ -111,6 +111,11 @@ static bool isThreadAlreadyHandlingAnException(int maxCount, thread_t offendingT
     }
     for (int i = 0; i < maxCount; i++) {
         thread_t handlerThread = atomic_load(&g_state.threadsHandlingExceptions[i]);
+        if (handlerThread == MACH_PORT_NULL) {
+            // Freed slot. Skipping it also keeps a MACH_PORT_NULL offendingThread (an event
+            // with no local subject thread, e.g. a corpse report) from matching it.
+            continue;
+        }
         if (handlerThread == handlingThread || handlerThread == offendingThread) {
             return true;
         }
@@ -295,6 +300,9 @@ static KSCrash_MonitorContext *notifyException(const mach_port_t offendingThread
         requirements.shouldRecordAllThreads = false;
         requirements.isFatal = true;
         requirements.isCleanExit = false;
+        // A recrash is this process's own handler crashing, no matter whose event
+        // was being handled when it happened.
+        requirements.isRemoteSubject = false;
     } else if (wasHandlingFatalException) {
         // This is an incidental exception that happened while we were handling a fatal
         // exception. Pause this handler to allow the other handler to finish.
@@ -303,13 +311,16 @@ static KSCrash_MonitorContext *notifyException(const mach_port_t offendingThread
     }
 
     g_state.crashedDuringExceptionHandling |= isCrashedDuringExceptionHandling;
-    g_state.isHandlingFatalException |= requirements.isFatal;
+    g_state.isHandlingFatalException |= kscexc_isLocallyFatal(requirements);
 
     KSCrash_MonitorContext *ctx = getNextMonitorContext(requirements);
     ctx->threadHandlerIndex = thisThreadHandlerIndex;
     ctx->requirements = requirements;
 
-    if (ctx->requirements.shouldRecordAllThreads) {
+    if (ctx->requirements.shouldRecordAllThreads && !kscexc_isRemoteSubject(ctx->requirements)) {
+        // Suspension freezes this process for a consistent thread walk. A remote subject's
+        // threads are frozen in their own task, so shouldRecordAllThreads stays purely a
+        // writer directive and this process keeps running (the capture path isn't async-safe).
         KSLOG_DEBUG("shouldRecordAllThreads, so suspending threads");
         ctx->suspendedThreads = NULL;
         ctx->suspendedThreadsCount = 0;
@@ -351,7 +362,8 @@ static void handleException(struct KSCrash_MonitorContext *ctx, KSCrash_ReportRe
 
     // If the exception is fatal, we need to uninstall ourselves so that
     // other installed crash handler libraries can run when we finish.
-    if (ctx->requirements.isFatal) {
+    // A remote subject's fatal event doesn't end this process, so its monitors stay armed.
+    if (kscexc_isLocallyFatal(ctx->requirements)) {
         KSLOG_DEBUG("Exception is fatal. Restoring original handlers.");
         kscmr_disableAsyncSafeMonitors(&g_state.monitors);
     }
@@ -398,6 +410,12 @@ const KSCrashMonitorAPI *kscm_getMonitor(const char *monitorId)
     return kscmr_getMonitor(&g_state.monitors, monitorId);
 }
 
+size_t kscm_copyStitchableMonitors(KSCrashMonitorAPI *buffer, size_t capacity)
+{
+    init();
+    return kscmr_copyStitchableMonitors(&g_state.monitors, buffer, capacity);
+}
+
 void kscm_setReportSidecarFilePathProvider(KSCrashReportSidecarFilePathProviderFunc provider)
 {
     init();
@@ -437,4 +455,19 @@ void kscm_testcode_resetState(void)
 {
     g_initialized = false;
     memset(&g_state, 0, sizeof(g_state));
+}
+
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+bool kscm_testcode_isHandlingFatalException(void)
+{
+    return g_state.isHandlingFatalException;
+}
+
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+// Clears only the fatal latch. A test that simulates a fatal event must undo it, or every later
+// event in the process is refused; kscm_testcode_resetState is the wrong tool for that, since it
+// wipes the registered monitors and callbacks along with it.
+void kscm_testcode_clearHandlingFatalException(void)
+{
+    g_state.isHandlingFatalException = false;
 }

@@ -31,20 +31,31 @@
 
 #include "KSSystemCapabilities.h"
 
-int kstaskrole_current(void)
+bool kstaskrole_forTask(task_t task, int *outRole)
 {
 #if KSCRASH_HOST_TV || KSCRASH_HOST_WATCH
-    return TASK_UNSPECIFIED;
+    (void)task;
+    (void)outRole;
+    return false;
 #else
     task_category_policy_data_t policy;
     mach_msg_type_number_t count = TASK_CATEGORY_POLICY_COUNT;
     boolean_t getDefault = false;
 
-    kern_return_t kr =
-        task_policy_get(mach_task_self(), TASK_CATEGORY_POLICY, (task_policy_t)&policy, &count, &getDefault);
-
-    return kr == KERN_SUCCESS ? policy.role : TASK_UNSPECIFIED;
+    kern_return_t kr = task_policy_get(task, TASK_CATEGORY_POLICY, (task_policy_t)&policy, &count, &getDefault);
+    if (kr != KERN_SUCCESS) {
+        return false;
+    }
+    *outRole = policy.role;
+    return true;
 #endif
+}
+
+int kstaskrole_current(void)
+{
+    int role = TASK_UNSPECIFIED;
+    (void)kstaskrole_forTask(mach_task_self(), &role);
+    return role;
 }
 
 const char *kstaskrole_toString(int role)

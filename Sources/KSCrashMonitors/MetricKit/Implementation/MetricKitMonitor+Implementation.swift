@@ -25,6 +25,7 @@
 //
 
 import Foundation
+import KSCrashMonitorPlugins
 import KSCrashRecording
 import KSCrashRecordingCore
 import KSCrashSwiftCore
@@ -41,40 +42,38 @@ import os.log
 @available(watchOS, unavailable)
 extension MetricKitMonitor {
 
-    /// Initializes the pre-allocated `api` pointer with the monitor's callback table
-    /// and sets `context` to `self` (unretained) so every C callback can recover the instance.
-    /// Expects `api` to already be allocated with a capacity of 1 `KSCrashMonitorAPI`.
-    func initAPI() {
-        self.api.initialize(
-            to:
-                KSCrashMonitorAPI(
-                    context: nil,
-                    init: { callbacks, cntxt in
-                        MetricKitMonitor.from(cntxt)?.callbacks = callbacks?.pointee
-                    },
-                    monitorId: {
-                        MetricKitMonitor.from($0)?.monitorId
-                    },
-                    monitorFlags: { _ in KSCrashMonitorFlagPlugin },
-                    setEnabled: metricKitMonitorSetEnabled,
-                    isEnabled: { cntxt in
-                        MetricKitMonitor.from(cntxt)?.enabled ?? false
-                    },
-                    addContextualInfoToEvent: { _, _ in },
-                    notifyPostMonitorsEnabled: nil,
-                    notifyPostSystemEnable: { _ in },
-                    writeInReportSection: nil,
-                    createStitchedReport: nil
-                )
-        )
-        self.api.pointee.context = Unmanaged.passUnretained(self).toOpaque()
-    }
+    /// The bridge owns enable/disable dispatch and only calls this on an actual state change
+    /// (see `Monitor<M>`), so no idempotency guard is needed here, unlike the old hand-rolled
+    /// C `setEnabled` callback this replaces.
+    public func enabledDidChange(_ isEnabled: Bool) {
+        #if KSCRASH_HAS_METRICKIT
+            if isEnabled {
+                MXMetricManager.shared.add(self)
+                os_log(.default, log: metricKitLog, "[MONITORS] Subscribed to MXMetricManager")
 
-    /// Recovers the `MetricKitMonitor` instance from the opaque context pointer
-    /// passed to every `KSCrashMonitorAPI` callback.
-    static func from(_ context: UnsafeMutableRawPointer?) -> MetricKitMonitor? {
-        guard let context = context else { return nil }
-        return Unmanaged<MetricKitMonitor>.fromOpaque(context).takeUnretainedValue()
+                // iOS 27+ vends memory exception diagnostics only through the new
+                // MetricManager async API; subscribe to it in addition to the legacy path.
+                #if compiler(>=6.4) && os(iOS) && !targetEnvironment(macCatalyst)
+                    if #available(iOS 27.0, *) {
+                        startMemoryDiagnosticReporting()
+                    }
+                #endif
+
+                if configuration.threadcrumbEnabled {
+                    encodeRunIdThreadcrumb()
+                }
+            } else {
+                MXMetricManager.shared.remove(self)
+
+                #if compiler(>=6.4) && os(iOS) && !targetEnvironment(macCatalyst)
+                    if #available(iOS 27.0, *) {
+                        stopMemoryDiagnosticReporting()
+                    }
+                #endif
+
+                os_log(.default, log: metricKitLog, "[MONITORS] Unsubscribed from MXMetricManager")
+            }
+        #endif
     }
 
     /// Records a diagnostic report as it is added: appends its id to ``diagnosticReportIDs`` and
@@ -91,19 +90,7 @@ extension MetricKitMonitor {
     }
 
     func sidecarPathProvider(name: String, extension ext: String) -> URL? {
-        guard let callbacks = callbacks,
-            let getReportSidecarFilePath = callbacks.getReportSidecarFilePath,
-            let monitorId = monitorId
-        else {
-            return nil
-        }
-
-        var pathBuffer = [CChar](repeating: 0, count: Int(KSCRS_MAX_PATH_LENGTH))
-        guard getReportSidecarFilePath(monitorId, name, ext, &pathBuffer, pathBuffer.count) else {
-            return nil
-        }
-
-        return URL(fileURLWithPath: String(cString: pathBuffer))
+        host.reportSidecarURL(name: name, extension: ext)
     }
 
     func encodeRunIdThreadcrumb() {
@@ -119,45 +106,4 @@ extension MetricKitMonitor {
             os_log(.error, log: metricKitLog, "[MONITORS] Failed to encode run ID into threadcrumb")
         }
     }
-}
-
-// MARK: - KSCrashMonitorAPI Callbacks
-
-func metricKitMonitorSetEnabled(_ isEnabled: Bool, _ context: UnsafeMutableRawPointer?) {
-    #if KSCRASH_HAS_METRICKIT
-        if #available(iOS 14.0, macOS 12.0, *) {
-            guard let monitor = MetricKitMonitor.from(context) else { return }
-            if isEnabled {
-                if !monitor.enabled {
-                    MXMetricManager.shared.add(monitor)
-                    os_log(.default, log: metricKitLog, "[MONITORS] Subscribed to MXMetricManager")
-
-                    // iOS 27+ vends memory exception diagnostics only through the new
-                    // MetricManager async API; subscribe to it in addition to the legacy path.
-                    #if compiler(>=6.4) && os(iOS) && !targetEnvironment(macCatalyst)
-                        if #available(iOS 27.0, *) {
-                            monitor.startMemoryDiagnosticReporting()
-                        }
-                    #endif
-
-                    if monitor.threadcrumbEnabled {
-                        monitor.encodeRunIdThreadcrumb()
-                    }
-                }
-            } else {
-                if monitor.enabled {
-                    MXMetricManager.shared.remove(monitor)
-
-                    #if compiler(>=6.4) && os(iOS) && !targetEnvironment(macCatalyst)
-                        if #available(iOS 27.0, *) {
-                            monitor.stopMemoryDiagnosticReporting()
-                        }
-                    #endif
-
-                    os_log(.default, log: metricKitLog, "[MONITORS] Unsubscribed from MXMetricManager")
-                }
-            }
-            monitor.enabled = isEnabled
-        }
-    #endif
 }

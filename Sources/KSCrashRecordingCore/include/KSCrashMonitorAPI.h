@@ -38,13 +38,41 @@
 extern "C" {
 #endif
 
+/** The id of a monitor that never set one. Not an identity: several monitors can be
+ *  unconfigured at once, so the registry does not treat it as a duplicate.
+ */
+#define KSCRASH_MONITOR_ID_UNSET "unset"
+
 /** Scope of a sidecar file being stitched into a report. */
-typedef enum {
+typedef CF_CLOSED_ENUM(int, KSCrashSidecarScope) {
     /** Per-report sidecar: one file per report, stored in Sidecars/<monitorId>/<reportID>.ksscr */
     KSCrashSidecarScopeReport = 0,
     /** Per-run sidecar: one file per process run, stored in RunSidecars/<runID>/<monitorId>.ksscr */
     KSCrashSidecarScopeRun = 1,
-} KSCrashSidecarScope;
+    /** The final pass, after all sidecar stitching: every registered monitor implementing
+     *  createStitchedReport is called once with a NULL sidecarPath, in (priority, id) order.
+     *  The last chance to modify a report before it is handed out; a monitor draws on the
+     *  report itself (e.g. its own embedded section), not a sidecar file. Monitors with
+     *  nothing to add return the input retained, the same convention as an unhandled scope.
+     */
+    KSCrashSidecarScopeFinal = 2,
+} CF_SWIFT_NAME(SidecarScope);
+
+/** The built-in monitors' stitch layers (see KSCrashMonitorAPI.priority): one total order in one
+ *  place, spaced by 10 so a new monitor can slot between layers. Watchdog must stay highest among
+ *  the sidecar layers: its stitch can rewrite the report's type ("hang") and must see every other
+ *  sidecar layer's data. Corpse sits above them all: in the final pass it replaces run-cached
+ *  sidecar values with the at-death truth from a corpse report's embedded snapshot. A colliding
+ *  value does not fail; it silently demotes the ordering to the monitor-id tie-break.
+ */
+enum {
+    KSCrashStitchPriorityLifecycle = 10,
+    KSCrashStitchPriorityResource = 20,
+    KSCrashStitchPrioritySystem = 30,
+    KSCrashStitchPriorityUserInfo = 40,
+    KSCrashStitchPriorityWatchdog = 50,
+    KSCrashStitchPriorityCorpse = 60,
+};
 
 /**
  * Monitor API.
@@ -60,6 +88,12 @@ typedef struct KSCrashMonitorAPI {
      *  Monitors can use this to store instance-specific data (e.g., an
      *  Unmanaged<Self> pointer in Swift). NULL for built-in C monitors. */
     void *context;
+
+    /** Ordering hint for sidecar stitching. When several monitors' sidecars stitch into the same
+     *  report, their createStitchedReport callbacks run in ascending priority order, so a
+     *  higher-priority monitor is applied last and wins on any overlapping keys. Defaults to 0;
+     *  ties break deterministically on monitor id. */
+    int priority;
 
     /**
      * Initialize the monitor.
@@ -123,8 +157,9 @@ typedef struct KSCrashMonitorAPI {
      *
      * @param reportDict The decoded report dictionary. Owned by the caller,
      *        the callback must not release it.
-     * @param sidecarPath The full path to the sidecar file for this report.
-     * @param scope Whether this is a per-report or per-run sidecar.
+     * @param sidecarPath The full path to the sidecar file for this report;
+     *        NULL in the final pass, which has no sidecar.
+     * @param scope The sidecar's scope, or KSCrashSidecarScopeFinal for the final pass.
      * @param context The monitor's opaque context pointer.
      *
      * @return A +1 CFDictionaryRef with the (possibly modified) report,

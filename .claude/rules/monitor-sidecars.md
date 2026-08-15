@@ -1,6 +1,6 @@
 ---
 paths:
-  - "Sources/KSCrashRecording/KSCrashReportStoreC.c"
+  - "Sources/KSCrashRecording/KSCrashReportStoreC.m"
   - "Sources/KSCrashRecording/KSCrashReportStoreC+Private.h"
   - "Sources/KSCrashRecording/KSCrashReportStore.m"
   - "Sources/KSCrashRecording/include/KSCrashReportStore*.h"
@@ -95,13 +95,17 @@ Follows the CF Create Rule:
 
 `NULL` signals a stitch error. During finalization this aborts the write-back so the report can be retried on next app launch. During normal reads the error is silent and the original dict is kept.
 
-Run sidecars are stitched first, then per-report sidecars, so per-report data can override per-run data.
+Run sidecars are stitched first, then per-report sidecars, so per-report data can override per-run data. Within each scope, monitors stitch in ascending `KSCrashMonitorAPI.priority` order (ties break on monitor id), so a higher-priority monitor stitches later and wins on overlapping keys. The built-in layers are the named `KSCrashStitchPriority*` constants in `KSCrashMonitorAPI.h` (Lifecycle < Resource < System < UserInfo < Watchdog < Corpse, spaced by 10); plugins default to 0. A test pins the ladder (`testBuiltInStitchPriorityLadder`).
+
+After both sidecar scopes, a **final pass** (`KSCrashSidecarScopeFinal`) calls every registered monitor's `createStitchedReport` once with a NULL `sidecarPath`, in the same priority order: the last chance to modify a report before it is handed out, drawing on the report itself rather than a sidecar file (the corpse monitor overlays its embedded snapshot this way). Because every monitor with a stitch callback receives this call, implementations must return the input retained for scopes they do not handle; guard on scope before touching `sidecarPath`.
 
 This runs at normal app startup time (not during crash handling), so ObjC and heap allocation are safe here.
 
+It also runs **under the report store's mutex**, which is not recursive, so a stitch callback must not call back into the store (reading `reportCount`, deleting a report, reading another report): that deadlocks the calling thread, which at launch is the main thread. This applies to all three passes, not just the final one, but the final pass is where it is easiest to hit, since every monitor with a `createStitchedReport` receives it whether or not it wrote a sidecar.
+
 ### Configuration
 
-The sidecars directories are configured via `KSCrashReportStoreCConfiguration.reportSidecarsPath` and `runSidecarsPath`. If left `NULL` (the default), they are automatically set to `Sidecars` and `RunSidecars` siblings of `reportsPath` during `kscrash_install` (matching the ObjC `KSCrashReportStoreConfiguration`). The report store creates these directories at initialization. Orphaned run sidecar directories (those with no matching reports) are cleaned up automatically during `kscrs_initialize`.
+The sidecars directories are configured via `KSCrashReportStoreCConfiguration.reportSidecarsPath` and `runSidecarsPath`. If left `NULL` (the default), they are automatically set to `Sidecars` and `RunSidecars` siblings of `reportsPath` during `kscrash_install` (matching the ObjC `KSCrashReportStoreConfiguration`). The report store creates these directories at initialization. Run-sidecar directories referenced by a report or a `.run` summary on disk are always kept; unreferenced directories (and unreferenced `.sessions` files) are deleted only once older than `runSidecarRetention` (default 30 days; zero or negative deletes on sight). The window exists because a crash extension's report can sit in the App Group container until the next app launch, and deleting the run's sidecars before it is ingested would make it unenrichable. Cleanup runs after report sending and via `kscrs_reclaimOrphanedRunData` (see `sessions.md` for the full reference rules).
 
 ### Key Files
 

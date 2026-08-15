@@ -1,7 +1,7 @@
 //
-//  Monitors.swift
+//  ExitReasonCode.swift
 //
-//  Created by Alexander Cohen on 2026-01-31.
+//  Created by Alexander Cohen on 2026-06-28.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,19 +24,21 @@
 // THE SOFTWARE.
 //
 
-import KSCrashRecording
+import Foundation
 
-/// Namespace for plugin monitors that can be added to `CrashInstallConfiguration.plugins`.
-///
-/// ```swift
-/// let config = CrashInstallConfiguration()
-/// config.plugins = [Monitors.metricKit]
-/// ```
-public enum Monitors {
+/// A process exit code, as carried by an exit reason. A handful are the recognizable "magic" codes
+/// Apple documents (TN2151), exposed as static constants; everything else (a jetsam reason, a signal
+/// number, ...) is meaningful only within its `ExitReasonNamespace`, so this is an open struct that
+/// preserves the raw value.
+public struct ExitReasonCode: RawRepresentable, Codable, Sendable, Hashable {
+    public let rawValue: UInt64
+    public init(rawValue: UInt64) { self.rawValue = rawValue }
 
-    /// A monitor that receives diagnostic payloads from MetricKit.
-    @available(iOS 14.0, macOS 12.0, *)
-    @available(tvOS, unavailable)
-    @available(watchOS, unavailable)
-    public static let metricKit = MetricKitMonitor()
+    public static let watchdogTimeout = Self(rawValue: 0x8BAD_F00D)
+    public static let resourceHeldWhileSuspended = Self(rawValue: 0xDEAD_10CC)
+    public static let telephonyTimeout = Self(rawValue: 0xBAAD_CA11)
+    public static let voipResumedTooFrequently = Self(rawValue: 0xBAD2_2222)
+    public static let thermalEvent = Self(rawValue: 0xC000_10FF)
+    public static let userForceQuit = Self(rawValue: 0xDEAD_FA11)
+    public static let privacyViolation = Self(rawValue: 0x2BAD_45EC)
 }

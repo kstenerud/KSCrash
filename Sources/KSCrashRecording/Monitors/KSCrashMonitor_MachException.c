@@ -67,6 +67,7 @@
 #include "KSCrashMonitorHelper.h"
 #include "KSCrashMonitor_Signal.h"
 #include "KSID.h"
+#include "KSMach.h"
 #include "KSStackCursor_MachineContext.h"
 #include "KSSystemCapabilities.h"
 #include "KSThread.h"
@@ -194,41 +195,6 @@ static bool isEnabled(__unused void *context) { return g_state.isEnabled && g_st
         mach_error(MSG, KR);              \
         KSLOG_ERROR(MSG ": kr = %d", KR); \
     } while (0)
-
-#define EXC_UNIX_BAD_SYSCALL 0x10000 /* SIGSYS */
-#define EXC_UNIX_BAD_PIPE 0x10001    /* SIGPIPE */
-#define EXC_UNIX_ABORT 0x10002       /* SIGABRT */
-
-static int signalForMachException(exception_type_t exception, mach_exception_code_t code)
-{
-    switch (exception) {
-        case EXC_ARITHMETIC:
-            return SIGFPE;
-        case EXC_BAD_ACCESS:
-            return code == KERN_INVALID_ADDRESS ? SIGSEGV : SIGBUS;
-        case EXC_BAD_INSTRUCTION:
-            return SIGILL;
-        case EXC_BREAKPOINT:
-            return SIGTRAP;
-        case EXC_EMULATION:
-            return SIGEMT;
-        case EXC_SOFTWARE:
-            switch (code) {
-                case EXC_UNIX_BAD_SYSCALL:
-                    return SIGSYS;
-                case EXC_UNIX_BAD_PIPE:
-                    return SIGPIPE;
-                case EXC_UNIX_ABORT:
-                    return SIGABRT;
-                case EXC_SOFT_SIGNAL:
-                    return SIGKILL;
-                default:
-                    return 0;
-            }
-        default:
-            return 0;
-    }
-}
 
 static exception_mask_t maskForException(exception_type_t exc)
 {
@@ -436,6 +402,9 @@ static void handleException(ExceptionContext *exceptionCtx)
         exceptionCtx->stackCursor.resetCursor(&exceptionCtx->stackCursor);
         KSLOG_TRACE("Thread %s: Fault address %p, instruction address %p", exceptionCtx->threadName,
                     kscpu_faultAddress(&machineContext), kscpu_instructionAddress(&machineContext));
+        // Fault-address rule (mirrored by the corpse capture in
+        // CrashReportExtensionMonitor+Implementation.swift): EXC_BAD_ACCESS reports the
+        // fault register, everything else the instruction pointer.
         if (exceptionCtx->request->exception == EXC_BAD_ACCESS) {
             monitorCtx->faultAddress = kscpu_faultAddress(&machineContext);
         } else {
@@ -455,7 +424,7 @@ static void handleException(ExceptionContext *exceptionCtx)
         // it generates KERN_PROTECTION_FAILURE. Correct for this.
         monitorCtx->mach.code = KERN_INVALID_ADDRESS;
     }
-    monitorCtx->signal.signum = signalForMachException(monitorCtx->mach.type, monitorCtx->mach.code);
+    monitorCtx->signal.signum = ksmach_signalForMachException(monitorCtx->mach.type, monitorCtx->mach.code);
     monitorCtx->stackCursor = &exceptionCtx->stackCursor;
 
     g_state.callbacks.handle(monitorCtx);

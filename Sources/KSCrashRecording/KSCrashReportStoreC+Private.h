@@ -145,8 +145,8 @@ char *kscrs_readReportByPathAndID(const char *path, int64_t reportID);
 
 /** Finalize a report in-place by stitching all sidecars and writing back.
  *
- * Reads the report from disk, applies fixup and all stitch callbacks
- * (both run sidecars and per-report sidecars), adds a "finalized" flag
+ * Reads the report from disk, applies fixup and all stitch passes
+ * (run sidecars, per-report sidecars, then the final pass), adds a "finalized" flag
  * to the report.report section, and atomically writes the result back.
  * Sidecars are left on disk (reads skip stitching for finalized reports)
  * and cleaned up when the report is deleted after consumption.
@@ -161,6 +161,13 @@ char *kscrs_readReportByPathAndID(const char *path, int64_t reportID);
  * @return true if the report was successfully finalized, false otherwise.
  */
 bool kscrs_finalizeReport(const char *reportPath, int64_t reportID);
+
+/** Read just the run_id out of a report on disk, without decoding or stitching it.
+ *
+ * @return true if a valid UUID run_id was extracted.
+ */
+bool kscrs_getReportRunID(int64_t reportID, const KSCrashReportStoreCConfiguration *const configuration, char *runIdOut,
+                          size_t runIdOutLen);
 
 #ifdef __cplusplus
 }

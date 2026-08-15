@@ -21,6 +21,15 @@ Anything shipped as public API documents only the **contract** — what a type, 
 
 Never put implementation details in these files: how a value is produced or persisted, on-disk/wire formats, which subsystem writes it, version history ("added after…", "predates the field"), or migration/compatibility reasoning. Those belong in the implementation (`.m`/`.c`/private files) or the commit message, never on the consumer-facing surface. The "why" and "invariant" comments described above are for internal and crash-time code, not the public API.
 
+## C String Copies
+
+Use `strlcpy`, never `strncpy`, to copy NUL-terminated strings into fixed-size buffers.
+`strncpy` does not guarantee termination and zero-fills the remainder of the buffer;
+`strlcpy` is purpose-built for this: it always terminates and returns the source length.
+(`snprintf` remains banned on signal paths; see async-signal-safety.md.)
+
+## Formatting
+
 - C/C++/Objective-C: Follow clang-format style defined in the project
 - Swift: Follow Swift standard conventions and Xcode's recommended settings
 - Formatting applies to files with extensions: .c, .cpp, .h, .m, .mm

@@ -175,6 +175,7 @@ KSCrashMonitorAPI *kscm_userinfo_getAPI(void)
         api.setEnabled = setEnabled;
         api.isEnabled = isEnabled;
         api.createStitchedReport = kscm_userinfo_createStitchedReport;
+        api.priority = KSCrashStitchPriorityUserInfo;
     }
     return &api;
 }

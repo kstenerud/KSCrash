@@ -654,7 +654,7 @@ static void notifyPostSystemEnable(__unused void *context)
 
 static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext, __unused void *context)
 {
-    bool isFatal = eventContext != NULL && eventContext->requirements.isFatal;
+    bool isFatal = eventContext != NULL && kscexc_isLocallyFatal(eventContext->requirements);
     // For fatal events, write cleanExit and monitorHandlerRan before acquiring the
     // lock. These are small stores to mmap'd memory that must succeed unconditionally
     // — if the bounded lock times out we still need the next launch to see the correct
@@ -706,6 +706,7 @@ KSCrashMonitorAPI *kscm_lifecycle_getAPI(void)
         api.notifyPostSystemEnable = notifyPostSystemEnable;
         api.addContextualInfoToEvent = addContextualInfoToEvent;
         api.createStitchedReport = kscm_lifecycle_createStitchedReport;
+        api.priority = KSCrashStitchPriorityLifecycle;
     }
     return &api;
 }

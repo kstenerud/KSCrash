@@ -70,7 +70,11 @@ for the record merge and its UserInfo run sidecar for the metadata stitch), and 
 live run is always kept. A queued summary that cannot be READ aborts the pass,
 mirroring the unreadable-report rule; one that reads but does not DECODE is
 deterministic garbage (a store is single-process, so the only source is a crash
-mid-persist) and is deleted on the spot. `kscrs_deleteAllReports` deletes only
+mid-persist) and is deleted on the spot. Unreferenced run data (sidecars and
+`.sessions` alike) is additionally kept until it ages past
+`runSidecarRetentionSeconds` (default 30 days; zero or negative deletes on
+sight): a report for the run may still be waiting in a crash extension's store,
+and an ingested report needs both stitches. `kscrs_deleteAllReports` deletes only
 reports and report sidecars; run data is left for the next send-flow reclaim, so
 pending summaries keep their artifacts. See `monitor-sidecars.md` for the run-sidecar side.
 
