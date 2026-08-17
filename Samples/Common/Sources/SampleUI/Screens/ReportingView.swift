@@ -41,10 +41,7 @@ struct ReportingView: View {
                 store.logRawToConsole()
             }
             Button("Sample Custom Log To Console") {
-                store.sampleLogToConsole()
-            }
-            Button("Log with Alert") {
-                store.logWithAlert()
+                KSCrash.shared.sampleLogToConsole()
             }
         }
         .navigationTitle("Report")

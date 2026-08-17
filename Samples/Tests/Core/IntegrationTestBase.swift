@@ -37,7 +37,7 @@ class IntegrationTestBase: XCTestCase {
     private(set) var app: XCUIApplication!
 
     private(set) var installUrl: URL!
-    private(set) var appleReportsUrl: URL!
+    private(set) var deliveredReportsUrl: URL!
     private(set) var stateUrl: URL!
     private(set) var actionCompletedUrl: URL!
 
@@ -82,11 +82,11 @@ class IntegrationTestBase: XCTestCase {
         installUrl = FileManager.default.temporaryDirectory
             .appendingPathComponent("KSCrash")
             .appendingPathComponent(UUID().uuidString)
-        appleReportsUrl = installUrl.appendingPathComponent("__TEST_REPORTS__")
+        deliveredReportsUrl = installUrl.appendingPathComponent("__TEST_REPORTS__")
         stateUrl = installUrl.appendingPathComponent("__test_state__.json")
         actionCompletedUrl = installUrl.appendingPathComponent("__test_action_completed__")
 
-        try FileManager.default.createDirectory(at: appleReportsUrl, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: deliveredReportsUrl, withIntermediateDirectories: true)
         log.info("KSCrash install path: \(installUrl.path)")
 
         app = XCUIApplication()
@@ -221,14 +221,14 @@ class IntegrationTestBase: XCTestCase {
         return report
     }
 
-    func readCrashReport() throws -> CrashReport<NoUserData> {
+    func readCrashReport() throws -> Report {
         let reportData = try readRawCrashReportData()
-        let report = try JSONDecoder().decode(CrashReport<NoUserData>.self, from: reportData)
+        let report = try JSONDecoder().decode(Report.self, from: reportData)
         return report
     }
 
-    func decodeCrashReport(reportData: Data) throws -> CrashReport<NoUserData> {
-        return try JSONDecoder().decode(CrashReport<NoUserData>.self, from: reportData)
+    func decodeCrashReport(reportData: Data) throws -> Report {
+        return try JSONDecoder().decode(Report.self, from: reportData)
     }
 
     func hasCrashReport() throws -> Bool {
@@ -237,15 +237,9 @@ class IntegrationTestBase: XCTestCase {
         return (files ?? []).isEmpty == false
     }
 
-    func readAppleReportData() throws -> Data {
-        let url = try waitForFile(in: appleReportsUrl, timeout: reportTimeout)
+    func readDeliveredReportData() throws -> Data {
+        let url = try waitForFile(in: deliveredReportsUrl, timeout: reportTimeout)
         return try Data(contentsOf: url)
-    }
-
-    func readAppleReport() throws -> String {
-        let url = try waitForFile(in: appleReportsUrl, timeout: reportTimeout)
-        let appleReport = try String(contentsOf: url)
-        return appleReport
     }
 
     func launchAndInstall(installOverride: ((inout InstallConfig) throws -> Void)? = nil) throws {
@@ -322,16 +316,10 @@ class IntegrationTestBase: XCTestCase {
         }
     }
 
-    func launchAndReportCrash() throws -> String {
-        app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
-            report: .init(directoryPath: appleReportsUrl.path),
-            install: .init(installPath: installUrl.path),
-            config: runConfig
-        )
-
-        launchAppAndRunScript()
-        let report = try readAppleReport()
-        return report
+    /// Relaunch the app, deliver the pending reports through the Swift send,
+    /// and return the delivered report decoded from the dump directory.
+    func launchAndReportCrash() throws -> Report {
+        try decodeCrashReport(reportData: launchAndReportCrashRaw())
     }
 
     func launchAndReportCrashRaw(
@@ -340,13 +328,13 @@ class IntegrationTestBase: XCTestCase {
         var installConfig = InstallConfig(installPath: installUrl.path)
         try installOverride?(&installConfig)
         app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
-            report: .init(directoryPath: appleReportsUrl.path, rawJSON: true),
+            report: .init(directoryPath: deliveredReportsUrl.path),
             install: installConfig,
             config: runConfig
         )
 
         launchAppAndRunScript()
-        return try readAppleReportData()
+        return try readDeliveredReportData()
     }
 
     func readState() throws -> KSCrashState {
