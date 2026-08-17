@@ -41,9 +41,10 @@ enum RunSummarySend {
         @concurrent
     #endif
     static func send(
-        store: RunDataStore?,
+        store: Store?,
         pipeline: [AnyPipelineStage<RunSummary>],
         includesDeliveredPayloads: Bool,
+        maxRunCount: Int,
         only selection: Set<String>? = nil,
         claims: SendClaims = .runSummaries
     ) async throws -> SendResult<RunSummary> {
@@ -59,7 +60,11 @@ enum RunSummarySend {
             return SendResult(items: [])
         }
 
-        var runs = try store.runs()
+        // Retention is a send-path concern; pruning before the snapshot keeps
+        // files that are about to be deleted out of it.
+        store.pruneRunSummaries(keepingNewest: maxRunCount)
+
+        var runs = try store.snapshot().runs
         if let selection {
             // Unselected runs are not this send's items: untouched on disk and
             // absent from the result, exactly like runs claimed by a
@@ -88,23 +93,22 @@ enum RunSummarySend {
 
             let start = DispatchTime.now()
 
-            // The on-disk check filters two kinds of non-items: artifact-only
-            // runs (nothing left to send), and stale snapshot entries, since
+            // A nil read filters two kinds of non-items: artifact-only runs
+            // (nothing left to send), and stale snapshot entries, since
             // another send can have delivered and deleted a run between our
-            // snapshot and our claim while the snapshot's decoded summary
-            // outlives the file. Under the claim, deletes are ours alone, so
-            // the check is race-free.
-            guard run.hasSummaryOnDisk, let summary = run.summary() else {
+            // snapshot and our claim. Under the claim, deletes are ours
+            // alone, so the check is race-free.
+            guard let summary = store.summary(of: run) else {
                 continue
             }
 
             let outcome: SendResult<RunSummary>.Outcome
-            switch await process(summary, pipeline: pipeline) {
+            switch await runPipeline(summary, through: pipeline) {
             case .delivered(let final):
-                removeSummary(of: run)
+                removeSummary(of: run, from: store)
                 outcome = .delivered(includesDeliveredPayloads ? final : nil)
             case .discarded:
-                removeSummary(of: run)
+                removeSummary(of: run, from: store)
                 outcome = .discarded
             case .kept(let error):
                 outcome = .kept(error)
@@ -120,37 +124,12 @@ enum RunSummarySend {
         return SendResult(items: items)
     }
 
-    private enum ProcessOutcome {
-        case delivered(RunSummary)
-        case discarded
-        case kept(any Error)
-    }
-
-    /// One summary through the pipeline. Per-item failures are deliberately
-    /// silent (`.kept`) so one failing summary cannot end the send.
-    private static func process(
-        _ summary: RunSummary, pipeline: [AnyPipelineStage<RunSummary>]
-    ) async -> ProcessOutcome {
-        var summary = summary
-        for stage in pipeline {
-            do {
-                guard let processed = try await stage.process(summary) else {
-                    return .discarded
-                }
-                summary = processed
-            } catch {
-                return .kept(error)
-            }
-        }
-        return .delivered(summary)
-    }
-
     // A failed delete is logged, not thrown: the summary was already
     // processed, and the file will be re-sent or pruned later, which is the
     // retry-safe direction.
-    private static func removeSummary(of run: RunStore) {
+    private static func removeSummary(of run: Run, from store: Store) {
         do {
-            try run.removeSummary()
+            try store.removeSummary(of: run)
         } catch {
             os_log(.error, "Failed to delete run summary files for run %{public}@", run.runID)
         }
@@ -162,6 +141,7 @@ enum RunSummarySend {
 /// only while its run is being processed.
 final class SendClaims: Sendable {
     static let runSummaries = SendClaims()
+    static let reports = SendClaims()
 
     private let claimed = UnfairLock(Set<String>())
 

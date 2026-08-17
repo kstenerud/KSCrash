@@ -65,12 +65,11 @@ final class RunSummarySendTests: XCTestCase {
 
     private struct StageError: Error {}
 
-    private func makeStore() -> RunDataStore {
+    private func makeStore() -> Store {
         let counter = reclaimCount
-        return RunDataStore(
+        return Store(
             runsDirectory: runsDirectory,
             runSidecarsDirectory: sidecarsDirectory,
-            maxRunCount: 50,
             liveRunID: nil
         ) { counter.increment() }
     }
@@ -82,7 +81,7 @@ final class RunSummarySendTests: XCTestCase {
     ) async throws -> SendResult<RunSummary> {
         try await RunSummarySend.send(
             store: makeStore(), pipeline: pipeline,
-            includesDeliveredPayloads: includesDeliveredPayloads, claims: claims)
+            includesDeliveredPayloads: includesDeliveredPayloads, maxRunCount: 50, claims: claims)
     }
 
     private func assertOutcomes(
@@ -298,10 +297,9 @@ final class RunSummarySendTests: XCTestCase {
         let reentrant = ClosureStage { summary in
             // A send started from inside a stage finds the outer send's run
             // claimed: empty result, no deadlock.
-            let store = RunDataStore(
+            let store = Store(
                 runsDirectory: runsDirectory,
                 runSidecarsDirectory: sidecarsDirectory,
-                maxRunCount: 50,
                 liveRunID: nil
             ) { counter.increment() }
             let inner = try await RunSummarySend.send(
@@ -401,7 +399,7 @@ final class RunSummarySendTests: XCTestCase {
         let result = try await Task {
             try await RunSummarySend.send(
                 store: store, pipeline: [.init(cancelling)],
-                includesDeliveredPayloads: false, claims: SendClaims())
+                includesDeliveredPayloads: false, maxRunCount: 50, claims: SendClaims())
         }.value
 
         assertOutcomes(result, delivered: ["FIRST"])
