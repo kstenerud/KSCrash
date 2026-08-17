@@ -25,24 +25,18 @@ SRC_PACKAGE_DIR="${SCRIPT_DIR}/../../.."
 # We're including all of them because this will be part of the CI namespacing tests.
 TARGETS=(
     KSCrashBootTimeMonitor
-    KSCrashDemangleFilter
-    KSCrashFilters
     KSCrashRecording
     KSCrashReportingCore
     KSCrashCore
     KSCrashDiscSpaceMonitor
     KSCrashRecordingCore
-    KSCrashSinks
 )
 
 # Which headers to declare as the merged target module's public API.
-# CrashLibA and CrashLibB use KSCrash, KSCrashInstallConfiguration,
-# KSCrashReportSinkConsole, and KSCrashSendConfiguration.
+# CrashLibA and CrashLibB use KSCrash and KSCrashInstallConfiguration.
 MODULE_HEADERS=(
   KSCrash.h
   KSCrashInstallConfiguration.h
-  KSCrashReportSinkConsole.h
-  KSCrashSendConfiguration.h
 )
 
 printf -v TARGETS_ARG '%s,' "${TARGETS[@]}"

@@ -169,7 +169,9 @@ void kscrash_reportUserException(const char *name, const char *reason, const cha
 
 /** Add a custom report to the store.
  *
- * @param report The report's contents (must be JSON encoded).
+ * @param report The report's contents: JSON in the standard KSCrash report
+ *               shape. A report of any other shape is never delivered by the
+ *               send.
  * @param reportLength The length of the report in bytes.
  *
  * @return the new report's ID.
