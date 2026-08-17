@@ -48,7 +48,7 @@ import XCTest
             let reportData = try launchAndReportCrashRaw { config in
                 config.isWatchdogEnabled = true
             }
-            let rawReport = try JSONDecoder().decode(CrashReport<NoUserData>.self, from: reportData)
+            let rawReport = try JSONDecoder().decode(Report.self, from: reportData)
 
             // Verify hang info is present in the crash report
             let hangInfo = rawReport.crash.error.hang
@@ -202,7 +202,7 @@ import XCTest
             let reportData = try launchAndReportCrashRaw { config in
                 config.isWatchdogEnabled = true
             }
-            let rawReport = try JSONDecoder().decode(CrashReport<NoUserData>.self, from: reportData)
+            let rawReport = try JSONDecoder().decode(Report.self, from: reportData)
 
             // Verify we got an NSException, not a hang/signal
             XCTAssertEqual(rawReport.crash.error.type, .nsexception, "Should be an NSException crash")
