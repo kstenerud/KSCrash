@@ -60,7 +60,7 @@ private typealias _MachError = KSCrashReportModel.MachError
             let url = URL(fileURLWithPath: path)
 
             guard let data = try? Data(contentsOf: url),
-                let report = try? JSONDecoder().decode(BasicCrashReport.self, from: data)
+                let report = try? JSONDecoder().decode(Report.self, from: data)
             else {
                 os_log(
                     .error, log: metricKitLog, "[MONITORS] Failed to read or decode skeleton report at %{public}@",
@@ -145,7 +145,7 @@ private typealias _MachError = KSCrashReportModel.MachError
                 isCleanExit: false
             )
 
-            let newCrash = BasicCrashReport.Crash(
+            let newCrash = Report.Crash(
                 diagnosis: nil,
                 error: newError,
                 threads: callStackData.threads,
@@ -175,7 +175,7 @@ private typealias _MachError = KSCrashReportModel.MachError
             // not finalized, so the store stitches them in on read (see makeMetricKitReportInfo).
             let reportInfo = makeMetricKitReportInfo(
                 skeleton: report, timestamp: timestamp, runId: crashedRunId, finalized: false)
-            let newReport = BasicCrashReport(
+            let newReport = Report(
                 binaryImages: callStackData.binaryImages,
                 crash: newCrash,
                 debug: nil,

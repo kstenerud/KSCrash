@@ -26,7 +26,7 @@
 
 import Foundation
 
-extension CrashReport {
+extension Report {
     /// Information about a thread at the time of crash.
     public struct Thread: Codable, Sendable, Equatable {
         /// Stack backtrace for this thread.

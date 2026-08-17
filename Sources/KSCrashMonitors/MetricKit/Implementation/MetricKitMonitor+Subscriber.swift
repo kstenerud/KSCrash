@@ -132,7 +132,7 @@ import os.log
         /// discarded except for the process name and bundle identifier fallbacks. Shared by the
         /// crash and hang handlers (the memory handler builds its own from the typed environment).
         func buildSystemInfo(
-            metaData meta: MXMetaData, applicationVersion: String, skeleton report: BasicCrashReport
+            metaData meta: MXMetaData, applicationVersion: String, skeleton report: Report
         )
             -> SystemInfo
         {
