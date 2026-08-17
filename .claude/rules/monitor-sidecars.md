@@ -95,6 +95,8 @@ Follows the CF Create Rule:
 
 `NULL` signals a stitch error. During finalization this aborts the write-back so the report can be retried on next app launch. During normal reads the error is silent and the original dict is kept.
 
+**Placement contract**: a custom monitor puts its data in a framework-owned namespace, `monitor_data.<monitorID>` at the report root for delivery-time data, or `crash.error.<monitorID>` for the crashing monitor's own section. Both are preserved by the typed `Report` model (`report.monitorData` / `error.monitorData`, decoded on demand via `monitorData(_:for:)`). Mutating standard report fields is reserved for built-in monitors whose fields exist in the typed model; additions to arbitrary unmodeled fields are not preserved in delivered payloads.
+
 Run sidecars are stitched first, then per-report sidecars, so per-report data can override per-run data.
 
 This runs at normal app startup time (not during crash handling), so ObjC and heap allocation are safe here.
