@@ -26,44 +26,15 @@
 
 #import "KSCrashReportStore.h"
 
-#import "KSCrash+Private.h"
-#import "KSCrashC.h"
 #import "KSCrashInstallConfiguration+Private.h"
 #import "KSCrashReport.h"
-#import "KSCrashReportFields.h"
-#import "KSCrashReportFilter.h"
 #import "KSCrashReportStoreC+Private.h"
-#import "KSCrashRunContext.h"
-#import "KSCrashSendConfiguration.h"
 #import "KSJSONCodecObjC.h"
-#import "KSNSErrorHelper.h"
-
-#import <os/lock.h>
-#import <uuid/uuid.h>
 
 // #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
 
 const KSCrashReportID KSCrashReportNoID = 0;
-
-/// A chain step: receives the previous filter's output (or the initial items)
-/// and either advances the chain or terminates it. Type-erased over the report
-/// and run-summary element types so one chain runner serves both paths.
-typedef void (^KSChainStepCompletion)(NSArray *_Nullable items, NSError *_Nullable error);
-/// Adapts a chain step to a concrete filter protocol (filterReports: / filterRuns:).
-typedef void (^KSChainApplyFilter)(id filter, NSArray *items, KSChainStepCompletion stepCompletion);
-
-@interface KSCrashReportStore ()
-
-- (void)sendReports:(NSArray<id<KSCrashReport>> *)reports
-            filters:(NSArray<id<KSCrashReportFilter>> *)filters
-       onCompletion:(KSCrashReportFilterCompletion)onCompletion;
-
-- (void)runReportFilterChain:(NSArray<id<KSCrashReportFilter>> *)filters
-                     reports:(NSArray<id<KSCrashReport>> *)reports
-                onCompletion:(KSCrashReportFilterCompletion)onCompletion;
-
-@end
 
 @implementation KSCrashReportStore {
     KSCrashReportStoreCConfiguration _cConfig;
@@ -115,123 +86,6 @@ typedef void (^KSChainApplyFilter)(id filter, NSArray *items, KSChainStepComplet
     return reportID;
 }
 
-- (void)sendAllReportsWithConfiguration:(KSCrashSendConfiguration *)configuration
-                             completion:(KSCrashReportFilterCompletion)onCompletion
-{
-    // Reports a crash extension wrote for this app join the store first, so this send
-    // lists, stitches, and delivers them like any report this process wrote.
-    kscrs_ingestExtensionReports(&_cConfig);
-
-    NSArray<id<KSCrashReportFilter>> *filters = configuration.reportFilters;
-    KSCrashReportCleanupPolicy cleanupPolicy = configuration.reportCleanupPolicy;
-
-    NSArray<NSNumber *> *allIDs = [self reportIDs];
-    NSString *currentRunID = [NSString stringWithUTF8String:kscrash_getRunID()];
-
-    // Load reports, skipping ones from the current run (they may still be updated).
-    // The skip check reads just the raw run_id, so skipped reports are never decoded
-    // or stitched.
-    NSMutableArray *reports = [NSMutableArray arrayWithCapacity:allIDs.count];
-    NSMutableArray<NSNumber *> *sentIDs = [NSMutableArray arrayWithCapacity:allIDs.count];
-    for (NSNumber *numericID in allIDs) {
-        char rawRunID[64] = { 0 };
-        if (kscrs_getReportRunID(numericID.longLongValue, &_cConfig, rawRunID, sizeof(rawRunID)) &&
-            [currentRunID isEqualToString:[NSString stringWithUTF8String:rawRunID]]) {
-            KSLOG_INFO(@"Skipping report from current run (run_id: %@)", currentRunID);
-            continue;
-        }
-        KSCrashReportDictionary *report = [self reportForID:numericID.longLongValue];
-        if (report == nil) {
-            continue;
-        }
-        [reports addObject:report];
-        [sentIDs addObject:numericID];
-    }
-
-    KSLOG_INFO(@"Sending %d crash reports", [reports count]);
-
-    __weak __typeof(self) weakSelf = self;
-    [self sendReports:reports
-              filters:filters
-         onCompletion:^(NSArray *filteredReports, NSError *error) {
-             __strong __typeof(weakSelf) strongSelf = weakSelf;
-             if (strongSelf == nil) {
-                 kscrash_callCompletion(onCompletion, filteredReports, error);
-                 return;
-             }
-             KSLOG_DEBUG(@"Process finished");
-             if (error != nil) {
-                 KSLOG_ERROR(@"Failed to send reports: %@", error);
-             }
-             if ((cleanupPolicy == KSCrashReportCleanupPolicyOnSuccess && error == nil) ||
-                 cleanupPolicy == KSCrashReportCleanupPolicyAlways) {
-                 for (NSNumber *reportID in sentIDs) {
-                     [strongSelf deleteReportWithID:reportID.longLongValue];
-                 }
-             }
-             kscrs_reclaimOrphanedRunData(&strongSelf->_cConfig);
-             kscrash_callCompletion(onCompletion, filteredReports, error);
-         }];
-}
-
-- (void)sendReportWithID:(KSCrashReportID)reportID
-           configuration:(KSCrashSendConfiguration *)configuration
-              completion:(nullable KSCrashReportFilterCompletion)onCompletion
-{
-    [self sendReportWithID:reportID includeCurrentRun:YES configuration:configuration completion:onCompletion];
-}
-
-- (void)sendReportWithID:(KSCrashReportID)reportID
-       includeCurrentRun:(BOOL)includeCurrentRun
-           configuration:(KSCrashSendConfiguration *)configuration
-              completion:(nullable KSCrashReportFilterCompletion)onCompletion
-{
-    NSArray<id<KSCrashReportFilter>> *filters = configuration.reportFilters;
-    KSCrashReportCleanupPolicy cleanupPolicy = configuration.reportCleanupPolicy;
-
-    KSCrashReportDictionary *report = [self reportForID:reportID];
-    if (report == nil) {
-        kscrash_callCompletion(onCompletion, @[],
-                               [KSNSErrorHelper errorWithDomain:[[self class] description]
-                                                           code:0
-                                                    description:@"Report not found."]);
-        return;
-    }
-
-    if (!includeCurrentRun) {
-        NSString *currentRunID = [NSString stringWithUTF8String:kscrash_getRunID()];
-        NSString *reportRunID = report.value[@"report"][@"run_id"];
-        if ([reportRunID isEqualToString:currentRunID]) {
-            KSLOG_INFO(@"Skipping report from current run (run_id: %@)", currentRunID);
-            kscrash_callCompletion(
-                onCompletion, @[],
-                [KSNSErrorHelper errorWithDomain:[[self class] description]
-                                            code:0
-                                     description:@"Report belongs to the current run and may still be updated."]);
-            return;
-        }
-    }
-
-    __weak __typeof(self) weakSelf = self;
-    [self sendReports:@[ report ]
-              filters:filters
-         onCompletion:^(NSArray *filteredReports, NSError *error) {
-             __strong __typeof(weakSelf) strongSelf = weakSelf;
-             if (strongSelf == nil) {
-                 kscrash_callCompletion(onCompletion, filteredReports, error);
-                 return;
-             }
-             if (error != nil) {
-                 KSLOG_ERROR(@"Failed to send report: %@", error);
-             }
-             if ((cleanupPolicy == KSCrashReportCleanupPolicyOnSuccess && error == nil) ||
-                 cleanupPolicy == KSCrashReportCleanupPolicyAlways) {
-                 [strongSelf deleteReportWithID:reportID];
-             }
-             kscrash_callCompletion(onCompletion, filteredReports, error);
-         }];
-}
-
 - (void)deleteAllReports
 {
     kscrs_deleteAllReports(&_cConfig);
@@ -245,105 +99,6 @@ typedef void (^KSChainApplyFilter)(id filter, NSArray *items, KSChainStepComplet
 - (void)reclaimOrphanedRunData
 {
     kscrs_reclaimOrphanedRunData(&_cConfig);
-}
-
-#pragma mark - Private API
-
-- (void)sendReports:(NSArray<id<KSCrashReport>> *)reports
-            filters:(NSArray<id<KSCrashReportFilter>> *)filters
-       onCompletion:(KSCrashReportFilterCompletion)onCompletion
-{
-    if ([reports count] == 0) {
-        kscrash_callCompletion(onCompletion, reports, nil);
-        return;
-    }
-
-    if (filters.count == 0) {
-        kscrash_callCompletion(onCompletion, reports,
-                               [KSNSErrorHelper errorWithDomain:[[self class] description]
-                                                           code:0
-                                                    description:@"No filters set. Crash reports not sent."]);
-        return;
-    }
-
-    [self runReportFilterChain:filters
-                       reports:reports
-                  onCompletion:^(NSArray *filteredReports, NSError *error) {
-                      kscrash_callCompletion(onCompletion, filteredReports, error);
-                  }];
-}
-
-/** Run items through an ordered filter chain: each filter's output feeds the
- * next, the last filter is the terminal sink. Shared by the report and
- * run-summary send paths; `applyFilter` adapts a chain step to the concrete
- * filter protocol. Implemented here (rather than via a filter-composition class)
- * so KSCrashRecording needs no dependency on KSCrashFilters. Runs at send time
- * only (next launch / normal context), never in a crash handler, so ObjC and
- * dispatch are safe.
- */
-- (void)runFilterChain:(NSArray *)filters
-                  items:(NSArray *)items
-            applyFilter:(KSChainApplyFilter)applyFilter
-    nilItemsDescription:(NSString *)nilItemsDescription
-           onCompletion:(KSChainStepCompletion)onCompletion
-{
-    NSUInteger filterCount = filters.count;
-    if (filterCount == 0) {
-        if (onCompletion) onCompletion(items, nil);
-        return;
-    }
-
-    __block NSUInteger iFilter = 0;
-    // The step block advances the chain by calling itself, so it must reference
-    // itself. The strong __block slot is the chain's lifeline: it keeps the block
-    // (and the self/filters it captures) alive across async filter hops, at the
-    // cost of a deliberate retain cycle. Filters get the __weak alias so the
-    // self-reference adds no retain. Niling the strong slot at the terminal step
-    // breaks the cycle. Disposal is synchronous: whoever invoked the step holds a
-    // strong reference for the duration of the call, so the block stays alive
-    // until that call returns. (Deferring disposal to the main queue, as this
-    // code once did, leaked the block in contexts with no serviced main queue,
-    // e.g. some XCTest/CLI runs.)
-    __block KSChainStepCompletion stepCompletion = nil;
-    __block __weak KSChainStepCompletion weakStepCompletion = nil;
-    stepCompletion = ^(NSArray *_Nullable filteredItems, NSError *_Nullable filterError) {
-        if (filterError != nil || filteredItems == nil) {
-            NSError *error = filterError
-                                 ?: [KSNSErrorHelper errorWithDomain:[[self class] description]
-                                                                code:0
-                                                         description:nilItemsDescription];
-            if (onCompletion) onCompletion(filteredItems, error);
-            stepCompletion = nil;
-            return;
-        }
-
-        if (++iFilter < filterCount) {
-            applyFilter([filters objectAtIndex:iFilter], filteredItems, weakStepCompletion);
-            return;
-        }
-
-        // All filters complete.
-        if (onCompletion) onCompletion(filteredItems, filterError);
-        stepCompletion = nil;
-    };
-    weakStepCompletion = stepCompletion;
-
-    applyFilter([filters objectAtIndex:0], items, stepCompletion);
-}
-
-/** Run reports through an ordered filter chain. See runFilterChain:. */
-- (void)runReportFilterChain:(NSArray<id<KSCrashReportFilter>> *)filters
-                     reports:(NSArray<id<KSCrashReport>> *)reports
-                onCompletion:(KSCrashReportFilterCompletion)onCompletion
-{
-    [self runFilterChain:filters
-                      items:reports
-                applyFilter:^(id filter, NSArray *chainItems, KSChainStepCompletion stepCompletion) {
-                    id<KSCrashReportFilter> reportFilter = filter;
-                    [reportFilter filterReports:chainItems onCompletion:stepCompletion];
-                }
-        nilItemsDescription:@"filteredReports was nil"
-               onCompletion:onCompletion];
 }
 
 - (nullable NSData *)loadCrashReportJSONWithID:(int64_t)reportID
@@ -408,8 +163,8 @@ typedef void (^KSChainApplyFilter)(id filter, NSArray *items, KSChainStepComplet
         *error = [NSError errorWithDomain:NSCocoaErrorDomain
                                      code:NSFileWriteUnknownError
                                  userInfo:@{
-                                     NSLocalizedDescriptionKey : [NSString
-                                         stringWithFormat:@"Report %lld could not be deleted.", reportID]
+                                     NSLocalizedDescriptionKey :
+                                         [NSString stringWithFormat:@"Report %lld could not be deleted.", reportID]
                                  }];
     }
     return NO;
