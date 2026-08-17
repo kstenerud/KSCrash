@@ -110,35 +110,41 @@ static int64_t getReportIDFromFilename(const char *filename, const KSCrashReport
 
 static int getReportCount(const KSCrashReportStoreCConfiguration *const config)
 {
-    int count = 0;
     DIR *dir = opendir(config->reportsPath);
     if (dir == NULL) {
+        // Absent means no report was ever written: an empty store, not a
+        // failure. Anything else means the store cannot be enumerated, and
+        // the caller must not mistake that for "no reports".
+        if (errno == ENOENT) {
+            return 0;
+        }
         KSLOG_ERROR(@"Could not open directory %s", config->reportsPath);
-        goto done;
+        return -1;
     }
+    int count = 0;
     struct dirent *ent;
     while ((ent = readdir(dir)) != NULL) {
         if (getReportIDFromFilename(ent->d_name, config) > 0) {
             count++;
         }
     }
-
-done:
-    if (dir != NULL) {
-        closedir(dir);
-    }
+    closedir(dir);
     return count;
 }
 
 static int getReportIDs(int64_t *reportIDs, int count, const KSCrashReportStoreCConfiguration *const config)
 {
-    int index = 0;
     DIR *dir = opendir(config->reportsPath);
     if (dir == NULL) {
+        // Same contract as getReportCount: absent is empty, unreadable is -1.
+        if (errno == ENOENT) {
+            return 0;
+        }
         KSLOG_ERROR(@"Could not open directory %s", config->reportsPath);
-        goto done;
+        return -1;
     }
 
+    int index = 0;
     struct dirent *ent;
     while ((ent = readdir(dir)) != NULL && index < count) {
         int64_t reportID = getReportIDFromFilename(ent->d_name, config);
@@ -149,10 +155,7 @@ static int getReportIDs(int64_t *reportIDs, int count, const KSCrashReportStoreC
 
     qsort(reportIDs, (unsigned)index, sizeof(reportIDs[0]), compareInt64);
 
-done:
-    if (dir != NULL) {
-        closedir(dir);
-    }
+    closedir(dir);
     return index;
 }
 
@@ -524,14 +527,15 @@ static void reclaimOrphanedRunData(const KSCrashReportStoreCConfiguration *const
     }
 }
 
-static void deleteReportWithID(int64_t reportID, const KSCrashReportStoreCConfiguration *const config)
+static bool deleteReportWithID(int64_t reportID, const KSCrashReportStoreCConfiguration *const config)
 {
     char path[KSCRS_MAX_PATH_LENGTH];
     getCrashReportPathByID(reportID, path, config);
-    ksfu_removeFile(path, true);
+    bool removed = ksfu_removeFile(path, true);
     deleteReportSidecarsForReport(reportID, config);
     // Orphaned run-data cleanup is deferred to kscrs_reclaimOrphanedRunData,
     // called from the send flows — not on the startup path.
+    return removed;
 }
 
 static void pruneReports(const KSCrashReportStoreCConfiguration *const config)
@@ -872,11 +876,12 @@ void kscrs_deleteAllReports(const KSCrashReportStoreCConfiguration *const config
     pthread_mutex_unlock(&g_mutex);
 }
 
-void kscrs_deleteReportWithID(int64_t reportID, const KSCrashReportStoreCConfiguration *const configuration)
+bool kscrs_deleteReportWithID(int64_t reportID, const KSCrashReportStoreCConfiguration *const configuration)
 {
     pthread_mutex_lock(&g_mutex);
-    deleteReportWithID(reportID, configuration);
+    bool removed = deleteReportWithID(reportID, configuration);
     pthread_mutex_unlock(&g_mutex);
+    return removed;
 }
 
 bool kscrs_getReportSidecarFilePath(const char *monitorId, const char *name, const char *extension, char *pathBuffer,
