@@ -1,7 +1,7 @@
 //
-//  RunSummarySend.swift
+//  ReportSend.swift
 //
-//  Created by Alexander Cohen on 2026-08-10.
+//  Created by Alexander Cohen on 2026-08-15.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -26,13 +26,12 @@
 
 import Foundation
 import KSCrashReportModel
-import KSCrashSwiftCore
 import os
 
-/// The run-summary send: one call processes the pending runs, newest first,
-/// through the pipeline, and returns per-run outcomes. Payloads exist one at a
-/// time, inside the per-run loop, and are never accumulated.
-enum RunSummarySend {
+/// The report send: one call processes the pending reports, newest first,
+/// through the pipeline, and returns per-report outcomes. Payloads exist one
+/// at a time, inside the per-report loop, and are never accumulated.
+enum ReportSend {
 
     // Pinned off the caller's actor wherever the attribute exists (Swift 6.2+);
     // older toolchains run nonisolated async functions off-actor by default, so
@@ -42,67 +41,76 @@ enum RunSummarySend {
     #endif
     static func send(
         store: Store?,
-        pipeline: [AnyPipelineStage<RunSummary>],
+        pipeline: [AnyPipelineStage<Report>],
         includesDeliveredPayloads: Bool,
         maxRunCount: Int,
-        only selection: Set<String>? = nil,
-        claims: SendClaims = .runSummaries
-    ) async throws -> SendResult<RunSummary> {
+        only selection: Set<ReportID>? = nil,
+        claims: SendClaims = .reports
+    ) async throws -> SendResult<Report> {
         // Not installed (no resolved locations): an empty result rather than
-        // an error, matching the previous send's behavior.
+        // an error, matching the summary send.
         guard let store else {
             return SendResult(items: [])
         }
 
-        // Retention is a send-path concern; pruning before the snapshot keeps
-        // files that are about to be deleted out of it.
+        // Run-summary retention is enforced on every send path, so an app
+        // that only ever sends reports still cannot grow `.run` files
+        // without bound.
         store.pruneRunSummaries(keepingNewest: maxRunCount)
 
-        var runs = try store.snapshot().runs
+        var ids = try store.snapshot().reportIDs
         if let selection {
-            // Unselected runs are not this send's items: untouched on disk and
-            // absent from the result, exactly like runs claimed by a
+            // Unselected reports are not this send's items: untouched on disk
+            // and absent from the result, exactly like reports claimed by a
             // concurrent send.
-            runs = runs.filter { selection.contains($0.runID) }
+            ids = ids.filter { selection.contains($0) }
         }
         // However the send ends past this point (exhausted, cancelled, or a
         // crash of a stage's task), sweep once: the reclaim is reference-aware
         // and idempotent, so it is safe on every exit path.
         defer { store.reclaimOrphans() }
 
-        var items: [SendResult<RunSummary>.Item] = []
-        for run in runs {
-            // Between runs is the clean stopping point: no run is ever half
-            // processed, and everything not yet sent stays for next time.
+        var items: [SendResult<Report>.Item] = []
+        for id in ids {
+            // Between reports is the clean stopping point: no report is ever
+            // half processed, and everything not yet sent stays for next time.
             if Task.isCancelled {
                 break
             }
             // Claiming is what lets concurrent sends partition the pending
-            // work instead of duplicating it: a run another send holds is not
-            // this send's item and is not reported by it.
-            guard claims.claim(run.runID) else {
+            // work instead of duplicating it: a report another send holds is
+            // not this send's item and is not reported by it.
+            guard claims.claim(String(id)) else {
                 continue
             }
-            defer { claims.release(run.runID) }
+            defer { claims.release(String(id)) }
 
             let start = DispatchTime.now()
 
-            // A nil read filters two kinds of non-items: artifact-only runs
-            // (nothing left to send), and stale snapshot entries, since
-            // another send can have delivered and deleted a run between our
-            // snapshot and our claim. Under the claim, deletes are ours
-            // alone, so the check is race-free.
-            guard let summary = store.summary(of: run) else {
+            // A nil read filters stale snapshot entries (another send can
+            // have delivered and deleted a report between our snapshot and
+            // our claim) and reports that cannot be read or decoded right
+            // now, which stay on disk for the next send. Under the claim,
+            // deletes are ours alone, so the check is race-free.
+            guard let report = store.report(id) else {
                 continue
             }
 
-            let outcome: SendResult<RunSummary>.Outcome
-            switch await runPipeline(summary, through: pipeline) {
+            // A current-run report may still be updated (an unresolved
+            // watchdog hang, for example), so the bulk send skips it; an id
+            // named explicitly in the selection is a deliberate choice and is
+            // always sent.
+            if selection == nil, let live = store.liveRunID, report.report.runId == live {
+                continue
+            }
+
+            let outcome: SendResult<Report>.Outcome
+            switch await runPipeline(report, through: pipeline) {
             case .delivered(let final):
-                removeSummary(of: run, from: store)
+                remove(id, from: store)
                 outcome = .delivered(includesDeliveredPayloads ? final : nil)
             case .discarded:
-                removeSummary(of: run, from: store)
+                remove(id, from: store)
                 outcome = .discarded
             case .kept(let error):
                 outcome = .kept(error)
@@ -110,7 +118,7 @@ enum RunSummarySend {
             let elapsedNs = DispatchTime.now().uptimeNanoseconds - start.uptimeNanoseconds
             items.append(
                 SendResult.Item(
-                    id: run.runID,
+                    id: String(id),
                     outcome: outcome,
                     duration: TimeInterval(elapsedNs) / 1_000_000_000
                 ))
@@ -118,32 +126,14 @@ enum RunSummarySend {
         return SendResult(items: items)
     }
 
-    // A failed delete is logged, not thrown: the summary was already
+    // A failed delete is logged, not thrown: the report was already
     // processed, and the file will be re-sent or pruned later, which is the
     // retry-safe direction.
-    private static func removeSummary(of run: Run, from store: Store) {
+    private static func remove(_ id: ReportID, from store: Store) {
         do {
-            try store.removeSummary(of: run)
+            try store.removeReport(id)
         } catch {
-            os_log(.error, "Failed to delete run summary files for run %{public}@", run.runID)
+            os_log(.error, "Failed to delete report %lld", id)
         }
-    }
-}
-
-/// The runs currently being processed by any send, so concurrent sends
-/// partition the pending work: claiming is first-wins, and a claim is held
-/// only while its run is being processed.
-final class SendClaims: Sendable {
-    static let runSummaries = SendClaims()
-    static let reports = SendClaims()
-
-    private let claimed = UnfairLock(Set<String>())
-
-    func claim(_ id: String) -> Bool {
-        claimed.withLock { $0.insert(id).inserted }
-    }
-
-    func release(_ id: String) {
-        claimed.withLock { _ = $0.remove(id) }
     }
 }

@@ -65,12 +65,11 @@ final class RunSummarySendTests: XCTestCase {
 
     private struct StageError: Error {}
 
-    private func makeStore() -> RunDataStore {
+    private func makeStore() -> Store {
         let counter = reclaimCount
-        return RunDataStore(
+        return Store(
             runsDirectory: runsDirectory,
             runSidecarsDirectory: sidecarsDirectory,
-            maxRunCount: 50,
             liveRunID: nil
         ) { counter.increment() }
     }
@@ -82,7 +81,7 @@ final class RunSummarySendTests: XCTestCase {
     ) async throws -> SendResult<RunSummary> {
         try await RunSummarySend.send(
             store: makeStore(), pipeline: pipeline,
-            includesDeliveredPayloads: includesDeliveredPayloads, claims: claims)
+            includesDeliveredPayloads: includesDeliveredPayloads, maxRunCount: 50, claims: claims)
     }
 
     private func assertOutcomes(
@@ -149,7 +148,7 @@ final class RunSummarySendTests: XCTestCase {
 
     func test_notInstalled_returnsEmptyWithoutReclaim() async throws {
         let result = try await RunSummarySend.send(
-            store: nil, pipeline: [], includesDeliveredPayloads: false, claims: SendClaims())
+            store: nil, pipeline: [], includesDeliveredPayloads: false, maxRunCount: 50, claims: SendClaims())
         XCTAssertTrue(result.items.isEmpty)
         XCTAssertEqual(reclaimCount.value, 0)
     }
@@ -294,14 +293,13 @@ final class RunSummarySendTests: XCTestCase {
         let reentrant = ClosureStage { summary in
             // A send started from inside a stage finds the outer send's run
             // claimed: empty result, no deadlock.
-            let store = RunDataStore(
+            let store = Store(
                 runsDirectory: runsDirectory,
                 runSidecarsDirectory: sidecarsDirectory,
-                maxRunCount: 50,
                 liveRunID: nil
             ) { counter.increment() }
             let inner = try await RunSummarySend.send(
-                store: store, pipeline: [], includesDeliveredPayloads: false, claims: claims)
+                store: store, pipeline: [], includesDeliveredPayloads: false, maxRunCount: 50, claims: claims)
             XCTAssertTrue(inner.items.isEmpty)
             return summary
         }
@@ -339,7 +337,7 @@ final class RunSummarySendTests: XCTestCase {
         try writeSummary(runID: "OTHER", startNs: 200)
 
         let result = try await RunSummarySend.send(
-            store: makeStore(), pipeline: [], includesDeliveredPayloads: false,
+            store: makeStore(), pipeline: [], includesDeliveredPayloads: false, maxRunCount: 50,
             only: ["WANTED", "UNKNOWN"], claims: SendClaims())
 
         assertOutcomes(result, delivered: ["WANTED"])
@@ -350,7 +348,7 @@ final class RunSummarySendTests: XCTestCase {
         try writeSummary(runID: "PRESENT", startNs: 100)
 
         let result = try await RunSummarySend.send(
-            store: makeStore(), pipeline: [], includesDeliveredPayloads: false,
+            store: makeStore(), pipeline: [], includesDeliveredPayloads: false, maxRunCount: 50,
             only: [], claims: SendClaims())
 
         XCTAssertTrue(result.items.isEmpty)
@@ -372,7 +370,7 @@ final class RunSummarySendTests: XCTestCase {
 
         // The retry call site: resend exactly what the last send kept.
         let retry = try await RunSummarySend.send(
-            store: makeStore(), pipeline: [], includesDeliveredPayloads: false,
+            store: makeStore(), pipeline: [], includesDeliveredPayloads: false, maxRunCount: 50,
             only: Set(first.kept), claims: SendClaims())
         assertOutcomes(retry, delivered: ["FLAKY"])
         XCTAssertEqual(summaryFileCount, 0)
@@ -393,7 +391,7 @@ final class RunSummarySendTests: XCTestCase {
         let result = try await Task {
             try await RunSummarySend.send(
                 store: store, pipeline: [.init(cancelling)],
-                includesDeliveredPayloads: false, claims: SendClaims())
+                includesDeliveredPayloads: false, maxRunCount: 50, claims: SendClaims())
         }.value
 
         assertOutcomes(result, delivered: ["FIRST"])
