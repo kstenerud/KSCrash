@@ -1,7 +1,7 @@
 //
 //  CrashReportStore+Bridge.swift
 //
-//  Created by Nikolay Volosatov on 2024-06-23.
+//  Created by Nikolay Volosatov on 2024-08-04.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -25,180 +25,83 @@
 //
 
 import Foundation
-import KSCrashDemangleFilter
-import KSCrashFilters
-import KSCrashRecording
-import KSCrashSinks
+import KSCrash
 import Logging
 
 extension CrashReportStore {
     private static let logger = Logger(label: "ReportingSample")
 
-    private func sendConfig(_ filters: [CrashReportFilter], _ policy: CrashReportCleanupPolicy)
-        -> CrashSendConfiguration
-    {
-        let cfg = CrashSendConfiguration()
-        cfg.reportFilters = filters
-        cfg.reportCleanupPolicy = policy
-        return cfg
-    }
-
-    public func logAll() async throws {
-        let reports = try await sendAllReports(with: sendConfig([CrashReportFilterPassthrough()], .never))
-        for report in reports {
-            guard let report = report as? CrashReportDictionary else {
-                continue
-            }
-            Self.logger.info("\(report.value)")
-        }
-    }
-
+    /// Log a short model-level summary of every pending report. Reads only;
+    /// reports stay on disk.
     public func logToConsole() {
-        sendAllReports(with: sendConfig(CrashReportSinkConsole().defaultCrashReportFilterSet, .never)) {
-            reports, error in
-            if let reports {
-                Self.logger.info("Logged \(reports.count) reports")
-                for (idx, report) in reports.enumerated() {
-                    switch report {
-                    case let stringReport as CrashReportString:
-                        Self.logger.info("Report #\(idx) is a string (length is \(stringReport.value.count))")
-                    case let dictionaryReport as CrashReportDictionary:
-                        Self.logger.info(
-                            "Report #\(idx) is a dictionary (number of keys is \(dictionaryReport.value.count))")
-                    case let dataReport as CrashReportData:
-                        Self.logger.info("Report #\(idx) is a binary data (size is \(dataReport.value.count) bytes)")
-                    default:
-                        Self.logger.warning("Unknown report #\(idx): \(report.debugDescription ?? "?")")
-                    }
-                }
-            } else {
-                Self.logger.error("Failed to log reports: \(error?.localizedDescription ?? "")")
-            }
+        for id in reportIDs {
+            guard let data = reportData(for: id.int64Value)?.value else { continue }
+            let summary =
+                (try? JSONDecoder().decode(Report.self, from: data))
+                .map { String(describing: $0.crash.error.type) } ?? "undecodable"
+            Self.logger.info("Report \(id): \(summary) (\(data.count) bytes)")
         }
     }
 
+    /// Dump each pending report's raw JSON. Reads only; reports stay on disk.
     public func logRawToConsole() {
-        sendAllReports(with: sendConfig([CrashReportFilterPassthrough()], .never)) { reports, error in
-            if let reports {
-                Self.logger.info("Logged \(reports.count) reports")
-                for (idx, report) in reports.enumerated() {
-                    switch report {
-                    case let stringReport as CrashReportString:
-                        Self.logger.info("Report #\(idx) is a string (length is \(stringReport.value.count))")
-                    case let dictionaryReport as CrashReportDictionary:
-                        Self.logger.info(
-                            "Report #\(idx) is a dictionary (number of keys is \(dictionaryReport.value.count))")
-                        Self.logger.info("\(dictionaryReport)")
-                    case let dataReport as CrashReportData:
-                        Self.logger.info("Report #\(idx) is a binary data (size is \(dataReport.value.count) bytes)")
-                    default:
-                        Self.logger.warning("Unknown report #\(idx): \(report.debugDescription ?? "?")")
-                    }
-                }
-            } else {
-                Self.logger.error("Failed to log reports: \(error?.localizedDescription ?? "")")
-            }
+        for id in reportIDs {
+            guard let data = reportData(for: id.int64Value)?.value,
+                let json = String(data: data, encoding: .utf8)
+            else { continue }
+            Self.logger.info("Report \(id):\n\(json)")
         }
     }
+}
 
-    public func logWithAlert() {
-        // Alert confirmation: delete always so the user isn't nagged on every launch.
-        sendAllReports(
-            with: sendConfig(
-                [
-                    CrashReportFilterAlert(
-                        title: "Sample Alert", message: "Do you want to log?", yesAnswer: "Yes", noAnswer: "No"),
-                    CrashReportFilterAppleFmt(),
-                    CrashReportSinkConsole(),
-                ], .always))
-    }
-
+extension KSCrash {
+    /// Run every pending report through the sample pipeline, keeping them all
+    /// on disk for the next send.
     public func sampleLogToConsole() {
-        sendAllReports(
-            with: sendConfig(
-                [
-                    CrashReportFilterDemangle(),
-                    SampleFilter(),
-                    SampleSink(),
-                ], .never))
-    }
-}
-
-public class SampleCrashReport: NSObject, KSCrashReport {
-    public struct CrashedThread {
-        var index: Int
-        var callStack: [String]
-    }
-
-    public var untypedValue: Any? { crashedThread }
-
-    public let crashedThread: CrashedThread
-
-    public init?(_ report: CrashReportDictionary) {
-        guard let crashDict = report.value[CrashField.crash.rawValue] as? [String: Any],
-            let threadsArr = crashDict[CrashField.threads.rawValue] as? [Any],
-            let crashedThreadDict =
-                threadsArr
-                .compactMap({ $0 as? [String: Any] })
-                .first(where: { ($0[CrashField.crashed.rawValue] as? Bool) ?? false }),
-            let crashedThreadIndex = crashedThreadDict[CrashField.index.rawValue] as? Int,
-            let backtrace = crashedThreadDict[CrashField.backtrace.rawValue] as? [String: Any],
-            let backtraceArr = backtrace[CrashField.contents.rawValue] as? [Any]
-        else { return nil }
-
-        crashedThread = .init(
-            index: crashedThreadIndex,
-            callStack: backtraceArr.enumerated().map { (idx: Int, bt: Any) -> String in
-                guard let bt = bt as? [String: Any],
-                    let objectName = bt[CrashField.objectName.rawValue] as? String,
-                    let instructionAddr = bt[CrashField.instructionAddr.rawValue] as? UInt64
-                else { return "\(idx)\t<malformed>" }
-
-                let symbolName = bt[CrashField.symbolName.rawValue] as? String
-                let symbolAddr = bt[CrashField.symbolAddr.rawValue] as? UInt64
-                let offset = symbolAddr.flatMap { instructionAddr - $0 } ?? 0
-
-                let instructionAddrStr = "0x\(String(instructionAddr, radix: 16))"
-                let symbolAddrStr = "0x\(String(symbolAddr ?? instructionAddr, radix: 16))"
-
-                return "\(idx)\t\(objectName)\t\(instructionAddrStr) \(symbolName ?? symbolAddrStr) + \(offset)"
-            }
-        )
-    }
-}
-
-public class SampleFilter: NSObject, CrashReportFilter {
-    public func filterReports(
-        _ reports: [any KSCrashReport], onCompletion: (([any KSCrashReport]?, (any Error)?) -> Void)? = nil
-    ) {
-        let filtered = reports.compactMap { report -> SampleCrashReport? in
-            guard let dictReport = report as? CrashReportDictionary else {
-                return nil
-            }
-            return SampleCrashReport(dictReport)
+        Task {
+            let configuration = SendConfiguration(reportPipeline: [
+                AnyPipelineStage(SampleLogStage()),
+                AnyPipelineStage(KeepOnDiskStage()),
+            ])
+            _ = try? await sendReports(with: configuration)
         }
-        onCompletion?(filtered, nil)
     }
 }
 
-public class SampleSink: NSObject, CrashReportFilter {
-    private static let logger = Logger(label: "SampleSink")
+/// A custom pipeline stage: formats the crashed thread's call stack from the
+/// typed model and logs it, then passes the report on.
+public struct SampleLogStage: PipelineStage {
+    private static let logger = Logger(label: "SampleLogStage")
 
-    public func filterReports(
-        _ reports: [any KSCrashReport], onCompletion: (([any KSCrashReport]?, (any Error)?) -> Void)? = nil
-    ) {
-        for (idx, report) in reports.enumerated() {
-            guard let sampleReport = report as? SampleCrashReport else {
-                continue
-            }
-            let lines =
-                [
-                    "Crash report #\(idx):",
-                    "\tCrashed thread #\(sampleReport.crashedThread.index):",
-                ] + sampleReport.crashedThread.callStack.map { "\t\t\($0)" }
-            let text = lines.joined(separator: "\n")
-            Self.logger.info("\(text)")
+    public init() {}
+
+    public func process(_ payload: Report) async throws -> Report? {
+        let thread = payload.crash.crashedThread ?? payload.crash.threads?.first(where: { $0.crashed })
+        let callStack = (thread?.backtrace?.contents ?? []).enumerated().map { idx, frame -> String in
+            let symbol =
+                frame.symbolName
+                ?? frame.instructionAddr.map { "0x" + String($0, radix: 16) }
+                ?? "?"
+            return "\t\t\(idx)\t\(frame.objectName ?? "?")\t\(symbol)"
         }
-        onCompletion?(reports, nil)
+        let lines =
+            [
+                "Crash report \(payload.report.id):",
+                "\tCrashed thread #\((thread?.index).map(String.init) ?? "?"):",
+            ] + callStack
+        Self.logger.info("\(lines.joined(separator: "\n"))")
+        return payload
+    }
+}
+
+/// Terminal stage that keeps every item on disk: throwing is how a stage
+/// leaves a report for a later send instead of consuming it.
+public struct KeepOnDiskStage: PipelineStage {
+    public struct Kept: Error {}
+
+    public init() {}
+
+    public func process(_ payload: Report) async throws -> Report? {
+        throw Kept()
     }
 }
