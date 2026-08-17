@@ -357,21 +357,62 @@ typedef void (^KSChainApplyFilter)(id filter, NSArray *items, KSChainStepComplet
 
 - (NSArray<NSNumber *> *)reportIDs
 {
+    return [self listReportIDsWithError:NULL] ?: @[];
+}
+
+- (nullable NSArray<NSNumber *> *)listReportIDsWithError:(NSError **)error
+{
     int reportCount = kscrs_getReportCount(&_cConfig);
-    if (reportCount <= 0) {
+    if (reportCount < 0) {
+        [self setEnumerationError:error];
+        return nil;
+    }
+    if (reportCount == 0) {
         return @[];
     }
     int64_t *reportIDsC = malloc(sizeof(int64_t) * (size_t)reportCount);
     if (!reportIDsC) {
-        return @[];
+        [self setEnumerationError:error];
+        return nil;
     }
     reportCount = kscrs_getReportIDs(reportIDsC, reportCount, &_cConfig);
+    if (reportCount < 0) {
+        free(reportIDsC);
+        [self setEnumerationError:error];
+        return nil;
+    }
     NSMutableArray *reportIDs = [NSMutableArray arrayWithCapacity:(NSUInteger)reportCount];
     for (int i = 0; i < reportCount; i++) {
         [reportIDs addObject:[NSNumber numberWithLongLong:reportIDsC[i]]];
     }
     free(reportIDsC);
     return [reportIDs copy];
+}
+
+- (void)setEnumerationError:(NSError **)error
+{
+    if (error != NULL) {
+        *error = [NSError
+            errorWithDomain:NSCocoaErrorDomain
+                       code:NSFileReadUnknownError
+                   userInfo:@{ NSLocalizedDescriptionKey : @"The reports directory could not be enumerated." }];
+    }
+}
+
+- (BOOL)removeReportWithID:(int64_t)reportID error:(NSError **)error
+{
+    if (kscrs_deleteReportWithID(reportID, &_cConfig)) {
+        return YES;
+    }
+    if (error != NULL) {
+        *error = [NSError errorWithDomain:NSCocoaErrorDomain
+                                     code:NSFileWriteUnknownError
+                                 userInfo:@{
+                                     NSLocalizedDescriptionKey : [NSString
+                                         stringWithFormat:@"Report %lld could not be deleted.", reportID]
+                                 }];
+    }
+    return NO;
 }
 
 - (KSCrashReportData *)reportDataForID:(int64_t)reportID
