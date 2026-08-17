@@ -169,6 +169,23 @@ NS_SWIFT_NAME(CrashReportStore)
  */
 - (void)deleteReportWithID:(KSCrashReportID)reportID NS_SWIFT_NAME(deleteReport(with:));
 
+/** All unsent report IDs, oldest first.
+ *
+ * @param error Set when the reports directory cannot be enumerated.
+ *
+ * @return The report IDs, or nil on error. An empty store is an empty array.
+ */
+- (nullable NSArray<NSNumber *> *)listReportIDsWithError:(NSError **)error;
+
+/** Delete one report.
+ *
+ * @param reportID The ID of the report to delete.
+ * @param error Set when the report file could not be removed.
+ *
+ * @return YES if the report file was removed.
+ */
+- (BOOL)removeReportWithID:(KSCrashReportID)reportID error:(NSError **)error;
+
 /** Remove on-disk run data (run sidecar directories and session sidecars) for
  * runs no longer referenced by any report or run summary.
  *
