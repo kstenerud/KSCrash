@@ -68,7 +68,8 @@ KSCrashInstallErrorCode kscrs_initialize(const KSCrashReportStoreCConfiguration 
  *
  * @param configuration The store configuretion (e.g. reports path, app name etc).
  *
- * @return The number of reports on disk.
+ * @return The number of reports on disk (an absent reports directory is 0),
+ *         or -1 when the reports directory cannot be enumerated.
  */
 int kscrs_getReportCount(const KSCrashReportStoreCConfiguration *const configuration);
 
@@ -78,7 +79,9 @@ int kscrs_getReportCount(const KSCrashReportStoreCConfiguration *const configura
  * @param count How many reports the array can hold.
  * @param configuration The store configuretion (e.g. reports path, app name etc).
  *
- * @return The number of report IDs that were placed in the array.
+ * @return The number of report IDs that were placed in the array (an absent
+ *         reports directory is 0), or -1 when the reports directory cannot be
+ *         enumerated.
  */
 int kscrs_getReportIDs(int64_t *reportIDs, int count, const KSCrashReportStoreCConfiguration *const configuration);
 
@@ -106,7 +109,9 @@ char *kscrs_readReportAtPath(const char *path);
 
 /** Add a custom report to the store.
  *
- * @param report The report's contents (must be JSON encoded).
+ * @param report The report's contents: JSON in the standard KSCrash report
+ *               shape. A report of any other shape is never delivered by the
+ *               send.
  * @param reportLength The length of the report in bytes.
  * @param configuration The store configuretion (e.g. reports path, app name etc).
  *
@@ -125,8 +130,10 @@ void kscrs_deleteAllReports(const KSCrashReportStoreCConfiguration *const config
  *
  * @param reportID An ID of report to delete.
  * @param configuration The store configuretion (e.g. reports path, app name etc).
+ *
+ * @return true if the report file was removed.
  */
-void kscrs_deleteReportWithID(int64_t reportID, const KSCrashReportStoreCConfiguration *const configuration);
+bool kscrs_deleteReportWithID(int64_t reportID, const KSCrashReportStoreCConfiguration *const configuration);
 
 /** Get a sidecar file path.
  *
