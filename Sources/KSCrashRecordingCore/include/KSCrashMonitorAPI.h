@@ -150,6 +150,15 @@ typedef struct KSCrashMonitorAPI {
      * it calls this function to merge sidecar data into the decoded report
      * dictionary before delivery.
      *
+     * Placement contract: a custom monitor puts its data in a
+     * framework-owned namespace, under `monitor_data.<monitorID>` at the
+     * report root (delivery-time data) or under `crash.error.<monitorID>`
+     * (the crashing monitor's own section). Those locations survive typed
+     * delivery. Mutating standard report fields is reserved for built-in
+     * monitors whose fields exist in the typed report model; additions to
+     * arbitrary unmodeled fields elsewhere are not preserved in delivered
+     * payloads.
+     *
      * Follows the CF Create Rule: the caller owns the returned dictionary
      * and must release it (via CFRelease or __bridge_transfer to ARC).
      * The input reportDict is owned by the caller; the callback must not

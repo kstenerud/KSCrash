@@ -767,7 +767,7 @@ import XCTest
             XCTAssertEqual(stackFrames.count, MetricKitRunIdHandler.expectedTotalFrameCount)
 
             let backtrace = Backtrace(contents: stackFrames, skipped: 0)
-            let thread = BasicCrashReport.Thread(
+            let thread = Report.Thread(
                 backtrace: backtrace,
                 crashed: false,
                 currentThread: false,
@@ -817,7 +817,7 @@ import XCTest
                 stackFrames.append(StackFrame(instructionAddr: UInt64(0xE000 + i), objectName: "libpthread"))
             }
 
-            let thread = BasicCrashReport.Thread(
+            let thread = Report.Thread(
                 backtrace: Backtrace(contents: stackFrames, skipped: 0),
                 crashed: false, currentThread: false, index: 0)
             let callStackData = CallStackData(threads: [thread], crashedThreadIndex: 0, binaryImages: [])
@@ -866,7 +866,7 @@ import XCTest
                 stackFrames.append(StackFrame(instructionAddr: UInt64(0xE000 + i), objectName: "libpthread"))
             }
 
-            let thread = BasicCrashReport.Thread(
+            let thread = Report.Thread(
                 backtrace: Backtrace(contents: stackFrames, skipped: 0),
                 crashed: false, currentThread: false, index: 0)
             let callStackData = CallStackData(threads: [thread], crashedThreadIndex: 0, binaryImages: [])
@@ -907,7 +907,7 @@ import XCTest
                 )
             }
             let backtrace = Backtrace(contents: stackFrames, skipped: 0)
-            let thread = BasicCrashReport.Thread(
+            let thread = Report.Thread(
                 backtrace: backtrace,
                 crashed: false,
                 currentThread: false,
@@ -952,7 +952,7 @@ import XCTest
                 stackFrames.append(StackFrame(instructionAddr: UInt64(0xE000 + i), objectName: "libpthread"))
             }
 
-            let thread = BasicCrashReport.Thread(
+            let thread = Report.Thread(
                 backtrace: Backtrace(contents: stackFrames, skipped: 0),
                 crashed: false, currentThread: false, index: 0)
             let callStackData = CallStackData(threads: [thread], crashedThreadIndex: 0, binaryImages: [])
@@ -991,7 +991,7 @@ import XCTest
                 )
             }
             let backtrace = Backtrace(contents: stackFrames, skipped: 0)
-            let thread = BasicCrashReport.Thread(
+            let thread = Report.Thread(
                 backtrace: backtrace,
                 crashed: false,
                 currentThread: false,

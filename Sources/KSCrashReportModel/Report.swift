@@ -1,5 +1,5 @@
 //
-//  CrashReport.swift
+//  Report.swift
 //
 //  Created by Alexander Cohen on 2024-12-09.
 //
@@ -26,26 +26,16 @@
 
 import Foundation
 
-/// A type that decodes and discards user data.
-///
-/// Use this as the generic parameter for `CrashReport` when you don't need
-/// to access the user-defined custom data.
-public struct NoUserData: Codable, Sendable, Equatable {}
-
-/// A convenience alias for crash reports without user data.
-///
-/// Use this when you don't need to access user-defined custom data:
-/// ```swift
-/// let report = try JSONDecoder().decode(BasicCrashReport.self, from: data)
-/// ```
-public typealias BasicCrashReport = CrashReport<NoUserData>
-
 /// A wrapper that provides indirection for recursive crash reports.
-public final class RecrashReport<UserData: Codable & Sendable>: Codable, Sendable {
-    public let report: CrashReport<UserData>
+public final class RecrashReport: Codable, Sendable {
+    public let report: Report
+
+    public init(report: Report) {
+        self.report = report
+    }
 
     public init(from decoder: Decoder) throws {
-        self.report = try CrashReport<UserData>(from: decoder)
+        self.report = try Report(from: decoder)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -53,30 +43,14 @@ public final class RecrashReport<UserData: Codable & Sendable>: Codable, Sendabl
     }
 }
 
-extension RecrashReport: Equatable where UserData: Equatable {
+extension RecrashReport: Equatable {
     public static func == (lhs: RecrashReport, rhs: RecrashReport) -> Bool {
         lhs.report == rhs.report
     }
 }
 
 /// The root structure representing a complete KSCrash report.
-///
-/// The generic parameter `UserData` represents the type of user-defined custom data
-/// attached to the crash report. Use your own `Codable` type for type-safe access,
-/// or use `NoUserData` to skip user data entirely:
-///
-/// ```swift
-/// // With custom user data type
-/// struct MyUserData: Codable, Sendable {
-///     let userId: String
-///     let sessionId: String
-/// }
-/// let report = try JSONDecoder().decode(CrashReport<MyUserData>.self, from: data)
-///
-/// // Ignoring user data
-/// let report = try JSONDecoder().decode(CrashReport<NoUserData>.self, from: data)
-/// ```
-public struct CrashReport<UserData: Codable & Sendable>: Codable, Sendable {
+public struct Report: Codable, Sendable, Equatable {
     /// List of binary images loaded in the process at crash time.
     public let binaryImages: [BinaryImage]?
 
@@ -93,13 +67,18 @@ public struct CrashReport<UserData: Codable & Sendable>: Codable, Sendable {
     public let report: ReportInfo
 
     /// If a crash occurred while writing the crash report, the original report is embedded here.
-    public let recrashReport: RecrashReport<UserData>?
+    public let recrashReport: RecrashReport?
 
     /// System information at the time of crash.
     public let system: SystemInfo?
 
-    /// User-defined custom data attached to the crash report.
-    public let user: UserData?
+    /// App data attached via the userInfo API.
+    public let metadata: Metadata?
+
+    /// Data contributed by custom monitors at delivery time, keyed by monitor
+    /// id. nil when no monitor contributed any. Use ``monitorData(_:for:)``
+    /// to read a section as its concrete type.
+    public let monitorData: [String: Metadata]?
 
     /// Whether this report is incomplete (crash during crash handling).
     public let incomplete: Bool?
@@ -110,9 +89,10 @@ public struct CrashReport<UserData: Codable & Sendable>: Codable, Sendable {
         debug: DebugInfo? = nil,
         process: ProcessState? = nil,
         report: ReportInfo,
-        recrashReport: RecrashReport<UserData>? = nil,
+        recrashReport: RecrashReport? = nil,
         system: SystemInfo? = nil,
-        user: UserData? = nil,
+        metadata: Metadata? = nil,
+        monitorData: [String: Metadata]? = nil,
         incomplete: Bool? = nil
     ) {
         self.binaryImages = binaryImages
@@ -122,8 +102,21 @@ public struct CrashReport<UserData: Codable & Sendable>: Codable, Sendable {
         self.report = report
         self.recrashReport = recrashReport
         self.system = system
-        self.user = user
+        self.metadata = metadata
+        self.monitorData = monitorData
         self.incomplete = incomplete
+    }
+
+    /// The named monitor's section decoded as `type`. nil when the report
+    /// carries no section for that monitor; throws when the section exists
+    /// but does not decode as `type`.
+    public func monitorData<Value: Decodable>(
+        _ type: Value.Type = Value.self, for monitorID: String
+    ) throws -> Value? {
+        guard let section = monitorData?[monitorID] else {
+            return nil
+        }
+        return try section.decoded(as: Value.self)
     }
 
     enum CodingKeys: String, CodingKey {
@@ -134,9 +127,8 @@ public struct CrashReport<UserData: Codable & Sendable>: Codable, Sendable {
         case report
         case recrashReport = "recrash_report"
         case system
-        case user
+        case metadata = "user"
+        case monitorData = "monitor_data"
         case incomplete
     }
 }
-
-extension CrashReport: Equatable where UserData: Equatable {}

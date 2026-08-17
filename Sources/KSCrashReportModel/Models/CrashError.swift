@@ -163,6 +163,24 @@ public struct CrashError: Codable, Sendable, Equatable {
     /// Termination reason for resource termination reports.
     public let terminationReason: TerminationReason?
 
+    /// Data added by custom monitors, keyed by monitor id. The monitor that
+    /// caused the event writes its section under the id carried in ``type``.
+    /// nil when the error carries no custom-monitor data. Use
+    /// ``monitorData(_:for:)`` to read a section as its concrete type.
+    public let monitorData: [String: Metadata]?
+
+    /// The named monitor's section decoded as `type`. nil when the error
+    /// carries no section for that monitor; throws when the section exists
+    /// but does not decode as `type`.
+    public func monitorData<Value: Decodable>(
+        _ type: Value.Type = Value.self, for monitorID: String
+    ) throws -> Value? {
+        guard let section = monitorData?[monitorID] else {
+            return nil
+        }
+        return try section.decoded(as: Value.self)
+    }
+
     public init(
         address: UInt64? = nil,
         mach: MachError? = nil,
@@ -178,7 +196,8 @@ public struct CrashError: Codable, Sendable, Equatable {
         profile: ProfileInfo? = nil,
         isFatal: Bool? = nil,
         isCleanExit: Bool? = nil,
-        terminationReason: TerminationReason? = nil
+        terminationReason: TerminationReason? = nil,
+        monitorData: [String: Metadata]? = nil
     ) {
         self.address = address
         self.mach = mach
@@ -195,9 +214,10 @@ public struct CrashError: Codable, Sendable, Equatable {
         self.isFatal = isFatal
         self.isCleanExit = isCleanExit
         self.terminationReason = terminationReason
+        self.monitorData = monitorData
     }
 
-    enum CodingKeys: String, CodingKey {
+    enum CodingKeys: String, CodingKey, CaseIterable {
         case address
         case mach
         case nsexception
@@ -213,5 +233,80 @@ public struct CrashError: Codable, Sendable, Equatable {
         case isFatal = "is_fatal"
         case isCleanExit = "is_clean_exit"
         case terminationReason = "termination_reason"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        address = try container.decodeIfPresent(UInt64.self, forKey: .address)
+        mach = try container.decodeIfPresent(MachError.self, forKey: .mach)
+        nsexception = try container.decodeIfPresent(ExceptionInfo.self, forKey: .nsexception)
+        signal = try container.decodeIfPresent(SignalError.self, forKey: .signal)
+        type = try container.decode(CrashErrorType.self, forKey: .type)
+        subtype = try container.decodeIfPresent(CrashErrorSubtype.self, forKey: .subtype)
+        cppException = try container.decodeIfPresent(CppExceptionInfo.self, forKey: .cppException)
+        userReported = try container.decodeIfPresent(UserReportedInfo.self, forKey: .userReported)
+        hang = try container.decodeIfPresent(HangInfo.self, forKey: .hang)
+        exitReason = try container.decodeIfPresent(ExitReasonInfo.self, forKey: .exitReason)
+        reason = try container.decodeIfPresent(String.self, forKey: .reason)
+        profile = try container.decodeIfPresent(ProfileInfo.self, forKey: .profile)
+        isFatal = try container.decodeIfPresent(Bool.self, forKey: .isFatal)
+        isCleanExit = try container.decodeIfPresent(Bool.self, forKey: .isCleanExit)
+        terminationReason = try container.decodeIfPresent(TerminationReason.self, forKey: .terminationReason)
+
+        // Every unknown key holding an object is a custom-monitor section;
+        // non-object unknown values are not sections and are ignored.
+        let dynamic = try decoder.container(keyedBy: DynamicCodingKey.self)
+        var sections: [String: Metadata] = [:]
+        for key in dynamic.allKeys where !Self.knownKeys.contains(key.stringValue) {
+            if let section = try? dynamic.decode(Metadata.self, forKey: key) {
+                sections[key.stringValue] = section
+            }
+        }
+        monitorData = sections.isEmpty ? nil : sections
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(address, forKey: .address)
+        try container.encodeIfPresent(mach, forKey: .mach)
+        try container.encodeIfPresent(nsexception, forKey: .nsexception)
+        try container.encodeIfPresent(signal, forKey: .signal)
+        try container.encode(type, forKey: .type)
+        try container.encodeIfPresent(subtype, forKey: .subtype)
+        try container.encodeIfPresent(cppException, forKey: .cppException)
+        try container.encodeIfPresent(userReported, forKey: .userReported)
+        try container.encodeIfPresent(hang, forKey: .hang)
+        try container.encodeIfPresent(exitReason, forKey: .exitReason)
+        try container.encodeIfPresent(reason, forKey: .reason)
+        try container.encodeIfPresent(profile, forKey: .profile)
+        try container.encodeIfPresent(isFatal, forKey: .isFatal)
+        try container.encodeIfPresent(isCleanExit, forKey: .isCleanExit)
+        try container.encodeIfPresent(terminationReason, forKey: .terminationReason)
+
+        guard let monitorData else {
+            return
+        }
+        // A section whose id collides with a schema key cannot be encoded
+        // without corrupting the typed field, so it is dropped.
+        var dynamic = encoder.container(keyedBy: DynamicCodingKey.self)
+        for (id, section) in monitorData.sorted(by: { $0.key < $1.key })
+        where !Self.knownKeys.contains(id) {
+            try dynamic.encode(section, forKey: DynamicCodingKey(stringValue: id))
+        }
+    }
+
+    private static let knownKeys = Set(CodingKeys.allCases.map(\.rawValue))
+}
+
+private struct DynamicCodingKey: CodingKey {
+    let stringValue: String
+    var intValue: Int? { nil }
+
+    init(stringValue: String) {
+        self.stringValue = stringValue
+    }
+
+    init?(intValue: Int) {
+        nil
     }
 }

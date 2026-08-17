@@ -27,8 +27,8 @@
 import Foundation
 import KSCrashReportModel
 
-extension CrashReport where UserData == NoUserData {
-    static func decode(from json: String) throws -> CrashReport<NoUserData> {
+extension Report {
+    static func decode(from json: String) throws -> Report {
         guard let data = json.data(using: .utf8) else {
             throw DecodingError.dataCorrupted(
                 DecodingError.Context(
@@ -40,12 +40,12 @@ extension CrashReport where UserData == NoUserData {
         return try decode(from: data)
     }
 
-    static func decode(from data: Data) throws -> CrashReport<NoUserData> {
+    static func decode(from data: Data) throws -> Report {
         let decoder = JSONDecoder()
-        return try decoder.decode(CrashReport<NoUserData>.self, from: data)
+        return try decoder.decode(Report.self, from: data)
     }
 
-    static func decode(from url: URL) throws -> CrashReport<NoUserData> {
+    static func decode(from url: URL) throws -> Report {
         let data = try Data(contentsOf: url)
         return try decode(from: data)
     }
