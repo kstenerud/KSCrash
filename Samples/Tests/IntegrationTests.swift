@@ -151,7 +151,7 @@ final class NSExceptionTests: IntegrationTestBase {
 
 #endif
 
-#if os(iOS) || os(macOS)
+#if os(iOS) || os(macOS) || os(visionOS)
 
     final class MachSignalHandlerChainingTests: IntegrationTestBase {
         func testBadAccessReachesSignalHandlerInstalledAfterKSCrash() throws {
@@ -181,6 +181,7 @@ final class NSExceptionTests: IntegrationTestBase {
             }
 
             XCTAssertEqual(marker.signalNumber, SIGSEGV)
+            XCTAssertEqual(marker.signalCode, SEGV_MAPERR)
             XCTAssertEqual(
                 marker.faultAddress, rawReport.crash.error.address,
                 "The signal handler must receive the original Mach fault address")
