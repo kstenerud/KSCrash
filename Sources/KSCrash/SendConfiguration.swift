@@ -33,15 +33,25 @@ public struct SendConfiguration: Sendable {
     /// `SendError.emptyPipeline` on an empty one.
     public var runSummaryPipeline: [AnyPipelineStage<RunSummary>]
 
+    /// The stages a crash report passes through, in order. An EMPTY pipeline
+    /// is a purge: every pending report trivially reaches the end, so it is
+    /// deleted from disk and reported as delivered without any consumer
+    /// receiving it. Add a stage before sending if you want the reports.
+    public var reportPipeline: [AnyPipelineStage<Report>]
+
     /// Whether delivered items carry their final payload in the result.
     /// Defaults to false, so a send never accumulates payloads in memory.
+    /// Weigh this for reports: a report payload can reach megabytes, and the
+    /// result holds every delivered one at once.
     public var includesDeliveredPayloads: Bool
 
     public init(
         runSummaryPipeline: [AnyPipelineStage<RunSummary>] = [],
+        reportPipeline: [AnyPipelineStage<Report>] = [],
         includesDeliveredPayloads: Bool = false
     ) {
         self.runSummaryPipeline = runSummaryPipeline
+        self.reportPipeline = reportPipeline
         self.includesDeliveredPayloads = includesDeliveredPayloads
     }
 }
