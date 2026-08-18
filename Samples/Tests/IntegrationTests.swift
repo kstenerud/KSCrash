@@ -24,7 +24,9 @@
 // THE SOFTWARE.
 //
 
+import CrashCallback
 import CrashTriggers
+import Darwin
 import IntegrationTestsHelper
 import KSCrashDemangleFilter
 import KSCrashRecording
@@ -144,6 +146,50 @@ final class NSExceptionTests: IntegrationTestBase {
             XCTAssertEqual(
                 mach?.subcode, 0xDEAD_BEEF,
                 "mach.subcode should contain the fault address (0xDEADBEEF)")
+        }
+    }
+
+#endif
+
+#if os(iOS) || os(macOS) || os(visionOS)
+
+    final class MachSignalHandlerChainingTests: IntegrationTestBase {
+        func testBadAccessReachesSignalHandlerInstalledAfterKSCrash() throws {
+            let signalMarkerURL = installUrl.appendingPathComponent("__post_kscrash_signal__")
+
+            try launchAndCrash(.mach_badAccess) { configuration in
+                // Test infrastructure installs this handler after KSCrash.shared.install returns.
+                configuration.postInstallSIGSEGVHandlerMarkerPath = signalMarkerURL.path
+            }
+
+            // A complete Mach report proves that the Mach exception handler ran before
+            // the exception was allowed to continue through XNU's signal path.
+            let rawReport = try readCrashReport()
+            try rawReport.validate()
+            XCTAssertEqual(rawReport.crash.error.type, .mach)
+            XCTAssertEqual(rawReport.crash.error.signal?.signal, UInt64(SIGSEGV))
+
+            // The later handler records the original signal context using write(2),
+            // then restores and re-raises into the handler it displaced.
+            let markerData = try Data(contentsOf: signalMarkerURL)
+            XCTAssertEqual(markerData.count, MemoryLayout<IntegrationTestSignalMarker>.size)
+            guard markerData.count == MemoryLayout<IntegrationTestSignalMarker>.size else {
+                return
+            }
+            let marker = markerData.withUnsafeBytes {
+                $0.loadUnaligned(as: IntegrationTestSignalMarker.self)
+            }
+
+            XCTAssertEqual(marker.signalNumber, SIGSEGV)
+            // The trigger writes to 0x42, inside the no-access Mach-O __PAGEZERO segment.
+            XCTAssertEqual(marker.signalCode, SEGV_ACCERR)
+            XCTAssertEqual(
+                marker.faultAddress, rawReport.crash.error.address,
+                "The signal handler must receive the original Mach fault address")
+            XCTAssertEqual(
+                marker.instructionAddress,
+                rawReport.crashedThread?.backtrace?.contents.first?.instructionAddr,
+                "The signal context and Mach report must point to the same faulting instruction")
         }
     }
 

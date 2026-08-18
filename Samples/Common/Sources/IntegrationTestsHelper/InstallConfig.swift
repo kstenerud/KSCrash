@@ -38,6 +38,8 @@ public struct InstallConfig: Codable {
     public var ignoreSIGPIPEBeforeInstall: Bool?
     public var isSwiftAsyncStackTracesEnabled: Bool?
 
+    public var postInstallSIGSEGVHandlerMarkerPath: String?
+
     public init(installPath: String) {
         self.installPath = installPath
     }
@@ -78,5 +80,13 @@ extension InstallConfig {
         config.willWriteReportCallback = integrationTestWillWriteReportCallback
 
         try KSCrash.shared.install(with: config)
+
+        // Install this only after KSCrash so the test exercises a later signal handler.
+        if let postInstallSIGSEGVHandlerMarkerPath {
+            let error = integrationTestInstallPostKSCrashSIGSEGVHandler(postInstallSIGSEGVHandlerMarkerPath)
+            guard error == 0 else {
+                throw POSIXError(POSIXErrorCode(rawValue: error) ?? .EINVAL)
+            }
+        }
     }
 }

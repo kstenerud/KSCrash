@@ -4,7 +4,10 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
+      - 'Sources/KSCrashRecording/Monitors/KSCrashMonitor_MachException.c'
       - 'Sources/KSCrashRecording/Monitors/KSCrashMonitor_Signal.c'
+      - 'Sources/KSCrashRecordingCore/KSCrashMonitor.c'
+      - 'Sources/KSCrashRecordingCore/KSCrashMonitorRegistry.c'
       - 'Samples/Tests/**'
       - 'Samples/Common/Sources/CrashCallback/**'
       - 'Samples/Common/Sources/CrashTriggers/**'
