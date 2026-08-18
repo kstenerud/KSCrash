@@ -42,6 +42,7 @@ let project = Project(
                 .target(name: "Sample"),
                 .package(product: "SampleUI", type: .runtime),
                 .package(product: "CrashTriggers", type: .runtime),
+                .package(product: "CrashCallback", type: .runtime),
                 .package(product: "IntegrationTestsHelper", type: .runtime),
                 .package(product: "Report", type: .runtime),
             ],
