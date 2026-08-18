@@ -181,7 +181,8 @@ final class NSExceptionTests: IntegrationTestBase {
             }
 
             XCTAssertEqual(marker.signalNumber, SIGSEGV)
-            XCTAssertEqual(marker.signalCode, SEGV_MAPERR)
+            // The trigger writes to 0x42, inside the no-access Mach-O __PAGEZERO segment.
+            XCTAssertEqual(marker.signalCode, SEGV_ACCERR)
             XCTAssertEqual(
                 marker.faultAddress, rawReport.crash.error.address,
                 "The signal handler must receive the original Mach fault address")
