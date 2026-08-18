@@ -36,6 +36,13 @@
 
 const KSCrashReportID KSCrashReportNoID = 0;
 
+static NSError *reportStoreError(NSInteger code, NSString *description)
+{
+    return [NSError errorWithDomain:NSCocoaErrorDomain
+                               code:code
+                           userInfo:@ { NSLocalizedDescriptionKey : description }];
+}
+
 @implementation KSCrashReportStore {
     KSCrashReportStoreCConfiguration _cConfig;
 }
@@ -119,7 +126,9 @@ const KSCrashReportID KSCrashReportNoID = 0;
 {
     int reportCount = kscrs_getReportCount(&_cConfig);
     if (reportCount < 0) {
-        [self setEnumerationError:error];
+        if (error != NULL) {
+            *error = reportStoreError(NSFileReadUnknownError, @"The reports directory could not be enumerated.");
+        }
         return nil;
     }
     if (reportCount == 0) {
@@ -127,13 +136,17 @@ const KSCrashReportID KSCrashReportNoID = 0;
     }
     int64_t *reportIDsC = malloc(sizeof(int64_t) * (size_t)reportCount);
     if (!reportIDsC) {
-        [self setEnumerationError:error];
+        if (error != NULL) {
+            *error = reportStoreError(NSFileReadUnknownError, @"The reports directory could not be enumerated.");
+        }
         return nil;
     }
     reportCount = kscrs_getReportIDs(reportIDsC, reportCount, &_cConfig);
     if (reportCount < 0) {
         free(reportIDsC);
-        [self setEnumerationError:error];
+        if (error != NULL) {
+            *error = reportStoreError(NSFileReadUnknownError, @"The reports directory could not be enumerated.");
+        }
         return nil;
     }
     NSMutableArray *reportIDs = [NSMutableArray arrayWithCapacity:(NSUInteger)reportCount];
@@ -144,28 +157,14 @@ const KSCrashReportID KSCrashReportNoID = 0;
     return [reportIDs copy];
 }
 
-- (void)setEnumerationError:(NSError **)error
-{
-    if (error != NULL) {
-        *error = [NSError
-            errorWithDomain:NSCocoaErrorDomain
-                       code:NSFileReadUnknownError
-                   userInfo:@{ NSLocalizedDescriptionKey : @"The reports directory could not be enumerated." }];
-    }
-}
-
 - (BOOL)removeReportWithID:(int64_t)reportID error:(NSError **)error
 {
     if (kscrs_deleteReportWithID(reportID, &_cConfig)) {
         return YES;
     }
     if (error != NULL) {
-        *error = [NSError errorWithDomain:NSCocoaErrorDomain
-                                     code:NSFileWriteUnknownError
-                                 userInfo:@{
-                                     NSLocalizedDescriptionKey :
-                                         [NSString stringWithFormat:@"Report %lld could not be deleted.", reportID]
-                                 }];
+        *error = reportStoreError(NSFileWriteUnknownError,
+                                  [NSString stringWithFormat:@"Report %lld could not be deleted.", reportID]);
     }
     return NO;
 }
