@@ -55,7 +55,7 @@ The run summary is built from the previous run's context by `buildSummary` in
 `sessions.records`; the records are the single source of truth for a run's sessions and
 are merged in only at send time.
 
-At send, the Swift store (`RunStore.summary()` in the `KSCrash` module) reads
+At send, the Swift store (`Store.summary(of:)` in `Store+Runs.swift`, `KSCrash` module) reads
 `<run_id>.sessions` through the C reader and attaches the records. There are no aggregate
 session/user counts on the summary; a consumer derives whatever it needs from
 `records` (each record carries its perceptibility, user, and timestamps).
@@ -80,6 +80,7 @@ pending summaries keep their artifacts. See `monitor-sidecars.md` for the run-si
 - `KSCrashMonitor_Lifecycle.{h,m}`: live session recording; `kslifecycle_currentSessionID`, `kslifecycle_copyLastSessionIDForRunID`
 - `KSCrashMonitor_LifecycleStitch.m`: adds `report.session_id` at delivery
 - `KSCrashRunContext.m`: `buildSummary`, `ksruncontext_persistPreviousRunSummary`
-- `Sources/KSCrash/RunStore.swift` / `RunSummarySend.swift`: send-time merge, metadata stitch, and the async send
+- `Sources/KSCrash/Store.swift` / `Store+Runs.swift`: the store, its run listing (`snapshotRuns()`), send-time merge and metadata stitch
+- `Sources/KSCrash/SendDriver.swift` / `RunSummarySend.swift`: the shared send loop and the run-summary send built on it
 - `KSCrashReportStoreC.m`: `kscrs_reclaimOrphanedRunData`
 - `KSCrashReportFields.h`: `KSCrashRunSummaryField_*` wire keys, `KSCrashField_SessionID`

@@ -94,7 +94,9 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
  * may be skipped (very unlikely in practice).
  *
  * @param userInfoJSON Pre-baked JSON containing user-supplied information.
- *                     NULL = delete.
+ *                     Must be a JSON object: a report whose user section is
+ *                     not an object does not decode into the typed Report and
+ *                     is kept, undelivered, by the send. NULL = delete.
  */
 void kscrash_setUserInfoJSON(const char *const userInfoJSON)
     KSCRASH_DEPRECATED("Use the per-key API (kscrash_setUserInfoString, etc.) instead");

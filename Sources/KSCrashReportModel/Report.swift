@@ -72,7 +72,9 @@ public struct Report: Codable, Sendable, Equatable {
     /// System information at the time of crash.
     public let system: SystemInfo?
 
-    /// App data attached via the userInfo API.
+    /// App data attached via the userInfo API. The user section must be a
+    /// JSON object; a report whose user section is any other shape does not
+    /// decode.
     public let metadata: Metadata?
 
     /// Data contributed by custom monitors at delivery time, keyed by monitor
@@ -113,10 +115,7 @@ public struct Report: Codable, Sendable, Equatable {
     public func monitorData<Value: Decodable>(
         _ type: Value.Type = Value.self, for monitorID: String
     ) throws -> Value? {
-        guard let section = monitorData?[monitorID] else {
-            return nil
-        }
-        return try section.decoded(as: Value.self)
+        try monitorData.decodedSection(Value.self, for: monitorID)
     }
 
     enum CodingKeys: String, CodingKey {

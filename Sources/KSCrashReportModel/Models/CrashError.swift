@@ -175,10 +175,7 @@ public struct CrashError: Codable, Sendable, Equatable {
     public func monitorData<Value: Decodable>(
         _ type: Value.Type = Value.self, for monitorID: String
     ) throws -> Value? {
-        guard let section = monitorData?[monitorID] else {
-            return nil
-        }
-        return try section.decoded(as: Value.self)
+        try monitorData.decodedSection(Value.self, for: monitorID)
     }
 
     public init(
