@@ -684,7 +684,7 @@ static CFDictionaryRef throwingStitchReport(__unused CFDictionaryRef reportDict,
     int64_t reportID = [self writeReportWithRunId:runId];
     [self writeRunSidecar:@"TestStitchMonitor" runId:runId contents:@"hello from sidecar"];
 
-    char *rawReport = kscrs_readReport(reportID, &_storeConfig);
+    char *rawReport = kscrs_readReport(reportID, &_storeConfig, NULL);
     XCTAssertTrue(rawReport != NULL);
 
     NSData *data = [NSData dataWithBytesNoCopy:rawReport length:strlen(rawReport) freeWhenDone:YES];
@@ -803,7 +803,7 @@ static CFDictionaryRef throwingStitchReport(__unused CFDictionaryRef reportDict,
     int64_t reportID = [self writeReportWithRunId:runId];
     // No run sidecar written
 
-    char *rawReport = kscrs_readReport(reportID, &_storeConfig);
+    char *rawReport = kscrs_readReport(reportID, &_storeConfig, NULL);
     XCTAssertTrue(rawReport != NULL);
 
     NSData *data = [NSData dataWithBytesNoCopy:rawReport length:strlen(rawReport) freeWhenDone:YES];
@@ -822,7 +822,7 @@ static CFDictionaryRef throwingStitchReport(__unused CFDictionaryRef reportDict,
     // Write a sidecar for a monitor that isn't registered
     [self writeRunSidecar:@"UnknownMonitor" runId:runId contents:@"should be ignored"];
 
-    char *rawReport = kscrs_readReport(reportID, &_storeConfig);
+    char *rawReport = kscrs_readReport(reportID, &_storeConfig, NULL);
     XCTAssertTrue(rawReport != NULL);
 
     NSData *data = [NSData dataWithBytesNoCopy:rawReport length:strlen(rawReport) freeWhenDone:YES];
@@ -843,8 +843,8 @@ static CFDictionaryRef throwingStitchReport(__unused CFDictionaryRef reportDict,
     [self writeRunSidecar:@"TestStitchMonitor" runId:runId contents:@"shared data"];
 
     // Both reports should get the same stitched data
-    char *raw1 = kscrs_readReport(reportID1, &_storeConfig);
-    char *raw2 = kscrs_readReport(reportID2, &_storeConfig);
+    char *raw1 = kscrs_readReport(reportID1, &_storeConfig, NULL);
+    char *raw2 = kscrs_readReport(reportID2, &_storeConfig, NULL);
     XCTAssertTrue(raw1 != NULL);
     XCTAssertTrue(raw2 != NULL);
 
