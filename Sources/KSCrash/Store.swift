@@ -41,26 +41,16 @@ struct Run: Sendable {
     let sidecarDirectory: URL?
 }
 
-/// A crash report's on-disk identity. IDs are minted chronologically, so
-/// their order is the reports' age order.
-typealias ReportID = Int64
-
-/// Point-in-time view of the disk, as one movable value. Pure data, no I/O:
-/// a send walks its snapshot and can never mix state from two listings.
-struct Snapshot: Sendable {
-    /// Every past run with data on disk. Runs with a summary come first,
-    /// newest first; artifact-only runs follow.
-    let runs: [Run]
-
-    /// Every pending crash report, newest first.
-    let reportIDs: [ReportID]
-}
+/// A pending crash report's identity in the store. IDs are minted
+/// chronologically, so their order is the reports' age order.
+public typealias ReportID = Int64
 
 /// The on-disk state of the install: past runs (summaries, sessions, run
 /// sidecars) and pending crash reports. All reads and deletes live here;
-/// snapshot values are inert. Artifact paths are only ever taken from
-/// directory enumeration, never built from decoded run IDs, so a corrupt
-/// `.run` cannot address files outside the store.
+/// the listings are inert values. The two halves are listed separately, so
+/// a send depends only on the directories it delivers from. Artifact paths
+/// are only ever taken from directory enumeration, never built from decoded
+/// run IDs, so a corrupt `.run` cannot address files outside the store.
 struct Store: Sendable {
     let runsDirectory: URL
     let runSidecarsDirectory: URL
@@ -107,18 +97,23 @@ struct Store: Sendable {
         self.reclaim = reclaim
     }
 
-    /// Immutable snapshot of every past run with data on disk: all artifacts
+    /// Every pending crash report, newest first. Throws when the Reports
+    /// directory cannot be enumerated; the runs half is not touched.
+    func snapshotReportIDs() throws -> [ReportID] {
+        // The listing is the C store's (it owns the Reports directory).
+        // Descending is newest first: IDs are chronological.
+        try reports.list().sorted(by: >)
+    }
+
+    /// Every past run with data on disk, as inert values: all artifacts
     /// (`.run` decodes, `.sessions` filenames, sidecar subdirectories) grouped
-    /// by runID. A pure read; callers that want retention enforced call
+    /// by runID. Runs with a summary come first, newest first; artifact-only
+    /// runs follow. A pure read; callers that want retention enforced call
     /// `pruneRunSummaries(keepingNewest:)` first. An undecodable or
     /// runID-less `.run` is skipped and left on disk for pruning. Throws when
-    /// the Runs or RunSidecars directory exists but cannot be read.
-    func snapshot() throws -> Snapshot {
-        // The report listing is the C store's (it owns the Reports directory);
-        // captured with the runs so both halves of the snapshot come from one
-        // moment. Descending is newest first: IDs are chronological.
-        let reportIDs = try reports.list().sorted(by: >)
-
+    /// the Runs or RunSidecars directory exists but cannot be read; the
+    /// reports half is not touched.
+    func snapshotRuns() throws -> [Run] {
         // One directory listing is the snapshot's point-in-time boundary:
         // everything below works off this list and never re-reads the
         // directory, so files appearing mid-send are simply not part of this
@@ -130,7 +125,7 @@ struct Store: Sendable {
         do {
             entries = try FileManager.default.contentsOfDirectory(atPath: runsDirectory.path)
         } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
-            return Snapshot(runs: [], reportIDs: reportIDs)
+            return []
         }
 
         // A run's artifacts share nothing but the runID, so the snapshot is a
@@ -249,10 +244,8 @@ struct Store: Sendable {
                 artifactOnly.append(run)
             }
         }
-        let runs =
-            withSummary.sorted { $0.orderNs > $1.orderNs }.map(\.run)
+        return withSummary.sorted { $0.orderNs > $1.orderNs }.map(\.run)
             + artifactOnly.sorted { $0.runID < $1.runID }
-        return Snapshot(runs: runs, reportIDs: reportIDs)
     }
 
     /// Remove shared run data nothing references any more.
@@ -262,9 +255,9 @@ struct Store: Sendable {
 
     /// Delete the oldest writer-named `.run` files beyond `max`; 0 or
     /// negative deletes nothing. Retention is deliberately a send-path
-    /// concern (install only appends, keeping launch cheap): the drivers
-    /// call this before `snapshot()`, so a snapshot never points at a
-    /// pruned file.
+    /// concern (install only appends, keeping launch cheap): the send calls
+    /// this before `snapshotRuns()`, so a listing never points at a pruned
+    /// file.
     func pruneRunSummaries(keepingNewest max: Int) {
         guard max > 0,
             let entries = try? FileManager.default.contentsOfDirectory(atPath: runsDirectory.path)
@@ -304,16 +297,23 @@ struct ReportBridge: Sendable {
 }
 
 extension Store {
-    /// The stitched report, decoded. nil when the item cannot be delivered
-    /// right now (missing file, stale snapshot entry, or a read or decode
-    /// failure): skipped, kept on disk, retried by the next send. Under a
-    /// send's claim the stale check is race-free, because deletes only
-    /// happen under the claim.
-    func report(_ id: ReportID) -> Report? {
+    /// The stitched report, decoded. nil when the item cannot be read right
+    /// now (missing file, stale listing entry, or a read failure): skipped,
+    /// kept on disk, retried by the next send. Throws the decode error when
+    /// the report was read but does not decode: that is deterministic, so
+    /// the send surfaces it as a kept item instead of silently retrying it
+    /// forever; the file stays on disk. Under a send's claim the stale check
+    /// is race-free, because deletes only happen under the claim.
+    func report(_ id: ReportID) throws -> Report? {
         guard let data = reports.read(id) else {
             return nil
         }
-        return try? JSONDecoder().decode(Report.self, from: data)
+        do {
+            return try JSONDecoder().decode(Report.self, from: data)
+        } catch {
+            os_log(.error, "Undecodable report %lld: %{public}@", id, String(describing: error))
+            throw error
+        }
     }
 
     /// Delete one report (and, through the C store, its report sidecars).

@@ -32,17 +32,16 @@ extension KSCrash {
     /// Send the pending run summaries through
     /// `configuration.runSummaryPipeline`, one at a time, newest run first,
     /// and return the per-run outcomes. Summaries are only ever handed to
-    /// stages one at a time; the result carries payloads only when
-    /// `configuration.includesDeliveredPayloads` is set. Concurrent sends
-    /// partition the pending runs between them. Throws when the run store
-    /// cannot be read; cancellation stops between runs and returns the
+    /// stages one at a time, and never held in the result. Concurrent sends
+    /// partition the pending runs between them. Throws only when the run
+    /// store cannot be read; cancellation stops between runs and returns the
     /// outcomes so far. Before `install`, the result is empty. An empty
-    /// `runSummaryPipeline` throws `SendError.emptyPipeline`.
+    /// `runSummaryPipeline` is a purge: every pending summary is deleted and
+    /// reported as delivered without any consumer receiving it.
     public func sendRunSummaries(with configuration: SendConfiguration) async throws -> SendResult<RunSummary> {
         try await RunSummarySend.send(
             store: Self.store(reportStore: reportStore),
             pipeline: configuration.runSummaryPipeline,
-            includesDeliveredPayloads: configuration.includesDeliveredPayloads,
             maxRunCount: Self.maxRunCount
         )
     }
@@ -57,7 +56,6 @@ extension KSCrash {
         try await RunSummarySend.send(
             store: Self.store(reportStore: reportStore),
             pipeline: configuration.runSummaryPipeline,
-            includesDeliveredPayloads: configuration.includesDeliveredPayloads,
             maxRunCount: Self.maxRunCount,
             only: Set(ids)
         )
@@ -65,40 +63,39 @@ extension KSCrash {
 
     /// Send the pending crash reports through `configuration.reportPipeline`,
     /// one at a time, newest report first, and return the per-report
-    /// outcomes. Reports are only ever handed to stages one at a time; the
-    /// result carries payloads only when
-    /// `configuration.includesDeliveredPayloads` is set. Reports from the
+    /// outcomes. Reports are only ever handed to stages one at a time, and
+    /// never held in the result. Reports from the
     /// current run are skipped, they may still be updated; use
-    /// `sendReports(with:only:)` to send one deliberately. Concurrent sends
-    /// partition the pending reports between them. Throws only when the
-    /// report store cannot be read; cancellation stops between reports and
-    /// returns the outcomes so far. Before `install`, the result is empty. An
-    /// empty `reportPipeline` is a purge: every pending report is deleted and
-    /// reported as delivered without any consumer receiving it.
+    /// `sendReports(with:only:)` to send one deliberately. A report that does
+    /// not decode is reported as kept, carrying the decode error, and stays on
+    /// disk. Concurrent sends partition the pending reports between them.
+    /// Throws only when the report store cannot be read; cancellation stops
+    /// between reports and returns the outcomes so far. Before `install`, the
+    /// result is empty. An empty `reportPipeline` is a purge: every pending
+    /// report is deleted and reported as delivered without any consumer
+    /// receiving it.
     public func sendReports(with configuration: SendConfiguration) async throws -> SendResult<Report> {
         try await ReportSend.send(
             store: Self.store(reportStore: reportStore),
             pipeline: configuration.reportPipeline,
-            includesDeliveredPayloads: configuration.includesDeliveredPayloads,
             maxRunCount: Self.maxRunCount
         )
     }
 
     /// Like `sendReports(with:)`, but only for the reports whose ids are in
-    /// `ids`, and current-run reports are sent rather than skipped: naming an
-    /// id is a deliberate choice. Every other pending report is untouched and
-    /// absent from the result. Unknown ids match nothing; an empty `ids`
-    /// sends nothing.
+    /// `ids` (the ids a previous result reported), and current-run reports
+    /// are sent rather than skipped: naming an id is a deliberate choice.
+    /// Every other pending report is untouched and absent from the result.
+    /// Unknown ids match nothing; an empty `ids` sends nothing.
     public func sendReports(
         with configuration: SendConfiguration,
-        only ids: [String]
+        only ids: [ReportID]
     ) async throws -> SendResult<Report> {
         try await ReportSend.send(
             store: Self.store(reportStore: reportStore),
             pipeline: configuration.reportPipeline,
-            includesDeliveredPayloads: configuration.includesDeliveredPayloads,
             maxRunCount: Self.maxRunCount,
-            only: Set(ids.compactMap(Int64.init))
+            only: Set(ids)
         )
     }
 

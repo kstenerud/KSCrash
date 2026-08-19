@@ -38,8 +38,8 @@ public protocol PipelineStage<Payload>: Sendable {
 
 /// What the pipeline decided for one item; the drivers map this onto disk
 /// state (delete on delivered or discarded, keep on kept).
-enum PipelineOutcome<Payload> {
-    case delivered(Payload)
+enum PipelineOutcome {
+    case delivered
     case discarded
     case kept(any Error)
 }
@@ -48,7 +48,7 @@ enum PipelineOutcome<Payload> {
 /// into `.kept` so one failing item cannot end a send.
 func runPipeline<Payload>(
     _ payload: Payload, through stages: [AnyPipelineStage<Payload>]
-) async -> PipelineOutcome<Payload> {
+) async -> PipelineOutcome {
     var payload = payload
     for stage in stages {
         do {
@@ -60,5 +60,5 @@ func runPipeline<Payload>(
             return .kept(error)
         }
     }
-    return .delivered(payload)
+    return .delivered
 }
