@@ -34,8 +34,6 @@
 // #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
 
-const KSCrashReportID KSCrashReportNoID = 0;
-
 static NSError *reportStoreError(NSInteger code, NSString *description)
 {
     return [NSError errorWithDomain:NSCocoaErrorDomain
@@ -81,26 +79,14 @@ static NSError *reportStoreError(NSInteger code, NSString *description)
 
 - (NSInteger)reportCount
 {
-    return kscrs_getReportCount(&_cConfig);
-}
-
-- (KSCrashReportID)nextReportID
-{
-    KSCrashReportID reportID = KSCrashReportNoID;
-    if (kscrs_getReportIDs(&reportID, 1, &_cConfig) <= 0) {
-        return KSCrashReportNoID;
-    }
-    return reportID;
+    // The property is a count: an enumeration failure (the C store's -1)
+    // reads as no reports here, and surfaces through listReportIDsWithError:.
+    return MAX(kscrs_getReportCount(&_cConfig), 0);
 }
 
 - (void)deleteAllReports
 {
     kscrs_deleteAllReports(&_cConfig);
-}
-
-- (void)deleteReportWithID:(int64_t)reportID
-{
-    kscrs_deleteReportWithID(reportID, &_cConfig);
 }
 
 - (void)reclaimOrphanedRunData
@@ -115,11 +101,6 @@ static NSError *reportStoreError(NSInteger code, NSString *description)
         return [NSData dataWithBytesNoCopy:report length:strlen(report) freeWhenDone:YES];
     }
     return nil;
-}
-
-- (NSArray<NSNumber *> *)reportIDs
-{
-    return [self listReportIDsWithError:NULL] ?: @[];
 }
 
 - (nullable NSArray<NSNumber *> *)listReportIDsWithError:(NSError **)error
@@ -200,25 +181,6 @@ static NSError *reportStoreError(NSInteger code, NSString *description)
     }
 
     return [KSCrashReportDictionary reportWithValue:crashReport];
-}
-
-- (NSArray<KSCrashReportDictionary *> *)allReports
-{
-    int reportCount = kscrs_getReportCount(&_cConfig);
-    if (reportCount <= 0) {
-        return @[];
-    }
-    int64_t reportIDs[reportCount];
-    reportCount = kscrs_getReportIDs(reportIDs, reportCount, &_cConfig);
-    NSMutableArray<KSCrashReportDictionary *> *reports = [NSMutableArray arrayWithCapacity:(NSUInteger)reportCount];
-    for (int i = 0; i < reportCount; i++) {
-        KSCrashReportDictionary *report = [self reportForID:reportIDs[i]];
-        if (report != nil) {
-            [reports addObject:report];
-        }
-    }
-
-    return reports;
 }
 
 @end

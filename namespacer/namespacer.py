@@ -49,7 +49,7 @@ ALWAYS_ADDED_SYMBOLS = [
                         "KSCrashAppMemory",
                         "KSCrashAppMemoryTrackerDelegate",
                         "KSCrashMailProcess",
-                        "KSCrashReportNoID",
+                        "KSCrashReportID",
                        ]
 
 # Ignore function names that match any of these:

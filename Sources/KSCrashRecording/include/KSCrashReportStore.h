@@ -37,9 +37,6 @@ NS_ASSUME_NONNULL_BEGIN
 /** A unique identifier for a crash report. */
 typedef int64_t KSCrashReportID NS_SWIFT_NAME(CrashReportID);
 
-/** Sentinel value indicating no report is available. */
-FOUNDATION_EXTERN const KSCrashReportID KSCrashReportNoID;
-
 NS_SWIFT_NAME(CrashReportStore)
 @interface KSCrashReportStore : NSObject
 
@@ -72,17 +69,12 @@ NS_SWIFT_NAME(CrashReportStore)
 
 #pragma mark - Configuration
 
-/** The total number of unsent reports. Note: This is an expensive operation.
+/** The number of unsent reports; 0 when the store cannot be read (see
+ * listReportIDsWithError: for the failure). Note: This is an expensive operation.
  */
 @property(nonatomic, readonly, assign) NSInteger reportCount;
 
 #pragma mark - Reports API
-
-/** Get all unsent report IDs. */
-@property(nonatomic, readonly, strong) NSArray<NSNumber *> *reportIDs;
-
-/** Get the oldest unsent report ID, or KSCrashReportNoID if the store is empty. */
-@property(nonatomic, readonly, assign) KSCrashReportID nextReportID;
 
 /** Get report.
  *
@@ -103,12 +95,6 @@ NS_SWIFT_NAME(CrashReportStore)
 /** Delete all unsent reports.
  */
 - (void)deleteAllReports;
-
-/** Delete report.
- *
- * @param reportID An ID of report to delete.
- */
-- (void)deleteReportWithID:(KSCrashReportID)reportID NS_SWIFT_NAME(deleteReport(with:));
 
 /** All unsent report IDs, oldest first.
  *

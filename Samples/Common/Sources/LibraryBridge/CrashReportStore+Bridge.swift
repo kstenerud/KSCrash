@@ -34,7 +34,7 @@ extension CrashReportStore {
     /// Log a short model-level summary of every pending report. Reads only;
     /// reports stay on disk.
     public func logToConsole() {
-        for id in reportIDs {
+        for id in (try? listReportIDs()) ?? [] {
             guard let data = reportData(for: id.int64Value)?.value else { continue }
             let summary =
                 (try? JSONDecoder().decode(Report.self, from: data))
@@ -45,7 +45,7 @@ extension CrashReportStore {
 
     /// Dump each pending report's raw JSON. Reads only; reports stay on disk.
     public func logRawToConsole() {
-        for id in reportIDs {
+        for id in (try? listReportIDs()) ?? [] {
             guard let data = reportData(for: id.int64Value)?.value,
                 let json = String(data: data, encoding: .utf8)
             else { continue }

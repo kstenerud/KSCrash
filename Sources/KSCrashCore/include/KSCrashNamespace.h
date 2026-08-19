@@ -60,7 +60,6 @@
 #define KSCrashReportData KSCRASH_NS(KSCrashReportData)
 #define KSCrashReportDictionary KSCRASH_NS(KSCrashReportDictionary)
 #define KSCrashReportID KSCRASH_NS(KSCrashReportID)
-#define KSCrashReportNoID KSCRASH_NS(KSCrashReportNoID)
 #define KSCrashReportStore KSCRASH_NS(KSCrashReportStore)
 #define KSCrashReportStoreCConfiguration KSCRASH_NS(KSCrashReportStoreCConfiguration)
 #define KSCrashReportStoreConfiguration KSCRASH_NS(KSCrashReportStoreConfiguration)
