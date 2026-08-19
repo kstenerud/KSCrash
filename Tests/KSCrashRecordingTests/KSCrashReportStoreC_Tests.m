@@ -126,7 +126,7 @@
 
 - (void)loadReportID:(int64_t)reportID reportString:(NSString *__autoreleasing *)reportString
 {
-    char *reportBytes = kscrs_readReport(reportID, &_storeConfig);
+    char *reportBytes = kscrs_readReport(reportID, &_storeConfig, NULL);
 
     if (reportBytes == NULL) {
         reportString = nil;
@@ -634,13 +634,53 @@
 
 #pragma mark - Malformed Report Section
 
+- (void)testReadReportStatusOKForAReport
+{
+    [self prepareReportStoreWithPathEnd:@"testReadStatusOK"];
+    int64_t reportID = [self writeUserReportWithStringContents:REPORT_CONTENTS(0)];
+
+    KSCrashReportReadStatus status = KSCrashReportReadStatusUnreadable;
+    char *report = kscrs_readReport(reportID, &_storeConfig, &status);
+    XCTAssertTrue(report != NULL);
+    XCTAssertEqual(status, KSCrashReportReadStatusOK);
+    free(report);
+}
+
+- (void)testReadReportStatusUnreadableForAMissingReport
+{
+    [self prepareReportStoreWithPathEnd:@"testReadStatusUnreadable"];
+
+    KSCrashReportReadStatus status = KSCrashReportReadStatusOK;
+    char *report = kscrs_readReport(12345, &_storeConfig, &status);
+    XCTAssertTrue(report == NULL);
+    XCTAssertEqual(status, KSCrashReportReadStatusUnreadable);
+}
+
+- (void)testReadReportStatusUndecodableForANonObjectReport
+{
+    [self prepareReportStoreWithPathEnd:@"testReadStatusUndecodable"];
+    int64_t arrayID = [self writeUserReportWithStringContents:@"[1,2]"];
+    int64_t emptyID = [self writeUserReportWithStringContents:@""];
+
+    KSCrashReportReadStatus status = KSCrashReportReadStatusOK;
+    XCTAssertTrue(kscrs_readReport(arrayID, &_storeConfig, &status) == NULL);
+    XCTAssertEqual(status, KSCrashReportReadStatusUndecodable);
+
+    status = KSCrashReportReadStatusOK;
+    XCTAssertTrue(kscrs_readReport(emptyID, &_storeConfig, &status) == NULL);
+    XCTAssertEqual(status, KSCrashReportReadStatusUndecodable);
+
+    // A status of NULL is allowed.
+    XCTAssertTrue(kscrs_readReport(arrayID, &_storeConfig, NULL) == NULL);
+}
+
 - (void)testReadReportWithReportSectionAsString
 {
     [self prepareReportStoreWithPathEnd:@"testMalformedReportString"];
     NSString *json = @"{\"report\":\"not a dict\",\"crash\":{}}";
     int64_t reportID = kscrs_addUserReport(json.UTF8String, (int)json.length, &_storeConfig);
 
-    char *report = kscrs_readReport(reportID, &_storeConfig);
+    char *report = kscrs_readReport(reportID, &_storeConfig, NULL);
     XCTAssertTrue(report != NULL, @"Should not crash on report section being a string");
     free(report);
 }
@@ -651,7 +691,7 @@
     NSString *json = @"{\"report\":[1,2,3],\"crash\":{}}";
     int64_t reportID = kscrs_addUserReport(json.UTF8String, (int)json.length, &_storeConfig);
 
-    char *report = kscrs_readReport(reportID, &_storeConfig);
+    char *report = kscrs_readReport(reportID, &_storeConfig, NULL);
     XCTAssertTrue(report != NULL, @"Should not crash on report section being an array");
     free(report);
 }
@@ -662,7 +702,7 @@
     NSString *json = @"{\"crash\":{\"error\":{}}}";
     int64_t reportID = kscrs_addUserReport(json.UTF8String, (int)json.length, &_storeConfig);
 
-    char *report = kscrs_readReport(reportID, &_storeConfig);
+    char *report = kscrs_readReport(reportID, &_storeConfig, NULL);
     XCTAssertTrue(report != NULL, @"Should not crash when report section is absent");
     free(report);
 }
@@ -677,7 +717,7 @@
     NSString *json = @"{\"report\":{\"id\":\"1\"},\"user\":{\"note\":\"red\\u001btext\"}}";
     int64_t reportID = [self writeCrashReportWithStringContents:json];
 
-    char *bytes = kscrs_readReport(reportID, &_storeConfig);
+    char *bytes = kscrs_readReport(reportID, &_storeConfig, NULL);
     XCTAssertTrue(bytes != NULL, @"a report holding a control character must still read");
     if (bytes == NULL) {
         // Reading on would fault and take every other test in the bundle with it.
@@ -707,7 +747,7 @@
     NSString *json = @"{\"report\":\"not a dict\",\"crash\":{}}";
     int64_t reportID = kscrs_addUserReport(json.UTF8String, (int)json.length, &_storeConfig);
 
-    char *report = kscrs_readReport(reportID, &_storeConfig);
+    char *report = kscrs_readReport(reportID, &_storeConfig, NULL);
     XCTAssertTrue(report != NULL, @"Should not crash on malformed report section with run sidecars enabled");
     free(report);
 }
@@ -720,7 +760,7 @@
                      @"\"list\":[\"a\",null,\"b\"]}}";
     int64_t reportID = [self writeCrashReportWithStringContents:json];
 
-    char *reportBytes = kscrs_readReport(reportID, &_storeConfig);
+    char *reportBytes = kscrs_readReport(reportID, &_storeConfig, NULL);
     XCTAssertTrue(reportBytes != NULL);
     NSData *data = [NSData dataWithBytesNoCopy:reportBytes length:strlen(reportBytes) freeWhenDone:YES];
 

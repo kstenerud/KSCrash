@@ -158,7 +158,7 @@ private func readReports() -> [[String: Any]] {
 
     var reports: [[String: Any]] = []
     for reportID in reportIDs {
-        if let report = reportStore.report(for: reportID.int64Value) {
+        if let report = try? reportStore.report(for: reportID.int64Value) {
             let value = report.value
             print("[LeaksTest] Read report \(reportID), \(value.keys.count) top-level keys")
             reports.append(value)

@@ -85,16 +85,30 @@ int kscrs_getReportCount(const KSCrashReportStoreCConfiguration *const configura
  */
 int kscrs_getReportIDs(int64_t *reportIDs, int count, const KSCrashReportStoreCConfiguration *const configuration);
 
+/** Why kscrs_readReport returned NULL. */
+typedef enum {
+    KSCrashReportReadStatusOK = 0,
+
+    /** The report file is missing or could not be read. */
+    KSCrashReportReadStatusUnreadable,
+
+    /** The report file was read but does not hold a JSON report object, so it
+     * cannot be stitched or delivered. Reading it again gives the same answer. */
+    KSCrashReportReadStatusUndecodable,
+} KSCrashReportReadStatus;
+
 /** Read a report.
  *
  * @warning MEMORY MANAGEMENT WARNING: User is responsible for calling free() on the returned value.
  *
  * @param reportID The report's ID.
  * @param configuration The store configuretion (e.g. reports path, app name etc).
+ * @param status Why a NULL was returned (may be NULL).
  *
- * @return The NULL terminated report, or NULL if not found.
+ * @return The NULL terminated report, or NULL if it could not be read or is not a report.
  */
-char *kscrs_readReport(int64_t reportID, const KSCrashReportStoreCConfiguration *const configuration);
+char *kscrs_readReport(int64_t reportID, const KSCrashReportStoreCConfiguration *const configuration,
+                       KSCrashReportReadStatus *status);
 
 /** Read a report at a given path.
  * This is a convenience method for reading reports that are not in the standard reports directory.

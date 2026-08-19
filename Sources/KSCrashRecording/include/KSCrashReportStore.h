@@ -79,18 +79,25 @@ NS_SWIFT_NAME(CrashReportStore)
 /** Get report.
  *
  * @param reportID An ID of report.
+ * @param error Set when the report could not be read (`NSFileReadUnknownError`)
+ * or was read but is not a JSON report (`NSFileReadCorruptFileError`).
  *
- * @return A crash report with a dictionary value. The dictionary fields are described in KSCrashReportFields.h.
+ * @return A crash report with a dictionary value, or nil on error. The dictionary fields are described in
+ * KSCrashReportFields.h.
  */
-- (nullable KSCrashReportDictionary *)reportForID:(KSCrashReportID)reportID NS_SWIFT_NAME(report(for:));
+- (nullable KSCrashReportDictionary *)reportForID:(KSCrashReportID)reportID
+                                            error:(NSError **)error NS_SWIFT_NAME(report(for:));
 
 /** Get report Data.
  *
  * @param reportID An ID of report.
+ * @param error Set when the report could not be read (`NSFileReadUnknownError`)
+ * or was read but is not a JSON report (`NSFileReadCorruptFileError`).
  *
- * @return A crash report with a data value.
+ * @return A crash report with a data value, or nil on error.
  */
-- (nullable KSCrashReportData *)reportDataForID:(int64_t)reportID NS_SWIFT_NAME(reportData(for:));
+- (nullable KSCrashReportData *)reportDataForID:(KSCrashReportID)reportID
+                                          error:(NSError **)error NS_SWIFT_NAME(reportData(for:));
 
 /** Delete all unsent reports.
  */
