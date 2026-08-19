@@ -45,13 +45,13 @@ jobs:
     steps:
       # ── Checkout ──────────────────────────────────────────────
       - name: Checkout PR Branch
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: pr-branch
 
       - name: Checkout Base Branch
         if: github.event_name == 'pull_request'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           path: base-branch
@@ -76,7 +76,7 @@ jobs:
         run: gem install xcpretty
 
       - name: Cache Infer Binary
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.cache/infer-*
           key: infer-${{ env.INFER_VERSION }}-${{ runner.arch }}
