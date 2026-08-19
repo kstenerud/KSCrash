@@ -183,8 +183,7 @@ private func exerciseSendPipeline() {
     let done = DispatchSemaphore(value: 0)
     Task {
         let configuration = SendConfiguration(
-            reportPipeline: [AnyPipelineStage(LogStage())],
-            includesDeliveredPayloads: true
+            reportPipeline: [AnyPipelineStage(LogStage())]
         )
         do {
             let bulk = try await KSCrash.shared.sendReports(with: configuration)

@@ -59,39 +59,17 @@ final class StoreTests: XCTestCase {
     }
 
     private func snapshotRuns(liveRunID: String? = nil) throws -> [Run] {
-        try makeStore(liveRunID: liveRunID).snapshot().runs
+        try makeStore(liveRunID: liveRunID).snapshotRuns()
     }
 
     private func summary(at index: Int = 0) throws -> RunSummary? {
         let store = makeStore()
-        return store.summary(of: try store.snapshot().runs[index])
-    }
-
-    private func makeSummary(runID: String, startedAtMs: Int64 = 1_000, endedAtMs: Int64 = 2_000) -> RunSummary {
-        RunSummary(
-            schemaVersion: 1,
-            sdkVersion: "test",
-            runID: runID,
-            deviceID: "device",
-            startedAtMs: startedAtMs,
-            endedAtMs: endedAtMs,
-            isBeingDebugged: false,
-            outcome: .init(terminationReason: .clean, userPerceptible: false),
-            durations: .init(activeMs: 0, backgroundMs: 0),
-            sessions: .init(records: []),
-            app: .init(bundleID: "bundle", version: "1", shortVersion: "1", hostKind: .app),
-            os: .init(name: "os", version: "1", build: "1"),
-            device: .init(
-                model: "model", modelFamily: "family", architecture: "arch",
-                binaryArchitecture: "arch", isTranslated: false, isJailbroken: false)
-        )
+        return store.summary(of: try store.snapshotRuns()[index])
     }
 
     @discardableResult
     private func writeSummary(_ summary: RunSummary, startNs: UInt64) throws -> URL {
-        let url = runsDirectory.appendingPathComponent(String(format: "%019llu.run", startNs))
-        try JSONEncoder().encode(summary).write(to: url)
-        return url
+        try KSCrashTests.writeSummary(summary, startNs: startNs, in: runsDirectory)
     }
 
     private func writeSessions(runID: String, cuts: [(perceptible: Bool, user: String?)]) {
@@ -210,7 +188,7 @@ final class StoreTests: XCTestCase {
         let store = makeStore()
         store.pruneRunSummaries(keepingNewest: 2)
 
-        XCTAssertEqual(try store.snapshot().runs.map(\.runID), ["RUN400", "RUN300"])
+        XCTAssertEqual(try store.snapshotRuns().map(\.runID), ["RUN400", "RUN300"])
         let remaining = try FileManager.default.contentsOfDirectory(atPath: runsDirectory.path).sorted()
         // Oldest three writer-named files pruned; the non-writer-named file is untouched.
         XCTAssertEqual(remaining, ["0000000000000000300.run", "0000000000000000400.run", "notdigits.run"])
@@ -222,7 +200,7 @@ final class StoreTests: XCTestCase {
         }
         let store = makeStore()
         store.pruneRunSummaries(keepingNewest: 0)
-        XCTAssertEqual(try store.snapshot().runs.count, 3)
+        XCTAssertEqual(try store.snapshotRuns().count, 3)
     }
 
     // MARK: - Sessions merge
@@ -426,7 +404,7 @@ final class StoreTests: XCTestCase {
         try writeUserInfo(runID: runID) { kskvs_setString($0, "k", "v") }
 
         let store = makeStore()
-        let run = try store.snapshot().runs[0]
+        let run = try store.snapshotRuns()[0]
         try store.removeSummary(of: run)
 
         XCTAssertFalse(FileManager.default.fileExists(atPath: try XCTUnwrap(run.summaryFile).path))
@@ -437,7 +415,7 @@ final class StoreTests: XCTestCase {
                     .path))
 
         // The next snapshot sees the run as artifact-only.
-        let after = try store.snapshot().runs
+        let after = try store.snapshotRuns()
         XCTAssertEqual(after.count, 1)
         XCTAssertNil(store.summary(of: after[0]))
     }
@@ -499,14 +477,26 @@ final class StoreTests: XCTestCase {
             ))
     }
 
-    func test_snapshot_reportIDs_newestFirst() throws {
+    func test_snapshotReportIDs_newestFirst() throws {
         let reports = FakeReports([3: Data(), 1: Data(), 2: Data()])
-        let snapshot = try makeReportStore(reports).snapshot()
-        XCTAssertEqual(snapshot.reportIDs, [3, 2, 1])
+        XCTAssertEqual(try makeReportStore(reports).snapshotReportIDs(), [3, 2, 1])
     }
 
-    func test_snapshot_throwsWhenReportListFails() {
-        XCTAssertThrowsError(try makeReportStore(FakeReports([:]), listFails: true).snapshot())
+    func test_snapshotReportIDs_throwsWhenReportListFails() {
+        XCTAssertThrowsError(try makeReportStore(FakeReports([:]), listFails: true).snapshotReportIDs())
+    }
+
+    func test_snapshotReportIDs_doesNotTouchTheRunsHalf() throws {
+        try FileManager.default.removeItem(at: runsDirectory)
+        try makeUnreadableDirectory(at: runsDirectory)
+        let reports = FakeReports([1: Data()])
+        XCTAssertEqual(try makeReportStore(reports).snapshotReportIDs(), [1])
+    }
+
+    func test_snapshotRuns_doesNotTouchTheReportsHalf() throws {
+        try writeSummary(makeSummary(runID: "RUN"), startNs: 100)
+        let store = makeReportStore(FakeReports([:]), listFails: true)
+        XCTAssertEqual(try store.snapshotRuns().map(\.runID), ["RUN"])
     }
 
     func test_report_decodesStitchedData() throws {
@@ -515,11 +505,13 @@ final class StoreTests: XCTestCase {
         XCTAssertEqual(report.report.runId, "SEVEN")
     }
 
-    func test_report_nilOnMissingOrUndecodableData() throws {
+    func test_report_nilWhenMissing_throwsWhenUndecodable() throws {
         let reports = FakeReports([5: Data("not json".utf8)])
         let store = makeReportStore(reports)
-        XCTAssertNil(store.report(5))
-        XCTAssertNil(store.report(6))
+        XCTAssertNil(try store.report(6))
+        XCTAssertThrowsError(try store.report(5)) { error in
+            XCTAssertTrue(error is DecodingError, "\(error)")
+        }
     }
 
     func test_removeReport_removesAndPropagatesFailure() throws {

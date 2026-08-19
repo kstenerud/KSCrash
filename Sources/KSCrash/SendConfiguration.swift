@@ -40,19 +40,11 @@ public struct SendConfiguration: Sendable {
     /// receiving it. Add a stage before sending if you want the reports.
     public var reportPipeline: [AnyPipelineStage<Report>]
 
-    /// Whether delivered items carry their final payload in the result.
-    /// Defaults to false, so a send never accumulates payloads in memory.
-    /// Weigh this for reports: a report payload can reach megabytes, and the
-    /// result holds every delivered one at once.
-    public var includesDeliveredPayloads: Bool
-
     public init(
         runSummaryPipeline: [AnyPipelineStage<RunSummary>] = [],
-        reportPipeline: [AnyPipelineStage<Report>] = [],
-        includesDeliveredPayloads: Bool = false
+        reportPipeline: [AnyPipelineStage<Report>] = []
     ) {
         self.runSummaryPipeline = runSummaryPipeline
         self.reportPipeline = reportPipeline
-        self.includesDeliveredPayloads = includesDeliveredPayloads
     }
 }
