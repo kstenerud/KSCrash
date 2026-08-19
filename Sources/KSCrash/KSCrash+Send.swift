@@ -36,8 +36,7 @@ extension KSCrash {
     /// partition the pending runs between them. Throws only when the run
     /// store cannot be read; cancellation stops between runs and returns the
     /// outcomes so far. Before `install`, the result is empty. An empty
-    /// `runSummaryPipeline` is a purge: every pending summary is deleted and
-    /// reported as delivered without any consumer receiving it.
+    /// `runSummaryPipeline` throws `SendError.emptyPipeline`.
     public func sendRunSummaries(with configuration: SendConfiguration) async throws -> SendResult<RunSummary> {
         try await RunSummarySend.send(
             store: Self.store(reportStore: reportStore),
@@ -71,9 +70,8 @@ extension KSCrash {
     /// disk. Concurrent sends partition the pending reports between them.
     /// Throws only when the report store cannot be read; cancellation stops
     /// between reports and returns the outcomes so far. Before `install`, the
-    /// result is empty. An empty `reportPipeline` is a purge: every pending
-    /// report is deleted and reported as delivered without any consumer
-    /// receiving it.
+    /// result is empty. An empty `reportPipeline` throws
+    /// `SendError.emptyPipeline`.
     public func sendReports(with configuration: SendConfiguration) async throws -> SendResult<Report> {
         try await ReportSend.send(
             store: Self.store(reportStore: reportStore),

@@ -51,6 +51,12 @@ struct ClosureStage<Payload: PipelineValue>: PipelineStage {
 
 struct StageError: Error {}
 
+/// A stage that forwards every payload unchanged, for tests that need a
+/// pipeline but no behavior.
+func passThrough<Payload: PipelineValue>() -> AnyPipelineStage<Payload> {
+    .init(ClosureStage { $0 })
+}
+
 /// Assert a result's ids per outcome, in processing order.
 func assertOutcomes<Payload: SendPayload>(
     _ result: SendResult<Payload>,
