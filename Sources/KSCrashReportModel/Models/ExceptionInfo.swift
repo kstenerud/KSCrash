@@ -38,13 +38,13 @@ public struct ExceptionInfo: Codable, Sendable, Equatable {
     public let userInfo: String?
 
     /// Referenced object that was involved in the exception.
-    public let referencedObject: ReferencedObject?
+    public let referencedObject: MemoryContents?
 
     public init(
         name: String,
         reason: String? = nil,
         userInfo: String? = nil,
-        referencedObject: ReferencedObject? = nil
+        referencedObject: MemoryContents? = nil
     ) {
         self.name = name
         self.reason = reason

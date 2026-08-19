@@ -48,7 +48,7 @@ extension Report {
         public let name: String?
 
         /// Notable memory addresses and their contents.
-        public let notableAddresses: [String: NotableAddress]?
+        public let notableAddresses: [String: MemoryContents]?
 
         /// CPU register values.
         public let registers: Registers?
@@ -66,7 +66,7 @@ extension Report {
             dispatchQueue: String? = nil,
             index: Int,
             name: String? = nil,
-            notableAddresses: [String: NotableAddress]? = nil,
+            notableAddresses: [String: MemoryContents]? = nil,
             registers: Registers? = nil,
             stack: StackDump? = nil,
             state: String? = nil
