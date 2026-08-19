@@ -36,7 +36,6 @@
 NS_ASSUME_NONNULL_BEGIN
 
 @class KSCrashInstallConfiguration;
-@class KSCrashReportDictionary;
 
 /**
  * Reports any crashes that occur in the application.
