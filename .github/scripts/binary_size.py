@@ -16,15 +16,13 @@ import sys
 # Modules that make up each user-facing product
 PRODUCTS = {
     "Recording": ["KSCrashCore", "KSCrashRecordingCore", "KSCrashRecording"],
-    "Reporting": [
+    "KSCrash": [
         "KSCrashCore",
         "KSCrashRecordingCore",
         "KSCrashRecording",
-        "KSCrashReportingCore",
-        "KSCrashFilters",
-        "KSCrashSinks",
-        "KSCrashInstallations",
-        "KSCrashDemangleFilter",
+        "KSCrashSwiftCore",
+        "KSCrashReportModel",
+        "KSCrash",
     ],
 }
 
@@ -32,8 +30,8 @@ PRODUCTS = {
 ADDONS = {
     "DiscSpaceMonitor": ["KSCrashDiscSpaceMonitor"],
     "BootTimeMonitor": ["KSCrashBootTimeMonitor"],
-    "Profiler": ["KSCrashProfiler", "SwiftCore"],
-    "Monitors": ["Monitors", "Report", "SwiftCore"],
+    "Profiler": ["KSCrashProfiler", "KSCrashSwiftCore"],
+    "Monitors": ["KSCrashMonitors", "KSCrashReportModel", "KSCrashSwiftCore"],
 }
 
 # Artifacts to skip (test targets, benchmarks, internal-only helpers)

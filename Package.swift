@@ -320,32 +320,6 @@ let package = Package(
         ),
 
         .target(
-            name: Targets.reportingCore,
-            dependencies: [
-                .target(name: Targets.core)
-            ],
-            resources: [
-                .copy("Resources/PrivacyInfo.xcprivacy")
-            ],
-            cSettings: [
-                .unsafeFlags(warningFlags)
-            ],
-            linkerSettings: [
-                .linkedLibrary("z")
-            ]
-        ),
-        .testTarget(
-            name: Targets.reportingCore.tests,
-            dependencies: [
-                .target(name: Targets.reportingCore),
-                .target(name: Targets.core),
-            ],
-            cSettings: [
-                .unsafeFlags(warningFlags)
-            ]
-        ),
-
-        .target(
             name: Targets.core,
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy")
@@ -572,7 +546,6 @@ enum Targets {
     static let recording = "KSCrashRecording"
     static let recordingCore = "KSCrashRecordingCore"
     static let recordingCoreSwift = "KSCrashRecordingCoreSwift"
-    static let reportingCore = "KSCrashReportingCore"
     static let core = "KSCrashCore"
     static let discSpaceMonitor = "KSCrashDiscSpaceMonitor"
     static let bootTimeMonitor = "KSCrashBootTimeMonitor"
