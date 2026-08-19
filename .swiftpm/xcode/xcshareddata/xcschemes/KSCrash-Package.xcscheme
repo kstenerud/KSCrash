@@ -195,16 +195,6 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "KSCrashReportingCoreTests"
-               BuildableName = "KSCrashReportingCoreTests"
-               BlueprintName = "KSCrashReportingCoreTests"
-               ReferencedContainer = "container:">
-            </BuildableReference>
-         </TestableReference>
-         <TestableReference
-            skipped = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
                BlueprintIdentifier = "KSCrashBootTimeMonitorTests"
                BuildableName = "KSCrashBootTimeMonitorTests"
                BlueprintName = "KSCrashBootTimeMonitorTests"

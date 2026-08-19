@@ -26,7 +26,6 @@ SRC_PACKAGE_DIR="${SCRIPT_DIR}/../../.."
 TARGETS=(
     KSCrashBootTimeMonitor
     KSCrashRecording
-    KSCrashReportingCore
     KSCrashCore
     KSCrashDiscSpaceMonitor
     KSCrashRecordingCore
