@@ -67,7 +67,9 @@ final class ReportSendTests: XCTestCase {
 
     private var runsDirectory: URL { reportsDirectory.appendingPathComponent("Runs") }
 
-    private func makeStore(liveRunID: String? = "LIVE", listFails: Bool = false) -> Store {
+    private func makeStore(
+        liveRunID: String? = "LIVE", listFails: Bool = false, undecodable: Set<ReportID> = []
+    ) -> Store {
         let directory = reportsDirectory!
         let counter = reclaimCount
         return Store(
@@ -81,7 +83,10 @@ final class ReportSendTests: XCTestCase {
                         .filter { $0.hasSuffix(".json") }
                         .compactMap { ReportID(($0 as NSString).deletingPathExtension) }
                 },
-                read: { try? Data(contentsOf: directory.appendingPathComponent("\($0).json")) },
+                read: {
+                    if undecodable.contains($0) { throw CocoaError(.fileReadCorruptFile) }
+                    return try? Data(contentsOf: directory.appendingPathComponent("\($0).json"))
+                },
                 remove: { try FileManager.default.removeItem(at: directory.appendingPathComponent("\($0).json")) }
             ),
             reclaim: { counter.increment() }
@@ -93,10 +98,11 @@ final class ReportSendTests: XCTestCase {
         only selection: Set<ReportID>? = nil,
         liveRunID: String? = "LIVE",
         listFails: Bool = false,
+        undecodable: Set<ReportID> = [],
         claims: SendClaims<ReportID> = SendClaims()
     ) async throws -> SendResult<Report> {
         try await ReportSend.send(
-            store: makeStore(liveRunID: liveRunID, listFails: listFails),
+            store: makeStore(liveRunID: liveRunID, listFails: listFails, undecodable: undecodable),
             pipeline: pipeline,
             maxRunCount: 0,
             only: selection,
@@ -184,6 +190,22 @@ final class ReportSendTests: XCTestCase {
             return XCTFail("expected a kept outcome, got \(kept.outcome)")
         }
         XCTAssertTrue(error is DecodingError, "\(error)")
+        XCTAssertEqual(reportFileCount, 1)
+    }
+
+    /// The store's own "read, but not a report" answer (a throwing bridge read)
+    /// is the same kept outcome as a typed decode failure.
+    func test_send_reportTheStoreCannotDecode_isKeptWithTheStoreError_andStays() async throws {
+        try writeReport(id: 1)
+        try writeReport(id: 2)
+
+        let result = try await send(undecodable: [2])
+        assertOutcomes(result, delivered: [1], kept: [2])
+        let kept = try XCTUnwrap(result.items.first { $0.id == 2 })
+        guard case .kept(let error) = kept.outcome else {
+            return XCTFail("expected a kept outcome, got \(kept.outcome)")
+        }
+        XCTAssertEqual((error as? CocoaError)?.code, .fileReadCorruptFile, "\(error)")
         XCTAssertEqual(reportFileCount, 1)
     }
 

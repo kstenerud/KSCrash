@@ -94,11 +94,17 @@ static NSError *reportStoreError(NSInteger code, NSString *description)
     kscrs_reclaimOrphanedRunData(&_cConfig);
 }
 
-- (nullable NSData *)loadCrashReportJSONWithID:(int64_t)reportID
+- (nullable NSData *)loadCrashReportJSONWithID:(int64_t)reportID error:(NSError **)error
 {
-    char *report = kscrs_readReport(reportID, &_cConfig);
+    KSCrashReportReadStatus status = KSCrashReportReadStatusOK;
+    char *report = kscrs_readReport(reportID, &_cConfig, &status);
     if (report != NULL) {
         return [NSData dataWithBytesNoCopy:report length:strlen(report) freeWhenDone:YES];
+    }
+    if (error != NULL) {
+        *error = status == KSCrashReportReadStatusUndecodable
+                     ? reportStoreError(NSFileReadCorruptFileError, @"The report file does not hold a JSON report.")
+                     : reportStoreError(NSFileReadUnknownError, @"The report could not be read.");
     }
     return nil;
 }
@@ -150,33 +156,35 @@ static NSError *reportStoreError(NSInteger code, NSString *description)
     return NO;
 }
 
-- (KSCrashReportData *)reportDataForID:(int64_t)reportID
+- (KSCrashReportData *)reportDataForID:(int64_t)reportID error:(NSError **)error
 {
-    NSData *jsonData = [self loadCrashReportJSONWithID:reportID];
+    NSData *jsonData = [self loadCrashReportJSONWithID:reportID error:error];
     if (jsonData == nil) {
         return nil;
     }
     return [KSCrashReportData reportWithValue:jsonData];
 }
 
-- (KSCrashReportDictionary *)reportForID:(int64_t)reportID
+- (KSCrashReportDictionary *)reportForID:(int64_t)reportID error:(NSError **)error
 {
-    NSData *jsonData = [self loadCrashReportJSONWithID:reportID];
+    NSData *jsonData = [self loadCrashReportJSONWithID:reportID error:error];
     if (jsonData == nil) {
         return nil;
     }
 
-    NSError *error = nil;
+    NSError *decodeError = nil;
     NSMutableDictionary *crashReport =
         [KSJSONCodec decode:jsonData
                     options:KSJSONDecodeOptionIgnoreNullInArray | KSJSONDecodeOptionIgnoreNullInObject |
                             KSJSONDecodeOptionKeepPartialObject
-                      error:&error];
-    if (error != nil) {
-        KSLOG_ERROR(@"Encountered error loading crash report %" PRIx64 ": %@", reportID, error);
-    }
+                      error:&decodeError];
     if (crashReport == nil) {
-        KSLOG_ERROR(@"Could not load crash report");
+        KSLOG_ERROR(@"Could not decode crash report %" PRIx64 ": %@", reportID, decodeError);
+        if (error != NULL) {
+            *error =
+                decodeError
+                    ?: reportStoreError(NSFileReadCorruptFileError, @"The report file does not hold a JSON report.");
+        }
         return nil;
     }
 

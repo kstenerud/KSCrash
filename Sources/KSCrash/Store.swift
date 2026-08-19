@@ -75,7 +75,17 @@ struct Store: Sendable {
             liveRunID: liveRunID,
             reports: ReportBridge(
                 list: { try reportStore.listReportIDs().map(\.int64Value) },
-                read: { reportStore.reportData(for: $0)?.value },
+                read: { id in
+                    do {
+                        return try reportStore.reportData(for: id).value
+                    } catch let error as CocoaError where error.code == .fileReadCorruptFile {
+                        // Read, but not a JSON report: deterministic, surfaced.
+                        throw error
+                    } catch {
+                        // Missing or unreadable right now: retried by the next send.
+                        return nil
+                    }
+                },
                 remove: { try reportStore.removeReport(withID: $0) }
             ),
             reclaim: { reportStore.reclaimOrphanedRunData() }
@@ -287,7 +297,9 @@ struct ReportBridge: Sendable {
     let list: @Sendable () throws -> [ReportID]
 
     /// One report's stitched JSON. nil when it cannot be read right now.
-    let read: @Sendable (ReportID) -> Data?
+    /// Throws when the file was read but does not hold a JSON report; that is
+    /// deterministic, so the send surfaces it instead of retrying forever.
+    let read: @Sendable (ReportID) throws -> Data?
 
     /// Delete one report. Throws when the report file could not be removed.
     let remove: @Sendable (ReportID) throws -> Void
@@ -299,13 +311,14 @@ struct ReportBridge: Sendable {
 extension Store {
     /// The stitched report, decoded. nil when the item cannot be read right
     /// now (missing file, stale listing entry, or a read failure): skipped,
-    /// kept on disk, retried by the next send. Throws the decode error when
-    /// the report was read but does not decode: that is deterministic, so
-    /// the send surfaces it as a kept item instead of silently retrying it
+    /// kept on disk, retried by the next send. Throws when the report was
+    /// read but does not decode, whether the C store found no JSON report in
+    /// the file or the typed decode failed: that is deterministic, so the
+    /// send surfaces it as a kept item instead of silently retrying it
     /// forever; the file stays on disk. Under a send's claim the stale check
     /// is race-free, because deletes only happen under the claim.
     func report(_ id: ReportID) throws -> Report? {
-        guard let data = reports.read(id) else {
+        guard let data = try reports.read(id) else {
             return nil
         }
         do {

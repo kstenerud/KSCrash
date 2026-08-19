@@ -626,7 +626,15 @@ static bool isReportFinalized(NSDictionary *dict)
     return [val isKindOfClass:[NSNumber class]] && [val boolValue];
 }
 
-static char *readReportAtPath(const char *path, int64_t reportID, const KSCrashReportStoreCConfiguration *const config)
+static void setReadStatus(KSCrashReportReadStatus *status, KSCrashReportReadStatus value)
+{
+    if (status != NULL) {
+        *status = value;
+    }
+}
+
+static char *readReportAtPath(const char *path, int64_t reportID, const KSCrashReportStoreCConfiguration *const config,
+                              KSCrashReportReadStatus *status)
 {
     @autoreleasepool {
         char *rawReport;
@@ -634,6 +642,7 @@ static char *readReportAtPath(const char *path, int64_t reportID, const KSCrashR
         ksfu_readEntireFile(path, &rawReport, &rawLength, KSCRS_MAX_REPORT_SIZE);
         if (rawReport == NULL) {
             KSLOG_ERROR(@"Failed to load report at path: %s", path);
+            setReadStatus(status, KSCrashReportReadStatusUnreadable);
             return NULL;
         }
 
@@ -651,6 +660,7 @@ static char *readReportAtPath(const char *path, int64_t reportID, const KSCrashR
                           error:nil];
         if (![dict isKindOfClass:[NSDictionary class]]) {
             KSLOG_ERROR(@"Failed to decode report at path: %s", path);
+            setReadStatus(status, KSCrashReportReadStatusUndecodable);
             return NULL;
         }
 
@@ -672,14 +682,17 @@ static char *readReportAtPath(const char *path, int64_t reportID, const KSCrashR
         NSData *encoded = [KSJSONCodec encode:report options:KSJSONEncodeOptionPretty error:nil];
         if (!encoded) {
             KSLOG_ERROR(@"Failed to encode report at path: %s", path);
+            setReadStatus(status, KSCrashReportReadStatusUnreadable);
             return NULL;
         }
         char *result = (char *)malloc(encoded.length + 1);
         if (!result) {
+            setReadStatus(status, KSCrashReportReadStatusUnreadable);
             return NULL;
         }
         memcpy(result, encoded.bytes, encoded.length);
         result[encoded.length] = '\0';
+        setReadStatus(status, KSCrashReportReadStatusOK);
         return result;
     }
 }
@@ -688,7 +701,7 @@ char *kscrs_readReportAtPath(const char *path)
 {
     pthread_mutex_lock(&g_mutex);
     const KSCrashReportStoreCConfiguration *config = g_hasStitchConfig ? &g_stitchConfig : NULL;
-    char *result = readReportAtPath(path, 0, config);
+    char *result = readReportAtPath(path, 0, config, NULL);
     pthread_mutex_unlock(&g_mutex);
     return result;
 }
@@ -697,7 +710,7 @@ char *kscrs_readReportByPathAndID(const char *path, int64_t reportID)
 {
     pthread_mutex_lock(&g_mutex);
     const KSCrashReportStoreCConfiguration *config = g_hasStitchConfig ? &g_stitchConfig : NULL;
-    char *result = readReportAtPath(path, reportID, config);
+    char *result = readReportAtPath(path, reportID, config, NULL);
     pthread_mutex_unlock(&g_mutex);
     return result;
 }
@@ -821,12 +834,13 @@ bool kscrs_finalizeReport(const char *reportPath, int64_t reportID)
     }
 }
 
-char *kscrs_readReport(int64_t reportID, const KSCrashReportStoreCConfiguration *const configuration)
+char *kscrs_readReport(int64_t reportID, const KSCrashReportStoreCConfiguration *const configuration,
+                       KSCrashReportReadStatus *status)
 {
     pthread_mutex_lock(&g_mutex);
     char path[KSCRS_MAX_PATH_LENGTH];
     getCrashReportPathByID(reportID, path, configuration);
-    char *result = readReportAtPath(path, reportID, configuration);
+    char *result = readReportAtPath(path, reportID, configuration, status);
     pthread_mutex_unlock(&g_mutex);
     return result;
 }
