@@ -12,7 +12,7 @@
     if (![kscrash installWithConfiguration:config error:&error]) {
         NSLog(@"CrashLibB failed to install KSCrash: %@", error);
     } else {
-        NSLog(@"CrashLibB: %lu pending crash reports", (unsigned long)kscrash.reportStore.reportIDs.count);
+        NSLog(@"CrashLibB: %ld pending crash reports", (long)kscrash.reportStore.reportCount);
     }
 }
 
