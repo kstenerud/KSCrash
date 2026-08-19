@@ -34,7 +34,6 @@
 #import "KSCrashMonitor_System.h"
 #import "KSCrashMonitor_Termination.h"
 #import "KSCrashMonitor_UserInfo.h"
-#import "KSCrashReport.h"
 #import "KSCrashReportFields.h"
 #import "KSCrashRunContext.h"
 #import "KSDate.h"

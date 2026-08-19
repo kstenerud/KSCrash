@@ -30,8 +30,6 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@class KSCrashReportDictionary;
-@class KSCrashReportData;
 @class KSCrashReportStoreConfiguration;
 
 /** A unique identifier for a crash report. */
@@ -46,15 +44,6 @@ NS_SWIFT_NAME(CrashReportStore)
 
 - (instancetype)init NS_UNAVAILABLE;
 + (instancetype)new NS_UNAVAILABLE;
-
-/** The report store with the default configuration.
- *
- * @param error If an error occurs, upon return contains an NSError object that
- *               describes the problem.
- *
- * @return The default report store or `nil` if an error occurred.
- */
-+ (nullable instancetype)defaultStoreWithError:(NSError **)error;
 
 /** The report store with the given configuration.
  * If the configuration is nil, the default configuration will be used.
@@ -76,28 +65,15 @@ NS_SWIFT_NAME(CrashReportStore)
 
 #pragma mark - Reports API
 
-/** Get report.
+/** Get report Data. The JSON fields are described in KSCrashReportFields.h.
  *
  * @param reportID An ID of report.
  * @param error Set when the report could not be read (`NSFileReadUnknownError`)
  * or was read but is not a JSON report (`NSFileReadCorruptFileError`).
  *
- * @return A crash report with a dictionary value, or nil on error. The dictionary fields are described in
- * KSCrashReportFields.h.
+ * @return The report's JSON data, or nil on error.
  */
-- (nullable KSCrashReportDictionary *)reportForID:(KSCrashReportID)reportID
-                                            error:(NSError **)error NS_SWIFT_NAME(report(for:));
-
-/** Get report Data.
- *
- * @param reportID An ID of report.
- * @param error Set when the report could not be read (`NSFileReadUnknownError`)
- * or was read but is not a JSON report (`NSFileReadCorruptFileError`).
- *
- * @return A crash report with a data value, or nil on error.
- */
-- (nullable KSCrashReportData *)reportDataForID:(KSCrashReportID)reportID
-                                          error:(NSError **)error NS_SWIFT_NAME(reportData(for:));
+- (nullable NSData *)reportDataForID:(KSCrashReportID)reportID error:(NSError **)error NS_SWIFT_NAME(reportData(for:));
 
 /** Delete all unsent reports.
  */
