@@ -94,7 +94,7 @@ final class ReportSendTests: XCTestCase {
     }
 
     private func send(
-        pipeline: [AnyPipelineStage<Report>] = [],
+        pipeline: [AnyPipelineStage<Report>] = [.init(ClosureStage { $0 })],
         only selection: Set<ReportID>? = nil,
         liveRunID: String? = "LIVE",
         listFails: Bool = false,
@@ -142,12 +142,17 @@ final class ReportSendTests: XCTestCase {
         XCTAssertEqual(reportFileCount, 1)
     }
 
-    func test_send_emptyPipeline_purgesEverything() async throws {
+    func test_send_emptyPipeline_throwsAndTouchesNothing() async throws {
         try writeReport(id: 1)
         try writeReport(id: 2)
-        let result = try await send()
-        assertOutcomes(result, delivered: [2, 1])
-        XCTAssertEqual(reportFileCount, 0)
+        do {
+            _ = try await send(pipeline: [])
+            XCTFail("expected SendError.emptyPipeline")
+        } catch let error as SendError {
+            XCTAssertEqual(error, .emptyPipeline)
+        }
+        XCTAssertEqual(reportFileCount, 2)
+        XCTAssertEqual(reclaimCount.value, 0)
     }
 
     func test_send_claimedReport_isNotAnItemAndUntouched() async throws {
@@ -286,7 +291,7 @@ final class ReportSendTests: XCTestCase {
 
     func test_send_noStore_emptyResult() async throws {
         let result = try await ReportSend.send(
-            store: nil, pipeline: [], maxRunCount: 0, claims: SendClaims())
+            store: nil, pipeline: [passThrough()], maxRunCount: 0, claims: SendClaims())
         XCTAssertTrue(result.items.isEmpty)
     }
 }

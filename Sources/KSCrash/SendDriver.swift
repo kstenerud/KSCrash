@@ -68,6 +68,12 @@ enum SendDriver {
         only selection: Set<Payload.ID>?,
         claims: SendClaims<Payload.ID>
     ) async throws -> SendResult<Payload> {
+        // A send with no stages can only mean a misconfigured caller, so it
+        // throws regardless of install state instead of quietly purging.
+        guard !pipeline.isEmpty else {
+            throw SendError.emptyPipeline
+        }
+
         // Not installed (no resolved locations): an empty result rather than
         // an error.
         guard let store else {
