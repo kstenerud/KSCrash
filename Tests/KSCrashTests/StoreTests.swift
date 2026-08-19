@@ -24,6 +24,7 @@
 // THE SOFTWARE.
 //
 
+import KSCrashRecording
 import KSCrashRecordingCore
 import KSCrashSwiftCore
 import XCTest
@@ -512,6 +513,56 @@ final class StoreTests: XCTestCase {
         XCTAssertThrowsError(try store.report(5)) { error in
             XCTAssertTrue(error is DecodingError, "\(error)")
         }
+    }
+
+    func test_report_propagatesTheBridgeReadError() throws {
+        struct NotAReport: Error {}
+        let store = Store(
+            runsDirectory: runsDirectory,
+            runSidecarsDirectory: sidecarsDirectory,
+            liveRunID: nil,
+            reports: ReportBridge(list: { [5] }, read: { _ in throw NotAReport() }, remove: { _ in })
+        )
+        XCTAssertThrowsError(try store.report(5)) { error in
+            XCTAssertTrue(error is NotAReport, "\(error)")
+        }
+    }
+
+    // MARK: - Production bridge (C-backed report store)
+
+    /// The production read must tell "not a report" (the C store read the file
+    /// but found no JSON object) from "cannot read right now": the first is
+    /// thrown, the second is nil.
+    func test_productionBridge_throwsForANonReportFile_nilForAMissingOne() throws {
+        let reportsDirectory = runsDirectory.deletingLastPathComponent().appendingPathComponent("Reports")
+        let configuration = CrashReportStoreConfiguration()
+        configuration.reportsPath = reportsDirectory.path
+        configuration.appName = "App"
+        let reportStore = try CrashReportStore(configuration: configuration)
+        let store = Store(
+            runsDirectory: runsDirectory,
+            runSidecarsDirectory: sidecarsDirectory,
+            liveRunID: nil,
+            reportStore: reportStore
+        )
+
+        // Named like the C store names them: <app>-report-<16 hex digits>.json.
+        func reportURL(_ id: ReportID) -> URL {
+            reportsDirectory.appendingPathComponent(String(format: "App-report-%016llx.json", id))
+        }
+        try makeReportData(runID: "REAL").write(to: reportURL(1))
+        try Data("[1,2]".utf8).write(to: reportURL(2))
+        try Data().write(to: reportURL(3))
+
+        XCTAssertEqual(try store.snapshotReportIDs(), [3, 2, 1])
+        XCTAssertEqual(try store.report(1)?.report.runId, "REAL")
+        for id in [ReportID(2), 3] {
+            XCTAssertThrowsError(try store.report(id), "report \(id)") { error in
+                XCTAssertEqual((error as? CocoaError)?.code, .fileReadCorruptFile, "\(error)")
+            }
+        }
+        XCTAssertNil(try store.report(4))
+        XCTAssertEqual(try store.snapshotReportIDs(), [3, 2, 1], "nothing is deleted by a read")
     }
 
     func test_removeReport_removesAndPropagatesFailure() throws {
