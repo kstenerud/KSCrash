@@ -105,11 +105,15 @@ public final class IntegrationTestRunner {
             if let userReport = script.userReport {
                 userReport.report()
             }
-            if let report = script.report {
-                report.report()
-            }
-            if let completionMarkerPath = script.config?.completionMarkerPath {
-                try! Data().write(to: URL(fileURLWithPath: completionMarkerPath))
+            // The report send is awaited, so the marker below is written only
+            // once the delivered reports are on disk.
+            Task { @MainActor in
+                if let report = script.report {
+                    await report.report()
+                }
+                if let completionMarkerPath = script.config?.completionMarkerPath {
+                    try! Data().write(to: URL(fileURLWithPath: completionMarkerPath))
+                }
             }
         }
     }
