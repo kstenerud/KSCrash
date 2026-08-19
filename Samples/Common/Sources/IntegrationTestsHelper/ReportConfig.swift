@@ -37,14 +37,14 @@ public struct ReportConfig: Codable {
 }
 
 extension ReportConfig {
-    func report() {
+    /// Returns once every delivered report is on disk, so the runner's
+    /// completion marker means "the reports are there".
+    func report() async {
         let url = URL(fileURLWithPath: directoryPath)
-        Task {
-            let configuration = SendConfiguration(
-                reportPipeline: [AnyPipelineStage(DirectoryStage(directoryUrl: url))]
-            )
-            _ = try? await KSCrash.shared.sendReports(with: configuration)
-        }
+        let configuration = SendConfiguration(
+            reportPipeline: [AnyPipelineStage(DirectoryStage(directoryUrl: url))]
+        )
+        _ = try? await KSCrash.shared.sendReports(with: configuration)
     }
 }
 
