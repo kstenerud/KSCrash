@@ -105,10 +105,9 @@ import os.log
             // extraction (linear backtrace per thread, plus binary images).
             let callStackData = buildCallStackData(from: diagnostic.callStackTree.callStackRepresentation)
 
-            // `.memoryLimit` is what marks this as an OOM: KSCrashDoctor keys off the
-            // termination reason to diagnose "the app exceeded its memory limit and was
-            // terminated by the OS." A MetricKit memory exception is exactly that per-process
-            // (jetsam) memory-limit kill.
+            // `.memoryLimit` is what marks this as an OOM in the delivered report's
+            // `terminationReason`: a MetricKit memory exception is exactly the
+            // per-process (jetsam) memory-limit kill.
             let newError = CrashError(
                 type: .termination,
                 subtype: .memoryException,

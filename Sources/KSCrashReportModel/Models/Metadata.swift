@@ -112,3 +112,15 @@ extension Metadata: Codable {
 extension Metadata: MetadataValueConvertible {
     public var metadataValue: MetadataValue { .object(storage) }
 }
+
+/// The one place a monitor's section is read as its concrete type; the
+/// public `monitorData(_:for:)` accessors on `Report` and `CrashError` both
+/// go through it, so both read sections the same way.
+extension Optional where Wrapped == [String: Metadata] {
+    func decodedSection<Value: Decodable>(_ type: Value.Type, for monitorID: String) throws -> Value? {
+        guard let section = self?[monitorID] else {
+            return nil
+        }
+        return try section.decoded(as: Value.self)
+    }
+}
