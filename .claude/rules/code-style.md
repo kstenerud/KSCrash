@@ -36,7 +36,7 @@ Use `strlcpy`, never `strncpy`, to copy NUL-terminated strings into fixed-size b
 - Use consistent naming patterns:
   - Classes: `KSCrashMonitor_*`, `KSCrash*` (prefix with KS)
   - Methods: descriptive, camelCase
-  - **SPM module (target) names**: All targets use the `KSCrash` prefix, Swift and C/ObjC alike (e.g., `KSCrashSwiftCore`, `KSCrashMonitors`, `KSCrashProfiler`, `KSCrashReportModel`). Library **product** names stay unprefixed (e.g., `Monitors`, `Report`), exactly as `KSCrashRecording` ships in the `Recording` product, so a consumer depends on product `Report` and writes `import KSCrashReportModel`. (It's `KSCrashReportModel`, not `KSCrashReport`, because `KSCrashReport` is already the public ObjC protocol.)
+  - **SPM module (target) names**: All targets use the `KSCrash` prefix, Swift and C/ObjC alike (e.g., `KSCrashSwiftCore`, `KSCrashMonitors`, `KSCrashProfiler`, `KSCrashReportModel`). Library **product** names stay unprefixed (e.g., `Monitors`, `Report`), exactly as `KSCrashRecording` ships in the `Recording` product, so a consumer depends on product `Report` and writes `import KSCrashReportModel`. (It's `KSCrashReportModel`, not `KSCrashReport`, a name that belonged to the since-retired public ObjC protocol.)
 - Error handling: Use proper error handling conventions for Objective-C/Swift
 - Module organization: Maintain the existing module structure
 - API design: Keep public APIs clean and well-documented

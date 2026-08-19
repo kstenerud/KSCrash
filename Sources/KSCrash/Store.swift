@@ -77,7 +77,7 @@ struct Store: Sendable {
                 list: { try reportStore.listReportIDs().map(\.int64Value) },
                 read: { id in
                     do {
-                        return try reportStore.reportData(for: id).value
+                        return try reportStore.reportData(for: id)
                     } catch let error as CocoaError where error.code == .fileReadCorruptFile {
                         // Read, but not a JSON report: deterministic, surfaced.
                         throw error

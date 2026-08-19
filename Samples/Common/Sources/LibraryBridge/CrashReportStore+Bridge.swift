@@ -35,7 +35,7 @@ extension CrashReportStore {
     /// reports stay on disk.
     public func logToConsole() {
         for id in (try? listReportIDs()) ?? [] {
-            guard let data = (try? reportData(for: id.int64Value))?.value else { continue }
+            guard let data = try? reportData(for: id.int64Value) else { continue }
             let summary =
                 (try? JSONDecoder().decode(Report.self, from: data))
                 .map { String(describing: $0.crash.error.type) } ?? "undecodable"
@@ -46,7 +46,7 @@ extension CrashReportStore {
     /// Dump each pending report's raw JSON. Reads only; reports stay on disk.
     public func logRawToConsole() {
         for id in (try? listReportIDs()) ?? [] {
-            guard let data = (try? reportData(for: id.int64Value))?.value,
+            guard let data = try? reportData(for: id.int64Value),
                 let json = String(data: data, encoding: .utf8)
             else { continue }
             Self.logger.info("Report \(id):\n\(json)")
