@@ -814,6 +814,196 @@ final class CrashReportEncodingTests: XCTestCase {
         XCTAssertEqual(errorDict["type"] as? String, "my_monitor")
     }
 
+    // MARK: - Wire Fidelity
+
+    /// Decode and re-encode is what the send path does to every report, so a key
+    /// the model does not carry is a key the consumer never sees. Every non-null
+    /// leaf in a fixture must come out the other side.
+    func testExampleReportsLoseNoKeys() throws {
+        // Shapes the writer no longer emits and the model deliberately normalizes:
+        // the pre-3.x {major, minor} version object is re-encoded as a version
+        // string, and the pre-3.x backtrace under last_dealloced_nsexception is
+        // not modeled because it is not written any more.
+        let legacy = [
+            "report.version.major", "report.version.minor",
+            "recrash_report.report.version.major", "recrash_report.report.version.minor",
+            "process.last_dealloced_nsexception.backtrace",
+        ]
+        let urls = try XCTUnwrap(Bundle.module.urls(forResourcesWithExtension: "json", subdirectory: nil))
+        XCTAssertFalse(urls.isEmpty)
+        for url in urls {
+            let originalData = try Data(contentsOf: url)
+            let report = try JSONDecoder().decode(Report.self, from: originalData)
+            let encodedData = try JSONEncoder().encode(report)
+            let original = leafPaths(of: try JSONSerialization.jsonObject(with: originalData))
+            let reencoded = leafPaths(of: try JSONSerialization.jsonObject(with: encodedData))
+            let dropped = original.subtracting(reencoded).filter { path in
+                !legacy.contains { path.hasPrefix($0) }
+            }
+            XCTAssertTrue(dropped.isEmpty, "\(url.lastPathComponent) dropped \(dropped.sorted())")
+        }
+    }
+
+    func testRoundTripProcessStartTimes() throws {
+        let report = Report(
+            crash: Report.Crash(error: CrashError(type: .mach)),
+            report: ReportInfo(id: "process-start"),
+            system: SystemInfo(
+                processStartWallClockNs: 1_755_600_000_123_456_789,
+                processStartMonotonicNs: 98_765_432_101)
+        )
+
+        let (_, roundTripped) = try roundTrip(report)
+        XCTAssertEqual(roundTripped.system?.processStartWallClockNs, 1_755_600_000_123_456_789)
+        XCTAssertEqual(roundTripped.system?.processStartMonotonicNs, 98_765_432_101)
+
+        let dict = try JSONSerialization.jsonObject(with: JSONEncoder().encode(report)) as? [String: Any]
+        let system = try XCTUnwrap(dict?["system"] as? [String: Any])
+        XCTAssertEqual(system["process_start_wall_clock_ns"] as? UInt64, 1_755_600_000_123_456_789)
+        XCTAssertEqual(system["process_start_monotonic_ns"] as? UInt64, 98_765_432_101)
+    }
+
+    /// The exception register names are per architecture; the model carries
+    /// whatever set the writer emitted.
+    func testRoundTripExceptionRegistersPerArchitecture() throws {
+        let perArchitecture: [[String: UInt64]] = [
+            ["exception": 0x1, "esr": 0x9200_0046, "far": 0x10],
+            ["exception": 0x1, "fsr": 0x7, "far": 0x10],
+            ["trapno": 0xe, "err": 0x4, "faultvaddr": 0x10],
+        ]
+        for exception in perArchitecture {
+            let thread = Report.Thread(
+                crashed: true, currentThread: true, index: 0,
+                registers: Registers(basic: ["pc": 0x1000], exception: exception))
+            let report = Report(
+                crash: Report.Crash(error: CrashError(type: .mach), threads: [thread]),
+                report: ReportInfo(id: "registers"))
+
+            let (_, roundTripped) = try roundTrip(report)
+            XCTAssertEqual(roundTripped.crash.threads?.first?.registers?.exception, exception)
+            XCTAssertEqual(roundTripped.crash.threads?.first?.registers?.basic, ["pc": 0x1000])
+        }
+    }
+
+    func testDecodeMemoryContents() throws {
+        let json = """
+            {
+              "address": 4302217216,
+              "type": "objc_object",
+              "class": "NSMutableArray",
+              "last_deallocated_obj": "NSException",
+              "first_object": {
+                "address": 4302217300,
+                "type": "objc_object",
+                "class": "Widget",
+                "ivars": {
+                  "_count": 3,
+                  "_scale": 1.5,
+                  "_visible": true,
+                  "_name": {
+                    "address": 4302217400,
+                    "type": "objc_object",
+                    "class": "__NSCFString",
+                    "value": "hello"
+                  },
+                  "_delegate": {
+                    "address": 0,
+                    "type": "null_pointer"
+                  }
+                }
+              }
+            }
+            """
+        let contents = try JSONDecoder().decode(MemoryContents.self, from: Data(json.utf8))
+
+        XCTAssertEqual(contents.address, 4_302_217_216)
+        XCTAssertEqual(contents.type, .objcObject)
+        XCTAssertEqual(contents.class, "NSMutableArray")
+        XCTAssertEqual(contents.lastDeallocatedObject, "NSException")
+        XCTAssertNil(contents.value)
+
+        let first = try XCTUnwrap(contents.firstObject)
+        XCTAssertEqual(first.class, "Widget")
+        XCTAssertEqual(first.ivars?["_count"], .integer(3))
+        XCTAssertEqual(first.ivars?["_scale"], .double(1.5))
+        XCTAssertEqual(first.ivars?["_visible"], .bool(true))
+        XCTAssertEqual(
+            first.ivars?["_name"],
+            .object([
+                "address": .integer(4_302_217_400), "type": .string("objc_object"),
+                "class": .string("__NSCFString"), "value": .string("hello"),
+            ]))
+        XCTAssertEqual(first.ivars?["_delegate"], .object(["address": .integer(0), "type": .string("null_pointer")]))
+        XCTAssertNil(first.firstObject)
+
+        // The re-encoded JSON carries every key of the source.
+        let reencoded = try JSONSerialization.jsonObject(with: JSONEncoder().encode(contents))
+        let source = try JSONSerialization.jsonObject(with: Data(json.utf8))
+        XCTAssertEqual(leafPaths(of: reencoded), leafPaths(of: source))
+    }
+
+    func testRoundTripMemoryContentsInReport() throws {
+        let referenced = MemoryContents(
+            address: 0x1000, type: .objcObject, class: "NSString", value: .string("boom"))
+        let notable = MemoryContents(
+            address: 0x2000, type: .objcObject, class: "Widget",
+            firstObject: MemoryContents(address: 0x3000, type: .string, value: .string("first")),
+            ivars: ["_count": .integer(2)], lastDeallocatedObject: "Gadget")
+        let report = Report(
+            crash: Report.Crash(
+                error: CrashError(
+                    nsexception: ExceptionInfo(name: "NSGenericException", referencedObject: referenced),
+                    type: .nsexception),
+                threads: [
+                    Report.Thread(
+                        crashed: true, currentThread: true, index: 0,
+                        notableAddresses: ["x0": notable, "x1": referenced])
+                ]),
+            process: ProcessState(
+                lastDeallocedNSException: LastDeallocedNSException(
+                    address: 0x4000, name: "NSRangeException", reason: "r", referencedObject: notable)),
+            report: ReportInfo(id: "memory-contents"))
+
+        let (original, roundTripped) = try roundTrip(report)
+        XCTAssertEqual(original, roundTripped)
+        XCTAssertEqual(roundTripped.crash.error.nsexception?.referencedObject, referenced)
+        XCTAssertEqual(roundTripped.crash.threads?.first?.notableAddresses?["x0"], notable)
+        XCTAssertEqual(
+            roundTripped.process?.lastDeallocedNSException?.referencedObject?.firstObject?.value, .string("first"))
+    }
+
+    func testMemoryTypeKeepsUnknownWireValues() throws {
+        XCTAssertEqual(MemoryType(rawValue: "objc_block"), .objcBlock)
+        XCTAssertEqual(MemoryType(rawValue: "unknown"), .unknown)
+        XCTAssertEqual(MemoryType(rawValue: "future_kind"), .other("future_kind"))
+        XCTAssertEqual(MemoryType.other("future_kind").rawValue, "future_kind")
+    }
+
+    /// Dotted paths of every non-null leaf, array elements by index. Nulls are
+    /// skipped because the model encodes an absent value as a missing key.
+    private func leafPaths(of value: Any, at path: String = "", into paths: inout Set<String>) {
+        switch value {
+        case let dict as [String: Any]:
+            for (key, child) in dict {
+                leafPaths(of: child, at: path.isEmpty ? key : path + "." + key, into: &paths)
+            }
+        case let array as [Any]:
+            for (index, child) in array.enumerated() {
+                leafPaths(of: child, at: path + "[\(index)]", into: &paths)
+            }
+        case is NSNull:
+            break
+        default:
+            paths.insert(path)
+        }
+    }
+
+    private func leafPaths(of value: Any) -> Set<String> {
+        var paths = Set<String>()
+        leafPaths(of: value, at: "", into: &paths)
+        return paths
+    }
+
     private func roundTrip(_ report: Report) throws -> (
         original: Report, roundTripped: Report
     ) {
