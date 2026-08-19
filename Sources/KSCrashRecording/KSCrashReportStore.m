@@ -27,9 +27,7 @@
 #import "KSCrashReportStore.h"
 
 #import "KSCrashInstallConfiguration+Private.h"
-#import "KSCrashReport.h"
 #import "KSCrashReportStoreC+Private.h"
-#import "KSJSONCodecObjC.h"
 
 // #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -48,11 +46,6 @@ static NSError *reportStoreError(NSInteger code, NSString *description)
 + (NSString *)defaultInstallSubfolder
 {
     return @KSCRS_DEFAULT_REPORTS_FOLDER;
-}
-
-+ (instancetype)defaultStoreWithError:(NSError **)error
-{
-    return [KSCrashReportStore storeWithConfiguration:nil error:error];
 }
 
 + (instancetype)storeWithConfiguration:(KSCrashReportStoreConfiguration *)configuration error:(NSError **)error
@@ -156,39 +149,9 @@ static NSError *reportStoreError(NSInteger code, NSString *description)
     return NO;
 }
 
-- (KSCrashReportData *)reportDataForID:(int64_t)reportID error:(NSError **)error
+- (NSData *)reportDataForID:(int64_t)reportID error:(NSError **)error
 {
-    NSData *jsonData = [self loadCrashReportJSONWithID:reportID error:error];
-    if (jsonData == nil) {
-        return nil;
-    }
-    return [KSCrashReportData reportWithValue:jsonData];
-}
-
-- (KSCrashReportDictionary *)reportForID:(int64_t)reportID error:(NSError **)error
-{
-    NSData *jsonData = [self loadCrashReportJSONWithID:reportID error:error];
-    if (jsonData == nil) {
-        return nil;
-    }
-
-    NSError *decodeError = nil;
-    NSMutableDictionary *crashReport =
-        [KSJSONCodec decode:jsonData
-                    options:KSJSONDecodeOptionIgnoreNullInArray | KSJSONDecodeOptionIgnoreNullInObject |
-                            KSJSONDecodeOptionKeepPartialObject
-                      error:&decodeError];
-    if (crashReport == nil) {
-        KSLOG_ERROR(@"Could not decode crash report %" PRIx64 ": %@", reportID, decodeError);
-        if (error != NULL) {
-            *error =
-                decodeError
-                    ?: reportStoreError(NSFileReadCorruptFileError, @"The report file does not hold a JSON report.");
-        }
-        return nil;
-    }
-
-    return [KSCrashReportDictionary reportWithValue:crashReport];
+    return [self loadCrashReportJSONWithID:reportID error:error];
 }
 
 @end
