@@ -1849,8 +1849,10 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
         // payload's own or the error object standing in for a rejected one, takes the
         // callback's fields and is closed. An array is closed unwritten, since array
         // elements are nameless and the callback writes keyed fields. A scalar payload
-        // (legal JSON, "user":"..." ) opened nothing at all, so closing here would close
-        // the report root instead.
+        // ("user":"...") opened nothing at all, so closing here would close the report
+        // root instead. Arrays and scalars are written as given, but the contract is an
+        // object: the typed Report does not decode any other shape, so such a report is
+        // kept undelivered by the send.
         KSJSONEncodeContext *userJsonContext = getJsonContext(writer);
         if (userJsonContext->containerLevel > entryLevel) {
             if (g_userSectionWriteCallback != NULL && userJsonContext->isObject[userJsonContext->containerLevel]) {
