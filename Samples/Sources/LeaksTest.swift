@@ -153,7 +153,7 @@ private func readReports() -> [[String: Any]] {
     let reportCount = reportStore.reportCount
     print("[LeaksTest] Report count: \(reportCount)")
 
-    let reportIDs = reportStore.reportIDs
+    let reportIDs = (try? reportStore.listReportIDs()) ?? []
     print("[LeaksTest] Report IDs: \(reportIDs)")
 
     var reports: [[String: Any]] = []
@@ -194,7 +194,7 @@ private func exerciseSendPipeline() {
             // The bulk send skips current-run reports (the fresh user
             // exceptions, the hang report). Naming ids is how those are sent
             // deliberately, and it exercises the selection path too.
-            let remaining = (KSCrash.shared.reportStore?.reportIDs ?? []).map(\.stringValue)
+            let remaining = ((try? KSCrash.shared.reportStore?.listReportIDs()) ?? []).map(\.int64Value)
             let named = try await KSCrash.shared.sendReports(with: configuration, only: remaining)
             print(
                 "[LeaksTest] Swift named send: delivered \(named.delivered.count), "
