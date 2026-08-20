@@ -1501,11 +1501,27 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
             writer->addStringElement(writer, KSCrashField_Type, crash->monitorId);
             const KSCrashMonitorAPI *api = kscm_getMonitor(crash->monitorId);
             if (api && api->writeInReportSection) {
-                writer->beginObject(writer, crash->monitorId);
-                {
-                    api->writeInReportSection(crash, writer, api->context);
+                if (strcmp(crash->monitorId, KSCrashExcType_Profile) == 0) {
+                    // Profile is a built-in typed section (`crash.error.profile`
+                    // in the report model) that arrives through the monitor
+                    // mechanism; it lives at its schema key, not in the
+                    // custom-monitor namespace.
+                    writer->beginObject(writer, KSCrashExcType_Profile);
+                    {
+                        api->writeInReportSection(crash, writer, api->context);
+                    }
+                    writer->endContainer(writer);
+                } else {
+                    writer->beginObject(writer, KSCrashField_MonitorData);
+                    {
+                        writer->beginObject(writer, crash->monitorId);
+                        {
+                            api->writeInReportSection(crash, writer, api->context);
+                        }
+                        writer->endContainer(writer);
+                    }
+                    writer->endContainer(writer);
                 }
-                writer->endContainer(writer);
             }
         }
         writer->addBooleanElement(writer, KSCrashField_IsFatal, crash->requirements.isFatal);
