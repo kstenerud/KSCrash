@@ -153,36 +153,37 @@ struct Store: Sendable {
             switch (name as NSString).pathExtension.lowercased() {
             case "run":
                 // A `.run` file's grouping key (its runID) lives inside the
-                // JSON, so each file is decoded here transiently, just to
-                // extract its identity; the payload is discarded immediately
-                // and re-read per item under the send's claim, so a send
-                // never holds more than one summary regardless of backlog. A
-                // summary that cannot be decoded, or decodes without a runID,
-                // cannot be keyed or tied to its shared artifacts, so it is
-                // skipped and left on disk where pruning eventually reclaims
-                // it.
+                // JSON, so each file is read here transiently, decoding only
+                // the identity fields; the full summary is decoded per item
+                // under the send's claim, so a send never holds more than one
+                // summary regardless of backlog, and a summary the full model
+                // cannot decode still lists, surfacing its decode error as a
+                // kept item instead of vanishing. A file that does not even
+                // yield an identity cannot be keyed or tied to its shared
+                // artifacts, so it is skipped and left on disk where pruning
+                // eventually reclaims it.
                 guard let data = try? Data(contentsOf: url),
-                    let summary = try? decoder.decode(RunSummary.self, from: data),
-                    !summary.runID.isEmpty
+                    let identity = try? decoder.decode(RunIdentity.self, from: data),
+                    !identity.runID.isEmpty
                 else {
-                    os_log(.error, "Skipping undecodable run summary: %{public}@", name)
+                    os_log(.error, "Skipping unidentifiable run summary: %{public}@", name)
                     continue
                 }
                 // The writer names each file with the run's wall-clock start in
                 // nanoseconds, which is the send-order key. Files not named by
                 // the writer (tests, hand-made) fall back to the decoded start
                 // time so they still order sensibly among the rest.
-                let orderNs = parsedRunFilenameNs(name) ?? UInt64(clamping: summary.startedAtMs) &* 1_000_000
+                let orderNs = parsedRunFilenameNs(name) ?? UInt64(clamping: identity.startedAtMs) &* 1_000_000
                 // One summary per run: the writer's filename is deterministic
                 // (the dead run's own start time), so a re-persist overwrites
                 // rather than duplicates. If a stray extra file ever decodes
                 // to the same runID (hand-made), the newest wins and the
                 // other is left for pruning.
-                var group = groups[summary.runID, default: Group()]
+                var group = groups[identity.runID, default: Group()]
                 if group.summary == nil || group.summary!.orderNs < orderNs {
                     group.summary = (orderNs, url)
                 }
-                groups[summary.runID] = group
+                groups[identity.runID] = group
             case "sessions":
                 // `.sessions` filenames are `<runID>.sessions`, so the name
                 // alone keys the file; nothing needs to be read.
@@ -283,6 +284,18 @@ struct Store: Sendable {
         for entry in parsed.sorted(by: { $0.ns < $1.ns }).prefix(parsed.count - max) {
             try? FileManager.default.removeItem(at: runsDirectory.appendingPathComponent(entry.name))
         }
+    }
+}
+
+/// A `.run` file's identity: the fields the listing needs to key a run,
+/// decodable even when the full summary no longer is.
+private struct RunIdentity: Decodable {
+    let runID: String
+    let startedAtMs: Int64
+
+    enum CodingKeys: String, CodingKey {
+        case runID = "run_id"
+        case startedAtMs = "started_at_ms"
     }
 }
 

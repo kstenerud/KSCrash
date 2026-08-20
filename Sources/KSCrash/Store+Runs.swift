@@ -28,6 +28,7 @@ import Foundation
 import KSCrashRecording
 import KSCrashRecordingCore
 import KSCrashReportModel
+import os
 
 /// The run-summary half of the store. The store deletes only what a run
 /// exclusively owns (its `.run` files); shared files (`.sessions`, the sidecar
@@ -35,9 +36,12 @@ import KSCrashReportModel
 extension Store {
     /// The run's summary in deliverable form: session records merged from
     /// `.sessions`, metadata stitched from the run's UserInfo sidecar. nil
-    /// when the run has no summary on disk, or when reading its `.sessions`
-    /// or UserInfo sidecar fails in a way a retry could succeed at (the data
-    /// is unknown, so the run waits for a later send). An absent `.sessions`
+    /// when the run has no summary on disk, or when reading its `.run`,
+    /// `.sessions`, or UserInfo sidecar fails in a way a retry could succeed
+    /// at (the data is unknown, so the run waits for a later send). Throws
+    /// when the `.run` file was read but does not decode: that is
+    /// deterministic, so the send surfaces it as a kept item instead of
+    /// silently retrying forever. An absent `.sessions`
     /// means empty records; an absent, empty, or unrecoverably corrupt
     /// sidecar means nil metadata.
     ///
@@ -45,11 +49,11 @@ extension Store {
     /// run after it was captured); a stale or artifact-only run reads as nil
     /// here. Under a send's claim that check is race-free, because deletes
     /// only happen under the claim.
-    func summary(of run: Run) -> RunSummary? {
+    func summary(of run: Run) throws -> RunSummary? {
         // The payload is read here, per item, never held by the snapshot: a
         // send keeps at most one summary in memory no matter how many runs
         // are pending.
-        guard let summary = decodedBaseSummary(of: run) else {
+        guard let summary = try decodedBaseSummary(of: run) else {
             return nil
         }
         // The persisted `.run` deliberately carries neither session records nor
@@ -74,14 +78,17 @@ extension Store {
         try FileManager.default.removeItem(at: file)
     }
 
-    private func decodedBaseSummary(of run: Run) -> RunSummary? {
-        guard let file = run.summaryFile,
-            let data = try? Data(contentsOf: file),
-            let summary = try? JSONDecoder().decode(RunSummary.self, from: data)
-        else {
+    private func decodedBaseSummary(of run: Run) throws -> RunSummary? {
+        guard let file = run.summaryFile, let data = try? Data(contentsOf: file) else {
+            // Artifact-only run, stale entry, or unreadable right now.
             return nil
         }
-        return summary
+        do {
+            return try JSONDecoder().decode(RunSummary.self, from: data)
+        } catch {
+            os_log(.error, "Undecodable run summary %{public}@: %{public}@", run.runID, String(describing: error))
+            throw error
+        }
     }
 
     // MARK: - Sessions
