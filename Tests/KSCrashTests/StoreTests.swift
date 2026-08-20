@@ -65,7 +65,7 @@ final class StoreTests: XCTestCase {
 
     private func summary(at index: Int = 0) throws -> RunSummary? {
         let store = makeStore()
-        return store.summary(of: try store.snapshotRuns()[index])
+        return try store.summary(of: store.snapshotRuns()[index])
     }
 
     @discardableResult
@@ -418,7 +418,7 @@ final class StoreTests: XCTestCase {
         // The next snapshot sees the run as artifact-only.
         let after = try store.snapshotRuns()
         XCTAssertEqual(after.count, 1)
-        XCTAssertNil(store.summary(of: after[0]))
+        XCTAssertNil(try store.summary(of: after[0]))
     }
 
     func test_reclaimOrphans_invokesInjectedReclaim() {

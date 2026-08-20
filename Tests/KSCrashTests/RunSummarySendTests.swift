@@ -120,6 +120,38 @@ final class RunSummarySendTests: XCTestCase {
         XCTAssertEqual(summaryFileCount, 0)
     }
 
+    /// A `.run` that still yields its identity but no longer decodes as the
+    /// full model (a schema break across an upgrade) is a kept item carrying
+    /// the decode error, not a silent skip; the file stays for a later SDK.
+    func test_summaryThatFailsTheFullDecode_isKeptWithTheError_andStays() async throws {
+        try writeSummary(runID: "OK", startNs: 100)
+        try Data(#"{"run_id": "BROKEN", "started_at_ms": 1000}"#.utf8)
+            .write(to: runsDirectory.appendingPathComponent(String(format: "%019llu.run", UInt64(200))))
+
+        let result = try await send()
+
+        assertOutcomes(result, delivered: ["OK"], kept: ["BROKEN"])
+        let kept = try XCTUnwrap(result.items.first { $0.id == "BROKEN" })
+        guard case .kept(let error) = kept.outcome else {
+            return XCTFail("expected a kept outcome, got \(kept.outcome)")
+        }
+        XCTAssertTrue(error is DecodingError, "\(error)")
+        XCTAssertEqual(summaryFileCount, 1)
+    }
+
+    /// A `.run` that does not even yield an identity cannot be keyed, so it
+    /// is not an item: skipped, left on disk for pruning.
+    func test_summaryWithoutAnIdentity_isNotAnItem() async throws {
+        try writeSummary(runID: "OK", startNs: 100)
+        try Data("not json".utf8)
+            .write(to: runsDirectory.appendingPathComponent(String(format: "%019llu.run", UInt64(200))))
+
+        let result = try await send()
+
+        assertOutcomes(result, delivered: ["OK"])
+        XCTAssertEqual(summaryFileCount, 1)
+    }
+
     func test_notInstalled_returnsEmptyWithoutReclaim() async throws {
         let result = try await RunSummarySend.send(
             store: nil, pipeline: [passThrough()], maxRunCount: 50, claims: SendClaims())

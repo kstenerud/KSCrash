@@ -48,7 +48,7 @@ enum RunSummarySend {
                 id: { $0.runID },
                 // nil covers artifact-only runs (nothing left to send) as
                 // well as stale entries and unreadable shared files.
-                read: { $0.summary(of: $1) },
+                read: { try $0.summary(of: $1) },
                 remove: { try $0.removeSummary(of: $1) }
             ),
             pipeline: pipeline,
