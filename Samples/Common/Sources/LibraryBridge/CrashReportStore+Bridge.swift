@@ -1,7 +1,7 @@
 //
 //  CrashReportStore+Bridge.swift
 //
-//  Created by Nikolay Volosatov on 2024-08-04.
+//  Created by Nikolay Volosatov on 2024-06-23.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //

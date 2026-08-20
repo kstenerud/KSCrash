@@ -45,10 +45,8 @@ import sys
 ALWAYS_ADDED_SYMBOLS = [
                         "i_kslog_logObjC",
                         "i_kslog_logObjCBasic",
-                        "KSCrashAlertViewProcess",
                         "KSCrashAppMemory",
                         "KSCrashAppMemoryTrackerDelegate",
-                        "KSCrashMailProcess",
                         "KSCrashReportID",
                        ]
 
