@@ -479,9 +479,10 @@ final class CrashReportDecodingTests: XCTestCase {
                 "crash": {
                     "error": {
                         "type": "my_monitor",
-                        "my_monitor": { "transaction_id": "tx-123", "count": 2 },
-                        "other_monitor": { "flag": true },
-                        "bogus": 42
+                        "monitor_data": {
+                            "my_monitor": { "transaction_id": "tx-123", "count": 2 },
+                            "other_monitor": { "flag": true }
+                        }
                     },
                     "threads": []
                 },
@@ -492,8 +493,6 @@ final class CrashReportDecodingTests: XCTestCase {
         let error = try JSONDecoder().decode(Report.self, from: Data(json.utf8)).crash.error
         XCTAssertEqual(error.type, .unknown("my_monitor"))
 
-        // Both object sections survive; the scalar unknown key is not a
-        // section and is dropped.
         XCTAssertEqual(error.monitorData?.count, 2)
         XCTAssertEqual(error.monitorData?["my_monitor"]?.value(forKey: "transaction_id"), "tx-123")
         XCTAssertEqual(error.monitorData?["other_monitor"]?.value(forKey: "flag"), true)
@@ -511,6 +510,72 @@ final class CrashReportDecodingTests: XCTestCase {
             MyMonitorData(transactionId: "tx-123", count: 2))
         XCTAssertNil(try error.monitorData(MyMonitorData.self, for: "absent"))
         XCTAssertThrowsError(try error.monitorData(MyMonitorData.self, for: "other_monitor"))
+    }
+
+    /// Unknown keys under crash.error are schema evolution, not sections:
+    /// ignored on decode, like any other unknown key in the model.
+    func testDecodeIgnoresUnknownKeysUnderCrashError() throws {
+        let json = """
+            {
+                "crash": {
+                    "error": { "type": "mach", "future_field": 42, "future_section": { "a": 1 } },
+                    "threads": []
+                },
+                "report": { "id": "test" }
+            }
+            """
+
+        let error = try JSONDecoder().decode(Report.self, from: Data(json.utf8)).crash.error
+        XCTAssertNil(error.monitorData)
+    }
+
+    /// A section must be an object in both namespaces; anything else fails
+    /// the report's decode so the violation is loud, not silently dropped.
+    func testDecodeNonObjectMonitorSectionFailsTheReport() throws {
+        let inError = """
+            {
+                "crash": {
+                    "error": { "type": "mach", "monitor_data": { "my_monitor": 42 } },
+                    "threads": []
+                },
+                "report": { "id": "test" }
+            }
+            """
+        XCTAssertThrowsError(try JSONDecoder().decode(Report.self, from: Data(inError.utf8)))
+
+        let atRoot = """
+            {
+                "crash": { "error": { "type": "mach" }, "threads": [] },
+                "report": { "id": "test" },
+                "monitor_data": { "my_monitor": "not an object" }
+            }
+            """
+        XCTAssertThrowsError(try JSONDecoder().decode(Report.self, from: Data(atRoot.utf8)))
+    }
+
+    func testDecodeLegacyMemoryTermination() throws {
+        let json = """
+            {
+                "crash": {
+                    "error": {
+                        "type": "memory_termination",
+                        "memory_termination": { "memory_pressure": "critical", "memory_level": "warn" }
+                    },
+                    "threads": []
+                },
+                "report": { "id": "test" }
+            }
+            """
+
+        let error = try JSONDecoder().decode(Report.self, from: Data(json.utf8)).crash.error
+        XCTAssertEqual(error.type, .termination)
+        XCTAssertEqual(error.memoryTermination?.value(forKey: "memory_pressure"), "critical")
+        XCTAssertNil(error.monitorData)
+
+        // And it survives a round trip.
+        let reencoded = try JSONDecoder().decode(
+            Report.self, from: JSONEncoder().encode(JSONDecoder().decode(Report.self, from: Data(json.utf8))))
+        XCTAssertEqual(reencoded.crash.error.memoryTermination?.value(forKey: "memory_level"), "warn")
     }
 
     func testDecodeMonitorDataNamespace() throws {

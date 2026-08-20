@@ -803,14 +803,14 @@ final class CrashReportEncodingTests: XCTestCase {
         let (original, roundTripped) = try roundTrip(report)
         XCTAssertEqual(original, roundTripped)
 
-        // The wire keys: the error section under the monitor id, the
-        // delivery-time namespace under monitor_data.
+        // The wire keys: both namespaces are named monitor_data, one under
+        // the error section and one at the report root.
         let data = try JSONEncoder().encode(report)
         let dict = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         XCTAssertNotNil((dict["monitor_data"] as? [String: Any])?["stitcher"])
         let errorDict = try XCTUnwrap(
             ((dict["crash"] as? [String: Any])?["error"] as? [String: Any]))
-        XCTAssertNotNil(errorDict["my_monitor"] as? [String: Any])
+        XCTAssertNotNil((errorDict["monitor_data"] as? [String: Any])?["my_monitor"])
         XCTAssertEqual(errorDict["type"] as? String, "my_monitor")
     }
 
