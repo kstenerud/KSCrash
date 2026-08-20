@@ -134,16 +134,12 @@ enum SendDriver {
                 continue
             }
 
-            switch await runPipeline(payload, through: pipeline) {
-            case .delivered:
+            let outcome = await runPipeline(payload, through: pipeline)
+            if case .kept = outcome {
+            } else {
                 remove(item, id: id, kind: kind, from: store)
-                finish(.delivered)
-            case .discarded:
-                remove(item, id: id, kind: kind, from: store)
-                finish(.discarded)
-            case .kept(let error):
-                finish(.kept(error))
             }
+            finish(outcome)
         }
         return SendResult(items: results)
     }
