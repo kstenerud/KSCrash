@@ -26,6 +26,9 @@
 
 #import <XCTest/XCTest.h>
 
+#import "KSCrashMonitor.h"
+#import "KSCrashMonitorAPI.h"
+#import "KSCrashMonitorHelper.h"
 #import "KSCrashMonitor_MachException.h"
 #import "KSCrashReportC.h"
 #import "KSJSONCodec.h"
@@ -37,10 +40,21 @@
 #include <stdatomic.h>
 #include <stdio.h>
 
+static const char *customSectionMonitorId(__unused void *context) { return "TestCustomMonitor"; }
+static const char *profileLikeMonitorId(__unused void *context) { return "profile"; }
+static void writeTestMonitorSection(__unused const KSCrash_MonitorContext *eventContext,
+                                    const KSCrashReportWriter *writer, __unused void *context)
+{
+    writer->addStringElement(writer, "custom_key", "custom_value");
+}
+
 @interface KSCrashReportC_Tests : XCTestCase
 @end
 
-@implementation KSCrashReportC_Tests
+@implementation KSCrashReportC_Tests {
+    KSCrashMonitorAPI _customMonitorAPI;
+    KSCrashMonitorAPI _profileLikeMonitorAPI;
+}
 
 - (void)setUp
 {
@@ -53,7 +67,61 @@
 {
     // Clean up after each test
     kscrashreport_setUserInfoJSON(NULL);
+    kscm_removeMonitor(&_customMonitorAPI);
+    kscm_removeMonitor(&_profileLikeMonitorAPI);
     [super tearDown];
+}
+
+/// A monitor-caused report for the monitor id `idFunc` returns, written and
+/// read back.
+- (NSDictionary *)writeReportForMonitor:(KSCrashMonitorAPI *)monitorAPI monitorId:(const char *(*)(void *))idFunc
+{
+    kscma_initAPI(monitorAPI);
+    monitorAPI->monitorId = idFunc;
+    monitorAPI->writeInReportSection = writeTestMonitorSection;
+    kscm_addMonitor(monitorAPI);
+
+    struct KSMachineContext machineContext = { 0 };
+    XCTAssertTrue(ksmc_getContextForThread(pthread_mach_thread_np(pthread_self()), &machineContext, true));
+    KSStackCursor stackCursor;
+    kssc_initSelfThread(&stackCursor, 0);
+
+    KSCrash_MonitorContext context = { 0 };
+    snprintf(context.eventID, sizeof(context.eventID), "MONITORSECTIONTEST");
+    context.offendingMachineContext = &machineContext;
+    context.stackCursor = &stackCursor;
+    context.omitBinaryImages = true;
+    context.monitorId = monitorAPI->monitorId(NULL);
+
+    NSString *path = [self temporaryReportPath];
+    NSDictionary *json = nil;
+    @try {
+        kscrashreport_writeStandardReport(&context, path.UTF8String);
+        json = [self readJSONObjectAtPath:path];
+    } @finally {
+        [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+    }
+    return json;
+}
+
+- (void)testWriteStandardReportFencesACustomMonitorSection
+{
+    NSDictionary *error = [self writeReportForMonitor:&_customMonitorAPI
+                                            monitorId:customSectionMonitorId][@"crash"][@"error"];
+
+    XCTAssertEqualObjects(error[@"type"], @"TestCustomMonitor");
+    XCTAssertEqualObjects(error[@"monitor_data"][@"TestCustomMonitor"][@"custom_key"], @"custom_value");
+    XCTAssertNil(error[@"TestCustomMonitor"], @"The section lives only in the fenced namespace");
+}
+
+- (void)testWriteStandardReportKeepsTheProfileSectionAtItsSchemaKey
+{
+    NSDictionary *error = [self writeReportForMonitor:&_profileLikeMonitorAPI
+                                            monitorId:profileLikeMonitorId][@"crash"][@"error"];
+
+    XCTAssertEqualObjects(error[@"type"], @"profile");
+    XCTAssertEqualObjects(error[@"profile"][@"custom_key"], @"custom_value");
+    XCTAssertNil(error[@"monitor_data"], @"Profile is a typed section, not custom-monitor data");
 }
 
 - (NSString *)temporaryReportPath
