@@ -103,7 +103,7 @@ This runs at normal app startup time (not during crash handling), so ObjC and he
 
 ### Configuration
 
-The sidecars directories are configured via `KSCrashReportStoreCConfiguration.reportSidecarsPath` and `runSidecarsPath`. If left `NULL` (the default), they are automatically set to `Sidecars` and `RunSidecars` siblings of `reportsPath` during `kscrash_install` (matching the ObjC `KSCrashReportStoreConfiguration`). The report store creates these directories at initialization. Orphaned run sidecar directories (those with no matching reports) are cleaned up automatically during `kscrs_initialize`.
+The sidecars directories are configured via `KSCrashReportStoreCConfiguration.reportSidecarsPath` and `runSidecarsPath`. If left `NULL` (the default), they are automatically set to `Sidecars` and `RunSidecars` siblings of `reportsPath` during `kscrash_install` (matching the ObjC `KSCrashReportStoreConfiguration`). The report store creates these directories at initialization. Orphaned run sidecar directories are removed by `kscrs_reclaimOrphanedRunData`, which the send flows run automatically (see `sessions.md`).
 
 ### Key Files
 
