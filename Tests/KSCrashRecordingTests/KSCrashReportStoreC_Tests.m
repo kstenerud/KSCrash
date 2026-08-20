@@ -100,6 +100,12 @@
 - (NSArray *)getReportIDs
 {
     int reportCount = kscrs_getReportCount(&_storeConfig);
+    // -1 means the directory could not be enumerated; a VLA of that length
+    // would be undefined behavior, so fail loudly instead.
+    if (reportCount < 0) {
+        XCTFail(@"Could not enumerate the reports directory");
+        return @[];
+    }
     int64_t rawReportIDs[reportCount];
     reportCount = kscrs_getReportIDs(rawReportIDs, reportCount, &_storeConfig);
     NSMutableArray *reportIDs = [NSMutableArray new];
@@ -672,6 +678,30 @@
 
     // A status of NULL is allowed.
     XCTAssertTrue(kscrs_readReport(arrayID, &_storeConfig, NULL) == NULL);
+}
+
+- (void)testGetReportCountAndIDsReturnMinusOneWhenTheDirectoryCannotBeEnumerated
+{
+    [self prepareReportStoreWithPathEnd:@"testEnumFailure"];
+    // Replace the reports directory with a plain file: opendir now fails with
+    // ENOTDIR, the not-ENOENT case the -1 contract covers.
+    NSString *path = self.reportStorePath;
+    XCTAssertTrue([[NSFileManager defaultManager] removeItemAtPath:path error:NULL]);
+    XCTAssertTrue([[NSData data] writeToFile:path atomically:YES]);
+
+    XCTAssertEqual(kscrs_getReportCount(&_storeConfig), -1);
+    int64_t reportIDs[4];
+    XCTAssertEqual(kscrs_getReportIDs(reportIDs, 4, &_storeConfig), -1);
+}
+
+- (void)testDeleteReportWithIDReturnsWhetherTheFileWasRemoved
+{
+    [self prepareReportStoreWithPathEnd:@"testDeleteResult"];
+    int64_t reportID = [self writeUserReportWithStringContents:REPORT_CONTENTS(0)];
+
+    XCTAssertTrue(kscrs_deleteReportWithID(reportID, &_storeConfig));
+    XCTAssertFalse(kscrs_deleteReportWithID(reportID, &_storeConfig), @"Already deleted");
+    XCTAssertFalse(kscrs_deleteReportWithID(12345, &_storeConfig), @"Never existed");
 }
 
 - (void)testReadReportWithReportSectionAsString
