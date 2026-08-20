@@ -28,16 +28,10 @@
 
 #import "KSCrashInstallConfiguration+Private.h"
 #import "KSCrashReportStoreC+Private.h"
+#import "KSNSErrorHelper.h"
 
 // #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
-
-static NSError *reportStoreError(NSInteger code, NSString *description)
-{
-    return [NSError errorWithDomain:NSCocoaErrorDomain
-                               code:code
-                           userInfo:@ { NSLocalizedDescriptionKey : description }];
-}
 
 @implementation KSCrashReportStore {
     KSCrashReportStoreCConfiguration _cConfig;
@@ -94,10 +88,16 @@ static NSError *reportStoreError(NSInteger code, NSString *description)
     if (report != NULL) {
         return [NSData dataWithBytesNoCopy:report length:strlen(report) freeWhenDone:YES];
     }
-    if (error != NULL) {
-        *error = status == KSCrashReportReadStatusUndecodable
-                     ? reportStoreError(NSFileReadCorruptFileError, @"The report file does not hold a JSON report.")
-                     : reportStoreError(NSFileReadUnknownError, @"The report could not be read.");
+    if (status == KSCrashReportReadStatusUndecodable) {
+        [KSNSErrorHelper fillError:error
+                        withDomain:NSCocoaErrorDomain
+                              code:NSFileReadCorruptFileError
+                       description:@"The report file does not hold a JSON report."];
+    } else {
+        [KSNSErrorHelper fillError:error
+                        withDomain:NSCocoaErrorDomain
+                              code:NSFileReadUnknownError
+                       description:@"The report could not be read."];
     }
     return nil;
 }
@@ -106,9 +106,10 @@ static NSError *reportStoreError(NSInteger code, NSString *description)
 {
     int reportCount = kscrs_getReportCount(&_cConfig);
     if (reportCount < 0) {
-        if (error != NULL) {
-            *error = reportStoreError(NSFileReadUnknownError, @"The reports directory could not be enumerated.");
-        }
+        [KSNSErrorHelper fillError:error
+                        withDomain:NSCocoaErrorDomain
+                              code:NSFileReadUnknownError
+                       description:@"The reports directory could not be enumerated."];
         return nil;
     }
     if (reportCount == 0) {
@@ -116,17 +117,19 @@ static NSError *reportStoreError(NSInteger code, NSString *description)
     }
     int64_t *reportIDsC = malloc(sizeof(int64_t) * (size_t)reportCount);
     if (!reportIDsC) {
-        if (error != NULL) {
-            *error = reportStoreError(NSFileReadUnknownError, @"The reports directory could not be enumerated.");
-        }
+        [KSNSErrorHelper fillError:error
+                        withDomain:NSCocoaErrorDomain
+                              code:NSFileReadUnknownError
+                       description:@"The reports directory could not be enumerated."];
         return nil;
     }
     reportCount = kscrs_getReportIDs(reportIDsC, reportCount, &_cConfig);
     if (reportCount < 0) {
         free(reportIDsC);
-        if (error != NULL) {
-            *error = reportStoreError(NSFileReadUnknownError, @"The reports directory could not be enumerated.");
-        }
+        [KSNSErrorHelper fillError:error
+                        withDomain:NSCocoaErrorDomain
+                              code:NSFileReadUnknownError
+                       description:@"The reports directory could not be enumerated."];
         return nil;
     }
     NSMutableArray *reportIDs = [NSMutableArray arrayWithCapacity:(NSUInteger)reportCount];
@@ -142,10 +145,10 @@ static NSError *reportStoreError(NSInteger code, NSString *description)
     if (kscrs_deleteReportWithID(reportID, &_cConfig)) {
         return YES;
     }
-    if (error != NULL) {
-        *error = reportStoreError(NSFileWriteUnknownError,
-                                  [NSString stringWithFormat:@"Report %lld could not be deleted.", reportID]);
-    }
+    [KSNSErrorHelper fillError:error
+                    withDomain:NSCocoaErrorDomain
+                          code:NSFileWriteUnknownError
+                   description:@"Report %lld could not be deleted.", reportID];
     return NO;
 }
 
