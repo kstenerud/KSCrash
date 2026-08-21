@@ -179,7 +179,8 @@ struct Store: Sendable {
                 // (the dead run's own start time), so a re-persist overwrites
                 // rather than duplicates. If a stray extra file ever decodes
                 // to the same runID (hand-made), the newest wins and the
-                // other is left for pruning.
+                // other stays on disk; re-delivery is deduped by run id at
+                // the backend, deliberately not here.
                 var group = groups[identity.runID, default: Group()]
                 if group.summary == nil || group.summary!.orderNs < orderNs {
                     group.summary = (orderNs, url)
