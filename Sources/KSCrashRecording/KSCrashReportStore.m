@@ -26,6 +26,7 @@
 
 #import "KSCrashReportStore.h"
 
+#import "KSCrash+Private.h"
 #import "KSCrashInstallConfiguration+Private.h"
 #import "KSCrashReportStoreC+Private.h"
 #import "KSNSErrorHelper.h"
@@ -54,7 +55,13 @@
         KSCrashReportStoreConfiguration *resolvedConfiguration = configuration ?: [KSCrashReportStoreConfiguration new];
         _cConfig = [resolvedConfiguration toCConfiguration];
 
-        kscrs_initialize(&_cConfig);
+        KSCrashInstallErrorCode result = kscrs_initialize(&_cConfig);
+        if (result != KSCrashInstallErrorNone) {
+            if (error != NULL) {
+                *error = [KSCrash errorForInstallErrorCode:result];
+            }
+            return nil;
+        }
     }
     return self;
 }
