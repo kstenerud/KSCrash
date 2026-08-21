@@ -80,11 +80,15 @@ enum SendDriver {
             return SendResult(items: [])
         }
 
-        // Run-summary retention is enforced on every send path, so an app
+        // Run-summary retention is enforced on every bulk send, so an app
         // that only ever sends reports still cannot grow `.run` files
         // without bound. Pruning before the listing keeps files that are
-        // about to be deleted out of it.
-        store.pruneRunSummaries(keepingNewest: maxRunCount)
+        // about to be deleted out of it. A selective send never prunes: it
+        // touches only the items it names, and pruning here would delete
+        // beyond-cap runs the caller is deliberately retrying.
+        if selection == nil {
+            store.pruneRunSummaries(keepingNewest: maxRunCount)
+        }
 
         var items = try kind.list(store)
         if let selection {
