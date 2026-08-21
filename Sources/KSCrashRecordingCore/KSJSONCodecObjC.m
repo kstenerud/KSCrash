@@ -144,6 +144,13 @@ static inline NSString *_Nullable stringFromCString(const char *const string)
 
 static int onElement(KSJSONCodec *codec, NSString *name, id element)
 {
+    if (element == nil) {
+        codec.error = [KSNSErrorHelper errorWithDomain:@"KSJSONCodecObjC"
+                                                  code:0
+                                           description:@"JSON string contains invalid UTF-8"];
+        return KSJSON_ERROR_INVALID_CHARACTER;
+    }
+
     id currentContainer = codec.currentContainer;
     if (currentContainer == nil) {
         codec.error = [KSNSErrorHelper errorWithDomain:@"KSJSONCodecObjC"
@@ -153,6 +160,12 @@ static int onElement(KSJSONCodec *codec, NSString *name, id element)
     }
 
     if ([currentContainer isKindOfClass:[NSMutableDictionary class]]) {
+        if (name == nil) {
+            codec.error = [KSNSErrorHelper errorWithDomain:@"KSJSONCodecObjC"
+                                                      code:0
+                                               description:@"JSON object key contains invalid UTF-8"];
+            return KSJSON_ERROR_INVALID_CHARACTER;
+        }
         [(NSMutableDictionary *)currentContainer setValue:element forKey:name];
     } else {
         [(NSMutableArray *)currentContainer addObject:element];
