@@ -163,10 +163,10 @@ static bool deletePathContents(const char *path, bool deleteTopLevelPathAlso)
         free(pathBuffer);
         freeDirListing(entries, entryCount);
         if (deleteTopLevelPathAlso) {
-            ksfu_removeFile(path, false);
+            ksfu_removeFile(path, false, NULL);
         }
     } else if (S_ISREG(statStruct.st_mode)) {
-        ksfu_removeFile(path, false);
+        ksfu_removeFile(path, false, NULL);
     } else {
         KSLOG_ERROR("Could not delete %s: Not a regular file.", path);
         return false;
@@ -366,13 +366,21 @@ done:
     return isSuccessful;
 }
 
-bool ksfu_removeFile(const char *path, bool mustExist)
+bool ksfu_removeFile(const char *path, bool mustExist, int *errnoOut)
 {
     if (remove(path) < 0) {
-        if (mustExist || errno != ENOENT) {
-            KSLOG_ERROR("Could not delete %s: %s", path, strerror(errno));
+        // Capture before KSLOG, which may clobber errno.
+        int removeErrno = errno;
+        if (errnoOut != NULL) {
+            *errnoOut = removeErrno;
+        }
+        if (mustExist || removeErrno != ENOENT) {
+            KSLOG_ERROR("Could not delete %s: %s", path, strerror(removeErrno));
         }
         return false;
+    }
+    if (errnoOut != NULL) {
+        *errnoOut = 0;
     }
     return true;
 }
