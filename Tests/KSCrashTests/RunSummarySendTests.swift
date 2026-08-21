@@ -378,6 +378,36 @@ final class RunSummarySendTests: XCTestCase {
         XCTAssertEqual(summaryFileCount, 0)
     }
 
+    // MARK: - Retention
+
+    func test_bulkSend_prunesBeyondCapBeforeListing() async throws {
+        try writeSummary(runID: "OLDEST", startNs: 100)
+        try writeSummary(runID: "MID", startNs: 200)
+        try writeSummary(runID: "NEW", startNs: 300)
+
+        let result = try await RunSummarySend.send(
+            store: makeStore(), pipeline: [passThrough()], maxRunCount: 2, claims: SendClaims())
+
+        // The beyond-cap run is pruned before the listing: not an item, file gone.
+        assertOutcomes(result, delivered: ["NEW", "MID"])
+        XCTAssertEqual(summaryFileCount, 0)
+    }
+
+    func test_only_neverPrunes_soANamedBeyondCapRunIsDelivered() async throws {
+        try writeSummary(runID: "OLDEST", startNs: 100)
+        try writeSummary(runID: "MID", startNs: 200)
+        try writeSummary(runID: "NEW", startNs: 300)
+
+        let result = try await RunSummarySend.send(
+            store: makeStore(), pipeline: [passThrough()], maxRunCount: 1,
+            only: ["OLDEST"], claims: SendClaims())
+
+        // A selective send touches only what it names: the beyond-cap named
+        // run is delivered, and the unselected runs' files stay on disk.
+        assertOutcomes(result, delivered: ["OLDEST"])
+        XCTAssertEqual(summaryFileCount, 2)
+    }
+
     // MARK: - Cancellation
 
     func test_cancellation_returnsPartialAndKeepsTheRest() async throws {
