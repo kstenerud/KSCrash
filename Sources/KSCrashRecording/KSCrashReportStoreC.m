@@ -789,8 +789,7 @@ static char *readReportAtPath(const char *path, int64_t reportID, const KSCrashR
     @autoreleasepool {
         char *rawReport;
         int rawLength = 0;
-        ksfu_readEntireFile(path, &rawReport, &rawLength, KSCRS_MAX_REPORT_SIZE);
-        if (rawReport == NULL) {
+        if (!ksfu_readEntireFile(path, &rawReport, &rawLength, KSCRS_MAX_REPORT_SIZE)) {
             KSLOG_ERROR(@"Failed to load report at path: %s", path);
             setReadStatus(status, KSCrashReportReadStatusUnreadable);
             return NULL;
@@ -885,8 +884,7 @@ bool kscrs_finalizeReport(const char *reportPath, int64_t reportID)
     @autoreleasepool {
         char *rawReport;
         int rawLength = 0;
-        ksfu_readEntireFile(reportPath, &rawReport, &rawLength, KSCRS_MAX_REPORT_SIZE);
-        if (rawReport == NULL) {
+        if (!ksfu_readEntireFile(reportPath, &rawReport, &rawLength, KSCRS_MAX_REPORT_SIZE)) {
             pthread_mutex_unlock(&g_mutex);
             return false;
         }
@@ -993,6 +991,25 @@ char *kscrs_readReport(int64_t reportID, const KSCrashReportStoreCConfiguration 
     char path[KSCRS_MAX_PATH_LENGTH];
     getCrashReportPathByID(reportID, path, configuration);
     char *result = readReportAtPath(path, reportID, configuration, status);
+    pthread_mutex_unlock(&g_mutex);
+    return result;
+}
+
+char *kscrs_copyReportRunID(int64_t reportID, const KSCrashReportStoreCConfiguration *const configuration)
+{
+    // g_mutex: kscrs_addUserReport writes the canonical report path in place,
+    // so an unlocked peek could read a half-written report.
+    pthread_mutex_lock(&g_mutex);
+    char path[KSCRS_MAX_PATH_LENGTH];
+    getCrashReportPathByID(reportID, path, configuration);
+
+    // The extractor stops at report.run_id, so a report torn mid-write
+    // still answers with its run.
+    char runID[KSCRS_UUID_STRING_LENGTH + 1];
+    char *result = NULL;
+    if (kscrs_extractRunIdFromReportFile(path, runID, sizeof(runID)) == KSCrashRunIdResultFound) {
+        result = strdup(runID);
+    }
     pthread_mutex_unlock(&g_mutex);
     return result;
 }

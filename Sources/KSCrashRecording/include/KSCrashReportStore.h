@@ -75,6 +75,16 @@ NS_SWIFT_NAME(CrashReportStore)
  */
 - (nullable NSData *)reportDataForID:(KSCrashReportID)reportID error:(NSError **)error NS_SWIFT_NAME(reportData(for:));
 
+/** The run a report belongs to, from the report file alone: nothing is
+ * stitched and no run artifacts are touched.
+ *
+ * @param reportID An ID of report.
+ *
+ * @return The run id (a UUID string), or nil when the report cannot be read
+ * or records no valid run.
+ */
+- (nullable NSString *)runIDForReportID:(KSCrashReportID)reportID NS_SWIFT_NAME(runID(of:));
+
 /** Delete all unsent reports.
  */
 - (void)deleteAllReports;

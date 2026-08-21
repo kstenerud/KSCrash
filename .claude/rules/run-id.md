@@ -12,7 +12,7 @@ paths:
 
 Each process gets a unique run ID (UUID string), generated once during `kscrash_install()` in `KSCrashC.c`. It is written into the `"report"` section of every crash report under the `"run_id"` key. In a normal app the buffer is read-only after install, so `kscrash_getRunID()` is async-signal-safe and can be called from crash handlers.
 
-**Purpose**: Reports from the current run may still be updated (e.g., watchdog hang reports that get resolved). The bulk Swift send, `KSCrash.sendReports(with:)`, skips reports whose `run_id` matches the current process (the check lives in `ReportSend.swift`, comparing the decoded report's `runId` with the store's `liveRunID`). To send a current-run report deliberately, name its id in `sendReports(with:only:)`; a named report is always sent.
+**Purpose**: Reports from the current run may still be updated (e.g., watchdog hang reports that get resolved). The bulk Swift send, `KSCrash.sendReports(with:)`, skips reports whose `run_id` matches the current process. The check lives in `ReportSend.swift` and compares the store's `liveRunID` against `Store.runID(of:)`, a peek backed by `kscrs_copyReportRunID` that answers from the report file alone (partial-tolerant decode, no stitch), so a bulk send never reads or stitches anything of the live run. To send a current-run report deliberately, name its id in `sendReports(with:only:)`; a named report is always sent.
 
 ### Out-of-process (corpse) run ID
 

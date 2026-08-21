@@ -247,6 +247,7 @@
 #define kscrashstate_lifecycleAppState KSCRASH_NS(kscrashstate_lifecycleAppState)
 #define kscrf_fixupReportDict KSCRASH_NS(kscrf_fixupReportDict)
 #define kscrs_addUserReport KSCRASH_NS(kscrs_addUserReport)
+#define kscrs_copyReportRunID KSCRASH_NS(kscrs_copyReportRunID)
 #define kscrs_deleteAllReports KSCRASH_NS(kscrs_deleteAllReports)
 #define kscrs_deleteReportWithID KSCRASH_NS(kscrs_deleteReportWithID)
 #define kscrs_extractRunIdFromReportFile KSCRASH_NS(kscrs_extractRunIdFromReportFile)

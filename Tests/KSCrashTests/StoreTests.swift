@@ -449,6 +449,7 @@ final class StoreTests: XCTestCase {
                     return reports.ids
                 },
                 read: { reports.data(for: $0) },
+                runID: { _ in nil },
                 remove: {
                     if removeFails { throw BridgeError() }
                     reports.remove($0)
@@ -521,7 +522,8 @@ final class StoreTests: XCTestCase {
             runsDirectory: runsDirectory,
             runSidecarsDirectory: sidecarsDirectory,
             liveRunID: nil,
-            reports: ReportBridge(list: { [5] }, read: { _ in throw NotAReport() }, remove: { _ in })
+            reports: ReportBridge(
+                list: { [5] }, read: { _ in throw NotAReport() }, runID: { _ in nil }, remove: { _ in })
         )
         XCTAssertThrowsError(try store.report(5)) { error in
             XCTAssertTrue(error is NotAReport, "\(error)")
