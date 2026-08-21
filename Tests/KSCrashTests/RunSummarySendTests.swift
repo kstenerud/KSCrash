@@ -140,6 +140,37 @@ final class RunSummarySendTests: XCTestCase {
         XCTAssertEqual(summaryFileCount, 1)
     }
 
+    /// A run_id alone must list: the strict model decode is the health gate,
+    /// so a summary missing its timestamp is a kept item naming the missing
+    /// field, never a silent skip.
+    func test_summaryMissingItsTimestamp_isKeptWithTheError_andStays() async throws {
+        try writeSummary(runID: "OK", startNs: 100)
+        try Data(#"{"run_id": "BROKEN"}"#.utf8)
+            .write(to: runsDirectory.appendingPathComponent(String(format: "%019llu.run", UInt64(200))))
+
+        let result = try await send()
+
+        assertOutcomes(result, delivered: ["OK"], kept: ["BROKEN"])
+        let kept = try XCTUnwrap(result.items.first { $0.id == "BROKEN" })
+        guard case .kept(let error) = kept.outcome else {
+            return XCTFail("expected a kept outcome, got \(kept.outcome)")
+        }
+        XCTAssertTrue(error is DecodingError, "\(error)")
+        XCTAssertEqual(summaryFileCount, 1)
+    }
+
+    /// A mistyped timestamp in a non-writer-named file costs the run its
+    /// ordering, not its listing: it still surfaces as a kept item.
+    func test_summaryWithAMistypedTimestamp_isKeptWithTheError_andStays() async throws {
+        try Data(#"{"run_id": "BROKEN", "started_at_ms": "100"}"#.utf8)
+            .write(to: runsDirectory.appendingPathComponent("foreign.run"))
+
+        let result = try await send()
+
+        assertOutcomes(result, kept: ["BROKEN"])
+        XCTAssertEqual(summaryFileCount, 1)
+    }
+
     /// A `.run` that does not even yield an identity cannot be keyed, so it
     /// is not an item: skipped, left on disk for pruning.
     func test_summaryWithoutAnIdentity_isNotAnItem() async throws {
