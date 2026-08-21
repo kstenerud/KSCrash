@@ -680,6 +680,39 @@
     XCTAssertTrue(kscrs_readReport(arrayID, &_storeConfig, NULL) == NULL);
 }
 
+- (void)testCopyReportRunIDAnswersFromTheReportFile
+{
+    [self prepareReportStoreWithPathEnd:@"testCopyRunID"];
+    int64_t reportID =
+        [self writeUserReportWithStringContents:@"{\"report\":{\"run_id\":\"0155A1E2-D4C3-4B6A-9C8D-1234567890AB\"}}"];
+
+    char *runID = kscrs_copyReportRunID(reportID, &_storeConfig);
+    XCTAssertTrue(runID != NULL);
+    XCTAssertEqual(strcmp(runID, "0155A1E2-D4C3-4B6A-9C8D-1234567890AB"), 0);
+    free(runID);
+
+    // Absent, non-UUID, and missing are all "no run".
+    int64_t noRunID = [self writeUserReportWithStringContents:@"{\"report\":{}}"];
+    XCTAssertTrue(kscrs_copyReportRunID(noRunID, &_storeConfig) == NULL);
+    int64_t badRunID = [self writeUserReportWithStringContents:@"{\"report\":{\"run_id\":\"RUN-A\"}}"];
+    XCTAssertTrue(kscrs_copyReportRunID(badRunID, &_storeConfig) == NULL);
+    XCTAssertTrue(kscrs_copyReportRunID(12345, &_storeConfig) == NULL);
+}
+
+- (void)testCopyReportRunIDSurvivesATornReport
+{
+    [self prepareReportStoreWithPathEnd:@"testCopyRunIDTorn"];
+    // Torn mid-write: the extraction stops at run_id, before the tear.
+    int64_t reportID =
+        [self writeUserReportWithStringContents:
+                  @"{\"report\":{\"run_id\":\"0155A1E2-D4C3-4B6A-9C8D-1234567890AB\"},\"crash\":{\"threads\":"];
+
+    char *runID = kscrs_copyReportRunID(reportID, &_storeConfig);
+    XCTAssertTrue(runID != NULL);
+    XCTAssertEqual(strcmp(runID, "0155A1E2-D4C3-4B6A-9C8D-1234567890AB"), 0);
+    free(runID);
+}
+
 - (void)testGetReportCountAndIDsReturnMinusOneWhenTheDirectoryCannotBeEnumerated
 {
     [self prepareReportStoreWithPathEnd:@"testEnumFailure"];

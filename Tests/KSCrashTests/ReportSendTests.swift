@@ -87,6 +87,12 @@ final class ReportSendTests: XCTestCase {
                     if undecodable.contains($0) { throw CocoaError(.fileReadCorruptFile) }
                     return try? Data(contentsOf: directory.appendingPathComponent("\($0).json"))
                 },
+                runID: { id in
+                    guard let data = try? Data(contentsOf: directory.appendingPathComponent("\(id).json")),
+                        let report = try? JSONDecoder().decode(Report.self, from: data)
+                    else { return nil }
+                    return report.report.runId
+                },
                 remove: { try FileManager.default.removeItem(at: directory.appendingPathComponent("\($0).json")) }
             ),
             reclaim: { counter.increment() }

@@ -157,4 +157,15 @@
     return [self loadCrashReportJSONWithID:reportID error:error];
 }
 
+- (NSString *)runIDForReportID:(int64_t)reportID
+{
+    char *runID = kscrs_copyReportRunID(reportID, &_cConfig);
+    if (runID == NULL) {
+        return nil;
+    }
+    NSString *result = [NSString stringWithUTF8String:runID];
+    free(runID);
+    return result;
+}
+
 @end

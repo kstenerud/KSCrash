@@ -86,6 +86,7 @@ struct Store: Sendable {
                         return nil
                     }
                 },
+                runID: { reportStore.runID(of: $0) },
                 remove: { try reportStore.removeReport(withID: $0) }
             ),
             reclaim: { reportStore.reclaimOrphanedRunData() }
@@ -314,11 +315,16 @@ struct ReportBridge: Sendable {
     /// deterministic, so the send surfaces it instead of retrying forever.
     let read: @Sendable (ReportID) throws -> Data?
 
+    /// The run a report belongs to, from the report file alone: nothing is
+    /// stitched and no run artifacts are touched. nil when the report cannot
+    /// be read or records no run.
+    let runID: @Sendable (ReportID) -> String?
+
     /// Delete one report. Throws when the report file could not be removed.
     let remove: @Sendable (ReportID) throws -> Void
 
     /// A store with no report half (run-only tests).
-    static let none = ReportBridge(list: { [] }, read: { _ in nil }, remove: { _ in })
+    static let none = ReportBridge(list: { [] }, read: { _ in nil }, runID: { _ in nil }, remove: { _ in })
 }
 
 extension Store {
@@ -340,6 +346,13 @@ extension Store {
             os_log(.error, "Undecodable report %lld: %{public}@", id, String(describing: error))
             throw error
         }
+    }
+
+    /// The run `id` belongs to, from the report file alone: nothing is
+    /// stitched and no run artifacts are touched. nil when the report cannot
+    /// be read or records no run.
+    func runID(of id: ReportID) -> String? {
+        reports.runID(id)
     }
 
     /// Delete one report (and, through the C store, its report sidecars).
