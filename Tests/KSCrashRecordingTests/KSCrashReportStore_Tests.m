@@ -26,6 +26,7 @@
 
 #import <XCTest/XCTest.h>
 
+#import "KSCrashError.h"
 #import "KSCrashInstallConfiguration.h"
 #import "KSCrashReportStore.h"
 
@@ -72,6 +73,22 @@
 {
     XCTAssertTrue([[NSFileManager defaultManager] removeItemAtPath:self.reportsPath error:NULL]);
     XCTAssertTrue([[NSData data] writeToFile:self.reportsPath atomically:YES]);
+}
+
+- (void)testStoreWithConfigurationFailsWithAnErrorWhenThePathCannotBeCreated
+{
+    // A plain file where the reports directory must go makes its creation fail.
+    NSString *blocked = [self.tempPath stringByAppendingPathComponent:@"blocked"];
+    XCTAssertTrue([[NSData data] writeToFile:blocked atomically:YES]);
+
+    KSCrashReportStoreConfiguration *config = [KSCrashReportStoreConfiguration new];
+    config.appName = @"TestApp";
+    config.reportsPath = [blocked stringByAppendingPathComponent:@"Reports"];
+
+    NSError *error = nil;
+    XCTAssertNil([KSCrashReportStore storeWithConfiguration:config error:&error]);
+    XCTAssertEqualObjects(error.domain, KSCrashErrorDomain);
+    XCTAssertEqual(error.code, KSCrashInstallErrorCouldNotCreatePath);
 }
 
 - (void)testListReportIDsReturnsOldestFirst
