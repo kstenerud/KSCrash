@@ -781,7 +781,11 @@ static bool writeObjCObject(const KSCrashReportWriter *const writer, const uintp
                         break;
                 }
             }
-            break;
+            // type and class are already written, so the record is complete:
+            // a restricted (or unhandled) object must not fall through to the
+            // raw-memory fallback, which would add a second "type" key and
+            // could write the object's memory as a string value.
+            return true;
         }
         case KSObjCTypeBlock:
             writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_Block);

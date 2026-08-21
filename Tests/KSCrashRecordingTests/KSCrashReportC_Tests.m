@@ -30,6 +30,7 @@
 #import "KSCrashMonitorAPI.h"
 #import "KSCrashMonitorHelper.h"
 #import "KSCrashMonitor_MachException.h"
+#import "KSCrashMonitor_NSException.h"
 #import "KSCrashReportC.h"
 #import "KSDynamicLinker.h"
 #import "KSJSONCodec.h"
@@ -48,6 +49,12 @@ static void writeTestMonitorSection(__unused const KSCrash_MonitorContext *event
 {
     writer->addStringElement(writer, "custom_key", "custom_value");
 }
+
+/// A class the tests restrict via doNotIntrospectClasses.
+@interface KSCrashTestRestrictedSecret : NSObject
+@end
+@implementation KSCrashTestRestrictedSecret
+@end
 
 @interface KSCrashReportC_Tests : XCTestCase
 @end
@@ -639,6 +646,50 @@ static void writeTestMonitorSection(__unused const KSCrash_MonitorContext *event
     XCTAssertEqual(reads, correct, @"All successful reads should return correct value");
 
     NSLog(@"Concurrent reads test: %d successful, %d correct, %d skipped", reads, correct, skipped);
+}
+
+- (void)testRestrictedClassObjectWritesASingleTypeAndNoContents
+{
+    __attribute__((objc_precise_lifetime)) KSCrashTestRestrictedSecret *secret = [KSCrashTestRestrictedSecret new];
+    const char *restricted[] = { "KSCrashTestRestrictedSecret" };
+    kscrashreport_setDoNotIntrospectClasses(restricted, 1);
+
+    struct KSMachineContext machineContext = { 0 };
+    XCTAssertTrue(ksmc_getContextForThread(pthread_mach_thread_np(pthread_self()), &machineContext, true));
+    KSStackCursor stackCursor;
+    kssc_initSelfThread(&stackCursor, 0);
+
+    KSCrash_MonitorContext context = { 0 };
+    snprintf(context.eventID, sizeof(context.eventID), "RESTRICTEDTEST");
+    context.offendingMachineContext = &machineContext;
+    context.stackCursor = &stackCursor;
+    context.omitBinaryImages = true;
+    context.monitorId = kscm_nsexception_getAPI()->monitorId(NULL);
+    context.NSException.name = "TestException";
+    char reason[64];
+    snprintf(reason, sizeof(reason), "Object at %p is upset", (__bridge void *)secret);
+    context.crashReason = reason;
+
+    NSString *path = [self temporaryReportPath];
+    NSDictionary *json = nil;
+    @try {
+        kscrashreport_writeStandardReport(&context, path.UTF8String);
+        json = [self readJSONObjectAtPath:path];
+    } @finally {
+        [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+        kscrashreport_setDoNotIntrospectClasses(NULL, 0);
+    }
+
+    NSDictionary *referenced = json[@"crash"][@"error"][@"nsexception"][@"referenced_object"];
+    XCTAssertNotNil(referenced);
+    // The restricted record is complete as address + type + class. The
+    // raw-memory fallback must not run: it would add a second "type" key
+    // (surfacing here as "unknown" or "string" under last-key-wins) and
+    // could write the restricted object's memory as a string value.
+    XCTAssertEqualObjects(referenced[@"type"], @"objc_object");
+    XCTAssertEqualObjects(referenced[@"class"], @"KSCrashTestRestrictedSecret");
+    XCTAssertNil(referenced[@"value"]);
+    XCTAssertNil(referenced[@"ivars"]);
 }
 
 @end
