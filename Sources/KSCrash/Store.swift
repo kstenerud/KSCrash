@@ -173,8 +173,11 @@ struct Store: Sendable {
                 // The writer names each file with the run's wall-clock start in
                 // nanoseconds, which is the send-order key. Files not named by
                 // the writer (tests, hand-made) fall back to the decoded start
-                // time so they still order sensibly among the rest.
-                let orderNs = parsedRunFilenameNs(name) ?? UInt64(clamping: identity.startedAtMs) &* 1_000_000
+                // time so they still order sensibly among the rest; a file
+                // with neither sorts first, and its missing timestamp
+                // surfaces through the strict decode as a kept item.
+                let orderNs =
+                    parsedRunFilenameNs(name) ?? identity.startedAtMs.map { UInt64(clamping: $0) &* 1_000_000 } ?? 0
                 // One summary per run: the writer's filename is deterministic
                 // (the dead run's own start time), so a re-persist overwrites
                 // rather than duplicates. If a stray extra file ever decodes
@@ -290,14 +293,25 @@ struct Store: Sendable {
 }
 
 /// A `.run` file's identity: the fields the listing needs to key a run,
-/// decodable even when the full summary no longer is.
+/// decodable even when the full summary no longer is. The timestamp is an
+/// ordering fallback only, so anything that decodes a run_id lists; the
+/// strict model decode is the health gate that surfaces a broken summary
+/// as a kept item.
 private struct RunIdentity: Decodable {
     let runID: String
-    let startedAtMs: Int64
+    let startedAtMs: Int64?
 
     enum CodingKeys: String, CodingKey {
         case runID = "run_id"
         case startedAtMs = "started_at_ms"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        runID = try container.decode(String.self, forKey: .runID)
+        // A mistyped timestamp reads as absent: it must not cost the run
+        // its listing, only its ordering.
+        startedAtMs = try? container.decodeIfPresent(Int64.self, forKey: .startedAtMs)
     }
 }
 
