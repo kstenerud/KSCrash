@@ -1114,6 +1114,19 @@ static NSString *toString(NSData *data)
     XCTAssertNotNil(error);
 }
 
+- (void)testDeserializeDictionaryInvalidUTF8KeyWithIgnoredNull
+{
+    const unsigned char json[] = { '{', '"', 0xff, '"', ':', 'n', 'u', 'l', 'l', '}' };
+    NSData *jsonData = [NSData dataWithBytes:json length:sizeof(json)];
+    NSError *error = nil;
+    id result = nil;
+
+    KSJSONDecodeOption options = KSJSONDecodeOptionKeepPartialObject | KSJSONDecodeOptionIgnoreNullInObject;
+    XCTAssertNoThrow(result = [KSJSONCodec decode:jsonData options:options error:&error]);
+    XCTAssertEqualObjects(result, @{});
+    XCTAssertNotNil(error);
+}
+
 - (void)testDeserializeDictionaryInvalidUTF8Value
 {
     const unsigned char json[] = { '{', '"', 'k', '"', ':', '"', 0xff, '"', '}' };

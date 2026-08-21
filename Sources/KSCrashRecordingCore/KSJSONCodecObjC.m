@@ -144,14 +144,21 @@ static inline NSString *_Nullable stringFromCString(const char *const string)
 
 static int onElement(KSJSONCodec *codec, NSString *name, id element)
 {
-    if (element == nil) {
+    id currentContainer = codec.currentContainer;
+    if ([currentContainer isKindOfClass:[NSMutableDictionary class]] && name == nil) {
         codec.error = [KSNSErrorHelper errorWithDomain:@"KSJSONCodecObjC"
                                                   code:0
-                                           description:@"JSON string contains invalid UTF-8"];
+                                           description:@"Invalid UTF-8 in JSON object key"];
         return KSJSON_ERROR_INVALID_CHARACTER;
     }
 
-    id currentContainer = codec.currentContainer;
+    if (element == nil) {
+        codec.error = [KSNSErrorHelper errorWithDomain:@"KSJSONCodecObjC"
+                                                  code:0
+                                           description:@"Invalid UTF-8 in JSON string"];
+        return KSJSON_ERROR_INVALID_CHARACTER;
+    }
+
     if (currentContainer == nil) {
         codec.error = [KSNSErrorHelper errorWithDomain:@"KSJSONCodecObjC"
                                                   code:0
@@ -160,12 +167,6 @@ static int onElement(KSJSONCodec *codec, NSString *name, id element)
     }
 
     if ([currentContainer isKindOfClass:[NSMutableDictionary class]]) {
-        if (name == nil) {
-            codec.error = [KSNSErrorHelper errorWithDomain:@"KSJSONCodecObjC"
-                                                      code:0
-                                               description:@"JSON object key contains invalid UTF-8"];
-            return KSJSON_ERROR_INVALID_CHARACTER;
-        }
         [(NSMutableDictionary *)currentContainer setValue:element forKey:name];
     } else {
         [(NSMutableArray *)currentContainer addObject:element];
@@ -226,6 +227,9 @@ static int onNullElement(const char *const cName, void *const userData)
     KSJSONCodec *codec = (__bridge KSJSONCodec *)userData;
 
     id currentContainer = codec.currentContainer;
+    if ([currentContainer isKindOfClass:[NSDictionary class]] && name == nil) {
+        return onElement(codec, name, [NSNull null]);
+    }
     if ((codec.ignoreNullsInArrays && [currentContainer isKindOfClass:[NSArray class]]) ||
         (codec.ignoreNullsInObjects && [currentContainer isKindOfClass:[NSDictionary class]])) {
         return KSJSON_OK;
