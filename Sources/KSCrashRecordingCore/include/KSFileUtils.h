@@ -154,9 +154,12 @@ bool ksfu_makePath(const char *absolutePath);
  *
  * @param mustExist If true, and the path doesn't exist, log an error.
  *
+ * @param errnoOut When non-NULL, set to 0 on success or remove()'s errno on
+ *                 failure.
+ *
  * @return true if successful.
  */
-bool ksfu_removeFile(const char *path, bool mustExist);
+bool ksfu_removeFile(const char *path, bool mustExist, int *errnoOut);
 
 /** Delete the contents of a directory.
  *

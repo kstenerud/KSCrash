@@ -727,6 +727,41 @@
     XCTAssertEqual(kscrs_getReportIDs(reportIDs, 4, &_storeConfig), -1);
 }
 
+- (void)testDeleteReportKeepsSidecarsWhileTheReportFileRemains
+{
+    [self prepareReportStoreWithSidecarsWithPathEnd:@"testDeleteKeepsSidecars"];
+    int64_t reportID = [self writeUserReportWithStringContents:REPORT_CONTENTS(0)];
+    char sidecarPath[KSCRS_MAX_PATH_LENGTH];
+    XCTAssertTrue(kscrs_getReportSidecarFilePathForReport("TestMonitor", reportID, sidecarPath, sizeof(sidecarPath),
+                                                          &_storeConfig));
+    XCTAssertTrue([@"data" writeToFile:@(sidecarPath) atomically:YES encoding:NSUTF8StringEncoding error:nil]);
+
+    // An undeletable report file will be re-sent, and that delivery needs
+    // the sidecars for the on-read stitch.
+    NSFileManager *fm = NSFileManager.defaultManager;
+    XCTAssertTrue([fm setAttributes:@{ NSFilePosixPermissions : @(0555) } ofItemAtPath:self.reportStorePath error:nil]);
+    XCTAssertFalse(kscrs_deleteReportWithID(reportID, &_storeConfig));
+    XCTAssertTrue([fm setAttributes:@{ NSFilePosixPermissions : @(0755) } ofItemAtPath:self.reportStorePath error:nil]);
+    XCTAssertTrue([fm fileExistsAtPath:@(sidecarPath)]);
+
+    XCTAssertTrue(kscrs_deleteReportWithID(reportID, &_storeConfig));
+    XCTAssertFalse([fm fileExistsAtPath:@(sidecarPath)]);
+}
+
+- (void)testDeleteMissingReportStillDeletesItsSidecars
+{
+    [self prepareReportStoreWithSidecarsWithPathEnd:@"testDeleteMissingCleansSidecars"];
+    char sidecarPath[KSCRS_MAX_PATH_LENGTH];
+    XCTAssertTrue(kscrs_getReportSidecarFilePathForReport("TestMonitor", 424242, sidecarPath, sizeof(sidecarPath),
+                                                          &_storeConfig));
+    XCTAssertTrue([@"data" writeToFile:@(sidecarPath) atomically:YES encoding:NSUTF8StringEncoding error:nil]);
+
+    // The report file is already gone, so its sidecars are orphans: nothing
+    // else sweeps per-report sidecars, so the delete removes them.
+    XCTAssertFalse(kscrs_deleteReportWithID(424242, &_storeConfig));
+    XCTAssertFalse([NSFileManager.defaultManager fileExistsAtPath:@(sidecarPath)]);
+}
+
 - (void)testDeleteReportWithIDReturnsWhetherTheFileWasRemoved
 {
     [self prepareReportStoreWithPathEnd:@"testDeleteResult"];

@@ -224,7 +224,7 @@ static void deleteReportSidecarsForReport(int64_t reportID, const KSCrashReportS
         char sidecarPath[KSCRS_MAX_PATH_LENGTH];
         if (snprintf(sidecarPath, sizeof(sidecarPath), "%s/%s/%016llx.ksscr", config->reportSidecarsPath, ent->d_name,
                      (unsigned long long)reportID) < (int)sizeof(sidecarPath)) {
-            ksfu_removeFile(sidecarPath, false);
+            ksfu_removeFile(sidecarPath, false, NULL);
         }
     }
     closedir(dir);
@@ -531,8 +531,14 @@ static bool deleteReportWithID(int64_t reportID, const KSCrashReportStoreCConfig
 {
     char path[KSCRS_MAX_PATH_LENGTH];
     getCrashReportPathByID(reportID, path, config);
-    bool removed = ksfu_removeFile(path, true);
-    deleteReportSidecarsForReport(reportID, config);
+    int removeErrno = 0;
+    bool removed = ksfu_removeFile(path, true, &removeErrno);
+    // A report that still exists will be re-sent, and that delivery needs
+    // its sidecars for the on-read stitch; delete them only once the report
+    // file is gone (removed now, or already absent).
+    if (removed || removeErrno == ENOENT) {
+        deleteReportSidecarsForReport(reportID, config);
+    }
     // Orphaned run-data cleanup is deferred to kscrs_reclaimOrphanedRunData,
     // called from the send flows — not on the startup path.
     return removed;

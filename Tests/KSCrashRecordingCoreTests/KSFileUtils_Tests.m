@@ -24,6 +24,7 @@
 // THE SOFTWARE.
 //
 
+#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #import "FileBasedTestCase.h"
@@ -700,6 +701,22 @@
 
         XCTAssertTrue(ksfu_munmap(ptr, size));
     }
+}
+
+- (void)testRemoveFileReportsErrno
+{
+    NSString *path = [self.tempPath stringByAppendingPathComponent:@"removeme"];
+    XCTAssertTrue([@"x" writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil]);
+
+    int err = -1;
+    XCTAssertTrue(ksfu_removeFile(path.UTF8String, true, &err));
+    XCTAssertEqual(err, 0);
+
+    XCTAssertFalse(ksfu_removeFile(path.UTF8String, false, &err));
+    XCTAssertEqual(err, ENOENT);
+
+    // errnoOut is optional.
+    XCTAssertFalse(ksfu_removeFile(path.UTF8String, false, NULL));
 }
 
 @end
