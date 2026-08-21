@@ -64,6 +64,7 @@ final class RunSummarySendTests: XCTestCase {
                     return []
                 },
                 read: { _ in nil },
+                runID: { _ in nil },
                 remove: { _ in }
             ),
             reclaim: { counter.increment() }
