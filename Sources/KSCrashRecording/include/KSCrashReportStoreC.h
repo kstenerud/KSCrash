@@ -121,6 +121,19 @@ char *kscrs_readReport(int64_t reportID, const KSCrashReportStoreCConfiguration 
  */
 char *kscrs_readReportAtPath(const char *path);
 
+/** The run a report belongs to, from the report file alone: nothing is
+ * stitched and no run artifacts are touched.
+ *
+ * @warning MEMORY MANAGEMENT WARNING: User is responsible for calling free() on the returned value.
+ *
+ * @param reportID The report's ID.
+ * @param configuration The store configuretion (e.g. reports path, app name etc).
+ *
+ * @return The NULL terminated run id (a UUID string), or NULL when the
+ *         report cannot be read or records no valid run.
+ */
+char *kscrs_copyReportRunID(int64_t reportID, const KSCrashReportStoreCConfiguration *const configuration);
+
 /** Add a custom report to the store.
  *
  * @param report The report's contents: JSON in the standard KSCrash report

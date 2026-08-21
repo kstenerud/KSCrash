@@ -128,4 +128,15 @@
     XCTAssertNil(error);
 }
 
+- (void)testRunIDForReportIDAnswersFromTheReportFile
+{
+    int64_t reportID =
+        [self writeReportWithContents:@"{\"report\":{\"run_id\":\"0155A1E2-D4C3-4B6A-9C8D-1234567890AB\"}}"];
+    XCTAssertEqualObjects([self.store runIDForReportID:reportID], @"0155A1E2-D4C3-4B6A-9C8D-1234567890AB");
+
+    int64_t noRunID = [self writeReportWithContents:@"{\"report\":{}}"];
+    XCTAssertNil([self.store runIDForReportID:noRunID]);
+    XCTAssertNil([self.store runIDForReportID:12345]);
+}
+
 @end

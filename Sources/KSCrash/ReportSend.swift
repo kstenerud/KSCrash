@@ -47,17 +47,16 @@ enum ReportSend {
                 list: { try $0.snapshotReportIDs() },
                 id: { $0 },
                 read: { store, id in
-                    guard let report = try store.report(id) else {
-                        return nil
-                    }
                     // A current-run report may still be updated (an
                     // unresolved watchdog hang, for example), so the bulk
-                    // send skips it; an id named explicitly in the selection
-                    // is a deliberate choice and is always sent.
-                    if selection == nil, let live = store.liveRunID, report.report.runId == live {
+                    // send skips it, decided from the report file alone so
+                    // nothing of the live run is read or stitched; an id
+                    // named explicitly in the selection is a deliberate
+                    // choice and is always sent.
+                    if selection == nil, let live = store.liveRunID, store.runID(of: id) == live {
                         return nil
                     }
-                    return report
+                    return try store.report(id)
                 },
                 remove: { try $0.removeReport($1) }
             ),
