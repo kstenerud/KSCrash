@@ -68,9 +68,10 @@ nothing points at any more: run sidecars **and** `.sessions` are both kept while
 report or a `.run` summary references the run (a pending summary needs its `.sessions`
 for the record merge and its UserInfo run sidecar for the metadata stitch), and the
 live run is always kept. A queued summary that cannot be READ aborts the pass,
-mirroring the unreadable-report rule; one that reads but does not DECODE is
-deterministic garbage (a store is single-process, so the only source is a crash
-mid-persist) and is deleted on the spot. `kscrs_deleteAllReports` deletes only
+mirroring the unreadable-report rule; one that reads but does not DECODE, or
+decodes without a usable run_id, is deterministic garbage (the writer always
+emits run_id; a crash mid-persist fails the strict decode) and is deleted on
+the spot. `kscrs_deleteAllReports` deletes only
 reports and report sidecars; run data is left for the next send-flow reclaim, so
 pending summaries keep their artifacts. See `monitor-sidecars.md` for the run-sidecar side.
 
