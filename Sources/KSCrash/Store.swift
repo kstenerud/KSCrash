@@ -121,7 +121,7 @@ struct Store: Sendable {
     /// by runID. Runs with a summary come first, newest first; artifact-only
     /// runs follow. A pure read; callers that want retention enforced call
     /// `pruneRunSummaries(keepingNewest:)` first. An undecodable or
-    /// runID-less `.run` is skipped and left on disk for pruning. Throws when
+    /// runID-less `.run` is skipped; the send-end reclaim deletes it. Throws when
     /// the Runs or RunSidecars directory exists but cannot be read; the
     /// reports half is not touched.
     func snapshotRuns() throws -> [Run] {
@@ -161,8 +161,9 @@ struct Store: Sendable {
                 // cannot decode still lists, surfacing its decode error as a
                 // kept item instead of vanishing. A file that does not even
                 // yield an identity cannot be keyed or tied to its shared
-                // artifacts, so it is skipped and left on disk where pruning
-                // eventually reclaims it.
+                // artifacts, so it is skipped here, and the send-end reclaim
+                // deletes it as garbage (an unreadable file aborts that pass
+                // and is retried instead).
                 guard let data = try? Data(contentsOf: url),
                     let identity = try? decoder.decode(RunIdentity.self, from: data),
                     !identity.runID.isEmpty

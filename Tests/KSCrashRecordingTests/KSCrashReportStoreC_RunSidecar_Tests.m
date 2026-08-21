@@ -573,12 +573,17 @@ static CFDictionaryRef throwingStitchReport(__unused CFDictionaryRef reportDict,
     [self writeRunSidecar:@"UserInfo" runId:orphanRunId contents:@"orphan"];
     NSString *orphanDir =
         [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:orphanRunId];
-    // Decodes fine but references nothing: permanently malformed, must not
-    // block reclamation forever.
-    [self writeRunSummaryJSON:@"{\"not_run_id\":1}" named:@"300.run"];
+    // Decodes fine but references nothing: deterministic garbage (only the
+    // writer produces .run files, and it always emits run_id), deleted so it
+    // cannot litter the store forever, whatever its filename.
+    NSString *writerNamed = [self writeRunSummaryJSON:@"{\"not_run_id\":1}" named:@"300.run"];
+    NSString *foreignNamed = [self writeRunSummaryJSON:@"{}" named:@"backup.run"];
 
     kscrs_reclaimOrphanedRunData(&_storeConfig);
-    XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:orphanDir]);
+    NSFileManager *fm = [NSFileManager defaultManager];
+    XCTAssertFalse([fm fileExistsAtPath:orphanDir]);
+    XCTAssertFalse([fm fileExistsAtPath:writerNamed]);
+    XCTAssertFalse([fm fileExistsAtPath:foreignNamed]);
 }
 
 #pragma mark - Run Sidecar Retention Window

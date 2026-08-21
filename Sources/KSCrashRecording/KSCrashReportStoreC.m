@@ -553,12 +553,12 @@ static NSSet<NSString *> *reportReferencedRunIDs(const KSCrashReportStoreCConfig
 // stitch). run_id is a top-level summary key. Returns nil when a queued
 // summary cannot be READ (a transient I/O failure must not be mistaken for
 // absence), mirroring reportReferencedRunIDs: the caller then skips the pass.
-// A summary that reads but does not DECODE is deterministic garbage (a store
-// is single-process, so the only source is a crash between O_TRUNC and the
-// write during persist): it references nothing and is deleted here, because
-// nothing else ever removes it and leaving it would jam reclamation forever.
-// A summary that decodes but has no usable run_id references nothing and is
-// left for pruning.
+// A summary that reads but does not DECODE, or decodes without a usable
+// run_id, is deterministic garbage: the writer always emits run_id and a
+// crash between O_TRUNC and the write during persist fails the strict
+// decode, so nothing the store wrote can look like this. It can never
+// reference, deliver, or surface anything, and nothing else ever removes
+// it, so it is deleted here.
 static NSSet<NSString *> *summaryReferencedRunIDs(const char *runSummariesPath)
 {
     NSMutableSet<NSString *> *runIDs = [NSMutableSet set];
@@ -581,17 +581,13 @@ static NSSet<NSString *> *summaryReferencedRunIDs(const char *runSummariesPath)
         if (data == nil) {
             return nil;
         }
-        // Strict decode: a truncated file must FAIL here, not hand back a
-        // partial object without run_id and be mistaken for a summary that
-        // references nothing.
+        // Strict decode: a torn file fails here and joins the garbage branch.
         id json = [KSJSONCodec decode:data options:KSJSONDecodeOptionNone error:nil];
-        if (json == nil) {
-            [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
-            continue;
-        }
         id runID = [json isKindOfClass:[NSDictionary class]] ? json[KSCrashRunSummaryField_RunID] : nil;
         if ([runID isKindOfClass:[NSString class]] && [runID length] > 0) {
             [runIDs addObject:runID];
+        } else {
+            [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
         }
     }
     return runIDs;
