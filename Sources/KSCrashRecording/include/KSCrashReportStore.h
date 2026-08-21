@@ -49,7 +49,8 @@ NS_SWIFT_NAME(CrashReportStore)
  * If the configuration is nil, the default configuration will be used.
  *
  * @param configuration The configuration to use.
- * @param error If an error occurs, upon return contains an NSError object that
+ * @param error Set when the store cannot be initialized (`KSCrashErrorDomain`,
+ * the install error code).
  *
  * @return The report store or `nil` if an error occurred.
  */
