@@ -47,7 +47,7 @@ private typealias _MachError = KSCrashReportModel.MachError
     extension MetricKitMonitor {
 
         @discardableResult
-        func processCrashDiagnostic(_ diagnostic: MXCrashDiagnostic, timestamp: Date) -> Int64? {
+        func processCrashDiagnostic(_ diagnostic: MXCrashDiagnostic, timestamp: Date) -> Report.ID? {
             // Phase 1: Write skeleton report to a temp file via the host.
             guard let tempURL = writeSkeletonReport() else { return nil }
             defer { try? FileManager.default.removeItem(at: tempURL) }
@@ -56,7 +56,9 @@ private typealias _MachError = KSCrashReportModel.MachError
             return postProcessReport(atPath: tempURL.path, diagnostic: diagnostic, timestamp: timestamp)
         }
 
-        private func postProcessReport(atPath path: String, diagnostic: MXCrashDiagnostic, timestamp: Date) -> Int64? {
+        private func postProcessReport(atPath path: String, diagnostic: MXCrashDiagnostic, timestamp: Date) -> Report
+            .ID?
+        {
             let url = URL(fileURLWithPath: path)
 
             guard let data = try? Data(contentsOf: url),
@@ -192,16 +194,15 @@ private typealias _MachError = KSCrashReportModel.MachError
                 return nil
             }
 
-            var reportID: Int64 = 0
-            newData.withUnsafeBytes { buffer in
-                guard let ptr = buffer.baseAddress?.assumingMemoryBound(to: CChar.self) else { return }
-                reportID = kscrash_addUserReport(ptr, Int32(buffer.count))
-                os_log(
-                    .default, log: metricKitLog,
-                    "[MONITORS] Added MetricKit report (id=%lld, %d bytes, %{public}@ error, app %{public}@, runId=%{public}@)",
-                    reportID, buffer.count, errorType.rawValue, diagnostic.applicationVersion,
-                    crashedRunId ?? "none")
+            guard let reportID = addMetricKitReport(newData) else {
+                os_log(.error, log: metricKitLog, "[MONITORS] Failed to store MetricKit report")
+                return nil
             }
+            os_log(
+                .default, log: metricKitLog,
+                "[MONITORS] Added MetricKit report (id=%{public}@, %d bytes, %{public}@ error, app %{public}@, runId=%{public}@)",
+                reportID.description, newData.count, errorType.rawValue, diagnostic.applicationVersion,
+                crashedRunId ?? "none")
             return reportID
         }
     }

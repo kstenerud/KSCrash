@@ -66,3 +66,46 @@ extension RunSummary: Identifiable {
         }
     }
 }
+
+extension Report: Identifiable {
+    /// The report's identity: the UUID minted when the report was recorded.
+    public struct ID: Hashable, Codable, Sendable, LosslessStringConvertible, ExpressibleByStringLiteral {
+        public let uuid: UUID
+
+        public init(uuid: UUID) {
+            self.uuid = uuid
+        }
+
+        /// nil unless `string` is a UUID.
+        public init?(_ string: String) {
+            guard let uuid = UUID(uuidString: string) else { return nil }
+            self.uuid = uuid
+        }
+
+        public var description: String { uuid.uuidString }
+
+        /// A literal that is not a UUID is a programming error.
+        public init(stringLiteral value: String) {
+            guard let uuid = UUID(uuidString: value) else {
+                preconditionFailure("report id literal is not a UUID: \(value)")
+            }
+            self.uuid = uuid
+        }
+
+        public init(from decoder: Decoder) throws {
+            let raw = try decoder.singleValueContainer().decode(String.self)
+            guard let uuid = UUID(uuidString: raw) else {
+                throw DecodingError.dataCorrupted(
+                    .init(codingPath: decoder.codingPath, debugDescription: "report id is not a UUID: \(raw)"))
+            }
+            self.uuid = uuid
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.singleValueContainer()
+            try container.encode(uuid.uuidString)
+        }
+    }
+
+    public var id: ID { report.id }
+}

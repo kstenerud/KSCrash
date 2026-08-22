@@ -230,7 +230,7 @@ static struct {
     BOOL willWriteReportCallbackCalled;
     BOOL isWritingReportCallbackCalled;
     BOOL didWriteReportCallbackCalled;
-    int64_t capturedReportID;
+    char capturedReportID[KSID_SIZE];
     const KSCrash_MonitorContext *capturedContext;
     const KSCrash_ExceptionHandlingPlan *capturedPlan;
     const struct KSCrashReportWriter *capturedWriter;
@@ -254,10 +254,10 @@ static void isWritingReportCallback(const KSCrash_ExceptionHandlingPlan *const p
     g_callbackData.capturedWriter = writer;
 }
 
-static void didWriteReportCallback(const KSCrash_ExceptionHandlingPlan *const plan, int64_t reportID)
+static void didWriteReportCallback(const KSCrash_ExceptionHandlingPlan *const plan, const char *reportID)
 {
     g_callbackData.didWriteReportCallbackCalled = YES;
-    g_callbackData.capturedReportID = reportID;
+    strlcpy(g_callbackData.capturedReportID, reportID, sizeof(g_callbackData.capturedReportID));
     g_callbackData.capturedPlan = plan;
 }
 
@@ -300,11 +300,11 @@ static void didWriteReportCallback(const KSCrash_ExceptionHandlingPlan *const pl
                                                                                 .crashedDuringExceptionHandling = true,
                                                                                 .shouldWriteReport = true,
                                                                                 .shouldRecordAllThreads = true };
-    int64_t testReportID = 12345;
+    const char *testReportID = "4C1B2F3E-0000-4000-8000-000000000001";
     cConfig.didWriteReportCallback(&testPlan3, testReportID);
     XCTAssertTrue(g_callbackData.didWriteReportCallbackCalled);
     XCTAssertEqual(g_callbackData.capturedPlan, &testPlan3);
-    XCTAssertEqual(g_callbackData.capturedReportID, testReportID);
+    XCTAssertEqual(strcmp(g_callbackData.capturedReportID, testReportID), 0);
 
     KSCrashCConfiguration_Release(&cConfig);
 }
@@ -314,7 +314,6 @@ static void didWriteReportCallback(const KSCrash_ExceptionHandlingPlan *const pl
 static struct {
     BOOL legacyCrashNotifyCallbackCalled;
     BOOL legacyReportWrittenCallbackCalled;
-    int64_t legacyCapturedReportID;
     const struct KSCrashReportWriter *legacyCapturedWriter;
 } g_legacyCallbackData;
 
@@ -341,128 +340,15 @@ static void clearLegacyCallbackData(void) { memset(&g_legacyCallbackData, 0, siz
     KSCrashCConfiguration_Release(&cConfig);
 }
 
-- (void)testDeprecatedReportWrittenCallbackConversion
-{
-    KSCrashInstallConfiguration *config = [[KSCrashInstallConfiguration alloc] init];
-
-    config.reportWrittenCallback = ^(int64_t reportID) {
-        g_legacyCallbackData.legacyReportWrittenCallbackCalled = YES;
-        g_legacyCallbackData.legacyCapturedReportID = reportID;
-    };
-
-    KSCrashCConfiguration cConfig = [config toCConfiguration];
-
-    XCTAssertNotEqual(cConfig.reportWrittenCallback, NULL);
-
-    int64_t testReportID = 54321;
-    cConfig.reportWrittenCallback(testReportID);
-    XCTAssertTrue(g_legacyCallbackData.legacyReportWrittenCallbackCalled);
-    XCTAssertEqual(g_legacyCallbackData.legacyCapturedReportID, testReportID);
-
-    KSCrashCConfiguration_Release(&cConfig);
-}
-
-- (void)testMixedCallbackUsage
-{
-    KSCrashInstallConfiguration *config = [[KSCrashInstallConfiguration alloc] init];
-    config.crashNotifyCallback = ^(const struct KSCrashReportWriter *writer) {
-        g_legacyCallbackData.legacyCrashNotifyCallbackCalled = YES;
-        g_legacyCallbackData.legacyCapturedWriter = writer;
-    };
-    config.reportWrittenCallback = ^(int64_t reportID) {
-        g_legacyCallbackData.legacyReportWrittenCallbackCalled = YES;
-        g_legacyCallbackData.legacyCapturedReportID = reportID;
-    };
-
-    config.isWritingReportCallback = isWritingReportCallback;
-    config.didWriteReportCallback = didWriteReportCallback;
-
-    KSCrashCConfiguration cConfig = [config toCConfiguration];
-
-    // Verify both types of callbacks are set
-    XCTAssertNotEqual(cConfig.crashNotifyCallback, NULL);
-    XCTAssertNotEqual(cConfig.reportWrittenCallback, NULL);
-    XCTAssertNotEqual(cConfig.isWritingReportCallback, NULL);
-    XCTAssertNotEqual(cConfig.didWriteReportCallback, NULL);
-
-    // Test deprecated crash callback
-    const struct KSCrashReportWriter *testWriter = (const struct KSCrashReportWriter *)(uintptr_t)0xdeadcafe;
-    cConfig.crashNotifyCallback(testWriter);
-    XCTAssertTrue(g_legacyCallbackData.legacyCrashNotifyCallbackCalled);
-    XCTAssertEqual(g_legacyCallbackData.legacyCapturedWriter, testWriter);
-
-    // Test new crash callback
-    KSCrash_ExceptionHandlingPlan testPlan = (KSCrash_ExceptionHandlingPlan) {
-        .isFatal = true,
-        .crashedDuringExceptionHandling = false,
-    };
-    const struct KSCrashReportWriter *testWriter2 = (const struct KSCrashReportWriter *)(uintptr_t)0xbeefcafe;
-    cConfig.isWritingReportCallback(&testPlan, testWriter2);
-    XCTAssertTrue(g_callbackData.isWritingReportCallbackCalled);
-    XCTAssertEqual(g_callbackData.capturedWriter, testWriter2);
-
-    // Test deprecated report written callback
-    int64_t testReportID1 = 11111;
-    cConfig.reportWrittenCallback(testReportID1);
-    XCTAssertTrue(g_legacyCallbackData.legacyReportWrittenCallbackCalled);
-    XCTAssertEqual(g_legacyCallbackData.legacyCapturedReportID, testReportID1);
-
-    // Test new report written callback
-    int64_t testReportID2 = 22222;
-    cConfig.didWriteReportCallback(&testPlan, testReportID2);
-    XCTAssertTrue(g_callbackData.didWriteReportCallbackCalled);
-    XCTAssertEqual(g_callbackData.capturedReportID, testReportID2);
-
-    KSCrashCConfiguration_Release(&cConfig);
-}
-
-- (void)testCopyingWithDeprecatedCallbacks
-{
-    KSCrashInstallConfiguration *config = [[KSCrashInstallConfiguration alloc] init];
-    config.crashNotifyCallback = ^(const struct KSCrashReportWriter *writer) {
-        g_legacyCallbackData.legacyCrashNotifyCallbackCalled = YES;
-        g_legacyCallbackData.legacyCapturedWriter = writer;
-    };
-    config.reportWrittenCallback = ^(int64_t reportID) {
-        g_legacyCallbackData.legacyReportWrittenCallbackCalled = YES;
-        g_legacyCallbackData.legacyCapturedReportID = reportID;
-    };
-
-    config.isWritingReportCallback = isWritingReportCallback;
-    config.didWriteReportCallback = didWriteReportCallback;
-    KSCrashInstallConfiguration *copiedConfig = [config copy];
-
-    XCTAssertNotNil(copiedConfig.crashNotifyCallback);
-    XCTAssertNotNil(copiedConfig.reportWrittenCallback);
-    XCTAssertNotEqual(copiedConfig.isWritingReportCallback, NULL);
-    XCTAssertNotEqual(copiedConfig.didWriteReportCallback, NULL);
-
-    KSCrashCConfiguration copiedCConfig = [copiedConfig toCConfiguration];
-
-    const struct KSCrashReportWriter *testWriter = (const struct KSCrashReportWriter *)(uintptr_t)0xc0ffee;
-    copiedCConfig.crashNotifyCallback(testWriter);
-    XCTAssertTrue(g_legacyCallbackData.legacyCrashNotifyCallbackCalled);
-    XCTAssertEqual(g_legacyCallbackData.legacyCapturedWriter, testWriter);
-
-    int64_t testReportID = 99999;
-    copiedCConfig.reportWrittenCallback(testReportID);
-    XCTAssertTrue(g_legacyCallbackData.legacyReportWrittenCallbackCalled);
-    XCTAssertEqual(g_legacyCallbackData.legacyCapturedReportID, testReportID);
-
-    KSCrashCConfiguration_Release(&copiedCConfig);
-}
-
 - (void)testNilDeprecatedCallbacks
 {
     KSCrashInstallConfiguration *config = [[KSCrashInstallConfiguration alloc] init];
 
     config.crashNotifyCallback = nil;
-    config.reportWrittenCallback = nil;
 
     KSCrashCConfiguration cConfig = [config toCConfiguration];
 
     XCTAssertEqual(cConfig.crashNotifyCallback, NULL);
-    XCTAssertEqual(cConfig.reportWrittenCallback, NULL);
 
     KSCrashCConfiguration_Release(&cConfig);
 }
@@ -472,7 +358,6 @@ static void clearLegacyCallbackData(void) { memset(&g_legacyCallbackData, 0, siz
     KSCrashInstallConfiguration *config = [[KSCrashInstallConfiguration alloc] init];
     KSCrashCConfiguration cConfig = [config toCConfiguration];
     XCTAssertEqual(cConfig.crashNotifyCallback, NULL);
-    XCTAssertEqual(cConfig.reportWrittenCallback, NULL);
 
     KSCrashCConfiguration_Release(&cConfig);
 }

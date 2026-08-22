@@ -292,7 +292,7 @@ static void addUUIDElement(const KSCrashReportWriter *const writer, const char *
     // A report holds no nulls: a value the producer does not have is omitted,
     // never written as null. See KSCrashReportWriter.h.
     if (value != NULL) {
-        char uuidBuffer[37];
+        char uuidBuffer[KSID_SIZE];
         const unsigned char *src = value;
         char *dst = uuidBuffer;
         for (int i = 0; i < 4; i++) {

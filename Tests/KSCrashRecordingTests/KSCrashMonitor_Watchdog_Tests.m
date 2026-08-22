@@ -44,7 +44,7 @@ static KSCrash_MonitorContext *stubNotify(__unused thread_t thread,
 
 static void stubHandle(__unused KSCrash_MonitorContext *context, KSCrash_ReportResult *result, __unused bool finalize)
 {
-    result->reportId = 12345;
+    strlcpy(result->reportId, "4C1B2F3E-0000-4000-8000-000000000001", sizeof(result->reportId));
     result->path[0] = '\0';
 }
 

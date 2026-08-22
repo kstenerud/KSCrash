@@ -63,7 +63,7 @@ typedef struct KSHangState {
     uint8_t endTransitionState;
 
     /** The report ID assigned to this hang. */
-    int64_t reportId;
+    char reportId[KSID_SIZE];
 
     /** Path to the crash report file on disk. */
     char path[PATH_MAX];

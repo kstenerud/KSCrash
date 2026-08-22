@@ -28,6 +28,7 @@ import Foundation
 import KSCrashMonitorPlugins
 import KSCrashRecording
 import KSCrashRecordingCore
+import KSCrashReportModel
 import KSCrashSwiftCore
 
 /// A monitor plugin that receives diagnostic and metric payloads from MetricKit.
@@ -61,14 +62,14 @@ public final class MetricKitMonitor: NSObject, CrashMonitor {
 
     /// The ids of every diagnostic report added by this monitor, in the order they were added.
     /// Each addition also posts ``diagnosticReportAddedNotification`` carrying just that id.
-    public var diagnosticReportIDs: [Int64] {
+    public var diagnosticReportIDs: [Report.ID] {
         lock.withLock { $0.diagnosticReportIDs }
     }
 
     // MARK: - Internal State
 
     struct MonitorState {
-        var diagnosticReportIDs: [Int64] = []
+        var diagnosticReportIDs: [Report.ID] = []
         // Gated to match the only code that uses it (the iOS 27 memory stream in
         // MetricKitMonitor+Subscriber). `Task` requires watchOS 6.0+, and this type is compiled
         // — though unavailable — on watchOS, so an ungated field breaks the watchOS build under

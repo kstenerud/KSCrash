@@ -73,10 +73,11 @@ typedef void (*KSCrashIsWritingReportCallback)(const KSCrash_ExceptionHandlingPl
 /** Callback type for when a crash report is finished writing.
  *
  * @param plan The plan under which the report was written.
- * @param reportID The ID of the report that was written.
+ * @param reportID The id (UUID text) of the report that was written.
  */
 typedef void (*KSCrashDidWriteReportCallback)(const KSCrash_ExceptionHandlingPlan *_Nonnull const plan,
-                                              int64_t reportID) NS_SWIFT_UNAVAILABLE("Use Swift closures instead!");
+                                              const char *_Nonnull reportID)
+    NS_SWIFT_UNAVAILABLE("Use Swift closures instead!");
 
 #ifdef __cplusplus
 }

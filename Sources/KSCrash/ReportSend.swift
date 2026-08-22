@@ -31,13 +31,13 @@ import KSCrashReportModel
 /// with per-report outcomes. The loop itself is `SendDriver`'s; this is what
 /// a report is to it.
 enum ReportSend {
-    static let claims = SendClaims<ReportID>()
+    static let claims = SendClaims<Report.ID>()
 
     static func send(
         store: Store?,
         pipeline: [AnyPipelineStage<Report>],
-        only selection: Set<ReportID>? = nil,
-        claims: SendClaims<ReportID> = ReportSend.claims
+        only selection: Set<Report.ID>? = nil,
+        claims: SendClaims<Report.ID> = ReportSend.claims
     ) async throws -> SendResult<Report> {
         try await SendDriver.send(
             store: store,

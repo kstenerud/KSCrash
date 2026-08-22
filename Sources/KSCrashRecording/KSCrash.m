@@ -314,13 +314,8 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
         self.configuration.reportStoreConfiguration.appName = self.bundleName;
     }
     if (self.configuration.reportStoreConfiguration.reportsPath == nil) {
-        self.configuration.reportStoreConfiguration.reportsPath = [self.configuration.installPath
-            stringByAppendingPathComponent:[KSCrashReportStore defaultInstallSubfolder]];
-    }
-    KSCrashReportStore *reportStore =
-        [KSCrashReportStore storeWithConfiguration:self.configuration.reportStoreConfiguration error:error];
-    if (reportStore == nil) {
-        return NO;
+        self.configuration.reportStoreConfiguration.reportsPath =
+            [self.configuration.installPath stringByAppendingPathComponent:@KSCRS_DEFAULT_REPORTS_FOLDER];
     }
 
     KSCrashCConfiguration config = [self.configuration toCConfiguration];
@@ -334,7 +329,6 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
         return NO;
     }
 
-    _reportStore = reportStore;
     return YES;
 }
 

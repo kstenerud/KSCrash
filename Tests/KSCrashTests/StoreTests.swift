@@ -473,28 +473,29 @@ final class StoreTests: XCTestCase {
 
     /// In-memory stand-in for the C report store.
     private final class FakeReports: Sendable {
-        private let storage: UnfairLock<[ReportID: Data]>
+        private let storage: UnfairLock<[Report.ID: Data]>
 
-        init(_ contents: [ReportID: Data]) {
+        init(_ contents: [Report.ID: Data]) {
             storage = UnfairLock(contents)
         }
 
-        var ids: [ReportID] { storage.withLock { Array($0.keys) } }
-        func data(for id: ReportID) -> Data? { storage.withLock { $0[id] } }
-        func remove(_ id: ReportID) { storage.withLock { _ = $0.removeValue(forKey: id) } }
+        var ids: [Report.ID] { storage.withLock { $0.keys.sorted { $0.description < $1.description } } }
+        func data(for id: Report.ID) -> Data? { storage.withLock { $0[id] } }
+        func remove(_ id: Report.ID) { storage.withLock { _ = $0.removeValue(forKey: id) } }
     }
 
     private func makeReportData(runID: String = "RUN") throws -> Data {
         try JSONEncoder().encode(
             Report(
                 crash: .init(error: CrashError(type: .signal)),
-                report: .init(id: "report-id", runId: testRunID(runID))
+                report: .init(id: testReportID(1), runId: testRunID(runID))
             ))
     }
 
     func test_snapshotReportIDs_newestFirst() throws {
-        let reports = FakeReports([3: Data(), 1: Data(), 2: Data()])
-        XCTAssertEqual(try makeReportStore(reports).snapshotReportIDs(), [3, 2, 1])
+        let reports = FakeReports([testReportID(3): Data(), testReportID(1): Data(), testReportID(2): Data()])
+        XCTAssertEqual(
+            try makeReportStore(reports).snapshotReportIDs(), [testReportID(3), testReportID(2), testReportID(1)])
     }
 
     func test_snapshotReportIDs_throwsWhenReportListFails() {
@@ -504,8 +505,8 @@ final class StoreTests: XCTestCase {
     func test_snapshotReportIDs_doesNotTouchTheRunsHalf() throws {
         try FileManager.default.removeItem(at: runsDirectory)
         try makeUnreadableDirectory(at: runsDirectory)
-        let reports = FakeReports([1: Data()])
-        XCTAssertEqual(try makeReportStore(reports).snapshotReportIDs(), [1])
+        let reports = FakeReports([testReportID(1): Data()])
+        XCTAssertEqual(try makeReportStore(reports).snapshotReportIDs(), [testReportID(1)])
     }
 
     func test_snapshotRuns_doesNotTouchTheReportsHalf() throws {
@@ -515,16 +516,16 @@ final class StoreTests: XCTestCase {
     }
 
     func test_report_decodesStitchedData() throws {
-        let reports = FakeReports([7: try makeReportData(runID: "SEVEN")])
-        let report = try XCTUnwrap(makeReportStore(reports).report(7))
+        let reports = FakeReports([testReportID(7): try makeReportData(runID: "SEVEN")])
+        let report = try XCTUnwrap(makeReportStore(reports).report(testReportID(7)))
         XCTAssertEqual(report.report.runId, testRunID("SEVEN"))
     }
 
     func test_report_nilWhenMissing_throwsWhenUndecodable() throws {
-        let reports = FakeReports([5: Data("not json".utf8)])
+        let reports = FakeReports([testReportID(5): Data("not json".utf8)])
         let store = makeReportStore(reports)
-        XCTAssertNil(try store.report(6))
-        XCTAssertThrowsError(try store.report(5)) { error in
+        XCTAssertNil(try store.report(testReportID(6)))
+        XCTAssertThrowsError(try store.report(testReportID(5))) { error in
             XCTAssertTrue(error is DecodingError, "\(error)")
         }
     }
@@ -536,9 +537,9 @@ final class StoreTests: XCTestCase {
             runSidecarsDirectory: sidecarsDirectory,
             liveRunID: nil,
             reports: ReportBridge(
-                list: { [5] }, read: { _ in throw NotAReport() }, runID: { _ in nil }, remove: { _ in })
+                list: { [testReportID(5)] }, read: { _ in throw NotAReport() }, runID: { _ in nil }, remove: { _ in })
         )
-        XCTAssertThrowsError(try store.report(5)) { error in
+        XCTAssertThrowsError(try store.report(testReportID(5))) { error in
             XCTAssertTrue(error is NotAReport, "\(error)")
         }
     }
@@ -550,42 +551,54 @@ final class StoreTests: XCTestCase {
     /// thrown, the second is nil.
     func test_productionBridge_throwsForANonReportFile_nilForAMissingOne() throws {
         let reportsDirectory = runsDirectory.deletingLastPathComponent().appendingPathComponent("Reports")
-        let configuration = CrashReportStoreConfiguration()
-        configuration.reportsPath = reportsDirectory.path
-        configuration.appName = "App"
-        let reportStore = try CrashReportStore(configuration: configuration)
+        try FileManager.default.createDirectory(at: reportsDirectory, withIntermediateDirectories: true)
+        // The C store's configuration, owned by the test for the store's lifetime.
+        let configuration = UnsafeMutablePointer<KSCrashReportStoreCConfiguration>.allocate(capacity: 1)
+        configuration.initialize(to: KSCrashReportStoreCConfiguration_Default())
+        configuration.pointee.reportsPath = UnsafePointer(strdup(reportsDirectory.path))
+        defer {
+            KSCrashReportStoreCConfiguration_Release(configuration)
+            configuration.deallocate()
+        }
         let store = Store(
             runsDirectory: runsDirectory,
             runSidecarsDirectory: sidecarsDirectory,
+            reportsDirectory: reportsDirectory,
             liveRunID: nil,
             maxRunCount: 50,
-            reportStore: reportStore
+            storeConfig: UnsafePointer(configuration)
         )
-
-        // Named like the C store names them: <app>-report-<16 hex digits>.json.
-        func reportURL(_ id: ReportID) -> URL {
-            reportsDirectory.appendingPathComponent(String(format: "App-report-%016llx.json", id))
+        // Named like the C store names them: <20 digits of write time>-<id>.json.
+        func reportURL(_ order: Int, _ id: Report.ID) -> URL {
+            reportsDirectory.appendingPathComponent(String(format: "%020d-%@.json", order, id.description))
         }
-        try makeReportData(runID: "REAL").write(to: reportURL(1))
-        try Data("[1,2]".utf8).write(to: reportURL(2))
-        try Data().write(to: reportURL(3))
+        try makeReportData(runID: "REAL").write(to: reportURL(1, testReportID(1)))
+        try Data("[1,2]".utf8).write(to: reportURL(2, testReportID(2)))
+        try Data().write(to: reportURL(3, testReportID(3)))
+        try Data("x".utf8).write(to: reportsDirectory.appendingPathComponent("notes.txt"))
 
-        XCTAssertEqual(try store.snapshotReportIDs(), [3, 2, 1])
-        XCTAssertEqual(try store.report(1)?.report.runId, testRunID("REAL"))
-        for id in [ReportID(2), 3] {
+        XCTAssertEqual(try store.snapshotReportIDs(), [testReportID(3), testReportID(2), testReportID(1)])
+        XCTAssertEqual(try store.report(testReportID(1))?.report.runId, testRunID("REAL"))
+        for id in [testReportID(2), testReportID(3)] {
             XCTAssertThrowsError(try store.report(id), "report \(id)") { error in
                 XCTAssertEqual((error as? CocoaError)?.code, .fileReadCorruptFile, "\(error)")
             }
         }
-        XCTAssertNil(try store.report(4))
-        XCTAssertEqual(try store.snapshotReportIDs(), [3, 2, 1], "nothing is deleted by a read")
+        XCTAssertNil(try store.report(testReportID(4)))
+        XCTAssertEqual(
+            try store.snapshotReportIDs(), [testReportID(3), testReportID(2), testReportID(1)],
+            "nothing is deleted by a read")
+        XCTAssertEqual(store.runID(of: testReportID(1)), testRunID("REAL"))
+        try store.removeReport(testReportID(1))
+        XCTAssertEqual(try store.snapshotReportIDs(), [testReportID(3), testReportID(2)])
+        XCTAssertThrowsError(try store.removeReport(testReportID(1)), "already gone")
     }
 
     func test_removeReport_removesAndPropagatesFailure() throws {
-        let reports = FakeReports([9: try makeReportData()])
-        try makeReportStore(reports).removeReport(9)
-        XCTAssertNil(reports.data(for: 9))
+        let reports = FakeReports([testReportID(9): try makeReportData()])
+        try makeReportStore(reports).removeReport(testReportID(9))
+        XCTAssertNil(reports.data(for: testReportID(9)))
 
-        XCTAssertThrowsError(try makeReportStore(reports, removeFails: true).removeReport(9))
+        XCTAssertThrowsError(try makeReportStore(reports, removeFails: true).removeReport(testReportID(9)))
     }
 }

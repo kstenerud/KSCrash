@@ -64,7 +64,7 @@ extern void kscrash_testcode_onExceptionEvent(struct KSCrash_MonitorContext *mon
     KSCrash_ReportResult result = { 0 };
     kscrash_testcode_onExceptionEvent(&context, &result);
     XCTAssertTrue(result.path[0] == '\0', @"A report that was never created must not be handed back");
-    XCTAssertEqual(result.reportId, (int64_t)0);
+    XCTAssertTrue(result.reportId[0] == '\0');
 
     // Control: with the directory in place, the same event hands back the report it wrote.
     XCTAssertTrue([[NSFileManager defaultManager] createDirectoryAtPath:directory

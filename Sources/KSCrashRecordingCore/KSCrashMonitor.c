@@ -372,8 +372,9 @@ static void handleException(struct KSCrash_MonitorContext *ctx, KSCrash_ReportRe
 
     // Finalize after threads are resumed and the exception slot is freed,
     // since it involves ObjC/JSON/file I/O.
-    if (finalize && !kscexc_isLocallyFatal(ctx->requirements) && localResult.reportId > 0 && g_state.onFinalizeReport) {
-        KSLOG_DEBUG("Finalizing non-fatal report %" PRId64, localResult.reportId);
+    if (finalize && !kscexc_isLocallyFatal(ctx->requirements) && localResult.reportId[0] != '\0' &&
+        g_state.onFinalizeReport) {
+        KSLOG_DEBUG("Finalizing non-fatal report %s", localResult.reportId);
         g_state.onFinalizeReport(ctx, &localResult);
     }
 

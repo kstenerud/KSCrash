@@ -353,24 +353,6 @@ typedef struct {
         __attribute__((deprecated("Use `isWritingReportCallback` for async-safety awareness (since v2.4.0).")));
 #pragma clang diagnostic pop
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    /** Callback to invoke upon finishing writing a crash report (DEPRECATED).
-     *
-     * @deprecated Use `didWriteReportCallback` for async-safety awareness (since v2.4.0).
-     * This callback does not receive plan information and may not handle crash
-     * scenarios safely.
-     *
-     * This function is called after a crash report has been written. It allows the caller
-     * to react to the completion of the report. Only async-safe functions should be called
-     * from this function. Avoid calling Objective-C methods.
-     *
-     * **Default**: NULL
-     */
-    KSReportWrittenCallback reportWrittenCallback
-        __attribute__((deprecated("Use `didWriteReportCallback` for async-safety awareness (since v2.4.0).")));
-#pragma clang diagnostic pop
-
     /** If true, use `backtrace_async()` for KSCrash's current-thread stack capture paths.
      *
      * This can stitch Swift async continuation frames into self-thread backtraces such as
@@ -401,7 +383,6 @@ static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
         .crashNotifyCallback = NULL,
         .willWriteReportCallback = NULL,
-        .reportWrittenCallback = NULL,
 #pragma clang diagnostic pop
         .isWritingReportCallback = NULL,
         .didWriteReportCallback = NULL,
