@@ -188,10 +188,9 @@ extension TimeProfile {
 /// Writes a profile's frames and samples into its report section.
 final class ProfileMonitor: CrashMonitor {
     typealias EventPayload = TimeProfile
-    /// Doubles as the report wire format: the writer emits this as crash.error.type and as
-    /// the monitor section's key, and the report model decodes CrashError.profile from the
-    /// exact string "profile". Never rename it.
-    static let id = "profile"
+    /// Doubles as the report wire format: the writer emits this as crash.error.type and
+    /// its fence matches it to route the payload to its schema home, `crash.error.profile`.
+    static let id = ExceptionType.profile.rawValue
 
     let host: MonitorHost<TimeProfile>
 
