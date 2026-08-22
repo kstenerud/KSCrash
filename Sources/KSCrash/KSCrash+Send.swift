@@ -40,8 +40,7 @@ extension KSCrash {
     public func sendRunSummaries(with configuration: SendConfiguration) async throws -> SendResult<RunSummary> {
         try await RunSummarySend.send(
             store: Self.store(reportStore: reportStore),
-            pipeline: configuration.runSummaryPipeline,
-            maxRunCount: Self.maxRunCount
+            pipeline: configuration.runSummaryPipeline
         )
     }
 
@@ -55,7 +54,6 @@ extension KSCrash {
         try await RunSummarySend.send(
             store: Self.store(reportStore: reportStore),
             pipeline: configuration.runSummaryPipeline,
-            maxRunCount: Self.maxRunCount,
             only: Set(ids)
         )
     }
@@ -75,8 +73,7 @@ extension KSCrash {
     public func sendReports(with configuration: SendConfiguration) async throws -> SendResult<Report> {
         try await ReportSend.send(
             store: Self.store(reportStore: reportStore),
-            pipeline: configuration.reportPipeline,
-            maxRunCount: Self.maxRunCount
+            pipeline: configuration.reportPipeline
         )
     }
 
@@ -92,14 +89,8 @@ extension KSCrash {
         try await ReportSend.send(
             store: Self.store(reportStore: reportStore),
             pipeline: configuration.reportPipeline,
-            maxRunCount: Self.maxRunCount,
             only: Set(ids)
         )
-    }
-
-    /// The install-resolved `.run` retention cap the drivers enforce.
-    private static var maxRunCount: Int {
-        Int(kscrash_getMaxRunSummaryCount())
     }
 
     // Built fresh per send on purpose: the store is a stateless value snapshot
@@ -123,6 +114,7 @@ extension KSCrash {
             runsDirectory: URL(fileURLWithPath: String(cString: runsPath), isDirectory: true),
             runSidecarsDirectory: URL(fileURLWithPath: String(cString: sidecarsPath), isDirectory: true),
             liveRunID: liveRunID.isEmpty ? nil : liveRunID,
+            maxRunCount: Int(kscrash_getMaxRunSummaryCount()),
             reportStore: reportStore
         )
     }

@@ -556,6 +556,7 @@ final class StoreTests: XCTestCase {
             runsDirectory: runsDirectory,
             runSidecarsDirectory: sidecarsDirectory,
             liveRunID: nil,
+            maxRunCount: 50,
             reportStore: reportStore
         )
 
