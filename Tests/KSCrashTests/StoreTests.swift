@@ -130,6 +130,17 @@ final class StoreTests: XCTestCase {
         XCTAssertEqual(runs.map(\.runID), ["BBB", "CCC", "AAA"])
     }
 
+    func test_runs_corruptTimestampSaturatesNewest_insteadOfWrapping() throws {
+        try writeSummary(makeSummary(runID: "HONEST"), startNs: 100)
+        // Non-writer-named, so ordering falls back to the decoded timestamp;
+        // Int64.max * 1e6 would wrap far below any honest key.
+        try Data(#"{"run_id": "CORRUPT", "started_at_ms": 9223372036854775807}"#.utf8)
+            .write(to: runsDirectory.appendingPathComponent("foreign.run"))
+
+        let runs = try snapshotRuns()
+        XCTAssertEqual(runs.map(\.runID), ["CORRUPT", "HONEST"])
+    }
+
     func test_runs_groupsArtifactsByRunID() throws {
         let runID = "11111111-2222-3333-4444-555555555555"
         try writeSummary(makeSummary(runID: runID), startNs: 100)
