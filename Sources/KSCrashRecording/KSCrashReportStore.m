@@ -111,40 +111,53 @@
 
 - (nullable NSArray<NSNumber *> *)listReportIDsWithError:(NSError **)error
 {
-    int reportCount = kscrs_getReportCount(&_cConfig);
-    if (reportCount < 0) {
+    int capacity = kscrs_getReportCount(&_cConfig);
+    if (capacity < 0) {
         [KSNSErrorHelper fillError:error
                         withDomain:NSCocoaErrorDomain
                               code:NSFileReadUnknownError
                        description:@"The reports directory could not be enumerated."];
         return nil;
     }
-    if (reportCount == 0) {
+    if (capacity == 0) {
         return @[];
     }
-    int64_t *reportIDsC = malloc(sizeof(int64_t) * (size_t)reportCount);
-    if (!reportIDsC) {
-        [KSNSErrorHelper fillError:error
-                        withDomain:NSCocoaErrorDomain
-                              code:NSFileReadUnknownError
-                       description:@"The reports directory could not be enumerated."];
-        return nil;
-    }
-    reportCount = kscrs_getReportIDs(reportIDsC, reportCount, &_cConfig);
-    if (reportCount < 0) {
+    // The count and the fill are separate scans, so a report added between
+    // them could otherwise push a pending one past the cap in directory
+    // order. Slack absorbs arrivals, a fill strictly below capacity proves
+    // the listing is complete, and a full buffer rescans with the larger
+    // count.
+    for (;;) {
+        capacity += 8;
+        int64_t *reportIDsC = malloc(sizeof(int64_t) * (size_t)capacity);
+        if (reportIDsC == NULL) {
+            [KSNSErrorHelper fillError:error
+                            withDomain:NSCocoaErrorDomain
+                                  code:NSFileReadUnknownError
+                           description:@"Could not allocate the report listing."];
+            return nil;
+        }
+        int found = kscrs_getReportIDs(reportIDsC, capacity, &_cConfig);
+        if (found < 0) {
+            free(reportIDsC);
+            [KSNSErrorHelper fillError:error
+                            withDomain:NSCocoaErrorDomain
+                                  code:NSFileReadUnknownError
+                           description:@"The reports directory could not be enumerated."];
+            return nil;
+        }
+        if (found == capacity) {
+            free(reportIDsC);
+            capacity = found;
+            continue;
+        }
+        NSMutableArray *reportIDs = [NSMutableArray arrayWithCapacity:(NSUInteger)found];
+        for (int i = 0; i < found; i++) {
+            [reportIDs addObject:[NSNumber numberWithLongLong:reportIDsC[i]]];
+        }
         free(reportIDsC);
-        [KSNSErrorHelper fillError:error
-                        withDomain:NSCocoaErrorDomain
-                              code:NSFileReadUnknownError
-                       description:@"The reports directory could not be enumerated."];
-        return nil;
+        return [reportIDs copy];
     }
-    NSMutableArray *reportIDs = [NSMutableArray arrayWithCapacity:(NSUInteger)reportCount];
-    for (int i = 0; i < reportCount; i++) {
-        [reportIDs addObject:[NSNumber numberWithLongLong:reportIDsC[i]]];
-    }
-    free(reportIDsC);
-    return [reportIDs copy];
 }
 
 - (BOOL)removeReportWithID:(int64_t)reportID error:(NSError **)error
