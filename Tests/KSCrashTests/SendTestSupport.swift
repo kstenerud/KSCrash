@@ -89,6 +89,18 @@ func testRunID(_ tag: String) -> RunSummary.ID {
     return RunSummary.ID(uuid: uuid)
 }
 
+/// A report id for a small test number: one deterministic UUID per value,
+/// ordered like the numbers so name order matches numeric order.
+func testReportID(_ value: Int) -> Report.ID {
+    Report.ID(
+        uuid: UUID(
+            uuid: (
+                0, 0, 0, 0, 0, 0, 0x40, 0, 0x80, 0, 0, 0,
+                UInt8((value >> 24) & 0xFF), UInt8((value >> 16) & 0xFF), UInt8((value >> 8) & 0xFF),
+                UInt8(value & 0xFF)
+            )))
+}
+
 /// A complete run summary fixture; only the identity and times vary.
 func makeSummary(runID: String, startedAtMs: Int64 = 1_000, endedAtMs: Int64 = 2_000) -> RunSummary {
     RunSummary(

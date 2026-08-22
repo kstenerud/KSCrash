@@ -28,7 +28,6 @@
 
 #import "KSCrashMonitorType.h"
 #import "KSCrashNamespace.h"
-#import "KSCrashReportStore.h"
 #import "KSCrashReportWriter.h"
 #import "KSSystemCapabilities.h"
 #import "KSTerminationReason.h"
@@ -154,13 +153,6 @@ NS_ASSUME_NONNULL_BEGIN
  * @note Once installed, the crash reporter cannot be re-installed or modified without restarting the application.
  */
 - (BOOL)installWithConfiguration:(KSCrashInstallConfiguration *)configuration error:(NSError **)error;
-
-/** The installed report store.
- * This is the store that is used to save and load crash reports.
- *
- * @note If the crash reporter is not installed, this will be `nil`.
- */
-@property(nonatomic, strong, readonly, nullable) KSCrashReportStore *reportStore;
 
 #pragma mark - Reporting -
 

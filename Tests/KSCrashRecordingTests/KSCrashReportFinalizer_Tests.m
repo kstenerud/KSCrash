@@ -29,7 +29,6 @@
 #import "KSCrashInstallConfiguration.h"
 #import "KSCrashMonitor.h"
 #import "KSCrashReportFields.h"
-#import "KSCrashReportStore.h"
 #import "KSCrashReportStoreC+Private.h"
 #import "KSCrashReportStoreC.h"
 #import "KSJSONCodecObjC.h"
@@ -124,11 +123,13 @@ static CFDictionaryRef noopStitchReport(CFDictionaryRef reportDict, __unused con
     kscrs_setStitchConfig(&_storeConfig);
 }
 
-- (int64_t)writeReportWithRunId:(NSString *)runId
+- (NSString *)writeReportWithRunId:(NSString *)runId
 {
     NSString *json = [NSString stringWithFormat:@"{\"report\":{\"run_id\":\"%@\",\"id\":\"evt1\"}}", runId];
     NSData *data = [json dataUsingEncoding:NSUTF8StringEncoding];
-    return kscrs_addUserReport(data.bytes, (int)data.length, &_storeConfig);
+    char reportID[KSID_SIZE];
+    XCTAssertTrue(kscrs_addUserReport(data.bytes, (int)data.length, &_storeConfig, reportID));
+    return @(reportID);
 }
 
 - (void)writeRunSidecar:(NSString *)monitorId runId:(NSString *)runId contents:(NSString *)contents
@@ -143,7 +144,7 @@ static CFDictionaryRef noopStitchReport(CFDictionaryRef reportDict, __unused con
     [contents writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
 }
 
-- (void)writeReportSidecar:(NSString *)monitorId reportID:(int64_t)reportID contents:(NSString *)contents
+- (void)writeReportSidecar:(NSString *)monitorId reportID:(NSString *)reportID contents:(NSString *)contents
 {
     NSString *monDir =
         [[NSString stringWithUTF8String:_storeConfig.reportSidecarsPath] stringByAppendingPathComponent:monitorId];
@@ -151,15 +152,20 @@ static CFDictionaryRef noopStitchReport(CFDictionaryRef reportDict, __unused con
                               withIntermediateDirectories:YES
                                                attributes:nil
                                                     error:nil];
-    NSString *path = [monDir
-        stringByAppendingPathComponent:[NSString stringWithFormat:@"%016llx.ksscr", (unsigned long long)reportID]];
+    NSString *path = [monDir stringByAppendingPathComponent:[NSString stringWithFormat:@"%@.ksscr", reportID]];
     [contents writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
 }
 
-- (NSString *)reportPathForID:(int64_t)reportID
+- (NSString *)reportPathForID:(NSString *)reportID
 {
-    return [NSString stringWithFormat:@"%s/%s-report-%016llx.json", _storeConfig.reportsPath, _storeConfig.appName,
-                                      (unsigned long long)reportID];
+    NSString *dir = [NSString stringWithUTF8String:_storeConfig.reportsPath];
+    NSString *suffix = [NSString stringWithFormat:@"-%@.json", reportID];
+    for (NSString *name in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:dir error:nil]) {
+        if ([name hasSuffix:suffix]) {
+            return [dir stringByAppendingPathComponent:name];
+        }
+    }
+    return nil;
 }
 
 - (NSDictionary *)readReportJSON:(NSString *)path
@@ -181,23 +187,23 @@ static CFDictionaryRef noopStitchReport(CFDictionaryRef reportDict, __unused con
 
 - (void)testFinalizeNullPathReturnsFalse
 {
-    XCTAssertFalse(kscrs_finalizeReport(NULL, 12345));
+    XCTAssertFalse(kscrs_finalizeReport(NULL, "4C1B2F3E-0000-4000-8000-000000000001"));
 }
 
 - (void)testFinalizeEmptyPathReturnsFalse
 {
-    XCTAssertFalse(kscrs_finalizeReport("", 12345));
+    XCTAssertFalse(kscrs_finalizeReport("", "4C1B2F3E-0000-4000-8000-000000000001"));
 }
 
-- (void)testFinalizeZeroReportIDReturnsFalse
+- (void)testFinalizeInvalidReportIDReturnsFalse
 {
-    XCTAssertFalse(kscrs_finalizeReport("/tmp/fake.json", 0));
+    XCTAssertFalse(kscrs_finalizeReport("/tmp/fake.json", "evt1"));
 }
 
 - (void)testFinalizeNonexistentReportReturnsFalse
 {
     [self prepareStore:@"testNonexistent"];
-    XCTAssertFalse(kscrs_finalizeReport("/tmp/nonexistent.json", 12345));
+    XCTAssertFalse(kscrs_finalizeReport("/tmp/nonexistent.json", "4C1B2F3E-0000-4000-8000-000000000001"));
 }
 
 #pragma mark - Basic Finalization
@@ -206,10 +212,10 @@ static CFDictionaryRef noopStitchReport(CFDictionaryRef reportDict, __unused con
 {
     [self prepareStore:@"testFinalizeFlag"];
     NSString *runId = [[NSUUID UUID] UUIDString];
-    int64_t reportID = [self writeReportWithRunId:runId];
+    NSString *reportID = [self writeReportWithRunId:runId];
     NSString *path = [self reportPathForID:reportID];
 
-    bool result = kscrs_finalizeReport(path.UTF8String, reportID);
+    bool result = kscrs_finalizeReport(path.UTF8String, reportID.UTF8String);
     XCTAssertTrue(result);
 
     NSDictionary *report = [self readReportJSON:path];
@@ -221,14 +227,14 @@ static CFDictionaryRef noopStitchReport(CFDictionaryRef reportDict, __unused con
 {
     [self prepareStore:@"testPreserveContent"];
     NSString *runId = [[NSUUID UUID] UUIDString];
-    int64_t reportID = [self writeReportWithRunId:runId];
+    NSString *reportID = [self writeReportWithRunId:runId];
     NSString *path = [self reportPathForID:reportID];
 
-    kscrs_finalizeReport(path.UTF8String, reportID);
+    kscrs_finalizeReport(path.UTF8String, reportID.UTF8String);
 
     NSDictionary *report = [self readReportJSON:path];
     XCTAssertEqualObjects(report[@"report"][@"run_id"], runId);
-    XCTAssertEqualObjects(report[@"report"][@"id"], @"evt1");
+    XCTAssertEqualObjects(report[@"report"][@"id"], reportID, @"the store minted an id for the non-UUID one");
 }
 
 #pragma mark - Stitching Integration
@@ -239,11 +245,11 @@ static CFDictionaryRef noopStitchReport(CFDictionaryRef reportDict, __unused con
     [self registerTestMonitor];
 
     NSString *runId = [[NSUUID UUID] UUIDString];
-    int64_t reportID = [self writeReportWithRunId:runId];
+    NSString *reportID = [self writeReportWithRunId:runId];
     [self writeRunSidecar:@"FinalizerTestMonitor" runId:runId contents:@"stitched_run_data"];
     NSString *path = [self reportPathForID:reportID];
 
-    bool result = kscrs_finalizeReport(path.UTF8String, reportID);
+    bool result = kscrs_finalizeReport(path.UTF8String, reportID.UTF8String);
     XCTAssertTrue(result);
 
     NSDictionary *report = [self readReportJSON:path];
@@ -257,52 +263,15 @@ static CFDictionaryRef noopStitchReport(CFDictionaryRef reportDict, __unused con
     [self registerTestMonitor];
 
     NSString *runId = [[NSUUID UUID] UUIDString];
-    int64_t reportID = [self writeReportWithRunId:runId];
+    NSString *reportID = [self writeReportWithRunId:runId];
     [self writeReportSidecar:@"FinalizerTestMonitor" reportID:reportID contents:@"stitched_report_data"];
     NSString *path = [self reportPathForID:reportID];
 
-    bool result = kscrs_finalizeReport(path.UTF8String, reportID);
+    bool result = kscrs_finalizeReport(path.UTF8String, reportID.UTF8String);
     XCTAssertTrue(result);
 
     NSDictionary *report = [self readReportJSON:path];
     XCTAssertEqualObjects(report[@"finalizer_test_stitch"], @"stitched_report_data");
-}
-
-- (void)testConstructingReportStoreDoesNotHijackStitchConfig
-{
-    // Regression: prior to the fix, KSCrashReportStore.init called
-    // kscrs_initialize, which had the side effect of replacing the global
-    // stitch config with the Store's config. Constructing a Store after
-    // install made finalize/read look up sidecars in the Store's paths
-    // instead of the install's. This test pins the new contract: only
-    // kscrs_setStitchConfig sets the stitch config; constructing a Store
-    // does not.
-    [self prepareStore:@"testHijackA"];  // sets stitch config to _storeConfig (paths under testHijackA)
-    [self registerTestMonitor];
-
-    NSString *runId = [[NSUUID UUID] UUIDString];
-    int64_t reportID = [self writeReportWithRunId:runId];
-    [self writeReportSidecar:@"FinalizerTestMonitor" reportID:reportID contents:@"data_from_store_A"];
-    NSString *path = [self reportPathForID:reportID];
-
-    // Construct an unrelated KSCrashReportStore with a different reports path.
-    // Its init calls kscrs_initialize on its own config; we expect the stitch
-    // config (set above by prepareStore) to remain unchanged.
-    KSCrashReportStoreConfiguration *otherConfig = [KSCrashReportStoreConfiguration new];
-    otherConfig.appName = @"otherapp";
-    otherConfig.reportsPath = [self.tempPath stringByAppendingPathComponent:@"testHijackB"];
-    KSCrashReportStore *otherStore = [KSCrashReportStore storeWithConfiguration:otherConfig error:nil];
-    XCTAssertNotNil(otherStore);
-
-    // If construction had hijacked the stitch config, finalize would now look
-    // for sidecars under testHijackB's paths and fail to find the one written
-    // under testHijackA. With the fix, the stitch config still points at
-    // testHijackA and the sidecar is found.
-    bool result = kscrs_finalizeReport(path.UTF8String, reportID);
-    XCTAssertTrue(result);
-
-    NSDictionary *report = [self readReportJSON:path];
-    XCTAssertEqualObjects(report[@"finalizer_test_stitch"], @"data_from_store_A");
 }
 
 #pragma mark - Sidecar Cleanup
@@ -316,15 +285,15 @@ static CFDictionaryRef noopStitchReport(CFDictionaryRef reportDict, __unused con
     [self registerTestMonitor];
 
     NSString *runId = [[NSUUID UUID] UUIDString];
-    int64_t reportID = [self writeReportWithRunId:runId];
+    NSString *reportID = [self writeReportWithRunId:runId];
     [self writeReportSidecar:@"FinalizerTestMonitor" reportID:reportID contents:@"data"];
     NSString *path = [self reportPathForID:reportID];
 
-    NSString *sidecarPath = [NSString stringWithFormat:@"%s/FinalizerTestMonitor/%016llx.ksscr",
-                                                       _storeConfig.reportSidecarsPath, (unsigned long long)reportID];
+    NSString *sidecarPath =
+        [NSString stringWithFormat:@"%s/FinalizerTestMonitor/%@.ksscr", _storeConfig.reportSidecarsPath, reportID];
     XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:sidecarPath]);
 
-    kscrs_finalizeReport(path.UTF8String, reportID);
+    kscrs_finalizeReport(path.UTF8String, reportID.UTF8String);
 
     XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:sidecarPath]);
 }
@@ -335,11 +304,11 @@ static CFDictionaryRef noopStitchReport(CFDictionaryRef reportDict, __unused con
     [self registerTestMonitor];
 
     NSString *runId = [[NSUUID UUID] UUIDString];
-    int64_t reportID = [self writeReportWithRunId:runId];
+    NSString *reportID = [self writeReportWithRunId:runId];
     [self writeRunSidecar:@"FinalizerTestMonitor" runId:runId contents:@"run data"];
     NSString *path = [self reportPathForID:reportID];
 
-    kscrs_finalizeReport(path.UTF8String, reportID);
+    kscrs_finalizeReport(path.UTF8String, reportID.UTF8String);
 
     NSString *runDir =
         [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:runId];
@@ -354,18 +323,18 @@ static CFDictionaryRef noopStitchReport(CFDictionaryRef reportDict, __unused con
     [self registerTestMonitor];
 
     NSString *runId = [[NSUUID UUID] UUIDString];
-    int64_t reportID = [self writeReportWithRunId:runId];
+    NSString *reportID = [self writeReportWithRunId:runId];
     [self writeRunSidecar:@"FinalizerTestMonitor" runId:runId contents:@"original_data"];
     NSString *path = [self reportPathForID:reportID];
 
     // Finalize — stitches "original_data"
-    kscrs_finalizeReport(path.UTF8String, reportID);
+    kscrs_finalizeReport(path.UTF8String, reportID.UTF8String);
 
     // Write a new sidecar with different data
     [self writeRunSidecar:@"FinalizerTestMonitor" runId:runId contents:@"new_data"];
 
     // Read via the normal path — should see "original_data" (skip re-stitching)
-    char *rawReport = kscrs_readReport(reportID, &_storeConfig, NULL);
+    char *rawReport = kscrs_readReport(reportID.UTF8String, &_storeConfig, NULL);
     XCTAssertTrue(rawReport != NULL);
 
     NSData *data = [NSData dataWithBytesNoCopy:rawReport length:strlen(rawReport) freeWhenDone:YES];
@@ -388,14 +357,15 @@ static CFDictionaryRef noopStitchReport(CFDictionaryRef reportDict, __unused con
                                                 @"\"system\":{\"os_version\":\"original\"}}",
                                                 runId];
     NSData *data = [json dataUsingEncoding:NSUTF8StringEncoding];
-    int64_t reportID = kscrs_addUserReport(data.bytes, (int)data.length, &_storeConfig);
-    XCTAssertTrue(reportID > 0);
+    char reportIDBuffer[KSID_SIZE];
+    XCTAssertTrue(kscrs_addUserReport(data.bytes, (int)data.length, &_storeConfig, reportIDBuffer));
+    NSString *reportID = @(reportIDBuffer);
 
     // Plant a run sidecar that would overwrite system.os_version if stitching ran
     [self writeRunSidecar:@"FinalizerTestMonitor" runId:runId contents:@"contaminated"];
 
     // Read via normal path — must return the report as-is
-    char *rawReport = kscrs_readReport(reportID, &_storeConfig, NULL);
+    char *rawReport = kscrs_readReport(reportID.UTF8String, &_storeConfig, NULL);
     XCTAssertTrue(rawReport != NULL);
 
     NSData *readData = [NSData dataWithBytesNoCopy:rawReport length:strlen(rawReport) freeWhenDone:YES];
@@ -419,14 +389,15 @@ static CFDictionaryRef noopStitchReport(CFDictionaryRef reportDict, __unused con
         stringWithFormat:@"{\"report\":{\"run_id\":\"%@\",\"id\":\"mk2\"},\"system\":{\"os_version\":\"original\"}}",
                          runId];
     NSData *data = [json dataUsingEncoding:NSUTF8StringEncoding];
-    int64_t reportID = kscrs_addUserReport(data.bytes, (int)data.length, &_storeConfig);
-    XCTAssertTrue(reportID > 0);
+    char reportIDBuffer[KSID_SIZE];
+    XCTAssertTrue(kscrs_addUserReport(data.bytes, (int)data.length, &_storeConfig, reportIDBuffer));
+    NSString *reportID = @(reportIDBuffer);
 
     // Plant a run sidecar
     [self writeRunSidecar:@"FinalizerTestMonitor" runId:runId contents:@"hydrated"];
 
     // Read via normal path — stitch must run
-    char *rawReport = kscrs_readReport(reportID, &_storeConfig, NULL);
+    char *rawReport = kscrs_readReport(reportID.UTF8String, &_storeConfig, NULL);
     XCTAssertTrue(rawReport != NULL);
 
     NSData *readData = [NSData dataWithBytesNoCopy:rawReport length:strlen(rawReport) freeWhenDone:YES];
@@ -442,12 +413,12 @@ static CFDictionaryRef noopStitchReport(CFDictionaryRef reportDict, __unused con
 {
     [self prepareStore:@"testDoubleFinalize"];
     NSString *runId = [[NSUUID UUID] UUIDString];
-    int64_t reportID = [self writeReportWithRunId:runId];
+    NSString *reportID = [self writeReportWithRunId:runId];
     NSString *path = [self reportPathForID:reportID];
 
-    XCTAssertTrue(kscrs_finalizeReport(path.UTF8String, reportID));
+    XCTAssertTrue(kscrs_finalizeReport(path.UTF8String, reportID.UTF8String));
     // Second finalization should still succeed
-    XCTAssertTrue(kscrs_finalizeReport(path.UTF8String, reportID));
+    XCTAssertTrue(kscrs_finalizeReport(path.UTF8String, reportID.UTF8String));
 
     NSDictionary *report = [self readReportJSON:path];
     XCTAssertEqualObjects(report[@"report"][@"finalized"], @YES);
@@ -466,12 +437,12 @@ static CFDictionaryRef noopStitchReport(CFDictionaryRef reportDict, __unused con
     kscm_addMonitor(&_failingMonitorAPI);
 
     NSString *runId = [[NSUUID UUID] UUIDString];
-    int64_t reportID = [self writeReportWithRunId:runId];
+    NSString *reportID = [self writeReportWithRunId:runId];
     [self writeReportSidecar:@"FailingTestMonitor" reportID:reportID contents:@"data"];
     NSString *path = [self reportPathForID:reportID];
 
     // Finalization should fail because the stitch callback returned NULL
-    bool result = kscrs_finalizeReport(path.UTF8String, reportID);
+    bool result = kscrs_finalizeReport(path.UTF8String, reportID.UTF8String);
     XCTAssertFalse(result);
 
     // The report on disk should NOT have a finalized flag
@@ -490,12 +461,12 @@ static CFDictionaryRef noopStitchReport(CFDictionaryRef reportDict, __unused con
     kscm_addMonitor(&_noopMonitorAPI);
 
     NSString *runId = [[NSUUID UUID] UUIDString];
-    int64_t reportID = [self writeReportWithRunId:runId];
+    NSString *reportID = [self writeReportWithRunId:runId];
     [self writeReportSidecar:@"NoopTestMonitor" reportID:reportID contents:@"data"];
     NSString *path = [self reportPathForID:reportID];
 
     // Finalization should succeed — the no-op callback returned a copy, not NULL
-    bool result = kscrs_finalizeReport(path.UTF8String, reportID);
+    bool result = kscrs_finalizeReport(path.UTF8String, reportID.UTF8String);
     XCTAssertTrue(result);
 
     NSDictionary *report = [self readReportJSON:path];

@@ -30,7 +30,6 @@
 #import "KSCrashMonitorPlugin.h"
 #import "KSCrashMonitorType.h"
 #include "KSCrashNamespace.h"
-#import "KSCrashReportStore.h"
 #import "KSCrashReportWriter.h"
 #import "KSCrashReportWriterCallbacks.h"
 #import "KSSystemCapabilities.h"
@@ -265,23 +264,6 @@ NS_SWIFT_NAME(CrashInstallConfiguration)
  */
 @property(nonatomic, copy, nullable) void (^crashNotifyCallback)(const struct KSCrashReportWriter *writer)
     __attribute__((deprecated("Use `isWritingReportCallback` for async-safety awareness (since v2.4.0).")));
-#pragma clang diagnostic pop
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-/** Callback to invoke upon finishing writing a crash report (DEPRECATED).
- *
- * @deprecated Use `didWriteReportCallback` for async-safety awareness (since v2.4.0).
- * This callback does not receive plan information and may not handle crash
- * scenarios safely.
- *
- * This function is called after a crash report has been written. It allows the caller
- * to react to the completion of the report.
- *
- * **Default**: NULL
- */
-@property(nonatomic, copy, nullable) void (^reportWrittenCallback)(int64_t reportID)
-    __attribute__((deprecated("Use `didWriteReportCallback` for async-safety awareness (since v2.4.0).")));
 #pragma clang diagnostic pop
 
 @end

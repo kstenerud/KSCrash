@@ -28,7 +28,7 @@
 #import <objc/runtime.h>
 #import "KSCrash+Private.h"
 #import "KSCrashInstallConfiguration+Private.h"
-#import "KSCrashReportStore.h"
+#import "KSCrashReportStoreC.h"
 
 @implementation KSCrashInstallConfiguration
 
@@ -59,7 +59,6 @@
         _enableMemoryIntrospection = cConfig.enableMemoryIntrospection ? YES : NO;
         _doNotIntrospectClasses = nil;
         _crashNotifyCallback = nil;
-        _reportWrittenCallback = nil;
         _addConsoleLogToReport = cConfig.addConsoleLogToReport ? YES : NO;
         _printPreviousLogOnStartup = cConfig.printPreviousLogOnStartup ? YES : NO;
         _enableSwapCxaThrow = cConfig.enableSwapCxaThrow ? YES : NO;
@@ -121,13 +120,6 @@
         // 'KSReportWriteCallback' (aka 'void (*)(const struct KSCrashReportWriter *)') converts to incompatible
         // function type
         config.crashNotifyCallback = (KSReportWriteCallback)imp_implementationWithBlock(self.crashNotifyCallback);
-    }
-    if (self.reportWrittenCallback) {
-        // Note: This only works by blind luck (so far).
-        // error: cast from 'IMP _Nonnull' (aka 'id  _Nullable (*)(id  _Nonnull __strong, SEL _Nonnull, ...)') to
-        // 'KSReportWrittenCallback' (aka 'void (*)(long long)') converts to incompatible function type
-        // [-Werror,-Wcast-function-type-mismatch]
-        config.reportWrittenCallback = (KSReportWrittenCallback)imp_implementationWithBlock(self.reportWrittenCallback);
     }
 #pragma clang diagnostic pop
     config.isWritingReportCallback = self.isWritingReportCallback;
@@ -208,7 +200,6 @@
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
     copy.crashNotifyCallback = self.crashNotifyCallback;
-    copy.reportWrittenCallback = self.reportWrittenCallback;
 #pragma clang diagnostic pop
     copy.isWritingReportCallback = self.isWritingReportCallback;
     copy.didWriteReportCallback = self.didWriteReportCallback;
@@ -253,8 +244,7 @@
     if (resolvedReportsPath == nil) {
         // If reports path is not provided we use a default subfolder of a default install path.
         resolvedReportsPath = kscrash_getDefaultInstallPath();
-        resolvedReportsPath =
-            [resolvedReportsPath stringByAppendingPathComponent:[KSCrashReportStore defaultInstallSubfolder]];
+        resolvedReportsPath = [resolvedReportsPath stringByAppendingPathComponent:@KSCRS_DEFAULT_REPORTS_FOLDER];
     }
 
     KSCrashReportStoreCConfiguration config = KSCrashReportStoreCConfiguration_Default();

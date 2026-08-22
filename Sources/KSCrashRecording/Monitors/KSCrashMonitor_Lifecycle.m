@@ -227,7 +227,7 @@ void kscm_lifecycle_observeUser(const char *userID)
 const char *kslifecycle_currentSessionID(void)
 {
     // kssw_current's buffer is overwritten by the next cut; copy it out.
-    static _Thread_local char buf[37];
+    static _Thread_local char buf[KSID_SIZE];
     os_unfair_lock_lock(&g_sessionLock);
     const char *id = (g_sessionWriter != NULL) ? kssw_current(g_sessionWriter) : NULL;
     if (id != NULL) {

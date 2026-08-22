@@ -71,7 +71,7 @@ final class CrashReportDecodingTests: XCTestCase {
                     "threads": []
                 },
                 "report": {
-                    "id": "test-id"
+                    "id": "\(testReportID("test-id"))"
                 },
                 "system": {}
             }
@@ -79,7 +79,7 @@ final class CrashReportDecodingTests: XCTestCase {
 
         let report = try Report.decode(from: json)
 
-        XCTAssertEqual(report.report.id, "test-id")
+        XCTAssertEqual(report.report.id, testReportID("test-id"))
         XCTAssertEqual(report.crash.error.type, .mach)
         XCTAssertEqual(report.crash.error.mach?.code, 1)
         XCTAssertEqual(report.crash.error.mach?.exception, 1)
@@ -104,7 +104,7 @@ final class CrashReportDecodingTests: XCTestCase {
                     "error": { "type": "mach" },
                     "threads": []
                 },
-                "report": { "id": "test" },
+                "report": { "id": "\(testReportID("test"))" },
                 "system": {}
             }
             """
@@ -146,7 +146,7 @@ final class CrashReportDecodingTests: XCTestCase {
                     },
                     "threads": []
                 },
-                "report": { "id": "test" },
+                "report": { "id": "\(testReportID("test"))" },
                 "system": {}
             }
             """
@@ -187,7 +187,7 @@ final class CrashReportDecodingTests: XCTestCase {
                         }
                     ]
                 },
-                "report": { "id": "test" },
+                "report": { "id": "\(testReportID("test"))" },
                 "system": {}
             }
             """
@@ -238,7 +238,7 @@ final class CrashReportDecodingTests: XCTestCase {
                         "skipped": 0
                     }
                 },
-                "report": { "id": "test-last-exception-bt" },
+                "report": { "id": "\(testReportID("test-last-exception-bt"))" },
                 "system": {}
             }
             """
@@ -260,7 +260,7 @@ final class CrashReportDecodingTests: XCTestCase {
                     "error": { "type": "mach" },
                     "threads": []
                 },
-                "report": { "id": "test" },
+                "report": { "id": "\(testReportID("test"))" },
                 "system": {}
             }
             """
@@ -277,7 +277,7 @@ final class CrashReportDecodingTests: XCTestCase {
                     "error": { "type": "mach" },
                     "threads": []
                 },
-                "report": { "id": "test" },
+                "report": { "id": "\(testReportID("test"))" },
                 "system": {
                     "CFBundleExecutable": "MyApp",
                     "CFBundleIdentifier": "com.example.myapp",
@@ -316,7 +316,7 @@ final class CrashReportDecodingTests: XCTestCase {
                     "error": { "type": "mach" },
                     "threads": []
                 },
-                "report": { "id": "test" },
+                "report": { "id": "\(testReportID("test"))" },
                 "system": {
                     "battery_level": 72,
                     "battery_state": 2,
@@ -360,7 +360,7 @@ final class CrashReportDecodingTests: XCTestCase {
                     "error": { "type": "mach" },
                     "threads": []
                 },
-                "report": { "id": "test" },
+                "report": { "id": "\(testReportID("test"))" },
                 "system": {}
             }
             """
@@ -386,7 +386,7 @@ final class CrashReportDecodingTests: XCTestCase {
             let json = """
                 {
                     "crash": { "error": { "type": "mach" }, "threads": [] },
-                    "report": { "id": "test" },
+                    "report": { "id": "\(testReportID("test"))" },
                     "system": { "battery_state": \(rawValue) }
                 }
                 """
@@ -402,7 +402,7 @@ final class CrashReportDecodingTests: XCTestCase {
             let json = """
                 {
                     "crash": { "error": { "type": "mach" }, "threads": [] },
-                    "report": { "id": "test" },
+                    "report": { "id": "\(testReportID("test"))" },
                     "system": { "thermal_state": \(rawValue) }
                 }
                 """
@@ -418,7 +418,7 @@ final class CrashReportDecodingTests: XCTestCase {
             let json = """
                 {
                     "crash": { "error": { "type": "mach" }, "threads": [] },
-                    "report": { "id": "test" },
+                    "report": { "id": "\(testReportID("test"))" },
                     "system": { "cpu_state": "\(rawValue)" }
                 }
                 """
@@ -446,7 +446,7 @@ final class CrashReportDecodingTests: XCTestCase {
                     "error": { "type": "mach" },
                     "threads": []
                 },
-                "report": { "id": "test" },
+                "report": { "id": "\(testReportID("test"))" },
                 "system": {},
                 "user": {
                     "key1": "string value",
@@ -486,7 +486,7 @@ final class CrashReportDecodingTests: XCTestCase {
                     },
                     "threads": []
                 },
-                "report": { "id": "test" }
+                "report": { "id": "\(testReportID("test"))" }
             }
             """
 
@@ -521,7 +521,7 @@ final class CrashReportDecodingTests: XCTestCase {
                     "error": { "type": "mach", "future_field": 42, "future_section": { "a": 1 } },
                     "threads": []
                 },
-                "report": { "id": "test" }
+                "report": { "id": "\(testReportID("test"))" }
             }
             """
 
@@ -538,7 +538,7 @@ final class CrashReportDecodingTests: XCTestCase {
                     "error": { "type": "mach", "monitor_data": { "my_monitor": 42 } },
                     "threads": []
                 },
-                "report": { "id": "test" }
+                "report": { "id": "\(testReportID("test"))" }
             }
             """
         XCTAssertThrowsError(try JSONDecoder().decode(Report.self, from: Data(inError.utf8)))
@@ -546,7 +546,7 @@ final class CrashReportDecodingTests: XCTestCase {
         let atRoot = """
             {
                 "crash": { "error": { "type": "mach" }, "threads": [] },
-                "report": { "id": "test" },
+                "report": { "id": "\(testReportID("test"))" },
                 "monitor_data": { "my_monitor": "not an object" }
             }
             """
@@ -563,7 +563,7 @@ final class CrashReportDecodingTests: XCTestCase {
                     },
                     "threads": []
                 },
-                "report": { "id": "test" }
+                "report": { "id": "\(testReportID("test"))" }
             }
             """
 
@@ -582,7 +582,7 @@ final class CrashReportDecodingTests: XCTestCase {
         let json = """
             {
                 "crash": { "error": { "type": "mach" }, "threads": [] },
-                "report": { "id": "test" },
+                "report": { "id": "\(testReportID("test"))" },
                 "monitor_data": {
                     "my_monitor": { "transaction_id": "tx-123" }
                 }
@@ -607,7 +607,7 @@ final class CrashReportDecodingTests: XCTestCase {
         let json = """
             {
                 "crash": { "error": { "type": "mach" }, "threads": [] },
-                "report": { "id": "test" }
+                "report": { "id": "\(testReportID("test"))" }
             }
             """
         let report = try JSONDecoder().decode(Report.self, from: Data(json.utf8))
@@ -622,7 +622,7 @@ final class CrashReportDecodingTests: XCTestCase {
                     "error": { "type": "mach" },
                     "threads": []
                 },
-                "report": { "id": "test" }
+                "report": { "id": "\(testReportID("test"))" }
             }
             """
 
@@ -635,7 +635,7 @@ final class CrashReportDecodingTests: XCTestCase {
         let report = try Report.decode(from: url)
 
         // Verify top-level structure
-        XCTAssertEqual(report.report.id, "1DFC2552-8F7C-4D14-B0A8-5FE04E5AE35E")
+        XCTAssertEqual(report.report.id, testReportID("1DFC2552-8F7C-4D14-B0A8-5FE04E5AE35E"))
         XCTAssertEqual(report.report.type, .standard)
         XCTAssertEqual(report.report.version?.major, 2)
         XCTAssertEqual(report.report.version?.minor, 0)
@@ -832,7 +832,7 @@ final class CrashReportDecodingTests: XCTestCase {
                         }
                     ]
                 },
-                "report": { "id": "compact-test" },
+                "report": { "id": "\(testReportID("compact-test"))" },
                 "system": {}
             }
             """
@@ -905,7 +905,7 @@ final class CrashReportDecodingTests: XCTestCase {
                         }
                     ]
                 },
-                "report": { "id": "compact-referenced-only" },
+                "report": { "id": "\(testReportID("compact-referenced-only"))" },
                 "system": {}
             }
             """
@@ -966,7 +966,7 @@ final class CrashReportDecodingTests: XCTestCase {
                         }
                     ]
                 },
-                "report": { "id": "no-binary-images" },
+                "report": { "id": "\(testReportID("no-binary-images"))" },
                 "system": {}
             }
             """
@@ -1031,7 +1031,7 @@ final class CrashReportDecodingTests: XCTestCase {
                         }
                     }
                 },
-                "report": { "id": "profile-uuid-test" },
+                "report": { "id": "\(testReportID("profile-uuid-test"))" },
                 "system": {}
             }
             """
@@ -1060,7 +1060,7 @@ final class CrashReportDecodingTests: XCTestCase {
                     },
                     "threads": []
                 },
-                "report": { "id": "test" },
+                "report": { "id": "\(testReportID("test"))" },
                 "system": {}
             }
             """
@@ -1080,7 +1080,7 @@ final class CrashReportDecodingTests: XCTestCase {
                     },
                     "threads": []
                 },
-                "report": { "id": "test" },
+                "report": { "id": "\(testReportID("test"))" },
                 "system": {}
             }
             """
@@ -1099,7 +1099,7 @@ final class CrashReportDecodingTests: XCTestCase {
                     },
                     "threads": []
                 },
-                "report": { "id": "test" },
+                "report": { "id": "\(testReportID("test"))" },
                 "system": {}
             }
             """
@@ -1119,7 +1119,7 @@ final class CrashReportDecodingTests: XCTestCase {
                     },
                     "threads": []
                 },
-                "report": { "id": "test" },
+                "report": { "id": "\(testReportID("test"))" },
                 "system": {}
             }
             """
@@ -1139,7 +1139,7 @@ final class CrashReportDecodingTests: XCTestCase {
                     },
                     "threads": []
                 },
-                "report": { "id": "test" },
+                "report": { "id": "\(testReportID("test"))" },
                 "system": {}
             }
             """
@@ -1161,7 +1161,7 @@ final class CrashReportDecodingTests: XCTestCase {
                     }
                 },
                 "report": {
-                    "id": "test-termination",
+                    "id": "\(testReportID("test-termination"))",
                     "run_id": "0C1D2E3F-4A5B-4C6D-8E7F-A0B1C2D3E4F5",
                     "session_id": "prev-session-id",
                     "type": "standard",
@@ -1192,7 +1192,7 @@ final class CrashReportDecodingTests: XCTestCase {
                         "termination_reason": "thermal"
                     }
                 },
-                "report": { "id": "test" }
+                "report": { "id": "\(testReportID("test"))" }
             }
             """
         let report = try Report.decode(from: json)
@@ -1205,7 +1205,7 @@ final class CrashReportDecodingTests: XCTestCase {
                 "crash": {
                     "error": { "type": "memory_termination" }
                 },
-                "report": { "id": "test" }
+                "report": { "id": "\(testReportID("test"))" }
             }
             """
         let report = try Report.decode(from: json)
@@ -1218,7 +1218,7 @@ final class CrashReportDecodingTests: XCTestCase {
                 "crash": {
                     "error": { "type": "signal" }
                 },
-                "report": { "id": "test" }
+                "report": { "id": "\(testReportID("test"))" }
             }
             """
 
@@ -1251,7 +1251,7 @@ final class CrashReportDecodingTests: XCTestCase {
                             "termination_reason": "\(raw)"
                         }
                     },
-                    "report": { "id": "test" }
+                    "report": { "id": "\(testReportID("test"))" }
                 }
                 """
             let report = try Report.decode(from: json)
@@ -1276,7 +1276,7 @@ final class CrashReportDecodingTests: XCTestCase {
                             "memory_pressure": "\(raw)"
                         }
                     },
-                    "report": { "id": "test" }
+                    "report": { "id": "\(testReportID("test"))" }
                 }
                 """
             let report = try Report.decode(from: json)
@@ -1294,7 +1294,7 @@ final class CrashReportDecodingTests: XCTestCase {
                         "memory_level": "future_state"
                     }
                 },
-                "report": { "id": "test" }
+                "report": { "id": "\(testReportID("test"))" }
             }
             """
 
@@ -1314,7 +1314,7 @@ final class CrashReportDecodingTests: XCTestCase {
                         "app_transition_state": "active"
                     }
                 },
-                "report": { "id": "test" }
+                "report": { "id": "\(testReportID("test"))" }
             }
             """
 
@@ -1332,7 +1332,7 @@ final class CrashReportDecodingTests: XCTestCase {
                     },
                     "threads": []
                 },
-                "report": { "id": "test" },
+                "report": { "id": "\(testReportID("test"))" },
                 "system": {}
             }
             """

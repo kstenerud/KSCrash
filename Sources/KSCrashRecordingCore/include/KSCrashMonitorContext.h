@@ -34,6 +34,7 @@
 #include "KSCrashExceptionHandlingRequirements.h"
 #include "KSCrashMonitorFlag.h"
 #include "KSCrashNamespace.h"
+#include "KSID.h"
 #include "KSMachineContext.h"
 
 #ifdef __cplusplus
@@ -186,8 +187,8 @@ typedef struct KSCrash_MonitorContext {
 } KSCrash_MonitorContext;
 
 typedef struct KSCrash_ReportResult {
-    /** id as used by the report API */
-    int64_t reportId;
+    /** The report's id (its UUID text), empty when no report was written. */
+    char reportId[KSID_SIZE];
 
     /** the path on disk of this report */
     char path[PATH_MAX];
@@ -215,7 +216,7 @@ typedef bool (*KSCrashReportSidecarFilePathProviderFunc)(const char *monitorId, 
  * @param pathBufferLength The size of pathBuffer in bytes.
  * @return true if the path was successfully written, false on failure.
  */
-typedef bool (*KSCrashReportSidecarPathProviderFunc)(const char *monitorId, int64_t reportID, char *pathBuffer,
+typedef bool (*KSCrashReportSidecarPathProviderFunc)(const char *monitorId, const char *reportID, char *pathBuffer,
                                                      size_t pathBufferLength);
 
 /**

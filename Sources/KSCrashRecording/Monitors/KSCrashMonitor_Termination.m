@@ -121,7 +121,8 @@ static void injectReport(const char *lastRunID, const KSCrash_LifecycleData *lif
         return;
     }
 
-    kscrash_addUserReport((const char *)jsonData.bytes, (int)jsonData.length);
+    char reportID[KSID_SIZE];
+    kscrash_addUserReport((const char *)jsonData.bytes, (int)jsonData.length, reportID);
     KSLOG_INFO(@"Injected Termination report for run %s: %s", lastRunID, kstermination_reasonToString(reason));
 }
 

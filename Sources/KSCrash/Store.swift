@@ -41,10 +41,6 @@ struct Run: Sendable {
     let sidecarDirectory: URL?
 }
 
-/// A pending crash report's identity in the store. IDs are minted
-/// chronologically, so their order is the reports' age order.
-public typealias ReportID = Int64
-
 /// The on-disk state of the install: past runs (summaries, sessions, run
 /// sidecars) and pending crash reports. All reads and deletes live here;
 /// the listings are inert values. The two halves are listed separately, so
@@ -67,39 +63,32 @@ struct Store: Sendable {
 
     /// The production entry: the report half and the reclaim go through the
     /// C-backed report store, the one owner of the Reports directory.
+    /// The production store: the report half talks to the C store through
+    /// its resolved configuration, which stays valid for the process.
     init(
         runsDirectory: URL,
         runSidecarsDirectory: URL,
+        reportsDirectory: URL,
         liveRunID: RunSummary.ID?,
         maxRunCount: Int,
-        reportStore: CrashReportStore
+        storeConfig: UnsafePointer<KSCrashReportStoreCConfiguration>
     ) {
+        let config = CStoreConfig(pointer: storeConfig)
         self.init(
             runsDirectory: runsDirectory,
             runSidecarsDirectory: runSidecarsDirectory,
             liveRunID: liveRunID,
             maxRunCount: maxRunCount,
             reports: ReportBridge(
-                list: { try reportStore.listReportIDs().map(\.int64Value) },
-                read: { id in
-                    do {
-                        return try reportStore.reportData(for: id)
-                    } catch let error as CocoaError where error.code == .fileReadCorruptFile {
-                        // Read, but not a JSON report: deterministic, surfaced.
-                        throw error
-                    } catch {
-                        // Missing or unreadable right now: retried by the next send.
-                        return nil
-                    }
-                },
-                runID: { reportStore.runID(of: $0).flatMap(RunSummary.ID.init) },
-                remove: { try reportStore.removeReport(withID: $0) }
+                list: { try Store.listReportIDs(in: reportsDirectory) },
+                read: { id in try config.read(id) },
+                runID: { id in config.runID(of: id) },
+                remove: { id in try config.remove(id) }
             ),
-            reclaim: { reportStore.reclaimOrphanedRunData() }
+            reclaim: { kscrs_reclaimOrphanedRunData(config.pointer) }
         )
     }
 
-    /// Test seam: fake report half and reclaim, no C store behind them.
     init(
         runsDirectory: URL,
         runSidecarsDirectory: URL,
@@ -118,10 +107,10 @@ struct Store: Sendable {
 
     /// Every pending crash report, newest first. Throws when the Reports
     /// directory cannot be enumerated; the runs half is not touched.
-    func snapshotReportIDs() throws -> [ReportID] {
-        // The listing is the C store's (it owns the Reports directory).
-        // Descending is newest first: IDs are chronological.
-        try reports.list().sorted(by: >)
+    func snapshotReportIDs() throws -> [Report.ID] {
+        // The listing is oldest first (the filenames carry the write time),
+        // so newest first is its reverse.
+        Array(try reports.list().reversed())
     }
 
     /// Every past run with data on disk, as inert values: all artifacts
@@ -328,28 +317,98 @@ private struct RunIdentity: Decodable {
     }
 }
 
+extension Store {
+    /// The report filename grammar, shared with the C store through its
+    /// KSCRS_REPORT_* constants: "<digits>-<id>.<extension>".
+    enum ReportFilename {
+        static let digits = Int(KSCRS_REPORT_NAME_DIGITS)
+        static let idLength = Int(KSCRS_REPORT_ID_LENGTH)
+        static let suffix = "." + KSCRS_REPORT_FILENAME_EXTENSION
+        static let length = digits + 1 + idLength + suffix.count
+
+        /// The id in a report filename; nil for any other name.
+        static func reportID(in name: String) -> Report.ID? {
+            guard name.count == length, name.hasSuffix(suffix) else { return nil }
+            let digitsEnd = name.index(name.startIndex, offsetBy: digits)
+            guard name[..<digitsEnd].allSatisfy({ $0.isASCII && $0.isNumber }), name[digitsEnd] == "-" else {
+                return nil
+            }
+            let idStart = name.index(after: digitsEnd)
+            let idEnd = name.index(idStart, offsetBy: idLength)
+            return Report.ID(String(name[idStart..<idEnd]))
+        }
+    }
+
+    /// The report ids in `directory`, oldest first, from the filenames alone:
+    /// the digits are the write time and the id is the report's. Anything
+    /// else is not a report. An absent directory is empty; an unreadable one
+    /// throws.
+    static func listReportIDs(in directory: URL) throws -> [Report.ID] {
+        let names: [String]
+        do {
+            names = try FileManager.default.contentsOfDirectory(atPath: directory.path)
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            return []
+        }
+        return names.sorted().compactMap(ReportFilename.reportID(in:))
+    }
+}
+
+/// The C store's resolved configuration, valid for the process. The pointer
+/// is read-only shared state, which is what makes it safe to carry across
+/// sends.
+private struct CStoreConfig: @unchecked Sendable {
+    let pointer: UnsafePointer<KSCrashReportStoreCConfiguration>
+
+    /// The stitched report bytes; nil when unreadable now, throws when the
+    /// file holds no JSON report (deterministic).
+    func read(_ id: Report.ID) throws -> Data? {
+        var status = KSCrashReportReadStatusOK
+        guard let raw = kscrs_readReport(id.description, pointer, &status) else {
+            if status == KSCrashReportReadStatusUndecodable {
+                throw CocoaError(.fileReadCorruptFile)
+            }
+            return nil
+        }
+        defer { free(raw) }
+        return Data(bytes: raw, count: strlen(raw))
+    }
+
+    func runID(of id: Report.ID) -> RunSummary.ID? {
+        guard let raw = kscrs_copyReportRunID(id.description, pointer) else { return nil }
+        defer { free(raw) }
+        return RunSummary.ID(String(cString: raw))
+    }
+
+    func remove(_ id: Report.ID) throws {
+        if !kscrs_deleteReportWithID(id.description, pointer) {
+            throw CocoaError(
+                .fileNoSuchFile, userInfo: [NSLocalizedDescriptionKey: "Report \(id) could not be deleted."])
+        }
+    }
+}
+
 /// The report half's backing calls. Internal plumbing: the production init
 /// derives it from the C-backed report store, and only the test-seam init
 /// takes one directly. Intermediary by design: it exists only while the
-/// report store is C-backed, and goes away once the report store moves to
-/// Swift (the install rewrite, #886), when the store can do this I/O itself.
+/// report store is C-backed; the production init fills it with the C calls.
 struct ReportBridge: Sendable {
     /// All pending report IDs. Throws when the directory cannot be
     /// enumerated; an empty store is an empty array.
-    let list: @Sendable () throws -> [ReportID]
+    let list: @Sendable () throws -> [Report.ID]
 
     /// One report's stitched JSON. nil when it cannot be read right now.
     /// Throws when the file was read but does not hold a JSON report; that is
     /// deterministic, so the send surfaces it instead of retrying forever.
-    let read: @Sendable (ReportID) throws -> Data?
+    let read: @Sendable (Report.ID) throws -> Data?
 
     /// The run a report belongs to, from the report file alone: nothing is
     /// stitched and no run artifacts are touched. nil when the report cannot
     /// be read or records no run.
-    let runID: @Sendable (ReportID) -> RunSummary.ID?
+    let runID: @Sendable (Report.ID) -> RunSummary.ID?
 
     /// Delete one report. Throws when the report file could not be removed.
-    let remove: @Sendable (ReportID) throws -> Void
+    let remove: @Sendable (Report.ID) throws -> Void
 
     /// A store with no report half (run-only tests).
     static let none = ReportBridge(list: { [] }, read: { _ in nil }, runID: { _ in nil }, remove: { _ in })
@@ -364,14 +423,14 @@ extension Store {
     /// send surfaces it as a kept item instead of silently retrying it
     /// forever; the file stays on disk. Under a send's claim the stale check
     /// is race-free, because deletes only happen under the claim.
-    func report(_ id: ReportID) throws -> Report? {
+    func report(_ id: Report.ID) throws -> Report? {
         guard let data = try reports.read(id) else {
             return nil
         }
         do {
             return try JSONDecoder().decode(Report.self, from: data)
         } catch {
-            os_log(.error, "Undecodable report %lld: %{public}@", id, String(describing: error))
+            os_log(.error, "Undecodable report %{public}@: %{public}@", id.description, String(describing: error))
             throw error
         }
     }
@@ -379,12 +438,12 @@ extension Store {
     /// The run `id` belongs to, from the report file alone: nothing is
     /// stitched and no run artifacts are touched. nil when the report cannot
     /// be read or records no run.
-    func runID(of id: ReportID) -> RunSummary.ID? {
+    func runID(of id: Report.ID) -> RunSummary.ID? {
         reports.runID(id)
     }
 
     /// Delete one report (and, through the C store, its report sidecars).
-    func removeReport(_ id: ReportID) throws {
+    func removeReport(_ id: Report.ID) throws {
         try reports.remove(id)
     }
 }

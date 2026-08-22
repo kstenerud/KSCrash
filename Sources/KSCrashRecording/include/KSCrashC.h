@@ -36,6 +36,7 @@
 #include "KSCrashError.h"
 #include "KSCrashMonitorType.h"
 #include "KSCrashNamespace.h"
+#include "KSCrashReportStoreC.h"
 #include "KSCrashReportWriter.h"
 
 #ifdef __cplusplus
@@ -176,9 +177,24 @@ void kscrash_reportUserException(const char *name, const char *reason, const cha
  *               send.
  * @param reportLength The length of the report in bytes.
  *
- * @return the new report's ID.
+ * @param reportIDOut Receives the report's id, NUL terminated, in a buffer of at
+ *                    least KSID_SIZE bytes: the payload's own report.id when that
+ *                    is a UUID, else one minted here and written into the payload.
+ *
+ * @return true when the report was stored.
  */
-int64_t kscrash_addUserReport(const char *report, int reportLength);
+bool kscrash_addUserReport(const char *report, int reportLength, char *reportIDOut);
+
+/** The installed store's configuration (resolved paths and caps); NULL
+ * fields before install. The pointer stays valid for the process.
+ */
+const KSCrashReportStoreCConfiguration *kscrash_getReportStoreConfiguration(void);
+
+/** The resolved reports directory, or NULL before install. */
+const char *kscrash_getReportsPath(void);
+
+/** Whether kscrash_install has completed successfully. */
+bool kscrash_isInstalled(void);
 
 /** Get the run ID for the current process.
  *

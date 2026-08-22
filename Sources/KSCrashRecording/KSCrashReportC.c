@@ -273,7 +273,7 @@ static void addUUIDElement(const KSCrashReportWriter *const writer, const char *
     if (value == NULL) {
         ksjson_addNullElement(getJsonContext(writer), key);
     } else {
-        char uuidBuffer[37];
+        char uuidBuffer[KSID_SIZE];
         const unsigned char *src = value;
         char *dst = uuidBuffer;
         for (int i = 0; i < 4; i++) {
