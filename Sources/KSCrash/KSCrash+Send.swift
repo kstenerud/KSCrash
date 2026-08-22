@@ -49,7 +49,7 @@ extension KSCrash {
     /// Unknown ids match nothing; an empty `ids` sends nothing.
     public func sendRunSummaries(
         with configuration: SendConfiguration,
-        only ids: [String]
+        only ids: [RunSummary.ID]
     ) async throws -> SendResult<RunSummary> {
         try await RunSummarySend.send(
             store: Self.store(reportStore: reportStore),
@@ -109,11 +109,11 @@ extension KSCrash {
         else {
             return nil
         }
-        let liveRunID = String(cString: kscrash_getRunID())
+        let liveRunID = RunSummary.ID(String(cString: kscrash_getRunID()))
         return Store(
             runsDirectory: URL(fileURLWithPath: String(cString: runsPath), isDirectory: true),
             runSidecarsDirectory: URL(fileURLWithPath: String(cString: sidecarsPath), isDirectory: true),
-            liveRunID: liveRunID.isEmpty ? nil : liveRunID,
+            liveRunID: liveRunID,
             maxRunCount: Int(kscrash_getMaxRunSummaryCount()),
             reportStore: reportStore
         )

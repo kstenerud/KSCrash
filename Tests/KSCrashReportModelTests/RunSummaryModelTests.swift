@@ -43,7 +43,7 @@ final class RunSummaryModelTests: XCTestCase {
         SwiftRunSummary(
             schemaVersion: 1,
             sdkVersion: "2.6.0-beta.1",
-            runID: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+            id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
             deviceID: "0123456789abcdef",
             userID: userID,
             startedAtMs: 1_744_000_000_000,
@@ -152,7 +152,7 @@ final class RunSummaryModelTests: XCTestCase {
         {
           "schema_version": 1,
           "sdk_version": "2.6.0-beta.1",
-          "run_id": "r",
+          "run_id": "6B6F5F2A-1F1E-4D3C-8B9A-0C1D2E3F4A5B",
           "device_id": "d",
           "started_at_ms": 0,
           "ended_at_ms": 0,

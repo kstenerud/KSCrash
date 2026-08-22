@@ -51,7 +51,7 @@ final class StoreTests: XCTestCase {
 
     // MARK: - Helpers
 
-    private func makeStore(liveRunID: String? = nil) -> Store {
+    private func makeStore(liveRunID: RunSummary.ID? = nil) -> Store {
         Store(
             runsDirectory: runsDirectory,
             runSidecarsDirectory: sidecarsDirectory,
@@ -59,7 +59,7 @@ final class StoreTests: XCTestCase {
         )
     }
 
-    private func snapshotRuns(liveRunID: String? = nil) throws -> [Run] {
+    private func snapshotRuns(liveRunID: RunSummary.ID? = nil) throws -> [Run] {
         try makeStore(liveRunID: liveRunID).snapshotRuns()
     }
 
@@ -74,7 +74,7 @@ final class StoreTests: XCTestCase {
     }
 
     private func writeSessions(runID: String, cuts: [(perceptible: Bool, user: String?)]) {
-        let writer = kssw_open(runsDirectory.appendingPathComponent("\(runID).sessions").path)
+        let writer = kssw_open(runsDirectory.appendingPathComponent("\(testRunID(runID)).sessions").path)
         for cut in cuts {
             kssw_update(writer, cut.perceptible, cut.user)
             usleep(2000)  // space session starts so start times strictly increase
@@ -83,7 +83,7 @@ final class StoreTests: XCTestCase {
     }
 
     private func writeUserInfo(runID: String, _ populate: (OpaquePointer) -> Void) throws {
-        let directory = sidecarsDirectory.appendingPathComponent(runID)
+        let directory = sidecarsDirectory.appendingPathComponent(testRunID(runID).description)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         var config = KSKVSConfig(initialCapacity: 4096, maxKeyLength: 256, maxStringLength: 1024)
         let store = kskvs_create(
@@ -127,18 +127,18 @@ final class StoreTests: XCTestCase {
         try writeSummary(makeSummary(runID: "CCC"), startNs: 200)
 
         let runs = try snapshotRuns()
-        XCTAssertEqual(runs.map(\.runID), ["BBB", "CCC", "AAA"])
+        XCTAssertEqual(runs.map(\.runID), [testRunID("BBB"), testRunID("CCC"), testRunID("AAA")])
     }
 
     func test_runs_corruptTimestampSaturatesNewest_insteadOfWrapping() throws {
         try writeSummary(makeSummary(runID: "HONEST"), startNs: 100)
         // Non-writer-named, so ordering falls back to the decoded timestamp;
         // Int64.max * 1e6 would wrap far below any honest key.
-        try Data(#"{"run_id": "CORRUPT", "started_at_ms": 9223372036854775807}"#.utf8)
+        try Data(#"{"run_id": "\#(testRunID("CORRUPT"))", "started_at_ms": 9223372036854775807}"#.utf8)
             .write(to: runsDirectory.appendingPathComponent("foreign.run"))
 
         let runs = try snapshotRuns()
-        XCTAssertEqual(runs.map(\.runID), ["CORRUPT", "HONEST"])
+        XCTAssertEqual(runs.map(\.runID), [testRunID("CORRUPT"), testRunID("HONEST")])
     }
 
     func test_runs_groupsArtifactsByRunID() throws {
@@ -149,7 +149,7 @@ final class StoreTests: XCTestCase {
 
         let runs = try snapshotRuns()
         XCTAssertEqual(runs.count, 1)
-        XCTAssertEqual(runs[0].runID, runID)
+        XCTAssertEqual(runs[0].runID, testRunID(runID))
         XCTAssertNotNil(runs[0].summaryFile)
         XCTAssertNotNil(runs[0].sessionsFile)
         XCTAssertNotNil(runs[0].sidecarDirectory)
@@ -160,7 +160,7 @@ final class StoreTests: XCTestCase {
         writeSessions(runID: "ORPHAN", cuts: [(true, nil)])
 
         let runs = try snapshotRuns()
-        XCTAssertEqual(runs.map(\.runID), ["WITHSUMMARY", "ORPHAN"])
+        XCTAssertEqual(runs.map(\.runID), [testRunID("WITHSUMMARY"), testRunID("ORPHAN")])
         XCTAssertNil(try summary(at: 1))
     }
 
@@ -169,17 +169,19 @@ final class StoreTests: XCTestCase {
         try writeSummary(makeSummary(runID: "LIVE"), startNs: 200)
         writeSessions(runID: "LIVEORPHAN", cuts: [(true, nil)])
 
-        XCTAssertEqual(try snapshotRuns(liveRunID: "LIVE").map(\.runID), ["DEAD", "LIVEORPHAN"])
-        XCTAssertEqual(try snapshotRuns(liveRunID: "LIVEORPHAN").map(\.runID), ["LIVE", "DEAD"])
+        XCTAssertEqual(
+            try snapshotRuns(liveRunID: testRunID("LIVE")).map(\.runID), [testRunID("DEAD"), testRunID("LIVEORPHAN")])
+        XCTAssertEqual(
+            try snapshotRuns(liveRunID: testRunID("LIVEORPHAN")).map(\.runID), [testRunID("LIVE"), testRunID("DEAD")])
     }
 
     func test_runs_skipsCorruptAndRunIDLessSummaries() throws {
         try Data("not json".utf8).write(to: runsDirectory.appendingPathComponent("0000000000000000050.run"))
-        try writeSummary(makeSummary(runID: ""), startNs: 100)
+        try Data(#"{"run_id": ""}"#.utf8).write(to: runsDirectory.appendingPathComponent("0000000000000000100.run"))
         try writeSummary(makeSummary(runID: "GOOD"), startNs: 200)
 
         let runs = try snapshotRuns()
-        XCTAssertEqual(runs.map(\.runID), ["GOOD"])
+        XCTAssertEqual(runs.map(\.runID), [testRunID("GOOD")])
         // Skipped files stay on disk for pruning.
         XCTAssertEqual(
             try FileManager.default.contentsOfDirectory(atPath: runsDirectory.path).filter { $0.hasSuffix(".run") }
@@ -200,7 +202,7 @@ final class StoreTests: XCTestCase {
         let store = makeStore()
         store.pruneRunSummaries(keepingNewest: 2)
 
-        XCTAssertEqual(try store.snapshotRuns().map(\.runID), ["RUN400", "RUN300"])
+        XCTAssertEqual(try store.snapshotRuns().map(\.runID), [testRunID("RUN400"), testRunID("RUN300")])
         let remaining = try FileManager.default.contentsOfDirectory(atPath: runsDirectory.path).sorted()
         // Oldest three writer-named files pruned; the non-writer-named file is untouched.
         XCTAssertEqual(remaining, ["0000000000000000300.run", "0000000000000000400.run", "notdigits.run"])
@@ -257,7 +259,7 @@ final class StoreTests: XCTestCase {
 
         // Append a raw entry whose guid is not valid UTF-8; its start must not
         // regress, so use a far-future monotonic value.
-        let sessionsPath = runsDirectory.appendingPathComponent("\(runID).sessions").path
+        let sessionsPath = runsDirectory.appendingPathComponent("\(testRunID(runID)).sessions").path
         var badGUID: [CChar] = [CChar(bitPattern: 0xC3), CChar(bitPattern: 0x28), 0]
         kssession_testcode_appendRawEntry(sessionsPath, UInt64.max / 2, true, &badGUID, "bob", false)
 
@@ -274,7 +276,7 @@ final class StoreTests: XCTestCase {
         let runID = "NONULUSER"
         try writeSummary(makeSummary(runID: runID, endedAtMs: .max), startNs: 100)
 
-        let sessionsPath = runsDirectory.appendingPathComponent("\(runID).sessions").path
+        let sessionsPath = runsDirectory.appendingPathComponent("\(testRunID(runID)).sessions").path
         let writer = kssw_open(sessionsPath)
         kssw_update(writer, true, nil)
         kssw_close(writer)
@@ -293,7 +295,7 @@ final class StoreTests: XCTestCase {
         try writeSummary(makeSummary(runID: runID), startNs: 100)
         writeSessions(runID: runID, cuts: [(true, "alice")])
 
-        let sessionsPath = runsDirectory.appendingPathComponent("\(runID).sessions").path
+        let sessionsPath = runsDirectory.appendingPathComponent("\(testRunID(runID)).sessions").path
         try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: sessionsPath)
 
         // Unreadable is unknown, not absent: delivering would ship empty
@@ -374,7 +376,7 @@ final class StoreTests: XCTestCase {
     func test_summary_corruptUserInfoSidecar_deliversWithoutMetadata() throws {
         let runID = "TORNMETA"
         try writeSummary(makeSummary(runID: runID), startNs: 100)
-        let directory = sidecarsDirectory.appendingPathComponent(runID)
+        let directory = sidecarsDirectory.appendingPathComponent(testRunID(runID).description)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let path = directory.appendingPathComponent(KSCRS_USERINFO_RUN_SIDECAR_FILENAME)
 
@@ -394,7 +396,7 @@ final class StoreTests: XCTestCase {
         try writeSummary(makeSummary(runID: runID), startNs: 100)
         try writeUserInfo(runID: runID) { kskvs_setString($0, "k", "v") }
 
-        let path = sidecarsDirectory.appendingPathComponent(runID)
+        let path = sidecarsDirectory.appendingPathComponent(testRunID(runID).description)
             .appendingPathComponent(KSCRS_USERINFO_RUN_SIDECAR_FILENAME).path
         try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: path)
 
@@ -486,7 +488,7 @@ final class StoreTests: XCTestCase {
         try JSONEncoder().encode(
             Report(
                 crash: .init(error: CrashError(type: .signal)),
-                report: .init(id: "report-id", runId: runID)
+                report: .init(id: "report-id", runId: testRunID(runID))
             ))
     }
 
@@ -509,13 +511,13 @@ final class StoreTests: XCTestCase {
     func test_snapshotRuns_doesNotTouchTheReportsHalf() throws {
         try writeSummary(makeSummary(runID: "RUN"), startNs: 100)
         let store = makeReportStore(FakeReports([:]), listFails: true)
-        XCTAssertEqual(try store.snapshotRuns().map(\.runID), ["RUN"])
+        XCTAssertEqual(try store.snapshotRuns().map(\.runID), [testRunID("RUN")])
     }
 
     func test_report_decodesStitchedData() throws {
         let reports = FakeReports([7: try makeReportData(runID: "SEVEN")])
         let report = try XCTUnwrap(makeReportStore(reports).report(7))
-        XCTAssertEqual(report.report.runId, "SEVEN")
+        XCTAssertEqual(report.report.runId, testRunID("SEVEN"))
     }
 
     func test_report_nilWhenMissing_throwsWhenUndecodable() throws {
@@ -569,7 +571,7 @@ final class StoreTests: XCTestCase {
         try Data().write(to: reportURL(3))
 
         XCTAssertEqual(try store.snapshotReportIDs(), [3, 2, 1])
-        XCTAssertEqual(try store.report(1)?.report.runId, "REAL")
+        XCTAssertEqual(try store.report(1)?.report.runId, testRunID("REAL"))
         for id in [ReportID(2), 3] {
             XCTAssertThrowsError(try store.report(id), "report \(id)") { error in
                 XCTAssertEqual((error as? CocoaError)?.code, .fileReadCorruptFile, "\(error)")
