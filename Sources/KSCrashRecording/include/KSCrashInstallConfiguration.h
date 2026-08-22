@@ -57,7 +57,7 @@ NS_SWIFT_NAME(CrashInstallConfiguration)
 /** The crash types that will be handled.
  * Some crash types may not be enabled depending on circumstances (e.g., running in a debugger).
  *
- * **Default**: `KSCrashMonitorTypeProductionSafeMinimal`
+ * **Default**: `KSCrashMonitorTypeDefault`
  */
 @property(nonatomic, assign) KSCrashMonitorType monitors;
 
@@ -69,23 +69,6 @@ NS_SWIFT_NAME(CrashInstallConfiguration)
  * **Default**: nil
  */
 @property(nonatomic, copy, nullable) NSDictionary<NSString *, id> *userInfoJSON;
-
-/** The maximum time to allow the main thread to run without returning.
- *
- * If the main thread is occupied by a task for longer than this interval, the
- * watchdog will consider the queue deadlocked and shut down the app, writing a
- * crash report. Set to 0 to disable this feature.
- *
- * **Warning**: Ensure that no tasks on the main thread take longer to complete than
- * this value, including application startup. You may need to initialize your
- * application on a different thread or set this to a higher value until initialization
- * is complete.
- *
- * @note Deprecated. Use `KSCrashMonitorTypeWatchdog` in the `monitors` property instead.
- * The watchdog monitor provides better hang detection with a fixed 250ms threshold.
- */
-@property(nonatomic, assign)
-    double deadlockWatchdogInterval KSCRASH_DEPRECATED("Use KSCrashMonitorTypeWatchdog in monitors instead.");
 
 /** If true, attempt to fetch dispatch queue names for each running thread.
  *
@@ -210,7 +193,7 @@ NS_SWIFT_NAME(CrashInstallConfiguration)
  * with duration and stack trace information. When disabled (default),
  * resolved hangs are discarded.
  *
- * Only applies when `KSCrashMonitorTypeWatchdog` is included in `monitors`.
+ * Only applies when `KSCrashMonitorTypeHang` is included in `monitors`.
  *
  * **Default**: false
  */

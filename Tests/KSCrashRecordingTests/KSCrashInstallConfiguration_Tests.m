@@ -51,9 +51,8 @@
 {
     KSCrashInstallConfiguration *config = [[KSCrashInstallConfiguration alloc] init];
 
-    XCTAssertEqual(config.monitors, KSCrashMonitorTypeProductionSafeMinimal);
+    XCTAssertEqual(config.monitors, KSCrashMonitorTypeDefault);
     XCTAssertNil(config.userInfoJSON);
-    AssertAround(config.deadlockWatchdogInterval, 0.0);
     XCTAssertFalse(config.enableQueueNameSearch);
     XCTAssertFalse(config.enableMemoryIntrospection);
     XCTAssertNil(config.doNotIntrospectClasses);
@@ -73,9 +72,8 @@
 - (void)testToCConfiguration
 {
     KSCrashInstallConfiguration *config = [[KSCrashInstallConfiguration alloc] init];
-    config.monitors = KSCrashMonitorTypeDebuggerSafe;
+    config.monitors = KSCrashMonitorTypeAll;
     config.userInfoJSON = @{ @"key" : @"value" };
-    config.deadlockWatchdogInterval = 5.0;
     config.enableQueueNameSearch = YES;
     config.enableMemoryIntrospection = YES;
     config.doNotIntrospectClasses = @[ @"ClassA", @"ClassB" ];
@@ -91,10 +89,9 @@
 
     KSCrashCConfiguration cConfig = [config toCConfiguration];
 
-    XCTAssertEqual(cConfig.monitors, KSCrashMonitorTypeDebuggerSafe);
+    XCTAssertEqual(cConfig.monitors, KSCrashMonitorTypeAll);
     XCTAssertTrue(cConfig.userInfoJSON != NULL);
     XCTAssertEqual(strcmp(cConfig.userInfoJSON, "{\"key\":\"value\"}"), 0);
-    AssertAround(cConfig.deadlockWatchdogInterval, 5.0);
     XCTAssertTrue(cConfig.enableQueueNameSearch);
     XCTAssertTrue(cConfig.enableMemoryIntrospection);
     XCTAssertEqual(cConfig.doNotIntrospectClasses.length, 2);
@@ -117,9 +114,8 @@
 - (void)testCopyWithZone
 {
     KSCrashInstallConfiguration *config = [[KSCrashInstallConfiguration alloc] init];
-    config.monitors = KSCrashMonitorTypeDebuggerSafe;
+    config.monitors = KSCrashMonitorTypeAll;
     config.userInfoJSON = @{ @"key" : @"value" };
-    config.deadlockWatchdogInterval = 5.0;
     config.enableQueueNameSearch = YES;
     config.enableMemoryIntrospection = YES;
     config.doNotIntrospectClasses = @[ @"ClassA", @"ClassB" ];
@@ -135,9 +131,8 @@
 
     KSCrashInstallConfiguration *copy = [config copy];
 
-    XCTAssertEqual(copy.monitors, KSCrashMonitorTypeDebuggerSafe);
+    XCTAssertEqual(copy.monitors, KSCrashMonitorTypeAll);
     XCTAssertEqualObjects(copy.userInfoJSON, @{ @"key" : @"value" });
-    AssertAround(copy.deadlockWatchdogInterval, 5.0);
     XCTAssertTrue(copy.enableQueueNameSearch);
     XCTAssertTrue(copy.enableMemoryIntrospection);
     XCTAssertEqualObjects(copy.doNotIntrospectClasses, (@[ @"ClassA", @"ClassB" ]));

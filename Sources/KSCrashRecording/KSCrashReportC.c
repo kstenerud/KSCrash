@@ -32,7 +32,6 @@
 #include "KSCrashExceptionHandlingPlan+Private.h"
 #include "KSCrashMonitorHelper.h"
 #include "KSCrashMonitor_CPPException.h"
-#include "KSCrashMonitor_Deadlock.h"
 #include "KSCrashMonitor_Lifecycle.h"
 #include "KSCrashMonitor_MachException.h"
 #include "KSCrashMonitor_NSException.h"
@@ -1453,12 +1452,6 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
                 writer->addStringElement(writer, KSCrashField_Name, crash->CPPException.name);
             }
             writer->endContainer(writer);
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-        } else if (isCrashOfMonitorType(crash, kscm_deadlock_getAPI())) {
-#pragma clang diagnostic pop
-            writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_Deadlock);
-
         } else if (isCrashOfMonitorType(crash, kscm_user_getAPI())) {
             writer->addStringElement(writer, KSCrashField_Type, KSCrashExcType_User);
             writer->beginObject(writer, KSCrashField_UserReported);

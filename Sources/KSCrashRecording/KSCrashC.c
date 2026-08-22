@@ -31,9 +31,9 @@
 #include "KSCrashExceptionHandlingPlan+Private.h"
 #include "KSCrashMonitor.h"
 #include "KSCrashMonitorContext.h"
+#include "KSCrashMonitorType+Private.h"
 #include "KSCrashMonitorType.h"
 #include "KSCrashMonitor_CPPException.h"
-#include "KSCrashMonitor_Deadlock.h"
 #include "KSCrashMonitor_Lifecycle.h"
 #include "KSCrashMonitor_MachException.h"
 #include "KSCrashMonitor_NSException.h"
@@ -78,23 +78,18 @@
 static const struct KSCrashMonitorMapping {
     KSCrashMonitorType type;
     KSCrashMonitorAPI *(*getAPI)(void);
-}
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-g_monitorMappings[] = { { KSCrashMonitorTypeMachException, kscm_machexception_getAPI },
-                        { KSCrashMonitorTypeSignal, kscm_signal_getAPI },
-                        { KSCrashMonitorTypeCPPException, kscm_cppexception_getAPI },
-                        { KSCrashMonitorTypeNSException, kscm_nsexception_getAPI },
-                        { KSCrashMonitorTypeMainThreadDeadlock, kscm_deadlock_getAPI },
-                        { KSCrashMonitorTypeUserReported, kscm_user_getAPI },
-                        { KSCrashMonitorTypeSystem, kscm_system_getAPI },
-                        { KSCrashMonitorTypeTermination, kscm_termination_getAPI },
-                        { KSCrashMonitorTypeApplicationState, kscm_lifecycle_getAPI },
-                        { KSCrashMonitorTypeZombie, kscm_zombie_getAPI },
-                        { KSCrashMonitorTypeWatchdog, kscm_watchdog_getAPI },
-                        { KSCrashMonitorTypeUserInfo, kscm_userinfo_getAPI },
-                        { KSCrashMonitorTypeResource, kscm_resource_getAPI } };
-#pragma clang diagnostic pop
+} g_monitorMappings[] = { { KSCrashMonitorTypeMachException, kscm_machexception_getAPI },
+                          { KSCrashMonitorTypeSignal, kscm_signal_getAPI },
+                          { KSCrashMonitorTypeCPPException, kscm_cppexception_getAPI },
+                          { KSCrashMonitorTypeNSException, kscm_nsexception_getAPI },
+                          { KSCrashMonitorTypeUserReported, kscm_user_getAPI },
+                          { KSCrashMonitorTypeSystem, kscm_system_getAPI },
+                          { KSCrashMonitorTypeTermination, kscm_termination_getAPI },
+                          { KSCrashMonitorTypeApplicationState, kscm_lifecycle_getAPI },
+                          { KSCrashMonitorTypeZombie, kscm_zombie_getAPI },
+                          { KSCrashMonitorTypeHang, kscm_watchdog_getAPI },
+                          { KSCrashMonitorTypeUserInfo, kscm_userinfo_getAPI },
+                          { KSCrashMonitorTypeResource, kscm_resource_getAPI } };
 
 static const size_t g_monitorMappingCount = sizeof(g_monitorMappings) / sizeof(g_monitorMappings[0]);
 
@@ -292,9 +287,8 @@ static void setPluginMonitors(KSCrashMonitorAPI *apis, int count)
 
 static void setMonitors(KSCrashMonitorType monitorTypes)
 {
-    // Infrastructure monitors (System, Lifecycle, UserInfo, Resource) are
-    // always enabled. They collect context that every report depends on
-    // and are not crash detectors, so there is no reason to disable them.
+    // The required set (infrastructure plus UserReported) is always on; see
+    // KSCrashMonitorTypeRequired.
     const KSCrashMonitorType effectiveMonitorTypes = monitorTypes | KSCrashMonitorTypeRequired;
 
     for (size_t i = 0; i < g_monitorMappingCount; i++) {
@@ -322,7 +316,6 @@ static void handleConfiguration(KSCrashCConfiguration *configuration)
 #if KSCRASH_HAS_OBJC
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    kscm_setDeadlockHandlerWatchdogInterval(configuration->deadlockWatchdogInterval);
 #pragma clang diagnostic pop
 #endif
     kstc_setSearchQueueNames(configuration->enableQueueNameSearch);
@@ -544,9 +537,11 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     //                              the termination reason.
     //  4. postSystemEnable       — tells monitors RunContext is ready so they can act on previous-run data
     //                              (e.g. Termination injects a report, Memory checks for OOM).
+    // The required monitors are always in the set, so a false here is a
+    // registry failure, never an empty selection.
     if (kscm_enableMonitors() == false) {
-        KSLOG_ERROR("No crash monitors are active");
-        return KSCrashInstallErrorNoActiveMonitors;
+        KSLOG_ERROR("The crash monitors could not be enabled");
+        return KSCrashInstallErrorCouldNotInitializeCrashState;
     }
     kscm_notifyPostMonitorsEnabled();
     ksruncontext_init(getRunSidecarPathForRunIDCallback);
@@ -592,6 +587,16 @@ void kscrash_setUserInfoDate(const char *key, uint64_t nanosecondsSince1970)
 }
 
 void kscrash_removeUserInfoValue(const char *key) { kscm_userinfo_removeValue(key); }
+
+bool kscrash_copyUserInfoValue(const char *key, KSCrashUserInfoValue *valueOut)
+{
+    return kscm_userinfo_copyValue(key, valueOut);
+}
+
+void kscrash_enumerateUserInfoKeys(KSCrashUserInfoKeyCallback callback, void *context)
+{
+    kscm_userinfo_enumerateKeys(callback, context);
+}
 
 void kscrash_reportUserException(const char *name, const char *reason, const char *language, const char *lineOfCode,
                                  const char *stackTrace, bool logAllThreads,

@@ -429,9 +429,6 @@ SYNTHESIZE_CRASH_STATE_PROPERTY(NSInteger, sessionsSinceLaunch)
         case KSCrashInstallErrorCouldNotSetLogFilename:
             errorDescription = @"Could not set log filename";
             break;
-        case KSCrashInstallErrorNoActiveMonitors:
-            errorDescription = @"No crash monitors were activated";
-            break;
         default:
             errorDescription = @"Unknown error occurred";
             break;
