@@ -1102,6 +1102,55 @@ static NSString *toString(NSData *data)
     XCTAssertNotNil(error, @"");
 }
 
+- (void)testDeserializeDictionaryInvalidUTF8Key
+{
+    const unsigned char json[] = { '{', '"', 0xff, '"', ':', '1', '}' };
+    NSData *jsonData = [NSData dataWithBytes:json length:sizeof(json)];
+    NSError *error = nil;
+    id result = nil;
+
+    XCTAssertNoThrow(result = [KSJSONCodec decode:jsonData options:KSJSONDecodeOptionKeepPartialObject error:&error]);
+    XCTAssertEqualObjects(result, @{});
+    XCTAssertNotNil(error);
+}
+
+- (void)testDeserializeDictionaryInvalidUTF8KeyWithIgnoredNull
+{
+    const unsigned char json[] = { '{', '"', 0xff, '"', ':', 'n', 'u', 'l', 'l', '}' };
+    NSData *jsonData = [NSData dataWithBytes:json length:sizeof(json)];
+    NSError *error = nil;
+    id result = nil;
+
+    KSJSONDecodeOption options = KSJSONDecodeOptionKeepPartialObject | KSJSONDecodeOptionIgnoreNullInObject;
+    XCTAssertNoThrow(result = [KSJSONCodec decode:jsonData options:options error:&error]);
+    XCTAssertEqualObjects(result, @{});
+    XCTAssertNotNil(error);
+}
+
+- (void)testDeserializeDictionaryInvalidUTF8Value
+{
+    const unsigned char json[] = { '{', '"', 'k', '"', ':', '"', 0xff, '"', '}' };
+    NSData *jsonData = [NSData dataWithBytes:json length:sizeof(json)];
+    NSError *error = nil;
+    id result = nil;
+
+    XCTAssertNoThrow(result = [KSJSONCodec decode:jsonData options:KSJSONDecodeOptionKeepPartialObject error:&error]);
+    XCTAssertEqualObjects(result, @{});
+    XCTAssertNotNil(error);
+}
+
+- (void)testDeserializeArrayInvalidUTF8Value
+{
+    const unsigned char json[] = { '[', '"', 0xff, '"', ']' };
+    NSData *jsonData = [NSData dataWithBytes:json length:sizeof(json)];
+    NSError *error = nil;
+    id result = nil;
+
+    XCTAssertNoThrow(result = [KSJSONCodec decode:jsonData options:KSJSONDecodeOptionKeepPartialObject error:&error]);
+    XCTAssertEqualObjects(result, @[]);
+    XCTAssertNotNil(error);
+}
+
 - (void)testDeserializeDictionaryMissingSeparator
 {
     NSError *error = (NSError *)self;
