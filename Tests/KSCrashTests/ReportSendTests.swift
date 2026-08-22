@@ -110,7 +110,6 @@ final class ReportSendTests: XCTestCase {
         try await ReportSend.send(
             store: makeStore(liveRunID: liveRunID, listFails: listFails, undecodable: undecodable),
             pipeline: pipeline,
-            maxRunCount: 0,
             only: selection,
             claims: claims)
     }
@@ -273,7 +272,7 @@ final class ReportSendTests: XCTestCase {
         }
         let result = try await ReportSend.send(
             store: store, pipeline: [.init(ClosureStage<Report> { $0 }), .init(stage)],
-            maxRunCount: 0, claims: SendClaims())
+            claims: SendClaims())
         assertOutcomes(result, delivered: [1])
     }
 
@@ -297,7 +296,7 @@ final class ReportSendTests: XCTestCase {
 
     func test_send_noStore_emptyResult() async throws {
         let result = try await ReportSend.send(
-            store: nil, pipeline: [passThrough()], maxRunCount: 0, claims: SendClaims())
+            store: nil, pipeline: [passThrough()], claims: SendClaims())
         XCTAssertTrue(result.items.isEmpty)
     }
 }

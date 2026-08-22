@@ -36,7 +36,6 @@ enum ReportSend {
     static func send(
         store: Store?,
         pipeline: [AnyPipelineStage<Report>],
-        maxRunCount: Int,
         only selection: Set<ReportID>? = nil,
         claims: SendClaims<ReportID> = ReportSend.claims
     ) async throws -> SendResult<Report> {
@@ -61,7 +60,6 @@ enum ReportSend {
                 remove: { try $0.removeReport($1) }
             ),
             pipeline: pipeline,
-            maxRunCount: maxRunCount,
             only: selection,
             claims: claims
         )
