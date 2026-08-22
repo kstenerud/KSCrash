@@ -61,15 +61,6 @@ public enum MemoryType: RawRepresentable, Codable, Sendable, Equatable {
         case .other(let value): return value
         }
     }
-
-    public init(from decoder: Decoder) throws {
-        self.init(rawValue: try decoder.singleValueContainer().decode(String.self))
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        try container.encode(rawValue)
-    }
 }
 
 /// The contents of an inspected memory address: a thread's notable addresses
