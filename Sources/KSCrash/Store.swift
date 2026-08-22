@@ -177,8 +177,12 @@ struct Store: Sendable {
                 // time so they still order sensibly among the rest; a file
                 // with neither sorts first, and its missing timestamp
                 // surfaces through the strict decode as a kept item.
+                // Capped so a corrupt timestamp saturates newest instead
+                // of wrapping into a tiny sort key.
                 let orderNs =
-                    parsedRunFilenameNs(name) ?? identity.startedAtMs.map { UInt64(clamping: $0) &* 1_000_000 } ?? 0
+                    parsedRunFilenameNs(name)
+                    ?? identity.startedAtMs.map { min(UInt64(clamping: $0), UInt64.max / 1_000_000) * 1_000_000 }
+                    ?? 0
                 // One summary per run: the writer's filename is deterministic
                 // (the dead run's own start time), so a re-persist overwrites
                 // rather than duplicates. If a stray extra file ever decodes
