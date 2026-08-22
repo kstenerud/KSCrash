@@ -28,8 +28,8 @@ jobs:
       - name: Update version in source code
         run: |
           formatted_version_number=$(echo "${{ github.event.inputs.version }}" | awk -F. '{printf("%d.%02d%02d\n", $1, $2, $3)}')
-          sed -i '' 's/const double KSCrashFrameworkVersionNumber = [^;]*/const double KSCrashFrameworkVersionNumber = '"$formatted_version_number"'/' Sources/KSCrashRecording/KSCrash.m
-          sed -i '' 's/const unsigned char KSCrashFrameworkVersionString\[\] = "[^"]*"/const unsigned char KSCrashFrameworkVersionString[] = "${{ github.event.inputs.version }}"/' Sources/KSCrashRecording/KSCrash.m
+          sed -i '' 's/const double KSCrashFrameworkVersionNumber = [^;]*/const double KSCrashFrameworkVersionNumber = '"$formatted_version_number"'/' Sources/KSCrashRecording/KSCrashVersion.c
+          sed -i '' 's/const unsigned char KSCrashFrameworkVersionString\[\] = "[^"]*"/const unsigned char KSCrashFrameworkVersionString[] = "${{ github.event.inputs.version }}"/' Sources/KSCrashRecording/KSCrashVersion.c
 
       - name: Update README
         # Skip README version bumps for prereleases (e.g. 2.6.1-beta.1) — we don't
@@ -56,7 +56,7 @@ jobs:
         id: commit_version
         if: ${{ github.event.inputs.dry_run != 'true' }}
         run: |
-          git add Sources/KSCrashRecording/KSCrash.m README.md
+          git add Sources/KSCrashRecording/KSCrashVersion.c README.md
           git commit -m "Update version to ${{ github.event.inputs.version }}"
           git push origin HEAD:${{ steps.record_branch.outputs.branch }}
           echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT

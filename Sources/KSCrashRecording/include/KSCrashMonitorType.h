@@ -41,9 +41,14 @@ extern "C" {
 
 // clang-format off
 
-typedef
+#ifndef __OBJC__
+/** NSUInteger's width, so structs holding a KSCrashMonitorType lay out the
+ *  same whether the translation unit is C or Objective-C. */
+typedef unsigned long KSCrashMonitorType;
+#endif /* __OBJC__ */
+
 #ifdef __OBJC__
-NS_OPTIONS(NSUInteger, KSCrashMonitorType)
+typedef NS_OPTIONS(NSUInteger, KSCrashMonitorType)
 #else /* __OBJC__ */
 enum
 #endif /* __OBJC__ */
@@ -113,9 +118,9 @@ enum
                                  ),
     /** Every crash detector. */
     KSCrashMonitorTypeAll = (KSCrashMonitorTypeDefault | KSCrashMonitorTypeZombie),
-} NS_SWIFT_NAME(MonitorType)
-#ifndef __OBJC__
-KSCrashMonitorType
+}
+#ifdef __OBJC__
+NS_SWIFT_NAME(MonitorType)
 #endif
 ;
 

@@ -1,7 +1,7 @@
 //
-//  KSCrash+Namespace.m
+//  KSCrashC+NSException.m
 //
-//  Created by Alexander Cohen on 2026-02-13.
+//  Created by Alexander Cohen on 2026-08-22.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,33 +24,32 @@
 // THE SOFTWARE.
 //
 
-#import "KSCrash+Namespace.h"
+#import <Foundation/Foundation.h>
 
 #import "KSCrashC.h"
+#import "KSCrashMonitor_NSException+Private.h"
+#import "KSLogger.h"
 
-@implementation KSCrash (Namespace)
+// The NSException monitor hands over its reporter when it is enabled; the
+// entry point below is the only consumer.
+static KSCrashCustomNSExceptionReporter *g_reporter;
 
-+ (NSString *)namespaceIdentifier
+static void onNSExceptionHandlingEnabled(__unused NSUncaughtExceptionHandler *uncaughtExceptionHandler,
+                                         KSCrashCustomNSExceptionReporter *reporter)
 {
-    return @(kscrash_namespaceIdentifier());
+    g_reporter = reporter;
 }
 
-+ (NSURL *)documentsURL
+__attribute__((constructor)) static void kscrash_nsexception_register(void)
 {
-    const char *path = kscrash_documentsPath();
-    return path ? [NSURL fileURLWithPath:@(path) isDirectory:YES] : nil;
+    kscm_nsexception_setOnEnabledHandler(onNSExceptionHandlingEnabled);
 }
 
-+ (NSURL *)applicationSupportURL
+void kscrash_reportNSException(NSException *exception, bool logAllThreads)
 {
-    const char *path = kscrash_applicationSupportPath();
-    return path ? [NSURL fileURLWithPath:@(path) isDirectory:YES] : nil;
+    if (g_reporter == NULL) {
+        KSLOG_WARN("The NSException monitor is not enabled; the exception is not reported.");
+        return;
+    }
+    g_reporter(exception, logAllThreads);
 }
-
-+ (NSURL *)cachesURL
-{
-    const char *path = kscrash_cachesPath();
-    return path ? [NSURL fileURLWithPath:@(path) isDirectory:YES] : nil;
-}
-
-@end

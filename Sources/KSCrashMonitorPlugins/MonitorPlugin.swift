@@ -1,7 +1,7 @@
 //
-//  KSCrash+Private.h
+//  MonitorPlugin.swift
 //
-//  Created by Gleb Linnik on 11.06.2024.
+//  Created by Alexander Cohen on 2026-08-22.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,36 +24,21 @@
 // THE SOFTWARE.
 //
 
-#ifndef KSCrash_Private_h
-#define KSCrash_Private_h
+import KSCrashRecordingCore
 
-#import "KSCrash.h"
-#import "KSCrashError.h"
-#import "KSCrashMonitor_NSException+Private.h"
-
-NS_ASSUME_NONNULL_BEGIN
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-NSString *kscrash_getBundleName(void);
-NSString *_Nullable kscrash_getDefaultInstallPath(void);
-
-#ifdef __cplusplus
+/// A monitor registered through `InstallConfiguration.plugins`: the C monitor
+/// table the core drives. The table must stay valid for the life of the
+/// process once installed.
+public protocol MonitorPlugin: AnyObject, Sendable {
+    var api: UnsafeMutablePointer<KSCrashMonitorAPI> { get }
 }
-#endif
 
-@interface KSCrash ()
+/// A plugin over a monitor written in C: wraps the table its `getAPI`
+/// function returns.
+public final class CMonitorPlugin: MonitorPlugin, @unchecked Sendable {
+    public let api: UnsafeMutablePointer<KSCrashMonitorAPI>
 
-@property(nonatomic, readwrite, assign) NSUncaughtExceptionHandler *uncaughtExceptionHandler;
-
-@property(nonatomic, assign) KSCrashCustomNSExceptionReporter *customNSExceptionReporter;
-
-+ (nullable NSError *)errorForInstallErrorCode:(KSCrashInstallErrorCode)errorCode;
-
-@end
-
-NS_ASSUME_NONNULL_END
-
-#endif /* KSCrash_Private_h */
+    public init(api: UnsafeMutablePointer<KSCrashMonitorAPI>) {
+        self.api = api
+    }
+}

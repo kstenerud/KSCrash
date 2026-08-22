@@ -38,7 +38,6 @@
 
 @interface KSCrashReportStoreC_Tests : FileBasedTestCase
 
-@property(nonatomic, readwrite, copy) NSString *appName;
 @property(nonatomic, readwrite, copy) NSString *reportStorePath;
 
 @end
@@ -50,7 +49,6 @@
 - (void)setUp
 {
     [super setUp];
-    self.appName = @"myapp";
 }
 
 - (void)tearDown
@@ -67,7 +65,6 @@
 - (void)prepareReportStoreWithPathEnd:(NSString *)pathEnd maxReportCount:(int)maxReportCount
 {
     self.reportStorePath = [self.tempPath stringByAppendingPathComponent:pathEnd];
-    _storeConfig.appName = self.appName.UTF8String;
     _storeConfig.reportsPath = self.reportStorePath.UTF8String;
     _storeConfig.maxReportCount = maxReportCount;
     kscrs_initialize(&_storeConfig);
@@ -78,7 +75,6 @@
 {
     self.reportStorePath = [self.tempPath stringByAppendingPathComponent:pathEnd];
     NSString *sidecarsPath = [self.tempPath stringByAppendingPathComponent:@"Sidecars"];
-    _storeConfig.appName = self.appName.UTF8String;
     _storeConfig.reportsPath = self.reportStorePath.UTF8String;
     _storeConfig.reportSidecarsPath = sidecarsPath.UTF8String;
     _storeConfig.maxReportCount = 5;
@@ -333,10 +329,9 @@
     XCTAssertEqualObjects(json[@"a"], @1);
 }
 
-- (void)testStoresLoadsWithUnicodeAppName
+- (void)testStoresLoadsWithUnicodePath
 {
-    self.appName = @"ЙогуртЙод";
-    [self prepareReportStoreWithPathEnd:@"testStoresLoadsWithUnicodeAppName"];
+    [self prepareReportStoreWithPathEnd:@"ЙогуртЙод"];
     NSString *reportID = [self writeCrashReportWithStringContents:REPORT_CONTENTS(0)];
     [self expectReports:@[ reportID ] areStrings:@[ REPORT_CONTENTS(0) ]];
 }
@@ -870,7 +865,6 @@
     self.reportStorePath = [self.tempPath stringByAppendingPathComponent:@"testMalformedRunSidecars"];
     NSString *sidecarsPath = [self.tempPath stringByAppendingPathComponent:@"Sidecars"];
     NSString *runSidecarsPath = [self.tempPath stringByAppendingPathComponent:@"RunSidecars"];
-    _storeConfig.appName = self.appName.UTF8String;
     _storeConfig.reportsPath = self.reportStorePath.UTF8String;
     _storeConfig.reportSidecarsPath = sidecarsPath.UTF8String;
     _storeConfig.runSidecarsPath = runSidecarsPath.UTF8String;

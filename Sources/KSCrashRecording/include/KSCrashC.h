@@ -32,6 +32,10 @@
 
 #include <stdbool.h>
 
+#ifdef __OBJC__
+#import <Foundation/Foundation.h>
+#endif
+
 #include "KSCrashCConfiguration.h"
 #include "KSCrashError.h"
 #include "KSCrashMonitorType.h"
@@ -39,6 +43,8 @@
 #include "KSCrashReportStoreC.h"
 #include "KSCrashReportWriter.h"
 #include "KSCrashUserInfo.h"
+#include "KSCrashVersion.h"
+#include "KSTerminationReason.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -49,10 +55,6 @@ extern "C" {
  * reporter for the specified application, allowing it to monitor and record crashes.
  * Upon detecting a crash, the reporter will log detailed information and terminate
  * the application to prevent further damage or inconsistent state.
- *
- * @param appName The name of the application.
- *                This name will be used to identify the application in the crash reports.
- *                It is essential for associating crash data with the specific application.
  *
  * @param installPath The directory where the crash reports and related data will be stored.
  *                    The specified directory must be writable, as it will contain log files,
@@ -72,7 +74,7 @@ extern "C" {
  * ```
  * KSCrashCConfiguration config = KSCrashCConfiguration_Default();
  * config.monitors = KSCrashMonitorTypeAll;
- * KSCrashInstallErrorCode result = kscrash_install("MyApp", "/path/to/install", &config);
+ * KSCrashInstallErrorCode result = kscrash_install("/path/to/install", &config);
  * if (result != 0) {
  *     // Handle installation error
  * }
@@ -84,37 +86,7 @@ extern "C" {
  * @note Once installed, the crash reporter cannot be re-installed or modified
  * without restarting the application.
  */
-KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const installPath,
-                                        KSCrashCConfiguration *configuration);
-
-/** Set the user-supplied data in JSON format.
- *
- * @deprecated Use the per-key API (kscrash_setUserInfoString, etc.) instead.
- * The per-key API is backed by an mmap'd run sidecar with zero crash-time cost.
- *
- * This function is thread-safe. Under extreme contention, the update
- * may be skipped (very unlikely in practice).
- *
- * @param userInfoJSON Pre-baked JSON containing user-supplied information.
- *                     Must be a JSON object: a report whose user section is
- *                     not an object does not decode into the typed Report and
- *                     is kept, undelivered, by the send. NULL = delete.
- */
-void kscrash_setUserInfoJSON(const char *const userInfoJSON)
-    KSCRASH_DEPRECATED("Use the per-key API (kscrash_setUserInfoString, etc.) instead");
-
-/** Get a copy of the user-supplied data in JSON format.
- *
- * @deprecated Use the per-key API instead.
- *
- * This function is thread-safe. Under extreme contention, may return
- * NULL even if information is set (very unlikely in practice).
- *
- * @return A string containing the JSON user-supplied information,
- *         or NULL if no information is set.
- *         The caller is responsible for freeing the returned string.
- */
-const char *kscrash_getUserInfoJSON(void) KSCRASH_DEPRECATED("Use the per-key API instead");
+KSCrashInstallErrorCode kscrash_install(const char *const installPath, KSCrashCConfiguration *configuration);
 
 #pragma mark-- Per-Key User Info --
 
@@ -122,7 +94,6 @@ const char *kscrash_getUserInfoJSON(void) KSCRASH_DEPRECATED("Use the per-key AP
  *  Passing NULL for value removes the key.
  *  Strings longer than 1024 bytes are truncated.
  *  Requires kscrash_install() to have completed successfully before use.
- *  To set initial user info before install, use KSCrashInstallConfiguration.userInfoJSON.
  */
 void kscrash_setUserInfoString(const char *key, const char *value);
 
@@ -196,6 +167,21 @@ const char *kscrash_getReportsPath(void);
 
 /** Whether kscrash_install has completed successfully. */
 bool kscrash_isInstalled(void);
+
+/** Record the active user id for this run (a session boundary and the
+ *  com.kscrash.userid user info key); NULL clears it. No effect before install.
+ */
+void kscrash_setUserID(const char *userID);
+
+/** Why the previous run ended. Only valid after install. */
+KSTerminationReason kscrash_getPreviousTerminationReason(void);
+
+#ifdef __OBJC__
+/** Report an NSException as if the NSException monitor had caught it. A
+ *  no-op, with a log, unless that monitor is enabled.
+ */
+void kscrash_reportNSException(NSException *exception, bool logAllThreads);
+#endif
 
 /** Get the run ID for the current process.
  *
@@ -284,28 +270,6 @@ const char *kscrash_applicationSupportPath(void);
  *         lifetime of the process.
  */
 const char *kscrash_cachesPath(void);
-
-#pragma mark-- Deprecated --
-
-/** @deprecated The Lifecycle monitor observes state transitions directly. */
-void kscrash_notifyObjCLoad(void)
-    KSCRASH_DEPRECATED("No longer needed. The Lifecycle monitor observes state directly.");
-
-/** @deprecated The Lifecycle monitor observes state transitions directly. */
-void kscrash_notifyAppActive(bool isActive)
-    KSCRASH_DEPRECATED("No longer needed. The Lifecycle monitor observes state directly.");
-
-/** @deprecated The Lifecycle monitor observes state transitions directly. */
-void kscrash_notifyAppInForeground(bool isInForeground)
-    KSCRASH_DEPRECATED("No longer needed. The Lifecycle monitor observes state directly.");
-
-/** @deprecated The Lifecycle monitor observes state transitions directly. */
-void kscrash_notifyAppTerminate(void)
-    KSCRASH_DEPRECATED("No longer needed. The Lifecycle monitor observes state directly.");
-
-/** @deprecated The Lifecycle monitor observes state transitions directly. */
-void kscrash_notifyAppCrash(void)
-    KSCRASH_DEPRECATED("No longer needed. The Lifecycle monitor observes state directly.");
 
 #ifdef __cplusplus
 }

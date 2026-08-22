@@ -48,7 +48,6 @@
 #import "KSLogger.h"
 
 // Defined in KSCrash.m. Forward-declared here to avoid importing KSCrash.h.
-FOUNDATION_EXPORT const unsigned char KSCrashFrameworkVersionString[];
 
 // ============================================================================
 #pragma mark - Globals -
