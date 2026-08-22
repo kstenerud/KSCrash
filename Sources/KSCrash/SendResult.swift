@@ -48,11 +48,14 @@ public struct SendResult<Payload: SendPayload>: Sendable {
 
     /// What happened to one item.
     public enum Outcome: Sendable {
-        /// The item completed the pipeline and is deleted from disk.
+        /// The item completed the pipeline and its file is deleted. A
+        /// failed delete is not surfaced here: the next send processes the
+        /// item again.
         case delivered
 
-        /// A stage returned nil: the item is deleted from disk and will never
-        /// be sent again.
+        /// A stage returned nil: the item's file is deleted and it is never
+        /// sent again. A failed delete is not surfaced here: the next send
+        /// processes the item again.
         case discarded
 
         /// A stage threw this error, or the item was read but does not
