@@ -713,7 +713,7 @@ static CFDictionaryRef throwingStitchReport(__unused CFDictionaryRef reportDict,
 
     // The read survives the throw (final pass reaches the broken monitor) and the report
     // comes back unstitched rather than lost.
-    char *rawReport = kscrs_readReport(reportID, &_storeConfig);
+    char *rawReport = kscrs_readReport(reportID, &_storeConfig, NULL);
     XCTAssertTrue(rawReport != NULL);
     free(rawReport);
 
@@ -741,7 +741,7 @@ static CFDictionaryRef throwingStitchReport(__unused CFDictionaryRef reportDict,
 
     // No sidecars anywhere: the final pass alone must reach the monitor.
     int64_t reportID = [self writeReportWithRunId:[[NSUUID UUID] UUIDString]];
-    char *rawReport = kscrs_readReport(reportID, &_storeConfig);
+    char *rawReport = kscrs_readReport(reportID, &_storeConfig, NULL);
     XCTAssertTrue(rawReport != NULL);
 
     NSData *data = [NSData dataWithBytesNoCopy:rawReport length:strlen(rawReport) freeWhenDone:YES];
@@ -775,7 +775,7 @@ static CFDictionaryRef throwingStitchReport(__unused CFDictionaryRef reportDict,
     kscm_addMonitor(&apiA);
     kscm_addMonitor(&apiB);
     int64_t reportID = [self writeReportWithRunId:runId];
-    char *raw = kscrs_readReport(reportID, &_storeConfig);
+    char *raw = kscrs_readReport(reportID, &_storeConfig, NULL);
     NSData *data = [NSData dataWithBytesNoCopy:raw length:strlen(raw) freeWhenDone:YES];
     NSDictionary *decoded = [KSJSONCodec decode:data options:KSJSONDecodeOptionNone error:nil];
     XCTAssertEqualObjects(decoded[@"ordered"], @"from-B");
@@ -789,7 +789,7 @@ static CFDictionaryRef throwingStitchReport(__unused CFDictionaryRef reportDict,
     kscm_addMonitor(&apiA);
     kscm_addMonitor(&apiB);
     int64_t reportID2 = [self writeReportWithRunId:runId];
-    char *raw2 = kscrs_readReport(reportID2, &_storeConfig);
+    char *raw2 = kscrs_readReport(reportID2, &_storeConfig, NULL);
     NSData *data2 = [NSData dataWithBytesNoCopy:raw2 length:strlen(raw2) freeWhenDone:YES];
     NSDictionary *decoded2 = [KSJSONCodec decode:data2 options:KSJSONDecodeOptionNone error:nil];
     XCTAssertEqualObjects(decoded2[@"ordered"], @"from-A");

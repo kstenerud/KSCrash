@@ -115,6 +115,14 @@ NS_SWIFT_NAME(CrashReportStore)
  */
 - (void)reclaimOrphanedRunData;
 
+/** Move any reports a crash extension wrote for this app into this store.
+ *
+ * Reports that cannot be moved are left in place and retried on the next call.
+ * The bulk send calls this before listing, so ingested reports are delivered
+ * like any report this process wrote.
+ */
+- (void)ingestExtensionReports;
+
 @end
 
 NS_ASSUME_NONNULL_END

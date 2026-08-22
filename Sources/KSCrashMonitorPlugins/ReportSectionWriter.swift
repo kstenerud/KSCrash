@@ -37,18 +37,6 @@ import KSCrashRecording
 public struct ReportSectionWriter {
     private let ptr: UnsafePointer<ReportWriter>
 
-    /// Tracks a not-yet-opened enclosing section, so a monitor that writes nothing produces no
-    /// key at all rather than an empty object. A reference type because the writer is a struct
-    /// handed to the monitor by value; the bridge needs to see whether the section was opened.
-    final class PendingSection {
-        let name: String
-        private(set) var isOpen = false
-        init(name: String) { self.name = name }
-        func markOpen() { isOpen = true }
-    }
-
-    private let pendingSection: PendingSection?
-
     /// Creates a wrapper around the given report writer pointer.
     ///
     /// - Parameter writer: A pointer to a C `ReportWriter` struct.
@@ -56,29 +44,12 @@ public struct ReportSectionWriter {
     public init?(_ writer: UnsafePointer<ReportWriter>?) {
         guard let writer else { return nil }
         self.ptr = writer
-        self.pendingSection = nil
-    }
-
-    /// Creates a writer that opens `section` lazily, on the first value written through it.
-    init?(_ writer: UnsafePointer<ReportWriter>?, section: PendingSection) {
-        guard let writer else { return nil }
-        self.ptr = writer
-        self.pendingSection = section
-    }
-
-    /// Opens the enclosing section on first write. No-op once open, or when this writer has no
-    /// pending section (the plain init).
-    private func openSectionIfNeeded() {
-        guard let pendingSection, !pendingSection.isOpen else { return }
-        pendingSection.markOpen()
-        pendingSection.name.withCString { ptr.pointee.beginObject(ptr, $0) }
     }
 
     // MARK: - Primitives
 
     /// Adds a boolean element to the report.
     public func add(_ name: String, _ value: Bool) {
-        openSectionIfNeeded()
         name.withCString { cName in
             ptr.pointee.addBooleanElement(ptr, cName, value)
         }
@@ -86,7 +57,6 @@ public struct ReportSectionWriter {
 
     /// Adds a floating-point element to the report.
     public func add(_ name: String, _ value: Double) {
-        openSectionIfNeeded()
         name.withCString { cName in
             ptr.pointee.addFloatingPointElement(ptr, cName, value)
         }
@@ -96,7 +66,6 @@ public struct ReportSectionWriter {
     ///
     /// - Parameter name: The key name, or `nil` when adding to an array.
     public func add(_ name: String?, _ value: Int64) {
-        openSectionIfNeeded()
         if let name {
             name.withCString { cName in
                 ptr.pointee.addIntegerElement(ptr, cName, value)
@@ -110,7 +79,6 @@ public struct ReportSectionWriter {
     ///
     /// - Parameter name: The key name, or `nil` when adding to an array.
     public func add(_ name: String?, _ value: UInt64) {
-        openSectionIfNeeded()
         if let name {
             name.withCString { cName in
                 ptr.pointee.addUIntegerElement(ptr, cName, value)
@@ -122,7 +90,6 @@ public struct ReportSectionWriter {
 
     /// Adds a string element to the report.
     public func add(_ name: String, _ value: String) {
-        openSectionIfNeeded()
         name.withCString { cName in
             value.withCString { cValue in
                 ptr.pointee.addStringElement(ptr, cName, cValue)
@@ -132,7 +99,6 @@ public struct ReportSectionWriter {
 
     /// Adds a UUID element to the report (formatted as a standard UUID string).
     public func addUUID(_ name: String, _ value: UnsafePointer<UInt8>) {
-        openSectionIfNeeded()
         name.withCString { cName in
             ptr.pointee.addUUIDElement(ptr, cName, value)
         }
@@ -144,7 +110,6 @@ public struct ReportSectionWriter {
     ///
     /// - Parameter name: The key name for the object, or `nil` when adding to an array.
     public func beginObject(_ name: String?) {
-        openSectionIfNeeded()
         if let name {
             name.withCString { cName in
                 ptr.pointee.beginObject(ptr, cName)
@@ -158,7 +123,6 @@ public struct ReportSectionWriter {
     ///
     /// - Parameter name: The key name for the array, or `nil` when adding to an array.
     public func beginArray(_ name: String?) {
-        openSectionIfNeeded()
         if let name {
             name.withCString { cName in
                 ptr.pointee.beginArray(ptr, cName)
@@ -184,7 +148,6 @@ public struct ReportSectionWriter {
     /// The writer re-parses the JSON with a fixed per-string buffer (5000 bytes), so no single
     /// string inside `value` may exceed it; oversized elements are rejected by the writer.
     public func encode(_ name: String, _ value: some Encodable) throws {
-        openSectionIfNeeded()
         let data = try JSONEncoder().encode(value)
         guard let json = String(data: data, encoding: .utf8) else { return }
         name.withCString { cName in

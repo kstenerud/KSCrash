@@ -93,7 +93,8 @@ struct Store: Sendable {
                     }
                 },
                 runID: { reportStore.runID(of: $0) },
-                remove: { try reportStore.removeReport(withID: $0) }
+                remove: { try reportStore.removeReport(withID: $0) },
+                ingest: { reportStore.ingestExtensionReports() }
             ),
             reclaim: { reportStore.reclaimOrphanedRunData() }
         )
@@ -116,12 +117,14 @@ struct Store: Sendable {
         self.reclaim = reclaim
     }
 
-    /// Every pending crash report, newest first. Throws when the Reports
+    /// Every pending crash report, newest first. Reports a crash extension
+    /// wrote for this app join the store first. Throws when the Reports
     /// directory cannot be enumerated; the runs half is not touched.
     func snapshotReportIDs() throws -> [ReportID] {
+        reports.ingest()
         // The listing is the C store's (it owns the Reports directory).
         // Descending is newest first: IDs are chronological.
-        try reports.list().sorted(by: >)
+        return try reports.list().sorted(by: >)
     }
 
     /// Every past run with data on disk, as inert values: all artifacts
@@ -350,6 +353,11 @@ struct ReportBridge: Sendable {
 
     /// Delete one report. Throws when the report file could not be removed.
     let remove: @Sendable (ReportID) throws -> Void
+
+    /// Move reports a crash extension wrote for this app into the store, so
+    /// the next listing includes them. Best effort: what cannot be moved is
+    /// retried by the next call.
+    var ingest: @Sendable () -> Void = {}
 
     /// A store with no report half (run-only tests).
     static let none = ReportBridge(list: { [] }, read: { _ in nil }, runID: { _ in nil }, remove: { _ in })

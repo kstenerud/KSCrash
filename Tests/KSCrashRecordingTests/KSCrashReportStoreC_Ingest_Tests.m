@@ -28,22 +28,9 @@
 
 #import "FileBasedTestCase.h"
 #import "KSCrashInstallConfiguration+Private.h"
-#import "KSCrashReportFilter.h"
 #import "KSCrashReportStore.h"
 #import "KSCrashReportStoreC+Private.h"
 #import "KSCrashReportStoreC.h"
-#import "KSCrashSendConfiguration.h"
-
-/** The send path refuses to run with no filters, so pass reports through unchanged. */
-@interface KSCrashIngestTestPassthroughFilter : NSObject <KSCrashReportFilter>
-@end
-
-@implementation KSCrashIngestTestPassthroughFilter
-- (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
-{
-    onCompletion(reports, nil);
-}
-@end
 
 @interface KSCrashReportStoreC_Ingest_Tests : FileBasedTestCase
 @end
@@ -110,7 +97,7 @@
     XCTAssertEqual([self fileCountAt:self.extensionReportsPath], 0u, @"The source directory must drain");
 
     for (NSNumber *reportID in @[ @(firstID), @(secondID) ]) {
-        char *report = kscrs_readReport(reportID.longLongValue, &_appConfig);
+        char *report = kscrs_readReport(reportID.longLongValue, &_appConfig, NULL);
         XCTAssertTrue(report != NULL, @"Ingested report %@ must read from the app store", reportID);
         if (report != NULL) {
             NSData *data = [NSData dataWithBytes:report length:strlen(report)];
@@ -137,7 +124,7 @@
     XCTAssertEqual([self fileCountAt:self.extensionReportsPath], 0u, @"The source directory must drain in one pass");
     XCTAssertEqual(kscrs_getReportCount(&_appConfig), (int)ids.count);
     for (NSNumber *reportID in ids) {
-        char *report = kscrs_readReport(reportID.longLongValue, &_appConfig);
+        char *report = kscrs_readReport(reportID.longLongValue, &_appConfig, NULL);
         XCTAssertTrue(report != NULL, @"Ingested report %@ must read from the app store", reportID);
         free(report);
     }
@@ -224,7 +211,7 @@
 
 #pragma mark - Through the ObjC store
 
-- (void)testSendIngestsThroughObjCStore
+- (void)testIngestThroughObjCStore
 {
     [self prepareStores];
     int64_t reportID = [self writeExtensionReport];
@@ -238,22 +225,12 @@
     KSCrashReportStore *store = [KSCrashReportStore storeWithConfiguration:storeConfig error:&error];
     XCTAssertNotNil(store, @"%@", error);
 
-    XCTestExpectation *sent = [self expectationWithDescription:@"send completes"];
-    __block NSArray *delivered = nil;
-    KSCrashSendConfiguration *sendConfig = [KSCrashSendConfiguration new];
-    sendConfig.reportFilters = @[ [KSCrashIngestTestPassthroughFilter new] ];
-    sendConfig.reportCleanupPolicy = KSCrashReportCleanupPolicyNever;
-    [store sendAllReportsWithConfiguration:sendConfig
-                                completion:^(NSArray *filteredReports, NSError *sendError) {
-                                    delivered = filteredReports;
-                                    XCTAssertNil(sendError);
-                                    [sent fulfill];
-                                }];
-    [self waitForExpectationsWithTimeout:5 handler:nil];
+    [store ingestExtensionReports];
 
-    XCTAssertEqual(delivered.count, 1u, @"The extension report must be delivered by the same send");
     XCTAssertEqual([self fileCountAt:self.extensionReportsPath], 0u);
-    XCTAssertTrue([store.reportIDs containsObject:@(reportID)], @"The ingested report now lives in the app store");
+    NSArray<NSNumber *> *ids = [store listReportIDsWithError:&error];
+    XCTAssertNotNil(ids, @"%@", error);
+    XCTAssertTrue([ids containsObject:@(reportID)], @"The ingested report now lives in the app store");
 }
 
 @end

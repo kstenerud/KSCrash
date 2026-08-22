@@ -185,7 +185,7 @@ import XCTest
             }
             XCTAssertGreaterThan(reportID, 0)
 
-            let report = try XCTUnwrap(store.report(for: reportID)).value
+            let report = try store.reportDictionary(for: reportID)
             XCTAssertNotNil(report["report"] as? [String: Any], "the stored report should parse as JSON")
         }
 

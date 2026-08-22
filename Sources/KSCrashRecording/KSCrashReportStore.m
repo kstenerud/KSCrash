@@ -88,6 +88,11 @@
     kscrs_reclaimOrphanedRunData(&_cConfig);
 }
 
+- (void)ingestExtensionReports
+{
+    kscrs_ingestExtensionReports(&_cConfig);
+}
+
 - (nullable NSData *)loadCrashReportJSONWithID:(int64_t)reportID error:(NSError **)error
 {
     KSCrashReportReadStatus status = KSCrashReportReadStatusOK;

@@ -69,7 +69,7 @@ final class ReportSendTests: XCTestCase {
 
     private func makeStore(
         liveRunID: String? = "LIVE", listFails: Bool = false, undecodable: Set<ReportID> = [],
-        peekBlind: Bool = false
+        peekBlind: Bool = false, ingest: @escaping @Sendable () -> Void = {}
     ) -> Store {
         let directory = reportsDirectory!
         let counter = reclaimCount
@@ -95,7 +95,8 @@ final class ReportSendTests: XCTestCase {
                     else { return nil }
                     return report.report.runId
                 },
-                remove: { try FileManager.default.removeItem(at: directory.appendingPathComponent("\($0).json")) }
+                remove: { try FileManager.default.removeItem(at: directory.appendingPathComponent("\($0).json")) },
+                ingest: ingest
             ),
             reclaim: { counter.increment() }
         )
@@ -135,6 +136,20 @@ final class ReportSendTests: XCTestCase {
         XCTAssertEqual(seen.withLock { $0 }, ["report-2", "report-1"])
         XCTAssertEqual(reportFileCount, 0)
         XCTAssertGreaterThan(reclaimCount.value, 0)
+    }
+
+    func test_send_ingestsExtensionReportsBeforeListing() async throws {
+        // A report only the ingest brings into the store is listed and delivered by the same send.
+        let directory = reportsDirectory!
+        let extensionReport = try JSONEncoder().encode(
+            Report(crash: .init(error: CrashError(type: .signal)), report: .init(id: "report-7", runId: "DEAD")))
+        let store = makeStore(ingest: {
+            try? extensionReport.write(to: directory.appendingPathComponent("7.json"))
+        })
+
+        let result = try await ReportSend.send(store: store, pipeline: [passThrough()])
+        assertOutcomes(result, delivered: [7])
+        XCTAssertEqual(reportFileCount, 0)
     }
 
     func test_send_discardedIsDeletedAndNeverSentAgain() async throws {

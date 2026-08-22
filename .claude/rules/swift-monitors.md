@@ -130,8 +130,9 @@ public struct MonitorHost<Payload> {
 }
 ```
 
-A nil `payload` writes the report WITHOUT the monitor's report section (the corpse monitor uses
-this for snapshot-less captures); the payload-less overload is constrained to `Payload == Void`
+A nil `payload` writes the report with an empty monitor section (the crash writer opens the
+`crash.error.monitor_data.<id>` fence before the callback; the corpse monitor uses this for
+snapshot-less captures); the payload-less overload is constrained to `Payload == Void`
 monitors, whose `writeReportSection` still runs. `handle` refuses (throws `.refused`) when the
 bridge isn't installed yet, the pipeline is shutting down, or it returns the shared
 exit-immediately bail-out context, matching the hand-rolled monitors' contract. `configure`

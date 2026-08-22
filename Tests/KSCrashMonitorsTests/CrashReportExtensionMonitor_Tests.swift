@@ -96,7 +96,7 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
         XCTAssertGreaterThan(reportID, 0)
 
         let store = try XCTUnwrap(Self.store)
-        let report = try XCTUnwrap(store.report(for: reportID)).value
+        let report = try store.reportDictionary(for: reportID)
 
         // The report is stamped with this run's ID (in the extension this is the ID loaded
         // from the corpse, so it stitches against the crashed run's sidecars).
@@ -154,13 +154,13 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
         XCTAssertGreaterThan(compared, 0, "no image was actually compared against the in-process reader")
     }
 
-    func testSnapshotlessCaptureWritesNoMonitorSection() throws {
+    func testSnapshotlessCaptureWritesNoSnapshot() throws {
         let worker = ParkedThread()
         defer { worker.release() }
 
-        // No snapshot means the monitor has nothing to write for this event. It must then add
-        // no key at all: an empty "Corpse": {} is noise that every consumer has to special-case,
-        // and it contradicts the documented "writes the report WITHOUT the monitor's section".
+        // No snapshot means the monitor has nothing to write for this event: nothing lands in
+        // its section and the final-pass stitch has nothing to lift. The crash writer opens the
+        // monitor_data fence before the callback, so the section itself may exist, empty.
         let reportID = try Self.monitor.writeReport(
             corpse: mach_task_self_,
             crashedThreadID: worker.machThreadID,
@@ -170,10 +170,11 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
             subcode: 0)
 
         let store = try XCTUnwrap(Self.store)
-        let report = try XCTUnwrap(store.report(for: reportID)).value
+        let report = try store.reportDictionary(for: reportID)
         let crash = try XCTUnwrap(report["crash"] as? [String: Any])
         let error = try XCTUnwrap(crash["error"] as? [String: Any])
-        XCTAssertNil(error["Corpse"], "a monitor that writes nothing must not leave an empty section")
+        let section = (error["monitor_data"] as? [String: Any])?["Corpse"] as? [String: Any]
+        XCTAssertTrue(section?.isEmpty ?? true, "a monitor with no snapshot must not write one")
         XCTAssertNil(report["corpse"], "and the final-pass stitch has nothing to lift to the root")
 
         // The rest of the error section is unaffected, so the report is still well formed.
@@ -211,7 +212,7 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
             subcode: 0)
 
         let store = try XCTUnwrap(Self.store)
-        let report = try XCTUnwrap(store.report(for: reportID)).value
+        let report = try store.reportDictionary(for: reportID)
         let images = try XCTUnwrap(report["binary_images"] as? [[String: Any]])
         XCTAssertEqual(images.count, lied.count)
         let reportedByAddress = Dictionary(
@@ -245,7 +246,7 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
             subcode: 0)
 
         let store = try XCTUnwrap(Self.store)
-        let report = try XCTUnwrap(store.report(for: reportID)).value
+        let report = try store.reportDictionary(for: reportID)
         let images = try XCTUnwrap(report["binary_images"] as? [[String: Any]])
         XCTAssertEqual(images.count, provided.count)
         let reportedNames = Set(images.compactMap { $0["name"] as? String })
@@ -284,7 +285,7 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
         let reportID = try KSCrash.shared.captureCrashReport(snapshot: snapshot, corpse: mach_task_self_)
 
         let store = try XCTUnwrap(Self.store)
-        let report = try XCTUnwrap(store.report(for: reportID)).value
+        let report = try store.reportDictionary(for: reportID)
         let crash = try XCTUnwrap(report["crash"] as? [String: Any])
         let error = try XCTUnwrap(crash["error"] as? [String: Any])
 
@@ -296,7 +297,7 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
 
         // The decoded snapshot is written into the monitor's error section and lifted to the
         // report root by the final-pass stitch, which this read path runs.
-        XCTAssertNil(error["Corpse"], "the snapshot does not stay in the error section")
+        XCTAssertNil(error["monitor_data"], "the snapshot does not stay in the error section")
         let embedded = try XCTUnwrap(report["corpse"] as? [String: Any])
         let embeddedInfo = try XCTUnwrap(embedded["crashInfo"] as? [String: Any])
         XCTAssertEqual(embeddedInfo["pid"] as? UInt32, 4242)
@@ -337,7 +338,7 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
         let reportID = try KSCrash.shared.captureCrashReport(snapshot: snapshot, corpse: mach_task_self_)
 
         let store = try XCTUnwrap(Self.store)
-        let report = try XCTUnwrap(store.report(for: reportID)).value
+        let report = try store.reportDictionary(for: reportID)
 
         // The report names the corpse's process, not this (reporting) one.
         let info = try XCTUnwrap(report["report"] as? [String: Any])
@@ -446,7 +447,7 @@ extension CrashReportExtensionMonitor_Tests {
                 "app_memory": ["memory_footprint": 111, "memory_remaining": 222, "memory_pressure": "normal"],
                 "application_stats": ["task_role": "TASK_UNSPECIFIED"],
             ],
-            "crash": ["error": ["type": "mach", "Corpse": ["snapshot": snapshotDict]]],
+            "crash": ["error": ["type": "mach", "monitor_data": ["Corpse": ["snapshot": snapshotDict]]]],
         ]
 
         let stitched = try Self.monitor.stitchedReport(report, sidecarURL: nil, scope: .final)
@@ -479,7 +480,9 @@ extension CrashReportExtensionMonitor_Tests {
 
         let encoded = try JSONEncoder().encode(snapshot.forEmbedding())
         let snapshotDict = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
-        let report: [String: Any] = ["crash": ["error": ["type": "mach", "Corpse": ["snapshot": snapshotDict]]]]
+        let report: [String: Any] = [
+            "crash": ["error": ["type": "mach", "monitor_data": ["Corpse": ["snapshot": snapshotDict]]]]
+        ]
 
         let stitched = try Self.monitor.stitchedReport(report, sidecarURL: nil, scope: .final)
 
@@ -496,7 +499,9 @@ extension CrashReportExtensionMonitor_Tests {
 
         let encoded = try JSONEncoder().encode(snapshot.forEmbedding())
         let snapshotDict = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
-        let report: [String: Any] = ["crash": ["error": ["type": "mach", "Corpse": ["snapshot": snapshotDict]]]]
+        let report: [String: Any] = [
+            "crash": ["error": ["type": "mach", "monitor_data": ["Corpse": ["snapshot": snapshotDict]]]]
+        ]
 
         let stitched = try Self.monitor.stitchedReport(report, sidecarURL: nil, scope: .final)
 
@@ -512,13 +517,15 @@ extension CrashReportExtensionMonitor_Tests {
 
         let encoded = try JSONEncoder().encode(snapshot.forEmbedding())
         let snapshotDict = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
-        let report: [String: Any] = ["crash": ["error": ["type": "mach", "Corpse": ["snapshot": snapshotDict]]]]
+        let report: [String: Any] = [
+            "crash": ["error": ["type": "mach", "monitor_data": ["Corpse": ["snapshot": snapshotDict]]]]
+        ]
 
         let stitched = try Self.monitor.stitchedReport(report, sidecarURL: nil, scope: .final)
 
         XCTAssertEqual(stitched["corpse"] as? NSDictionary, snapshotDict as NSDictionary)
         let error = try XCTUnwrap((stitched["crash"] as? [String: Any])?["error"] as? [String: Any])
-        XCTAssertNil(error["Corpse"], "the snapshot moved, it was not copied")
+        XCTAssertNil(error["monitor_data"], "the snapshot moved, it was not copied")
         XCTAssertEqual(error["type"] as? String, "mach", "the rest of the error section is untouched")
     }
 

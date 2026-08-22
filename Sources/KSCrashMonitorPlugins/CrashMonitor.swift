@@ -68,8 +68,9 @@ public protocol CrashMonitor: AnyObject {
     /// extension-reporting install, where RunContext does not initialize.
     func systemDidEnable()
 
-    /// Runs during the report write, inside the error section's object for this monitor's id,
-    /// with the payload that was passed to `host.handle(payload:)` for this event.
+    /// Runs during the report write, inside this monitor's object under
+    /// `crash.error.monitor_data` (the profile's typed schema key for the profiler), with the
+    /// payload that was passed to `host.handle(payload:)` for this event.
     func writeReportSection(payload: EventPayload, writer: ReportSectionWriter)
 
     /// Stitches this monitor's sidecar data into a report at delivery time. Runs at normal app
