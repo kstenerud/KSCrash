@@ -31,7 +31,7 @@ import Foundation
 /// Values are stored and read as ordinary Swift types through `MetadataValueConvertible`
 /// and `MetadataValueDecodable`; unsupported types are rejected at compile time. The whole
 /// bag can also be built from, or decoded into, any `Codable` type.
-public struct Metadata: Equatable, Sendable {
+public struct Metadata: MetadataStore, Equatable, Sendable {
     private var storage: [String: MetadataValue]
 
     public init() {
@@ -61,6 +61,8 @@ public struct Metadata: Equatable, Sendable {
     public func contains(_ key: String) -> Bool {
         storage[key] != nil
     }
+
+    public var keys: [String] { storage.keys.sorted() }
 
     public subscript<Value: MetadataValueDecodable>(key: String, as type: Value.Type) -> Value? {
         value(forKey: key, as: type)

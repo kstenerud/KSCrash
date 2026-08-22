@@ -706,7 +706,7 @@ final class CrashReportEncodingTests: XCTestCase {
             report: ReportInfo(
                 id: "termination-test",
                 type: .standard,
-                runId: "prev-run-id",
+                runId: "0C1D2E3F-4A5B-4C6D-8E7F-A0B1C2D3E4F5",
                 monitorId: "Termination"
             )
         )
@@ -719,7 +719,7 @@ final class CrashReportEncodingTests: XCTestCase {
         XCTAssertEqual(roundTripped.crash.error.isCleanExit, false)
         XCTAssertEqual(roundTripped.crash.error.signal?.signal, 9)
         XCTAssertEqual(roundTripped.crash.error.signal?.name, "SIGKILL")
-        XCTAssertEqual(roundTripped.report.runId, "prev-run-id")
+        XCTAssertEqual(roundTripped.report.runId, RunSummary.ID("0C1D2E3F-4A5B-4C6D-8E7F-A0B1C2D3E4F5"))
         XCTAssertEqual(roundTripped.report.monitorId, "Termination")
     }
 

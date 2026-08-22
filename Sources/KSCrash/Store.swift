@@ -32,7 +32,7 @@ import os
 /// One past run's on-disk artifacts, captured at snapshot time. Pure data:
 /// every operation on it lives on `Store`.
 struct Run: Sendable {
-    let runID: String
+    let runID: RunSummary.ID
 
     /// This run's `.run` file; nil when the run has no summary on disk.
     let summaryFile: URL?
@@ -56,7 +56,7 @@ struct Store: Sendable {
     let runSidecarsDirectory: URL
 
     /// The current process run, excluded from every snapshot.
-    let liveRunID: String?
+    let liveRunID: RunSummary.ID?
 
     /// The install-resolved `.run` retention cap the bulk sends enforce
     /// through `pruneRunSummaries(keepingNewest:)`.
@@ -70,7 +70,7 @@ struct Store: Sendable {
     init(
         runsDirectory: URL,
         runSidecarsDirectory: URL,
-        liveRunID: String?,
+        liveRunID: RunSummary.ID?,
         maxRunCount: Int,
         reportStore: CrashReportStore
     ) {
@@ -92,7 +92,7 @@ struct Store: Sendable {
                         return nil
                     }
                 },
-                runID: { reportStore.runID(of: $0) },
+                runID: { reportStore.runID(of: $0).flatMap(RunSummary.ID.init) },
                 remove: { try reportStore.removeReport(withID: $0) }
             ),
             reclaim: { reportStore.reclaimOrphanedRunData() }
@@ -103,7 +103,7 @@ struct Store: Sendable {
     init(
         runsDirectory: URL,
         runSidecarsDirectory: URL,
-        liveRunID: String?,
+        liveRunID: RunSummary.ID?,
         maxRunCount: Int = 0,
         reports: ReportBridge = .none,
         reclaim: @escaping @Sendable () -> Void = {}
@@ -154,7 +154,7 @@ struct Store: Sendable {
             var summary: (orderNs: UInt64, url: URL)?
             var sessionsFile: URL?
         }
-        var groups: [String: Group] = [:]
+        var groups: [RunSummary.ID: Group] = [:]
         let decoder = JSONDecoder()
 
         for name in entries {
@@ -173,8 +173,7 @@ struct Store: Sendable {
                 // deletes it as garbage (an unreadable file aborts that pass
                 // and is retried instead).
                 guard let data = try? Data(contentsOf: url),
-                    let identity = try? decoder.decode(RunIdentity.self, from: data),
-                    !identity.runID.isEmpty
+                    let identity = try? decoder.decode(RunIdentity.self, from: data)
                 else {
                     os_log(.error, "Skipping unidentifiable run summary: %{public}@", name)
                     continue
@@ -205,8 +204,9 @@ struct Store: Sendable {
             case KSCRS_SESSIONS_FILENAME_EXTENSION:
                 // `.sessions` filenames are `<runID>.sessions`, so the name
                 // alone keys the file; nothing needs to be read.
-                let runID = (name as NSString).deletingPathExtension
-                if !runID.isEmpty {
+                // A name that is not a run id is not a run's file; the
+                // reclaim owns whatever it is.
+                if let runID = RunSummary.ID((name as NSString).deletingPathExtension) {
                     groups[runID, default: Group()].sessionsFile = url
                 }
             default:
@@ -222,7 +222,7 @@ struct Store: Sendable {
         // directory listing is also the only source of these paths; nothing is
         // ever built from a decoded runID, so a corrupt `.run` cannot address
         // files outside the store.
-        var sidecarDirectories: [String: URL] = [:]
+        var sidecarDirectories: [RunSummary.ID: URL] = [:]
         let sidecarNames: [String]
         do {
             sidecarNames = try FileManager.default.contentsOfDirectory(atPath: runSidecarsDirectory.path)
@@ -237,11 +237,11 @@ struct Store: Sendable {
             let url = runSidecarsDirectory.appendingPathComponent(name)
             var isDirectory: ObjCBool = false
             if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
-                isDirectory.boolValue
+                isDirectory.boolValue, let runID = RunSummary.ID(name)
             {
-                sidecarDirectories[name] = url
-                if groups[name] == nil {
-                    groups[name] = Group()
+                sidecarDirectories[runID] = url
+                if groups[runID] == nil {
+                    groups[runID] = Group()
                 }
             }
         }
@@ -274,7 +274,7 @@ struct Store: Sendable {
             }
         }
         return withSummary.sorted { $0.orderNs > $1.orderNs }.map(\.run)
-            + artifactOnly.sorted { $0.runID < $1.runID }
+            + artifactOnly.sorted { $0.runID.description < $1.runID.description }
     }
 
     /// Remove shared run data nothing references any more.
@@ -311,7 +311,7 @@ struct Store: Sendable {
 /// strict model decode is the health gate that surfaces a broken summary
 /// as a kept item.
 private struct RunIdentity: Decodable {
-    let runID: String
+    let runID: RunSummary.ID
     let startedAtMs: Int64?
 
     enum CodingKeys: String, CodingKey {
@@ -321,7 +321,7 @@ private struct RunIdentity: Decodable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        runID = try container.decode(String.self, forKey: .runID)
+        runID = try container.decode(RunSummary.ID.self, forKey: .runID)
         // A mistyped timestamp reads as absent: it must not cost the run
         // its listing, only its ordering.
         startedAtMs = try? container.decodeIfPresent(Int64.self, forKey: .startedAtMs)
@@ -346,7 +346,7 @@ struct ReportBridge: Sendable {
     /// The run a report belongs to, from the report file alone: nothing is
     /// stitched and no run artifacts are touched. nil when the report cannot
     /// be read or records no run.
-    let runID: @Sendable (ReportID) -> String?
+    let runID: @Sendable (ReportID) -> RunSummary.ID?
 
     /// Delete one report. Throws when the report file could not be removed.
     let remove: @Sendable (ReportID) throws -> Void
@@ -379,7 +379,7 @@ extension Store {
     /// The run `id` belongs to, from the report file alone: nothing is
     /// stitched and no run artifacts are touched. nil when the report cannot
     /// be read or records no run.
-    func runID(of id: ReportID) -> String? {
+    func runID(of id: ReportID) -> RunSummary.ID? {
         reports.runID(id)
     }
 

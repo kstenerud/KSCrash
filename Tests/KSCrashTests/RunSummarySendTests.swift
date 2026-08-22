@@ -75,7 +75,7 @@ final class RunSummarySendTests: XCTestCase {
     private func send(
         pipeline: [AnyPipelineStage<RunSummary>] = [.init(ClosureStage { $0 })],
         listFails: Bool = false,
-        claims: SendClaims<String> = SendClaims()
+        claims: SendClaims<RunSummary.ID> = SendClaims()
     ) async throws -> SendResult<RunSummary> {
         try await RunSummarySend.send(
             store: makeStore(listFails: listFails), pipeline: pipeline, claims: claims)
@@ -118,7 +118,7 @@ final class RunSummarySendTests: XCTestCase {
         try writeSummary(runID: "RUN", startNs: 100)
 
         let result = try await send(listFails: true)
-        assertOutcomes(result, delivered: ["RUN"])
+        assertOutcomes(result, delivered: [testRunID("RUN")])
         XCTAssertEqual(summaryFileCount, 0)
     }
 
@@ -127,13 +127,13 @@ final class RunSummarySendTests: XCTestCase {
     /// the decode error, not a silent skip; the file stays for a later SDK.
     func test_summaryThatFailsTheFullDecode_isKeptWithTheError_andStays() async throws {
         try writeSummary(runID: "OK", startNs: 100)
-        try Data(#"{"run_id": "BROKEN", "started_at_ms": 1000}"#.utf8)
+        try Data(#"{"run_id": "\#(testRunID("BROKEN"))", "started_at_ms": 1000}"#.utf8)
             .write(to: runsDirectory.appendingPathComponent(String(format: "%019llu.run", UInt64(200))))
 
         let result = try await send()
 
-        assertOutcomes(result, delivered: ["OK"], kept: ["BROKEN"])
-        let kept = try XCTUnwrap(result.items.first { $0.id == "BROKEN" })
+        assertOutcomes(result, delivered: [testRunID("OK")], kept: [testRunID("BROKEN")])
+        let kept = try XCTUnwrap(result.items.first { $0.id == testRunID("BROKEN") })
         guard case .kept(let error) = kept.outcome else {
             return XCTFail("expected a kept outcome, got \(kept.outcome)")
         }
@@ -146,13 +146,13 @@ final class RunSummarySendTests: XCTestCase {
     /// field, never a silent skip.
     func test_summaryMissingItsTimestamp_isKeptWithTheError_andStays() async throws {
         try writeSummary(runID: "OK", startNs: 100)
-        try Data(#"{"run_id": "BROKEN"}"#.utf8)
+        try Data(#"{"run_id": "\#(testRunID("BROKEN"))"}"#.utf8)
             .write(to: runsDirectory.appendingPathComponent(String(format: "%019llu.run", UInt64(200))))
 
         let result = try await send()
 
-        assertOutcomes(result, delivered: ["OK"], kept: ["BROKEN"])
-        let kept = try XCTUnwrap(result.items.first { $0.id == "BROKEN" })
+        assertOutcomes(result, delivered: [testRunID("OK")], kept: [testRunID("BROKEN")])
+        let kept = try XCTUnwrap(result.items.first { $0.id == testRunID("BROKEN") })
         guard case .kept(let error) = kept.outcome else {
             return XCTFail("expected a kept outcome, got \(kept.outcome)")
         }
@@ -163,12 +163,12 @@ final class RunSummarySendTests: XCTestCase {
     /// A mistyped timestamp in a non-writer-named file costs the run its
     /// ordering, not its listing: it still surfaces as a kept item.
     func test_summaryWithAMistypedTimestamp_isKeptWithTheError_andStays() async throws {
-        try Data(#"{"run_id": "BROKEN", "started_at_ms": "100"}"#.utf8)
+        try Data(#"{"run_id": "\#(testRunID("BROKEN"))", "started_at_ms": "100"}"#.utf8)
             .write(to: runsDirectory.appendingPathComponent("foreign.run"))
 
         let result = try await send()
 
-        assertOutcomes(result, kept: ["BROKEN"])
+        assertOutcomes(result, kept: [testRunID("BROKEN")])
         XCTAssertEqual(summaryFileCount, 1)
     }
 
@@ -181,7 +181,7 @@ final class RunSummarySendTests: XCTestCase {
 
         let result = try await send()
 
-        assertOutcomes(result, delivered: ["OK"])
+        assertOutcomes(result, delivered: [testRunID("OK")])
         XCTAssertEqual(summaryFileCount, 1)
     }
 
@@ -195,7 +195,8 @@ final class RunSummarySendTests: XCTestCase {
     func test_artifactOnlyRuns_appearInNoList() async throws {
         // A run with only shared artifacts has nothing to send.
         try FileManager.default.createDirectory(
-            at: sidecarsDirectory.appendingPathComponent("ORPHAN"), withIntermediateDirectories: true)
+            at: sidecarsDirectory.appendingPathComponent(testRunID("ORPHAN").description),
+            withIntermediateDirectories: true)
 
         let result = try await send()
         XCTAssertTrue(result.items.isEmpty)
@@ -208,17 +209,17 @@ final class RunSummarySendTests: XCTestCase {
 
         let replaced = makeSummary(runID: "REPLACED")
         let first = ClosureStage<RunSummary> { summary in
-            XCTAssertEqual(summary.runID, "ORIGINAL")
+            XCTAssertEqual(summary.id, testRunID("ORIGINAL"))
             return replaced
         }
         let second = ClosureStage<RunSummary> { summary in
-            XCTAssertEqual(summary.runID, "REPLACED")
+            XCTAssertEqual(summary.id, testRunID("REPLACED"))
             return summary
         }
 
         let result = try await send(pipeline: [.init(first), .init(second)])
         // Result ids are the on-disk run's, not the (possibly rewritten) payload's.
-        XCTAssertEqual(result.delivered, ["ORIGINAL"])
+        XCTAssertEqual(result.delivered, [testRunID("ORIGINAL")])
         XCTAssertEqual(summaryFileCount, 0)
     }
 
@@ -227,11 +228,11 @@ final class RunSummarySendTests: XCTestCase {
         try writeSummary(runID: "SENT", startNs: 200)
 
         let sampler = ClosureStage<RunSummary> { summary in
-            summary.runID == "DROPPED" ? nil : summary
+            summary.id == testRunID("DROPPED") ? nil : summary
         }
 
         let result = try await send(pipeline: [.init(sampler)])
-        assertOutcomes(result, delivered: ["SENT"], discarded: ["DROPPED"])
+        assertOutcomes(result, delivered: [testRunID("SENT")], discarded: [testRunID("DROPPED")])
         XCTAssertEqual(summaryFileCount, 0)
     }
 
@@ -240,19 +241,19 @@ final class RunSummarySendTests: XCTestCase {
         try writeSummary(runID: "FINE", startNs: 100)
 
         let flaky = ClosureStage<RunSummary> { summary in
-            if summary.runID == "FAILING" {
+            if summary.id == testRunID("FAILING") {
                 throw StageError()
             }
             return summary
         }
 
         let result = try await send(pipeline: [.init(flaky)])
-        assertOutcomes(result, delivered: ["FINE"], kept: ["FAILING"])
+        assertOutcomes(result, delivered: [testRunID("FINE")], kept: [testRunID("FAILING")])
         XCTAssertEqual(summaryFileCount, 1)
 
         // The kept run is delivered by the next send.
         let retry = try await send()
-        XCTAssertEqual(retry.delivered, ["FAILING"])
+        XCTAssertEqual(retry.delivered, [testRunID("FAILING")])
         XCTAssertEqual(summaryFileCount, 0)
     }
 
@@ -274,17 +275,17 @@ final class RunSummarySendTests: XCTestCase {
 
         let replaced = makeSummary(runID: "REPLACED")
         let rewriting = ClosureStage<RunSummary> { _ in replaced }
-        let seen = UnfairLock([String]())
+        let seen = UnfairLock([RunSummary.ID]())
         let capturing = ClosureStage<RunSummary> { summary in
-            seen.withLock { $0.append(summary.runID) }
+            seen.withLock { $0.append(summary.id) }
             return summary
         }
 
         let result = try await send(pipeline: [.init(rewriting), .init(capturing)])
         // Payloads flow through the stages, never into the result: the item
         // id stays the run's, and the rewrite is what the next stage sees.
-        assertOutcomes(result, delivered: ["ORIGINAL"])
-        XCTAssertEqual(seen.withLock { $0 }, ["REPLACED"])
+        assertOutcomes(result, delivered: [testRunID("ORIGINAL")])
+        XCTAssertEqual(seen.withLock { $0 }, [testRunID("REPLACED")])
     }
 
     func test_durations_areNonNegative() async throws {
@@ -305,22 +306,22 @@ final class RunSummarySendTests: XCTestCase {
         try writeSummary(runID: "HELD", startNs: 100)
         try writeSummary(runID: "FREE", startNs: 200)
 
-        let claims = SendClaims<String>()
-        XCTAssertTrue(claims.claim("HELD"))
+        let claims = SendClaims<RunSummary.ID>()
+        XCTAssertTrue(claims.claim(testRunID("HELD")))
 
         let result = try await send(claims: claims)
-        assertOutcomes(result, delivered: ["FREE"])
+        assertOutcomes(result, delivered: [testRunID("FREE")])
         XCTAssertEqual(summaryFileCount, 1)
 
-        claims.release("HELD")
+        claims.release(testRunID("HELD"))
         let second = try await send(claims: claims)
-        XCTAssertEqual(second.delivered, ["HELD"])
+        XCTAssertEqual(second.delivered, [testRunID("HELD")])
     }
 
     func test_reentrantSendFromAStage_returnsEmptyWithoutDeadlock() async throws {
         try writeSummary(runID: "OUTER", startNs: 100)
 
-        let claims = SendClaims<String>()
+        let claims = SendClaims<RunSummary.ID>()
         let counter = reclaimCount
         let runsDirectory = runsDirectory!
         let sidecarsDirectory = sidecarsDirectory!
@@ -339,16 +340,16 @@ final class RunSummarySendTests: XCTestCase {
         }
 
         let result = try await send(pipeline: [.init(reentrant)], claims: claims)
-        XCTAssertEqual(result.delivered, ["OUTER"])
+        XCTAssertEqual(result.delivered, [testRunID("OUTER")])
     }
 
     func test_concurrentSends_partitionWithoutDuplicates() async throws {
-        let runIDs = (0..<6).map { "RUN\($0)" }
+        let runIDs = (0..<6).map { testRunID("RUN\($0)") }
         for (index, runID) in runIDs.enumerated() {
-            try writeSummary(runID: runID, startNs: UInt64(100 + index))
+            try writeSummary(runID: runID.description, startNs: UInt64(100 + index))
         }
 
-        let claims = SendClaims<String>()
+        let claims = SendClaims<RunSummary.ID>()
         let slow = ClosureStage<RunSummary> { summary in
             try await Task.sleep(nanoseconds: 5_000_000)
             return summary
@@ -359,7 +360,7 @@ final class RunSummarySendTests: XCTestCase {
         let (a, b) = try await (first, second)
 
         // Between them every run is delivered exactly once.
-        XCTAssertEqual((a.delivered + b.delivered).sorted(), runIDs.sorted())
+        XCTAssertEqual(Set(a.delivered + b.delivered), Set(runIDs))
         XCTAssertTrue(Set(a.delivered).isDisjoint(with: b.delivered))
         XCTAssertEqual(summaryFileCount, 0)
     }
@@ -372,9 +373,9 @@ final class RunSummarySendTests: XCTestCase {
 
         let result = try await RunSummarySend.send(
             store: makeStore(), pipeline: [passThrough()],
-            only: ["WANTED", "UNKNOWN"], claims: SendClaims())
+            only: [testRunID("WANTED"), testRunID("UNKNOWN")], claims: SendClaims())
 
-        assertOutcomes(result, delivered: ["WANTED"])
+        assertOutcomes(result, delivered: [testRunID("WANTED")])
         XCTAssertEqual(summaryFileCount, 1)
     }
 
@@ -394,19 +395,19 @@ final class RunSummarySendTests: XCTestCase {
         try writeSummary(runID: "OK", startNs: 100)
 
         let failOnce = ClosureStage<RunSummary> { summary in
-            if summary.runID == "FLAKY" {
+            if summary.id == testRunID("FLAKY") {
                 throw StageError()
             }
             return summary
         }
         let first = try await send(pipeline: [.init(failOnce)])
-        assertOutcomes(first, delivered: ["OK"], kept: ["FLAKY"])
+        assertOutcomes(first, delivered: [testRunID("OK")], kept: [testRunID("FLAKY")])
 
         // The retry call site: resend exactly what the last send kept.
         let retry = try await RunSummarySend.send(
             store: makeStore(), pipeline: [passThrough()],
             only: Set(first.kept), claims: SendClaims())
-        assertOutcomes(retry, delivered: ["FLAKY"])
+        assertOutcomes(retry, delivered: [testRunID("FLAKY")])
         XCTAssertEqual(summaryFileCount, 0)
     }
 
@@ -421,7 +422,7 @@ final class RunSummarySendTests: XCTestCase {
             store: makeStore(maxRunCount: 2), pipeline: [passThrough()], claims: SendClaims())
 
         // The beyond-cap run is pruned before the listing: not an item, file gone.
-        assertOutcomes(result, delivered: ["NEW", "MID"])
+        assertOutcomes(result, delivered: [testRunID("NEW"), testRunID("MID")])
         XCTAssertEqual(summaryFileCount, 0)
     }
 
@@ -432,11 +433,11 @@ final class RunSummarySendTests: XCTestCase {
 
         let result = try await RunSummarySend.send(
             store: makeStore(maxRunCount: 1), pipeline: [passThrough()],
-            only: ["OLDEST"], claims: SendClaims())
+            only: [testRunID("OLDEST")], claims: SendClaims())
 
         // A selective send touches only what it names: the beyond-cap named
         // run is delivered, and the unselected runs' files stay on disk.
-        assertOutcomes(result, delivered: ["OLDEST"])
+        assertOutcomes(result, delivered: [testRunID("OLDEST")])
         XCTAssertEqual(summaryFileCount, 2)
     }
 
@@ -458,7 +459,7 @@ final class RunSummarySendTests: XCTestCase {
                 claims: SendClaims())
         }.value
 
-        assertOutcomes(result, delivered: ["FIRST"])
+        assertOutcomes(result, delivered: [testRunID("FIRST")])
         XCTAssertEqual(summaryFileCount, 1)
         XCTAssertEqual(reclaimCount.value, 1)
     }

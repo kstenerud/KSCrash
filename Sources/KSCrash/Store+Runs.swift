@@ -86,7 +86,9 @@ extension Store {
         do {
             return try JSONDecoder().decode(RunSummary.self, from: data)
         } catch {
-            os_log(.error, "Undecodable run summary %{public}@: %{public}@", run.runID, String(describing: error))
+            os_log(
+                .error, "Undecodable run summary %{public}@: %{public}@", run.runID.description,
+                String(describing: error))
             throw error
         }
     }
@@ -261,7 +263,7 @@ private func cArrayString<T>(_ array: inout T) -> String? {
 extension RunSummary {
     fileprivate func with(sessions: Sessions) -> RunSummary {
         RunSummary(
-            schemaVersion: schemaVersion, sdkVersion: sdkVersion, runID: runID, deviceID: deviceID,
+            schemaVersion: schemaVersion, sdkVersion: sdkVersion, id: id, deviceID: deviceID,
             userID: userID, startedAtMs: startedAtMs, endedAtMs: endedAtMs, isBeingDebugged: isBeingDebugged,
             outcome: outcome, durations: durations, sessions: sessions, app: app, os: os, device: device,
             metadata: metadata)
@@ -269,7 +271,7 @@ extension RunSummary {
 
     fileprivate func with(metadata: Metadata) -> RunSummary {
         RunSummary(
-            schemaVersion: schemaVersion, sdkVersion: sdkVersion, runID: runID, deviceID: deviceID,
+            schemaVersion: schemaVersion, sdkVersion: sdkVersion, id: id, deviceID: deviceID,
             userID: userID, startedAtMs: startedAtMs, endedAtMs: endedAtMs, isBeingDebugged: isBeingDebugged,
             outcome: outcome, durations: durations, sessions: sessions, app: app, os: os, device: device,
             metadata: metadata)
