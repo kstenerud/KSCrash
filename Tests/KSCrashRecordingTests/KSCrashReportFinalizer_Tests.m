@@ -26,7 +26,6 @@
 
 #import "FileBasedTestCase.h"
 
-#import "KSCrashInstallConfiguration.h"
 #import "KSCrashMonitor.h"
 #import "KSCrashReportFields.h"
 #import "KSCrashReportStoreC+Private.h"
@@ -114,7 +113,6 @@ static CFDictionaryRef noopStitchReport(CFDictionaryRef reportDict, __unused con
     NSString *reportsPath = [self.tempPath stringByAppendingPathComponent:name];
     NSString *sidecarsPath = [self.tempPath stringByAppendingPathComponent:@"Sidecars"];
     NSString *runSidecarsPath = [self.tempPath stringByAppendingPathComponent:@"RunSidecars"];
-    _storeConfig.appName = "testapp";
     _storeConfig.reportsPath = reportsPath.UTF8String;
     _storeConfig.reportSidecarsPath = sidecarsPath.UTF8String;
     _storeConfig.runSidecarsPath = runSidecarsPath.UTF8String;

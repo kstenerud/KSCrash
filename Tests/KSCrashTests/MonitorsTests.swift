@@ -1,7 +1,7 @@
 //
-//  KSCrashBasicMonitorPlugin.m
+//  MonitorsTests.swift
 //
-//  Created by Alexander Cohen on 2026-02-03.
+//  Created by Alexander Cohen on 2026-08-22.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,21 +24,31 @@
 // THE SOFTWARE.
 //
 
-#import "KSCrashMonitorPlugin.h"
+import KSCrashRecording
+import XCTest
 
-@implementation KSCrashBasicMonitorPlugin
+@testable import KSCrash
 
-- (instancetype)initWithAPI:(KSCrashMonitorAPI *)api
-{
-    if ((self = [super init])) {
-        _api = api;
+final class MonitorsTests: XCTestCase {
+    func test_defaultIsEveryDetectorButZombies() {
+        XCTAssertEqual(
+            Monitors.default, [.machExceptions, .signals, .cppExceptions, .nsExceptions, .terminations, .hangs])
+        XCTAssertFalse(Monitors.default.contains(.zombies))
+        XCTAssertEqual(Monitors.all, Monitors.default.union(.zombies))
     }
-    return self;
-}
 
-+ (instancetype)pluginWithAPI:(KSCrashMonitorAPI *)api
-{
-    return [[self alloc] initWithAPI:api];
-}
+    func test_mapsToTheCBits() {
+        XCTAssertEqual(Monitors.hangs.cValue, .hang)
+        XCTAssertEqual(Monitors.terminations.cValue, .termination)
+        XCTAssertEqual(Monitors.zombies.cValue, .zombie)
+        XCTAssertEqual(Monitors([]).cValue, [])
+        XCTAssertEqual(Monitors.default.cValue, .default)
+        XCTAssertEqual(Monitors.all.cValue, .all)
+    }
 
-@end
+    func test_setAlgebra() {
+        let set: Monitors = [.default, .zombies]
+        XCTAssertEqual(set, .all)
+        XCTAssertEqual(set.subtracting(.zombies), .default)
+    }
+}

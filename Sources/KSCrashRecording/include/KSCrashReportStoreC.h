@@ -44,6 +44,13 @@ extern "C" {
  */
 #define KSCRS_DEFAULT_REPORTS_FOLDER "Reports"
 
+/** The other store directories an install creates next to Reports. Shared with
+ *  the Swift install's Locations; change them together. */
+#define KSCRS_DEFAULT_REPORT_SIDECARS_FOLDER "Sidecars"
+#define KSCRS_DEFAULT_RUN_SIDECARS_FOLDER "RunSidecars"
+#define KSCRS_DEFAULT_RUNS_FOLDER "Runs"
+#define KSCRS_DEFAULT_DATA_FOLDER "Data"
+
 /** Report files are "<KSCRS_REPORT_NAME_DIGITS decimal digits of wall-clock
  *  nanoseconds>-<report id>.<KSCRS_REPORT_FILENAME_EXTENSION>". The digits
  *  carry the write order; the id (the report's UUID text, KSID_LENGTH

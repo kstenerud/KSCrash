@@ -26,7 +26,7 @@
 
 #import <XCTest/XCTest.h>
 
-#import "KSCrash.h"
+#import "KSCrashC.h"
 #import "KSCrashMonitor_UserInfo.h"
 #import "KSKeyValueStore.h"
 
@@ -91,7 +91,7 @@ static NSDictionary<NSString *, NSString *> *currentStringValues(void)
 
 - (void)test_setUserID_writesReservedKeyToUserInfoSidecar
 {
-    [KSCrash.sharedInstance setUserID:@"alice"];
+    kscrash_setUserID("alice");
 
     NSDictionary<NSString *, NSString *> *values = currentStringValues();
     XCTAssertEqualObjects(values[@"com.kscrash.userid"], @"alice");
@@ -99,8 +99,8 @@ static NSDictionary<NSString *, NSString *> *currentStringValues(void)
 
 - (void)test_setUserID_replacesPreviousValue
 {
-    [KSCrash.sharedInstance setUserID:@"alice"];
-    [KSCrash.sharedInstance setUserID:@"bob"];
+    kscrash_setUserID("alice");
+    kscrash_setUserID("bob");
 
     NSDictionary<NSString *, NSString *> *values = currentStringValues();
     XCTAssertEqualObjects(values[@"com.kscrash.userid"], @"bob");
@@ -108,8 +108,8 @@ static NSDictionary<NSString *, NSString *> *currentStringValues(void)
 
 - (void)test_setUserID_nilRemovesFromSidecar
 {
-    [KSCrash.sharedInstance setUserID:@"alice"];
-    [KSCrash.sharedInstance setUserID:nil];
+    kscrash_setUserID("alice");
+    kscrash_setUserID(NULL);
 
     NSDictionary<NSString *, NSString *> *values = currentStringValues();
     XCTAssertNil(values[@"com.kscrash.userid"], @"Passing nil must remove the key from the sidecar");

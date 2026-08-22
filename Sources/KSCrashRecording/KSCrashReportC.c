@@ -123,12 +123,6 @@ typedef struct {
     int restrictedClassesCount;
 } KSCrash_IntrospectionRules;
 
-/** User-provided JSON data to include in crash reports */
-static char *g_userInfoJSON = NULL;
-
-/** Spin lock protecting g_userInfoJSON */
-static KSSpinLock g_userInfoLock = KSSPINLOCK_INIT;
-
 static KSCrash_IntrospectionRules g_introspectionRules = { 0 };
 static KSCrashIsWritingReportCallback g_userSectionWriteCallback = NULL;
 static bool g_compactBinaryImages = false;
@@ -1775,39 +1769,15 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
             ksfu_flushBufferedWriter(&bufferedWriter);
         }
 
-        // Acquire lock to read userInfo (async-signal-safe bounded spin)
-        bool userInfoLocked = ks_spinlock_lock_bounded(&g_userInfoLock);
-
-        const int entryLevel = getJsonContext(writer)->containerLevel;
-        if (userInfoLocked && g_userInfoJSON != NULL) {
-            addJSONElement(writer, KSCrashField_User, g_userInfoJSON, false);
+        // The user section is the crash-time callback's to fill; the per-key
+        // user info is stitched in at delivery.
+        writer->beginObject(writer, KSCrashField_User);
+        if (g_userSectionWriteCallback != NULL) {
             ksfu_flushBufferedWriter(&bufferedWriter);
-        } else {
-            writer->beginObject(writer, KSCrashField_User);
+            KSCrash_ExceptionHandlingPlan plan = ksexc_monitorContextToPlan(monitorContext);
+            g_userSectionWriteCallback(&plan, writer);
         }
-
-        // Release the lock
-        if (userInfoLocked) {
-            ks_spinlock_unlock(&g_userInfoLock);
-        }
-
-        // What "user" turned out to be decides what happens here. An object, whether the
-        // payload's own or the error object standing in for a rejected one, takes the
-        // callback's fields and is closed. An array is closed unwritten, since array
-        // elements are nameless and the callback writes keyed fields. A scalar payload
-        // ("user":"...") opened nothing at all, so closing here would close the report
-        // root instead. Arrays and scalars are written as given, but the contract is an
-        // object: the typed Report does not decode any other shape, so such a report is
-        // kept undelivered by the send.
-        KSJSONEncodeContext *userJsonContext = getJsonContext(writer);
-        if (userJsonContext->containerLevel > entryLevel) {
-            if (g_userSectionWriteCallback != NULL && userJsonContext->isObject[userJsonContext->containerLevel]) {
-                ksfu_flushBufferedWriter(&bufferedWriter);
-                KSCrash_ExceptionHandlingPlan plan = ksexc_monitorContextToPlan(monitorContext);
-                g_userSectionWriteCallback(&plan, writer);
-            }
-            writer->endContainer(writer);
-        }
+        writer->endContainer(writer);
         ksfu_flushBufferedWriter(&bufferedWriter);
 
         writeDebugInfo(writer, KSCrashField_Debug, monitorContext);
@@ -1817,35 +1787,6 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
     ksjson_endEncode(getJsonContext(writer));
     ksfu_closeBufferedWriter(&bufferedWriter);
     kstc_unfreeze();
-}
-
-void kscrashreport_setUserInfoJSON(const char *const userInfoJSON)
-{
-    KSLOG_TRACE("Setting userInfoJSON to %p", userInfoJSON);
-
-    // Acquire lock
-    ks_spinlock_lock(&g_userInfoLock);
-
-    // Update the JSON
-    free(g_userInfoJSON);
-    g_userInfoJSON = (userInfoJSON != NULL) ? strdup(userInfoJSON) : NULL;
-
-    // Release lock
-    ks_spinlock_unlock(&g_userInfoLock);
-}
-
-const char *kscrashreport_getUserInfoJSON(void)
-{
-    // Acquire lock
-    ks_spinlock_lock(&g_userInfoLock);
-
-    // Copy the value
-    const char *copy = (g_userInfoJSON != NULL) ? strdup(g_userInfoJSON) : NULL;
-
-    // Release lock
-    ks_spinlock_unlock(&g_userInfoLock);
-
-    return copy;
 }
 
 void kscrashreport_setIntrospectMemory(bool shouldIntrospectMemory)

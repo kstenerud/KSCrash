@@ -45,11 +45,12 @@ import os.log
 
         /// Writes JSON data to Documents/<namespace>/MetricKit/<type>/<type>_<runId>_<uuid>.json
         static func dump(_ data: Data, type: String) {
-            guard let baseURL = KSCrash.documentsURL else {
+            guard let path = kscrash_documentsPath() else {
                 os_log(.error, log: metricKitLog, "[MONITORS] Could not resolve documents directory")
                 return
             }
 
+            let baseURL = URL(fileURLWithPath: String(cString: path), isDirectory: true)
             let dirURL = baseURL.appendingPathComponent("MetricKit/\(type)", isDirectory: true)
             do {
                 try FileManager.default.createDirectory(at: dirURL, withIntermediateDirectories: true)

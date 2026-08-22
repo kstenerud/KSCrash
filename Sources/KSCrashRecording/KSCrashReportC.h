@@ -45,24 +45,6 @@ extern "C" {
 #pragma mark - Configuration -
 // ============================================================================
 
-/** Set custom user information to be stored in the report.
- *
- * This function is thread-safe.
- *
- * @param userInfoJSON The user information, in JSON format.
- */
-void kscrashreport_setUserInfoJSON(const char *const userInfoJSON);
-
-/** Get a copy of the custom user information stored in the report.
- *
- * This function is thread-safe.
- *
- * @return A JSON string representing the user information,
- *         or NULL if no information is set.
- *         The caller is responsible for freeing the returned string.
- */
-const char *kscrashreport_getUserInfoJSON(void);
-
 /** Configure whether to introspect any interesting memory locations.
  *  This can find things like strings or Objective-C classes.
  *
