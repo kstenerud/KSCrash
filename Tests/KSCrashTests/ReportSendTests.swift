@@ -68,7 +68,8 @@ final class ReportSendTests: XCTestCase {
     private var runsDirectory: URL { reportsDirectory.appendingPathComponent("Runs") }
 
     private func makeStore(
-        liveRunID: String? = "LIVE", listFails: Bool = false, undecodable: Set<ReportID> = []
+        liveRunID: String? = "LIVE", listFails: Bool = false, undecodable: Set<ReportID> = [],
+        peekBlind: Bool = false
     ) -> Store {
         let directory = reportsDirectory!
         let counter = reclaimCount
@@ -88,7 +89,8 @@ final class ReportSendTests: XCTestCase {
                     return try? Data(contentsOf: directory.appendingPathComponent("\($0).json"))
                 },
                 runID: { id in
-                    guard let data = try? Data(contentsOf: directory.appendingPathComponent("\(id).json")),
+                    guard !peekBlind,
+                        let data = try? Data(contentsOf: directory.appendingPathComponent("\(id).json")),
                         let report = try? JSONDecoder().decode(Report.self, from: data)
                     else { return nil }
                     return report.report.runId
@@ -105,10 +107,12 @@ final class ReportSendTests: XCTestCase {
         liveRunID: String? = "LIVE",
         listFails: Bool = false,
         undecodable: Set<ReportID> = [],
+        peekBlind: Bool = false,
         claims: SendClaims<ReportID> = SendClaims()
     ) async throws -> SendResult<Report> {
         try await ReportSend.send(
-            store: makeStore(liveRunID: liveRunID, listFails: listFails, undecodable: undecodable),
+            store: makeStore(
+                liveRunID: liveRunID, listFails: listFails, undecodable: undecodable, peekBlind: peekBlind),
             pipeline: pipeline,
             only: selection,
             claims: claims)
@@ -247,6 +251,17 @@ final class ReportSendTests: XCTestCase {
         let named = try await send(only: [2])
         assertOutcomes(named, delivered: [2])
         XCTAssertEqual(reportFileCount, 0)
+    }
+
+    /// A report torn at peek time (no readable run id yet) can finish
+    /// writing before the full read: the decoded run is the authoritative
+    /// check, so the live-run report is still skipped, not delivered.
+    func test_send_currentRunReport_skippedInBulk_evenWhenThePeekIsBlind() async throws {
+        try writeReport(id: 1, runID: "LIVE")
+
+        let result = try await send(peekBlind: true)
+        XCTAssertTrue(result.items.isEmpty)
+        XCTAssertEqual(reportFileCount, 1)
     }
 
     func test_send_only_unknownIDsMatchNothing_emptySendsNothing() async throws {

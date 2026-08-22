@@ -48,14 +48,23 @@ enum ReportSend {
                 read: { store, id in
                     // A current-run report may still be updated (an
                     // unresolved watchdog hang, for example), so the bulk
-                    // send skips it, decided from the report file alone so
-                    // nothing of the live run is read or stitched; an id
-                    // named explicitly in the selection is a deliberate
-                    // choice and is always sent.
+                    // send skips it; an id named explicitly in the selection
+                    // is a deliberate choice and is always sent. The peek
+                    // decides from the report file alone, so the common case
+                    // never reads or stitches the live run.
                     if selection == nil, let live = store.liveRunID, store.runID(of: id) == live {
                         return nil
                     }
-                    return try store.report(id)
+                    guard let report = try store.report(id) else {
+                        return nil
+                    }
+                    // The decoded run is re-checked because a report torn at
+                    // peek time (no readable run_id yet) can finish writing
+                    // before the full read.
+                    if selection == nil, let live = store.liveRunID, report.report.runId == live {
+                        return nil
+                    }
+                    return report
                 },
                 remove: { try $0.removeReport($1) }
             ),
