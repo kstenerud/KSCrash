@@ -128,8 +128,20 @@ static int getReportCount(const KSCrashReportStoreCConfiguration *const config)
         return -1;
     }
     int count = 0;
-    struct dirent *ent;
-    while ((ent = readdir(dir)) != NULL) {
+    for (;;) {
+        errno = 0;
+        struct dirent *ent = readdir(dir);
+        if (ent == NULL) {
+            // readdir returns NULL for both end-of-directory and error; a
+            // nonzero errno means a real failure, and a partial count must
+            // not read as success.
+            if (errno != 0) {
+                KSLOG_ERROR(@"Could not enumerate directory %s", config->reportsPath);
+                closedir(dir);
+                return -1;
+            }
+            break;
+        }
         if (getReportIDFromFilename(ent->d_name, config) > 0) {
             count++;
         }
@@ -151,8 +163,19 @@ static int getReportIDs(int64_t *reportIDs, int count, const KSCrashReportStoreC
     }
 
     int index = 0;
-    struct dirent *ent;
-    while ((ent = readdir(dir)) != NULL && index < count) {
+    while (index < count) {
+        errno = 0;
+        struct dirent *ent = readdir(dir);
+        if (ent == NULL) {
+            // Same contract as getReportCount: a readdir failure must not
+            // pass a partial listing off as complete.
+            if (errno != 0) {
+                KSLOG_ERROR(@"Could not enumerate directory %s", config->reportsPath);
+                closedir(dir);
+                return -1;
+            }
+            break;
+        }
         int64_t reportID = getReportIDFromFilename(ent->d_name, config);
         if (reportID > 0) {
             reportIDs[index++] = reportID;
