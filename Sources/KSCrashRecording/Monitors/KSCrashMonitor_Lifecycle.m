@@ -31,6 +31,7 @@
 #import "KSCrashHang.h"
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitorHelper.h"
+#import "KSCrashReportStoreC.h"
 #import "KSCrashRunContext.h"
 #import "KSDate.h"
 #import "KSFileUtils.h"
@@ -197,7 +198,8 @@ static KSSessionWriter *ensureSessionWriterLocked(void)
     if (g_sessionWriter == NULL) {
         char path[KSFU_MAX_PATH_LENGTH];
         if (g_callbacks.getSummarySidecarPath != NULL &&
-            g_callbacks.getSummarySidecarPath(kscrash_getRunID(), "sessions", path, sizeof(path)) &&
+            g_callbacks.getSummarySidecarPath(kscrash_getRunID(), KSCRS_SESSIONS_FILENAME_EXTENSION, path,
+                                              sizeof(path)) &&
             makeParentDirectory(path)) {
             g_sessionWriter = kssw_open(path);
         }
@@ -247,7 +249,7 @@ bool kslifecycle_copyLastSessionIDForRunID(const char *runID, char *buf, size_t 
         return false;
     }
     char path[KSFU_MAX_PATH_LENGTH];
-    if (!g_callbacks.getSummarySidecarPath(runID, "sessions", path, sizeof(path))) {
+    if (!g_callbacks.getSummarySidecarPath(runID, KSCRS_SESSIONS_FILENAME_EXTENSION, path, sizeof(path))) {
         return false;
     }
     // The live run's file may be mid-append (finalize-time stitches read it

@@ -160,7 +160,7 @@ struct Store: Sendable {
         for name in entries {
             let url = runsDirectory.appendingPathComponent(name)
             switch (name as NSString).pathExtension.lowercased() {
-            case "run":
+            case KSCRS_RUN_SUMMARY_FILENAME_EXTENSION:
                 // A `.run` file's grouping key (its runID) lives inside the
                 // JSON, so each file is read here transiently, decoding only
                 // the identity fields; the full summary is decoded per item
@@ -202,7 +202,7 @@ struct Store: Sendable {
                     group.summary = (orderNs, url)
                 }
                 groups[identity.runID] = group
-            case "sessions":
+            case KSCRS_SESSIONS_FILENAME_EXTENSION:
                 // `.sessions` filenames are `<runID>.sessions`, so the name
                 // alone keys the file; nothing needs to be read.
                 let runID = (name as NSString).deletingPathExtension
