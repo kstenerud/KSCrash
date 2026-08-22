@@ -510,7 +510,7 @@ static void reclaimOrphanedRunData(const KSCrashReportStoreCConfiguration *const
         if (config->runSummariesPath != NULL) {
             NSString *dir = @(config->runSummariesPath);
             for (NSString *entry in [fm contentsOfDirectoryAtPath:dir error:nil]) {
-                if (![entry.pathExtension.lowercaseString isEqualToString:@"sessions"]) {
+                if (![entry.pathExtension.lowercaseString isEqualToString:@KSCRS_SESSIONS_FILENAME_EXTENSION]) {
                     continue;
                 }
                 if (![refs containsObject:entry.stringByDeletingPathExtension]) {

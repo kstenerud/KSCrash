@@ -58,6 +58,11 @@ extern "C" {
 #define KSCRS_RUN_SUMMARY_FILENAME_DIGITS 19
 #define KSCRS_RUN_SUMMARY_FILENAME_EXTENSION "run"
 
+/** A run's session log is "<runID>.sessions". Shared by the Lifecycle
+ *  monitor's writer and reader, the reclaim, and the Swift store's grouping;
+ *  change them together. */
+#define KSCRS_SESSIONS_FILENAME_EXTENSION "sessions"
+
 /** Initialize the report store.
  *
  * @param configuration The store configuretion (e.g. reports path, app name etc).
