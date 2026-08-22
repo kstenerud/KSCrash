@@ -51,7 +51,7 @@ final class ReportSendTests: XCTestCase {
     private func writeReport(id: ReportID, runID: String = "DEAD") throws {
         let report = Report(
             crash: .init(error: CrashError(type: .signal)),
-            report: .init(id: "report-\(id)", runId: runID)
+            report: .init(id: "report-\(id)", runId: testRunID(runID))
         )
         try JSONEncoder().encode(report).write(to: reportURL(id))
     }
@@ -68,7 +68,7 @@ final class ReportSendTests: XCTestCase {
     private var runsDirectory: URL { reportsDirectory.appendingPathComponent("Runs") }
 
     private func makeStore(
-        liveRunID: String? = "LIVE", listFails: Bool = false, undecodable: Set<ReportID> = [],
+        liveRunID: RunSummary.ID? = testRunID("LIVE"), listFails: Bool = false, undecodable: Set<ReportID> = [],
         peekBlind: Bool = false
     ) -> Store {
         let directory = reportsDirectory!
@@ -104,7 +104,7 @@ final class ReportSendTests: XCTestCase {
     private func send(
         pipeline: [AnyPipelineStage<Report>] = [.init(ClosureStage { $0 })],
         only selection: Set<ReportID>? = nil,
-        liveRunID: String? = "LIVE",
+        liveRunID: RunSummary.ID? = testRunID("LIVE"),
         listFails: Bool = false,
         undecodable: Set<ReportID> = [],
         peekBlind: Bool = false,

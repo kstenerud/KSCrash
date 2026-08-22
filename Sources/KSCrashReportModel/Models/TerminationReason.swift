@@ -88,6 +88,18 @@ public enum TerminationReason: RawRepresentable, Codable, Sendable, Equatable {
         }
     }
 
+    /// Whether the run ended in something KSCrash reports: a crash, a hang,
+    /// or a resource kill. False for clean exits, benign system kills
+    /// (upgrades, reboots), and the non-terminations.
+    public var isAbnormal: Bool {
+        switch self {
+        case .crash, .hang, .lowBattery, .memoryLimit, .memoryPressure, .thermal, .cpu, .unexplained:
+            return true
+        case .none, .clean, .firstLaunch, .osUpgrade, .appUpgrade, .reboot, .unknown:
+            return false
+        }
+    }
+
     public var isUnknown: Bool {
         if case .unknown = self { return true }
         return false

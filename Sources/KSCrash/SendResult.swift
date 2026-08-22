@@ -28,7 +28,7 @@ import Foundation
 import KSCrashReportModel
 
 /// A payload kind the store holds and a send walks, with the identity the
-/// store keys it by: `ReportID` for reports, the run id for run summaries.
+/// store keys it by: `ReportID` for reports, `RunSummary.ID` for run summaries.
 /// The selective sends take these ids back.
 public protocol SendPayload: PipelineValue {
     associatedtype ID: Hashable & Sendable
@@ -38,9 +38,7 @@ extension Report: SendPayload {
     public typealias ID = ReportID
 }
 
-extension RunSummary: SendPayload {
-    public typealias ID = String
-}
+extension RunSummary: SendPayload {}
 
 /// The per-item outcomes of one send, in processing order. Items being
 /// processed by a concurrent send are not part of this send and do not appear.

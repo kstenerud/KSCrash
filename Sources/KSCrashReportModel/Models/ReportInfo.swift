@@ -70,7 +70,7 @@ public struct ReportInfo: Codable, Sendable, Equatable {
     public let version: ReportVersion?
 
     /// The run ID of the process that generated this report.
-    public let runId: String?
+    public let runId: RunSummary.ID?
 
     /// The id of the latest session recorded when this report was finalized.
     public let sessionId: String?
@@ -87,7 +87,7 @@ public struct ReportInfo: Codable, Sendable, Equatable {
         timestamp: Date? = nil,
         type: ReportType? = nil,
         version: ReportVersion? = nil,
-        runId: String? = nil,
+        runId: RunSummary.ID? = nil,
         sessionId: String? = nil,
         monitorId: String? = nil,
         finalized: Bool? = nil
@@ -121,7 +121,7 @@ public struct ReportInfo: Codable, Sendable, Equatable {
         self.processName = try container.decodeIfPresent(String.self, forKey: .processName)
         self.type = try container.decodeIfPresent(ReportType.self, forKey: .type)
         self.version = try container.decodeIfPresent(ReportVersion.self, forKey: .version)
-        self.runId = try container.decodeIfPresent(String.self, forKey: .runId)
+        self.runId = try container.decodeIfPresent(RunSummary.ID.self, forKey: .runId)
         self.sessionId = try container.decodeIfPresent(String.self, forKey: .sessionId)
         self.monitorId = try container.decodeIfPresent(String.self, forKey: .monitorId)
         self.finalized = try container.decodeIfPresent(Bool.self, forKey: .finalized)
