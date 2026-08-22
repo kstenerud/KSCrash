@@ -58,6 +58,10 @@ struct Store: Sendable {
     /// The current process run, excluded from every snapshot.
     let liveRunID: String?
 
+    /// The install-resolved `.run` retention cap the bulk sends enforce
+    /// through `pruneRunSummaries(keepingNewest:)`.
+    let maxRunCount: Int
+
     private let reports: ReportBridge
     private let reclaim: @Sendable () -> Void
 
@@ -67,12 +71,14 @@ struct Store: Sendable {
         runsDirectory: URL,
         runSidecarsDirectory: URL,
         liveRunID: String?,
+        maxRunCount: Int,
         reportStore: CrashReportStore
     ) {
         self.init(
             runsDirectory: runsDirectory,
             runSidecarsDirectory: runSidecarsDirectory,
             liveRunID: liveRunID,
+            maxRunCount: maxRunCount,
             reports: ReportBridge(
                 list: { try reportStore.listReportIDs().map(\.int64Value) },
                 read: { id in
@@ -98,12 +104,14 @@ struct Store: Sendable {
         runsDirectory: URL,
         runSidecarsDirectory: URL,
         liveRunID: String?,
+        maxRunCount: Int = 0,
         reports: ReportBridge = .none,
         reclaim: @escaping @Sendable () -> Void = {}
     ) {
         self.runsDirectory = runsDirectory
         self.runSidecarsDirectory = runSidecarsDirectory
         self.liveRunID = liveRunID
+        self.maxRunCount = maxRunCount
         self.reports = reports
         self.reclaim = reclaim
     }

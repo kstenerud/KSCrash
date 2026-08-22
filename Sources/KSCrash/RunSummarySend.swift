@@ -36,7 +36,6 @@ enum RunSummarySend {
     static func send(
         store: Store?,
         pipeline: [AnyPipelineStage<RunSummary>],
-        maxRunCount: Int,
         only selection: Set<String>? = nil,
         claims: SendClaims<String> = RunSummarySend.claims
     ) async throws -> SendResult<RunSummary> {
@@ -52,7 +51,6 @@ enum RunSummarySend {
                 remove: { try $0.removeSummary(of: $1) }
             ),
             pipeline: pipeline,
-            maxRunCount: maxRunCount,
             only: selection,
             claims: claims
         )
