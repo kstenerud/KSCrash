@@ -48,6 +48,7 @@
 #define KSJSON_STOP 999
 
 typedef struct {
+    const char *field;  // the report-section key to extract ("run_id" or "id")
     char *runIdOut;
     size_t runIdOutLen;
     bool inReport;  // true while inside the top-level "report" object
@@ -59,7 +60,7 @@ typedef struct {
 static int onRunIdString(const char *name, const char *value, void *userData)
 {
     RunIdSearchContext *ctx = (RunIdSearchContext *)userData;
-    if (ctx->inReport && ctx->nesting == 0 && name != NULL && strcmp(name, "run_id") == 0) {
+    if (ctx->inReport && ctx->nesting == 0 && name != NULL && strcmp(name, ctx->field) == 0) {
         size_t len = strlen(value);
         if (len == KSCRS_UUID_STRING_LENGTH && len < ctx->runIdOutLen) {
             uuid_t unused;
@@ -130,7 +131,8 @@ static int onIgnore(__unused void *u) { return KSJSON_OK; }
  *  Only called when the streaming decoder fails (e.g. oversized key/string
  *  trips KSJSON_ERROR_DATA_TOO_LONG before run_id is reached).
  */
-static bool extractRunIdWithFullDecode(const char *rawReport, int length, char *runIdOut, __unused size_t runIdOutLen)
+static bool extractRunIdWithFullDecode(const char *rawReport, int length, const char *field, char *runIdOut,
+                                       __unused size_t runIdOutLen)
 {
     @autoreleasepool {
         NSData *data = [NSData dataWithBytesNoCopy:(void *)rawReport length:(NSUInteger)length freeWhenDone:NO];
@@ -146,7 +148,7 @@ static bool extractRunIdWithFullDecode(const char *rawReport, int length, char *
         if (![reportSection isKindOfClass:[NSDictionary class]]) {
             return false;
         }
-        NSString *runId = reportSection[KSCrashField_RunID];
+        NSString *runId = reportSection[@(field)];
         if (![runId isKindOfClass:[NSString class]] || runId.length != KSCRS_UUID_STRING_LENGTH) {
             return false;
         }
@@ -161,24 +163,37 @@ static bool extractRunIdWithFullDecode(const char *rawReport, int length, char *
     }
 }
 
-KSCrashRunIdResult kscrs_extractRunIdFromReportFile(const char *reportPath, char *runIdOut, size_t runIdOutLen)
+static KSCrashRunIdResult extractReportFieldFromBytes(const char *rawReport, int length, const char *field,
+                                                      char *runIdOut, size_t runIdOutLen);
+
+static KSCrashRunIdResult extractReportField(const char *reportPath, const char *field, char *runIdOut,
+                                             size_t runIdOutLen)
 {
     if (reportPath == NULL || runIdOut == NULL || runIdOutLen <= KSCRS_UUID_STRING_LENGTH) {
         return KSCrashRunIdResultReadError;
     }
-
     char *rawReport = NULL;
     int length = 0;
     ksfu_readEntireFile(reportPath, &rawReport, &length, KSCRS_MAX_REPORT_SIZE);
     if (rawReport == NULL) {
         return KSCrashRunIdResultReadError;
     }
+    KSCrashRunIdResult result = extractReportFieldFromBytes(rawReport, length, field, runIdOut, runIdOutLen);
+    free(rawReport);
+    return result;
+}
 
+static KSCrashRunIdResult extractReportFieldFromBytes(const char *rawReport, int length, const char *field,
+                                                      char *runIdOut, size_t runIdOutLen)
+{
+    if (rawReport == NULL || runIdOut == NULL || runIdOutLen <= KSCRS_UUID_STRING_LENGTH) {
+        return KSCrashRunIdResultReadError;
+    }
     RunIdSearchContext ctx = {
+        .field = field,
         .runIdOut = runIdOut,
         .runIdOutLen = runIdOutLen,
     };
-
     char stringBuffer[4096];
     KSJSONDecodeCallbacks callbacks = {
         .onBooleanElement = onIgnoreBool,
@@ -193,21 +208,27 @@ KSCrashRunIdResult kscrs_extractRunIdFromReportFile(const char *reportPath, char
         .onEndData = onIgnore,
     };
     int result = ksjson_decode(rawReport, length, stringBuffer, sizeof(stringBuffer), &callbacks, &ctx, NULL);
-
     if (ctx.found) {
-        free(rawReport);
         return KSCrashRunIdResultFound;
     }
-
-    // If the streaming decoder failed because a key or string exceeded the
-    // scratch buffer, fall back to a full ObjC decode. This handles valid
-    // reports with oversized keys/values before report.run_id.
     if (result == KSJSON_ERROR_DATA_TOO_LONG) {
-        bool found = extractRunIdWithFullDecode(rawReport, length, runIdOut, runIdOutLen);
-        free(rawReport);
-        return found ? KSCrashRunIdResultFound : KSCrashRunIdResultAbsent;
+        return extractRunIdWithFullDecode(rawReport, length, field, runIdOut, runIdOutLen) ? KSCrashRunIdResultFound
+                                                                                           : KSCrashRunIdResultAbsent;
     }
-
-    free(rawReport);
     return KSCrashRunIdResultAbsent;
+}
+
+KSCrashRunIdResult kscrs_extractRunIdFromReportFile(const char *reportPath, char *runIdOut, size_t runIdOutLen)
+{
+    return extractReportField(reportPath, "run_id", runIdOut, runIdOutLen);
+}
+
+KSCrashRunIdResult kscrs_extractReportIdFromReportFile(const char *reportPath, char *idOut, size_t idOutLen)
+{
+    return extractReportField(reportPath, "id", idOut, idOutLen);
+}
+
+KSCrashRunIdResult kscrs_extractReportIdFromReportBytes(const char *report, int length, char *idOut, size_t idOutLen)
+{
+    return extractReportFieldFromBytes(report, length, "id", idOut, idOutLen);
 }

@@ -327,7 +327,7 @@ static void populateReportForCurrentHang(KSHangMonitor *monitor)
     // same hang before attaching the report path and sidecar.
     os_unfair_lock_lock(&monitor->lock);
     if (monitor->hang.active && monitor->hang.timestamp == hang.timestamp) {
-        monitor->hang.reportId = result.reportId;
+        strlcpy(monitor->hang.reportId, result.reportId, sizeof(monitor->hang.reportId));
         if (strlcpy(monitor->hang.path, result.path, PATH_MAX) >= PATH_MAX) {
             KSLOG_ERROR("Report path too long, discarding hang report");
         } else {
@@ -347,7 +347,7 @@ static void populateReportForCurrentHang(KSHangMonitor *monitor)
     }
     os_unfair_lock_unlock(&monitor->lock);
 
-    KSLOG_INFO("Hang started (reportID: %" PRIx64 ")", result.reportId);
+    KSLOG_INFO("Hang started (reportID: %s)", result.reportId);
 
     notifyObservers(monitor, KSHangChangeTypeStarted, hang.timestamp, hang.endTimestamp);
 }
@@ -400,8 +400,7 @@ static void finalizeResolvedHang(KSHangMonitor *monitor, KSHangState hang)
             // the purpose. It would also race with report deletion (the
             // background write-back could resurrect a deleted report).
             if (!kscrs_finalizeReport(hang.path, hang.reportId)) {
-                KSLOG_ERROR("Failed to finalize hang report %" PRIx64 ", deleting to prevent stale stitching",
-                            hang.reportId);
+                KSLOG_ERROR("Failed to finalize hang report %s, deleting to prevent stale stitching", hang.reportId);
                 unlink(hang.path);
             }
 
@@ -423,7 +422,7 @@ static void finalizeResolvedHang(KSHangMonitor *monitor, KSHangState hang)
         sidecar_delete(monitor);
     }
 
-    KSLOG_INFO("Hang ended (reportID: %" PRIx64 ", duration: %.3f s)", hang.reportId,
+    KSLOG_INFO("Hang ended (reportID: %s, duration: %.3f s)", hang.reportId,
                (double)(hang.endTimestamp - hang.timestamp) / 1e9);
 
     notifyObservers(monitor, KSHangChangeTypeEnded, hang.timestamp, hang.endTimestamp);

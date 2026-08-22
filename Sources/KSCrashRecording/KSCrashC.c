@@ -114,7 +114,6 @@ static KSCrashReportStoreCConfiguration g_reportStoreConfig;
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 static KSReportWriteCallback g_legacyCrashNotifyCallback;
-static KSReportWrittenCallback g_legacyReportWrittenCallback;
 #pragma clang diagnostic pop
 static KSCrashWillWriteReportCallback g_willWriteReportCallback;
 static KSCrashIsWritingReportCallback g_isWritingReportCallback;
@@ -222,20 +221,6 @@ static void legacyCrashNotifyCallbackAdapter(__unused const KSCrash_ExceptionHan
     }
 }
 
-/** Adapter function that bridges legacy report written callback to new signature.
- * This allows old callbacks without plan awareness to be used with the new system.
- */
-static void legacyReportWrittenCallbackAdapter(__unused const KSCrash_ExceptionHandlingPlan *const plan,
-                                               int64_t reportID)
-{
-    if (g_legacyReportWrittenCallback) {
-        KSLOG_WARN(
-            "Using deprecated report written callback without plan awareness. "
-            "Consider upgrading to didWriteReportCallback.");
-        g_legacyReportWrittenCallback(reportID);
-    }
-}
-
 // ============================================================================
 #pragma mark - Callbacks -
 // ============================================================================
@@ -271,19 +256,18 @@ static void onExceptionEvent(struct KSCrash_MonitorContext *monitorContext, KSCr
             strlcpy(result->path, monitorContext->reportPath, sizeof(result->path));
         }
     } else {
+        // The event id minted with the context is the report's identity.
         char crashReportFilePath[KSFU_MAX_PATH_LENGTH];
-        int64_t reportID = kscrs_getNextCrashReport(crashReportFilePath, &g_reportStoreConfig);
+        kscrs_getNextCrashReport(monitorContext->eventID, crashReportFilePath, &g_reportStoreConfig);
         strlcpy(g_lastCrashReportFilePath, crashReportFilePath, sizeof(g_lastCrashReportFilePath));
         kscrashreport_writeStandardReport(monitorContext, crashReportFilePath);
-
         if (result) {
-            result->reportId = reportID;
+            strlcpy(result->reportId, monitorContext->eventID, sizeof(result->reportId));
             strlcpy(result->path, g_lastCrashReportFilePath, sizeof(result->path));
         }
-
         if (g_didWriteReportCallback != NULL) {
             KSCrash_ExceptionHandlingPlan plan = ksexc_monitorContextToPlan(monitorContext);
-            g_didWriteReportCallback(&plan, reportID);
+            g_didWriteReportCallback(&plan, monitorContext->eventID);
         }
     }
 }
@@ -352,7 +336,6 @@ static void handleConfiguration(KSCrashCConfiguration *configuration)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
     g_legacyCrashNotifyCallback = configuration->crashNotifyCallback;
-    g_legacyReportWrittenCallback = configuration->reportWrittenCallback;
 #pragma clang diagnostic pop
 
     if (configuration->isWritingReportCallback) {
@@ -363,13 +346,7 @@ static void handleConfiguration(KSCrashCConfiguration *configuration)
         g_isWritingReportCallback = NULL;
     }
 
-    if (configuration->didWriteReportCallback) {
-        g_didWriteReportCallback = configuration->didWriteReportCallback;
-    } else if (g_legacyReportWrittenCallback) {
-        g_didWriteReportCallback = legacyReportWrittenCallbackAdapter;
-    } else {
-        g_didWriteReportCallback = NULL;
-    }
+    g_didWriteReportCallback = configuration->didWriteReportCallback;
 
     kscrashreport_setIsWritingReportCallback(g_isWritingReportCallback);
     kscm_watchdog_setReportsHangs(configuration->enableHangReporting);
@@ -391,7 +368,7 @@ static bool getReportSidecarFilePathCallback(const char *monitorId, const char *
                                           &g_reportStoreConfig);
 }
 
-static bool getReportSidecarPathCallback(const char *monitorId, int64_t reportID, char *pathBuffer,
+static bool getReportSidecarPathCallback(const char *monitorId, const char *reportID, char *pathBuffer,
                                          size_t pathBufferLength)
 {
     return kscrs_getReportSidecarFilePathForReport(monitorId, reportID, pathBuffer, pathBufferLength,
@@ -627,10 +604,16 @@ void kscrash_reportUserException(const char *name, const char *reason, const cha
     KS_THWART_TAIL_CALL_OPTIMISATION
 }
 
-int64_t kscrash_addUserReport(const char *report, int reportLength)
+bool kscrash_addUserReport(const char *report, int reportLength, char *reportIDOut)
 {
-    return kscrs_addUserReport(report, reportLength, &g_reportStoreConfig);
+    return kscrs_addUserReport(report, reportLength, &g_reportStoreConfig, reportIDOut);
 }
+
+const KSCrashReportStoreCConfiguration *kscrash_getReportStoreConfiguration(void) { return &g_reportStoreConfig; }
+
+const char *kscrash_getReportsPath(void) { return g_reportStoreConfig.reportsPath; }
+
+bool kscrash_isInstalled(void) { return g_installed; }
 
 const char *kscrash_getRunID(void) { return g_runID; }
 

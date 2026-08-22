@@ -88,7 +88,7 @@ import os.log
         @discardableResult
         private func processMemoryDiagnostic(
             _ diagnostic: MemoryExceptionDiagnostic, report: DiagnosticReport
-        ) -> Int64? {
+        ) -> Report.ID? {
             guard let tempURL = writeSkeletonReport() else { return nil }
             defer { try? FileManager.default.removeItem(at: tempURL) }
 
@@ -154,16 +154,15 @@ import os.log
                 return nil
             }
 
-            var reportID: Int64 = 0
-            newData.withUnsafeBytes { buffer in
-                guard let ptr = buffer.baseAddress?.assumingMemoryBound(to: CChar.self) else { return }
-                reportID = kscrash_addUserReport(ptr, Int32(buffer.count))
-                os_log(
-                    .default, log: metricKitLog,
-                    "[MONITORS] Added MetricKit memory report (id=%lld, %d bytes, %d threads, app %{public}@, runId=%{public}@)",
-                    reportID, buffer.count, callStackData.threads.count, report.environment.applicationVersion,
-                    crashedRunId ?? "none")
+            guard let reportID = addMetricKitReport(newData) else {
+                os_log(.error, log: metricKitLog, "[MONITORS] Failed to store MetricKit report")
+                return nil
             }
+            os_log(
+                .default, log: metricKitLog,
+                "[MONITORS] Added MetricKit memory report (id=%{public}@, %d bytes, %d threads, app %{public}@, runId=%{public}@)",
+                reportID.description, newData.count, callStackData.threads.count, report.environment.applicationVersion,
+                crashedRunId ?? "none")
             return reportID
         }
 

@@ -55,7 +55,7 @@ public enum ReportType: RawRepresentable, Codable, Sendable, Equatable {
 /// Metadata about the crash report itself.
 public struct ReportInfo: Codable, Sendable, Equatable {
     /// Unique identifier for this report.
-    public let id: String
+    public let id: Report.ID
 
     /// Name of the process that crashed.
     public let processName: String?
@@ -82,7 +82,7 @@ public struct ReportInfo: Codable, Sendable, Equatable {
     public let finalized: Bool?
 
     public init(
-        id: String,
+        id: Report.ID,
         processName: String? = nil,
         timestamp: Date? = nil,
         type: ReportType? = nil,
@@ -117,7 +117,7 @@ public struct ReportInfo: Codable, Sendable, Equatable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.id = try container.decode(String.self, forKey: .id)
+        self.id = try container.decode(Report.ID.self, forKey: .id)
         self.processName = try container.decodeIfPresent(String.self, forKey: .processName)
         self.type = try container.decodeIfPresent(ReportType.self, forKey: .type)
         self.version = try container.decodeIfPresent(ReportVersion.self, forKey: .version)

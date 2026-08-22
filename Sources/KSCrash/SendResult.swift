@@ -27,16 +27,12 @@
 import Foundation
 import KSCrashReportModel
 
-/// A payload kind the store holds and a send walks, with the identity the
-/// store keys it by: `ReportID` for reports, `RunSummary.ID` for run summaries.
-/// The selective sends take these ids back.
-public protocol SendPayload: PipelineValue {
-    associatedtype ID: Hashable & Sendable
-}
+/// A payload kind the store holds and a send walks, keyed by its own
+/// identity: `Report.ID` for reports, `RunSummary.ID` for run summaries. The
+/// selective sends take these ids back.
+public protocol SendPayload: PipelineValue, Identifiable where ID: Hashable & Sendable {}
 
-extension Report: SendPayload {
-    public typealias ID = ReportID
-}
+extension Report: SendPayload {}
 
 extension RunSummary: SendPayload {}
 

@@ -44,6 +44,7 @@
 #include "KSCrashReportRunId.h"
 #include "KSCrashReportStoreC+Private.h"
 #include "KSFileUtils.h"
+#include "KSID.h"
 #include "KSLogger.h"
 
 #import <Foundation/Foundation.h>
@@ -51,10 +52,20 @@
 #import "KSCrashReportFixer.h"
 #import "KSJSONCodecObjC.h"
 
-// Minted from the crash handler without g_mutex: threads are suspended there, so whoever
-// holds the lock may never resume. Must stay lock-free for that same reason.
-_Static_assert(ATOMIC_LLONG_LOCK_FREE == 2, "report ID counter is minted in the crash handler");
-static _Atomic(int64_t) g_nextUniqueID;
+// The report filename grammar is declared with the store's public constants.
+// The name carries order only (a string sort is oldest first); the UUID
+// inside the file is the identity.
+#define KSCRS_REPORT_FILENAME_SUFFIX "." KSCRS_REPORT_FILENAME_EXTENSION
+#define KSCRS_REPORT_NAME_LENGTH \
+    (KSCRS_REPORT_NAME_DIGITS + 1 + KSCRS_REPORT_ID_LENGTH + (int)(sizeof(KSCRS_REPORT_FILENAME_SUFFIX) - 1))
+
+// The last name prefix minted by this process. Names are strictly increasing
+// within a process even when the clock's resolution would repeat, so the
+// write order is the sort order. Minted from the crash handler without
+// g_mutex: threads are suspended there, so whoever holds the lock may never
+// resume. Must stay lock-free for that same reason.
+_Static_assert(ATOMIC_LLONG_LOCK_FREE == 2, "report name prefix is minted in the crash handler");
+static _Atomic(uint64_t) g_lastReportNs;
 static pthread_mutex_t g_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // The stitch config used by the no-config readers (readReportAtPath,
@@ -79,42 +90,61 @@ void kscrs_setStitchConfig(const KSCrashReportStoreCConfiguration *const configu
     pthread_mutex_unlock(&g_mutex);
 }
 
-static int compareInt64(const void *a, const void *b)
+static uint64_t nextReportNs(void)
 {
-    int64_t diff = *(int64_t *)a - *(int64_t *)b;
-    if (diff < 0) {
-        return -1;
-    } else if (diff > 0) {
-        return 1;
+    uint64_t now = clock_gettime_nsec_np(CLOCK_REALTIME);
+    uint64_t last = atomic_load(&g_lastReportNs);
+    for (;;) {
+        uint64_t next = now > last ? now : last + 1;
+        if (atomic_compare_exchange_weak(&g_lastReportNs, &last, next)) {
+            return next;
+        }
     }
-    return 0;
 }
 
-static inline int64_t getNextUniqueID(void) { return g_nextUniqueID++; }
-
-static void getCrashReportPathByID(int64_t id, char *pathBuffer, const KSCrashReportStoreCConfiguration *const config)
+static void getCrashReportPath(uint64_t wallClockNs, const char *reportID, char *pathBuffer,
+                               const KSCrashReportStoreCConfiguration *const config)
 {
-    snprintf(pathBuffer, KSCRS_MAX_PATH_LENGTH, "%s/%s-report-%016llx.json", config->reportsPath, config->appName,
-             (uint64_t)id);
+    snprintf(pathBuffer, KSCRS_MAX_PATH_LENGTH, "%s/%020llu-%s" KSCRS_REPORT_FILENAME_SUFFIX, config->reportsPath,
+             (unsigned long long)wallClockNs, reportID);
 }
 
-static int64_t getReportIDFromFilename(const char *filename, const KSCrashReportStoreCConfiguration *const config)
+/** Whether a directory entry is a report file; on success its id is copied out. */
+static bool parseReportFilename(const char *filename, char *reportID)
 {
-    char scanFormat[100];
-    snprintf(scanFormat, sizeof(scanFormat), "%s-report-%%" PRIx64 ".json", config->appName);
-
-    int64_t reportID = 0;
-    sscanf(filename, scanFormat, &reportID);
-    return reportID;
+    if (strlen(filename) != KSCRS_REPORT_NAME_LENGTH || filename[KSCRS_REPORT_NAME_DIGITS] != '-' ||
+        strcmp(filename + KSCRS_REPORT_NAME_DIGITS + 1 + KSCRS_REPORT_ID_LENGTH, KSCRS_REPORT_FILENAME_SUFFIX) != 0) {
+        return false;
+    }
+    for (int i = 0; i < KSCRS_REPORT_NAME_DIGITS; i++) {
+        if (filename[i] < '0' || filename[i] > '9') {
+            return false;
+        }
+    }
+    memcpy(reportID, filename + KSCRS_REPORT_NAME_DIGITS + 1, KSCRS_REPORT_ID_LENGTH);
+    reportID[KSCRS_REPORT_ID_LENGTH] = '\0';
+    return ksid_isValid(reportID);
 }
 
-static int getReportCount(const KSCrashReportStoreCConfiguration *const config)
+typedef struct {
+    char name[KSCRS_REPORT_NAME_LENGTH + 1];
+} ReportName;
+
+static int compareReportNames(const void *a, const void *b)
 {
+    return strcmp(((const ReportName *)a)->name, ((const ReportName *)b)->name);
+}
+
+/** The report filenames in the store, oldest first. Returns the count (an
+ * absent directory is 0) and hands back a malloc'd array the caller frees,
+ * or -1 when the directory cannot be enumerated (a partial listing must not
+ * read as complete). Not for the crash handler.
+ */
+static int listReportNames(ReportName **namesOut, const KSCrashReportStoreCConfiguration *const config)
+{
+    *namesOut = NULL;
     DIR *dir = opendir(config->reportsPath);
     if (dir == NULL) {
-        // Absent means no report was ever written: an empty store, not a
-        // failure. Anything else means the store cannot be enumerated, and
-        // the caller must not mistake that for "no reports".
         if (errno == ENOENT) {
             return 0;
         }
@@ -122,64 +152,74 @@ static int getReportCount(const KSCrashReportStoreCConfiguration *const config)
         return -1;
     }
     int count = 0;
+    int capacity = 0;
+    ReportName *names = NULL;
     for (;;) {
         errno = 0;
         struct dirent *ent = readdir(dir);
         if (ent == NULL) {
-            // readdir returns NULL for both end-of-directory and error; a
-            // nonzero errno means a real failure, and a partial count must
-            // not read as success.
             if (errno != 0) {
                 KSLOG_ERROR(@"Could not enumerate directory %s", config->reportsPath);
                 closedir(dir);
+                free(names);
                 return -1;
             }
             break;
         }
-        if (getReportIDFromFilename(ent->d_name, config) > 0) {
-            count++;
+        char reportID[KSID_SIZE];
+        if (!parseReportFilename(ent->d_name, reportID)) {
+            continue;
         }
+        if (count == capacity) {
+            capacity = capacity == 0 ? 16 : capacity * 2;
+            ReportName *grown = realloc(names, sizeof(ReportName) * (size_t)capacity);
+            if (grown == NULL) {
+                closedir(dir);
+                free(names);
+                return -1;
+            }
+            names = grown;
+        }
+        strlcpy(names[count].name, ent->d_name, sizeof(names[count].name));
+        count++;
     }
     closedir(dir);
+    if (count > 0) {
+        qsort(names, (size_t)count, sizeof(ReportName), compareReportNames);
+    }
+    *namesOut = names;
     return count;
 }
 
-static int getReportIDs(int64_t *reportIDs, int count, const KSCrashReportStoreCConfiguration *const config)
+/** The path of the report with this id, by scanning the store's names.
+ * false when no such report exists or the store cannot be enumerated.
+ */
+static bool findReportPath(const char *reportID, char *pathBuffer, const KSCrashReportStoreCConfiguration *const config)
 {
-    DIR *dir = opendir(config->reportsPath);
-    if (dir == NULL) {
-        // Same contract as getReportCount: absent is empty, unreadable is -1.
-        if (errno == ENOENT) {
-            return 0;
-        }
-        KSLOG_ERROR(@"Could not open directory %s", config->reportsPath);
-        return -1;
+    if (!ksid_isValid(reportID)) {
+        return false;
     }
-
-    int index = 0;
-    while (index < count) {
-        errno = 0;
-        struct dirent *ent = readdir(dir);
-        if (ent == NULL) {
-            // Same contract as getReportCount: a readdir failure must not
-            // pass a partial listing off as complete.
-            if (errno != 0) {
-                KSLOG_ERROR(@"Could not enumerate directory %s", config->reportsPath);
-                closedir(dir);
-                return -1;
-            }
+    ReportName *names = NULL;
+    int count = listReportNames(&names, config);
+    bool found = false;
+    for (int i = 0; i < count; i++) {
+        char candidate[KSID_SIZE];
+        if (parseReportFilename(names[i].name, candidate) && strcmp(candidate, reportID) == 0) {
+            found = snprintf(pathBuffer, KSCRS_MAX_PATH_LENGTH, "%s/%s", config->reportsPath, names[i].name) <
+                    KSCRS_MAX_PATH_LENGTH;
             break;
         }
-        int64_t reportID = getReportIDFromFilename(ent->d_name, config);
-        if (reportID > 0) {
-            reportIDs[index++] = reportID;
-        }
     }
+    free(names);
+    return found;
+}
 
-    qsort(reportIDs, (unsigned)index, sizeof(reportIDs[0]), compareInt64);
-
-    closedir(dir);
-    return index;
+static int getReportCount(const KSCrashReportStoreCConfiguration *const config)
+{
+    ReportName *names = NULL;
+    int count = listReportNames(&names, config);
+    free(names);
+    return count;
 }
 
 static bool getReportSidecarFilePath(const char *sidecarsBasePath, const char *monitorId, const char *name,
@@ -200,12 +240,13 @@ static bool getReportSidecarFilePath(const char *sidecarsBasePath, const char *m
     return true;
 }
 
-static bool getReportSidecarFilePathForReport(const char *sidecarsBasePath, const char *monitorId, int64_t reportID,
+static bool getReportSidecarFilePathForReport(const char *sidecarsBasePath, const char *monitorId, const char *reportID,
                                               char *pathBuffer, size_t pathBufferLength)
 {
-    char name[32];
-    snprintf(name, sizeof(name), "%016llx", (unsigned long long)reportID);
-    return getReportSidecarFilePath(sidecarsBasePath, monitorId, name, "ksscr", pathBuffer, pathBufferLength);
+    if (!ksid_isValid(reportID)) {
+        return false;
+    }
+    return getReportSidecarFilePath(sidecarsBasePath, monitorId, reportID, "ksscr", pathBuffer, pathBufferLength);
 }
 
 static bool getRunSidecarFilePath(const char *runSidecarsPath, const char *monitorId, char *pathBuffer,
@@ -230,7 +271,7 @@ static bool getRunSidecarFilePath(const char *runSidecarsPath, const char *monit
     return true;
 }
 
-static void deleteReportSidecarsForReport(int64_t reportID, const KSCrashReportStoreCConfiguration *const config)
+static void deleteReportSidecarsForReport(const char *reportID, const KSCrashReportStoreCConfiguration *const config)
 {
     if (config->reportSidecarsPath == NULL) {
         return;
@@ -245,15 +286,15 @@ static void deleteReportSidecarsForReport(int64_t reportID, const KSCrashReportS
             continue;
         }
         char sidecarPath[KSCRS_MAX_PATH_LENGTH];
-        if (snprintf(sidecarPath, sizeof(sidecarPath), "%s/%s/%016llx.ksscr", config->reportSidecarsPath, ent->d_name,
-                     (unsigned long long)reportID) < (int)sizeof(sidecarPath)) {
+        if (snprintf(sidecarPath, sizeof(sidecarPath), "%s/%s/%s.ksscr", config->reportSidecarsPath, ent->d_name,
+                     reportID) < (int)sizeof(sidecarPath)) {
             ksfu_removeFile(sidecarPath, false, NULL);
         }
     }
     closedir(dir);
 }
 
-static NSDictionary *stitchReportSidecarsIntoReport(NSDictionary *report, int64_t reportID,
+static NSDictionary *stitchReportSidecarsIntoReport(NSDictionary *report, const char *reportID,
                                                     const KSCrashReportStoreCConfiguration *const config,
                                                     bool *stitchFailed)
 {
@@ -279,8 +320,8 @@ static NSDictionary *stitchReportSidecarsIntoReport(NSDictionary *report, int64_
             continue;
         }
         char sidecarPath[KSCRS_MAX_PATH_LENGTH];
-        if (snprintf(sidecarPath, sizeof(sidecarPath), "%s/%s/%016llx.ksscr", config->reportSidecarsPath, ent->d_name,
-                     (unsigned long long)reportID) >= (int)sizeof(sidecarPath)) {
+        if (snprintf(sidecarPath, sizeof(sidecarPath), "%s/%s/%s.ksscr", config->reportSidecarsPath, ent->d_name,
+                     reportID) >= (int)sizeof(sidecarPath)) {
             continue;
         }
         if (access(sidecarPath, F_OK) != 0) {
@@ -405,19 +446,15 @@ static NSSet<NSString *> *reportReferencedRunIDs(const KSCrashReportStoreCConfig
             }
             break;
         }
-        int64_t reportID = getReportIDFromFilename(ent->d_name, config);
-        if (reportID <= 0) {
+        // Only a report-named file references a run; artifacts such as
+        // "<report>.json.tmp" are not reports and never abort the pass.
+        char reportID[KSID_SIZE];
+        if (!parseReportFilename(ent->d_name, reportID)) {
             continue;
         }
         char reportPath[KSCRS_MAX_PATH_LENGTH];
-        getCrashReportPathByID(reportID, reportPath, config);
-        // getReportIDFromFilename parses permissively, so it also accepts
-        // artifacts like "<report>.json.tmp" and "<report>.old". Only the exact
-        // canonical name references a run; skip the rest, whose canonical report
-        // may be gone and would otherwise abort reclamation on every pass.
-        const char *canonicalName = strrchr(reportPath, '/');
-        canonicalName = canonicalName != NULL ? canonicalName + 1 : reportPath;
-        if (strcmp(ent->d_name, canonicalName) != 0) {
+        if (snprintf(reportPath, sizeof(reportPath), "%s/%s", config->reportsPath, ent->d_name) >=
+            (int)sizeof(reportPath)) {
             continue;
         }
         char runID[KSCRS_UUID_STRING_LENGTH + 1];
@@ -544,12 +581,15 @@ static void reclaimOrphanedRunData(const KSCrashReportStoreCConfiguration *const
     }
 }
 
-static bool deleteReportWithID(int64_t reportID, const KSCrashReportStoreCConfiguration *const config)
+static bool deleteReportWithID(const char *reportID, const KSCrashReportStoreCConfiguration *const config)
 {
     char path[KSCRS_MAX_PATH_LENGTH];
-    getCrashReportPathByID(reportID, path, config);
-    int removeErrno = 0;
-    bool removed = ksfu_removeFile(path, true, &removeErrno);
+    int removeErrno = ENOENT;
+    bool removed = false;
+    if (findReportPath(reportID, path, config)) {
+        removeErrno = 0;
+        removed = ksfu_removeFile(path, true, &removeErrno);
+    }
     // A report that still exists will be re-sent, and that delivery needs
     // its sidecars for the on-read stitch; delete them only once the report
     // file is gone (removed now, or already absent).
@@ -566,26 +606,16 @@ static void pruneReports(const KSCrashReportStoreCConfiguration *const config)
     if (config->maxReportCount <= 0) {
         return;
     }
-    int reportCount = getReportCount(config);
-    if (reportCount > config->maxReportCount) {
-        int64_t reportIDs[reportCount];
-        reportCount = getReportIDs(reportIDs, reportCount, config);
-
-        for (int i = 0; i < reportCount - config->maxReportCount; i++) {
-            deleteReportWithID(reportIDs[i], config);
+    ReportName *names = NULL;
+    int count = listReportNames(&names, config);
+    // Names sort oldest first, so the excess is the head of the list.
+    for (int i = 0; i < count - config->maxReportCount; i++) {
+        char reportID[KSID_SIZE];
+        if (parseReportFilename(names[i].name, reportID)) {
+            deleteReportWithID(reportID, config);
         }
     }
-}
-static void initializeIDs(void)
-{
-    // CLOCK_REALTIME is gettimeofday-derived, so this is microsecond resolution expressed in
-    // nanoseconds: every seed is a multiple of 1000, and that scale factor doubles as the
-    // counter's headroom. Two processes sharing one store (short-lived extension reporters in
-    // an App Group) now have to initialize within the same microsecond to mint the same ID,
-    // where the old seconds-derived seed only needed the same second. Minting past 1000 IDs
-    // walks into later microseconds' seed space, widening that window rather than breaking;
-    // IDs stay unique and increasing within the process either way. Positive int64 until 2262.
-    g_nextUniqueID = (int64_t)clock_gettime_nsec_np(CLOCK_REALTIME);
+    free(names);
 }
 
 // Public API
@@ -605,36 +635,23 @@ KSCrashInstallErrorCode kscrs_initialize(const KSCrashReportStoreCConfiguration 
             ksfu_makePath(configuration->runSidecarsPath);
         }
         pruneReports(configuration);
-        initializeIDs();
     }
     pthread_mutex_unlock(&g_mutex);
     return result;
 }
 
-int64_t kscrs_getNextCrashReport(char *crashReportPathBuffer,
-                                 const KSCrashReportStoreCConfiguration *const configuration)
+void kscrs_getNextCrashReport(const char *reportID, char *crashReportPathBuffer,
+                              const KSCrashReportStoreCConfiguration *const configuration)
 {
-    // Deliberately outside g_mutex: this runs in the crash handler. The atomic counter is
-    // what keeps concurrent minting unique.
-    int64_t nextID = getNextUniqueID();
-    if (crashReportPathBuffer) {
-        getCrashReportPathByID(nextID, crashReportPathBuffer, configuration);
-    }
-    return nextID;
+    // Deliberately outside g_mutex: this runs in the crash handler. The
+    // atomic prefix is what keeps concurrent names distinct and ordered.
+    getCrashReportPath(nextReportNs(), reportID, crashReportPathBuffer, configuration);
 }
 
 int kscrs_getReportCount(const KSCrashReportStoreCConfiguration *const configuration)
 {
     pthread_mutex_lock(&g_mutex);
     int count = getReportCount(configuration);
-    pthread_mutex_unlock(&g_mutex);
-    return count;
-}
-
-int kscrs_getReportIDs(int64_t *reportIDs, int count, const KSCrashReportStoreCConfiguration *const configuration)
-{
-    pthread_mutex_lock(&g_mutex);
-    count = getReportIDs(reportIDs, count, configuration);
     pthread_mutex_unlock(&g_mutex);
     return count;
 }
@@ -656,8 +673,8 @@ static void setReadStatus(KSCrashReportReadStatus *status, KSCrashReportReadStat
     }
 }
 
-static char *readReportAtPath(const char *path, int64_t reportID, const KSCrashReportStoreCConfiguration *const config,
-                              KSCrashReportReadStatus *status)
+static char *readReportAtPath(const char *path, const char *reportID,
+                              const KSCrashReportStoreCConfiguration *const config, KSCrashReportReadStatus *status)
 {
     @autoreleasepool {
         char *rawReport;
@@ -694,7 +711,7 @@ static char *readReportAtPath(const char *path, int64_t reportID, const KSCrashR
             if (config != NULL) {
                 // Run sidecars first so per-report data can override per-run data
                 report = stitchRunSidecarsIntoReport(report, config, NULL);
-                if (reportID > 0) {
+                if (reportID != NULL) {
                     report = stitchReportSidecarsIntoReport(report, reportID, config, NULL);
                 }
             }
@@ -723,12 +740,12 @@ char *kscrs_readReportAtPath(const char *path)
 {
     pthread_mutex_lock(&g_mutex);
     const KSCrashReportStoreCConfiguration *config = g_hasStitchConfig ? &g_stitchConfig : NULL;
-    char *result = readReportAtPath(path, 0, config, NULL);
+    char *result = readReportAtPath(path, NULL, config, NULL);
     pthread_mutex_unlock(&g_mutex);
     return result;
 }
 
-char *kscrs_readReportByPathAndID(const char *path, int64_t reportID)
+char *kscrs_readReportByPathAndID(const char *path, const char *reportID)
 {
     pthread_mutex_lock(&g_mutex);
     const KSCrashReportStoreCConfiguration *config = g_hasStitchConfig ? &g_stitchConfig : NULL;
@@ -737,9 +754,9 @@ char *kscrs_readReportByPathAndID(const char *path, int64_t reportID)
     return result;
 }
 
-bool kscrs_finalizeReport(const char *reportPath, int64_t reportID)
+bool kscrs_finalizeReport(const char *reportPath, const char *reportID)
 {
-    if (reportPath == NULL || reportPath[0] == '\0' || reportID <= 0) {
+    if (reportPath == NULL || reportPath[0] == '\0' || !ksid_isValid(reportID)) {
         return false;
     }
 
@@ -784,8 +801,7 @@ bool kscrs_finalizeReport(const char *reportPath, int64_t reportID)
         report = stitchRunSidecarsIntoReport(report, &g_stitchConfig, &stitchFailed);
         report = stitchReportSidecarsIntoReport(report, reportID, &g_stitchConfig, &stitchFailed);
         if (stitchFailed) {
-            KSLOG_ERROR(@"Stitching failed for report %lld, skipping finalization to allow retry on next read",
-                        (long long)reportID);
+            KSLOG_ERROR(@"Stitching failed for report %s, skipping finalization to allow retry on next read", reportID);
             pthread_mutex_unlock(&g_mutex);
             return false;
         }
@@ -855,66 +871,112 @@ bool kscrs_finalizeReport(const char *reportPath, int64_t reportID)
     }
 }
 
-char *kscrs_readReport(int64_t reportID, const KSCrashReportStoreCConfiguration *const configuration,
+char *kscrs_readReport(const char *reportID, const KSCrashReportStoreCConfiguration *const configuration,
                        KSCrashReportReadStatus *status)
 {
     pthread_mutex_lock(&g_mutex);
     char path[KSCRS_MAX_PATH_LENGTH];
-    getCrashReportPathByID(reportID, path, configuration);
-    char *result = readReportAtPath(path, reportID, configuration, status);
+    char *result = NULL;
+    if (findReportPath(reportID, path, configuration)) {
+        result = readReportAtPath(path, reportID, configuration, status);
+    } else {
+        setReadStatus(status, KSCrashReportReadStatusUnreadable);
+    }
     pthread_mutex_unlock(&g_mutex);
     return result;
 }
 
-char *kscrs_copyReportRunID(int64_t reportID, const KSCrashReportStoreCConfiguration *const configuration)
+char *kscrs_copyReportRunID(const char *reportID, const KSCrashReportStoreCConfiguration *const configuration)
 {
-    // g_mutex: kscrs_addUserReport writes the canonical report path in place,
-    // so an unlocked peek could read a half-written report.
+    // g_mutex: kscrs_addUserReport writes the report path in place, so an
+    // unlocked peek could read a half-written report.
     pthread_mutex_lock(&g_mutex);
     char path[KSCRS_MAX_PATH_LENGTH];
-    getCrashReportPathByID(reportID, path, configuration);
-
-    // The extractor stops at report.run_id, so a report torn mid-write
-    // still answers with its run.
-    char runID[KSCRS_UUID_STRING_LENGTH + 1];
     char *result = NULL;
-    if (kscrs_extractRunIdFromReportFile(path, runID, sizeof(runID)) == KSCrashRunIdResultFound) {
-        result = strdup(runID);
+    if (findReportPath(reportID, path, configuration)) {
+        // The extractor stops at report.run_id, so a report torn mid-write
+        // still answers with its run.
+        char runID[KSCRS_UUID_STRING_LENGTH + 1];
+        if (kscrs_extractRunIdFromReportFile(path, runID, sizeof(runID)) == KSCrashRunIdResultFound) {
+            result = strdup(runID);
+        }
     }
     pthread_mutex_unlock(&g_mutex);
     return result;
 }
 
-int64_t kscrs_addUserReport(const char *report, int reportLength,
-                            const KSCrashReportStoreCConfiguration *const configuration)
+/** The payload with report.id set to `reportID`, or nil when the payload is
+ * not a JSON object (such a report is stored as given and never delivered).
+ */
+static NSData *payloadWithInjectedID(const char *report, int reportLength, const char *reportID)
 {
-    pthread_mutex_lock(&g_mutex);
-    int64_t currentID = getNextUniqueID();
-    char crashReportPath[KSCRS_MAX_PATH_LENGTH];
-    getCrashReportPathByID(currentID, crashReportPath, configuration);
+    @autoreleasepool {
+        NSData *data = [NSData dataWithBytesNoCopy:(void *)report length:(NSUInteger)reportLength freeWhenDone:NO];
+        NSMutableDictionary *dict =
+            [KSJSONCodec decode:data
+                        options:KSJSONDecodeOptionIgnoreNullInArray | KSJSONDecodeOptionIgnoreNullInObject |
+                                KSJSONDecodeOptionKeepPartialObject
+                          error:nil];
+        if (![dict isKindOfClass:[NSDictionary class]]) {
+            return nil;
+        }
+        NSMutableDictionary *root = [dict isKindOfClass:[NSMutableDictionary class]] ? dict : [dict mutableCopy];
+        id section = root[KSCrashField_Report];
+        NSMutableDictionary *reportSection =
+            [section isKindOfClass:[NSDictionary class]] ? [section mutableCopy] : [NSMutableDictionary dictionary];
+        reportSection[KSCrashField_ID] = @(reportID);
+        root[KSCrashField_Report] = reportSection;
+        return [KSJSONCodec encode:root options:KSJSONEncodeOptionPretty error:nil];
+    }
+}
 
-    int fd = open(crashReportPath, O_WRONLY | O_CREAT, 0644);
+bool kscrs_addUserReport(const char *report, int reportLength,
+                         const KSCrashReportStoreCConfiguration *const configuration, char reportIDOut[KSID_SIZE])
+{
+    if (report == NULL || reportLength < 0 || reportIDOut == NULL) {
+        return false;
+    }
+    pthread_mutex_lock(&g_mutex);
+    // The report's own id is its identity when it carries a valid one;
+    // otherwise one is minted and written into the payload, so the file's
+    // report.id always matches its name.
+    NSData *payload = nil;
+    if (kscrs_extractReportIdFromReportBytes(report, reportLength, reportIDOut, KSID_SIZE) != KSCrashRunIdResultFound) {
+        ksid_generate(reportIDOut);
+        payload = payloadWithInjectedID(report, reportLength, reportIDOut);
+    } else {
+        // The extractor accepts any case, but the store's grammar (filenames,
+        // listing) is uppercase; canonicalize, and rewrite the payload when
+        // that changes the text so report.id still matches the filename.
+        uuid_t parsed;
+        if (uuid_parse(reportIDOut, parsed) != 0) {
+            pthread_mutex_unlock(&g_mutex);
+            return false;
+        }
+        char canonical[KSID_SIZE];
+        uuid_unparse_upper(parsed, canonical);
+        if (strcmp(canonical, reportIDOut) != 0) {
+            strlcpy(reportIDOut, canonical, KSID_SIZE);
+            payload = payloadWithInjectedID(report, reportLength, reportIDOut);
+        }
+    }
+    const char *bytes = payload != nil ? payload.bytes : report;
+    int length = payload != nil ? (int)payload.length : reportLength;
+    char crashReportPath[KSCRS_MAX_PATH_LENGTH];
+    getCrashReportPath(nextReportNs(), reportIDOut, crashReportPath, configuration);
+    bool written = false;
+    int fd = open(crashReportPath, O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (fd < 0) {
         KSLOG_ERROR(@"Could not open file %s: %s", crashReportPath, strerror(errno));
-        goto done;
-    }
-
-    int bytesWritten = (int)write(fd, report, (unsigned)reportLength);
-    if (bytesWritten < 0) {
-        KSLOG_ERROR(@"Could not write to file %s: %s", crashReportPath, strerror(errno));
-        goto done;
-    } else if (bytesWritten < reportLength) {
-        KSLOG_ERROR(@"Expected to write %d bytes to file %s, but only wrote %d", reportLength, crashReportPath,
-                    bytesWritten);
-    }
-
-done:
-    if (fd >= 0) {
+    } else {
+        written = ksfu_writeBytesToFD(fd, bytes, length);
+        if (!written) {
+            KSLOG_ERROR(@"Could not write to file %s", crashReportPath);
+        }
         close(fd);
     }
     pthread_mutex_unlock(&g_mutex);
-
-    return currentID;
+    return written;
 }
 
 void kscrs_deleteAllReports(const KSCrashReportStoreCConfiguration *const configuration)
@@ -930,7 +992,7 @@ void kscrs_deleteAllReports(const KSCrashReportStoreCConfiguration *const config
     pthread_mutex_unlock(&g_mutex);
 }
 
-bool kscrs_deleteReportWithID(int64_t reportID, const KSCrashReportStoreCConfiguration *const configuration)
+bool kscrs_deleteReportWithID(const char *reportID, const KSCrashReportStoreCConfiguration *const configuration)
 {
     pthread_mutex_lock(&g_mutex);
     bool removed = deleteReportWithID(reportID, configuration);
@@ -946,7 +1008,7 @@ bool kscrs_getReportSidecarFilePath(const char *monitorId, const char *name, con
                                     pathBufferLength);
 }
 
-bool kscrs_getReportSidecarFilePathForReport(const char *monitorId, int64_t reportID, char *pathBuffer,
+bool kscrs_getReportSidecarFilePathForReport(const char *monitorId, const char *reportID, char *pathBuffer,
                                              size_t pathBufferLength,
                                              const KSCrashReportStoreCConfiguration *const configuration)
 {

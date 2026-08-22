@@ -87,4 +87,34 @@ final class PayloadIDTests: XCTestCase {
         let json = #"{"schema_version": 1, "sdk_version": "t", "run_id": "r", "device_id": "d"}"#
         XCTAssertThrowsError(try JSONDecoder().decode(RunSummary.self, from: Data(json.utf8)))
     }
+
+    // MARK: - Report.ID
+
+    func test_reportID_parsesLiteralsAndRuntimeStrings() throws {
+        let literal: Report.ID = "4C1B2F3E-0000-4000-8000-000000000001"
+        let malformed = "evt1"
+        XCTAssertEqual(Report.ID(text), literal)
+        XCTAssertEqual(Report.ID(uuid: literal.uuid), literal)
+        XCTAssertEqual(Report.ID(literal.description), literal)
+        XCTAssertNil(Report.ID(malformed))
+    }
+
+    func test_report_isIdentifiableByItsReportID() throws {
+        let json = """
+            {"crash": {"error": {"type": "signal"}}, "report": {"id": "\(text)"}}
+            """
+        let report = try JSONDecoder().decode(Report.self, from: Data(json.utf8))
+        XCTAssertEqual(report.id, Report.ID(text))
+        XCTAssertEqual(report.report.id, report.id)
+        let encoded = try JSONEncoder().encode(report)
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        XCTAssertEqual((object["report"] as? [String: Any])?["id"] as? String, text, "the wire text is unchanged")
+    }
+
+    func test_report_withAMalformedID_failsDecode() {
+        let json = #"{"crash": {"error": {"type": "signal"}}, "report": {"id": "evt1"}}"#
+        XCTAssertThrowsError(try JSONDecoder().decode(Report.self, from: Data(json.utf8))) {
+            XCTAssertTrue($0 is DecodingError)
+        }
+    }
 }

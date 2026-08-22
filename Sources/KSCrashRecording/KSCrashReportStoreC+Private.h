@@ -42,16 +42,15 @@ extern "C" {
  */
 #define KSCRS_MAX_REPORT_SIZE ((size_t)20000000)
 
-/** Get the next crash report to be generated.
+/** The path a new crash report with this id is written to. Async-signal-safe.
  * Max length for paths is KSCRS_MAX_PATH_LENGTH
  *
+ * @param reportID The report's id (its UUID text, the report's identity).
  * @param crashReportPathBuffer Buffer to store the crash report path.
  * @param configuration The store configuretion (e.g. reports path, app name etc).
- *
- * @return The report ID of the next report.
  */
-int64_t kscrs_getNextCrashReport(char *crashReportPathBuffer,
-                                 const KSCrashReportStoreCConfiguration *const configuration);
+void kscrs_getNextCrashReport(const char *reportID, char *crashReportPathBuffer,
+                              const KSCrashReportStoreCConfiguration *const configuration);
 
 /** Get the sidecar file path for a report.
  *
@@ -65,7 +64,7 @@ int64_t kscrs_getNextCrashReport(char *crashReportPathBuffer,
  *
  * @return true if the path was successfully written, false on failure.
  */
-bool kscrs_getReportSidecarFilePathForReport(const char *monitorId, int64_t reportID, char *pathBuffer,
+bool kscrs_getReportSidecarFilePathForReport(const char *monitorId, const char *reportID, char *pathBuffer,
                                              size_t pathBufferLength,
                                              const KSCrashReportStoreCConfiguration *const configuration);
 
@@ -141,7 +140,7 @@ void kscrs_setStitchConfig(const KSCrashReportStoreCConfiguration *configuration
  *
  * @return A heap-allocated stitched JSON string, or NULL on failure. Caller must free().
  */
-char *kscrs_readReportByPathAndID(const char *path, int64_t reportID);
+char *kscrs_readReportByPathAndID(const char *path, const char *reportID);
 
 /** Finalize a report in-place by stitching all sidecars and writing back.
  *
@@ -160,7 +159,7 @@ char *kscrs_readReportByPathAndID(const char *path, int64_t reportID);
  * @param reportID The report's ID.
  * @return true if the report was successfully finalized, false otherwise.
  */
-bool kscrs_finalizeReport(const char *reportPath, int64_t reportID);
+bool kscrs_finalizeReport(const char *reportPath, const char *reportID);
 
 #ifdef __cplusplus
 }

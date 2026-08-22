@@ -1,7 +1,9 @@
 //
-//  KSID.h
+//  TestIDs.swift
 //
-//  Copyright (c) 2016 Karl Stenerud. All rights reserved.
+//  Created by Alexander Cohen on 2026-08-22.
+//
+//  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,35 +24,24 @@
 // THE SOFTWARE.
 //
 
-#ifndef HDR_KSID_h
-#define HDR_KSID_h
+import Foundation
 
-#include <stdbool.h>
+@testable import KSCrashReportModel
 
-#include "KSCrashNamespace.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-/** The length of an ID's text (8-4-4-4-12 uppercase hex), and the buffer size that holds it with its terminator. */
-#define KSID_LENGTH 36
-#define KSID_SIZE (KSID_LENGTH + 1)
-
-/** Generate a new human readabale, null terminated, globally unique ID string.
- *
- * @param destinationBuffer37Bytes Buffer of at least 37 bytes to hold the ID.
- */
-void ksid_generate(char *destinationBuffer37Bytes);
-
-/** Whether a NUL terminated string is an ID in the form ksid_generate
- * produces: 36 characters, 8-4-4-4-12, uppercase hex and dashes.
- * Async-signal-safe.
- */
-bool ksid_isValid(const char *id);
-
-#ifdef __cplusplus
+/// A report id for a readable test tag: a tag that already is a UUID is used
+/// as is, anything else maps to one deterministic UUID per tag.
+func testReportID(_ tag: String) -> Report.ID {
+    if let id = Report.ID(tag) { return id }
+    var bytes = [UInt8](repeating: 0, count: 16)
+    for (index, byte) in tag.utf8.enumerated() {
+        bytes[index % 16] ^= byte &+ UInt8(truncatingIfNeeded: index)
+    }
+    bytes[6] = (bytes[6] & 0x0F) | 0x40
+    bytes[8] = (bytes[8] & 0x3F) | 0x80
+    let uuid = UUID(
+        uuid: (
+            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+            bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]
+        ))
+    return Report.ID(uuid: uuid)
 }
-#endif
-
-#endif  // HDR_KSID_h
