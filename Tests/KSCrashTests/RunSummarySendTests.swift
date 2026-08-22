@@ -52,12 +52,13 @@ final class RunSummarySendTests: XCTestCase {
 
     /// `listFails` makes the report half's listing throw, standing in for an
     /// unreadable Reports directory.
-    private func makeStore(listFails: Bool = false) -> Store {
+    private func makeStore(listFails: Bool = false, maxRunCount: Int = 50) -> Store {
         let counter = reclaimCount
         return Store(
             runsDirectory: runsDirectory,
             runSidecarsDirectory: sidecarsDirectory,
             liveRunID: nil,
+            maxRunCount: maxRunCount,
             reports: ReportBridge(
                 list: {
                     if listFails { throw StageError() }
@@ -77,7 +78,7 @@ final class RunSummarySendTests: XCTestCase {
         claims: SendClaims<String> = SendClaims()
     ) async throws -> SendResult<RunSummary> {
         try await RunSummarySend.send(
-            store: makeStore(listFails: listFails), pipeline: pipeline, maxRunCount: 50, claims: claims)
+            store: makeStore(listFails: listFails), pipeline: pipeline, claims: claims)
     }
 
     private func writeSummary(runID: String, startNs: UInt64) throws {
@@ -186,7 +187,7 @@ final class RunSummarySendTests: XCTestCase {
 
     func test_notInstalled_returnsEmptyWithoutReclaim() async throws {
         let result = try await RunSummarySend.send(
-            store: nil, pipeline: [passThrough()], maxRunCount: 50, claims: SendClaims())
+            store: nil, pipeline: [passThrough()], claims: SendClaims())
         XCTAssertTrue(result.items.isEmpty)
         XCTAssertEqual(reclaimCount.value, 0)
     }
@@ -332,7 +333,7 @@ final class RunSummarySendTests: XCTestCase {
                 liveRunID: nil
             ) { counter.increment() }
             let inner = try await RunSummarySend.send(
-                store: store, pipeline: [passThrough()], maxRunCount: 50, claims: claims)
+                store: store, pipeline: [passThrough()], claims: claims)
             XCTAssertTrue(inner.items.isEmpty)
             return summary
         }
@@ -370,7 +371,7 @@ final class RunSummarySendTests: XCTestCase {
         try writeSummary(runID: "OTHER", startNs: 200)
 
         let result = try await RunSummarySend.send(
-            store: makeStore(), pipeline: [passThrough()], maxRunCount: 50,
+            store: makeStore(), pipeline: [passThrough()],
             only: ["WANTED", "UNKNOWN"], claims: SendClaims())
 
         assertOutcomes(result, delivered: ["WANTED"])
@@ -381,7 +382,7 @@ final class RunSummarySendTests: XCTestCase {
         try writeSummary(runID: "PRESENT", startNs: 100)
 
         let result = try await RunSummarySend.send(
-            store: makeStore(), pipeline: [passThrough()], maxRunCount: 50,
+            store: makeStore(), pipeline: [passThrough()],
             only: [], claims: SendClaims())
 
         XCTAssertTrue(result.items.isEmpty)
@@ -403,7 +404,7 @@ final class RunSummarySendTests: XCTestCase {
 
         // The retry call site: resend exactly what the last send kept.
         let retry = try await RunSummarySend.send(
-            store: makeStore(), pipeline: [passThrough()], maxRunCount: 50,
+            store: makeStore(), pipeline: [passThrough()],
             only: Set(first.kept), claims: SendClaims())
         assertOutcomes(retry, delivered: ["FLAKY"])
         XCTAssertEqual(summaryFileCount, 0)
@@ -417,7 +418,7 @@ final class RunSummarySendTests: XCTestCase {
         try writeSummary(runID: "NEW", startNs: 300)
 
         let result = try await RunSummarySend.send(
-            store: makeStore(), pipeline: [passThrough()], maxRunCount: 2, claims: SendClaims())
+            store: makeStore(maxRunCount: 2), pipeline: [passThrough()], claims: SendClaims())
 
         // The beyond-cap run is pruned before the listing: not an item, file gone.
         assertOutcomes(result, delivered: ["NEW", "MID"])
@@ -430,7 +431,7 @@ final class RunSummarySendTests: XCTestCase {
         try writeSummary(runID: "NEW", startNs: 300)
 
         let result = try await RunSummarySend.send(
-            store: makeStore(), pipeline: [passThrough()], maxRunCount: 1,
+            store: makeStore(maxRunCount: 1), pipeline: [passThrough()],
             only: ["OLDEST"], claims: SendClaims())
 
         // A selective send touches only what it names: the beyond-cap named
@@ -454,7 +455,7 @@ final class RunSummarySendTests: XCTestCase {
         let result = try await Task {
             try await RunSummarySend.send(
                 store: store, pipeline: [.init(cancelling)],
-                maxRunCount: 50, claims: SendClaims())
+                claims: SendClaims())
         }.value
 
         assertOutcomes(result, delivered: ["FIRST"])

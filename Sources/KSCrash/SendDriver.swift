@@ -64,7 +64,6 @@ enum SendDriver {
         store: Store?,
         kind: SendKind<Payload, Item>,
         pipeline: [AnyPipelineStage<Payload>],
-        maxRunCount: Int,
         only selection: Set<Payload.ID>?,
         claims: SendClaims<Payload.ID>
     ) async throws -> SendResult<Payload> {
@@ -87,7 +86,7 @@ enum SendDriver {
         // touches only the items it names, and pruning here would delete
         // beyond-cap runs the caller is deliberately retrying.
         if selection == nil {
-            store.pruneRunSummaries(keepingNewest: maxRunCount)
+            store.pruneRunSummaries(keepingNewest: store.maxRunCount)
         }
 
         var items = try kind.list(store)
