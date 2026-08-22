@@ -123,6 +123,95 @@ static NSDictionary *currentUserInfoDict(void)
     [super tearDown];
 }
 
+#pragma mark - Reading
+
+- (void)testCopyValueReadsEachTypeBack
+{
+    kscm_userinfo_setString("name", "Alice");
+    kscm_userinfo_setInt64("count", -42);
+    kscm_userinfo_setUInt64("big", UINT64_MAX);
+    kscm_userinfo_setDouble("ratio", 0.5);
+    kscm_userinfo_setBool("flag", true);
+    kscm_userinfo_setDate("when", 1700000000000000000ULL);
+    KSCrashUserInfoValue value;
+    XCTAssertTrue(kscm_userinfo_copyValue("name", &value));
+    XCTAssertEqual(value.type, KSCrashUserInfoValueTypeString);
+    XCTAssertEqual(strcmp(value.string, "Alice"), 0);
+    XCTAssertTrue(kscm_userinfo_copyValue("count", &value));
+    XCTAssertEqual(value.type, KSCrashUserInfoValueTypeInt64);
+    XCTAssertEqual(value.value.int64Value, -42);
+    XCTAssertTrue(kscm_userinfo_copyValue("big", &value));
+    XCTAssertEqual(value.type, KSCrashUserInfoValueTypeUInt64);
+    XCTAssertEqual(value.value.uint64Value, UINT64_MAX);
+    XCTAssertTrue(kscm_userinfo_copyValue("ratio", &value));
+    XCTAssertEqual(value.type, KSCrashUserInfoValueTypeDouble);
+    XCTAssertEqualWithAccuracy(value.value.doubleValue, 0.5, 0.0);
+    XCTAssertTrue(kscm_userinfo_copyValue("flag", &value));
+    XCTAssertEqual(value.type, KSCrashUserInfoValueTypeBool);
+    XCTAssertTrue(value.value.boolValue);
+    XCTAssertTrue(kscm_userinfo_copyValue("when", &value));
+    XCTAssertEqual(value.type, KSCrashUserInfoValueTypeDate);
+    XCTAssertEqual(value.value.dateNanoseconds, 1700000000000000000ULL);
+}
+
+- (void)testCopyValueAnswersTheLatestWriteAndNotARemovedKey
+{
+    kscm_userinfo_setString("k", "first");
+    kscm_userinfo_setInt64("k", 2);
+    KSCrashUserInfoValue value;
+    XCTAssertTrue(kscm_userinfo_copyValue("k", &value));
+    XCTAssertEqual(value.type, KSCrashUserInfoValueTypeInt64);
+    XCTAssertEqual(value.value.int64Value, 2);
+    kscm_userinfo_removeValue("k");
+    XCTAssertFalse(kscm_userinfo_copyValue("k", &value));
+    XCTAssertFalse(kscm_userinfo_copyValue("never", &value));
+    kscm_userinfo_setString("k", "again");
+    XCTAssertTrue(kscm_userinfo_copyValue("k", &value));
+    XCTAssertEqual(strcmp(value.string, "again"), 0);
+}
+
+static void collectKey(const char *key, void *context) { [(__bridge NSMutableSet *)context addObject:@(key)]; }
+
+static void collectKeyAndWrite(const char *key, void *context)
+{
+    collectKey(key, context);
+    // The callback runs outside the store's lock, so writing back is fine.
+    kscm_userinfo_setString(key, "touched");
+}
+
+- (void)testEnumerateKeysListsTheLiveKeysOnce
+{
+    kscm_userinfo_setString("a", "1");
+    kscm_userinfo_setInt64("b", 2);
+    kscm_userinfo_setInt64("b", 3);
+    kscm_userinfo_setBool("c", true);
+    kscm_userinfo_removeValue("a");
+    NSMutableSet *keys = [NSMutableSet set];
+    kscm_userinfo_enumerateKeys(collectKey, (__bridge void *)keys);
+    XCTAssertEqualObjects(keys, ([NSSet setWithObjects:@"b", @"c", nil]));
+}
+
+- (void)testEnumerateKeysCallbackMayWriteTheStore
+{
+    kscm_userinfo_setString("k", "v");
+    NSMutableSet *keys = [NSMutableSet set];
+    kscm_userinfo_enumerateKeys(collectKeyAndWrite, (__bridge void *)keys);
+    XCTAssertEqualObjects(keys, [NSSet setWithObject:@"k"]);
+    KSCrashUserInfoValue value;
+    XCTAssertTrue(kscm_userinfo_copyValue("k", &value));
+    XCTAssertEqual(strcmp(value.string, "touched"), 0);
+}
+
+- (void)testReadsBeforeInstallFindNothing
+{
+    kscm_userinfo_test_reset();
+    KSCrashUserInfoValue value;
+    XCTAssertFalse(kscm_userinfo_copyValue("k", &value));
+    NSMutableSet *keys = [NSMutableSet set];
+    kscm_userinfo_enumerateKeys(collectKey, (__bridge void *)keys);
+    XCTAssertEqual(keys.count, 0u);
+}
+
 #pragma mark - Basic Types
 
 - (void)testSetString

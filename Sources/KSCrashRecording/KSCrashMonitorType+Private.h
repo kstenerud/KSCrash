@@ -1,7 +1,7 @@
 //
-//  KSCrashError.h
+//  KSCrashMonitorType+Private.h
 //
-//  Created by Gleb Linnik on 12.07.2024.
+//  Created by Alexander Cohen on 2026-08-22.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,45 +24,17 @@
 // THE SOFTWARE.
 //
 
-#ifndef KSCrashError_h
-#define KSCrashError_h
+#ifndef KSCrashMonitorType_Private_h
+#define KSCrashMonitorType_Private_h
 
-#include "KSCrashNamespace.h"
+#include "KSCrashMonitorType.h"
 
-#ifdef __OBJC__
-#include <Foundation/Foundation.h>
-#endif
+/** The monitors every install enables regardless of the caller's selection:
+ *  the infrastructure that collects the context every report depends on,
+ *  and UserReported, which installs nothing and only gates the reporting
+ *  entry points. */
+#define KSCrashMonitorTypeRequired                                                                \
+    (KSCrashMonitorTypeSystem | KSCrashMonitorTypeApplicationState | KSCrashMonitorTypeUserInfo | \
+     KSCrashMonitorTypeResource | KSCrashMonitorTypeUserReported)
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#ifdef __OBJC__
-static NSErrorDomain const KSCrashErrorDomain = @"KSCrashErrorDomain";
-#endif
-
-typedef
-#ifdef __OBJC__
-    NS_ERROR_ENUM(KSCrashErrorDomain, KSCrashInstallErrorCode)
-#else  /* __OBJC__ */
-    enum
-#endif /* __OBJC__ */
-{ KSCrashInstallErrorNone = 0,
-  KSCrashInstallErrorAlreadyInstalled,
-  KSCrashInstallErrorInvalidParameter,
-  KSCrashInstallErrorPathTooLong,
-  KSCrashInstallErrorCouldNotCreatePath,
-  KSCrashInstallErrorCouldNotInitializeStore,
-  KSCrashInstallErrorCouldNotInitializeMemory,
-  KSCrashInstallErrorCouldNotInitializeCrashState,
-  KSCrashInstallErrorCouldNotSetLogFilename }
-#ifndef __OBJC__
-KSCrashInstallErrorCode
-#endif
-    ;
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif /* KSCrashError_h */
+#endif /* KSCrashMonitorType_Private_h */

@@ -38,6 +38,7 @@
 #include "KSCrashNamespace.h"
 #include "KSCrashReportStoreC.h"
 #include "KSCrashReportWriter.h"
+#include "KSCrashUserInfo.h"
 
 #ifdef __cplusplus
 extern "C" {

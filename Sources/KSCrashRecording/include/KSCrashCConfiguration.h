@@ -153,26 +153,6 @@ typedef struct {
      */
     const char *userInfoJSON;
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    /** The maximum time to allow the main thread to run without returning.
-     *
-     * If the main thread is occupied by a task for longer than this interval, the
-     * watchdog will consider the queue deadlocked and shut down the app, writing a
-     * crash report. Set to 0 to disable this feature.
-     *
-     * **Warning**: Ensure that no tasks on the main thread take longer to complete than
-     * this value, including application startup. You may need to initialize your
-     * application on a different thread or set this to a higher value until initialization
-     * is complete.
-     *
-     * @note Deprecated. Use `KSCrashMonitorTypeWatchdog` in the `monitors` field instead.
-     * The watchdog monitor provides better hang detection with a fixed 250ms threshold.
-     */
-    double deadlockWatchdogInterval
-        KSCRASH_DEPRECATED("Use `KSCrashMonitorTypeWatchdog` in the `monitors` field instead");
-#pragma clang diagnostic pop
-
     /** If true, attempt to fetch dispatch queue names for each running thread.
      *
      * This option enables the retrieval of dispatch queue names for each thread at the
@@ -289,7 +269,7 @@ typedef struct {
      * with duration and stack trace information. When disabled (default),
      * resolved hangs are discarded.
      *
-     * Only applies when `KSCrashMonitorTypeWatchdog` is included in `monitors`.
+     * Only applies when `KSCrashMonitorTypeHang` is included in `monitors`.
      *
      * **Default**: false
      */
@@ -369,12 +349,8 @@ static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
 {
     return (KSCrashCConfiguration) {
         .reportStoreConfiguration = KSCrashReportStoreCConfiguration_Default(),
-        .monitors = KSCrashMonitorTypeProductionSafeMinimal,
+        .monitors = KSCrashMonitorTypeDefault,
         .userInfoJSON = NULL,
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-        .deadlockWatchdogInterval = 0.0,
-#pragma clang diagnostic pop
         .enableQueueNameSearch = false,
         .enableMemoryIntrospection = false,
         .doNotIntrospectClasses = { .strings = NULL, .length = 0 },
