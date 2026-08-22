@@ -46,14 +46,6 @@ extern "C" {
 /** Configuration for managing crash reports through the report store API.
  */
 typedef struct {
-    /** The name of the application.
-     * This identifier is used to distinguish the application in crash reports.
-     * It is crucial for correlating crash data with the specific application version.
-     *
-     * @note This field must be set prior to using this configuration with any `kscrs_` functions.
-     */
-    const char *appName;
-
     /** The directory path for storing crash reports.
      * The specified directory must have write permissions. If it doesn't exist,
      * the system will attempt to create it automatically.
@@ -101,12 +93,11 @@ typedef struct {
 static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_Default(void)
 {
     return (KSCrashReportStoreCConfiguration) {
-        .appName = NULL,
         .reportsPath = NULL,
         .reportSidecarsPath = NULL,
         .runSidecarsPath = NULL,
         .runSummariesPath = NULL,
-        .maxReportCount = 5,
+        .maxReportCount = 50,
         .maxRunSummaryCount = 50,
     };
 }
@@ -115,7 +106,6 @@ static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_
     const KSCrashReportStoreCConfiguration *configuration)
 {
     return (KSCrashReportStoreCConfiguration) {
-        .appName = configuration->appName ? strdup(configuration->appName) : NULL,
         .reportsPath = configuration->reportsPath ? strdup(configuration->reportsPath) : NULL,
         .reportSidecarsPath = configuration->reportSidecarsPath ? strdup(configuration->reportSidecarsPath) : NULL,
         .runSidecarsPath = configuration->runSidecarsPath ? strdup(configuration->runSidecarsPath) : NULL,
@@ -127,7 +117,6 @@ static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_
 
 static inline void KSCrashReportStoreCConfiguration_Release(KSCrashReportStoreCConfiguration *configuration)
 {
-    free((void *)configuration->appName);
     free((void *)configuration->reportsPath);
     free((void *)configuration->reportSidecarsPath);
     free((void *)configuration->runSidecarsPath);
@@ -137,21 +126,16 @@ static inline void KSCrashReportStoreCConfiguration_Release(KSCrashReportStoreCC
 /** Configuration for KSCrash settings.
  */
 typedef struct {
-    /** The report store configuration to be used for the corresponding installation.
-     */
-    KSCrashReportStoreCConfiguration reportStoreConfiguration;
+    /** How many unsent reports the store keeps; the oldest are dropped past it. */
+    int maxReportCount;
+
+    /** How many run summaries the store keeps; 0 or less disables them. */
+    int maxRunSummaryCount;
 
     /** The crash types that will be handled.
      * Some crash types may not be enabled depending on circumstances (e.g., running in a debugger).
      */
     KSCrashMonitorType monitors;
-
-    /** User-supplied data in JSON format. NULL to delete.
-     *
-     * This JSON string is written into the crash report's "user" section at install time.
-     * After install, use the per-key API (kscrash_setUserInfoString, etc.) to update values.
-     */
-    const char *userInfoJSON;
 
     /** If true, attempt to fetch dispatch queue names for each running thread.
      *
@@ -255,14 +239,6 @@ typedef struct {
      */
     bool enableSwapCxaThrow;
 
-    /** If true, enables monitoring for SIGTERM signals.
-     *
-     * @deprecated SIGTERM is now always caught to record a clean exit. No crash report is written. This field is
-     * ignored.
-     */
-    bool enableSigTermMonitoring
-        KSCRASH_DEPRECATED("SIGTERM is now always caught to record a clean exit. This field is ignored.");
-
     /** If true, resolved hangs are kept as non-fatal reports.
      *
      * When enabled, hangs that resolve on their own are preserved as reports
@@ -315,24 +291,6 @@ typedef struct {
         void (*release)(void *apis);
     } plugins;
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    /** Callback to invoke upon a crash (DEPRECATED).
-     *
-     * @deprecated Use `isWritingReportCallback` for async-safety awareness (since v2.4.0).
-     * This callback does not receive plan information and may not handle crash
-     * scenarios safely.
-     *
-     * This function is called during the crash reporting process, providing an opportunity
-     * to add additional information to the crash report. Only async-safe functions should
-     * be called from this function. Avoid calling Objective-C methods.
-     *
-     * **Default**: NULL
-     */
-    KSReportWriteCallback crashNotifyCallback
-        __attribute__((deprecated("Use `isWritingReportCallback` for async-safety awareness (since v2.4.0).")));
-#pragma clang diagnostic pop
-
     /** If true, use `backtrace_async()` for KSCrash's current-thread stack capture paths.
      *
      * This can stitch Swift async continuation frames into self-thread backtraces such as
@@ -348,18 +306,13 @@ typedef struct {
 static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
 {
     return (KSCrashCConfiguration) {
-        .reportStoreConfiguration = KSCrashReportStoreCConfiguration_Default(),
+        .maxReportCount = 50,
+        .maxRunSummaryCount = 50,
         .monitors = KSCrashMonitorTypeDefault,
-        .userInfoJSON = NULL,
         .enableQueueNameSearch = false,
         .enableMemoryIntrospection = false,
         .doNotIntrospectClasses = { .strings = NULL, .length = 0 },
-    // TODO: Remove in 3.0 - Deprecated field initialization for backward compatibility
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-        .crashNotifyCallback = NULL,
         .willWriteReportCallback = NULL,
-#pragma clang diagnostic pop
         .isWritingReportCallback = NULL,
         .didWriteReportCallback = NULL,
         .addConsoleLogToReport = false,
@@ -368,10 +321,6 @@ static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
         .enableSwiftAsyncStackTraces = false,
         .enableHangReporting = false,
         .enableCPUExceptionReporting = false,
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-        .enableSigTermMonitoring = false,
-#pragma clang diagnostic pop
         .enableCompactBinaryImages = false,
         .plugins = { .apis = NULL, .length = 0, .release = NULL },
     };
@@ -379,8 +328,6 @@ static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
 
 static inline void KSCrashCConfiguration_Release(KSCrashCConfiguration *configuration)
 {
-    KSCrashReportStoreCConfiguration_Release(&configuration->reportStoreConfiguration);
-    free((void *)configuration->userInfoJSON);
     for (int idx = 0; idx < configuration->doNotIntrospectClasses.length; ++idx) {
         free((void *)(configuration->doNotIntrospectClasses.strings[idx]));
     }

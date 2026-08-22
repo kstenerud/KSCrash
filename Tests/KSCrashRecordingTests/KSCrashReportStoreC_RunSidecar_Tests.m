@@ -88,7 +88,6 @@ extern void kscrash_testcode_setRunID(const char *runID);
     NSString *sidecarsPath = [self.tempPath stringByAppendingPathComponent:@"Sidecars"];
     NSString *runSidecarsPath = [self.tempPath stringByAppendingPathComponent:@"RunSidecars"];
     NSString *runSummariesPath = [self.tempPath stringByAppendingPathComponent:@"Runs"];
-    _storeConfig.appName = "testapp";
     _storeConfig.reportsPath = reportsPath.UTF8String;
     _storeConfig.reportSidecarsPath = sidecarsPath.UTF8String;
     _storeConfig.runSidecarsPath = runSidecarsPath.UTF8String;

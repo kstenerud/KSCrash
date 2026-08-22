@@ -1,7 +1,7 @@
 //
-//  KSCrash+UserInfo.m
+//  KSCrashVersion.h
 //
-//  Created by Alexander Cohen on 2026-03-01.
+//  Created by Alexander Cohen on 2026-08-22.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,46 +24,19 @@
 // THE SOFTWARE.
 //
 
-#import "KSCrash+UserInfo.h"
+#ifndef KSCrashVersion_h
+#define KSCrashVersion_h
 
-#import "KSCrashMonitor_UserInfo.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-@implementation KSCrash (UserInfo)
+/** The framework version as a number (major.minor) and as its string, e.g. 3.0 and "3.0.0". */
+extern const double KSCrashFrameworkVersionNumber;
+extern const unsigned char KSCrashFrameworkVersionString[];
 
-- (void)setUserInfoString:(NSString *)value forKey:(NSString *)key
-{
-    kscm_userinfo_setString(key.UTF8String, value.UTF8String);
+#ifdef __cplusplus
 }
+#endif
 
-- (void)setUserInfoInteger:(NSInteger)value forKey:(NSString *)key
-{
-    kscm_userinfo_setInt64(key.UTF8String, (int64_t)value);
-}
-
-- (void)setUserInfoUnsignedInteger:(NSUInteger)value forKey:(NSString *)key
-{
-    kscm_userinfo_setUInt64(key.UTF8String, (uint64_t)value);
-}
-
-- (void)setUserInfoDouble:(double)value forKey:(NSString *)key
-{
-    kscm_userinfo_setDouble(key.UTF8String, value);
-}
-
-- (void)setUserInfoBool:(BOOL)value forKey:(NSString *)key
-{
-    kscm_userinfo_setBool(key.UTF8String, (bool)value);
-}
-
-- (void)setUserInfoDate:(NSDate *)value forKey:(NSString *)key
-{
-    uint64_t nanos = (uint64_t)(value.timeIntervalSince1970 * 1e9);
-    kscm_userinfo_setDate(key.UTF8String, nanos);
-}
-
-- (void)removeUserInfoValueForKey:(NSString *)key
-{
-    kscm_userinfo_removeValue(key.UTF8String);
-}
-
-@end
+#endif /* KSCrashVersion_h */

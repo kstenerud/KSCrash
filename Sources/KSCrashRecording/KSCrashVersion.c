@@ -1,7 +1,7 @@
 //
-//  KSCrash+Namespace.h
+//  KSCrashVersion.c
 //
-//  Created by Alexander Cohen on 2026-02-13.
+//  Created by Alexander Cohen on 2026-08-22.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,24 +24,8 @@
 // THE SOFTWARE.
 //
 
-#import "KSCrash.h"
+#include "KSCrashVersion.h"
 
-NS_ASSUME_NONNULL_BEGIN
+const double KSCrashFrameworkVersionNumber = 3.0000;
 
-@interface KSCrash (Namespace)
-
-/** The namespaced KSCrash name ("KSCrash" or "KSCrash<namespace>"). */
-@property(class, nonatomic, readonly) NSString *namespaceIdentifier;
-
-/** The namespaced KSCrash URL under the Documents directory. */
-@property(class, nonatomic, readonly, nullable) NSURL *documentsURL;
-
-/** The namespaced KSCrash URL under the Application Support directory. */
-@property(class, nonatomic, readonly, nullable) NSURL *applicationSupportURL;
-
-/** The namespaced KSCrash URL under the Caches directory. */
-@property(class, nonatomic, readonly, nullable) NSURL *cachesURL;
-
-@end
-
-NS_ASSUME_NONNULL_END
+const unsigned char KSCrashFrameworkVersionString[] = "3.0.0";
