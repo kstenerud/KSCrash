@@ -59,4 +59,24 @@ extern void kscrash_testcode_setMonitors(KSCrashMonitorType monitorTypes);
     XCTAssertEqual(kscm_getMonitor("Zombie"), NULL);
 }
 
+- (void)testUserReportedIsAlwaysRegistered
+{
+    kscrash_testcode_setMonitors(KSCrashMonitorTypeNone);
+    XCTAssertNotEqual(kscm_getMonitor("UserReported"), NULL);
+    XCTAssertNotEqual(kscm_getMonitor("System"), NULL);
+    XCTAssertEqual(kscm_getMonitor("Signal"), NULL);
+}
+
+- (void)testDefaultSetIsEveryDetectorButZombie
+{
+    kscrash_testcode_setMonitors(KSCrashMonitorTypeDefault);
+    for (NSString *monitor in
+         @[ @"MachException", @"Signal", @"CPPException", @"NSException", @"Termination", @"Watchdog" ]) {
+        XCTAssertNotEqual(kscm_getMonitor(monitor.UTF8String), NULL, @"%@", monitor);
+    }
+    XCTAssertEqual(kscm_getMonitor("Zombie"), NULL);
+    kscrash_testcode_setMonitors(KSCrashMonitorTypeAll);
+    XCTAssertNotEqual(kscm_getMonitor("Zombie"), NULL);
+}
+
 @end

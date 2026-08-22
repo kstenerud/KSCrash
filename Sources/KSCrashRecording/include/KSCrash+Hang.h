@@ -48,7 +48,7 @@ typedef void (^KSHangObserverBlock)(KSHangChangeType change, uint64_t startTimes
  * - An ongoing hang's duration is updated (KSHangChangeTypeUpdated)
  * - A hang ends and the main thread becomes responsive (KSHangChangeTypeEnded)
  *
- * @note This method requires `KSCrashMonitorTypeWatchdog` to be enabled in your
+ * @note This method requires `KSCrashMonitorTypeHang` to be enabled in your
  *       KSCrash configuration. If the watchdog monitor is not enabled, this method
  *       returns `nil` and no observations will occur.
  *

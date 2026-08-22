@@ -49,6 +49,7 @@
 
 #include "KSCrashMonitorAPI.h"
 #include "KSCrashNamespace.h"
+#include "KSCrashUserInfo.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -80,6 +81,12 @@ void kscm_userinfo_setDate(const char *key, uint64_t nanosecondsSince1970);
 
 /** Remove the value for the given key (writes a tombstone record). */
 void kscm_userinfo_removeValue(const char *key);
+
+/** The current value under `key`; see kscrash_copyUserInfoValue. */
+bool kscm_userinfo_copyValue(const char *key, KSCrashUserInfoValue *valueOut);
+
+/** The keys that currently hold a value; see kscrash_enumerateUserInfoKeys. */
+void kscm_userinfo_enumerateKeys(KSCrashUserInfoKeyCallback callback, void *context);
 
 /** Stitch user info sidecar data into a report at delivery time.
  *
