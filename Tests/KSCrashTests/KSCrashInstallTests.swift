@@ -35,61 +35,20 @@ import XCTest
 /// The one place the test process installs KSCrash: the C core installs once
 /// per process, so every assertion about the installed state lives here.
 final class KSCrashInstallTests: XCTestCase {
-    /// A plugin over a minimal C monitor table, to prove registration round-trips.
-    private final class TestPlugin: MonitorPlugin, @unchecked Sendable {
-        private static let monitorID: UnsafePointer<CChar> = UnsafePointer(strdup("KSCrashInstallTestsPlugin")!)
-        let api: UnsafeMutablePointer<KSCrashMonitorAPI>
-
-        init() {
-            api = .allocate(capacity: 1)
-            api.initialize(to: KSCrashMonitorAPI())
-            // The core calls these without a NULL check; the rest may stay NULL.
-            api.pointee.`init` = { _, _ in }
-            api.pointee.monitorId = { _ in TestPlugin.monitorID }
-            api.pointee.monitorFlags = { _ in KSCrashMonitorFlagPlugin }
-            api.pointee.setEnabled = { _, _ in }
-            api.pointee.isEnabled = { _ in true }
-            api.pointee.addContextualInfoToEvent = { _, _ in }
-            api.pointee.notifyPostSystemEnable = { _ in }
-        }
-    }
-
-    private static let plugin = TestPlugin()
-    private static let base = FileManager.default.temporaryDirectory
-        .appendingPathComponent("KSCrashInstallTests-\(UUID().uuidString)", isDirectory: true)
-    private static var configuration: InstallConfiguration = {
-        var config = InstallConfiguration(namespace: "Tests")
-        config.container = .url(base)
-        config.monitors = []
-        config.plugins = [plugin]
-        return config
-    }()
-    private static var installError: Error?
-    private static let installOnce: Void = {
-        do {
-            try KSCrash.shared.install(configuration)
-        } catch {
-            installError = error
-        }
-    }()
-
     override func setUpWithError() throws {
-        _ = Self.installOnce
-        if let error = Self.installError {
-            throw error
-        }
+        try TestInstall.ensure()
     }
 
     func test_installConfiguration_isTheOneInstalledWith() throws {
         let installed = try XCTUnwrap(KSCrash.shared.installConfiguration)
-        XCTAssertEqual(installed.namespace, Self.configuration.namespace)
-        XCTAssertEqual(installed.container, .url(Self.base))
-        XCTAssertEqual(installed.monitors, [])
+        XCTAssertEqual(installed.namespace, TestInstall.configuration.namespace)
+        XCTAssertEqual(installed.container, .url(TestInstall.base))
+        XCTAssertEqual(installed.monitors, [.hangs])
     }
 
     func test_install_createsTheStoresAtTheLocations() throws {
-        let locations = try Self.configuration.locations
-        XCTAssertTrue(locations.root.path.hasPrefix(Self.base.path), "the custom base carries the layout")
+        let locations = try TestInstall.configuration.locations
+        XCTAssertTrue(locations.root.path.hasPrefix(TestInstall.base.path), "the custom base carries the layout")
         for url in [locations.reports, locations.runs, locations.data] {
             var isDirectory: ObjCBool = false
             XCTAssertTrue(FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory), url.path)
@@ -101,7 +60,7 @@ final class KSCrashInstallTests: XCTestCase {
     /// The C install derives its directories and Swift derives its Locations
     /// from the same constants; this pins them to each other.
     func test_locations_matchTheCStoresPaths() throws {
-        let locations = try Self.configuration.locations
+        let locations = try TestInstall.configuration.locations
         XCTAssertEqual(String(cString: kscrash_getReportsPath()), locations.reports.path)
         XCTAssertEqual(String(cString: kscrash_getRunSummariesPath()), locations.runs.path)
         XCTAssertEqual(String(cString: kscrash_getRunSidecarsPath()), locations.runSidecars.path)
@@ -126,7 +85,7 @@ final class KSCrashInstallTests: XCTestCase {
     }
 
     func test_installedPlugin_returnsTheRegisteredOne() {
-        XCTAssertTrue(KSCrash.shared.installedPlugin(TestPlugin.self) === Self.plugin)
+        XCTAssertTrue(KSCrash.shared.installedPlugin(TestInstall.Plugin.self) === TestInstall.plugin)
         XCTAssertNil(KSCrash.shared.installedPlugin(CMonitorPlugin.self))
     }
 }

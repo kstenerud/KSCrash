@@ -28,6 +28,16 @@
 
 #import "KSKeyValueStore.h"
 
+static void collectString(const char *key, uint16_t keyLen, const char *value, uint16_t valueLen, void *ctx)
+{
+    NSMutableDictionary *dict = (__bridge NSMutableDictionary *)ctx;
+    NSString *k = [[NSString alloc] initWithBytes:key length:keyLen encoding:NSUTF8StringEncoding];
+    NSString *v = [[NSString alloc] initWithBytes:value length:valueLen encoding:NSUTF8StringEncoding];
+    if (k && v) {
+        dict[k] = v;
+    }
+}
+
 @interface KSKeyValueStore_Tests : XCTestCase
 @end
 
@@ -120,6 +130,70 @@
     XCTAssertEqual(status, KSKVSOpenFailure);
 
     [[NSFileManager defaultManager] setAttributes:@{ NSFilePosixPermissions : @0644 } ofItemAtPath:self.path error:nil];
+}
+
+#pragma mark - Compaction and growth
+
+- (NSDictionary<NSString *, NSString *> *)stringValuesIn:(KSKeyValueStore *)store
+{
+    NSMutableDictionary<NSString *, NSString *> *dict = [NSMutableDictionary dictionary];
+    KSKVSCallbacks callbacks = { .onString = collectString };
+    kskvs_iterate(store, &callbacks, (__bridge void *)dict);
+    return dict;
+}
+
+- (void)test_write_compactionKeepsOnlyTheLastRecordForAKey
+{
+    KSKVSConfig config = [self config];
+    KSKeyValueStore *store = kskvs_create(self.path.UTF8String, KSKVSModeReadWriteCreate, &config, NULL);
+    XCTAssertTrue(store != NULL);
+    for (int i = 0; i < 100; i++) {
+        char buf[32];
+        snprintf(buf, sizeof(buf), "value_%d", i);
+        kskvs_setString(store, "repeated", buf);
+    }
+    XCTAssertEqualObjects([self stringValuesIn:store][@"repeated"], @"value_99");
+    kskvs_destroy(store);
+}
+
+- (void)test_write_compactionDropsTombstones
+{
+    KSKVSConfig config = [self config];
+    KSKeyValueStore *store = kskvs_create(self.path.UTF8String, KSKVSModeReadWriteCreate, &config, NULL);
+    XCTAssertTrue(store != NULL);
+    kskvs_setString(store, "a", "1");
+    kskvs_setString(store, "b", "2");
+    kskvs_removeValue(store, "a");
+    // Enough churn to force compaction past the removed key.
+    for (int i = 0; i < 200; i++) {
+        char buf[32];
+        snprintf(buf, sizeof(buf), "val_%d", i);
+        kskvs_setString(store, "fill", buf);
+    }
+    NSDictionary *values = [self stringValuesIn:store];
+    XCTAssertNil(values[@"a"]);
+    XCTAssertEqualObjects(values[@"b"], @"2");
+    XCTAssertNotNil(values[@"fill"]);
+    kskvs_destroy(store);
+}
+
+- (void)test_write_growsBeyondInitialCapacity
+{
+    KSKVSConfig config = [self config];
+    KSKeyValueStore *store = kskvs_create(self.path.UTF8String, KSKVSModeReadWriteCreate, &config, NULL);
+    XCTAssertTrue(store != NULL);
+    for (int i = 0; i < 500; i++) {
+        char key[32];
+        snprintf(key, sizeof(key), "key_%d", i);
+        char val[32];
+        snprintf(val, sizeof(val), "value_%d", i);
+        kskvs_setString(store, key, val);
+    }
+    NSDictionary *values = [self stringValuesIn:store];
+    XCTAssertEqualObjects(values[@"key_0"], @"value_0");
+    XCTAssertEqualObjects(values[@"key_499"], @"value_499");
+    XCTAssertEqual(values.count, 500u);
+    kskvs_destroy(store);
 }
 
 @end
