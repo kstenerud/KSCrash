@@ -38,6 +38,25 @@ static void collectString(const char *key, uint16_t keyLen, const char *value, u
     }
 }
 
+static void lookupTestOnInt64(__unused const char *key, __unused uint16_t keyLen, int64_t value, void *ctx)
+{
+    void (^block)(int64_t) = (__bridge void (^)(int64_t))ctx;
+    block(value);
+}
+
+static void lookupTestOnString(__unused const char *key, __unused uint16_t keyLen, __unused const char *value,
+                               __unused uint16_t valueLen, void *ctx)
+{
+    void (^block)(BOOL) = (__bridge void (^)(BOOL))ctx;
+    block(NO);
+}
+
+static void lookupTestOnRemoved(__unused const char *key, __unused uint16_t keyLen, void *ctx)
+{
+    void (^block)(BOOL) = (__bridge void (^)(BOOL))ctx;
+    block(YES);
+}
+
 @interface KSKeyValueStore_Tests : XCTestCase
 @end
 
@@ -193,6 +212,61 @@ static void collectString(const char *key, uint16_t keyLen, const char *value, u
     XCTAssertEqualObjects(values[@"key_0"], @"value_0");
     XCTAssertEqualObjects(values[@"key_499"], @"value_499");
     XCTAssertEqual(values.count, 500u);
+    kskvs_destroy(store);
+}
+
+#pragma mark - Lookup
+
+- (void)test_lookup_answersTheLatestWriteForTheKeyOnly
+{
+    KSKVSConfig config = [self config];
+    KSKeyValueStore *store = kskvs_create(self.path.UTF8String, KSKVSModeReadWriteCreate, &config, NULL);
+    XCTAssertTrue(store != NULL);
+    kskvs_setString(store, "other", "noise");
+    kskvs_setString(store, "k", "first");
+    kskvs_setInt64(store, "k", 42);
+    NSMutableDictionary *strings = [NSMutableDictionary dictionary];
+    __block int64_t intValue = 0;
+    __block int fired = 0;
+    KSKVSCallbacks callbacks = { .onString = collectString };
+    kskvs_lookup(store, "other", &callbacks, (__bridge void *)strings);
+    XCTAssertEqualObjects(strings[@"other"], @"noise");
+    XCTAssertEqual(strings.count, 1u, @"only the looked-up key fires");
+    // The last write for "k" was the int64; the string record must not fire.
+    void (^onInt)(int64_t) = ^(int64_t value) {
+        intValue = value;
+        fired++;
+    };
+    KSKVSCallbacks intCallbacks = { .onString = collectString, .onInt64 = lookupTestOnInt64 };
+    kskvs_lookup(store, "k", &intCallbacks, (__bridge void *)onInt);
+    XCTAssertEqual(intValue, 42);
+    XCTAssertEqual(fired, 1);
+    kskvs_destroy(store);
+}
+
+- (void)test_lookup_firesOnRemovedForATombstone_andNothingWhenAbsent
+{
+    KSKVSConfig config = [self config];
+    KSKeyValueStore *store = kskvs_create(self.path.UTF8String, KSKVSModeReadWriteCreate, &config, NULL);
+    XCTAssertTrue(store != NULL);
+    kskvs_setString(store, "gone", "was here");
+    kskvs_removeValue(store, "gone");
+    __block int removed = 0;
+    __block int strings = 0;
+    void (^witness)(BOOL) = ^(BOOL wasRemoved) {
+        if (wasRemoved) {
+            removed++;
+        } else {
+            strings++;
+        }
+    };
+    KSKVSCallbacks callbacks = { .onString = lookupTestOnString, .onRemoved = lookupTestOnRemoved };
+    kskvs_lookup(store, "gone", &callbacks, (__bridge void *)witness);
+    XCTAssertEqual(removed, 1);
+    XCTAssertEqual(strings, 0);
+    kskvs_lookup(store, "never", &callbacks, (__bridge void *)witness);
+    XCTAssertEqual(removed, 1, @"an absent key fires nothing");
+    XCTAssertEqual(strings, 0);
     kskvs_destroy(store);
 }
 

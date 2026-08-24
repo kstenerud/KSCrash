@@ -545,6 +545,65 @@ void kskvs_removeValue(KSKeyValueStore *store, const char *key) { appendRecord(s
 #pragma mark - Iteration -
 // ============================================================================
 
+/** Fire the one callback matching the record at `pos`. Bounds are the
+ *  caller's responsibility; iteration and lookup validate before remembering
+ *  a position. */
+static void dispatchRecord(const KSKeyValueStore *store, uint32_t pos, const KSKVSCallbacks *callbacks, void *context)
+{
+    const KSKVSRecordHeader *rec = (const KSKVSRecordHeader *)(store->storage + pos);
+    const char *key = (const char *)(store->storage + pos + KSKVS_RECORD_HEADER_SIZE);
+    uint16_t keyLen = rec->keyLen;
+    if (rec->type == KSKVSTypeRemoved) {
+        if (callbacks->onRemoved) {
+            callbacks->onRemoved(key, keyLen, context);
+        }
+        return;
+    }
+    const uint8_t *valueBytes = store->storage + pos + KSKVS_RECORD_HEADER_SIZE + keyLen;
+    switch (rec->type) {
+        case KSKVSTypeString:
+            if (callbacks->onString) {
+                callbacks->onString(key, keyLen, (const char *)valueBytes, rec->valueLen, context);
+            }
+            break;
+        case KSKVSTypeInt64:
+            if (callbacks->onInt64 && rec->valueLen == sizeof(int64_t)) {
+                int64_t val;
+                memcpy(&val, valueBytes, sizeof(val));
+                callbacks->onInt64(key, keyLen, val, context);
+            }
+            break;
+        case KSKVSTypeUInt64:
+            if (callbacks->onUInt64 && rec->valueLen == sizeof(uint64_t)) {
+                uint64_t val;
+                memcpy(&val, valueBytes, sizeof(val));
+                callbacks->onUInt64(key, keyLen, val, context);
+            }
+            break;
+        case KSKVSTypeDouble:
+            if (callbacks->onDouble && rec->valueLen == sizeof(double)) {
+                double val;
+                memcpy(&val, valueBytes, sizeof(val));
+                callbacks->onDouble(key, keyLen, val, context);
+            }
+            break;
+        case KSKVSTypeBool:
+            if (callbacks->onBool && rec->valueLen == sizeof(uint8_t)) {
+                callbacks->onBool(key, keyLen, valueBytes[0] != 0, context);
+            }
+            break;
+        case KSKVSTypeDate:
+            if (callbacks->onDate && rec->valueLen == sizeof(uint64_t)) {
+                uint64_t val;
+                memcpy(&val, valueBytes, sizeof(val));
+                callbacks->onDate(key, keyLen, val, context);
+            }
+            break;
+        default:
+            break;
+    }
+}
+
 void kskvs_iterate(const KSKeyValueStore *store, const KSKVSCallbacks *callbacks, void *context)
 {
     if (store == NULL || store->storage == NULL || callbacks == NULL) {
@@ -598,59 +657,49 @@ void kskvs_iterate(const KSKeyValueStore *store, const KSKVSCallbacks *callbacks
         }
 
         if (!superseded) {
-            if (rec->type == KSKVSTypeRemoved) {
-                if (callbacks->onRemoved) {
-                    callbacks->onRemoved(key, keyLen, context);
-                }
-            } else {
-                const uint8_t *valueBytes = store->storage + pos + KSKVS_RECORD_HEADER_SIZE + keyLen;
-
-                switch (rec->type) {
-                    case KSKVSTypeString:
-                        if (callbacks->onString) {
-                            callbacks->onString(key, keyLen, (const char *)valueBytes, rec->valueLen, context);
-                        }
-                        break;
-                    case KSKVSTypeInt64:
-                        if (callbacks->onInt64 && rec->valueLen == sizeof(int64_t)) {
-                            int64_t val;
-                            memcpy(&val, valueBytes, sizeof(val));
-                            callbacks->onInt64(key, keyLen, val, context);
-                        }
-                        break;
-                    case KSKVSTypeUInt64:
-                        if (callbacks->onUInt64 && rec->valueLen == sizeof(uint64_t)) {
-                            uint64_t val;
-                            memcpy(&val, valueBytes, sizeof(val));
-                            callbacks->onUInt64(key, keyLen, val, context);
-                        }
-                        break;
-                    case KSKVSTypeDouble:
-                        if (callbacks->onDouble && rec->valueLen == sizeof(double)) {
-                            double val;
-                            memcpy(&val, valueBytes, sizeof(val));
-                            callbacks->onDouble(key, keyLen, val, context);
-                        }
-                        break;
-                    case KSKVSTypeBool:
-                        if (callbacks->onBool && rec->valueLen == sizeof(uint8_t)) {
-                            callbacks->onBool(key, keyLen, valueBytes[0] != 0, context);
-                        }
-                        break;
-                    case KSKVSTypeDate:
-                        if (callbacks->onDate && rec->valueLen == sizeof(uint64_t)) {
-                            uint64_t val;
-                            memcpy(&val, valueBytes, sizeof(val));
-                            callbacks->onDate(key, keyLen, val, context);
-                        }
-                        break;
-                    default:
-                        break;
-                }
-            }
+            dispatchRecord(store, pos, callbacks, context);
         }
 
         pos += recordSize;
+    }
+}
+
+void kskvs_lookup(const KSKeyValueStore *store, const char *key, const KSKVSCallbacks *callbacks, void *context)
+{
+    if (store == NULL || store->storage == NULL || key == NULL || callbacks == NULL) {
+        return;
+    }
+
+    const KSKVSHeader *hdr = storeHeaderConst(store);
+    if (hdr->magic != KSKVS_MAGIC) {
+        return;
+    }
+
+    uint32_t endPos = hdr->offset;
+    if (endPos > store->capacity) {
+        endPos = store->capacity;
+    }
+
+    size_t keyLen = strlen(key);
+
+    // One forward pass remembering the latest record for the key; whatever is
+    // held at the end is the last write, so exactly one callback fires.
+    uint32_t foundPos = UINT32_MAX;
+    uint32_t pos = KSKVS_HEADER_SIZE;
+    while (pos + KSKVS_RECORD_HEADER_SIZE <= endPos) {
+        const KSKVSRecordHeader *rec = (const KSKVSRecordHeader *)(store->storage + pos);
+        uint32_t recordSize = KSKVS_RECORD_HEADER_SIZE + rec->keyLen + rec->valueLen;
+        if (pos + recordSize > endPos) {
+            break;
+        }
+        if (rec->keyLen == keyLen && memcmp(store->storage + pos + KSKVS_RECORD_HEADER_SIZE, key, keyLen) == 0) {
+            foundPos = pos;
+        }
+        pos += recordSize;
+    }
+
+    if (foundPos != UINT32_MAX) {
+        dispatchRecord(store, foundPos, callbacks, context);
     }
 }
 
