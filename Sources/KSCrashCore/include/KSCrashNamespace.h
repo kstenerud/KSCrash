@@ -323,6 +323,7 @@
 #define kskvs_create KSCRASH_NS(kskvs_create)
 #define kskvs_destroy KSCRASH_NS(kskvs_destroy)
 #define kskvs_iterate KSCRASH_NS(kskvs_iterate)
+#define kskvs_lookup KSCRASH_NS(kskvs_lookup)
 #define kskvs_removeValue KSCRASH_NS(kskvs_removeValue)
 #define kskvs_setBool KSCRASH_NS(kskvs_setBool)
 #define kskvs_setDate KSCRASH_NS(kskvs_setDate)
