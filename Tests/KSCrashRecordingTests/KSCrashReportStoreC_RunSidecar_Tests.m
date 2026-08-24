@@ -59,6 +59,8 @@ static CFDictionaryRef testStitchReport(CFDictionaryRef reportDict, const char *
     }
 }
 
+#import "KSCrashC.h"
+
 // Test helpers exposed from KSCrashC.c.
 extern void kscrash_testcode_setRunID(const char *runID);
 
@@ -67,18 +69,22 @@ extern void kscrash_testcode_setRunID(const char *runID);
 
 @implementation KSCrashReportStoreC_RunSidecar_Tests {
     KSCrashReportStoreCConfiguration _storeConfig;
+    char _savedRunID[64];
 }
 
 - (void)setUp
 {
     [super setUp];
     memset(&_storeConfig, 0, sizeof(_storeConfig));
+    strlcpy(_savedRunID, kscrash_getRunID(), sizeof(_savedRunID));
 }
 
 - (void)tearDown
 {
-    kscrs_setStitchConfig(NULL);
-    kscrash_testcode_setRunID(NULL);
+    // Put back what the fixture clobbered: a live install keeps its stitch
+    // config and run id, a bare process goes back to none.
+    kscrs_setStitchConfig(kscrash_isInstalled() ? kscrash_getReportStoreConfiguration() : NULL);
+    kscrash_testcode_setRunID(_savedRunID[0] != '\0' ? _savedRunID : NULL);
     [super tearDown];
 }
 
