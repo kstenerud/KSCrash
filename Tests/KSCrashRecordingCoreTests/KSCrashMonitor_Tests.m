@@ -106,6 +106,10 @@ static void myFinalizeCallback(__unused struct KSCrash_MonitorContext *context, 
 }
 
 extern void kscm_testcode_resetState(void);
+struct KSCrashMonitorSavedState;
+extern struct KSCrashMonitorSavedState *kscm_testcode_saveState(void);
+extern void kscm_testcode_restoreState(struct KSCrashMonitorSavedState *saved);
+static struct KSCrashMonitorSavedState *g_savedMonitorState;
 extern bool kscm_testcode_isHandlingFatalException(void);
 extern void kscm_testcode_clearHandlingFatalException(void);
 
@@ -136,11 +140,13 @@ extern void kscm_testcode_clearHandlingFatalException(void);
     g_secondDummyMonitor.isEnabled = secondDummyIsEnabled;
     g_secondDummyEnabledState = false;
 
+    g_savedMonitorState = kscm_testcode_saveState();
     kscm_testcode_resetState();
 }
 
 - (void)tearDown
 {
+    kscm_testcode_restoreState(g_savedMonitorState);
     // Tests here deliberately latch the process-global fatal-exception state, and it outlives
     // this suite: other bundles sharing the process then have their events refused, and the
     // MetricKit end-to-end test skips itself rather than failing, so a real regression there

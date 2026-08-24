@@ -34,11 +34,23 @@
 @interface KSCrashMonitor_NSException_Tests : XCTestCase
 @end
 
+struct KSCrashMonitorSavedState;
+extern struct KSCrashMonitorSavedState *kscm_testcode_saveState(void);
+extern void kscm_testcode_restoreState(struct KSCrashMonitorSavedState *saved);
+static struct KSCrashMonitorSavedState *g_savedMonitorState;
+
 @implementation KSCrashMonitor_NSException_Tests
+
+- (void)setUp
+{
+    [super setUp];
+    g_savedMonitorState = kscm_testcode_saveState();
+}
 
 - (void)tearDown
 {
     kscm_disableAllMonitors();
+    kscm_testcode_restoreState(g_savedMonitorState);
     [super tearDown];
 }
 
