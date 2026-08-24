@@ -38,6 +38,22 @@ final class LiveMetadataTests: XCTestCase {
         }
     }
 
+    func test_availableAfterInstall_hasNoUnavailableReason() {
+        XCTAssertNil(KSCrash.shared.metadata.unavailableReason)
+    }
+
+    func test_unattachableStore_recordsTheReason_andStaysInert() throws {
+        let metadata = LiveMetadata()
+        let bogus = URL(fileURLWithPath: "/dev/null/nope/UserInfo.ksscr").path
+        XCTAssertThrowsError(try metadata.attach(path: bogus)) { error in
+            XCTAssertTrue(error is InstallError)
+        }
+        XCTAssertNotNil(metadata.unavailableReason)
+        metadata["k"] = "v"
+        XCTAssertNil(metadata["k"] as String?)
+        XCTAssertEqual(metadata.keys, [])
+    }
+
     func test_eachScalarTypeRoundTrips() {
         let metadata = KSCrash.shared.metadata
         let when = Date(timeIntervalSince1970: 1_700_000_000.25)

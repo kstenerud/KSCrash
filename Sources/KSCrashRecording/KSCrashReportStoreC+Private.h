@@ -68,21 +68,6 @@ bool kscrs_getReportSidecarFilePathForReport(const char *monitorId, const char *
                                              size_t pathBufferLength,
                                              const KSCrashReportStoreCConfiguration *const configuration);
 
-/** Get a run-scoped sidecar file path.
- *
- * Builds: <runSidecarsPath>/<runID>/<monitorId>.ksscr
- * Creates the run subdirectory if it doesn't exist.
- *
- * @param monitorId The unique identifier of the monitor.
- * @param pathBuffer Buffer to receive the sidecar file path.
- * @param pathBufferLength The size of the path buffer.
- * @param configuration The store configuration containing the runSidecarsPath.
- *
- * @return true if the path was successfully written, false on failure.
- */
-bool kscrs_getRunSidecarFilePath(const char *monitorId, char *pathBuffer, size_t pathBufferLength,
-                                 const KSCrashReportStoreCConfiguration *const configuration);
-
 /** Get a run-scoped sidecar file path for a specific run ID.
  *
  * Like kscrs_getRunSidecarFilePath, but uses the given runID instead of
