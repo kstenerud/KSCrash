@@ -60,6 +60,7 @@ static CFDictionaryRef testStitchReport(CFDictionaryRef reportDict, const char *
 }
 
 #import "KSCrashC.h"
+#import "KSID.h"
 
 // Test helpers exposed from KSCrashC.c.
 extern void kscrash_testcode_setRunID(const char *runID);
@@ -69,7 +70,7 @@ extern void kscrash_testcode_setRunID(const char *runID);
 
 @implementation KSCrashReportStoreC_RunSidecar_Tests {
     KSCrashReportStoreCConfiguration _storeConfig;
-    char _savedRunID[64];
+    char _savedRunID[KSID_SIZE];
 }
 
 - (void)setUp
