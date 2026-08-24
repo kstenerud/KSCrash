@@ -106,6 +106,10 @@ static void myFinalizeCallback(__unused struct KSCrash_MonitorContext *context, 
 }
 
 extern void kscm_testcode_resetState(void);
+struct KSCrashMonitorSavedState;
+extern struct KSCrashMonitorSavedState *kscm_testcode_saveState(void);
+extern void kscm_testcode_restoreState(struct KSCrashMonitorSavedState *saved);
+static struct KSCrashMonitorSavedState *g_savedMonitorState;
 
 - (void)setUp
 {
@@ -134,7 +138,14 @@ extern void kscm_testcode_resetState(void);
     g_secondDummyMonitor.isEnabled = secondDummyIsEnabled;
     g_secondDummyEnabledState = false;
 
+    g_savedMonitorState = kscm_testcode_saveState();
     kscm_testcode_resetState();
+}
+
+- (void)tearDown
+{
+    kscm_testcode_restoreState(g_savedMonitorState);
+    [super tearDown];
 }
 
 - (bool)cstringIsEqual:(const char *)a to:(const char *)b

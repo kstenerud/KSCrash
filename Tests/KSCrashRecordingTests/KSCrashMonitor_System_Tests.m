@@ -54,11 +54,17 @@ static bool stubRunSidecarPath(const char *monitorId, char *pathBuffer, size_t p
 @property(nonatomic, strong) NSString *tempDir;
 @end
 
+struct KSCrashMonitorSavedState;
+extern struct KSCrashMonitorSavedState *kscm_testcode_saveState(void);
+extern void kscm_testcode_restoreState(struct KSCrashMonitorSavedState *saved);
+static struct KSCrashMonitorSavedState *g_savedMonitorState;
+
 @implementation KSCrashMonitor_System_Tests
 
 - (void)setUp
 {
     [super setUp];
+    g_savedMonitorState = kscm_testcode_saveState();
     self.tempDir = [NSTemporaryDirectory() stringByAppendingPathComponent:[[NSUUID UUID] UUIDString]];
     [[NSFileManager defaultManager] createDirectoryAtPath:self.tempDir
                               withIntermediateDirectories:YES
@@ -76,6 +82,7 @@ static bool stubRunSidecarPath(const char *monitorId, char *pathBuffer, size_t p
     [[NSFileManager defaultManager] removeItemAtPath:self.tempDir error:nil];
     g_sidecarPath[0] = '\0';
     ksdl_init();
+    kscm_testcode_restoreState(g_savedMonitorState);
     [super tearDown];
 }
 

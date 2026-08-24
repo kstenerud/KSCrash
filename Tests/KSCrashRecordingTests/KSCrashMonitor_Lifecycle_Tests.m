@@ -45,6 +45,10 @@
 
 // Test helpers declared extern (defined in production code with __attribute__((unused)))
 extern void kscm_testcode_resetState(void);
+struct KSCrashMonitorSavedState;
+extern struct KSCrashMonitorSavedState *kscm_testcode_saveState(void);
+extern void kscm_testcode_restoreState(struct KSCrashMonitorSavedState *saved);
+static struct KSCrashMonitorSavedState *g_savedMonitorState;
 extern void kscrash_testcode_setLastRunID(const char *runID);
 extern void kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionState state);
 extern void kscm_lifecycle_testcode_hangChange(KSHangChangeType change);
@@ -125,6 +129,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     g_testDir[sizeof(g_testDir) - 1] = '\0';
 
     // Reset the monitor infrastructure and provide test callbacks
+    g_savedMonitorState = kscm_testcode_saveState();
     kscm_testcode_resetState();
     kscm_setRunSidecarPathProvider(testGetRunSidecarPath);
     kscm_setRunSidecarPathForRunIDProvider(testGetRunSidecarPathForRunID);
@@ -142,6 +147,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
         api->setEnabled(false, api->context);
     }
     kscrash_testcode_setLastRunID(NULL);
+    kscm_testcode_restoreState(g_savedMonitorState);
     [[NSFileManager defaultManager] removeItemAtPath:self.tempPath error:nil];
     [super tearDown];
 }

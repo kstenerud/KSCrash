@@ -438,3 +438,54 @@ void kscm_testcode_resetState(void)
     g_initialized = false;
     memset(&g_state, 0, sizeof(g_state));
 }
+
+/** Everything a suite that resets the core must hand back: the registry and
+ *  callbacks, plus which registered monitors were enabled at the time.
+ */
+struct KSCrashMonitorSavedState {
+    __typeof__(g_state) state;
+    KSCrash_ExceptionHandlerCallbacks exceptionCallbacks;
+    bool initialized;
+    bool enabled[KSCRASH_MONITOR_API_COUNT];
+};
+
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+struct KSCrashMonitorSavedState *
+kscm_testcode_saveState(void)
+{
+    struct KSCrashMonitorSavedState *saved = calloc(1, sizeof(*saved));
+    // Byte copies: g_state holds atomics, and nothing runs concurrently in a test process.
+    memcpy(&saved->state, &g_state, sizeof(g_state));
+    saved->exceptionCallbacks = g_exceptionCallbacks;
+    saved->initialized = g_initialized;
+    for (size_t i = 0; i < KSCRASH_MONITOR_API_COUNT; i++) {
+        const KSCrashMonitorAPI *api = g_state.monitors.apis[i];
+        saved->enabled[i] = api != NULL && api->isEnabled(api->context);
+    }
+    // The suite runs against a quiet core: whatever is live stays off until restore.
+    kscmr_disableAllMonitors(&g_state.monitors);
+    return saved;
+}
+
+/** Puts back what kscm_testcode_saveState captured and frees it. The monitors the
+ *  suite registered are disabled first; the saved ones that were enabled are enabled again.
+ */
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+void kscm_testcode_restoreState(struct KSCrashMonitorSavedState *saved)
+{
+    kscmr_disableAllMonitors(&g_state.monitors);
+    memcpy(&g_state, &saved->state, sizeof(g_state));
+    g_exceptionCallbacks = saved->exceptionCallbacks;
+    g_initialized = saved->initialized;
+    for (size_t i = 0; i < KSCRASH_MONITOR_API_COUNT; i++) {
+        const KSCrashMonitorAPI *api = g_state.monitors.apis[i];
+        if (saved->enabled[i] && api != NULL && !api->isEnabled(api->context)) {
+            // Re-init first: the suite may have re-inited the monitor with its own callbacks.
+            if (api->init != NULL) {
+                api->init(&g_exceptionCallbacks, api->context);
+            }
+            api->setEnabled(true, api->context);
+        }
+    }
+    free(saved);
+}

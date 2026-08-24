@@ -30,6 +30,10 @@
 #import "KSCrashMonitorType.h"
 
 extern void kscm_testcode_resetState(void);
+struct KSCrashMonitorSavedState;
+extern struct KSCrashMonitorSavedState *kscm_testcode_saveState(void);
+extern void kscm_testcode_restoreState(struct KSCrashMonitorSavedState *saved);
+static struct KSCrashMonitorSavedState *g_savedMonitorState;
 extern void kscrash_testcode_setMonitors(KSCrashMonitorType monitorTypes);
 
 @interface KSCrashMonitorSelection_Tests : XCTestCase
@@ -40,7 +44,14 @@ extern void kscrash_testcode_setMonitors(KSCrashMonitorType monitorTypes);
 - (void)setUp
 {
     [super setUp];
+    g_savedMonitorState = kscm_testcode_saveState();
     kscm_testcode_resetState();
+}
+
+- (void)tearDown
+{
+    kscm_testcode_restoreState(g_savedMonitorState);
+    [super tearDown];
 }
 
 - (void)testCustomMonitorMaskRegistersRequiredInfrastructureMonitors
