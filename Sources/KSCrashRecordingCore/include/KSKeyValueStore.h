@@ -125,6 +125,13 @@ typedef struct {
  */
 void kskvs_iterate(const KSKeyValueStore *store, const KSKVSCallbacks *callbacks, void *context);
 
+/** Look up one key's resolved (last-write-wins) state: exactly one callback
+ *  fires with the latest value, onRemoved fires when the last record is a
+ *  tombstone, and nothing fires for a key the store never saw.
+ *  Works on any store (file-backed writable or read-only).
+ */
+void kskvs_lookup(const KSKeyValueStore *store, const char *key, const KSKVSCallbacks *callbacks, void *context);
+
 #ifdef __cplusplus
 }
 #endif
