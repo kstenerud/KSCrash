@@ -46,24 +46,49 @@ public final class LiveMetadata: MetadataStore, Sendable {
 
     /// The kvs engine is single-writer and unsynchronized; this is the one
     /// handle on the file, and every touch of it happens under the lock.
-    private let store = UnfairLock<OpaquePointer?>(nil)
+    private struct State {
+        var handle: OpaquePointer?
+        var unavailableReason: InstallError?
+    }
+
+    private let store = UnfairLock(State())
 
     init() {}
 
-    /// Opens the run's store at `<runSidecarsDirectory>/<runID>/UserInfo.ksscr`.
-    /// Called once by install; a second call keeps the first store.
-    func attach(runSidecarsDirectory: URL, runID: String) {
-        guard !runID.isEmpty else { return }
-        let directory = runSidecarsDirectory.appendingPathComponent(runID, isDirectory: true)
-        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let path = directory.appendingPathComponent(KSCRS_USERINFO_RUN_SIDECAR_FILENAME).path
+    /// Why the live store could not be created; nil while the store works or
+    /// before install. Crash reporting is unaffected: with no store, sets are
+    /// no-ops and reads are nil.
+    public var unavailableReason: InstallError? {
+        store.withLock { $0.unavailableReason }
+    }
+
+    /// Opens the store at `path`. Called once by install; a second call
+    /// keeps the first store. A failure is recorded as `unavailableReason`
+    /// and thrown.
+    func attach(path: String) throws {
         var config = KSKVSConfig(
             initialCapacity: StoreLimits.initialCapacity,
             maxKeyLength: StoreLimits.maxKeyLength,
             maxStringLength: StoreLimits.maxStringLength)
-        store.withLock { handle in
-            guard handle == nil else { return }
-            handle = kskvs_create(path, KSKVSModeReadWriteCreate, &config, nil)
+        try store.withLock { state in
+            guard state.handle == nil else { return }
+            var status = KSKVSOpenSuccess
+            state.handle = kskvs_create(path, KSKVSModeReadWriteCreate, &config, &status)
+            if state.handle == nil {
+                let reason = InstallError.metadataStoreUnavailable(
+                    "creating the store failed (status \(status.rawValue))")
+                state.unavailableReason = reason
+                throw reason
+            }
+            state.unavailableReason = nil
+        }
+    }
+
+    /// Records why install could not reach a store path; the store stays absent.
+    func markUnavailable(_ reason: InstallError) {
+        store.withLock { state in
+            guard state.handle == nil else { return }
+            state.unavailableReason = reason
         }
     }
 
@@ -73,8 +98,8 @@ public final class LiveMetadata: MetadataStore, Sendable {
             return Value.decode(from: stored)
         }
         set {
-            store.withLock { handle in
-                guard let handle else { return }
+            store.withLock { state in
+                guard let handle = state.handle else { return }
                 guard let newValue else {
                     kskvs_removeValue(handle, key)
                     return
@@ -93,15 +118,16 @@ public final class LiveMetadata: MetadataStore, Sendable {
                 case .null: kskvs_removeValue(handle, key)
                 case .array, .object:
                     // Unreachable: no container type is MetadataValueRepresentable.
-                    preconditionFailure("the live metadata store holds scalars only")
+                    // TODO: containers as JSON-encoded values once the kvs supports variable-size records.
+                    assertionFailure("scalars only for now; containers come with variable-size kvs values")
                 }
             }
         }
     }
 
     public func removeValue(forKey key: String) {
-        store.withLock { handle in
-            guard let handle else { return }
+        store.withLock { state in
+            guard let handle = state.handle else { return }
             kskvs_removeValue(handle, key)
         }
     }
@@ -143,8 +169,8 @@ public final class LiveMetadata: MetadataStore, Sendable {
             guard let key = kvString(key, keyLength) else { return }
             Keys.from(context).names.remove(key)
         }
-        store.withLock { handle in
-            guard let handle else { return }
+        store.withLock { state in
+            guard let handle = state.handle else { return }
             kskvs_iterate(handle, &callbacks, Unmanaged.passUnretained(keys).toOpaque())
         }
         return keys.names.sorted()
@@ -160,47 +186,33 @@ public final class LiveMetadata: MetadataStore, Sendable {
                 Unmanaged<Lookup>.fromOpaque(context!).takeUnretainedValue()
             }
         }
+        // kskvs_lookup fires exactly one callback with the key's resolved
+        // state, so no callback needs to match keys.
         let lookup = Lookup(key: key)
         var callbacks = KSKVSCallbacks()
-        callbacks.onString = { key, keyLength, value, valueLength, context in
-            let lookup = Lookup.from(context)
-            guard kvString(key, keyLength) == lookup.key, let value = kvString(value, valueLength) else { return }
-            lookup.value = .string(value)
+        callbacks.onString = { _, _, value, valueLength, context in
+            guard let value = kvString(value, valueLength) else { return }
+            Lookup.from(context).value = .string(value)
         }
-        callbacks.onInt64 = { key, keyLength, value, context in
-            let lookup = Lookup.from(context)
-            guard kvString(key, keyLength) == lookup.key else { return }
-            lookup.value = .integer(value)
+        callbacks.onInt64 = { _, _, value, context in
+            Lookup.from(context).value = .integer(value)
         }
-        callbacks.onUInt64 = { key, keyLength, value, context in
-            let lookup = Lookup.from(context)
-            guard kvString(key, keyLength) == lookup.key else { return }
-            lookup.value = .unsignedInteger(value)
+        callbacks.onUInt64 = { _, _, value, context in
+            Lookup.from(context).value = .unsignedInteger(value)
         }
-        callbacks.onDouble = { key, keyLength, value, context in
-            let lookup = Lookup.from(context)
-            guard kvString(key, keyLength) == lookup.key else { return }
-            lookup.value = .double(value)
+        callbacks.onDouble = { _, _, value, context in
+            Lookup.from(context).value = .double(value)
         }
-        callbacks.onBool = { key, keyLength, value, context in
-            let lookup = Lookup.from(context)
-            guard kvString(key, keyLength) == lookup.key else { return }
-            lookup.value = .bool(value)
+        callbacks.onBool = { _, _, value, context in
+            Lookup.from(context).value = .bool(value)
         }
-        callbacks.onDate = { key, keyLength, nanoseconds, context in
-            let lookup = Lookup.from(context)
-            guard kvString(key, keyLength) == lookup.key else { return }
+        callbacks.onDate = { _, _, nanoseconds, context in
             // Date.decode reads seconds since 1970, the model's date representation.
-            lookup.value = .double(Double(nanoseconds) / Double(NSEC_PER_SEC))
+            Lookup.from(context).value = .double(Double(nanoseconds) / Double(NSEC_PER_SEC))
         }
-        callbacks.onRemoved = { key, keyLength, context in
-            let lookup = Lookup.from(context)
-            guard kvString(key, keyLength) == lookup.key else { return }
-            lookup.value = nil
-        }
-        store.withLock { handle in
-            guard let handle else { return }
-            kskvs_iterate(handle, &callbacks, Unmanaged.passUnretained(lookup).toOpaque())
+        store.withLock { state in
+            guard let handle = state.handle else { return }
+            kskvs_lookup(handle, lookup.key, &callbacks, Unmanaged.passUnretained(lookup).toOpaque())
         }
         return lookup.value
     }

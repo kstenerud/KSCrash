@@ -28,6 +28,7 @@ import Foundation
 import KSCrashMonitorPlugins
 import KSCrashRecording
 import KSCrashSwiftCore
+import os
 
 /// The crash reporter. One per process, over the C recording core.
 public final class KSCrash: Sendable {
@@ -55,7 +56,23 @@ public final class KSCrash: Sendable {
                 throw InstallError.alreadyInstalled
             }
             try configuration.install(at: locations)
-            metadata.attach(runSidecarsDirectory: locations.runSidecars, runID: String(cString: kscrash_getRunID()))
+            // Crash capture is armed; a metadata-store failure degrades metadata
+            // only, recorded as metadata.unavailableReason, never a failed install.
+            do {
+                // The same path provider the monitors use; it also creates the run directory.
+                var sidecarPath = [CChar](repeating: 0, count: Int(KSCRS_MAX_PATH_LENGTH))
+                guard
+                    kscrs_getRunSidecarFilePath(
+                        KSCRS_MONITOR_ID_USERINFO, &sidecarPath, sidecarPath.count,
+                        kscrash_getReportStoreConfiguration())
+                else {
+                    throw InstallError.metadataStoreUnavailable("no run sidecar path for the metadata store")
+                }
+                try metadata.attach(path: String(cString: sidecarPath))
+            } catch let error as InstallError {
+                metadata.markUnavailable(error)
+                os_log(.error, "Live metadata is unavailable: %{public}@", String(describing: error))
+            }
             state.configuration = configuration
         }
     }

@@ -40,6 +40,8 @@ public enum InstallError: Error, Equatable, Sendable {
     case containerUnavailable(String)
     /// The configuration cannot be installed as given; the string says why.
     case invalidConfiguration(String)
+    /// The live metadata store could not be created; the string says why.
+    case metadataStoreUnavailable(String)
     /// A C install error with no Swift case; the value is the raw code.
     case unknown(Int)
 

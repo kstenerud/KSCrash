@@ -31,13 +31,12 @@ import KSCrashReportModel
 extension KSCrash {
     /// This run's id; nil before install.
     public var runID: RunSummary.ID? {
-        kscrash_isInstalled() ? RunSummary.ID(String(cString: kscrash_getRunID())) : nil
+        RunSummary.ID(String(cString: kscrash_getRunID()))
     }
 
     /// The previous run's id; nil on a first launch or before install.
     public var previousRunID: RunSummary.ID? {
-        guard kscrash_isInstalled(), let raw = kscrash_getLastRunID() else { return nil }
-        return RunSummary.ID(String(cString: raw))
+        RunSummary.ID(String(cString: kscrash_getLastRunID()))
     }
 
     /// The id of the open session; nil before one is recorded.
@@ -47,8 +46,7 @@ extension KSCrash {
 
     /// Why the previous run ended. `.none` before install.
     public var previousTerminationReason: TerminationReason {
-        guard kscrash_isInstalled() else { return .none }
-        return TerminationReason(
+        TerminationReason(
             rawValue: String(cString: kstermination_reasonToString(kscrash_getPreviousTerminationReason())))
     }
 
