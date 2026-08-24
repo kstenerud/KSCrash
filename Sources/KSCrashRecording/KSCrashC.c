@@ -476,33 +476,6 @@ KSCrashInstallErrorCode kscrash_install(const char *const installPath, KSCrashCC
     return KSCrashInstallErrorNone;
 }
 
-void kscrash_setUserInfoString(const char *key, const char *value) { kscm_userinfo_setString(key, value); }
-
-void kscrash_setUserInfoInt(const char *key, int64_t value) { kscm_userinfo_setInt64(key, value); }
-
-void kscrash_setUserInfoUInt(const char *key, uint64_t value) { kscm_userinfo_setUInt64(key, value); }
-
-void kscrash_setUserInfoDouble(const char *key, double value) { kscm_userinfo_setDouble(key, value); }
-
-void kscrash_setUserInfoBool(const char *key, bool value) { kscm_userinfo_setBool(key, value); }
-
-void kscrash_setUserInfoDate(const char *key, uint64_t nanosecondsSince1970)
-{
-    kscm_userinfo_setDate(key, nanosecondsSince1970);
-}
-
-void kscrash_removeUserInfoValue(const char *key) { kscm_userinfo_removeValue(key); }
-
-bool kscrash_copyUserInfoValue(const char *key, KSCrashUserInfoValue *valueOut)
-{
-    return kscm_userinfo_copyValue(key, valueOut);
-}
-
-void kscrash_enumerateUserInfoKeys(KSCrashUserInfoKeyCallback callback, void *context)
-{
-    kscm_userinfo_enumerateKeys(callback, context);
-}
-
 void kscrash_reportUserException(const char *name, const char *reason, const char *language, const char *lineOfCode,
                                  const char *stackTrace, bool logAllThreads,
                                  bool terminateProgram) KS_KEEP_FUNCTION_IN_STACKTRACE
@@ -525,9 +498,10 @@ const char *kscrash_getReportsPath(void) { return g_reportStoreConfig.reportsPat
 
 bool kscrash_isInstalled(void) { return g_installed; }
 
-void kscrash_setUserID(const char *userID)
+void kscrash_notifyUserChanged(const char *userID)
 {
-    kscm_userinfo_setString("com.kscrash.userid", userID);
+    // The KSCRASH_USERID_KEY metadata entry is written by the metadata owner;
+    // this only cuts the session.
     kscm_lifecycle_observeUser(userID);
 }
 
@@ -535,6 +509,8 @@ KSTerminationReason kscrash_getPreviousTerminationReason(void)
 {
     return ksruncontext_previousRunContext()->terminationReason;
 }
+
+const char *kscrash_getSessionID(void) { return kslifecycle_currentSessionID(); }
 
 const char *kscrash_getRunID(void) { return g_runID; }
 

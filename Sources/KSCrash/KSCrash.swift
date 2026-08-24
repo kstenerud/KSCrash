@@ -39,6 +39,9 @@ public final class KSCrash: Sendable {
 
     private let state = UnfairLock(State())
 
+    /// The run's metadata, written through to the crash reporter as it changes.
+    public let metadata = LiveMetadata()
+
     private init() {}
 
     /// Install the reporter. Synchronous; monitors are live when it returns.
@@ -52,6 +55,7 @@ public final class KSCrash: Sendable {
                 throw InstallError.alreadyInstalled
             }
             try configuration.install(at: locations)
+            metadata.attach(runSidecarsDirectory: locations.runSidecars, runID: String(cString: kscrash_getRunID()))
             state.configuration = configuration
         }
     }

@@ -336,8 +336,7 @@ void ksruncontext_persistPreviousRunSummary(const char *runSummariesPath)
 #pragma mark - Build Summary -
 // ============================================================================
 
-// Reserved UserInfo key, mirrors the one in -[KSCrash setUserID:].
-static const char kUserIDKey[] = "com.kscrash.userid";
+static const char kUserIDKey[] = KSCRASH_USERID_KEY;
 
 typedef struct {
     // Mutable result: the last string value seen for kUserIDKey, or nil if

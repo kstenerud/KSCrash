@@ -42,7 +42,6 @@
 #include "KSCrashNamespace.h"
 #include "KSCrashReportStoreC.h"
 #include "KSCrashReportWriter.h"
-#include "KSCrashUserInfo.h"
 #include "KSCrashVersion.h"
 #include "KSTerminationReason.h"
 
@@ -87,33 +86,6 @@ extern "C" {
  * without restarting the application.
  */
 KSCrashInstallErrorCode kscrash_install(const char *const installPath, KSCrashCConfiguration *configuration);
-
-#pragma mark-- Per-Key User Info --
-
-/** Set a string value for the given key.
- *  Passing NULL for value removes the key.
- *  Strings longer than 1024 bytes are truncated.
- *  Requires kscrash_install() to have completed successfully before use.
- */
-void kscrash_setUserInfoString(const char *key, const char *value);
-
-/** Set a signed 64-bit integer value for the given key. */
-void kscrash_setUserInfoInt(const char *key, int64_t value);
-
-/** Set an unsigned 64-bit integer value for the given key. */
-void kscrash_setUserInfoUInt(const char *key, uint64_t value);
-
-/** Set a double-precision floating-point value for the given key. */
-void kscrash_setUserInfoDouble(const char *key, double value);
-
-/** Set a boolean value for the given key. */
-void kscrash_setUserInfoBool(const char *key, bool value);
-
-/** Set a date value for the given key (nanoseconds since 1970-01-01 00:00:00 UTC). */
-void kscrash_setUserInfoDate(const char *key, uint64_t nanosecondsSince1970);
-
-/** Remove the value for the given key. */
-void kscrash_removeUserInfoValue(const char *key);
 
 /** Report a custom, user defined exception.
  * This can be useful when dealing with scripting languages.
@@ -168,13 +140,22 @@ const char *kscrash_getReportsPath(void);
 /** Whether kscrash_install has completed successfully. */
 bool kscrash_isInstalled(void);
 
-/** Record the active user id for this run (a session boundary and the
- *  com.kscrash.userid user info key); NULL clears it. No effect before install.
+/** The reserved metadata key that carries the active user id. */
+#define KSCRASH_USERID_KEY "com.kscrash.userid"
+
+/** Notify the reporter that the active user changed (a session boundary for
+ *  this run's session records); NULL means no user. No effect before install.
  */
-void kscrash_setUserID(const char *userID);
+void kscrash_notifyUserChanged(const char *userID);
 
 /** Why the previous run ended. Only valid after install. */
 KSTerminationReason kscrash_getPreviousTerminationReason(void);
+
+/** The current session id (a UUID string), or NULL when none is open.
+ *  Borrowed: a thread-local buffer valid until the next call on the same
+ *  thread; copy it to keep it. Not async-signal-safe.
+ */
+const char *kscrash_getSessionID(void);
 
 #ifdef __OBJC__
 /** Report an NSException as if the NSException monitor had caught it. A
