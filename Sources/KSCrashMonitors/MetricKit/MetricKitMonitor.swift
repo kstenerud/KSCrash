@@ -32,7 +32,6 @@ import KSCrashReportModel
 import KSCrashSwiftCore
 
 /// A monitor plugin that receives diagnostic and metric payloads from MetricKit.
-@available(iOS 14.0, macOS 12.0, *)
 @available(tvOS, unavailable)
 @available(watchOS, unavailable)
 public final class MetricKitMonitor: NSObject, CrashMonitor {

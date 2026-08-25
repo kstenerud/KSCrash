@@ -28,8 +28,9 @@ PRODUCTS = {
 
 # Add-on sizes count only modules NOT already in Recording
 ADDONS = {
-    "DiscSpaceMonitor": ["KSCrashDiscSpaceMonitor"],
-    "BootTimeMonitor": ["KSCrashBootTimeMonitor"],
+    "DiskMonitor": ["KSCrashDiskMonitor", "KSCrashMonitorPlugins", "KSCrashSwiftCore", "KSCrashReportModel"],
+    "BootMonitor": ["KSCrashBootMonitor", "KSCrashMonitorPlugins", "KSCrashSwiftCore", "KSCrashReportModel"],
+    "MonitorPlugins": ["KSCrashMonitorPlugins", "KSCrashSwiftCore", "KSCrashReportModel"],
     "Profiler": ["KSCrashProfiler", "KSCrashSwiftCore"],
     "Monitors": ["KSCrashMonitors", "KSCrashReportModel", "KSCrashSwiftCore"],
 }

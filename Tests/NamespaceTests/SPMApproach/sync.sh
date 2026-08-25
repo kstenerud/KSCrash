@@ -24,18 +24,17 @@ SRC_PACKAGE_DIR="${SCRIPT_DIR}/../../.."
 # The targets from KSCrash that you want to merge into your library.
 # We're including all of them because this will be part of the CI namespacing tests.
 TARGETS=(
-    KSCrashBootTimeMonitor
     KSCrashRecording
     KSCrashCore
-    KSCrashDiscSpaceMonitor
     KSCrashRecordingCore
 )
 
 # Which headers to declare as the merged target module's public API.
-# CrashLibA and CrashLibB use KSCrash and KSCrashInstallConfiguration.
+# CrashLibA and CrashLibB install through the C API.
 MODULE_HEADERS=(
-  KSCrash.h
-  KSCrashInstallConfiguration.h
+  KSCrashC.h
+  KSCrashCConfiguration.h
+  KSCrashError.h
 )
 
 printf -v TARGETS_ARG '%s,' "${TARGETS[@]}"

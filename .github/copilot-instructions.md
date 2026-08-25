@@ -22,7 +22,7 @@ The patterns below describe the changes that warrant scrutiny **when they would 
 
 ## Scope of Review
 
-Only review changes to public API surfaces. The public modules are: KSCrashRecording, KSCrashDiscSpaceMonitor, and KSCrashBootTimeMonitor (Objective-C, public headers in `Sources/[ModuleName]/include/*.h`), plus the public Swift modules KSCrash, KSCrashMonitors, KSCrashReportModel, and KSCrashProfiler.
+Only review changes to public API surfaces. The public modules are: KSCrashRecording (Objective-C, public headers in `Sources/[ModuleName]/include/*.h`), plus the public Swift modules KSCrash, KSCrashMonitors, KSCrashMonitorPlugins, KSCrashDiskMonitor, KSCrashBootMonitor, KSCrashReportModel, and KSCrashProfiler.
 
 ## Critical Breaking Changes - Always Flag
 
