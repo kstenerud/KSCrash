@@ -25,6 +25,8 @@
 //
 
 import Foundation
+import KSCrashBootMonitor
+import KSCrashDiskMonitor
 import KSCrashMonitorPlugins
 import KSCrashRecording
 import KSCrashRecordingCore
@@ -65,7 +67,7 @@ enum TestInstall {
         var config = InstallConfiguration(namespace: "Tests")
         config.container = .url(base)
         config.monitors = [.hangs]
-        config.plugins = [plugin]
+        config.plugins = [plugin, DiskMonitor.plugin(), BootMonitor.plugin()]
         var callbacks = UnsafeCrashTimeCallbacks()
         callbacks.didWriteReport = { _, reportID in
             didWriteWitness = String(cString: reportID)

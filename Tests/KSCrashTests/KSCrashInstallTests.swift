@@ -86,6 +86,13 @@ final class KSCrashInstallTests: XCTestCase {
 
     func test_installedPlugin_returnsTheRegisteredOne() {
         XCTAssertTrue(KSCrash.shared.installedPlugin(TestInstall.Plugin.self) === TestInstall.plugin)
-        XCTAssertNil(KSCrash.shared.installedPlugin(CMonitorPlugin.self))
+        // The shared install registers the disk and boot sidecar plugins.
+        XCTAssertNotNil(KSCrash.shared.installedPlugin(SidecarMetadataMonitorPlugin.self))
+        XCTAssertNil(KSCrash.shared.installedPlugin(NeverRegistered.self))
+    }
+
+    /// Conforms but is never registered; its table is never read.
+    private final class NeverRegistered: MonitorPlugin, @unchecked Sendable {
+        let api: UnsafeMutablePointer<KSCrashMonitorAPI> = .allocate(capacity: 1)
     }
 }

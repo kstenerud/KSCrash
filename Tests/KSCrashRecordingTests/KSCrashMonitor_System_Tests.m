@@ -124,6 +124,28 @@ static struct KSCrashMonitorSavedState *g_savedMonitorState;
     api->setEnabled(false, NULL);
 }
 
+- (void)testSetBootTimeLandsInTheSidecarForClassification
+{
+    KSCrashMonitorAPI *api = kscm_system_getAPI();
+    KSCrash_ExceptionHandlerCallbacks callbacks = { .getRunSidecarPath = stubRunSidecarPath };
+    api->init(&callbacks, NULL);
+    api->setEnabled(true, NULL);
+
+    // The boot monitor plugin feeds this before RunContext reads the struct;
+    // reboot classification compares it across runs.
+    kscm_system_setBootTime(1234567);
+
+    NSString *sidecarFile = [self.tempDir stringByAppendingPathComponent:@"System.ksscr"];
+    KSCrash_SystemData sc = {};
+    int fd = open(sidecarFile.fileSystemRepresentation, O_RDONLY);
+    XCTAssertNotEqual(fd, -1, @"Failed to open sidecar: %s", strerror(errno));
+    XCTAssertTrue(ksfu_readBytesFromFD(fd, (char *)&sc, (int)sizeof(sc)));
+    close(fd);
+    XCTAssertEqual(sc.bootTimestamp, 1234567);
+
+    api->setEnabled(false, NULL);
+}
+
 - (void)testBinaryCPUMetadataUsesBinaryImageCacheHeader
 {
     const struct mach_header *header = ksbic_getAppHeader();

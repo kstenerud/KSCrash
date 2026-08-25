@@ -100,9 +100,9 @@ import XCTest
 
         // MARK: - Diagnostic Report Notifications
 
-        // The monitor is a shared singleton and posts asynchronously on the main queue, so a
-        // post from another test can land during a wait here. Each test below filters to its own
-        // unique id and tolerates extra posts (assertForOverFulfill = false).
+        // Posts arrive asynchronously on the main queue, so a straggler from an
+        // earlier wait can land here. Each test filters to its own unique id and
+        // tolerates extra posts (assertForOverFulfill = false).
 
         func testNotificationPostedWhenDiagnosticReportRecorded() {
             let notificationExpectation = expectation(description: "Diagnostic report notification")
