@@ -25,39 +25,32 @@
 //
 
 import Foundation
-import KSCrashRecording
+import KSCrash
+import KSCrashReportModel
 
 public struct KSCrashState: Codable {
-    public var sessionsSinceLaunch: Int
-    public var activeDurationSinceLaunch: TimeInterval
-    public var backgroundDurationSinceLaunch: TimeInterval
-
-    public var launchesSinceLastCrash: Int
-    public var sessionsSinceLastCrash: Int
-    public var activeDurationSinceLastCrash: TimeInterval
-    public var backgroundDurationSinceLastCrash: TimeInterval
-
-    public var crashedLastLaunch: Bool
-    public var previousTerminationReason: Int
+    /// `TerminationReason` raw value.
+    public var previousTerminationReason: String
+    public var previousRunWasAbnormal: Bool
+    /// Where the install put its stores, so the harness never re-derives the layout.
+    public var rootPath: String?
+    public var reportsPath: String?
 }
 
 extension KSCrashState {
-    static func collect() -> Self {
-        .init(
-            sessionsSinceLaunch: KSCrash.shared.sessionsSinceLaunch,
-            activeDurationSinceLaunch: KSCrash.shared.activeDurationSinceLaunch,
-            backgroundDurationSinceLaunch: KSCrash.shared.backgroundDurationSinceLaunch,
-            launchesSinceLastCrash: KSCrash.shared.launchesSinceLastCrash,
-            sessionsSinceLastCrash: KSCrash.shared.sessionsSinceLastCrash,
-            activeDurationSinceLastCrash: KSCrash.shared.activeDurationSinceLastCrash,
-            backgroundDurationSinceLastCrash: KSCrash.shared.backgroundDurationSinceLastCrash,
-            crashedLastLaunch: KSCrash.shared.crashedLastLaunch,
-            previousTerminationReason: KSCrash.shared.previousTerminationReason.rawValue
-        )
+    public var terminationReason: TerminationReason {
+        TerminationReason(rawValue: previousTerminationReason)
     }
 
-    public var terminationReason: KSTerminationReason {
-        KSTerminationReason(rawValue: previousTerminationReason) ?? .none
+    static func collect() -> Self {
+        let reason = KSCrash.shared.previousTerminationReason
+        let locations = try? KSCrash.shared.installConfiguration?.locations
+        return .init(
+            previousTerminationReason: reason.rawValue,
+            previousRunWasAbnormal: reason.isAbnormal,
+            rootPath: locations?.root.path,
+            reportsPath: locations?.reports.path
+        )
     }
 
     func save(to path: String) throws {

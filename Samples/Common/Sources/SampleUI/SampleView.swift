@@ -36,7 +36,7 @@ public struct SampleView: View {
 
     public var body: some View {
         NavigationView {
-            if installBridge.installed || installBridge.reportsOnlySetup {
+            if installBridge.installed {
                 MainView(
                     bridge: installBridge
                 )

@@ -1,7 +1,7 @@
 //
-//  CrashReportStore+Bridge.swift
+//  SampleStages.swift
 //
-//  Created by Nikolay Volosatov on 2024-06-23.
+//  Created by Nikolay Volosatov on 2024-07-07.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -27,46 +27,6 @@
 import Foundation
 import KSCrash
 import Logging
-
-extension CrashReportStore {
-    private static let logger = Logger(label: "ReportingSample")
-
-    /// Log a short model-level summary of every pending report. Reads only;
-    /// reports stay on disk.
-    public func logToConsole() {
-        for id in (try? listReportIDs()) ?? [] {
-            guard let data = try? reportData(for: id.int64Value) else { continue }
-            let summary =
-                (try? JSONDecoder().decode(Report.self, from: data))
-                .map { String(describing: $0.crash.error.type) } ?? "undecodable"
-            Self.logger.info("Report \(id): \(summary) (\(data.count) bytes)")
-        }
-    }
-
-    /// Dump each pending report's raw JSON. Reads only; reports stay on disk.
-    public func logRawToConsole() {
-        for id in (try? listReportIDs()) ?? [] {
-            guard let data = try? reportData(for: id.int64Value),
-                let json = String(data: data, encoding: .utf8)
-            else { continue }
-            Self.logger.info("Report \(id):\n\(json)")
-        }
-    }
-}
-
-extension KSCrash {
-    /// Run every pending report through the sample pipeline, keeping them all
-    /// on disk for the next send.
-    public func sampleLogToConsole() {
-        Task {
-            let configuration = SendConfiguration(reportPipeline: [
-                AnyPipelineStage(SampleLogStage()),
-                AnyPipelineStage(KeepOnDiskStage()),
-            ])
-            _ = try? await sendReports(with: configuration)
-        }
-    }
-}
 
 /// A custom pipeline stage: formats the crashed thread's call stack from the
 /// typed model and logs it, then passes the report on.

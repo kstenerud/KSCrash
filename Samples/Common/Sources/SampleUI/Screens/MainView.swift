@@ -38,25 +38,15 @@ struct MainView: View {
     var body: some View {
         List {
             Section {
-                if bridge.reportsOnlySetup {
-                    Text(
-                        "It's only reporting that was set up. Crashes won't be caught. You can go back to the install screen."
-                    )
+                Text("KSCrash is installed successfully")
                     .foregroundStyle(Color.secondary)
-                    Button("Back to Install") {
-                        bridge.reportsOnlySetup = false
-                    }
-                } else {
-                    Text("KSCrash is installed successfully")
-                        .foregroundStyle(Color.secondary)
-                }
             }
 
             NavigationLink("Crash", destination: CrashView())
-            if let store = bridge.reportStore {
+            if let reportsDirectory = bridge.reportsDirectory {
                 NavigationLink(
                     "Report",
-                    destination: ReportingView(store: store, canUseSwiftSend: !bridge.reportsOnlySetup))
+                    destination: ReportingView(reports: PendingReports(directory: reportsDirectory)))
             } else {
                 Text("Reporting is not available")
             }
