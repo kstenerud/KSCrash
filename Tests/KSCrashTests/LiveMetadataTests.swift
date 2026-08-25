@@ -95,6 +95,25 @@ final class LiveMetadataTests: XCTestCase {
         XCTAssertEqual(metadata.keys, ["a", "c"])
     }
 
+    func test_concurrentAccess_staysCoherent() {
+        let metadata = KSCrash.shared.metadata
+        // Hammer one key from many threads; the lock makes every access
+        // atomic, so reads see complete values and the store never tears.
+        DispatchQueue.concurrentPerform(iterations: 200) { i in
+            metadata["contended"] = "value_\(i)"
+            let read: String? = metadata["contended"]
+            if let read {
+                XCTAssertTrue(read.hasPrefix("value_"), read)
+            }
+            _ = metadata.keys
+            if i % 10 == 0 {
+                metadata.removeValue(forKey: "contended")
+            }
+        }
+        metadata["contended"] = "final"
+        XCTAssertEqual(metadata["contended"] as String?, "final")
+    }
+
     func test_readsLikeTheReportsMetadata() {
         // The same protocol surface on both stores.
         func theme(in store: some MetadataStore) -> String? { store["theme"] }

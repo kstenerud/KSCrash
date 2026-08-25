@@ -215,12 +215,12 @@ let package = Package(
             targets: [Targets.recordingCore]
         ),
         .library(
-            name: "DiscSpaceMonitor",
-            targets: [Targets.discSpaceMonitor]
+            name: "DiskMonitor",
+            targets: [Targets.diskMonitor]
         ),
         .library(
-            name: "BootTimeMonitor",
-            targets: [Targets.bootTimeMonitor]
+            name: "BootMonitor",
+            targets: [Targets.bootMonitor]
         ),
         .library(
             name: "Profiler",
@@ -343,56 +343,27 @@ let package = Package(
         ),
 
         .target(
-            name: Targets.discSpaceMonitor,
+            name: Targets.diskMonitor,
             dependencies: [
-                .target(name: Targets.recordingCore),
+                .target(name: Targets.monitorPlugins),
                 .target(name: Targets.recording),
+                .target(name: Targets.recordingCore),
+                .target(name: Targets.swiftCore),
             ],
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy")
-            ],
-            cSettings: [
-                .headerSearchPath("../\(Targets.recording)/Monitors"),
-                .unsafeFlags(warningFlags),
             ]
         ),
-        .testTarget(
-            name: Targets.discSpaceMonitor.tests,
-            dependencies: [
-                .target(name: Targets.discSpaceMonitor),
-                .target(name: Targets.recording),
-                .target(name: Targets.recordingCore),
-            ],
-            cSettings: [
-                .headerSearchPath("../../Sources/\(Targets.recording)/Monitors"),
-                .unsafeFlags(warningFlags),
-            ]
-        ),
-
         .target(
-            name: Targets.bootTimeMonitor,
+            name: Targets.bootMonitor,
             dependencies: [
-                .target(name: Targets.recordingCore),
+                .target(name: Targets.monitorPlugins),
                 .target(name: Targets.recording),
+                .target(name: Targets.recordingCore),
+                .target(name: Targets.swiftCore),
             ],
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy")
-            ],
-            cSettings: [
-                .headerSearchPath("../\(Targets.recording)/Monitors"),
-                .unsafeFlags(warningFlags),
-            ]
-        ),
-        .testTarget(
-            name: Targets.bootTimeMonitor.tests,
-            dependencies: [
-                .target(name: Targets.bootTimeMonitor),
-                .target(name: Targets.recording),
-                .target(name: Targets.recordingCore),
-            ],
-            cSettings: [
-                .headerSearchPath("../../Sources/\(Targets.recording)/Monitors"),
-                .unsafeFlags(warningFlags),
             ]
         ),
 
@@ -528,7 +499,10 @@ let package = Package(
         .target(
             name: Targets.monitorPlugins,
             dependencies: [
-                .target(name: Targets.recordingCore)
+                .target(name: Targets.recording),
+                .target(name: Targets.recordingCore),
+                .target(name: Targets.report),
+                .target(name: Targets.swiftCore),
             ]
         ),
         .target(
@@ -548,6 +522,8 @@ let package = Package(
                 .target(name: Targets.recordingCore),
                 .target(name: Targets.swiftCore),
                 .target(name: Targets.monitorPlugins),
+                .target(name: Targets.diskMonitor),
+                .target(name: Targets.bootMonitor),
             ]
         ),
     ],
@@ -559,8 +535,8 @@ enum Targets {
     static let recordingCore = "KSCrashRecordingCore"
     static let recordingCoreSwift = "KSCrashRecordingCoreSwift"
     static let core = "KSCrashCore"
-    static let discSpaceMonitor = "KSCrashDiscSpaceMonitor"
-    static let bootTimeMonitor = "KSCrashBootTimeMonitor"
+    static let diskMonitor = "KSCrashDiskMonitor"
+    static let bootMonitor = "KSCrashBootMonitor"
     static let report = "KSCrashReportModel"
     static let kscrash = "KSCrash"
     static let testTools = "KSCrashTestTools"
