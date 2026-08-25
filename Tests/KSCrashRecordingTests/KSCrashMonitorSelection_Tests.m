@@ -25,6 +25,7 @@
 //
 
 #import <XCTest/XCTest.h>
+#import "KSSystemCapabilities.h"
 
 #import "KSCrashMonitor.h"
 #import "KSCrashMonitorType.h"
@@ -81,8 +82,16 @@ extern void kscrash_testcode_setMonitors(KSCrashMonitorType monitorTypes);
 - (void)testDefaultSetIsEveryDetectorButZombie
 {
     kscrash_testcode_setMonitors(KSCrashMonitorTypeDefault);
-    for (NSString *monitor in
-         @[ @"MachException", @"Signal", @"CPPException", @"NSException", @"Termination", @"Watchdog" ]) {
+    // Only the detectors this platform compiles in can register.
+    NSMutableArray<NSString *> *expected =
+        [@[ @"CPPException", @"NSException", @"Termination", @"Watchdog" ] mutableCopy];
+#if KSCRASH_HAS_MACH
+    [expected addObject:@"MachException"];
+#endif
+#if KSCRASH_HAS_SIGNAL
+    [expected addObject:@"Signal"];
+#endif
+    for (NSString *monitor in expected) {
         XCTAssertNotEqual(kscm_getMonitor(monitor.UTF8String), NULL, @"%@", monitor);
     }
     XCTAssertEqual(kscm_getMonitor("Zombie"), NULL);
