@@ -146,6 +146,25 @@ char *kscrs_readReportAtPath(const char *path);
 bool kscrs_getRunSidecarFilePath(const char *monitorId, char *pathBuffer, size_t pathBufferLength,
                                  const KSCrashReportStoreCConfiguration *const configuration);
 
+/** Get a run-summary "summary sidecar" file path.
+ *
+ * Builds: <runSummariesPath>/<runID>.<extension>. Path building only: read
+ * paths (the delivery stitches) must not mutate disk, so the writer's call
+ * site creates the directory. Rejects non-UUID run IDs. Does not check
+ * whether the feature is enabled; the caller decides that.
+ *
+ * @param runID The run the file belongs to.
+ * @param extension The file extension without a dot, e.g. "sessions".
+ * @param pathBuffer Buffer to receive the file path.
+ * @param pathBufferLength The size of the path buffer.
+ * @param configuration The store configuration containing the runSummariesPath.
+ *
+ * @return true if the path was successfully written, false on failure.
+ */
+bool kscrs_getSummarySidecarFilePath(const char *runID, const char *extension, char *pathBuffer,
+                                     size_t pathBufferLength,
+                                     const KSCrashReportStoreCConfiguration *const configuration);
+
 /** The run a report belongs to, from the report file alone: nothing is
  * stitched and no run artifacts are touched.
  *

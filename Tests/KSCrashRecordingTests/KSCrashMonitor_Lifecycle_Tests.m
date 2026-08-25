@@ -780,95 +780,19 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     return rec;
 }
 
-- (void)testLaunchSessionRecordedOnEnable
-{
-    [self enableMonitor];
-    XCTAssertGreaterThanOrEqual([self sessionCount], 1, @"enable records the launch session");
-    KSSessionRecord r = [self lastSession];
-    XCTAssertNotNil([[NSUUID alloc] initWithUUIDString:@(r.guid)], @"a valid session id");
-    XCTAssertEqual(r.user[0], '\0', @"launch session is anonymous until a user is set");
-}
-
-- (void)testPerceptibilityFlipCutsSession
-{
-    [self enableMonitor];
-    // Drive to a known imperceptible state. From here each active<->background
-    // alternation is a guaranteed perceptibility flip, so the deltas below are
-    // deterministic regardless of the (host-dependent) launch perceptibility.
-    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateBackground);
-    int base = [self sessionCount];
-    XCTAssertGreaterThanOrEqual(base, 1);
-
-    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);  // NO -> YES
-    XCTAssertEqual([self sessionCount], base + 1);
-    XCTAssertTrue([self lastSession].perceptible, @"newest session is perceptible");
-
-    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateBackground);  // YES -> NO
-    XCTAssertEqual([self sessionCount], base + 2);
-    XCTAssertFalse([self lastSession].perceptible);
-
-    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);        // NO -> YES
-    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateDeactivating);  // YES -> YES (no flip)
-    XCTAssertEqual([self sessionCount], base + 3, @"a non-flip transition does not cut a session");
-}
-
-- (void)testUserChangeCutsSessionIncludingLogout
-{
-    [self enableMonitor];
-    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);  // known perceptible
-    int base = [self sessionCount];
-
-    kscm_lifecycle_observeUser("bob");
-    XCTAssertEqual([self sessionCount], base + 1);
-    XCTAssertEqualObjects(@([self lastSession].user), @"bob");
-    XCTAssertTrue([self lastSession].perceptible);
-
-    kscm_lifecycle_observeUser("bob");  // unchanged
-    XCTAssertEqual([self sessionCount], base + 1, @"the same user is a no-op");
-
-    kscm_lifecycle_observeUser("alice");
-    XCTAssertEqual([self sessionCount], base + 2);
-    XCTAssertEqualObjects(@([self lastSession].user), @"alice");
-
-    kscm_lifecycle_observeUser(NULL);  // logout is still a session change
-    XCTAssertEqual([self sessionCount], base + 3);
-    XCTAssertEqual([self lastSession].user[0], '\0');
-}
-
-- (void)testNoWriterWhenSummaryPathUnavailable
-{
-    // Enable with no summary-sidecar provider (feature disabled): no writer, no file.
-    KSCrashMonitorAPI *api = kscm_lifecycle_getAPI();
-    KSCrash_ExceptionHandlerCallbacks callbacks = { 0 };
-    callbacks.getRunSidecarPath = testGetRunSidecarPath;
-    callbacks.getRunSidecarPathForRunID = testGetRunSidecarPathForRunID;
-    callbacks.getSummarySidecarPath = NULL;
-    api->init(&callbacks, api->context);
-    api->setEnabled(true, api->context);
-
-    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateBackground);
-    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
-    kscm_lifecycle_observeUser("bob");
-
-    XCTAssertEqual([self sessionCount], 0, @"no provider => no writer => no sessions file");
-}
-
-- (void)testCurrentSessionIDMatchesLastCut
-{
-    [self enableMonitor];
-    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
-    kscm_lifecycle_observeUser("dave");  // cut a session for the user
-
-    const char *sid = kslifecycle_currentSessionID();
-    XCTAssertTrue(sid != NULL, @"a session is open after a cut");
-    XCTAssertEqualObjects(@(sid), @([self lastSession].guid), @"getter matches the .sessions last entry");
-}
-
 - (void)testCopyLastSessionIDForRunIDReturnsLastGuid
 {
     [self enableMonitor];
-    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
-    kscm_lifecycle_observeUser("erin");
+    // The Swift layer owns the writer now; write the run's sessions file
+    // directly through the store to exercise the read side. The writer's call
+    // site owns directory creation.
+    [[NSFileManager defaultManager] createDirectoryAtPath:[self.sessionsFilePath stringByDeletingLastPathComponent]
+                              withIntermediateDirectories:YES
+                                               attributes:nil
+                                                    error:nil];
+    KSSessionWriter *writer = kssw_open(self.sessionsFilePath.fileSystemRepresentation);
+    kssw_update(writer, true, "erin");
+    kssw_close(writer);
 
     // The test provider keys on the extension, not the runID, so any id resolves
     // to the one sessions file this run wrote.

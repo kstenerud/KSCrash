@@ -43,6 +43,8 @@ public final class KSCrash: Sendable {
     /// The run's metadata, written through to the crash reporter as it changes.
     public let metadata = LiveMetadata()
 
+    let sessionRecorder = SessionRecorder()
+
     private init() {}
 
     /// Install the reporter. Synchronous; monitors are live when it returns.
@@ -72,6 +74,24 @@ public final class KSCrash: Sendable {
             } catch let error as InstallError {
                 metadata.markUnavailable(error)
                 os_log(.error, "Live metadata is unavailable: %{public}@", String(describing: error))
+            }
+            var sessionsPath = [CChar](repeating: 0, count: Int(KSCRS_MAX_PATH_LENGTH))
+            if kscrs_getSummarySidecarFilePath(
+                kscrash_getRunID(), KSCRS_SESSIONS_FILENAME_EXTENSION, &sessionsPath, sessionsPath.count,
+                kscrash_getReportStoreConfiguration())
+            {
+                // The path getter is pure; the writer's call site owns directory creation.
+                let path = String(cString: sessionsPath)
+                do {
+                    try FileManager.default.createDirectory(
+                        at: URL(fileURLWithPath: path).deletingLastPathComponent(), withIntermediateDirectories: true)
+                    sessionRecorder.attach(path: path)
+                } catch {
+                    os_log(
+                        .error, "Session recording is unavailable: %{public}@", String(describing: error))
+                }
+            } else {
+                os_log(.error, "Session recording is unavailable: no sessions path")
             }
             state.configuration = configuration
         }

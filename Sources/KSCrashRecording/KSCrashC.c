@@ -498,19 +498,10 @@ const char *kscrash_getReportsPath(void) { return g_reportStoreConfig.reportsPat
 
 bool kscrash_isInstalled(void) { return g_installed; }
 
-void kscrash_notifyUserChanged(const char *userID)
-{
-    // The KSCRASH_USERID_KEY metadata entry is written by the metadata owner;
-    // this only cuts the session.
-    kscm_lifecycle_observeUser(userID);
-}
-
 KSTerminationReason kscrash_getPreviousTerminationReason(void)
 {
     return ksruncontext_previousRunContext()->terminationReason;
 }
-
-const char *kscrash_getSessionID(void) { return kslifecycle_currentSessionID(); }
 
 const char *kscrash_getRunID(void) { return g_runID; }
 
