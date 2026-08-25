@@ -37,6 +37,8 @@
 
 #import "KSCrashMonitor_System.h"
 
+#import "KSCrashSystem.h"
+
 #import "KSBinaryImageCache.h"
 #import "KSCPU.h"
 #import "KSCrashMonitorContext.h"
@@ -509,6 +511,19 @@ static void initialize(void)
     ks_spinlock_unlock(&g_systemDataLock);
 }
 
+void kscm_system_setBootTime(int64_t bootTimestamp)
+{
+    const char *override = getenv("KSCRASH_TEST_BOOT_TIMESTAMP");
+    if (override) {
+        bootTimestamp = strtoll(override, NULL, 10);
+    }
+    ks_spinlock_lock(&g_systemDataLock);
+    if (g_systemData != NULL) {
+        g_systemData->bootTimestamp = bootTimestamp;
+    }
+    ks_spinlock_unlock(&g_systemDataLock);
+}
+
 static const char *monitorId(__unused void *context) { return "System"; }
 
 static void monitorInit(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused void *context)
@@ -612,42 +627,6 @@ bool kscm_system_getSystemDataForRunID(const char *runID, KSCrash_SystemData *ou
     }
 
     return kscm_system_getSystemDataForPath(sidecarPath, outData);
-}
-
-void kscm_system_setBootTime(int64_t bootTimestamp)
-{
-    const char *override = getenv("KSCRASH_TEST_BOOT_TIMESTAMP");
-    if (override) {
-        bootTimestamp = strtoll(override, NULL, 10);
-    }
-    ks_spinlock_lock(&g_systemDataLock);
-    if (g_systemData != NULL) {
-        g_systemData->bootTimestamp = bootTimestamp;
-    }
-    ks_spinlock_unlock(&g_systemDataLock);
-}
-
-void kscm_system_setDiscSpace(uint64_t storageSize, uint64_t freeStorageSize)
-{
-    ks_spinlock_lock(&g_systemDataLock);
-    if (g_systemData != NULL) {
-        g_systemData->storageSize = storageSize;
-        g_systemData->freeStorageSize = freeStorageSize;
-    }
-    ks_spinlock_unlock(&g_systemDataLock);
-}
-
-void kscm_system_setFreeStorageSize(uint64_t freeStorageSize)
-{
-    // Bounded: called from disc space monitor's addContextualInfoToEvent on the
-    // crash path, where threads may be suspended holding this lock.
-    if (!ks_spinlock_lock_bounded(&g_systemDataLock)) {
-        return;
-    }
-    if (g_systemData != NULL) {
-        g_systemData->freeStorageSize = freeStorageSize;
-    }
-    ks_spinlock_unlock(&g_systemDataLock);
 }
 
 KSCrashMonitorAPI *kscm_system_getAPI(void)

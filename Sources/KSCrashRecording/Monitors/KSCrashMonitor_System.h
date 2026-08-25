@@ -131,15 +131,6 @@ bool kscm_system_getSystemDataForPath(const char *path, KSCrash_SystemData *outD
  */
 bool kscm_system_getSystemDataForRunID(const char *runID, KSCrash_SystemData *outData);
 
-/** Set the boot timestamp (seconds since epoch) on the system monitor's mmap'd struct. */
-void kscm_system_setBootTime(int64_t bootTimestamp);
-
-/** Set storage and free storage sizes on the system monitor's mmap'd struct. */
-void kscm_system_setDiscSpace(uint64_t storageSize, uint64_t freeStorageSize);
-
-/** Update just the free storage size on the system monitor's mmap'd struct. */
-void kscm_system_setFreeStorageSize(uint64_t freeStorageSize);
-
 /** Stitch system sidecar data into a report at delivery time.
  *
  *  See KSCrashMonitorAPI.h createStitchedReport for the full contract.

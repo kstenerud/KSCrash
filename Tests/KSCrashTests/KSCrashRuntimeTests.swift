@@ -61,6 +61,22 @@ final class KSCrashRuntimeTests: XCTestCase {
         XCTAssertNil(KSCrash.shared.metadata[KSCRASH_USERID_KEY] as String?)
     }
 
+    func test_registeredCMonitorPlugins_populateTheSystemFields() throws {
+        let reportsDirectory = try TestInstall.configuration.locations.reports
+        let before = Set(try Store.listReportIDs(in: reportsDirectory))
+        KSCrash.shared.reportException(
+            "PluginFields", reason: nil, language: nil, lineOfCode: nil, stackTrace: nil,
+            logAllThreads: false, terminateProgram: false)
+        let added = Set(try Store.listReportIDs(in: reportsDirectory)).subtracting(before)
+        let id = try XCTUnwrap(added.first)
+        let store = try XCTUnwrap(KSCrash.makeStore())
+        let report = try XCTUnwrap(store.report(id))
+        // The shared install registers the DiscSpace and BootTime plugins.
+        XCTAssertNotNil(report.system?.storage)
+        XCTAssertNotNil(report.system?.freeStorage)
+        XCTAssertNotNil(report.system?.bootTime)
+    }
+
     func test_didWriteReportCallback_firesWithTheReportID() throws {
         didWriteWitness = nil
         KSCrash.shared.reportException(

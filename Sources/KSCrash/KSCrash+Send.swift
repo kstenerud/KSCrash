@@ -97,7 +97,7 @@ extension KSCrash {
     // of install-time configuration (paths resolve to NULL before install, so
     // early sends correctly see no store), and cross-send coordination lives
     // in SendClaims, not here. Nothing is gained by caching it.
-    private static func makeStore() -> Store? {
+    static func makeStore() -> Store? {
         guard kscrash_isInstalled(),
             let reportsPath = kscrash_getReportsPath(),
             let runsPath = kscrash_getRunSummariesPath(),
