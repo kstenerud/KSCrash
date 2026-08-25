@@ -143,19 +143,8 @@ bool kscrash_isInstalled(void);
 /** The reserved metadata key that carries the active user id. */
 #define KSCRASH_USERID_KEY "com.kscrash.userid"
 
-/** Notify the reporter that the active user changed (a session boundary for
- *  this run's session records); NULL means no user. No effect before install.
- */
-void kscrash_notifyUserChanged(const char *userID);
-
 /** Why the previous run ended. Only valid after install. */
 KSTerminationReason kscrash_getPreviousTerminationReason(void);
-
-/** The current session id (a UUID string), or NULL when none is open.
- *  Borrowed: a thread-local buffer valid until the next call on the same
- *  thread; copy it to keep it. Not async-signal-safe.
- */
-const char *kscrash_getSessionID(void);
 
 #ifdef __OBJC__
 /** Report an NSException as if the NSException monitor had caught it. A

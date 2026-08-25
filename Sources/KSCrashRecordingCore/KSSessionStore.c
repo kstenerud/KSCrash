@@ -28,6 +28,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <os/lock.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -116,8 +117,14 @@ struct KSSessionWriter {
  *  use. Returns false if anything fails to write; once that happens the writer
  *  is marked broken and refuses further writes, because a torn or headerless
  *  tail would make the rest of the file unreadable anyway. */
-static bool appendSession(KSSessionWriter *writer, const char *guid, uint64_t startMonoNs, bool perceptible,
-                          const char *user)
+// Appends and decodes exclude each other: delivery stitches read the live
+// run's file while the writer is active, and neither side may see the other's
+// partial I/O. Everything else about writer and reader instances stays
+// caller-synchronized. Never taken on the crash path.
+static os_unfair_lock g_fileLock = OS_UNFAIR_LOCK_INIT;
+
+static bool appendSessionLocked(KSSessionWriter *writer, const char *guid, uint64_t startMonoNs, bool perceptible,
+                                const char *user)
 {
     if (writer->broken) {
         return false;
@@ -174,6 +181,15 @@ static bool appendSession(KSSessionWriter *writer, const char *guid, uint64_t st
 failed_broken:
     writer->broken = true;
     return false;
+}
+
+static bool appendSession(KSSessionWriter *writer, const char *guid, uint64_t startMonoNs, bool perceptible,
+                          const char *user)
+{
+    os_unfair_lock_lock(&g_fileLock);
+    bool appended = appendSessionLocked(writer, guid, startMonoNs, perceptible, user);
+    os_unfair_lock_unlock(&g_fileLock);
+    return appended;
 }
 
 KSSessionWriter *kssw_open(const char *path)
@@ -494,7 +510,13 @@ KSSessionReader *kssr_open(const char *path)
     if (reader == NULL) {
         return NULL;
     }
-    if (path != NULL && path[0] != '\0' && !decodeFile(reader, path)) {
+    bool decoded = true;
+    if (path != NULL && path[0] != '\0') {
+        os_unfair_lock_lock(&g_fileLock);
+        decoded = decodeFile(reader, path);
+        os_unfair_lock_unlock(&g_fileLock);
+    }
+    if (!decoded) {
         kssr_close(reader);  // allocation failure: honor the NULL-on-OOM contract
         return NULL;
     }
