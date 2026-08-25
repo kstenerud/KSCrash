@@ -38,7 +38,6 @@ import os.log
 
 // MARK: - Internal Implementation
 
-@available(iOS 14.0, macOS 12.0, *)
 @available(tvOS, unavailable)
 @available(watchOS, unavailable)
 extension MetricKitMonitor {

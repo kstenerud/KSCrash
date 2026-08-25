@@ -240,7 +240,6 @@ func buildProfileData(from tree: CallStackTreeRepresentation, primaryThreadIndex
 
     // MARK: - MXCallStackTree Parsing
 
-    @available(iOS 14.0, macOS 12.0, *)
     extension MXCallStackTree {
 
         func extractCallStackData() -> CallStackData {
