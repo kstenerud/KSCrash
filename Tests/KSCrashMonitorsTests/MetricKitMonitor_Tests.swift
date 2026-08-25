@@ -34,7 +34,6 @@ import XCTest
 
 #if KSCRASH_HAS_METRICKIT
 
-    @available(iOS 14.0, macOS 12.0, *)
     final class MetricKitMonitorTests: XCTestCase {
 
         /// One bridge for the whole class (constructing `Monitor<MetricKitMonitor>` more than
