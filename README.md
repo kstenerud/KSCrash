@@ -10,7 +10,7 @@
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fkstenerud%2FKSCrash%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/kstenerud/KSCrash)
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fkstenerud%2FKSCrash%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/kstenerud/KSCrash)
 
-## KSCrash 2.6
+## KSCrash 3.0
 
 The best open-source crash reporting framework for Apple platforms. Supports iOS, macOS, tvOS,
 watchOS, and visionOS.
@@ -19,9 +19,7 @@ KSCrash catches Mach exceptions, signals, C++/ObjC exceptions, main thread hangs
 terminations (OOM, thermal, CPU, reboot). It generates full Apple-format crash reports with every
 field filled in.
 
-If you are upgrading from 2.5.x, see the
-[migration guide](https://github.com/kstenerud/KSCrash/wiki/Migration-Guide-for-KSCrash-2.5-to-2.6).
-For upgrades from 1.x, see the
+If you are upgrading from 2.x, see the migration list below. For upgrades from 1.x, see the
 [1.x to 2.0 migration guide](https://github.com/kstenerud/KSCrash/wiki/Migration-Guide-for-KSCrash-1.x-to-2.0).
 
 ## Quick Start
@@ -40,13 +38,21 @@ dependencies: [
 ### Setup
 
 ```swift
-import KSCrashRecording
+import KSCrash
 
-let config = CrashInstallConfiguration()
-try KSCrash.shared.install(with: config)
+var config = InstallConfiguration(namespace: "MyApp")
+try KSCrash.shared.install(config)
 ```
 
-That's it. KSCrash will catch crashes and store reports on disk.
+That's it. KSCrash will catch crashes and store reports on disk, under its own
+directory tree derived from the namespace (an app group or custom base is one
+`config.container` away). Pick monitors with the `Monitors` option set
+(`config.monitors = .default` is everything but zombies), and register optional
+monitors as plugins:
+
+```swift
+config.plugins = [DiskMonitor.plugin(), BootMonitor.plugin(), MetricKitMonitor.plugin()]
+```
 
 ### Send
 
@@ -76,13 +82,15 @@ wiki pages for how these work under the hood.
 
 ### Hang Detection
 
-The Watchdog monitor detects main thread hangs (250ms+) and captures full backtraces. Enable with
-`.watchdog` in your monitor config. See `KSCrash+Hang.h` for real-time hang observation.
+The hang monitor detects main thread hangs (250ms+) and captures full backtraces. Enable with
+`.hangs` in `config.monitors`. Observe hangs in real time with `KSCrash.shared.hangEvents`, an
+`AsyncStream` of hang state changes.
 
 ### Termination Detection
 
 Detects OS-level terminations (OOM, thermal, CPU, reboot) by comparing previous-run state at launch.
-Query the result with `KSCrash.shared.previousTerminationReason`.
+Query the result with `KSCrash.shared.previousTerminationReason`; its `isAbnormal` says whether the
+previous run ended in something KSCrash reports.
 
 ### CPU Monitoring
 
@@ -91,8 +99,13 @@ generates non-fatal reports on warning/critical transitions via `enableCPUExcept
 
 ### Custom User Data
 
-Store per-key data that persists across crashes via `KSCrash+UserInfo.h`. Uses an mmap'd key-value
-store with zero crash-time overhead.
+Store per-key data that persists across crashes via `KSCrash.shared.metadata`, a typed
+`MetadataStore` written through to a crash-safe key-value store as it changes:
+
+```swift
+KSCrash.shared.metadata["checkout_step"] = 3
+KSCrash.shared.setUserID("u-42")  // also a session boundary
+```
 
 ### Additional Features
 
@@ -101,26 +114,30 @@ store with zero crash-time overhead.
 - **Report**: Strongly-typed Swift model for crash reports (`KSCrashReportModel` module)
 - **Zombie Detection**: Catches messages to deallocated objects
 - **Memory Tracking**: Real-time memory pressure monitoring via `AppMemoryTracker`
-- **Custom Crashes**: Report exceptions from scripting languages via `reportUserException`
+- **Custom Crashes**: Report exceptions from scripting languages via `reportException`
 - **Namespacing**: Embed KSCrash in your own library without symbol clashes
 
-For configuration options, see `KSCrashInstallConfiguration.h`. For the full API, see `KSCrash.h`.
+For configuration options, see `InstallConfiguration` in the `KSCrash` module; the runtime surface
+lives on `KSCrash.shared` (`metadata`, `sessionID`, `runID`, `previousTerminationReason`,
+`reportException`, `hangEvents`, `Backtrace`).
 
-## Deprecations in 2.6
+## Migrating from 2.x
 
-| Deprecated                                      | Replacement                                          |
+3.0 replaces the Objective-C front end with Swift. The C recording core is unchanged; the API you
+call is new:
+
+| 2.x                                             | 3.0                                                  |
 | ----------------------------------------------- | ---------------------------------------------------- |
-| `userInfo` property                             | Per-key API in `KSCrash+UserInfo.h`                  |
-| `deadlockWatchdogInterval`                      | `KSCrashMonitorTypeWatchdog`                         |
-| `enableSigTermMonitoring`                       | Removed (always caught)                              |
-| `KSCrashMonitorTypeMainThreadDeadlock`          | `KSCrashMonitorTypeWatchdog`                         |
-| `KSCrashMonitorTypeMemoryTermination`           | `KSCrashMonitorTypeTermination`                      |
-| `KSCrashAppStateTrackerObserving`               | `addObserverWithBlock:`                              |
-| `crashNotifyCallback` / `reportWrittenCallback` | `isWritingReportCallback` / `didWriteReportCallback` |
-
-See the
-[migration guide](https://github.com/kstenerud/KSCrash/wiki/Migration-Guide-for-KSCrash-2.5-to-2.6)
-for details and rationale.
+| `CrashInstallConfiguration` + `installPath`     | `InstallConfiguration(namespace:)` + `Container`     |
+| `MonitorType` masks (`.watchdog`, composites)   | `Monitors` option set (`.hangs`, `.default`, `.all`) |
+| `setUserInfo(_:forKey:)`                        | `KSCrash.shared.metadata` (a typed `MetadataStore`)  |
+| `crashedLastLaunch` + state counters            | `previousTerminationReason.isAbnormal`               |
+| `reportUserException` / `report(_:)`            | `reportException` (both overloads)                   |
+| `KSCrash+Hang.h` observer                       | `KSCrash.shared.hangEvents` (`AsyncStream`)          |
+| Linking DiscSpace/BootTime enables them         | `DiskMonitor.plugin()` / `BootMonitor.plugin()` in `config.plugins` |
+| `Monitors.metricKit` singleton                  | `MetricKitMonitor.plugin()` instances                |
+| Crash-time callbacks on the configuration       | `config.unsafeCrashTimeCallbacks`                    |
+| `CrashReportStore` / `ReportID` (Int64)         | send pipelines + `Report.ID` (UUID-backed)           |
 
 ## License
 

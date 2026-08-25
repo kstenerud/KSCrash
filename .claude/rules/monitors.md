@@ -2,16 +2,24 @@
 paths:
   - "Sources/KSCrashRecording/Monitors/**"
   - "Sources/KSCrashRecordingCore/**/KSCrashMonitor*.{c,h}"
-  - "Sources/KSCrashBootTimeMonitor/**"
-  - "Sources/KSCrashDiscSpaceMonitor/**"
-  - "Sources/Monitors/**"
+  - "Sources/KSCrashBootMonitor/**"
+  - "Sources/KSCrashDiskMonitor/**"
+  - "Sources/KSCrashMonitorPlugins/**"
+  - "Sources/KSCrashMonitors/**"
   - "Sources/KSCrashRecording/include/KSCrashMonitorType.h"
-  - "Sources/KSCrashRecording/include/KSCrashMonitorPlugin.h"
 ---
 
 ## Monitors
 
-Built-in monitors are registered via `KSCrashMonitorType` flags in `KSCrashC.c`. External monitors can be added as plugins via `KSCrashConfiguration.plugins` (Swift: `MonitorPlugin`, ObjC: `KSCrashMonitorPlugin`), which wrap a `KSCrashMonitorAPI` and are registered at install time via `kscm_addMonitor()`. The `KSCrashMonitors` Swift module provides ready-made plugins (e.g., `config.plugins = [MetricKitMonitor.plugin(.init())]`; see `.claude/rules/swift-monitors.md` for the Swift monitor layer).
+Built-in monitors are selected with the Swift `Monitors` option set on `InstallConfiguration`
+(`.default` is every detector but zombies; UserReported and the infrastructure monitors are always
+on) and registered via `KSCrashMonitorType` flags in `KSCrashC.c`. Everything else is a plugin,
+registered by instance in `InstallConfiguration.plugins`: a `MonitorPlugin` (module
+`KSCrashMonitorPlugins`) wraps a `KSCrashMonitorAPI` table, `CMonitorPlugin(api:)` wraps a C
+monitor, and `SidecarMetadataMonitorPlugin` is the base for pure-Swift sidecar recorders. Ready-made
+plugins: `DiskMonitor.plugin()`, `BootMonitor.plugin()`, `MetricKitMonitor.plugin(.init())`. Nothing
+self-registers at link time; `KSCrash.shared.installedPlugin(Type.self)` finds a registered one.
+See `.claude/rules/swift-monitors.md` for the Swift monitor layer.
 
 ### Monitor Reference
 
@@ -23,7 +31,6 @@ Built-in monitors are registered via `KSCrashMonitorType` flags in `KSCrashC.c`.
 | Signal | `"Signal"` | POSIX signals (SIGSEGV, SIGABRT, SIGTERM, etc.) | AsyncSafe | — | No |
 | CPPException | `"CPPException"` | Uncaught C++ exceptions via `__cxa_throw` | — | — | No |
 | NSException | `"NSException"` | Uncaught ObjC exceptions; also user-reported (non-fatal) | — | — | No |
-| Deadlock | `"MainThreadDeadlock"` | Main thread blocked too long (deprecated — use Watchdog) | — | — | No |
 | User | `"UserReported"` | User-triggered reports (API call) | — | — | No |
 | System | `"System"` | Device/OS/app info (model, OS version, memory, disk) | — | Run (`KSCrash_SystemData`) | No |
 | Termination | `"Termination"` | OS-level terminations that cannot be caught at runtime (OOM, thermal kill, CPU watchdog, reboot, upgrades) | — | — | Yes |
@@ -33,17 +40,12 @@ Built-in monitors are registered via `KSCrashMonitorType` flags in `KSCrashC.c`.
 | UserInfo | `"UserInfo"` | User-supplied key-value info (survives crashes) | — | Run (`KSKeyValueStore`) | No |
 | Resource | `"Resource"` | Memory level/pressure, CPU, thermal, battery snapshots; optionally emits non-fatal EXC_RESOURCE reports on CPU warning/critical transitions (`enableCPUExceptionReporting`) | — | Run (`KSCrash_ResourceData`) | No |
 
-**Auto-registered monitors** (registered via `__attribute__((constructor))` when their SPM module is linked):
-
-| Monitor | ID | Module | Detects | postMonitorsEnabled | postSystemEnable |
-|---|---|---|---|---|---|
-| BootTime | `"BootTime"` | KSCrashBootTimeMonitor | Adds device boot time to reports | Yes | No |
-| DiscSpace | `"DiscSpace"` | KSCrashDiscSpaceMonitor | Adds disk space info to reports | Yes | No |
-
-**Plugin monitors** (registered via `KSCrashConfiguration.plugins`):
+**Plugin monitors** (registered via `InstallConfiguration.plugins`):
 
 | Monitor | ID | Module | Detects | postSystemEnable |
 |---|---|---|---|---|
+| DiskMonitor | `"DiscSpace"` | KSCrashDiskMonitor | Storage and free space, polled into a run sidecar and stitched into `system` at delivery | No |
+| BootMonitor | `"BootTime"` | KSCrashBootMonitor | Boot time, recorded once at enable and stitched into `system` at delivery | No |
 | MetricKit | `"MetricKit"` | Monitors | Apple MetricKit diagnostics (async, hours/days post-crash). Built on the Swift monitor layer (`.claude/rules/swift-monitors.md`). | Yes |
 | Profiler | `"profile"` (the id doubles as the report's `crash.error.type` and section key; never rename) | KSCrashProfiler | Sampling profiler (thread backtraces at intervals) | No |
 | Corpse | `"Corpse"` | Monitors | Other processes' corpses, in an out-of-process crash reporter (iOS 27 CrashReportExtension). Not registered via `plugins`: `KSCrash.installForExtensionReporting(with:)` registers it and `KSCrash.captureCrashReport` drives it. Built on the Swift monitor layer (`.claude/rules/swift-monitors.md`). | No (never fires in extension mode) |
