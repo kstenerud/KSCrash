@@ -26,7 +26,7 @@
 
 import CrashTriggers
 import Foundation
-import KSCrashRecording
+import KSCrash
 
 public struct UserReportConfig: Codable {
     public struct UserException: Codable {
@@ -97,7 +97,7 @@ extension UserReportConfig {
 
 extension UserReportConfig.UserException {
     func report() {
-        KSCrash.shared.reportUserException(
+        KSCrash.shared.reportException(
             name,
             reason: reason,
             language: language,
@@ -119,6 +119,6 @@ extension UserReportConfig.NSExceptionReport {
         if addStacktrace {
             exception = CrashTriggersHelper.exceptionWithStacktrace(for: exception)
         }
-        KSCrash.shared.report(exception, logAllThreads: logAllThreads)
+        KSCrash.shared.reportException(exception, logAllThreads: logAllThreads)
     }
 }

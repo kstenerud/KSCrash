@@ -26,10 +26,12 @@
 
 import CrashCallback
 import Foundation
-import KSCrashRecording
+import KSCrash
 
 public struct InstallConfig: Codable {
-    public var installPath: String
+    public var namespace: String
+    /// The custom container base the install uses (`Container.url`).
+    public var basePath: String
     public var isCxaThrowEnabled: Bool?
     public var shouldRecordAllThreads: Bool?
     public var isWatchdogEnabled: Bool?
@@ -40,8 +42,9 @@ public struct InstallConfig: Codable {
 
     public var postInstallSIGSEGVHandlerMarkerPath: String?
 
-    public init(installPath: String) {
-        self.installPath = installPath
+    public init(namespace: String, basePath: String) {
+        self.namespace = namespace
+        self.basePath = basePath
     }
 }
 
@@ -54,22 +57,22 @@ extension InstallConfig {
             }
         }
 
-        let config = CrashInstallConfiguration()
-        config.installPath = installPath
+        var config = InstallConfiguration(namespace: namespace)
+        config.container = .url(URL(fileURLWithPath: basePath, isDirectory: true))
         if let isCxaThrowEnabled {
-            config.enableSwapCxaThrow = isCxaThrowEnabled
+            config.swapsCxaThrow = isCxaThrowEnabled
         }
         if isWatchdogEnabled == true {
-            config.monitors = [config.monitors, .watchdog]
+            config.monitors.insert(.hangs)
         }
         if let isHangReportingEnabled {
-            config.enableHangReporting = isHangReportingEnabled
+            config.reportsResolvedHangs = isHangReportingEnabled
         }
         if let isCompactBinaryImagesEnabled {
-            config.enableCompactBinaryImages = isCompactBinaryImagesEnabled
+            config.compactsBinaryImages = isCompactBinaryImagesEnabled
         }
         if let isSwiftAsyncStackTracesEnabled {
-            config.enableSwiftAsyncStackTraces = isSwiftAsyncStackTracesEnabled
+            config.usesSwiftAsyncStackTraces = isSwiftAsyncStackTracesEnabled
         }
         setIntegrationTestWillWriteReportCallback({
             (plan: UnsafeMutablePointer<ExceptionHandlingPlan>, ctx: UnsafePointer<KSCrash_MonitorContext>) in
@@ -77,9 +80,12 @@ extension InstallConfig {
                 plan.pointee.shouldRecordAllThreads = shouldRecordAllThreads
             }
         })
-        config.willWriteReportCallback = integrationTestWillWriteReportCallback
+        var callbacks = UnsafeCrashTimeCallbacks()
+        callbacks.willWriteReport = integrationTestWillWriteReportCallback
+        callbacks.isWritingReport = integrationTestIsWritingReportCallback
+        config.unsafeCrashTimeCallbacks = callbacks
 
-        try KSCrash.shared.install(with: config)
+        try KSCrash.shared.install(config)
 
         // Install this only after KSCrash so the test exercises a later signal handler.
         if let postInstallSIGSEGVHandlerMarkerPath {
