@@ -25,6 +25,7 @@
 //
 
 import Foundation
+import KSCrash
 import LibraryBridge
 import SwiftUI
 
@@ -33,6 +34,15 @@ struct InstallView: View {
 
     @State private var showingInstallAlert = false
 
+    private var memoryIntrospectionBinding: Binding<Bool> {
+        let binding = bridge.configBinding(for: \.memoryIntrospection)
+        return .init {
+            binding.wrappedValue != .disabled
+        } set: { enabled in
+            binding.wrappedValue = enabled ? .enabled(excludingClasses: []) : .disabled
+        }
+    }
+
     var body: some View {
         List {
             Button("Install") {
@@ -40,9 +50,9 @@ struct InstallView: View {
             }
 
             Section(header: Text("Static Config")) {
-                Picker("Base path", selection: $bridge.basePath) {
-                    ForEach(BasePath.allCases, id: \.self) { path in
-                        Text(path.rawValue)
+                Picker("Container", selection: $bridge.container) {
+                    ForEach(ContainerChoice.allCases, id: \.self) { choice in
+                        Text(choice.rawValue)
                     }
                 }
             }
@@ -52,29 +62,23 @@ struct InstallView: View {
                     MonitorTypeView(monitors: bridge.configBinding(for: \.monitors))
                         .navigationTitle("Monitors")
                 }
-                NavigationLink("User Info") {
-                    UserInfoInputView(userInfo: bridge.configBinding(for: \.userInfoJSON))
-                        .navigationTitle("User Info")
-                }
-                // TODO: Add deadlockWatchdogInterval
-                Toggle(isOn: bridge.configBinding(for: \.enableQueueNameSearch)) {
+                Toggle(isOn: bridge.configBinding(for: \.searchesQueueNames)) {
                     Text("Queue name search")
                 }
-                Toggle(isOn: bridge.configBinding(for: \.enableMemoryIntrospection)) {
+                Toggle(isOn: memoryIntrospectionBinding) {
                     Text("Memory introspection")
                 }
-                // TODO: Add doNotIntrospectClasses
-                // TODO: Add crashNotifyCallback
-                // TODO: Add reportWrittenCallback
-                Toggle(isOn: bridge.configBinding(for: \.addConsoleLogToReport)) {
+                Toggle(isOn: bridge.configBinding(for: \.includesConsoleLog)) {
                     Text("Add KSCrash console log to report")
                 }
-                Toggle(isOn: bridge.configBinding(for: \.printPreviousLogOnStartup)) {
+                Toggle(isOn: bridge.configBinding(for: \.printsPreviousLog)) {
                     Text("Print previous log on startup")
                 }
-                // TODO: Add maxReportCount
-                Toggle(isOn: bridge.configBinding(for: \.enableSwapCxaThrow)) {
+                Toggle(isOn: bridge.configBinding(for: \.swapsCxaThrow)) {
                     Text("Swap __cxa_throw")
+                }
+                Toggle(isOn: bridge.configBinding(for: \.reportsResolvedHangs)) {
+                    Text("Report resolved hangs")
                 }
             }
 
@@ -83,11 +87,6 @@ struct InstallView: View {
                     bridge.useSampleSendPipeline()
                 }
             }
-
-            Button("Only set up reports") {
-                bridge.setupReportsOnly()
-            }
-            .foregroundStyle(Color.red)
         }
         .alert(isPresented: $showingInstallAlert) {
             Alert(
