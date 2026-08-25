@@ -88,13 +88,6 @@ static KSCrashRunSummaryHostKind hostKindForCurrentBundle(void)
     return KSCrashRunSummaryHostKindOther;
 }
 
-// The session writer is the single source of truth for the current session and
-// user; the monitor keeps no parallel user state. Guarded by g_sessionLock,
-// which is never taken on the crash path, so the writer's file I/O is safe under
-// it. Created lazily (ensureSessionWriterLocked) and closed on disable.
-static os_unfair_lock g_sessionLock = OS_UNFAIR_LOCK_INIT;
-static KSSessionWriter *g_sessionWriter = NULL;
-
 /** Write the current task role to the sidecar if it changed.
  *  Call under the sidecar lock.
  */
@@ -164,81 +157,6 @@ static void updateSidecarDurations(KSCrash_LifecycleData *sc)
     }
 }
 
-// ============================================================================
-#pragma mark - Session writer -
-// ============================================================================
-
-// Create the directory portion of `filePath`. The path getters are pure
-// (read paths must not mutate disk), so the writer's call site owns creation.
-static bool makeParentDirectory(const char *filePath)
-{
-    char dir[KSFU_MAX_PATH_LENGTH];
-    strlcpy(dir, filePath, sizeof(dir));
-    char *slash = strrchr(dir, '/');
-    if (slash == NULL) {
-        return false;
-    }
-    *slash = '\0';
-    return ksfu_makePath(dir);
-}
-
-/** Return the session writer, creating it on first use. Call under g_sessionLock.
- *  Returns NULL only when no summary-sidecar path is available (e.g. before
- *  install). kssw_open does no file I/O; the file opens on the first cut. */
-static KSSessionWriter *ensureSessionWriterLocked(void)
-{
-    // Recheck enabled under g_sessionLock. observeUser and the transition can
-    // pass the atomic gate and then block here while setEnabled(false) closes the
-    // writer; without this recheck they would resurrect it and append after
-    // teardown. Disable clears g_isEnabled before taking g_sessionLock, so this
-    // (which holds it) always sees the cleared value.
-    if (!atomic_load(&g_isEnabled)) {
-        return NULL;
-    }
-    if (g_sessionWriter == NULL) {
-        char path[KSFU_MAX_PATH_LENGTH];
-        if (g_callbacks.getSummarySidecarPath != NULL &&
-            g_callbacks.getSummarySidecarPath(kscrash_getRunID(), KSCRS_SESSIONS_FILENAME_EXTENSION, path,
-                                              sizeof(path)) &&
-            makeParentDirectory(path)) {
-            g_sessionWriter = kssw_open(path);
-        }
-    }
-    return g_sessionWriter;
-}
-
-void kscm_lifecycle_observeUser(const char *userID)
-{
-    // Gate on the monitor being enabled so a userID set before install or after
-    // disable doesn't create a writer.
-    if (!atomic_load(&g_isEnabled)) {
-        return;
-    }
-    os_unfair_lock_lock(&g_sessionLock);
-    KSSessionWriter *writer = ensureSessionWriterLocked();
-    if (writer != NULL) {
-        // Only the user changed; keep the open session's perceptibility. A change
-        // to anonymous (logout) is still a cut.
-        kssw_updateUser(writer, userID);
-    }
-    os_unfair_lock_unlock(&g_sessionLock);
-}
-
-const char *kslifecycle_currentSessionID(void)
-{
-    // kssw_current's buffer is overwritten by the next cut; copy it out.
-    static _Thread_local char buf[KSID_SIZE];
-    os_unfair_lock_lock(&g_sessionLock);
-    const char *id = (g_sessionWriter != NULL) ? kssw_current(g_sessionWriter) : NULL;
-    if (id != NULL) {
-        strlcpy(buf, id, sizeof(buf));
-    } else {
-        buf[0] = '\0';
-    }
-    os_unfair_lock_unlock(&g_sessionLock);
-    return buf[0] != '\0' ? buf : NULL;
-}
-
 bool kslifecycle_copyLastSessionIDForRunID(const char *runID, char *buf, size_t bufLen)
 {
     if (buf == NULL || bufLen == 0) {
@@ -253,13 +171,9 @@ bool kslifecycle_copyLastSessionIDForRunID(const char *runID, char *buf, size_t 
         return false;
     }
     // The live run's file may be mid-append (finalize-time stitches read it
-    // while the writer is active); the store's contract is one accessor at a
-    // time, so serialize against the writer for the current run only.
-    const char *currentRunID = kscrash_getRunID();
-    bool isLiveRun = currentRunID != NULL && strcmp(runID, currentRunID) == 0;
-    if (isLiveRun) {
-        os_unfair_lock_lock(&g_sessionLock);
-    }
+    // while the Swift-owned writer is active); the session store excludes
+    // appends and decodes from each other, so this read never sees partial
+    // I/O.
     KSSessionReader *reader = kssr_open(path);
     bool found = false;
     int count = kssr_count(reader);
@@ -271,9 +185,6 @@ bool kslifecycle_copyLastSessionIDForRunID(const char *runID, char *buf, size_t 
         }
     }
     kssr_close(reader);
-    if (isLiveRun) {
-        os_unfair_lock_unlock(&g_sessionLock);
-    }
     return found;
 }
 
@@ -378,22 +289,11 @@ static void onTransitionState(KSCrashAppTransitionState transitionState)
             break;
     }
 
-    bool previousPerceptible = sc->userPerceptible != 0;
     bool newPerceptible = ksapp_transitionStateIsUserPerceptible(transitionState);
     sc->transitionState = (uint8_t)transitionState;
     sc->userPerceptible = newPerceptible;
     updateSidecarTaskRole(sc);
     ks_spinlock_unlock(&g_sidecarLock);
-
-    // Perceptibility flipped: cut a new session, keeping the open session's user.
-    if (newPerceptible != previousPerceptible) {
-        os_unfair_lock_lock(&g_sessionLock);
-        KSSessionWriter *writer = ensureSessionWriterLocked();
-        if (writer != NULL) {
-            kssw_updatePerceptible(writer, newPerceptible);
-        }
-        os_unfair_lock_unlock(&g_sessionLock);
-    }
 }
 
 // ============================================================================
@@ -583,35 +483,13 @@ static void setEnabled(bool isEnabled, __unused void *context)
     if (isEnabled) {
         KSCrash_LifecycleData *sc = createSidecar();
         if (!sc) {
-            // g_isEnabled was already true, so a concurrent setUserID could have
-            // opened g_sessionWriter. Clear the flag first (new callers bail at
-            // ensureSessionWriterLocked's recheck), then close any writer that
-            // slipped in — disable can't, its CAS no-ops on the already-false flag.
             atomic_store(&g_isEnabled, false);
-            os_unfair_lock_lock(&g_sessionLock);
-            kssw_close(g_sessionWriter);
-            g_sessionWriter = NULL;
-            os_unfair_lock_unlock(&g_sessionLock);
             return;
         }
 
         ks_spinlock_lock(&g_sidecarLock);
         g_sidecar = sc;
         ks_spinlock_unlock(&g_sidecarLock);
-
-        // Record the launch session. kssw_updatePerceptible establishes the
-        // launch perceptibility while keeping whatever user a setUserID racing
-        // this enable may already have set on the writer (else anonymous).
-        ks_spinlock_lock(&g_sidecarLock);
-        bool perceptible = g_sidecar->userPerceptible != 0;
-        ks_spinlock_unlock(&g_sidecarLock);
-
-        os_unfair_lock_lock(&g_sessionLock);
-        KSSessionWriter *writer = ensureSessionWriterLocked();
-        if (writer != NULL) {
-            kssw_updatePerceptible(writer, perceptible);
-        }
-        os_unfair_lock_unlock(&g_sessionLock);
 
         g_appStateObserver =
             [KSCrashAppStateTracker.sharedInstance addObserverWithBlock:^(KSCrashAppTransitionState transitionState) {
@@ -629,11 +507,6 @@ static void setEnabled(bool isEnabled, __unused void *context)
         }
 
         g_appStateObserver = nil;
-
-        os_unfair_lock_lock(&g_sessionLock);
-        kssw_close(g_sessionWriter);
-        g_sessionWriter = NULL;
-        os_unfair_lock_unlock(&g_sessionLock);
 
         releaseSidecar();
     }

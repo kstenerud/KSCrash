@@ -41,7 +41,7 @@ extension KSCrash {
 
     /// The id of the open session; nil before one is recorded.
     public var sessionID: String? {
-        kscrash_getSessionID().map { String(cString: $0) }
+        sessionRecorder.currentSessionID
     }
 
     /// Why the previous run ended. `.none` before install.
@@ -54,7 +54,7 @@ extension KSCrash {
     /// run summaries attribute what follows to this user.
     public func setUserID(_ userID: String?) {
         metadata[KSCRASH_USERID_KEY] = userID
-        kscrash_notifyUserChanged(userID)
+        sessionRecorder.observeUser(userID)
     }
 
     /// Report a custom exception, as user-reported crash reports do.

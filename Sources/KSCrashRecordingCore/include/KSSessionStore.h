@@ -31,8 +31,10 @@
  * are persisted to an append-only file at a caller-supplied path.
  *
  * The store knows nothing about runs, directories, or naming; it just reads and
- * writes sessions at the path it is handed. Two disjoint objects front the file,
- * because a given file is only ever being written or read, never both at once:
+ * writes sessions at the path it is handed. Two disjoint objects front the file.
+ * A live run's file can be decoded while its writer is active (delivery
+ * stitches do this), so the store internally excludes appends and decodes from
+ * each other; everything else is the caller's synchronization:
  *
  *   - KSSessionWriter records sessions and exposes the open one (its id feeds the
  *     crash report).
