@@ -60,17 +60,25 @@ extension KSCrash {
     /// Report a custom exception, as user-reported crash reports do.
     /// `stackTrace` frames are recorded as given; `terminateProgram` ends the
     /// process after the report is written, as a crash would.
+    // The monitor's stack capture counts this frame: @inline(never) keeps it
+    // from dissolving into the caller, and the trailing thwart keeps the
+    // report call out of tail position so optimized builds keep the frame.
+    @inline(never)
     public func reportException(
         _ name: String, reason: String?, language: String?, lineOfCode: String?, stackTrace: [String]?,
         logAllThreads: Bool, terminateProgram: Bool
     ) {
         let frames = stackTrace.flatMap { try? JSONEncoder().encode($0) }.flatMap { String(data: $0, encoding: .utf8) }
         kscrash_reportUserException(name, reason, language, lineOfCode, frames, logAllThreads, terminateProgram)
+        kscrash_thwartTailCallOptimisation()
     }
 
     /// Report an NSException as if the NSException monitor had caught it.
     /// Needs `.nsExceptions` in the installed monitors.
+    // Frame-counted like the user-report wrapper above.
+    @inline(never)
     public func reportException(_ exception: NSException, logAllThreads: Bool) {
         kscrash_reportNSException(exception, logAllThreads)
+        kscrash_thwartTailCallOptimisation()
     }
 }
