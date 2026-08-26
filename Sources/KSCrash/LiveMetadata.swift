@@ -34,6 +34,9 @@ import KSCrashSwiftCore
 /// over the run's UserInfo sidecar, the same file the report stitch and the
 /// run-summary metadata merge read at delivery. Before install there is no
 /// store: sets are no-ops and reads are nil.
+///
+/// Dates range from 1677-09-21 to 2262-04-11; assigning one outside that range
+/// removes the key instead of storing it.
 public final class LiveMetadata: MetadataStore, Sendable {
     /// The store's shapes. Readers need no configuration, so these bound only
     /// what a writer accepts; longer keys and strings are truncated.

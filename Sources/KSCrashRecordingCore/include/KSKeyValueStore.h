@@ -100,7 +100,7 @@ void kskvs_setInt64(KSKeyValueStore *store, const char *key, int64_t value);
 void kskvs_setUInt64(KSKeyValueStore *store, const char *key, uint64_t value);
 void kskvs_setDouble(KSKeyValueStore *store, const char *key, double value);
 void kskvs_setBool(KSKeyValueStore *store, const char *key, bool value);
-void kskvs_setDate(KSKeyValueStore *store, const char *key, uint64_t nanosecondsSince1970);
+void kskvs_setDate(KSKeyValueStore *store, const char *key, int64_t nanosecondsSince1970);
 void kskvs_removeValue(KSKeyValueStore *store, const char *key);
 
 // ============================================================================
@@ -114,7 +114,7 @@ typedef struct {
     void (*onUInt64)(const char *key, uint16_t keyLen, uint64_t value, void *ctx);
     void (*onDouble)(const char *key, uint16_t keyLen, double value, void *ctx);
     void (*onBool)(const char *key, uint16_t keyLen, bool value, void *ctx);
-    void (*onDate)(const char *key, uint16_t keyLen, uint64_t nanosecondsSince1970, void *ctx);
+    void (*onDate)(const char *key, uint16_t keyLen, int64_t nanosecondsSince1970, void *ctx);
     /** Called for keys whose final resolved state is a tombstone (removal).
      *  Allows callers to actively delete keys from a pre-existing dictionary. */
     void (*onRemoved)(const char *key, uint16_t keyLen, void *ctx);

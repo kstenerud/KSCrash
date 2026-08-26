@@ -534,7 +534,7 @@ void kskvs_setBool(KSKeyValueStore *store, const char *key, bool value)
     appendRecord(store, key, KSKVSTypeBool, &byte, sizeof(byte));
 }
 
-void kskvs_setDate(KSKeyValueStore *store, const char *key, uint64_t nanosecondsSince1970)
+void kskvs_setDate(KSKeyValueStore *store, const char *key, int64_t nanosecondsSince1970)
 {
     appendRecord(store, key, KSKVSTypeDate, &nanosecondsSince1970, sizeof(nanosecondsSince1970));
 }
@@ -593,8 +593,8 @@ static void dispatchRecord(const KSKeyValueStore *store, uint32_t pos, const KSK
             }
             break;
         case KSKVSTypeDate:
-            if (callbacks->onDate && rec->valueLen == sizeof(uint64_t)) {
-                uint64_t val;
+            if (callbacks->onDate && rec->valueLen == sizeof(int64_t)) {
+                int64_t val;
                 memcpy(&val, valueBytes, sizeof(val));
                 callbacks->onDate(key, keyLen, val, context);
             }

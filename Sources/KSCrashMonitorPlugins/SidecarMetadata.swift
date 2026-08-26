@@ -33,6 +33,9 @@ import KSCrashSwiftCore
 /// crash-safe store immediately, every read replays it. Scalars only. Not
 /// synchronized: the caller owns serialization of every access, matching the
 /// underlying store's contract.
+///
+/// Dates range from 1677-09-21 to 2262-04-11; assigning one outside that range
+/// removes the key instead of storing it.
 public final class SidecarMetadata: MetadataStore, @unchecked Sendable {
     package struct OpenError: Error {
         package let status: KSKVSOpenStatus
@@ -75,7 +78,13 @@ public final class SidecarMetadata: MetadataStore, @unchecked Sendable {
             }
             // A date keeps its own slot so the report carries a date, not a number.
             if let date = newValue as? Date {
-                kskvs_setDate(store, key, date.nanosecondsSince1970)
+                // An unrepresentable date removes the key rather than storing a
+                // stand-in, so a read never reports an instant that was never set.
+                if let nanoseconds = date.nanosecondsSince1970 {
+                    kskvs_setDate(store, key, nanoseconds)
+                } else {
+                    kskvs_removeValue(store, key)
+                }
                 return
             }
             switch newValue.metadataValue {
@@ -174,9 +183,12 @@ public final class SidecarMetadata: MetadataStore, @unchecked Sendable {
 }
 
 extension Date {
-    var nanosecondsSince1970: UInt64 {
-        let seconds = timeIntervalSince1970
-        return seconds <= 0 ? 0 : UInt64(seconds * Double(NSEC_PER_SEC))
+    /// Nanoseconds since 1970, or nil for a date the store cannot represent.
+    /// A non-finite interval fails both comparisons and yields nil.
+    var nanosecondsSince1970: Int64? {
+        let nanos = timeIntervalSince1970 * Double(NSEC_PER_SEC)
+        guard nanos >= -9.2e18, nanos <= 9.2e18 else { return nil }
+        return Int64(nanos)
     }
 }
 

@@ -72,6 +72,27 @@ final class LiveMetadataTests: XCTestCase {
             (metadata["when"] as Date?)?.timeIntervalSince1970 ?? 0, when.timeIntervalSince1970, accuracy: 1e-6)
     }
 
+    func test_datesBefore1970RoundTrip() {
+        let metadata = KSCrash.shared.metadata
+        let birthday = Date(timeIntervalSince1970: -157_766_400)
+        metadata["birthday"] = birthday
+        XCTAssertEqual(
+            (metadata["birthday"] as Date?)?.timeIntervalSince1970 ?? 0,
+            birthday.timeIntervalSince1970, accuracy: 1e-6)
+    }
+
+    func test_unrepresentableDate_removesTheKey_ratherThanStoringAStandIn() {
+        let metadata = KSCrash.shared.metadata
+        for unrepresentable in [Date.distantFuture, Date.distantPast, Date(timeIntervalSince1970: .nan)] {
+            metadata["when"] = Date(timeIntervalSince1970: 1_700_000_000)
+            metadata["when"] = unrepresentable
+            XCTAssertNil(
+                metadata["when"] as Date?,
+                "an unrepresentable date must not leave a stale or fabricated value behind")
+            XCTAssertFalse(metadata.keys.contains("when"))
+        }
+    }
+
     func test_latestWriteWins_andNilRemoves() {
         let metadata = KSCrash.shared.metadata
         metadata["k"] = "first"

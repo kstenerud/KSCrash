@@ -100,7 +100,7 @@ static const KSKVSConfig kDefaultConfig = {
                     kskvs_setBool(store, key, i % 2 == 0);
                     break;
                 case 4:
-                    kskvs_setDate(store, key, (uint64_t)i * 1000000000ULL);
+                    kskvs_setDate(store, key, (int64_t)i * 1000000000LL);
                     break;
             }
         }
@@ -123,7 +123,7 @@ static void benchOnDouble(const char *key, uint16_t keyLen, double value, void *
 
 static void benchOnBool(const char *key, uint16_t keyLen, bool value, void *ctx) { (*(int *)ctx)++; }
 
-static void benchOnDate(const char *key, uint16_t keyLen, uint64_t ns, void *ctx) { (*(int *)ctx)++; }
+static void benchOnDate(const char *key, uint16_t keyLen, int64_t ns, void *ctx) { (*(int *)ctx)++; }
 
 static const KSKVSCallbacks kBenchCallbacks = {
     .onString = benchOnString,
