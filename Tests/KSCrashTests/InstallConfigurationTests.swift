@@ -132,16 +132,28 @@ final class InstallConfigurationTests: XCTestCase {
             monitorID = UnsafePointer(strdup("CountedPlugin\(index)")!)
             api = .allocate(capacity: 1)
             api.initialize(to: KSCrashMonitorAPI())
-            api.pointee.`init` = { _, _ in }
+            // The production pattern: defaults for every slot first.
+            kscma_initAPI(api)
             api.pointee.monitorFlags = { _ in KSCrashMonitorFlagPlugin }
-            api.pointee.setEnabled = { _, _ in }
-            api.pointee.isEnabled = { _ in false }
             let id = monitorID
             api.pointee.context = UnsafeMutableRawPointer(mutating: id)
             api.pointee.monitorId = { context in
                 context.map { UnsafePointer($0.assumingMemoryBound(to: CChar.self)) }
             }
         }
+    }
+
+    func test_validate_requiresEveryCallbackTheCoreInvokes() {
+        var config = InstallConfiguration(namespace: "Ns")
+        let plugin = CountedPlugin(0)
+        plugin.api.pointee.notifyPostSystemEnable = nil
+        config.plugins = [plugin]
+        XCTAssertThrowsError(try config.validate(), "a hole the core would call must fail validation") { error in
+            guard case .invalidConfiguration? = error as? InstallError else { return XCTFail("\(error)") }
+        }
+        plugin.api.pointee.notifyPostSystemEnable = { _ in }
+        plugin.api.pointee.addContextualInfoToEvent = nil
+        XCTAssertThrowsError(try config.validate())
     }
 
     func test_validate_boundsThePluginCount() {
