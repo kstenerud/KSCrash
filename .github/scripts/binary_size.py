@@ -21,6 +21,7 @@ PRODUCTS = {
         "KSCrashRecordingCore",
         "KSCrashRecording",
         "KSCrashSwiftCore",
+        "KSCrashMonitorPlugins",
         "KSCrashReportModel",
         "KSCrash",
     ],
