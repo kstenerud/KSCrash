@@ -46,6 +46,7 @@
 #include "KSFileUtils.h"
 #include "KSID.h"
 #include "KSLogger.h"
+#import "KSString.h"
 
 #import <Foundation/Foundation.h>
 #import "KSCrashReportFields.h"
@@ -105,8 +106,21 @@ static uint64_t nextReportNs(void)
 static void getCrashReportPath(uint64_t wallClockNs, const char *reportID, char *pathBuffer,
                                const KSCrashReportStoreCConfiguration *const config)
 {
-    snprintf(pathBuffer, KSCRS_MAX_PATH_LENGTH, "%s/%020llu-%s" KSCRS_REPORT_FILENAME_SUFFIX, config->reportsPath,
-             (unsigned long long)wallClockNs, reportID);
+    // Composed by hand: this runs in the crash handler, where snprintf is
+    // off-limits (Apple's libc routes it through locale locks).
+    char padded[KSCRS_REPORT_NAME_DIGITS + 1];
+    char digits[KSCRS_REPORT_NAME_DIGITS + 1];
+    size_t digitCount = ksstring_uint64ToDecimal(wallClockNs, digits, sizeof(digits));
+    size_t padCount = KSCRS_REPORT_NAME_DIGITS - digitCount;
+    memset(padded, '0', padCount);
+    memcpy(padded + padCount, digits, digitCount + 1);
+
+    strlcpy(pathBuffer, config->reportsPath, KSCRS_MAX_PATH_LENGTH);
+    strlcat(pathBuffer, "/", KSCRS_MAX_PATH_LENGTH);
+    strlcat(pathBuffer, padded, KSCRS_MAX_PATH_LENGTH);
+    strlcat(pathBuffer, "-", KSCRS_MAX_PATH_LENGTH);
+    strlcat(pathBuffer, reportID, KSCRS_MAX_PATH_LENGTH);
+    strlcat(pathBuffer, KSCRS_REPORT_FILENAME_SUFFIX, KSCRS_MAX_PATH_LENGTH);
 }
 
 /** Whether a directory entry is a report file; on success its id is copied out. */
