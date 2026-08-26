@@ -62,7 +62,6 @@ static KSCrash_LifecycleData *g_sidecar = NULL;
 static KSSpinLock g_sidecarLock = KSSPINLOCK_INIT;
 static KSCrash_ExceptionHandlerCallbacks g_callbacks = { 0 };
 static id g_appStateObserver = nil;
-static KSHangObserverToken g_hangObserverToken = KSHangObserverTokenNotFound;
 static dispatch_source_t g_taskRoleHeartbeatTimer = NULL;
 
 static atomic_bool g_isEnabled = false;
@@ -459,16 +458,12 @@ static void releaseSidecar(void)
     }
 }
 
-static void onHangChange(KSHangChangeType change, __unused uint64_t startTimestamp, __unused uint64_t endTimestamp,
-                         __unused void *context)
+void kslifecycle_noteHangChange(bool hangActive)
 {
-    if (change != KSHangChangeTypeStarted && change != KSHangChangeTypeEnded) {
-        return;
-    }
     ks_spinlock_lock(&g_sidecarLock);
     KSCrash_LifecycleData *sc = g_sidecar;
     if (sc != NULL) {
-        sc->hangActive = (change == KSHangChangeTypeStarted);
+        sc->hangActive = hangActive;
     }
     ks_spinlock_unlock(&g_sidecarLock);
 }
@@ -501,11 +496,6 @@ static void setEnabled(bool isEnabled, __unused void *context)
     } else {
         stopTaskRoleHeartbeat();
 
-        if (g_hangObserverToken != KSHangObserverTokenNotFound) {
-            kshang_removeHangObserver(g_hangObserverToken);
-            g_hangObserverToken = KSHangObserverTokenNotFound;
-        }
-
         g_appStateObserver = nil;
 
         releaseSidecar();
@@ -516,16 +506,7 @@ static bool isEnabled_func(__unused void *context) { return g_isEnabled; }
 
 // Runs after all monitors have been enabled. The Termination monitor has
 // already determined its reason, so we can now carry forward counters.
-// Also registers the hang observer (Watchdog didn't exist during setEnabled).
-static void notifyPostSystemEnable(__unused void *context)
-{
-    carryForwardFromPreviousRun();
-
-    if (g_hangObserverToken != KSHangObserverTokenNotFound) {
-        return;
-    }
-    g_hangObserverToken = kshang_addHangObserver(onHangChange, NULL);
-}
+static void notifyPostSystemEnable(__unused void *context) { carryForwardFromPreviousRun(); }
 
 static void addContextualInfoToEvent(KSCrash_MonitorContext *eventContext, __unused void *context)
 {
@@ -552,12 +533,6 @@ __attribute__((unused))  // For tests. Declared as extern in TestCase
 void kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionState state)
 {
     onTransitionState(state);
-}
-
-__attribute__((unused))  // For tests. Declared as extern in TestCase
-void kscm_lifecycle_testcode_hangChange(KSHangChangeType change)
-{
-    onHangChange(change, 0, 0, NULL);
 }
 
 __attribute__((unused))  // For tests. Declared as extern in TestCase

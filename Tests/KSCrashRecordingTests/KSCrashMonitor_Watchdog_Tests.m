@@ -117,49 +117,13 @@ static void stubHandle_deprecated(KSCrash_MonitorContext *context) { stubHandle(
     [super tearDown];
 }
 
-static void countingObserver(__unused KSHangChangeType change, __unused uint64_t start, __unused uint64_t end,
-                             void *context)
-{
-    (*(int *)context)++;
-}
-
-- (void)testAddObserverReturnsToken
+- (void)testIsEnabledTracksSetEnabled
 {
     KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
     api->setEnabled(true, NULL);
-    int calls = 0;
-    KSHangObserverToken token = kshang_addHangObserver(countingObserver, &calls);
-    XCTAssertNotEqual(token, KSHangObserverTokenNotFound, @"Adding an observer should return a token");
-    kshang_removeHangObserver(token);
+    XCTAssertTrue(kshang_isEnabled());
     api->setEnabled(false, NULL);
-}
-
-- (void)testAddObserverWhenDisabledReturnsNotFound
-{
-    KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
-    api->setEnabled(false, NULL);
-    int calls = 0;
-    KSHangObserverToken token = kshang_addHangObserver(countingObserver, &calls);
-    XCTAssertEqual(token, KSHangObserverTokenNotFound, @"Adding an observer when disabled should fail");
-}
-
-- (void)testMultipleObserversGetDistinctTokens
-{
-    KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
-    api->setEnabled(true, NULL);
-    int calls = 0;
-    KSHangObserverToken token1 = kshang_addHangObserver(countingObserver, &calls);
-    KSHangObserverToken token2 = kshang_addHangObserver(countingObserver, &calls);
-    KSHangObserverToken token3 = kshang_addHangObserver(countingObserver, &calls);
-    XCTAssertNotEqual(token1, KSHangObserverTokenNotFound);
-    XCTAssertNotEqual(token2, KSHangObserverTokenNotFound);
-    XCTAssertNotEqual(token3, KSHangObserverTokenNotFound);
-    XCTAssertNotEqual(token1, token2);
-    XCTAssertNotEqual(token2, token3);
-    kshang_removeHangObserver(token1);
-    kshang_removeHangObserver(token2);
-    kshang_removeHangObserver(token3);
-    api->setEnabled(false, NULL);
+    XCTAssertFalse(kshang_isEnabled());
 }
 
 #pragma mark - Hang Detection Tests
@@ -171,10 +135,14 @@ typedef struct {
     bool started;
 } HangCapture;
 
-static void captureHangStart(KSHangChangeType change, uint64_t start, uint64_t end, void *context)
+// The process-wide callback has no context; tests route it through this
+// pointer, set for the test's duration and cleared before it ends.
+static HangCapture *g_hangCapture;
+
+static void captureHangStart(KSHangChangeType change, uint64_t start, uint64_t end)
 {
-    HangCapture *capture = context;
-    if (change == KSHangChangeTypeStarted && !capture->started) {
+    HangCapture *capture = g_hangCapture;
+    if (capture != NULL && change == KSHangChangeTypeStarted && !capture->started) {
         capture->started = true;
         capture->start = start;
         capture->end = end;
@@ -193,11 +161,12 @@ static void captureHangStart(KSHangChangeType change, uint64_t start, uint64_t e
 
     KSSempahore *waiter = [KSSempahore withValue:0];
     HangCapture capture = { .waiter = waiter };
-    KSHangObserverToken token = kshang_addHangObserver(captureHangStart, &capture);
-    XCTAssertNotEqual(token, KSHangObserverTokenNotFound);
+    g_hangCapture = &capture;
+    KSHangEventCallback previous = kshang_setHangEventCallback(captureHangStart);
 
     XCTAssertTrue([waiter waitForTimeInterval:5]);
-    kshang_removeHangObserver(token);
+    kshang_setHangEventCallback(previous);
+    g_hangCapture = NULL;
 
     XCTAssertGreaterThan(capture.start, 0ULL);
     XCTAssertGreaterThanOrEqual(capture.end, capture.start);
@@ -216,11 +185,12 @@ static void captureHangStart(KSHangChangeType change, uint64_t start, uint64_t e
 
     KSSempahore *waiter = [KSSempahore withValue:0];
     HangCapture capture = { .waiter = waiter };
-    KSHangObserverToken token = kshang_addHangObserver(captureHangStart, &capture);
-    XCTAssertNotEqual(token, KSHangObserverTokenNotFound);
+    g_hangCapture = &capture;
+    KSHangEventCallback previous = kshang_setHangEventCallback(captureHangStart);
 
     XCTAssertTrue([waiter waitForTimeInterval:5]);
-    kshang_removeHangObserver(token);
+    kshang_setHangEventCallback(previous);
+    g_hangCapture = NULL;
 
     // The hang duration at "started" time should be at least the threshold
     uint64_t durationNs = capture.end - capture.start;

@@ -26,6 +26,7 @@
 
 import Foundation
 import KSCrashRecording
+import KSCrashSwiftCore
 
 /// One change in the main thread's hang state, as the hang monitor sees it.
 public struct HangEvent: Sendable, Equatable {
@@ -45,31 +46,61 @@ extension KSCrash {
     /// The hang monitor's events, one stream per caller. Finishes immediately
     /// when hangs are not monitored. Events arrive from the monitor's thread.
     public var hangEvents: AsyncStream<HangEvent> {
-        AsyncStream { continuation in
-            let box = Unmanaged.passRetained(HangObserverBox(continuation))
-            let token = kshang_addHangObserver(
-                { change, start, end, context in
-                    guard let context, let change = HangEvent.Change(change) else { return }
-                    Unmanaged<HangObserverBox>.fromOpaque(context).takeUnretainedValue().continuation
-                        .yield(HangEvent(change: change, startTimestamp: start, endTimestamp: end))
-                }, box.toOpaque())
-            if token == KSHangObserverTokenNotFound {
-                box.release()
-                continuation.finish()
-                return
-            }
-            continuation.onTermination = { _ in
-                kshang_removeHangObserver(token)
-                box.release()
-            }
-        }
+        HangEventHub.shared.makeStream()
     }
 }
 
-private final class HangObserverBox {
-    let continuation: AsyncStream<HangEvent>.Continuation
-    init(_ continuation: AsyncStream<HangEvent>.Continuation) {
-        self.continuation = continuation
+/// Fans the monitor's single process-wide callback out to any number of
+/// streams. The continuations live here, in Swift, so a stream's teardown
+/// never races the monitor's dispatch: the monitor holds nothing to free.
+private final class HangEventHub: Sendable {
+    static let shared = HangEventHub()
+
+    private struct State {
+        var nextID = 0
+        var continuations: [Int: AsyncStream<HangEvent>.Continuation] = [:]
+        var callbackRegistered = false
+    }
+    private let state = UnfairLock(State())
+
+    func makeStream() -> AsyncStream<HangEvent> {
+        AsyncStream { continuation in
+            guard kshang_isEnabled() else {
+                continuation.finish()
+                return
+            }
+            let id = state.withLock { state in
+                if !state.callbackRegistered {
+                    state.callbackRegistered = true
+                    // Registered once for the process lifetime, never cleared.
+                    kshang_setHangEventCallback { change, start, end in
+                        HangEventHub.shared.dispatch(change, start: start, end: end)
+                    }
+                }
+                let id = state.nextID
+                state.nextID += 1
+                state.continuations[id] = continuation
+                return id
+            }
+            continuation.onTermination = { _ in
+                HangEventHub.shared.endStream(id)
+            }
+        }
+    }
+
+    private func endStream(_ id: Int) {
+        state.withLock { _ = $0.continuations.removeValue(forKey: id) }
+    }
+
+    private func dispatch(_ change: HangChangeType, start: UInt64, end: UInt64) {
+        guard let change = HangEvent.Change(change) else { return }
+        let event = HangEvent(change: change, startTimestamp: start, endTimestamp: end)
+        // Yield outside the lock; a stream that terminated after the copy
+        // ignores the yield.
+        let continuations = state.withLock { Array($0.continuations.values) }
+        for continuation in continuations {
+            continuation.yield(event)
+        }
     }
 }
 

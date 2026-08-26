@@ -51,7 +51,6 @@ extern void kscm_testcode_restoreState(struct KSCrashMonitorSavedState *saved);
 static struct KSCrashMonitorSavedState *g_savedMonitorState;
 extern void kscrash_testcode_setLastRunID(const char *runID);
 extern void kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionState state);
-extern void kscm_lifecycle_testcode_hangChange(KSHangChangeType change);
 extern void kscm_lifecycle_testcode_setTaskRole(int32_t role);
 extern void ksruncontext_testcode_setReason(KSTerminationReason reason);
 extern void ksruncontext_testcode_setLifecycleData(const KSCrash_LifecycleData *data);
@@ -655,7 +654,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
 - (void)testHangStartedSetsFlag
 {
     [self enableMonitor];
-    kscm_lifecycle_testcode_hangChange(KSHangChangeTypeStarted);
+    kslifecycle_noteHangChange(true);
 
     KSCrash_LifecycleData data = { 0 };
     XCTAssertTrue(readCurrentSidecar(&data));
@@ -665,8 +664,8 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
 - (void)testHangEndedClearsFlag
 {
     [self enableMonitor];
-    kscm_lifecycle_testcode_hangChange(KSHangChangeTypeStarted);
-    kscm_lifecycle_testcode_hangChange(KSHangChangeTypeEnded);
+    kslifecycle_noteHangChange(true);
+    kslifecycle_noteHangChange(false);
 
     KSCrash_LifecycleData data = { 0 };
     XCTAssertTrue(readCurrentSidecar(&data));
