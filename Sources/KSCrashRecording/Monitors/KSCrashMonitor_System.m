@@ -39,6 +39,7 @@
 
 #import "KSCrashSystem.h"
 
+#import <sys/mount.h>
 #import "KSBinaryImageCache.h"
 #import "KSCPU.h"
 #import "KSCrashMonitorContext.h"
@@ -520,6 +521,37 @@ void kscm_system_setBootTime(int64_t bootTimestamp)
     ks_spinlock_lock(&g_systemDataLock);
     if (g_systemData != NULL) {
         g_systemData->bootTimestamp = bootTimestamp;
+    }
+    ks_spinlock_unlock(&g_systemDataLock);
+}
+
+void kscm_system_setDiscSpace(uint64_t storageSize, uint64_t freeStorageSize)
+{
+    ks_spinlock_lock(&g_systemDataLock);
+    if (g_systemData != NULL) {
+        g_systemData->storageSize = storageSize;
+        g_systemData->freeStorageSize = freeStorageSize;
+    }
+    ks_spinlock_unlock(&g_systemDataLock);
+}
+
+void kscm_system_refreshFreeStorageAtEvent(struct KSCrash_MonitorContext *eventContext, __unused void *context)
+{
+    if (eventContext != NULL && eventContext->requirements.crashedDuringExceptionHandling) {
+        // Recrash handling records the bare minimum and nothing more.
+        return;
+    }
+    struct statfs s;
+    if (statfs("/", &s) != 0) {
+        return;
+    }
+    // Bounded: runs on the event path, where threads may be suspended
+    // holding this lock.
+    if (!ks_spinlock_lock_bounded(&g_systemDataLock)) {
+        return;
+    }
+    if (g_systemData != NULL) {
+        g_systemData->freeStorageSize = (uint64_t)s.f_bfree * (uint64_t)s.f_bsize;
     }
     ks_spinlock_unlock(&g_systemDataLock);
 }
