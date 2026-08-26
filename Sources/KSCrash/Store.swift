@@ -393,8 +393,9 @@ private struct CStoreConfig: @unchecked Sendable {
 /// takes one directly. Intermediary by design: it exists only while the
 /// report store is C-backed; the production init fills it with the C calls.
 struct ReportBridge: Sendable {
-    /// All pending report IDs. Throws when the directory cannot be
-    /// enumerated; an empty store is an empty array.
+    /// All pending report IDs, oldest first, ordered by write time; the
+    /// store's snapshot derives newest-first by reversal. Throws when the
+    /// directory cannot be enumerated; an empty store is an empty array.
     let list: @Sendable () throws -> [Report.ID]
 
     /// One report's stitched JSON. nil when it cannot be read right now.
