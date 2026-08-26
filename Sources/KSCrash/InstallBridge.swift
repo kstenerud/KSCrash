@@ -44,7 +44,10 @@ extension InstallConfiguration {
         case .enabled(let excludedClasses):
             config.enableMemoryIntrospection = true
             if !excludedClasses.isEmpty {
-                let strings = UnsafeMutablePointer<UnsafePointer<CChar>?>.allocate(capacity: excludedClasses.count)
+                // malloc, not Swift's allocate: KSCrashCConfiguration_Release
+                // frees this table with C free.
+                let strings = malloc(MemoryLayout<UnsafePointer<CChar>?>.stride * excludedClasses.count)!
+                    .assumingMemoryBound(to: UnsafePointer<CChar>?.self)
                 for (index, name) in excludedClasses.enumerated() {
                     strings[index] = UnsafePointer(strdup(name))
                 }
@@ -65,8 +68,10 @@ extension InstallConfiguration {
 
         if !plugins.isEmpty {
             // The core copies each table into its own storage during install;
-            // this array only carries them there.
-            let apis = UnsafeMutablePointer<KSCrashMonitorAPI>.allocate(capacity: plugins.count)
+            // this array only carries them there. malloc to match the free in
+            // the release callback.
+            let apis = malloc(MemoryLayout<KSCrashMonitorAPI>.stride * plugins.count)!
+                .assumingMemoryBound(to: KSCrashMonitorAPI.self)
             for (index, plugin) in plugins.enumerated() {
                 apis[index] = plugin.api.pointee
             }
