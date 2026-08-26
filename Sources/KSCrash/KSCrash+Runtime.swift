@@ -53,8 +53,10 @@ extension KSCrash {
     /// Record the active user; nil clears it. A session boundary: reports and
     /// run summaries attribute what follows to this user.
     public func setUserID(_ userID: String?) {
-        metadata[KSCRASH_USERID_KEY] = userID
-        sessionRecorder.observeUser(userID)
+        userIDLock.withLock { _ in
+            metadata[KSCRASH_USERID_KEY] = userID
+            sessionRecorder.observeUser(userID)
+        }
     }
 
     /// Report a custom exception, as user-reported crash reports do.

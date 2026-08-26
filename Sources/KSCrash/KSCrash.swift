@@ -45,6 +45,11 @@ public final class KSCrash: Sendable {
 
     let sessionRecorder = SessionRecorder()
 
+    // Serializes the metadata write + session cut pair in setUserID; each half
+    // locks internally, but only this keeps concurrent calls from
+    // cross-attributing the two.
+    let userIDLock = UnfairLock(())
+
     private init() {}
 
     /// Install the reporter. Synchronous; monitors are live when it returns.
