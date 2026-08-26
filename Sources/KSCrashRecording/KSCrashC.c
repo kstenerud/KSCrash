@@ -489,6 +489,8 @@ KSCrashInstallErrorCode kscrash_install(const char *const installPath, KSCrashCC
     return KSCrashInstallErrorNone;
 }
 
+void kscrash_thwartTailCallOptimisation(void) { KS_THWART_TAIL_CALL_OPTIMISATION }
+
 void kscrash_reportUserException(const char *name, const char *reason, const char *language, const char *lineOfCode,
                                  const char *stackTrace, bool logAllThreads,
                                  bool terminateProgram) KS_KEEP_FUNCTION_IN_STACKTRACE

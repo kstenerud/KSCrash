@@ -26,6 +26,7 @@
 
 #import <Foundation/Foundation.h>
 
+#import "KSCompilerDefines.h"
 #import "KSCrashC.h"
 #import "KSCrashMonitor_NSException+Private.h"
 #import "KSLogger.h"
@@ -45,11 +46,12 @@ __attribute__((constructor)) static void kscrash_nsexception_register(void)
     kscm_nsexception_setOnEnabledHandler(onNSExceptionHandlingEnabled);
 }
 
-void kscrash_reportNSException(NSException *exception, bool logAllThreads)
+void kscrash_reportNSException(NSException *exception, bool logAllThreads) KS_KEEP_FUNCTION_IN_STACKTRACE
 {
     if (g_reporter == NULL) {
         KSLOG_WARN("The NSException monitor is not enabled; the exception is not reported.");
         return;
     }
     g_reporter(exception, logAllThreads);
+    KS_THWART_TAIL_CALL_OPTIMISATION
 }

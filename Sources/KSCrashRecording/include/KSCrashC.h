@@ -151,6 +151,11 @@ KSTerminationReason kscrash_getPreviousTerminationReason(void);
  *  no-op, with a log, unless that monitor is enabled.
  */
 void kscrash_reportNSException(NSException *exception, bool logAllThreads);
+
+/** Does nothing. Call immediately after a kscrash_report* call so the calling
+ * frame survives optimization and stays in the captured stacktrace.
+ */
+void kscrash_thwartTailCallOptimisation(void);
 #endif
 
 /** Get the run ID for the current process.
