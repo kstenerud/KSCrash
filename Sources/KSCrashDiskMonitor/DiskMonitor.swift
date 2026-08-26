@@ -31,36 +31,76 @@ import KSCrashSwiftCore
 
 /// The disk monitor: records total and free storage on reports.
 public enum DiskMonitor {
-    /// Register in `InstallConfiguration.plugins`. Free storage is sampled
-    /// when the monitor is enabled and re-sampled periodically, so a report
-    /// carries the value from the latest sample.
-    public static func plugin() -> any MonitorPlugin {
-        SidecarMetadataMonitorPlugin(
-            monitorID: "DiscSpace",
-            record: { store in
-                var status = Darwin.statfs()
-                guard statfs("/", &status) == 0 else { return }
-                store[Keys.storage] = UInt64(status.f_blocks) * UInt64(status.f_bsize)
-                store[Keys.freeStorage] = UInt64(status.f_bfree) * UInt64(status.f_bsize)
-            },
-            poller: { record in
-                Poller(every: 60, queue: DispatchQueue(label: "com.kscrash.diskmonitor", qos: .utility)) {
-                    record()
-                }
-            },
-            stitch: { values, system in
-                if let storage: UInt64 = values[Keys.storage] {
-                    system[CrashField.storage.rawValue] = NSNumber(value: storage)
-                }
-                if let free: UInt64 = values[Keys.freeStorage] {
-                    system[CrashField.freeStorage.rawValue] = NSNumber(value: free)
-                }
-            })
+    /// Register in `InstallConfiguration.plugins`. Storage sizes are recorded
+    /// when the monitor is enabled and re-sampled periodically, and free
+    /// storage is refreshed at event time so a report carries the value from
+    /// its own moment.
+    public static func plugin() -> any MonitorPlugin { DiskMonitorPlugin() }
+}
+
+private final class DiskMonitorPlugin: MonitorPlugin, @unchecked Sendable {
+    private static let monitorID: UnsafePointer<CChar> = UnsafePointer(strdup("DiscSpace")!)
+
+    let api: UnsafeMutablePointer<KSCrashMonitorAPI>
+
+    private struct State {
+        var poller: Poller?
+        var enabled = false
+    }
+    private let state = UnfairLock(State())
+
+    init() {
+        api = .allocate(capacity: 1)
+        api.initialize(to: KSCrashMonitorAPI())
+        // Fill every slot with the core's defaults first; the core calls
+        // slots without NULL checks.
+        kscma_initAPI(api)
+        api.pointee.monitorId = { _ in DiskMonitorPlugin.monitorID }
+        api.pointee.monitorFlags = { _ in KSCrashMonitorFlagPlugin }
+        api.pointee.setEnabled = { enabled, context in
+            context.map { DiskMonitorPlugin.from($0).setEnabled(enabled) }
+        }
+        api.pointee.isEnabled = { context in
+            context.map { DiskMonitorPlugin.from($0).state.withLock { $0.enabled } } ?? false
+        }
+        // A C function, not a Swift closure: it runs on the event path,
+        // where Swift must not.
+        api.pointee.addContextualInfoToEvent = kscm_system_refreshFreeStorageAtEvent
+        api.pointee.context = Unmanaged.passUnretained(self).toOpaque()
     }
 
-    /// Reserved store keys; the stitch maps them to the report's field names.
-    private enum Keys {
-        static let storage = "com.kscrash.disk.storage"
-        static let freeStorage = "com.kscrash.disk.freeStorage"
+    deinit {
+        api.deinitialize(count: 1)
+        api.deallocate()
+    }
+
+    private static func from(_ context: UnsafeMutableRawPointer) -> DiskMonitorPlugin {
+        Unmanaged<DiskMonitorPlugin>.fromOpaque(context).takeUnretainedValue()
+    }
+
+    private func setEnabled(_ enabled: Bool) {
+        state.withLock { state in
+            guard enabled != state.enabled else { return }
+            state.enabled = enabled
+            if enabled {
+                Self.record()
+                let poller = Poller(every: 60, queue: DispatchQueue(label: "com.kscrash.diskmonitor", qos: .utility)) {
+                    Self.record()
+                }
+                poller?.start()
+                state.poller = poller
+            } else {
+                state.poller?.stop()
+                state.poller = nil
+            }
+        }
+    }
+
+    private static func record() {
+        var status = Darwin.statfs()
+        guard statfs("/", &status) == 0 else { return }
+        kscm_system_setDiscSpace(
+            UInt64(status.f_blocks) * UInt64(status.f_bsize),
+            UInt64(status.f_bfree) * UInt64(status.f_bsize))
     }
 }
