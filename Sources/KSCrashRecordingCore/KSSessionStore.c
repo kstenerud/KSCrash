@@ -138,8 +138,7 @@ static bool appendSession(KSSessionWriter *writer, const char *guid, uint64_t st
             // Unknown file state: an entry appended to a possibly headerless
             // file makes the whole file unreadable, so stop writing instead.
             KSLOG_ERROR("Failed to stat session file %s", writer->filePath);
-            writer->broken = true;
-            return false;
+            goto failed_broken;
         }
         if (st.st_size == 0) {
             KSSessionFileHeader header;
@@ -152,8 +151,7 @@ static bool appendSession(KSSessionWriter *writer, const char *guid, uint64_t st
                 // No header means the reader rejects the whole file; do not write
                 // an entry onto it, and stop writing.
                 KSLOG_ERROR("Failed to write session file header %s", writer->filePath);
-                writer->broken = true;
-                return false;
+                goto failed_broken;
             }
         }
     }
@@ -169,10 +167,13 @@ static bool appendSession(KSSessionWriter *writer, const char *guid, uint64_t st
     }
     if (!ksfu_writeBytesToFD(writer->fd, (const char *)&entry, (int)sizeof(entry))) {
         KSLOG_ERROR("Failed to append session entry to %s", writer->filePath);
-        writer->broken = true;
-        return false;
+        goto failed_broken;
     }
     return true;
+
+failed_broken:
+    writer->broken = true;
+    return false;
 }
 
 KSSessionWriter *kssw_open(const char *path)
@@ -200,7 +201,7 @@ static void copyUtf8Truncated(char *dst, const char *src, size_t dstSize)
     if (dstSize == 0) {
         return;
     }
-    size_t n = strlen(src);
+    size_t n = strnlen(src, dstSize);
     size_t max = dstSize - 1;
     if (n > max) {
         n = max;
@@ -229,7 +230,7 @@ static const char *reconcileSession(KSSessionWriter *writer, bool perceptible, c
     // session that IS in the file (what kssw_current returns) and never advance on
     // a failed write.
     if (writer->hasOpenSession && !writer->pendingWrite && writer->openPerceptible == perceptible &&
-        strcmp(writer->openUser, user) == 0) {
+        strncmp(writer->openUser, user, sizeof(writer->openUser)) == 0) {
         return NULL;  // already the durable open session
     }
 
@@ -310,6 +311,7 @@ void kssw_close(KSSessionWriter *writer)
     }
     if (writer->fd >= 0) {
         close(writer->fd);
+        writer->fd = -1;
     }
     free(writer);
 }
@@ -407,16 +409,14 @@ static bool decodeFile(KSSessionReader *reader, const char *path)
         return true;  // nothing to read: zero sessions
     }
     if (length < (int)sizeof(KSSessionFileHeader)) {
-        free(data);
-        return true;
+        goto free_and_success;
     }
 
     KSSessionFileHeader header;
     memcpy(&header, data, sizeof(header));
     if (header.magic != KSSESSION_FILE_MAGIC || header.version != KSSESSION_FILE_VERSION || header.wallRefNs == 0 ||
         header.monoRefNs == 0) {
-        free(data);
-        return true;
+        goto free_and_success;
     }
 
     // Count the leading run of valid entries; stop at the first torn or
@@ -439,14 +439,12 @@ static bool decodeFile(KSSessionReader *reader, const char *path)
     }
 
     if (entryCount == 0) {
-        free(data);
-        return true;
+        goto free_and_success;
     }
 
     KSSessionRecord *records = (KSSessionRecord *)calloc((size_t)entryCount, sizeof(KSSessionRecord));
     if (records == NULL) {
-        free(data);
-        return false;  // allocation failure
+        goto free_and_failure;  // allocation failure
     }
 
     off = (int)sizeof(KSSessionFileHeader);
@@ -480,6 +478,14 @@ static bool decodeFile(KSSessionReader *reader, const char *path)
     reader->records = records;
     reader->recordCount = entryCount;
     return true;
+
+free_and_success:
+    free(data);
+    return true;
+
+free_and_failure:
+    free(data);
+    return false;
 }
 
 KSSessionReader *kssr_open(const char *path)
