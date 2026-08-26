@@ -104,6 +104,16 @@ final class InstallConfigurationTests: XCTestCase {
         }
     }
 
+    func test_urlContainer_mustBeAFileURL() throws {
+        var config = InstallConfiguration(namespace: "Ns")
+        config.container = .url(URL(string: "https://example.com/path")!)
+        XCTAssertThrowsError(try config.locations) { error in
+            guard case .invalidConfiguration? = error as? InstallError else { return XCTFail("\(error)") }
+        }
+        config.container = .url(URL(fileURLWithPath: "/tmp/kscrash-test"))
+        XCTAssertNoThrow(try config.locations)
+    }
+
     func test_namespace_mustBeADirectoryName() {
         for bad in ["", "/", "a/b", ".", ".."] {
             XCTAssertThrowsError(try InstallConfiguration(namespace: bad).locations, bad) { error in
@@ -149,6 +159,12 @@ final class InstallConfigurationTests: XCTestCase {
         XCTAssertNoThrow(try config.validate())
         config.maxRunSummaryCount = -1
         XCTAssertThrowsError(try config.validate())
+        config.maxRunSummaryCount = Int(Int32.max) + 1
+        XCTAssertThrowsError(try config.validate(), "counts past Int32 must throw, not trap in the bridge")
+        config.maxRunSummaryCount = 0
+        config.maxReportCount = Int(Int32.max) + 1
+        XCTAssertThrowsError(try config.validate())
+        config.maxReportCount = 0
         config.maxRunSummaryCount = 0
         config.memoryIntrospection = .enabled(excludingClasses: [""])
         XCTAssertThrowsError(try config.validate())
