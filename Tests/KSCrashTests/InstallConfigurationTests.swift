@@ -113,6 +113,37 @@ final class InstallConfigurationTests: XCTestCase {
         XCTAssertNoThrow(try InstallConfiguration(namespace: "My App.1").locations)
     }
 
+    /// A minimal valid plugin table with its own id, for count tests.
+    private final class CountedPlugin: MonitorPlugin, @unchecked Sendable {
+        private let monitorID: UnsafePointer<CChar>
+        let api: UnsafeMutablePointer<KSCrashMonitorAPI>
+
+        init(_ index: Int) {
+            monitorID = UnsafePointer(strdup("CountedPlugin\(index)")!)
+            api = .allocate(capacity: 1)
+            api.initialize(to: KSCrashMonitorAPI())
+            api.pointee.`init` = { _, _ in }
+            api.pointee.monitorFlags = { _ in KSCrashMonitorFlagPlugin }
+            api.pointee.setEnabled = { _, _ in }
+            api.pointee.isEnabled = { _ in false }
+            let id = monitorID
+            api.pointee.context = UnsafeMutableRawPointer(mutating: id)
+            api.pointee.monitorId = { context in
+                context.map { UnsafePointer($0.assumingMemoryBound(to: CChar.self)) }
+            }
+        }
+    }
+
+    func test_validate_boundsThePluginCount() {
+        var config = InstallConfiguration(namespace: "Ns")
+        config.plugins = (0..<Int(KSC_MAX_PLUGINS)).map(CountedPlugin.init)
+        XCTAssertNoThrow(try config.validate())
+        config.plugins.append(CountedPlugin(Int(KSC_MAX_PLUGINS)))
+        XCTAssertThrowsError(try config.validate()) { error in
+            guard case .invalidConfiguration? = error as? InstallError else { return XCTFail("\(error)") }
+        }
+    }
+
     func test_validate_refusesNegativeCountsAndEmptyClassNames() {
         var config = InstallConfiguration(namespace: "Ns")
         XCTAssertNoThrow(try config.validate())
