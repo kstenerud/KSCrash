@@ -84,7 +84,7 @@ static void onBool(const char *key, uint16_t keyLen, bool value, void *ctx)
     }
 }
 
-static void onDate(const char *key, uint16_t keyLen, uint64_t nanosecondsSince1970, void *ctx)
+static void onDate(const char *key, uint16_t keyLen, int64_t nanosecondsSince1970, void *ctx)
 {
     NSMutableDictionary *dict = (__bridge NSMutableDictionary *)ctx;
     NSString *nsKey = [[NSString alloc] initWithBytes:key length:keyLen encoding:NSUTF8StringEncoding];

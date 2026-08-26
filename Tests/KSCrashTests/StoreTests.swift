@@ -345,9 +345,9 @@ final class StoreTests: XCTestCase {
         let runID = "DATEMATCH"
         try writeSummary(makeSummary(runID: runID), startNs: 100)
 
-        // Write with the exact conversion -[KSCrash setUserInfoDate:forKey:] uses.
+        // Write with the exact conversion the metadata date setter uses.
         let original = Date(timeIntervalSince1970: 1_723_222_222.123456)
-        let storedNs = UInt64(original.timeIntervalSince1970 * 1e9)
+        let storedNs = Int64(original.timeIntervalSince1970 * 1e9)
         try writeUserInfo(runID: runID) { kskvs_setDate($0, "when", storedNs) }
 
         let stitched = try XCTUnwrap(summary()?.metadata?.value(forKey: "when", as: Date.self))
