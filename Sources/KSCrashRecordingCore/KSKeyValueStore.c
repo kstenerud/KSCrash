@@ -29,6 +29,7 @@
 // #define KSLogger_LocalLevel TRACE
 #include <errno.h>
 #include <fcntl.h>
+#include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
@@ -94,6 +95,14 @@ struct KSKeyValueStore {
     uint16_t maxKeyLength;
     uint16_t maxStringLength;
 };
+
+// Spans mutation (write side) and the read-mode file load (read side), so a
+// reader's snapshot is never torn by a concurrent compact or append. Global
+// because a reader opens the file by path and shares no object with the
+// writer. This is NOT a thread-safety promise: concurrent writers to one
+// store remain the caller's responsibility. Deliberately not a file lock,
+// which iOS punishes with 0xdead10cc when held across suspension.
+static pthread_rwlock_t g_fileImageLock = PTHREAD_RWLOCK_INITIALIZER;
 
 // ============================================================================
 #pragma mark - Internal Helpers -
@@ -256,6 +265,8 @@ static bool appendRecord(KSKeyValueStore *store, const char *key, uint8_t type, 
 
     uint32_t recordSize = KSKVS_RECORD_HEADER_SIZE + keyLen + valueLen;
 
+    pthread_rwlock_wrlock(&g_fileImageLock);
+
     KSKVSHeader *hdr = storeHeader(store);
 
     if (hdr->offset + recordSize > store->capacity) {
@@ -264,6 +275,7 @@ static bool appendRecord(KSKeyValueStore *store, const char *key, uint8_t type, 
 
         if (hdr->offset + recordSize > store->capacity) {
             if (!growStorage(store, hdr->offset + recordSize)) {
+                pthread_rwlock_unlock(&g_fileImageLock);
                 return false;
             }
             hdr = storeHeader(store);
@@ -281,6 +293,7 @@ static bool appendRecord(KSKeyValueStore *store, const char *key, uint8_t type, 
     }
 
     hdr->offset += recordSize;
+    pthread_rwlock_unlock(&g_fileImageLock);
     return true;
 }
 
@@ -311,11 +324,16 @@ KSKeyValueStore *kskvs_create(const char *path, KSKVSMode mode, const KSKVSConfi
             goto done;
         }
 
+        // The size probe and the read form one snapshot: both under the read
+        // lock so a concurrent compact or append cannot tear the image.
+        pthread_rwlock_rdlock(&g_fileImageLock);
         off_t fileSize = lseek(fd, 0, SEEK_END);
         if (fileSize < 0) {
+            pthread_rwlock_unlock(&g_fileImageLock);
             goto read_fail;  // seek failure is environmental, not a verdict on the file
         }
         if (fileSize < (off_t)KSKVS_HEADER_SIZE) {
+            pthread_rwlock_unlock(&g_fileImageLock);
             status = KSKVSOpenCorrupt;
             goto read_fail;
         }
@@ -323,10 +341,12 @@ KSKeyValueStore *kskvs_create(const char *path, KSKVSMode mode, const KSKVSConfi
 
         buf = (uint8_t *)malloc((size_t)fileSize);
         if (buf == NULL) {
+            pthread_rwlock_unlock(&g_fileImageLock);
             goto read_fail;
         }
 
         ssize_t bytesRead = read(fd, buf, (size_t)fileSize);
+        pthread_rwlock_unlock(&g_fileImageLock);
         close(fd);
         fd = -1;
 

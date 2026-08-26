@@ -26,8 +26,9 @@
 
 import Foundation
 
-/// A repeating background task: fires immediately on `start`, then every
-/// `interval`. `start` and `stop` are idempotent; the handler runs on `queue`.
+/// A repeating background task: fires every `interval`, first fire one
+/// `interval` after `start`. `start` and `stop` are idempotent; the handler
+/// runs on `queue`.
 public final class Poller: @unchecked Sendable {
     private let interval: TimeInterval
     private let leeway: DispatchTimeInterval
@@ -55,7 +56,7 @@ public final class Poller: @unchecked Sendable {
         timer.withLock { timer in
             guard timer == nil else { return }
             let source = DispatchSource.makeTimerSource(queue: queue)
-            source.schedule(deadline: .now(), repeating: interval, leeway: leeway)
+            source.schedule(deadline: .now() + interval, repeating: interval, leeway: leeway)
             source.setEventHandler(handler: handler)
             source.resume()
             timer = source
