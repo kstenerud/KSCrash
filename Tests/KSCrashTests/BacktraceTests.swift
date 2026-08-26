@@ -42,6 +42,12 @@ final class BacktraceTests: XCTestCase {
         XCTAssertTrue(backtrace.isTruncated)
     }
 
+    func test_capture_rejectsANonPositiveOrOversizedFrameBudget() {
+        for maxFrames in [0, -1, Int.max] {
+            XCTAssertNil(Backtrace.capture(thread: pthread_self(), maxFrames: maxFrames), "\(maxFrames)")
+        }
+    }
+
     func test_capture_ofTheCurrentMachThread() throws {
         let backtrace = try XCTUnwrap(Backtrace.capture(machThread: mach_thread_self(), maxFrames: 64))
         XCTAssertGreaterThan(backtrace.count, 0)
