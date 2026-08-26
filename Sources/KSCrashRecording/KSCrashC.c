@@ -71,7 +71,6 @@
 #include "KSLogger.h"
 
 #define KSC_MAX_APP_NAME_LENGTH 100
-#define KSC_MAX_PLUGINS 64
 #define KSC_UUID_STRING_LENGTH 36
 #define KSC_RUN_ID_FILE_MODE 0644
 
@@ -267,6 +266,9 @@ static void setPluginMonitors(KSCrashMonitorAPI *apis, int count)
     g_pluginCount = 0;
     if (apis == NULL || count <= 0) {
         return;
+    }
+    if (count > KSC_MAX_PLUGINS) {
+        KSLOG_ERROR("%d plugins exceed the %d cap; the excess is not registered", count, KSC_MAX_PLUGINS);
     }
     for (int i = 0; i < count && i < KSC_MAX_PLUGINS; i++) {
         g_plugins[i] = apis[i];

@@ -180,6 +180,9 @@ extension InstallConfiguration {
         if case .enabled(let classes) = memoryIntrospection, classes.contains(where: \.isEmpty) {
             throw InstallError.invalidConfiguration("memoryIntrospection excludes an empty class name")
         }
+        if plugins.count > Int(KSC_MAX_PLUGINS) {
+            throw InstallError.invalidConfiguration("at most \(KSC_MAX_PLUGINS) plugins can be registered")
+        }
         var monitorIDs = Set<String>()
         for plugin in plugins {
             let api = plugin.api.pointee
