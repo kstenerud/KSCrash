@@ -30,10 +30,9 @@ import KSCrashRecordingCore
 import KSCrashReportModel
 import KSCrashSwiftCore
 
-/// The run's metadata as the crash reporter records it: a `SidecarMetadata`
-/// over the run's UserInfo sidecar, the same file the report stitch and the
-/// run-summary metadata merge read at delivery. Before install there is no
-/// store: sets are no-ops and reads are nil.
+/// The run's metadata as the crash reporter records it: values set here are
+/// attached to the run's reports and run summary when they are delivered.
+/// Before install there is no store: sets are no-ops and reads are nil.
 ///
 /// Dates range from 1677-09-21 to 2262-04-11; assigning one outside that range
 /// removes the key instead of storing it.
