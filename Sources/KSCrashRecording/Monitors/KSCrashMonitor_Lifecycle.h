@@ -227,6 +227,11 @@ bool kslifecycle_copyLastSessionIDForRunID(const char *runID, char *buf, size_t 
  */
 KSCrashAppTransitionState kslifecycle_currentTransitionState(void);
 
+/** Records whether the main thread is currently hanging. Called by the hang
+ * monitor on hang start and end; safe to call while the monitor is disabled.
+ */
+void kslifecycle_noteHangChange(bool hangActive);
+
 /** Access the Lifecycle Monitor API.
  */
 KSCrashMonitorAPI *kscm_lifecycle_getAPI(void);

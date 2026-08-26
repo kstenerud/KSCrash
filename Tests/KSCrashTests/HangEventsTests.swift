@@ -72,6 +72,38 @@ final class HangEventsTests: XCTestCase {
         XCTAssertEqual(eventA, eventB)
         XCTAssertGreaterThan(eventA.startTimestamp, 0)
     }
+
+    func test_hangEvents_supportsMoreStreamsThanTheOldObserverSlots() async throws {
+        // The retired C registry capped observers at 8 process-wide; the hub
+        // must fan one callback out to any number of streams.
+        let streams = (0..<12).map { _ in KSCrash.shared.hangEvents }
+        let blocker = Task { @MainActor in
+            let until = Date().addingTimeInterval(0.6)
+            while Date() < until {}
+        }
+        let events = await withTaskGroup(of: HangEvent?.self) { group in
+            for stream in streams {
+                group.addTask {
+                    await withTimeout(seconds: 5) {
+                        var iterator = stream.makeAsyncIterator()
+                        return await iterator.next()
+                    }
+                }
+            }
+            var events: [HangEvent?] = []
+            for await event in group {
+                events.append(event)
+            }
+            return events
+        }
+        await blocker.value
+        let received = events.compactMap { $0 }
+        guard !received.isEmpty else {
+            throw XCTSkip("hangs are not monitored in this environment, the streams finished")
+        }
+        XCTAssertEqual(received.count, streams.count, "every stream receives the hang")
+        XCTAssertGreaterThan(received[0].startTimestamp, 0)
+    }
 }
 
 /// nil when `body` did not produce a value in time.

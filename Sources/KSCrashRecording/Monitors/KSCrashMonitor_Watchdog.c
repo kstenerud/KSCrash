@@ -66,18 +66,6 @@
 // Apple's definition of a "hang" — see KSCrashMonitor_Watchdog.h.
 #define KSHANG_THRESHOLD_SECONDS 0.250
 
-#define KSHANG_MAX_OBSERVERS 8
-
-// ============================================================================
-#pragma mark - Types -
-// ============================================================================
-
-typedef struct {
-    KSHangObserverCallback func;
-    void *context;
-    bool active;
-} HangObserver;
-
 // ============================================================================
 #pragma mark - Hang Monitor -
 // ============================================================================
@@ -100,9 +88,9 @@ typedef struct {
 //     run loop wakes, read by the watchdog timer to measure elapsed time.
 //     Uses relaxed ordering because it is a standalone timing value with no
 //     dependencies on other memory operations.
-//   - `lock` (os_unfair_lock) — protects the mutable `hang` state, sidecar
-//     pointer, and observer array.  Held only briefly for reads/writes of
-//     these fields; never held during I/O or observer callbacks.
+//   - `lock` (os_unfair_lock) — protects the mutable `hang` state and sidecar
+//     pointer.  Held only briefly for reads/writes of these fields; never
+//     held during I/O or hang event dispatch.
 //
 // Hang lifecycle
 // --------------
@@ -111,8 +99,8 @@ typedef struct {
 //   2. Timer fires → watchdogTimerFired() reads enterTime, computes elapsed
 //      time.  If >= threshold and no hang is active, it transitions to a new
 //      hang: writes a crash report, opens an mmap'd sidecar file, and
-//      notifies observers.  On subsequent fires it updates the sidecar's
-//      end-timestamp and notifies observers of the update.
+//      dispatches a hang event.  On subsequent fires it updates the sidecar's
+//      end-timestamp and dispatches an update event.
 //   3. Main run loop goes idle → mainRunLoopActivity(BeforeWaiting) cancels
 //      the timer.  If a hang was active, it takes ownership of the hang
 //      state and calls finalizeResolvedHang(), which either deletes the
@@ -150,9 +138,9 @@ typedef struct KSHangMonitor {
     // When true, they're preserved with the sidecar marking them as recovered.
     bool reportsHangs;
 
-    // Protects: hang, sidecar, sidecarPath, observers, observerCount.
-    // IMPORTANT: never hold this during I/O, report writing, or observer
-    // callbacks — the watchdog timer fires every 250ms and must not stall.
+    // Protects: hang, sidecar, sidecarPath.
+    // IMPORTANT: never hold this during I/O, report writing, or hang event
+    // dispatch — the watchdog timer fires every 250ms and must not stall.
     os_unfair_lock lock;
     KSHangState hang;
 
@@ -164,8 +152,6 @@ typedef struct KSHangMonitor {
     KSHangSidecar *sidecar;  // mmap'd, or NULL
     char sidecarPath[PATH_MAX];
 
-    HangObserver observers[KSHANG_MAX_OBSERVERS];
-    int observerCount;
 } KSHangMonitor;
 
 // ============================================================================
@@ -173,6 +159,9 @@ typedef struct KSHangMonitor {
 // ============================================================================
 
 static atomic_bool g_isEnabled = false;
+// The single process-wide event consumer; set once, never cleared, so
+// dispatch never races a teardown. Release/acquire pairs the set with use.
+static KSHangEventCallback _Atomic g_hangEventCallback = NULL;
 static atomic_bool g_reportsHangs = false;
 static KSHangMonitor *g_watchdog = NULL;
 static KSCrash_ExceptionHandlerCallbacks g_callbacks = { 0 };
@@ -236,25 +225,19 @@ static void sidecar_delete(KSHangMonitor *monitor)
 }
 
 // ============================================================================
-#pragma mark - Observer notification -
+#pragma mark - Hang event dispatch -
 // ============================================================================
 
-// Snapshot the observer array under the lock, then notify outside it.
-// This lets callbacks safely call kshang_add/removeHangObserver without deadlocking.
-static void notifyObservers(KSHangMonitor *monitor, KSHangChangeType type, uint64_t start, uint64_t now)
+// Runs on the watchdog thread, outside the monitor lock: the consumers run
+// arbitrary code and the lock must never wait on them.
+static void notifyHangChange(KSHangChangeType change, uint64_t start, uint64_t now)
 {
-    HangObserver snapshot[KSHANG_MAX_OBSERVERS];
-    int count = 0;
-
-    os_unfair_lock_lock(&monitor->lock);
-    count = monitor->observerCount;
-    memcpy(snapshot, monitor->observers, sizeof(snapshot));
-    os_unfair_lock_unlock(&monitor->lock);
-
-    for (int i = 0; i < count; i++) {
-        if (snapshot[i].active && snapshot[i].func) {
-            snapshot[i].func(type, start, now, snapshot[i].context);
-        }
+    if (change != KSHangChangeTypeUpdated) {
+        kslifecycle_noteHangChange(change == KSHangChangeTypeStarted);
+    }
+    KSHangEventCallback callback = atomic_load_explicit(&g_hangEventCallback, memory_order_acquire);
+    if (callback != NULL) {
+        callback(change, start, now);
     }
 }
 
@@ -349,7 +332,7 @@ static void populateReportForCurrentHang(KSHangMonitor *monitor)
 
     KSLOG_INFO("Hang started (reportID: %s)", result.reportId);
 
-    notifyObservers(monitor, KSHangChangeTypeStarted, hang.timestamp, hang.endTimestamp);
+    notifyHangChange(KSHangChangeTypeStarted, hang.timestamp, hang.endTimestamp);
 }
 
 static void writeUpdatedReport(KSHangMonitor *monitor)
@@ -367,7 +350,7 @@ static void writeUpdatedReport(KSHangMonitor *monitor)
     sidecar_update(monitor->sidecar, timestampEnd, monitor->hang.endRole, monitor->hang.endTransitionState);
     os_unfair_lock_unlock(&monitor->lock);
 
-    notifyObservers(monitor, KSHangChangeTypeUpdated, timestampStart, timestampEnd);
+    notifyHangChange(KSHangChangeTypeUpdated, timestampStart, timestampEnd);
 }
 
 static void finalizeResolvedHang(KSHangMonitor *monitor, KSHangState hang)
@@ -425,7 +408,7 @@ static void finalizeResolvedHang(KSHangMonitor *monitor, KSHangState hang)
     KSLOG_INFO("Hang ended (reportID: %s, duration: %.3f s)", hang.reportId,
                (double)(hang.endTimestamp - hang.timestamp) / 1e9);
 
-    notifyObservers(monitor, KSHangChangeTypeEnded, hang.timestamp, hang.endTimestamp);
+    notifyHangChange(KSHangChangeTypeEnded, hang.timestamp, hang.endTimestamp);
 }
 
 // ============================================================================
@@ -708,57 +691,14 @@ static void watchdog_destroy(KSHangMonitor *monitor)
 }
 
 // ============================================================================
-#pragma mark - Observer API -
+#pragma mark - Hang event API -
 // ============================================================================
 
-KSHangObserverToken kshang_addHangObserver(KSHangObserverCallback callback, void *context)
+bool kshang_isEnabled(void) { return g_isEnabled; }
+
+KSHangEventCallback kshang_setHangEventCallback(KSHangEventCallback callback)
 {
-    KSHangMonitor *monitor = g_watchdog;
-    if (!monitor || !callback) {
-        return KSHangObserverTokenNotFound;
-    }
-
-    KSHangObserverToken token = KSHangObserverTokenNotFound;
-    os_unfair_lock_lock(&monitor->lock);
-
-    // First, try to reuse an inactive slot
-    for (int i = 0; i < monitor->observerCount; i++) {
-        if (!monitor->observers[i].active) {
-            token = i;
-            break;
-        }
-    }
-
-    // If no inactive slot found, append if there's room
-    if (token == KSHangObserverTokenNotFound && monitor->observerCount < KSHANG_MAX_OBSERVERS) {
-        token = monitor->observerCount;
-        monitor->observerCount++;
-    }
-
-    if (token != KSHangObserverTokenNotFound) {
-        monitor->observers[token].func = callback;
-        monitor->observers[token].context = context;
-        monitor->observers[token].active = true;
-    }
-
-    os_unfair_lock_unlock(&monitor->lock);
-    return token;
-}
-
-void kshang_removeHangObserver(KSHangObserverToken token)
-{
-    KSHangMonitor *monitor = g_watchdog;
-    if (!monitor || token < 0 || token >= KSHANG_MAX_OBSERVERS) {
-        return;
-    }
-
-    os_unfair_lock_lock(&monitor->lock);
-    if (token < monitor->observerCount) {
-        monitor->observers[token].active = false;
-        monitor->observers[token].func = NULL;
-        monitor->observers[token].context = NULL;
-    }
-    os_unfair_lock_unlock(&monitor->lock);
+    return atomic_exchange_explicit(&g_hangEventCallback, callback, memory_order_acq_rel);
 }
 
 // ============================================================================
