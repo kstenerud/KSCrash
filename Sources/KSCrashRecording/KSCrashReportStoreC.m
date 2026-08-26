@@ -113,7 +113,8 @@ static void getCrashReportPath(uint64_t wallClockNs, const char *reportID, char 
 static bool parseReportFilename(const char *filename, char *reportID)
 {
     if (strlen(filename) != KSCRS_REPORT_NAME_LENGTH || filename[KSCRS_REPORT_NAME_DIGITS] != '-' ||
-        strcmp(filename + KSCRS_REPORT_NAME_DIGITS + 1 + KSCRS_REPORT_ID_LENGTH, KSCRS_REPORT_FILENAME_SUFFIX) != 0) {
+        strncmp(filename + KSCRS_REPORT_NAME_DIGITS + 1 + KSCRS_REPORT_ID_LENGTH, KSCRS_REPORT_FILENAME_SUFFIX,
+                sizeof(KSCRS_REPORT_FILENAME_SUFFIX)) != 0) {
         return false;
     }
     for (int i = 0; i < KSCRS_REPORT_NAME_DIGITS; i++) {
@@ -132,7 +133,9 @@ typedef struct {
 
 static int compareReportNames(const void *a, const void *b)
 {
-    return strcmp(((const ReportName *)a)->name, ((const ReportName *)b)->name);
+    const ReportName *nameA = a;
+    const ReportName *nameB = b;
+    return strncmp(nameA->name, nameB->name, sizeof(nameA->name));
 }
 
 /** The report filenames in the store, oldest first. Returns the count (an
@@ -191,26 +194,41 @@ static int listReportNames(ReportName **namesOut, const KSCrashReportStoreCConfi
     return count;
 }
 
-/** The path of the report with this id, by scanning the store's names.
+/** The path of the report with this id, by scanning the store's directory.
  * false when no such report exists or the store cannot be enumerated.
+ * A single readdir pass: id-addressed operations run once per pending report,
+ * so this deliberately skips listReportNames's sort and allocation.
  */
 static bool findReportPath(const char *reportID, char *pathBuffer, const KSCrashReportStoreCConfiguration *const config)
 {
     if (!ksid_isValid(reportID)) {
         return false;
     }
-    ReportName *names = NULL;
-    int count = listReportNames(&names, config);
+    DIR *dir = opendir(config->reportsPath);
+    if (dir == NULL) {
+        if (errno != ENOENT) {
+            KSLOG_ERROR(@"Could not open directory %s", config->reportsPath);
+        }
+        return false;
+    }
     bool found = false;
-    for (int i = 0; i < count; i++) {
+    for (;;) {
+        errno = 0;
+        struct dirent *ent = readdir(dir);
+        if (ent == NULL) {
+            if (errno != 0) {
+                KSLOG_ERROR(@"Could not enumerate directory %s", config->reportsPath);
+            }
+            break;
+        }
         char candidate[KSID_SIZE];
-        if (parseReportFilename(names[i].name, candidate) && strcmp(candidate, reportID) == 0) {
-            found = snprintf(pathBuffer, KSCRS_MAX_PATH_LENGTH, "%s/%s", config->reportsPath, names[i].name) <
+        if (parseReportFilename(ent->d_name, candidate) && strncmp(candidate, reportID, KSID_SIZE) == 0) {
+            found = snprintf(pathBuffer, KSCRS_MAX_PATH_LENGTH, "%s/%s", config->reportsPath, ent->d_name) <
                     KSCRS_MAX_PATH_LENGTH;
             break;
         }
     }
-    free(names);
+    closedir(dir);
     return found;
 }
 
@@ -581,15 +599,11 @@ static void reclaimOrphanedRunData(const KSCrashReportStoreCConfiguration *const
     }
 }
 
-static bool deleteReportWithID(const char *reportID, const KSCrashReportStoreCConfiguration *const config)
+static bool deleteReportAtPath(const char *path, const char *reportID,
+                               const KSCrashReportStoreCConfiguration *const config)
 {
-    char path[KSCRS_MAX_PATH_LENGTH];
-    int removeErrno = ENOENT;
-    bool removed = false;
-    if (findReportPath(reportID, path, config)) {
-        removeErrno = 0;
-        removed = ksfu_removeFile(path, true, &removeErrno);
-    }
+    int removeErrno = 0;
+    bool removed = ksfu_removeFile(path, true, &removeErrno);
     // A report that still exists will be re-sent, and that delivery needs
     // its sidecars for the on-read stitch; delete them only once the report
     // file is gone (removed now, or already absent).
@@ -601,6 +615,17 @@ static bool deleteReportWithID(const char *reportID, const KSCrashReportStoreCCo
     return removed;
 }
 
+static bool deleteReportWithID(const char *reportID, const KSCrashReportStoreCConfiguration *const config)
+{
+    char path[KSCRS_MAX_PATH_LENGTH];
+    if (findReportPath(reportID, path, config)) {
+        return deleteReportAtPath(path, reportID, config);
+    }
+    // No report file; its sidecars are already-deletable orphans.
+    deleteReportSidecarsForReport(reportID, config);
+    return false;
+}
+
 static void pruneReports(const KSCrashReportStoreCConfiguration *const config)
 {
     if (config->maxReportCount <= 0) {
@@ -608,11 +633,15 @@ static void pruneReports(const KSCrashReportStoreCConfiguration *const config)
     }
     ReportName *names = NULL;
     int count = listReportNames(&names, config);
-    // Names sort oldest first, so the excess is the head of the list.
+    // Names sort oldest first, so the excess is the head of the list. The
+    // listing already holds each victim's filename; deleting by path keeps
+    // this a single directory scan on the startup path.
     for (int i = 0; i < count - config->maxReportCount; i++) {
         char reportID[KSID_SIZE];
-        if (parseReportFilename(names[i].name, reportID)) {
-            deleteReportWithID(reportID, config);
+        char path[KSCRS_MAX_PATH_LENGTH];
+        if (parseReportFilename(names[i].name, reportID) &&
+            snprintf(path, sizeof(path), "%s/%s", config->reportsPath, names[i].name) < (int)sizeof(path)) {
+            deleteReportAtPath(path, reportID, config);
         }
     }
     free(names);

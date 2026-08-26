@@ -21,6 +21,16 @@ Anything shipped as public API documents only the **contract** — what a type, 
 
 Never put implementation details in these files: how a value is produced or persisted, on-disk/wire formats, which subsystem writes it, version history ("added after…", "predates the field"), or migration/compatibility reasoning. Those belong in the implementation (`.m`/`.c`/private files) or the commit message, never on the consumer-facing surface. The "why" and "invariant" comments described above are for internal and crash-time code, not the public API.
 
+## C String Functions
+
+Always use the bounded variants of the C string functions: `strncmp` over
+`strcmp`, `strlcpy`/`strlcat` over `strcpy`/`strcat` (and over
+`strncpy`/`strncat`, which do not guarantee NUL termination; the `l` forms do
+and are native on Apple platforms), `snprintf` over `sprintf`. The bound comes
+from the destination buffer or a known field size, never from `strlen` of the
+input being examined. On crash paths the async-signal-safety rules still forbid
+`snprintf`; use the `KSString.h` formatting helpers there.
+
 - C/C++/Objective-C: Follow clang-format style defined in the project
 - Swift: Follow Swift standard conventions and Xcode's recommended settings
 - Formatting applies to files with extensions: .c, .cpp, .h, .m, .mm
