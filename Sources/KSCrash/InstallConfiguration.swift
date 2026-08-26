@@ -191,7 +191,10 @@ extension InstallConfiguration {
         var monitorIDs = Set<String>()
         for plugin in plugins {
             let api = plugin.api.pointee
+            // Everything the core invokes without a NULL check; mirrors the
+            // registry's registration asserts, which vanish in release.
             guard api.`init` != nil, api.monitorFlags != nil, api.setEnabled != nil, api.isEnabled != nil,
+                api.addContextualInfoToEvent != nil, api.notifyPostSystemEnable != nil,
                 let monitorId = api.monitorId
             else {
                 throw InstallError.invalidConfiguration("a plugin's monitor table is missing a required entry")
