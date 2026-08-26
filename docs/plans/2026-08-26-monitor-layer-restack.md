@@ -40,7 +40,8 @@ the `Report.ID` adaptation belongs to the branch that introduced typed ids.
      `KSCrashMonitorPlugins` target, so `Package.swift`, the scheme, and the
      target's files collide here and resolve by adopting the layer's files;
      the branch's hand-rolled monitor tables (`SidecarMetadataMonitorPlugin`,
-     MetricKit's trampolines, the install test's plugin) port to
+     the DiskMonitor plugin, MetricKit's trampolines, the install test's
+     plugin) port to
      `CrashMonitor` conformances; `WrittenReport.id` becomes `Report.ID`; the
      stack's MetricKit changes (typed ids, `plugin()` instances, availability
      sweep) land on top of the ported conformance.

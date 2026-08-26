@@ -90,9 +90,9 @@ let metricKit = KSCrash.shared.installedPlugin(MetricKitMonitor.self)
 ```
 
 The products are renamed `DiskMonitor` and `BootMonitor` (`import
-KSCrashDiskMonitor` / `KSCrashBootMonitor`); both are pure Swift now, recording
-into a run sidecar and stitching `storage` / `freeStorage` / `boot_time` into
-the report's `system` section at delivery. Custom monitors conform to
+KSCrashDiskMonitor` / `KSCrashBootMonitor`); both are pure Swift now, and
+`storage` / `freeStorage` / `boot_time` land in the report's `system` section
+at delivery. Custom monitors conform to
 `MonitorPlugin` (module `KSCrashMonitorPlugins`); a C monitor table wraps in
 `CMonitorPlugin(api:)`.
 
