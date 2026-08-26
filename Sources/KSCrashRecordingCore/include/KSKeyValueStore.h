@@ -98,6 +98,10 @@ void kskvs_destroy(KSKeyValueStore *store);
 /** Each setter returns false when the write is rejected (empty key, or a key
  *  or string value over the store's limits) or cannot be persisted; the store
  *  is unchanged. Nothing is ever truncated.
+ *
+ *  NOT thread-safe: concurrent writers to a store are the caller's
+ *  responsibility. The store's only internal guarantee is that a read-mode
+ *  open never observes a partially applied write.
  */
 bool kskvs_setString(KSKeyValueStore *store, const char *key, const char *value);
 bool kskvs_setInt64(KSKeyValueStore *store, const char *key, int64_t value);
