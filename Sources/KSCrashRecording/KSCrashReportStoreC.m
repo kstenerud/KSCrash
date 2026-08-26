@@ -934,12 +934,16 @@ char *kscrs_copyReportRunID(const char *reportID, const KSCrashReportStoreCConfi
     return result;
 }
 
-/** The payload with report.id set to `reportID`, or nil when the payload is
- * not a JSON object (such a report is stored as given and never delivered).
+/** The payload with report.id set to `reportID`. nil with `isObjectOut`
+ * false when the payload is not a JSON object (such a report is stored as
+ * given and never delivered); nil with `isObjectOut` true when a real JSON
+ * object could not be re-encoded, which must fail the add rather than store
+ * bytes whose report.id does not match the filename.
  */
-static NSData *payloadWithInjectedID(const char *report, int reportLength, const char *reportID)
+static NSData *payloadWithInjectedID(const char *report, int reportLength, const char *reportID, bool *isObjectOut)
 {
     @autoreleasepool {
+        *isObjectOut = false;
         NSData *data = [NSData dataWithBytesNoCopy:(void *)report length:(NSUInteger)reportLength freeWhenDone:NO];
         NSMutableDictionary *dict =
             [KSJSONCodec decode:data
@@ -949,6 +953,7 @@ static NSData *payloadWithInjectedID(const char *report, int reportLength, const
         if (![dict isKindOfClass:[NSDictionary class]]) {
             return nil;
         }
+        *isObjectOut = true;
         NSMutableDictionary *root = [dict isKindOfClass:[NSMutableDictionary class]] ? dict : [dict mutableCopy];
         id section = root[KSCrashField_Report];
         NSMutableDictionary *reportSection =
@@ -970,9 +975,15 @@ bool kscrs_addUserReport(const char *report, int reportLength,
     // otherwise one is minted and written into the payload, so the file's
     // report.id always matches its name.
     NSData *payload = nil;
+    bool payloadIsObject = false;
     if (kscrs_extractReportIdFromReportBytes(report, reportLength, reportIDOut, KSID_SIZE) != KSCrashRunIdResultFound) {
         ksid_generate(reportIDOut);
-        payload = payloadWithInjectedID(report, reportLength, reportIDOut);
+        payload = payloadWithInjectedID(report, reportLength, reportIDOut, &payloadIsObject);
+        if (payload == nil && payloadIsObject) {
+            KSLOG_ERROR(@"Could not inject the report id; not storing the report");
+            pthread_mutex_unlock(&g_mutex);
+            return false;
+        }
     } else {
         // The extractor accepts any case, but the store's grammar (filenames,
         // listing) is uppercase; canonicalize, and rewrite the payload when
@@ -984,9 +995,14 @@ bool kscrs_addUserReport(const char *report, int reportLength,
         }
         char canonical[KSID_SIZE];
         uuid_unparse_upper(parsed, canonical);
-        if (strcmp(canonical, reportIDOut) != 0) {
+        if (strncmp(canonical, reportIDOut, KSID_SIZE) != 0) {
             strlcpy(reportIDOut, canonical, KSID_SIZE);
-            payload = payloadWithInjectedID(report, reportLength, reportIDOut);
+            payload = payloadWithInjectedID(report, reportLength, reportIDOut, &payloadIsObject);
+            if (payload == nil && payloadIsObject) {
+                KSLOG_ERROR(@"Could not canonicalize the report id; not storing the report");
+                pthread_mutex_unlock(&g_mutex);
+                return false;
+            }
         }
     }
     const char *bytes = payload != nil ? payload.bytes : report;
