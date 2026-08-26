@@ -35,14 +35,16 @@ public struct Backtrace: Sendable, Equatable {
 
     public var count: Int { addresses.count }
 
-    /// Captures `thread`, briefly suspending it. nil when it could not be captured.
+    /// Captures `thread`, briefly suspending it. nil when it could not be
+    /// captured or `maxFrames` is not positive.
     public static func capture(thread: pthread_t, maxFrames: Int) -> Backtrace? {
         capture(maxFrames: maxFrames) { buffer, count, truncated in
             captureBacktrace(thread: thread, addresses: buffer, count: count, isTruncated: truncated)
         }
     }
 
-    /// Captures a Mach thread, briefly suspending it. nil when it could not be captured.
+    /// Captures a Mach thread, briefly suspending it. nil when it could not
+    /// be captured or `maxFrames` is not positive.
     public static func capture(machThread: thread_t, maxFrames: Int) -> Backtrace? {
         capture(maxFrames: maxFrames) { buffer, count, truncated in
             captureBacktrace(machThread: machThread, addresses: buffer, count: count, isTruncated: truncated)
@@ -66,7 +68,11 @@ public struct Backtrace: Sendable, Equatable {
     private static func capture(
         maxFrames: Int, _ body: (UnsafeMutablePointer<UInt>, Int32, UnsafeMutablePointer<Bool>) -> Int32
     ) -> Backtrace? {
-        var buffer = [UInt](repeating: 0, count: max(maxFrames, 1))
+        // A frame budget can be computed from data: an invalid one is absence,
+        // never a fabricated frame or a trap. Guarded before any allocation
+        // or thread suspension; the upper bound is the capture's Int32 count.
+        guard maxFrames > 0, maxFrames <= Int(Int32.max) else { return nil }
+        var buffer = [UInt](repeating: 0, count: maxFrames)
         var truncated = false
         let captured = buffer.withUnsafeMutableBufferPointer { pointer in
             Int(body(pointer.baseAddress!, Int32(pointer.count), &truncated))
