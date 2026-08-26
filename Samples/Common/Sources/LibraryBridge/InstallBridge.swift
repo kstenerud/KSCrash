@@ -160,8 +160,11 @@ public class InstallBridge: ObservableObject {
 // An utility method to simplify binding of config fields
 extension InstallBridge {
     public func configBinding<T>(for keyPath: WritableKeyPath<InstallConfiguration, T>) -> Binding<T> {
-        .init { [config] in
-            config[keyPath: keyPath]
+        // InstallConfiguration is a struct: a plain [config] capture would
+        // freeze the getter on install-time values while the setter mutates
+        // self.config, so every SwiftUI refresh would appear to revert.
+        .init { [weak self, config] in
+            self?.config[keyPath: keyPath] ?? config[keyPath: keyPath]
         } set: { [weak self] val in
             self?.objectWillChange.send()
             self?.config[keyPath: keyPath] = val
