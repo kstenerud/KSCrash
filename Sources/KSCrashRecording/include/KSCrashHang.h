@@ -93,30 +93,21 @@ typedef CF_ENUM(uint8_t, KSHangChangeType) {
  * @param change The type of hang state change.
  * @param startTimestamp Monotonic timestamp (ns) when the hang started.
  * @param endTimestamp Monotonic timestamp (ns) of the current/end state.
- * @param context User-provided context pointer.
  */
-typedef void (*KSHangObserverCallback)(KSHangChangeType change, uint64_t startTimestamp, uint64_t endTimestamp,
-                                       void *context);
+typedef void (*KSHangEventCallback)(KSHangChangeType change, uint64_t startTimestamp, uint64_t endTimestamp);
 
-/** Opaque token returned by kshang_addHangObserver. Use with kshang_removeHangObserver. */
-typedef int KSHangObserverToken;
+/** Whether the hang monitor is currently enabled. */
+bool kshang_isEnabled(void);
 
-/** Sentinel value indicating an invalid or failed observer registration. */
-enum { KSHangObserverTokenNotFound = -1 };
-
-/** Registers a C observer for hang state changes.
+/** Sets the process-wide hang event callback, invoked from the monitor's
+ * thread on every hang state change.
  *
- * @param callback The function to call on hang state changes.
- * @param context User-provided context pointer passed to callback on each call.
- * @return A token identifying the observer, or KSHangObserverTokenNotFound on failure.
- */
-KSHangObserverToken kshang_addHangObserver(KSHangObserverCallback callback, void *context);
-
-/** Removes a previously registered observer.
+ * The callback must stay valid for the process lifetime; a replaced callback
+ * may still receive an event already being dispatched.
  *
- * @param token The token returned by kshang_addHangObserver.
+ * @return The previously set callback, or NULL if none.
  */
-void kshang_removeHangObserver(KSHangObserverToken token);
+KSHangEventCallback kshang_setHangEventCallback(KSHangEventCallback callback);
 
 #ifdef __cplusplus
 }
