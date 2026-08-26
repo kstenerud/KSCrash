@@ -76,7 +76,7 @@ final class RunSummarySendTests: XCTestCase {
     }
 
     private func send(
-        pipeline: [AnyPipelineStage<RunSummary>] = [],
+        pipeline: [AnyPipelineStage<RunSummary>] = [.init(ClosureStage { $0 })],
         includesDeliveredPayloads: Bool = false,
         claims: SendClaims = SendClaims()
     ) async throws -> SendResult<RunSummary> {
@@ -128,17 +128,20 @@ final class RunSummarySendTests: XCTestCase {
             .filter { $0.hasSuffix(".run") }.count ?? -1
     }
 
-    // MARK: - Purge (empty pipeline)
+    // MARK: - Empty pipeline
 
-    func test_emptyPipeline_purgesNewestFirstAndReclaims() async throws {
+    func test_emptyPipeline_throwsAndTouchesNothing() async throws {
         try writeSummary(runID: "OLD", startNs: 100)
         try writeSummary(runID: "NEW", startNs: 200)
 
-        let result = try await send()
-
-        assertOutcomes(result, delivered: ["NEW", "OLD"])
-        XCTAssertEqual(summaryFileCount, 0)
-        XCTAssertEqual(reclaimCount.value, 1)
+        do {
+            _ = try await send(pipeline: [])
+            XCTFail("expected SendError.emptyPipeline")
+        } catch let error as SendError {
+            XCTAssertEqual(error, .emptyPipeline)
+        }
+        XCTAssertEqual(summaryFileCount, 2)
+        XCTAssertEqual(reclaimCount.value, 0)
     }
 
     func test_emptyStore_returnsEmptyAndReclaims() async throws {
@@ -149,7 +152,8 @@ final class RunSummarySendTests: XCTestCase {
 
     func test_notInstalled_returnsEmptyWithoutReclaim() async throws {
         let result = try await RunSummarySend.send(
-            store: nil, pipeline: [], includesDeliveredPayloads: false, claims: SendClaims())
+            store: nil, pipeline: [.init(ClosureStage { $0 })],
+            includesDeliveredPayloads: false, claims: SendClaims())
         XCTAssertTrue(result.items.isEmpty)
         XCTAssertEqual(reclaimCount.value, 0)
     }
@@ -301,7 +305,8 @@ final class RunSummarySendTests: XCTestCase {
                 liveRunID: nil
             ) { counter.increment() }
             let inner = try await RunSummarySend.send(
-                store: store, pipeline: [], includesDeliveredPayloads: false, claims: claims)
+                store: store, pipeline: [.init(ClosureStage { $0 })],
+                includesDeliveredPayloads: false, claims: claims)
             XCTAssertTrue(inner.items.isEmpty)
             return summary
         }
@@ -339,7 +344,8 @@ final class RunSummarySendTests: XCTestCase {
         try writeSummary(runID: "OTHER", startNs: 200)
 
         let result = try await RunSummarySend.send(
-            store: makeStore(), pipeline: [], includesDeliveredPayloads: false,
+            store: makeStore(), pipeline: [.init(ClosureStage { $0 })],
+            includesDeliveredPayloads: false,
             only: ["WANTED", "UNKNOWN"], claims: SendClaims())
 
         assertOutcomes(result, delivered: ["WANTED"])
@@ -350,7 +356,8 @@ final class RunSummarySendTests: XCTestCase {
         try writeSummary(runID: "PRESENT", startNs: 100)
 
         let result = try await RunSummarySend.send(
-            store: makeStore(), pipeline: [], includesDeliveredPayloads: false,
+            store: makeStore(), pipeline: [.init(ClosureStage { $0 })],
+            includesDeliveredPayloads: false,
             only: [], claims: SendClaims())
 
         XCTAssertTrue(result.items.isEmpty)
@@ -372,7 +379,8 @@ final class RunSummarySendTests: XCTestCase {
 
         // The retry call site: resend exactly what the last send kept.
         let retry = try await RunSummarySend.send(
-            store: makeStore(), pipeline: [], includesDeliveredPayloads: false,
+            store: makeStore(), pipeline: [.init(ClosureStage { $0 })],
+            includesDeliveredPayloads: false,
             only: Set(first.kept), claims: SendClaims())
         assertOutcomes(retry, delivered: ["FLAKY"])
         XCTAssertEqual(summaryFileCount, 0)

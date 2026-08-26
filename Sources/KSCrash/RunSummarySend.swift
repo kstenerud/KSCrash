@@ -47,6 +47,12 @@ enum RunSummarySend {
         only selection: Set<String>? = nil,
         claims: SendClaims = .runSummaries
     ) async throws -> SendResult<RunSummary> {
+        // A send with no stages can only mean a misconfigured caller, so it
+        // throws regardless of install state instead of quietly purging.
+        guard !pipeline.isEmpty else {
+            throw SendError.emptyPipeline
+        }
+
         // Not installed (no resolved locations): an empty result rather than
         // an error, matching the previous send's behavior.
         guard let store else {

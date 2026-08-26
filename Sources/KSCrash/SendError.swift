@@ -1,7 +1,7 @@
 //
-//  SendConfiguration.swift
+//  SendError.swift
 //
-//  Created by Alexander Cohen on 2026-08-08.
+//  Created by Alexander Cohen on 2026-08-19.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -26,22 +26,10 @@
 
 import KSCrashReportModel
 
-/// Configuration for a send.
-public struct SendConfiguration: Sendable {
-    /// The stages a run summary passes through, in order. Must hold at least
-    /// one stage by the time summaries are sent: `sendRunSummaries` throws
-    /// `SendError.emptyPipeline` on an empty one.
-    public var runSummaryPipeline: [AnyPipelineStage<RunSummary>]
-
-    /// Whether delivered items carry their final payload in the result.
-    /// Defaults to false, so a send never accumulates payloads in memory.
-    public var includesDeliveredPayloads: Bool
-
-    public init(
-        runSummaryPipeline: [AnyPipelineStage<RunSummary>] = [],
-        includesDeliveredPayloads: Bool = false
-    ) {
-        self.runSummaryPipeline = runSummaryPipeline
-        self.includesDeliveredPayloads = includesDeliveredPayloads
-    }
+/// A send failed before any item was processed.
+public enum SendError: Error, Equatable {
+    /// The configuration's pipeline for the payload kind being sent is empty.
+    /// A send needs at least one stage to hand payloads to; deleting reports
+    /// without consuming them is `CrashReportStore.deleteAllReports`.
+    case emptyPipeline
 }
