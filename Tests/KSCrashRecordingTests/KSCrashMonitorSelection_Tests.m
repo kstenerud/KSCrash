@@ -28,6 +28,7 @@
 #import "KSSystemCapabilities.h"
 
 #import "KSCrashMonitor.h"
+#import "KSCrashMonitorAPI.h"
 #import "KSCrashMonitorType.h"
 
 extern void kscm_testcode_resetState(void);
@@ -36,6 +37,16 @@ extern struct KSCrashMonitorSavedState *kscm_testcode_saveState(void);
 extern void kscm_testcode_restoreState(struct KSCrashMonitorSavedState *saved);
 static struct KSCrashMonitorSavedState *g_savedMonitorState;
 extern void kscrash_testcode_setMonitors(KSCrashMonitorType monitorTypes);
+extern void kscrash_testcode_setPluginMonitors(KSCrashMonitorAPI *apis, int count);
+extern void kscrash_testcode_clearPluginMonitors(void);
+extern void *kscrash_testcode_savePluginMonitors(void);
+extern void kscrash_testcode_restorePluginMonitors(void *saved);
+
+static const char *pluginMonitorId(__unused void *context) { return "TestPlugin"; }
+static KSCrashMonitorFlag pluginMonitorFlags(__unused void *context) { return KSCrashMonitorFlagPlugin; }
+static bool g_pluginEnabled = false;
+static void pluginSetEnabled(bool enabled, __unused void *context) { g_pluginEnabled = enabled; }
+static bool pluginIsEnabled(__unused void *context) { return g_pluginEnabled; }
 
 @interface KSCrashMonitorSelection_Tests : XCTestCase
 @end
@@ -97,6 +108,30 @@ extern void kscrash_testcode_setMonitors(KSCrashMonitorType monitorTypes);
     XCTAssertEqual(kscm_getMonitor("Zombie"), NULL);
     kscrash_testcode_setMonitors(KSCrashMonitorTypeAll);
     XCTAssertNotEqual(kscm_getMonitor("Zombie"), NULL);
+}
+
+- (void)testClearingPluginMonitorsUnregistersAndDisablesThem
+{
+    // A failed install releases the plugin objects the registry's context
+    // pointers refer to, so the entries must not outlive the install attempt.
+    void *savedPlugins = kscrash_testcode_savePluginMonitors();
+    KSCrashMonitorAPI api = { 0 };
+    kscma_initAPI(&api);
+    api.monitorId = pluginMonitorId;
+    api.monitorFlags = pluginMonitorFlags;
+    api.setEnabled = pluginSetEnabled;
+    api.isEnabled = pluginIsEnabled;
+    kscrash_testcode_setPluginMonitors(&api, 1);
+    XCTAssertNotEqual(kscm_getMonitor("TestPlugin"), NULL);
+    g_pluginEnabled = true;
+
+    kscrash_testcode_clearPluginMonitors();
+
+    XCTAssertEqual(kscm_getMonitor("TestPlugin"), NULL);
+    // enableMonitors has already switched the plugins on by the time install
+    // can fail, so removal has to turn them back off.
+    XCTAssertFalse(g_pluginEnabled);
+    kscrash_testcode_restorePluginMonitors(savedPlugins);
 }
 
 @end
