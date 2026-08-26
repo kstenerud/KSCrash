@@ -225,67 +225,34 @@ static bool growStorage(KSKeyValueStore *store, uint32_t minCapacity)
     return true;
 }
 
-/** Assumes buf[0..original_strlen) is valid UTF-8.
- *  Returns the largest prefix length <= len that does not end in a partial codepoint.
- */
-static uint16_t utf8SafeTruncate(const char *buf, uint16_t len)
-{
-    if (buf == NULL || len == 0) {
-        return 0;
-    }
-
-    uint16_t start = len - 1;
-    while (start > 0 && (((uint8_t)buf[start]) & 0xC0) == 0x80) {
-        start--;
-    }
-
-    uint8_t lead = (uint8_t)buf[start];
-    uint16_t width = 0;
-
-    if ((lead & 0x80) == 0x00) {
-        width = 1;
-    } else if ((lead & 0xE0) == 0xC0) {
-        width = 2;
-    } else if ((lead & 0xF0) == 0xE0) {
-        width = 3;
-    } else if ((lead & 0xF8) == 0xF0) {
-        width = 4;
-    } else {
-        return start;
-    }
-
-    return (uint16_t)(start + width <= len ? len : start);
-}
-
-/** Append a record to the log. NOT thread-safe. */
-static void appendRecord(KSKeyValueStore *store, const char *key, uint8_t type, const void *value, uint16_t valueLen)
+/** Append a record to the log; false when rejected or not persisted. NOT thread-safe. */
+static bool appendRecord(KSKeyValueStore *store, const char *key, uint8_t type, const void *value, uint16_t valueLen)
 {
     if (store == NULL || store->storage == NULL) {
         KSLOG_DEBUG("KVS appendRecord called with NULL store (not yet installed?)");
-        return;
+        return false;
     }
     if (key == NULL) {
-        return;
+        return false;
     }
 
     // Reject records with a payload length but no payload pointer —
     // writing the header alone would leave garbage in the value region.
     if (valueLen > 0 && value == NULL) {
         KSLOG_DEBUG("KVS appendRecord called with NULL value but valueLen %u", valueLen);
-        return;
+        return false;
     }
 
-    uint16_t keyLen = (uint16_t)strlen(key);
-    if (keyLen == 0) {
-        return;
+    // Compare before narrowing: a length past UINT16_MAX must reject, not wrap.
+    size_t rawKeyLen = strlen(key);
+    if (rawKeyLen == 0) {
+        return false;
     }
-    if (keyLen > store->maxKeyLength) {
-        KSLOG_ERROR("KVS key too long (%u > %u), truncating", keyLen, store->maxKeyLength);
-        keyLen = utf8SafeTruncate(key, store->maxKeyLength);
-        if (keyLen == 0) {
-            return;
-        }
+    if (rawKeyLen > store->maxKeyLength) {
+        KSLOG_ERROR("KVS key too long (%zu > %u), rejecting the write", rawKeyLen, store->maxKeyLength);
+        return false;
     }
+    uint16_t keyLen = (uint16_t)rawKeyLen;
 
     uint32_t recordSize = KSKVS_RECORD_HEADER_SIZE + keyLen + valueLen;
 
@@ -297,7 +264,7 @@ static void appendRecord(KSKeyValueStore *store, const char *key, uint8_t type, 
 
         if (hdr->offset + recordSize > store->capacity) {
             if (!growStorage(store, hdr->offset + recordSize)) {
-                return;
+                return false;
             }
             hdr = storeHeader(store);
         }
@@ -314,6 +281,7 @@ static void appendRecord(KSKeyValueStore *store, const char *key, uint8_t type, 
     }
 
     hdr->offset += recordSize;
+    return true;
 }
 
 // ============================================================================
@@ -495,51 +463,58 @@ void kskvs_destroy(KSKeyValueStore *store)
 #pragma mark - Typed Setters -
 // ============================================================================
 
-void kskvs_setString(KSKeyValueStore *store, const char *key, const char *value)
+bool kskvs_setString(KSKeyValueStore *store, const char *key, const char *value)
 {
     if (store == NULL) {
         KSLOG_DEBUG("KVS setString called with NULL store (not yet installed?)");
-        return;
+        return false;
     }
     if (value == NULL) {
-        kskvs_removeValue(store, key);
-        return;
+        return kskvs_removeValue(store, key);
     }
-    uint16_t len = (uint16_t)strlen(value);
-    if (store->maxStringLength > 0 && len > store->maxStringLength) {
-        KSLOG_ERROR("KVS string value too long (%u > %u), truncating", len, store->maxStringLength);
-        len = utf8SafeTruncate(value, store->maxStringLength);
+    // Compare before narrowing: a length past UINT16_MAX must reject, not wrap.
+    size_t rawLen = strlen(value);
+    if (store->maxStringLength > 0 && rawLen > store->maxStringLength) {
+        KSLOG_ERROR("KVS string value too long (%zu > %u), rejecting the write", rawLen, store->maxStringLength);
+        return false;
     }
-    appendRecord(store, key, KSKVSTypeString, value, len);
+    if (rawLen > UINT16_MAX) {
+        KSLOG_ERROR("KVS string value too long (%zu), rejecting the write", rawLen);
+        return false;
+    }
+    return appendRecord(store, key, KSKVSTypeString, value, (uint16_t)rawLen);
 }
 
-void kskvs_setInt64(KSKeyValueStore *store, const char *key, int64_t value)
+bool kskvs_setInt64(KSKeyValueStore *store, const char *key, int64_t value)
 {
-    appendRecord(store, key, KSKVSTypeInt64, &value, sizeof(value));
+    return appendRecord(store, key, KSKVSTypeInt64, &value, sizeof(value));
 }
 
-void kskvs_setUInt64(KSKeyValueStore *store, const char *key, uint64_t value)
+bool kskvs_setUInt64(KSKeyValueStore *store, const char *key, uint64_t value)
 {
-    appendRecord(store, key, KSKVSTypeUInt64, &value, sizeof(value));
+    return appendRecord(store, key, KSKVSTypeUInt64, &value, sizeof(value));
 }
 
-void kskvs_setDouble(KSKeyValueStore *store, const char *key, double value)
+bool kskvs_setDouble(KSKeyValueStore *store, const char *key, double value)
 {
-    appendRecord(store, key, KSKVSTypeDouble, &value, sizeof(value));
+    return appendRecord(store, key, KSKVSTypeDouble, &value, sizeof(value));
 }
 
-void kskvs_setBool(KSKeyValueStore *store, const char *key, bool value)
+bool kskvs_setBool(KSKeyValueStore *store, const char *key, bool value)
 {
     uint8_t byte = value ? 1 : 0;
-    appendRecord(store, key, KSKVSTypeBool, &byte, sizeof(byte));
+    return appendRecord(store, key, KSKVSTypeBool, &byte, sizeof(byte));
 }
 
-void kskvs_setDate(KSKeyValueStore *store, const char *key, int64_t nanosecondsSince1970)
+bool kskvs_setDate(KSKeyValueStore *store, const char *key, int64_t nanosecondsSince1970)
 {
-    appendRecord(store, key, KSKVSTypeDate, &nanosecondsSince1970, sizeof(nanosecondsSince1970));
+    return appendRecord(store, key, KSKVSTypeDate, &nanosecondsSince1970, sizeof(nanosecondsSince1970));
 }
 
-void kskvs_removeValue(KSKeyValueStore *store, const char *key) { appendRecord(store, key, KSKVSTypeRemoved, NULL, 0); }
+bool kskvs_removeValue(KSKeyValueStore *store, const char *key)
+{
+    return appendRecord(store, key, KSKVSTypeRemoved, NULL, 0);
+}
 
 // ============================================================================
 #pragma mark - Iteration -
