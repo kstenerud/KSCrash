@@ -95,13 +95,17 @@ void kskvs_destroy(KSKeyValueStore *store);
 #pragma mark - Typed Setters (NOT thread-safe) -
 // ============================================================================
 
-void kskvs_setString(KSKeyValueStore *store, const char *key, const char *value);
-void kskvs_setInt64(KSKeyValueStore *store, const char *key, int64_t value);
-void kskvs_setUInt64(KSKeyValueStore *store, const char *key, uint64_t value);
-void kskvs_setDouble(KSKeyValueStore *store, const char *key, double value);
-void kskvs_setBool(KSKeyValueStore *store, const char *key, bool value);
-void kskvs_setDate(KSKeyValueStore *store, const char *key, int64_t nanosecondsSince1970);
-void kskvs_removeValue(KSKeyValueStore *store, const char *key);
+/** Each setter returns false when the write is rejected (empty key, or a key
+ *  or string value over the store's limits) or cannot be persisted; the store
+ *  is unchanged. Nothing is ever truncated.
+ */
+bool kskvs_setString(KSKeyValueStore *store, const char *key, const char *value);
+bool kskvs_setInt64(KSKeyValueStore *store, const char *key, int64_t value);
+bool kskvs_setUInt64(KSKeyValueStore *store, const char *key, uint64_t value);
+bool kskvs_setDouble(KSKeyValueStore *store, const char *key, double value);
+bool kskvs_setBool(KSKeyValueStore *store, const char *key, bool value);
+bool kskvs_setDate(KSKeyValueStore *store, const char *key, int64_t nanosecondsSince1970);
+bool kskvs_removeValue(KSKeyValueStore *store, const char *key);
 
 // ============================================================================
 #pragma mark - Reading -
