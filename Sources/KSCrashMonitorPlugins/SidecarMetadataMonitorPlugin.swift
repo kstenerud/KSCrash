@@ -92,6 +92,12 @@ public final class SidecarMetadataMonitorPlugin: MonitorPlugin, @unchecked Senda
         api.pointee.context = Unmanaged.passUnretained(self).toOpaque()
     }
 
+    deinit {
+        api.deinitialize(count: 1)
+        api.deallocate()
+        free(UnsafeMutablePointer(mutating: monitorID))
+    }
+
     private static func from(_ context: UnsafeMutableRawPointer) -> SidecarMetadataMonitorPlugin {
         Unmanaged<SidecarMetadataMonitorPlugin>.fromOpaque(context).takeUnretainedValue()
     }
