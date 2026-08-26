@@ -32,9 +32,9 @@ import KSCrashSwiftCore
 /// The disk monitor: records total and free storage on reports.
 public enum DiskMonitor {
     /// Register in `InstallConfiguration.plugins`. Free storage is sampled
-    /// when the monitor is enabled and re-sampled every `pollInterval`
-    /// seconds, so a report carries the value from the latest poll.
-    public static func plugin(pollInterval: TimeInterval = 60) -> any MonitorPlugin {
+    /// when the monitor is enabled and re-sampled periodically, so a report
+    /// carries the value from the latest sample.
+    public static func plugin() -> any MonitorPlugin {
         SidecarMetadataMonitorPlugin(
             monitorID: "DiscSpace",
             record: { store in
@@ -44,7 +44,7 @@ public enum DiskMonitor {
                 store[Keys.freeStorage] = UInt64(status.f_bfree) * UInt64(status.f_bsize)
             },
             poller: { record in
-                Poller(every: pollInterval, queue: DispatchQueue(label: "com.kscrash.diskmonitor", qos: .utility)) {
+                Poller(every: 60, queue: DispatchQueue(label: "com.kscrash.diskmonitor", qos: .utility)) {
                     record()
                 }
             },
