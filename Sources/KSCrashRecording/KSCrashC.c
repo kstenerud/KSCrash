@@ -275,6 +275,17 @@ static void setPluginMonitors(KSCrashMonitorAPI *apis, int count)
     }
 }
 
+// Undoes setPluginMonitors. The registry holds pointers into g_plugins, whose
+// context fields are unretained references owned by the caller: a failed
+// install releases them, so the entries must go before they dangle.
+static void clearPluginMonitors(void)
+{
+    for (int i = 0; i < g_pluginCount; i++) {
+        kscm_removeMonitor(&g_plugins[i]);
+    }
+    g_pluginCount = 0;
+}
+
 static void setMonitors(KSCrashMonitorType monitorTypes)
 {
     // The required set (infrastructure plus UserReported) is always on; see
@@ -452,6 +463,7 @@ KSCrashInstallErrorCode kscrash_install(const char *const installPath, KSCrashCC
     // registry failure, never an empty selection.
     if (kscm_enableMonitors() == false) {
         KSLOG_ERROR("The crash monitors could not be enabled");
+        clearPluginMonitors();
         return KSCrashInstallErrorCouldNotInitializeCrashState;
     }
     kscm_notifyPostMonitorsEnabled();
@@ -522,6 +534,45 @@ __attribute__((unused))  // For tests. Declared as extern in TestCase
 void kscrash_testcode_setMonitors(KSCrashMonitorType monitorTypes)
 {
     setMonitors(monitorTypes);
+}
+
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+void kscrash_testcode_setPluginMonitors(KSCrashMonitorAPI *apis, int count)
+{
+    setPluginMonitors(apis, count);
+}
+
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+void kscrash_testcode_clearPluginMonitors(void)
+{
+    clearPluginMonitors();
+}
+
+// The registry stores pointers into g_plugins, so a test that registers its own
+// plugins overwrites the tables the live entries point at. Saving and restoring
+// the table keeps those entries pointing at what they described before.
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+void *
+kscrash_testcode_savePluginMonitors(void)
+{
+    size_t size = sizeof(g_plugins) + sizeof(g_pluginCount);
+    char *saved = malloc(size);
+    if (saved != NULL) {
+        memcpy(saved, g_plugins, sizeof(g_plugins));
+        memcpy(saved + sizeof(g_plugins), &g_pluginCount, sizeof(g_pluginCount));
+    }
+    return saved;
+}
+
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+void kscrash_testcode_restorePluginMonitors(void *saved)
+{
+    if (saved == NULL) {
+        return;
+    }
+    memcpy(g_plugins, saved, sizeof(g_plugins));
+    memcpy(&g_pluginCount, (char *)saved + sizeof(g_plugins), sizeof(g_pluginCount));
+    free(saved);
 }
 
 __attribute__((unused))  // For tests. Declared as extern in TestCase

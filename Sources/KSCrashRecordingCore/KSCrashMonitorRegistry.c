@@ -59,6 +59,18 @@ bool kscmr_addMonitor(KSCrashMonitorAPIList *monitorList, const KSCrashMonitorAP
         return false;
     }
 
+    // The registry calls these unconditionally, and kscma_initAPI fills them
+    // with no-ops, so a NULL is a table that skipped it. notifyPostMonitorsEnabled
+    // is deliberately absent here: it is the one callback with a NULL check at
+    // its call site.
+    assert(api->init != NULL);
+    assert(api->monitorId != NULL);
+    assert(api->monitorFlags != NULL);
+    assert(api->setEnabled != NULL);
+    assert(api->isEnabled != NULL);
+    assert(api->addContextualInfoToEvent != NULL);
+    assert(api->notifyPostSystemEnable != NULL);
+
     // The id, not the pointer, is what identifies a monitor: it routes report sections, sidecar
     // directories and stitch callbacks, so two monitors sharing one would be misrouted. Checked
     // first, over the whole list, because a duplicate can sit in any slot.
