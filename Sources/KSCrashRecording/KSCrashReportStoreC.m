@@ -1022,7 +1022,12 @@ bool kscrs_addUserReport(const char *report, int reportLength,
     const char *bytes = payload != nil ? payload.bytes : report;
     int length = payload != nil ? (int)payload.length : reportLength;
     char crashReportPath[KSCRS_MAX_PATH_LENGTH];
-    getCrashReportPath(nextReportNs(), reportIDOut, crashReportPath, configuration);
+    // The id is the identity: re-adding an id already in the store overwrites
+    // that report's file, so one id can never mean two files and a re-add is
+    // idempotent. Only otherwise does the report get a fresh timestamped name.
+    if (!findReportPath(reportIDOut, crashReportPath, configuration)) {
+        getCrashReportPath(nextReportNs(), reportIDOut, crashReportPath, configuration);
+    }
     bool written = false;
     int fd = open(crashReportPath, O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (fd < 0) {

@@ -334,6 +334,22 @@
     XCTAssertEqualObjects(json[@"a"], @1);
 }
 
+- (void)testAddUserReportWithTheSameIDOverwrites
+{
+    [self prepareReportStoreWithPathEnd:@"testAddUserReportSameID"];
+    NSString *json = @"{\"report\":{\"id\":\"4C1B2F3E-0000-4000-8000-00000000000A\"},\"v\":1}";
+    NSString *first = [self writeUserReportWithStringContents:json];
+    NSString *again = [self
+        writeUserReportWithStringContents:@"{\"report\":{\"id\":\"4C1B2F3E-0000-4000-8000-00000000000A\"},\"v\":2}"];
+    XCTAssertEqualObjects(first, again);
+    XCTAssertEqual((int)[self getReportIDs].count, 1, @"one id is one file");
+
+    NSString *loaded;
+    [self loadReportID:first reportString:&loaded];
+    XCTAssertTrue([loaded containsString:@"\"v\": 2"] || [loaded containsString:@"\"v\":2"],
+                  @"the re-add replaced the payload");
+}
+
 - (void)testStoresLoadsWithUnicodePath
 {
     [self prepareReportStoreWithPathEnd:@"ЙогуртЙод"];
