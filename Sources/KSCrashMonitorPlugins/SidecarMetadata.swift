@@ -29,10 +29,9 @@ import KSCrashRecordingCore
 import KSCrashReportModel
 import KSCrashSwiftCore
 
-/// A `MetadataStore` over one key-value sidecar file: every write lands in the
-/// crash-safe store immediately, every read replays it. Scalars only. Not
-/// synchronized: the caller owns serialization of every access, matching the
-/// underlying store's contract.
+/// A `MetadataStore` over one run sidecar file: every write is persisted
+/// immediately and survives a crash. Scalars only. Not synchronized: the
+/// caller owns serialization of every access.
 ///
 /// Dates range from 1677-09-21 to 2262-04-11; assigning one outside that range
 /// removes the key instead of storing it.
