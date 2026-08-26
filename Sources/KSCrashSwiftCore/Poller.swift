@@ -36,14 +36,19 @@ public final class Poller: @unchecked Sendable {
     private let handler: @Sendable () -> Void
     private let timer = UnfairLock<DispatchSourceTimer?>(nil)
 
-    public init(
+    /// nil unless `interval` is a positive, finite number of seconds: a knob
+    /// like this can arrive from remote configuration, so a bad value must
+    /// surface as absence, never as a trap or a busy loop.
+    public init?(
         every interval: TimeInterval, leeway: DispatchTimeInterval? = nil,
         queue: DispatchQueue, handler: @escaping @Sendable () -> Void
     ) {
+        guard interval > 0, interval.isFinite else { return nil }
         self.interval = interval
         // Apple's timer-tolerance guidance: at least 10% of the interval, so
-        // the system can coalesce wake-ups.
-        self.leeway = leeway ?? .nanoseconds(Int(interval * 0.1 * Double(NSEC_PER_SEC)))
+        // the system can coalesce wake-ups. Capped below Int.max: converting
+        // Double(Int.max) itself traps, it rounds one past the maximum.
+        self.leeway = leeway ?? .nanoseconds(Int(min(interval * 0.1 * Double(NSEC_PER_SEC), 9e18)))
         self.queue = queue
         self.handler = handler
     }

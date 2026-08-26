@@ -46,7 +46,7 @@ public final class SidecarMetadataMonitorPlugin: MonitorPlugin, @unchecked Senda
 
     private let monitorID: UnsafePointer<CChar>
     private let record: @Sendable (SidecarMetadata) -> Void
-    private let makePoller: (@Sendable (@escaping @Sendable () -> Void) -> Poller)?
+    private let makePoller: (@Sendable (@escaping @Sendable () -> Void) -> Poller?)?
     private let stitch: @Sendable (any MetadataStore, NSMutableDictionary) -> Void
     private let state = UnfairLock(State())
 
@@ -56,7 +56,7 @@ public final class SidecarMetadataMonitorPlugin: MonitorPlugin, @unchecked Senda
     public init(
         monitorID: String,
         record: @escaping @Sendable (SidecarMetadata) -> Void,
-        poller: (@Sendable (@escaping @Sendable () -> Void) -> Poller)?,
+        poller: (@Sendable (@escaping @Sendable () -> Void) -> Poller?)?,
         stitch: @escaping @Sendable (any MetadataStore, NSMutableDictionary) -> Void
     ) {
         self.monitorID = UnsafePointer(strdup(monitorID)!)
@@ -129,9 +129,15 @@ public final class SidecarMetadataMonitorPlugin: MonitorPlugin, @unchecked Senda
             state.enabled = true
             record(store)
             if let makePoller {
-                let poller = makePoller { [weak self] in self?.recordCurrent() }
-                poller.start()
-                state.poller = poller
+                if let poller = makePoller({ [weak self] in self?.recordCurrent() }) {
+                    poller.start()
+                    state.poller = poller
+                } else {
+                    // The enable-time sample above still stands; it just never refreshes.
+                    os_log(
+                        .error, "%{public}s: no poller; recorded once at enable, never re-sampled",
+                        String(cString: monitorID))
+                }
             }
         }
     }

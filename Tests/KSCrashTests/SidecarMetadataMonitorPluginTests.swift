@@ -93,7 +93,7 @@ final class SidecarMetadataMonitorPluginTests: XCTestCase {
     }
 
     func test_diskMonitor_recordsReservedKeys_andStitchesTheSystemFields() throws {
-        let plugin = DiskMonitor.plugin(pollInterval: 3600)
+        let plugin = DiskMonitor.plugin()
         XCTAssertEqual(String(cString: plugin.api.pointee.monitorId(plugin.api.pointee.context)!), "DiscSpace")
         enable(plugin)
         let values = storedValues(monitorID: "DiscSpace")
