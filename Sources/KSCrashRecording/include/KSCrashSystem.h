@@ -77,6 +77,20 @@ extern "C" {
  */
 void kscm_system_setBootTime(int64_t bootTimestamp);
 
+/** Record the device's total and free storage (bytes) for this run.
+ *  The disk monitor plugin records at enable and on each poll.
+ *  No effect before install.
+ */
+void kscm_system_setDiscSpace(uint64_t storageSize, uint64_t freeStorageSize);
+
+struct KSCrash_MonitorContext;
+
+/** Monitor-table event hook: refreshes the run's free storage so a report
+ *  carries the value from its own moment. Assign to a plugin table's
+ *  addContextualInfoToEvent; safe in any handler context.
+ */
+void kscm_system_refreshFreeStorageAtEvent(struct KSCrash_MonitorContext *eventContext, void *context);
+
 #ifdef __cplusplus
 >>>>>>>> ad5de99d (Make DiskMonitor and BootMonitor Swift plugins):Sources/KSCrashRecording/include/KSCrashSystem.h
 }

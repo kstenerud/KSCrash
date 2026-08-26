@@ -28,6 +28,7 @@ import Foundation
 import KSCrashBootMonitor
 import KSCrashDiskMonitor
 import KSCrashMonitorPlugins
+import KSCrashRecording
 import KSCrashRecordingCore
 import XCTest
 
@@ -92,22 +93,20 @@ final class SidecarMetadataMonitorPluginTests: XCTestCase {
         }.map { $0.takeRetainedValue() as NSDictionary }
     }
 
-    func test_diskMonitor_recordsReservedKeys_andStitchesTheSystemFields() throws {
+    func test_diskMonitor_wiresTheEventHook_andTogglesEnabled() throws {
         let plugin = DiskMonitor.plugin()
         XCTAssertEqual(String(cString: plugin.api.pointee.monitorId(plugin.api.pointee.context)!), "DiscSpace")
+        // The values land in the System sidecar and SystemStitch delivers
+        // them; both are covered by the System monitor tests. The plugin's
+        // own surface is enablement and the event-time hook wiring.
+        let hook = unsafeBitCast(plugin.api.pointee.addContextualInfoToEvent, to: UnsafeRawPointer?.self)
+        let refresh =
+            kscm_system_refreshFreeStorageAtEvent
+            as (@convention(c) (UnsafeMutablePointer<KSCrash_MonitorContext>?, UnsafeMutableRawPointer?) -> Void)?
+        XCTAssertEqual(hook, unsafeBitCast(refresh, to: UnsafeRawPointer?.self))
+
         enable(plugin)
-        let values = storedValues(monitorID: "DiscSpace")
-        XCTAssertGreaterThan(values["com.kscrash.disk.storage"] ?? 0, 0)
-        XCTAssertGreaterThan(values["com.kscrash.disk.freeStorage"] ?? 0, 0)
-
-        let report = try XCTUnwrap(
-            stitched(plugin, monitorID: "DiscSpace", report: ["system": ["kept": "yes"]]))
-        let system = try XCTUnwrap(report["system"] as? NSDictionary)
-        XCTAssertEqual(system["kept"] as? String, "yes")
-        XCTAssertGreaterThan((system["storage"] as? UInt64) ?? 0, 0)
-        XCTAssertGreaterThan((system["freeStorage"] as? UInt64) ?? 0, 0)
-        XCTAssertNil(system["com.kscrash.disk.storage"], "store keys never leak into the report")
-
+        XCTAssertTrue(plugin.api.pointee.isEnabled(plugin.api.pointee.context))
         plugin.api.pointee.setEnabled(false, plugin.api.pointee.context)
         XCTAssertFalse(plugin.api.pointee.isEnabled(plugin.api.pointee.context))
     }
@@ -124,8 +123,8 @@ final class SidecarMetadataMonitorPluginTests: XCTestCase {
     }
 
     func test_absentSidecar_deliversTheReportUntouched() throws {
-        let plugin = DiskMonitor.plugin()
-        let report = try XCTUnwrap(stitched(plugin, monitorID: "DiscSpace", report: ["report": ["id": "x"]]))
+        let plugin = BootMonitor.plugin()
+        let report = try XCTUnwrap(stitched(plugin, monitorID: "BootTime", report: ["report": ["id": "x"]]))
         XCTAssertEqual(report, ["report": ["id": "x"]] as NSDictionary)
     }
 

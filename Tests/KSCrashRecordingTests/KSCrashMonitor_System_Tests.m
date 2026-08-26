@@ -146,6 +146,50 @@ static struct KSCrashMonitorSavedState *g_savedMonitorState;
     api->setEnabled(false, NULL);
 }
 
+- (void)testSetDiscSpaceWritesSidecar
+{
+    KSCrashMonitorAPI *api = kscm_system_getAPI();
+    KSCrash_ExceptionHandlerCallbacks callbacks = { .getRunSidecarPath = stubRunSidecarPath };
+    api->init(&callbacks, NULL);
+    api->setEnabled(true, NULL);
+
+    // The disk monitor plugin feeds this at enable and on each poll.
+    kscm_system_setDiscSpace(1000, 400);
+
+    NSString *sidecarFile = [self.tempDir stringByAppendingPathComponent:@"System.ksscr"];
+    KSCrash_SystemData sc = {};
+    int fd = open(sidecarFile.fileSystemRepresentation, O_RDONLY);
+    XCTAssertNotEqual(fd, -1, @"Failed to open sidecar: %s", strerror(errno));
+    XCTAssertTrue(ksfu_readBytesFromFD(fd, (char *)&sc, (int)sizeof(sc)));
+    close(fd);
+    XCTAssertEqual(sc.storageSize, 1000);
+    XCTAssertEqual(sc.freeStorageSize, 400);
+
+    api->setEnabled(false, NULL);
+}
+
+- (void)testRefreshFreeStorageAtEventOverwritesTheLastPoll
+{
+    KSCrashMonitorAPI *api = kscm_system_getAPI();
+    KSCrash_ExceptionHandlerCallbacks callbacks = { .getRunSidecarPath = stubRunSidecarPath };
+    api->init(&callbacks, NULL);
+    api->setEnabled(true, NULL);
+
+    kscm_system_setDiscSpace(1000, 1);
+    kscm_system_refreshFreeStorageAtEvent(NULL, NULL);
+
+    NSString *sidecarFile = [self.tempDir stringByAppendingPathComponent:@"System.ksscr"];
+    KSCrash_SystemData sc = {};
+    int fd = open(sidecarFile.fileSystemRepresentation, O_RDONLY);
+    XCTAssertNotEqual(fd, -1, @"Failed to open sidecar: %s", strerror(errno));
+    XCTAssertTrue(ksfu_readBytesFromFD(fd, (char *)&sc, (int)sizeof(sc)));
+    close(fd);
+    XCTAssertEqual(sc.storageSize, 1000, @"total is the poller's value");
+    XCTAssertGreaterThan(sc.freeStorageSize, 1ULL, @"the event refresh re-samples free storage");
+
+    api->setEnabled(false, NULL);
+}
+
 - (void)testBinaryCPUMetadataUsesBinaryImageCacheHeader
 {
     const struct mach_header *header = ksbic_getAppHeader();
