@@ -86,9 +86,14 @@
  *  directory the way the Swift store reads it. */
 - (NSArray<NSString *> *)getReportIDs
 {
-    NSArray<NSString *> *names =
-        [[[NSFileManager defaultManager] contentsOfDirectoryAtPath:self.reportStorePath
-                                                             error:nil] sortedArrayUsingSelector:@selector(compare:)];
+    // A comparator block, not @selector(compare:): under Mac Catalyst both
+    // UIKit and AppKit expose compare: with mismatched types, and the strict
+    // selector match is a compile error there.
+    NSArray<NSString *> *names = [[[NSFileManager defaultManager] contentsOfDirectoryAtPath:self.reportStorePath
+                                                                                      error:nil]
+        sortedArrayUsingComparator:^NSComparisonResult(NSString *a, NSString *b) {
+            return [a compare:b];
+        }];
     NSMutableArray *reportIDs = [NSMutableArray new];
     NSString *suffix = @"." KSCRS_REPORT_FILENAME_EXTENSION;
     for (NSString *name in names) {
