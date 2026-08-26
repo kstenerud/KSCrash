@@ -90,7 +90,8 @@ typedef struct {
     int maxReportCount;
 
     /** Upper bound on retained run summaries; oldest are pruned when exceeded.
-     * Set to 0 to disable run-summary persistence entirely.
+     * Set to 0 to keep no run summaries. Sessions are still tracked so crash
+     * reports keep their session id.
      *
      * **Default**: 50
      */

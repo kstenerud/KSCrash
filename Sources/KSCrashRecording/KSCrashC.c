@@ -406,8 +406,9 @@ static bool getRunSidecarPathForRunIDCallback(const char *monitorId, const char 
 static bool getSummarySidecarPathCallback(const char *runID, const char *extension, char *pathBuffer,
                                           size_t pathBufferLength)
 {
-    // Sessions are always recorded when a run-summaries path exists; not gated on
-    // maxRunSummaryCount (that only gates .run persistence).
+    // maxRunSummaryCount only gates .run persistence. Sessions are recorded
+    // either way so crash reports keep their session id; stale session files
+    // are reclaimed at the end of any send flow.
     return kscrs_getSummarySidecarFilePath(runID, extension, pathBuffer, pathBufferLength, &g_reportStoreConfig);
 }
 
