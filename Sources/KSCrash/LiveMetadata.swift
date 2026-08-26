@@ -39,7 +39,7 @@ import KSCrashSwiftCore
 /// removes the key instead of storing it.
 public final class LiveMetadata: MetadataStore, Sendable {
     /// The store's shapes. Readers need no configuration, so these bound only
-    /// what a writer accepts; longer keys and strings are truncated.
+    /// what a writer accepts; a write with a longer key or string is rejected.
     private enum StoreLimits {
         static let initialCapacity: UInt32 = 4096
         static let maxKeyLength: UInt16 = 256

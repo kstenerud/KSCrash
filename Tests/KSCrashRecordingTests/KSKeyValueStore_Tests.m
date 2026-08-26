@@ -107,6 +107,75 @@ static void lookupTestOnRemoved(__unused const char *key, __unused uint16_t keyL
     kskvs_destroy(reader);
 }
 
+static void lookupOnString(__unused const char *key, __unused uint16_t keyLen, __unused const char *value,
+                           __unused uint16_t valueLen, void *ctx)
+{
+    (*(int *)ctx)++;
+}
+
+/** How many string records resolve for this key. */
+static int stringHitsForKey(KSKeyValueStore *store, const char *key)
+{
+    int hits = 0;
+    KSKVSCallbacks callbacks = { .onString = lookupOnString };
+    kskvs_lookup(store, key, &callbacks, &hits);
+    return hits;
+}
+
+- (void)test_setWithOverlongKey_isRejected_notTruncated
+{
+    KSKVSConfig config = [self config];
+    KSKeyValueStore *store = kskvs_create(self.path.UTF8String, KSKVSModeReadWriteCreate, &config, NULL);
+    XCTAssertTrue(store != NULL);
+
+    char longKey[66];
+    memset(longKey, 'k', sizeof(longKey) - 1);
+    longKey[sizeof(longKey) - 1] = '\0';  // 65 chars, one past maxKeyLength
+
+    XCTAssertFalse(kskvs_setString(store, longKey, "v"));
+    XCTAssertEqual(stringHitsForKey(store, longKey), 0, @"nothing stored under the full key");
+    longKey[64] = '\0';  // the 64-char prefix a truncating writer would have stored
+    XCTAssertEqual(stringHitsForKey(store, longKey), 0, @"nothing stored under a truncation either");
+    XCTAssertTrue(kskvs_removeValue(store, longKey), @"a limit-length key is accepted");
+
+    kskvs_destroy(store);
+}
+
+- (void)test_setWithLimitLengthKeyAndValue_isAccepted
+{
+    KSKVSConfig config = [self config];
+    KSKeyValueStore *store = kskvs_create(self.path.UTF8String, KSKVSModeReadWriteCreate, &config, NULL);
+    XCTAssertTrue(store != NULL);
+
+    char key[65];
+    memset(key, 'k', sizeof(key) - 1);
+    key[sizeof(key) - 1] = '\0';  // exactly maxKeyLength
+    char value[257];
+    memset(value, 'v', sizeof(value) - 1);
+    value[sizeof(value) - 1] = '\0';  // exactly maxStringLength
+
+    XCTAssertTrue(kskvs_setString(store, key, value));
+    XCTAssertEqual(stringHitsForKey(store, key), 1);
+
+    kskvs_destroy(store);
+}
+
+- (void)test_setWithOverlongStringValue_isRejected
+{
+    KSKVSConfig config = [self config];
+    KSKeyValueStore *store = kskvs_create(self.path.UTF8String, KSKVSModeReadWriteCreate, &config, NULL);
+    XCTAssertTrue(store != NULL);
+
+    char value[258];
+    memset(value, 'v', sizeof(value) - 1);
+    value[sizeof(value) - 1] = '\0';  // 257 chars, one past maxStringLength
+
+    XCTAssertFalse(kskvs_setString(store, "k", value));
+    XCTAssertEqual(stringHitsForKey(store, "k"), 0, @"the key holds nothing, not a shortened value");
+
+    kskvs_destroy(store);
+}
+
 - (void)test_read_absentFile_reportsAbsent
 {
     KSKVSOpenStatus status = KSKVSOpenSuccess;

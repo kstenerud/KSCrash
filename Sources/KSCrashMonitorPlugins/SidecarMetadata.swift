@@ -73,7 +73,7 @@ public final class SidecarMetadata: MetadataStore, @unchecked Sendable {
         }
         set {
             guard let newValue else {
-                kskvs_removeValue(store, key)
+                checkAccepted(kskvs_removeValue(store, key), key: key)
                 return
             }
             // A date keeps its own slot so the report carries a date, not a number.
@@ -81,19 +81,19 @@ public final class SidecarMetadata: MetadataStore, @unchecked Sendable {
                 // An unrepresentable date removes the key rather than storing a
                 // stand-in, so a read never reports an instant that was never set.
                 if let nanoseconds = date.nanosecondsSince1970 {
-                    kskvs_setDate(store, key, nanoseconds)
+                    checkAccepted(kskvs_setDate(store, key, nanoseconds), key: key)
                 } else {
-                    kskvs_removeValue(store, key)
+                    checkAccepted(kskvs_removeValue(store, key), key: key)
                 }
                 return
             }
             switch newValue.metadataValue {
-            case .string(let value): kskvs_setString(store, key, value)
-            case .integer(let value): kskvs_setInt64(store, key, value)
-            case .unsignedInteger(let value): kskvs_setUInt64(store, key, value)
-            case .double(let value): kskvs_setDouble(store, key, value)
-            case .bool(let value): kskvs_setBool(store, key, value)
-            case .null: kskvs_removeValue(store, key)
+            case .string(let value): checkAccepted(kskvs_setString(store, key, value), key: key)
+            case .integer(let value): checkAccepted(kskvs_setInt64(store, key, value), key: key)
+            case .unsignedInteger(let value): checkAccepted(kskvs_setUInt64(store, key, value), key: key)
+            case .double(let value): checkAccepted(kskvs_setDouble(store, key, value), key: key)
+            case .bool(let value): checkAccepted(kskvs_setBool(store, key, value), key: key)
+            case .null: checkAccepted(kskvs_removeValue(store, key), key: key)
             case .array, .object:
                 // Unreachable: no container type is MetadataValueRepresentable.
                 // TODO: containers as JSON-encoded values once the kvs supports variable-size records.
@@ -103,7 +103,15 @@ public final class SidecarMetadata: MetadataStore, @unchecked Sendable {
     }
 
     public func removeValue(forKey key: String) {
-        kskvs_removeValue(store, key)
+        checkAccepted(kskvs_removeValue(store, key), key: key)
+    }
+
+    /// A refused write is loud in debug and logged-and-dropped in release.
+    /// Usually a programmer error (key or value over the store's limits);
+    /// rarely the store failing to grow.
+    private func checkAccepted(_ accepted: Bool, key: String) {
+        assert(
+            accepted, "metadata write failed for key \"\(key)\": over the store's limits, or the store could not grow")
     }
 
     public var keys: [String] {
