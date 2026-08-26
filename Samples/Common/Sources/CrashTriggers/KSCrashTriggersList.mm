@@ -302,8 +302,7 @@ static void trigger_user_swiftAsync(void) { integrationTestSwiftAsyncTrigger(); 
     kill(getpid(), SIGKILL);
 }
 
-static void throwOnHangStart(KSHangChangeType change, __unused uint64_t startTimestamp, __unused uint64_t endTimestamp,
-                             __unused void *context)
+static void throwOnHangStart(KSHangChangeType change, __unused uint64_t startTimestamp, __unused uint64_t endTimestamp)
 {
     if (change == KSHangChangeTypeStarted) {
         // Hang detected - throw exception from background thread
@@ -318,9 +317,10 @@ static void throwOnHangStart(KSHangChangeType change, __unused uint64_t startTim
 
 + (void)trigger_other_watchdogTimeoutWithException
 {
-    // Register a hang observer to throw an exception once a hang is detected.
-    // This ensures the exception occurs while we're definitely in a hang state.
-    (void)kshang_addHangObserver(throwOnHangStart, NULL);
+    // Throw an exception once a hang is detected, so the exception occurs
+    // while we're definitely in a hang state. The process dies right after,
+    // so the displaced callback does not need restoring.
+    kshang_setHangEventCallback(throwOnHangStart);
 
     // Block the main thread to trigger hang detection
     [NSThread sleepForTimeInterval:100.0];
