@@ -82,14 +82,15 @@ static KS_NOINLINE void initStackCursor(KSStackCursor *cursor, NSException *exce
          * 1. `initStackCursor`
          * 2. `handleException`
          * 3. `customNSExceptionReporter`
-         * 4. `+[KSCrash reportNSException:logAllThreads:]`
+         * 4. `kscrash_reportNSException`
+         * 5. `KSCrash.reportException` (the Swift facade)
          *
          * Skip frames for caught exceptions (unlikely scenario):
          * 1. `initStackCursor`
          * 2. `handleException`
          * 3. `handleUncaughtException`
          */
-        int const skipFrames = isUserReported ? 4 : 3;
+        int const skipFrames = isUserReported ? 5 : 3;
         kssc_initSelfThread(cursor, skipFrames);
     }
     KS_THWART_TAIL_CALL_OPTIMISATION
@@ -119,10 +120,11 @@ static KS_NOINLINE void handleException(NSException *exception, BOOL isUserRepor
         initStackCursor(&exceptionCursor, exception, &callstack, isUserReported);
 
         // Capture the handler's actual call stack while we're still in the handler frame.
-        // User-reported skip 3: handleException + customNSExceptionReporter + reportNSException:
+        // User-reported skip 4: handleException + customNSExceptionReporter +
+        //   kscrash_reportNSException + the Swift facade's reportException.
         // Uncaught skip 2: handleException + handleUncaughtException
         KSStackCursor handlerCursor;
-        int const handlerSkipFrames = isUserReported ? 3 : 2;
+        int const handlerSkipFrames = isUserReported ? 4 : 2;
         kssc_initSelfThread(&handlerCursor, handlerSkipFrames);
 
         KSLOG_DEBUG(@"Filling out context.");
