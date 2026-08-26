@@ -29,6 +29,7 @@ import KSCrashRecording
 import KSCrashRecordingCore
 import KSCrashReportModel
 import KSCrashSwiftCore
+import os
 
 /// A monitor that records metadata into its own run sidecar while enabled and
 /// stitches it into the report's system section at delivery. Nothing runs at
@@ -105,11 +106,23 @@ public final class SidecarMetadataMonitorPlugin: MonitorPlugin, @unchecked Senda
                 state.enabled = false
                 return
             }
-            guard let provider = state.sidecarPathProvider else { return }
+            guard let provider = state.sidecarPathProvider else {
+                os_log(.error, "%{public}s cannot enable: no run sidecar path provider", String(cString: monitorID))
+                return
+            }
             var path = [CChar](repeating: 0, count: Int(KSFU_MAX_PATH_LENGTH))
-            guard provider(monitorID, &path, path.count) else { return }
+            guard provider(monitorID, &path, path.count) else {
+                os_log(.error, "%{public}s cannot enable: no run sidecar path", String(cString: monitorID))
+                return
+            }
             let config = KSKVSConfig(initialCapacity: 512, maxKeyLength: 64, maxStringLength: 64)
-            guard let store = try? SidecarMetadata.creating(at: String(cString: path), config: config) else {
+            let store: SidecarMetadata
+            do {
+                store = try SidecarMetadata.creating(at: String(cString: path), config: config)
+            } catch {
+                os_log(
+                    .error, "%{public}s cannot enable: sidecar store failed to open: %{public}@",
+                    String(cString: monitorID), String(describing: error))
                 return
             }
             state.store = store
