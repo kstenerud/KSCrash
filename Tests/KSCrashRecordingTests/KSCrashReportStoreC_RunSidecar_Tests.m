@@ -490,6 +490,29 @@ extern void kscrash_testcode_setRunID(const char *runID);
     XCTAssertTrue([fm fileExistsAtPath:summaryPath]);
 }
 
+- (void)testReclaimProceedsPastSummaryDeletedSinceListing
+{
+    [self prepareStoreWithRunSidecars:@"testVanishedSummary"];
+    NSString *orphanRunId = [[NSUUID UUID] UUIDString];
+    [self writeRunSidecar:@"UserInfo" runId:orphanRunId contents:@"orphan"];
+    NSString *orphanSessions = [self writeSessionsFileForRunId:orphanRunId];
+    NSString *orphanDir =
+        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:orphanRunId];
+    NSFileManager *fm = [NSFileManager defaultManager];
+
+    // A dangling symlink is listed but reads as file-not-found, exactly like a
+    // summary a concurrent send deleted after the listing. The pass must
+    // proceed, not abort.
+    NSString *runsDir = [NSString stringWithUTF8String:_storeConfig.runSummariesPath];
+    [fm createSymbolicLinkAtPath:[runsDir stringByAppendingPathComponent:@"600.run"]
+             withDestinationPath:[runsDir stringByAppendingPathComponent:@"gone.tmp"]
+                           error:nil];
+
+    kscrs_reclaimOrphanedRunData(&_storeConfig);
+    XCTAssertFalse([fm fileExistsAtPath:orphanDir]);
+    XCTAssertFalse([fm fileExistsAtPath:orphanSessions]);
+}
+
 - (void)testReclaimProceedsPastSummaryWithoutRunId
 {
     [self prepareStoreWithRunSidecars:@"testMalformedSummary"];

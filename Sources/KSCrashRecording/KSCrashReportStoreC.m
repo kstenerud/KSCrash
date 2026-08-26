@@ -415,6 +415,8 @@ static NSSet<NSString *> *reportReferencedRunIDs(const KSCrashReportStoreCConfig
 // stitch). run_id is a top-level summary key. Returns nil when a queued
 // summary cannot be READ (a transient I/O failure must not be mistaken for
 // absence), mirroring reportReferencedRunIDs: the caller then skips the pass.
+// A summary deleted between the listing and the read (a concurrent send)
+// references nothing and is skipped, not an abort.
 // A summary that reads but does not DECODE is deterministic garbage (a store
 // is single-process, so the only source is a crash between O_TRUNC and the
 // write during persist): it references nothing and is deleted here, because
@@ -439,8 +441,16 @@ static NSSet<NSString *> *summaryReferencedRunIDs(const char *runSummariesPath)
             continue;
         }
         NSString *path = [dir stringByAppendingPathComponent:entry];
-        NSData *data = [NSData dataWithContentsOfFile:path];
+        NSError *readError = nil;
+        NSData *data = [NSData dataWithContentsOfFile:path options:0 error:&readError];
         if (data == nil) {
+            // Deleted since the listing (a concurrent send) references nothing;
+            // any other read failure hides live references.
+            BOOL missing =
+                [readError.domain isEqualToString:NSCocoaErrorDomain] && readError.code == NSFileReadNoSuchFileError;
+            if (missing) {
+                continue;
+            }
             return nil;
         }
         // Strict decode: a truncated file must FAIL here, not hand back a
