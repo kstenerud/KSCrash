@@ -44,7 +44,8 @@ public struct HangEvent: Sendable, Equatable {
 
 extension KSCrash {
     /// The hang monitor's events, one stream per caller. Finishes immediately
-    /// when hangs are not monitored. Events arrive from the monitor's thread.
+    /// when hangs are not monitored. Events arrive from the monitor's thread;
+    /// a consumer that falls behind keeps only the newest buffered events.
     public var hangEvents: AsyncStream<HangEvent> {
         HangEventHub.shared.makeStream()
     }
@@ -64,7 +65,11 @@ private final class HangEventHub: Sendable {
     private let state = UnfairLock(State())
 
     func makeStream() -> AsyncStream<HangEvent> {
-        AsyncStream { continuation in
+        // Bounded: the watchdog produces regardless of consumption, and an
+        // unbounded buffer would grow during a prolonged hang, the worst
+        // moment to add memory pressure. 64 outlasts any real consumer lag;
+        // past it the oldest events drop first.
+        AsyncStream(bufferingPolicy: .bufferingNewest(64)) { continuation in
             guard kshang_isEnabled() else {
                 continuation.finish()
                 return
