@@ -145,6 +145,9 @@ extension InstallConfiguration {
                 }
                 base = url
             case .url(let url):
+                guard url.isFileURL else {
+                    throw InstallError.invalidConfiguration("the container URL must be a file URL: \(url)")
+                }
                 base = url
             }
             let bundleID = Bundle.main.bundleIdentifier ?? ProcessInfo.processInfo.processName
@@ -171,11 +174,13 @@ extension InstallConfiguration {
     /// call site instead of as a missing directory or a dead monitor later.
     func validate() throws {
         try validateNamespace()
-        if maxReportCount < 0 {
-            throw InstallError.invalidConfiguration("maxReportCount must not be negative")
+        // The C configuration carries the counts as Int32; the bridge
+        // conversion must never be the place a bad value surfaces.
+        if !(0...Int(Int32.max)).contains(maxReportCount) {
+            throw InstallError.invalidConfiguration("maxReportCount must be between 0 and \(Int32.max)")
         }
-        if maxRunSummaryCount < 0 {
-            throw InstallError.invalidConfiguration("maxRunSummaryCount must not be negative")
+        if !(0...Int(Int32.max)).contains(maxRunSummaryCount) {
+            throw InstallError.invalidConfiguration("maxRunSummaryCount must be between 0 and \(Int32.max)")
         }
         if case .enabled(let classes) = memoryIntrospection, classes.contains(where: \.isEmpty) {
             throw InstallError.invalidConfiguration("memoryIntrospection excludes an empty class name")
