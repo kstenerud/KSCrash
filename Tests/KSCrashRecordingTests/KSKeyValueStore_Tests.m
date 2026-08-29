@@ -122,6 +122,22 @@ static int stringHitsForKey(KSKeyValueStore *store, const char *key)
     return hits;
 }
 
+- (void)test_write_onAReadModeStore_isRejected_andTheStoreIsUnchanged
+{
+    KSKVSConfig config = [self config];
+    KSKeyValueStore *writer = kskvs_create(self.path.UTF8String, KSKVSModeReadWriteCreate, &config, NULL);
+    XCTAssertTrue(kskvs_setString(writer, "k", "v"));
+    kskvs_destroy(writer);
+
+    KSKeyValueStore *reader = kskvs_create(self.path.UTF8String, KSKVSModeRead, NULL, NULL);
+    XCTAssertTrue(reader != NULL);
+    XCTAssertFalse(kskvs_setString(reader, "k2", "fits-without-growing"));
+    XCTAssertFalse(kskvs_removeValue(reader, "k"));
+    XCTAssertEqual(stringHitsForKey(reader, "k"), 1);
+    XCTAssertEqual(stringHitsForKey(reader, "k2"), 0);
+    kskvs_destroy(reader);
+}
+
 - (void)test_setWithOverlongKey_isRejected_notTruncated
 {
     KSKVSConfig config = [self config];

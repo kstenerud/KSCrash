@@ -241,6 +241,12 @@ static bool appendRecord(KSKeyValueStore *store, const char *key, uint8_t type, 
         KSLOG_DEBUG("KVS appendRecord called with NULL store (not yet installed?)");
         return false;
     }
+    // A read-mode store is a private heap snapshot; accepting the write would
+    // report persistence for bytes that die with the store.
+    if (store->fd < 0) {
+        KSLOG_ERROR("KVS write rejected: the store is read-only");
+        return false;
+    }
     if (key == NULL) {
         return false;
     }
