@@ -33,7 +33,6 @@
 #import <thread>
 #import "CrashCallback.h"
 #import "KSCrashC.h"
-#import "KSCrashHang.h"
 
 namespace sample_namespace
 {
@@ -302,25 +301,19 @@ static void trigger_user_swiftAsync(void) { integrationTestSwiftAsyncTrigger(); 
     kill(getpid(), SIGKILL);
 }
 
-static void throwOnHangStart(KSHangChangeType change, __unused uint64_t startTimestamp, __unused uint64_t endTimestamp)
-{
-    if (change == KSHangChangeTypeStarted) {
-        // Hang detected - throw exception from background thread
-        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
-            NSException *exc = [NSException exceptionWithName:NSGenericException
-                                                       reason:@"Exception during hang"
-                                                     userInfo:nil];
-            [exc raise];
-        });
-    }
-}
-
 + (void)trigger_other_watchdogTimeoutWithException
 {
-    // Throw an exception once a hang is detected, so the exception occurs
-    // while we're definitely in a hang state. The process dies right after,
-    // so the displaced callback does not need restoring.
-    kshang_setHangEventCallback(throwOnHangStart);
+    // Throw from a background thread well past the watchdog's 250ms
+    // threshold, so the exception occurs while the main thread is
+    // definitely hanging. Timed rather than callback-driven: the hang
+    // event slot belongs to the framework's hang hub.
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)),
+                   dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+                       NSException *exc = [NSException exceptionWithName:NSGenericException
+                                                                  reason:@"Exception during hang"
+                                                                userInfo:nil];
+                       [exc raise];
+                   });
 
     // Block the main thread to trigger hang detection
     [NSThread sleepForTimeInterval:100.0];

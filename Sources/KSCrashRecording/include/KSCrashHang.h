@@ -68,46 +68,12 @@
 extern "C" {
 #endif
 
-#include <CoreFoundation/CoreFoundation.h>
-#include <stdint.h>
+#include <stdbool.h>
 
 #include "KSCrashNamespace.h"
 
-/**
- * Describes the type of hang state change being reported to observers.
- */
-typedef CF_ENUM(uint8_t, KSHangChangeType) {
-    /** No change (placeholder value). */
-    KSHangChangeTypeNone = 0,
-    /** A new hang has been detected and a report is being generated. */
-    KSHangChangeTypeStarted = 1,
-    /** An ongoing hang's duration has been updated. */
-    KSHangChangeTypeUpdated = 2,
-    /** The hang has ended (main thread became responsive). */
-    KSHangChangeTypeEnded = 3,
-} CF_SWIFT_NAME(HangChangeType);
-
-/**
- * C function pointer type for observing hang state changes.
- *
- * @param change The type of hang state change.
- * @param startTimestamp Monotonic timestamp (ns) when the hang started.
- * @param endTimestamp Monotonic timestamp (ns) of the current/end state.
- */
-typedef void (*KSHangEventCallback)(KSHangChangeType change, uint64_t startTimestamp, uint64_t endTimestamp);
-
 /** Whether the hang monitor is currently enabled. */
 bool kshang_isEnabled(void);
-
-/** Sets the process-wide hang event callback, invoked from the monitor's
- * thread on every hang state change.
- *
- * The callback must stay valid for the process lifetime; a replaced callback
- * may still receive an event already being dispatched.
- *
- * @return The previously set callback, or NULL if none.
- */
-KSHangEventCallback kshang_setHangEventCallback(KSHangEventCallback callback);
 
 #ifdef __cplusplus
 }
