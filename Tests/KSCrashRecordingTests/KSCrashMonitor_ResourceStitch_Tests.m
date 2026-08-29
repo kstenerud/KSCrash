@@ -213,6 +213,39 @@ static KSCrash_ResourceData makeValidResourceData(void)
                                                      KSCrashSidecarScopeRun, NULL) == NULL);
 }
 
+- (void)testVersion1SidecarAtV2SizeReturnsNull
+{
+    // The declared version's size must match the size read: a v1 declaration
+    // can only legitimately exist in a v1-sized file.
+    KSCrash_ResourceData data = makeValidResourceData();
+    data.version = 1;
+    NSString *path = writeResourceSidecarBytes(self.tempDir, &data, KSCrash_Resource_V2Size);
+    NSDictionary *report = @{};
+
+    XCTAssertTrue(kscm_resource_createStitchedReport((__bridge CFDictionaryRef)report, path.UTF8String,
+                                                     KSCrashSidecarScopeRun, NULL) == NULL);
+}
+
+- (void)testOutOfRangeStateBytesStitchAsUnknown
+{
+    // Single-byte corruption of a state field must degrade to "unknown", not
+    // abort report delivery.
+    KSCrash_ResourceData data = makeValidResourceData();
+    data.memoryHeadroom = 200;
+    data.memoryLevel = 250;
+    NSString *path = writeResourceSidecar(self.tempDir, data);
+    NSDictionary *report = @{};
+
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_resource_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
+
+    NSDictionary *appMemory = result[KSCrashField_System][KSCrashField_AppMemory];
+    XCTAssertEqualObjects(appMemory[KSCrashField_MemoryHeadroom], @"unknown");
+    XCTAssertEqualObjects(appMemory[KSCrashField_MemoryLevel], @"unknown");
+    XCTAssertEqualObjects(appMemory[KSCrashField_MemoryPressure], @"normal");
+}
+
 - (void)testZeroSystemMemoryLimitOmitsSystemFields
 {
     KSCrash_ResourceData data = makeValidResourceData();

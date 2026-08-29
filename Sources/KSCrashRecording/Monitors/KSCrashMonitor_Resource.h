@@ -68,9 +68,10 @@ typedef enum {
 
 static const uint8_t KSCrash_Resource_CurrentVersion = 2;
 
-/** On-disk size of each KSCrash_ResourceData version. A reader must accept a
- *  file of at least its declared version's size; fields the version predates
- *  read as zero. */
+/** On-disk size of each KSCrash_ResourceData version. A file's declared
+ *  version must match the size the reader picked from these constants
+ *  (see ksresource_readSnapshotFromPath), so a torn or truncated file never
+ *  passes validation; fields newer than the declared version read as zero. */
 #define KSCrash_Resource_V1Size ((size_t)112)
 #define KSCrash_Resource_V2Size ((size_t)136)
 
@@ -148,6 +149,10 @@ typedef struct {
 
 _Static_assert(sizeof(KSCrash_ResourceData) == KSCrash_Resource_V2Size,
                "KSCrash_ResourceData size changed; bump version and add a size constant");
+// Guards the append-only rule: a field inserted into an earlier padding hole
+// would keep sizeof() unchanged while silently mis-parsing every older file.
+_Static_assert(offsetof(KSCrash_ResourceData, systemMemoryRemaining) == KSCrash_Resource_V1Size,
+               "v2 fields must start exactly at the v1 size boundary");
 
 // ============================================================================
 #pragma mark - Public Snapshot API -

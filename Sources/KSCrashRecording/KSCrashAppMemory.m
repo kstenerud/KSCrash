@@ -10,7 +10,9 @@ NS_ASSUME_NONNULL_BEGIN
  *  treating [0, baseline] as a logical zero that always reports normal. Headroom
  *  passes 8000 (0.80) because a ratio against physical memory is dominated by
  *  wired kernel pages and always-on system overhead; only the top ~20% of the
- *  range is meaningful headroom.
+ *  range is meaningful headroom, putting the headroom band edges at 0.85, 0.90,
+ *  0.95, and 0.99 of physical memory. Retuning the shared ladder moves those
+ *  bands too.
  *
  *  Thresholds are built in integer basis points so band boundaries stay exact;
  *  summing double fractions instead would put values like 850/1000 on the wrong
@@ -102,7 +104,9 @@ const char *KSCrashAppMemoryStateToString(KSCrashAppMemoryState state)
         case KSCrashAppMemoryStateTerminal:
             return "terminal";
         default:
-            assert(state <= KSCrashAppMemoryStateTerminal);
+            // Raw sidecar bytes from disk land here, so an out-of-range value
+            // must map to a string; asserting would crash-loop report delivery.
+            return "unknown";
     }
 }
 

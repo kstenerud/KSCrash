@@ -14,7 +14,8 @@ NS_ASSUME_NONNULL_BEGIN
                       systemLimit:(uint64_t)systemLimit NS_DESIGNATED_INITIALIZER;
 @end
 
-typedef KSCrashAppMemory *_Nonnull (^KSCrashAppMemoryProvider)(void);
+// Nullable so tests can simulate a failed sample (task_info error).
+typedef KSCrashAppMemory *_Nullable (^KSCrashAppMemoryProvider)(void);
 FOUNDATION_EXPORT void testsupport_KSCrashAppMemorySetProvider(KSCrashAppMemoryProvider _Nullable provider);
 
 NS_ASSUME_NONNULL_END

@@ -6,6 +6,7 @@
 #import <mach/mach.h>
 #import <mach/task.h>
 #import <os/lock.h>
+#import <stdatomic.h>
 
 #if KSCRASH_HAS_UIAPPLICATION
 #import <UIKit/UIKit.h>
@@ -228,18 +229,35 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
 
     // The host port send right is cached for the lifetime of the process;
     // pairing it with mach_port_deallocate would invalidate it for anything
-    // else holding it.
+    // else holding it. Physical memory is process-lifetime constant.
     static host_t hostPort;
+    static uint64_t physicalMemory;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         hostPort = mach_host_self();
+        physicalMemory = NSProcessInfo.processInfo.physicalMemory;
     });
+
+    // Last successful system-wide sample. A transient host_statistics64
+    // failure must not zero these: that would fabricate a headroom recovery
+    // and wipe the sidecar's system values. Zero still means "never sampled".
+    static _Atomic uint64_t lastSystemRemaining;
+    static _Atomic uint64_t lastSystemLimit;
 
     vm_statistics64_data_t vmStats = {};
     mach_msg_type_number_t vmCount = HOST_VM_INFO64_COUNT;
     kern_return_t vmErr = host_statistics64(hostPort, HOST_VM_INFO64, (host_info64_t)&vmStats, &vmCount);
-    uint64_t systemRemaining = vmErr == KERN_SUCCESS ? _AvailableSystemBytes(&vmStats) : 0;
-    uint64_t systemLimit = vmErr == KERN_SUCCESS ? NSProcessInfo.processInfo.physicalMemory : 0;
+    uint64_t systemRemaining;
+    uint64_t systemLimit;
+    if (vmErr == KERN_SUCCESS) {
+        systemRemaining = _AvailableSystemBytes(&vmStats);
+        systemLimit = physicalMemory;
+        atomic_store(&lastSystemRemaining, systemRemaining);
+        atomic_store(&lastSystemLimit, systemLimit);
+    } else {
+        systemRemaining = atomic_load(&lastSystemRemaining);
+        systemLimit = atomic_load(&lastSystemLimit);
+    }
 
     return [[KSCrashAppMemory alloc] initWithFootprint:info.phys_footprint
                                              remaining:remaining
@@ -254,10 +272,31 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
     return provider ? provider() : _ProvideCrashAppMemory(self.pressure);
 }
 
+/** Headroom, level, and pressure notifications are one family: async on the
+ *  main queue with the same old/new userInfo shape. Change delivery here, not
+ *  at the call sites. */
+static void postStateChangeNotification(id object, NSNotificationName name, KSCrashAppMemoryState oldState,
+                                        KSCrashAppMemoryState newState)
+{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [[NSNotificationCenter defaultCenter] postNotificationName:name
+                                                            object:object
+                                                          userInfo:@{
+                                                              KSCrashAppMemoryNewValueKey : @(newState),
+                                                              KSCrashAppMemoryOldValueKey : @(oldState)
+                                                          }];
+    });
+}
+
 - (void)_handleMemoryChange:(KSCrashAppMemory *)memory
                        type:(KSCrashAppMemoryTrackerChangeType)changes
                   observers:(NSArray<KSCrashAppMemoryTrackerObserverBlock> *)observers
 {
+    if (memory == nil) {
+        // Failed sample (task_info error): observers take a nonnull snapshot,
+        // so drop the callback rather than hand them nil.
+        return;
+    }
     for (KSCrashAppMemoryTrackerObserverBlock obs in observers) {
         obs(memory, changes);
     }
@@ -276,6 +315,12 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
 {
     // This handles the memory limit and system headroom.
     KSCrashAppMemory *memory = [self currentAppMemory];
+    if (memory == nil) {
+        // Failed sample (task_info error): skip the tick. Reading a nil
+        // snapshot would see all zeros and fabricate level/headroom
+        // recoveries while wiping the cached byte values.
+        return;
+    }
 
     KSCrashAppMemoryState newLevel = memory.level;
     KSCrashAppMemoryState newHeadroom = memory.headroom;
@@ -285,13 +330,16 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
     NSArray<KSCrashAppMemoryTrackerObserverBlock> *observers = nil;
     KSCrashAppMemoryState oldLevel;
     KSCrashAppMemoryState oldHeadroom;
+    BOOL levelChanged = NO;
     BOOL headroomChanged = NO;
     BOOL footprintChanged = NO;
+    BOOL systemRemainingChanged = NO;
     {
         os_unfair_lock_lock(&_lock);
 
         oldLevel = _level;
         _level = newLevel;
+        levelChanged = newLevel != oldLevel;
 
         oldHeadroom = _headroom;
         _headroom = newHeadroom;
@@ -303,18 +351,20 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
         // For the footprint, we don't need very granular changes,
         // changing a few bytes here or there won't mke a difference,
         // we're looking for anything larger.
-        if (KSABS_DIFF(newFootprint, _footprint) > kKSCrashFootprintMinChange) {
+        // A state transition always publishes the bytes that caused it, even
+        // when the boundary was crossed by less than the threshold.
+        if (levelChanged || KSABS_DIFF(newFootprint, _footprint) > kKSCrashFootprintMinChange) {
             _footprint = newFootprint;
             footprintChanged = YES;
         }
 
-        // System remaining moving counts as a footprint-style byte change too,
-        // so observers refresh their copies of the system values.
-        // Always publish the bytes that caused a headroom transition, even when
-        // the boundary was crossed by less than the normal 1 MiB threshold.
-        if (headroomChanged || KSABS_DIFF(newSystemRemaining, _systemRemaining) > kKSCrashFootprintMinChange) {
+        // Device-wide remaining is churned by every process on the system, so
+        // its threshold scales with the device (1% of physical memory); the
+        // 1 MiB footprint threshold would fire on nearly every heartbeat.
+        const uint64_t kSystemRemainingMinChange = memory.systemLimit / 100;
+        if (headroomChanged || KSABS_DIFF(newSystemRemaining, _systemRemaining) > kSystemRemainingMinChange) {
             _systemRemaining = newSystemRemaining;
-            footprintChanged = YES;
+            systemRemainingChanged = YES;
         }
 
         // clear out NULLs from observers
@@ -323,15 +373,18 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
         os_unfair_lock_unlock(&_lock);
     }
 
-    KSCrashAppMemoryTrackerChangeType changes =
-        (newLevel != oldLevel) ? KSCrashAppMemoryTrackerChangeTypeLevel : KSCrashAppMemoryTrackerChangeTypeNone;
-
+    KSCrashAppMemoryTrackerChangeType changes = KSCrashAppMemoryTrackerChangeTypeNone;
+    if (levelChanged) {
+        changes |= KSCrashAppMemoryTrackerChangeTypeLevel;
+    }
     if (headroomChanged) {
         changes |= KSCrashAppMemoryTrackerChangeTypeHeadroom;
     }
-
     if (footprintChanged) {
         changes |= KSCrashAppMemoryTrackerChangeTypeFootprint;
+    }
+    if (systemRemainingChanged) {
+        changes |= KSCrashAppMemoryTrackerChangeTypeSystemRemaining;
     }
 
     if (changes != KSCrashAppMemoryTrackerChangeTypeNone) {
@@ -339,25 +392,11 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
     }
 
     if (headroomChanged && sendObservers) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [[NSNotificationCenter defaultCenter] postNotificationName:KSCrashAppMemoryHeadroomChangedNotification
-                                                                object:self
-                                                              userInfo:@{
-                                                                  KSCrashAppMemoryNewValueKey : @(newHeadroom),
-                                                                  KSCrashAppMemoryOldValueKey : @(oldHeadroom)
-                                                              }];
-        });
+        postStateChangeNotification(self, KSCrashAppMemoryHeadroomChangedNotification, oldHeadroom, newHeadroom);
     }
 
-    if (newLevel != oldLevel && sendObservers) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [[NSNotificationCenter defaultCenter] postNotificationName:KSCrashAppMemoryLevelChangedNotification
-                                                                object:self
-                                                              userInfo:@{
-                                                                  KSCrashAppMemoryNewValueKey : @(newLevel),
-                                                                  KSCrashAppMemoryOldValueKey : @(oldLevel)
-                                                              }];
-        });
+    if (levelChanged && sendObservers) {
+        postStateChangeNotification(self, KSCrashAppMemoryLevelChangedNotification, oldLevel, newLevel);
 #if TARGET_OS_SIMULATOR
 
         // On the simulator, if we're at a terminal level
@@ -414,14 +453,7 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
         [self _handleMemoryChange:[self currentAppMemory]
                              type:KSCrashAppMemoryTrackerChangeTypePressure
                         observers:observers];
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [[NSNotificationCenter defaultCenter] postNotificationName:KSCrashAppMemoryPressureChangedNotification
-                                                                object:self
-                                                              userInfo:@{
-                                                                  KSCrashAppMemoryNewValueKey : @(newPressure),
-                                                                  KSCrashAppMemoryOldValueKey : @(oldPressure)
-                                                              }];
-        });
+        postStateChangeNotification(self, KSCrashAppMemoryPressureChangedNotification, oldPressure, newPressure);
     }
 }
 

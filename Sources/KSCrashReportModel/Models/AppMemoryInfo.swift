@@ -29,8 +29,8 @@ import Foundation
 /// App memory state classification.
 ///
 /// Mirrors the C `KSCrashAppMemoryState` enum (`KSCrashAppMemory.h`). Values are
-/// emitted as lowercase strings in the report JSON and used for both the app's
-/// own memory level and system-wide memory pressure.
+/// emitted as lowercase strings in the report JSON and used for the app's own
+/// memory level, system-wide memory pressure, and system-wide memory headroom.
 public enum MemoryState: RawRepresentable, Codable, Sendable, Equatable {
     case normal
     case warn

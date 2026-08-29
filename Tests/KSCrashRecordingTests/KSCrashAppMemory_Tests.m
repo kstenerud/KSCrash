@@ -118,6 +118,15 @@ static KSCrashAppMemory *SystemMemory(uint64_t systemRemaining)
     XCTAssertEqual(inverted.headroom, KSCrashAppMemoryStateNormal);
 }
 
+- (void)testStateToStringIsTotal
+{
+    XCTAssertEqual(strcmp(KSCrashAppMemoryStateToString(KSCrashAppMemoryStateNormal), "normal"), 0);
+    XCTAssertEqual(strcmp(KSCrashAppMemoryStateToString(KSCrashAppMemoryStateTerminal), "terminal"), 0);
+    // Sidecar bytes come off disk unvalidated; an out-of-range value must
+    // still map to a string instead of asserting.
+    XCTAssertEqual(strcmp(KSCrashAppMemoryStateToString((KSCrashAppMemoryState)200), "unknown"), 0);
+}
+
 #pragma mark - Transition State
 
 - (void)testTransitionStateUserPerceptible

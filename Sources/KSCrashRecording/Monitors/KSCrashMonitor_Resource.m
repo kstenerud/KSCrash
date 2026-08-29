@@ -48,6 +48,7 @@
 #import <unistd.h>
 #import "KSExcResource.h"
 
+#import <sys/stat.h>
 #import <sys/sysctl.h>
 #import <time.h>
 #import "KSSysCtl.h"
@@ -255,6 +256,8 @@ static void startMemoryObserver(void)
                     res->memoryFootprint = memory.footprint;
                     res->memoryRemaining = memory.remaining;
                     res->memoryLimit = memory.limit;
+                }
+                if (changes & KSCrashAppMemoryTrackerChangeTypeSystemRemaining) {
                     res->systemMemoryRemaining = memory.systemRemaining;
                     res->systemMemoryLimit = memory.systemLimit;
                 }
@@ -534,17 +537,24 @@ bool ksresource_readSnapshotFromPath(const char *path, KSCrash_ResourceData *out
     int fd = open(path, O_RDONLY);
     if (fd == -1) return false;
 
-    // Most files are current-version: try the full struct first, then fall
-    // back to the v1 prefix for a file from an older run. The declared
-    // version must match the size that read, so a torn file never passes.
+    // Most files are current-version: read the full struct, or the v1 prefix
+    // for a smaller file from an older run. The file size decides which, so
+    // a v1 file never takes a doomed full-size read (whose EOF would log an
+    // error on a working path). The declared version must match the size
+    // that read, so a torn file never passes.
+    struct stat st;
+    if (fstat(fd, &st) != 0 || st.st_size < (off_t)KSCrash_Resource_V1Size) {
+        close(fd);
+        return false;
+    }
     memset(outData, 0, sizeof(*outData));
     uint8_t expectedVersion = 2;
-    bool readOK = ksfu_readBytesFromFD(fd, (char *)outData, (int)KSCrash_Resource_V2Size);
-    if (!readOK && lseek(fd, 0, SEEK_SET) == 0) {
-        memset(outData, 0, sizeof(*outData));
+    size_t readSize = KSCrash_Resource_V2Size;
+    if (st.st_size < (off_t)KSCrash_Resource_V2Size) {
         expectedVersion = 1;
-        readOK = ksfu_readBytesFromFD(fd, (char *)outData, (int)KSCrash_Resource_V1Size);
+        readSize = KSCrash_Resource_V1Size;
     }
+    bool readOK = ksfu_readBytesFromFD(fd, (char *)outData, (int)readSize);
     close(fd);
 
     return readOK && outData->magic == KSRESOURCE_MAGIC && outData->version == expectedVersion;
