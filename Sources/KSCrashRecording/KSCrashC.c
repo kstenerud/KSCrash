@@ -308,6 +308,13 @@ static void setMonitors(KSCrashMonitorType monitorTypes)
 
 static void handleConfiguration(KSCrashCConfiguration *configuration)
 {
+    // The store paths are the install loop's strdups; a retry after a failed
+    // install re-enters here, so release the previous attempt's strings
+    // before the reset drops the pointers.
+    free((char *)g_reportStoreConfig.reportsPath);
+    free((char *)g_reportStoreConfig.reportSidecarsPath);
+    free((char *)g_reportStoreConfig.runSidecarsPath);
+    free((char *)g_reportStoreConfig.runSummariesPath);
     g_reportStoreConfig = KSCrashReportStoreCConfiguration_Default();
     g_reportStoreConfig.maxReportCount = configuration->maxReportCount;
     g_reportStoreConfig.maxRunSummaryCount = configuration->maxRunSummaryCount;
@@ -418,6 +425,9 @@ KSCrashInstallErrorCode kscrash_install(const char *const installPath, KSCrashCC
             return KSCrashInstallErrorPathTooLong;
         }
         *storeDirectories[i].field = strdup(path);
+        if (*storeDirectories[i].field == NULL) {
+            return KSCrashInstallErrorCouldNotInitializeStore;
+        }
     }
     KSCrashInstallErrorCode storeInitResult = kscrs_initialize(&g_reportStoreConfig);
     if (storeInitResult != KSCrashInstallErrorNone) {
