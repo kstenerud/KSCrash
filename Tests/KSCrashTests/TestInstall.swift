@@ -40,6 +40,11 @@ import XCTest
 /// callback must stay non-capturing, so this is file scope.
 nonisolated(unsafe) var didWriteWitness: String?
 
+/// What the plugin's enable saw when it read `KSCrash.shared` mid-install
+/// (outer nil until enable runs). Plugin callbacks may reasonably touch the
+/// shared reporter, so install must not hold its lock across them.
+nonisolated(unsafe) var enableTimeConfigurationWitness: InstallConfiguration??
+
 enum TestInstall {
     /// A plugin over a minimal C monitor table, to prove registration round-trips.
     final class Plugin: MonitorPlugin, @unchecked Sendable {
@@ -53,7 +58,11 @@ enum TestInstall {
             api.pointee.`init` = { _, _ in }
             api.pointee.monitorId = { _ in Plugin.monitorID }
             api.pointee.monitorFlags = { _ in KSCrashMonitorFlagPlugin }
-            api.pointee.setEnabled = { _, _ in }
+            api.pointee.setEnabled = { enabled, _ in
+                if enabled, enableTimeConfigurationWitness == nil {
+                    enableTimeConfigurationWitness = .some(KSCrash.shared.installConfiguration)
+                }
+            }
             api.pointee.isEnabled = { _ in true }
             api.pointee.addContextualInfoToEvent = { _, _ in }
             api.pointee.notifyPostSystemEnable = { _ in }

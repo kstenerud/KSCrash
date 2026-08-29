@@ -84,6 +84,12 @@ final class KSCrashInstallTests: XCTestCase {
         }
     }
 
+    func test_pluginEnable_readsKSCrashShared_withoutDeadlocking() throws {
+        try TestInstall.ensure()
+        let seen = try XCTUnwrap(enableTimeConfigurationWitness, "the plugin's enable ran")
+        XCTAssertNil(seen, "install is not finished while plugins enable")
+    }
+
     func test_installedPlugin_returnsTheRegisteredOne() {
         XCTAssertTrue(KSCrash.shared.installedPlugin(TestInstall.Plugin.self) === TestInstall.plugin)
         // The shared install registers the disk and boot sidecar plugins.
