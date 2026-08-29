@@ -62,14 +62,6 @@ static inline bool ksatomicflag_get(const KSAtomicFlag *flag)
     return atomic_load_explicit(&flag->value, memory_order_relaxed) != 0;
 }
 
-/** Sets the flag and returns its previous value, so a caller can act on the change without
- *  holding a lock across the read and the write.
- */
-static inline bool ksatomicflag_exchange(KSAtomicFlag *flag, bool value)
-{
-    return atomic_exchange_explicit(&flag->value, value ? 1u : 0u, memory_order_relaxed) != 0;
-}
-
 #ifdef __cplusplus
 }
 #endif

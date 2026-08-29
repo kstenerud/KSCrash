@@ -105,7 +105,7 @@ public final class SidecarMetadata: MetadataStore, @unchecked Sendable {
         checkAccepted(kskvs_removeValue(store, key), key: key)
     }
 
-    /// A refused write is loud in debug and logged-and-dropped in release.
+    /// A refused write is loud in debug and silently dropped in release.
     /// Usually a programmer error (key or value over the store's limits);
     /// rarely the store failing to grow.
     private func checkAccepted(_ accepted: Bool, key: String) {

@@ -58,8 +58,8 @@ typedef enum {
 /** Configuration for store creation. */
 typedef struct {
     uint32_t initialCapacity; /**< Starting buffer size (e.g. 4096). */
-    uint16_t maxKeyLength;    /**< Keys longer than this are truncated (e.g. 256). */
-    uint16_t maxStringLength; /**< String values longer than this are truncated (e.g. 1024). */
+    uint16_t maxKeyLength;    /**< Writes with a longer key are rejected (e.g. 256). */
+    uint16_t maxStringLength; /**< Writes with a longer string value are rejected (e.g. 1024). */
 } KSKVSConfig;
 
 /** Outcome of kskvs_create. */

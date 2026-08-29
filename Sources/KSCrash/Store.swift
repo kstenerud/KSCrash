@@ -61,10 +61,9 @@ struct Store: Sendable {
     private let reports: ReportBridge
     private let reclaim: @Sendable () -> Void
 
-    /// The production entry: the report half and the reclaim go through the
-    /// C-backed report store, the one owner of the Reports directory.
-    /// The production store: the report half talks to the C store through
-    /// its resolved configuration, which stays valid for the process.
+    /// The production store: the report half and the reclaim go through
+    /// the C-backed report store, the one owner of the Reports directory,
+    /// via a resolved configuration that stays valid for the process.
     init(
         runsDirectory: URL,
         runSidecarsDirectory: URL,
