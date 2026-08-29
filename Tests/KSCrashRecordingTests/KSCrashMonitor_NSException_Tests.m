@@ -126,7 +126,7 @@ static void stubHandle_deprecated(KSCrash_MonitorContext *context) { stubHandle(
     XCTAssertGreaterThan(exception.callStackReturnAddresses.count, 0);
 
     // Report the exception - this exercises handleException and initStackCursor
-    kscrash_reportNSException(exception, false);
+    kscrash_reportNSException(exception, false, 0);
 }
 
 - (void)testReportUserNSExceptionWithEmptyCallStack
@@ -142,7 +142,7 @@ static void stubHandle_deprecated(KSCrash_MonitorContext *context) { stubHandle(
     XCTAssertEqual(exception.callStackReturnAddresses.count, 0);
 
     // Report the exception - this exercises the else branch in initStackCursor
-    kscrash_reportNSException(exception, false);
+    kscrash_reportNSException(exception, false, 0);
 }
 
 @end

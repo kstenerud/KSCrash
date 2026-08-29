@@ -149,8 +149,13 @@ KSTerminationReason kscrash_getPreviousTerminationReason(void);
 #ifdef __OBJC__
 /** Report an NSException as if the NSException monitor had caught it. A
  *  no-op, with a log, unless that monitor is enabled.
+ *
+ *  When the exception carries no callStackReturnAddresses the stack is
+ *  captured here, skipping the reporting machinery's own frames;
+ *  extraSkipFrames additionally skips that many wrapper frames above this
+ *  call, so a caller passing 0 is the top frame of the report.
  */
-void kscrash_reportNSException(NSException *exception, bool logAllThreads);
+void kscrash_reportNSException(NSException *exception, bool logAllThreads, int extraSkipFrames);
 
 /** Does nothing. Call immediately after a kscrash_report* call so the calling
  * frame survives optimization and stays in the captured stacktrace.
