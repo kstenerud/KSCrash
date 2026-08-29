@@ -285,6 +285,7 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
     NSArray<KSCrashAppMemoryTrackerObserverBlock> *observers = nil;
     KSCrashAppMemoryState oldLevel;
     KSCrashAppMemoryState oldHeadroom;
+    BOOL headroomChanged = NO;
     BOOL footprintChanged = NO;
     {
         os_unfair_lock_lock(&_lock);
@@ -294,6 +295,7 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
 
         oldHeadroom = _headroom;
         _headroom = newHeadroom;
+        headroomChanged = newHeadroom != oldHeadroom;
 
         // the amount footprint needs to change for any footprint notifs.
         const uint64_t kKSCrashFootprintMinChange = 1ULL << 20;  // 1 MiB
@@ -308,7 +310,9 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
 
         // System remaining moving counts as a footprint-style byte change too,
         // so observers refresh their copies of the system values.
-        if (KSABS_DIFF(newSystemRemaining, _systemRemaining) > kKSCrashFootprintMinChange) {
+        // Always publish the bytes that caused a headroom transition, even when
+        // the boundary was crossed by less than the normal 1 MiB threshold.
+        if (headroomChanged || KSABS_DIFF(newSystemRemaining, _systemRemaining) > kKSCrashFootprintMinChange) {
             _systemRemaining = newSystemRemaining;
             footprintChanged = YES;
         }
@@ -322,7 +326,7 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
     KSCrashAppMemoryTrackerChangeType changes =
         (newLevel != oldLevel) ? KSCrashAppMemoryTrackerChangeTypeLevel : KSCrashAppMemoryTrackerChangeTypeNone;
 
-    if (newHeadroom != oldHeadroom) {
+    if (headroomChanged) {
         changes |= KSCrashAppMemoryTrackerChangeTypeHeadroom;
     }
 
@@ -334,7 +338,7 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
         [self _handleMemoryChange:memory type:changes observers:observers];
     }
 
-    if (newHeadroom != oldHeadroom && sendObservers) {
+    if (headroomChanged && sendObservers) {
         dispatch_async(dispatch_get_main_queue(), ^{
             [[NSNotificationCenter defaultCenter] postNotificationName:KSCrashAppMemoryHeadroomChangedNotification
                                                                 object:self

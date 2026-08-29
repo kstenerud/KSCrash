@@ -71,8 +71,8 @@ static const uint8_t KSCrash_Resource_CurrentVersion = 2;
 /** On-disk size of each KSCrash_ResourceData version. A reader must accept a
  *  file of at least its declared version's size; fields the version predates
  *  read as zero. */
-static const size_t KSCrash_Resource_V1Size = 112;
-static const size_t KSCrash_Resource_V2Size = 136;
+#define KSCrash_Resource_V1Size ((size_t)112)
+#define KSCrash_Resource_V2Size ((size_t)136)
 
 /** Resource snapshot persisted via mmap to RunSidecars/<runID>/Resource.ksscr.
  *

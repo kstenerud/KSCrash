@@ -439,6 +439,11 @@
         if ((changes & KSCrashAppMemoryTrackerChangeTypeHeadroom) && !headroomChangeDetected) {
             headroomChangeDetected = YES;
             XCTAssertEqual(memory.headroom, KSCrashAppMemoryStateCritical);
+            // Resource sidecars refresh system byte values on footprint-style
+            // changes, so a headroom transition must include this flag even
+            // when system remaining moved by less than 1 MiB.
+            XCTAssertTrue(changes & KSCrashAppMemoryTrackerChangeTypeFootprint);
+            XCTAssertEqual(memory.systemRemaining, 20);
             [expectation fulfill];
         }
     }];
