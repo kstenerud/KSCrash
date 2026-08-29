@@ -80,7 +80,7 @@ extension KSCrash {
     // Frame-counted like the user-report wrapper above.
     @inline(never)
     public func reportException(_ exception: NSException, logAllThreads: Bool) {
-        kscrash_reportNSException(exception, logAllThreads)
+        kscrash_reportNSException(exception, logAllThreads, 1)
         kscrash_thwartTailCallOptimisation()
     }
 }
