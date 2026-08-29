@@ -327,6 +327,7 @@
 #define kskvs_setDate KSCRASH_NS(kskvs_setDate)
 #define kskvs_setDouble KSCRASH_NS(kskvs_setDouble)
 #define kskvs_setInt64 KSCRASH_NS(kskvs_setInt64)
+#define kskvs_setJSON KSCRASH_NS(kskvs_setJSON)
 #define kskvs_setString KSCRASH_NS(kskvs_setString)
 #define kskvs_setUInt64 KSCRASH_NS(kskvs_setUInt64)
 #define kslifecycle_copyLastSessionIDForRunID KSCRASH_NS(kslifecycle_copyLastSessionIDForRunID)

@@ -51,6 +51,7 @@ typedef enum {
     KSKVSTypeDouble = 4,
     KSKVSTypeBool = 5,
     KSKVSTypeDate = 6,
+    KSKVSTypeJSON = 7,
 } KSKVSType;
 
 /** Magic number: "kskv" in little-endian. */
@@ -92,8 +93,6 @@ struct KSKeyValueStore {
     uint8_t *storage;
     uint32_t capacity;
     int fd;  // < 0 means read-only heap (KSKVSModeRead), >= 0 means mmap mode
-    uint16_t maxKeyLength;
-    uint16_t maxStringLength;
 };
 
 // Spans mutation (write side) and the read-mode file load (read side), so a
@@ -258,13 +257,14 @@ static bool appendRecord(KSKeyValueStore *store, const char *key, uint8_t type, 
         return false;
     }
 
-    // Compare before narrowing: a length past UINT16_MAX must reject, not wrap.
+    // Compare before narrowing: a length past the record format's 64KB
+    // bound must reject, not wrap.
     size_t rawKeyLen = strlen(key);
     if (rawKeyLen == 0) {
         return false;
     }
-    if (rawKeyLen > store->maxKeyLength) {
-        KSLOG_ERROR("KVS key too long (%zu > %u), rejecting the write", rawKeyLen, store->maxKeyLength);
+    if (rawKeyLen > UINT16_MAX) {
+        KSLOG_ERROR("KVS key too long (%zu), rejecting the write", rawKeyLen);
         return false;
     }
     uint16_t keyLen = (uint16_t)rawKeyLen;
@@ -381,8 +381,6 @@ KSKeyValueStore *kskvs_create(const char *path, KSKVSMode mode, const KSKVSConfi
         store->storage = buf;
         store->capacity = (uint32_t)fileSize;
         store->fd = -1;
-        store->maxKeyLength = (config != NULL && config->maxKeyLength > 0) ? config->maxKeyLength : 256;
-        store->maxStringLength = (config != NULL && config->maxStringLength > 0) ? config->maxStringLength : 0;
 
         result = store;
         status = KSKVSOpenSuccess;
@@ -446,8 +444,6 @@ KSKeyValueStore *kskvs_create(const char *path, KSKVSMode mode, const KSKVSConfi
         store->storage = (uint8_t *)mapped;
         store->capacity = capacity;
         store->fd = fd;
-        store->maxKeyLength = config->maxKeyLength > 0 ? config->maxKeyLength : 256;
-        store->maxStringLength = config->maxStringLength;
         initHeader(store->storage);
 
         result = store;
@@ -507,10 +503,6 @@ bool kskvs_setString(KSKeyValueStore *store, const char *key, const char *value)
     }
     // Compare before narrowing: a length past UINT16_MAX must reject, not wrap.
     size_t rawLen = strlen(value);
-    if (store->maxStringLength > 0 && rawLen > store->maxStringLength) {
-        KSLOG_ERROR("KVS string value too long (%zu > %u), rejecting the write", rawLen, store->maxStringLength);
-        return false;
-    }
     if (rawLen > UINT16_MAX) {
         KSLOG_ERROR("KVS string value too long (%zu), rejecting the write", rawLen);
         return false;
@@ -542,6 +534,31 @@ bool kskvs_setBool(KSKeyValueStore *store, const char *key, bool value)
 bool kskvs_setDate(KSKeyValueStore *store, const char *key, int64_t nanosecondsSince1970)
 {
     return appendRecord(store, key, KSKVSTypeDate, &nanosecondsSince1970, sizeof(nanosecondsSince1970));
+}
+
+bool kskvs_setJSON(KSKeyValueStore *store, const char *key, const char *json, size_t length)
+{
+    if (json == NULL || length == 0) {
+        return false;
+    }
+    // Compare before narrowing: a length past UINT16_MAX must reject, not wrap.
+    if (length > UINT16_MAX) {
+        KSLOG_ERROR("KVS JSON value too long (%zu), rejecting the write", length);
+        return false;
+    }
+    // Only a container is a value: scalars have native record types, so JSON
+    // bytes must open an array or an object. Checked without parsing, the
+    // same way readers will refuse whatever slips past it.
+    size_t first = 0;
+    while (first < length &&
+           (json[first] == ' ' || json[first] == '\t' || json[first] == '\n' || json[first] == '\r')) {
+        first++;
+    }
+    if (first >= length || (json[first] != '[' && json[first] != '{')) {
+        KSLOG_ERROR("KVS JSON value is not a container, rejecting the write");
+        return false;
+    }
+    return appendRecord(store, key, KSKVSTypeJSON, json, (uint16_t)length);
 }
 
 bool kskvs_removeValue(KSKeyValueStore *store, const char *key)
@@ -607,7 +624,14 @@ static void dispatchRecord(const KSKeyValueStore *store, uint32_t pos, const KSK
                 callbacks->onDate(key, keyLen, val, context);
             }
             break;
+        case KSKVSTypeJSON:
+            if (callbacks->onJSON && rec->valueLen > 0) {
+                callbacks->onJSON(key, keyLen, (const char *)valueBytes, rec->valueLen, context);
+            }
+            break;
         default:
+            // Unknown types are skipped, so a future record type never
+            // corrupts an older reader's view.
             break;
     }
 }

@@ -24,9 +24,10 @@
 // THE SOFTWARE.
 //
 
-/// Keyed access to scalar metadata: `String`, `Bool`, `Int`, `Int64`,
-/// `UInt64`, `Double`, and `Date`. Conformers are a report's `Metadata` and
-/// the live store on `KSCrash`.
+/// Keyed access to metadata: the scalars `String`, `Bool`, `Int`, `Int64`,
+/// `UInt64`, `Double`, and `Date`, plus arrays and string-keyed dictionaries
+/// of representable values (`MetadataValue` itself for heterogeneous shapes).
+/// Conformers are a report's `Metadata` and the live store on `KSCrash`.
 public protocol MetadataStore {
     /// Reads or writes the value under `key`. Assigning nil removes the key;
     /// reading a key that holds another type yields nil.

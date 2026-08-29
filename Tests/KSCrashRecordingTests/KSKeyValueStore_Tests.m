@@ -87,7 +87,7 @@ static void lookupTestOnRemoved(__unused const char *key, __unused uint16_t keyL
 
 - (KSKVSConfig)config
 {
-    return (KSKVSConfig) { .initialCapacity = 4096, .maxKeyLength = 64, .maxStringLength = 256 };
+    return (KSKVSConfig) { .initialCapacity = 4096 };
 }
 
 - (void)test_create_roundTrip_reportsSuccess
@@ -144,35 +144,42 @@ static int stringHitsForKey(KSKeyValueStore *store, const char *key)
     KSKeyValueStore *store = kskvs_create(self.path.UTF8String, KSKVSModeReadWriteCreate, &config, NULL);
     XCTAssertTrue(store != NULL);
 
-    char longKey[66];
-    memset(longKey, 'k', sizeof(longKey) - 1);
-    longKey[sizeof(longKey) - 1] = '\0';  // 65 chars, one past maxKeyLength
+    // One past the record format's 64KB key bound.
+    size_t longLen = (size_t)UINT16_MAX + 1;
+    char *longKey = malloc(longLen + 1);
+    memset(longKey, 'k', longLen);
+    longKey[longLen] = '\0';
 
     XCTAssertFalse(kskvs_setString(store, longKey, "v"));
     XCTAssertEqual(stringHitsForKey(store, longKey), 0, @"nothing stored under the full key");
-    longKey[64] = '\0';  // the 64-char prefix a truncating writer would have stored
+    longKey[UINT16_MAX] = '\0';  // the prefix a truncating writer would have stored
     XCTAssertEqual(stringHitsForKey(store, longKey), 0, @"nothing stored under a truncation either");
-    XCTAssertTrue(kskvs_removeValue(store, longKey), @"a limit-length key is accepted");
+    XCTAssertTrue(kskvs_removeValue(store, longKey), @"a bound-length key is accepted");
 
+    free(longKey);
     kskvs_destroy(store);
 }
 
-- (void)test_setWithLimitLengthKeyAndValue_isAccepted
+- (void)test_setWithLargeKeyAndValue_isAccepted
 {
     KSKVSConfig config = [self config];
     KSKeyValueStore *store = kskvs_create(self.path.UTF8String, KSKVSModeReadWriteCreate, &config, NULL);
     XCTAssertTrue(store != NULL);
 
-    char key[65];
+    // Far past the retired per-store limits: only the record format's 64KB
+    // bound applies, and the store grows to hold the record.
+    char key[1025];
     memset(key, 'k', sizeof(key) - 1);
-    key[sizeof(key) - 1] = '\0';  // exactly maxKeyLength
-    char value[257];
-    memset(value, 'v', sizeof(value) - 1);
-    value[sizeof(value) - 1] = '\0';  // exactly maxStringLength
+    key[sizeof(key) - 1] = '\0';
+    size_t valueLen = UINT16_MAX;
+    char *value = malloc(valueLen + 1);
+    memset(value, 'v', valueLen);
+    value[valueLen] = '\0';
 
     XCTAssertTrue(kskvs_setString(store, key, value));
     XCTAssertEqual(stringHitsForKey(store, key), 1);
 
+    free(value);
     kskvs_destroy(store);
 }
 
@@ -182,14 +189,131 @@ static int stringHitsForKey(KSKeyValueStore *store, const char *key)
     KSKeyValueStore *store = kskvs_create(self.path.UTF8String, KSKVSModeReadWriteCreate, &config, NULL);
     XCTAssertTrue(store != NULL);
 
-    char value[258];
-    memset(value, 'v', sizeof(value) - 1);
-    value[sizeof(value) - 1] = '\0';  // 257 chars, one past maxStringLength
+    // One past the record format's 64KB value bound.
+    size_t valueLen = (size_t)UINT16_MAX + 1;
+    char *value = malloc(valueLen + 1);
+    memset(value, 'v', valueLen);
+    value[valueLen] = '\0';
 
     XCTAssertFalse(kskvs_setString(store, "k", value));
     XCTAssertEqual(stringHitsForKey(store, "k"), 0, @"the key holds nothing, not a shortened value");
 
+    free(value);
     kskvs_destroy(store);
+}
+
+static void collectJSON(const char *key, uint16_t keyLen, const char *json, uint16_t jsonLen, void *ctx)
+{
+    NSMutableDictionary *dict = (__bridge NSMutableDictionary *)ctx;
+    NSString *k = [[NSString alloc] initWithBytes:key length:keyLen encoding:NSUTF8StringEncoding];
+    NSString *v = [[NSString alloc] initWithBytes:json length:jsonLen encoding:NSUTF8StringEncoding];
+    if (k && v) {
+        dict[k] = v;
+    }
+}
+
+- (void)test_setJSON_roundTripsTheBytes_lastWriteWins
+{
+    KSKVSConfig config = [self config];
+    KSKeyValueStore *store = kskvs_create(self.path.UTF8String, KSKVSModeReadWriteCreate, &config, NULL);
+    XCTAssertTrue(store != NULL);
+
+    const char *first = "[1,2]";
+    const char *second = "{\"a\":[true,null]}";
+    XCTAssertTrue(kskvs_setJSON(store, "j", first, strlen(first)));
+    XCTAssertTrue(kskvs_setJSON(store, "j", second, strlen(second)));
+    XCTAssertFalse(kskvs_setJSON(store, "j", NULL, 0), @"no bytes is not a value");
+    kskvs_destroy(store);
+
+    KSKeyValueStore *reader = kskvs_create(self.path.UTF8String, KSKVSModeRead, NULL, NULL);
+    XCTAssertTrue(reader != NULL);
+    NSMutableDictionary *values = [NSMutableDictionary dictionary];
+    KSKVSCallbacks callbacks = { .onJSON = collectJSON };
+    kskvs_iterate(reader, &callbacks, (__bridge void *)values);
+    kskvs_destroy(reader);
+
+    XCTAssertEqualObjects(values, @{ @"j" : @(second) });
+}
+
+- (void)test_setJSON_acceptsOnlyContainers
+{
+    KSKVSConfig config = [self config];
+    KSKeyValueStore *store = kskvs_create(self.path.UTF8String, KSKVSModeReadWriteCreate, &config, NULL);
+    XCTAssertTrue(store != NULL);
+
+    // Scalars have native record types; JSON bytes must open a container.
+    const char *scalars[] = { "5", "\"s\"", "true", "null", "  " };
+    for (size_t i = 0; i < sizeof(scalars) / sizeof(scalars[0]); i++) {
+        XCTAssertFalse(kskvs_setJSON(store, "j", scalars[i], strlen(scalars[i])), @"%s", scalars[i]);
+    }
+    const char *padded = "  \n[1]";
+    XCTAssertTrue(kskvs_setJSON(store, "j", padded, strlen(padded)), @"leading whitespace is fine");
+
+    kskvs_destroy(store);
+}
+
+- (void)test_removeValue_tombstonesAJSONRecord
+{
+    KSKVSConfig config = [self config];
+    KSKeyValueStore *store = kskvs_create(self.path.UTF8String, KSKVSModeReadWriteCreate, &config, NULL);
+    XCTAssertTrue(store != NULL);
+
+    const char *json = "[1]";
+    XCTAssertTrue(kskvs_setJSON(store, "j", json, strlen(json)));
+    XCTAssertTrue(kskvs_removeValue(store, "j"));
+
+    __block BOOL removed = NO;
+    void (^onRemoved)(BOOL) = ^(BOOL isRemoved) {
+        removed = isRemoved;
+    };
+    KSKVSCallbacks callbacks = { .onString = lookupTestOnString, .onRemoved = lookupTestOnRemoved };
+    kskvs_lookup(store, "j", &callbacks, (__bridge void *)onRemoved);
+    XCTAssertTrue(removed);
+    kskvs_destroy(store);
+}
+
+- (void)test_unknownRecordType_isSkipped_notCorrupting
+{
+    // A future writer may add record types; an older reader must skip them
+    // by length and keep reading. Hand-build: header + one type-99 record +
+    // one string record.
+    struct __attribute__((packed)) {
+        uint32_t magic;
+        uint32_t version;
+        uint32_t offset;
+        // record 1: unknown type
+        uint16_t keyLen1;
+        uint8_t type1;
+        uint16_t valueLen1;
+        char body1[4];  // "zz" + "xy"
+        // record 2: string
+        uint16_t keyLen2;
+        uint8_t type2;
+        uint16_t valueLen2;
+        char body2[2];  // "k" + "v"
+    } image = {
+        .magic = 0x6B736B76u,
+        .version = 1,
+        .offset = sizeof(image),
+        .keyLen1 = 2,
+        .type1 = 99,
+        .valueLen1 = 2,
+        .body1 = { 'z', 'z', 'x', 'y' },
+        .keyLen2 = 1,
+        .type2 = 1,  // string
+        .valueLen2 = 1,
+        .body2 = { 'k', 'v' },
+    };
+    XCTAssertTrue([[NSData dataWithBytes:&image length:sizeof(image)] writeToFile:self.path atomically:YES]);
+
+    KSKeyValueStore *reader = kskvs_create(self.path.UTF8String, KSKVSModeRead, NULL, NULL);
+    XCTAssertTrue(reader != NULL);
+    NSMutableDictionary *strings = [NSMutableDictionary dictionary];
+    KSKVSCallbacks callbacks = { .onString = collectString };
+    kskvs_iterate(reader, &callbacks, (__bridge void *)strings);
+    kskvs_destroy(reader);
+
+    XCTAssertEqualObjects(strings, @{ @"k" : @"v" });
 }
 
 - (void)test_read_absentFile_reportsAbsent

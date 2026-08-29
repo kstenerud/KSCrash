@@ -220,6 +220,18 @@ extension Store {
             let date = Date(timeIntervalSince1970: Double(nanoseconds) / 1_000_000_000)
             MetadataBox.from(context).metadata.set(date, forKey: key)
         }
+        callbacks.onJSON = { key, keyLength, json, jsonLength, context in
+            guard let key = kvString(key, keyLength), let json else { return }
+            // The store does not validate JSON, so undecodable bytes (a torn
+            // or foreign record) drop that entry, matching the report stitch;
+            // so does anything but a container, the only JSON values.
+            let data = Data(bytes: json, count: Int(jsonLength))
+            guard let value = try? JSONDecoder().decode(MetadataValue.self, from: data) else { return }
+            switch value {
+            case .array, .object: MetadataBox.from(context).metadata.set(value, forKey: key)
+            default: break
+            }
+        }
         callbacks.onRemoved = { key, keyLength, context in
             guard let key = kvString(key, keyLength) else { return }
             MetadataBox.from(context).metadata.removeValue(forKey: key)

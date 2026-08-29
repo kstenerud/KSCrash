@@ -98,7 +98,7 @@ final class StoreTests: XCTestCase {
     private func writeUserInfo(runID: String, _ populate: (OpaquePointer) -> Void) throws {
         let directory = sidecarsDirectory.appendingPathComponent(testRunID(runID).description)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        var config = KSKVSConfig(initialCapacity: 4096, maxKeyLength: 256, maxStringLength: 1024)
+        var config = KSKVSConfig(initialCapacity: 4096)
         let store = kskvs_create(
             directory.appendingPathComponent(KSCRS_USERINFO_RUN_SIDECAR_FILENAME).path, KSKVSModeReadWriteCreate,
             &config, nil)
@@ -340,6 +340,10 @@ final class StoreTests: XCTestCase {
             kskvs_setDate(store, "when", 1_700_000_000_000_000_000)
             kskvs_setString(store, "gone", "x")
             kskvs_removeValue(store, "gone")
+            let tags = "[\"a\",\"b\"]"
+            _ = tags.withCString { kskvs_setJSON(store, "tags", $0, strlen($0)) }
+            let bad = "{broken"
+            _ = bad.withCString { kskvs_setJSON(store, "bad", $0, strlen($0)) }
         }
 
         let metadata = try XCTUnwrap(summary()?.metadata)
@@ -352,6 +356,8 @@ final class StoreTests: XCTestCase {
             try XCTUnwrap(metadata.value(forKey: "when", as: Date.self)).timeIntervalSince1970,
             1_700_000_000, accuracy: 0.001)
         XCTAssertFalse(metadata.contains("gone"))
+        XCTAssertEqual(metadata.value(forKey: "tags", as: [String].self), ["a", "b"])
+        XCTAssertFalse(metadata.contains("bad"), "undecodable JSON bytes drop the entry")
     }
 
     func test_summary_metadata_dateMatchesUserInfoDateConversion() throws {

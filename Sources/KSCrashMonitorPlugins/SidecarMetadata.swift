@@ -30,7 +30,8 @@ import KSCrashReportModel
 import KSCrashSwiftCore
 
 /// A `MetadataStore` over one run sidecar file: every write is persisted
-/// immediately and survives a crash. Scalars only. Not synchronized: the
+/// immediately and survives a crash. Scalars persist natively; arrays and
+/// dictionaries persist as one JSON value each. Not synchronized: the
 /// caller owns serialization of every access.
 ///
 /// Dates range from 1677-09-21 to 2262-04-11; assigning one outside that range
@@ -94,9 +95,19 @@ public final class SidecarMetadata: MetadataStore, @unchecked Sendable {
             case .bool(let value): checkAccepted(kskvs_setBool(store, key, value), key: key)
             case .null: checkAccepted(kskvs_removeValue(store, key), key: key)
             case .array, .object:
-                // Unreachable: no container type is MetadataValueRepresentable.
-                // TODO: containers as JSON-encoded values once the kvs supports variable-size records.
-                assertionFailure("scalars only for now; containers come with variable-size kvs values")
+                // Containers persist as one JSON value; the store records the
+                // bytes and every consumer parses them at read time. A shape
+                // JSON cannot carry (a non-finite number) is a refused write.
+                let encoded = try? JSONEncoder().encode(newValue.metadataValue)
+                guard let encoded else {
+                    checkAccepted(false, key: key)
+                    return
+                }
+                let accepted = encoded.withUnsafeBytes { buffer in
+                    kskvs_setJSON(
+                        store, key, buffer.baseAddress?.assumingMemoryBound(to: CChar.self), buffer.count)
+                }
+                checkAccepted(accepted, key: key)
             }
         }
     }
@@ -106,11 +117,13 @@ public final class SidecarMetadata: MetadataStore, @unchecked Sendable {
     }
 
     /// A refused write is loud in debug and silently dropped in release.
-    /// Usually a programmer error (key or value over the store's limits);
-    /// rarely the store failing to grow.
+    /// Usually a programmer error (a key or value past the record format's
+    /// 64KB bound, a non-finite number in a container); rarely the store
+    /// failing to grow.
     private func checkAccepted(_ accepted: Bool, key: String) {
         assert(
-            accepted, "metadata write failed for key \"\(key)\": over the store's limits, or the store could not grow")
+            accepted,
+            "metadata write failed for key \"\(key)\": past the record format's bound, or the store could not grow")
     }
 
     public var keys: [String] {
@@ -143,6 +156,10 @@ public final class SidecarMetadata: MetadataStore, @unchecked Sendable {
             Keys.from(context).names.insert(key)
         }
         callbacks.onDate = { key, keyLength, _, context in
+            guard let key = kvString(key, keyLength) else { return }
+            Keys.from(context).names.insert(key)
+        }
+        callbacks.onJSON = { key, keyLength, _, _, context in
             guard let key = kvString(key, keyLength) else { return }
             Keys.from(context).names.insert(key)
         }
@@ -183,6 +200,18 @@ public final class SidecarMetadata: MetadataStore, @unchecked Sendable {
         callbacks.onDate = { _, _, nanoseconds, context in
             // Date.decode reads seconds since 1970, the model's date representation.
             Lookup.from(context).value = .double(Double(nanoseconds) / Double(NSEC_PER_SEC))
+        }
+        callbacks.onJSON = { _, _, json, jsonLength, context in
+            guard let json else { return }
+            // The store does not validate JSON, so undecodable bytes (a torn
+            // or foreign record) are absence, never a trap; so is anything
+            // that decodes but is not a container, the only JSON values.
+            let data = Data(bytes: json, count: Int(jsonLength))
+            guard let value = try? JSONDecoder().decode(MetadataValue.self, from: data) else { return }
+            switch value {
+            case .array, .object: Lookup.from(context).value = value
+            default: break
+            }
         }
         kskvs_lookup(store, key, &callbacks, Unmanaged.passUnretained(lookup).toOpaque())
         return lookup.value
