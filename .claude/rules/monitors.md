@@ -45,7 +45,7 @@ See `.claude/rules/swift-monitors.md` for the Swift monitor layer.
 | Monitor | ID | Module | Detects | postSystemEnable |
 |---|---|---|---|---|
 | DiskMonitor | `"DiscSpace"` | KSCrashDiskMonitor | Storage and free space, fed into the System run sidecar at enable and every 60s; free space refreshed at event time by a C hook; SystemStitch delivers | No |
-| BootMonitor | `"BootTime"` | KSCrashBootMonitor | Boot time, recorded once at enable and stitched into `system` at delivery | No |
+| BootMonitor | `"BootTime"` | KSCrashBootMonitor | Boot time, recorded once into the System run sidecar (post-monitors-enabled); SystemStitch delivers | No |
 | MetricKit | `"MetricKit"` | Monitors | Apple MetricKit diagnostics (async, hours/days post-crash). Built on the Swift monitor layer (`.claude/rules/swift-monitors.md`). | Yes |
 | Profiler | `"profile"` (the id doubles as the report's `crash.error.type` and section key; never rename) | KSCrashProfiler | Sampling profiler (thread backtraces at intervals) | No |
 | Corpse | `"Corpse"` | Monitors | Other processes' corpses, in an out-of-process crash reporter (iOS 27 CrashReportExtension). Not registered via `plugins`: `KSCrash.installForExtensionReporting(with:)` registers it and `KSCrash.captureCrashReport` drives it. Built on the Swift monitor layer (`.claude/rules/swift-monitors.md`). | No (never fires in extension mode) |

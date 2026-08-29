@@ -61,7 +61,8 @@ final class KSCrashInstallTests: XCTestCase {
     /// from the same constants; this pins them to each other.
     func test_locations_matchTheCStoresPaths() throws {
         let locations = try TestInstall.configuration.locations
-        XCTAssertEqual(String(cString: kscrash_getReportsPath()), locations.reports.path)
+        let storeConfig = try XCTUnwrap(kscrash_getReportStoreConfiguration())
+        XCTAssertEqual(String(cString: storeConfig.pointee.reportsPath), locations.reports.path)
         XCTAssertEqual(String(cString: kscrash_getRunSummariesPath()), locations.runs.path)
         XCTAssertEqual(String(cString: kscrash_getRunSidecarsPath()), locations.runSidecars.path)
         let store = kscrash_getReportStoreConfiguration().pointee
@@ -92,8 +93,6 @@ final class KSCrashInstallTests: XCTestCase {
 
     func test_installedPlugin_returnsTheRegisteredOne() {
         XCTAssertTrue(KSCrash.shared.installedPlugin(TestInstall.Plugin.self) === TestInstall.plugin)
-        // The shared install registers the disk and boot sidecar plugins.
-        XCTAssertNotNil(KSCrash.shared.installedPlugin(SidecarMetadataMonitorPlugin.self))
         XCTAssertNil(KSCrash.shared.installedPlugin(NeverRegistered.self))
     }
 
