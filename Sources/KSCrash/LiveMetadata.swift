@@ -39,12 +39,8 @@ import os
 /// Dates range from 1677-09-21 to 2262-04-11; assigning one outside that range
 /// removes the key instead of storing it.
 public final class LiveMetadata: MetadataStore, Sendable {
-    /// The store's shapes. Readers need no configuration, so these bound only
-    /// what a writer accepts; a write with a longer key or string is rejected.
     private enum StoreLimits {
         static let initialCapacity: UInt32 = 4096
-        static let maxKeyLength: UInt16 = 256
-        static let maxStringLength: UInt16 = 1024
     }
 
     private struct State {
@@ -69,10 +65,7 @@ public final class LiveMetadata: MetadataStore, Sendable {
     func attach(path: String) throws {
         try state.withLock { state in
             guard state.store == nil else { return }
-            let config = KSKVSConfig(
-                initialCapacity: StoreLimits.initialCapacity,
-                maxKeyLength: StoreLimits.maxKeyLength,
-                maxStringLength: StoreLimits.maxStringLength)
+            let config = KSKVSConfig(initialCapacity: StoreLimits.initialCapacity)
             do {
                 state.store = try SidecarMetadata.creating(at: path, config: config)
                 state.unavailableReason = nil

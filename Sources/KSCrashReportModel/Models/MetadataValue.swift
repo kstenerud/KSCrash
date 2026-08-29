@@ -231,6 +231,33 @@ extension Double: MetadataValueDecodable {
     }
 }
 
+extension MetadataValue: MetadataValueDecodable {
+    public static func decode(from value: MetadataValue) -> MetadataValue? { value }
+}
+extension Array: MetadataValueDecodable where Element: MetadataValueDecodable {
+    /// nil unless the value is an array whose every element reads as `Element`;
+    /// typed reads are exact, never partial.
+    public static func decode(from value: MetadataValue) -> [Element]? {
+        guard case .array(let values) = value else { return nil }
+        let elements = values.compactMap(Element.decode(from:))
+        return elements.count == values.count ? elements : nil
+    }
+}
+extension Dictionary: MetadataValueDecodable where Key == String, Value: MetadataValueDecodable {
+    /// nil unless the value is an object whose every value reads as `Value`;
+    /// typed reads are exact, never partial.
+    public static func decode(from value: MetadataValue) -> [String: Value]? {
+        guard case .object(let values) = value else { return nil }
+        var decoded: [String: Value] = [:]
+        decoded.reserveCapacity(values.count)
+        for (key, element) in values {
+            guard let element = Value.decode(from: element) else { return nil }
+            decoded[key] = element
+        }
+        return decoded
+    }
+}
+
 extension String: MetadataValueRepresentable {}
 extension Bool: MetadataValueRepresentable {}
 extension Int: MetadataValueRepresentable {}
@@ -238,3 +265,7 @@ extension Int64: MetadataValueRepresentable {}
 extension UInt64: MetadataValueRepresentable {}
 extension Double: MetadataValueRepresentable {}
 extension Date: MetadataValueRepresentable {}
+/// The heterogeneous escape hatch: any JSON shape stores and reads as itself.
+extension MetadataValue: MetadataValueRepresentable {}
+extension Array: MetadataValueRepresentable where Element: MetadataValueRepresentable {}
+extension Dictionary: MetadataValueRepresentable where Key == String, Value: MetadataValueRepresentable {}

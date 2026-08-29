@@ -25,6 +25,7 @@
 //
 
 #import "KSCrashMonitor_UserInfo.h"
+#import "KSJSONCodecObjC.h"
 #import "KSKeyValueStore.h"
 
 #import "KSCrashReportFields.h"
@@ -94,6 +95,23 @@ static void onDate(const char *key, uint16_t keyLen, int64_t nanosecondsSince197
     }
 }
 
+static void onJSON(const char *key, uint16_t keyLen, const char *json, uint16_t jsonLen, void *ctx)
+{
+    NSMutableDictionary *dict = (__bridge NSMutableDictionary *)ctx;
+    NSString *nsKey = [[NSString alloc] initWithBytes:key length:keyLen encoding:NSUTF8StringEncoding];
+    if (nsKey == nil) {
+        return;
+    }
+    // The store does not validate JSON, so undecodable bytes (a torn or
+    // foreign record) are absence, never a delivery failure; so is anything
+    // but a container, the only JSON values.
+    NSData *data = [NSData dataWithBytesNoCopy:(void *)json length:jsonLen freeWhenDone:NO];
+    id value = [KSJSONCodec decode:data options:KSJSONDecodeOptionNone error:nil];
+    if ([value isKindOfClass:[NSArray class]] || [value isKindOfClass:[NSDictionary class]]) {
+        dict[nsKey] = value;
+    }
+}
+
 // ============================================================================
 #pragma mark - Tombstone Callback -
 // ============================================================================
@@ -142,6 +160,7 @@ CFDictionaryRef kscm_userinfo_createStitchedReport(CFDictionaryRef reportDict, c
         .onDouble = onDouble,
         .onBool = onBool,
         .onDate = onDate,
+        .onJSON = onJSON,
         .onRemoved = onRemoved,
     };
     kskvs_iterate(store, &callbacks, (__bridge void *)userSection);
