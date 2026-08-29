@@ -76,15 +76,11 @@ final class KSCrashRuntimeTests: XCTestCase {
     }
 
     func test_registeredCMonitorPlugins_populateTheSystemFields() throws {
-        let reportsDirectory = try TestInstall.configuration.locations.reports
-        let before = Set(try Store.listReportIDs(in: reportsDirectory))
+        let before = try Set(Store.listReportIDs(in: TestInstall.configuration.locations.reports))
         KSCrash.shared.reportException(
             "PluginFields", reason: nil, language: nil, lineOfCode: nil, stackTrace: nil,
             logAllThreads: false, terminateProgram: false)
-        let added = Set(try Store.listReportIDs(in: reportsDirectory)).subtracting(before)
-        let id = try XCTUnwrap(added.first)
-        let store = try XCTUnwrap(KSCrash.makeStore())
-        let report = try XCTUnwrap(store.report(id))
+        let report = try XCTUnwrap(addedUserReports(named: "PluginFields", notIn: before).first)
         // The shared install registers the DiscSpace and BootTime plugins.
         XCTAssertNotNil(report.system?.storage)
         XCTAssertNotNil(report.system?.freeStorage)
@@ -101,12 +97,22 @@ final class KSCrashRuntimeTests: XCTestCase {
     }
 
     func test_reportException_writesAReport() throws {
-        let reportsDirectory = try TestInstall.configuration.locations.reports
-        let before = try Store.listReportIDs(in: reportsDirectory)
+        let before = try Set(Store.listReportIDs(in: TestInstall.configuration.locations.reports))
         KSCrash.shared.reportException(
             "TestException", reason: "on purpose", language: "swift", lineOfCode: nil,
             stackTrace: ["frame one", "frame two"], logAllThreads: false, terminateProgram: false)
-        let after = try Store.listReportIDs(in: reportsDirectory)
-        XCTAssertEqual(after.count, before.count + 1)
+        XCTAssertEqual(try addedUserReports(named: "TestException", notIn: before).count, 1)
+    }
+
+    /// The new user reports carrying `name`, picked out by content: the
+    /// watchdog writes and deletes transient hang reports on its own thread
+    /// whenever the main thread stalls past its threshold, so directory
+    /// counts and arbitrary picks from the added set are not stable.
+    private func addedUserReports(named name: String, notIn before: Set<Report.ID>) throws -> [Report] {
+        let reportsDirectory = try TestInstall.configuration.locations.reports
+        let store = try XCTUnwrap(KSCrash.makeStore())
+        let added = Set(try Store.listReportIDs(in: reportsDirectory)).subtracting(before)
+        return added.compactMap { try? store.report($0) }
+            .filter { $0.crash.error.userReported?.name == name }
     }
 }
