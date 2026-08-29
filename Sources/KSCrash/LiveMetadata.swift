@@ -29,6 +29,7 @@ import KSCrashMonitorPlugins
 import KSCrashRecordingCore
 import KSCrashReportModel
 import KSCrashSwiftCore
+import os
 
 /// The run's metadata as the crash reporter records it: values set here are
 /// attached to the run's reports and run summary when they are delivered.
@@ -95,11 +96,32 @@ public final class LiveMetadata: MetadataStore, Sendable {
     // caller-synchronized, and this lock is its synchronization.
     public subscript<Value: MetadataValueRepresentable>(key: String) -> Value? {
         get { state.withLock { $0.store?[key] } }
-        set { state.withLock { $0.store?[key] = newValue } }
+        set {
+            state.withLock { state in
+                guard let store = state.store else {
+                    return notedDroppedWrite(unavailableReason: state.unavailableReason, key: key)
+                }
+                store[key] = newValue
+            }
+        }
     }
 
     public func removeValue(forKey key: String) {
-        state.withLock { $0.store?.removeValue(forKey: key) }
+        state.withLock { state in
+            guard let store = state.store else {
+                return notedDroppedWrite(unavailableReason: state.unavailableReason, key: key)
+            }
+            store.removeValue(forKey: key)
+        }
+    }
+
+    /// A write with no store: loud in debug when the cause is calling before
+    /// install (a programmer error); quiet when install degraded, which
+    /// `unavailableReason` already records.
+    private func notedDroppedWrite(unavailableReason: InstallError?, key: String) {
+        guard unavailableReason == nil else { return }
+        os_log(.error, "Metadata write for key \"%{public}@\" dropped: not installed yet", key)
+        assertionFailure("metadata write for key \"\(key)\" before install; the value is dropped")
     }
 
     public var keys: [String] {
