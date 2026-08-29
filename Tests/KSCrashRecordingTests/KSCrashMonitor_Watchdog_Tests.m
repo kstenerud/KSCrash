@@ -30,6 +30,7 @@
 #import "KSCrashHang.h"
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitor_Watchdog.h"
+#import "KSHangEvent.h"
 
 // Stub callbacks for testing hang detection
 static KSCrash_MonitorContext g_stubContext;

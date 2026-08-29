@@ -26,6 +26,7 @@
 
 import Foundation
 import KSCrashRecording
+import KSCrashRecordingCore
 import KSCrashSwiftCore
 
 /// One change in the main thread's hang state, as the hang monitor sees it.

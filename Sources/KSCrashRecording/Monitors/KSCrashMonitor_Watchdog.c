@@ -52,6 +52,7 @@
 #include "KSDebug.h"
 #include "KSFileUtils.h"
 #include "KSHang.h"
+#include "KSHangEvent.h"
 #include "KSID.h"
 #include "KSLogger.h"
 #include "KSMachineContext.h"
@@ -63,7 +64,7 @@
 #pragma mark - Constants -
 // ============================================================================
 
-// Apple's definition of a "hang" — see KSCrashMonitor_Watchdog.h.
+// Apple's definition of a "hang" (see KSCrashMonitor_Watchdog.h).
 #define KSHANG_THRESHOLD_SECONDS 0.250
 
 // ============================================================================
@@ -74,21 +75,21 @@
 // ---------------------
 // The watchdog monitor uses two threads and two run loops:
 //
-//   1. **Main thread / main run loop** — A CFRunLoopObserver watches for
+//   1. **Main thread / main run loop**: A CFRunLoopObserver watches for
 //      kCFRunLoopAfterWaiting (the run loop woke up and is about to process
 //      work) and kCFRunLoopBeforeWaiting (finished processing, going idle).
 //
-//   2. **Watchdog thread / watchdog run loop** — A dedicated high-priority
+//   2. **Watchdog thread / watchdog run loop**: A dedicated high-priority
 //      pthread that runs its own CFRunLoop.  A repeating CFRunLoopTimer on
 //      this run loop fires every `threshold` seconds to check whether the
 //      main thread is still blocked.
 //
 // The two threads communicate through:
-//   - `enterTime` (_Atomic uint64_t) — written by the main thread when the
+//   - `enterTime` (_Atomic uint64_t): written by the main thread when the
 //     run loop wakes, read by the watchdog timer to measure elapsed time.
 //     Uses relaxed ordering because it is a standalone timing value with no
 //     dependencies on other memory operations.
-//   - `lock` (os_unfair_lock) — protects the mutable `hang` state and sidecar
+//   - `lock` (os_unfair_lock): protects the mutable `hang` state and sidecar
 //     pointer.  Held only briefly for reads/writes of these fields; never
 //     held during I/O or hang event dispatch.
 //
@@ -140,12 +141,12 @@ typedef struct KSHangMonitor {
 
     // Protects: hang, sidecar, sidecarPath.
     // IMPORTANT: never hold this during I/O, report writing, or hang event
-    // dispatch — the watchdog timer fires every 250ms and must not stall.
+    // dispatch, because the watchdog timer fires every 250ms and must not stall.
     os_unfair_lock lock;
     KSHangState hang;
 
     // Written by main thread (mainRunLoopActivity), read by watchdog thread
-    // (watchdogTimerFired).  Relaxed ordering is fine — this is a standalone
+    // (watchdogTimerFired).  Relaxed ordering is fine, as this is a standalone
     // timing value with no publish/consume relationship to other fields.
     _Atomic uint64_t enterTime;
 
@@ -159,9 +160,6 @@ typedef struct KSHangMonitor {
 // ============================================================================
 
 static atomic_bool g_isEnabled = false;
-// The single process-wide event consumer; set once, never cleared, so
-// dispatch never races a teardown. Release/acquire pairs the set with use.
-static KSHangEventCallback _Atomic g_hangEventCallback = NULL;
 static atomic_bool g_reportsHangs = false;
 static KSHangMonitor *g_watchdog = NULL;
 static KSCrash_ExceptionHandlerCallbacks g_callbacks = { 0 };
@@ -235,10 +233,7 @@ static void notifyHangChange(KSHangChangeType change, uint64_t start, uint64_t n
     if (change != KSHangChangeTypeUpdated) {
         kslifecycle_noteHangChange(change == KSHangChangeTypeStarted);
     }
-    KSHangEventCallback callback = atomic_load_explicit(&g_hangEventCallback, memory_order_acquire);
-    if (callback != NULL) {
-        callback(change, start, now);
-    }
+    kshang_fireHangEvent(change, start, now);
 }
 
 // ============================================================================
@@ -255,7 +250,7 @@ static void populateReportForCurrentHang(KSHangMonitor *monitor)
 
     // Snapshot the hang state and freeze all threads while holding the lock.
     // Taking the lock first guarantees the main thread is not holding it when
-    // suspended — if it's in mainRunLoopActivity, we block until it releases.
+    // suspended: if it's in mainRunLoopActivity, we block until it releases.
     // notify() will call ksmc_suspendEnvironment again (incrementing each
     // thread's suspend count to 2) and its matching ksmc_resumeEnvironment
     // drops it back to 1.  Our resume below drops it to 0.
@@ -439,9 +434,9 @@ static void watchdogTimerFired(CFRunLoopTimerRef timer, void *info)
     (void)timer;
     KSHangMonitor *monitor = (KSHangMonitor *)info;
 
-    // Load enterTime exactly once — a second load could see a newer value
-    // if the main thread briefly woke between the two reads, causing us to
-    // initialize the hang with the wrong start timestamp.
+    // Load enterTime exactly once, since a second load could see a newer
+    // value if the main thread briefly woke between the two reads, causing
+    // us to initialize the hang with the wrong start timestamp.
     uint64_t enter = atomic_load_explicit(&monitor->enterTime, memory_order_relaxed);
     uint64_t now = ksdate_uptimeNanoseconds();
     uint64_t hangTime = now - enter;
@@ -491,8 +486,8 @@ static void schedulePings(KSHangMonitor *monitor)
 }
 
 // Runs on the main thread.  Called for both BeforeWaiting (going idle) and
-// AfterWaiting (woke up).  We always cancel the previous timer first — the
-// timer lives on the watchdog run loop but CFRunLoopTimerInvalidate is
+// AfterWaiting (woke up).  We always cancel the previous timer first. The
+// timer lives on the watchdog run loop, but CFRunLoopTimerInvalidate is
 // thread-safe and removes it from all run loops it was added to.
 static void mainRunLoopActivity(CFRunLoopObserverRef obs, CFRunLoopActivity activity, void *info)
 {
@@ -576,7 +571,7 @@ static void *watchdog_thread_main(void *arg)
 
     CFRunLoopRun();
 
-    // Read selfFreeOnExit before signaling — once we signal, watchdog_destroy
+    // Read selfFreeOnExit before signaling. Once we signal, watchdog_destroy
     // may free the monitor immediately, so we must not touch it after.
     bool shouldSelfFree = atomic_load_explicit(&monitor->selfFreeOnExit, memory_order_acquire);
     dispatch_semaphore_signal(monitor->threadExitSemaphore);
@@ -696,11 +691,6 @@ static void watchdog_destroy(KSHangMonitor *monitor)
 
 bool kshang_isEnabled(void) { return g_isEnabled; }
 
-KSHangEventCallback kshang_setHangEventCallback(KSHangEventCallback callback)
-{
-    return atomic_exchange_explicit(&g_hangEventCallback, callback, memory_order_acq_rel);
-}
-
 // ============================================================================
 #pragma mark - Monitor API -
 // ============================================================================
@@ -765,7 +755,7 @@ static void addContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext
         return;
     }
 
-    // Delete the incomplete hang report — the fatal crash supersedes it.
+    // Delete the incomplete hang report, the fatal crash supersedes it.
     // Keep the run sidecar so the crash report gets hang context at stitch time.
     if (monitor->hang.path[0] != '\0') {
         unlink(monitor->hang.path);
