@@ -54,8 +54,9 @@ extension KSCrash {
     /// Record the active user; nil clears it. A session boundary: reports and
     /// run summaries attribute what follows to this user.
     ///
-    /// No effect before install. An id longer than the session record's
-    /// limit is truncated on a character boundary, so every artifact
+    /// Requires install: called earlier it traps in debug as a misuse
+    /// signal, and drops the value in release. An id longer than the session
+    /// record's limit is truncated on a character boundary, so every artifact
     /// (reports, run summaries, sessions) carries the identical value.
     public func setUserID(_ userID: String?) {
         let userID = Self.truncatedUserID(userID)
@@ -66,17 +67,15 @@ extension KSCrash {
     }
 
     /// The longest prefix that fits the session record's user field as valid
-    /// UTF-8. Truncating here, before the sinks, is what keeps the metadata
-    /// store (reject-over-limit) and the session writer (truncate-over-limit)
-    /// in agreement.
+    /// UTF-8, cut by the session store's own rule so the metadata store
+    /// (reject-over-limit) and the session writer (truncate-over-limit)
+    /// always agree.
     private static func truncatedUserID(_ userID: String?) -> String? {
-        let maxBytes = Int(KSSESSION_MAX_USER_LENGTH) - 1
-        guard let userID, userID.utf8.count > maxBytes else { return userID }
-        var bytes = Data(userID.utf8.prefix(maxBytes))
-        while !bytes.isEmpty, String(data: bytes, encoding: .utf8) == nil {
-            bytes.removeLast()
-        }
-        return String(data: bytes, encoding: .utf8)
+        guard let userID else { return nil }
+        guard userID.utf8.count >= Int(KSSESSION_MAX_USER_LENGTH) else { return userID }
+        var buffer = [CChar](repeating: 0, count: Int(KSSESSION_MAX_USER_LENGTH))
+        userID.withCString { kssession_copyUtf8Truncated(&buffer, $0, buffer.count) }
+        return String(cString: buffer)
     }
 
     /// Report a custom exception, as user-reported crash reports do.

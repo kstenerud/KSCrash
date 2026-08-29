@@ -212,7 +212,7 @@ KSSessionWriter *kssw_open(const char *path)
  *  boundary so a multibyte character is never split. Assumes valid UTF-8 input;
  *  a character straddling the limit (e.g. an emoji) is dropped whole, so the
  *  reader never hands the JSON send path malformed UTF-8. */
-static void copyUtf8Truncated(char *dst, const char *src, size_t dstSize)
+void kssession_copyUtf8Truncated(char *dst, const char *src, size_t dstSize)
 {
     if (dstSize == 0) {
         return;
@@ -281,7 +281,7 @@ const char *kssw_update(KSSessionWriter *writer, bool perceptible, const char *u
     // truncated value; a userID longer than the buffer must not re-cut a session
     // on every update.
     char user[KSSESSION_MAX_USER_LENGTH];
-    copyUtf8Truncated(user, (userID != NULL) ? userID : "", sizeof(user));
+    kssession_copyUtf8Truncated(user, (userID != NULL) ? userID : "", sizeof(user));
     return reconcileSession(writer, perceptible, user);
 }
 
@@ -294,7 +294,7 @@ const char *kssw_updateUser(KSSessionWriter *writer, const char *userID)
     // why the caller never has to fetch perceptibility (and so can't read a stale
     // value that races a concurrent perceptibility change).
     char user[KSSESSION_MAX_USER_LENGTH];
-    copyUtf8Truncated(user, (userID != NULL) ? userID : "", sizeof(user));
+    kssession_copyUtf8Truncated(user, (userID != NULL) ? userID : "", sizeof(user));
     return reconcileSession(writer, writer->openPerceptible, user);
 }
 

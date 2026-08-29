@@ -48,6 +48,7 @@
 #define HDR_KSSessionStore_h
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <uuid/uuid.h>
 
@@ -59,6 +60,12 @@ extern "C" {
 
 /** Max stored userID length (including NUL). Longer ids are truncated. */
 #define KSSESSION_MAX_USER_LENGTH 128
+
+/** Copies `src` into `dst` (`dstSize` bytes), truncating to the longest
+ *  prefix that is valid UTF-8: a character straddling the limit is dropped
+ *  whole. The one truncation rule for user ids: every sink must agree.
+ */
+void kssession_copyUtf8Truncated(char *dst, const char *src, size_t dstSize);
 
 typedef struct KSSessionWriter KSSessionWriter;
 typedef struct KSSessionReader KSSessionReader;
