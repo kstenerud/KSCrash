@@ -48,9 +48,4 @@ public final class AtomicFlag {
         get { ksatomicflag_get(cell) }
         set { ksatomicflag_set(cell, newValue) }
     }
-
-    /// Sets the flag and returns its previous value.
-    public func exchange(_ newValue: Bool) -> Bool {
-        ksatomicflag_exchange(cell, newValue)
-    }
 }

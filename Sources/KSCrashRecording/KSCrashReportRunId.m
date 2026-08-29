@@ -60,7 +60,8 @@ typedef struct {
 static int onRunIdString(const char *name, const char *value, void *userData)
 {
     RunIdSearchContext *ctx = (RunIdSearchContext *)userData;
-    if (ctx->inReport && ctx->nesting == 0 && name != NULL && strcmp(name, ctx->field) == 0) {
+    // The bound comes from our own field literal, not the examined input.
+    if (ctx->inReport && ctx->nesting == 0 && name != NULL && strncmp(name, ctx->field, strlen(ctx->field) + 1) == 0) {
         size_t len = strlen(value);
         if (len == KSCRS_UUID_STRING_LENGTH && len < ctx->runIdOutLen) {
             uuid_t unused;
