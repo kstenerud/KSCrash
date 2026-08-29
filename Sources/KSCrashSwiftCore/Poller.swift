@@ -46,9 +46,12 @@ public final class Poller: @unchecked Sendable {
         guard interval > 0, interval.isFinite else { return nil }
         self.interval = interval
         // Apple's timer-tolerance guidance: at least 10% of the interval, so
-        // the system can coalesce wake-ups. Capped below Int.max: converting
-        // Double(Int.max) itself traps, it rounds one past the maximum.
-        self.leeway = leeway ?? .nanoseconds(Int(min(interval * 0.1 * Double(NSEC_PER_SEC), 9e18)))
+        // the system can coalesce wake-ups. Saturate at Int.max, whatever its
+        // width: Double(Int.max) rounds to one past the maximum on 64-bit, so
+        // any value at or above it is unconvertible, and on 32-bit Int
+        // (arm64_32 watches) that starts at intervals near 21 seconds.
+        let nanoseconds = interval * 0.1 * Double(NSEC_PER_SEC)
+        self.leeway = leeway ?? .nanoseconds(nanoseconds >= Double(Int.max) ? Int.max : Int(nanoseconds))
         self.queue = queue
         self.handler = handler
     }
