@@ -81,6 +81,9 @@ public final class SidecarMetadataMonitorPlugin: MonitorPlugin, @unchecked Senda
         api.pointee.monitorId = { context in
             context.map { SidecarMetadataMonitorPlugin.from($0).monitorID }
         }
+        // Plugins never count toward the registry's any-monitor-active
+        // gate: install success must not hinge on a plugin enabling.
+        api.pointee.monitorFlags = { _ in KSCrashMonitorFlagPlugin }
         api.pointee.setEnabled = { enabled, context in
             context.map { SidecarMetadataMonitorPlugin.from($0).setEnabled(enabled) }
         }
@@ -116,12 +119,12 @@ public final class SidecarMetadataMonitorPlugin: MonitorPlugin, @unchecked Senda
                 return
             }
             guard let provider = state.sidecarPathProvider else {
-                os_log(.error, "%{public}s cannot enable: no run sidecar path provider", String(cString: monitorID))
+                os_log(.error, "%{public}@ cannot enable: no run sidecar path provider", String(cString: monitorID))
                 return
             }
             var path = [CChar](repeating: 0, count: Int(KSFU_MAX_PATH_LENGTH))
             guard provider(monitorID, &path, path.count) else {
-                os_log(.error, "%{public}s cannot enable: no run sidecar path", String(cString: monitorID))
+                os_log(.error, "%{public}@ cannot enable: no run sidecar path", String(cString: monitorID))
                 return
             }
             let config = KSKVSConfig(initialCapacity: 512, maxKeyLength: 64, maxStringLength: 64)
@@ -130,7 +133,7 @@ public final class SidecarMetadataMonitorPlugin: MonitorPlugin, @unchecked Senda
                 store = try SidecarMetadata.creating(at: String(cString: path), config: config)
             } catch {
                 os_log(
-                    .error, "%{public}s cannot enable: sidecar store failed to open: %{public}@",
+                    .error, "%{public}@ cannot enable: sidecar store failed to open: %{public}@",
                     String(cString: monitorID), String(describing: error))
                 return
             }
@@ -144,7 +147,7 @@ public final class SidecarMetadataMonitorPlugin: MonitorPlugin, @unchecked Senda
                 } else {
                     // The enable-time sample above still stands; it just never refreshes.
                     os_log(
-                        .error, "%{public}s: no poller; recorded once at enable, never re-sampled",
+                        .error, "%{public}@: no poller; recorded once at enable, never re-sampled",
                         String(cString: monitorID))
                 }
             }
