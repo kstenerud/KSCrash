@@ -95,8 +95,13 @@ void kscrashreport_writeStandardReport(struct KSCrash_MonitorContext *const moni
  *                       The caller must fill this out before passing it in.
  *
  * @param path The file to write to.
+ *
+ * @param reportID The id to stamp into report.id: the rewritten file's
+ *                 identity, the id its filename already carries, never the
+ *                 recrash context's own event id.
  */
-void kscrashreport_writeRecrashReport(const struct KSCrash_MonitorContext *const monitorContext, const char *path);
+void kscrashreport_writeRecrashReport(const struct KSCrash_MonitorContext *const monitorContext, const char *path,
+                                      const char *reportID);
 
 #ifdef __cplusplus
 }
