@@ -756,9 +756,11 @@
 - (void)testCopyReportRunIDSurvivesATornReport
 {
     [self prepareReportStoreWithPathEnd:@"testCopyRunIDTorn"];
-    // Torn mid-write: the extraction stops at run_id, before the tear.
+    // Torn mid-write by a crash. The handler writes the file directly,
+    // unlike the user-report path, which rejects a payload that does not
+    // decode whole. The extraction stops at run_id, before the tear.
     NSString *reportID =
-        [self writeUserReportWithStringContents:
+        [self writeCrashReportWithStringContents:
                   @"{\"report\":{\"run_id\":\"0155a1e2-d4c3-4b6a-9c8d-1234567890ab\"},\"crash\":{\"threads\":"];
 
     char *runID = kscrs_copyReportRunID(reportID.UTF8String, &_storeConfig);
@@ -840,6 +842,17 @@
     XCTAssertTrue(strstr(report, "0badc0de-dead-beef-f00d-0123456789ab") != NULL);
     XCTAssertTrue(strstr(report, "0BADC0DE-DEAD-BEEF-F00D-0123456789AB") == NULL);
     free(report);
+}
+
+- (void)testAddUserReportRejectsATruncatedPayload
+{
+    [self prepareReportStoreWithPathEnd:@"testTruncatedPayload"];
+    // No report.id, so the store must inject one. A payload that does not
+    // decode whole fails the add rather than storing its re-encoded prefix.
+    NSString *json = @"{\"report\":{},\"user\":{\"a\":\"b\"},\"crash\":{\"error\"";
+    char reportIDBuffer[KSID_SIZE];
+    XCTAssertFalse(kscrs_addUserReport(json.UTF8String, (int)json.length, &_storeConfig, reportIDBuffer));
+    XCTAssertEqual(kscrs_getReportCount(&_storeConfig), 0);
 }
 
 - (void)testReadReportWithReportSectionAsString
