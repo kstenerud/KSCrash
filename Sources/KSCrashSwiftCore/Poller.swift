@@ -43,7 +43,9 @@ public final class Poller: @unchecked Sendable {
         every interval: TimeInterval, leeway: DispatchTimeInterval? = nil,
         queue: DispatchQueue, handler: @escaping @Sendable () -> Void
     ) {
-        guard interval > 0, interval.isFinite else { return nil }
+        // The upper bound is the timer's own arithmetic: scheduling converts
+        // the interval to Int64 nanoseconds and traps past that (~292 years).
+        guard interval > 0, interval.isFinite, interval * Double(NSEC_PER_SEC) < Double(Int64.max) else { return nil }
         self.interval = interval
         // Apple's timer-tolerance guidance: at least 10% of the interval, so
         // the system can coalesce wake-ups. Saturate at Int.max, whatever its

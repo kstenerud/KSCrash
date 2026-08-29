@@ -46,9 +46,15 @@ final class Poller_Tests: XCTestCase {
         poller.stop()
     }
 
-    func test_hugeFiniteInterval_isAccepted_withoutTrapping() {
-        // The leeway conversion must stay total for any finite interval.
-        XCTAssertNotNil(Poller(every: .greatestFiniteMagnitude, queue: queue) {})
+    func test_hugeInterval_isBoundedByTheTimersArithmetic() throws {
+        // Scheduling converts the interval to Int64 nanoseconds. An interval
+        // past that must surface as absence from the init, never as a trap
+        // inside start().
+        XCTAssertNil(Poller(every: .greatestFiniteMagnitude, queue: queue) {})
+        XCTAssertNil(Poller(every: 1e12, queue: queue) {})
+        let poller = try XCTUnwrap(Poller(every: 1e9, queue: queue) {})
+        poller.start()
+        poller.stop()
     }
 
     func test_minuteScaleInterval_isAccepted_withoutTrapping() {
