@@ -47,10 +47,14 @@ public enum BootMonitor {
             },
             poller: nil,
             stitch: { values, system in
-                guard let seconds: UInt64 = values[bootTimeKey] else { return }
+                // A torn sidecar can hold any bytes; an unconvertible value is
+                // absence, never a trap.
+                guard let seconds: UInt64 = values[bootTimeKey], let timestamp = time_t(exactly: seconds) else {
+                    return
+                }
                 // The same wall-clock string the system stitch writes for boot_time.
                 var buffer = [CChar](repeating: 0, count: Int(KSDATE_BUFFERSIZE))
-                ksdate_utcStringFromTimestamp(time_t(seconds), &buffer, buffer.count)
+                ksdate_utcStringFromTimestamp(timestamp, &buffer, buffer.count)
                 system[CrashField.bootTime.rawValue] = String(cString: buffer)
             })
     }

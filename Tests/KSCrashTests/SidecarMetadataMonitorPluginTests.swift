@@ -122,6 +122,20 @@ final class SidecarMetadataMonitorPluginTests: XCTestCase {
         XCTAssertFalse(bootTime.isEmpty)
     }
 
+    func test_corruptBootTimeSidecar_deliversTheReportUntouched() throws {
+        // A torn sidecar can hold any bytes; a value past Int64.max must
+        // read as absence at delivery, never trap the send.
+        let path = directory.appendingPathComponent("BootTime.ksscr").path
+        var config = KSKVSConfig(initialCapacity: 512, maxKeyLength: 64, maxStringLength: 64)
+        let store = try XCTUnwrap(kskvs_create(path, KSKVSModeReadWriteCreate, &config, nil))
+        XCTAssertTrue(kskvs_setUInt64(store, "com.kscrash.boot.time", UInt64.max))
+        kskvs_destroy(store)
+
+        let plugin = BootMonitor.plugin()
+        let report = try XCTUnwrap(stitched(plugin, monitorID: "BootTime", report: [:]))
+        XCTAssertNil((report["system"] as? NSDictionary)?["boot_time"])
+    }
+
     func test_absentSidecar_deliversTheReportUntouched() throws {
         let plugin = BootMonitor.plugin()
         let report = try XCTUnwrap(stitched(plugin, monitorID: "BootTime", report: ["report": ["id": "x"]]))
