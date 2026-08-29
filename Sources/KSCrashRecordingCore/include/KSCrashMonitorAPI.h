@@ -43,6 +43,23 @@ extern "C" {
  */
 #define KSCRASH_MONITOR_ID_UNSET "unset"
 
+/** The longest monitor id the framework compares against, including the NUL. */
+#define KSCRASH_MONITOR_ID_MAX_LENGTH 64
+
+/** Every callback the core invokes without a NULL check, as one list shared by
+ * kscma_hasRequiredCallbacks and the registry's registration asserts.
+ * notifyPostMonitorsEnabled is deliberately absent: it is the one callback
+ * NULL-checked at its call site.
+ */
+#define KSCRASH_MONITOR_REQUIRED_CALLBACKS(X) \
+    X(init)                                   \
+    X(monitorId)                              \
+    X(monitorFlags)                           \
+    X(setEnabled)                             \
+    X(isEnabled)                              \
+    X(addContextualInfoToEvent)               \
+    X(notifyPostSystemEnable)
+
 /** Scope of a sidecar file being stitched into a report. */
 typedef CF_CLOSED_ENUM(int, KSCrashSidecarScope) {
     /** Per-report sidecar: one file per report, stored in Sidecars/<monitorId>/<reportID>.ksscr */
@@ -176,6 +193,12 @@ typedef struct KSCrashMonitorAPI {
  * @return true if api has been initialized (i.e. api->init was NULL before the call), false otherwise.
  */
 bool kscma_initAPI(KSCrashMonitorAPI *api);
+
+/** Whether every callback the core invokes without a NULL check is set.
+ * @param api The API to check.
+ * @return true when all required callbacks are non-NULL.
+ */
+bool kscma_hasRequiredCallbacks(const KSCrashMonitorAPI *api);
 
 #ifdef __cplusplus
 }

@@ -27,6 +27,7 @@
 import Foundation
 import KSCrashMonitorPlugins
 import KSCrashRecording
+import KSCrashRecordingCore
 
 /// Where an install keeps its files.
 public enum Container: Sendable, Equatable {
@@ -191,12 +192,10 @@ extension InstallConfiguration {
         var monitorIDs = Set<String>()
         for plugin in plugins {
             let api = plugin.api.pointee
-            // Everything the core invokes without a NULL check; mirrors the
-            // registry's registration asserts, which vanish in release.
-            guard api.`init` != nil, api.monitorFlags != nil, api.setEnabled != nil, api.isEnabled != nil,
-                api.addContextualInfoToEvent != nil, api.notifyPostSystemEnable != nil,
-                let monitorId = api.monitorId
-            else {
+            // The one list of callbacks the core invokes without a NULL
+            // check. The registry's registration asserts vanish in release,
+            // so this throw is the release-mode enforcement.
+            guard kscma_hasRequiredCallbacks(plugin.api), let monitorId = api.monitorId else {
                 throw InstallError.invalidConfiguration("a plugin's monitor table is missing a required entry")
             }
             guard let idPointer = monitorId(api.context) else {
@@ -205,6 +204,12 @@ extension InstallConfiguration {
             let id = String(cString: idPointer)
             if id.isEmpty || !monitorIDs.insert(id).inserted {
                 throw InstallError.invalidConfiguration("plugin monitor ids must be non-empty and unique: \(id)")
+            }
+            if id == KSCRASH_MONITOR_ID_UNSET {
+                throw InstallError.invalidConfiguration("a plugin's monitor table must set a real monitor id")
+            }
+            if kscrash_isBuiltInMonitorID(id) {
+                throw InstallError.invalidConfiguration("plugin monitor id collides with a built-in monitor: \(id)")
             }
         }
     }
