@@ -123,7 +123,7 @@ static void trigger_user_swiftAsync(void) { integrationTestSwiftAsyncTrigger(); 
 + (void)trigger_nsException_user
 {
     kscrash_reportNSException([NSException exceptionWithName:@"Custom Exception" reason:@"Custom reason" userInfo:NULL],
-                              true);
+                              true, 0);
 }
 
 + (void)trigger_cpp_runtimeException

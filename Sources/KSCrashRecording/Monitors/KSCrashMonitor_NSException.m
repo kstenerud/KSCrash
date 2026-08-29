@@ -65,7 +65,7 @@ static bool isEnabled(__unused void *context) { return g_state.isEnabled && g_st
 // ============================================================================
 
 static KS_NOINLINE void initStackCursor(KSStackCursor *cursor, NSException *exception, uintptr_t **callstack,
-                                        BOOL isUserReported) KS_KEEP_FUNCTION_IN_STACKTRACE
+                                        BOOL isUserReported, int extraSkipFrames) KS_KEEP_FUNCTION_IN_STACKTRACE
 {
     // Use stacktrace from NSException if present,
     // otherwise use current thread (can happen for user-reported exceptions).
@@ -83,14 +83,15 @@ static KS_NOINLINE void initStackCursor(KSStackCursor *cursor, NSException *exce
          * 2. `handleException`
          * 3. `customNSExceptionReporter`
          * 4. `kscrash_reportNSException`
-         * 5. `KSCrash.reportException` (the Swift facade)
+         * plus extraSkipFrames for wrappers above the entry point (the Swift
+         * facade passes 1 for its own frame).
          *
          * Skip frames for caught exceptions (unlikely scenario):
          * 1. `initStackCursor`
          * 2. `handleException`
          * 3. `handleUncaughtException`
          */
-        int const skipFrames = isUserReported ? 5 : 3;
+        int const skipFrames = (isUserReported ? 4 : 3) + extraSkipFrames;
         kssc_initSelfThread(cursor, skipFrames);
     }
     KS_THWART_TAIL_CALL_OPTIMISATION
@@ -101,7 +102,7 @@ static KS_NOINLINE void initStackCursor(KSStackCursor *cursor, NSException *exce
  *
  * @param exception The exception that was raised.
  */
-static KS_NOINLINE void handleException(NSException *exception, BOOL isUserReported,
+static KS_NOINLINE void handleException(NSException *exception, BOOL isUserReported, int extraSkipFrames,
                                         BOOL logAllThreads) KS_KEEP_FUNCTION_IN_STACKTRACE
 {
     KSLOG_DEBUG(@"Trapped exception %@", exception);
@@ -117,14 +118,15 @@ static KS_NOINLINE void handleException(NSException *exception, BOOL isUserRepor
         // This uses ObjC, so it must happen before notify() enters async-safe mode.
         KSStackCursor exceptionCursor;
         uintptr_t *callstack = NULL;
-        initStackCursor(&exceptionCursor, exception, &callstack, isUserReported);
+        initStackCursor(&exceptionCursor, exception, &callstack, isUserReported, extraSkipFrames);
 
         // Capture the handler's actual call stack while we're still in the handler frame.
-        // User-reported skip 4: handleException + customNSExceptionReporter +
-        //   kscrash_reportNSException + the Swift facade's reportException.
+        // User-reported skip 3: handleException + customNSExceptionReporter +
+        //   kscrash_reportNSException, plus extraSkipFrames for wrappers
+        //   above the entry point.
         // Uncaught skip 2: handleException + handleUncaughtException
         KSStackCursor handlerCursor;
-        int const handlerSkipFrames = isUserReported ? 4 : 2;
+        int const handlerSkipFrames = (isUserReported ? 3 : 2) + extraSkipFrames;
         kssc_initSelfThread(&handlerCursor, handlerSkipFrames);
 
         KSLOG_DEBUG(@"Filling out context.");
@@ -175,15 +177,16 @@ static KS_NOINLINE void handleException(NSException *exception, BOOL isUserRepor
     KS_THWART_TAIL_CALL_OPTIMISATION
 }
 
-static void customNSExceptionReporter(NSException *exception, BOOL logAllThreads) KS_KEEP_FUNCTION_IN_STACKTRACE
+static void customNSExceptionReporter(NSException *exception, BOOL logAllThreads,
+                                      int extraSkipFrames) KS_KEEP_FUNCTION_IN_STACKTRACE
 {
-    handleException(exception, YES, logAllThreads);
+    handleException(exception, YES, extraSkipFrames, logAllThreads);
     KS_THWART_TAIL_CALL_OPTIMISATION
 }
 
 static void handleUncaughtException(NSException *exception) KS_KEEP_FUNCTION_IN_STACKTRACE
 {
-    handleException(exception, NO, YES);
+    handleException(exception, NO, 0, YES);
     KS_THWART_TAIL_CALL_OPTIMISATION
 }
 

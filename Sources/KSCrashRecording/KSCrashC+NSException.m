@@ -25,6 +25,7 @@
 //
 
 #import <Foundation/Foundation.h>
+#import <stdatomic.h>
 
 #import "KSCompilerDefines.h"
 #import "KSCrashC.h"
@@ -32,13 +33,14 @@
 #import "KSLogger.h"
 
 // The NSException monitor hands over its reporter when it is enabled; the
-// entry point below is the only consumer.
-static KSCrashCustomNSExceptionReporter *g_reporter;
+// entry point below is the only consumer. Written by monitor enable and read
+// from any reporting thread, so the handoff is an acquire/release atomic.
+static KSCrashCustomNSExceptionReporter *_Atomic g_reporter;
 
 static void onNSExceptionHandlingEnabled(__unused NSUncaughtExceptionHandler *uncaughtExceptionHandler,
                                          KSCrashCustomNSExceptionReporter *reporter)
 {
-    g_reporter = reporter;
+    atomic_store_explicit(&g_reporter, reporter, memory_order_release);
 }
 
 __attribute__((constructor)) static void kscrash_nsexception_register(void)
@@ -46,12 +48,14 @@ __attribute__((constructor)) static void kscrash_nsexception_register(void)
     kscm_nsexception_setOnEnabledHandler(onNSExceptionHandlingEnabled);
 }
 
-void kscrash_reportNSException(NSException *exception, bool logAllThreads) KS_KEEP_FUNCTION_IN_STACKTRACE
+void kscrash_reportNSException(NSException *exception, bool logAllThreads,
+                               int extraSkipFrames) KS_KEEP_FUNCTION_IN_STACKTRACE
 {
-    if (g_reporter == NULL) {
+    KSCrashCustomNSExceptionReporter *reporter = atomic_load_explicit(&g_reporter, memory_order_acquire);
+    if (reporter == NULL) {
         KSLOG_WARN("The NSException monitor is not enabled; the exception is not reported.");
         return;
     }
-    g_reporter(exception, logAllThreads);
+    reporter(exception, logAllThreads, extraSkipFrames);
     KS_THWART_TAIL_CALL_OPTIMISATION
 }
