@@ -107,6 +107,44 @@ static void writeTestMonitorSection(__unused const KSCrash_MonitorContext *event
     return json;
 }
 
+- (void)testWriteRecrashReportPreservesTheOriginalReportID
+{
+    struct KSMachineContext machineContext = { 0 };
+    XCTAssertTrue(ksmc_getContextForThread(pthread_mach_thread_np(pthread_self()), &machineContext, true));
+    KSStackCursor stackCursor;
+    kssc_initSelfThread(&stackCursor, 0);
+
+    KSCrash_MonitorContext context = { 0 };
+    snprintf(context.eventID, sizeof(context.eventID), "4c1b2f3e-0000-4000-8000-00000000000a");
+    context.offendingMachineContext = &machineContext;
+    context.stackCursor = &stackCursor;
+    context.omitBinaryImages = true;
+    context.monitorId = "TestMonitor";
+
+    NSString *path = [self temporaryReportPath];
+    NSDictionary *json = nil;
+    @try {
+        kscrashreport_writeStandardReport(&context, path.UTF8String);
+
+        // The handler crashed: the recrash context has its own fresh event
+        // id, but the rewritten file keeps the identity its filename carries.
+        KSCrash_MonitorContext recrashContext = { 0 };
+        snprintf(recrashContext.eventID, sizeof(recrashContext.eventID), "ffffffff-ffff-4fff-8fff-ffffffffffff");
+        recrashContext.offendingMachineContext = &machineContext;
+        recrashContext.stackCursor = &stackCursor;
+        recrashContext.omitBinaryImages = true;
+        recrashContext.monitorId = "TestMonitor";
+        kscrashreport_writeRecrashReport(&recrashContext, path.UTF8String, "4c1b2f3e-0000-4000-8000-00000000000a");
+        json = [self readJSONObjectAtPath:path];
+    } @finally {
+        [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+    }
+
+    XCTAssertEqualObjects(json[@"report"][@"id"], @"4c1b2f3e-0000-4000-8000-00000000000a");
+    XCTAssertEqualObjects(json[@"recrash_report"][@"report"][@"id"], @"4c1b2f3e-0000-4000-8000-00000000000a",
+                          @"the embedded original keeps its id too");
+}
+
 - (void)testWriteStandardReportFencesACustomMonitorSection
 {
     NSDictionary *error = [self writeReportForMonitor:&_customMonitorAPI

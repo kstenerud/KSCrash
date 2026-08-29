@@ -1597,7 +1597,8 @@ static void prepareReportWriter(KSCrashReportWriter *const writer, KSJSONEncodeC
 #pragma mark - Main API -
 // ============================================================================
 
-void kscrashreport_writeRecrashReport(const KSCrash_MonitorContext *const monitorContext, const char *const path)
+void kscrashreport_writeRecrashReport(const KSCrash_MonitorContext *const monitorContext, const char *const path,
+                                      const char *const reportID)
 {
     char writeBuffer[1024];
     KSBufferedWriter bufferedWriter;
@@ -1630,7 +1631,7 @@ void kscrashreport_writeRecrashReport(const KSCrash_MonitorContext *const monito
         if (remove(tempPath) < 0) {
             KSLOG_ERROR("Could not remove %s: %s", tempPath, strerror(errno));
         }
-        writeReportInfo(writer, KSCrashField_Report, KSCrashReportType_Minimal, monitorContext->eventID, NULL,
+        writeReportInfo(writer, KSCrashField_Report, KSCrashReportType_Minimal, reportID, NULL,
                         monitorContext->monitorId);
         ksfu_flushBufferedWriter(&bufferedWriter);
 
