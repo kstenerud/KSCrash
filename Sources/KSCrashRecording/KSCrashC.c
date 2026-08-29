@@ -107,9 +107,6 @@ static bool g_shouldAddConsoleLogToReport = false;
 static bool g_shouldPrintPreviousLog = false;
 static char g_consoleLogPath[KSFU_MAX_PATH_LENGTH];
 static char g_lastCrashReportFilePath[KSFU_MAX_PATH_LENGTH];
-// The id embedded in g_lastCrashReportFilePath's filename. A recrash rewrites
-// that file, and the file's identity must survive the rewrite.
-static char g_lastCrashReportID[KSID_SIZE];
 static KSCrashReportStoreCConfiguration g_reportStoreConfig;
 // TODO: Remove in 3.0
 #pragma clang diagnostic push
@@ -233,7 +230,14 @@ static void onExceptionEvent(struct KSCrash_MonitorContext *monitorContext, KSCr
     monitorContext->consoleLogPath = g_shouldAddConsoleLogToReport ? g_consoleLogPath : NULL;
 
     if (monitorContext->requirements.crashedDuringExceptionHandling) {
-        kscrashreport_writeRecrashReport(monitorContext, g_lastCrashReportFilePath, g_lastCrashReportID);
+        // The rewritten file keeps its identity: the id is parsed from the
+        // path's own filename (async-signal-safe), so it can never pair with
+        // another crash's id the way a second id global could.
+        char recrashReportID[KSID_SIZE] = { 0 };
+        const char *filename = strrchr(g_lastCrashReportFilePath, '/');
+        filename = filename != NULL ? filename + 1 : g_lastCrashReportFilePath;
+        kscrs_parseReportFilename(filename, recrashReportID);
+        kscrashreport_writeRecrashReport(monitorContext, g_lastCrashReportFilePath, recrashReportID);
     } else if (monitorContext->reportPath) {
         kscrashreport_writeStandardReport(monitorContext, monitorContext->reportPath);
         // No store ID for a caller-supplied path, but report the write in the result so a
@@ -247,7 +251,6 @@ static void onExceptionEvent(struct KSCrash_MonitorContext *monitorContext, KSCr
         char crashReportFilePath[KSFU_MAX_PATH_LENGTH];
         kscrs_getNextCrashReport(monitorContext->eventID, crashReportFilePath, &g_reportStoreConfig);
         strlcpy(g_lastCrashReportFilePath, crashReportFilePath, sizeof(g_lastCrashReportFilePath));
-        strlcpy(g_lastCrashReportID, monitorContext->eventID, sizeof(g_lastCrashReportID));
         kscrashreport_writeStandardReport(monitorContext, crashReportFilePath);
         if (result) {
             strlcpy(result->reportId, monitorContext->eventID, sizeof(result->reportId));
