@@ -33,6 +33,8 @@
 #include <string.h>
 #include <sys/param.h>
 
+#include "KSID.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif

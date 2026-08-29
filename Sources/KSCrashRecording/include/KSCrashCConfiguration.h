@@ -81,7 +81,7 @@ typedef struct {
      * Defines the upper limit of crash reports to keep in storage. When this threshold
      * is reached, the system will remove the oldest reports to accommodate new ones.
      *
-     * **Default**: 5
+     * **Default**: 50
      */
     int maxReportCount;
 
@@ -323,10 +323,10 @@ static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
         .addConsoleLogToReport = false,
         .printPreviousLogOnStartup = false,
         .enableSwapCxaThrow = true,
-        .enableSwiftAsyncStackTraces = false,
         .enableHangReporting = false,
         .enableCPUExceptionReporting = false,
         .enableCompactBinaryImages = false,
+        .enableSwiftAsyncStackTraces = false,
         .plugins = { .apis = NULL, .length = 0, .release = NULL },
     };
 }

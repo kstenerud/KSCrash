@@ -29,7 +29,6 @@ import KSCrashReportModel
 /// A send failed before any item was processed.
 public enum SendError: Error, Equatable {
     /// The configuration's pipeline for the payload kind being sent is empty.
-    /// A send needs at least one stage to hand payloads to; deleting reports
-    /// without consuming them is `CrashReportStore.deleteAllReports`.
+    /// A send needs at least one stage to hand payloads to.
     case emptyPipeline
 }
