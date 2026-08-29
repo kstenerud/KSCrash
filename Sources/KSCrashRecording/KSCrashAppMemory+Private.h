@@ -9,7 +9,9 @@ NS_ASSUME_NONNULL_BEGIN
 @interface KSCrashAppMemory ()
 - (instancetype)initWithFootprint:(uint64_t)footprint
                         remaining:(uint64_t)remaining
-                         pressure:(KSCrashAppMemoryState)pressure NS_DESIGNATED_INITIALIZER;
+                         pressure:(KSCrashAppMemoryState)pressure
+                  systemRemaining:(uint64_t)systemRemaining
+                      systemLimit:(uint64_t)systemLimit NS_DESIGNATED_INITIALIZER;
 @end
 
 typedef KSCrashAppMemory *_Nonnull (^KSCrashAppMemoryProvider)(void);

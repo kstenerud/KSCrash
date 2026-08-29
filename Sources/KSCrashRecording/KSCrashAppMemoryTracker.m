@@ -61,8 +61,10 @@ FOUNDATION_EXPORT void testsupport_KSCrashAppMemorySetProvider(KSCrashAppMemoryP
 
     os_unfair_lock _lock;
     uint64_t _footprint;
+    uint64_t _systemRemaining;
     KSCrashAppMemoryState _pressure;
     KSCrashAppMemoryState _level;
+    KSCrashAppMemoryState _headroom;
 
     // weak objects are `KSCrashAppMemoryTrackerObserverBlock`'s
     NSPointerArray *_observers;
@@ -90,6 +92,7 @@ FOUNDATION_EXPORT void testsupport_KSCrashAppMemorySetProvider(KSCrashAppMemoryP
                                                             dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0));
         _level = KSCrashAppMemoryStateNormal;
         _pressure = KSCrashAppMemoryStateNormal;
+        _headroom = KSCrashAppMemoryStateNormal;
         _observers = [NSPointerArray weakObjectsPointerArray];
     }
     return self;
@@ -186,6 +189,20 @@ FOUNDATION_EXPORT void testsupport_KSCrashAppMemorySetProvider(KSCrashAppMemoryP
     }
 }
 
+/** Available system memory: truly free pages (excluding speculative, which the
+ *  kernel read in opportunistically) plus the cached-files bucket (purgeable +
+ *  file-backed pages) it can reclaim without compressing or swapping anonymous
+ *  memory. Matches Activity Monitor's "Free + Cached Files".
+ */
+static uint64_t _AvailableSystemBytes(const vm_statistics64_data_t *stats)
+{
+    uint64_t speculative = (uint64_t)stats->speculative_count;
+    uint64_t freeCount = (uint64_t)stats->free_count;
+    uint64_t free = freeCount > speculative ? freeCount - speculative : 0;
+    uint64_t cached = (uint64_t)stats->purgeable_count + (uint64_t)stats->external_page_count;
+    return (free + cached) * (uint64_t)vm_kernel_page_size;
+}
+
 static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState pressure)
 {
     task_vm_info_data_t info = {};
@@ -209,7 +226,26 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
     uint64_t remaining = info.limit_bytes_remaining;
 #endif
 
-    return [[KSCrashAppMemory alloc] initWithFootprint:info.phys_footprint remaining:remaining pressure:pressure];
+    // The host port send right is cached for the lifetime of the process;
+    // pairing it with mach_port_deallocate would invalidate it for anything
+    // else holding it.
+    static host_t hostPort;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        hostPort = mach_host_self();
+    });
+
+    vm_statistics64_data_t vmStats = {};
+    mach_msg_type_number_t vmCount = HOST_VM_INFO64_COUNT;
+    kern_return_t vmErr = host_statistics64(hostPort, HOST_VM_INFO64, (host_info64_t)&vmStats, &vmCount);
+    uint64_t systemRemaining = vmErr == KERN_SUCCESS ? _AvailableSystemBytes(&vmStats) : 0;
+    uint64_t systemLimit = vmErr == KERN_SUCCESS ? NSProcessInfo.processInfo.physicalMemory : 0;
+
+    return [[KSCrashAppMemory alloc] initWithFootprint:info.phys_footprint
+                                             remaining:remaining
+                                              pressure:pressure
+                                       systemRemaining:systemRemaining
+                                           systemLimit:systemLimit];
 }
 
 - (nullable KSCrashAppMemory *)currentAppMemory
@@ -238,20 +274,26 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
 
 - (void)_heartbeat:(BOOL)sendObservers
 {
-    // This handles the memory limit.
+    // This handles the memory limit and system headroom.
     KSCrashAppMemory *memory = [self currentAppMemory];
 
     KSCrashAppMemoryState newLevel = memory.level;
+    KSCrashAppMemoryState newHeadroom = memory.headroom;
     uint64_t newFootprint = memory.footprint;
+    uint64_t newSystemRemaining = memory.systemRemaining;
 
     NSArray<KSCrashAppMemoryTrackerObserverBlock> *observers = nil;
     KSCrashAppMemoryState oldLevel;
+    KSCrashAppMemoryState oldHeadroom;
     BOOL footprintChanged = NO;
     {
         os_unfair_lock_lock(&_lock);
 
         oldLevel = _level;
         _level = newLevel;
+
+        oldHeadroom = _headroom;
+        _headroom = newHeadroom;
 
         // the amount footprint needs to change for any footprint notifs.
         const uint64_t kKSCrashFootprintMinChange = 1ULL << 20;  // 1 MiB
@@ -264,6 +306,13 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
             footprintChanged = YES;
         }
 
+        // System remaining moving counts as a footprint-style byte change too,
+        // so observers refresh their copies of the system values.
+        if (KSABS_DIFF(newSystemRemaining, _systemRemaining) > kKSCrashFootprintMinChange) {
+            _systemRemaining = newSystemRemaining;
+            footprintChanged = YES;
+        }
+
         // clear out NULLs from observers
         [_observers compact];
         observers = [_observers allObjects];
@@ -273,12 +322,27 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
     KSCrashAppMemoryTrackerChangeType changes =
         (newLevel != oldLevel) ? KSCrashAppMemoryTrackerChangeTypeLevel : KSCrashAppMemoryTrackerChangeTypeNone;
 
+    if (newHeadroom != oldHeadroom) {
+        changes |= KSCrashAppMemoryTrackerChangeTypeHeadroom;
+    }
+
     if (footprintChanged) {
         changes |= KSCrashAppMemoryTrackerChangeTypeFootprint;
     }
 
     if (changes != KSCrashAppMemoryTrackerChangeTypeNone) {
         [self _handleMemoryChange:memory type:changes observers:observers];
+    }
+
+    if (newHeadroom != oldHeadroom && sendObservers) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [[NSNotificationCenter defaultCenter] postNotificationName:KSCrashAppMemoryHeadroomChangedNotification
+                                                                object:self
+                                                              userInfo:@{
+                                                                  KSCrashAppMemoryNewValueKey : @(newHeadroom),
+                                                                  KSCrashAppMemoryOldValueKey : @(oldHeadroom)
+                                                              }];
+        });
     }
 
     if (newLevel != oldLevel && sendObservers) {
@@ -374,6 +438,17 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
     {
         os_unfair_lock_lock(&_lock);
         state = _level;
+        os_unfair_lock_unlock(&_lock);
+    }
+    return state;
+}
+
+- (KSCrashAppMemoryState)headroom
+{
+    KSCrashAppMemoryState state;
+    {
+        os_unfair_lock_lock(&_lock);
+        state = _headroom;
         os_unfair_lock_unlock(&_lock);
     }
     return state;

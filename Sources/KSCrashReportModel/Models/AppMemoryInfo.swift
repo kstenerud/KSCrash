@@ -84,6 +84,17 @@ public struct AppMemoryInfo: Codable, Sendable, Equatable {
     /// Memory limit for the app in bytes.
     public let memoryLimit: UInt64?
 
+    /// System-wide memory headroom: how close the device as a whole is to
+    /// running out of reclaimable memory.
+    public let memoryHeadroom: MemoryState?
+
+    /// Available memory device-wide in bytes: free pages plus the purgeable
+    /// and file-backed pages the kernel can reclaim cheaply.
+    public let systemMemoryRemaining: UInt64?
+
+    /// Total physical memory on the device in bytes.
+    public let systemMemoryLimit: UInt64?
+
     /// App transition state at crash time.
     public let appTransitionState: AppTransitionState?
 
@@ -93,6 +104,9 @@ public struct AppMemoryInfo: Codable, Sendable, Equatable {
         case memoryPressure = "memory_pressure"
         case memoryLevel = "memory_level"
         case memoryLimit = "memory_limit"
+        case memoryHeadroom = "memory_headroom"
+        case systemMemoryRemaining = "system_memory_remaining"
+        case systemMemoryLimit = "system_memory_limit"
         case appTransitionState = "app_transition_state"
     }
 }

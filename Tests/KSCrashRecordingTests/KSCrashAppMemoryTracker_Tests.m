@@ -95,7 +95,11 @@
 - (void)testCurrentAppMemoryWithProvider
 {
     testsupport_KSCrashAppMemorySetProvider(^KSCrashAppMemory *_Nonnull {
-        return [[KSCrashAppMemory alloc] initWithFootprint:500 remaining:500 pressure:KSCrashAppMemoryStateWarn];
+        return [[KSCrashAppMemory alloc] initWithFootprint:500
+                                                 remaining:500
+                                                  pressure:KSCrashAppMemoryStateWarn
+                                           systemRemaining:0
+                                               systemLimit:0];
     });
 
     KSCrashAppMemoryTracker *tracker = [[KSCrashAppMemoryTracker alloc] init];
@@ -366,7 +370,9 @@
         uint64_t footprint = atomic_load(&currentFootprint);
         return [[KSCrashAppMemory alloc] initWithFootprint:footprint
                                                  remaining:100 - footprint
-                                                  pressure:KSCrashAppMemoryStateNormal];
+                                                  pressure:KSCrashAppMemoryStateNormal
+                                           systemRemaining:0
+                                               systemLimit:0];
     });
 
     KSCrashAppMemoryTracker *tracker = [[KSCrashAppMemoryTracker alloc] init];
@@ -392,6 +398,61 @@
     });
 
     [self waitForExpectations:@[ expectation ] timeout:3.0];
+    [tracker stop];
+
+    (void)observer;  // Keep observer alive
+}
+
+#pragma mark - Headroom Tests
+
+- (void)testCurrentAppMemoryHasSystemValues
+{
+    KSCrashAppMemoryTracker *tracker = [[KSCrashAppMemoryTracker alloc] init];
+    KSCrashAppMemory *memory = tracker.currentAppMemory;
+    XCTAssertNotNil(memory);
+    XCTAssertTrue(memory.systemLimit > 0);
+    XCTAssertTrue(memory.systemRemaining > 0);
+    XCTAssertTrue(memory.systemRemaining < memory.systemLimit);
+}
+
+- (void)testHeadroomChangeNotification
+{
+    __block _Atomic(uint64_t) currentSystemRemaining = 500;  // Start at normal headroom
+
+    testsupport_KSCrashAppMemorySetProvider(^KSCrashAppMemory *_Nonnull {
+        uint64_t systemRemaining = atomic_load(&currentSystemRemaining);
+        return [[KSCrashAppMemory alloc] initWithFootprint:10
+                                                 remaining:90
+                                                  pressure:KSCrashAppMemoryStateNormal
+                                           systemRemaining:systemRemaining
+                                               systemLimit:1000];
+    });
+
+    KSCrashAppMemoryTracker *tracker = [[KSCrashAppMemoryTracker alloc] init];
+
+    XCTestExpectation *expectation = [self expectationWithDescription:@"Headroom change detected"];
+    expectation.expectedFulfillmentCount = 1;
+
+    __block BOOL headroomChangeDetected = NO;
+
+    id observer = [tracker addObserverWithBlock:^(KSCrashAppMemory *memory, KSCrashAppMemoryTrackerChangeType changes) {
+        if ((changes & KSCrashAppMemoryTrackerChangeTypeHeadroom) && !headroomChangeDetected) {
+            headroomChangeDetected = YES;
+            XCTAssertEqual(memory.headroom, KSCrashAppMemoryStateCritical);
+            [expectation fulfill];
+        }
+    }];
+
+    [tracker start];
+    XCTAssertEqual(tracker.headroom, KSCrashAppMemoryStateNormal);
+
+    // Wait a bit then shrink system memory to trigger a headroom change
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        atomic_store(&currentSystemRemaining, 20);  // Change to critical headroom
+    });
+
+    [self waitForExpectations:@[ expectation ] timeout:3.0];
+    XCTAssertEqual(tracker.headroom, KSCrashAppMemoryStateCritical);
     [tracker stop];
 
     (void)observer;  // Keep observer alive

@@ -38,6 +38,7 @@
 #define KSCrashMonitor_Resource_h
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include "KSCrashMonitorAPI.h"
@@ -65,7 +66,13 @@ typedef enum {
 
 #define KSRESOURCE_MAGIC ((int32_t)'ksrs')
 
-static const uint8_t KSCrash_Resource_CurrentVersion = 1;
+static const uint8_t KSCrash_Resource_CurrentVersion = 2;
+
+/** On-disk size of each KSCrash_ResourceData version. A reader must accept a
+ *  file of at least its declared version's size; fields the version predates
+ *  read as zero. */
+static const size_t KSCrash_Resource_V1Size = 112;
+static const size_t KSCrash_Resource_V2Size = 136;
 
 /** Resource snapshot persisted via mmap to RunSidecars/<runID>/Resource.ksscr.
  *
@@ -73,6 +80,16 @@ static const uint8_t KSCrash_Resource_CurrentVersion = 1;
  *  All Apple targets (including legacy 32-bit) naturally align up to
  *  64-bit values, so the layout is stable across architectures.
  *  Fixed-width types only — no pointers.
+ *
+ *  Versioning: new fields are only ever appended at the end, so every older
+ *  version's layout is a strict prefix of the current one. A version boundary
+ *  comment below marks where each version's fields start.
+ *
+ *  Version history:
+ *    1: original layout, KSCrash_Resource_V1Size bytes
+ *       (through cpuWallTimeInWindowNs)
+ *    2: adds system-wide memory (systemMemoryRemaining, systemMemoryLimit,
+ *       memoryHeadroom), KSCrash_Resource_V2Size bytes
  */
 typedef struct {
     int32_t magic;
@@ -120,9 +137,17 @@ typedef struct {
     // Populated only when cpuState > Normal.
     uint64_t cpuTimeInWindowNs;
     uint64_t cpuWallTimeInWindowNs;
+
+    // ---- Version 2 fields start here ----
+
+    // System-wide memory (from KSCrashAppMemoryTracker)
+    uint64_t systemMemoryRemaining;  // available bytes device-wide (free + cached files)
+    uint64_t systemMemoryLimit;      // physical memory
+    uint8_t memoryHeadroom;          // KSCrashAppMemoryState
 } KSCrash_ResourceData;
 
-_Static_assert(sizeof(KSCrash_ResourceData) == 112, "KSCrash_ResourceData size changed — bump version");
+_Static_assert(sizeof(KSCrash_ResourceData) == KSCrash_Resource_V2Size,
+               "KSCrash_ResourceData size changed; bump version and add a size constant");
 
 // ============================================================================
 #pragma mark - Public Snapshot API -
@@ -139,6 +164,12 @@ bool ksresource_getSnapshot(KSCrash_ResourceData *outData);
  *  Returns false if the run ID has no valid sidecar or data fails validation.
  */
 bool ksresource_getSnapshotForRunID(const char *runID, KSCrash_ResourceData *outData);
+
+/** Reads a resource snapshot from a sidecar file at any supported version.
+ *  Fields newer than the file's declared version read as zero.
+ *  Returns false if the file is missing, invalid, or short for its version.
+ */
+bool ksresource_readSnapshotFromPath(const char *path, KSCrash_ResourceData *outData);
 
 // ============================================================================
 #pragma mark - Monitor API -

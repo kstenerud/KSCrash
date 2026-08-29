@@ -264,6 +264,9 @@ KSCRF_DEFINE_CONSTANT(KSCrashField, MemoryFootprint, memoryFootprint, "memory_fo
 KSCRF_DEFINE_CONSTANT(KSCrashField, MemoryRemaining, memoryRemaining, "memory_remaining")
 KSCRF_DEFINE_CONSTANT(KSCrashField, MemoryPressure, memoryPressure, "memory_pressure")
 KSCRF_DEFINE_CONSTANT(KSCrashField, MemoryLevel, memoryLevel, "memory_level")
+KSCRF_DEFINE_CONSTANT(KSCrashField, MemoryHeadroom, memoryHeadroom, "memory_headroom")
+KSCRF_DEFINE_CONSTANT(KSCrashField, SystemMemoryRemaining, systemMemoryRemaining, "system_memory_remaining")
+KSCRF_DEFINE_CONSTANT(KSCrashField, SystemMemoryLimit, systemMemoryLimit, "system_memory_limit")
 KSCRF_DEFINE_CONSTANT(KSCrashField, AppTransitionState, appTransitionState, "app_transition_state")
 
 KSCRF_DEFINE_CONSTANT(KSCrashField, BatteryLevel, batteryLevel, "battery_level")

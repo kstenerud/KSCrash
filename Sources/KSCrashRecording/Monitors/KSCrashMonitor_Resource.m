@@ -101,6 +101,7 @@ static void applyResourceTestOverrides(KSCrash_ResourceData *res)
     const char *val;
     if ((val = getenv("KSCRASH_TEST_MEMORY_PRESSURE")) != NULL) res->memoryPressure = (uint8_t)atoi(val);
     if ((val = getenv("KSCRASH_TEST_MEMORY_LEVEL")) != NULL) res->memoryLevel = (uint8_t)atoi(val);
+    if ((val = getenv("KSCRASH_TEST_MEMORY_HEADROOM")) != NULL) res->memoryHeadroom = (uint8_t)atoi(val);
     if ((val = getenv("KSCRASH_TEST_THERMAL_STATE")) != NULL) res->thermalState = (uint8_t)atoi(val);
     if ((val = getenv("KSCRASH_TEST_CPU_USER")) != NULL) res->cpuUsageUser = (uint16_t)atoi(val);
     if ((val = getenv("KSCRASH_TEST_CPU_SYSTEM")) != NULL) res->cpuUsageSystem = (uint16_t)atoi(val);
@@ -254,12 +255,17 @@ static void startMemoryObserver(void)
                     res->memoryFootprint = memory.footprint;
                     res->memoryRemaining = memory.remaining;
                     res->memoryLimit = memory.limit;
+                    res->systemMemoryRemaining = memory.systemRemaining;
+                    res->systemMemoryLimit = memory.systemLimit;
                 }
                 if (changes & KSCrashAppMemoryTrackerChangeTypePressure) {
                     res->memoryPressure = (uint8_t)memory.pressure;
                 }
                 if (changes & KSCrashAppMemoryTrackerChangeTypeLevel) {
                     res->memoryLevel = (uint8_t)memory.level;
+                }
+                if (changes & KSCrashAppMemoryTrackerChangeTypeHeadroom) {
+                    res->memoryHeadroom = (uint8_t)memory.headroom;
                 }
                 res->memoryUpdatedAtNs = now;
             });
@@ -274,8 +280,11 @@ static void startMemoryObserver(void)
             res->memoryFootprint = current.footprint;
             res->memoryRemaining = current.remaining;
             res->memoryLimit = current.limit;
+            res->systemMemoryRemaining = current.systemRemaining;
+            res->systemMemoryLimit = current.systemLimit;
             res->memoryPressure = (uint8_t)current.pressure;
             res->memoryLevel = (uint8_t)current.level;
+            res->memoryHeadroom = (uint8_t)current.headroom;
             res->memoryUpdatedAtNs = now;
         });
     }
@@ -518,6 +527,29 @@ bool ksresource_getSnapshot(KSCrash_ResourceData *outData)
     return ok;
 }
 
+bool ksresource_readSnapshotFromPath(const char *path, KSCrash_ResourceData *outData)
+{
+    if (!path || !outData) return false;
+
+    int fd = open(path, O_RDONLY);
+    if (fd == -1) return false;
+
+    // Most files are current-version: try the full struct first, then fall
+    // back to the v1 prefix for a file from an older run. The declared
+    // version must match the size that read, so a torn file never passes.
+    memset(outData, 0, sizeof(*outData));
+    uint8_t expectedVersion = 2;
+    bool readOK = ksfu_readBytesFromFD(fd, (char *)outData, (int)KSCrash_Resource_V2Size);
+    if (!readOK && lseek(fd, 0, SEEK_SET) == 0) {
+        memset(outData, 0, sizeof(*outData));
+        expectedVersion = 1;
+        readOK = ksfu_readBytesFromFD(fd, (char *)outData, (int)KSCrash_Resource_V1Size);
+    }
+    close(fd);
+
+    return readOK && outData->magic == KSRESOURCE_MAGIC && outData->version == expectedVersion;
+}
+
 bool ksresource_getSnapshotForRunID(const char *runID, KSCrash_ResourceData *outData)
 {
     if (!runID || !outData || runID[0] == '\0') return false;
@@ -528,17 +560,7 @@ bool ksresource_getSnapshotForRunID(const char *runID, KSCrash_ResourceData *out
         return false;
     }
 
-    int fd = open(sidecarPath, O_RDONLY);
-    if (fd == -1) return false;
-
-    KSCrash_ResourceData data = { 0 };
-    bool readOK = ksfu_readBytesFromFD(fd, (char *)&data, (int)sizeof(data));
-    close(fd);
-
-    if (!readOK || !validateResourceData(&data)) return false;
-
-    *outData = data;
-    return true;
+    return ksresource_readSnapshotFromPath(sidecarPath, outData);
 }
 
 // ============================================================================

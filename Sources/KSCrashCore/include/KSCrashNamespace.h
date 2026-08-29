@@ -29,6 +29,7 @@
 #define KSCRASH_NS(SYMBOL) KSCRASH_NS1(KSCRASH_NAMESPACE, SYMBOL)
 
 #define AppMemory KSCRASH_NS(AppMemory)
+#define AppMemoryHeadroomChangedNotification KSCRASH_NS(AppMemoryHeadroomChangedNotification)
 #define AppMemoryKeys KSCRASH_NS(AppMemoryKeys)
 #define AppMemoryLevelChangedNotification KSCRASH_NS(AppMemoryLevelChangedNotification)
 #define AppMemoryPressureChangedNotification KSCRASH_NS(AppMemoryPressureChangedNotification)
@@ -86,6 +87,7 @@
 #define KSCrash KSCRASH_NS(KSCrash)
 #define KSCrashAlertViewProcess KSCRASH_NS(KSCrashAlertViewProcess)
 #define KSCrashAppMemory KSCRASH_NS(KSCrashAppMemory)
+#define KSCrashAppMemoryHeadroomChangedNotification KSCRASH_NS(KSCrashAppMemoryHeadroomChangedNotification)
 #define KSCrashAppMemoryKeys KSCRASH_NS(KSCrashAppMemoryKeys)
 #define KSCrashAppMemoryLevelChangedNotification KSCRASH_NS(KSCrashAppMemoryLevelChangedNotification)
 #define KSCrashAppMemoryNewValueKey KSCRASH_NS(KSCrashAppMemoryNewValueKey)
@@ -498,6 +500,7 @@
 #define ksobjc_taggedPointerPayload KSCRASH_NS(ksobjc_taggedPointerPayload)
 #define ksresource_getSnapshot KSCRASH_NS(ksresource_getSnapshot)
 #define ksresource_getSnapshotForRunID KSCRASH_NS(ksresource_getSnapshotForRunID)
+#define ksresource_readSnapshotFromPath KSCRASH_NS(ksresource_readSnapshotFromPath)
 #define ksruncontext_contextForRunID KSCRASH_NS(ksruncontext_contextForRunID)
 #define ksruncontext_init KSCRASH_NS(ksruncontext_init)
 #define ksruncontext_persistPreviousRunSummary KSCRASH_NS(ksruncontext_persistPreviousRunSummary)

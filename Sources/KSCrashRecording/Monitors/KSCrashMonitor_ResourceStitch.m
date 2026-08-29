@@ -29,31 +29,10 @@
 #import "KSCrashAppMemory.h"
 #import "KSCrashCPUTracker.h"
 #import "KSCrashReportFields.h"
-#import "KSFileUtils.h"
 
 #import <Foundation/Foundation.h>
-#import <fcntl.h>
-#import <string.h>
-#import <unistd.h>
 
 #import "KSLogger.h"
-
-static bool readResourceData(const char *path, KSCrash_ResourceData *out)
-{
-    if (!path || !out) return false;
-
-    int fd = open(path, O_RDONLY);
-    if (fd == -1) return false;
-
-    memset(out, 0, sizeof(*out));
-    bool ok = ksfu_readBytesFromFD(fd, (char *)out, (int)sizeof(*out));
-    close(fd);
-
-    if (!ok || out->magic != KSRESOURCE_MAGIC || out->version == 0 || out->version > KSCrash_Resource_CurrentVersion) {
-        return false;
-    }
-    return true;
-}
 
 CFDictionaryRef kscm_resource_createStitchedReport(CFDictionaryRef reportDict, const char *sidecarPath,
                                                    KSCrashSidecarScope scope, __unused void *context)
@@ -67,7 +46,7 @@ CFDictionaryRef kscm_resource_createStitchedReport(CFDictionaryRef reportDict, c
     }
 
     KSCrash_ResourceData data = {};
-    if (!readResourceData(sidecarPath, &data)) {
+    if (!ksresource_readSnapshotFromPath(sidecarPath, &data)) {
         KSLOG_ERROR(@"Failed to read resource sidecar at %s", sidecarPath);
         return NULL;
     }
@@ -98,6 +77,13 @@ CFDictionaryRef kscm_resource_createStitchedReport(CFDictionaryRef reportDict, c
     appMemoryDict[KSCrashField_MemoryPressure] =
         @(KSCrashAppMemoryStateToString((KSCrashAppMemoryState)data.memoryPressure));
     appMemoryDict[KSCrashField_MemoryLevel] = @(KSCrashAppMemoryStateToString((KSCrashAppMemoryState)data.memoryLevel));
+    // Omitted when no system-wide data was recorded (v1 sidecar, or stats unavailable).
+    if (data.systemMemoryLimit > 0) {
+        appMemoryDict[KSCrashField_MemoryHeadroom] =
+            @(KSCrashAppMemoryStateToString((KSCrashAppMemoryState)data.memoryHeadroom));
+        appMemoryDict[KSCrashField_SystemMemoryRemaining] = @(data.systemMemoryRemaining);
+        appMemoryDict[KSCrashField_SystemMemoryLimit] = @(data.systemMemoryLimit);
+    }
     systemDict[KSCrashField_AppMemory] = appMemoryDict;
 
     // Stitch resource fields
