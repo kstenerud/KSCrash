@@ -43,7 +43,7 @@ public struct PayloadID<Owner>: Hashable, Codable, Sendable, LosslessStringConve
         self.uuid = uuid
     }
 
-    /// Lowercase: the wire and on-disk form of every payload id.
+    /// Lowercase, the canonical text form of every payload id.
     public var description: String { uuid.uuidString.lowercased() }
 
     /// A literal that is not a UUID is a programming error.
