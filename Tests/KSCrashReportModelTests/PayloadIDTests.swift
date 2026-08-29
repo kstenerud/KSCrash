@@ -31,6 +31,7 @@ import XCTest
 
 final class PayloadIDTests: XCTestCase {
     private let text = "4C1B2F3E-0000-4000-8000-000000000001"
+    private let canonical = "4c1b2f3e-0000-4000-8000-000000000001"
 
     func test_init_parsesUUIDsInEitherCase() {
         // Runtime strings go through the failable initializer; only literals trap.
@@ -49,15 +50,21 @@ final class PayloadIDTests: XCTestCase {
         XCTAssertEqual(RunSummary.ID(uuid: literal.uuid), literal)
     }
 
-    func test_description_isTheUppercaseUUID() {
-        XCTAssertEqual(RunSummary.ID(text.lowercased())?.description, text)
+    func test_description_isTheLowercaseUUID() {
+        // Any input case; the canonical wire and on-disk form is lowercase.
+        XCTAssertEqual(RunSummary.ID(text)?.description, canonical)
+        XCTAssertEqual(Report.ID(text)?.description, canonical)
     }
 
     func test_codable_roundTripsTheString() throws {
         let id = try XCTUnwrap(RunSummary.ID(text))
         let data = try JSONEncoder().encode(id)
-        XCTAssertEqual(String(data: data, encoding: .utf8), "\"\(text)\"")
+        XCTAssertEqual(String(data: data, encoding: .utf8), "\"\(canonical)\"")
         XCTAssertEqual(try JSONDecoder().decode(RunSummary.ID.self, from: data), id)
+        // Uppercase wire input decodes, and re-encodes canonical.
+        let fromUpper = try JSONDecoder().decode(RunSummary.ID.self, from: Data("\"\(text)\"".utf8))
+        XCTAssertEqual(fromUpper, id)
+        XCTAssertEqual(String(data: try JSONEncoder().encode(fromUpper), encoding: .utf8), "\"\(canonical)\"")
     }
 
     func test_decode_rejectsAMalformedID() {
@@ -79,7 +86,8 @@ final class PayloadIDTests: XCTestCase {
                 isTranslated: false, isJailbroken: false))
         let data = try JSONEncoder().encode(summary)
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        XCTAssertEqual(json["run_id"] as? String, text, "the wire key and text are unchanged")
+        XCTAssertEqual(
+            json["run_id"] as? String, canonical, "the wire key is unchanged; the text is canonical lowercase")
         XCTAssertEqual(try JSONDecoder().decode(RunSummary.self, from: data).id, id)
     }
 
@@ -108,7 +116,8 @@ final class PayloadIDTests: XCTestCase {
         XCTAssertEqual(report.report.id, report.id)
         let encoded = try JSONEncoder().encode(report)
         let object = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
-        XCTAssertEqual((object["report"] as? [String: Any])?["id"] as? String, text, "the wire text is unchanged")
+        XCTAssertEqual(
+            (object["report"] as? [String: Any])?["id"] as? String, canonical, "the wire text is canonical lowercase")
     }
 
     func test_report_withAMalformedID_failsDecode() {

@@ -33,7 +33,7 @@
 extern "C" {
 #endif
 
-/** The length of an ID's text (8-4-4-4-12 uppercase hex), and the buffer size that holds it with its terminator. */
+/** The length of an ID's text (8-4-4-4-12 lowercase hex), and the buffer size that holds it with its terminator. */
 #define KSID_LENGTH 36
 #define KSID_SIZE (KSID_LENGTH + 1)
 
@@ -44,7 +44,7 @@ extern "C" {
 void ksid_generate(char *destinationBuffer37Bytes);
 
 /** Whether a NUL terminated string is an ID in the form ksid_generate
- * produces: 36 characters, 8-4-4-4-12, uppercase hex and dashes.
+ * produces: 36 characters, 8-4-4-4-12, lowercase hex and dashes.
  * Async-signal-safe.
  */
 bool ksid_isValid(const char *id);

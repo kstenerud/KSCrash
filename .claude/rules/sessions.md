@@ -20,7 +20,7 @@ userID) setting. A new record is cut whenever the user ID or perceptibility chan
 `KSSessionStore.{c,h}` is the append-only reader/writer. The writer
 (`kssw_open`/`kssw_update`/`kssw_updateUser`/`kssw_updatePerceptible`/`kssw_close`)
 opens the file lazily on the first cut, so a run that records nothing writes no file.
-Each `KSSessionRecord` holds an uppercase UUID `guid` (from `ksid_generate`), the
+Each `KSSessionRecord` holds a lowercase UUID `guid` (from `ksid_generate`), the
 `user`, `startedAtMs`/`endedAtMs`, and `perceptible`/`endInferred` flags.
 
 The Swift `SessionRecorder` (`Sources/KSCrash/SessionRecorder.swift`) owns the live
