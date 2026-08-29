@@ -28,37 +28,52 @@ import Foundation
 import KSCrashMonitorPlugins
 import KSCrashRecording
 import KSCrashRecordingCore
+import KSCrashSwiftCore
 
 /// The boot monitor: records the system's boot time on reports.
 public enum BootMonitor {
     /// Register in `InstallConfiguration.plugins`. Boot time is constant for
-    /// a run, so it is recorded once when the monitor is enabled.
-    public static func plugin() -> any MonitorPlugin {
-        SidecarMetadataMonitorPlugin(
-            monitorID: "BootTime",
-            record: { store in
-                var value = timeval()
-                var size = MemoryLayout<timeval>.size
-                guard sysctlbyname("kern.boottime", &value, &size, nil, 0) == 0, value.tv_sec > 0 else { return }
-                store[bootTimeKey] = UInt64(value.tv_sec)
-                // Termination classification compares boot time across runs;
-                // the plugin's enable runs before RunContext reads it.
-                kscm_system_setBootTime(Int64(value.tv_sec))
-            },
-            poller: nil,
-            stitch: { values, system in
-                // A torn sidecar can hold any bytes; an unconvertible value is
-                // absence, never a trap.
-                guard let seconds: UInt64 = values[bootTimeKey], let timestamp = time_t(exactly: seconds) else {
-                    return
-                }
-                // The same wall-clock string the system stitch writes for boot_time.
-                var buffer = [CChar](repeating: 0, count: Int(KSDATE_BUFFERSIZE))
-                ksdate_utcStringFromTimestamp(timestamp, &buffer, buffer.count)
-                system[CrashField.bootTime.rawValue] = String(cString: buffer)
-            })
-    }
+    /// a run and is recorded through the System sidecar, the report's one
+    /// source for `system.boot_time`.
+    public static func plugin() -> any MonitorPlugin { BootMonitorPlugin() }
 }
 
-/// Reserved store key; the stitch maps it to the report's boot_time field.
-private let bootTimeKey = "com.kscrash.boot.time"
+final class BootMonitorPlugin: MonitorPlugin, @unchecked Sendable {
+    private static let monitorID: UnsafePointer<CChar> = UnsafePointer(strdup("BootTime")!)
+    let api: UnsafeMutablePointer<KSCrashMonitorAPI>
+    private let enabled = AtomicFlag()
+
+    init() {
+        api = .allocate(capacity: 1)
+        api.initialize(to: KSCrashMonitorAPI())
+        // Fill every slot with the core's defaults; the core calls slots
+        // without NULL checks.
+        kscma_initAPI(api)
+        api.pointee.monitorId = { _ in BootMonitorPlugin.monitorID }
+        api.pointee.monitorFlags = { _ in KSCrashMonitorFlagPlugin }
+        api.pointee.setEnabled = { enabled, context in
+            context.map { BootMonitorPlugin.from($0).enabled.value = enabled }
+        }
+        api.pointee.isEnabled = { context in
+            context.map { BootMonitorPlugin.from($0).enabled.value } ?? false
+        }
+        // Step 2 of the install sequence, before RunContext init: reboot
+        // detection compares this run's boot time against the previous run's.
+        api.pointee.notifyPostMonitorsEnabled = { _ in
+            let value = kssysctl_timevalForName("kern.boottime")
+            if value.tv_sec > 0 {
+                kscm_system_setBootTime(Int64(value.tv_sec))
+            }
+        }
+        api.pointee.context = Unmanaged.passUnretained(self).toOpaque()
+    }
+
+    deinit {
+        api.deinitialize(count: 1)
+        api.deallocate()
+    }
+
+    private static func from(_ context: UnsafeMutableRawPointer) -> BootMonitorPlugin {
+        Unmanaged<BootMonitorPlugin>.fromOpaque(context).takeUnretainedValue()
+    }
+}
