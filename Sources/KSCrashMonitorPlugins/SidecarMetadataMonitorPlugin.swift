@@ -41,7 +41,6 @@ public final class SidecarMetadataMonitorPlugin: MonitorPlugin, @unchecked Senda
         var sidecarPathProvider: KSCrashSidecarRunPathProviderFunc?
         var store: SidecarMetadata?
         var poller: Poller?
-        var enabled = false
     }
 
     private let monitorID: UnsafePointer<CChar>
@@ -49,6 +48,10 @@ public final class SidecarMetadataMonitorPlugin: MonitorPlugin, @unchecked Senda
     private let makePoller: (@Sendable (@escaping @Sendable () -> Void) -> Poller?)?
     private let stitch: @Sendable (any MetadataStore, NSMutableDictionary) -> Void
     private let state = UnfairLock(State())
+
+    /// Read by the `isEnabled` slot on the crash path, possibly with every
+    /// other thread suspended: a lock-free flag, never the state lock.
+    private let enabled = AtomicFlag()
 
     /// `record` writes the current values into the store; `poller` (when set)
     /// repeats it while enabled; `stitch` merges the sidecar's values into the
@@ -82,7 +85,7 @@ public final class SidecarMetadataMonitorPlugin: MonitorPlugin, @unchecked Senda
             context.map { SidecarMetadataMonitorPlugin.from($0).setEnabled(enabled) }
         }
         api.pointee.isEnabled = { context in
-            context.map { SidecarMetadataMonitorPlugin.from($0).state.withLock { $0.enabled } } ?? false
+            context.map { SidecarMetadataMonitorPlugin.from($0).enabled.value } ?? false
         }
         api.pointee.createStitchedReport = { reportDict, sidecarPath, scope, context in
             guard let reportDict, let context else { return nil }
@@ -104,12 +107,12 @@ public final class SidecarMetadataMonitorPlugin: MonitorPlugin, @unchecked Senda
 
     private func setEnabled(_ enabled: Bool) {
         state.withLock { state in
-            guard enabled != state.enabled else { return }
+            guard enabled != self.enabled.value else { return }
             if !enabled {
                 state.poller?.stop()
                 state.poller = nil
                 state.store = nil
-                state.enabled = false
+                self.enabled.value = false
                 return
             }
             guard let provider = state.sidecarPathProvider else {
@@ -132,7 +135,7 @@ public final class SidecarMetadataMonitorPlugin: MonitorPlugin, @unchecked Senda
                 return
             }
             state.store = store
-            state.enabled = true
+            self.enabled.value = true
             record(store)
             if let makePoller {
                 if let poller = makePoller({ [weak self] in self?.recordCurrent() }) {
@@ -150,7 +153,7 @@ public final class SidecarMetadataMonitorPlugin: MonitorPlugin, @unchecked Senda
 
     private func recordCurrent() {
         state.withLock { state in
-            guard state.enabled, let store = state.store else { return }
+            guard enabled.value, let store = state.store else { return }
             record(store)
         }
     }
