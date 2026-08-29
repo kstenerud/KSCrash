@@ -87,7 +87,11 @@ private final class DiskMonitorPlugin: MonitorPlugin, @unchecked Sendable {
             self.enabled.value = enabled
             if enabled {
                 Self.record()
+                // The guard covers a fire already in flight when the poller
+                // is stopped on disable.
                 let poller = Poller(every: 60, queue: DispatchQueue(label: "com.kscrash.diskmonitor", qos: .utility)) {
+                    [weak self] in
+                    guard let self, self.enabled.value else { return }
                     Self.record()
                 }
                 poller?.start()
