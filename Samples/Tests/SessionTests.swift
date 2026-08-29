@@ -60,7 +60,7 @@ final class SessionTests: IntegrationTestBase {
         try launchAndCrash(.nsException_genericNSException)  // run A crashes
         try launchAndInstall()  // run B installs and persists run A's summary
 
-        let runsDir = installUrl.appendingPathComponent("Runs")
+        let runsDir = try reportsDirectoryUrl().deletingLastPathComponent().appendingPathComponent("Runs")
         let runFiles = try FileManager.default.contentsOfDirectory(atPath: runsDir.path).filter {
             $0.hasSuffix(".run")
         }
