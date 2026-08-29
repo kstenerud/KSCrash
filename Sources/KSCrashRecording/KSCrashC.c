@@ -108,10 +108,6 @@ static bool g_shouldPrintPreviousLog = false;
 static char g_consoleLogPath[KSFU_MAX_PATH_LENGTH];
 static char g_lastCrashReportFilePath[KSFU_MAX_PATH_LENGTH];
 static KSCrashReportStoreCConfiguration g_reportStoreConfig;
-// TODO: Remove in 3.0
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-#pragma clang diagnostic pop
 static KSCrashWillWriteReportCallback g_willWriteReportCallback;
 static KSCrashIsWritingReportCallback g_isWritingReportCallback;
 static KSCrashDidWriteReportCallback g_didWriteReportCallback;
@@ -268,20 +264,42 @@ static void onFinalizeReport(__unused struct KSCrash_MonitorContext *monitorCont
     kscrs_finalizeReport(result->path, result->reportId);
 }
 
-static void setPluginMonitors(KSCrashMonitorAPI *apis, int count)
+bool kscrash_isBuiltInMonitorID(const char *monitorID)
+{
+    if (monitorID == NULL) {
+        return false;
+    }
+    for (size_t i = 0; i < g_monitorMappingCount; i++) {
+        KSCrashMonitorAPI *api = g_monitorMappings[i].getAPI();
+        if (api == NULL || api->monitorId == NULL) {
+            continue;
+        }
+        const char *id = api->monitorId(api->context);
+        if (id != NULL && strncmp(id, monitorID, KSCRASH_MONITOR_ID_MAX_LENGTH) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// false when the plugin count exceeds the cap: nothing is registered then,
+// and the install fails rather than silently dropping crash coverage.
+static bool setPluginMonitors(KSCrashMonitorAPI *apis, int count)
 {
     g_pluginCount = 0;
     if (apis == NULL || count <= 0) {
-        return;
+        return true;
     }
     if (count > KSC_MAX_PLUGINS) {
-        KSLOG_ERROR("%d plugins exceed the %d cap; the excess is not registered", count, KSC_MAX_PLUGINS);
+        KSLOG_ERROR("%d plugins exceed the %d cap; failing the install", count, KSC_MAX_PLUGINS);
+        return false;
     }
-    for (int i = 0; i < count && i < KSC_MAX_PLUGINS; i++) {
+    for (int i = 0; i < count; i++) {
         g_plugins[i] = apis[i];
         kscm_addMonitor(&g_plugins[i]);
         g_pluginCount++;
     }
+    return true;
 }
 
 // Undoes setPluginMonitors. The registry holds pointers into g_plugins, whose
@@ -468,7 +486,9 @@ KSCrashInstallErrorCode kscrash_install(const char *const installPath, KSCrashCC
     kscm_setFinalizeReportCallback(onFinalizeReport);
 
     setMonitors(configuration->monitors);
-    setPluginMonitors(configuration->plugins.apis, configuration->plugins.length);
+    if (!setPluginMonitors(configuration->plugins.apis, configuration->plugins.length)) {
+        return KSCrashInstallErrorInvalidParameter;
+    }
 
     // Monitor startup is four steps, order matters:
     //  1. enableMonitors         — installs signal/mach handlers, creates sidecars for the current run.
@@ -525,8 +545,6 @@ bool kscrash_addUserReport(const char *report, int reportLength, char *reportIDO
 }
 
 const KSCrashReportStoreCConfiguration *kscrash_getReportStoreConfiguration(void) { return &g_reportStoreConfig; }
-
-const char *kscrash_getReportsPath(void) { return g_reportStoreConfig.reportsPath; }
 
 bool kscrash_isInstalled(void) { return g_installed; }
 

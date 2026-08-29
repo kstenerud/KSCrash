@@ -134,11 +134,14 @@ bool kscrash_addUserReport(const char *report, int reportLength, char *reportIDO
  */
 const KSCrashReportStoreCConfiguration *kscrash_getReportStoreConfiguration(void);
 
-/** The resolved reports directory, or NULL before install. */
-const char *kscrash_getReportsPath(void);
-
 /** Whether kscrash_install has completed successfully. */
 bool kscrash_isInstalled(void);
+
+/** Whether this id belongs to one of the framework's built-in monitors.
+ * A plugin must not use a built-in id: the id routes report sections,
+ * sidecar directories and stitch callbacks.
+ */
+bool kscrash_isBuiltInMonitorID(const char *monitorID);
 
 /** The reserved metadata key that carries the active user id. */
 #define KSCRASH_USERID_KEY "com.kscrash.userid"
