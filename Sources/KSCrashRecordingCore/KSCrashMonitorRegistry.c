@@ -59,6 +59,27 @@ bool kscmr_addMonitor(KSCrashMonitorAPIList *monitorList, const KSCrashMonitorAP
         return false;
     }
 
+    // The id, not the pointer, is what identifies a monitor: it routes report sections, sidecar
+    // directories and stitch callbacks, so two monitors sharing one would be misrouted. Checked
+    // first, over the whole list, because a duplicate can sit in any slot.
+    const char *newId = monitorIdOf(api);
+    if (newId != NULL) {
+        for (size_t i = 0; i < KSCRASH_MONITOR_API_COUNT; i++) {
+            const KSCrashMonitorAPI *existing = atomic_load(monitorList->apis + i);
+            if (existing == NULL || existing == api) {
+                continue;
+            }
+            const char *existingId = monitorIdOf(existing);
+            if (existingId != NULL && strcmp(existingId, newId) == 0) {
+                KSLOG_ERROR("A monitor with id \"%s\" is already registered. Skipping addition.", newId);
+                // Loud in debug, where the mistake is introduced. In release the monitor is
+                // simply not added, which beats misrouting one monitor's sections to another.
+                assert(false);
+                return false;
+            }
+        }
+    }
+
     // The registry calls these unconditionally, and kscma_initAPI fills them
     // with no-ops, so a NULL is a table that skipped it. notifyPostMonitorsEnabled
     // is deliberately absent here: it is the one callback with a NULL check at
