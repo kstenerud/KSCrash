@@ -402,6 +402,10 @@ KSKeyValueStore *kskvs_create(const char *path, KSKVSMode mode, const KSKVSConfi
             goto done;
         }
 
+        // The truncate-and-init below is visible to a concurrent read-mode
+        // load of the same path. The write lock keeps such a reader from
+        // observing the zeroed image between O_TRUNC and initHeader.
+        pthread_rwlock_wrlock(&g_fileImageLock);
         int fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0644);
         if (fd < 0) {
             if (errno == ENOENT) {
@@ -409,6 +413,7 @@ KSKeyValueStore *kskvs_create(const char *path, KSKVSMode mode, const KSKVSConfi
             } else {
                 KSLOG_ERROR("Failed to create KVS file %s: %s", path, strerror(errno));
             }
+            pthread_rwlock_unlock(&g_fileImageLock);
             goto done;
         }
 
@@ -447,6 +452,7 @@ KSKeyValueStore *kskvs_create(const char *path, KSKVSMode mode, const KSKVSConfi
 
         result = store;
         status = KSKVSOpenSuccess;
+        pthread_rwlock_unlock(&g_fileImageLock);
         goto done;
 
     rw_fail:
@@ -454,6 +460,7 @@ KSKeyValueStore *kskvs_create(const char *path, KSKVSMode mode, const KSKVSConfi
             munmap(mapped, capacity);
         }
         close(fd);
+        pthread_rwlock_unlock(&g_fileImageLock);
         goto done;
     }
 
