@@ -25,6 +25,7 @@
 //
 
 #include <assert.h>
+#include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -210,11 +211,17 @@ static int listReportNames(ReportName **namesOut, const KSCrashReportStoreCConfi
 
 /** The path of the report with this id, by scanning the store's directory.
  * false when no such report exists or the store cannot be enumerated.
+ * `scanCompleteOut` (optional) is false only when enumeration itself failed,
+ * so false with a complete scan proves the report is absent.
  * A single readdir pass: id-addressed operations run once per pending report,
  * so this deliberately skips listReportNames's sort and allocation.
  */
-static bool findReportPath(const char *reportID, char *pathBuffer, const KSCrashReportStoreCConfiguration *const config)
+static bool findReportPath(const char *reportID, char *pathBuffer, const KSCrashReportStoreCConfiguration *const config,
+                           bool *scanCompleteOut)
 {
+    if (scanCompleteOut != NULL) {
+        *scanCompleteOut = true;
+    }
     if (!ksid_isValid(reportID)) {
         return false;
     }
@@ -222,6 +229,9 @@ static bool findReportPath(const char *reportID, char *pathBuffer, const KSCrash
     if (dir == NULL) {
         if (errno != ENOENT) {
             KSLOG_ERROR(@"Could not open directory %s", config->reportsPath);
+            if (scanCompleteOut != NULL) {
+                *scanCompleteOut = false;
+            }
         }
         return false;
     }
@@ -232,6 +242,9 @@ static bool findReportPath(const char *reportID, char *pathBuffer, const KSCrash
         if (ent == NULL) {
             if (errno != 0) {
                 KSLOG_ERROR(@"Could not enumerate directory %s", config->reportsPath);
+                if (scanCompleteOut != NULL) {
+                    *scanCompleteOut = false;
+                }
             }
             break;
         }
@@ -632,11 +645,16 @@ static bool deleteReportAtPath(const char *path, const char *reportID,
 static bool deleteReportWithID(const char *reportID, const KSCrashReportStoreCConfiguration *const config)
 {
     char path[KSCRS_MAX_PATH_LENGTH];
-    if (findReportPath(reportID, path, config)) {
+    bool scanComplete = false;
+    if (findReportPath(reportID, path, config, &scanComplete)) {
         return deleteReportAtPath(path, reportID, config);
     }
-    // No report file; its sidecars are already-deletable orphans.
-    deleteReportSidecarsForReport(reportID, config);
+    // Sidecars are deletable orphans only when a complete scan proves the
+    // report file is gone. A failed scan says nothing about its existence,
+    // and a still-present report needs its sidecars for delivery.
+    if (scanComplete) {
+        deleteReportSidecarsForReport(reportID, config);
+    }
     return false;
 }
 
@@ -920,7 +938,7 @@ char *kscrs_readReport(const char *reportID, const KSCrashReportStoreCConfigurat
     pthread_mutex_lock(&g_mutex);
     char path[KSCRS_MAX_PATH_LENGTH];
     char *result = NULL;
-    if (findReportPath(reportID, path, configuration)) {
+    if (findReportPath(reportID, path, configuration, NULL)) {
         result = readReportAtPath(path, reportID, configuration, status);
     } else {
         setReadStatus(status, KSCrashReportReadStatusUnreadable);
@@ -936,7 +954,7 @@ char *kscrs_copyReportRunID(const char *reportID, const KSCrashReportStoreCConfi
     pthread_mutex_lock(&g_mutex);
     char path[KSCRS_MAX_PATH_LENGTH];
     char *result = NULL;
-    if (findReportPath(reportID, path, configuration)) {
+    if (findReportPath(reportID, path, configuration, NULL)) {
         // The extractor stops at report.run_id, so a report torn mid-write
         // still answers with its run.
         char runID[KSCRS_UUID_STRING_LENGTH + 1];
@@ -948,33 +966,51 @@ char *kscrs_copyReportRunID(const char *reportID, const KSCrashReportStoreCConfi
     return result;
 }
 
-/** The payload with report.id set to `reportID`. nil with `isObjectOut`
- * false when the payload is not a JSON object (such a report is stored as
- * given and never delivered); nil with `isObjectOut` true when a real JSON
- * object could not be re-encoded, which must fail the add rather than store
- * bytes whose report.id does not match the filename.
+typedef enum {
+    PayloadStatusInjected,     // the returned data carries report.id == reportID
+    PayloadStatusNotAnObject,  // decodable JSON but not an object: stored as given, never delivered
+    PayloadStatusRejected,     // does not decode, or could not be re-encoded: the add must fail
+} PayloadStatus;
+
+/** The payload with report.id set to `reportID`. A payload that does not
+ * open a JSON object is NotAnObject (stored as given, never delivered). One
+ * that does must decode whole: a corrupt tail is Rejected rather than
+ * re-encoded as its prefix, and an object that cannot be re-encoded is
+ * Rejected rather than stored with a report.id not matching the filename.
  */
-static NSData *payloadWithInjectedID(const char *report, int reportLength, const char *reportID, bool *isObjectOut)
+static NSData *payloadWithInjectedID(const char *report, int reportLength, const char *reportID,
+                                     PayloadStatus *statusOut)
 {
     @autoreleasepool {
-        *isObjectOut = false;
-        NSData *data = [NSData dataWithBytesNoCopy:(void *)report length:(NSUInteger)reportLength freeWhenDone:NO];
-        NSMutableDictionary *dict =
-            [KSJSONCodec decode:data
-                        options:KSJSONDecodeOptionIgnoreNullInArray | KSJSONDecodeOptionIgnoreNullInObject |
-                                KSJSONDecodeOptionKeepPartialObject
-                          error:nil];
-        if (![dict isKindOfClass:[NSDictionary class]]) {
+        *statusOut = PayloadStatusNotAnObject;
+        int first = 0;
+        while (first < reportLength && isspace((unsigned char)report[first])) {
+            first++;
+        }
+        if (first >= reportLength || report[first] != '{') {
             return nil;
         }
-        *isObjectOut = true;
+        *statusOut = PayloadStatusRejected;
+        NSData *data = [NSData dataWithBytesNoCopy:(void *)report length:(NSUInteger)reportLength freeWhenDone:NO];
+        NSError *error = nil;
+        NSMutableDictionary *dict =
+            [KSJSONCodec decode:data
+                        options:KSJSONDecodeOptionIgnoreNullInArray | KSJSONDecodeOptionIgnoreNullInObject
+                          error:&error];
+        if (error != nil || ![dict isKindOfClass:[NSDictionary class]]) {
+            return nil;
+        }
         NSMutableDictionary *root = [dict isKindOfClass:[NSMutableDictionary class]] ? dict : [dict mutableCopy];
         id section = root[KSCrashField_Report];
         NSMutableDictionary *reportSection =
             [section isKindOfClass:[NSDictionary class]] ? [section mutableCopy] : [NSMutableDictionary dictionary];
         reportSection[KSCrashField_ID] = @(reportID);
         root[KSCrashField_Report] = reportSection;
-        return [KSJSONCodec encode:root options:KSJSONEncodeOptionPretty error:nil];
+        NSData *encoded = [KSJSONCodec encode:root options:KSJSONEncodeOptionPretty error:nil];
+        if (encoded != nil) {
+            *statusOut = PayloadStatusInjected;
+        }
+        return encoded;
     }
 }
 
@@ -989,12 +1025,12 @@ bool kscrs_addUserReport(const char *report, int reportLength,
     // otherwise one is minted and written into the payload, so the file's
     // report.id always matches its name.
     NSData *payload = nil;
-    bool payloadIsObject = false;
+    PayloadStatus payloadStatus = PayloadStatusRejected;
     if (kscrs_extractReportIdFromReportBytes(report, reportLength, reportIDOut, KSID_SIZE) != KSCrashRunIdResultFound) {
         ksid_generate(reportIDOut);
-        payload = payloadWithInjectedID(report, reportLength, reportIDOut, &payloadIsObject);
-        if (payload == nil && payloadIsObject) {
-            KSLOG_ERROR(@"Could not inject the report id; not storing the report");
+        payload = payloadWithInjectedID(report, reportLength, reportIDOut, &payloadStatus);
+        if (payloadStatus == PayloadStatusRejected) {
+            KSLOG_ERROR(@"Report payload does not decode whole; not storing the report");
             pthread_mutex_unlock(&g_mutex);
             return false;
         }
@@ -1011,8 +1047,8 @@ bool kscrs_addUserReport(const char *report, int reportLength,
         uuid_unparse_lower(parsed, canonical);
         if (strncmp(canonical, reportIDOut, KSID_SIZE) != 0) {
             strlcpy(reportIDOut, canonical, KSID_SIZE);
-            payload = payloadWithInjectedID(report, reportLength, reportIDOut, &payloadIsObject);
-            if (payload == nil && payloadIsObject) {
+            payload = payloadWithInjectedID(report, reportLength, reportIDOut, &payloadStatus);
+            if (payloadStatus == PayloadStatusRejected) {
                 KSLOG_ERROR(@"Could not canonicalize the report id; not storing the report");
                 pthread_mutex_unlock(&g_mutex);
                 return false;
@@ -1025,7 +1061,7 @@ bool kscrs_addUserReport(const char *report, int reportLength,
     // The id is the identity: re-adding an id already in the store overwrites
     // that report's file, so one id can never mean two files and a re-add is
     // idempotent. Only otherwise does the report get a fresh timestamped name.
-    if (!findReportPath(reportIDOut, crashReportPath, configuration)) {
+    if (!findReportPath(reportIDOut, crashReportPath, configuration, NULL)) {
         getCrashReportPath(nextReportNs(), reportIDOut, crashReportPath, configuration);
     }
     bool written = false;
