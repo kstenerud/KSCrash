@@ -26,6 +26,7 @@
 
 import Foundation
 import KSCrashRecording
+import KSCrashRecordingCore
 import KSCrashReportModel
 import XCTest
 
@@ -59,6 +60,19 @@ final class KSCrashRuntimeTests: XCTestCase {
         XCTAssertEqual(KSCrash.shared.metadata[KSCRASH_USERID_KEY] as String?, "bob")
         KSCrash.shared.setUserID(nil)
         XCTAssertNil(KSCrash.shared.metadata[KSCRASH_USERID_KEY] as String?)
+    }
+
+    func test_setUserID_overTheSessionLimit_truncatesOnACharacterBoundary() {
+        let limit = Int(KSSESSION_MAX_USER_LENGTH) - 1
+        KSCrash.shared.setUserID(String(repeating: "u", count: limit + 100))
+        XCTAssertEqual(
+            KSCrash.shared.metadata[KSCRASH_USERID_KEY] as String?, String(repeating: "u", count: limit))
+        // A multi-byte character straddling the limit is dropped whole, so
+        // the stored value stays valid UTF-8 and matches the session record.
+        KSCrash.shared.setUserID(String(repeating: "a", count: limit - 1) + "🚗")
+        XCTAssertEqual(
+            KSCrash.shared.metadata[KSCRASH_USERID_KEY] as String?, String(repeating: "a", count: limit - 1))
+        KSCrash.shared.setUserID(nil)
     }
 
     func test_registeredCMonitorPlugins_populateTheSystemFields() throws {
