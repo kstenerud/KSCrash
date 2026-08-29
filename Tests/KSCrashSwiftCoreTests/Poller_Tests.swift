@@ -50,4 +50,10 @@ final class Poller_Tests: XCTestCase {
         // The leeway conversion must stay total for any finite interval.
         XCTAssertNotNil(Poller(every: .greatestFiniteMagnitude, queue: queue) {})
     }
+
+    func test_minuteScaleInterval_isAccepted_withoutTrapping() {
+        // 60s leeway nanoseconds overflow a 32-bit Int (arm64_32 watches);
+        // the conversion must saturate, not trap.
+        XCTAssertNotNil(Poller(every: 60, queue: queue) {})
+    }
 }
