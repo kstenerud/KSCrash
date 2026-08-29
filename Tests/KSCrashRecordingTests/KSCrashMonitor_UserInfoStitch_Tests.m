@@ -36,8 +36,6 @@
 
 static const KSKVSConfig kTestConfig = {
     .initialCapacity = 4096,
-    .maxKeyLength = 256,
-    .maxStringLength = 1024,
 };
 
 static NSString *createTempDir(void)
@@ -164,6 +162,62 @@ static NSString *writeRawSidecar(NSString *dir, NSData *data)
     XCTAssertTrue(result != nil);
 
     XCTAssertEqualObjects(result[KSCrashField_User][@"user_id"], @"abc123");
+}
+
+- (void)testStitchDropsAScalarJSONRecord
+{
+    // The writer refuses non-container JSON, so scalar bytes can only come
+    // from a torn or foreign file; hand-build one and prove the reader
+    // refuses them too. Layout: header + one JSON record with body "j" + "5".
+    struct __attribute__((packed)) {
+        uint32_t magic;
+        uint32_t version;
+        uint32_t offset;
+        uint16_t keyLen;
+        uint8_t type;
+        uint16_t valueLen;
+        char body[2];
+    } image = {
+        .magic = 0x6B736B76u,
+        .version = 1,
+        .offset = sizeof(image),
+        .keyLen = 1,
+        .type = 7,  // JSON
+        .valueLen = 1,
+        .body = { 'j', '5' },
+    };
+    NSString *path = [self.tempDir stringByAppendingPathComponent:@"scalar.kvs"];
+    XCTAssertTrue([[NSData dataWithBytes:&image length:sizeof(image)] writeToFile:path atomically:YES]);
+
+    NSDictionary *report = makeMinimalReport();
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_userinfo_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
+    XCTAssertNil(result[KSCrashField_User][@"j"], @"a scalar in a JSON record is absence, not a value");
+}
+
+- (void)testStitchJSONContainerValues
+{
+    NSString *path = buildSidecarFile(self.tempDir, ^(KSKeyValueStore *store) {
+        const char *tags = "[\"a\",\"b\"]";
+        kskvs_setJSON(store, "tags", tags, strlen(tags));
+        const char *cart = "{\"items\":3,\"flags\":[true]}";
+        kskvs_setJSON(store, "cart", cart, strlen(cart));
+        const char *bad = "{broken";
+        kskvs_setJSON(store, "bad", bad, strlen(bad));
+    });
+
+    NSDictionary *report = makeMinimalReport();
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_userinfo_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
+
+    NSDictionary *user = result[KSCrashField_User];
+    NSArray *expectedTags = @[ @"a", @"b" ];
+    XCTAssertEqualObjects(user[@"tags"], expectedTags);
+    NSDictionary *expectedCart = @{ @"items" : @3, @"flags" : @[ @YES ] };
+    XCTAssertEqualObjects(user[@"cart"], expectedCart);
+    XCTAssertNil(user[@"bad"], @"undecodable JSON bytes drop the entry, never fail the stitch");
 }
 
 #pragma mark - Stitch Integer Values

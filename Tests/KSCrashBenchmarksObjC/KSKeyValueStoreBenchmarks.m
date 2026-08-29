@@ -31,8 +31,6 @@
 
 static const KSKVSConfig kDefaultConfig = {
     .initialCapacity = 4096,
-    .maxKeyLength = 256,
-    .maxStringLength = 1024,
 };
 
 @interface KSKeyValueStoreBenchmarks : KSBenchmarkTestCaseObjC
@@ -184,8 +182,6 @@ static const KSKVSCallbacks kBenchCallbacks = {
 {
     const KSKVSConfig smallConfig = {
         .initialCapacity = 512,
-        .maxKeyLength = 64,
-        .maxStringLength = 128,
     };
 
     [self measureBlock:^{
@@ -214,8 +210,6 @@ static const KSKVSCallbacks kBenchCallbacks = {
 {
     const KSKVSConfig smallConfig = {
         .initialCapacity = 512,
-        .maxKeyLength = 64,
-        .maxStringLength = 256,
     };
 
     [self measureBlock:^{
