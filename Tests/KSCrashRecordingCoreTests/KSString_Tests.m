@@ -769,19 +769,19 @@
     XCTAssertEqual([uuid characterAtIndex:18], '-');
     XCTAssertEqual([uuid characterAtIndex:23], '-');
 
-    NSCharacterSet *valid = [NSCharacterSet characterSetWithCharactersInString:@"0123456789ABCDEF-"];
+    NSCharacterSet *valid = [NSCharacterSet characterSetWithCharactersInString:@"0123456789abcdef-"];
     NSCharacterSet *chars = [NSCharacterSet characterSetWithCharactersInString:uuid];
-    XCTAssertTrue([valid isSupersetOfSet:chars], @"UUID should only contain uppercase hex and hyphens: %@", uuid);
+    XCTAssertTrue([valid isSupersetOfSet:chars], @"UUID should only contain lowercase hex and hyphens: %@", uuid);
 
     // Must round-trip through uuid_parse
     uuid_t parsed;
     XCTAssertEqual(uuid_parse(buf, parsed), 0, @"Generated string should be a valid UUID");
 
-    // UUID v4: version nibble must be '4', variant nibble must be 8/9/A/B
+    // UUID v4: version nibble must be '4', variant nibble must be 8/9/a/b
     XCTAssertEqual([uuid characterAtIndex:14], '4', @"Version nibble should be 4");
     unichar variant = [uuid characterAtIndex:19];
-    XCTAssertTrue(variant == '8' || variant == '9' || variant == 'A' || variant == 'B',
-                  @"Variant nibble should be 8/9/A/B, got %C", variant);
+    XCTAssertTrue(variant == '8' || variant == '9' || variant == 'a' || variant == 'b',
+                  @"Variant nibble should be 8/9/a/b, got %C", variant);
 }
 
 - (void)testKSIDGenerateUniqueness

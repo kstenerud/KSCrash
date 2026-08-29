@@ -26,86 +26,57 @@
 
 import Foundation
 
-extension RunSummary: Identifiable {
-    /// The run's identity: the UUID minted at launch.
-    public struct ID: Hashable, Codable, Sendable, LosslessStringConvertible, ExpressibleByStringLiteral {
-        public let uuid: UUID
+/// A payload's identity: a UUID in its canonical lowercase text form.
+///
+/// `Owner` is phantom typing: ids of different payload kinds are different
+/// types, so one cannot stand in for another.
+public struct PayloadID<Owner>: Hashable, Codable, Sendable, LosslessStringConvertible, ExpressibleByStringLiteral {
+    public let uuid: UUID
 
-        public init(uuid: UUID) {
-            self.uuid = uuid
+    public init(uuid: UUID) {
+        self.uuid = uuid
+    }
+
+    /// nil unless `string` is a UUID; any case is accepted.
+    public init?(_ string: String) {
+        guard let uuid = UUID(uuidString: string) else { return nil }
+        self.uuid = uuid
+    }
+
+    /// Lowercase: the wire and on-disk form of every payload id.
+    public var description: String { uuid.uuidString.lowercased() }
+
+    /// A literal that is not a UUID is a programming error.
+    public init(stringLiteral value: String) {
+        guard let uuid = UUID(uuidString: value) else {
+            preconditionFailure("id literal is not a UUID: \(value)")
         }
+        self.uuid = uuid
+    }
 
-        /// nil unless `string` is a UUID.
-        public init?(_ string: String) {
-            guard let uuid = UUID(uuidString: string) else { return nil }
-            self.uuid = uuid
+    public init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        guard let uuid = UUID(uuidString: raw) else {
+            throw DecodingError.dataCorrupted(
+                .init(codingPath: decoder.codingPath, debugDescription: "id is not a UUID: \(raw)"))
         }
+        self.uuid = uuid
+    }
 
-        public var description: String { uuid.uuidString }
-
-        /// A literal that is not a UUID is a programming error.
-        public init(stringLiteral value: String) {
-            guard let uuid = UUID(uuidString: value) else {
-                preconditionFailure("run id literal is not a UUID: \(value)")
-            }
-            self.uuid = uuid
-        }
-
-        public init(from decoder: Decoder) throws {
-            let raw = try decoder.singleValueContainer().decode(String.self)
-            guard let uuid = UUID(uuidString: raw) else {
-                throw DecodingError.dataCorrupted(
-                    .init(codingPath: decoder.codingPath, debugDescription: "run id is not a UUID: \(raw)"))
-            }
-            self.uuid = uuid
-        }
-
-        public func encode(to encoder: Encoder) throws {
-            var container = encoder.singleValueContainer()
-            try container.encode(uuid.uuidString)
-        }
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(description)
     }
 }
 
 extension Report: Identifiable {
     /// The report's identity: the UUID minted when the report was recorded.
-    public struct ID: Hashable, Codable, Sendable, LosslessStringConvertible, ExpressibleByStringLiteral {
-        public let uuid: UUID
-
-        public init(uuid: UUID) {
-            self.uuid = uuid
-        }
-
-        /// nil unless `string` is a UUID.
-        public init?(_ string: String) {
-            guard let uuid = UUID(uuidString: string) else { return nil }
-            self.uuid = uuid
-        }
-
-        public var description: String { uuid.uuidString }
-
-        /// A literal that is not a UUID is a programming error.
-        public init(stringLiteral value: String) {
-            guard let uuid = UUID(uuidString: value) else {
-                preconditionFailure("report id literal is not a UUID: \(value)")
-            }
-            self.uuid = uuid
-        }
-
-        public init(from decoder: Decoder) throws {
-            let raw = try decoder.singleValueContainer().decode(String.self)
-            guard let uuid = UUID(uuidString: raw) else {
-                throw DecodingError.dataCorrupted(
-                    .init(codingPath: decoder.codingPath, debugDescription: "report id is not a UUID: \(raw)"))
-            }
-            self.uuid = uuid
-        }
-
-        public func encode(to encoder: Encoder) throws {
-            var container = encoder.singleValueContainer()
-            try container.encode(uuid.uuidString)
-        }
-    }
+    public typealias ID = PayloadID<Report>
 
     public var id: ID { report.id }
+}
+
+extension RunSummary: Identifiable {
+    /// The run's identity: the UUID minted at launch.
+    public typealias ID = PayloadID<RunSummary>
 }

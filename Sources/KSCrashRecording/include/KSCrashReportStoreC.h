@@ -54,11 +54,15 @@ extern "C" {
 /** Report files are "<KSCRS_REPORT_NAME_DIGITS decimal digits of wall-clock
  *  nanoseconds>-<report id>.<KSCRS_REPORT_FILENAME_EXTENSION>". The digits
  *  carry the write order; the id (the report's UUID text, KSID_LENGTH
- *  characters) is the identity. Shared by the C store and the Swift store's
- *  parser; change them together. */
+ *  characters) is the identity. */
 #define KSCRS_REPORT_ID_LENGTH KSID_LENGTH
 #define KSCRS_REPORT_NAME_DIGITS 20
 #define KSCRS_REPORT_FILENAME_EXTENSION "json"
+
+/** The report id in a store filename, into a KSID_SIZE buffer.
+ *  False for any name that is not a report's: the single authority on the
+ *  filename grammar, for the C and Swift stores alike. */
+bool kscrs_parseReportFilename(const char *filename, char *reportIDBuffer);
 
 /** The UserInfo monitor's id, and its per-run sidecar filename inside a run's
  *  RunSidecars/<runID>/ directory. The filename is the id plus the sidecar

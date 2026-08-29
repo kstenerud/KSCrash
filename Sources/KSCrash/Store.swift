@@ -318,24 +318,14 @@ private struct RunIdentity: Decodable {
 }
 
 extension Store {
-    /// The report filename grammar, shared with the C store through its
-    /// KSCRS_REPORT_* constants: "<digits>-<id>.<extension>".
+    /// The report filename grammar. One parser, the C store's; this only
+    /// converts its result.
     enum ReportFilename {
-        static let digits = Int(KSCRS_REPORT_NAME_DIGITS)
-        static let idLength = Int(KSCRS_REPORT_ID_LENGTH)
-        static let suffix = "." + KSCRS_REPORT_FILENAME_EXTENSION
-        static let length = digits + 1 + idLength + suffix.count
-
         /// The id in a report filename; nil for any other name.
         static func reportID(in name: String) -> Report.ID? {
-            guard name.count == length, name.hasSuffix(suffix) else { return nil }
-            let digitsEnd = name.index(name.startIndex, offsetBy: digits)
-            guard name[..<digitsEnd].allSatisfy({ $0.isASCII && $0.isNumber }), name[digitsEnd] == "-" else {
-                return nil
-            }
-            let idStart = name.index(after: digitsEnd)
-            let idEnd = name.index(idStart, offsetBy: idLength)
-            return Report.ID(String(name[idStart..<idEnd]))
+            var id = [CChar](repeating: 0, count: Int(KSID_SIZE))
+            guard kscrs_parseReportFilename(name, &id) else { return nil }
+            return Report.ID(String(cString: id))
         }
     }
 
