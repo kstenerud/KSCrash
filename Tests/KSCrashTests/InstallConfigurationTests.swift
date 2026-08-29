@@ -92,9 +92,9 @@ final class InstallConfigurationTests: XCTestCase {
     }
 
     func test_locations_throwForAnUnavailableAppGroup() throws {
-        #if os(macOS) || targetEnvironment(simulator)
-            // An unsandboxed macOS process, and every simulator, is handed a
-            // container URL for any group id.
+        #if os(macOS) || targetEnvironment(simulator) || targetEnvironment(macCatalyst)
+            // An unsandboxed macOS process, every simulator, and Mac Catalyst
+            // are handed a container URL for any group id.
             throw XCTSkip("app group containers always resolve outside a device sandbox")
         #endif
         var config = InstallConfiguration(namespace: "Ns")

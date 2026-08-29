@@ -96,6 +96,9 @@ extension UserReportConfig {
 }
 
 extension UserReportConfig.UserException {
+    // The tests assert this frame is on top of the captured stack: keep it
+    // out of tail position and un-inlined, as the SDK facades do.
+    @inline(never)
     func report() {
         KSCrash.shared.reportException(
             name,
@@ -106,10 +109,13 @@ extension UserReportConfig.UserException {
             logAllThreads: logAllThreads,
             terminateProgram: terminateProgram
         )
+        kscrash_thwartTailCallOptimisation()
     }
 }
 
 extension UserReportConfig.NSExceptionReport {
+    // Frame-pinned like UserException.report above.
+    @inline(never)
     func report() {
         var exception = NSException(
             name: .init(rawValue: name),
@@ -120,5 +126,6 @@ extension UserReportConfig.NSExceptionReport {
             exception = CrashTriggersHelper.exceptionWithStacktrace(for: exception)
         }
         KSCrash.shared.reportException(exception, logAllThreads: logAllThreads)
+        kscrash_thwartTailCallOptimisation()
     }
 }
