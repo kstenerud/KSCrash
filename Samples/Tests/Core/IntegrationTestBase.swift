@@ -353,6 +353,15 @@ class IntegrationTestBase: XCTestCase {
         return URL(fileURLWithPath: path, isDirectory: true)
     }
 
+    /// The install's runs directory, read from the same state file.
+    func runsDirectoryUrl() throws -> URL {
+        enum LocalError: Error {
+            case runsPathNotInState
+        }
+        guard let path = try readState().runsPath else { throw LocalError.runsPathNotInState }
+        return URL(fileURLWithPath: path, isDirectory: true)
+    }
+
     func terminate() throws {
         app.terminate()
         _ = app.wait(for: .notRunning, timeout: self.appTerminateTimeout)

@@ -35,6 +35,7 @@ public struct KSCrashState: Codable {
     /// Where the install put its stores, so the harness never re-derives the layout.
     public var rootPath: String?
     public var reportsPath: String?
+    public var runsPath: String?
 }
 
 extension KSCrashState {
@@ -49,7 +50,8 @@ extension KSCrashState {
             previousTerminationReason: reason.rawValue,
             previousRunWasAbnormal: reason.isAbnormal,
             rootPath: locations?.root.path,
-            reportsPath: locations?.reports.path
+            reportsPath: locations?.reports.path,
+            runsPath: locations?.runs.path
         )
     }
 
