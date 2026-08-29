@@ -49,6 +49,21 @@ final class MetadataTests: XCTestCase {
         XCTAssertEqual(bag["score", as: Double.self], 98.5)
     }
 
+    func test_setAndGet_containers() {
+        var bag = Metadata()
+        bag["tags"] = ["a", "b"]
+        bag["scores"] = [1, 2]
+        bag["cart"] = ["items": 3]
+        bag["mixed"] = MetadataValue.array([.string("a"), .integer(1)])
+
+        XCTAssertEqual(bag["tags"] as [String]?, ["a", "b"])
+        XCTAssertEqual(bag["scores"] as [Int]?, [1, 2])
+        XCTAssertEqual(bag["cart"] as [String: Int]?, ["items": 3])
+        XCTAssertEqual(bag["mixed"] as MetadataValue?, .array([.string("a"), .integer(1)]))
+        XCTAssertNil(bag["tags"] as [Int]?, "typed reads are exact, never partial")
+        XCTAssertNil(bag["mixed"] as [String]?, "a heterogeneous array is not a [String]")
+    }
+
     func test_get_wrongTypeReturnsNil() {
         var bag = Metadata()
         bag.set(42, forKey: "age")

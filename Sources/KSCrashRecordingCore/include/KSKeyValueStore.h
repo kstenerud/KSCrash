@@ -31,6 +31,10 @@
  * Instance-based, lock-free storage engine. The caller is responsible
  * for synchronization. Supports typed setters, last-write-wins
  * iteration, compaction, and automatic growth.
+ *
+ * Keys and values are variable-size, bounded only by the record format
+ * (64KB each). Readers skip record types they do not know, so new types
+ * can be added without a version break.
  */
 
 #ifndef HDR_KSKeyValueStore_h
@@ -58,8 +62,6 @@ typedef enum {
 /** Configuration for store creation. */
 typedef struct {
     uint32_t initialCapacity; /**< Starting buffer size (e.g. 4096). */
-    uint16_t maxKeyLength;    /**< Writes with a longer key are rejected (e.g. 256). */
-    uint16_t maxStringLength; /**< Writes with a longer string value are rejected (e.g. 1024). */
 } KSKVSConfig;
 
 /** Outcome of kskvs_create. */
@@ -96,8 +98,8 @@ void kskvs_destroy(KSKeyValueStore *store);
 // ============================================================================
 
 /** Each setter returns false when the write is rejected (empty key, or a key
- *  or string value over the store's limits) or cannot be persisted; the store
- *  is unchanged. Nothing is ever truncated.
+ *  or value past the record format's 64KB bound) or cannot be persisted; the
+ *  store is unchanged. Nothing is ever truncated.
  *
  *  NOT thread-safe: concurrent writers to a store are the caller's
  *  responsibility. The store's only internal guarantee is that a read-mode
@@ -109,6 +111,14 @@ bool kskvs_setUInt64(KSKeyValueStore *store, const char *key, uint64_t value);
 bool kskvs_setDouble(KSKeyValueStore *store, const char *key, double value);
 bool kskvs_setBool(KSKeyValueStore *store, const char *key, bool value);
 bool kskvs_setDate(KSKeyValueStore *store, const char *key, int64_t nanosecondsSince1970);
+
+/** Stores `length` bytes of UTF-8 JSON text as the key's value. Only a JSON
+ *  container is a value: bytes that do not open an array or an object are
+ *  rejected. The store does not parse further; consumers interpret the bytes
+ *  at read time and treat anything but a container as absence.
+ */
+bool kskvs_setJSON(KSKeyValueStore *store, const char *key, const char *json, size_t length);
+
 bool kskvs_removeValue(KSKeyValueStore *store, const char *key);
 
 // ============================================================================
@@ -123,6 +133,10 @@ typedef struct {
     void (*onDouble)(const char *key, uint16_t keyLen, double value, void *ctx);
     void (*onBool)(const char *key, uint16_t keyLen, bool value, void *ctx);
     void (*onDate)(const char *key, uint16_t keyLen, int64_t nanosecondsSince1970, void *ctx);
+    /** One JSON container (array or object) as UTF-8 text, not
+     *  NUL-terminated and not validated by the store; a consumer that cannot
+     *  parse it to a container treats the key as absent. */
+    void (*onJSON)(const char *key, uint16_t keyLen, const char *json, uint16_t jsonLen, void *ctx);
     /** Called for keys whose final resolved state is a tombstone (removal).
      *  Allows callers to actively delete keys from a pre-existing dictionary. */
     void (*onRemoved)(const char *key, uint16_t keyLen, void *ctx);
