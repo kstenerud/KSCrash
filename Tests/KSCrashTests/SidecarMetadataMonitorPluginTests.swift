@@ -111,34 +111,50 @@ final class SidecarMetadataMonitorPluginTests: XCTestCase {
         XCTAssertFalse(plugin.api.pointee.isEnabled(plugin.api.pointee.context))
     }
 
-    func test_bootMonitor_recordsTheReservedKey_andStitchesBootTime() throws {
-        let plugin = BootMonitor.plugin()
-        XCTAssertEqual(String(cString: plugin.api.pointee.monitorId(plugin.api.pointee.context)!), "BootTime")
-        enable(plugin)
-        XCTAssertGreaterThan(storedValues(monitorID: "BootTime")["com.kscrash.boot.time"] ?? 0, 0)
-
-        let report = try XCTUnwrap(stitched(plugin, monitorID: "BootTime", report: [:]))
-        let bootTime = try XCTUnwrap((report["system"] as? NSDictionary)?["boot_time"] as? String)
-        XCTAssertFalse(bootTime.isEmpty)
+    /// A scratch plugin on the base, standing in for a third-party recorder:
+    /// the shipped monitors record through the System sidecar, so the base's
+    /// own record/stitch path is covered here directly.
+    private func makeBasePlugin() -> any MonitorPlugin {
+        SidecarMetadataMonitorPlugin(
+            monitorID: "TestSidecar",
+            record: { store in store["com.kscrash.test.value"] = UInt64(42) },
+            poller: nil,
+            stitch: { values, system in
+                if let value: UInt64 = values["com.kscrash.test.value"] {
+                    system["test_value"] = value
+                }
+            })
     }
 
-    func test_corruptBootTimeSidecar_deliversTheReportUntouched() throws {
-        // A torn sidecar can hold any bytes; a value past Int64.max must
-        // read as absence at delivery, never trap the send.
-        let path = directory.appendingPathComponent("BootTime.ksscr").path
-        var config = KSKVSConfig(initialCapacity: 512, maxKeyLength: 64, maxStringLength: 64)
-        let store = try XCTUnwrap(kskvs_create(path, KSKVSModeReadWriteCreate, &config, nil))
-        XCTAssertTrue(kskvs_setUInt64(store, "com.kscrash.boot.time", UInt64.max))
-        kskvs_destroy(store)
-
+    func test_bootMonitor_wiresTheSystemRecording_andTogglesEnabled() throws {
         let plugin = BootMonitor.plugin()
-        let report = try XCTUnwrap(stitched(plugin, monitorID: "BootTime", report: [:]))
-        XCTAssertNil((report["system"] as? NSDictionary)?["boot_time"])
+        XCTAssertEqual(String(cString: plugin.api.pointee.monitorId(plugin.api.pointee.context)!), "BootTime")
+        // The value lands in the System sidecar via kscm_system_setBootTime
+        // and SystemStitch delivers it; both are covered by the System
+        // monitor tests. The plugin's own surface is enablement and the
+        // post-monitors-enabled recording hook.
+        enable(plugin)
+        XCTAssertTrue(plugin.api.pointee.isEnabled(plugin.api.pointee.context))
+        plugin.api.pointee.notifyPostMonitorsEnabled?(plugin.api.pointee.context)
+        plugin.api.pointee.setEnabled(false, plugin.api.pointee.context)
+        XCTAssertFalse(plugin.api.pointee.isEnabled(plugin.api.pointee.context))
+    }
+
+    func test_basePlugin_recordsTheKey_andStitchesIt() throws {
+        let plugin = makeBasePlugin()
+        // Plugins never count toward the registry's any-monitor-active gate.
+        XCTAssertEqual(plugin.api.pointee.monitorFlags(plugin.api.pointee.context), KSCrashMonitorFlagPlugin)
+        enable(plugin)
+        XCTAssertEqual(storedValues(monitorID: "TestSidecar")["com.kscrash.test.value"], 42)
+
+        let report = try XCTUnwrap(stitched(plugin, monitorID: "TestSidecar", report: [:]))
+        let value = try XCTUnwrap((report["system"] as? NSDictionary)?["test_value"] as? UInt64)
+        XCTAssertEqual(value, 42)
     }
 
     func test_absentSidecar_deliversTheReportUntouched() throws {
-        let plugin = BootMonitor.plugin()
-        let report = try XCTUnwrap(stitched(plugin, monitorID: "BootTime", report: ["report": ["id": "x"]]))
+        let plugin = makeBasePlugin()
+        let report = try XCTUnwrap(stitched(plugin, monitorID: "TestSidecar", report: ["report": ["id": "x"]]))
         XCTAssertEqual(report, ["report": ["id": "x"]] as NSDictionary)
     }
 
