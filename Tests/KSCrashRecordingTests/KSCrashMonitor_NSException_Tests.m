@@ -96,7 +96,11 @@ static void stubHandle(__unused KSCrash_MonitorContext *context, KSCrash_ReportR
     result->path[0] = '\0';
 }
 
-static void stubHandle_deprecated(KSCrash_MonitorContext *context) { stubHandle(context, NULL, false); }
+static void stubHandle_deprecated(KSCrash_MonitorContext *context)
+{
+    KSCrash_ReportResult ignored = { 0 };
+    stubHandle(context, &ignored, false);
+}
 
 /** Enabling the monitor hands kscrash_reportNSException its reporter, as an install would. */
 - (void)enableNSExceptionMonitor
