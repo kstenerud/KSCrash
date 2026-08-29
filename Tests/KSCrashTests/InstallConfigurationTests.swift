@@ -128,8 +128,12 @@ final class InstallConfigurationTests: XCTestCase {
         private let monitorID: UnsafePointer<CChar>
         let api: UnsafeMutablePointer<KSCrashMonitorAPI>
 
-        init(_ index: Int) {
-            monitorID = UnsafePointer(strdup("CountedPlugin\(index)")!)
+        convenience init(_ index: Int) {
+            self.init(id: "CountedPlugin\(index)")
+        }
+
+        init(id: String) {
+            monitorID = UnsafePointer(strdup(id)!)
             api = .allocate(capacity: 1)
             api.initialize(to: KSCrashMonitorAPI())
             // The production pattern: defaults for every slot first.
@@ -164,6 +168,21 @@ final class InstallConfigurationTests: XCTestCase {
         XCTAssertThrowsError(try config.validate()) { error in
             guard case .invalidConfiguration? = error as? InstallError else { return XCTFail("\(error)") }
         }
+    }
+
+    func test_validate_rejectsBuiltInAndPlaceholderMonitorIDs() {
+        var config = InstallConfiguration(namespace: "Ns")
+        // Built-in ids route sections and sidecars, and the placeholder is
+        // not an identity. Both must fail before the C registry's debug-only
+        // assert.
+        for reserved in ["System", "Watchdog", "UserInfo", "unset"] {
+            config.plugins = [CountedPlugin(id: reserved)]
+            XCTAssertThrowsError(try config.validate(), reserved) { error in
+                guard case .invalidConfiguration? = error as? InstallError else { return XCTFail("\(error)") }
+            }
+        }
+        config.plugins = [CountedPlugin(id: "MyOwnMonitor")]
+        XCTAssertNoThrow(try config.validate())
     }
 
     func test_validate_refusesNegativeCountsAndEmptyClassNames() {

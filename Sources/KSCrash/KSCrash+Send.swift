@@ -99,10 +99,10 @@ extension KSCrash {
     // in SendClaims, not here. Nothing is gained by caching it.
     static func makeStore() -> Store? {
         guard kscrash_isInstalled(),
-            let reportsPath = kscrash_getReportsPath(),
-            let runsPath = kscrash_getRunSummariesPath(),
-            let sidecarsPath = kscrash_getRunSidecarsPath(),
-            let storeConfig = kscrash_getReportStoreConfiguration()
+            let storeConfig = kscrash_getReportStoreConfiguration(),
+            let reportsPath = storeConfig.pointee.reportsPath,
+            let runsPath = storeConfig.pointee.runSummariesPath,
+            let sidecarsPath = storeConfig.pointee.runSidecarsPath
         else {
             return nil
         }
@@ -111,7 +111,7 @@ extension KSCrash {
             runSidecarsDirectory: URL(fileURLWithPath: String(cString: sidecarsPath), isDirectory: true),
             reportsDirectory: URL(fileURLWithPath: String(cString: reportsPath), isDirectory: true),
             liveRunID: RunSummary.ID(String(cString: kscrash_getRunID())),
-            maxRunCount: Int(kscrash_getMaxRunSummaryCount()),
+            maxRunCount: Int(storeConfig.pointee.maxRunSummaryCount),
             storeConfig: storeConfig
         )
     }

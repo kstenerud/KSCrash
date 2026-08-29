@@ -43,8 +43,7 @@
 extern "C" {
 #endif
 
-/** The most plugin monitors an install registers; excess entries are not
- * registered. */
+/** The most plugin monitors an install accepts (more fail the install). */
 #define KSC_MAX_PLUGINS 64
 
 /** Configuration for managing crash reports through the report store API.
@@ -282,7 +281,7 @@ typedef struct {
      *
      * An array of `KSCrashMonitorAPI` structs that will be copied into static
      * storage and registered via `kscm_addMonitor()` during installation.
-     * At most `KSC_MAX_PLUGINS` entries are registered.
+     * More than `KSC_MAX_PLUGINS` entries fail the install.
      *
      * If `release` is non-NULL, it will be called with `apis` during
      * `KSCrashCConfiguration_Release()`. Set it to `free` for heap-allocated
@@ -326,8 +325,8 @@ static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
         .enableHangReporting = false,
         .enableCPUExceptionReporting = false,
         .enableCompactBinaryImages = false,
-        .enableSwiftAsyncStackTraces = false,
         .plugins = { .apis = NULL, .length = 0, .release = NULL },
+        .enableSwiftAsyncStackTraces = false,
     };
 }
 
