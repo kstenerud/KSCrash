@@ -26,6 +26,7 @@
 
 import Foundation
 import KSCrashRecording
+import KSCrashRecordingCore
 import KSCrashReportModel
 
 extension KSCrash {
@@ -52,11 +53,30 @@ extension KSCrash {
 
     /// Record the active user; nil clears it. A session boundary: reports and
     /// run summaries attribute what follows to this user.
+    ///
+    /// No effect before install. An id longer than the session record's
+    /// limit is truncated on a character boundary, so every artifact
+    /// (reports, run summaries, sessions) carries the identical value.
     public func setUserID(_ userID: String?) {
+        let userID = Self.truncatedUserID(userID)
         userIDLock.withLock { _ in
             metadata[KSCRASH_USERID_KEY] = userID
             sessionRecorder.observeUser(userID)
         }
+    }
+
+    /// The longest prefix that fits the session record's user field as valid
+    /// UTF-8. Truncating here, before the sinks, is what keeps the metadata
+    /// store (reject-over-limit) and the session writer (truncate-over-limit)
+    /// in agreement.
+    private static func truncatedUserID(_ userID: String?) -> String? {
+        let maxBytes = Int(KSSESSION_MAX_USER_LENGTH) - 1
+        guard let userID, userID.utf8.count > maxBytes else { return userID }
+        var bytes = Data(userID.utf8.prefix(maxBytes))
+        while !bytes.isEmpty, String(data: bytes, encoding: .utf8) == nil {
+            bytes.removeLast()
+        }
+        return String(data: bytes, encoding: .utf8)
     }
 
     /// Report a custom exception, as user-reported crash reports do.
