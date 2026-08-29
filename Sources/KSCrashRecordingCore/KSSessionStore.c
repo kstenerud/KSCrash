@@ -79,7 +79,7 @@ _Static_assert(sizeof(KSSessionFileHeader) == 24, "KSSessionFileHeader layout ch
 typedef struct {
     uint32_t magic;                        // KSSESSION_ENTRY_MAGIC
     uint8_t perceptible;                   //
-    uuid_string_t guid;                    // uppercase UUID string (36 chars + NUL)
+    uuid_string_t guid;                    // lowercase UUID string (36 chars + NUL)
     uint64_t startMonoNs;                  // CLOCK_MONOTONIC_RAW ns at session open
     char user[KSSESSION_MAX_USER_LENGTH];  // empty == anonymous
 } KSSessionEntry;

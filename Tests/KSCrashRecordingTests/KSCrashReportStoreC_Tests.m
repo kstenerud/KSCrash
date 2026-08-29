@@ -256,11 +256,11 @@
     [self prepareReportStoreWithPathEnd:@"testCrashReportNamesIncrease"];
     char first[KSCRS_MAX_PATH_LENGTH];
     char second[KSCRS_MAX_PATH_LENGTH];
-    kscrs_getNextCrashReport("4C1B2F3E-0000-4000-8000-000000000001", first, &_storeConfig);
-    kscrs_getNextCrashReport("4C1B2F3E-0000-4000-8000-000000000002", second, &_storeConfig);
+    kscrs_getNextCrashReport("4c1b2f3e-0000-4000-8000-000000000001", first, &_storeConfig);
+    kscrs_getNextCrashReport("4c1b2f3e-0000-4000-8000-000000000002", second, &_storeConfig);
     XCTAssertLessThan(strcmp(first, second), 0);
     NSString *name = [[NSString stringWithUTF8String:first] lastPathComponent];
-    XCTAssertTrue([name hasSuffix:@"-4C1B2F3E-0000-4000-8000-000000000001.json"]);
+    XCTAssertTrue([name hasSuffix:@"-4c1b2f3e-0000-4000-8000-000000000001.json"]);
     XCTAssertEqual([name rangeOfString:@"-"].location, 20u, @"twenty decimal digits of wall-clock nanoseconds");
 }
 
@@ -286,9 +286,9 @@
     [self prepareReportStoreWithPathEnd:@"testNotReports"];
     NSString *only = [self writeUserReportWithStringContents:REPORT_CONTENTS(1)];
     for (NSString *name in @[
-             @"notes.txt", @"00000000000000000001-nope.json", @"1-4C1B2F3E-0000-4000-8000-000000000001.json",
-             @"00000000000000000001-4c1b2f3e-0000-4000-8000-000000000001.json",
-             @"00000000000000000001-4C1B2F3E-0000-4000-8000-000000000001.json.tmp"
+             @"notes.txt", @"00000000000000000001-nope.json", @"1-4c1b2f3e-0000-4000-8000-000000000001.json",
+             @"00000000000000000001-4C1B2F3E-0000-4000-8000-000000000001.json",
+             @"00000000000000000001-4c1b2f3e-0000-4000-8000-000000000001.json.tmp"
          ]) {
         [[NSData data] writeToFile:[self.reportStorePath stringByAppendingPathComponent:name] atomically:YES];
     }
@@ -321,8 +321,8 @@
 {
     [self prepareReportStoreWithPathEnd:@"testAddUserReportIDs"];
     NSString *kept =
-        [self writeUserReportWithStringContents:@"{\"report\":{\"id\":\"4C1B2F3E-0000-4000-8000-000000000009\"}}"];
-    XCTAssertEqualObjects(kept, @"4C1B2F3E-0000-4000-8000-000000000009");
+        [self writeUserReportWithStringContents:@"{\"report\":{\"id\":\"4c1b2f3e-0000-4000-8000-000000000009\"}}"];
+    XCTAssertEqualObjects(kept, @"4c1b2f3e-0000-4000-8000-000000000009");
     NSString *minted = [self writeUserReportWithStringContents:@"{\"report\":{\"id\":\"evt1\"},\"a\":1}"];
     XCTAssertTrue(ksid_isValid(minted.UTF8String));
     NSString *loaded;
@@ -337,10 +337,10 @@
 - (void)testAddUserReportWithTheSameIDOverwrites
 {
     [self prepareReportStoreWithPathEnd:@"testAddUserReportSameID"];
-    NSString *json = @"{\"report\":{\"id\":\"4C1B2F3E-0000-4000-8000-00000000000A\"},\"v\":1}";
+    NSString *json = @"{\"report\":{\"id\":\"4c1b2f3e-0000-4000-8000-00000000000a\"},\"v\":1}";
     NSString *first = [self writeUserReportWithStringContents:json];
     NSString *again = [self
-        writeUserReportWithStringContents:@"{\"report\":{\"id\":\"4C1B2F3E-0000-4000-8000-00000000000A\"},\"v\":2}"];
+        writeUserReportWithStringContents:@"{\"report\":{\"id\":\"4c1b2f3e-0000-4000-8000-00000000000a\"},\"v\":2}"];
     XCTAssertEqualObjects(first, again);
     XCTAssertEqual((int)[self getReportIDs].count, 1, @"one id is one file");
 
@@ -390,7 +390,7 @@
     [self prepareReportStoreWithSidecarsWithPathEnd:@"testSidecarSubdir"];
 
     char pathBuffer[KSCRS_MAX_PATH_LENGTH];
-    kscrs_getReportSidecarFilePathForReport("MyMonitor", "4C1B2F3E-0000-4000-8000-000000012345", pathBuffer,
+    kscrs_getReportSidecarFilePathForReport("MyMonitor", "4c1b2f3e-0000-4000-8000-000000012345", pathBuffer,
                                             sizeof(pathBuffer), &_storeConfig);
 
     NSString *monitorDir = [NSString stringWithFormat:@"%s/MyMonitor", _storeConfig.reportSidecarsPath];
@@ -404,7 +404,7 @@
 {
     [self prepareReportStoreWithSidecarsWithPathEnd:@"testSidecarNull"];
     char pathBuffer[KSCRS_MAX_PATH_LENGTH];
-    bool result = kscrs_getReportSidecarFilePathForReport(NULL, "4C1B2F3E-0000-4000-8000-000000000001", pathBuffer,
+    bool result = kscrs_getReportSidecarFilePathForReport(NULL, "4c1b2f3e-0000-4000-8000-000000000001", pathBuffer,
                                                           sizeof(pathBuffer), &_storeConfig);
     XCTAssertFalse(result);
 }
@@ -412,7 +412,7 @@
 - (void)testGetSidecarPathNullPathBuffer
 {
     [self prepareReportStoreWithSidecarsWithPathEnd:@"testSidecarNullBuf"];
-    bool result = kscrs_getReportSidecarFilePathForReport("Mon", "4C1B2F3E-0000-4000-8000-000000000001", NULL, 100,
+    bool result = kscrs_getReportSidecarFilePathForReport("Mon", "4c1b2f3e-0000-4000-8000-000000000001", NULL, 100,
                                                           &_storeConfig);
     XCTAssertFalse(result);
 }
@@ -421,7 +421,7 @@
 {
     [self prepareReportStoreWithSidecarsWithPathEnd:@"testSidecarZeroBuf"];
     char pathBuffer[KSCRS_MAX_PATH_LENGTH];
-    bool result = kscrs_getReportSidecarFilePathForReport("Mon", "4C1B2F3E-0000-4000-8000-000000000001", pathBuffer, 0,
+    bool result = kscrs_getReportSidecarFilePathForReport("Mon", "4c1b2f3e-0000-4000-8000-000000000001", pathBuffer, 0,
                                                           &_storeConfig);
     XCTAssertFalse(result);
 }
@@ -430,7 +430,7 @@
 {
     [self prepareReportStoreWithSidecarsWithPathEnd:@"testSidecarSmallBuf"];
     char pathBuffer[5];
-    bool result = kscrs_getReportSidecarFilePathForReport("TestMonitor", "4C1B2F3E-0000-4000-8000-000000000001",
+    bool result = kscrs_getReportSidecarFilePathForReport("TestMonitor", "4c1b2f3e-0000-4000-8000-000000000001",
                                                           pathBuffer, sizeof(pathBuffer), &_storeConfig);
     XCTAssertFalse(result);
 }
@@ -440,7 +440,7 @@
     [self prepareReportStoreWithPathEnd:@"testSidecarNoPath"];
     // _storeConfig.reportSidecarsPath is NULL
     char pathBuffer[KSCRS_MAX_PATH_LENGTH];
-    bool result = kscrs_getReportSidecarFilePathForReport("Mon", "4C1B2F3E-0000-4000-8000-000000000001", pathBuffer,
+    bool result = kscrs_getReportSidecarFilePathForReport("Mon", "4c1b2f3e-0000-4000-8000-000000000001", pathBuffer,
                                                           sizeof(pathBuffer), &_storeConfig);
     XCTAssertFalse(result);
 }
@@ -522,9 +522,9 @@
     [self prepareReportStoreWithSidecarsWithPathEnd:@"testSidecarConsistent"];
     char path1[KSCRS_MAX_PATH_LENGTH];
     char path2[KSCRS_MAX_PATH_LENGTH];
-    kscrs_getReportSidecarFilePathForReport("Mon", "4C1B2F3E-0000-4000-8000-000000000042", path1, sizeof(path1),
+    kscrs_getReportSidecarFilePathForReport("Mon", "4c1b2f3e-0000-4000-8000-000000000042", path1, sizeof(path1),
                                             &_storeConfig);
-    kscrs_getReportSidecarFilePathForReport("Mon", "4C1B2F3E-0000-4000-8000-000000000042", path2, sizeof(path2),
+    kscrs_getReportSidecarFilePathForReport("Mon", "4c1b2f3e-0000-4000-8000-000000000042", path2, sizeof(path2),
                                             &_storeConfig);
     XCTAssertEqual(strcmp(path1, path2), 0);
 }
@@ -534,9 +534,9 @@
     [self prepareReportStoreWithSidecarsWithPathEnd:@"testSidecarDiffMon"];
     char path1[KSCRS_MAX_PATH_LENGTH];
     char path2[KSCRS_MAX_PATH_LENGTH];
-    kscrs_getReportSidecarFilePathForReport("Mon1", "4C1B2F3E-0000-4000-8000-000000000042", path1, sizeof(path1),
+    kscrs_getReportSidecarFilePathForReport("Mon1", "4c1b2f3e-0000-4000-8000-000000000042", path1, sizeof(path1),
                                             &_storeConfig);
-    kscrs_getReportSidecarFilePathForReport("Mon2", "4C1B2F3E-0000-4000-8000-000000000042", path2, sizeof(path2),
+    kscrs_getReportSidecarFilePathForReport("Mon2", "4c1b2f3e-0000-4000-8000-000000000042", path2, sizeof(path2),
                                             &_storeConfig);
     XCTAssertNotEqual(strcmp(path1, path2), 0);
 }
@@ -546,9 +546,9 @@
     [self prepareReportStoreWithSidecarsWithPathEnd:@"testSidecarDiffReport"];
     char path1[KSCRS_MAX_PATH_LENGTH];
     char path2[KSCRS_MAX_PATH_LENGTH];
-    kscrs_getReportSidecarFilePathForReport("Mon", "4C1B2F3E-0000-4000-8000-000000000001", path1, sizeof(path1),
+    kscrs_getReportSidecarFilePathForReport("Mon", "4c1b2f3e-0000-4000-8000-000000000001", path1, sizeof(path1),
                                             &_storeConfig);
-    kscrs_getReportSidecarFilePathForReport("Mon", "4C1B2F3E-0000-4000-8000-000000000002", path2, sizeof(path2),
+    kscrs_getReportSidecarFilePathForReport("Mon", "4c1b2f3e-0000-4000-8000-000000000002", path2, sizeof(path2),
                                             &_storeConfig);
     XCTAssertNotEqual(strcmp(path1, path2), 0);
 }
@@ -711,7 +711,7 @@
     [self prepareReportStoreWithPathEnd:@"testReadStatusUnreadable"];
 
     KSCrashReportReadStatus status = KSCrashReportReadStatusOK;
-    char *report = kscrs_readReport("4C1B2F3E-0000-4000-8000-000000012345", &_storeConfig, &status);
+    char *report = kscrs_readReport("4c1b2f3e-0000-4000-8000-000000012345", &_storeConfig, &status);
     XCTAssertTrue(report == NULL);
     XCTAssertEqual(status, KSCrashReportReadStatusUnreadable);
 }
@@ -738,11 +738,11 @@
 {
     [self prepareReportStoreWithPathEnd:@"testCopyRunID"];
     NSString *reportID =
-        [self writeUserReportWithStringContents:@"{\"report\":{\"run_id\":\"0155A1E2-D4C3-4B6A-9C8D-1234567890AB\"}}"];
+        [self writeUserReportWithStringContents:@"{\"report\":{\"run_id\":\"0155a1e2-d4c3-4b6a-9c8d-1234567890ab\"}}"];
 
     char *runID = kscrs_copyReportRunID(reportID.UTF8String, &_storeConfig);
     XCTAssertTrue(runID != NULL);
-    XCTAssertEqual(strcmp(runID, "0155A1E2-D4C3-4B6A-9C8D-1234567890AB"), 0);
+    XCTAssertEqual(strcmp(runID, "0155a1e2-d4c3-4b6a-9c8d-1234567890ab"), 0);
     free(runID);
 
     // Absent, non-UUID, and missing are all "no run".
@@ -750,7 +750,7 @@
     XCTAssertTrue(kscrs_copyReportRunID(noRunID.UTF8String, &_storeConfig) == NULL);
     NSString *badRunID = [self writeUserReportWithStringContents:@"{\"report\":{\"run_id\":\"RUN-A\"}}"];
     XCTAssertTrue(kscrs_copyReportRunID(badRunID.UTF8String, &_storeConfig) == NULL);
-    XCTAssertTrue(kscrs_copyReportRunID("4C1B2F3E-0000-4000-8000-000000012345", &_storeConfig) == NULL);
+    XCTAssertTrue(kscrs_copyReportRunID("4c1b2f3e-0000-4000-8000-000000012345", &_storeConfig) == NULL);
 }
 
 - (void)testCopyReportRunIDSurvivesATornReport
@@ -759,11 +759,11 @@
     // Torn mid-write: the extraction stops at run_id, before the tear.
     NSString *reportID =
         [self writeUserReportWithStringContents:
-                  @"{\"report\":{\"run_id\":\"0155A1E2-D4C3-4B6A-9C8D-1234567890AB\"},\"crash\":{\"threads\":"];
+                  @"{\"report\":{\"run_id\":\"0155a1e2-d4c3-4b6a-9c8d-1234567890ab\"},\"crash\":{\"threads\":"];
 
     char *runID = kscrs_copyReportRunID(reportID.UTF8String, &_storeConfig);
     XCTAssertTrue(runID != NULL);
-    XCTAssertEqual(strcmp(runID, "0155A1E2-D4C3-4B6A-9C8D-1234567890AB"), 0);
+    XCTAssertEqual(strcmp(runID, "0155a1e2-d4c3-4b6a-9c8d-1234567890ab"), 0);
     free(runID);
 }
 
@@ -804,13 +804,13 @@
 {
     [self prepareReportStoreWithSidecarsWithPathEnd:@"testDeleteMissingCleansSidecars"];
     char sidecarPath[KSCRS_MAX_PATH_LENGTH];
-    XCTAssertTrue(kscrs_getReportSidecarFilePathForReport("TestMonitor", "4C1B2F3E-0000-4000-8000-000000424242",
+    XCTAssertTrue(kscrs_getReportSidecarFilePathForReport("TestMonitor", "4c1b2f3e-0000-4000-8000-000000424242",
                                                           sidecarPath, sizeof(sidecarPath), &_storeConfig));
     XCTAssertTrue([@"data" writeToFile:@(sidecarPath) atomically:YES encoding:NSUTF8StringEncoding error:nil]);
 
     // The report file is already gone, so its sidecars are orphans: nothing
     // else sweeps per-report sidecars, so the delete removes them.
-    XCTAssertFalse(kscrs_deleteReportWithID("4C1B2F3E-0000-4000-8000-000000424242", &_storeConfig));
+    XCTAssertFalse(kscrs_deleteReportWithID("4c1b2f3e-0000-4000-8000-000000424242", &_storeConfig));
     XCTAssertFalse([NSFileManager.defaultManager fileExistsAtPath:@(sidecarPath)]);
 }
 
@@ -821,24 +821,24 @@
 
     XCTAssertTrue(kscrs_deleteReportWithID(reportID.UTF8String, &_storeConfig));
     XCTAssertFalse(kscrs_deleteReportWithID(reportID.UTF8String, &_storeConfig), @"Already deleted");
-    XCTAssertFalse(kscrs_deleteReportWithID("4C1B2F3E-0000-4000-8000-000000012345", &_storeConfig), @"Never existed");
+    XCTAssertFalse(kscrs_deleteReportWithID("4c1b2f3e-0000-4000-8000-000000012345", &_storeConfig), @"Never existed");
 }
 
-- (void)testAddUserReportCanonicalizesALowercaseID
+- (void)testAddUserReportCanonicalizesAnUppercaseID
 {
-    [self prepareReportStoreWithPathEnd:@"testLowercaseID"];
-    NSString *json = @"{\"report\":{\"id\":\"0badc0de-dead-beef-f00d-0123456789ab\"},\"crash\":{}}";
+    [self prepareReportStoreWithPathEnd:@"testUppercaseID"];
+    NSString *json = @"{\"report\":{\"id\":\"0BADC0DE-DEAD-BEEF-F00D-0123456789AB\"},\"crash\":{}}";
     char reportIDBuffer[KSID_SIZE];
     XCTAssertTrue(kscrs_addUserReport(json.UTF8String, (int)json.length, &_storeConfig, reportIDBuffer));
-    XCTAssertEqualObjects(@(reportIDBuffer), @"0BADC0DE-DEAD-BEEF-F00D-0123456789AB",
+    XCTAssertEqualObjects(@(reportIDBuffer), @"0badc0de-dead-beef-f00d-0123456789ab",
                           @"the accepted id is canonicalized to the store's grammar");
 
     // The canonical id is the store identity: the file is findable by it, and
     // the payload's report.id was rewritten to match its filename.
     char *report = kscrs_readReport(reportIDBuffer, &_storeConfig, NULL);
     XCTAssertTrue(report != NULL);
-    XCTAssertTrue(strstr(report, "0BADC0DE-DEAD-BEEF-F00D-0123456789AB") != NULL);
-    XCTAssertTrue(strstr(report, "0badc0de-dead-beef-f00d-0123456789ab") == NULL);
+    XCTAssertTrue(strstr(report, "0badc0de-dead-beef-f00d-0123456789ab") != NULL);
+    XCTAssertTrue(strstr(report, "0BADC0DE-DEAD-BEEF-F00D-0123456789AB") == NULL);
     free(report);
 }
 

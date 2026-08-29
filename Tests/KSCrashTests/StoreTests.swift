@@ -26,12 +26,25 @@
 
 import KSCrashRecording
 import KSCrashRecordingCore
+import KSCrashReportModel
 import KSCrashSwiftCore
 import XCTest
 
 @testable import KSCrash
 
 final class StoreTests: XCTestCase {
+
+    func test_reportFilename_grammarIsTheCStores() {
+        let digits = String(repeating: "1", count: 20)
+        XCTAssertEqual(
+            Store.ReportFilename.reportID(in: digits + "-4c1b2f3e-0000-4000-8000-000000000001.json"),
+            Report.ID("4c1b2f3e-0000-4000-8000-000000000001"))
+        // The C parser is the single authority: only canonical lowercase ids
+        // name a report, and anything else in the directory is not one.
+        XCTAssertNil(Store.ReportFilename.reportID(in: digits + "-4C1B2F3E-0000-4000-8000-000000000001.json"))
+        XCTAssertNil(Store.ReportFilename.reportID(in: "notareport.json"))
+        XCTAssertNil(Store.ReportFilename.reportID(in: digits + "-4c1b2f3e-0000-4000-8000-000000000001.jso"))
+    }
 
     private var runsDirectory: URL!
     private var sidecarsDirectory: URL!

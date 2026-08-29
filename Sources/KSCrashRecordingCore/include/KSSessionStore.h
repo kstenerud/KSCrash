@@ -67,7 +67,7 @@ typedef struct KSSessionReader KSSessionReader;
  *  `guid`) means "no session" (e.g. kssw_current with nothing open).
  */
 typedef struct {
-    uuid_string_t guid;                    // uppercase UUID string (36 chars + NUL)
+    uuid_string_t guid;                    // lowercase UUID string (36 chars + NUL)
     char user[KSSESSION_MAX_USER_LENGTH];  // empty string == anonymous
     int64_t startedAtMs;                   // unix epoch milliseconds
     int64_t endedAtMs;                     // unix epoch milliseconds; 0 while endInferred

@@ -124,7 +124,7 @@ static void getCrashReportPath(uint64_t wallClockNs, const char *reportID, char 
 }
 
 /** Whether a directory entry is a report file; on success its id is copied out. */
-static bool parseReportFilename(const char *filename, char *reportID)
+bool kscrs_parseReportFilename(const char *filename, char *reportID)
 {
     if (strlen(filename) != KSCRS_REPORT_NAME_LENGTH || filename[KSCRS_REPORT_NAME_DIGITS] != '-' ||
         strncmp(filename + KSCRS_REPORT_NAME_DIGITS + 1 + KSCRS_REPORT_ID_LENGTH, KSCRS_REPORT_FILENAME_SUFFIX,
@@ -184,7 +184,7 @@ static int listReportNames(ReportName **namesOut, const KSCrashReportStoreCConfi
             break;
         }
         char reportID[KSID_SIZE];
-        if (!parseReportFilename(ent->d_name, reportID)) {
+        if (!kscrs_parseReportFilename(ent->d_name, reportID)) {
             continue;
         }
         if (count == capacity) {
@@ -236,7 +236,7 @@ static bool findReportPath(const char *reportID, char *pathBuffer, const KSCrash
             break;
         }
         char candidate[KSID_SIZE];
-        if (parseReportFilename(ent->d_name, candidate) && strncmp(candidate, reportID, KSID_SIZE) == 0) {
+        if (kscrs_parseReportFilename(ent->d_name, candidate) && strncmp(candidate, reportID, KSID_SIZE) == 0) {
             found = snprintf(pathBuffer, KSCRS_MAX_PATH_LENGTH, "%s/%s", config->reportsPath, ent->d_name) <
                     KSCRS_MAX_PATH_LENGTH;
             break;
@@ -481,7 +481,7 @@ static NSSet<NSString *> *reportReferencedRunIDs(const KSCrashReportStoreCConfig
         // Only a report-named file references a run; artifacts such as
         // "<report>.json.tmp" are not reports and never abort the pass.
         char reportID[KSID_SIZE];
-        if (!parseReportFilename(ent->d_name, reportID)) {
+        if (!kscrs_parseReportFilename(ent->d_name, reportID)) {
             continue;
         }
         char reportPath[KSCRS_MAX_PATH_LENGTH];
@@ -653,7 +653,7 @@ static void pruneReports(const KSCrashReportStoreCConfiguration *const config)
     for (int i = 0; i < count - config->maxReportCount; i++) {
         char reportID[KSID_SIZE];
         char path[KSCRS_MAX_PATH_LENGTH];
-        if (parseReportFilename(names[i].name, reportID) &&
+        if (kscrs_parseReportFilename(names[i].name, reportID) &&
             snprintf(path, sizeof(path), "%s/%s", config->reportsPath, names[i].name) < (int)sizeof(path)) {
             deleteReportAtPath(path, reportID, config);
         }
@@ -1000,7 +1000,7 @@ bool kscrs_addUserReport(const char *report, int reportLength,
         }
     } else {
         // The extractor accepts any case, but the store's grammar (filenames,
-        // listing) is uppercase; canonicalize, and rewrite the payload when
+        // listing) is lowercase; canonicalize, and rewrite the payload when
         // that changes the text so report.id still matches the filename.
         uuid_t parsed;
         if (uuid_parse(reportIDOut, parsed) != 0) {
@@ -1008,7 +1008,7 @@ bool kscrs_addUserReport(const char *report, int reportLength,
             return false;
         }
         char canonical[KSID_SIZE];
-        uuid_unparse_upper(parsed, canonical);
+        uuid_unparse_lower(parsed, canonical);
         if (strncmp(canonical, reportIDOut, KSID_SIZE) != 0) {
             strlcpy(reportIDOut, canonical, KSID_SIZE);
             payload = payloadWithInjectedID(report, reportLength, reportIDOut, &payloadIsObject);

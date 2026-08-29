@@ -233,6 +233,7 @@
 #define kscrs_getRunSidecarFilePathForRunID KSCRASH_NS(kscrs_getRunSidecarFilePathForRunID)
 #define kscrs_getSummarySidecarFilePath KSCRASH_NS(kscrs_getSummarySidecarFilePath)
 #define kscrs_initialize KSCRASH_NS(kscrs_initialize)
+#define kscrs_parseReportFilename KSCRASH_NS(kscrs_parseReportFilename)
 #define kscrs_readReport KSCRASH_NS(kscrs_readReport)
 #define kscrs_readReportAtPath KSCRASH_NS(kscrs_readReportAtPath)
 #define kscrs_readReportByPathAndID KSCRASH_NS(kscrs_readReportByPathAndID)
