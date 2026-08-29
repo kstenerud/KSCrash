@@ -45,9 +45,12 @@ private final class DiskMonitorPlugin: MonitorPlugin, @unchecked Sendable {
 
     private struct State {
         var poller: Poller?
-        var enabled = false
     }
     private let state = UnfairLock(State())
+
+    /// Read by the `isEnabled` slot on the crash path, possibly with every
+    /// other thread suspended: a lock-free flag, never the state lock.
+    private let enabled = AtomicFlag()
 
     init() {
         api = .allocate(capacity: 1)
@@ -61,7 +64,7 @@ private final class DiskMonitorPlugin: MonitorPlugin, @unchecked Sendable {
             context.map { DiskMonitorPlugin.from($0).setEnabled(enabled) }
         }
         api.pointee.isEnabled = { context in
-            context.map { DiskMonitorPlugin.from($0).state.withLock { $0.enabled } } ?? false
+            context.map { DiskMonitorPlugin.from($0).enabled.value } ?? false
         }
         // A C function, not a Swift closure: it runs on the event path,
         // where Swift must not.
@@ -80,8 +83,8 @@ private final class DiskMonitorPlugin: MonitorPlugin, @unchecked Sendable {
 
     private func setEnabled(_ enabled: Bool) {
         state.withLock { state in
-            guard enabled != state.enabled else { return }
-            state.enabled = enabled
+            guard enabled != self.enabled.value else { return }
+            self.enabled.value = enabled
             if enabled {
                 Self.record()
                 let poller = Poller(every: 60, queue: DispatchQueue(label: "com.kscrash.diskmonitor", qos: .utility)) {
