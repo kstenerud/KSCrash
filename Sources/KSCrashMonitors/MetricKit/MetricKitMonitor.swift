@@ -44,7 +44,7 @@ public final class MetricKitMonitor: NSObject, CrashMonitor {
     /// `MetricKitMonitor` instance.
     public static let diagnosticReportAddedNotification = Notification.Name("MetricKitMonitorDiagnosticReportAdded")
 
-    /// `userInfo` key on ``diagnosticReportAddedNotification`` whose value is the `Int64` id of
+    /// `userInfo` key on ``diagnosticReportAddedNotification`` whose value is the `Report.ID` of
     /// the diagnostic report that was just added.
     public static let diagnosticReportIDUserInfoKey = "diagnosticReportID"
 
