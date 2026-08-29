@@ -36,6 +36,7 @@ public final class KSCrash: Sendable {
 
     private struct State {
         var configuration: InstallConfiguration?
+        var installing = false
     }
 
     private let state = UnfairLock(State())
@@ -58,10 +59,16 @@ public final class KSCrash: Sendable {
     public func install(_ configuration: InstallConfiguration) throws {
         try configuration.validate()
         let locations = try configuration.locations
+        // The lock guards only the state transitions. The C install and the
+        // attach work run outside it: they call plugin callbacks that may
+        // reasonably read KSCrash.shared, and the lock is not reentrant.
         try state.withLock { state in
-            if state.configuration != nil {
+            if state.configuration != nil || state.installing {
                 throw InstallError.alreadyInstalled
             }
+            state.installing = true
+        }
+        do {
             try configuration.install(at: locations)
             // Crash capture is armed; a metadata-store failure degrades metadata
             // only, recorded as metadata.unavailableReason, never a failed install.
@@ -98,7 +105,13 @@ public final class KSCrash: Sendable {
             } else {
                 os_log(.error, "Session recording is unavailable: no sessions path")
             }
+        } catch {
+            state.withLock { $0.installing = false }
+            throw error
+        }
+        state.withLock { state in
             state.configuration = configuration
+            state.installing = false
         }
     }
 
