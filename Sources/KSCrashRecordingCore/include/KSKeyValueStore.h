@@ -57,9 +57,18 @@ typedef enum {
     KSKVSModeReadWriteCreate,
 } KSKVSMode;
 
+/** Ceiling on a store file, for both growth and reading an existing one.
+ *  Records are bounded individually (64KB each) but their number is not, and
+ *  the file only ever grows within a run, so without this a live store is
+ *  unbounded on the user's disk and stays mapped for the process lifetime.
+ *  A write that would cross it is refused, which callers surface as the key
+ *  becoming absent.
+ */
+#define KSKVS_MAX_CAPACITY (16u * 1024u * 1024u)
+
 /** Configuration for store creation. */
 typedef struct {
-    uint32_t initialCapacity; /**< Starting buffer size (e.g. 4096). */
+    uint32_t initialCapacity; /**< Starting buffer size (e.g. 4096), at most KSKVS_MAX_CAPACITY. */
 } KSKVSConfig;
 
 /** Outcome of kskvs_create. */
@@ -82,6 +91,10 @@ typedef enum {
  *  KSKVSModeRead:            reads existing file into heap. config may be NULL.
  *  KSKVSModeReadWriteCreate: creates file, mmap MAP_SHARED. config is required.
  *
+ *  Read mode may target a file this process is also writing, which is what a
+ *  report finalized during its own run does: the load takes a whole snapshot,
+ *  never one a concurrent compaction or growth is part way through.
+ *
  *  @param outStatus Optional; receives why the call returned NULL
  *                   (KSKVSOpenSuccess when it didn't).
  *  @return A new store, or NULL on failure. Caller must call kskvs_destroy().
@@ -98,6 +111,9 @@ void kskvs_destroy(KSKeyValueStore *store);
 /** Each setter returns false when the write is rejected (empty key, or a key
  *  or value past the 64KB bound) or cannot be persisted; the
  *  store is unchanged. Nothing is ever truncated.
+ *
+ *  A write is also rejected once the store has reached its capacity ceiling
+ *  and compaction cannot free room for the record.
  *
  *  NOT thread-safe: concurrent writers to a store are the caller's
  *  responsibility. The store's only internal guarantee is that a read-mode
@@ -117,6 +133,10 @@ bool kskvs_setDate(KSKeyValueStore *store, const char *key, int64_t nanosecondsS
  */
 bool kskvs_setJSON(KSKeyValueStore *store, const char *key, const char *json, size_t length);
 
+/** Makes the key absent. Unlike the setters this does not fail for want of
+ *  room: a store too full to hold a removal record marks the key's existing
+ *  record removed in place, so a caller can always retract a value.
+ */
 bool kskvs_removeValue(KSKeyValueStore *store, const char *key);
 
 // ============================================================================
