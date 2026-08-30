@@ -42,15 +42,19 @@ public struct Metadata: MetadataStore, Equatable, Sendable {
     public var isEmpty: Bool { storage.isEmpty }
 
     /// Stores `value` under `key`, replacing any existing value; `.null`
-    /// removes the key. A container is stored as given; null members and
-    /// elements inside it resolve to absence when read.
+    /// removes the key, as does a container that holds nothing but nulls
+    /// resolving to nothing.
     public mutating func set(_ value: some MetadataValueConvertible, forKey key: String) {
-        let metadataValue = value.metadataValue
-        if case .null = metadataValue {
+        // Null means absence, and the bag resolves it on the way in as well as
+        // on the way out, so storage, equality, encoding, and every read agree.
+        // (The persistent store still records containers as given; deferring
+        // that work is what keeps its write path cheap. This bag is built at
+        // read and delivery time, where the work is already paid for.)
+        guard let resolved = value.metadataValue.strippingNulls else {
             storage.removeValue(forKey: key)
-        } else {
-            storage[key] = metadataValue
+            return
         }
+        storage[key] = resolved
     }
 
     /// The value under `key` as `type`, or nil when the key is absent or holds a different type.
@@ -110,11 +114,15 @@ public struct Metadata: MetadataStore, Equatable, Sendable {
 }
 
 extension Metadata: Codable {
+    // Null means absence, and the bag is where that policy lives: MetadataValue
+    // itself stays a faithful JSON codec, since report fields such as a
+    // zombie's ivars decode through it and must keep what they were given.
+    // Decoding resolves nulls the same way `set` does, so storage never holds
+    // one and encoding can hand it over untouched. That is what makes a bag
+    // equal to its own round-trip, and `decoded(as:)` never hand a null to a
+    // non-optional property.
     public init(from decoder: Decoder) throws {
-        // Null means absence: a null member never enters storage, so keys,
-        // contains, and re-encoding agree with the read contract. (Nulls
-        // inside containers are already dropped by MetadataValue's decode.)
-        storage = try [String: MetadataValue](from: decoder).filter { !$0.value.isNull }
+        storage = try [String: MetadataValue](from: decoder).compactMapValues(\.strippingNulls)
     }
     public func encode(to encoder: Encoder) throws {
         try storage.encode(to: encoder)

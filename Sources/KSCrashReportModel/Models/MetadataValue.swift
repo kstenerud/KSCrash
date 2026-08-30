@@ -79,12 +79,9 @@ extension MetadataValue: Codable {
         } else if let value = try? container.decode(String.self) {
             self = .string(value)
         } else if let value = try? container.decode([MetadataValue].self) {
-            // Null means absence, resolved on read: direct null elements are
-            // dropped here (nested containers dropped theirs while decoding),
-            // so no consumer of decoded JSON ever sees one.
-            self = .array(value.filter { !$0.isNull })
+            self = .array(value)
         } else if let value = try? container.decode([String: MetadataValue].self) {
-            self = .object(value.filter { !$0.value.isNull })
+            self = .object(value)
         } else {
             throw DecodingError.dataCorruptedError(
                 in: container, debugDescription: "Value is not valid JSON.")
