@@ -1187,6 +1187,40 @@ static NSString *toString(NSData *data)
     XCTAssertNotNil(error, @"");
 }
 
+- (void)testDeserializeArrayInvalidUTF8String
+{
+    // stringWithCString: yields nil for these bytes; the decode must fail
+    // with an error, never insert nil into the container (which raises).
+    const char bytes[] = "[\"\xC3\x28\"]";
+    NSData *data = [NSData dataWithBytes:bytes length:sizeof(bytes) - 1];
+    NSError *error = nil;
+    id result = [KSJSONCodec decode:data options:0 error:&error];
+    XCTAssertNil(result, @"");
+    XCTAssertNotNil(error, @"");
+}
+
+- (void)testDeserializeDictionaryInvalidUTF8Key
+{
+    const char bytes[] = "{\"\xC3\x28\":1}";
+    NSData *data = [NSData dataWithBytes:bytes length:sizeof(bytes) - 1];
+    NSError *error = nil;
+    id result = [KSJSONCodec decode:data options:0 error:&error];
+    XCTAssertNil(result, @"");
+    XCTAssertNotNil(error, @"");
+}
+
+- (void)testDeserializeDictionaryInvalidUTF8Element
+{
+    // In a dictionary a nil element used to be silently dropped by
+    // setValue:forKey:; it must fail the decode like the array case.
+    const char bytes[] = "{\"k\":\"\xC3\x28\"}";
+    NSData *data = [NSData dataWithBytes:bytes length:sizeof(bytes) - 1];
+    NSError *error = nil;
+    id result = [KSJSONCodec decode:data options:0 error:&error];
+    XCTAssertNil(result, @"");
+    XCTAssertNotNil(error, @"");
+}
+
 - (void)testDeserializeArrayWithNull
 {
     NSError *error = (NSError *)self;

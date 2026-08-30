@@ -222,6 +222,26 @@ static NSString *writeRawSidecar(NSString *dir, NSData *data)
     XCTAssertNil(user[@"bad"], @"undecodable JSON bytes drop the entry, never fail the stitch");
 }
 
+- (void)testStitchDropsAJSONRecordWithInvalidUTF8
+{
+    // Parses as JSON structure but the string bytes are invalid UTF-8 (a torn
+    // or foreign record): the entry is absence, and the stitch must not crash.
+    NSString *path = buildSidecarFile(self.tempDir, ^(KSKeyValueStore *store) {
+        const char bad[] = "[\"\xC3\x28\"]";
+        kskvs_setJSON(store, "bad", bad, sizeof(bad) - 1);
+        kskvs_setString(store, "good", "v");
+    });
+
+    NSDictionary *report = makeMinimalReport();
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_userinfo_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
+
+    NSDictionary *user = result[KSCrashField_User];
+    XCTAssertNil(user[@"bad"]);
+    XCTAssertEqualObjects(user[@"good"], @"v");
+}
+
 #pragma mark - Stitch Integer Values
 
 - (void)testStitchInt64Value
