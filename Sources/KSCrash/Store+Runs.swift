@@ -165,9 +165,11 @@ extension Store {
         // session_id from `.sessions` and userInfo on reports. The sidecar is
         // the same file the report stitch reads, and both judge a record the
         // same way, so a report and this run's summary agree on the run's app
-        // data. The one exception is a string carrying an embedded NUL: the C
-        // codec the report stitch runs on builds C strings and truncates
-        // there, where this path keeps the whole string.
+        // data. The one exception is a string inside a container carrying an
+        // embedded NUL, which JSON escapes and this path decodes whole, while
+        // the C codec the report stitch runs on builds C strings and stops at
+        // the NUL. A top-level string does not diverge: the store truncates
+        // it at the NUL on the way in, so both readers see the same bytes.
         guard let sidecarDirectory = run.sidecarDirectory else {
             return base
         }

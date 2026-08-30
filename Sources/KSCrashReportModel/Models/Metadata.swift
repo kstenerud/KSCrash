@@ -41,15 +41,12 @@ public struct Metadata: MetadataStore, Equatable, Sendable {
     /// Whether the bag holds no keys.
     public var isEmpty: Bool { storage.isEmpty }
 
-    /// Stores `value` under `key`, replacing any existing value; `.null`
-    /// removes the key, as does a container that holds nothing but nulls
-    /// resolving to nothing.
+    /// Stores `value` under `key`, replacing any existing value. A `.null`
+    /// removes the key; a container keeps its key with its null members and
+    /// elements dropped, even when that leaves the container empty.
     public mutating func set(_ value: some MetadataValueConvertible, forKey key: String) {
         // Null means absence, and the bag resolves it on the way in as well as
         // on the way out, so storage, equality, encoding, and every read agree.
-        // (The persistent store still records containers as given; deferring
-        // that work is what keeps its write path cheap. This bag is built at
-        // read and delivery time, where the work is already paid for.)
         guard let resolved = value.metadataValue.strippingNulls else {
             storage.removeValue(forKey: key)
             return

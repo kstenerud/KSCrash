@@ -36,9 +36,8 @@ public protocol MetadataStore {
     ///
     /// A value a store cannot hold also leaves the key absent rather than
     /// keeping what was there before, so a read never reports a value that was
-    /// replaced. A persistent store cannot hold a non-finite `Double`, a
-    /// `Date` outside 1677-09-21 to 2262-04-11, or a key or value whose
-    /// encoded size reaches 64KB.
+    /// replaced. A value with no JSON form, an extreme `Date`, and a key or
+    /// value too large for the store are all refused that way.
     subscript<Value: MetadataValueRepresentable>(key: String) -> Value? { get set }
 
     /// Removes any value under `key`.
