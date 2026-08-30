@@ -66,14 +66,6 @@ typedef enum {
 #define KSKVS_HEADER_SIZE 12
 #define KSKVS_RECORD_HEADER_SIZE 5
 
-/** Ceiling on a store file, for both growth and reading an existing one.
- *  Records are bounded individually (64KB each) but their number is not, and
- *  the file only ever grows within a run, so without this a live store is
- *  unbounded on the user's disk and stays mapped for the process lifetime.
- *  A write that would cross it is refused, which callers surface as the key
- *  becoming absent. */
-#define KSKVS_MAX_CAPACITY (16u * 1024u * 1024u)
-
 #pragma pack(push, 1)
 /** File header: magic (4) + version (4) + write cursor (4) = 12 bytes. */
 typedef struct {
@@ -104,14 +96,35 @@ struct KSKeyValueStore {
     uint8_t *storage;
     uint32_t capacity;
     int fd;  // < 0 means read-only heap (KSKVSModeRead), >= 0 means mmap mode
+    // Serializes this store's own writes. Appends need nothing wider: they
+    // only ever write past hdr->offset and publish by bumping it last, which
+    // is why the crash-time reader can walk the image with no lock at all
+    // (pthread calls are not async-signal-safe, so kskvs_iterate takes none).
+    pthread_rwlock_t lock;
+    // Set when a compaction reclaimed nothing, cleared by anything that gives
+    // the next one something to reclaim. Only consulted at the capacity
+    // ceiling, where compacting again would cost a capacity-sized calloc and
+    // the O(n^2) scan for a write that fails regardless.
+    bool compactionIsFutile;
 };
 
-// Spans mutation (write side) and the read-mode file load (read side), so a
-// reader's snapshot is never torn by a concurrent compact or append. Global
-// because a reader opens the file by path and shares no object with the
-// writer. This is NOT a thread-safety promise: concurrent writers to one
-// store remain the caller's responsibility. Deliberately not a file lock,
-// which iOS punishes with 0xdead10cc when held across suspension.
+// Held while a store's image is restructured or loaded whole: compaction,
+// the remap that grows it, creation's truncate-and-init, and the read-mode
+// file load. Those are the operations that rewrite or resize bytes a reader
+// may be part way through, and a reader shares no object with the writer (it
+// opens the file by path), so the exclusion has to be process-wide. A report
+// finalized during its own run reads the sidecar its own process is still
+// writing, so this is a live case, not a theoretical one.
+//
+// Deliberately NOT taken by ordinary appends: doing so meant that reading one
+// run's sidecar at send time, a multi-megabyte read, blocked every metadata
+// write in the app, including writes to an unrelated store.
+//
+// Lock order: a store's own lock first, then this one. Nothing takes them the
+// other way round.
+//
+// Deliberately not a file lock, which iOS punishes with 0xdead10cc when held
+// across suspension.
 static pthread_rwlock_t g_fileImageLock = PTHREAD_RWLOCK_INITIALIZER;
 
 // ============================================================================
@@ -150,6 +163,8 @@ static void compact(KSKeyValueStore *store)
         return;
     }
 
+    pthread_rwlock_wrlock(&g_fileImageLock);
+
     KSKVSHeader *tempHdr = (KSKVSHeader *)temp;
     tempHdr->magic = KSKVS_MAGIC;
     tempHdr->version = KSKVS_CURRENT_VERSION;
@@ -187,8 +202,19 @@ static void compact(KSKeyValueStore *store)
         }
 
         if (!superseded) {
-            memcpy(temp + tempWritePos, store->storage + readPos, recordSize);
-            tempWritePos += recordSize;
+            if (rec->type == KSKVSTypeRemoved && rec->valueLen > 0) {
+                // A tombstone stamped in place over a live record still spans
+                // that record's value bytes, because the span is how
+                // iteration finds the next record. Compaction is where those
+                // bytes go back.
+                uint32_t headerAndKey = KSKVS_RECORD_HEADER_SIZE + keyLen;
+                memcpy(temp + tempWritePos, store->storage + readPos, headerAndKey);
+                ((KSKVSRecordHeader *)(temp + tempWritePos))->valueLen = 0;
+                tempWritePos += headerAndKey;
+            } else {
+                memcpy(temp + tempWritePos, store->storage + readPos, recordSize);
+                tempWritePos += recordSize;
+            }
         }
 
         readPos += recordSize;
@@ -203,6 +229,7 @@ static void compact(KSKeyValueStore *store)
         memset(store->storage + tempWritePos, 0, store->capacity - tempWritePos);
     }
 
+    pthread_rwlock_unlock(&g_fileImageLock);
     free(temp);
 }
 
@@ -233,13 +260,19 @@ static bool growStorage(KSKeyValueStore *store, uint32_t minCapacity)
         newCapacity *= 2;
     }
 
+    // The resize and the remap change what a reader loading this file whole
+    // would see, so they wait for one to finish and it waits for them.
+    pthread_rwlock_wrlock(&g_fileImageLock);
+
     if (ftruncate(store->fd, (off_t)newCapacity) != 0) {
         KSLOG_ERROR("Failed to grow KVS file: %s", strerror(errno));
+        pthread_rwlock_unlock(&g_fileImageLock);
         return false;
     }
     void *newMap = mmap(NULL, newCapacity, PROT_READ | PROT_WRITE, MAP_SHARED, store->fd, 0);
     if (newMap == MAP_FAILED) {
         KSLOG_ERROR("Failed to remap KVS file: %s", strerror(errno));
+        pthread_rwlock_unlock(&g_fileImageLock);
         return false;
     }
 
@@ -254,6 +287,7 @@ static bool growStorage(KSKeyValueStore *store, uint32_t minCapacity)
     store->storage = (uint8_t *)newMap;
     store->capacity = newCapacity;
 
+    pthread_rwlock_unlock(&g_fileImageLock);
     return true;
 }
 
@@ -295,17 +329,28 @@ static bool appendRecord(KSKeyValueStore *store, const char *key, uint8_t type, 
 
     uint32_t recordSize = KSKVS_RECORD_HEADER_SIZE + keyLen + valueLen;
 
-    pthread_rwlock_wrlock(&g_fileImageLock);
+    pthread_rwlock_wrlock(&store->lock);
 
     KSKVSHeader *hdr = storeHeader(store);
 
     if (hdr->offset + recordSize > store->capacity) {
+        // Refuse cheaply at the ceiling. Compacting first cost a
+        // capacity-sized calloc and the O(n^2) scan on the host app's thread
+        // before growStorage refused the write anyway, and the caller's
+        // fallback removal then paid it a second time.
+        if (store->capacity >= KSKVS_MAX_CAPACITY && store->compactionIsFutile) {
+            pthread_rwlock_unlock(&store->lock);
+            return false;
+        }
+
+        uint32_t offsetBeforeCompact = hdr->offset;
         compact(store);
         hdr = storeHeader(store);
+        store->compactionIsFutile = hdr->offset >= offsetBeforeCompact;
 
         if (hdr->offset + recordSize > store->capacity) {
             if (!growStorage(store, hdr->offset + recordSize)) {
-                pthread_rwlock_unlock(&g_fileImageLock);
+                pthread_rwlock_unlock(&store->lock);
                 return false;
             }
             hdr = storeHeader(store);
@@ -323,7 +368,10 @@ static bool appendRecord(KSKeyValueStore *store, const char *key, uint8_t type, 
     }
 
     hdr->offset += recordSize;
-    pthread_rwlock_unlock(&g_fileImageLock);
+    // This record may supersede an earlier one for the same key, so the next
+    // compaction has something to reclaim again.
+    store->compactionIsFutile = false;
+    pthread_rwlock_unlock(&store->lock);
     return true;
 }
 
@@ -354,8 +402,12 @@ KSKeyValueStore *kskvs_create(const char *path, KSKVSMode mode, const KSKVSConfi
             goto done;
         }
 
-        // The size probe and the read form one snapshot: both under the read
-        // lock so a concurrent compact or append cannot tear the image.
+        // The size probe and the read form one snapshot, taken while no
+        // store is restructuring an image: a live run's own report is
+        // finalized against the sidecar this process is still writing, so a
+        // compaction or a remap part way through this read would tear it.
+        // Appends do not take this lock and do not need to: they only write
+        // past the offset this snapshot records.
         pthread_rwlock_rdlock(&g_fileImageLock);
         off_t fileSize = lseek(fd, 0, SEEK_END);
         if (fileSize < 0) {
@@ -401,6 +453,7 @@ KSKeyValueStore *kskvs_create(const char *path, KSKVSMode mode, const KSKVSConfi
         if (store == NULL) {
             goto read_fail;
         }
+        pthread_rwlock_init(&store->lock, NULL);
 
         store->storage = buf;
         store->capacity = (uint32_t)fileSize;
@@ -423,10 +476,17 @@ KSKeyValueStore *kskvs_create(const char *path, KSKVSMode mode, const KSKVSConfi
             KSLOG_ERROR("Invalid KVS config for ReadWriteCreate mode");
             goto done;
         }
+        // Bounded by the same ceiling the read mode enforces, so this mode
+        // cannot produce a file every later read-mode open calls corrupt.
+        if (config->initialCapacity > KSKVS_MAX_CAPACITY) {
+            KSLOG_ERROR("KVS initial capacity %u is past the %u byte ceiling", config->initialCapacity,
+                        (uint32_t)KSKVS_MAX_CAPACITY);
+            goto done;
+        }
 
         // The truncate-and-init below is visible to a concurrent read-mode
-        // load of the same path. The write lock keeps such a reader from
-        // observing the zeroed image between O_TRUNC and initHeader.
+        // load of the same path, which must not observe the zeroed image
+        // between O_TRUNC and initHeader.
         pthread_rwlock_wrlock(&g_fileImageLock);
         int fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0644);
         if (fd < 0) {
@@ -464,6 +524,7 @@ KSKeyValueStore *kskvs_create(const char *path, KSKVSMode mode, const KSKVSConfi
         if (store == NULL) {
             goto rw_fail;
         }
+        pthread_rwlock_init(&store->lock, NULL);
 
         store->storage = (uint8_t *)mapped;
         store->capacity = capacity;
@@ -508,6 +569,7 @@ void kskvs_destroy(KSKeyValueStore *store)
     store->storage = NULL;
     store->capacity = 0;
     store->fd = -1;
+    pthread_rwlock_destroy(&store->lock);
 
     free(store);
 }
@@ -585,9 +647,65 @@ bool kskvs_setJSON(KSKeyValueStore *store, const char *key, const char *json, si
     return appendRecord(store, key, KSKVSTypeJSON, json, (uint16_t)length);
 }
 
+/** Stamp the key's last record as removed without appending anything.
+ *  The reader resolves a key to its last record, so this makes the key absent
+ *  in a store that has no room left for a tombstone. Returns whether the key
+ *  ends up absent, which includes never having been there.
+ */
+static bool markLastRecordRemoved(KSKeyValueStore *store, const char *key)
+{
+    if (store == NULL || store->storage == NULL || store->fd < 0) {
+        return false;  // a read-mode image is a copy; there is nothing to stamp
+    }
+
+    size_t rawKeyLen = strlen(key);
+    if (rawKeyLen == 0 || rawKeyLen > UINT16_MAX) {
+        return false;
+    }
+    uint16_t keyLen = (uint16_t)rawKeyLen;
+
+    pthread_rwlock_wrlock(&store->lock);
+
+    KSKVSHeader *hdr = storeHeader(store);
+    uint32_t endPos = hdr->offset;
+    if (endPos > store->capacity) {
+        endPos = store->capacity;
+    }
+
+    KSKVSRecordHeader *last = NULL;
+    uint32_t pos = KSKVS_HEADER_SIZE;
+    while (pos + KSKVS_RECORD_HEADER_SIZE <= endPos) {
+        KSKVSRecordHeader *rec = (KSKVSRecordHeader *)(store->storage + pos);
+        uint32_t recordSize = KSKVS_RECORD_HEADER_SIZE + rec->keyLen + rec->valueLen;
+        if (pos + recordSize > endPos) {
+            break;
+        }
+        if (rec->keyLen == keyLen && memcmp(store->storage + pos + KSKVS_RECORD_HEADER_SIZE, key, keyLen) == 0) {
+            last = rec;
+        }
+        pos += recordSize;
+    }
+
+    if (last != NULL) {
+        // valueLen is left alone: a record's span is how iteration finds the
+        // next one. compact() reclaims the dead value bytes.
+        last->type = KSKVSTypeRemoved;
+        store->compactionIsFutile = false;
+    }
+
+    pthread_rwlock_unlock(&store->lock);
+    return true;
+}
+
 bool kskvs_removeValue(KSKeyValueStore *store, const char *key)
 {
-    return appendRecord(store, key, KSKVSTypeRemoved, NULL, 0);
+    if (appendRecord(store, key, KSKVSTypeRemoved, NULL, 0)) {
+        return true;
+    }
+    // A store with no room left can still stop serving the value, and must:
+    // otherwise a refused write leaves the key returning what the app
+    // believes it replaced.
+    return markLastRecordRemoved(store, key);
 }
 
 // ============================================================================
