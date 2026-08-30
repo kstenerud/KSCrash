@@ -209,4 +209,16 @@ final class MetadataStoreConformanceTests: XCTestCase {
         metadata["c"] = Date(timeIntervalSince1970: 0)
         XCTAssertEqual(metadata.keys, ["a", "b", "c"])
     }
+
+    func test_null_isAbsence() {
+        var store: any MetadataStore = Metadata()
+        store["gone"] = "value"
+        store["gone"] = MetadataValue.null
+        XCTAssertNil(store["gone"] as MetadataValue?)
+        store["mixed"] = MetadataValue.object(["kept": .integer(1), "dropped": .null])
+        XCTAssertEqual(store["mixed"] as MetadataValue?, .object(["kept": .integer(1)]))
+        store["list"] = MetadataValue.array([.string("a"), .null, .object(["x": .null])])
+        XCTAssertEqual(store["list"] as MetadataValue?, .array([.string("a"), .object([:])]))
+        XCTAssertEqual(store.keys, ["list", "mixed"])
+    }
 }

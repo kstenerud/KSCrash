@@ -1,5 +1,13 @@
 # CLAUDE.md
 
+## Hot-Path Principle
+
+KSCrash runs inside someone else's app and must never change that app's
+efficiency or performance. Any path the host app drives while running
+(metadata writes, monitor callbacks, recording) does as little as possible.
+Defer interpretation, normalization, and cleanup to read/send time, which
+happens later, off the hot path.
+
 ## Build and Test Commands
 
 - Build (debug): `swift build`
