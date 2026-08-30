@@ -41,9 +41,16 @@ public struct Metadata: MetadataStore, Equatable, Sendable {
     /// Whether the bag holds no keys.
     public var isEmpty: Bool { storage.isEmpty }
 
-    /// Stores `value` under `key`, replacing any existing value.
+    /// Stores `value` under `key`, replacing any existing value; `.null`
+    /// removes the key. A container is stored as given; null members and
+    /// elements inside it resolve to absence when read.
     public mutating func set(_ value: some MetadataValueConvertible, forKey key: String) {
-        storage[key] = value.metadataValue
+        let metadataValue = value.metadataValue
+        if case .null = metadataValue {
+            storage.removeValue(forKey: key)
+        } else {
+            storage[key] = metadataValue
+        }
     }
 
     /// The value under `key` as `type`, or nil when the key is absent or holds a different type.
