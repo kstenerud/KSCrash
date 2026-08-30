@@ -89,7 +89,17 @@ public final class LiveMetadata: MetadataStore, Sendable {
     // The store operation itself runs inside the lock: the kvs is
     // caller-synchronized, and this lock is its synchronization.
     public subscript<Value: MetadataValueRepresentable>(key: String) -> Value? {
-        get { state.withLock { $0.store?[key] } }
+        get {
+            // The lock covers the store walk; judging the container payload
+            // it copies out does not, and a full JSON parse under this lock
+            // would block every other metadata reader and writer for as long
+            // as it runs, which is what the setter and `keys` are both shaped
+            // to avoid.
+            guard let stored = state.withLock({ $0.store?.valueSnapshot(forKey: key) })?.resolved else {
+                return nil
+            }
+            return Value.decode(from: stored)
+        }
         set {
             // With no store the write is dropped, so nothing is worth
             // preparing: before install, and after a degraded one, that is

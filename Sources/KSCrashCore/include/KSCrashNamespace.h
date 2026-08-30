@@ -391,6 +391,7 @@
 #define ksobjc_numberAsFloat KSCRASH_NS(ksobjc_numberAsFloat)
 #define ksobjc_numberAsInteger KSCRASH_NS(ksobjc_numberAsInteger)
 #define ksobjc_numberIsFloat KSCRASH_NS(ksobjc_numberIsFloat)
+#define ksobjc_numberIsFloat32 KSCRASH_NS(ksobjc_numberIsFloat32)
 #define ksobjc_objectClassName KSCRASH_NS(ksobjc_objectClassName)
 #define ksobjc_objectClassType KSCRASH_NS(ksobjc_objectClassType)
 #define ksobjc_objectType KSCRASH_NS(ksobjc_objectType)

@@ -95,17 +95,62 @@ final class SidecarMetadataMonitorPluginTests: XCTestCase {
 
         let value = String(repeating: "v", count: 60000)
         var lastKey: String?
-        for index in 0..<1000 {
+        var index = 0
+        while index < 1000 {
             let key = "key\(index)"
             store[key] = value
             guard store[key] as String? != nil else { break }
             lastKey = key
+            index += 1
         }
         let key = try XCTUnwrap(lastKey, "the store never filled")
+
+        // Records this big leave slack enough for a removal record, which is
+        // not the full store this is about: spend it down below one empty
+        // record, so the removal has to be stamped over the value in place.
+        var padSize = 32768
+        while true {
+            let pad = String(repeating: "p", count: padSize)
+            while index < 100_000 {
+                let padKey = "pad\(index)"
+                store[padKey] = pad
+                guard store[padKey] as String? != nil else { break }
+                index += 1
+            }
+            if padSize == 0 { break }
+            padSize /= 2
+        }
 
         store[key] = String(repeating: "w", count: 60000)
         XCTAssertNil(store[key] as String?)
         XCTAssertFalse(store.keys.contains(key))
+    }
+
+    func test_containerTooDeepForTheReport_readsAsAbsence() throws {
+        // Foundation decodes far deeper than the report encoder can write,
+        // and the report writes a stored container two containers down, at
+        // report -> "user" -> key. Judged against Foundation's own limit
+        // instead, this reader would call a value what the report stitch
+        // drops, so `keys`, the getter and the run summary would all carry a
+        // key the report does not have.
+        let path = directory.appendingPathComponent("Deep.ksscr").path
+        let store = try SidecarMetadata.creating(at: path, config: KSKVSConfig(initialCapacity: 4096))
+
+        func nested(levels: Int) -> MetadataValue {
+            var value = MetadataValue.array([])
+            for _ in 1..<levels {
+                value = .array([value])
+            }
+            return value
+        }
+
+        store["deep"] = nested(levels: Int(KSKVS_MAX_VALUE_DEPTH) + 1)
+        store["fits"] = nested(levels: Int(KSKVS_MAX_VALUE_DEPTH))
+        store["good"] = "v"
+
+        XCTAssertNil(store["deep"] as MetadataValue?)
+        XCTAssertNotNil(store["fits"] as MetadataValue?)
+        XCTAssertEqual(store.keys, ["fits", "good"])
     }
 
     func test_keys_omitAJSONRecordWhoseReadIsAbsence() throws {

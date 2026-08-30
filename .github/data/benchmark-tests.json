@@ -167,7 +167,7 @@
     { "name": "WriteScalars", "category": "metadata", "description": "Write scalars", "notes": "100 scalar sets into a bag" },
     { "name": "WriteContainers", "category": "metadata", "description": "Write containers", "notes": "20 sets of a native 100-leaf container" },
     { "name": "EncodeContainerBytes", "category": "metadata", "description": "Encode container to JSON", "notes": "100 encodes, the sidecar write's heavy step" },
-    { "name": "ReadContainers", "category": "metadata", "description": "Read containers", "notes": "100 subscript reads of a 100-leaf container" },
+    { "name": "ReadContainers", "category": "metadata", "description": "Read containers", "notes": "100 null-resolving reads of a 100-leaf container" },
     { "name": "ReadContainersWithNulls", "category": "metadata", "description": "Read containers with nulls", "notes": "Same read, quarter of the leaves null (strip cost)" },
     { "name": "DecodeContainerBytes", "category": "metadata", "description": "Decode container bytes", "notes": "100 JSONDecoder decodes, the sidecar read boundary" },
     { "name": "DecodeContainerBytesWithNulls", "category": "metadata", "description": "Decode container bytes with nulls", "notes": "Same decode, quarter of the leaves null" }

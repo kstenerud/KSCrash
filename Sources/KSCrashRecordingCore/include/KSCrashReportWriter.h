@@ -78,6 +78,16 @@ typedef struct KSCrashReportWriter {
      */
     void (*addFloatingPointElement)(const struct KSCrashReportWriter *writer, const char *name, double value);
 
+    /** Add a single-precision floating point element to the report.
+     *
+     * @param writer This writer.
+     *
+     * @param name The name to give this element.
+     *
+     * @param value The value to add.
+     */
+    void (*addFloatElement)(const struct KSCrashReportWriter *writer, const char *name, float value);
+
     /** Add an integer element to the report.
      *
      * @param writer This writer.

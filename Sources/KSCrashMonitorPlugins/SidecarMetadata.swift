@@ -256,10 +256,39 @@ public final class SidecarMetadata: MetadataStore, @unchecked Sendable {
         return keys.snapshot
     }
 
+    /// One key's resolved record, with a container's bytes copied out but not
+    /// yet judged.
+    ///
+    /// The same two phases as `KeySnapshot`, for the same reason: a caller
+    /// that serializes store access releases its lock before `resolved`, since
+    /// judging a container is a full JSON parse of a payload that can run to
+    /// the record format's 64KB bound.
+    package struct ValueSnapshot {
+        fileprivate enum Payload {
+            case absent
+            case value(MetadataValue)
+            case container(Data)
+        }
+        fileprivate var payload: Payload = .absent
+
+        /// The value the key reads as, by the same reader `keys` uses.
+        package var resolved: MetadataValue? {
+            switch payload {
+            case .absent: return nil
+            case .value(let value): return value
+            case .container(let data): return kvContainer(data)
+            }
+        }
+    }
+
     /// The key's resolved value as the model represents it; nil for no value.
     private func currentValue(forKey key: String) -> MetadataValue? {
+        valueSnapshot(forKey: key).resolved
+    }
+
+    package func valueSnapshot(forKey key: String) -> ValueSnapshot {
         final class Lookup {
-            var value: MetadataValue?
+            var snapshot = ValueSnapshot()
             static func from(_ context: UnsafeMutableRawPointer?) -> Lookup {
                 Unmanaged<Lookup>.fromOpaque(context!).takeUnretainedValue()
             }
@@ -268,33 +297,36 @@ public final class SidecarMetadata: MetadataStore, @unchecked Sendable {
         var callbacks = KSKVSCallbacks()
         callbacks.onString = { _, _, value, valueLength, context in
             guard let value = kvString(value, valueLength) else { return }
-            Lookup.from(context).value = .string(value)
+            Lookup.from(context).snapshot.payload = .value(.string(value))
         }
         callbacks.onInt64 = { _, _, value, context in
-            Lookup.from(context).value = .integer(value)
+            Lookup.from(context).snapshot.payload = .value(.integer(value))
         }
         callbacks.onUInt64 = { _, _, value, context in
-            Lookup.from(context).value = .unsignedInteger(value)
+            Lookup.from(context).snapshot.payload = .value(.unsignedInteger(value))
         }
         callbacks.onDouble = { _, _, value, context in
             // JSON carries no non-finite number, so a record holding one (a
             // foreign writer, or a build that predates the write-side guard)
             // reads as absence rather than as a value no consumer can encode.
             guard value.isFinite else { return }
-            Lookup.from(context).value = .double(value)
+            Lookup.from(context).snapshot.payload = .value(.double(value))
         }
         callbacks.onBool = { _, _, value, context in
-            Lookup.from(context).value = .bool(value)
+            Lookup.from(context).snapshot.payload = .value(.bool(value))
         }
         callbacks.onDate = { _, _, nanoseconds, context in
             // Date.decode reads seconds since 1970, the model's date representation.
-            Lookup.from(context).value = .double(Double(nanoseconds) / Double(NSEC_PER_SEC))
+            Lookup.from(context).snapshot.payload = .value(.double(Double(nanoseconds) / Double(NSEC_PER_SEC)))
         }
         callbacks.onJSON = { _, _, json, jsonLength, context in
-            Lookup.from(context).value = kvContainer(json, jsonLength)
+            // Copied, not parsed: the bytes live in the store's mapping and
+            // this callback runs where the caller's lock is held.
+            guard let json else { return }
+            Lookup.from(context).snapshot.payload = .container(Data(bytes: json, count: Int(jsonLength)))
         }
         kskvs_lookup(store, key, &callbacks, Unmanaged.passUnretained(lookup).toOpaque())
-        return lookup.value
+        return lookup.snapshot
     }
 }
 
@@ -330,8 +362,29 @@ package func kvContainer(_ data: Data) -> MetadataValue? {
         return nil
     }
     switch value {
-    case .array, .object: return value
+    case .array, .object:
+        // Depth is measured from where the value lands: the report re-encodes
+        // it under report -> "user" -> key, and Foundation's own limit is far
+        // deeper than what is left below those. Accepting one the report
+        // encoder cannot write would make this the one reader that calls the
+        // record a value.
+        return value.nests(deeperThan: Int(KSKVS_MAX_VALUE_DEPTH)) ? nil : value
     default: return nil
+    }
+}
+
+extension MetadataValue {
+    /// Whether the value's container nesting runs deeper than `limit` levels.
+    /// Stops at the first branch that does, rather than measuring the tree.
+    fileprivate func nests(deeperThan limit: Int) -> Bool {
+        switch self {
+        case .array(let elements):
+            return limit < 1 || elements.contains { $0.nests(deeperThan: limit - 1) }
+        case .object(let members):
+            return limit < 1 || members.values.contains { $0.nests(deeperThan: limit - 1) }
+        default:
+            return false
+        }
     }
 }
 
