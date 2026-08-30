@@ -91,6 +91,14 @@ public final class LiveMetadata: MetadataStore, Sendable {
     public subscript<Value: MetadataValueRepresentable>(key: String) -> Value? {
         get { state.withLock { $0.store?[key] } }
         set {
+            // With no store the write is dropped, so nothing is worth
+            // preparing: before install, and after a degraded one, that is
+            // every write, and for a container the preparation is a tree walk
+            // plus a JSON encode.
+            let (hasStore, reason) = state.withLock { ($0.store != nil, $0.unavailableReason) }
+            guard hasStore else {
+                return notedDroppedWrite(unavailableReason: reason, key: key)
+            }
             // Convert and serialize before taking the lock: for a container
             // that is a tree walk plus a JSON encode, and it touches nothing
             // the lock protects. Holding the lock across it would make every
@@ -124,6 +132,11 @@ public final class LiveMetadata: MetadataStore, Sendable {
     }
 
     public var keys: [String] {
-        state.withLock { $0.store?.keys ?? [] }
+        // The walk needs the lock, since it must not race a write; judging
+        // the container payloads it copies out does not, and a full JSON
+        // parse per container key under this lock would block every writing
+        // thread for the whole walk.
+        guard let snapshot = state.withLock({ $0.store?.keySnapshot() }) else { return [] }
+        return snapshot.resolvedNames
     }
 }
