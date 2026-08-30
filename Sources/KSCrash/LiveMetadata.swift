@@ -91,11 +91,16 @@ public final class LiveMetadata: MetadataStore, Sendable {
     public subscript<Value: MetadataValueRepresentable>(key: String) -> Value? {
         get { state.withLock { $0.store?[key] } }
         set {
+            // Convert and serialize before taking the lock: for a container
+            // that is a tree walk plus a JSON encode, and it touches nothing
+            // the lock protects. Holding the lock across it would make every
+            // other thread writing metadata wait on this value's encoding.
+            let prepared = SidecarMetadata.PreparedValue(newValue)
             state.withLock { state in
                 guard let store = state.store else {
                     return notedDroppedWrite(unavailableReason: state.unavailableReason, key: key)
                 }
-                store[key] = newValue
+                store.apply(prepared, forKey: key)
             }
         }
     }
