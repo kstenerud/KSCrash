@@ -66,6 +66,14 @@ typedef enum {
 #define KSKVS_HEADER_SIZE 12
 #define KSKVS_RECORD_HEADER_SIZE 5
 
+/** Ceiling on a store file, for both growth and reading an existing one.
+ *  Records are bounded individually (64KB each) but their number is not, and
+ *  the file only ever grows within a run, so without this a live store is
+ *  unbounded on the user's disk and stays mapped for the process lifetime.
+ *  A write that would cross it is refused, which callers surface as the key
+ *  becoming absent. */
+#define KSKVS_MAX_CAPACITY (16u * 1024u * 1024u)
+
 #pragma pack(push, 1)
 /** File header: magic (4) + version (4) + write cursor (4) = 12 bytes. */
 typedef struct {
@@ -207,8 +215,21 @@ static bool growStorage(KSKeyValueStore *store, uint32_t minCapacity)
         return false;
     }
 
+    if (minCapacity > KSKVS_MAX_CAPACITY) {
+        KSLOG_ERROR("KVS store needs %u bytes, past the %u byte ceiling; rejecting the write", minCapacity,
+                    (uint32_t)KSKVS_MAX_CAPACITY);
+        return false;
+    }
+
+    // The ceiling is what terminates this, not the comparison: capacity is a
+    // uint32_t, so doubling past 2^31 wraps to 0 and would spin forever here
+    // while holding the file-image lock.
     uint32_t newCapacity = store->capacity;
     while (newCapacity < minCapacity) {
+        if (newCapacity > KSKVS_MAX_CAPACITY / 2) {
+            newCapacity = KSKVS_MAX_CAPACITY;
+            break;
+        }
         newCapacity *= 2;
     }
 
@@ -341,7 +362,7 @@ KSKeyValueStore *kskvs_create(const char *path, KSKVSMode mode, const KSKVSConfi
             pthread_rwlock_unlock(&g_fileImageLock);
             goto read_fail;  // seek failure is environmental, not a verdict on the file
         }
-        if (fileSize < (off_t)KSKVS_HEADER_SIZE) {
+        if (fileSize < (off_t)KSKVS_HEADER_SIZE || fileSize > (off_t)KSKVS_MAX_CAPACITY) {
             pthread_rwlock_unlock(&g_fileImageLock);
             status = KSKVSOpenCorrupt;
             goto read_fail;
