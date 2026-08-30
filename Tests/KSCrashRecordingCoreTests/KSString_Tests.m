@@ -732,8 +732,32 @@
     double ts = 757382400.123456;
     ksstring_doubleToString(ts, buf, sizeof(buf));
     double parsed = strtod(buf, NULL);
-    // FLT_DIG precision (6 significant digits) for float-representable values
-    XCTAssertEqualWithAccuracy(parsed, ts, fabs(ts) * 1e-5);
+    XCTAssertEqualWithAccuracy(parsed, ts, 0, @"An epoch timestamp must survive the round trip exactly, got: %s", buf);
+}
+
+- (void)testDoubleToStringKeepsTheLowDigitsOfALargeValue
+{
+    // A value close to its float cast used to take a 6-significant-digit
+    // path, which rounded the whole number: 1774333777.5 came back as
+    // 1774330000, an hour off, and disagreed with the run summary, which
+    // carries the same value through Foundation.
+    double values[] = { 1774333777.5, 1234567.89, 16777216.0, 999999.5, 1700085055.92 };
+    for (size_t i = 0; i < sizeof(values) / sizeof(values[0]); i++) {
+        char buf[32];
+        ksstring_doubleToString(values[i], buf, sizeof(buf));
+        double parsed = strtod(buf, NULL);
+        XCTAssertEqualWithAccuracy(parsed, values[i], 0, @"Round-trip lost digits: %.17g -> %s -> %.17g", values[i],
+                                   buf, parsed);
+    }
+}
+
+- (void)testDoubleToStringDoesNotInventDigits
+{
+    // The digits come from one double multiply, so asking for more than
+    // DBL_DIG would append that multiply's rounding error to the value.
+    char buf[32];
+    ksstring_doubleToString(1774333777.5, buf, sizeof(buf));
+    XCTAssertEqualObjects(@(buf), @"1774333777.5");
 }
 
 - (void)testDoubleToStringBufSizeZero
