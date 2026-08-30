@@ -231,4 +231,43 @@ final class MetadataStoreConformanceTests: XCTestCase {
         XCTAssertEqual(store["list"] as MetadataValue?, .array([.string("a"), .object([:])]))
         XCTAssertEqual(store.keys, ["list", "mixed"])
     }
+
+    func test_containerNullSetDirectly_equalsItsOwnRoundTrip() throws {
+        // A container stored with a null inside is resolved on the way out as
+        // well as on the way in, so the two read APIs cannot disagree.
+        var bag = Metadata()
+        bag.set([1, nil, 2] as [Int?], forKey: "tags")
+
+        let encoded = String(decoding: try JSONEncoder().encode(bag), as: UTF8.self)
+        XCTAssertFalse(encoded.contains("null"), encoded)
+
+        let back = try JSONDecoder().decode(Metadata.self, from: try JSONEncoder().encode(bag))
+        XCTAssertEqual(back, bag)
+    }
+
+    func test_containerNullSetDirectly_decodesIntoANonOptionalProperty() throws {
+        struct Host: Codable {
+            let tags: [Int]
+        }
+        var bag = Metadata()
+        bag.set([1, nil, 2] as [Int?], forKey: "tags")
+
+        // The per-key read already resolves the null away; the whole-bag read
+        // must agree rather than throwing on it.
+        XCTAssertEqual(bag["tags"] as [Int]?, [1, 2])
+        XCTAssertEqual(try bag.decoded(as: Host.self).tags, [1, 2])
+    }
+
+    func test_metadataValue_isAFaithfulJSONCodec() throws {
+        // Null resolution belongs to the bag, not to MetadataValue: report
+        // fields such as a zombie's ivars decode through this type and must
+        // keep what they were given.
+        let json = Data(#"{"a":1,"b":null}"#.utf8)
+        let value = try JSONDecoder().decode(MetadataValue.self, from: json)
+        XCTAssertEqual(value, .object(["a": .integer(1), "b": .null]))
+
+        let array = try JSONDecoder().decode(MetadataValue.self, from: Data("[null,1]".utf8))
+        XCTAssertEqual(array, .array([.null, .integer(1)]))
+        XCTAssertEqual(try JSONDecoder().decode(MetadataValue.self, from: try JSONEncoder().encode(array)), array)
+    }
 }
