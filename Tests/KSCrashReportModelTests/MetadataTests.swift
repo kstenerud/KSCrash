@@ -210,6 +210,16 @@ final class MetadataStoreConformanceTests: XCTestCase {
         XCTAssertEqual(metadata.keys, ["a", "b", "c"])
     }
 
+    func test_decodedStorage_dropsNulls() throws {
+        let json = Data(#"{"gone":null,"list":[null,1],"kept":"v"}"#.utf8)
+        let bag = try JSONDecoder().decode(Metadata.self, from: json)
+        XCTAssertEqual(bag.keys, ["kept", "list"])
+        XCTAssertFalse(bag.contains("gone"))
+        XCTAssertEqual(bag["list"] as [Int]?, [1])
+        let encoded = String(decoding: try JSONEncoder().encode(bag), as: UTF8.self)
+        XCTAssertFalse(encoded.contains("null"), encoded)
+    }
+
     func test_null_isAbsence() {
         var store: any MetadataStore = Metadata()
         store["gone"] = "value"
