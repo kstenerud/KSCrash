@@ -144,6 +144,29 @@
     XCTAssertEqualObjects(@(buffer), @(expected));
 }
 
+- (void)testClearingAfterDisablingDoesNotTruncateTheOldLog
+{
+    // Turning file logging off drops the remembered name too. Keeping it
+    // would let this clear reopen that path with O_TRUNC and destroy a file
+    // the host told the logger to stop writing.
+    NSString *logFileName = [self.tempDir stringByAppendingPathComponent:@"log.txt"];
+    kslog_setLogFilename([logFileName UTF8String], true);
+    KSLOGBASIC_ALWAYS(@"KEEP ME");
+    kslog_setLogFilename(nil, true);
+
+    XCTAssertTrue(kslog_clearLogFile(), @"clearing with logging off is a no-op, not a failure");
+
+    NSError *error = nil;
+    NSString *result = [NSString stringWithContentsOfFile:logFileName encoding:NSUTF8StringEncoding error:&error];
+    XCTAssertNil(error);
+    XCTAssertTrue([result containsString:@"KEEP ME"], @"the disabled log file was truncated, got: %@", result);
+
+    // And logging stays off: nothing new reaches the file either.
+    KSLOGBASIC_ALWAYS(@"SHOULD NOT APPEAR");
+    result = [NSString stringWithContentsOfFile:logFileName encoding:NSUTF8StringEncoding error:&error];
+    XCTAssertFalse([result containsString:@"SHOULD NOT APPEAR"]);
+}
+
 #pragma mark - C formatter (signal-safe path)
 
 extern void i_kslog_logCBasic(const char *fmt, ...);
