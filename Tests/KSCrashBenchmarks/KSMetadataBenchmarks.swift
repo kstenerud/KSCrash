@@ -33,7 +33,7 @@ import XCTest
 /// store file itself is measured by the KVS benchmarks; these cover the model
 /// work that sits on top of it, so an encoder or decoder is allocated per
 /// operation exactly as the shipping paths do.
-final class KSMetadataBenchmarks: KSBenchmarkTestCase {
+class KSMetadataBenchmarks: KSBenchmarkTestCase {
 
     /// A 100-leaf container; `nullEvery > 0` salts it with nulls at that stride.
     private func makeContainer(nullEvery: Int) -> MetadataValue {
