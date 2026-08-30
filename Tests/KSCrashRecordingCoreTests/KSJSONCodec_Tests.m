@@ -1264,6 +1264,55 @@ static NSString *toString(NSData *data)
     XCTAssertEqualObjects(decoded, object, @"");
 }
 
+- (void)testDeserializeRejectsAMissingCommaInAnArray
+{
+    NSError *error = nil;
+    id result = [KSJSONCodec decode:[@"[1 2]" dataUsingEncoding:NSUTF8StringEncoding] options:0 error:&error];
+    XCTAssertNil(result, @"");
+    XCTAssertNotNil(error, @"");
+}
+
+- (void)testDeserializeRejectsAMissingCommaInAnObject
+{
+    NSError *error = nil;
+    id result = [KSJSONCodec decode:[@"{\"a\":1 \"b\":2}" dataUsingEncoding:NSUTF8StringEncoding]
+                            options:0
+                              error:&error];
+    XCTAssertNil(result, @"");
+    XCTAssertNotNil(error, @"");
+}
+
+- (void)testDeserializeRejectsExcessiveNesting
+{
+    // decodeElement recurses per level, and the encoder refuses to write past
+    // KSJSON_MAX_CONTAINER_DEPTH, so the decoder must refuse the same depth
+    // rather than recursing on it and producing a document it cannot re-encode.
+    NSMutableString *deep = [NSMutableString string];
+    for (int i = 0; i < 5000; i++) {
+        [deep appendString:@"["];
+    }
+    NSError *error = nil;
+    id result = [KSJSONCodec decode:[deep dataUsingEncoding:NSUTF8StringEncoding] options:0 error:&error];
+    XCTAssertNil(result, @"");
+    XCTAssertNotNil(error, @"");
+}
+
+- (void)testDeserializeAcceptsNestingUpToTheLimit
+{
+    const int depth = KSJSON_MAX_CONTAINER_DEPTH - 1;
+    NSMutableString *json = [NSMutableString string];
+    for (int i = 0; i < depth; i++) {
+        [json appendString:@"["];
+    }
+    for (int i = 0; i < depth; i++) {
+        [json appendString:@"]"];
+    }
+    NSError *error = nil;
+    id result = [KSJSONCodec decode:[json dataUsingEncoding:NSUTF8StringEncoding] options:0 error:&error];
+    XCTAssertNotNil(result, @"");
+    XCTAssertNil(error, @"");
+}
+
 - (void)testDeserializeKeepsLaterMembersAfterAnUnrepresentableOne
 {
     // The report read path passes KeepPartialObject, so a decode error would
