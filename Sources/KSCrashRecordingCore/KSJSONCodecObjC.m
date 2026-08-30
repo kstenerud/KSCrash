@@ -466,6 +466,14 @@ static int encodeObject(KSJSONCodec *codec, id object, NSString *name, KSJSONEnc
 
 + (id)decode:(NSData *)JSONData options:(KSJSONDecodeOption)decodeOptions error:(NSError *__autoreleasing *)error
 {
+    return [self decode:JSONData options:decodeOptions startDepth:0 error:error];
+}
+
++ (id)decode:(NSData *)JSONData
+       options:(KSJSONDecodeOption)decodeOptions
+    startDepth:(int)startDepth
+         error:(NSError *__autoreleasing *)error
+{
     KSJSONCodec *codec = [self codecWithEncodeOptions:0 decodeOptions:decodeOptions];
     // Scratch for decoded names and strings: ksjson_decode gives names a
     // quarter of it, and a decoded string is never longer than its encoded
@@ -478,8 +486,9 @@ static int encodeObject(KSJSONCodec *codec, id object, NSString *name, KSJSONEnc
     }
     NSMutableData *stringBuffer = [NSMutableData dataWithLength:scratchSize];
     int errorOffset;
-    int result = ksjson_decode(JSONData.bytes, (int)JSONData.length, stringBuffer.mutableBytes,
-                               (int)stringBuffer.length, codec.callbacks, (__bridge void *)codec, &errorOffset);
+    int result =
+        ksjson_decode(JSONData.bytes, (int)JSONData.length, stringBuffer.mutableBytes, (int)stringBuffer.length,
+                      codec.callbacks, (__bridge void *)codec, startDepth, &errorOffset);
     if (result != KSJSON_OK && codec.error == nil) {
         codec.error = [KSNSErrorHelper errorWithDomain:@"KSJSONCodecObjC"
                                                   code:0
