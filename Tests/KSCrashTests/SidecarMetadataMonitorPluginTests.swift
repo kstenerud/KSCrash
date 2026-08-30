@@ -49,6 +49,65 @@ private let testProvider: KSCrashSidecarRunPathProviderFunc = { monitorID, buffe
 nonisolated(unsafe) private var testCallbacks = KSCrash_ExceptionHandlerCallbacks()
 
 final class SidecarMetadataMonitorPluginTests: XCTestCase {
+    func test_keys_omitAStringRecordWhoseReadIsAbsence() throws {
+        // Same rule as the JSON case below: value bytes that are not UTF-8
+        // read as absence, so keys must not name the key either.
+        let path = directory.appendingPathComponent("BrokenString.ksscr").path
+        var config = KSKVSConfig(initialCapacity: 512)
+        let raw = try XCTUnwrap(kskvs_create(path, KSKVSModeReadWriteCreate, &config, nil))
+        XCTAssertTrue(kskvs_setString(raw, "good", "v"))
+        let invalidUTF8: [CChar] = [CChar(bitPattern: 0xC3), 0x28, 0]
+        XCTAssertTrue(invalidUTF8.withUnsafeBufferPointer { kskvs_setString(raw, "bad", $0.baseAddress) })
+        kskvs_destroy(raw)
+
+        let store = try XCTUnwrap(SidecarMetadata.reading(at: path))
+        XCTAssertNil(store["bad"] as String?)
+        XCTAssertEqual(store.keys, ["good"])
+    }
+
+    func test_foreignNonFiniteDouble_readsAsAbsence() throws {
+        // The write path refuses these, but a foreign writer, or a build that
+        // predates that guard, can leave one on disk. Reading it as a value
+        // would put `1e999` in the report and make the whole thing
+        // undeliverable, so the read calls it absence too.
+        let path = directory.appendingPathComponent("ForeignDouble.ksscr").path
+        var config = KSKVSConfig(initialCapacity: 512)
+        let raw = try XCTUnwrap(kskvs_create(path, KSKVSModeReadWriteCreate, &config, nil))
+        XCTAssertTrue(kskvs_setString(raw, "good", "v"))
+        XCTAssertTrue(kskvs_setDouble(raw, "inf", .infinity))
+        XCTAssertTrue(kskvs_setDouble(raw, "nan", .nan))
+        kskvs_destroy(raw)
+
+        let store = try XCTUnwrap(SidecarMetadata.reading(at: path))
+        XCTAssertNil(store["inf"] as Double?)
+        XCTAssertNil(store["nan"] as Double?)
+        XCTAssertEqual(store.keys, ["good"])
+    }
+
+    func test_fullStore_refusedWrite_leavesTheKeyAbsentNotStale() throws {
+        // At the ceiling the replacement cannot be written and neither can a
+        // removal record, so the key is cleared in place. Without that it
+        // would go on serving the value the app believes it replaced.
+        let path = directory.appendingPathComponent("Full.ksscr").path
+        // Grown into the ceiling by writing, so the test does not have to
+        // name it.
+        let store = try SidecarMetadata.creating(at: path, config: KSKVSConfig(initialCapacity: 4096))
+
+        let value = String(repeating: "v", count: 60000)
+        var lastKey: String?
+        for index in 0..<1000 {
+            let key = "key\(index)"
+            store[key] = value
+            guard store[key] as String? != nil else { break }
+            lastKey = key
+        }
+        let key = try XCTUnwrap(lastKey, "the store never filled")
+
+        store[key] = String(repeating: "w", count: 60000)
+        XCTAssertNil(store[key] as String?)
+        XCTAssertFalse(store.keys.contains(key))
+    }
+
     func test_keys_omitAJSONRecordWhoseReadIsAbsence() throws {
         // The writer checks only the opening byte, so bytes that open a
         // container but do not decode can reach a file (a torn or foreign
