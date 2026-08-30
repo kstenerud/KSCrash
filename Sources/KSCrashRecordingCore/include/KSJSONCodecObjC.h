@@ -58,6 +58,13 @@ typedef NS_ENUM(NSInteger, KSJSONDecodeOption) {
 
     /** Return the partially decoded object if an error is encountered */
     KSJSONDecodeOptionKeepPartialObject = 4,
+
+    /** Fail the decode when a string or member name is not representable
+     *  (invalid UTF-8) instead of dropping that one member. Use it where the
+     *  document is a single value that must match another reader's verdict
+     *  exactly; leave it off where dropping a member is better than losing
+     *  the rest of the document. */
+    KSJSONDecodeOptionFailOnUnrepresentableString = 8,
 } NS_SWIFT_NAME(JSONDecodeOption);
 
 NS_ASSUME_NONNULL_BEGIN
