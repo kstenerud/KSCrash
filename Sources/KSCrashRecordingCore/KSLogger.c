@@ -308,7 +308,13 @@ static inline void setLogFD(int fd)
 
 bool kslog_setLogFilename(const char *filename, bool overwrite)
 {
-    static int fd = -1;
+    // The descriptor must NOT be remembered across calls. setLogFD closes the
+    // one it is replacing, so carrying a previous value here (what a NULL
+    // filename used to do) would leave g_fd naming a closed descriptor. The
+    // next open() anywhere in the process, the host app's files included,
+    // gets that number and then receives this logger's output, which for an
+    // mmap'd file shows up as corruption rather than an error.
+    int fd = -1;
     if (filename != NULL) {
         int openMask = O_WRONLY | O_CREAT;
         if (overwrite) {
@@ -364,8 +370,11 @@ static inline void flushLog(void) { fflush(g_file); }
 
 bool kslog_setLogFilename(const char *filename, bool overwrite)
 {
-    static FILE *file = NULL;
-    FILE *oldFile = file;
+    // Not remembered across calls, for the reason the descriptor variant
+    // above gives; setLogFD closes the stream it replaces, so this must not
+    // hand it back its own closed stream, and a NULL filename must not reach
+    // strlcpy.
+    FILE *file = NULL;
     if (filename != NULL) {
         file = fopen(filename, overwrite ? "wb" : "ab");
         unlikely_if(file == NULL)
@@ -373,13 +382,9 @@ bool kslog_setLogFilename(const char *filename, bool overwrite)
             writeFmtToLog("KSLogger: Could not open %s: %s", filename, strerror(errno));
             return false;
         }
-    }
-    if (filename != g_logFilename) {
-        strlcpy(g_logFilename, filename, sizeof(g_logFilename));
-    }
-
-    if (oldFile != NULL) {
-        fclose(oldFile);
+        if (filename != g_logFilename) {
+            strlcpy(g_logFilename, filename, sizeof(g_logFilename));
+        }
     }
 
     setLogFD(file);

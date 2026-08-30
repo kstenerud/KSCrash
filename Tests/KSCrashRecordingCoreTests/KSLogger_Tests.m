@@ -29,6 +29,10 @@
 
 #import "KSLogger.h"
 
+#include <fcntl.h>
+#include <string.h>
+#include <unistd.h>
+
 @interface KSLogger_Tests : XCTestCase
 
 @property(nonatomic, readwrite, copy) NSString *tempDir;
@@ -111,6 +115,33 @@
     result = [[result componentsSeparatedByString:@"\x0a"] objectAtIndex:0];
     XCTAssertNil(error, @"");
     XCTAssertEqualObjects(result, expected, @"");
+}
+
+- (void)testDisablingTheLogFileLeavesLaterOpenedFilesAlone
+{
+    // Turning file logging off must not leave the logger holding a closed
+    // descriptor: the next open() anywhere in the process inherits that
+    // number, and the log output would land in that file instead.
+    NSString *logFileName = [self.tempDir stringByAppendingPathComponent:@"log.txt"];
+    kslog_setLogFilename([logFileName UTF8String], true);
+    KSLOGBASIC_ALWAYS(@"TEST");
+    kslog_setLogFilename(nil, true);
+
+    NSString *victimPath = [self.tempDir stringByAppendingPathComponent:@"victim.bin"];
+    const char *expected = "UNTOUCHED";
+    size_t expectedLen = strlen(expected);
+    int fd = open(victimPath.UTF8String, O_RDWR | O_CREAT | O_TRUNC, 0644);
+    XCTAssertGreaterThanOrEqual(fd, 0);
+    XCTAssertEqual(write(fd, expected, expectedLen), (ssize_t)expectedLen);
+
+    KSLOGBASIC_ALWAYS(@"this must not reach the file opened above");
+
+    XCTAssertEqual(lseek(fd, 0, SEEK_SET), 0);
+    char buffer[128] = { 0 };
+    ssize_t bytesRead = read(fd, buffer, sizeof(buffer) - 1);
+    close(fd);
+    XCTAssertEqual(bytesRead, (ssize_t)expectedLen, @"the log output was appended to an unrelated file");
+    XCTAssertEqualObjects(@(buffer), @(expected));
 }
 
 #pragma mark - C formatter (signal-safe path)
