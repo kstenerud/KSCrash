@@ -108,7 +108,8 @@ public final class SidecarMetadata: MetadataStore, @unchecked Sendable {
                 return
             }
             // Convert once: for containers metadataValue walks the whole tree.
-            switch value.metadataValue {
+            let converted = value.metadataValue
+            switch converted {
             case .string(let value): payload = .string(value)
             case .integer(let value): payload = .integer(value)
             case .unsignedInteger(let value): payload = .unsignedInteger(value)
@@ -125,7 +126,7 @@ public final class SidecarMetadata: MetadataStore, @unchecked Sendable {
                 // store records the bytes and every consumer parses them at
                 // read time, where nulls resolve to absence. Nothing walks or
                 // rewrites the value here; this path runs inside the host app.
-                let encoded = try? JSONEncoder().encode(value.metadataValue)
+                let encoded = try? JSONEncoder().encode(converted)
                 payload = encoded.map(Payload.json) ?? .remove
             }
         }
@@ -174,51 +175,85 @@ public final class SidecarMetadata: MetadataStore, @unchecked Sendable {
         }
     }
 
-    public var keys: [String] {
+    public var keys: [String] { keySnapshot().resolvedNames }
+
+    /// The store's keys, with container payloads copied out but not yet judged.
+    ///
+    /// Two phases so a caller that serializes store access can release its
+    /// lock before `resolvedNames` does the parsing: deciding whether a
+    /// container record reads as a value is a full JSON parse per record, and
+    /// running those under the lock would block every writing thread for the
+    /// length of the walk.
+    package struct KeySnapshot {
+        fileprivate var names: Set<String> = []
+        fileprivate var containers: [String: Data] = [:]
+
+        /// The keys whose read is a value. Containers are judged by the same
+        /// reader the getter uses, so this never names a key that reads nil.
+        package var resolvedNames: [String] {
+            var resolved = names
+            for (key, payload) in containers where kvContainer(payload) == nil {
+                resolved.remove(key)
+            }
+            return resolved.sorted()
+        }
+    }
+
+    package func keySnapshot() -> KeySnapshot {
         final class Keys {
-            var names: Set<String> = []
+            var snapshot = KeySnapshot()
             static func from(_ context: UnsafeMutableRawPointer?) -> Keys {
                 Unmanaged<Keys>.fromOpaque(context!).takeUnretainedValue()
             }
         }
         let keys = Keys()
         var callbacks = KSKVSCallbacks()
-        callbacks.onString = { key, keyLength, _, _, context in
-            guard let key = kvString(key, keyLength) else { return }
-            Keys.from(context).names.insert(key)
+        callbacks.onString = { key, keyLength, value, valueLength, context in
+            // Judged by the reader the getter uses: bytes that are not UTF-8
+            // read as absence, and a key that reads as absence is not a key.
+            guard let key = kvString(key, keyLength), kvString(value, valueLength) != nil else { return }
+            Keys.from(context).snapshot.names.insert(key)
         }
         callbacks.onInt64 = { key, keyLength, _, context in
             guard let key = kvString(key, keyLength) else { return }
-            Keys.from(context).names.insert(key)
+            Keys.from(context).snapshot.names.insert(key)
         }
         callbacks.onUInt64 = { key, keyLength, _, context in
             guard let key = kvString(key, keyLength) else { return }
-            Keys.from(context).names.insert(key)
+            Keys.from(context).snapshot.names.insert(key)
         }
-        callbacks.onDouble = { key, keyLength, _, context in
-            guard let key = kvString(key, keyLength) else { return }
-            Keys.from(context).names.insert(key)
+        callbacks.onDouble = { key, keyLength, value, context in
+            // A non-finite double has no JSON form, so the getter calls it
+            // absence and this must too.
+            guard let key = kvString(key, keyLength), value.isFinite else { return }
+            Keys.from(context).snapshot.names.insert(key)
         }
         callbacks.onBool = { key, keyLength, _, context in
             guard let key = kvString(key, keyLength) else { return }
-            Keys.from(context).names.insert(key)
+            Keys.from(context).snapshot.names.insert(key)
         }
         callbacks.onDate = { key, keyLength, _, context in
             guard let key = kvString(key, keyLength) else { return }
-            Keys.from(context).names.insert(key)
+            Keys.from(context).snapshot.names.insert(key)
         }
         callbacks.onJSON = { key, keyLength, json, jsonLength, context in
-            // A record whose read is absence must not be listed either, so
-            // keys is judged by the same reader the getter uses.
-            guard let key = kvString(key, keyLength), kvContainer(json, jsonLength) != nil else { return }
-            Keys.from(context).names.insert(key)
+            // Copied, not parsed: the bytes live in the store's mapping and
+            // this callback runs where the caller's lock is held. The verdict
+            // comes later, in resolvedNames.
+            guard let key = kvString(key, keyLength), let json else { return }
+            let payload = Data(bytes: json, count: Int(jsonLength))
+            let keys = Keys.from(context)
+            keys.snapshot.names.insert(key)
+            keys.snapshot.containers[key] = payload
         }
         callbacks.onRemoved = { key, keyLength, context in
             guard let key = kvString(key, keyLength) else { return }
-            Keys.from(context).names.remove(key)
+            let keys = Keys.from(context)
+            keys.snapshot.names.remove(key)
+            keys.snapshot.containers.removeValue(forKey: key)
         }
         kskvs_iterate(store, &callbacks, Unmanaged.passUnretained(keys).toOpaque())
-        return keys.names.sorted()
+        return keys.snapshot
     }
 
     /// The key's resolved value as the model represents it; nil for no value.
@@ -242,6 +277,10 @@ public final class SidecarMetadata: MetadataStore, @unchecked Sendable {
             Lookup.from(context).value = .unsignedInteger(value)
         }
         callbacks.onDouble = { _, _, value, context in
+            // JSON carries no non-finite number, so a record holding one (a
+            // foreign writer, or a build that predates the write-side guard)
+            // reads as absence rather than as a value no consumer can encode.
+            guard value.isFinite else { return }
             Lookup.from(context).value = .double(value)
         }
         callbacks.onBool = { _, _, value, context in
@@ -282,8 +321,11 @@ package func kvContainer(_ bytes: UnsafePointer<CChar>?, _ length: UInt16) -> Me
     guard let bytes else {
         return nil
     }
-    let data = Data(
-        bytesNoCopy: UnsafeMutableRawPointer(mutating: bytes), count: Int(length), deallocator: .none)
+    return kvContainer(
+        Data(bytesNoCopy: UnsafeMutableRawPointer(mutating: bytes), count: Int(length), deallocator: .none))
+}
+
+package func kvContainer(_ data: Data) -> MetadataValue? {
     guard let value = try? JSONDecoder().decode(MetadataValue.self, from: data) else {
         return nil
     }
