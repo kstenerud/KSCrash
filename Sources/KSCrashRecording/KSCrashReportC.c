@@ -198,6 +198,11 @@ static void addFloatingPointElement(const KSCrashReportWriter *const writer, con
     ksjson_addFloatingPointElement(getJsonContext(writer), key, value);
 }
 
+static void addFloatElement(const KSCrashReportWriter *const writer, const char *const key, const float value)
+{
+    ksjson_addFloatElement(getJsonContext(writer), key, value);
+}
+
 static void addIntegerElement(const KSCrashReportWriter *const writer, const char *const key, const int64_t value)
 {
     ksjson_addIntegerElement(getJsonContext(writer), key, value);
@@ -552,7 +557,13 @@ static void writeNumberContents(const KSCrashReportWriter *const writer, const c
                                 const uintptr_t objectAddress, __unused int *limit)
 {
     const void *object = (const void *)objectAddress;
-    writer->addFloatingPointElement(writer, key, ksobjc_numberAsFloat(object));
+    // A float widened to a double and printed at DBL_DIG shows the widening's
+    // noise rather than what the app stored: 0.2f comes out 0.200000002980232.
+    if (ksobjc_numberIsFloat32(object)) {
+        writer->addFloatElement(writer, key, (float)ksobjc_numberAsFloat(object));
+    } else {
+        writer->addFloatingPointElement(writer, key, ksobjc_numberAsFloat(object));
+    }
 }
 
 /** Write an array to the report.
@@ -660,7 +671,9 @@ static void writeUnknownObjectContents(const KSCrashReportWriter *const writer, 
                         break;
                     case 'f':
                         ksobjc_ivarValue(object, ivar->index, &f32);
-                        writer->addFloatingPointElement(writer, ivar->name, f32);
+                        // A float's digits are worth FLT_DIG; the rest of what
+                        // a widening double print shows is the widening.
+                        writer->addFloatElement(writer, ivar->name, f32);
                         break;
                     case 'd':
                         ksobjc_ivarValue(object, ivar->index, &f64);
@@ -1575,6 +1588,7 @@ static void prepareReportWriter(KSCrashReportWriter *const writer, KSJSONEncodeC
 {
     writer->addBooleanElement = addBooleanElement;
     writer->addFloatingPointElement = addFloatingPointElement;
+    writer->addFloatElement = addFloatElement;
     writer->addIntegerElement = addIntegerElement;
     writer->addUIntegerElement = addUIntegerElement;
     writer->addStringElement = addStringElement;

@@ -30,6 +30,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
@@ -88,6 +89,12 @@ typedef struct {
 
 _Static_assert(sizeof(KSKVSRecordHeader) == KSKVS_RECORD_HEADER_SIZE, "KSKVSRecordHeader must be 5 bytes");
 
+// The codec refuses the container that would reach its limit, so the depth a
+// stored value may carry is one less than what is left below the containers
+// already open where it lands.
+_Static_assert(KSKVS_MAX_VALUE_DEPTH == KSJSON_MAX_CONTAINER_DEPTH - KSKVS_VALUE_ENCODE_DEPTH - 1,
+               "KSKVS_MAX_VALUE_DEPTH must track the JSON codec's container limit");
+
 // ============================================================================
 #pragma mark - Store Structure -
 // ============================================================================
@@ -97,15 +104,20 @@ struct KSKeyValueStore {
     uint32_t capacity;
     int fd;  // < 0 means read-only heap (KSKVSModeRead), >= 0 means mmap mode
     // Serializes this store's own writes. Appends need nothing wider: they
-    // only ever write past hdr->offset and publish by bumping it last, which
-    // is why the crash-time reader can walk the image with no lock at all
-    // (pthread calls are not async-signal-safe, so kskvs_iterate takes none).
+    // write past hdr->offset and publish by bumping it last, so a reader that
+    // sees the new cursor sees a whole record. The one write below the cursor
+    // is markLastRecordRemoved's stamp, a single type byte over a record whose
+    // span does not change, which no reader can catch half applied.
     pthread_rwlock_t lock;
-    // Set when a compaction reclaimed nothing, cleared by anything that gives
-    // the next one something to reclaim. Only consulted at the capacity
-    // ceiling, where compacting again would cost a capacity-sized calloc and
-    // the O(n^2) scan for a write that fails regardless.
+    // Set when a compaction that ran reclaimed nothing, cleared by an append,
+    // which may have superseded an older record. Only consulted at the
+    // capacity ceiling, where compacting again would cost a capacity-sized
+    // calloc and the O(n^2) scan for a write that fails regardless.
     bool compactionIsFutile;
+    // Value bytes an in-place removal stamped over since the last compaction.
+    // Once a compaction has found nothing, these are the only bytes the next
+    // one can free, so they are what decides whether it is worth running.
+    uint32_t reclaimableBytes;
 };
 
 // Held while a store's image is restructured or loaded whole: compaction,
@@ -145,12 +157,14 @@ static void initHeader(uint8_t *buf)
 
 /** Discard superseded entries in-place. Final tombstones are preserved
  *  so removal semantics survive compaction.
+ *  Returns whether it ran: a caller reads futility from the offset not
+ *  moving, and a compaction that never started has not measured anything.
  *  NOT thread-safe — caller must synchronize.
  */
-static void compact(KSKeyValueStore *store)
+static bool compact(KSKeyValueStore *store)
 {
     if (store->storage == NULL) {
-        return;
+        return false;
     }
 
     KSKVSHeader *hdr = storeHeader(store);
@@ -160,7 +174,7 @@ static void compact(KSKeyValueStore *store)
     uint8_t *temp = (uint8_t *)calloc(1, store->capacity);
     if (temp == NULL) {
         KSLOG_ERROR("Failed to allocate temp buffer for compaction");
-        return;
+        return false;
     }
 
     pthread_rwlock_wrlock(&g_fileImageLock);
@@ -229,8 +243,13 @@ static void compact(KSKeyValueStore *store)
         memset(store->storage + tempWritePos, 0, store->capacity - tempWritePos);
     }
 
+    // Every stamped record is now the width of its key alone, so there is
+    // nothing left for a later write to count on.
+    store->reclaimableBytes = 0;
+
     pthread_rwlock_unlock(&g_fileImageLock);
     free(temp);
+    return true;
 }
 
 /** Double storage capacity until at least minCapacity. NOT thread-safe. */
@@ -338,15 +357,26 @@ static bool appendRecord(KSKeyValueStore *store, const char *key, uint8_t type, 
         // capacity-sized calloc and the O(n^2) scan on the host app's thread
         // before growStorage refused the write anyway, and the caller's
         // fallback removal then paid it a second time.
-        if (store->capacity >= KSKVS_MAX_CAPACITY && store->compactionIsFutile) {
+        //
+        // A removal stamped in place since then is the one thing that can
+        // change the answer, so the bytes it freed decide when to try again:
+        // without that, every refused write at the ceiling paid for a
+        // compaction the write after it paid for all over again.
+        if (store->capacity >= KSKVS_MAX_CAPACITY && store->compactionIsFutile &&
+            hdr->offset + recordSize > store->capacity + store->reclaimableBytes) {
             pthread_rwlock_unlock(&store->lock);
             return false;
         }
 
         uint32_t offsetBeforeCompact = hdr->offset;
-        compact(store);
-        hdr = storeHeader(store);
-        store->compactionIsFutile = hdr->offset >= offsetBeforeCompact;
+        // Only a compaction that ran has measured anything: one that could not
+        // allocate its buffer left the offset where it was, and reading that
+        // as futility would wedge the store for the rest of the run over a
+        // transient allocation failure.
+        if (compact(store)) {
+            hdr = storeHeader(store);
+            store->compactionIsFutile = hdr->offset >= offsetBeforeCompact;
+        }
 
         if (hdr->offset + recordSize > store->capacity) {
             if (!growStorage(store, hdr->offset + recordSize)) {
@@ -367,6 +397,13 @@ static bool appendRecord(KSKeyValueStore *store, const char *key, uint8_t type, 
         memcpy(dest + KSKVS_RECORD_HEADER_SIZE + keyLen, value, valueLen);
     }
 
+    // Publish the record by bumping the cursor last, after a release so a
+    // reader that sees the new cursor sees the bytes below it. A read-mode
+    // load of this file shares no lock with this append (it takes
+    // g_fileImageLock, which ordinary appends deliberately do not), so this
+    // ordering is all that stands between a live run's own report and a
+    // record header whose bytes have not landed.
+    atomic_thread_fence(memory_order_release);
     hdr->offset += recordSize;
     // This record may supersede an earlier one for the same key, so the next
     // compaction has something to reclaim again.
@@ -657,6 +694,11 @@ static bool markLastRecordRemoved(KSKeyValueStore *store, const char *key)
     if (store == NULL || store->storage == NULL || store->fd < 0) {
         return false;  // a read-mode image is a copy; there is nothing to stamp
     }
+    // appendRecord rejects a NULL key before this runs, so the fallback must
+    // reject it too rather than walk the store looking for it.
+    if (key == NULL) {
+        return false;
+    }
 
     size_t rawKeyLen = strlen(key);
     if (rawKeyLen == 0 || rawKeyLen > UINT16_MAX) {
@@ -688,9 +730,14 @@ static bool markLastRecordRemoved(KSKeyValueStore *store, const char *key)
 
     if (last != NULL) {
         // valueLen is left alone: a record's span is how iteration finds the
-        // next one. compact() reclaims the dead value bytes.
+        // next one. compact() reclaims the dead value bytes, and remembering
+        // how many of them there are is what lets the next write tell whether
+        // a compaction would make room for it. Clearing compactionIsFutile
+        // here instead disarmed that guard on every refused write.
+        if (last->type != KSKVSTypeRemoved) {
+            store->reclaimableBytes += last->valueLen;
+        }
         last->type = KSKVSTypeRemoved;
-        store->compactionIsFutile = false;
     }
 
     pthread_rwlock_unlock(&store->lock);
@@ -791,8 +838,13 @@ static void dispatchRecord(const KSKeyValueStore *store, uint32_t pos, const KSK
             }
             break;
         default:
-            // A record type this build does not know is skipped rather than
-            // called absent: a newer writer's value is not ours to judge.
+            // A record type this build does not know is not read: a newer
+            // writer's value is not ours to judge. It is still reported, so a
+            // reader that starts from an older value for the key can stop
+            // serving what the store says was replaced.
+            if (callbacks->onUnknown) {
+                callbacks->onUnknown(key, keyLen, rec->type, context);
+            }
             break;
     }
 
@@ -801,6 +853,12 @@ static void dispatchRecord(const KSKeyValueStore *store, uint32_t pos, const KSK
     }
 }
 
+// Takes no lock. Every caller either owns a private image (a read-mode store
+// is this process's own heap copy) or holds the same serialization the writer
+// does, and staying lock-free is also what would let a crash handler walk a
+// live store, where pthread calls are not async-signal-safe. Iterating a live
+// store from outside its writer's serialization is the one thing this does not
+// support.
 void kskvs_iterate(const KSKeyValueStore *store, const KSKVSCallbacks *callbacks, void *context)
 {
     if (store == NULL || store->storage == NULL || callbacks == NULL) {

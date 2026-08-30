@@ -101,27 +101,31 @@ class KSMetadataBenchmarks: KSBenchmarkTestCase {
 
     // MARK: - Reads (deferred work)
 
-    /// 100 container reads through the store subscript (the null-resolving walk).
+    /// 100 container reads: the null-resolving walk a bag read runs on its way
+    /// out, over a container with nothing to drop. Paired with the benchmark
+    /// below, which walks the same shape salted with nulls.
     func testBenchmarkReadContainers() {
-        var bag = Metadata()
-        bag["container"] = makeContainer(nullEvery: 0)
+        let container = makeContainer(nullEvery: 0)
         var value: MetadataValue?
         measure {
             for _ in 0..<100 {
-                value = bag["container"]
+                value = MetadataValue.decode(from: container)
             }
         }
         XCTAssertNotNil(value)
     }
 
-    /// Same read with a quarter of the leaves null: the stripping cost.
+    /// The same read on a container a quarter of whose leaves are null: the
+    /// stripping cost. Read straight through the value rather than out of a
+    /// bag, because a bag strips on the way in, so a stored container has no
+    /// nulls left for the read to do anything about. This is the shape a
+    /// sidecar record decodes to, which is where the nulls actually arrive.
     func testBenchmarkReadContainersWithNulls() {
-        var bag = Metadata()
-        bag["container"] = makeContainer(nullEvery: 4)
+        let container = makeContainer(nullEvery: 4)
         var value: MetadataValue?
         measure {
             for _ in 0..<100 {
-                value = bag["container"]
+                value = MetadataValue.decode(from: container)
             }
         }
         XCTAssertNotNil(value)

@@ -512,6 +512,52 @@ final class CrashReportDecodingTests: XCTestCase {
         XCTAssertThrowsError(try error.monitorData(MyMonitorData.self, for: "other_monitor"))
     }
 
+    func testMonitorSectionsKeepTheirNulls() throws {
+        // monitor_data and memory_termination reuse Metadata for its typed
+        // reads, but they are JSON a monitor wrote, not the app-owned bag
+        // where null means absence. Dropping a null here re-indexes the array
+        // holding it and erases the difference between a member set to null
+        // and one that was never written.
+        let json = """
+            {
+                "crash": {
+                    "error": {
+                        "type": "my_monitor",
+                        "memory_termination": { "memory_level": null },
+                        "monitor_data": {
+                            "my_monitor": { "samples": [1, null, 3], "threshold": null }
+                        }
+                    },
+                    "threads": []
+                },
+                "report": { "id": "\(testReportID("test"))" }
+            }
+            """
+
+        struct MyMonitorData: Codable, Equatable {
+            let samples: [Int?]
+            let threshold: Int?
+        }
+        struct Termination: Codable, Equatable {
+            let memoryLevel: String?
+            enum CodingKeys: String, CodingKey { case memoryLevel = "memory_level" }
+        }
+
+        let error = try JSONDecoder().decode(Report.self, from: Data(json.utf8)).crash.error
+        XCTAssertEqual(
+            try error.monitorData(MyMonitorData.self, for: "my_monitor"),
+            MyMonitorData(samples: [1, nil, 3], threshold: nil))
+        XCTAssertEqual(try error.memoryTermination?.decoded(as: Termination.self), Termination(memoryLevel: nil))
+
+        // The section a consumer reads is the section the monitor wrote, so a
+        // decode and re-encode of one gives back what it was given.
+        let section = try XCTUnwrap(error.monitorData?["my_monitor"])
+        let encoded = try JSONEncoder().encode(section)
+        XCTAssertEqual(
+            try JSONSerialization.jsonObject(with: encoded) as? NSDictionary,
+            ["samples": [1, NSNull(), 3], "threshold": NSNull()] as NSDictionary)
+    }
+
     /// Unknown keys under crash.error are schema evolution, not sections:
     /// ignored on decode, like any other unknown key in the model.
     func testDecodeIgnoresUnknownKeysUnderCrashError() throws {
