@@ -165,11 +165,13 @@ extension Store {
         // session_id from `.sessions` and userInfo on reports. The sidecar is
         // the same file the report stitch reads, and both judge a record the
         // same way, so a report and this run's summary agree on the run's app
-        // data. The one exception is a string inside a container carrying an
-        // embedded NUL, which JSON escapes and this path decodes whole, while
-        // the C codec the report stitch runs on builds C strings and stops at
-        // the NUL. A top-level string does not diverge: the store truncates
-        // it at the NUL on the way in, so both readers see the same bytes.
+        // data. The one exception is an embedded NUL inside a container, in a
+        // string or in a member name, which JSON escapes and this path decodes
+        // whole, while the C codec the report stitch runs on builds C strings
+        // and stops at the NUL: the report keeps the truncation, and two
+        // member names differing only past a NUL collapse into one there. A
+        // top-level string does not diverge: the store truncates it at the NUL
+        // on the way in, so both readers see the same bytes.
         guard let sidecarDirectory = run.sidecarDirectory else {
             return base
         }
@@ -234,7 +236,10 @@ extension Store {
             guard let key = kvString(key, keyLength) else { return }
             // The same nanoseconds-to-seconds conversion the report userInfo
             // stitch uses, so a date set via the userInfo API reads back as
-            // the identical instant from a report and from this metadata.
+            // the same instant from a report and from this metadata. The
+            // report's is the coarser of the two: it re-encodes the seconds at
+            // DBL_DIG, which at epoch magnitude rounds to about ten
+            // microseconds, while this one is handed over as the Double it is.
             let date = Date(timeIntervalSince1970: Double(nanoseconds) / 1_000_000_000)
             MetadataBox.from(context).metadata.set(date, forKey: key)
         }
@@ -247,6 +252,14 @@ extension Store {
             MetadataBox.from(context).metadata.set(value, forKey: key)
         }
         callbacks.onRemoved = { key, keyLength, context in
+            guard let key = kvString(key, keyLength) else { return }
+            MetadataBox.from(context).metadata.removeValue(forKey: key)
+        }
+        callbacks.onUnknown = { key, keyLength, _, context in
+            // A record type this build cannot read leaves the key absent, the
+            // same verdict the report stitch reaches. The bag starts empty so
+            // there is nothing to drop, as with a removal; it is honored for
+            // the same reason.
             guard let key = kvString(key, keyLength) else { return }
             MetadataBox.from(context).metadata.removeValue(forKey: key)
         }

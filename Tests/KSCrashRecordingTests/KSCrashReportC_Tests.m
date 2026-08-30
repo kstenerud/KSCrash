@@ -44,6 +44,13 @@
 
 static const char *customSectionMonitorId(__unused void *context) { return "TestCustomMonitor"; }
 static const char *profileLikeMonitorId(__unused void *context) { return "profile"; }
+static const char *floatSectionMonitorId(__unused void *context) { return "TestFloatMonitor"; }
+static void writeFloatMonitorSection(__unused const KSCrash_MonitorContext *eventContext,
+                                     const KSCrashReportWriter *writer, __unused void *context)
+{
+    writer->addFloatElement(writer, "ratio", 0.2f);
+    writer->addFloatingPointElement(writer, "precise", 0.1);
+}
 static void writeTestMonitorSection(__unused const KSCrash_MonitorContext *eventContext,
                                     const KSCrashReportWriter *writer, __unused void *context)
 {
@@ -99,6 +106,7 @@ static KSCrashMonitorAPI g_nullContractMonitorAPI;
 @implementation KSCrashReportC_Tests {
     KSCrashMonitorAPI _customMonitorAPI;
     KSCrashMonitorAPI _profileLikeMonitorAPI;
+    KSCrashMonitorAPI _floatMonitorAPI;
 }
 
 - (void)setUp
@@ -110,6 +118,7 @@ static KSCrashMonitorAPI g_nullContractMonitorAPI;
 {
     kscm_removeMonitor(&_customMonitorAPI);
     kscm_removeMonitor(&_profileLikeMonitorAPI);
+    kscm_removeMonitor(&_floatMonitorAPI);
     [super tearDown];
 }
 
@@ -117,9 +126,17 @@ static KSCrashMonitorAPI g_nullContractMonitorAPI;
 /// read back.
 - (NSDictionary *)writeReportForMonitor:(KSCrashMonitorAPI *)monitorAPI monitorId:(const char *(*)(void *))idFunc
 {
+    return [self writeReportForMonitor:monitorAPI monitorId:idFunc section:writeTestMonitorSection];
+}
+
+- (NSDictionary *)writeReportForMonitor:(KSCrashMonitorAPI *)monitorAPI
+                              monitorId:(const char *(*)(void *))idFunc
+                                section:(void (*)(const KSCrash_MonitorContext *, const KSCrashReportWriter *,
+                                                  void *))section
+{
     kscma_initAPI(monitorAPI);
     monitorAPI->monitorId = idFunc;
-    monitorAPI->writeInReportSection = writeTestMonitorSection;
+    monitorAPI->writeInReportSection = section;
     kscm_addMonitor(monitorAPI);
 
     struct KSMachineContext machineContext = { 0 };
@@ -201,6 +218,20 @@ static KSCrashMonitorAPI g_nullContractMonitorAPI;
     XCTAssertEqualObjects(error[@"type"], @"profile");
     XCTAssertEqualObjects(error[@"profile"][@"custom_key"], @"custom_value");
     XCTAssertNil(error[@"monitor_data"], @"Profile is a typed section, not custom-monitor data");
+}
+
+- (void)testWriteStandardReportKeepsAFloatAtItsOwnPrecision
+{
+    // A float widened to a double and printed at DBL_DIG carries the
+    // widening's noise, not the value: 0.2f comes out 0.200000002980232. The
+    // writer takes floats through their own slot so the digits it prints are
+    // the ones the value is worth.
+    NSDictionary *section =
+        [self writeReportForMonitor:&_floatMonitorAPI monitorId:floatSectionMonitorId
+                            section:writeFloatMonitorSection][@"crash"][@"error"][@"monitor_data"][@"TestFloatMonitor"];
+
+    XCTAssertEqualObjects([section[@"ratio"] stringValue], @"0.2");
+    XCTAssertEqualObjects([section[@"precise"] stringValue], @"0.1");
 }
 
 - (NSString *)temporaryReportPath

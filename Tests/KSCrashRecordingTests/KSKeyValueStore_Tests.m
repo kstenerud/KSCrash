@@ -618,17 +618,38 @@ static void collectJSON(const char *key, uint16_t keyLen, const char *json, uint
 
 /** Fill a store to its ceiling with distinct keys, so compaction has nothing
  *  to reclaim. Returns the last key that fit.
+ *
+ *  The tail matters: big records alone leave tens of kilobytes of slack, which
+ *  is room enough for a removal record, so the in-place removal the ceiling
+ *  exists to exercise never runs. The ladder below spends the slack down to
+ *  less than one empty record, which is what makes the store full for a
+ *  removal too.
  */
 static NSString *fillToCeiling(KSKeyValueStore *store)
 {
     NSString *value = [@"" stringByPaddingToLength:60000 withString:@"v" startingAtIndex:0];
     NSString *lastKey = nil;
-    for (int i = 0; i < 1000; i++) {
-        NSString *key = [NSString stringWithFormat:@"key%04d", i];
+    int index = 0;
+    for (; index < 1000; index++) {
+        NSString *key = [NSString stringWithFormat:@"key%04d", index];
         if (!kskvs_setString(store, key.UTF8String, value.UTF8String)) {
             break;
         }
         lastKey = key;
+    }
+
+    for (size_t padSize = 32768;; padSize /= 2) {
+        NSString *pad = [@"" stringByPaddingToLength:(NSUInteger)padSize withString:@"p" startingAtIndex:0];
+        while (index < 100000) {
+            NSString *key = [NSString stringWithFormat:@"pad%04d", index];
+            if (!kskvs_setString(store, key.UTF8String, pad.UTF8String)) {
+                break;
+            }
+            index++;
+        }
+        if (padSize == 0) {
+            break;
+        }
     }
     return lastKey;
 }
@@ -675,13 +696,53 @@ static NSString *fillToCeiling(KSKeyValueStore *store)
     NSString *key = fillToCeiling(store);
     XCTAssertNotNil(key);
 
-    NSString *value = [@"" stringByPaddingToLength:60000 withString:@"x" startingAtIndex:0];
+    // Smaller than the record it replaces: compaction gives back that
+    // record's value bytes, not the key and header the tombstone keeps.
+    NSString *value = [@"" stringByPaddingToLength:50000 withString:@"x" startingAtIndex:0];
     XCTAssertFalse(kskvs_setString(store, "fresh", value.UTF8String));
 
     XCTAssertTrue(kskvs_removeValue(store, key.UTF8String));
     XCTAssertTrue(kskvs_setString(store, "fresh", value.UTF8String),
                   @"the reclaimed bytes should make room for one more record");
     XCTAssertEqual(stringHitsForKey(store, "fresh"), 1);
+
+    kskvs_destroy(store);
+}
+
+- (void)test_fullStore_refusesAWriteBiggerThanTheStampedRecord
+{
+    // The refusal at the ceiling is cheap only while it can tell that a
+    // compaction would not help. An in-place removal frees exactly the value
+    // bytes it stamped over, so a write needing more than those is still
+    // refused, and one needing fewer goes through.
+    KSKVSConfig config = { .initialCapacity = KSKVS_MAX_CAPACITY };
+    KSKeyValueStore *store = kskvs_create(self.path.UTF8String, KSKVSModeReadWriteCreate, &config, NULL);
+    XCTAssertTrue(store != NULL);
+
+    NSString *key = fillToCeiling(store);
+    XCTAssertNotNil(key);
+    XCTAssertTrue(kskvs_removeValue(store, key.UTF8String));
+
+    NSString *tooBig = [@"" stringByPaddingToLength:60100 withString:@"x" startingAtIndex:0];
+    XCTAssertFalse(kskvs_setString(store, "fresh", tooBig.UTF8String));
+
+    NSString *fits = [@"" stringByPaddingToLength:50000 withString:@"x" startingAtIndex:0];
+    XCTAssertTrue(kskvs_setString(store, "fresh", fits.UTF8String));
+    XCTAssertEqual(stringHitsForKey(store, "fresh"), 1);
+
+    kskvs_destroy(store);
+}
+
+- (void)test_removeValue_withANullKey_isRejectedNotFatal
+{
+    // The append rejects a NULL key, and the in-place fallback it falls
+    // through to has to reject it as well rather than measure it.
+    KSKVSConfig config = { .initialCapacity = 512 };
+    KSKeyValueStore *store = kskvs_create(self.path.UTF8String, KSKVSModeReadWriteCreate, &config, NULL);
+    XCTAssertTrue(store != NULL);
+
+    XCTAssertFalse(kskvs_removeValue(store, NULL));
+    XCTAssertFalse(kskvs_setString(store, NULL, NULL));
 
     kskvs_destroy(store);
 }

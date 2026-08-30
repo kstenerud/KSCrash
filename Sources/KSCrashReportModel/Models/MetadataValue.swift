@@ -109,6 +109,19 @@ extension MetadataValue {
         return false
     }
 
+    /// Whether any number in the tree has no JSON form. Infinity and NaN
+    /// cannot be encoded, so a bag holding one encodes to nothing at all,
+    /// taking the whole report or run summary it rides on with it. Stops at
+    /// the first one rather than walking the rest.
+    var hasNonFiniteNumber: Bool {
+        switch self {
+        case .double(let value): return !value.isFinite
+        case .array(let elements): return elements.contains(where: \.hasNonFiniteNumber)
+        case .object(let members): return members.values.contains(where: \.hasNonFiniteNumber)
+        default: return false
+        }
+    }
+
     /// The value as a read resolves it, where null means absence: nil for
     /// `.null` itself, and containers with null members and elements dropped
     /// recursively. Scalars are themselves.

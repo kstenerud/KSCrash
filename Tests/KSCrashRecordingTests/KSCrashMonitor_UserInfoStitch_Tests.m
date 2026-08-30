@@ -117,19 +117,26 @@ static NSString *writeRawSidecar(NSString *dir, NSData *data)
         kscm_userinfo_createStitchedReport((__bridge CFDictionaryRef) @{}, NULL, KSCrashSidecarScopeRun, NULL) == NULL);
 }
 
-- (void)testMissingSidecarFileReturnsNull
+- (void)testMissingSidecarFileDeliversTheReportUnchanged
 {
+    // NULL is the retry signal, and the file being gone is not something a
+    // retry fixes: the run recorded no metadata, so the report delivers
+    // without it.
     NSString *missing = [self.tempDir stringByAppendingPathComponent:@"missing.ksscr"];
+    NSDictionary *report = makeMinimalReport();
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_userinfo_createStitchedReport(
-        (__bridge CFDictionaryRef) @{}, missing.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result == nil);
+        (__bridge CFDictionaryRef)report, missing.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertEqualObjects(result, report);
 }
 
 #pragma mark - Invalid Sidecar
 
-- (void)testBadMagicReturnsNull
+- (void)testBadMagicDeliversTheReportUnchanged
 {
     // Write raw bytes with wrong magic -- KSKeyValueStore will reject it.
+    // Nothing a later read could recover, so returning NULL here would stop
+    // finalization for good and strand every report of the run, while the
+    // same run's summary delivers without the metadata.
     uint8_t badHeader[12] = { 0xEF, 0xBE, 0xAD, 0xDE, 1, 0, 0, 0, 12, 0, 0, 0 };
     NSData *data = [NSData dataWithBytes:badHeader length:sizeof(badHeader)];
     NSString *path = writeRawSidecar(self.tempDir, data);
@@ -137,16 +144,30 @@ static NSString *writeRawSidecar(NSString *dir, NSData *data)
     NSDictionary *report = makeMinimalReport();
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_userinfo_createStitchedReport(
         (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result == nil);
+    XCTAssertEqualObjects(result, report);
 }
 
-- (void)testEmptySidecarReturnsNull
+- (void)testEmptySidecarDeliversTheReportUnchanged
 {
     NSString *path = writeRawSidecar(self.tempDir, [NSData data]);
     NSDictionary *report = makeMinimalReport();
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_userinfo_createStitchedReport(
         (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result == nil);
+    XCTAssertEqualObjects(result, report);
+}
+
+- (void)testCorruptSidecarLeavesAPreExistingUserSectionAlone
+{
+    // Delivering without the metadata means exactly that: what the
+    // crash-time callback wrote stays, since nothing was read that could
+    // replace it.
+    uint8_t badHeader[12] = { 0xEF, 0xBE, 0xAD, 0xDE, 1, 0, 0, 0, 12, 0, 0, 0 };
+    NSString *path = writeRawSidecar(self.tempDir, [NSData dataWithBytes:badHeader length:sizeof(badHeader)]);
+
+    NSDictionary *report = makeReportWithUserSection(@{ @"cart" : @"crash-time" });
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_userinfo_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertEqualObjects(result[KSCrashField_User][@"cart"], @"crash-time");
 }
 
 #pragma mark - Stitch String Values
@@ -265,23 +286,29 @@ static NSString *writeRawSidecar(NSString *dir, NSData *data)
 
 - (void)testStitchDropsAContainerTooDeepToReEncode
 {
-    // 198 containers fit under the decoder's own limit but not under it from
-    // where the report encoder stands, two containers down at report -> user
-    // -> key. Judged against the whole limit this decodes, and then the
-    // finalized report cannot be encoded at all, which loses every other
-    // value in it rather than this one.
-    NSMutableString *deep = [NSMutableString string];
-    const int levels = 198;
-    for (int i = 0; i < levels; i++) {
-        [deep appendString:@"["];
-    }
-    for (int i = 0; i < levels; i++) {
-        [deep appendString:@"]"];
-    }
+    // One container past KSKVS_MAX_VALUE_DEPTH fits under the decoder's own
+    // limit but not under it from where the report encoder stands, two
+    // containers down at report -> user -> key. Judged against the whole
+    // limit this decodes, and then the finalized report cannot be encoded at
+    // all, which loses every other value in it rather than this one.
+    NSString * (^nested)(int) = ^(int levels) {
+        NSMutableString *value = [NSMutableString string];
+        for (int i = 0; i < levels; i++) {
+            [value appendString:@"["];
+        }
+        for (int i = 0; i < levels; i++) {
+            [value appendString:@"]"];
+        }
+        return [value copy];
+    };
+    NSString *deep = nested(KSKVS_MAX_VALUE_DEPTH + 1);
+    NSString *fits = nested(KSKVS_MAX_VALUE_DEPTH);
 
     NSString *path = buildSidecarFile(self.tempDir, ^(KSKeyValueStore *store) {
         const char *bytes = deep.UTF8String;
         XCTAssertTrue(kskvs_setJSON(store, "deep", bytes, strlen(bytes)));
+        const char *fitsBytes = fits.UTF8String;
+        XCTAssertTrue(kskvs_setJSON(store, "fits", fitsBytes, strlen(fitsBytes)));
         kskvs_setString(store, "good", "v");
     });
 
@@ -292,12 +319,99 @@ static NSString *writeRawSidecar(NSString *dir, NSData *data)
 
     NSDictionary *user = result[KSCrashField_User];
     XCTAssertNil(user[@"deep"]);
+    // One level shallower is exactly what the encoder can still write, and
+    // the readers on the Swift side judge the boundary the same way.
+    XCTAssertNotNil(user[@"fits"]);
     XCTAssertEqualObjects(user[@"good"], @"v");
 
     // The point of dropping it: the report still encodes.
     NSError *error = nil;
     XCTAssertNotNil([KSJSONCodec encode:result options:0 error:&error]);
     XCTAssertNil(error);
+}
+
+- (void)testStitchDropsAContainerHoldingANonFiniteNumber
+{
+    // The C decoder turns an out-of-range token into an infinity, and
+    // re-encoding writes `1e999` back into the report, which the strict
+    // reader then rejects whole. Foundation refuses the same bytes outright,
+    // so absence is the verdict every other reader of the record reaches.
+    NSString *path = buildSidecarFile(self.tempDir, ^(KSKeyValueStore *store) {
+        const char *json = "{\"r\":1e999}";
+        XCTAssertTrue(kskvs_setJSON(store, "nested", json, strlen(json)));
+        XCTAssertTrue(kskvs_setString(store, "good", "v"));
+    });
+
+    NSDictionary *report = makeMinimalReport();
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_userinfo_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
+
+    NSDictionary *user = result[KSCrashField_User];
+    XCTAssertNil(user[@"nested"]);
+    XCTAssertEqualObjects(user[@"good"], @"v");
+
+    // The point of dropping it: the finalized report is still readable by a
+    // strict reader, rather than carrying a number JSON cannot express.
+    NSData *encoded = [KSJSONCodec encode:result options:0 error:nil];
+    XCTAssertNotNil(encoded);
+    NSError *error = nil;
+    XCTAssertNotNil([NSJSONSerialization JSONObjectWithData:encoded options:0 error:&error]);
+    XCTAssertNil(error);
+    NSString *text = [[NSString alloc] initWithData:encoded encoding:NSUTF8StringEncoding];
+    XCTAssertFalse([text containsString:@"1e999"], @"%@", text);
+}
+
+- (void)testStitchedContainerKeepsTheFirstOfADuplicateMemberName
+{
+    // Foundation keeps the first when it reads these bytes, and the run
+    // summary reads them with Foundation, so keeping the last here left the
+    // two deliveries of one record disagreeing about the value.
+    NSString *path = buildSidecarFile(self.tempDir, ^(KSKeyValueStore *store) {
+        const char *json = "{\"a\":1,\"a\":2}";
+        XCTAssertTrue(kskvs_setJSON(store, "dup", json, strlen(json)));
+    });
+
+    NSDictionary *report = makeMinimalReport();
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_userinfo_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
+
+    XCTAssertEqualObjects(result[KSCrashField_User][@"dup"], @{ @"a" : @1 });
+}
+
+- (void)testUnknownRecordTypeRemovesAPreExistingReportKey
+{
+    // A record type this build cannot read is not judged, but the key it
+    // names was still replaced. Leaving the crash-time value in place would
+    // put a value in the report that the live getter, `keys`, and the run
+    // summary all call absent.
+    NSMutableData *data = [NSMutableData data];
+    const char *key = "cart";
+    uint16_t keyLen = (uint16_t)strlen(key);
+    uint8_t type = 99;
+    uint16_t valueLen = 3;
+    uint32_t magic = 0x6B736B76u;
+    uint32_t version = 1;
+    uint32_t offset = 12 + 5 + keyLen + valueLen;
+    [data appendBytes:&magic length:sizeof(magic)];
+    [data appendBytes:&version length:sizeof(version)];
+    [data appendBytes:&offset length:sizeof(offset)];
+    [data appendBytes:&keyLen length:sizeof(keyLen)];
+    [data appendBytes:&type length:sizeof(type)];
+    [data appendBytes:&valueLen length:sizeof(valueLen)];
+    [data appendBytes:key length:keyLen];
+    [data appendBytes:"new" length:3];
+    NSString *path = writeRawSidecar(self.tempDir, data);
+
+    NSDictionary *report = makeReportWithUserSection(@{ @"cart" : @"stale", @"kept" : @"v" });
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_userinfo_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
+
+    NSDictionary *user = result[KSCrashField_User];
+    XCTAssertNil(user[@"cart"]);
+    XCTAssertEqualObjects(user[@"kept"], @"v");
 }
 
 #pragma mark - Stitch Integer Values

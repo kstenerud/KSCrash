@@ -121,12 +121,38 @@ static void onDate(const char *key, uint16_t keyLen, int64_t nanosecondsSince197
     }
 }
 
-// These bytes are re-encoded inside the finalized report, under
-// report -> "user" -> key, so two containers are already open when the
-// encoder reaches them. Judging the payload against the whole depth limit
-// instead would accept one the report encoder cannot write, and a report that
-// cannot be encoded is never delivered, taking every other value with it.
-static const int kUserSectionEncodeDepth = 2;
+/** Whether any number in the decoded tree has no JSON form.
+ *
+ *  The C decoder turns an out-of-range token such as `1e999` into an
+ *  infinity, and re-encoding that writes `1e999` straight back into the
+ *  report, which the strict reader on the other side then rejects whole.
+ *  Foundation refuses the same bytes outright, so every other reader of the
+ *  record already calls it absence. The top-level double record is guarded in
+ *  onDouble; this is the same value nested inside a container.
+ */
+static bool containsNonFiniteNumber(id value)
+{
+    if ([value isKindOfClass:[NSNumber class]]) {
+        return CFNumberIsFloatType((__bridge CFNumberRef)value) && !isfinite([value doubleValue]);
+    }
+    if ([value isKindOfClass:[NSArray class]]) {
+        for (id element in value) {
+            if (containsNonFiniteNumber(element)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    if ([value isKindOfClass:[NSDictionary class]]) {
+        for (id member in [(NSDictionary *)value objectEnumerator]) {
+            if (containsNonFiniteNumber(member)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    return false;
+}
 
 static void onJSON(const char *key, uint16_t keyLen, const char *json, uint16_t jsonLen, void *ctx)
 {
@@ -148,9 +174,10 @@ static void onJSON(const char *key, uint16_t keyLen, const char *json, uint16_t 
     id value = [KSJSONCodec decode:data
                            options:KSJSONDecodeOptionIgnoreNullInArray | KSJSONDecodeOptionIgnoreNullInObject |
                                    KSJSONDecodeOptionFailOnUnrepresentableString
-                        startDepth:kUserSectionEncodeDepth
+                        startDepth:KSKVS_VALUE_ENCODE_DEPTH
                              error:nil];
-    if ([value isKindOfClass:[NSArray class]] || [value isKindOfClass:[NSDictionary class]]) {
+    if (([value isKindOfClass:[NSArray class]] || [value isKindOfClass:[NSDictionary class]]) &&
+        !containsNonFiniteNumber(value)) {
         dict[nsKey] = value;
     } else {
         resolveToAbsence(dict, nsKey);
@@ -170,6 +197,16 @@ static void onRemoved(const char *key, uint16_t keyLen, void *ctx)
     }
 }
 
+/** A record this build cannot read is not a reason to go on serving the value
+ *  it replaced: the crash-time callback may have written this key into the
+ *  user section already, and the other readers of the record all report the
+ *  key as absent. This is the only reader that starts from a value, so it is
+ *  the only one that has to do anything here. */
+static void onUnknown(const char *key, uint16_t keyLen, __unused uint8_t type, void *ctx)
+{
+    onRemoved(key, keyLen, ctx);
+}
+
 // ============================================================================
 #pragma mark - Stitch -
 // ============================================================================
@@ -182,9 +219,21 @@ CFDictionaryRef kscm_userinfo_createStitchedReport(CFDictionaryRef reportDict, c
     }
 
     // Read sidecar via KSKeyValueStore (validates magic, version).
-    KSKeyValueStore *store = kskvs_create(sidecarPath, KSKVSModeRead, NULL, NULL);
+    KSKVSOpenStatus status = KSKVSOpenSuccess;
+    KSKeyValueStore *store = kskvs_create(sidecarPath, KSKVSModeRead, NULL, &status);
     if (store == NULL) {
-        return NULL;
+        // NULL is the retry signal, and a file no later read could recover is
+        // not worth retrying: returning it for a corrupt sidecar (or one that
+        // went away between the directory scan and this open) stops
+        // finalization for good, stranding every report of the run while the
+        // same run's summary delivers. Only an environmental failure waits.
+        // Delivering without the metadata is what the run summary does with
+        // the same file.
+        if (status == KSKVSOpenFailure) {
+            return NULL;
+        }
+        CFRetain(reportDict);
+        return reportDict;
     }
 
     NSMutableDictionary *dict = [(__bridge NSDictionary *)reportDict mutableCopy];
@@ -207,6 +256,7 @@ CFDictionaryRef kscm_userinfo_createStitchedReport(CFDictionaryRef reportDict, c
         .onDate = onDate,
         .onJSON = onJSON,
         .onRemoved = onRemoved,
+        .onUnknown = onUnknown,
     };
     kskvs_iterate(store, &callbacks, (__bridge void *)userSection);
     kskvs_destroy(store);

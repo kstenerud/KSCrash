@@ -194,6 +194,12 @@ static int onElement(KSJSONCodec *codec, NSString *name, id element)
         if (name == nil) {
             return unrepresentable(codec, @"Object member name is not representable (invalid UTF-8)");
         }
+        // The first of a duplicate member name wins, which is what Foundation
+        // does with the same bytes. Overwriting instead left the two readers
+        // of one document holding different values for the key.
+        if ([(NSMutableDictionary *)currentContainer objectForKey:name] != nil) {
+            return KSJSON_OK;
+        }
         // setObject:forKey:, never setValue:forKey:, which is KVC.
         [(NSMutableDictionary *)currentContainer setObject:element forKey:name];
     } else {
@@ -346,13 +352,20 @@ static int encodeObject(KSJSONCodec *codec, id object, NSString *name, KSJSONEnc
         switch (numberType) {
             case kCFNumberFloat32Type:
             case kCFNumberFloatType:
+#if defined(CGFLOAT_IS_DOUBLE) && !CGFLOAT_IS_DOUBLE
+            // CGFloat is a 32-bit float on the watch, where widening it would
+            // add the same noise this branch exists to keep out.
+            case kCFNumberCGFloatType:
+#endif
                 // Written as a float: widening one to a double first and
                 // printing every digit of the result would turn 0.2f into
                 // 0.200000002980232, which is the widening's noise, not the
                 // value the caller stored.
                 return ksjson_addFloatElement(context, cName, [object floatValue]);
             case kCFNumberFloat64Type:
+#if !defined(CGFLOAT_IS_DOUBLE) || CGFLOAT_IS_DOUBLE
             case kCFNumberCGFloatType:
+#endif
             case kCFNumberDoubleType:
                 return ksjson_addFloatingPointElement(context, cName, [object doubleValue]);
             case kCFNumberCharType:
