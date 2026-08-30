@@ -338,8 +338,13 @@ static int encodeObject(KSJSONCodec *codec, id object, NSString *name, KSJSONEnc
         CFNumberType numberType = CFNumberGetType((__bridge CFNumberRef)object);
         switch (numberType) {
             case kCFNumberFloat32Type:
-            case kCFNumberFloat64Type:
             case kCFNumberFloatType:
+                // Written as a float: widening one to a double first and
+                // printing every digit of the result would turn 0.2f into
+                // 0.200000002980232, which is the widening's noise, not the
+                // value the caller stored.
+                return ksjson_addFloatElement(context, cName, [object floatValue]);
+            case kCFNumberFloat64Type:
             case kCFNumberCGFloatType:
             case kCFNumberDoubleType:
                 return ksjson_addFloatingPointElement(context, cName, [object doubleValue]);

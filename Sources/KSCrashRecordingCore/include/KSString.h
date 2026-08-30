@@ -126,7 +126,7 @@ size_t ksstring_uint64ToDecimal(uint64_t value, char *dst, size_t bufSize);
 /** Convert a double to a JSON-compatible string. Async-signal-safe.
  *
  * NaN → "null", ±Inf → "1e999"/"-1e999", 0 → "0.0".
- * Uses FLT_DIG precision for float-representable values, DBL_DIG otherwise.
+ * DBL_DIG significant digits, so the value reads back as itself.
  * Strips trailing fractional zeros (keeps at least one digit after '.').
  *
  * @param value The value to convert.
@@ -135,6 +135,20 @@ size_t ksstring_uint64ToDecimal(uint64_t value, char *dst, size_t bufSize);
  * @return The number of characters written (not including NUL).
  */
 size_t ksstring_doubleToString(double value, char *dst, size_t bufSize);
+
+/** Convert a float to a JSON-compatible string. Async-signal-safe.
+ *
+ * Same shape as ksstring_doubleToString, at FLT_DIG significant digits: the
+ * digits a float holds, without the noise of widening it to a double. Use it
+ * only for a value that really is a float; a double formatted this way loses
+ * its low end.
+ *
+ * @param value The value to convert.
+ * @param dst The destination buffer.
+ * @param bufSize Size of dst in bytes. Needs at least 32 for full output.
+ * @return The number of characters written (not including NUL).
+ */
+size_t ksstring_floatToString(float value, char *dst, size_t bufSize);
 
 #ifdef __cplusplus
 }
