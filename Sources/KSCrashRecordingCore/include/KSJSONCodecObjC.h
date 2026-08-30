@@ -103,6 +103,19 @@ NS_ASSUME_NONNULL_BEGIN
  */
 + (nullable id)decode:(NSData *)JSONData options:(KSJSONDecodeOption)options error:(NSError **)error;
 
+/**
+ * Decodes a payload destined to be re-encoded inside another document.
+ *
+ * @param startDepth Containers already open at the destination. Nesting is judged
+ *                   against the depth left under them, so a payload that decodes
+ *                   here can always be written back out. Zero decodes a document
+ *                   standing on its own, which is what decode:options:error: does.
+ */
++ (nullable id)decode:(NSData *)JSONData
+              options:(KSJSONDecodeOption)options
+           startDepth:(int)startDepth
+                error:(NSError **)error;
+
 @end
 
 NS_ASSUME_NONNULL_END

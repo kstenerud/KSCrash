@@ -1265,7 +1265,8 @@ static int decodeElement(const char *const name, KSJSONDecodeContext *context)
 }
 
 int ksjson_decode(const char *const data, int length, char *stringBuffer, int stringBufferLength,
-                  KSJSONDecodeCallbacks *const callbacks, void *const userData, int *const errorOffset)
+                  KSJSONDecodeCallbacks *const callbacks, void *const userData, const int startDepth,
+                  int *const errorOffset)
 {
     char *nameBuffer = stringBuffer;
     int nameBufferLength = stringBufferLength / 4;
@@ -1279,6 +1280,7 @@ int ksjson_decode(const char *const data, int length, char *stringBuffer, int st
                                     .stringBuffer = stringBuffer,
                                     .stringBufferLength = (int)stringBufferLength,
                                     .callbacks = callbacks,
+                                    .containerDepth = startDepth,
                                     .userData = userData };
 
     int result = decodeElement(NULL, &context);
