@@ -64,6 +64,9 @@
 /** If true, don't store nulls in objects */
 @property(nonatomic, readwrite, assign) bool ignoreNullsInObjects;
 
+/** Fail the decode on an unrepresentable string rather than dropping it. */
+@property(nonatomic, readwrite, assign) bool failOnUnrepresentableString;
+
 #pragma mark Constructors
 
 /** Convenience constructor.
@@ -121,6 +124,7 @@
         _sorted = (encodeOptions & KSJSONEncodeOptionSorted) != 0;
         _ignoreNullsInArrays = (decodeOptions & KSJSONDecodeOptionIgnoreNullInArray) != 0;
         _ignoreNullsInObjects = (decodeOptions & KSJSONDecodeOptionIgnoreNullInObject) != 0;
+        _failOnUnrepresentableString = (decodeOptions & KSJSONDecodeOptionFailOnUnrepresentableString) != 0;
     }
     return self;
 }
@@ -142,19 +146,18 @@ static inline NSString *_Nullable stringFromCString(const char *const string)
 
 #pragma mark Callbacks
 
+/** Drop the member, or fail the whole decode when the caller asked for that. */
+static int unrepresentable(KSJSONCodec *codec, NSString *description)
+{
+    if (!codec.failOnUnrepresentableString) {
+        return KSJSON_OK;
+    }
+    codec.error = [KSNSErrorHelper errorWithDomain:@"KSJSONCodecObjC" code:0 description:@"%@", description];
+    return KSJSON_ERROR_INVALID_DATA;
+}
+
 static int onElement(KSJSONCodec *codec, NSString *name, id element)
 {
-    // A nil element or name means the decoded bytes were not representable
-    // (stringWithCString: returns nil for invalid UTF-8). Inserting nil into
-    // a container raises, so fail the decode instead: garbage input is a
-    // decode error, never a crash.
-    if (element == nil) {
-        codec.error = [KSNSErrorHelper errorWithDomain:@"KSJSONCodecObjC"
-                                                  code:0
-                                           description:@"Decoded string is not representable (invalid UTF-8)"];
-        return KSJSON_ERROR_INVALID_DATA;
-    }
-
     id currentContainer = codec.currentContainer;
     if ([currentContainer isKindOfClass:[NSMutableDictionary class]] && name == nil) {
         codec.error = [KSNSErrorHelper errorWithDomain:@"KSJSONCodecObjC"
@@ -177,14 +180,22 @@ static int onElement(KSJSONCodec *codec, NSString *name, id element)
         return KSJSON_ERROR_INVALID_DATA;
     }
 
+    // A nil element or member name means those bytes were not representable
+    // (stringFromCString: returns nil for invalid UTF-8). Drop that one member
+    // by default rather than failing the decode: report reads pass
+    // KeepPartialObject, so an error here would keep the container built so
+    // far and finalization would write that truncation back over the report.
+    // Inserting nil is not an option either, since addObject: raises.
+    if (element == nil) {
+        return unrepresentable(codec, @"Decoded string is not representable (invalid UTF-8)");
+    }
+
     if ([currentContainer isKindOfClass:[NSMutableDictionary class]]) {
         if (name == nil) {
-            codec.error = [KSNSErrorHelper errorWithDomain:@"KSJSONCodecObjC"
-                                                      code:0
-                                               description:@"Object member name is not representable (invalid UTF-8)"];
-            return KSJSON_ERROR_INVALID_DATA;
+            return unrepresentable(codec, @"Object member name is not representable (invalid UTF-8)");
         }
-        [(NSMutableDictionary *)currentContainer setValue:element forKey:name];
+        // setObject:forKey:, never setValue:forKey:, which is KVC.
+        [(NSMutableDictionary *)currentContainer setObject:element forKey:name];
     } else {
         [(NSMutableArray *)currentContainer addObject:element];
     }
