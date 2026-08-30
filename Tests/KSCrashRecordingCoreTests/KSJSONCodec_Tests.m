@@ -2407,6 +2407,27 @@ static int appendJSONData(const char *data, int length, void *userData)
     XCTAssertEqualObjects(json, @"{\"count\":100,\"ratio\":0.5,\"addr\":3735928559}");
 }
 
+- (void)testDecodeNullMemberWithUnrepresentableName_failsWhenAsked
+{
+    // The null is dropped by IgnoreNullInObject, but its name must still be
+    // judged: a document a stricter reader rejects outright must not decode
+    // here minus one member, or the report keeps a value every other reader
+    // of the same bytes calls absent.
+    const char bytes[] = { '{', '"', (char)0xC3, '(', '"', ':', 'n', 'u', 'l', 'l', ',', '"', 'a', '"', ':', '1', '}' };
+    NSData *data = [NSData dataWithBytes:bytes length:sizeof(bytes)];
+
+    NSError *error = nil;
+    id lenient = [KSJSONCodec decode:data options:KSJSONDecodeOptionIgnoreNullInObject error:&error];
+    XCTAssertNotNil(lenient, @"Without the option the member is simply dropped");
+
+    error = nil;
+    id strict = [KSJSONCodec decode:data
+                            options:KSJSONDecodeOptionIgnoreNullInObject | KSJSONDecodeOptionFailOnUnrepresentableString
+                              error:&error];
+    XCTAssertNil(strict);
+    XCTAssertNotNil(error);
+}
+
 - (void)testDecodeStartDepth_judgesNestingAgainstTheDestination
 {
     // A payload headed inside another document has less depth left than the
