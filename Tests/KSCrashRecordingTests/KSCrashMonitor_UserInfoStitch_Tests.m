@@ -243,6 +243,43 @@ static NSString *writeRawSidecar(NSString *dir, NSData *data)
     XCTAssertEqualObjects(user[@"good"], @"v");
 }
 
+- (void)testStitchDropsAContainerTooDeepToReEncode
+{
+    // 198 containers fit under the decoder's own limit but not under it from
+    // where the report encoder stands, two containers down at report -> user
+    // -> key. Judged against the whole limit this decodes, and then the
+    // finalized report cannot be encoded at all, which loses every other
+    // value in it rather than this one.
+    NSMutableString *deep = [NSMutableString string];
+    const int levels = 198;
+    for (int i = 0; i < levels; i++) {
+        [deep appendString:@"["];
+    }
+    for (int i = 0; i < levels; i++) {
+        [deep appendString:@"]"];
+    }
+
+    NSString *path = buildSidecarFile(self.tempDir, ^(KSKeyValueStore *store) {
+        const char *bytes = deep.UTF8String;
+        XCTAssertTrue(kskvs_setJSON(store, "deep", bytes, strlen(bytes)));
+        kskvs_setString(store, "good", "v");
+    });
+
+    NSDictionary *report = makeMinimalReport();
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_userinfo_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
+
+    NSDictionary *user = result[KSCrashField_User];
+    XCTAssertNil(user[@"deep"]);
+    XCTAssertEqualObjects(user[@"good"], @"v");
+
+    // The point of dropping it: the report still encodes.
+    NSError *error = nil;
+    XCTAssertNotNil([KSJSONCodec encode:result options:0 error:&error]);
+    XCTAssertNil(error);
+}
+
 #pragma mark - Stitch Integer Values
 
 - (void)testStitchInt64Value

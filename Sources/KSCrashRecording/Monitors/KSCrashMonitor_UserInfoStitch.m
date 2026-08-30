@@ -111,6 +111,13 @@ static void onDate(const char *key, uint16_t keyLen, int64_t nanosecondsSince197
     }
 }
 
+// These bytes are re-encoded inside the finalized report, under
+// report -> "user" -> key, so two containers are already open when the
+// encoder reaches them. Judging the payload against the whole depth limit
+// instead would accept one the report encoder cannot write, and a report that
+// cannot be encoded is never delivered, taking every other value with it.
+static const int kUserSectionEncodeDepth = 2;
+
 static void onJSON(const char *key, uint16_t keyLen, const char *json, uint16_t jsonLen, void *ctx)
 {
     NSMutableDictionary *dict = (__bridge NSMutableDictionary *)ctx;
@@ -131,6 +138,7 @@ static void onJSON(const char *key, uint16_t keyLen, const char *json, uint16_t 
     id value = [KSJSONCodec decode:data
                            options:KSJSONDecodeOptionIgnoreNullInArray | KSJSONDecodeOptionIgnoreNullInObject |
                                    KSJSONDecodeOptionFailOnUnrepresentableString
+                        startDepth:kUserSectionEncodeDepth
                              error:nil];
     if ([value isKindOfClass:[NSArray class]] || [value isKindOfClass:[NSDictionary class]]) {
         dict[nsKey] = value;
