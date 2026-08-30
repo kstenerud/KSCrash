@@ -429,8 +429,16 @@ static int encodeObject(KSJSONCodec *codec, id object, NSString *name, KSJSONEnc
 + (id)decode:(NSData *)JSONData options:(KSJSONDecodeOption)decodeOptions error:(NSError *__autoreleasing *)error
 {
     KSJSONCodec *codec = [self codecWithEncodeOptions:0 decodeOptions:decodeOptions];
+    // Scratch for decoded names and strings: ksjson_decode gives names a
+    // quarter of it, and a decoded string is never longer than its encoded
+    // form, so 4x the input (plus NUL room) suffices for any input. The 20MB
+    // cap bounds the allocation; a string past it fails as too long.
     const size_t decodeMaxStringSize = 20000000;
-    NSMutableData *stringBuffer = [NSMutableData dataWithLength:decodeMaxStringSize];
+    size_t scratchSize = ((size_t)JSONData.length + 1) * 4;
+    if (scratchSize > decodeMaxStringSize) {
+        scratchSize = decodeMaxStringSize;
+    }
+    NSMutableData *stringBuffer = [NSMutableData dataWithLength:scratchSize];
     int errorOffset;
     int result = ksjson_decode(JSONData.bytes, (int)JSONData.length, stringBuffer.mutableBytes,
                                (int)stringBuffer.length, codec.callbacks, (__bridge void *)codec, &errorOffset);
