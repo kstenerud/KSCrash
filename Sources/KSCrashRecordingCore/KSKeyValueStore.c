@@ -42,7 +42,10 @@
 #pragma mark - Internal Format -
 // ============================================================================
 
-/** Record type tags for the append-only log. */
+/** Record type tags for the append-only log. Readers skip types they do
+ *  not know (see dispatchRecord), so new types can be added without a
+ *  version break and older readers keep working.
+ */
 typedef enum {
     KSKVSTypeRemoved = 0,
     KSKVSTypeString = 1,
