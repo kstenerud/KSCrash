@@ -275,7 +275,7 @@ static const double g_pow10[] = {
     1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19,
 };
 
-size_t ksstring_doubleToString(double value, char *dst, size_t bufSize)
+static size_t formatFloatingPoint(double value, char *dst, size_t bufSize, const int sigDigits)
 {
     if (bufSize == 0) {
         return 0;
@@ -302,17 +302,6 @@ size_t ksstring_doubleToString(double value, char *dst, size_t bufSize)
     if (value < 0) {
         *p++ = '-';
         value = -value;
-    }
-
-    int sigDigits;
-    float fv = (float)value;
-    if (fabs(value - (double)fv) <= (double)FLT_EPSILON * fabs(value)) {
-        sigDigits = FLT_DIG;
-        // Match old snprintf behavior: format the float-cast value, not the original double.
-        // This avoids boundary rounding differences (e.g. 99.99995 → float 100.0).
-        value = (double)fv;
-    } else {
-        sigDigits = DBL_DIG;
     }
 
     // Compute decimal exponent via binary search: normalize to [1.0, 10.0)
@@ -499,4 +488,24 @@ size_t ksstring_doubleToString(double value, char *dst, size_t bufSize)
     memcpy(dst, scratch, writeLen);
     dst[writeLen] = '\0';
     return scratchLen;
+}
+
+size_t ksstring_doubleToString(double value, char *dst, size_t bufSize)
+{
+    // A double gets the digits a double carries. Spending fewer because the
+    // value happens to sit near its float cast is what put an epoch timestamp
+    // out by up to 84 minutes, with the report then disagreeing with the same
+    // run's summary. More would not help either: the digits come out of a
+    // single double multiply, so past DBL_DIG the tail is that multiply's
+    // rounding error rather than the value's own digits.
+    return formatFloatingPoint(value, dst, bufSize, DBL_DIG);
+}
+
+size_t ksstring_floatToString(float value, char *dst, size_t bufSize)
+{
+    // A float carries about seven digits, so printing fifteen would append
+    // the noise of the widening rather than anything the caller stored: 0.2f
+    // would read as 0.200000002980232. Callers that know the value is a float
+    // come here; everything else is a double and goes above.
+    return formatFloatingPoint((double)value, dst, bufSize, FLT_DIG);
 }
