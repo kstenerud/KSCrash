@@ -111,7 +111,10 @@ public struct Metadata: MetadataStore, Equatable, Sendable {
 
 extension Metadata: Codable {
     public init(from decoder: Decoder) throws {
-        storage = try [String: MetadataValue](from: decoder)
+        // Null means absence: a null member never enters storage, so keys,
+        // contains, and re-encoding agree with the read contract. (Nulls
+        // inside containers are already dropped by MetadataValue's decode.)
+        storage = try [String: MetadataValue](from: decoder).filter { !$0.value.isNull }
     }
     public func encode(to encoder: Encoder) throws {
         try storage.encode(to: encoder)
