@@ -341,9 +341,9 @@ final class StoreTests: XCTestCase {
             kskvs_setString(store, "gone", "x")
             kskvs_removeValue(store, "gone")
             let tags = "[\"a\",\"b\"]"
-            _ = tags.withCString { kskvs_setJSON(store, "tags", $0, strlen($0)) }
+            XCTAssertTrue(tags.withCString { kskvs_setJSON(store, "tags", $0, strlen($0)) })
             let bad = "{broken"
-            _ = bad.withCString { kskvs_setJSON(store, "bad", $0, strlen($0)) }
+            XCTAssertTrue(bad.withCString { kskvs_setJSON(store, "bad", $0, strlen($0)) })
         }
 
         let metadata = try XCTUnwrap(summary()?.metadata)
