@@ -33,6 +33,12 @@ public protocol MetadataStore {
     /// removes the key; reading a key that holds another type yields nil.
     /// JSON null means absence: null members and elements inside a container
     /// never surface from a read.
+    ///
+    /// A value a store cannot hold also leaves the key absent rather than
+    /// keeping what was there before, so a read never reports a value that was
+    /// replaced. A persistent store cannot hold a non-finite `Double`, a
+    /// `Date` outside 1677-09-21 to 2262-04-11, or a key or value whose
+    /// encoded size reaches 64KB.
     subscript<Value: MetadataValueRepresentable>(key: String) -> Value? { get set }
 
     /// Removes any value under `key`.
