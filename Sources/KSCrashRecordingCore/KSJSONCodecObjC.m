@@ -408,7 +408,12 @@ static int encodeObject(KSJSONCodec *codec, id object, NSString *name, KSJSONEnc
                                                    description:@"Invalid key: %@", key];
                 return KSJSON_ERROR_INVALID_DATA;
             }
-            if ((result = encodeObject(codec, [object valueForKey:key], key, context)) != KSJSON_OK) {
+            // objectForKey:, never valueForKey:, which applies KVC: a key
+            // beginning with '@' is stripped and forwarded as a property name,
+            // so "@count" would encode the dictionary's element count and
+            // "@id" would raise. App-supplied keys reach here nested in the
+            // user section.
+            if ((result = encodeObject(codec, [(NSDictionary *)object objectForKey:key], key, context)) != KSJSON_OK) {
                 return result;
             }
         }
