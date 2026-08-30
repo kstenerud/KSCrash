@@ -104,9 +104,13 @@ static void onJSON(const char *key, uint16_t keyLen, const char *json, uint16_t 
     }
     // The store does not validate JSON, so undecodable bytes (a torn or
     // foreign record) are absence, never a delivery failure; so is anything
-    // but a container, the only JSON values.
+    // but a container, the only JSON values. Nulls inside a container are
+    // dropped here too: null means absence, resolved at read time like the
+    // finalized-report reads, never on the write path.
     NSData *data = [NSData dataWithBytesNoCopy:(void *)json length:jsonLen freeWhenDone:NO];
-    id value = [KSJSONCodec decode:data options:KSJSONDecodeOptionNone error:nil];
+    id value = [KSJSONCodec decode:data
+                           options:KSJSONDecodeOptionIgnoreNullInArray | KSJSONDecodeOptionIgnoreNullInObject
+                             error:nil];
     if ([value isKindOfClass:[NSArray class]] || [value isKindOfClass:[NSDictionary class]]) {
         dict[nsKey] = value;
     }

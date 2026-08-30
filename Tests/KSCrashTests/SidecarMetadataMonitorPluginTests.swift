@@ -65,6 +65,30 @@ final class SidecarMetadataMonitorPluginTests: XCTestCase {
         XCTAssertNil(store["bad"] as MetadataValue?)
     }
 
+    func test_null_isAbsence() throws {
+        // The same contract Metadata honors: .null removes the key, and null
+        // members and elements resolve to absence on read. The write stores
+        // the container as given (the write path does no cleanup); it is the
+        // readers that drop the nulls.
+        let path = directory.appendingPathComponent("Nulls.ksscr").path
+        let store = try SidecarMetadata.creating(at: path, config: KSKVSConfig(initialCapacity: 512))
+        store["gone"] = "value"
+        store["gone"] = MetadataValue.null
+        XCTAssertNil(store["gone"] as MetadataValue?)
+        store["mixed"] = MetadataValue.object(["kept": .integer(1), "dropped": .null])
+        XCTAssertEqual(store["mixed"] as MetadataValue?, .object(["kept": .integer(1)]))
+        store["list"] = MetadataValue.array([.string("a"), .null, .object(["x": .null])])
+        XCTAssertEqual(store["list"] as MetadataValue?, .array([.string("a"), .object([:])]))
+        XCTAssertEqual(store.keys, ["list", "mixed"])
+
+        // The persisted bytes keep the nulls; a fresh reader strips them too.
+        let bytes = try Data(contentsOf: URL(fileURLWithPath: path))
+        XCTAssertTrue(String(decoding: bytes, as: UTF8.self).contains("null"))
+        let read = try XCTUnwrap(SidecarMetadata.reading(at: path))
+        XCTAssertEqual(read["mixed"] as MetadataValue?, .object(["kept": .integer(1)]))
+        XCTAssertEqual(read.keys, ["list", "mixed"])
+    }
+
     private var directory: URL!
 
     override func setUpWithError() throws {

@@ -79,9 +79,12 @@ extension MetadataValue: Codable {
         } else if let value = try? container.decode(String.self) {
             self = .string(value)
         } else if let value = try? container.decode([MetadataValue].self) {
-            self = .array(value)
+            // Null means absence, resolved on read: direct null elements are
+            // dropped here (nested containers dropped theirs while decoding),
+            // so no consumer of decoded JSON ever sees one.
+            self = .array(value.filter { !$0.isNull })
         } else if let value = try? container.decode([String: MetadataValue].self) {
-            self = .object(value)
+            self = .object(value.filter { !$0.value.isNull })
         } else {
             throw DecodingError.dataCorruptedError(
                 in: container, debugDescription: "Value is not valid JSON.")
@@ -99,6 +102,25 @@ extension MetadataValue: Codable {
         case .string(let value): try container.encode(value)
         case .array(let value): try container.encode(value)
         case .object(let value): try container.encode(value)
+        }
+    }
+}
+
+extension MetadataValue {
+    var isNull: Bool {
+        if case .null = self { return true }
+        return false
+    }
+
+    /// The value as a read resolves it, where null means absence: nil for
+    /// `.null` itself, and containers with null members and elements dropped
+    /// recursively. Scalars are themselves.
+    var strippingNulls: MetadataValue? {
+        switch self {
+        case .null: return nil
+        case .array(let elements): return .array(elements.compactMap(\.strippingNulls))
+        case .object(let members): return .object(members.compactMapValues(\.strippingNulls))
+        default: return self
         }
     }
 }
@@ -232,25 +254,31 @@ extension Double: MetadataValueDecodable {
 }
 
 extension MetadataValue: MetadataValueDecodable {
-    public static func decode(from value: MetadataValue) -> MetadataValue? { value }
+    /// Null means absence on read: `.null` reads as nil, and null members
+    /// and elements are dropped.
+    public static func decode(from value: MetadataValue) -> MetadataValue? { value.strippingNulls }
 }
 extension Array: MetadataValueDecodable where Element: MetadataValueDecodable {
     /// nil unless the value is an array whose every element reads as `Element`;
-    /// typed reads are exact, never partial.
+    /// typed reads are exact, never partial. Null elements are absent, not
+    /// mismatches.
     public static func decode(from value: MetadataValue) -> [Element]? {
         guard case .array(let values) = value else { return nil }
-        let elements = values.compactMap(Element.decode(from:))
-        return elements.count == values.count ? elements : nil
+        let present = values.filter { !$0.isNull }
+        let elements = present.compactMap(Element.decode(from:))
+        return elements.count == present.count ? elements : nil
     }
 }
 extension Dictionary: MetadataValueDecodable where Key == String, Value: MetadataValueDecodable {
     /// nil unless the value is an object whose every value reads as `Value`;
-    /// typed reads are exact, never partial.
+    /// typed reads are exact, never partial. Null members are absent, not
+    /// mismatches.
     public static func decode(from value: MetadataValue) -> [String: Value]? {
         guard case .object(let values) = value else { return nil }
         var decoded: [String: Value] = [:]
         decoded.reserveCapacity(values.count)
         for (key, element) in values {
+            if element.isNull { continue }
             guard let element = Value.decode(from: element) else { return nil }
             decoded[key] = element
         }
@@ -265,7 +293,8 @@ extension Int64: MetadataValueRepresentable {}
 extension UInt64: MetadataValueRepresentable {}
 extension Double: MetadataValueRepresentable {}
 extension Date: MetadataValueRepresentable {}
-/// The heterogeneous escape hatch: any JSON shape stores and reads as itself.
+/// The heterogeneous escape hatch: any JSON shape stores and reads as itself,
+/// except null, which reads resolve to absence.
 extension MetadataValue: MetadataValueRepresentable {}
 extension Array: MetadataValueRepresentable where Element: MetadataValueRepresentable {}
 extension Dictionary: MetadataValueRepresentable where Key == String, Value: MetadataValueRepresentable {}

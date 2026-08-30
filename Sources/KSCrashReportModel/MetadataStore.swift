@@ -29,8 +29,10 @@
 /// of representable values (`MetadataValue` itself for heterogeneous shapes).
 /// Conformers are a report's `Metadata` and the live store on `KSCrash`.
 public protocol MetadataStore {
-    /// Reads or writes the value under `key`. Assigning nil removes the key;
-    /// reading a key that holds another type yields nil.
+    /// Reads or writes the value under `key`. Assigning nil (or `.null`)
+    /// removes the key; reading a key that holds another type yields nil.
+    /// JSON null means absence: null members and elements inside a container
+    /// never surface from a read.
     subscript<Value: MetadataValueRepresentable>(key: String) -> Value? { get set }
 
     /// Removes any value under `key`.

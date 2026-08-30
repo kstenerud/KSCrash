@@ -97,9 +97,12 @@ public final class SidecarMetadata: MetadataStore, @unchecked Sendable {
             case .bool(let value): checkAccepted(kskvs_setBool(store, key, value), key: key)
             case .null: checkAccepted(kskvs_removeValue(store, key), key: key)
             case .array, .object:
-                // Containers persist as one JSON value; the store records the
-                // bytes and every consumer parses them at read time. A shape
-                // JSON cannot carry (a non-finite number) is a refused write.
+                // Containers persist as one JSON value, exactly as given: the
+                // store records the bytes and every consumer parses them at
+                // read time, where nulls resolve to absence. Nothing walks or
+                // rewrites the value here; this path runs inside the host app.
+                // A shape JSON cannot carry (a non-finite number) is a refused
+                // write.
                 let encoded = try? JSONEncoder().encode(metadataValue)
                 guard let encoded else {
                     checkAccepted(false, key: key)
