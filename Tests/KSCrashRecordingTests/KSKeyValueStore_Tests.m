@@ -57,6 +57,15 @@ static void lookupTestOnRemoved(__unused const char *key, __unused uint16_t keyL
     block(YES);
 }
 
+static void countRemoved(const char *key, uint16_t keyLen, void *ctx)
+{
+    NSMutableArray *names = (__bridge NSMutableArray *)ctx;
+    NSString *k = [[NSString alloc] initWithBytes:key length:keyLen encoding:NSUTF8StringEncoding];
+    if (k) {
+        [names addObject:k];
+    }
+}
+
 @interface KSKeyValueStore_Tests : XCTestCase
 @end
 
@@ -511,6 +520,87 @@ static void collectJSON(const char *key, uint16_t keyLen, const char *json, uint
     XCTAssertEqual(removed, 1, @"an absent key fires nothing");
     XCTAssertEqual(strings, 0);
     kskvs_destroy(store);
+}
+
+#pragma mark - Records the reader cannot interpret
+
+- (void)test_jsonRecordWithNoValue_readsAsRemoved
+{
+    // A JSON record needs bytes to be a value. Staying silent about one that
+    // has none would leave the key showing whatever the crash-time writer put
+    // there, while every other reader of this store calls it absent.
+    struct __attribute__((packed)) {
+        uint32_t magic;
+        uint32_t version;
+        uint32_t offset;
+        uint16_t keyLen1;
+        uint8_t type1;
+        uint16_t valueLen1;
+        char body1[4];  // "cart", no value
+        uint16_t keyLen2;
+        uint8_t type2;
+        uint16_t valueLen2;
+        char body2[2];  // "k" + "v"
+    } image = {
+        .magic = 0x6B736B76u,
+        .version = 1,
+        .offset = sizeof(image),
+        .keyLen1 = 4,
+        .type1 = 7,  // JSON
+        .valueLen1 = 0,
+        .body1 = { 'c', 'a', 'r', 't' },
+        .keyLen2 = 1,
+        .type2 = 1,  // string
+        .valueLen2 = 1,
+        .body2 = { 'k', 'v' },
+    };
+    XCTAssertTrue([[NSData dataWithBytes:&image length:sizeof(image)] writeToFile:self.path atomically:YES]);
+
+    KSKeyValueStore *reader = kskvs_create(self.path.UTF8String, KSKVSModeRead, NULL, NULL);
+    XCTAssertTrue(reader != NULL);
+    NSMutableDictionary *json = [NSMutableDictionary dictionary];
+    KSKVSCallbacks jsonCallbacks = { .onJSON = collectJSON };
+    kskvs_iterate(reader, &jsonCallbacks, (__bridge void *)json);
+
+    NSMutableArray *removed = [NSMutableArray array];
+    KSKVSCallbacks removedCallbacks = { .onRemoved = countRemoved };
+    kskvs_iterate(reader, &removedCallbacks, (__bridge void *)removed);
+    kskvs_destroy(reader);
+
+    XCTAssertEqualObjects(removed, @[ @"cart" ]);
+    XCTAssertEqual(json.count, 0u);
+}
+
+- (void)test_scalarRecordWithTheWrongValueLength_readsAsRemoved
+{
+    // Same rule for a scalar whose payload is not its type's size.
+    struct __attribute__((packed)) {
+        uint32_t magic;
+        uint32_t version;
+        uint32_t offset;
+        uint16_t keyLen1;
+        uint8_t type1;
+        uint16_t valueLen1;
+        char body1[6];  // "count" + one stray byte
+    } image = {
+        .magic = 0x6B736B76u,
+        .version = 1,
+        .offset = sizeof(image),
+        .keyLen1 = 5,
+        .type1 = 2,  // int64
+        .valueLen1 = 1,
+        .body1 = { 'c', 'o', 'u', 'n', 't', 0x7 },
+    };
+    XCTAssertTrue([[NSData dataWithBytes:&image length:sizeof(image)] writeToFile:self.path atomically:YES]);
+
+    KSKeyValueStore *reader = kskvs_create(self.path.UTF8String, KSKVSModeRead, NULL, NULL);
+    XCTAssertTrue(reader != NULL);
+    NSMutableArray *removed = [NSMutableArray array];
+    KSKVSCallbacks callbacks = { .onRemoved = countRemoved };
+    kskvs_iterate(reader, &callbacks, (__bridge void *)removed);
+    kskvs_destroy(reader);
+
+    XCTAssertEqualObjects(removed, @[ @"count" ]);
 }
 
 #pragma mark - The capacity ceiling

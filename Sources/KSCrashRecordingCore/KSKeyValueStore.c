@@ -727,54 +727,77 @@ static void dispatchRecord(const KSKeyValueStore *store, uint32_t pos, const KSK
         return;
     }
     const uint8_t *valueBytes = store->storage + pos + KSKVS_RECORD_HEADER_SIZE + keyLen;
+
+    // A record whose payload does not fit its type is not readable, and
+    // silence would be the wrong answer: the key would keep whatever an
+    // earlier record or the crash-time writer left under it, while every
+    // other reader of this store calls it absent.
+    bool unreadable = false;
     switch (rec->type) {
         case KSKVSTypeString:
+            // Every length is a string, the empty one included.
             if (callbacks->onString) {
                 callbacks->onString(key, keyLen, (const char *)valueBytes, rec->valueLen, context);
             }
             break;
         case KSKVSTypeInt64:
-            if (callbacks->onInt64 && rec->valueLen == sizeof(int64_t)) {
+            if (rec->valueLen != sizeof(int64_t)) {
+                unreadable = true;
+            } else if (callbacks->onInt64) {
                 int64_t val;
                 memcpy(&val, valueBytes, sizeof(val));
                 callbacks->onInt64(key, keyLen, val, context);
             }
             break;
         case KSKVSTypeUInt64:
-            if (callbacks->onUInt64 && rec->valueLen == sizeof(uint64_t)) {
+            if (rec->valueLen != sizeof(uint64_t)) {
+                unreadable = true;
+            } else if (callbacks->onUInt64) {
                 uint64_t val;
                 memcpy(&val, valueBytes, sizeof(val));
                 callbacks->onUInt64(key, keyLen, val, context);
             }
             break;
         case KSKVSTypeDouble:
-            if (callbacks->onDouble && rec->valueLen == sizeof(double)) {
+            if (rec->valueLen != sizeof(double)) {
+                unreadable = true;
+            } else if (callbacks->onDouble) {
                 double val;
                 memcpy(&val, valueBytes, sizeof(val));
                 callbacks->onDouble(key, keyLen, val, context);
             }
             break;
         case KSKVSTypeBool:
-            if (callbacks->onBool && rec->valueLen == sizeof(uint8_t)) {
+            if (rec->valueLen != sizeof(uint8_t)) {
+                unreadable = true;
+            } else if (callbacks->onBool) {
                 callbacks->onBool(key, keyLen, valueBytes[0] != 0, context);
             }
             break;
         case KSKVSTypeDate:
-            if (callbacks->onDate && rec->valueLen == sizeof(int64_t)) {
+            if (rec->valueLen != sizeof(int64_t)) {
+                unreadable = true;
+            } else if (callbacks->onDate) {
                 int64_t val;
                 memcpy(&val, valueBytes, sizeof(val));
                 callbacks->onDate(key, keyLen, val, context);
             }
             break;
         case KSKVSTypeJSON:
-            if (callbacks->onJSON && rec->valueLen > 0) {
+            if (rec->valueLen == 0) {
+                unreadable = true;
+            } else if (callbacks->onJSON) {
                 callbacks->onJSON(key, keyLen, (const char *)valueBytes, rec->valueLen, context);
             }
             break;
         default:
-            // Unknown types are skipped, so a future record type never
-            // corrupts an older reader's view.
+            // A record type this build does not know is skipped rather than
+            // called absent: a newer writer's value is not ours to judge.
             break;
+    }
+
+    if (unreadable && callbacks->onRemoved) {
+        callbacks->onRemoved(key, keyLen, context);
     }
 }
 
