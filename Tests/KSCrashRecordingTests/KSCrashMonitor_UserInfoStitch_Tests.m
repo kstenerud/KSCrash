@@ -198,10 +198,12 @@ static NSString *writeRawSidecar(NSString *dir, NSData *data)
 
 - (void)testStitchJSONContainerValues
 {
+    // The nulls persist (the write path stores containers as given) and are
+    // dropped here at read: the stitched report never carries an NSNull.
     NSString *path = buildSidecarFile(self.tempDir, ^(KSKeyValueStore *store) {
-        const char *tags = "[\"a\",\"b\"]";
+        const char *tags = "[\"a\",null,\"b\"]";
         kskvs_setJSON(store, "tags", tags, strlen(tags));
-        const char *cart = "{\"items\":3,\"flags\":[true]}";
+        const char *cart = "{\"items\":3,\"nope\":null,\"flags\":[true]}";
         kskvs_setJSON(store, "cart", cart, strlen(cart));
         const char *bad = "{broken";
         kskvs_setJSON(store, "bad", bad, strlen(bad));
