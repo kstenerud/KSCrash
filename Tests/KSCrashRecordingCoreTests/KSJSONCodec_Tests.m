@@ -2407,4 +2407,30 @@ static int appendJSONData(const char *data, int length, void *userData)
     XCTAssertEqualObjects(json, @"{\"count\":100,\"ratio\":0.5,\"addr\":3735928559}");
 }
 
+- (void)testDecodeStartDepth_judgesNestingAgainstTheDestination
+{
+    // A payload headed inside another document has less depth left than the
+    // whole limit. Judging it against the whole limit accepts one that cannot
+    // be written back out, which fails the destination document rather than
+    // the value.
+    NSMutableString *json = [NSMutableString string];
+    const int levels = 6;
+    for (int i = 0; i < levels; i++) {
+        [json appendString:@"["];
+    }
+    for (int i = 0; i < levels; i++) {
+        [json appendString:@"]"];
+    }
+    NSData *data = [json dataUsingEncoding:NSUTF8StringEncoding];
+
+    NSError *error = nil;
+    XCTAssertNotNil([KSJSONCodec decode:data options:0 startDepth:0 error:&error], @"fits on its own");
+    XCTAssertNil(error);
+
+    error = nil;
+    id tooDeep = [KSJSONCodec decode:data options:0 startDepth:KSJSON_MAX_CONTAINER_DEPTH - levels error:&error];
+    XCTAssertNil(tooDeep);
+    XCTAssertNotNil(error);
+}
+
 @end

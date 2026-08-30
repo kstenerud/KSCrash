@@ -577,13 +577,19 @@ typedef struct KSJSONDecodeCallbacks {
  *
  * @param userData Any data you would like passed to the callbacks.
  *
+ * @param startDepth Containers already open where this payload is headed, so its
+ *                   nesting is judged against the depth actually left to it. Pass 0
+ *                   for a document decoded on its own. A payload that will be
+ *                   re-encoded inside another document must pass that document's
+ *                   depth, or it decodes here and then cannot be written back out.
+ *
  * @param errorOffset If not null, will contain the offset into the data
  *                    where the error (if any) occurred.
  *
  * @return KSJSON_OK if succesful. An error code otherwise.
  */
 int ksjson_decode(const char *data, int length, char *stringBuffer, int stringBufferLength,
-                  KSJSONDecodeCallbacks *callbacks, void *userData, int *errorOffset);
+                  KSJSONDecodeCallbacks *callbacks, void *userData, int startDepth, int *errorOffset);
 
 #ifdef __cplusplus
 }
