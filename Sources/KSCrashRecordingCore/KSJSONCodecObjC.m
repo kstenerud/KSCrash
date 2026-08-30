@@ -255,9 +255,16 @@ static int onNullElement(const char *const cName, void *const userData)
     KSJSONCodec *codec = (__bridge KSJSONCodec *)userData;
 
     id currentContainer = codec.currentContainer;
-    if ([currentContainer isKindOfClass:[NSDictionary class]] && name == nil) {
-        return onElement(codec, name, [NSNull null]);
+
+    // The name is judged before the null is dropped. Dropping the member
+    // first would also drop the verdict on its name, so a document a stricter
+    // reader rejects outright would decode here minus one member, and the
+    // report would carry a value every other reader of these bytes calls
+    // absent.
+    if (cName != NULL && name == nil && [currentContainer isKindOfClass:[NSDictionary class]]) {
+        return unrepresentable(codec, @"Object member name is not representable (invalid UTF-8)");
     }
+
     if ((codec.ignoreNullsInArrays && [currentContainer isKindOfClass:[NSArray class]]) ||
         (codec.ignoreNullsInObjects && [currentContainer isKindOfClass:[NSDictionary class]])) {
         return KSJSON_OK;
