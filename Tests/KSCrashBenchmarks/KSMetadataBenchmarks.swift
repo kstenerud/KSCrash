@@ -28,9 +28,11 @@ import Foundation
 import KSCrashReportModel
 import XCTest
 
-/// The Swift metadata layer around the KVS: the write side is a hot path the
-/// host app drives (conversion and JSON encoding), the read side is where the
-/// deferred work lives (decoding and null resolution).
+/// The Swift metadata model layer: the conversion and JSON encoding a store
+/// write drives, and the decoding and null resolution a read defers to. The
+/// store file itself is measured by the KVS benchmarks; these cover the model
+/// work that sits on top of it, so an encoder or decoder is allocated per
+/// operation exactly as the shipping paths do.
 final class KSMetadataBenchmarks: KSBenchmarkTestCase {
 
     /// A 100-leaf container; `nullEvery > 0` salts it with nulls at that stride.
@@ -55,16 +57,18 @@ final class KSMetadataBenchmarks: KSBenchmarkTestCase {
 
     /// 100 scalar writes: the per-set conversion cost.
     func testBenchmarkWriteScalars() {
+        // keys sorts, so it is checked once after the run rather than inside it.
+        var bag = Metadata()
         measure {
-            var bag = Metadata()
+            bag = Metadata()
             for i in 0..<25 {
                 bag["string\(i)"] = "value-\(i)"
                 bag["int\(i)"] = i
                 bag["double\(i)"] = Double(i) * 1.5
                 bag["bool\(i)"] = i % 2 == 0
             }
-            XCTAssertEqual(bag.keys.count, 100)
         }
+        XCTAssertEqual(bag.keys.count, 100)
     }
 
     /// 20 writes of a native 100-leaf container: the recursive tree conversion.
@@ -73,23 +77,23 @@ final class KSMetadataBenchmarks: KSBenchmarkTestCase {
         for i in 0..<20 {
             native["key\(i)"] = (0..<5).map { "value-\(i)-\($0)" }
         }
+        var bag = Metadata()
         measure {
-            var bag = Metadata()
+            bag = Metadata()
             for i in 0..<20 {
                 bag["container\(i)"] = native
             }
-            XCTAssertEqual(bag.keys.count, 20)
         }
+        XCTAssertEqual(bag.keys.count, 20)
     }
 
     /// 100 JSON encodes of a 100-leaf container: the sidecar write's heavy step.
     func testBenchmarkEncodeContainerBytes() {
         let container = makeContainer(nullEvery: 0)
-        let encoder = JSONEncoder()
         var lastCount = 0
         measure {
             for _ in 0..<100 {
-                lastCount = (try? encoder.encode(container).count) ?? 0
+                lastCount = (try? JSONEncoder().encode(container).count) ?? 0
             }
         }
         XCTAssertGreaterThan(lastCount, 0)
@@ -126,24 +130,23 @@ final class KSMetadataBenchmarks: KSBenchmarkTestCase {
     /// 100 decodes of persisted container bytes: the sidecar read boundary.
     func testBenchmarkDecodeContainerBytes() throws {
         let data = try JSONEncoder().encode(makeContainer(nullEvery: 0))
-        let decoder = JSONDecoder()
         var value: MetadataValue?
         measure {
             for _ in 0..<100 {
-                value = try? decoder.decode(MetadataValue.self, from: data)
+                value = try? JSONDecoder().decode(MetadataValue.self, from: data)
             }
         }
         XCTAssertNotNil(value)
     }
 
-    /// Same decode with a quarter of the leaves null, dropped while decoding.
+    /// Same decode with a quarter of the leaves null, which the decode keeps
+    /// (the bag resolves them on read, not here).
     func testBenchmarkDecodeContainerBytesWithNulls() throws {
         let data = try JSONEncoder().encode(makeContainer(nullEvery: 4))
-        let decoder = JSONDecoder()
         var value: MetadataValue?
         measure {
             for _ in 0..<100 {
-                value = try? decoder.decode(MetadataValue.self, from: data)
+                value = try? JSONDecoder().decode(MetadataValue.self, from: data)
             }
         }
         XCTAssertNotNil(value)
