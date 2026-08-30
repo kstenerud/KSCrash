@@ -243,6 +243,26 @@ static NSString *writeRawSidecar(NSString *dir, NSData *data)
     XCTAssertEqualObjects(user[@"good"], @"v");
 }
 
+- (void)testStitchDropsANonFiniteDouble
+{
+    // JSON has no infinity or NaN: the encoder writes `1e999` and `null`, and
+    // the strict reader on the other side rejects the whole report over it.
+    // The write path refuses these, but a foreign writer can leave one here.
+    NSString *path = buildSidecarFile(self.tempDir, ^(KSKeyValueStore *store) {
+        XCTAssertTrue(kskvs_setDouble(store, "ratio", INFINITY));
+        XCTAssertTrue(kskvs_setDouble(store, "score", 1.5));
+    });
+
+    NSDictionary *report = makeMinimalReport();
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_userinfo_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
+
+    NSDictionary *user = result[KSCrashField_User];
+    XCTAssertNil(user[@"ratio"]);
+    XCTAssertEqualObjects(user[@"score"], @1.5);
+}
+
 - (void)testStitchDropsAContainerTooDeepToReEncode
 {
     // 198 containers fit under the decoder's own limit but not under it from
