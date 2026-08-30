@@ -87,7 +87,9 @@ public final class SidecarMetadata: MetadataStore, @unchecked Sendable {
                 }
                 return
             }
-            switch newValue.metadataValue {
+            // Convert once: for containers metadataValue walks the whole tree.
+            let metadataValue = newValue.metadataValue
+            switch metadataValue {
             case .string(let value): checkAccepted(kskvs_setString(store, key, value), key: key)
             case .integer(let value): checkAccepted(kskvs_setInt64(store, key, value), key: key)
             case .unsignedInteger(let value): checkAccepted(kskvs_setUInt64(store, key, value), key: key)
@@ -98,7 +100,7 @@ public final class SidecarMetadata: MetadataStore, @unchecked Sendable {
                 // Containers persist as one JSON value; the store records the
                 // bytes and every consumer parses them at read time. A shape
                 // JSON cannot carry (a non-finite number) is a refused write.
-                let encoded = try? JSONEncoder().encode(newValue.metadataValue)
+                let encoded = try? JSONEncoder().encode(metadataValue)
                 guard let encoded else {
                     checkAccepted(false, key: key)
                     return
