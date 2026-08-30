@@ -396,6 +396,7 @@ let package = Package(
                 .target(name: Targets.recordingCore),
                 .target(name: Targets.recording),
                 .target(name: Targets.profiler),
+                .target(name: Targets.report),
             ]
         ),
 

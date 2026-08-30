@@ -208,12 +208,12 @@ jobs:
                   {
                     \"name\": \"Shard 2 - JSON, Thread, Profiler\",
                     \"strategy\": \"only-testing\",
-                    \"values\": [\"KSJSONCodecBenchmarks\", \"KSThreadBenchmarks\", \"KSProfilerBenchmarks\", \"KSTimeProfilerBenchmarks\"]
+                    \"values\": [\"KSJSONCodecBenchmarks\", \"KSJSONCodecDecodeBenchmarks\", \"KSThreadBenchmarks\", \"KSProfilerBenchmarks\", \"KSTimeProfilerBenchmarks\"]
                   },
                   {
-                    \"name\": \"Shard 3 - CrashReport, CxaThrow, CxaThrowCold, KVS\",
+                    \"name\": \"Shard 3 - CrashReport, CxaThrow, CxaThrowCold, KVS, Metadata\",
                     \"strategy\": \"only-testing\",
-                    \"values\": [\"KSCrashReportBenchmarks\", \"KSCxaThrowBenchmarks\", \"KSCxaThrowColdBenchmarks\", \"KSKeyValueStoreBenchmarks\"]
+                    \"values\": [\"KSCrashReportBenchmarks\", \"KSCxaThrowBenchmarks\", \"KSCxaThrowColdBenchmarks\", \"KSKeyValueStoreBenchmarks\", \"KSMetadataBenchmarks\"]
                   }
                 ]
               }
