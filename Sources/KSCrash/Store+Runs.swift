@@ -214,6 +214,14 @@ extension Store {
         }
         callbacks.onDouble = { key, keyLength, value, context in
             guard let key = kvString(key, keyLength) else { return }
+            // JSON carries no non-finite number, so a record holding one (a
+            // foreign writer, or a build that predates the write-side guard)
+            // is absence here too. Delivering it would make the summary
+            // unencodable rather than just missing a key.
+            guard value.isFinite else {
+                MetadataBox.from(context).metadata.removeValue(forKey: key)
+                return
+            }
             MetadataBox.from(context).metadata.set(value, forKey: key)
         }
         callbacks.onBool = { key, keyLength, value, context in
