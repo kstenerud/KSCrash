@@ -220,6 +220,23 @@ final class MetadataStoreConformanceTests: XCTestCase {
         XCTAssertFalse(encoded.contains("null"), encoded)
     }
 
+    func test_nonFiniteNumber_isAbsence() throws {
+        // JSON carries no infinity or NaN, so a bag holding one encodes to
+        // nothing at all and takes the whole report or run summary it rides
+        // on with it. The live store calls the same value absence; the bag
+        // must not be the one place it survives, and a refused value leaves
+        // the key absent rather than showing what it replaced.
+        var bag = Metadata()
+        bag["ratio"] = 1.5
+        bag["ratio"] = Double.infinity
+        XCTAssertNil(bag["ratio"] as Double?)
+
+        bag["nested"] = MetadataValue.object(["r": .double(.nan)])
+        XCTAssertNil(bag["nested"] as MetadataValue?)
+        XCTAssertEqual(bag.keys, [])
+        XCTAssertNoThrow(try JSONEncoder().encode(bag))
+    }
+
     func test_null_isAbsence() {
         var store: any MetadataStore = Metadata()
         store["gone"] = "value"

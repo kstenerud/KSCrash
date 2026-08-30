@@ -28,9 +28,8 @@
  * @file KSKeyValueStore.h
  * @brief Append-only key-value store backed by an mmap'd file.
  *
- * Instance-based, lock-free storage engine. The caller is responsible
- * for synchronization. Supports typed setters, last-write-wins
- * iteration, compaction, and automatic growth.
+ * Instance-based append-only storage engine. Supports typed setters,
+ * last-write-wins iteration, compaction, and automatic growth.
  *
  * Keys and values are variable-size, up to 64KB each.
  */
@@ -43,6 +42,7 @@
 #include <stdint.h>
 
 #include "KSCrashNamespace.h"
+#include "KSJSONCodec.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -65,6 +65,22 @@ typedef enum {
  *  becoming absent.
  */
 #define KSKVS_MAX_CAPACITY (16u * 1024u * 1024u)
+
+/** How many containers are already open where a stored JSON value is
+ *  re-encoded: a report writes it under report -> "user" -> key. A value is
+ *  judged against the depth left below those, not against the whole limit.
+ */
+#define KSKVS_VALUE_ENCODE_DEPTH 2
+
+/** The deepest container nesting a stored JSON value may carry.
+ *  KSJSON_MAX_CONTAINER_DEPTH counting from KSKVS_VALUE_ENCODE_DEPTH, less
+ *  one for the codec refusing the level that would reach the limit.
+ *  Every reader applies it, so a container one reader delivers is one the
+ *  others deliver too; accepting a deeper one would produce a report the
+ *  encoder cannot write, and an unencodable report is never delivered, taking
+ *  every other value in it along.
+ */
+#define KSKVS_MAX_VALUE_DEPTH 197
 
 /** Configuration for store creation. */
 typedef struct {
@@ -115,9 +131,10 @@ void kskvs_destroy(KSKeyValueStore *store);
  *  A write is also rejected once the store has reached its capacity ceiling
  *  and compaction cannot free room for the record.
  *
- *  NOT thread-safe: concurrent writers to a store are the caller's
- *  responsibility. The store's only internal guarantee is that a read-mode
- *  open never observes a partially applied write.
+ *  Writes through one store instance are serialized internally, and a
+ *  read-mode open of the same file never observes a partially applied write.
+ *  Reading a live store any other way (kskvs_iterate, kskvs_lookup) is not
+ *  synchronized against its writer; a caller doing that owns the exclusion.
  */
 bool kskvs_setString(KSKeyValueStore *store, const char *key, const char *value);
 bool kskvs_setInt64(KSKeyValueStore *store, const char *key, int64_t value);
@@ -158,10 +175,17 @@ typedef struct {
     /** Called for keys whose final resolved state is a tombstone (removal).
      *  Allows callers to actively delete keys from a pre-existing dictionary. */
     void (*onRemoved)(const char *key, uint16_t keyLen, void *ctx);
+    /** Called for a record whose type this build does not know. The value is
+     *  not read: a newer writer's record is not an older reader's to judge.
+     *  A reader that starts from a value it already holds for the key still
+     *  has to stop serving it, since the store says it was replaced. */
+    void (*onUnknown)(const char *key, uint16_t keyLen, uint8_t type, void *ctx);
 } KSKVSCallbacks;
 
 /** Iterate resolved (last-write-wins) records and tombstones.
- *  Works on any store (file-backed writable or read-only).
+ *  Works on any store (file-backed writable or read-only). Takes no lock: on
+ *  a live store the caller's own serialization of that store's writes is what
+ *  makes the walk safe.
  */
 void kskvs_iterate(const KSKeyValueStore *store, const KSKVSCallbacks *callbacks, void *context);
 
