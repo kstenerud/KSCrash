@@ -144,6 +144,17 @@ static inline NSString *_Nullable stringFromCString(const char *const string)
 
 static int onElement(KSJSONCodec *codec, NSString *name, id element)
 {
+    // A nil element or name means the decoded bytes were not representable
+    // (stringWithCString: returns nil for invalid UTF-8). Inserting nil into
+    // a container raises, so fail the decode instead: garbage input is a
+    // decode error, never a crash.
+    if (element == nil) {
+        codec.error = [KSNSErrorHelper errorWithDomain:@"KSJSONCodecObjC"
+                                                  code:0
+                                           description:@"Decoded string is not representable (invalid UTF-8)"];
+        return KSJSON_ERROR_INVALID_DATA;
+    }
+
     id currentContainer = codec.currentContainer;
     if ([currentContainer isKindOfClass:[NSMutableDictionary class]] && name == nil) {
         codec.error = [KSNSErrorHelper errorWithDomain:@"KSJSONCodecObjC"
@@ -167,6 +178,12 @@ static int onElement(KSJSONCodec *codec, NSString *name, id element)
     }
 
     if ([currentContainer isKindOfClass:[NSMutableDictionary class]]) {
+        if (name == nil) {
+            codec.error = [KSNSErrorHelper errorWithDomain:@"KSJSONCodecObjC"
+                                                      code:0
+                                               description:@"Object member name is not representable (invalid UTF-8)"];
+            return KSJSON_ERROR_INVALID_DATA;
+        }
         [(NSMutableDictionary *)currentContainer setValue:element forKey:name];
     } else {
         [(NSMutableArray *)currentContainer addObject:element];
