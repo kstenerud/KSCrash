@@ -159,9 +159,17 @@ public final class SidecarMetadata: MetadataStore, @unchecked Sendable {
             guard let key = kvString(key, keyLength) else { return }
             Keys.from(context).names.insert(key)
         }
-        callbacks.onJSON = { key, keyLength, _, _, context in
-            guard let key = kvString(key, keyLength) else { return }
-            Keys.from(context).names.insert(key)
+        callbacks.onJSON = { key, keyLength, json, jsonLength, context in
+            guard let key = kvString(key, keyLength), let json else { return }
+            // A record whose read is absence (undecodable bytes, or anything
+            // but a container) must not be listed either, so keys always
+            // agrees with the getter and the stitches.
+            let data = Data(bytes: json, count: Int(jsonLength))
+            guard let value = try? JSONDecoder().decode(MetadataValue.self, from: data) else { return }
+            switch value {
+            case .array, .object: Keys.from(context).names.insert(key)
+            default: break
+            }
         }
         callbacks.onRemoved = { key, keyLength, context in
             guard let key = kvString(key, keyLength) else { return }

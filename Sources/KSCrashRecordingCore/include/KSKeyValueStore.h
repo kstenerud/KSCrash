@@ -32,9 +32,7 @@
  * for synchronization. Supports typed setters, last-write-wins
  * iteration, compaction, and automatic growth.
  *
- * Keys and values are variable-size, bounded only by the record format
- * (64KB each). Readers skip record types they do not know, so new types
- * can be added without a version break.
+ * Keys and values are variable-size, up to 64KB each.
  */
 
 #ifndef HDR_KSKeyValueStore_h
@@ -98,7 +96,7 @@ void kskvs_destroy(KSKeyValueStore *store);
 // ============================================================================
 
 /** Each setter returns false when the write is rejected (empty key, or a key
- *  or value past the record format's 64KB bound) or cannot be persisted; the
+ *  or value past the 64KB bound) or cannot be persisted; the
  *  store is unchanged. Nothing is ever truncated.
  *
  *  NOT thread-safe: concurrent writers to a store are the caller's
