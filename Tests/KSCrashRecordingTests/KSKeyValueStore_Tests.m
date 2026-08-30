@@ -424,6 +424,40 @@ static void collectJSON(const char *key, uint16_t keyLen, const char *json, uint
     kskvs_destroy(store);
 }
 
+- (void)test_write_stopsAtTheCapacityCeiling
+{
+    // Records are bounded individually but their number is not, and the file
+    // only grows within a run, so the ceiling is the only thing keeping a live
+    // store bounded on disk. Past it the write is refused, not truncated.
+    KSKVSConfig config = [self config];
+    KSKeyValueStore *store = kskvs_create(self.path.UTF8String, KSKVSModeReadWriteCreate, &config, NULL);
+    XCTAssertTrue(store != NULL);
+
+    char *value = malloc(60000);
+    XCTAssertTrue(value != NULL);
+    memset(value, 'x', 59999);
+    value[59999] = '\0';
+
+    BOOL refused = NO;
+    for (int i = 0; i < 400 && !refused; i++) {
+        char key[32];
+        snprintf(key, sizeof(key), "key_%d", i);
+        refused = !kskvs_setString(store, key, value);
+    }
+    free(value);
+    XCTAssertTrue(refused, @"the store must refuse a write once it would cross the ceiling");
+
+    // The refusal leaves the store usable: earlier records still read, and a
+    // small write still succeeds.
+    XCTAssertEqual([[self stringValuesIn:store][@"key_0"] length], 59999u);
+    XCTAssertTrue(kskvs_setString(store, "small", "v"));
+    kskvs_destroy(store);
+
+    NSNumber *size = [[[NSFileManager defaultManager] attributesOfItemAtPath:self.path
+                                                                       error:nil] objectForKey:NSFileSize];
+    XCTAssertLessThanOrEqual(size.unsignedLongLongValue, 16ull * 1024 * 1024);
+}
+
 #pragma mark - Lookup
 
 - (void)test_lookup_answersTheLatestWriteForTheKeyOnly
