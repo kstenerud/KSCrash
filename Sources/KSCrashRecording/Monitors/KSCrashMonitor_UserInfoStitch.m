@@ -39,14 +39,26 @@
 #pragma mark - Iteration Callbacks -
 // ============================================================================
 
+/** A key whose final record does not read as a value is absent, not unchanged:
+ *  the crash-time callback may already have written the same key into the user
+ *  section, and it must not go on serving a value the store says was replaced.
+ *  This is the same outcome the live getter, `keys`, and the run-summary
+ *  stitch produce for that record. */
+static void resolveToAbsence(NSMutableDictionary *dict, NSString *key) { [dict removeObjectForKey:key]; }
+
 static void onString(const char *key, uint16_t keyLen, const char *value, uint16_t valueLen, void *ctx)
 {
     NSMutableDictionary *dict = (__bridge NSMutableDictionary *)ctx;
     NSString *nsKey = [[NSString alloc] initWithBytes:key length:keyLen encoding:NSUTF8StringEncoding];
-    NSString *nsVal = [[NSString alloc] initWithBytes:value length:valueLen encoding:NSUTF8StringEncoding];
-    if (nsKey && nsVal) {
-        dict[nsKey] = nsVal;
+    if (nsKey == nil) {
+        return;
     }
+    NSString *nsVal = [[NSString alloc] initWithBytes:value length:valueLen encoding:NSUTF8StringEncoding];
+    if (nsVal == nil) {
+        resolveToAbsence(dict, nsKey);
+        return;
+    }
+    dict[nsKey] = nsVal;
 }
 
 static void onInt64(const char *key, uint16_t keyLen, int64_t value, void *ctx)
@@ -90,8 +102,12 @@ static void onDate(const char *key, uint16_t keyLen, int64_t nanosecondsSince197
     NSMutableDictionary *dict = (__bridge NSMutableDictionary *)ctx;
     NSString *nsKey = [[NSString alloc] initWithBytes:key length:keyLen encoding:NSUTF8StringEncoding];
     if (nsKey) {
+        // Seconds since 1970, the model's date representation, not an NSDate:
+        // the encoder would turn an NSDate into a second-resolution UTC
+        // string, which reads back as a string rather than the instant that
+        // was set, and would disagree with the same run's summary.
         NSTimeInterval seconds = (NSTimeInterval)nanosecondsSince1970 / 1e9;
-        dict[nsKey] = [NSDate dateWithTimeIntervalSince1970:seconds];
+        dict[nsKey] = @(seconds);
     }
 }
 
@@ -107,12 +123,19 @@ static void onJSON(const char *key, uint16_t keyLen, const char *json, uint16_t 
     // but a container, the only JSON values. Nulls inside a container are
     // dropped here too: null means absence, resolved at read time like the
     // finalized-report reads, never on the write path.
+    // FailOnUnrepresentableString because the whole record is one value: the
+    // live getter and the run-summary stitch read these bytes with Foundation,
+    // which rejects the document, so dropping just the bad member here would
+    // put a value in the report that every other reader calls absent.
     NSData *data = [NSData dataWithBytesNoCopy:(void *)json length:jsonLen freeWhenDone:NO];
     id value = [KSJSONCodec decode:data
-                           options:KSJSONDecodeOptionIgnoreNullInArray | KSJSONDecodeOptionIgnoreNullInObject
+                           options:KSJSONDecodeOptionIgnoreNullInArray | KSJSONDecodeOptionIgnoreNullInObject |
+                                   KSJSONDecodeOptionFailOnUnrepresentableString
                              error:nil];
     if ([value isKindOfClass:[NSArray class]] || [value isKindOfClass:[NSDictionary class]]) {
         dict[nsKey] = value;
+    } else {
+        resolveToAbsence(dict, nsKey);
     }
 }
 
