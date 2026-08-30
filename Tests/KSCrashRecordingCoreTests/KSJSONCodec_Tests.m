@@ -1250,6 +1250,20 @@ static NSString *toString(NSData *data)
     XCTAssertNotNil(error, @"");
 }
 
+- (void)testEncodeDictionaryWithKVCOperatorKeys
+{
+    // objectForKey:, not valueForKey:, which would encode "@count" as the
+    // element count and raise NSUnknownKeyException on "@id".
+    NSDictionary *object = @{ @"@count" : @"abc", @"@id" : @"xyz", @"plain" : @1 };
+    NSError *error = nil;
+    NSData *encoded = [KSJSONCodec encode:object options:KSJSONEncodeOptionSorted error:&error];
+    XCTAssertNotNil(encoded, @"");
+    XCTAssertNil(error, @"");
+
+    id decoded = [KSJSONCodec decode:encoded options:0 error:&error];
+    XCTAssertEqualObjects(decoded, object, @"");
+}
+
 - (void)testDeserializeKeepsLaterMembersAfterAnUnrepresentableOne
 {
     // The report read path passes KeepPartialObject, so a decode error would
