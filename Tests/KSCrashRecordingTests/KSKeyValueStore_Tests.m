@@ -513,4 +513,87 @@ static void collectJSON(const char *key, uint16_t keyLen, const char *json, uint
     kskvs_destroy(store);
 }
 
+#pragma mark - The capacity ceiling
+
+- (void)test_create_initialCapacityPastTheCeiling_isRejected
+{
+    // Creating one would produce a file every later read-mode open calls
+    // corrupt, since reading enforces the same ceiling.
+    KSKVSConfig config = { .initialCapacity = KSKVS_MAX_CAPACITY + 1 };
+    KSKVSOpenStatus status = KSKVSOpenSuccess;
+    KSKeyValueStore *store = kskvs_create(self.path.UTF8String, KSKVSModeReadWriteCreate, &config, &status);
+    XCTAssertTrue(store == NULL);
+    XCTAssertNotEqual(status, KSKVSOpenSuccess);
+}
+
+/** Fill a store to its ceiling with distinct keys, so compaction has nothing
+ *  to reclaim. Returns the last key that fit.
+ */
+static NSString *fillToCeiling(KSKeyValueStore *store)
+{
+    NSString *value = [@"" stringByPaddingToLength:60000 withString:@"v" startingAtIndex:0];
+    NSString *lastKey = nil;
+    for (int i = 0; i < 1000; i++) {
+        NSString *key = [NSString stringWithFormat:@"key%04d", i];
+        if (!kskvs_setString(store, key.UTF8String, value.UTF8String)) {
+            break;
+        }
+        lastKey = key;
+    }
+    return lastKey;
+}
+
+- (void)test_fullStore_refusesTheWrite_andRemovalStillClearsTheKey
+{
+    KSKVSConfig config = { .initialCapacity = KSKVS_MAX_CAPACITY };
+    KSKeyValueStore *store = kskvs_create(self.path.UTF8String, KSKVSModeReadWriteCreate, &config, NULL);
+    XCTAssertTrue(store != NULL);
+
+    NSString *key = fillToCeiling(store);
+    XCTAssertNotNil(key, @"the store never filled");
+
+    // The value no longer fits, so the write is refused and the store keeps
+    // what it had: that is the setter's contract.
+    NSString *replacement = [@"" stringByPaddingToLength:60000 withString:@"w" startingAtIndex:0];
+    XCTAssertFalse(kskvs_setString(store, key.UTF8String, replacement.UTF8String));
+    XCTAssertEqual(stringHitsForKey(store, key.UTF8String), 1);
+
+    // Removal must not fail for want of room, or the key would go on serving
+    // the value the caller believes it replaced.
+    XCTAssertTrue(kskvs_removeValue(store, key.UTF8String));
+    XCTAssertEqual(stringHitsForKey(store, key.UTF8String), 0);
+
+    __block BOOL removed = NO;
+    void (^onRemoved)(BOOL) = ^(BOOL isRemoved) {
+        removed = isRemoved;
+    };
+    KSKVSCallbacks callbacks = { .onString = lookupTestOnString, .onRemoved = lookupTestOnRemoved };
+    kskvs_lookup(store, key.UTF8String, &callbacks, (__bridge void *)onRemoved);
+    XCTAssertTrue(removed);
+
+    kskvs_destroy(store);
+}
+
+- (void)test_fullStore_reclaimsTheBytesOfAnInPlaceRemoval
+{
+    // The stamped tombstone still spans the removed value's bytes; compaction
+    // is where they go back, so a full store is not full forever.
+    KSKVSConfig config = { .initialCapacity = KSKVS_MAX_CAPACITY };
+    KSKeyValueStore *store = kskvs_create(self.path.UTF8String, KSKVSModeReadWriteCreate, &config, NULL);
+    XCTAssertTrue(store != NULL);
+
+    NSString *key = fillToCeiling(store);
+    XCTAssertNotNil(key);
+
+    NSString *value = [@"" stringByPaddingToLength:60000 withString:@"x" startingAtIndex:0];
+    XCTAssertFalse(kskvs_setString(store, "fresh", value.UTF8String));
+
+    XCTAssertTrue(kskvs_removeValue(store, key.UTF8String));
+    XCTAssertTrue(kskvs_setString(store, "fresh", value.UTF8String),
+                  @"the reclaimed bytes should make room for one more record");
+    XCTAssertEqual(stringHitsForKey(store, "fresh"), 1);
+
+    kskvs_destroy(store);
+}
+
 @end
