@@ -65,6 +65,41 @@ final class SidecarMetadataMonitorPluginTests: XCTestCase {
         XCTAssertNil(store["bad"] as MetadataValue?)
     }
 
+    func test_nonFiniteDouble_isAbsence_andDoesNotPoisonTheRecord() throws {
+        // JSON carries no infinity or NaN: the C encoder writes `1e999` and
+        // `null` for them, which a strict reader rejects, so one accepted here
+        // would make every report and summary of the run undeliverable.
+        let path = directory.appendingPathComponent("NonFinite.ksscr").path
+        let store = try SidecarMetadata.creating(at: path, config: KSKVSConfig(initialCapacity: 512))
+        store["ratio"] = 1.5
+        store["ratio"] = Double.infinity
+        XCTAssertNil(store["ratio"] as Double?)
+
+        store["nan"] = Double.nan
+        XCTAssertNil(store["nan"] as Double?)
+        XCTAssertEqual(store.keys, [])
+
+        // The scalar and container paths agree; neither stores one.
+        store["nested"] = MetadataValue.object(["r": .double(.infinity)])
+        XCTAssertNil(store["nested"] as MetadataValue?)
+
+        let bytes = try Data(contentsOf: URL(fileURLWithPath: path))
+        XCTAssertFalse(String(decoding: bytes, as: UTF8.self).contains("1e999"))
+    }
+
+    func test_refusedWrite_removesTheKeyRatherThanKeepingTheOldValue() throws {
+        // A refusal is data-dependent, not programmer error. The app believes
+        // it replaced the value, so the old one must not go on being served.
+        let path = directory.appendingPathComponent("TooBig.ksscr").path
+        let store = try SidecarMetadata.creating(at: path, config: KSKVSConfig(initialCapacity: 512))
+        store["blob"] = "small"
+        XCTAssertEqual(store["blob"] as String?, "small")
+
+        store["blob"] = String(repeating: "x", count: 70000)
+        XCTAssertNil(store["blob"] as String?)
+        XCTAssertEqual(store.keys, [])
+    }
+
     func test_null_isAbsence() throws {
         // The same contract Metadata honors: .null removes the key, and null
         // members and elements resolve to absence on read. The write stores

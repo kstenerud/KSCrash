@@ -28,6 +28,7 @@ import Foundation
 import KSCrashRecordingCore
 import KSCrashReportModel
 import KSCrashSwiftCore
+import os
 
 /// A `MetadataStore` over one run sidecar file: every write is persisted
 /// immediately and survives a crash. Scalars persist natively; arrays and
@@ -71,64 +72,106 @@ public final class SidecarMetadata: MetadataStore, @unchecked Sendable {
             guard let stored = currentValue(forKey: key) else { return nil }
             return Value.decode(from: stored)
         }
-        set {
-            guard let newValue else {
-                checkAccepted(kskvs_removeValue(store, key), key: key)
+        set { apply(PreparedValue(newValue), forKey: key) }
+    }
+
+    /// A value converted and serialized, ready for the store.
+    ///
+    /// Building one touches nothing shared, so a caller that serializes access
+    /// to the store builds it *before* taking that lock: for a container the
+    /// work is a full tree walk plus a JSON encode, and holding a lock across
+    /// it would make every other thread's metadata write wait on this one.
+    package struct PreparedValue {
+        fileprivate enum Payload {
+            case remove
+            case string(String)
+            case integer(Int64)
+            case unsignedInteger(UInt64)
+            case double(Double)
+            case bool(Bool)
+            case date(Int64)
+            case json(Data)
+        }
+        fileprivate let payload: Payload
+
+        package init(_ value: (some MetadataValueConvertible)?) {
+            guard let value else {
+                payload = .remove
                 return
             }
-            // A date keeps its own slot so the report carries a date, not a number.
-            if let date = newValue as? Date {
-                // An unrepresentable date removes the key rather than storing a
-                // stand-in, so a read never reports an instant that was never set.
-                if let nanoseconds = date.nanosecondsSince1970 {
-                    checkAccepted(kskvs_setDate(store, key, nanoseconds), key: key)
-                } else {
-                    checkAccepted(kskvs_removeValue(store, key), key: key)
-                }
+            // A date keeps its own slot so the report carries a date, not a
+            // number. An unrepresentable one removes the key rather than
+            // storing a stand-in, so a read never reports an instant that was
+            // never set; every other unrepresentable value below does the same.
+            if let date = value as? Date {
+                payload = date.nanosecondsSince1970.map(Payload.date) ?? .remove
                 return
             }
             // Convert once: for containers metadataValue walks the whole tree.
-            let metadataValue = newValue.metadataValue
-            switch metadataValue {
-            case .string(let value): checkAccepted(kskvs_setString(store, key, value), key: key)
-            case .integer(let value): checkAccepted(kskvs_setInt64(store, key, value), key: key)
-            case .unsignedInteger(let value): checkAccepted(kskvs_setUInt64(store, key, value), key: key)
-            case .double(let value): checkAccepted(kskvs_setDouble(store, key, value), key: key)
-            case .bool(let value): checkAccepted(kskvs_setBool(store, key, value), key: key)
-            case .null: checkAccepted(kskvs_removeValue(store, key), key: key)
+            switch value.metadataValue {
+            case .string(let value): payload = .string(value)
+            case .integer(let value): payload = .integer(value)
+            case .unsignedInteger(let value): payload = .unsignedInteger(value)
+            case .bool(let value): payload = .bool(value)
+            case .null: payload = .remove
+            case .double(let value):
+                // JSON carries no non-finite number: the C encoder emits
+                // `1e999` for an infinity and `null` for a NaN, neither of
+                // which a strict reader accepts, so one would make every
+                // report and summary of the run undeliverable.
+                payload = value.isFinite ? .double(value) : .remove
             case .array, .object:
                 // Containers persist as one JSON value, exactly as given: the
                 // store records the bytes and every consumer parses them at
                 // read time, where nulls resolve to absence. Nothing walks or
                 // rewrites the value here; this path runs inside the host app.
-                // A shape JSON cannot carry (a non-finite number) is a refused
-                // write.
-                let encoded = try? JSONEncoder().encode(metadataValue)
-                guard let encoded else {
-                    checkAccepted(false, key: key)
-                    return
+                let encoded = try? JSONEncoder().encode(value.metadataValue)
+                payload = encoded.map(Payload.json) ?? .remove
+            }
+        }
+    }
+
+    /// Writes a prepared value under `key`.
+    package func apply(_ prepared: PreparedValue, forKey key: String) {
+        switch prepared.payload {
+        case .remove: remove(key)
+        case .string(let value): record(key) { kskvs_setString(store, key, value) }
+        case .integer(let value): record(key) { kskvs_setInt64(store, key, value) }
+        case .unsignedInteger(let value): record(key) { kskvs_setUInt64(store, key, value) }
+        case .double(let value): record(key) { kskvs_setDouble(store, key, value) }
+        case .bool(let value): record(key) { kskvs_setBool(store, key, value) }
+        case .date(let nanoseconds): record(key) { kskvs_setDate(store, key, nanoseconds) }
+        case .json(let encoded):
+            record(key) {
+                encoded.withUnsafeBytes { buffer in
+                    kskvs_setJSON(store, key, buffer.baseAddress?.assumingMemoryBound(to: CChar.self), buffer.count)
                 }
-                let accepted = encoded.withUnsafeBytes { buffer in
-                    kskvs_setJSON(
-                        store, key, buffer.baseAddress?.assumingMemoryBound(to: CChar.self), buffer.count)
-                }
-                checkAccepted(accepted, key: key)
             }
         }
     }
 
     public func removeValue(forKey key: String) {
-        checkAccepted(kskvs_removeValue(store, key), key: key)
+        remove(key)
     }
 
-    /// A refused write is loud in debug and silently dropped in release.
-    /// Usually a programmer error (a key or value past the record format's
-    /// 64KB bound, a non-finite number in a container); rarely the store
-    /// failing to grow.
-    private func checkAccepted(_ accepted: Bool, key: String) {
-        assert(
-            accepted,
-            "metadata write failed for key \"\(key)\": past the record format's bound, or the store could not grow")
+    /// Applies a write, removing the key when the store refuses it.
+    ///
+    /// Refusal is data-dependent, not programmer error: a key or value past
+    /// the record format's 64KB bound, or a store that cannot grow. The key
+    /// must not keep serving the value the app believes it replaced, so it
+    /// becomes absent, the same outcome as a value the model cannot represent.
+    private func record(_ key: String, _ write: () -> Bool) {
+        if write() {
+            return
+        }
+        os_log(.error, "Metadata write for key \"%{public}@\" refused; removing the key", key)
+        remove(key)
+    }
+
+    private func remove(_ key: String) {
+        if !kskvs_removeValue(store, key) {
+            os_log(.error, "Metadata removal for key \"%{public}@\" failed", key)
+        }
     }
 
     public var keys: [String] {
@@ -165,16 +208,10 @@ public final class SidecarMetadata: MetadataStore, @unchecked Sendable {
             Keys.from(context).names.insert(key)
         }
         callbacks.onJSON = { key, keyLength, json, jsonLength, context in
-            guard let key = kvString(key, keyLength), let json else { return }
-            // A record whose read is absence (undecodable bytes, or anything
-            // but a container) must not be listed either, so keys always
-            // agrees with the getter and the stitches.
-            let data = Data(bytes: json, count: Int(jsonLength))
-            guard let value = try? JSONDecoder().decode(MetadataValue.self, from: data) else { return }
-            switch value {
-            case .array, .object: Keys.from(context).names.insert(key)
-            default: break
-            }
+            // A record whose read is absence must not be listed either, so
+            // keys is judged by the same reader the getter uses.
+            guard let key = kvString(key, keyLength), kvContainer(json, jsonLength) != nil else { return }
+            Keys.from(context).names.insert(key)
         }
         callbacks.onRemoved = { key, keyLength, context in
             guard let key = kvString(key, keyLength) else { return }
@@ -215,16 +252,7 @@ public final class SidecarMetadata: MetadataStore, @unchecked Sendable {
             Lookup.from(context).value = .double(Double(nanoseconds) / Double(NSEC_PER_SEC))
         }
         callbacks.onJSON = { _, _, json, jsonLength, context in
-            guard let json else { return }
-            // The store does not validate JSON, so undecodable bytes (a torn
-            // or foreign record) are absence, never a trap; so is anything
-            // that decodes but is not a container, the only JSON values.
-            let data = Data(bytes: json, count: Int(jsonLength))
-            guard let value = try? JSONDecoder().decode(MetadataValue.self, from: data) else { return }
-            switch value {
-            case .array, .object: Lookup.from(context).value = value
-            default: break
-            }
+            Lookup.from(context).value = kvContainer(json, jsonLength)
         }
         kskvs_lookup(store, key, &callbacks, Unmanaged.passUnretained(lookup).toOpaque())
         return lookup.value
@@ -241,9 +269,33 @@ extension Date {
     }
 }
 
+/// The container a JSON record holds, or nil when the bytes are not one.
+///
+/// The single reader for JSON records: `keys`, the getter, and the
+/// run-summary stitch all judge a record here, so none of them can list,
+/// return, or deliver a record the others treat as absent. The store does not
+/// validate JSON, so undecodable bytes (a torn or foreign record) are absence,
+/// never a trap; so is anything that decodes but is not a container, the only
+/// JSON values. The bytes are read in place out of the store's mapping, which
+/// outlives the call.
+package func kvContainer(_ bytes: UnsafePointer<CChar>?, _ length: UInt16) -> MetadataValue? {
+    guard let bytes else {
+        return nil
+    }
+    let data = Data(
+        bytesNoCopy: UnsafeMutableRawPointer(mutating: bytes), count: Int(length), deallocator: .none)
+    guard let value = try? JSONDecoder().decode(MetadataValue.self, from: data) else {
+        return nil
+    }
+    switch value {
+    case .array, .object: return value
+    default: return nil
+    }
+}
+
 /// The buffer's bytes as a string; nil when not valid UTF-8. KV keys and
 /// values are length-delimited, not NUL-terminated.
-func kvString(_ bytes: UnsafePointer<CChar>?, _ length: UInt16) -> String? {
+package func kvString(_ bytes: UnsafePointer<CChar>?, _ length: UInt16) -> String? {
     guard let bytes else {
         return nil
     }
