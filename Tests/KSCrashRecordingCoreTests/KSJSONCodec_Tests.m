@@ -1189,36 +1189,78 @@ static NSString *toString(NSData *data)
 
 - (void)testDeserializeArrayInvalidUTF8String
 {
-    // stringWithCString: yields nil for these bytes; the decode must fail
-    // with an error, never insert nil into the container (which raises).
-    const char bytes[] = "[\"\xC3\x28\"]";
+    // stringWithCString: yields nil for these bytes. By default the element is
+    // dropped and the rest of the document survives; nil is never inserted
+    // into the container, which would raise.
+    const char bytes[] = "[\"\xC3\x28\",1]";
     NSData *data = [NSData dataWithBytes:bytes length:sizeof(bytes) - 1];
     NSError *error = nil;
     id result = [KSJSONCodec decode:data options:0 error:&error];
+    XCTAssertEqualObjects(result, (@[ @1 ]), @"");
+    XCTAssertNil(error, @"");
+}
+
+- (void)testDeserializeArrayInvalidUTF8StringFailing
+{
+    const char bytes[] = "[\"\xC3\x28\",1]";
+    NSData *data = [NSData dataWithBytes:bytes length:sizeof(bytes) - 1];
+    NSError *error = nil;
+    id result = [KSJSONCodec decode:data options:KSJSONDecodeOptionFailOnUnrepresentableString error:&error];
     XCTAssertNil(result, @"");
     XCTAssertNotNil(error, @"");
 }
 
 - (void)testDeserializeDictionaryInvalidUTF8Key
 {
-    const char bytes[] = "{\"\xC3\x28\":1}";
+    const char bytes[] = "{\"\xC3\x28\":1,\"k\":2}";
     NSData *data = [NSData dataWithBytes:bytes length:sizeof(bytes) - 1];
     NSError *error = nil;
     id result = [KSJSONCodec decode:data options:0 error:&error];
+    XCTAssertEqualObjects(result, (@{ @"k" : @2 }), @"");
+    XCTAssertNil(error, @"");
+}
+
+- (void)testDeserializeDictionaryInvalidUTF8KeyFailing
+{
+    const char bytes[] = "{\"\xC3\x28\":1,\"k\":2}";
+    NSData *data = [NSData dataWithBytes:bytes length:sizeof(bytes) - 1];
+    NSError *error = nil;
+    id result = [KSJSONCodec decode:data options:KSJSONDecodeOptionFailOnUnrepresentableString error:&error];
     XCTAssertNil(result, @"");
     XCTAssertNotNil(error, @"");
 }
 
 - (void)testDeserializeDictionaryInvalidUTF8Element
 {
-    // In a dictionary a nil element used to be silently dropped by
-    // setValue:forKey:; it must fail the decode like the array case.
-    const char bytes[] = "{\"k\":\"\xC3\x28\"}";
+    const char bytes[] = "{\"k\":\"\xC3\x28\",\"j\":2}";
     NSData *data = [NSData dataWithBytes:bytes length:sizeof(bytes) - 1];
     NSError *error = nil;
     id result = [KSJSONCodec decode:data options:0 error:&error];
+    XCTAssertEqualObjects(result, (@{ @"j" : @2 }), @"");
+    XCTAssertNil(error, @"");
+}
+
+- (void)testDeserializeDictionaryInvalidUTF8ElementFailing
+{
+    const char bytes[] = "{\"k\":\"\xC3\x28\",\"j\":2}";
+    NSData *data = [NSData dataWithBytes:bytes length:sizeof(bytes) - 1];
+    NSError *error = nil;
+    id result = [KSJSONCodec decode:data options:KSJSONDecodeOptionFailOnUnrepresentableString error:&error];
     XCTAssertNil(result, @"");
     XCTAssertNotNil(error, @"");
+}
+
+- (void)testDeserializeKeepsLaterMembersAfterAnUnrepresentableOne
+{
+    // The report read path passes KeepPartialObject, so a decode error would
+    // hand back everything up to the bad byte and finalization would write
+    // that truncation over the report. Dropping the member keeps the rest.
+    const char bytes[] = "{\"a\":1,\"bad\":\"\xC3\x28\",\"b\":{\"c\":3}}";
+    NSData *data = [NSData dataWithBytes:bytes length:sizeof(bytes) - 1];
+    NSError *error = nil;
+    id result = [KSJSONCodec decode:data options:KSJSONDecodeOptionKeepPartialObject error:&error];
+    XCTAssertEqualObjects(result, (@{ @"a" : @1, @"b" : @ { @"c" : @3 } }), @"");
+    XCTAssertNil(error, @"");
 }
 
 - (void)testDeserializeArrayWithNull
