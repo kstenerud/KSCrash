@@ -83,9 +83,19 @@ static void onDouble(const char *key, uint16_t keyLen, double value, void *ctx)
 {
     NSMutableDictionary *dict = (__bridge NSMutableDictionary *)ctx;
     NSString *nsKey = [[NSString alloc] initWithBytes:key length:keyLen encoding:NSUTF8StringEncoding];
-    if (nsKey) {
-        dict[nsKey] = @(value);
+    if (nsKey == nil) {
+        return;
     }
+    // JSON carries no non-finite number: the encoder writes `1e999` for an
+    // infinity and `null` for a NaN, and the strict reader on the other side
+    // rejects the whole report over it. A record holding one (a foreign
+    // writer, or a build that predates the write-side guard) is absence, the
+    // same verdict the run summary reaches.
+    if (!isfinite(value)) {
+        resolveToAbsence(dict, nsKey);
+        return;
+    }
+    dict[nsKey] = @(value);
 }
 
 static void onBool(const char *key, uint16_t keyLen, bool value, void *ctx)
