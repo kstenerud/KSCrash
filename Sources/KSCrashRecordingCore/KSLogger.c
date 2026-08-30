@@ -325,13 +325,27 @@ bool kslog_setLogFilename(const char *filename, bool overwrite)
         if (filename != g_logFilename) {
             strlcpy(g_logFilename, filename, sizeof(g_logFilename));
         }
+    } else {
+        // The name goes with the descriptor. kslog_clearLogFile reads it back
+        // in, so a name left behind here would let a later call reopen with
+        // O_TRUNC, and truncate, a file the host told this logger to stop
+        // writing.
+        g_logFilename[0] = '\0';
     }
 
     setLogFD(fd);
     return true;
 }
 
-bool kslog_clearLogFile(void) { return kslog_setLogFilename(g_logFilename, true); }
+bool kslog_clearLogFile(void)
+{
+    // Nothing to clear while file logging is off, and reopening by name is
+    // exactly how it would come back on.
+    if (g_logFilename[0] == '\0') {
+        return true;
+    }
+    return kslog_setLogFilename(g_logFilename, true);
+}
 
 // ===========================================================================
 #pragma mark - C -
