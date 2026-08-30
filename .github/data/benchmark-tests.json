@@ -27,6 +27,16 @@
       "thresholds": { "excellent": 0.0005, "good": 0.002, "ok": 0.010 }
     },
     {
+      "id": "json_decode",
+      "name": "JSON Decoding (KSJSONCodec)",
+      "thresholds": { "excellent": 0.001, "good": 0.005, "ok": 0.020 }
+    },
+    {
+      "id": "metadata",
+      "name": "Metadata (Swift layer)",
+      "thresholds": { "excellent": 0.001, "good": 0.010, "ok": 0.100 }
+    },
+    {
       "id": "thread",
       "name": "Thread Operations (KSThread)",
       "thresholds": { "excellent": 0.0000005, "good": 0.000005, "ok": 0.00001 },
@@ -150,6 +160,16 @@
     { "name": "SampleCaptureDeepStack", "category": "profiler", "description": "Deep stack (128 frames)", "notes": "100 capture cycles, 128-frame stack" },
     { "name": "SampleCaptureVeryDeepStack", "category": "profiler", "description": "Very deep stack (256 frames)", "notes": "100 capture cycles, 256-frame stack" },
     { "name": "PerSampleCaptureLatency", "category": "profiler", "description": "Per-sample latency (64 frames)", "notes": "Per-sample avg latency, ~1000 samples / 1s @ 1ms", "thresholds": { "excellent": 0.002, "good": 0.008, "ok": 0.015 } },
-    { "name": "PerSampleCaptureLatencyDeepStack", "category": "profiler", "description": "Per-sample latency (256 frames)", "notes": "Per-sample avg latency, deep stack (slower unwind)", "thresholds": { "excellent": 0.003, "good": 0.010, "ok": 0.020 } }
+    { "name": "PerSampleCaptureLatencyDeepStack", "category": "profiler", "description": "Per-sample latency (256 frames)", "notes": "Per-sample avg latency, deep stack (slower unwind)", "thresholds": { "excellent": 0.003, "good": 0.010, "ok": 0.020 } },
+    { "name": "DecodeSmallContainer", "category": "json_decode", "description": "Decode small container", "notes": "500 decodes, metadata-stitch-sized payload" },
+    { "name": "DecodeReportShapedPayload", "category": "json_decode", "description": "Decode report-shaped payload", "notes": "10 decodes, 8 threads x 64 frames" },
+    { "name": "DecodeIgnoringNulls", "category": "json_decode", "description": "Decode dropping nulls", "notes": "500 decodes with the delivery-read null options" },
+    { "name": "WriteScalars", "category": "metadata", "description": "Write scalars", "notes": "100 scalar sets into a bag" },
+    { "name": "WriteContainers", "category": "metadata", "description": "Write containers", "notes": "20 sets of a native 100-leaf container" },
+    { "name": "EncodeContainerBytes", "category": "metadata", "description": "Encode container to JSON", "notes": "100 encodes, the sidecar write's heavy step" },
+    { "name": "ReadContainers", "category": "metadata", "description": "Read containers", "notes": "100 subscript reads of a 100-leaf container" },
+    { "name": "ReadContainersWithNulls", "category": "metadata", "description": "Read containers with nulls", "notes": "Same read, quarter of the leaves null (strip cost)" },
+    { "name": "DecodeContainerBytes", "category": "metadata", "description": "Decode container bytes", "notes": "100 JSONDecoder decodes, the sidecar read boundary" },
+    { "name": "DecodeContainerBytesWithNulls", "category": "metadata", "description": "Decode container bytes with nulls", "notes": "Same decode, quarter of the leaves null" }
   ]
 }
