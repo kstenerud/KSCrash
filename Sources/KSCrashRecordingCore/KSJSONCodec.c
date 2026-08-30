@@ -363,6 +363,16 @@ int ksjson_addFloatingPointElement(KSJSONEncodeContext *const context, const cha
     return addFormattedNumber(context, name, buff, bytesWritten);
 }
 
+int ksjson_addFloatElement(KSJSONEncodeContext *const context, const char *const name, float value)
+{
+    char buff[64];
+    int written = (int)ksstring_floatToString(value, buff, sizeof(buff));
+    int bytesWritten = 0;
+    int result = checkWriteResult(written, sizeof(buff), &bytesWritten);
+    unlikely_if(result != KSJSON_OK) { return result; }
+    return addFormattedNumber(context, name, buff, bytesWritten);
+}
+
 int ksjson_addIntegerElement(KSJSONEncodeContext *const context, const char *const name, int64_t value)
 {
     char buff[21];
