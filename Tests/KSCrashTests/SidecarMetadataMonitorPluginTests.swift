@@ -27,10 +27,14 @@
 import Foundation
 import KSCrashBootMonitor
 import KSCrashDiskMonitor
-import KSCrashMonitorPlugins
 import KSCrashRecording
 import KSCrashRecordingCore
+import KSCrashReportModel
 import XCTest
+
+// Testable for `SidecarMetadata.reading`, the only way to open an existing
+// file without truncating it.
+@testable import KSCrashMonitorPlugins
 
 /// The provider handed to the plugins under test; file-scope so the C
 /// callback below can stay non-capturing.
@@ -45,6 +49,22 @@ private let testProvider: KSCrashSidecarRunPathProviderFunc = { monitorID, buffe
 nonisolated(unsafe) private var testCallbacks = KSCrash_ExceptionHandlerCallbacks()
 
 final class SidecarMetadataMonitorPluginTests: XCTestCase {
+    func test_keys_omitAJSONRecordWhoseReadIsAbsence() throws {
+        // The writer checks only the opening byte, so bytes that open a
+        // container but do not decode can reach a file (a torn or foreign
+        // record); keys must not list what the getter reads as absence.
+        let path = directory.appendingPathComponent("Broken.ksscr").path
+        var config = KSKVSConfig(initialCapacity: 512)
+        let raw = try XCTUnwrap(kskvs_create(path, KSKVSModeReadWriteCreate, &config, nil))
+        XCTAssertTrue(kskvs_setString(raw, "good", "v"))
+        XCTAssertTrue("{broken".withCString { kskvs_setJSON(raw, "bad", $0, strlen($0)) })
+        kskvs_destroy(raw)
+
+        let store = try XCTUnwrap(SidecarMetadata.reading(at: path))
+        XCTAssertEqual(store.keys, ["good"])
+        XCTAssertNil(store["bad"] as MetadataValue?)
+    }
+
     private var directory: URL!
 
     override func setUpWithError() throws {
