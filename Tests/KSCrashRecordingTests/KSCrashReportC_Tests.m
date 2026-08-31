@@ -49,6 +49,8 @@ static void writeFloatMonitorSection(__unused const KSCrash_MonitorContext *even
 {
     writer->addFloatElement(writer, "ratio", 0.2f);
     writer->addFloatingPointElement(writer, "precise", 0.1);
+    writer->addFloatingPointElement(writer, "infinite", (double)INFINITY);
+    writer->addFloatElement(writer, "notANumber", NAN);
 }
 static void writeTestMonitorSection(__unused const KSCrash_MonitorContext *eventContext,
                                     const KSCrashReportWriter *writer, __unused void *context)
@@ -194,6 +196,12 @@ static void writeTestMonitorSection(__unused const KSCrash_MonitorContext *event
 
     XCTAssertEqualObjects([section[@"ratio"] stringValue], @"0.2");
     XCTAssertEqualObjects([section[@"precise"] stringValue], @"0.1");
+
+    // JSON carries no infinity: the encoder writes `1e999`, and one of those
+    // anywhere in a report makes the whole thing undeliverable, so the element
+    // is left out rather than written. The keys that can be written still are.
+    XCTAssertNil(section[@"infinite"]);
+    XCTAssertNil(section[@"notANumber"]);
 }
 
 - (NSString *)temporaryReportPath

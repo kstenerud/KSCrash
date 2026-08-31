@@ -122,37 +122,44 @@ static KSCrash_ResourceData makeValidResourceData(void)
 
 #pragma mark - Invalid Sidecar
 
-- (void)testBadMagicReturnsNull
+// A sidecar no later read could make sense of is a verdict, not a hiccup:
+// returning the stitch's retry signal for one stops the report being finalized
+// for good. These deliver the report without this monitor's section instead.
+
+- (void)testBadMagicDeliversTheReportUnchanged
 {
     KSCrash_ResourceData data = makeValidResourceData();
     data.magic = 0x12345678;
     NSString *path = writeResourceSidecar(self.tempDir, data);
     NSDictionary *report = @{ @"report" : @ {} };
-    XCTAssertTrue(kscm_resource_createStitchedReport((__bridge CFDictionaryRef)report, path.UTF8String,
-                                                     KSCrashSidecarScopeRun, NULL) == NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_resource_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertEqualObjects(result, report);
 }
 
-- (void)testVersionZeroReturnsNull
+- (void)testVersionZeroDeliversTheReportUnchanged
 {
     KSCrash_ResourceData data = makeValidResourceData();
     data.version = 0;
     NSString *path = writeResourceSidecar(self.tempDir, data);
     NSDictionary *report = @{ @"report" : @ {} };
-    XCTAssertTrue(kscm_resource_createStitchedReport((__bridge CFDictionaryRef)report, path.UTF8String,
-                                                     KSCrashSidecarScopeRun, NULL) == NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_resource_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertEqualObjects(result, report);
 }
 
-- (void)testFutureVersionReturnsNull
+- (void)testFutureVersionDeliversTheReportUnchanged
 {
     KSCrash_ResourceData data = makeValidResourceData();
     data.version = KSCrash_Resource_CurrentVersion + 1;
     NSString *path = writeResourceSidecar(self.tempDir, data);
     NSDictionary *report = @{ @"report" : @ {} };
-    XCTAssertTrue(kscm_resource_createStitchedReport((__bridge CFDictionaryRef)report, path.UTF8String,
-                                                     KSCrashSidecarScopeRun, NULL) == NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_resource_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertEqualObjects(result, report);
 }
 
-- (void)testTruncatedSidecarReturnsNull
+- (void)testTruncatedSidecarDeliversTheReportUnchanged
 {
     // Write fewer bytes than sizeof(KSCrash_ResourceData)
     NSString *path = [self.tempDir stringByAppendingPathComponent:@"Resource.ksscr"];
@@ -163,15 +170,17 @@ static KSCrash_ResourceData makeValidResourceData(void)
     close(fd);
 
     NSDictionary *report = @{ @"report" : @ {} };
-    XCTAssertTrue(kscm_resource_createStitchedReport((__bridge CFDictionaryRef)report, path.UTF8String,
-                                                     KSCrashSidecarScopeRun, NULL) == NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_resource_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertEqualObjects(result, report);
 }
 
-- (void)testMissingSidecarFileReturnsNull
+- (void)testMissingSidecarFileDeliversTheReportUnchanged
 {
     NSDictionary *report = @{ @"report" : @ {} };
-    XCTAssertTrue(kscm_resource_createStitchedReport((__bridge CFDictionaryRef)report, "/tmp/nonexistent.ksscr",
-                                                     KSCrashSidecarScopeRun, NULL) == NULL);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_resource_createStitchedReport(
+        (__bridge CFDictionaryRef)report, "/tmp/nonexistent.ksscr", KSCrashSidecarScopeRun, NULL);
+    XCTAssertEqualObjects(result, report);
 }
 
 #pragma mark - Valid Stitch

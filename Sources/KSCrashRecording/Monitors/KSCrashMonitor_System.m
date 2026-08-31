@@ -619,10 +619,15 @@ bool kscm_system_getSystemData(KSCrash_SystemData *dst)
 
 bool kscm_system_getSystemDataForPath(const char *path, KSCrash_SystemData *outData)
 {
-    if (!path || !outData) return false;
+    return kscm_system_readSystemData(path, outData) == KSCrashSidecarReadOK;
+}
+
+KSCrashSidecarReadResult kscm_system_readSystemData(const char *path, KSCrash_SystemData *outData)
+{
+    if (!path || !outData) return KSCrashSidecarReadFailure;
 
     int fd = open(path, O_RDONLY);
-    if (fd == -1) return false;
+    if (fd == -1) return errno == ENOENT ? KSCrashSidecarReadUnrecoverable : KSCrashSidecarReadFailure;
 
     KSCrash_SystemData data = { 0 };
     // Tolerate short reads: a sidecar written by an older (version < current)
@@ -634,18 +639,20 @@ bool kscm_system_getSystemDataForPath(const char *path, KSCrash_SystemData *outD
     struct stat st;
     if (fstat(fd, &st) != 0) {
         close(fd);
-        return false;
+        return KSCrashSidecarReadFailure;
     }
     size_t bytesToRead = (size_t)st.st_size < sizeof(data) ? (size_t)st.st_size : sizeof(data);
     bool readOK = (bytesToRead > 0) && ksfu_readBytesFromFD(fd, (char *)&data, (int)bytesToRead);
     close(fd);
 
+    // An empty or short file is a write that never finished, and a wrong magic
+    // or version is a verdict about the bytes: no later read gets further.
     if (!readOK || data.magic != KSSYS_MAGIC || data.version == 0 || data.version > KSCrash_System_CurrentVersion) {
-        return false;
+        return KSCrashSidecarReadUnrecoverable;
     }
 
     *outData = data;
-    return true;
+    return KSCrashSidecarReadOK;
 }
 
 bool kscm_system_getSystemDataForRunID(const char *runID, KSCrash_SystemData *outData)

@@ -93,33 +93,7 @@ final class SidecarMetadataMonitorPluginTests: XCTestCase {
         // name it.
         let store = try SidecarMetadata.creating(at: path, config: KSKVSConfig(initialCapacity: 4096))
 
-        let value = String(repeating: "v", count: 60000)
-        var lastKey: String?
-        var index = 0
-        while index < 1000 {
-            let key = "key\(index)"
-            store[key] = value
-            guard store[key] as String? != nil else { break }
-            lastKey = key
-            index += 1
-        }
-        let key = try XCTUnwrap(lastKey, "the store never filled")
-
-        // Records this big leave slack enough for a removal record, which is
-        // not the full store this is about: spend it down below one empty
-        // record, so the removal has to be stamped over the value in place.
-        var padSize = 32768
-        while true {
-            let pad = String(repeating: "p", count: padSize)
-            while index < 100_000 {
-                let padKey = "pad\(index)"
-                store[padKey] = pad
-                guard store[padKey] as String? != nil else { break }
-                index += 1
-            }
-            if padSize == 0 { break }
-            padSize /= 2
-        }
+        let key = try XCTUnwrap(fillToCeiling(store), "the store never filled")
 
         store[key] = String(repeating: "w", count: 60000)
         XCTAssertNil(store[key] as String?)
@@ -151,6 +125,27 @@ final class SidecarMetadataMonitorPluginTests: XCTestCase {
         XCTAssertNil(store["deep"] as MetadataValue?)
         XCTAssertNotNil(store["fits"] as MetadataValue?)
         XCTAssertEqual(store.keys, ["fits", "good"])
+    }
+
+    func test_containerCarryingAnEmbeddedNUL_readsAsAbsence() throws {
+        // This reader keeps the whole string; the report's C codec builds
+        // NUL-terminated ones, so it would keep a prefix and collapse two
+        // member names differing only past the NUL. Neither can be talked out
+        // of its string handling, so the record is absence to both rather than
+        // a value they read differently.
+        let path = directory.appendingPathComponent("NUL.ksscr").path
+        let store = try SidecarMetadata.creating(at: path, config: KSKVSConfig(initialCapacity: 512))
+
+        store["nul"] = MetadataValue.object(["a\0b": .integer(1), "a\0c": .integer(2)])
+        store["value"] = MetadataValue.array([.string("plain\0text")])
+        // A literal backslash before u0000 escapes nothing, so this is a value.
+        store["literal"] = MetadataValue.object([#"a\u0000b"#: .integer(1)])
+        store["good"] = "v"
+
+        XCTAssertNil(store["nul"] as MetadataValue?)
+        XCTAssertNil(store["value"] as MetadataValue?)
+        XCTAssertNotNil(store["literal"] as MetadataValue?)
+        XCTAssertEqual(store.keys, ["good", "literal"])
     }
 
     func test_keys_omitAJSONRecordWhoseReadIsAbsence() throws {
@@ -226,6 +221,42 @@ final class SidecarMetadataMonitorPluginTests: XCTestCase {
         let read = try XCTUnwrap(SidecarMetadata.reading(at: path))
         XCTAssertEqual(read["mixed"] as MetadataValue?, .object(["kept": .integer(1)]))
         XCTAssertEqual(read.keys, ["list", "mixed"])
+    }
+
+    /// Fill `store` to its ceiling with distinct keys, so compaction has
+    /// nothing to reclaim. Returns the last key that fit.
+    ///
+    /// The tail matters: big records alone leave tens of kilobytes of slack,
+    /// room enough for a removal record, so the in-place removal the ceiling
+    /// exists to exercise never runs. The ladder spends that slack down below
+    /// one empty record. The same shape as `fillToCeiling` in
+    /// KSKeyValueStore_Tests.m, which exercises the engine directly; the two
+    /// test targets share no code.
+    private func fillToCeiling(_ store: SidecarMetadata) -> String? {
+        let value = String(repeating: "v", count: 60000)
+        var lastKey: String?
+        var index = 0
+        while index < 1000 {
+            let key = "key\(index)"
+            store[key] = value
+            guard store[key] as String? != nil else { break }
+            lastKey = key
+            index += 1
+        }
+
+        var padSize = 32768
+        while true {
+            let pad = String(repeating: "p", count: padSize)
+            while index < 100_000 {
+                let padKey = "pad\(index)"
+                store[padKey] = pad
+                guard store[padKey] as String? != nil else { break }
+                index += 1
+            }
+            if padSize == 0 { break }
+            padSize /= 2
+        }
+        return lastKey
     }
 
     private var directory: URL!

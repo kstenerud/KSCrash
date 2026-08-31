@@ -26,6 +26,7 @@
 
 #import <XCTest/XCTest.h>
 
+#import "KSKVSRawImage.h"
 #import "KSKeyValueStore.h"
 
 static void collectString(const char *key, uint16_t keyLen, const char *value, uint16_t valueLen, void *ctx)
@@ -286,34 +287,11 @@ static void collectJSON(const char *key, uint16_t keyLen, const char *json, uint
     // A future writer may add record types; an older reader must skip them
     // by length and keep reading. Hand-build: header + one type-99 record +
     // one string record.
-    struct __attribute__((packed)) {
-        uint32_t magic;
-        uint32_t version;
-        uint32_t offset;
-        // record 1: unknown type
-        uint16_t keyLen1;
-        uint8_t type1;
-        uint16_t valueLen1;
-        char body1[4];  // "zz" + "xy"
-        // record 2: string
-        uint16_t keyLen2;
-        uint8_t type2;
-        uint16_t valueLen2;
-        char body2[2];  // "k" + "v"
-    } image = {
-        .magic = 0x6B736B76u,
-        .version = 1,
-        .offset = sizeof(image),
-        .keyLen1 = 2,
-        .type1 = 99,
-        .valueLen1 = 2,
-        .body1 = { 'z', 'z', 'x', 'y' },
-        .keyLen2 = 1,
-        .type2 = 1,  // string
-        .valueLen2 = 1,
-        .body2 = { 'k', 'v' },
-    };
-    XCTAssertTrue([[NSData dataWithBytes:&image length:sizeof(image)] writeToFile:self.path atomically:YES]);
+    NSData *image = kskvstest_storeImage(^(NSMutableData *records) {
+        kskvstest_appendRecord(records, @"zz", 99, [@"xy" dataUsingEncoding:NSUTF8StringEncoding]);
+        kskvstest_appendRecord(records, @"k", 1 /* string */, [@"v" dataUsingEncoding:NSUTF8StringEncoding]);
+    });
+    XCTAssertTrue([image writeToFile:self.path atomically:YES]);
 
     KSKeyValueStore *reader = kskvs_create(self.path.UTF8String, KSKVSModeRead, NULL, NULL);
     XCTAssertTrue(reader != NULL);
@@ -529,32 +507,11 @@ static void collectJSON(const char *key, uint16_t keyLen, const char *json, uint
     // A JSON record needs bytes to be a value. Staying silent about one that
     // has none would leave the key showing whatever the crash-time writer put
     // there, while every other reader of this store calls it absent.
-    struct __attribute__((packed)) {
-        uint32_t magic;
-        uint32_t version;
-        uint32_t offset;
-        uint16_t keyLen1;
-        uint8_t type1;
-        uint16_t valueLen1;
-        char body1[4];  // "cart", no value
-        uint16_t keyLen2;
-        uint8_t type2;
-        uint16_t valueLen2;
-        char body2[2];  // "k" + "v"
-    } image = {
-        .magic = 0x6B736B76u,
-        .version = 1,
-        .offset = sizeof(image),
-        .keyLen1 = 4,
-        .type1 = 7,  // JSON
-        .valueLen1 = 0,
-        .body1 = { 'c', 'a', 'r', 't' },
-        .keyLen2 = 1,
-        .type2 = 1,  // string
-        .valueLen2 = 1,
-        .body2 = { 'k', 'v' },
-    };
-    XCTAssertTrue([[NSData dataWithBytes:&image length:sizeof(image)] writeToFile:self.path atomically:YES]);
+    NSData *image = kskvstest_storeImage(^(NSMutableData *records) {
+        kskvstest_appendRecord(records, @"cart", 7 /* JSON */, [NSData data]);
+        kskvstest_appendRecord(records, @"k", 1 /* string */, [@"v" dataUsingEncoding:NSUTF8StringEncoding]);
+    });
+    XCTAssertTrue([image writeToFile:self.path atomically:YES]);
 
     KSKeyValueStore *reader = kskvs_create(self.path.UTF8String, KSKVSModeRead, NULL, NULL);
     XCTAssertTrue(reader != NULL);
@@ -574,24 +531,12 @@ static void collectJSON(const char *key, uint16_t keyLen, const char *json, uint
 - (void)test_scalarRecordWithTheWrongValueLength_readsAsRemoved
 {
     // Same rule for a scalar whose payload is not its type's size.
-    struct __attribute__((packed)) {
-        uint32_t magic;
-        uint32_t version;
-        uint32_t offset;
-        uint16_t keyLen1;
-        uint8_t type1;
-        uint16_t valueLen1;
-        char body1[6];  // "count" + one stray byte
-    } image = {
-        .magic = 0x6B736B76u,
-        .version = 1,
-        .offset = sizeof(image),
-        .keyLen1 = 5,
-        .type1 = 2,  // int64
-        .valueLen1 = 1,
-        .body1 = { 'c', 'o', 'u', 'n', 't', 0x7 },
-    };
-    XCTAssertTrue([[NSData dataWithBytes:&image length:sizeof(image)] writeToFile:self.path atomically:YES]);
+    uint8_t strayByte = 0x7;
+    NSData *image = kskvstest_storeImage(^(NSMutableData *records) {
+        // One byte where an int64 needs eight.
+        kskvstest_appendRecord(records, @"count", 2 /* int64 */, [NSData dataWithBytes:&strayByte length:1]);
+    });
+    XCTAssertTrue([image writeToFile:self.path atomically:YES]);
 
     KSKeyValueStore *reader = kskvs_create(self.path.UTF8String, KSKVSModeRead, NULL, NULL);
     XCTAssertTrue(reader != NULL);

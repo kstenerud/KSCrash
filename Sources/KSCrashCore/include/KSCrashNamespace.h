@@ -146,6 +146,7 @@
 #define kscm_system_getSystemData KSCRASH_NS(kscm_system_getSystemData)
 #define kscm_system_getSystemDataForPath KSCRASH_NS(kscm_system_getSystemDataForPath)
 #define kscm_system_getSystemDataForRunID KSCRASH_NS(kscm_system_getSystemDataForRunID)
+#define kscm_system_readSystemData KSCRASH_NS(kscm_system_readSystemData)
 #define kscm_system_refreshFreeStorageAtEvent KSCRASH_NS(kscm_system_refreshFreeStorageAtEvent)
 #define kscm_system_setBootTime KSCRASH_NS(kscm_system_setBootTime)
 #define kscm_system_setDiscSpace KSCRASH_NS(kscm_system_setDiscSpace)

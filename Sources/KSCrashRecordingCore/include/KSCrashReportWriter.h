@@ -70,6 +70,9 @@ typedef struct KSCrashReportWriter {
 
     /** Add a floating point element to the report.
      *
+     * A value JSON cannot carry (an infinity or a NaN) writes nothing, so the
+     * element is absent rather than a number no reader of the report accepts.
+     *
      * @param writer This writer.
      *
      * @param name The name to give this element.
@@ -79,6 +82,8 @@ typedef struct KSCrashReportWriter {
     void (*addFloatingPointElement)(const struct KSCrashReportWriter *writer, const char *name, double value);
 
     /** Add a single-precision floating point element to the report.
+     *
+     * A value JSON cannot carry writes nothing, as above.
      *
      * @param writer This writer.
      *

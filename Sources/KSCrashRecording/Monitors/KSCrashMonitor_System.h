@@ -125,6 +125,12 @@ bool kscm_system_getSystemData(KSCrash_SystemData *dst);
  */
 bool kscm_system_getSystemDataForPath(const char *path, KSCrash_SystemData *outData);
 
+/** The same read, saying whether reading again could go better: a caller that
+ *  has to choose between delivering without this data and asking to be
+ *  retried needs to tell those apart.
+ */
+KSCrashSidecarReadResult kscm_system_readSystemData(const char *path, KSCrash_SystemData *outData);
+
 /** Reads a system snapshot from a specific run's sidecar file.
  *  Use with kscrash_getRunID() for current run or kscrash_getLastRunID() for previous.
  *  Returns false if the run ID has no valid sidecar or data fails validation.

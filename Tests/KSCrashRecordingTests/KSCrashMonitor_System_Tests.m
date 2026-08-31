@@ -349,7 +349,7 @@ static struct KSCrashMonitorSavedState *g_savedMonitorState;
     XCTAssertNotNil(reportInfo[KSCrashField_ProcessName], @"processName should be stitched into report info");
 }
 
-- (void)testStitchRejectsInvalidMagic
+- (void)testStitchDeliversTheReportUnchangedForInvalidMagic
 {
     KSCrashMonitorAPI *api = kscm_system_getAPI();
 
@@ -365,7 +365,10 @@ static struct KSCrashMonitorSavedState *g_savedMonitorState;
 
     NSDictionary *result = (__bridge_transfer NSDictionary *)api->createStitchedReport(
         (__bridge CFDictionaryRef)minimalReport, sidecarFile.fileSystemRepresentation, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result == nil, @"createStitchedReport should return NULL for invalid magic");
+    // NULL is the retry signal, and no later read makes sense of these bytes:
+    // returning it would stop the report being finalized for good. It
+    // delivers without the system section instead.
+    XCTAssertEqualObjects(result, minimalReport);
 }
 
 - (void)testGetSystemDataForPath_v1Sidecar_toleratesShortReadAndZeroFills
