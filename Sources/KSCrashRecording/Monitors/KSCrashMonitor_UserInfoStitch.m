@@ -121,37 +121,90 @@ static void onDate(const char *key, uint16_t keyLen, int64_t nanosecondsSince197
     }
 }
 
-/** Whether any number in the decoded tree has no JSON form.
+/** Whether the bytes carry an escaped NUL.
  *
- *  The C decoder turns an out-of-range token such as `1e999` into an
- *  infinity, and re-encoding that writes `1e999` straight back into the
- *  report, which the strict reader on the other side then rejects whole.
- *  Foundation refuses the same bytes outright, so every other reader of the
- *  record already calls it absence. The top-level double record is guarded in
- *  onDouble; this is the same value nested inside a container.
+ *  JSON can only express a NUL as a `\\u0000` escape, and the C codec this
+ *  stitch runs on builds NUL-terminated C strings, so a string carrying one
+ *  keeps only its prefix here, and two member names differing only past a NUL
+ *  collapse into one. Foundation, which the live getter and the run summary
+ *  read with, keeps the whole thing. Neither reader can be talked out of its
+ *  own string handling, so the record is absence to both rather than a value
+ *  they read differently.
  */
-static bool containsNonFiniteNumber(id value)
+static bool containsEscapedNUL(const char *json, uint16_t length)
 {
-    if ([value isKindOfClass:[NSNumber class]]) {
-        return CFNumberIsFloatType((__bridge CFNumberRef)value) && !isfinite([value doubleValue]);
-    }
-    if ([value isKindOfClass:[NSArray class]]) {
-        for (id element in value) {
-            if (containsNonFiniteNumber(element)) {
-                return true;
-            }
+    for (uint16_t i = 0; i < length; i++) {
+        if (json[i] != '\\') {
+            continue;
         }
-        return false;
-    }
-    if ([value isKindOfClass:[NSDictionary class]]) {
-        for (id member in [(NSDictionary *)value objectEnumerator]) {
-            if (containsNonFiniteNumber(member)) {
-                return true;
-            }
+        uint16_t run = 0;
+        while ((uint32_t)i + run < length && json[i + run] == '\\') {
+            run++;
         }
-        return false;
+        // An even run is that many literal backslashes and escapes nothing; an
+        // odd one ends in an escape, so the `u0000` after it is a real NUL.
+        if ((run & 1) && (uint32_t)i + run + 5 <= length && json[i + run] == 'u' &&
+            strncmp(json + i + run + 1, "0000", 4) == 0) {
+            return true;
+        }
+        i = (uint16_t)(i + run - 1);
     }
     return false;
+}
+
+/** The value as the report should carry it, or nil when the whole record has
+ *  to read as absence.
+ *
+ *  Nulls are dropped here rather than by the decoder's ignore-null options,
+ *  which drop a member before its name is recorded: a duplicate name whose
+ *  first occurrence was null then escaped the first-wins rule, and the report
+ *  kept a member the run summary dropped. Foundation decodes the document
+ *  whole and resolves nulls afterwards; this is the same order.
+ *
+ *  A non-finite number rejects the record instead of just that member. The C
+ *  decoder turns an out-of-range token such as `1e999` into an infinity, and
+ *  re-encoding writes `1e999` straight back into the report, which the strict
+ *  reader on the other side then rejects whole. Foundation refuses those bytes
+ *  outright, so absence is what every other reader of the record already says.
+ */
+static id cleanedForReport(id value)
+{
+    if ([value isKindOfClass:[NSNumber class]]) {
+        if (CFNumberIsFloatType((__bridge CFNumberRef)value) && !isfinite([value doubleValue])) {
+            return nil;
+        }
+        return value;
+    }
+    if ([value isKindOfClass:[NSArray class]]) {
+        NSMutableArray *cleaned = [NSMutableArray arrayWithCapacity:[(NSArray *)value count]];
+        for (id element in value) {
+            if ([element isKindOfClass:[NSNull class]]) {
+                continue;
+            }
+            id cleanedElement = cleanedForReport(element);
+            if (cleanedElement == nil) {
+                return nil;
+            }
+            [cleaned addObject:cleanedElement];
+        }
+        return cleaned;
+    }
+    if ([value isKindOfClass:[NSDictionary class]]) {
+        NSMutableDictionary *cleaned = [NSMutableDictionary dictionaryWithCapacity:[(NSDictionary *)value count]];
+        for (NSString *name in value) {
+            id member = [(NSDictionary *)value objectForKey:name];
+            if ([member isKindOfClass:[NSNull class]]) {
+                continue;
+            }
+            id cleanedMember = cleanedForReport(member);
+            if (cleanedMember == nil) {
+                return nil;
+            }
+            [cleaned setObject:cleanedMember forKey:name];
+        }
+        return cleaned;
+    }
+    return value;
 }
 
 static void onJSON(const char *key, uint16_t keyLen, const char *json, uint16_t jsonLen, void *ctx)
@@ -161,24 +214,28 @@ static void onJSON(const char *key, uint16_t keyLen, const char *json, uint16_t 
     if (nsKey == nil) {
         return;
     }
+    if (json == NULL || containsEscapedNUL(json, jsonLen)) {
+        resolveToAbsence(dict, nsKey);
+        return;
+    }
     // The store does not validate JSON, so undecodable bytes (a torn or
     // foreign record) are absence, never a delivery failure; so is anything
-    // but a container, the only JSON values. Nulls inside a container are
-    // dropped here too: null means absence, resolved at read time like the
-    // finalized-report reads, never on the write path.
+    // but a container, the only JSON values.
     // FailOnUnrepresentableString because the whole record is one value: the
     // live getter and the run-summary stitch read these bytes with Foundation,
     // which rejects the document, so dropping just the bad member here would
     // put a value in the report that every other reader calls absent.
     NSData *data = [NSData dataWithBytesNoCopy:(void *)json length:jsonLen freeWhenDone:NO];
     id value = [KSJSONCodec decode:data
-                           options:KSJSONDecodeOptionIgnoreNullInArray | KSJSONDecodeOptionIgnoreNullInObject |
-                                   KSJSONDecodeOptionFailOnUnrepresentableString
+                           options:KSJSONDecodeOptionFailOnUnrepresentableString
                         startDepth:KSKVS_VALUE_ENCODE_DEPTH
                              error:nil];
-    if (([value isKindOfClass:[NSArray class]] || [value isKindOfClass:[NSDictionary class]]) &&
-        !containsNonFiniteNumber(value)) {
-        dict[nsKey] = value;
+    id cleaned = nil;
+    if ([value isKindOfClass:[NSArray class]] || [value isKindOfClass:[NSDictionary class]]) {
+        cleaned = cleanedForReport(value);
+    }
+    if (cleaned != nil) {
+        dict[nsKey] = cleaned;
     } else {
         resolveToAbsence(dict, nsKey);
     }

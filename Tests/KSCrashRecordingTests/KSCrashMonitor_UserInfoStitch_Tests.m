@@ -29,6 +29,7 @@
 #import "KSCrashMonitor_UserInfo.h"
 #import "KSCrashReportFields.h"
 #import "KSJSONCodecObjC.h"
+#import "KSKVSRawImage.h"
 #import "KSKeyValueStore.h"
 
 #include <string.h>
@@ -380,29 +381,62 @@ static NSString *writeRawSidecar(NSString *dir, NSData *data)
     XCTAssertEqualObjects(result[KSCrashField_User][@"dup"], @{ @"a" : @1 });
 }
 
+- (void)testStitchDropsAContainerCarryingAnEmbeddedNUL
+{
+    // The C codec builds NUL-terminated C strings, so it would keep only the
+    // prefix of such a string and collapse two member names that differ only
+    // past the NUL, while Foundation, which the live getter and the run
+    // summary read with, keeps them whole. Neither reader can be talked out of
+    // its own string handling, so the record is absence to both.
+    NSString *path = buildSidecarFile(self.tempDir, ^(KSKeyValueStore *store) {
+        const char *json = "{\"a\\u0000b\":1,\"a\\u0000c\":2}";
+        XCTAssertTrue(kskvs_setJSON(store, "nul", json, strlen(json)));
+        // Two literal backslashes escape nothing, so this one is a value.
+        const char *literal = "{\"a\\\\u0000b\":1}";
+        XCTAssertTrue(kskvs_setJSON(store, "literal", literal, strlen(literal)));
+        XCTAssertTrue(kskvs_setString(store, "good", "v"));
+    });
+
+    NSDictionary *report = makeMinimalReport();
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_userinfo_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
+
+    NSDictionary *user = result[KSCrashField_User];
+    XCTAssertNil(user[@"nul"]);
+    XCTAssertEqualObjects(user[@"literal"], @{ @"a\\u0000b" : @1 });
+    XCTAssertEqualObjects(user[@"good"], @"v");
+}
+
+- (void)testStitchedContainerKeepsTheFirstDuplicateEvenWhenItIsNull
+{
+    // The first of a duplicate name wins, and a null first occurrence means
+    // the member is absent. Dropping the null before its name was recorded
+    // let the second through, so the report carried a member the run summary,
+    // reading the same bytes with Foundation, did not.
+    NSString *path = buildSidecarFile(self.tempDir, ^(KSKeyValueStore *store) {
+        const char *json = "{\"a\":null,\"a\":1,\"kept\":2}";
+        XCTAssertTrue(kskvs_setJSON(store, "dup", json, strlen(json)));
+    });
+
+    NSDictionary *report = makeMinimalReport();
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_userinfo_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
+
+    XCTAssertEqualObjects(result[KSCrashField_User][@"dup"], @{ @"kept" : @2 });
+}
+
 - (void)testUnknownRecordTypeRemovesAPreExistingReportKey
 {
     // A record type this build cannot read is not judged, but the key it
     // names was still replaced. Leaving the crash-time value in place would
     // put a value in the report that the live getter, `keys`, and the run
     // summary all call absent.
-    NSMutableData *data = [NSMutableData data];
-    const char *key = "cart";
-    uint16_t keyLen = (uint16_t)strlen(key);
-    uint8_t type = 99;
-    uint16_t valueLen = 3;
-    uint32_t magic = 0x6B736B76u;
-    uint32_t version = 1;
-    uint32_t offset = 12 + 5 + keyLen + valueLen;
-    [data appendBytes:&magic length:sizeof(magic)];
-    [data appendBytes:&version length:sizeof(version)];
-    [data appendBytes:&offset length:sizeof(offset)];
-    [data appendBytes:&keyLen length:sizeof(keyLen)];
-    [data appendBytes:&type length:sizeof(type)];
-    [data appendBytes:&valueLen length:sizeof(valueLen)];
-    [data appendBytes:key length:keyLen];
-    [data appendBytes:"new" length:3];
-    NSString *path = writeRawSidecar(self.tempDir, data);
+    NSData *image = kskvstest_storeImage(^(NSMutableData *records) {
+        kskvstest_appendRecord(records, @"cart", 99, [@"new" dataUsingEncoding:NSUTF8StringEncoding]);
+    });
+    NSString *path = writeRawSidecar(self.tempDir, image);
 
     NSDictionary *report = makeReportWithUserSection(@{ @"cart" : @"stale", @"kept" : @"v" });
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_userinfo_createStitchedReport(

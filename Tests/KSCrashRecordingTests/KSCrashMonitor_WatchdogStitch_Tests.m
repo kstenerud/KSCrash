@@ -110,17 +110,22 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
         kscm_watchdog_createStitchedReport((__bridge CFDictionaryRef) @{}, NULL, KSCrashSidecarScopeRun, NULL) == NULL);
 }
 
-- (void)testMissingSidecarFileReturnsNull
+- (void)testMissingSidecarFileDeliversTheReportUnchanged
 {
     NSString *missingPath = [self.tempDir stringByAppendingPathComponent:[[NSUUID UUID] UUIDString]];
+    NSDictionary *report = @{ @"report" : @ {} };
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
-        (__bridge CFDictionaryRef) @{}, missingPath.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result == nil);
+        (__bridge CFDictionaryRef)report, missingPath.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertEqualObjects(result, report);
 }
 
 #pragma mark - Invalid Sidecar
 
-- (void)testBadMagicReturnsNull
+// A sidecar no later read could make sense of is a verdict, not a hiccup:
+// returning the stitch's retry signal for one stops the report being finalized
+// for good. These deliver the report without this monitor's section instead.
+
+- (void)testBadMagicDeliversTheReportUnchanged
 {
     KSHangSidecar sc = {
         .magic = (int32_t)0xDEADBEEF,
@@ -135,10 +140,10 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
         (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result == nil);
+    XCTAssertEqualObjects(result, report);
 }
 
-- (void)testVersionZeroReturnsNull
+- (void)testVersionZeroDeliversTheReportUnchanged
 {
     KSHangSidecar sc = {
         .magic = KSHANG_SIDECAR_MAGIC,
@@ -153,10 +158,10 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
         (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result == nil);
+    XCTAssertEqualObjects(result, report);
 }
 
-- (void)testFutureVersionReturnsNull
+- (void)testFutureVersionDeliversTheReportUnchanged
 {
     KSHangSidecar sc = {
         .magic = KSHANG_SIDECAR_MAGIC,
@@ -171,7 +176,7 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
         (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result == nil);
+    XCTAssertEqualObjects(result, report);
 }
 
 #pragma mark - No Hang In Report
@@ -425,7 +430,7 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 
 #pragma mark - Truncated Sidecar
 
-- (void)testTruncatedSidecarReturnsNull
+- (void)testTruncatedSidecarDeliversTheReportUnchanged
 {
     NSString *path = [self.tempDir stringByAppendingPathComponent:@"truncated.ksscr"];
     int fd = open(path.UTF8String, O_WRONLY | O_CREAT | O_TRUNC, 0644);
@@ -437,7 +442,7 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
         (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result == nil);
+    XCTAssertEqualObjects(result, report);
 }
 
 #pragma mark - Malformed Reports
