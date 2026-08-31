@@ -367,13 +367,30 @@ package func kvContainer(_ data: Data) -> MetadataValue? {
         // it under report -> "user" -> key, and Foundation's own limit is far
         // deeper than what is left below those. Accepting one the report
         // encoder cannot write would make this the one reader that calls the
-        // record a value.
-        return value.nests(deeperThan: Int(KSKVS_MAX_VALUE_DEPTH)) ? nil : value
+        // record a value. An embedded NUL is refused for the mirror-image
+        // reason: this reader keeps the whole string, and the report's C codec
+        // builds NUL-terminated ones, so it would keep a prefix, or lose a
+        // whole member when two names differ only past the NUL.
+        guard !value.nests(deeperThan: Int(KSKVS_MAX_VALUE_DEPTH)), !value.hasEmbeddedNUL else {
+            return nil
+        }
+        return value
     default: return nil
     }
 }
 
 extension MetadataValue {
+    /// Whether any string or member name in the value carries an embedded NUL.
+    fileprivate var hasEmbeddedNUL: Bool {
+        switch self {
+        case .string(let value): return value.utf8.contains(0)
+        case .array(let elements): return elements.contains(where: \.hasEmbeddedNUL)
+        case .object(let members):
+            return members.contains { $0.key.utf8.contains(0) || $0.value.hasEmbeddedNUL }
+        default: return false
+        }
+    }
+
     /// Whether the value's container nesting runs deeper than `limit` levels.
     /// Stops at the first branch that does, rather than measuring the tree.
     fileprivate func nests(deeperThan limit: Int) -> Bool {

@@ -41,7 +41,20 @@ Consequences, each of which has cost someone a bug:
 - A non-finite number nested inside a container is absence too. The C decoder
   turns `1e999` into an infinity and the report re-encodes it as `1e999`, which
   Foundation refuses, so the report is undeliverable while every other reader
-  calls the record absent.
+  calls the record absent. The report writer refuses one for the same reason,
+  in `addFloatingPointElement`/`addFloatElement` rather than at each of its
+  producers, so nothing a monitor or a dumped object holds can poison a report.
+- A container carrying an embedded NUL, in a string or in a member name, is
+  absence everywhere. The report's C codec builds NUL-terminated strings and
+  would keep a prefix, or lose a whole member when two names differ only past
+  the NUL, while Foundation keeps them whole. Neither reader can be talked out
+  of its own string handling, so the record is absence to both rather than a
+  value they read differently.
+- Nulls are resolved after the document is decoded, not by dropping members
+  during the decode: dropping one loses the verdict on its *name*, and a
+  duplicate name whose first occurrence was null then escaped the first-wins
+  rule the two readers agree on. Duplicate member names keep the first, which
+  is what Foundation does with the same bytes.
 - A record whose payload does not match its type (a JSON record with no bytes,
   a scalar of the wrong width) routes to `onRemoved`, not to silence. Silence
   leaves the key showing whatever the crash-time writer put there.
@@ -60,11 +73,13 @@ plus the ObjC one, and a fifth, `readUserIDFromSidecar` in
 is known.
 
 A sidecar that cannot be read is not the same as one with nothing in it, and
-both stitches split it the same way: an unrecoverable file (corrupt, or gone)
-delivers without metadata, and only an environmental failure that a retry could
-get past holds delivery back. Returning the retry signal for an unrecoverable
-file strands every report of that run forever, since finalization never gets
-past it, while the same run's summary delivers.
+every stitcher splits it the same way (`KSCrashSidecarReadResult`): an
+unrecoverable file (corrupt, or gone) delivers without that section, and only
+an environmental failure that a retry could get past holds delivery back.
+Returning the retry signal for an unrecoverable file strands every report of
+that run forever, since finalization never gets past it, while the same run's
+summary delivers. On the hang-recovery path it is worse: the watchdog monitor
+deletes the report outright when finalization fails.
 
 ## One representation per type
 
