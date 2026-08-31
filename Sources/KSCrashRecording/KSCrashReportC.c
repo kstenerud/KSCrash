@@ -208,6 +208,9 @@ static void addFloatingPointElement(const KSCrashReportWriter *const writer, con
 
 static void addFloatElement(const KSCrashReportWriter *const writer, const char *const key, const float value)
 {
+    if (!isfinite(value)) {
+        return;
+    }
     ksjson_addFloatElement(getJsonContext(writer), key, value);
 }
 
@@ -576,12 +579,13 @@ static void writeNumberContents(const KSCrashReportWriter *const writer, const c
                                 const uintptr_t objectAddress, __unused int *limit)
 {
     const void *object = (const void *)objectAddress;
+    double value = ksobjc_numberAsFloat(object);
     // A float widened to a double and printed at DBL_DIG shows the widening's
     // noise rather than what the app stored: 0.2f comes out 0.200000002980232.
     if (ksobjc_numberIsFloat32(object)) {
-        writer->addFloatElement(writer, key, (float)ksobjc_numberAsFloat(object));
+        writer->addFloatElement(writer, key, (float)value);
     } else {
-        writer->addFloatingPointElement(writer, key, ksobjc_numberAsFloat(object));
+        writer->addFloatingPointElement(writer, key, value);
     }
 }
 

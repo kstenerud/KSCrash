@@ -41,6 +41,7 @@
 #import "Unwind/KSStackCursor_Unwind.h"
 
 #import <Foundation/Foundation.h>
+#import <errno.h>
 #import <fcntl.h>
 #import <mach/exception_types.h>
 
@@ -499,12 +500,12 @@ bool ksresource_getSnapshot(KSCrash_ResourceData *outData)
     return ok;
 }
 
-bool ksresource_readSnapshotFromPath(const char *path, KSCrash_ResourceData *outData)
+KSCrashSidecarReadResult ksresource_readSnapshotFromPath(const char *path, KSCrash_ResourceData *outData)
 {
-    if (!path || !outData) return false;
+    if (!path || !outData) return KSCrashSidecarReadFailure;
 
     int fd = open(path, O_RDONLY);
-    if (fd == -1) return false;
+    if (fd == -1) return errno == ENOENT ? KSCrashSidecarReadUnrecoverable : KSCrashSidecarReadFailure;
 
     // Most files are current-version: read the full struct, or the v1 prefix
     // for a smaller file from an older run. The file size decides which, so
@@ -512,9 +513,13 @@ bool ksresource_readSnapshotFromPath(const char *path, KSCrash_ResourceData *out
     // error on a working path). The declared version must match the size
     // that read, so a torn file never passes.
     struct stat st;
-    if (fstat(fd, &st) != 0 || st.st_size < (off_t)KSCrash_Resource_V1Size) {
+    if (fstat(fd, &st) != 0) {
         close(fd);
-        return false;
+        return KSCrashSidecarReadFailure;
+    }
+    if (st.st_size < (off_t)KSCrash_Resource_V1Size) {
+        close(fd);
+        return KSCrashSidecarReadUnrecoverable;
     }
     memset(outData, 0, sizeof(*outData));
     uint8_t expectedVersion = 2;
@@ -526,7 +531,13 @@ bool ksresource_readSnapshotFromPath(const char *path, KSCrash_ResourceData *out
     bool readOK = ksfu_readBytesFromFD(fd, (char *)outData, (int)readSize);
     close(fd);
 
-    return readOK && outData->magic == KSRESOURCE_MAGIC && outData->version == expectedVersion;
+    // A short read means the run died part way through writing this, and a
+    // wrong magic or version is a verdict about the bytes: neither changes on
+    // a later read.
+    if (!readOK || outData->magic != KSRESOURCE_MAGIC || outData->version != expectedVersion) {
+        return KSCrashSidecarReadUnrecoverable;
+    }
+    return KSCrashSidecarReadOK;
 }
 
 bool ksresource_getSnapshotForRunID(const char *runID, KSCrash_ResourceData *outData)
@@ -539,7 +550,7 @@ bool ksresource_getSnapshotForRunID(const char *runID, KSCrash_ResourceData *out
         return false;
     }
 
-    return ksresource_readSnapshotFromPath(sidecarPath, outData);
+    return ksresource_readSnapshotFromPath(sidecarPath, outData) == KSCrashSidecarReadOK;
 }
 
 // ============================================================================

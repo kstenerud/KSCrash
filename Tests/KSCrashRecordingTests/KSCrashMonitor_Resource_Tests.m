@@ -95,7 +95,8 @@ static KSCrashAppMemory *memorySample(uint64_t footprint, uint64_t systemRemaini
 - (void)assertSidecarMatchesSample:(KSCrashAppMemory *)sample
 {
     KSCrash_ResourceData data = {};
-    XCTAssertTrue(ksresource_readSnapshotFromPath(g_sidecarPath.fileSystemRepresentation, &data));
+    XCTAssertEqual(ksresource_readSnapshotFromPath(g_sidecarPath.fileSystemRepresentation, &data),
+                   KSCrashSidecarReadOK);
     XCTAssertEqual(data.memoryFootprint, sample.footprint);
     XCTAssertEqual(data.memoryRemaining, sample.remaining);
     XCTAssertEqual(data.memoryLimit, sample.limit);

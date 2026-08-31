@@ -172,9 +172,12 @@ bool ksresource_getSnapshotForRunID(const char *runID, KSCrash_ResourceData *out
 
 /** Reads a resource snapshot from a sidecar file at any supported version.
  *  Fields newer than the file's declared version read as zero.
- *  Returns false if the file is missing, invalid, or short for its version.
+ *
+ *  Says whether reading again could go better: a caller that has to choose
+ *  between delivering without this data and asking to be retried needs to
+ *  tell those apart.
  */
-bool ksresource_readSnapshotFromPath(const char *path, KSCrash_ResourceData *outData);
+KSCrashSidecarReadResult ksresource_readSnapshotFromPath(const char *path, KSCrash_ResourceData *outData);
 
 // ============================================================================
 #pragma mark - Monitor API -

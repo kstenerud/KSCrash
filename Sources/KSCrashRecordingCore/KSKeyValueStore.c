@@ -155,6 +155,29 @@ static void initHeader(uint8_t *buf)
     hdr->offset = KSKVS_HEADER_SIZE;
 }
 
+/** The offset of the last record for `key`, or UINT32_MAX when the store
+ *  never saw it. Last write wins, so the walk keeps the latest match rather
+ *  than stopping at the first. Bounds are checked here: a trailing record the
+ *  cursor does not cover ends the walk.
+ */
+static uint32_t findLastRecordOffset(const KSKeyValueStore *store, const char *key, uint16_t keyLen, uint32_t endPos)
+{
+    uint32_t found = UINT32_MAX;
+    uint32_t pos = KSKVS_HEADER_SIZE;
+    while (pos + KSKVS_RECORD_HEADER_SIZE <= endPos) {
+        const KSKVSRecordHeader *rec = (const KSKVSRecordHeader *)(store->storage + pos);
+        uint32_t recordSize = KSKVS_RECORD_HEADER_SIZE + rec->keyLen + rec->valueLen;
+        if (pos + recordSize > endPos) {
+            break;
+        }
+        if (rec->keyLen == keyLen && memcmp(store->storage + pos + KSKVS_RECORD_HEADER_SIZE, key, keyLen) == 0) {
+            found = pos;
+        }
+        pos += recordSize;
+    }
+    return found;
+}
+
 /** Discard superseded entries in-place. Final tombstones are preserved
  *  so removal semantics survive compaction.
  *  Returns whether it ran: a caller reads futility from the offset not
@@ -714,21 +737,9 @@ static bool markLastRecordRemoved(KSKeyValueStore *store, const char *key)
         endPos = store->capacity;
     }
 
-    KSKVSRecordHeader *last = NULL;
-    uint32_t pos = KSKVS_HEADER_SIZE;
-    while (pos + KSKVS_RECORD_HEADER_SIZE <= endPos) {
-        KSKVSRecordHeader *rec = (KSKVSRecordHeader *)(store->storage + pos);
-        uint32_t recordSize = KSKVS_RECORD_HEADER_SIZE + rec->keyLen + rec->valueLen;
-        if (pos + recordSize > endPos) {
-            break;
-        }
-        if (rec->keyLen == keyLen && memcmp(store->storage + pos + KSKVS_RECORD_HEADER_SIZE, key, keyLen) == 0) {
-            last = rec;
-        }
-        pos += recordSize;
-    }
-
-    if (last != NULL) {
+    uint32_t foundPos = findLastRecordOffset(store, key, keyLen, endPos);
+    if (foundPos != UINT32_MAX) {
+        KSKVSRecordHeader *last = (KSKVSRecordHeader *)(store->storage + foundPos);
         // valueLen is left alone: a record's span is how iteration finds the
         // next one. compact() reclaims the dead value bytes, and remembering
         // how many of them there are is what lets the next write tell whether
@@ -935,24 +946,14 @@ void kskvs_lookup(const KSKeyValueStore *store, const char *key, const KSKVSCall
         endPos = store->capacity;
     }
 
-    size_t keyLen = strlen(key);
-
-    // One forward pass remembering the latest record for the key; whatever is
-    // held at the end is the last write, so exactly one callback fires.
-    uint32_t foundPos = UINT32_MAX;
-    uint32_t pos = KSKVS_HEADER_SIZE;
-    while (pos + KSKVS_RECORD_HEADER_SIZE <= endPos) {
-        const KSKVSRecordHeader *rec = (const KSKVSRecordHeader *)(store->storage + pos);
-        uint32_t recordSize = KSKVS_RECORD_HEADER_SIZE + rec->keyLen + rec->valueLen;
-        if (pos + recordSize > endPos) {
-            break;
-        }
-        if (rec->keyLen == keyLen && memcmp(store->storage + pos + KSKVS_RECORD_HEADER_SIZE, key, keyLen) == 0) {
-            foundPos = pos;
-        }
-        pos += recordSize;
+    size_t rawKeyLen = strlen(key);
+    if (rawKeyLen == 0 || rawKeyLen > UINT16_MAX) {
+        return;
     }
 
+    // The last record for the key is the last write, so exactly one callback
+    // fires. Same walk the in-place removal uses to find what to stamp.
+    uint32_t foundPos = findLastRecordOffset(store, key, (uint16_t)rawKeyLen, endPos);
     if (foundPos != UINT32_MAX) {
         dispatchRecord(store, foundPos, callbacks, context);
     }

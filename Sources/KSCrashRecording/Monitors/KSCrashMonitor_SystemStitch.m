@@ -58,9 +58,18 @@ CFDictionaryRef kscm_system_createStitchedReport(CFDictionaryRef reportDict, con
 
     // Read the binary struct from disk
     KSCrash_SystemData sc = {};
-    if (!kscm_system_getSystemDataForPath(sidecarPath, &sc)) {
+    KSCrashSidecarReadResult readResult = kscm_system_readSystemData(sidecarPath, &sc);
+    if (readResult == KSCrashSidecarReadFailure) {
         KSLOG_ERROR(@"Failed to read system sidecar at %s", sidecarPath);
         return NULL;
+    }
+    if (readResult != KSCrashSidecarReadOK) {
+        // NULL is the retry signal, and retrying this never gets further: it
+        // would stop the report being finalized for good. Deliver it without
+        // the system section.
+        KSLOG_ERROR(@"Unreadable system sidecar at %s; delivering without it", sidecarPath);
+        CFRetain(reportDict);
+        return reportDict;
     }
 
     NSMutableDictionary *dict = [(__bridge NSDictionary *)reportDict mutableCopy];
