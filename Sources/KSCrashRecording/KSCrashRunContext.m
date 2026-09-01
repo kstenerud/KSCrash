@@ -67,31 +67,6 @@ static NSDictionary *g_summary = nil;
 static NSDictionary *buildSummary(const KSCrashRunContext *ctx, const char *userInfoSidecarPath);
 
 // ============================================================================
-#pragma mark - Sidecar Reading -
-// ============================================================================
-
-static bool readResourceData(const char *path, KSCrash_ResourceData *out)
-{
-    if (!path || !out) {
-        return false;
-    }
-
-    int fd = open(path, O_RDONLY);
-    if (fd == -1) {
-        return false;
-    }
-
-    memset(out, 0, sizeof(*out));
-    bool ok = ksfu_readBytesFromFD(fd, (char *)out, (int)sizeof(*out));
-    close(fd);
-
-    if (!ok || out->magic != KSRESOURCE_MAGIC || out->version == 0 || out->version > KSCrash_Resource_CurrentVersion) {
-        return false;
-    }
-    return true;
-}
-
-// ============================================================================
 #pragma mark - Determine Reason -
 // ============================================================================
 
@@ -238,7 +213,7 @@ bool ksruncontext_contextForRunID(const char *runID, KSCrashSidecarRunPathForRun
     }
 
     if (pathForRunID("Resource", runID, sidecarPath, sizeof(sidecarPath))) {
-        outContext->resourceValid = readResourceData(sidecarPath, &outContext->resource);
+        outContext->resourceValid = ksresource_readSnapshotFromPath(sidecarPath, &outContext->resource);
         anyValid |= outContext->resourceValid;
     }
 

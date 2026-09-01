@@ -47,7 +47,18 @@ static KSCrashAppMemory *Memory(uint64_t footprint)
 {
     return [[KSCrashAppMemory alloc] initWithFootprint:footprint
                                              remaining:100 - footprint
-                                              pressure:KSCrashAppMemoryStateNormal];
+                                              pressure:KSCrashAppMemoryStateNormal
+                                       systemRemaining:0
+                                           systemLimit:0];
+}
+
+static KSCrashAppMemory *SystemMemory(uint64_t systemRemaining)
+{
+    return [[KSCrashAppMemory alloc] initWithFootprint:50
+                                             remaining:50
+                                              pressure:KSCrashAppMemoryStateNormal
+                                       systemRemaining:systemRemaining
+                                           systemLimit:1000];
 }
 
 - (void)testAppMemoryLevels
@@ -68,6 +79,52 @@ static KSCrashAppMemory *Memory(uint64_t footprint)
     XCTAssertEqual(memory.footprint, 50);
     XCTAssertEqual(memory.remaining, 50);
     XCTAssertEqual(memory.limit, 100);
+}
+
+- (void)testAppMemoryHeadroom
+{
+    // Baseline 0.80 shifts the 25/50/75/95 ladder into the top 20% of the
+    // range: bands land at >15% / 10-15% / 5-10% / 1-5% / <1% remaining.
+    XCTAssertEqual(SystemMemory(1000).headroom, KSCrashAppMemoryStateNormal);
+    XCTAssertEqual(SystemMemory(200).headroom, KSCrashAppMemoryStateNormal);
+    XCTAssertEqual(SystemMemory(150).headroom, KSCrashAppMemoryStateWarn);
+    XCTAssertEqual(SystemMemory(100).headroom, KSCrashAppMemoryStateUrgent);
+    XCTAssertEqual(SystemMemory(50).headroom, KSCrashAppMemoryStateCritical);
+    XCTAssertEqual(SystemMemory(10).headroom, KSCrashAppMemoryStateTerminal);
+    XCTAssertEqual(SystemMemory(0).headroom, KSCrashAppMemoryStateTerminal);
+
+    KSCrashAppMemory *memory = SystemMemory(200);
+    XCTAssertEqual(memory.systemRemaining, 200);
+    XCTAssertEqual(memory.systemLimit, 1000);
+
+    // Headroom never feeds the OOM heuristic.
+    XCTAssertEqual(SystemMemory(0).isOutOfMemory, NO);
+}
+
+- (void)testAppMemoryHeadroomWithoutSystemValues
+{
+    // With no system values recorded, headroom reports normal.
+    KSCrashAppMemory *memory = Memory(50);
+    XCTAssertEqual(memory.systemRemaining, 0);
+    XCTAssertEqual(memory.systemLimit, 0);
+    XCTAssertEqual(memory.headroom, KSCrashAppMemoryStateNormal);
+
+    // A remaining above the limit clamps to zero used rather than underflowing.
+    KSCrashAppMemory *inverted = [[KSCrashAppMemory alloc] initWithFootprint:50
+                                                                   remaining:50
+                                                                    pressure:KSCrashAppMemoryStateNormal
+                                                             systemRemaining:2000
+                                                                 systemLimit:1000];
+    XCTAssertEqual(inverted.headroom, KSCrashAppMemoryStateNormal);
+}
+
+- (void)testStateToStringIsTotal
+{
+    XCTAssertEqual(strcmp(KSCrashAppMemoryStateToString(KSCrashAppMemoryStateNormal), "normal"), 0);
+    XCTAssertEqual(strcmp(KSCrashAppMemoryStateToString(KSCrashAppMemoryStateTerminal), "terminal"), 0);
+    // Sidecar bytes come off disk unvalidated; an out-of-range value must
+    // still map to a string instead of asserting.
+    XCTAssertEqual(strcmp(KSCrashAppMemoryStateToString((KSCrashAppMemoryState)200), "unknown"), 0);
 }
 
 #pragma mark - Transition State

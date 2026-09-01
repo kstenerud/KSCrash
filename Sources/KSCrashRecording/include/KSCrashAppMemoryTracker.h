@@ -35,6 +35,10 @@ typedef NS_OPTIONS(NSUInteger, KSCrashAppMemoryTrackerChangeType) {
     KSCrashAppMemoryTrackerChangeTypeLevel = 1 << 0,
     KSCrashAppMemoryTrackerChangeTypePressure = 1 << 1,
     KSCrashAppMemoryTrackerChangeTypeFootprint = 1 << 2,
+    KSCrashAppMemoryTrackerChangeTypeHeadroom = 1 << 3,
+    /** Device-wide available memory (systemRemaining/systemLimit) moved.
+     *  Separate from Footprint, which only tracks the app's own memory. */
+    KSCrashAppMemoryTrackerChangeTypeSystemRemaining = 1 << 4,
 } NS_SWIFT_NAME(AppMemoryTrackerChangeType);
 
 typedef void (^KSCrashAppMemoryTrackerObserverBlock)(KSCrashAppMemory *memory,
@@ -55,6 +59,7 @@ NS_SWIFT_NAME(AppMemoryTracker)
 
 @property(atomic, readonly) KSCrashAppMemoryState pressure;
 @property(atomic, readonly) KSCrashAppMemoryState level;
+@property(atomic, readonly) KSCrashAppMemoryState headroom;
 
 @property(nonatomic, readonly, nullable) KSCrashAppMemory *currentAppMemory;
 
