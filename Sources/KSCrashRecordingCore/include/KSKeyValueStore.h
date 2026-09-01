@@ -62,6 +62,17 @@ typedef struct {
     uint16_t maxStringLength; /**< String values longer than this are truncated (e.g. 1024). */
 } KSKVSConfig;
 
+/** Outcome of kskvs_create. */
+typedef enum {
+    KSKVSOpenSuccess = 0,
+    /** Nothing exists at the path. */
+    KSKVSOpenAbsent,
+    /** The file exists but is not a valid store; no retry can succeed. */
+    KSKVSOpenCorrupt,
+    /** An environmental failure (I/O, allocation) that may not recur. */
+    KSKVSOpenFailure,
+} KSKVSOpenStatus;
+
 // ============================================================================
 #pragma mark - Lifecycle -
 // ============================================================================
@@ -71,9 +82,11 @@ typedef struct {
  *  KSKVSModeRead:            reads existing file into heap. config may be NULL.
  *  KSKVSModeReadWriteCreate: creates file, mmap MAP_SHARED. config is required.
  *
+ *  @param outStatus Optional; receives why the call returned NULL
+ *                   (KSKVSOpenSuccess when it didn't).
  *  @return A new store, or NULL on failure. Caller must call kskvs_destroy().
  */
-KSKeyValueStore *kskvs_create(const char *path, KSKVSMode mode, const KSKVSConfig *config);
+KSKeyValueStore *kskvs_create(const char *path, KSKVSMode mode, const KSKVSConfig *config, KSKVSOpenStatus *outStatus);
 
 /** Destroy a store and release all resources (munmap/free + close fd). */
 void kskvs_destroy(KSKeyValueStore *store);

@@ -161,17 +161,17 @@ static bool extractRunIdWithFullDecode(const char *rawReport, int length, char *
     }
 }
 
-bool kscrs_extractRunIdFromReportFile(const char *reportPath, char *runIdOut, size_t runIdOutLen)
+KSCrashRunIdResult kscrs_extractRunIdFromReportFile(const char *reportPath, char *runIdOut, size_t runIdOutLen)
 {
     if (reportPath == NULL || runIdOut == NULL || runIdOutLen <= KSCRS_UUID_STRING_LENGTH) {
-        return false;
+        return KSCrashRunIdResultReadError;
     }
 
     char *rawReport = NULL;
     int length = 0;
     ksfu_readEntireFile(reportPath, &rawReport, &length, KSCRS_MAX_REPORT_SIZE);
     if (rawReport == NULL) {
-        return false;
+        return KSCrashRunIdResultReadError;
     }
 
     RunIdSearchContext ctx = {
@@ -196,7 +196,7 @@ bool kscrs_extractRunIdFromReportFile(const char *reportPath, char *runIdOut, si
 
     if (ctx.found) {
         free(rawReport);
-        return true;
+        return KSCrashRunIdResultFound;
     }
 
     // If the streaming decoder failed because a key or string exceeded the
@@ -205,9 +205,9 @@ bool kscrs_extractRunIdFromReportFile(const char *reportPath, char *runIdOut, si
     if (result == KSJSON_ERROR_DATA_TOO_LONG) {
         bool found = extractRunIdWithFullDecode(rawReport, length, runIdOut, runIdOutLen);
         free(rawReport);
-        return found;
+        return found ? KSCrashRunIdResultFound : KSCrashRunIdResultAbsent;
     }
 
     free(rawReport);
-    return false;
+    return KSCrashRunIdResultAbsent;
 }

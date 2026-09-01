@@ -36,7 +36,6 @@ NS_ASSUME_NONNULL_BEGIN
  * @see `KSCrashReportDictionary`, `KSCrashReportString` and `KSCrashReportData` are
  *      the types of reports that provided and used by KSCrash.
  */
-NS_SWIFT_NAME(CrashReport)
 @protocol KSCrashReport <NSObject>
 
 /**

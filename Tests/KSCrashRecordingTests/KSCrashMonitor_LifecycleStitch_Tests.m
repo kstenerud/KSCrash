@@ -27,8 +27,10 @@
 #import <XCTest/XCTest.h>
 
 #import "KSCrashAppTransitionState.h"
+#import "KSCrashMonitorContext.h"
 #import "KSCrashMonitor_Lifecycle.h"
 #import "KSCrashReportFields.h"
+#import "KSSessionStore.h"
 
 #include <mach/task_policy.h>
 
@@ -72,6 +74,23 @@ static KSCrash_LifecycleData makeValidLifecycleData(void)
     lc.transitionState = (uint8_t)KSCrashAppTransitionStateActive;
     lc.userPerceptible = 1;
     return lc;
+}
+
+// Resolves <g_sessionsDir>/<runID>.<ext>, where the tests write the `.sessions` file.
+static char g_sessionsDir[1024];
+static bool stitchTestSummaryPath(const char *runID, const char *ext, char *buf, size_t len)
+{
+    return snprintf(buf, len, "%s/%s.%s", g_sessionsDir, runID, ext) < (int)len;
+}
+
+/** Point the summary-sidecar provider at `dir` for the current test. */
+static void installSummaryProvider(NSString *dir)
+{
+    snprintf(g_sessionsDir, sizeof(g_sessionsDir), "%s", dir.fileSystemRepresentation);
+    KSCrash_ExceptionHandlerCallbacks callbacks = { 0 };
+    callbacks.getSummarySidecarPath = stitchTestSummaryPath;
+    KSCrashMonitorAPI *api = kscm_lifecycle_getAPI();
+    api->init(&callbacks, api->context);
 }
 
 #pragma mark - Tests
@@ -125,7 +144,9 @@ static KSCrash_LifecycleData makeValidLifecycleData(void)
 
 #pragma mark - Invalid Sidecar
 
-- (void)testBadMagicReturnsNull
+// A corrupt sidecar must not cost the report anything but application_stats:
+// it is not session_id's data source.
+- (void)testBadMagicSkipsAppStatsOnly
 {
     KSCrash_LifecycleData lc = makeValidLifecycleData();
     lc.magic = (int32_t)0xDEADBEEF;
@@ -135,10 +156,11 @@ static KSCrash_LifecycleData makeValidLifecycleData(void)
 
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_lifecycle_createStitchedReport(
         (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result == nil);
+    XCTAssertNotNil(result);
+    XCTAssertNil(result[@"system"][@"application_stats"]);
 }
 
-- (void)testVersionZeroReturnsNull
+- (void)testVersionZeroSkipsAppStatsOnly
 {
     KSCrash_LifecycleData lc = makeValidLifecycleData();
     lc.version = 0;
@@ -148,10 +170,11 @@ static KSCrash_LifecycleData makeValidLifecycleData(void)
 
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_lifecycle_createStitchedReport(
         (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result == nil);
+    XCTAssertNotNil(result);
+    XCTAssertNil(result[@"system"][@"application_stats"]);
 }
 
-- (void)testFutureVersionReturnsNull
+- (void)testFutureVersionSkipsAppStatsOnly
 {
     KSCrash_LifecycleData lc = makeValidLifecycleData();
     lc.version = KSCrash_Lifecycle_CurrentVersion + 1;
@@ -161,10 +184,11 @@ static KSCrash_LifecycleData makeValidLifecycleData(void)
 
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_lifecycle_createStitchedReport(
         (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result == nil);
+    XCTAssertNotNil(result);
+    XCTAssertNil(result[@"system"][@"application_stats"]);
 }
 
-- (void)testTruncatedSidecarReturnsNull
+- (void)testTruncatedSidecarSkipsAppStatsOnly
 {
     NSString *path = [self.tempDir stringByAppendingPathComponent:@"truncated.ksscr"];
     int fd = open(path.UTF8String, O_WRONLY | O_CREAT | O_TRUNC, 0644);
@@ -176,7 +200,32 @@ static KSCrash_LifecycleData makeValidLifecycleData(void)
 
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_lifecycle_createStitchedReport(
         (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result == nil);
+    XCTAssertNotNil(result);
+    XCTAssertNil(result[@"system"][@"application_stats"]);
+}
+
+// The whole point of surviving a corrupt sidecar: the session id lives in the
+// run's .sessions file and must still stitch.
+- (void)testCorruptSidecarStillStitchesSessionID
+{
+    installSummaryProvider(self.tempDir);
+    NSString *runID = [[NSUUID UUID] UUIDString];
+    NSString *sessionsPath =
+        [self.tempDir stringByAppendingPathComponent:[runID stringByAppendingPathExtension:@"sessions"]];
+    KSSessionWriter *writer = kssw_open(sessionsPath.fileSystemRepresentation);
+    NSString *expected = @(kssw_update(writer, true, "alice"));
+    kssw_close(writer);
+
+    KSCrash_LifecycleData lc = makeValidLifecycleData();
+    lc.magic = (int32_t)0xDEADBEEF;
+    NSString *lcPath = writeLifecycleSidecar(self.tempDir, lc);
+    NSDictionary *report = @{ KSCrashField_Report : @ { KSCrashField_RunID : runID } };
+
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_lifecycle_createStitchedReport(
+        (__bridge CFDictionaryRef)report, lcPath.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertNotNil(result);
+    XCTAssertNil(result[@"system"][@"application_stats"]);
+    XCTAssertEqualObjects(result[KSCrashField_Report][KSCrashField_SessionID], expected);
 }
 
 #pragma mark - Valid Stitch - All Stats
@@ -325,6 +374,46 @@ static KSCrash_LifecycleData makeValidLifecycleData(void)
 
     NSDictionary *stats = result[KSCrashField_System][KSCrashField_AppStats];
     XCTAssertEqualObjects(stats[KSCrashField_TaskRole], @"UNSPECIFIED");
+}
+
+#pragma mark - Session ID
+
+- (void)testSessionIDStitchedFromSessionsFile
+{
+    installSummaryProvider(self.tempDir);
+
+    NSString *runID = [[NSUUID UUID] UUIDString];
+    NSString *sessionsPath =
+        [self.tempDir stringByAppendingPathComponent:[runID stringByAppendingPathExtension:@"sessions"]];
+    KSSessionWriter *writer = kssw_open(sessionsPath.fileSystemRepresentation);
+    NSString *expected = @(kssw_update(writer, true, "alice"));  // copy the id before close
+    kssw_close(writer);
+
+    NSString *lcPath = writeLifecycleSidecar(self.tempDir, makeValidLifecycleData());
+    NSDictionary *reportSection = @{ KSCrashField_RunID : runID };
+    NSDictionary *report = @{ KSCrashField_Report : reportSection };
+
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_lifecycle_createStitchedReport(
+        (__bridge CFDictionaryRef)report, lcPath.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertNotNil(result);
+    XCTAssertEqualObjects(result[KSCrashField_Report][KSCrashField_SessionID], expected,
+                          @"session_id is the last entry of the run's .sessions file");
+    XCTAssertEqualObjects(result[KSCrashField_Report][KSCrashField_RunID], runID, @"run_id preserved");
+}
+
+- (void)testSessionIDAbsentWhenRunHasNoSessionsFile
+{
+    installSummaryProvider(self.tempDir);  // provider set, but no .sessions file written
+
+    NSString *lcPath = writeLifecycleSidecar(self.tempDir, makeValidLifecycleData());
+    NSDictionary *reportSection = @{ KSCrashField_RunID : [[NSUUID UUID] UUIDString] };
+    NSDictionary *report = @{ KSCrashField_Report : reportSection };
+
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_lifecycle_createStitchedReport(
+        (__bridge CFDictionaryRef)report, lcPath.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertNotNil(result);
+    XCTAssertNil(result[KSCrashField_Report][KSCrashField_SessionID],
+                 @"session_id is omitted when the run recorded no session");
 }
 
 @end

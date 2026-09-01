@@ -155,6 +155,20 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
+               BlueprintIdentifier = "KSCrash"
+               BuildableName = "KSCrash"
+               BlueprintName = "KSCrash"
+               ReferencedContainer = "container:">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
                BlueprintIdentifier = "RecordingCore"
                BuildableName = "RecordingCore"
                BlueprintName = "RecordingCore"
@@ -335,6 +349,16 @@
                BlueprintIdentifier = "ReportTests"
                BuildableName = "ReportTests"
                BlueprintName = "ReportTests"
+               ReferencedContainer = "container:">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "KSCrashTests"
+               BuildableName = "KSCrashTests"
+               BlueprintName = "KSCrashTests"
                ReferencedContainer = "container:">
             </BuildableReference>
          </TestableReference>

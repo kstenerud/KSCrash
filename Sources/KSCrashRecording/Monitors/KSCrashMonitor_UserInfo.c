@@ -27,6 +27,7 @@
 #include "KSCrashMonitor_UserInfo.h"
 
 #include "KSCrashMonitor.h"
+#include "KSCrashReportStoreC.h"
 #include "KSFileUtils.h"
 #include "KSKeyValueStore.h"
 
@@ -39,7 +40,7 @@
 #define KSUSERINFO_INITIAL_CAPACITY 4096
 #define KSUSERINFO_MAX_KEY_LENGTH 256
 #define KSUSERINFO_MAX_STRING_LENGTH 1024
-#define KSUSERINFO_MONITOR_ID "UserInfo"
+#define KSUSERINFO_MONITOR_ID KSCRS_MONITOR_ID_USERINFO
 
 // ============================================================================
 #pragma mark - State -
@@ -152,7 +153,7 @@ static void setEnabled(bool isEnabled, __unused void *context)
 
     os_unfair_lock_lock(&g_lock);
 
-    g_store = kskvs_create(sidecarPath, KSKVSModeReadWriteCreate, &g_config);
+    g_store = kskvs_create(sidecarPath, KSKVSModeReadWriteCreate, &g_config, NULL);
     if (g_store == NULL) {
         KSLOG_ERROR("Failed to create UserInfo mmap store");
     }
@@ -204,7 +205,7 @@ __attribute__((unused)) bool kscm_userinfo_test_createStore(const char *path)
     if (g_store != NULL) {
         kskvs_destroy(g_store);
     }
-    g_store = kskvs_create(path, KSKVSModeReadWriteCreate, &g_config);
+    g_store = kskvs_create(path, KSKVSModeReadWriteCreate, &g_config, NULL);
     os_unfair_lock_unlock(&g_lock);
     return g_store != NULL;
 }

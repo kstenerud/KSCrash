@@ -403,6 +403,15 @@ static bool getRunSidecarPathForRunIDCallback(const char *monitorId, const char 
     return kscrs_getRunSidecarFilePathForRunID(monitorId, runID, pathBuffer, pathBufferLength, &g_reportStoreConfig);
 }
 
+static bool getSummarySidecarPathCallback(const char *runID, const char *extension, char *pathBuffer,
+                                          size_t pathBufferLength)
+{
+    // maxRunSummaryCount only gates .run persistence. Sessions are recorded
+    // either way so crash reports keep their session id; stale session files
+    // are reclaimed at the end of any send flow.
+    return kscrs_getSummarySidecarFilePath(runID, extension, pathBuffer, pathBufferLength, &g_reportStoreConfig);
+}
+
 /** Derive a default store directory (e.g. "Runs", "Sidecars", "RunSidecars")
  *  as a sibling of reportsPath, matching the ObjC KSCrashReportStoreConfiguration
  *  which derives these via -stringByDeletingLastPathComponent. Trailing '/' are
@@ -522,6 +531,7 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     kscm_setReportSidecarPathProvider(getReportSidecarPathCallback);
     kscm_setRunSidecarPathProvider(getRunSidecarPathCallback);
     kscm_setRunSidecarPathForRunIDProvider(getRunSidecarPathForRunIDCallback);
+    kscm_setSummarySidecarPathProvider(getSummarySidecarPathCallback);
 
     if (snprintf(g_consoleLogPath, sizeof(g_consoleLogPath), "%s/Data/ConsoleLog.txt", installPath) >=
         (int)sizeof(g_consoleLogPath)) {
@@ -561,11 +571,10 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     // still holds whatever the caller passed in (NULL is valid there). Skip
     // when the caller disabled the feature via maxRunSummaryCount <= 0.
     //
-    // Install only appends — the retention cap is enforced on the send path
-    // (sendAllRunSummariesWithConfiguration:completion:) and via the public
-    // ksruncontext_pruneRunSummaries() API that callers can invoke on their
-    // own cadence. Intentionally not pruning here so retention policy stays a
-    // caller choice rather than being coupled to launch timing.
+    // Install only appends — the retention cap is enforced on the send path,
+    // which prunes when it snapshots the runs directory. Intentionally not
+    // pruning here so retention policy stays a send-time concern rather than
+    // being coupled to launch timing.
     if (g_reportStoreConfig.maxRunSummaryCount > 0) {
         ksruncontext_persistPreviousRunSummary(g_reportStoreConfig.runSummariesPath);
     }
@@ -619,6 +628,12 @@ int64_t kscrash_addUserReport(const char *report, int reportLength)
 
 const char *kscrash_getRunID(void) { return g_runID; }
 
+const char *kscrash_getRunSummariesPath(void) { return g_reportStoreConfig.runSummariesPath; }
+
+const char *kscrash_getRunSidecarsPath(void) { return g_reportStoreConfig.runSidecarsPath; }
+
+int kscrash_getMaxRunSummaryCount(void) { return g_reportStoreConfig.maxRunSummaryCount; }
+
 const char *kscrash_getLastRunID(void) { return g_lastRunID; }
 
 const char *kscrash_namespaceIdentifier(void) { return KSCRASH_NS_STRING("KSCrash"); }
@@ -658,6 +673,16 @@ __attribute__((unused))  // For tests. Declared as extern in TestCase
 void kscrash_testcode_setMonitors(KSCrashMonitorType monitorTypes)
 {
     setMonitors(monitorTypes);
+}
+
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+void kscrash_testcode_setRunID(const char *runID)
+{
+    if (runID != NULL) {
+        strlcpy(g_runID, runID, sizeof(g_runID));
+    } else {
+        g_runID[0] = '\0';
+    }
 }
 
 __attribute__((unused))  // For tests. Declared as extern in TestCase

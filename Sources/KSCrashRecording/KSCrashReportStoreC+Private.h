@@ -100,6 +100,24 @@ bool kscrs_getRunSidecarFilePathForRunID(const char *monitorId, const char *runI
                                          size_t pathBufferLength,
                                          const KSCrashReportStoreCConfiguration *const configuration);
 
+/** Get a run-summary "summary sidecar" file path.
+ *
+ * Builds: <runSummariesPath>/<runID>.<extension> and creates runSummariesPath
+ * if it doesn't exist. Rejects non-UUID run IDs. Does not check whether the
+ * feature is enabled; the caller decides that.
+ *
+ * @param runID The run the file belongs to.
+ * @param extension The file extension without a dot, e.g. "sessions".
+ * @param pathBuffer Buffer to receive the file path.
+ * @param pathBufferLength The size of the path buffer.
+ * @param configuration The store configuration containing the runSummariesPath.
+ *
+ * @return true if the path was successfully written, false on failure.
+ */
+bool kscrs_getSummarySidecarFilePath(const char *runID, const char *extension, char *pathBuffer,
+                                     size_t pathBufferLength,
+                                     const KSCrashReportStoreCConfiguration *const configuration);
+
 /** Sets the configuration used by the no-config readers
  *  (kscrs_readReportAtPath, kscrs_readReportByPathAndID, kscrs_finalizeReport)
  *  for sidecar stitching.

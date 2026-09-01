@@ -27,8 +27,8 @@
 /* Lifecycle monitor — tracks app lifecycle data in an mmap'd run sidecar.
  *
  * Replaces the old CrashState.json approach with a fixed-layout struct
- * that is flushed to disk by the kernel. The "cleanShutdown" flag defaults
- * to false; clean exit paths set it true. On next launch, cleanShutdown==false
+ * that is flushed to disk by the kernel. The "cleanExit" flag defaults
+ * to false; clean exit paths set it true. On next launch, cleanExit==false
  * means the previous run ended abnormally.
  *
  * All durations are stored as uint64_t nanoseconds from
@@ -40,6 +40,7 @@
 #define HDR_KSCrashMonitor_Lifecycle_h
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include "KSCrashAppTransitionState.h"
@@ -54,6 +55,15 @@ extern "C" {
 // ============================================================================
 #pragma mark - Sidecar Struct -
 // ============================================================================
+
+/** Kind of host process a run belongs to. Stored by value in the lifecycle
+ *  sidecar and written to the run summary wire format as a string. */
+typedef enum {
+    KSCrashRunSummaryHostKindApp = 0,
+    KSCrashRunSummaryHostKindExtension,
+    KSCrashRunSummaryHostKindXCTest,
+    KSCrashRunSummaryHostKindOther,
+} KSCrashRunSummaryHostKind;
 
 #define KSLIFECYCLE_MAGIC ((int32_t)'kslc')
 
@@ -72,7 +82,7 @@ typedef struct {
     int32_t magic;
     uint8_t version;
 
-    uint8_t cleanShutdown;
+    uint8_t cleanExit;
     uint8_t applicationIsActive;
     uint8_t applicationIsInForeground;
 
@@ -96,13 +106,13 @@ typedef struct {
     int32_t taskRole;  // task_role_t — updated by heartbeat and on lifecycle events
 
     uint8_t crashedLastLaunch KSCRASH_DEPRECATED("Use ksruncontext_previousRunContext()->terminationReason");
-    uint8_t transitionState;  // KSCrashAppTransitionState at last update
-    uint8_t fatalReported;    // true if a crash handler ran (distinguishes crash from OS kill)
-    uint8_t userPerceptible;  // true if the user could perceive the app as part of their
-                              // experience (e.g. active, launching, or even tapping the icon
-                              // while still technically backgrounded)
-    uint8_t hangInProgress;   // true while the watchdog is tracking an active hang;
-                              // if still true on next launch, the app was killed during a hang
+    uint8_t transitionState;    // KSCrashAppTransitionState at last update
+    uint8_t monitorHandlerRan;  // true if a crash handler ran (distinguishes crash from OS kill)
+    uint8_t userPerceptible;    // true if the user could perceive the app as part of their
+                                // experience (e.g. active, launching, or even tapping the icon
+                                // while still technically backgrounded)
+    uint8_t hangActive;         // true while the watchdog is tracking an active hang;
+                                // if still true on next launch, the app was killed during a hang
 
     // --- v2 additions ---
     //
@@ -111,19 +121,15 @@ typedef struct {
     // (shorter) can be read into this struct with the trailing fields left
     // zero-filled. kslifecycle_readData tolerates short reads to enable this.
     //
-    // Per-run session counts split by user perceptibility, consumed by the
-    // RunSummary pipeline. These are independent of `sessionsSinceLaunch`
-    // above, which keeps its historical "launch + foreground resume" meaning
-    // (backgrounding bumps imperceptible here but never the public counter),
-    // so the two are NOT related by a sum invariant.
-    uint32_t perceptibleSessionsSinceLaunch;
-    uint32_t imperceptibleSessionsSinceLaunch;
-
-    // Counts of distinct user IDs observed in each perceptibility bucket
-    // during this run. Distinctness is tracked in-memory (lost on crash);
-    // only the counts are persisted. See kscm_lifecycle_observeUser.
-    uint32_t distinctPerceptibleUserCount;
-    uint32_t distinctImperceptibleUserCount;
+    // Unused reserved slots. These once held per-run session and distinct-user
+    // counts that the RunSummary carried; the summary now derives everything
+    // from the per-run .sessions records, so nothing reads or writes these.
+    // Kept (not removed) so the slots can be reused for future per-run fields
+    // without shifting the layout.
+    uint32_t perceptibleSessionsSinceLaunch_UNUSED;
+    uint32_t imperceptibleSessionsSinceLaunch_UNUSED;
+    uint32_t distinctPerceptibleUserCount_UNUSED;
+    uint32_t distinctImperceptibleUserCount_UNUSED;
 
     // --- v3 additions ---
     //
@@ -135,10 +141,10 @@ typedef struct {
     // 2=xctest, 3=other). v2 sidecars short-read to 0 = app.
     uint8_t hostKind;
 
-    // Per-run: a perceptible session is owed but not yet counted. Set at
-    // launch and on entering background; cleared when the app first becomes
-    // perceptible. See countPerceptibleSessionIfPending.
-    uint8_t perceptibleSessionPending;
+    // Unused reserved slot. Once flagged an owed perceptible session for the
+    // retired per-run counters above; kept so it can be reused without shifting
+    // the layout.
+    uint8_t perceptibleSessionPending_UNUSED;
 } KSCrash_LifecycleData;
 
 _Static_assert(sizeof(KSCrash_LifecycleData) == 112, "KSCrash_LifecycleData size changed — bump version");
@@ -210,25 +216,32 @@ bool kslifecycle_readData(const char *path, KSCrash_LifecycleData *out);
  */
 bool kslifecycle_getSnapshotForRunID(const char *runID, KSCrash_LifecycleData *outData);
 
+/** Copy the last recorded session id for `runID` (the final entry of that run's
+ *  `.sessions` file) into `buf`. Sets `buf` to "" and returns false when the run
+ *  has no sessions file or no readable session.
+ */
+bool kslifecycle_copyLastSessionIDForRunID(const char *runID, char *buf, size_t bufLen);
+
 /** Returns the most recently observed app transition state.
  *  Lock-free (atomic load). Safe to call from any thread.
  */
 KSCrashAppTransitionState kslifecycle_currentTransitionState(void);
 
+/** The current session id, or NULL if none is open. Borrowed: points at a
+ *  thread-local buffer valid until the next kslifecycle_currentSessionID() call
+ *  on the same thread; copy it to keep it.
+ *
+ *  Not async-signal-safe; never call from a crash or signal handler.
+ */
+const char *kslifecycle_currentSessionID(void);
+
 /** Observe that the given user ID is active right now.
  *
- *  The monitor maintains distinct-user counts, split by the current
- *  perceptibility state, and persists them into the Lifecycle sidecar as
- *  `distinctPerceptibleUserCount` / `distinctImperceptibleUserCount`.
- *  Distinctness tracking itself is in-memory only; the counts at crash
- *  time are what survive.
+ *  Cuts a new session for the user change, keeping the current perceptibility.
+ *  Pass NULL or an empty string for an anonymous user. No-op before the monitor
+ *  is enabled or when session recording is unavailable.
  *
- *  Pass NULL or an empty string to record no user. No-op before the
- *  monitor is enabled.
- *
- *  Called from `-[KSCrash setUserID:]` on every user change, and
- *  internally whenever a perceptibility transition reveals the current
- *  user in a new bucket.
+ *  Called from `-[KSCrash setUserID:]` on every user change.
  */
 void kscm_lifecycle_observeUser(const char *userID);
 

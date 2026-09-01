@@ -247,6 +247,22 @@ typedef bool (*KSCrashSidecarRunPathForRunIDProviderFunc)(const char *monitorId,
                                                           size_t pathBufferLength);
 
 /**
+ * Function type for obtaining a run-summary "summary sidecar" file path.
+ *
+ * Summary sidecars attach to the run summary, not to crash reports.
+ * Layout: <runSummariesPath>/<runID>.<extension>. Creates the directory if
+ * needed. Returns false when run-summary persistence is disabled.
+ *
+ * @param runID The run the file belongs to (its own filename key).
+ * @param extension The file extension without a dot, e.g. "sessions".
+ * @param pathBuffer Buffer to receive the file path.
+ * @param pathBufferLength The size of pathBuffer in bytes.
+ * @return true if the path was successfully written, false on failure.
+ */
+typedef bool (*KSCrashSummarySidecarPathProviderFunc)(const char *runID, const char *extension, char *pathBuffer,
+                                                      size_t pathBufferLength);
+
+/**
  * Callbacks to be used by monitors.
  * In general, exception handling will follow a similar process:
  * - Do the minimum amount of work necessary to call the notify callback.
@@ -308,6 +324,9 @@ typedef struct {
 
     /** Get a run-scoped sidecar file path for a specific (e.g. previous) run ID. Read-only — no directory creation. */
     KSCrashSidecarRunPathForRunIDProviderFunc getRunSidecarPathForRunID;
+
+    /** Get a run-summary "summary sidecar" file path (attaches to the run summary, not a report). */
+    KSCrashSummarySidecarPathProviderFunc getSummarySidecarPath;
 } KSCrash_ExceptionHandlerCallbacks;
 
 #ifdef __cplusplus

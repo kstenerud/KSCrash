@@ -229,6 +229,12 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
     kscm_lifecycle_observeUser(userIDString);
 }
 
+- (NSString *)sessionID
+{
+    const char *sid = kslifecycle_currentSessionID();
+    return sid != NULL ? @(sid) : nil;
+}
+
 - (BOOL)reportsMemoryTerminations
 {
     KSCrashMonitorAPI *api = kscm_termination_getAPI();
@@ -364,19 +370,6 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
         return;
     }
     [store sendReportWithID:reportID configuration:configuration completion:onCompletion];
-}
-
-- (void)sendAllRunSummariesWithConfiguration:(KSCrashSendConfiguration *)configuration
-                                  completion:(KSCrashRunFilterCompletion)onCompletion
-{
-    KSCrashReportStore *store = self.reportStore;
-    if (store == nil) {
-        if (onCompletion != nil) {
-            onCompletion(@[], [self notInstalledError]);
-        }
-        return;
-    }
-    [store sendAllRunSummariesWithConfiguration:configuration completion:onCompletion];
 }
 
 - (void)reportUserException:(NSString *)name

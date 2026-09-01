@@ -51,7 +51,7 @@ static NSString *createTempDir(void)
 static NSString *buildSidecarFile(NSString *dir, void (^block)(KSKeyValueStore *store))
 {
     NSString *path = [dir stringByAppendingPathComponent:@"UserInfo.ksscr"];
-    KSKeyValueStore *store = kskvs_create(path.UTF8String, KSKVSModeReadWriteCreate, &kTestConfig);
+    KSKeyValueStore *store = kskvs_create(path.UTF8String, KSKVSModeReadWriteCreate, &kTestConfig, NULL);
     if (store == NULL) {
         return nil;
     }

@@ -34,6 +34,13 @@
 extern "C" {
 #endif
 
+/** Outcome of a run_id extraction. */
+typedef enum {
+    KSCrashRunIdResultFound,      // A valid run_id was written to runIdOut.
+    KSCrashRunIdResultAbsent,     // The report was read but has no valid run_id.
+    KSCrashRunIdResultReadError,  // The report could not be read (I/O failure).
+} KSCrashRunIdResult;
+
 /** Extract the run_id from a report file.
  *
  * Reads the file into memory and parses its JSON, stopping as soon
@@ -45,9 +52,11 @@ extern "C" {
  * @param runIdOut Buffer to receive the UUID string.
  * @param runIdOutLen Size of the buffer (must be > 36).
  *
- * @return true if a valid UUID run_id was extracted, false otherwise.
+ * @return @c KSCrashRunIdResultFound when @c runIdOut holds a valid UUID,
+ *         @c KSCrashRunIdResultAbsent when the report has no valid run_id, or
+ *         @c KSCrashRunIdResultReadError when the file could not be read.
  */
-bool kscrs_extractRunIdFromReportFile(const char *reportPath, char *runIdOut, size_t runIdOutLen);
+KSCrashRunIdResult kscrs_extractRunIdFromReportFile(const char *reportPath, char *runIdOut, size_t runIdOutLen);
 
 #ifdef __cplusplus
 }
