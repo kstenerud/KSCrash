@@ -557,8 +557,8 @@ KSCrashInstallErrorCode kscrash_install(const char *const installPath, KSCrashCC
 
 void kscrash_thwartTailCallOptimisation(void) { KS_THWART_TAIL_CALL_OPTIMISATION }
 
-KSCrashInstallErrorCode kscrash_installForExtensionReporting(const char *const installPath,
-                                                             KSCrashMonitorAPI *pluginAPIs, int pluginCount)
+KSCrashInstallErrorCode
+    kscrash_installForExtensionReporting(const char *const installPath, KSCrashMonitorAPI *pluginAPIs, int pluginCount)
 {
     KSLOG_DEBUG("Installing crash reporter in extension (reporter-only) mode.");
 
