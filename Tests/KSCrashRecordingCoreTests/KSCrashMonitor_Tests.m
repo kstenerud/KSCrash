@@ -43,7 +43,7 @@ static _Atomic bool g_dummyEnabledState = false;
 static _Atomic bool g_dummyPostSystemEnabled = false;
 static const char *const g_eventID = "TestEventID";
 static const char *g_copiedEventID = NULL;
-static int64_t g_dummyResultReportId = 1;
+static const char *g_dummyResultReportId = "4C1B2F3E-0000-4000-8000-000000000001";
 
 static KSCrash_ExceptionHandlerCallbacks dummyExceptionHandlerCallbacks;
 static void dummyInit(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused void *context)
@@ -88,12 +88,12 @@ static KSCrashMonitorAPI g_secondDummyMonitor = {};
 
 static BOOL g_exceptionHandled = NO;
 static BOOL g_finalizeCalled = NO;
-static int64_t g_finalizedReportId = 0;
+static char g_finalizedReportId[KSID_SIZE] = "";
 
 static void myEventCallback(struct KSCrash_MonitorContext *context, KSCrash_ReportResult *result)
 {
     if (result) {
-        result->reportId = g_dummyResultReportId;
+        strlcpy(result->reportId, g_dummyResultReportId, sizeof(result->reportId));
     }
     g_exceptionHandled = YES;
     g_copiedEventID = strdup(context->eventID);
@@ -102,10 +102,14 @@ static void myEventCallback(struct KSCrash_MonitorContext *context, KSCrash_Repo
 static void myFinalizeCallback(__unused struct KSCrash_MonitorContext *context, const KSCrash_ReportResult *result)
 {
     g_finalizeCalled = YES;
-    g_finalizedReportId = result->reportId;
+    strlcpy(g_finalizedReportId, result->reportId, sizeof(g_finalizedReportId));
 }
 
 extern void kscm_testcode_resetState(void);
+struct KSCrashMonitorSavedState;
+extern struct KSCrashMonitorSavedState *kscm_testcode_saveState(void);
+extern void kscm_testcode_restoreState(struct KSCrashMonitorSavedState *saved);
+static struct KSCrashMonitorSavedState *g_savedMonitorState;
 
 - (void)setUp
 {
@@ -134,7 +138,14 @@ extern void kscm_testcode_resetState(void);
     g_secondDummyMonitor.isEnabled = secondDummyIsEnabled;
     g_secondDummyEnabledState = false;
 
+    g_savedMonitorState = kscm_testcode_saveState();
     kscm_testcode_resetState();
+}
+
+- (void)tearDown
+{
+    kscm_testcode_restoreState(g_savedMonitorState);
+    [super tearDown];
 }
 
 - (bool)cstringIsEqual:(const char *)a to:(const char *)b
@@ -628,7 +639,7 @@ static atomic_int g_counter = 0;
 
     KSCrash_ReportResult result = {};
     dummyExceptionHandlerCallbacks.handleWithResult(ctx, &result, false);
-    XCTAssert(result.reportId == g_dummyResultReportId);
+    XCTAssertEqual(strcmp(result.reportId, g_dummyResultReportId), 0);
 }
 
 - (void)testFinalizeCalledForNonFatalWithFinalizeTrue
@@ -638,7 +649,7 @@ static atomic_int g_counter = 0;
     kscm_setEventCallbackWithResult(myEventCallback);
     kscm_setFinalizeReportCallback(myFinalizeCallback);
     g_finalizeCalled = NO;
-    g_finalizedReportId = 0;
+    g_finalizedReportId[0] = '\0';
 
     KSCrash_MonitorContext *ctx = dummyExceptionHandlerCallbacks.notify(
         (thread_t)ksthread_self(),
@@ -646,7 +657,7 @@ static atomic_int g_counter = 0;
     dummyExceptionHandlerCallbacks.handleWithResult(ctx, NULL, true);
 
     XCTAssertTrue(g_finalizeCalled);
-    XCTAssertEqual(g_finalizedReportId, g_dummyResultReportId);
+    XCTAssertEqual(strcmp(g_finalizedReportId, g_dummyResultReportId), 0);
 }
 
 - (void)testFinalizeNotCalledForFatalWithFinalizeTrue

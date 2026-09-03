@@ -47,7 +47,7 @@ static const char *monitorIdOf(const KSCrashMonitorAPI *api)
         return NULL;
     }
     const char *monitorId = api->monitorId(api->context);
-    if (monitorId != NULL && strcmp(monitorId, KSCRASH_MONITOR_ID_UNSET) == 0) {
+    if (monitorId != NULL && strncmp(monitorId, KSCRASH_MONITOR_ID_UNSET, KSCRASH_MONITOR_ID_MAX_LENGTH) == 0) {
         return NULL;
     }
     return monitorId;
@@ -70,7 +70,7 @@ bool kscmr_addMonitor(KSCrashMonitorAPIList *monitorList, const KSCrashMonitorAP
                 continue;
             }
             const char *existingId = monitorIdOf(existing);
-            if (existingId != NULL && strcmp(existingId, newId) == 0) {
+            if (existingId != NULL && strncmp(existingId, newId, KSCRASH_MONITOR_ID_MAX_LENGTH) == 0) {
                 KSLOG_ERROR("A monitor with id \"%s\" is already registered. Skipping addition.", newId);
                 // Loud in debug, where the mistake is introduced. In release the monitor is
                 // simply not added, which beats misrouting one monitor's sections to another.
@@ -79,6 +79,12 @@ bool kscmr_addMonitor(KSCrashMonitorAPIList *monitorList, const KSCrashMonitorAP
             }
         }
     }
+
+    // The registry calls these unconditionally, and kscma_initAPI fills them
+    // with no-ops, so a NULL is a table that skipped it. The list lives in
+    // KSCRASH_MONITOR_REQUIRED_CALLBACKS, shared with the Swift install's
+    // validation, which is what enforces it in release.
+    assert(kscma_hasRequiredCallbacks(api));
 
     bool added = false;
     for (size_t i = 0; i < KSCRASH_MONITOR_API_COUNT; i++) {

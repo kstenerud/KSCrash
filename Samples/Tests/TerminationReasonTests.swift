@@ -37,7 +37,7 @@ import XCTest
         func testFirstLaunch() throws {
             try launchAndInstall()
             let state = try readState()
-            XCTAssertFalse(state.crashedLastLaunch)
+            XCTAssertFalse(state.previousRunWasAbnormal)
             XCTAssertEqual(state.terminationReason, .firstLaunch)
         }
 
@@ -46,7 +46,7 @@ import XCTest
 
             try launchAndInstall()
             let state = try readState()
-            XCTAssertTrue(state.crashedLastLaunch)
+            XCTAssertTrue(state.previousRunWasAbnormal)
             XCTAssertEqual(state.terminationReason, .unexplained)
         }
 
@@ -59,7 +59,7 @@ import XCTest
 
             try launchAndInstall()
             let state = try readState()
-            XCTAssertTrue(state.crashedLastLaunch)
+            XCTAssertTrue(state.previousRunWasAbnormal)
             XCTAssertEqual(state.terminationReason, .memoryPressure)
         }
 
@@ -70,7 +70,7 @@ import XCTest
 
             try launchAndInstall()
             let state = try readState()
-            XCTAssertTrue(state.crashedLastLaunch)
+            XCTAssertTrue(state.previousRunWasAbnormal)
             XCTAssertEqual(state.terminationReason, .thermal)
         }
 
@@ -83,8 +83,8 @@ import XCTest
 
             try launchAndInstall()
             let state = try readState()
-            XCTAssertTrue(state.crashedLastLaunch)
-            XCTAssertEqual(state.terminationReason, .CPU)
+            XCTAssertTrue(state.previousRunWasAbnormal)
+            XCTAssertEqual(state.terminationReason, .cpu)
         }
 
         #if os(iOS)
@@ -96,7 +96,7 @@ import XCTest
 
                 try launchAndInstall()
                 let state = try readState()
-                XCTAssertTrue(state.crashedLastLaunch)
+                XCTAssertTrue(state.previousRunWasAbnormal)
                 XCTAssertEqual(state.terminationReason, .lowBattery)
             }
         #endif
@@ -110,7 +110,7 @@ import XCTest
 
             try launchAndInstall()
             let state = try readState()
-            XCTAssertFalse(state.crashedLastLaunch)
+            XCTAssertFalse(state.previousRunWasAbnormal)
             XCTAssertEqual(state.terminationReason, .osUpgrade)
         }
 
@@ -121,7 +121,7 @@ import XCTest
 
             try launchAndInstall()
             let state = try readState()
-            XCTAssertFalse(state.crashedLastLaunch)
+            XCTAssertFalse(state.previousRunWasAbnormal)
             XCTAssertEqual(state.terminationReason, .appUpgrade)
         }
 
@@ -138,7 +138,7 @@ import XCTest
             try launchAndInstall()
             app.launchEnvironment.removeValue(forKey: "KSCRASH_TEST_BOOT_TIMESTAMP")
             let state = try readState()
-            XCTAssertFalse(state.crashedLastLaunch)
+            XCTAssertFalse(state.previousRunWasAbnormal)
             XCTAssertEqual(state.terminationReason, .reboot)
         }
     }

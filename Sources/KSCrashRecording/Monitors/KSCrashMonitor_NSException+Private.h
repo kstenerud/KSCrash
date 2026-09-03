@@ -28,7 +28,7 @@
 
 #import "KSCrashMonitor_NSException.h"
 
-typedef void KSCrashCustomNSExceptionReporter(NSException *exception, BOOL logAllThreads);
+typedef void KSCrashCustomNSExceptionReporter(NSException *exception, BOOL logAllThreads, int extraSkipFrames);
 
 typedef void OnNSExceptionHandlerEnabled(NSUncaughtExceptionHandler *uncaughtExceptionHandler,
                                          KSCrashCustomNSExceptionReporter *customNSExceptionReporter);

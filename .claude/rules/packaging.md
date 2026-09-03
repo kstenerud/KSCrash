@@ -5,7 +5,7 @@ paths:
 
 ## Public Modules
 
-The public API surface consists of these modules: **KSCrashRecording**, **KSCrashDiscSpaceMonitor**, **KSCrashBootTimeMonitor**, and the Swift modules (**KSCrash**, **KSCrashReportModel**, **KSCrashMonitors**, **KSCrashProfiler**). Public headers live in `Sources/[ModuleName]/include/*.h`.
+The public API surface consists of these modules: **KSCrashRecording**, **KSCrashDiskMonitor**, **KSCrashBootMonitor**, and the Swift modules (**KSCrash**, **KSCrashReportModel**, **KSCrashMonitors**, **KSCrashMonitorPlugins**, **KSCrashProfiler**). Public headers live in `Sources/[ModuleName]/include/*.h`.
 
 ## Swift SPM Module Naming
 

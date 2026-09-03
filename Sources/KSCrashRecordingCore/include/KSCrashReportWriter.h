@@ -229,30 +229,6 @@ typedef struct KSCrashReportWriter {
 
 } NS_SWIFT_NAME(ReportWriter) KSCrashReportWriter;
 
-/** Callback type for when a crash report is being written (DEPRECATED).
- *
- * @deprecated Use `KSCrashIsWritingReportCallback` for async-safety awareness (since v2.4.0).
- * This callback does not receive plan information and may not handle crash
- * scenarios safely.
- *
- * @param writer The report writer.
- */
-typedef void (*KSReportWriteCallback)(const KSCrashReportWriter *writer)
-    __attribute__((deprecated("Use `KSCrashIsWritingReportCallback` for async-safety awareness (since v2.4.0).")))
-    NS_SWIFT_UNAVAILABLE("Use Swift closures instead!");
-
-/** Callback type for when a crash report is finished writing (DEPRECATED).
- *
- * @deprecated Use `KSCrashDidWriteReportCallback` for async-safety awareness (since v2.4.0).
- * This callback does not receive plan information and may not handle crash
- * scenarios safely.
- *
- * @param reportID The ID of the report that was written.
- */
-typedef void (*KSReportWrittenCallback)(int64_t reportID)
-    __attribute__((deprecated("Use `KSCrashDidWriteReportCallback` for async-safety awareness (since v2.4.0).")))
-    NS_SWIFT_UNAVAILABLE("Use Swift closures instead!");
-
 #ifdef __cplusplus
 }
 #endif

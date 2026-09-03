@@ -31,9 +31,9 @@
 #include "KSCrashExceptionHandlingPlan+Private.h"
 #include "KSCrashMonitor.h"
 #include "KSCrashMonitorContext.h"
+#include "KSCrashMonitorType+Private.h"
 #include "KSCrashMonitorType.h"
 #include "KSCrashMonitor_CPPException.h"
-#include "KSCrashMonitor_Deadlock.h"
 #include "KSCrashMonitor_Lifecycle.h"
 #include "KSCrashMonitor_MachException.h"
 #include "KSCrashMonitor_NSException.h"
@@ -71,30 +71,28 @@
 #include "KSLogger.h"
 
 #define KSC_MAX_APP_NAME_LENGTH 100
-#define KSC_MAX_PLUGINS 64
 #define KSC_UUID_STRING_LENGTH 36
 #define KSC_RUN_ID_FILE_MODE 0644
+
+// KSCrashCConfiguration is filled by Objective-C and Swift and read here as C;
+// its layout only agrees while the monitor mask has NSUInteger's width.
+_Static_assert(sizeof(KSCrashMonitorType) == sizeof(unsigned long), "KSCrashMonitorType must be NSUInteger-wide in C");
 
 static const struct KSCrashMonitorMapping {
     KSCrashMonitorType type;
     KSCrashMonitorAPI *(*getAPI)(void);
-}
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-g_monitorMappings[] = { { KSCrashMonitorTypeMachException, kscm_machexception_getAPI },
-                        { KSCrashMonitorTypeSignal, kscm_signal_getAPI },
-                        { KSCrashMonitorTypeCPPException, kscm_cppexception_getAPI },
-                        { KSCrashMonitorTypeNSException, kscm_nsexception_getAPI },
-                        { KSCrashMonitorTypeMainThreadDeadlock, kscm_deadlock_getAPI },
-                        { KSCrashMonitorTypeUserReported, kscm_user_getAPI },
-                        { KSCrashMonitorTypeSystem, kscm_system_getAPI },
-                        { KSCrashMonitorTypeTermination, kscm_termination_getAPI },
-                        { KSCrashMonitorTypeApplicationState, kscm_lifecycle_getAPI },
-                        { KSCrashMonitorTypeZombie, kscm_zombie_getAPI },
-                        { KSCrashMonitorTypeWatchdog, kscm_watchdog_getAPI },
-                        { KSCrashMonitorTypeUserInfo, kscm_userinfo_getAPI },
-                        { KSCrashMonitorTypeResource, kscm_resource_getAPI } };
-#pragma clang diagnostic pop
+} g_monitorMappings[] = { { KSCrashMonitorTypeMachException, kscm_machexception_getAPI },
+                          { KSCrashMonitorTypeSignal, kscm_signal_getAPI },
+                          { KSCrashMonitorTypeCPPException, kscm_cppexception_getAPI },
+                          { KSCrashMonitorTypeNSException, kscm_nsexception_getAPI },
+                          { KSCrashMonitorTypeUserReported, kscm_user_getAPI },
+                          { KSCrashMonitorTypeSystem, kscm_system_getAPI },
+                          { KSCrashMonitorTypeTermination, kscm_termination_getAPI },
+                          { KSCrashMonitorTypeApplicationState, kscm_lifecycle_getAPI },
+                          { KSCrashMonitorTypeZombie, kscm_zombie_getAPI },
+                          { KSCrashMonitorTypeHang, kscm_watchdog_getAPI },
+                          { KSCrashMonitorTypeUserInfo, kscm_userinfo_getAPI },
+                          { KSCrashMonitorTypeResource, kscm_resource_getAPI } };
 
 static const size_t g_monitorMappingCount = sizeof(g_monitorMappings) / sizeof(g_monitorMappings[0]);
 
@@ -110,12 +108,6 @@ static bool g_shouldPrintPreviousLog = false;
 static char g_consoleLogPath[KSFU_MAX_PATH_LENGTH];
 static char g_lastCrashReportFilePath[KSFU_MAX_PATH_LENGTH];
 static KSCrashReportStoreCConfiguration g_reportStoreConfig;
-// TODO: Remove in 3.0
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-static KSReportWriteCallback g_legacyCrashNotifyCallback;
-static KSReportWrittenCallback g_legacyReportWrittenCallback;
-#pragma clang diagnostic pop
 static KSCrashWillWriteReportCallback g_willWriteReportCallback;
 static KSCrashIsWritingReportCallback g_isWritingReportCallback;
 static KSCrashDidWriteReportCallback g_didWriteReportCallback;
@@ -145,7 +137,8 @@ static void rotateRunID(const char *installPath)
     uuid_unparse_lower(uuid, g_runID);
 
     char path[KSFU_MAX_PATH_LENGTH];
-    if (snprintf(path, sizeof(path), "%s/Data/last_run_id", installPath) >= (int)sizeof(path)) {
+    if (snprintf(path, sizeof(path), "%s/" KSCRS_DEFAULT_DATA_FOLDER "/last_run_id", installPath) >=
+        (int)sizeof(path)) {
         KSLOG_ERROR("last_run_id path too long");
         return;
     }
@@ -208,34 +201,6 @@ static void printPreviousLog(const char *filePath)
 #pragma mark - Callback Adapters -
 // ============================================================================
 
-/** Adapter function that bridges legacy crash notify callback to new signature.
- * This allows old callbacks without plan awareness to be used with the new system.
- */
-static void legacyCrashNotifyCallbackAdapter(__unused const KSCrash_ExceptionHandlingPlan *const plan,
-                                             const KSCrashReportWriter *writer)
-{
-    if (g_legacyCrashNotifyCallback) {
-        KSLOG_WARN(
-            "Using deprecated crash notify callback without plan awareness. "
-            "Consider upgrading to isWritingReportCallback.");
-        g_legacyCrashNotifyCallback(writer);
-    }
-}
-
-/** Adapter function that bridges legacy report written callback to new signature.
- * This allows old callbacks without plan awareness to be used with the new system.
- */
-static void legacyReportWrittenCallbackAdapter(__unused const KSCrash_ExceptionHandlingPlan *const plan,
-                                               int64_t reportID)
-{
-    if (g_legacyReportWrittenCallback) {
-        KSLOG_WARN(
-            "Using deprecated report written callback without plan awareness. "
-            "Consider upgrading to didWriteReportCallback.");
-        g_legacyReportWrittenCallback(reportID);
-    }
-}
-
 // ============================================================================
 #pragma mark - Callbacks -
 // ============================================================================
@@ -261,7 +226,14 @@ static void onExceptionEvent(struct KSCrash_MonitorContext *monitorContext, KSCr
     monitorContext->consoleLogPath = g_shouldAddConsoleLogToReport ? g_consoleLogPath : NULL;
 
     if (monitorContext->requirements.crashedDuringExceptionHandling) {
-        kscrashreport_writeRecrashReport(monitorContext, g_lastCrashReportFilePath);
+        // The rewritten file keeps its identity: the id is parsed from the
+        // path's own filename (async-signal-safe), so it can never pair with
+        // another crash's id the way a second id global could.
+        char recrashReportID[KSID_SIZE] = { 0 };
+        const char *filename = strrchr(g_lastCrashReportFilePath, '/');
+        filename = filename != NULL ? filename + 1 : g_lastCrashReportFilePath;
+        kscrs_parseReportFilename(filename, recrashReportID);
+        kscrashreport_writeRecrashReport(monitorContext, g_lastCrashReportFilePath, recrashReportID);
     } else if (monitorContext->reportPath) {
         kscrashreport_writeStandardReport(monitorContext, monitorContext->reportPath);
         // No store ID for a caller-supplied path, but report the write in the result so a
@@ -271,19 +243,18 @@ static void onExceptionEvent(struct KSCrash_MonitorContext *monitorContext, KSCr
             strlcpy(result->path, monitorContext->reportPath, sizeof(result->path));
         }
     } else {
+        // The event id minted with the context is the report's identity.
         char crashReportFilePath[KSFU_MAX_PATH_LENGTH];
-        int64_t reportID = kscrs_getNextCrashReport(crashReportFilePath, &g_reportStoreConfig);
+        kscrs_getNextCrashReport(monitorContext->eventID, crashReportFilePath, &g_reportStoreConfig);
         strlcpy(g_lastCrashReportFilePath, crashReportFilePath, sizeof(g_lastCrashReportFilePath));
         kscrashreport_writeStandardReport(monitorContext, crashReportFilePath);
-
         if (result) {
-            result->reportId = reportID;
+            strlcpy(result->reportId, monitorContext->eventID, sizeof(result->reportId));
             strlcpy(result->path, g_lastCrashReportFilePath, sizeof(result->path));
         }
-
         if (g_didWriteReportCallback != NULL) {
             KSCrash_ExceptionHandlingPlan plan = ksexc_monitorContextToPlan(monitorContext);
-            g_didWriteReportCallback(&plan, reportID);
+            g_didWriteReportCallback(&plan, monitorContext->eventID);
         }
     }
 }
@@ -293,24 +264,59 @@ static void onFinalizeReport(__unused struct KSCrash_MonitorContext *monitorCont
     kscrs_finalizeReport(result->path, result->reportId);
 }
 
-static void setPluginMonitors(KSCrashMonitorAPI *apis, int count)
+bool kscrash_isBuiltInMonitorID(const char *monitorID)
+{
+    if (monitorID == NULL) {
+        return false;
+    }
+    for (size_t i = 0; i < g_monitorMappingCount; i++) {
+        KSCrashMonitorAPI *api = g_monitorMappings[i].getAPI();
+        if (api == NULL || api->monitorId == NULL) {
+            continue;
+        }
+        const char *id = api->monitorId(api->context);
+        if (id != NULL && strncmp(id, monitorID, KSCRASH_MONITOR_ID_MAX_LENGTH) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// false when the plugin count exceeds the cap: nothing is registered then,
+// and the install fails rather than silently dropping crash coverage.
+static bool setPluginMonitors(KSCrashMonitorAPI *apis, int count)
 {
     g_pluginCount = 0;
     if (apis == NULL || count <= 0) {
-        return;
+        return true;
     }
-    for (int i = 0; i < count && i < KSC_MAX_PLUGINS; i++) {
+    if (count > KSC_MAX_PLUGINS) {
+        KSLOG_ERROR("%d plugins exceed the %d cap; failing the install", count, KSC_MAX_PLUGINS);
+        return false;
+    }
+    for (int i = 0; i < count; i++) {
         g_plugins[i] = apis[i];
         kscm_addMonitor(&g_plugins[i]);
         g_pluginCount++;
     }
+    return true;
+}
+
+// Undoes setPluginMonitors. The registry holds pointers into g_plugins, whose
+// context fields are unretained references owned by the caller: a failed
+// install releases them, so the entries must go before they dangle.
+static void clearPluginMonitors(void)
+{
+    for (int i = 0; i < g_pluginCount; i++) {
+        kscm_removeMonitor(&g_plugins[i]);
+    }
+    g_pluginCount = 0;
 }
 
 static void setMonitors(KSCrashMonitorType monitorTypes)
 {
-    // Infrastructure monitors (System, Lifecycle, UserInfo, Resource) are
-    // always enabled. They collect context that every report depends on
-    // and are not crash detectors, so there is no reason to disable them.
+    // The required set (infrastructure plus UserReported) is always on; see
+    // KSCrashMonitorTypeRequired.
     const KSCrashMonitorType effectiveMonitorTypes = monitorTypes | KSCrashMonitorTypeRequired;
 
     for (size_t i = 0; i < g_monitorMappingCount; i++) {
@@ -327,20 +333,17 @@ static void setMonitors(KSCrashMonitorType monitorTypes)
 
 static void handleConfiguration(KSCrashCConfiguration *configuration)
 {
-    g_reportStoreConfig = KSCrashReportStoreCConfiguration_Copy(&configuration->reportStoreConfiguration);
+    // The store paths are the install loop's strdups; a retry after a failed
+    // install re-enters here, so release the previous attempt's strings
+    // before the reset drops the pointers.
+    free((char *)g_reportStoreConfig.reportsPath);
+    free((char *)g_reportStoreConfig.reportSidecarsPath);
+    free((char *)g_reportStoreConfig.runSidecarsPath);
+    free((char *)g_reportStoreConfig.runSummariesPath);
+    g_reportStoreConfig = KSCrashReportStoreCConfiguration_Default();
+    g_reportStoreConfig.maxReportCount = configuration->maxReportCount;
+    g_reportStoreConfig.maxRunSummaryCount = configuration->maxRunSummaryCount;
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    if (configuration->userInfoJSON != NULL) {
-        kscrashreport_setUserInfoJSON(configuration->userInfoJSON);
-    }
-#pragma clang diagnostic pop
-#if KSCRASH_HAS_OBJC
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    kscm_setDeadlockHandlerWatchdogInterval(configuration->deadlockWatchdogInterval);
-#pragma clang diagnostic pop
-#endif
     kstc_setSearchQueueNames(configuration->enableQueueNameSearch);
     kscrashreport_setIntrospectMemory(configuration->enableMemoryIntrospection);
     if (configuration->doNotIntrospectClasses.strings != NULL) {
@@ -348,29 +351,7 @@ static void handleConfiguration(KSCrashCConfiguration *configuration)
                                                 configuration->doNotIntrospectClasses.length);
     }
 
-    // TODO: Remove in 3.0 - Set up deprecated callbacks for backward compatibility
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    g_legacyCrashNotifyCallback = configuration->crashNotifyCallback;
-    g_legacyReportWrittenCallback = configuration->reportWrittenCallback;
-#pragma clang diagnostic pop
-
-    if (configuration->isWritingReportCallback) {
-        g_isWritingReportCallback = configuration->isWritingReportCallback;
-    } else if (g_legacyCrashNotifyCallback) {
-        g_isWritingReportCallback = legacyCrashNotifyCallbackAdapter;
-    } else {
-        g_isWritingReportCallback = NULL;
-    }
-
-    if (configuration->didWriteReportCallback) {
-        g_didWriteReportCallback = configuration->didWriteReportCallback;
-    } else if (g_legacyReportWrittenCallback) {
-        g_didWriteReportCallback = legacyReportWrittenCallbackAdapter;
-    } else {
-        g_didWriteReportCallback = NULL;
-    }
-
+    g_isWritingReportCallback = configuration->isWritingReportCallback;
     kscrashreport_setIsWritingReportCallback(g_isWritingReportCallback);
     kscm_watchdog_setReportsHangs(configuration->enableHangReporting);
     kscm_resource_setReportsCPUExceptions(configuration->enableCPUExceptionReporting);
@@ -379,6 +360,7 @@ static void handleConfiguration(KSCrashCConfiguration *configuration)
     g_shouldAddConsoleLogToReport = configuration->addConsoleLogToReport;
     g_shouldPrintPreviousLog = configuration->printPreviousLogOnStartup;
     g_willWriteReportCallback = configuration->willWriteReportCallback;
+    g_didWriteReportCallback = configuration->didWriteReportCallback;
 
     if (configuration->enableSwapCxaThrow) {
         kscm_enableSwapCxaThrow();
@@ -391,7 +373,7 @@ static bool getReportSidecarFilePathCallback(const char *monitorId, const char *
                                           &g_reportStoreConfig);
 }
 
-static bool getReportSidecarPathCallback(const char *monitorId, int64_t reportID, char *pathBuffer,
+static bool getReportSidecarPathCallback(const char *monitorId, const char *reportID, char *pathBuffer,
                                          size_t pathBufferLength)
 {
     return kscrs_getReportSidecarFilePathForReport(monitorId, reportID, pathBuffer, pathBufferLength,
@@ -418,44 +400,11 @@ static bool getSummarySidecarPathCallback(const char *runID, const char *extensi
     return kscrs_getSummarySidecarFilePath(runID, extension, pathBuffer, pathBufferLength, &g_reportStoreConfig);
 }
 
-/** Derive a default store directory (e.g. "Runs", "Sidecars", "RunSidecars")
- *  as a sibling of reportsPath, matching the ObjC KSCrashReportStoreConfiguration
- *  which derives these via -stringByDeletingLastPathComponent. Trailing '/' are
- *  trimmed first, so reportsPath "/a/Reports/" with subdir "Runs" yields
- *  "/a/Runs", not "/a/Reports/Runs" (the store scans the sibling, so the
- *  latter would never be found). Falls back to subdir under installPath when
- *  reportsPath has no usable parent (e.g. "Reports" or "/Reports"). reportsPath
- *  must be non-NULL; the caller fills in a default before this is reached.
- *  Returns false if the result does not fit in out. */
-static bool deriveReportsSiblingDir(const char *reportsPath, const char *installPath, const char *subdir, char *out,
-                                    size_t outSize)
-{
-    const char *lastSlash = NULL;
-    size_t len = strlen(reportsPath);
-    while (len > 1 && reportsPath[len - 1] == '/') {
-        len--;
-    }
-    for (const char *p = reportsPath + len; p > reportsPath; p--) {
-        if (p[-1] == '/') {
-            lastSlash = p - 1;
-            break;
-        }
-    }
-    int written;
-    if (lastSlash != NULL && lastSlash != reportsPath) {
-        written = snprintf(out, outSize, "%.*s/%s", (int)(lastSlash - reportsPath), reportsPath, subdir);
-    } else {
-        written = snprintf(out, outSize, "%s/%s", installPath, subdir);
-    }
-    return written >= 0 && written < (int)outSize;
-}
-
 // ============================================================================
 #pragma mark - API -
 // ============================================================================
 
-KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const installPath,
-                                        KSCrashCConfiguration *configuration)
+KSCrashInstallErrorCode kscrash_install(const char *const installPath, KSCrashCConfiguration *configuration)
 {
     KSLOG_DEBUG("Installing crash reporter.");
 
@@ -464,8 +413,8 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
         return KSCrashInstallErrorAlreadyInstalled;
     }
 
-    if (appName == NULL || installPath == NULL) {
-        KSLOG_ERROR("Invalid parameters: appName or installPath is NULL.");
+    if (installPath == NULL) {
+        KSLOG_ERROR("Invalid parameters: installPath is NULL.");
         return KSCrashInstallErrorInvalidParameter;
     }
 
@@ -474,7 +423,7 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     // Create Data directory early so run IDs are available
     // before report store initialization.
     char path[KSFU_MAX_PATH_LENGTH];
-    if (snprintf(path, sizeof(path), "%s/Data", installPath) >= (int)sizeof(path)) {
+    if (snprintf(path, sizeof(path), "%s/" KSCRS_DEFAULT_DATA_FOLDER, installPath) >= (int)sizeof(path)) {
         KSLOG_ERROR("Data path is too long.");
         return KSCrashInstallErrorPathTooLong;
     }
@@ -484,54 +433,34 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     }
     rotateRunID(installPath);
 
-    if (g_reportStoreConfig.appName == NULL) {
-        g_reportStoreConfig.appName = strdup(appName);
-    }
-
-    if (g_reportStoreConfig.reportsPath == NULL) {
-        if (snprintf(path, sizeof(path), "%s/" KSCRS_DEFAULT_REPORTS_FOLDER, installPath) >= (int)sizeof(path)) {
-            KSLOG_ERROR("Reports path is too long.");
+    // The store directories live under the install root, by the names the
+    // Swift install's Locations derive from the same constants.
+    const struct {
+        const char *folder;
+        const char **field;
+    } storeDirectories[] = {
+        { KSCRS_DEFAULT_REPORTS_FOLDER, &g_reportStoreConfig.reportsPath },
+        { KSCRS_DEFAULT_REPORT_SIDECARS_FOLDER, &g_reportStoreConfig.reportSidecarsPath },
+        { KSCRS_DEFAULT_RUN_SIDECARS_FOLDER, &g_reportStoreConfig.runSidecarsPath },
+        { KSCRS_DEFAULT_RUNS_FOLDER, &g_reportStoreConfig.runSummariesPath },
+    };
+    for (size_t i = 0; i < sizeof(storeDirectories) / sizeof(storeDirectories[0]); i++) {
+        if (snprintf(path, sizeof(path), "%s/%s", installPath, storeDirectories[i].folder) >= (int)sizeof(path)) {
+            KSLOG_ERROR("%s path is too long.", storeDirectories[i].folder);
             return KSCrashInstallErrorPathTooLong;
         }
-        g_reportStoreConfig.reportsPath = strdup(path);
-    }
-
-    // Sidecars, RunSidecars and Runs default to siblings of reportsPath,
-    // matching the ObjC KSCrashReportStoreConfiguration. Deriving these from
-    // installPath instead would write them where a store configured with the
-    // same reportsPath does not scan.
-    if (g_reportStoreConfig.reportSidecarsPath == NULL) {
-        if (!deriveReportsSiblingDir(g_reportStoreConfig.reportsPath, installPath, "Sidecars", path, sizeof(path))) {
-            KSLOG_ERROR("Sidecars path is too long.");
-            return KSCrashInstallErrorPathTooLong;
+        *storeDirectories[i].field = strdup(path);
+        if (*storeDirectories[i].field == NULL) {
+            return KSCrashInstallErrorCouldNotInitializeStore;
         }
-        g_reportStoreConfig.reportSidecarsPath = strdup(path);
     }
-
-    if (g_reportStoreConfig.runSidecarsPath == NULL) {
-        if (!deriveReportsSiblingDir(g_reportStoreConfig.reportsPath, installPath, "RunSidecars", path, sizeof(path))) {
-            KSLOG_ERROR("RunSidecars path is too long.");
-            return KSCrashInstallErrorPathTooLong;
-        }
-        g_reportStoreConfig.runSidecarsPath = strdup(path);
-    }
-
-    if (g_reportStoreConfig.runSummariesPath == NULL) {
-        if (!deriveReportsSiblingDir(g_reportStoreConfig.reportsPath, installPath, "Runs", path, sizeof(path))) {
-            KSLOG_ERROR("Runs path is too long.");
-            return KSCrashInstallErrorPathTooLong;
-        }
-        g_reportStoreConfig.runSummariesPath = strdup(path);
-    }
-
     KSCrashInstallErrorCode storeInitResult = kscrs_initialize(&g_reportStoreConfig);
     if (storeInitResult != KSCrashInstallErrorNone) {
         return storeInitResult;
     }
     // Register the install's config as the source of paths for the no-config
     // readers (readReportAtPath, readReportByPathAndID, finalizeReport). Only
-    // the install does this; constructing a KSCrashReportStore no longer
-    // hijacks the stitch path.
+    // the install does this.
     kscrs_setStitchConfig(&g_reportStoreConfig);
     kscm_setReportSidecarFilePathProvider(getReportSidecarFilePathCallback);
     kscm_setReportSidecarPathProvider(getReportSidecarPathCallback);
@@ -539,8 +468,8 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     kscm_setRunSidecarPathForRunIDProvider(getRunSidecarPathForRunIDCallback);
     kscm_setSummarySidecarPathProvider(getSummarySidecarPathCallback);
 
-    if (snprintf(g_consoleLogPath, sizeof(g_consoleLogPath), "%s/Data/ConsoleLog.txt", installPath) >=
-        (int)sizeof(g_consoleLogPath)) {
+    if (snprintf(g_consoleLogPath, sizeof(g_consoleLogPath), "%s/" KSCRS_DEFAULT_DATA_FOLDER "/ConsoleLog.txt",
+                 installPath) >= (int)sizeof(g_consoleLogPath)) {
         KSLOG_ERROR("Console log path is too long.");
         return KSCrashInstallErrorPathTooLong;
     }
@@ -557,7 +486,9 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     kscm_setFinalizeReportCallback(onFinalizeReport);
 
     setMonitors(configuration->monitors);
-    setPluginMonitors(configuration->plugins.apis, configuration->plugins.length);
+    if (!setPluginMonitors(configuration->plugins.apis, configuration->plugins.length)) {
+        return KSCrashInstallErrorInvalidParameter;
+    }
 
     // Monitor startup is four steps, order matters:
     //  1. enableMonitors         — installs signal/mach handlers, creates sidecars for the current run.
@@ -567,9 +498,12 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     //                              the termination reason.
     //  4. postSystemEnable       — tells monitors RunContext is ready so they can act on previous-run data
     //                              (e.g. Termination injects a report, Memory checks for OOM).
+    // The required monitors are always in the set, so a false here is a
+    // registry failure, never an empty selection.
     if (kscm_enableMonitors() == false) {
-        KSLOG_ERROR("No crash monitors are active");
-        return KSCrashInstallErrorNoActiveMonitors;
+        KSLOG_ERROR("The crash monitors could not be enabled");
+        clearPluginMonitors();
+        return KSCrashInstallErrorCouldNotInitializeCrashState;
     }
     kscm_notifyPostMonitorsEnabled();
     ksruncontext_init(getRunSidecarPathForRunIDCallback);
@@ -592,29 +526,7 @@ KSCrashInstallErrorCode kscrash_install(const char *appName, const char *const i
     return KSCrashInstallErrorNone;
 }
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-void kscrash_setUserInfoJSON(const char *const userInfoJSON) { kscrashreport_setUserInfoJSON(userInfoJSON); }
-
-const char *kscrash_getUserInfoJSON(void) { return kscrashreport_getUserInfoJSON(); }
-#pragma clang diagnostic pop
-
-void kscrash_setUserInfoString(const char *key, const char *value) { kscm_userinfo_setString(key, value); }
-
-void kscrash_setUserInfoInt(const char *key, int64_t value) { kscm_userinfo_setInt64(key, value); }
-
-void kscrash_setUserInfoUInt(const char *key, uint64_t value) { kscm_userinfo_setUInt64(key, value); }
-
-void kscrash_setUserInfoDouble(const char *key, double value) { kscm_userinfo_setDouble(key, value); }
-
-void kscrash_setUserInfoBool(const char *key, bool value) { kscm_userinfo_setBool(key, value); }
-
-void kscrash_setUserInfoDate(const char *key, uint64_t nanosecondsSince1970)
-{
-    kscm_userinfo_setDate(key, nanosecondsSince1970);
-}
-
-void kscrash_removeUserInfoValue(const char *key) { kscm_userinfo_removeValue(key); }
+void kscrash_thwartTailCallOptimisation(void) { KS_THWART_TAIL_CALL_OPTIMISATION }
 
 void kscrash_reportUserException(const char *name, const char *reason, const char *language, const char *lineOfCode,
                                  const char *stackTrace, bool logAllThreads,
@@ -627,9 +539,18 @@ void kscrash_reportUserException(const char *name, const char *reason, const cha
     KS_THWART_TAIL_CALL_OPTIMISATION
 }
 
-int64_t kscrash_addUserReport(const char *report, int reportLength)
+bool kscrash_addUserReport(const char *report, int reportLength, char *reportIDOut)
 {
-    return kscrs_addUserReport(report, reportLength, &g_reportStoreConfig);
+    return kscrs_addUserReport(report, reportLength, &g_reportStoreConfig, reportIDOut);
+}
+
+const KSCrashReportStoreCConfiguration *kscrash_getReportStoreConfiguration(void) { return &g_reportStoreConfig; }
+
+bool kscrash_isInstalled(void) { return g_installed; }
+
+KSTerminationReason kscrash_getPreviousTerminationReason(void)
+{
+    return ksruncontext_previousRunContext()->terminationReason;
 }
 
 const char *kscrash_getRunID(void) { return g_runID; }
@@ -644,41 +565,53 @@ const char *kscrash_getLastRunID(void) { return g_lastRunID; }
 
 const char *kscrash_namespaceIdentifier(void) { return KSCRASH_NS_STRING("KSCrash"); }
 
-// ============================================================================
-#pragma mark - Deprecated -
-// ============================================================================
-
-void kscrash_notifyObjCLoad(void) { KSLOG_DEBUG("kscrash_notifyObjCLoad is deprecated and does nothing."); }
-
-void kscrash_notifyAppActive(__unused bool isActive)
-{
-    KSLOG_DEBUG("kscrash_notifyAppActive is deprecated and does nothing.");
-}
-
-void kscrash_notifyAppInForeground(__unused bool isInForeground)
-{
-    KSLOG_DEBUG("kscrash_notifyAppInForeground is deprecated and does nothing.");
-}
-
-void kscrash_notifyAppTerminate(void) { KSLOG_DEBUG("kscrash_notifyAppTerminate is deprecated and does nothing."); }
-
-void kscrash_notifyAppCrash(void) { KSLOG_DEBUG("kscrash_notifyAppCrash is deprecated and does nothing."); }
-
+__attribute__((unused))  // For tests. Declared as extern in TestCase
 // ============================================================================
 #pragma mark - Testing API -
 // ============================================================================
 
-__attribute__((unused))  // For tests. Declared as extern in TestCase
-bool kscrash_testcode_deriveReportsSiblingDir(const char *reportsPath, const char *installPath, const char *subdir,
-                                              char *out, size_t outSize)
-{
-    return deriveReportsSiblingDir(reportsPath, installPath, subdir, out, outSize);
-}
-
-__attribute__((unused))  // For tests. Declared as extern in TestCase
 void kscrash_testcode_setMonitors(KSCrashMonitorType monitorTypes)
 {
     setMonitors(monitorTypes);
+}
+
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+void kscrash_testcode_setPluginMonitors(KSCrashMonitorAPI *apis, int count)
+{
+    setPluginMonitors(apis, count);
+}
+
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+void kscrash_testcode_clearPluginMonitors(void)
+{
+    clearPluginMonitors();
+}
+
+// The registry stores pointers into g_plugins, so a test that registers its own
+// plugins overwrites the tables the live entries point at. Saving and restoring
+// the table keeps those entries pointing at what they described before.
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+void *
+kscrash_testcode_savePluginMonitors(void)
+{
+    size_t size = sizeof(g_plugins) + sizeof(g_pluginCount);
+    char *saved = malloc(size);
+    if (saved != NULL) {
+        memcpy(saved, g_plugins, sizeof(g_plugins));
+        memcpy(saved + sizeof(g_plugins), &g_pluginCount, sizeof(g_pluginCount));
+    }
+    return saved;
+}
+
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+void kscrash_testcode_restorePluginMonitors(void *saved)
+{
+    if (saved == NULL) {
+        return;
+    }
+    memcpy(g_plugins, saved, sizeof(g_plugins));
+    memcpy(&g_pluginCount, (char *)saved + sizeof(g_plugins), sizeof(g_pluginCount));
+    free(saved);
 }
 
 __attribute__((unused))  // For tests. Declared as extern in TestCase

@@ -29,6 +29,7 @@
 #import "KSCrashMonitor.h"
 #import "KSCrashReportStoreC+Private.h"
 #import "KSCrashReportStoreC.h"
+#import "KSID.h"
 
 #include <inttypes.h>
 
@@ -37,9 +38,7 @@
 
 @interface KSCrashReportStoreC_Tests : FileBasedTestCase
 
-@property(nonatomic, readwrite, copy) NSString *appName;
 @property(nonatomic, readwrite, copy) NSString *reportStorePath;
-@property(atomic, readwrite, assign) int64_t reportCounter;
 
 @end
 
@@ -47,21 +46,9 @@
     KSCrashReportStoreCConfiguration _storeConfig;
 }
 
-- (int64_t)getReportIDFromPath:(NSString *)path
-{
-    const char *filename = path.lastPathComponent.UTF8String;
-    char scanFormat[100];
-    snprintf(scanFormat, sizeof(scanFormat), "%s-report-%%" PRIx64 ".json", self.appName.UTF8String);
-
-    int64_t reportID = 0;
-    sscanf(filename, scanFormat, &reportID);
-    return reportID;
-}
-
 - (void)setUp
 {
     [super setUp];
-    self.appName = @"myapp";
 }
 
 - (void)tearDown
@@ -78,7 +65,6 @@
 - (void)prepareReportStoreWithPathEnd:(NSString *)pathEnd maxReportCount:(int)maxReportCount
 {
     self.reportStorePath = [self.tempPath stringByAppendingPathComponent:pathEnd];
-    _storeConfig.appName = self.appName.UTF8String;
     _storeConfig.reportsPath = self.reportStorePath.UTF8String;
     _storeConfig.maxReportCount = maxReportCount;
     kscrs_initialize(&_storeConfig);
@@ -89,7 +75,6 @@
 {
     self.reportStorePath = [self.tempPath stringByAppendingPathComponent:pathEnd];
     NSString *sidecarsPath = [self.tempPath stringByAppendingPathComponent:@"Sidecars"];
-    _storeConfig.appName = self.appName.UTF8String;
     _storeConfig.reportsPath = self.reportStorePath.UTF8String;
     _storeConfig.reportSidecarsPath = sidecarsPath.UTF8String;
     _storeConfig.maxReportCount = 5;
@@ -97,45 +82,59 @@
     kscrs_setStitchConfig(&_storeConfig);
 }
 
-- (NSArray *)getReportIDs
+/** The store's report ids in name order (oldest first), read from the
+ *  directory the way the Swift store reads it. */
+- (NSArray<NSString *> *)getReportIDs
 {
-    int reportCount = kscrs_getReportCount(&_storeConfig);
-    // -1 means the directory could not be enumerated; a VLA of that length
-    // would be undefined behavior, so fail loudly instead.
-    if (reportCount < 0) {
-        XCTFail(@"Could not enumerate the reports directory");
-        return @[];
-    }
-    int64_t rawReportIDs[reportCount];
-    reportCount = kscrs_getReportIDs(rawReportIDs, reportCount, &_storeConfig);
+    // A comparator block, not @selector(compare:): under Mac Catalyst both
+    // UIKit and AppKit expose compare: with mismatched types, and the strict
+    // selector match is a compile error there.
+    NSArray<NSString *> *names = [[[NSFileManager defaultManager] contentsOfDirectoryAtPath:self.reportStorePath
+                                                                                      error:nil]
+        sortedArrayUsingComparator:^NSComparisonResult(NSString *a, NSString *b) {
+            return [a compare:b];
+        }];
     NSMutableArray *reportIDs = [NSMutableArray new];
-    for (int i = 0; i < reportCount; i++) {
-        [reportIDs addObject:@(rawReportIDs[i])];
+    NSString *suffix = @"." KSCRS_REPORT_FILENAME_EXTENSION;
+    for (NSString *name in names) {
+        NSUInteger expected = KSCRS_REPORT_NAME_DIGITS + 1 + KSCRS_REPORT_ID_LENGTH + suffix.length;
+        if (name.length != expected || ![name hasSuffix:suffix]) {
+            continue;
+        }
+        NSString *reportID =
+            [name substringWithRange:NSMakeRange(KSCRS_REPORT_NAME_DIGITS + 1, KSCRS_REPORT_ID_LENGTH)];
+        if (ksid_isValid(reportID.UTF8String)) {
+            [reportIDs addObject:reportID];
+        }
     }
     return reportIDs;
 }
 
-- (int64_t)writeCrashReportWithStringContents:(NSString *)contents
+/** Writes `contents` the way the crash handler does: a minted id names the file and nothing is injected. */
+- (NSString *)writeCrashReportWithStringContents:(NSString *)contents
 {
     NSData *crashData = [contents dataUsingEncoding:NSUTF8StringEncoding];
+    char reportID[KSID_SIZE];
+    ksid_generate(reportID);
     char crashReportPath[KSCRS_MAX_PATH_LENGTH];
-    kscrs_getNextCrashReport(crashReportPath, &_storeConfig);
+    kscrs_getNextCrashReport(reportID, crashReportPath, &_storeConfig);
     [crashData writeToFile:[NSString stringWithUTF8String:crashReportPath] atomically:YES];
-    return [self getReportIDFromPath:[NSString stringWithUTF8String:crashReportPath]];
+    return @(reportID);
 }
 
-- (int64_t)writeUserReportWithStringContents:(NSString *)contents
+- (NSString *)writeUserReportWithStringContents:(NSString *)contents
 {
     NSData *data = [contents dataUsingEncoding:NSUTF8StringEncoding];
-    return kscrs_addUserReport(data.bytes, (int)data.length, &_storeConfig);
+    char reportID[KSID_SIZE];
+    XCTAssertTrue(kscrs_addUserReport(data.bytes, (int)data.length, &_storeConfig, reportID));
+    return @(reportID);
 }
 
-- (void)loadReportID:(int64_t)reportID reportString:(NSString *__autoreleasing *)reportString
+- (void)loadReportID:(NSString *)reportID reportString:(NSString *__autoreleasing *)reportString
 {
-    char *reportBytes = kscrs_readReport(reportID, &_storeConfig, NULL);
-
+    char *reportBytes = kscrs_readReport(reportID.UTF8String, &_storeConfig, NULL);
     if (reportBytes == NULL) {
-        reportString = nil;
+        *reportString = nil;
     } else {
         *reportString = [[NSString alloc] initWithData:[NSData dataWithBytesNoCopy:reportBytes
                                                                             length:strlen(reportBytes)]
@@ -148,14 +147,26 @@
     XCTAssertEqual(kscrs_getReportCount(&_storeConfig), reportCount);
 }
 
-- (void)expectReports:(NSArray *)reportIDs areStrings:(NSArray *)reportStrings
+/** The stored reports, compared as JSON. A user report without a report.id
+ *  had one injected by the store, so that key is ignored when the fixture
+ *  did not carry a report section. */
+- (void)expectReports:(NSArray<NSString *> *)reportIDs areStrings:(NSArray *)reportStrings
 {
     for (NSUInteger i = 0; i < reportIDs.count; i++) {
-        int64_t reportID = [reportIDs[i] longLongValue];
-        NSString *reportString = reportStrings[i];
         NSString *loadedReportString;
-        [self loadReportID:reportID reportString:&loadedReportString];
-        XCTAssertEqualObjects(loadedReportString, reportString);
+        [self loadReportID:reportIDs[i] reportString:&loadedReportString];
+        NSMutableDictionary *loaded =
+            [[NSJSONSerialization JSONObjectWithData:[loadedReportString dataUsingEncoding:NSUTF8StringEncoding]
+                                             options:0
+                                               error:nil] mutableCopy];
+        NSDictionary *expected =
+            [NSJSONSerialization JSONObjectWithData:[reportStrings[i] dataUsingEncoding:NSUTF8StringEncoding]
+                                            options:0
+                                              error:nil];
+        if (expected[@"report"] == nil) {
+            [loaded removeObjectForKey:@"report"];
+        }
+        XCTAssertEqualObjects(loaded, expected);
     }
 }
 
@@ -175,15 +186,15 @@
 - (void)testStoresLoadsOneCrashReport
 {
     [self prepareReportStoreWithPathEnd:@"testStoresLoadsOneCrashReport"];
-    int64_t reportID = [self writeCrashReportWithStringContents:REPORT_CONTENTS(0)];
-    [self expectReports:@[ @(reportID) ] areStrings:@[ REPORT_CONTENTS(0) ]];
+    NSString *reportID = [self writeCrashReportWithStringContents:REPORT_CONTENTS(0)];
+    [self expectReports:@[ reportID ] areStrings:@[ REPORT_CONTENTS(0) ]];
 }
 
 - (void)testStoresLoadsOneUserReport
 {
     [self prepareReportStoreWithPathEnd:@"testStoresLoadsOneUserReport"];
-    int64_t reportID = [self writeUserReportWithStringContents:REPORT_CONTENTS(0)];
-    [self expectReports:@[ @(reportID) ] areStrings:@[ REPORT_CONTENTS(0) ]];
+    NSString *reportID = [self writeUserReportWithStringContents:REPORT_CONTENTS(0)];
+    [self expectReports:@[ reportID ] areStrings:@[ REPORT_CONTENTS(0) ]];
 }
 
 - (void)testStoresLoadsMultipleReports
@@ -191,10 +202,10 @@
     [self prepareReportStoreWithPathEnd:@"testStoresLoadsMultipleReports"];
     NSMutableArray *reportIDs = [NSMutableArray new];
     NSArray *reportContents = @[ REPORT_CONTENTS(1), REPORT_CONTENTS(2), REPORT_CONTENTS(3), REPORT_CONTENTS(4) ];
-    [reportIDs addObject:@([self writeCrashReportWithStringContents:reportContents[0]])];
-    [reportIDs addObject:@([self writeUserReportWithStringContents:reportContents[1]])];
-    [reportIDs addObject:@([self writeUserReportWithStringContents:reportContents[2]])];
-    [reportIDs addObject:@([self writeCrashReportWithStringContents:reportContents[3]])];
+    [reportIDs addObject:[self writeCrashReportWithStringContents:reportContents[0]]];
+    [reportIDs addObject:[self writeUserReportWithStringContents:reportContents[1]]];
+    [reportIDs addObject:[self writeUserReportWithStringContents:reportContents[2]]];
+    [reportIDs addObject:[self writeCrashReportWithStringContents:reportContents[3]]];
     [self expectHasReportCount:4];
     [self expectReports:reportIDs areStrings:reportContents];
 }
@@ -215,7 +226,7 @@
 {
     int reportStorePrunesTo = 7;
     [self prepareReportStoreWithPathEnd:@"testDeleteAllReports" maxReportCount:reportStorePrunesTo];
-    int64_t prunedReportID = [self writeUserReportWithStringContents:@"u1"];
+    NSString *prunedReportID = [self writeUserReportWithStringContents:@"u1"];
     [self writeCrashReportWithStringContents:REPORT_CONTENTS(c1)];
     [self writeUserReportWithStringContents:REPORT_CONTENTS(u2)];
     [self writeCrashReportWithStringContents:REPORT_CONTENTS(c2)];
@@ -228,94 +239,122 @@
     [self prepareReportStoreWithPathEnd:@"testDeleteAllReports" maxReportCount:reportStorePrunesTo];
     [self expectHasReportCount:reportStorePrunesTo];
     NSArray *reportIDs = [self getReportIDs];
-    XCTAssertFalse([reportIDs containsObject:@(prunedReportID)]);
+    XCTAssertFalse([reportIDs containsObject:prunedReportID]);
 }
 
-- (void)testNextReportIDWhenEmpty
+- (void)testGetReportIDsWhenEmpty
 {
-    [self prepareReportStoreWithPathEnd:@"testNextReportIDWhenEmpty"];
+    [self prepareReportStoreWithPathEnd:@"testGetReportIDsWhenEmpty"];
     [self expectHasReportCount:0];
-    int64_t reportID;
-    int count = kscrs_getReportIDs(&reportID, 1, &_storeConfig);
-    XCTAssertEqual(count, 0);
+    XCTAssertEqualObjects([self getReportIDs], @[]);
 }
 
-// Several short-lived writer processes can share one store (extension reporters in an App
-// Group), so a store seeded twice in the same instant must still mint distinct, increasing
-// IDs; the old seconds-derived seed re-minted the same first ID within a second.
-- (void)testReinitializedStoreMintsDistinctReportIDs
+// Names carry the write time, and within a process they are strictly
+// increasing even when the clock repeats, so write order is sort order.
+- (void)testCrashReportNamesIncreaseWithinAProcess
 {
-    [self prepareReportStoreWithPathEnd:@"testReinitializedStoreMintsDistinctReportIDs"];
-    char path[KSCRS_MAX_PATH_LENGTH];
-    int64_t firstID = kscrs_getNextCrashReport(path, &_storeConfig);
-    kscrs_initialize(&_storeConfig);
-    int64_t secondID = kscrs_getNextCrashReport(path, &_storeConfig);
-    XCTAssertGreaterThan(secondID, firstID);
+    [self prepareReportStoreWithPathEnd:@"testCrashReportNamesIncrease"];
+    char first[KSCRS_MAX_PATH_LENGTH];
+    char second[KSCRS_MAX_PATH_LENGTH];
+    kscrs_getNextCrashReport("4c1b2f3e-0000-4000-8000-000000000001", first, &_storeConfig);
+    kscrs_getNextCrashReport("4c1b2f3e-0000-4000-8000-000000000002", second, &_storeConfig);
+    XCTAssertLessThan(strcmp(first, second), 0);
+    NSString *name = [[NSString stringWithUTF8String:first] lastPathComponent];
+    XCTAssertTrue([name hasSuffix:@"-4c1b2f3e-0000-4000-8000-000000000001.json"]);
+    XCTAssertEqual([name rangeOfString:@"-"].location, 20u, @"twenty decimal digits of wall-clock nanoseconds");
 }
 
-- (void)testNextReportIDWithOneReport
+- (void)testGetReportIDsWithOneReport
 {
-    [self prepareReportStoreWithPathEnd:@"testNextReportIDWithOneReport"];
-    int64_t writtenID = [self writeUserReportWithStringContents:REPORT_CONTENTS(0)];
-    int64_t reportID;
-    int count = kscrs_getReportIDs(&reportID, 1, &_storeConfig);
-    XCTAssertEqual(count, 1);
-    XCTAssertEqual(reportID, writtenID);
+    [self prepareReportStoreWithPathEnd:@"testGetReportIDsWithOneReport"];
+    NSString *writtenID = [self writeUserReportWithStringContents:REPORT_CONTENTS(0)];
+    [self expectHasReportCount:1];
+    XCTAssertEqualObjects([self getReportIDs], @[ writtenID ]);
 }
 
-- (void)testGetReportIDsReturnsSorted
+- (void)testGetReportIDsReturnsOldestFirst
 {
-    [self prepareReportStoreWithPathEnd:@"testGetReportIDsReturnsSorted"];
-    int64_t id1 = [self writeUserReportWithStringContents:REPORT_CONTENTS(1)];
-    int64_t id2 = [self writeUserReportWithStringContents:REPORT_CONTENTS(2)];
-    int64_t id3 = [self writeUserReportWithStringContents:REPORT_CONTENTS(3)];
+    [self prepareReportStoreWithPathEnd:@"testGetReportIDsReturnsOldestFirst"];
+    NSString *id1 = [self writeUserReportWithStringContents:REPORT_CONTENTS(1)];
+    NSString *id2 = [self writeCrashReportWithStringContents:REPORT_CONTENTS(2)];
+    NSString *id3 = [self writeUserReportWithStringContents:REPORT_CONTENTS(3)];
+    XCTAssertEqualObjects([self getReportIDs], (@[ id1, id2, id3 ]));
+}
 
-    NSArray *reportIDs = [self getReportIDs];
-    XCTAssertEqual(reportIDs.count, 3u);
-    // IDs should be sorted ascending
-    XCTAssertLessThan([reportIDs[0] longLongValue], [reportIDs[1] longLongValue]);
-    XCTAssertLessThan([reportIDs[1] longLongValue], [reportIDs[2] longLongValue]);
-    // All written IDs should be present
-    NSSet *expected = [NSSet setWithArray:@[ @(id1), @(id2), @(id3) ]];
-    NSSet *actual = [NSSet setWithArray:reportIDs];
-    XCTAssertEqualObjects(expected, actual);
+- (void)testFilesThatAreNotReportsAreNotListed
+{
+    [self prepareReportStoreWithPathEnd:@"testNotReports"];
+    NSString *only = [self writeUserReportWithStringContents:REPORT_CONTENTS(1)];
+    for (NSString *name in @[
+             @"notes.txt", @"00000000000000000001-nope.json", @"1-4c1b2f3e-0000-4000-8000-000000000001.json",
+             @"00000000000000000001-4C1B2F3E-0000-4000-8000-000000000001.json",
+             @"00000000000000000001-4c1b2f3e-0000-4000-8000-000000000001.json.tmp"
+         ]) {
+        [[NSData data] writeToFile:[self.reportStorePath stringByAppendingPathComponent:name] atomically:YES];
+    }
+    XCTAssertEqualObjects([self getReportIDs], @[ only ]);
+    [self expectHasReportCount:1];
 }
 
 - (void)testGetReportIDsAfterDeletion
 {
     [self prepareReportStoreWithPathEnd:@"testGetReportIDsAfterDeletion"];
-    int64_t id1 = [self writeUserReportWithStringContents:REPORT_CONTENTS(1)];
-    int64_t id2 = [self writeUserReportWithStringContents:REPORT_CONTENTS(2)];
-    int64_t id3 = [self writeUserReportWithStringContents:REPORT_CONTENTS(3)];
-
-    NSArray *reportIDs = [self getReportIDs];
-    XCTAssertEqual(reportIDs.count, 3u);
-
-    kscrs_deleteReportWithID(id1, &_storeConfig);
-    reportIDs = [self getReportIDs];
-    XCTAssertEqual(reportIDs.count, 2u);
-    NSSet *expected = [NSSet setWithArray:@[ @(id2), @(id3) ]];
-    NSSet *actual = [NSSet setWithArray:reportIDs];
-    XCTAssertEqualObjects(expected, actual);
+    NSString *id1 = [self writeUserReportWithStringContents:REPORT_CONTENTS(1)];
+    NSString *id2 = [self writeUserReportWithStringContents:REPORT_CONTENTS(2)];
+    NSString *id3 = [self writeUserReportWithStringContents:REPORT_CONTENTS(3)];
+    XCTAssertEqual([self getReportIDs].count, 3u);
+    kscrs_deleteReportWithID(id1.UTF8String, &_storeConfig);
+    XCTAssertEqualObjects([self getReportIDs], (@[ id2, id3 ]));
 }
 
-- (void)testNextReportIDAfterDeleteAll
+- (void)testGetReportIDsAfterDeleteAll
 {
-    [self prepareReportStoreWithPathEnd:@"testNextReportIDAfterDeleteAll"];
+    [self prepareReportStoreWithPathEnd:@"testGetReportIDsAfterDeleteAll"];
     [self writeUserReportWithStringContents:REPORT_CONTENTS(1)];
     [self writeUserReportWithStringContents:REPORT_CONTENTS(2)];
     kscrs_deleteAllReports(&_storeConfig);
-    int64_t reportID = -1;
-    int count = kscrs_getReportIDs(&reportID, 1, &_storeConfig);
-    XCTAssertEqual(count, 0);
+    [self expectHasReportCount:0];
+    XCTAssertEqualObjects([self getReportIDs], @[]);
 }
 
-- (void)testStoresLoadsWithUnicodeAppName
+- (void)testAddUserReportKeepsAValidIDAndMintsOneOtherwise
 {
-    self.appName = @"ЙогуртЙод";
-    [self prepareReportStoreWithPathEnd:@"testStoresLoadsWithUnicodeAppName"];
-    int64_t reportID = [self writeCrashReportWithStringContents:REPORT_CONTENTS(0)];
-    [self expectReports:@[ @(reportID) ] areStrings:@[ REPORT_CONTENTS(0) ]];
+    [self prepareReportStoreWithPathEnd:@"testAddUserReportIDs"];
+    NSString *kept =
+        [self writeUserReportWithStringContents:@"{\"report\":{\"id\":\"4c1b2f3e-0000-4000-8000-000000000009\"}}"];
+    XCTAssertEqualObjects(kept, @"4c1b2f3e-0000-4000-8000-000000000009");
+    NSString *minted = [self writeUserReportWithStringContents:@"{\"report\":{\"id\":\"evt1\"},\"a\":1}"];
+    XCTAssertTrue(ksid_isValid(minted.UTF8String));
+    NSString *loaded;
+    [self loadReportID:minted reportString:&loaded];
+    NSDictionary *json = [NSJSONSerialization JSONObjectWithData:[loaded dataUsingEncoding:NSUTF8StringEncoding]
+                                                         options:0
+                                                           error:nil];
+    XCTAssertEqualObjects(json[@"report"][@"id"], minted, @"the minted id is written into the payload");
+    XCTAssertEqualObjects(json[@"a"], @1);
+}
+
+- (void)testAddUserReportWithTheSameIDOverwrites
+{
+    [self prepareReportStoreWithPathEnd:@"testAddUserReportSameID"];
+    NSString *json = @"{\"report\":{\"id\":\"4c1b2f3e-0000-4000-8000-00000000000a\"},\"v\":1}";
+    NSString *first = [self writeUserReportWithStringContents:json];
+    NSString *again = [self
+        writeUserReportWithStringContents:@"{\"report\":{\"id\":\"4c1b2f3e-0000-4000-8000-00000000000a\"},\"v\":2}"];
+    XCTAssertEqualObjects(first, again);
+    XCTAssertEqual((int)[self getReportIDs].count, 1, @"one id is one file");
+
+    NSString *loaded;
+    [self loadReportID:first reportString:&loaded];
+    XCTAssertTrue([loaded containsString:@"\"v\": 2"] || [loaded containsString:@"\"v\":2"],
+                  @"the re-add replaced the payload");
+}
+
+- (void)testStoresLoadsWithUnicodePath
+{
+    [self prepareReportStoreWithPathEnd:@"ЙогуртЙод"];
+    NSString *reportID = [self writeCrashReportWithStringContents:REPORT_CONTENTS(0)];
+    [self expectReports:@[ reportID ] areStrings:@[ REPORT_CONTENTS(0) ]];
 }
 
 #pragma mark - Sidecar Tests
@@ -334,11 +373,11 @@
 - (void)testGetSidecarPath
 {
     [self prepareReportStoreWithSidecarsWithPathEnd:@"testGetSidecarPath"];
-    int64_t reportID = [self writeCrashReportWithStringContents:REPORT_CONTENTS(0)];
+    NSString *reportID = [self writeCrashReportWithStringContents:REPORT_CONTENTS(0)];
 
     char pathBuffer[KSCRS_MAX_PATH_LENGTH];
-    bool result =
-        kscrs_getReportSidecarFilePathForReport("TestMonitor", reportID, pathBuffer, sizeof(pathBuffer), &_storeConfig);
+    bool result = kscrs_getReportSidecarFilePathForReport("TestMonitor", reportID.UTF8String, pathBuffer,
+                                                          sizeof(pathBuffer), &_storeConfig);
     XCTAssertTrue(result);
 
     NSString *path = [NSString stringWithUTF8String:pathBuffer];
@@ -351,7 +390,8 @@
     [self prepareReportStoreWithSidecarsWithPathEnd:@"testSidecarSubdir"];
 
     char pathBuffer[KSCRS_MAX_PATH_LENGTH];
-    kscrs_getReportSidecarFilePathForReport("MyMonitor", 12345, pathBuffer, sizeof(pathBuffer), &_storeConfig);
+    kscrs_getReportSidecarFilePathForReport("MyMonitor", "4c1b2f3e-0000-4000-8000-000000012345", pathBuffer,
+                                            sizeof(pathBuffer), &_storeConfig);
 
     NSString *monitorDir = [NSString stringWithFormat:@"%s/MyMonitor", _storeConfig.reportSidecarsPath];
     BOOL isDir = NO;
@@ -364,14 +404,16 @@
 {
     [self prepareReportStoreWithSidecarsWithPathEnd:@"testSidecarNull"];
     char pathBuffer[KSCRS_MAX_PATH_LENGTH];
-    bool result = kscrs_getReportSidecarFilePathForReport(NULL, 1, pathBuffer, sizeof(pathBuffer), &_storeConfig);
+    bool result = kscrs_getReportSidecarFilePathForReport(NULL, "4c1b2f3e-0000-4000-8000-000000000001", pathBuffer,
+                                                          sizeof(pathBuffer), &_storeConfig);
     XCTAssertFalse(result);
 }
 
 - (void)testGetSidecarPathNullPathBuffer
 {
     [self prepareReportStoreWithSidecarsWithPathEnd:@"testSidecarNullBuf"];
-    bool result = kscrs_getReportSidecarFilePathForReport("Mon", 1, NULL, 100, &_storeConfig);
+    bool result = kscrs_getReportSidecarFilePathForReport("Mon", "4c1b2f3e-0000-4000-8000-000000000001", NULL, 100,
+                                                          &_storeConfig);
     XCTAssertFalse(result);
 }
 
@@ -379,7 +421,8 @@
 {
     [self prepareReportStoreWithSidecarsWithPathEnd:@"testSidecarZeroBuf"];
     char pathBuffer[KSCRS_MAX_PATH_LENGTH];
-    bool result = kscrs_getReportSidecarFilePathForReport("Mon", 1, pathBuffer, 0, &_storeConfig);
+    bool result = kscrs_getReportSidecarFilePathForReport("Mon", "4c1b2f3e-0000-4000-8000-000000000001", pathBuffer, 0,
+                                                          &_storeConfig);
     XCTAssertFalse(result);
 }
 
@@ -387,8 +430,8 @@
 {
     [self prepareReportStoreWithSidecarsWithPathEnd:@"testSidecarSmallBuf"];
     char pathBuffer[5];
-    bool result =
-        kscrs_getReportSidecarFilePathForReport("TestMonitor", 1, pathBuffer, sizeof(pathBuffer), &_storeConfig);
+    bool result = kscrs_getReportSidecarFilePathForReport("TestMonitor", "4c1b2f3e-0000-4000-8000-000000000001",
+                                                          pathBuffer, sizeof(pathBuffer), &_storeConfig);
     XCTAssertFalse(result);
 }
 
@@ -397,18 +440,20 @@
     [self prepareReportStoreWithPathEnd:@"testSidecarNoPath"];
     // _storeConfig.reportSidecarsPath is NULL
     char pathBuffer[KSCRS_MAX_PATH_LENGTH];
-    bool result = kscrs_getReportSidecarFilePathForReport("Mon", 1, pathBuffer, sizeof(pathBuffer), &_storeConfig);
+    bool result = kscrs_getReportSidecarFilePathForReport("Mon", "4c1b2f3e-0000-4000-8000-000000000001", pathBuffer,
+                                                          sizeof(pathBuffer), &_storeConfig);
     XCTAssertFalse(result);
 }
 
 - (void)testDeleteReportAlsoDeletesSidecars
 {
     [self prepareReportStoreWithSidecarsWithPathEnd:@"testDeleteSidecars"];
-    int64_t reportID = [self writeCrashReportWithStringContents:REPORT_CONTENTS(0)];
+    NSString *reportID = [self writeCrashReportWithStringContents:REPORT_CONTENTS(0)];
 
     // Create a sidecar file for this report
     char sidecarPath[KSCRS_MAX_PATH_LENGTH];
-    kscrs_getReportSidecarFilePathForReport("TestMonitor", reportID, sidecarPath, sizeof(sidecarPath), &_storeConfig);
+    kscrs_getReportSidecarFilePathForReport("TestMonitor", reportID.UTF8String, sidecarPath, sizeof(sidecarPath),
+                                            &_storeConfig);
     [@"sidecar data" writeToFile:[NSString stringWithUTF8String:sidecarPath]
                       atomically:YES
                         encoding:NSUTF8StringEncoding
@@ -416,7 +461,7 @@
     XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:[NSString stringWithUTF8String:sidecarPath]]);
 
     // Delete the report
-    kscrs_deleteReportWithID(reportID, &_storeConfig);
+    kscrs_deleteReportWithID(reportID.UTF8String, &_storeConfig);
 
     // Sidecar should be gone
     XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:[NSString stringWithUTF8String:sidecarPath]]);
@@ -425,13 +470,15 @@
 - (void)testDeleteReportDeletesSidecarsFromMultipleMonitors
 {
     [self prepareReportStoreWithSidecarsWithPathEnd:@"testDeleteMultiSidecars"];
-    int64_t reportID = [self writeCrashReportWithStringContents:REPORT_CONTENTS(0)];
+    NSString *reportID = [self writeCrashReportWithStringContents:REPORT_CONTENTS(0)];
 
     // Create sidecars from two different monitors
     char sidecarPath1[KSCRS_MAX_PATH_LENGTH];
     char sidecarPath2[KSCRS_MAX_PATH_LENGTH];
-    kscrs_getReportSidecarFilePathForReport("Monitor1", reportID, sidecarPath1, sizeof(sidecarPath1), &_storeConfig);
-    kscrs_getReportSidecarFilePathForReport("Monitor2", reportID, sidecarPath2, sizeof(sidecarPath2), &_storeConfig);
+    kscrs_getReportSidecarFilePathForReport("Monitor1", reportID.UTF8String, sidecarPath1, sizeof(sidecarPath1),
+                                            &_storeConfig);
+    kscrs_getReportSidecarFilePathForReport("Monitor2", reportID.UTF8String, sidecarPath2, sizeof(sidecarPath2),
+                                            &_storeConfig);
 
     [@"data1" writeToFile:[NSString stringWithUTF8String:sidecarPath1]
                atomically:YES
@@ -442,7 +489,7 @@
                  encoding:NSUTF8StringEncoding
                     error:nil];
 
-    kscrs_deleteReportWithID(reportID, &_storeConfig);
+    kscrs_deleteReportWithID(reportID.UTF8String, &_storeConfig);
 
     XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:[NSString stringWithUTF8String:sidecarPath1]]);
     XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:[NSString stringWithUTF8String:sidecarPath2]]);
@@ -451,10 +498,11 @@
 - (void)testDeleteAllReportsAlsoDeletesSidecars
 {
     [self prepareReportStoreWithSidecarsWithPathEnd:@"testDeleteAllSidecars"];
-    int64_t reportID = [self writeCrashReportWithStringContents:REPORT_CONTENTS(0)];
+    NSString *reportID = [self writeCrashReportWithStringContents:REPORT_CONTENTS(0)];
 
     char sidecarPath[KSCRS_MAX_PATH_LENGTH];
-    kscrs_getReportSidecarFilePathForReport("TestMonitor", reportID, sidecarPath, sizeof(sidecarPath), &_storeConfig);
+    kscrs_getReportSidecarFilePathForReport("TestMonitor", reportID.UTF8String, sidecarPath, sizeof(sidecarPath),
+                                            &_storeConfig);
     [@"sidecar data" writeToFile:[NSString stringWithUTF8String:sidecarPath]
                       atomically:YES
                         encoding:NSUTF8StringEncoding
@@ -474,8 +522,10 @@
     [self prepareReportStoreWithSidecarsWithPathEnd:@"testSidecarConsistent"];
     char path1[KSCRS_MAX_PATH_LENGTH];
     char path2[KSCRS_MAX_PATH_LENGTH];
-    kscrs_getReportSidecarFilePathForReport("Mon", 42, path1, sizeof(path1), &_storeConfig);
-    kscrs_getReportSidecarFilePathForReport("Mon", 42, path2, sizeof(path2), &_storeConfig);
+    kscrs_getReportSidecarFilePathForReport("Mon", "4c1b2f3e-0000-4000-8000-000000000042", path1, sizeof(path1),
+                                            &_storeConfig);
+    kscrs_getReportSidecarFilePathForReport("Mon", "4c1b2f3e-0000-4000-8000-000000000042", path2, sizeof(path2),
+                                            &_storeConfig);
     XCTAssertEqual(strcmp(path1, path2), 0);
 }
 
@@ -484,8 +534,10 @@
     [self prepareReportStoreWithSidecarsWithPathEnd:@"testSidecarDiffMon"];
     char path1[KSCRS_MAX_PATH_LENGTH];
     char path2[KSCRS_MAX_PATH_LENGTH];
-    kscrs_getReportSidecarFilePathForReport("Mon1", 42, path1, sizeof(path1), &_storeConfig);
-    kscrs_getReportSidecarFilePathForReport("Mon2", 42, path2, sizeof(path2), &_storeConfig);
+    kscrs_getReportSidecarFilePathForReport("Mon1", "4c1b2f3e-0000-4000-8000-000000000042", path1, sizeof(path1),
+                                            &_storeConfig);
+    kscrs_getReportSidecarFilePathForReport("Mon2", "4c1b2f3e-0000-4000-8000-000000000042", path2, sizeof(path2),
+                                            &_storeConfig);
     XCTAssertNotEqual(strcmp(path1, path2), 0);
 }
 
@@ -494,17 +546,19 @@
     [self prepareReportStoreWithSidecarsWithPathEnd:@"testSidecarDiffReport"];
     char path1[KSCRS_MAX_PATH_LENGTH];
     char path2[KSCRS_MAX_PATH_LENGTH];
-    kscrs_getReportSidecarFilePathForReport("Mon", 1, path1, sizeof(path1), &_storeConfig);
-    kscrs_getReportSidecarFilePathForReport("Mon", 2, path2, sizeof(path2), &_storeConfig);
+    kscrs_getReportSidecarFilePathForReport("Mon", "4c1b2f3e-0000-4000-8000-000000000001", path1, sizeof(path1),
+                                            &_storeConfig);
+    kscrs_getReportSidecarFilePathForReport("Mon", "4c1b2f3e-0000-4000-8000-000000000002", path2, sizeof(path2),
+                                            &_storeConfig);
     XCTAssertNotEqual(strcmp(path1, path2), 0);
 }
 
 - (void)testDeleteReportWithNoSidecarsPathDoesNotCrash
 {
     [self prepareReportStoreWithPathEnd:@"testDeleteNoSidecars"];
-    int64_t reportID = [self writeCrashReportWithStringContents:REPORT_CONTENTS(0)];
+    NSString *reportID = [self writeCrashReportWithStringContents:REPORT_CONTENTS(0)];
     // sidecarsPath is NULL — should not crash
-    kscrs_deleteReportWithID(reportID, &_storeConfig);
+    kscrs_deleteReportWithID(reportID.UTF8String, &_storeConfig);
     [self expectHasReportCount:0];
 }
 
@@ -643,10 +697,10 @@
 - (void)testReadReportStatusOKForAReport
 {
     [self prepareReportStoreWithPathEnd:@"testReadStatusOK"];
-    int64_t reportID = [self writeUserReportWithStringContents:REPORT_CONTENTS(0)];
+    NSString *reportID = [self writeUserReportWithStringContents:REPORT_CONTENTS(0)];
 
     KSCrashReportReadStatus status = KSCrashReportReadStatusUnreadable;
-    char *report = kscrs_readReport(reportID, &_storeConfig, &status);
+    char *report = kscrs_readReport(reportID.UTF8String, &_storeConfig, &status);
     XCTAssertTrue(report != NULL);
     XCTAssertEqual(status, KSCrashReportReadStatusOK);
     free(report);
@@ -657,7 +711,7 @@
     [self prepareReportStoreWithPathEnd:@"testReadStatusUnreadable"];
 
     KSCrashReportReadStatus status = KSCrashReportReadStatusOK;
-    char *report = kscrs_readReport(12345, &_storeConfig, &status);
+    char *report = kscrs_readReport("4c1b2f3e-0000-4000-8000-000000012345", &_storeConfig, &status);
     XCTAssertTrue(report == NULL);
     XCTAssertEqual(status, KSCrashReportReadStatusUnreadable);
 }
@@ -665,55 +719,57 @@
 - (void)testReadReportStatusUndecodableForANonObjectReport
 {
     [self prepareReportStoreWithPathEnd:@"testReadStatusUndecodable"];
-    int64_t arrayID = [self writeUserReportWithStringContents:@"[1,2]"];
-    int64_t emptyID = [self writeUserReportWithStringContents:@""];
+    NSString *arrayID = [self writeUserReportWithStringContents:@"[1,2]"];
+    NSString *emptyID = [self writeUserReportWithStringContents:@""];
 
     KSCrashReportReadStatus status = KSCrashReportReadStatusOK;
-    XCTAssertTrue(kscrs_readReport(arrayID, &_storeConfig, &status) == NULL);
+    XCTAssertTrue(kscrs_readReport(arrayID.UTF8String, &_storeConfig, &status) == NULL);
     XCTAssertEqual(status, KSCrashReportReadStatusUndecodable);
 
     status = KSCrashReportReadStatusOK;
-    XCTAssertTrue(kscrs_readReport(emptyID, &_storeConfig, &status) == NULL);
+    XCTAssertTrue(kscrs_readReport(emptyID.UTF8String, &_storeConfig, &status) == NULL);
     XCTAssertEqual(status, KSCrashReportReadStatusUndecodable);
 
     // A status of NULL is allowed.
-    XCTAssertTrue(kscrs_readReport(arrayID, &_storeConfig, NULL) == NULL);
+    XCTAssertTrue(kscrs_readReport(arrayID.UTF8String, &_storeConfig, NULL) == NULL);
 }
 
 - (void)testCopyReportRunIDAnswersFromTheReportFile
 {
     [self prepareReportStoreWithPathEnd:@"testCopyRunID"];
-    int64_t reportID =
-        [self writeUserReportWithStringContents:@"{\"report\":{\"run_id\":\"0155A1E2-D4C3-4B6A-9C8D-1234567890AB\"}}"];
+    NSString *reportID =
+        [self writeUserReportWithStringContents:@"{\"report\":{\"run_id\":\"0155a1e2-d4c3-4b6a-9c8d-1234567890ab\"}}"];
 
-    char *runID = kscrs_copyReportRunID(reportID, &_storeConfig);
+    char *runID = kscrs_copyReportRunID(reportID.UTF8String, &_storeConfig);
     XCTAssertTrue(runID != NULL);
-    XCTAssertEqual(strcmp(runID, "0155A1E2-D4C3-4B6A-9C8D-1234567890AB"), 0);
+    XCTAssertEqual(strcmp(runID, "0155a1e2-d4c3-4b6a-9c8d-1234567890ab"), 0);
     free(runID);
 
     // Absent, non-UUID, and missing are all "no run".
-    int64_t noRunID = [self writeUserReportWithStringContents:@"{\"report\":{}}"];
-    XCTAssertTrue(kscrs_copyReportRunID(noRunID, &_storeConfig) == NULL);
-    int64_t badRunID = [self writeUserReportWithStringContents:@"{\"report\":{\"run_id\":\"RUN-A\"}}"];
-    XCTAssertTrue(kscrs_copyReportRunID(badRunID, &_storeConfig) == NULL);
-    XCTAssertTrue(kscrs_copyReportRunID(12345, &_storeConfig) == NULL);
+    NSString *noRunID = [self writeUserReportWithStringContents:@"{\"report\":{}}"];
+    XCTAssertTrue(kscrs_copyReportRunID(noRunID.UTF8String, &_storeConfig) == NULL);
+    NSString *badRunID = [self writeUserReportWithStringContents:@"{\"report\":{\"run_id\":\"RUN-A\"}}"];
+    XCTAssertTrue(kscrs_copyReportRunID(badRunID.UTF8String, &_storeConfig) == NULL);
+    XCTAssertTrue(kscrs_copyReportRunID("4c1b2f3e-0000-4000-8000-000000012345", &_storeConfig) == NULL);
 }
 
 - (void)testCopyReportRunIDSurvivesATornReport
 {
     [self prepareReportStoreWithPathEnd:@"testCopyRunIDTorn"];
-    // Torn mid-write: the extraction stops at run_id, before the tear.
-    int64_t reportID =
-        [self writeUserReportWithStringContents:
-                  @"{\"report\":{\"run_id\":\"0155A1E2-D4C3-4B6A-9C8D-1234567890AB\"},\"crash\":{\"threads\":"];
+    // Torn mid-write by a crash. The handler writes the file directly,
+    // unlike the user-report path, which rejects a payload that does not
+    // decode whole. The extraction stops at run_id, before the tear.
+    NSString *reportID =
+        [self writeCrashReportWithStringContents:
+                  @"{\"report\":{\"run_id\":\"0155a1e2-d4c3-4b6a-9c8d-1234567890ab\"},\"crash\":{\"threads\":"];
 
-    char *runID = kscrs_copyReportRunID(reportID, &_storeConfig);
+    char *runID = kscrs_copyReportRunID(reportID.UTF8String, &_storeConfig);
     XCTAssertTrue(runID != NULL);
-    XCTAssertEqual(strcmp(runID, "0155A1E2-D4C3-4B6A-9C8D-1234567890AB"), 0);
+    XCTAssertEqual(strcmp(runID, "0155a1e2-d4c3-4b6a-9c8d-1234567890ab"), 0);
     free(runID);
 }
 
-- (void)testGetReportCountAndIDsReturnMinusOneWhenTheDirectoryCannotBeEnumerated
+- (void)testGetReportCountReturnsMinusOneWhenTheDirectoryCannotBeEnumerated
 {
     [self prepareReportStoreWithPathEnd:@"testEnumFailure"];
     // Replace the reports directory with a plain file: opendir now fails with
@@ -723,28 +779,26 @@
     XCTAssertTrue([[NSData data] writeToFile:path atomically:YES]);
 
     XCTAssertEqual(kscrs_getReportCount(&_storeConfig), -1);
-    int64_t reportIDs[4];
-    XCTAssertEqual(kscrs_getReportIDs(reportIDs, 4, &_storeConfig), -1);
 }
 
 - (void)testDeleteReportKeepsSidecarsWhileTheReportFileRemains
 {
     [self prepareReportStoreWithSidecarsWithPathEnd:@"testDeleteKeepsSidecars"];
-    int64_t reportID = [self writeUserReportWithStringContents:REPORT_CONTENTS(0)];
+    NSString *reportID = [self writeUserReportWithStringContents:REPORT_CONTENTS(0)];
     char sidecarPath[KSCRS_MAX_PATH_LENGTH];
-    XCTAssertTrue(kscrs_getReportSidecarFilePathForReport("TestMonitor", reportID, sidecarPath, sizeof(sidecarPath),
-                                                          &_storeConfig));
+    XCTAssertTrue(kscrs_getReportSidecarFilePathForReport("TestMonitor", reportID.UTF8String, sidecarPath,
+                                                          sizeof(sidecarPath), &_storeConfig));
     XCTAssertTrue([@"data" writeToFile:@(sidecarPath) atomically:YES encoding:NSUTF8StringEncoding error:nil]);
 
     // An undeletable report file will be re-sent, and that delivery needs
     // the sidecars for the on-read stitch.
     NSFileManager *fm = NSFileManager.defaultManager;
     XCTAssertTrue([fm setAttributes:@{ NSFilePosixPermissions : @(0555) } ofItemAtPath:self.reportStorePath error:nil]);
-    XCTAssertFalse(kscrs_deleteReportWithID(reportID, &_storeConfig));
+    XCTAssertFalse(kscrs_deleteReportWithID(reportID.UTF8String, &_storeConfig));
     XCTAssertTrue([fm setAttributes:@{ NSFilePosixPermissions : @(0755) } ofItemAtPath:self.reportStorePath error:nil]);
     XCTAssertTrue([fm fileExistsAtPath:@(sidecarPath)]);
 
-    XCTAssertTrue(kscrs_deleteReportWithID(reportID, &_storeConfig));
+    XCTAssertTrue(kscrs_deleteReportWithID(reportID.UTF8String, &_storeConfig));
     XCTAssertFalse([fm fileExistsAtPath:@(sidecarPath)]);
 }
 
@@ -752,33 +806,64 @@
 {
     [self prepareReportStoreWithSidecarsWithPathEnd:@"testDeleteMissingCleansSidecars"];
     char sidecarPath[KSCRS_MAX_PATH_LENGTH];
-    XCTAssertTrue(kscrs_getReportSidecarFilePathForReport("TestMonitor", 424242, sidecarPath, sizeof(sidecarPath),
-                                                          &_storeConfig));
+    XCTAssertTrue(kscrs_getReportSidecarFilePathForReport("TestMonitor", "4c1b2f3e-0000-4000-8000-000000424242",
+                                                          sidecarPath, sizeof(sidecarPath), &_storeConfig));
     XCTAssertTrue([@"data" writeToFile:@(sidecarPath) atomically:YES encoding:NSUTF8StringEncoding error:nil]);
 
     // The report file is already gone, so its sidecars are orphans: nothing
     // else sweeps per-report sidecars, so the delete removes them.
-    XCTAssertFalse(kscrs_deleteReportWithID(424242, &_storeConfig));
+    XCTAssertFalse(kscrs_deleteReportWithID("4c1b2f3e-0000-4000-8000-000000424242", &_storeConfig));
     XCTAssertFalse([NSFileManager.defaultManager fileExistsAtPath:@(sidecarPath)]);
 }
 
 - (void)testDeleteReportWithIDReturnsWhetherTheFileWasRemoved
 {
     [self prepareReportStoreWithPathEnd:@"testDeleteResult"];
-    int64_t reportID = [self writeUserReportWithStringContents:REPORT_CONTENTS(0)];
+    NSString *reportID = [self writeUserReportWithStringContents:REPORT_CONTENTS(0)];
 
-    XCTAssertTrue(kscrs_deleteReportWithID(reportID, &_storeConfig));
-    XCTAssertFalse(kscrs_deleteReportWithID(reportID, &_storeConfig), @"Already deleted");
-    XCTAssertFalse(kscrs_deleteReportWithID(12345, &_storeConfig), @"Never existed");
+    XCTAssertTrue(kscrs_deleteReportWithID(reportID.UTF8String, &_storeConfig));
+    XCTAssertFalse(kscrs_deleteReportWithID(reportID.UTF8String, &_storeConfig), @"Already deleted");
+    XCTAssertFalse(kscrs_deleteReportWithID("4c1b2f3e-0000-4000-8000-000000012345", &_storeConfig), @"Never existed");
+}
+
+- (void)testAddUserReportCanonicalizesAnUppercaseID
+{
+    [self prepareReportStoreWithPathEnd:@"testUppercaseID"];
+    NSString *json = @"{\"report\":{\"id\":\"0BADC0DE-DEAD-BEEF-F00D-0123456789AB\"},\"crash\":{}}";
+    char reportIDBuffer[KSID_SIZE];
+    XCTAssertTrue(kscrs_addUserReport(json.UTF8String, (int)json.length, &_storeConfig, reportIDBuffer));
+    XCTAssertEqualObjects(@(reportIDBuffer), @"0badc0de-dead-beef-f00d-0123456789ab",
+                          @"the accepted id is canonicalized to the store's grammar");
+
+    // The canonical id is the store identity: the file is findable by it, and
+    // the payload's report.id was rewritten to match its filename.
+    char *report = kscrs_readReport(reportIDBuffer, &_storeConfig, NULL);
+    XCTAssertTrue(report != NULL);
+    XCTAssertTrue(strstr(report, "0badc0de-dead-beef-f00d-0123456789ab") != NULL);
+    XCTAssertTrue(strstr(report, "0BADC0DE-DEAD-BEEF-F00D-0123456789AB") == NULL);
+    free(report);
+}
+
+- (void)testAddUserReportRejectsATruncatedPayload
+{
+    [self prepareReportStoreWithPathEnd:@"testTruncatedPayload"];
+    // No report.id, so the store must inject one. A payload that does not
+    // decode whole fails the add rather than storing its re-encoded prefix.
+    NSString *json = @"{\"report\":{},\"user\":{\"a\":\"b\"},\"crash\":{\"error\"";
+    char reportIDBuffer[KSID_SIZE];
+    XCTAssertFalse(kscrs_addUserReport(json.UTF8String, (int)json.length, &_storeConfig, reportIDBuffer));
+    XCTAssertEqual(kscrs_getReportCount(&_storeConfig), 0);
 }
 
 - (void)testReadReportWithReportSectionAsString
 {
     [self prepareReportStoreWithPathEnd:@"testMalformedReportString"];
     NSString *json = @"{\"report\":\"not a dict\",\"crash\":{}}";
-    int64_t reportID = kscrs_addUserReport(json.UTF8String, (int)json.length, &_storeConfig);
+    char reportIDBuffer[KSID_SIZE];
+    XCTAssertTrue(kscrs_addUserReport(json.UTF8String, (int)json.length, &_storeConfig, reportIDBuffer));
+    NSString *reportID = @(reportIDBuffer);
 
-    char *report = kscrs_readReport(reportID, &_storeConfig, NULL);
+    char *report = kscrs_readReport(reportID.UTF8String, &_storeConfig, NULL);
     XCTAssertTrue(report != NULL, @"Should not crash on report section being a string");
     free(report);
 }
@@ -787,9 +872,11 @@
 {
     [self prepareReportStoreWithPathEnd:@"testMalformedReportArray"];
     NSString *json = @"{\"report\":[1,2,3],\"crash\":{}}";
-    int64_t reportID = kscrs_addUserReport(json.UTF8String, (int)json.length, &_storeConfig);
+    char reportIDBuffer[KSID_SIZE];
+    XCTAssertTrue(kscrs_addUserReport(json.UTF8String, (int)json.length, &_storeConfig, reportIDBuffer));
+    NSString *reportID = @(reportIDBuffer);
 
-    char *report = kscrs_readReport(reportID, &_storeConfig, NULL);
+    char *report = kscrs_readReport(reportID.UTF8String, &_storeConfig, NULL);
     XCTAssertTrue(report != NULL, @"Should not crash on report section being an array");
     free(report);
 }
@@ -798,9 +885,11 @@
 {
     [self prepareReportStoreWithPathEnd:@"testMalformedNoReport"];
     NSString *json = @"{\"crash\":{\"error\":{}}}";
-    int64_t reportID = kscrs_addUserReport(json.UTF8String, (int)json.length, &_storeConfig);
+    char reportIDBuffer[KSID_SIZE];
+    XCTAssertTrue(kscrs_addUserReport(json.UTF8String, (int)json.length, &_storeConfig, reportIDBuffer));
+    NSString *reportID = @(reportIDBuffer);
 
-    char *report = kscrs_readReport(reportID, &_storeConfig, NULL);
+    char *report = kscrs_readReport(reportID.UTF8String, &_storeConfig, NULL);
     XCTAssertTrue(report != NULL, @"Should not crash when report section is absent");
     free(report);
 }
@@ -810,7 +899,6 @@
     self.reportStorePath = [self.tempPath stringByAppendingPathComponent:@"testMalformedRunSidecars"];
     NSString *sidecarsPath = [self.tempPath stringByAppendingPathComponent:@"Sidecars"];
     NSString *runSidecarsPath = [self.tempPath stringByAppendingPathComponent:@"RunSidecars"];
-    _storeConfig.appName = self.appName.UTF8String;
     _storeConfig.reportsPath = self.reportStorePath.UTF8String;
     _storeConfig.reportSidecarsPath = sidecarsPath.UTF8String;
     _storeConfig.runSidecarsPath = runSidecarsPath.UTF8String;
@@ -819,9 +907,11 @@
     kscrs_setStitchConfig(&_storeConfig);
 
     NSString *json = @"{\"report\":\"not a dict\",\"crash\":{}}";
-    int64_t reportID = kscrs_addUserReport(json.UTF8String, (int)json.length, &_storeConfig);
+    char reportIDBuffer[KSID_SIZE];
+    XCTAssertTrue(kscrs_addUserReport(json.UTF8String, (int)json.length, &_storeConfig, reportIDBuffer));
+    NSString *reportID = @(reportIDBuffer);
 
-    char *report = kscrs_readReport(reportID, &_storeConfig, NULL);
+    char *report = kscrs_readReport(reportID.UTF8String, &_storeConfig, NULL);
     XCTAssertTrue(report != NULL, @"Should not crash on malformed report section with run sidecars enabled");
     free(report);
 }

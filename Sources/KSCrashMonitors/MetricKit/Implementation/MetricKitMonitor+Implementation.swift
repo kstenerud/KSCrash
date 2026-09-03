@@ -28,6 +28,7 @@ import Foundation
 import KSCrashMonitorPlugins
 import KSCrashRecording
 import KSCrashRecordingCore
+import KSCrashReportModel
 import KSCrashSwiftCore
 import os.log
 
@@ -37,7 +38,6 @@ import os.log
 
 // MARK: - Internal Implementation
 
-@available(iOS 14.0, macOS 12.0, *)
 @available(tvOS, unavailable)
 @available(watchOS, unavailable)
 extension MetricKitMonitor {
@@ -78,7 +78,7 @@ extension MetricKitMonitor {
 
     /// Records a diagnostic report as it is added: appends its id to ``diagnosticReportIDs`` and
     /// posts ``diagnosticReportAddedNotification`` carrying just that id in `userInfo`.
-    func recordDiagnosticReport(_ reportID: Int64) {
+    func recordDiagnosticReport(_ reportID: Report.ID) {
         lock.withLock { $0.diagnosticReportIDs.append(reportID) }
         DispatchQueue.main.async {
             NotificationCenter.default.post(
@@ -106,4 +106,16 @@ extension MetricKitMonitor {
             os_log(.error, log: metricKitLog, "[MONITORS] Failed to encode run ID into threadcrumb")
         }
     }
+}
+
+/// Stores a report payload through the C store. nil when it could not be
+/// written; the id the store keyed it by otherwise.
+func addMetricKitReport(_ data: Data) -> Report.ID? {
+    var idBuffer = [CChar](repeating: 0, count: Int(KSID_LENGTH) + 1)
+    let stored = data.withUnsafeBytes { buffer -> Bool in
+        guard let ptr = buffer.baseAddress?.assumingMemoryBound(to: CChar.self) else { return false }
+        return kscrash_addUserReport(ptr, Int32(buffer.count), &idBuffer)
+    }
+    guard stored else { return nil }
+    return Report.ID(String(cString: idBuffer))
 }

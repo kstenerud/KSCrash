@@ -58,8 +58,8 @@ typedef enum {
 /** Configuration for store creation. */
 typedef struct {
     uint32_t initialCapacity; /**< Starting buffer size (e.g. 4096). */
-    uint16_t maxKeyLength;    /**< Keys longer than this are truncated (e.g. 256). */
-    uint16_t maxStringLength; /**< String values longer than this are truncated (e.g. 1024). */
+    uint16_t maxKeyLength;    /**< Writes with a longer key are rejected (e.g. 256). */
+    uint16_t maxStringLength; /**< Writes with a longer string value are rejected (e.g. 1024). */
 } KSKVSConfig;
 
 /** Outcome of kskvs_create. */
@@ -95,13 +95,21 @@ void kskvs_destroy(KSKeyValueStore *store);
 #pragma mark - Typed Setters (NOT thread-safe) -
 // ============================================================================
 
-void kskvs_setString(KSKeyValueStore *store, const char *key, const char *value);
-void kskvs_setInt64(KSKeyValueStore *store, const char *key, int64_t value);
-void kskvs_setUInt64(KSKeyValueStore *store, const char *key, uint64_t value);
-void kskvs_setDouble(KSKeyValueStore *store, const char *key, double value);
-void kskvs_setBool(KSKeyValueStore *store, const char *key, bool value);
-void kskvs_setDate(KSKeyValueStore *store, const char *key, uint64_t nanosecondsSince1970);
-void kskvs_removeValue(KSKeyValueStore *store, const char *key);
+/** Each setter returns false when the write is rejected (empty key, or a key
+ *  or string value over the store's limits) or cannot be persisted; the store
+ *  is unchanged. Nothing is ever truncated.
+ *
+ *  NOT thread-safe: concurrent writers to a store are the caller's
+ *  responsibility. The store's only internal guarantee is that a read-mode
+ *  open never observes a partially applied write.
+ */
+bool kskvs_setString(KSKeyValueStore *store, const char *key, const char *value);
+bool kskvs_setInt64(KSKeyValueStore *store, const char *key, int64_t value);
+bool kskvs_setUInt64(KSKeyValueStore *store, const char *key, uint64_t value);
+bool kskvs_setDouble(KSKeyValueStore *store, const char *key, double value);
+bool kskvs_setBool(KSKeyValueStore *store, const char *key, bool value);
+bool kskvs_setDate(KSKeyValueStore *store, const char *key, int64_t nanosecondsSince1970);
+bool kskvs_removeValue(KSKeyValueStore *store, const char *key);
 
 // ============================================================================
 #pragma mark - Reading -
@@ -114,7 +122,7 @@ typedef struct {
     void (*onUInt64)(const char *key, uint16_t keyLen, uint64_t value, void *ctx);
     void (*onDouble)(const char *key, uint16_t keyLen, double value, void *ctx);
     void (*onBool)(const char *key, uint16_t keyLen, bool value, void *ctx);
-    void (*onDate)(const char *key, uint16_t keyLen, uint64_t nanosecondsSince1970, void *ctx);
+    void (*onDate)(const char *key, uint16_t keyLen, int64_t nanosecondsSince1970, void *ctx);
     /** Called for keys whose final resolved state is a tombstone (removal).
      *  Allows callers to actively delete keys from a pre-existing dictionary. */
     void (*onRemoved)(const char *key, uint16_t keyLen, void *ctx);
@@ -124,6 +132,13 @@ typedef struct {
  *  Works on any store (file-backed writable or read-only).
  */
 void kskvs_iterate(const KSKeyValueStore *store, const KSKVSCallbacks *callbacks, void *context);
+
+/** Look up one key's resolved (last-write-wins) state: exactly one callback
+ *  fires with the latest value, onRemoved fires when the last record is a
+ *  tombstone, and nothing fires for a key the store never saw.
+ *  Works on any store (file-backed writable or read-only).
+ */
+void kskvs_lookup(const KSKeyValueStore *store, const char *key, const KSKVSCallbacks *callbacks, void *context);
 
 #ifdef __cplusplus
 }

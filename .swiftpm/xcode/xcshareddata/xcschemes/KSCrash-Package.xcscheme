@@ -29,9 +29,9 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "BootTimeMonitor"
-               BuildableName = "BootTimeMonitor"
-               BlueprintName = "BootTimeMonitor"
+               BlueprintIdentifier = "BootMonitor"
+               BuildableName = "BootMonitor"
+               BlueprintName = "BootMonitor"
                ReferencedContainer = "container:">
             </BuildableReference>
          </BuildActionEntry>
@@ -43,9 +43,9 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "DiscSpaceMonitor"
-               BuildableName = "DiscSpaceMonitor"
-               BlueprintName = "DiscSpaceMonitor"
+               BlueprintIdentifier = "DiskMonitor"
+               BuildableName = "DiskMonitor"
+               BlueprintName = "DiskMonitor"
                ReferencedContainer = "container:">
             </BuildableReference>
          </BuildActionEntry>
@@ -190,26 +190,6 @@
                   Identifier = "KSCrashMonitor_Lifecycle_Tests">
                </Test>
             </SkippedTests>
-         </TestableReference>
-         <TestableReference
-            skipped = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "KSCrashBootTimeMonitorTests"
-               BuildableName = "KSCrashBootTimeMonitorTests"
-               BlueprintName = "KSCrashBootTimeMonitorTests"
-               ReferencedContainer = "container:">
-            </BuildableReference>
-         </TestableReference>
-         <TestableReference
-            skipped = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "KSCrashDiscSpaceMonitorTests"
-               BuildableName = "KSCrashDiscSpaceMonitorTests"
-               BlueprintName = "KSCrashDiscSpaceMonitorTests"
-               ReferencedContainer = "container:">
-            </BuildableReference>
          </TestableReference>
          <TestableReference
             skipped = "NO">

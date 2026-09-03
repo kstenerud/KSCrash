@@ -258,7 +258,7 @@ public struct RunSummary: Codable, Sendable, Equatable {
     public let sdkVersion: String
 
     /// The per-run UUID.
-    public let runID: String
+    public let id: ID
 
     /// Stable per-install device identifier.
     public let deviceID: String
@@ -288,7 +288,7 @@ public struct RunSummary: Codable, Sendable, Equatable {
     public init(
         schemaVersion: Int,
         sdkVersion: String,
-        runID: String,
+        id: ID,
         deviceID: String,
         userID: String? = nil,
         startedAtMs: Int64,
@@ -304,7 +304,7 @@ public struct RunSummary: Codable, Sendable, Equatable {
     ) {
         self.schemaVersion = schemaVersion
         self.sdkVersion = sdkVersion
-        self.runID = runID
+        self.id = id
         self.deviceID = deviceID
         self.userID = userID
         self.startedAtMs = startedAtMs
@@ -322,7 +322,7 @@ public struct RunSummary: Codable, Sendable, Equatable {
     enum CodingKeys: String, CodingKey {
         case schemaVersion = "schema_version"
         case sdkVersion = "sdk_version"
-        case runID = "run_id"
+        case id = "run_id"
         case deviceID = "device_id"
         case userID = "user_id"
         case startedAtMs = "started_at_ms"
@@ -341,7 +341,7 @@ public struct RunSummary: Codable, Sendable, Equatable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         schemaVersion = try container.decode(Int.self, forKey: .schemaVersion)
         sdkVersion = try container.decode(String.self, forKey: .sdkVersion)
-        runID = try container.decode(String.self, forKey: .runID)
+        id = try container.decode(ID.self, forKey: .id)
         deviceID = try container.decode(String.self, forKey: .deviceID)
         userID = try container.decodeIfPresent(String.self, forKey: .userID)
         startedAtMs = try container.decode(Int64.self, forKey: .startedAtMs)
@@ -360,7 +360,7 @@ public struct RunSummary: Codable, Sendable, Equatable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(schemaVersion, forKey: .schemaVersion)
         try container.encode(sdkVersion, forKey: .sdkVersion)
-        try container.encode(runID, forKey: .runID)
+        try container.encode(id, forKey: .id)
         try container.encode(deviceID, forKey: .deviceID)
         try container.encodeIfPresent(userID, forKey: .userID)
         try container.encode(startedAtMs, forKey: .startedAtMs)

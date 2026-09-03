@@ -32,8 +32,7 @@
 #import <stdexcept>
 #import <thread>
 #import "CrashCallback.h"
-#import "KSCrash+Hang.h"
-#import "KSCrash.h"
+#import "KSCrashC.h"
 
 namespace sample_namespace
 {
@@ -77,24 +76,14 @@ static void trigger_signal(void)
 
 static void trigger_user_nonfatal(void)
 {
-    [KSCrash.sharedInstance reportUserException:@"User Exception"
-                                         reason:@"My Reason"
-                                       language:@"My Language"
-                                     lineOfCode:@"loc"
-                                     stackTrace:@[ @"trace line 1", @"trace line 2" ]
-                                  logAllThreads:YES
-                               terminateProgram:NO];
+    kscrash_reportUserException("User Exception", "My Reason", "My Language", "loc",
+                                "[\"trace line 1\",\"trace line 2\"]", true, false);
 }
 
 static void trigger_user_fatal(void)
 {
-    [KSCrash.sharedInstance reportUserException:@"User Exception"
-                                         reason:@"My Reason"
-                                       language:@"My Language"
-                                     lineOfCode:@"loc"
-                                     stackTrace:@[ @"trace line 1", @"trace line 2" ]
-                                  logAllThreads:YES
-                               terminateProgram:YES];
+    kscrash_reportUserException("User Exception", "My Reason", "My Language", "loc",
+                                "[\"trace line 1\",\"trace line 2\"]", true, true);
 }
 
 extern "C" void KSStacktraceCheckCrash() __attribute__((disable_tail_calls));
@@ -132,10 +121,8 @@ static void trigger_user_swiftAsync(void) { integrationTestSwiftAsyncTrigger(); 
 
 + (void)trigger_nsException_user
 {
-    [KSCrash.sharedInstance reportNSException:[NSException exceptionWithName:@"Custom Exception"
-                                                                      reason:@"Custom reason"
-                                                                    userInfo:NULL]
-                                logAllThreads:YES];
+    kscrash_reportNSException([NSException exceptionWithName:@"Custom Exception" reason:@"Custom reason" userInfo:NULL],
+                              true, 0);
 }
 
 + (void)trigger_cpp_runtimeException
@@ -316,21 +303,17 @@ static void trigger_user_swiftAsync(void) { integrationTestSwiftAsyncTrigger(); 
 
 + (void)trigger_other_watchdogTimeoutWithException
 {
-    // Register a hang observer to throw an exception once a hang is detected.
-    // This ensures the exception occurs while we're definitely in a hang state.
-    static id observerToken = nil;
-    observerToken = [KSCrash.sharedInstance
-        addHangObserver:^(KSHangChangeType change, uint64_t startTimestamp, uint64_t endTimestamp) {
-            if (change == KSHangChangeTypeStarted) {
-                // Hang detected - throw exception from background thread
-                dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
-                    NSException *exc = [NSException exceptionWithName:NSGenericException
-                                                               reason:@"Exception during hang"
-                                                             userInfo:nil];
-                    [exc raise];
-                });
-            }
-        }];
+    // Throw from a background thread well past the watchdog's 250ms
+    // threshold, so the exception occurs while the main thread is
+    // definitely hanging. Timed rather than callback-driven: the hang
+    // event slot belongs to the framework's hang hub.
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)),
+                   dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+                       NSException *exc = [NSException exceptionWithName:NSGenericException
+                                                                  reason:@"Exception during hang"
+                                                                userInfo:nil];
+                       [exc raise];
+                   });
 
     // Block the main thread to trigger hang detection
     [NSThread sleepForTimeInterval:100.0];

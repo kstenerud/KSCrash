@@ -34,7 +34,6 @@ import XCTest
 
 #if KSCRASH_HAS_METRICKIT
 
-    @available(iOS 14.0, macOS 12.0, *)
     final class MetricKitMonitorTests: XCTestCase {
 
         /// One bridge for the whole class (constructing `Monitor<MetricKitMonitor>` more than
@@ -100,32 +99,32 @@ import XCTest
 
         // MARK: - Diagnostic Report Notifications
 
-        // The monitor is a shared singleton and posts asynchronously on the main queue, so a
-        // post from another test can land during a wait here. Each test below filters to its own
-        // unique id and tolerates extra posts (assertForOverFulfill = false).
+        // Posts arrive asynchronously on the main queue, so a straggler from an
+        // earlier wait can land here. Each test filters to its own unique id and
+        // tolerates extra posts (assertForOverFulfill = false).
 
         func testNotificationPostedWhenDiagnosticReportRecorded() {
             let notificationExpectation = expectation(description: "Diagnostic report notification")
             notificationExpectation.assertForOverFulfill = false
-            var observedID: Int64?
+            var observedID: Report.ID?
 
             let observer = NotificationCenter.default.addObserver(
                 forName: MetricKitMonitor.diagnosticReportAddedNotification,
                 object: monitor,
                 queue: nil
             ) { notification in
-                guard let id = notification.userInfo?[MetricKitMonitor.diagnosticReportIDUserInfoKey] as? Int64,
-                    id == 4242
+                guard let id = notification.userInfo?[MetricKitMonitor.diagnosticReportIDUserInfoKey] as? Report.ID,
+                    id == testReportID(4242)
                 else { return }
                 observedID = id
                 notificationExpectation.fulfill()
             }
             defer { NotificationCenter.default.removeObserver(observer) }
 
-            monitor.recordDiagnosticReport(4242)
+            monitor.recordDiagnosticReport(testReportID(4242))
 
             wait(for: [notificationExpectation], timeout: 2.0)
-            XCTAssertEqual(observedID, 4242)
+            XCTAssertEqual(observedID, testReportID(4242))
         }
 
         func testNotificationPostedOnMainThread() {
@@ -146,7 +145,7 @@ import XCTest
             defer { NotificationCenter.default.removeObserver(observer) }
 
             DispatchQueue.global().async {
-                self.monitor.recordDiagnosticReport(1)
+                self.monitor.recordDiagnosticReport(testReportID(1))
             }
 
             wait(for: [notificationExpectation], timeout: 2.0)
@@ -168,7 +167,7 @@ import XCTest
             }
             defer { NotificationCenter.default.removeObserver(observer) }
 
-            monitor.recordDiagnosticReport(1)
+            monitor.recordDiagnosticReport(testReportID(1))
 
             wait(for: [notificationExpectation], timeout: 2.0)
             XCTAssertTrue(objectIsPlugin, "Notification object should be the plugin instance")
@@ -181,13 +180,13 @@ import XCTest
         }
 
         func testDiagnosticReportIDsAccumulateInOrder() {
-            monitor.recordDiagnosticReport(42)
-            monitor.recordDiagnosticReport(99)
-            XCTAssertEqual(monitor.diagnosticReportIDs, [42, 99])
+            monitor.recordDiagnosticReport(testReportID(42))
+            monitor.recordDiagnosticReport(testReportID(99))
+            XCTAssertEqual(monitor.diagnosticReportIDs, [testReportID(42), testReportID(99)])
         }
 
         func testNotificationCarriesOnlyTheAddedID() {
-            var observedIDs: [Int64] = []
+            var observedIDs: [Report.ID] = []
             let notificationExpectation = expectation(description: "Two notifications")
             notificationExpectation.expectedFulfillmentCount = 2
             notificationExpectation.assertForOverFulfill = false
@@ -197,20 +196,20 @@ import XCTest
                 object: monitor,
                 queue: nil
             ) { notification in
-                guard let id = notification.userInfo?[MetricKitMonitor.diagnosticReportIDUserInfoKey] as? Int64,
-                    id == 7707 || id == 1313
+                guard let id = notification.userInfo?[MetricKitMonitor.diagnosticReportIDUserInfoKey] as? Report.ID,
+                    id == testReportID(7707) || id == testReportID(1313)
                 else { return }
                 observedIDs.append(id)
                 notificationExpectation.fulfill()
             }
             defer { NotificationCenter.default.removeObserver(observer) }
 
-            monitor.recordDiagnosticReport(7707)
-            monitor.recordDiagnosticReport(1313)
+            monitor.recordDiagnosticReport(testReportID(7707))
+            monitor.recordDiagnosticReport(testReportID(1313))
 
             wait(for: [notificationExpectation], timeout: 2.0)
             // Each post carries exactly the id that was just added, never the accumulated array.
-            XCTAssertEqual(Set(observedIDs), [7707, 1313])
+            XCTAssertEqual(Set(observedIDs), [testReportID(7707), testReportID(1313)])
         }
 
         // MARK: - Call Stack Tree Flattening
@@ -921,3 +920,14 @@ import XCTest
     }
 
 #endif
+
+/// A report id for a small test number: one deterministic UUID per value.
+private func testReportID(_ value: Int) -> Report.ID {
+    Report.ID(
+        uuid: UUID(
+            uuid: (
+                0, 0, 0, 0, 0, 0, 0x40, 0, 0x80, 0, 0, 0,
+                UInt8((value >> 24) & 0xFF), UInt8((value >> 16) & 0xFF),
+                UInt8((value >> 8) & 0xFF), UInt8(value & 0xFF)
+            )))
+}

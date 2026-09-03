@@ -71,12 +71,42 @@ func assertOutcomes<Payload: SendPayload>(
     XCTAssertEqual(result.kept, kept, file: file, line: line)
 }
 
+/// A run id for a readable test tag: a tag that already is a UUID is used as
+/// is, anything else maps to one deterministic UUID per tag.
+func testRunID(_ tag: String) -> RunSummary.ID {
+    if let id = RunSummary.ID(tag) { return id }
+    var bytes = [UInt8](repeating: 0, count: 16)
+    for (index, byte) in tag.utf8.enumerated() {
+        bytes[index % 16] ^= byte &+ UInt8(truncatingIfNeeded: index)
+    }
+    bytes[6] = (bytes[6] & 0x0F) | 0x40
+    bytes[8] = (bytes[8] & 0x3F) | 0x80
+    let uuid = UUID(
+        uuid: (
+            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+            bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]
+        ))
+    return RunSummary.ID(uuid: uuid)
+}
+
+/// A report id for a small test number: one deterministic UUID per value,
+/// ordered like the numbers so name order matches numeric order.
+func testReportID(_ value: Int) -> Report.ID {
+    Report.ID(
+        uuid: UUID(
+            uuid: (
+                0, 0, 0, 0, 0, 0, 0x40, 0, 0x80, 0, 0, 0,
+                UInt8((value >> 24) & 0xFF), UInt8((value >> 16) & 0xFF), UInt8((value >> 8) & 0xFF),
+                UInt8(value & 0xFF)
+            )))
+}
+
 /// A complete run summary fixture; only the identity and times vary.
 func makeSummary(runID: String, startedAtMs: Int64 = 1_000, endedAtMs: Int64 = 2_000) -> RunSummary {
     RunSummary(
         schemaVersion: 1,
         sdkVersion: "test",
-        runID: runID,
+        id: testRunID(runID),
         deviceID: "device",
         startedAtMs: startedAtMs,
         endedAtMs: endedAtMs,

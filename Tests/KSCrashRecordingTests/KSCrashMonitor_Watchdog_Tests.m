@@ -27,10 +27,10 @@
 #import <XCTest/XCTest.h>
 #import <mach/task_policy.h>
 
-#import "KSCrash+Hang.h"
 #import "KSCrashHang.h"
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitor_Watchdog.h"
+#import "KSHangEvent.h"
 
 // Stub callbacks for testing hang detection
 static KSCrash_MonitorContext g_stubContext;
@@ -44,7 +44,7 @@ static KSCrash_MonitorContext *stubNotify(__unused thread_t thread,
 
 static void stubHandle(__unused KSCrash_MonitorContext *context, KSCrash_ReportResult *result, __unused bool finalize)
 {
-    result->reportId = 12345;
+    strlcpy(result->reportId, "4C1B2F3E-0000-4000-8000-000000000001", sizeof(result->reportId));
     result->path[0] = '\0';
 }
 
@@ -118,83 +118,38 @@ static void stubHandle_deprecated(KSCrash_MonitorContext *context) { stubHandle(
     [super tearDown];
 }
 
-- (void)testAddObserverReturnsToken
+- (void)testIsEnabledTracksSetEnabled
 {
     KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
     api->setEnabled(true, NULL);
-
-    id token = [KSCrash.sharedInstance
-        addHangObserver:^(__unused KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
-        }];
-
-    XCTAssertNotNil(token, @"Adding an observer should return a non-nil token");
-
+    XCTAssertTrue(kshang_isEnabled());
     api->setEnabled(false, NULL);
-}
-
-- (void)testAddObserverWhenDisabledReturnsNil
-{
-    KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
-    api->setEnabled(false, NULL);
-
-    id token = [KSCrash.sharedInstance
-        addHangObserver:^(__unused KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
-        }];
-
-    XCTAssertNil(token, @"Adding an observer when disabled should return nil");
-}
-
-- (void)testMultipleObserversCanBeAdded
-{
-    KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
-    api->setEnabled(true, NULL);
-
-    id token1 = [KSCrash.sharedInstance
-        addHangObserver:^(__unused KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
-        }];
-    id token2 = [KSCrash.sharedInstance
-        addHangObserver:^(__unused KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
-        }];
-    id token3 = [KSCrash.sharedInstance
-        addHangObserver:^(__unused KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
-        }];
-
-    XCTAssertNotNil(token1);
-    XCTAssertNotNil(token2);
-    XCTAssertNotNil(token3);
-
-    // Tokens should be different objects
-    XCTAssertNotEqual(token1, token2);
-    XCTAssertNotEqual(token2, token3);
-
-    api->setEnabled(false, NULL);
-}
-
-- (void)testObserverTokenIsWeaklyHeld
-{
-    KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
-    api->setEnabled(true, NULL);
-
-    __weak id weakToken = nil;
-    @autoreleasepool {
-        // Capture self to ensure the block is a heap block (not global)
-        __weak typeof(self) weakSelf = self;
-        id token = [KSCrash.sharedInstance
-            addHangObserver:^(__unused KSHangChangeType change, __unused uint64_t start, __unused uint64_t end) {
-                (void)weakSelf;
-            }];
-        weakToken = token;
-        XCTAssertNotNil(weakToken, @"Token should exist while strongly held");
-    }
-
-    // After autoreleasepool drains, token should be deallocated
-    // The weak reference should become nil
-    XCTAssertNil(weakToken, @"Token should be deallocated when no longer retained");
-
-    api->setEnabled(false, NULL);
+    XCTAssertFalse(kshang_isEnabled());
 }
 
 #pragma mark - Hang Detection Tests
+
+typedef struct {
+    KSSempahore *__unsafe_unretained waiter;
+    uint64_t start;
+    uint64_t end;
+    bool started;
+} HangCapture;
+
+// The process-wide callback has no context; tests route it through this
+// pointer, set for the test's duration and cleared before it ends.
+static HangCapture *g_hangCapture;
+
+static void captureHangStart(KSHangChangeType change, uint64_t start, uint64_t end)
+{
+    HangCapture *capture = g_hangCapture;
+    if (capture != NULL && change == KSHangChangeTypeStarted && !capture->started) {
+        capture->started = true;
+        capture->start = start;
+        capture->end = end;
+        [capture->waiter signal];
+    }
+}
 
 - (void)testObserverReceivesHangStarted
 {
@@ -206,26 +161,16 @@ static void stubHandle_deprecated(KSCrash_MonitorContext *context) { stubHandle(
     api->setEnabled(true, NULL);
 
     KSSempahore *waiter = [KSSempahore withValue:0];
-    __block uint64_t receivedStart = 0;
-    __block uint64_t receivedEnd = 0;
-
-    __weak typeof(self) weakSelf = self;
-    __block id token =
-        [KSCrash.sharedInstance addHangObserver:^(KSHangChangeType change, uint64_t start, uint64_t end) {
-            (void)weakSelf;
-            if (change == KSHangChangeTypeStarted) {
-                receivedStart = start;
-                receivedEnd = end;
-                token = nil;
-                [waiter signal];
-            }
-        }];
-    XCTAssertNotNil(token);
+    HangCapture capture = { .waiter = waiter };
+    g_hangCapture = &capture;
+    KSHangEventCallback previous = kshang_setHangEventCallback(captureHangStart);
 
     XCTAssertTrue([waiter waitForTimeInterval:5]);
+    kshang_setHangEventCallback(previous);
+    g_hangCapture = NULL;
 
-    XCTAssertGreaterThan(receivedStart, 0ULL);
-    XCTAssertGreaterThanOrEqual(receivedEnd, receivedStart);
+    XCTAssertGreaterThan(capture.start, 0ULL);
+    XCTAssertGreaterThanOrEqual(capture.end, capture.start);
 
     api->setEnabled(false, NULL);
 }
@@ -240,25 +185,16 @@ static void stubHandle_deprecated(KSCrash_MonitorContext *context) { stubHandle(
     api->setEnabled(true, NULL);
 
     KSSempahore *waiter = [KSSempahore withValue:0];
-    __block uint64_t hangStart = 0;
-    __block uint64_t hangEnd = 0;
-    __weak typeof(self) weakSelf = self;
-    __block id token =
-        [KSCrash.sharedInstance addHangObserver:^(KSHangChangeType change, uint64_t start, uint64_t end) {
-            (void)weakSelf;
-            if (change == KSHangChangeTypeStarted) {
-                hangStart = start;
-                hangEnd = end;
-                token = nil;
-                [waiter signal];
-            }
-        }];
-    XCTAssertNotNil(token);
+    HangCapture capture = { .waiter = waiter };
+    g_hangCapture = &capture;
+    KSHangEventCallback previous = kshang_setHangEventCallback(captureHangStart);
 
     XCTAssertTrue([waiter waitForTimeInterval:5]);
+    kshang_setHangEventCallback(previous);
+    g_hangCapture = NULL;
 
     // The hang duration at "started" time should be at least the threshold
-    uint64_t durationNs = hangEnd - hangStart;
+    uint64_t durationNs = capture.end - capture.start;
     double durationSeconds = (double)durationNs / 1000000000.0;
 
     // Duration should be at least the threshold (249ms)

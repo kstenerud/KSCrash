@@ -31,8 +31,10 @@
  * are persisted to an append-only file at a caller-supplied path.
  *
  * The store knows nothing about runs, directories, or naming; it just reads and
- * writes sessions at the path it is handed. Two disjoint objects front the file,
- * because a given file is only ever being written or read, never both at once:
+ * writes sessions at the path it is handed. Two disjoint objects front the file.
+ * A live run's file can be decoded while its writer is active (delivery
+ * stitches do this), so the store internally excludes appends and decodes from
+ * each other; everything else is the caller's synchronization:
  *
  *   - KSSessionWriter records sessions and exposes the open one (its id feeds the
  *     crash report).
@@ -46,6 +48,7 @@
 #define HDR_KSSessionStore_h
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <uuid/uuid.h>
 
@@ -58,6 +61,12 @@ extern "C" {
 /** Max stored userID length (including NUL). Longer ids are truncated. */
 #define KSSESSION_MAX_USER_LENGTH 128
 
+/** Copies `src` into `dst` (`dstSize` bytes), truncating to the longest
+ *  prefix that is valid UTF-8: a character straddling the limit is dropped
+ *  whole. The one truncation rule for user ids: every sink must agree.
+ */
+void kssession_copyUtf8Truncated(char *dst, const char *src, size_t dstSize);
+
 typedef struct KSSessionWriter KSSessionWriter;
 typedef struct KSSessionReader KSSessionReader;
 
@@ -65,7 +74,7 @@ typedef struct KSSessionReader KSSessionReader;
  *  `guid`) means "no session" (e.g. kssw_current with nothing open).
  */
 typedef struct {
-    uuid_string_t guid;                    // uppercase UUID string (36 chars + NUL)
+    uuid_string_t guid;                    // lowercase UUID string (36 chars + NUL)
     char user[KSSESSION_MAX_USER_LENGTH];  // empty string == anonymous
     int64_t startedAtMs;                   // unix epoch milliseconds
     int64_t endedAtMs;                     // unix epoch milliseconds; 0 while endInferred

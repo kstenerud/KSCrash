@@ -59,6 +59,9 @@ static CFDictionaryRef testStitchReport(CFDictionaryRef reportDict, const char *
     }
 }
 
+#import "KSCrashC.h"
+#import "KSID.h"
+
 // Test helpers exposed from KSCrashC.c.
 extern void kscrash_testcode_setRunID(const char *runID);
 
@@ -67,18 +70,22 @@ extern void kscrash_testcode_setRunID(const char *runID);
 
 @implementation KSCrashReportStoreC_RunSidecar_Tests {
     KSCrashReportStoreCConfiguration _storeConfig;
+    char _savedRunID[KSID_SIZE];
 }
 
 - (void)setUp
 {
     [super setUp];
     memset(&_storeConfig, 0, sizeof(_storeConfig));
+    strlcpy(_savedRunID, kscrash_getRunID(), sizeof(_savedRunID));
 }
 
 - (void)tearDown
 {
-    kscrs_setStitchConfig(NULL);
-    kscrash_testcode_setRunID(NULL);
+    // Put back what the fixture clobbered: a live install keeps its stitch
+    // config and run id, a bare process goes back to none.
+    kscrs_setStitchConfig(kscrash_isInstalled() ? kscrash_getReportStoreConfiguration() : NULL);
+    kscrash_testcode_setRunID(_savedRunID[0] != '\0' ? _savedRunID : NULL);
     [super tearDown];
 }
 
@@ -88,7 +95,6 @@ extern void kscrash_testcode_setRunID(const char *runID);
     NSString *sidecarsPath = [self.tempPath stringByAppendingPathComponent:@"Sidecars"];
     NSString *runSidecarsPath = [self.tempPath stringByAppendingPathComponent:@"RunSidecars"];
     NSString *runSummariesPath = [self.tempPath stringByAppendingPathComponent:@"Runs"];
-    _storeConfig.appName = "testapp";
     _storeConfig.reportsPath = reportsPath.UTF8String;
     _storeConfig.reportSidecarsPath = sidecarsPath.UTF8String;
     _storeConfig.runSidecarsPath = runSidecarsPath.UTF8String;
@@ -101,11 +107,13 @@ extern void kscrash_testcode_setRunID(const char *runID);
     kscrash_testcode_setRunID("11111111-aaaa-bbbb-cccc-000000000001");
 }
 
-- (int64_t)writeReportWithRunId:(NSString *)runId
+- (NSString *)writeReportWithRunId:(NSString *)runId
 {
     NSString *json = [NSString stringWithFormat:@"{\"report\":{\"run_id\":\"%@\",\"id\":\"evt1\"}}", runId];
     NSData *data = [json dataUsingEncoding:NSUTF8StringEncoding];
-    return kscrs_addUserReport(data.bytes, (int)data.length, &_storeConfig);
+    char reportID[KSID_SIZE];
+    XCTAssertTrue(kscrs_addUserReport(data.bytes, (int)data.length, &_storeConfig, reportID));
+    return @(reportID);
 }
 
 - (void)writeRunSidecar:(NSString *)monitorId runId:(NSString *)runId contents:(NSString *)contents
@@ -252,7 +260,7 @@ extern void kscrash_testcode_setRunID(const char *runID);
 {
     [self prepareStoreWithRunSidecars:@"testOrphanCleanup"];
     NSString *runId = [[NSUUID UUID] UUIDString];
-    int64_t reportID = [self writeReportWithRunId:runId];
+    NSString *reportID = [self writeReportWithRunId:runId];
     [self writeRunSidecar:@"System" runId:runId contents:@"system data"];
 
     NSString *runDir =
@@ -260,7 +268,7 @@ extern void kscrash_testcode_setRunID(const char *runID);
     XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir]);
 
     // Delete the report, leaving the run sidecar orphaned
-    kscrs_deleteReportWithID(reportID, &_storeConfig);
+    kscrs_deleteReportWithID(reportID.UTF8String, &_storeConfig);
     // Orphan still exists after deletion (cleanup is deferred)
     XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir]);
 
@@ -537,8 +545,8 @@ extern void kscrash_testcode_setRunID(const char *runID);
 {
     [self prepareStoreWithRunSidecars:@"testDeleteNoRunSidecars"];
     _storeConfig.runSidecarsPath = NULL;
-    int64_t reportID = [self writeReportWithRunId:[[NSUUID UUID] UUIDString]];
-    kscrs_deleteReportWithID(reportID, &_storeConfig);
+    NSString *reportID = [self writeReportWithRunId:[[NSUUID UUID] UUIDString]];
+    kscrs_deleteReportWithID(reportID.UTF8String, &_storeConfig);
     XCTAssertEqual(kscrs_getReportCount(&_storeConfig), 0);
 }
 
@@ -570,10 +578,10 @@ extern void kscrash_testcode_setRunID(const char *runID);
     kscm_addMonitor(&api);
 
     NSString *runId = [[NSUUID UUID] UUIDString];
-    int64_t reportID = [self writeReportWithRunId:runId];
+    NSString *reportID = [self writeReportWithRunId:runId];
     [self writeRunSidecar:@"TestStitchMonitor" runId:runId contents:@"hello from sidecar"];
 
-    char *rawReport = kscrs_readReport(reportID, &_storeConfig, NULL);
+    char *rawReport = kscrs_readReport(reportID.UTF8String, &_storeConfig, NULL);
     XCTAssertTrue(rawReport != NULL);
 
     NSData *data = [NSData dataWithBytesNoCopy:rawReport length:strlen(rawReport) freeWhenDone:YES];
@@ -591,10 +599,10 @@ extern void kscrash_testcode_setRunID(const char *runID);
     kscm_addMonitor(&api);
 
     NSString *runId = [[NSUUID UUID] UUIDString];
-    int64_t reportID = [self writeReportWithRunId:runId];
+    NSString *reportID = [self writeReportWithRunId:runId];
     // No run sidecar written
 
-    char *rawReport = kscrs_readReport(reportID, &_storeConfig, NULL);
+    char *rawReport = kscrs_readReport(reportID.UTF8String, &_storeConfig, NULL);
     XCTAssertTrue(rawReport != NULL);
 
     NSData *data = [NSData dataWithBytesNoCopy:rawReport length:strlen(rawReport) freeWhenDone:YES];
@@ -609,11 +617,11 @@ extern void kscrash_testcode_setRunID(const char *runID);
     [self prepareStoreWithRunSidecars:@"testNoStitchNoMonitor"];
 
     NSString *runId = [[NSUUID UUID] UUIDString];
-    int64_t reportID = [self writeReportWithRunId:runId];
+    NSString *reportID = [self writeReportWithRunId:runId];
     // Write a sidecar for a monitor that isn't registered
     [self writeRunSidecar:@"UnknownMonitor" runId:runId contents:@"should be ignored"];
 
-    char *rawReport = kscrs_readReport(reportID, &_storeConfig, NULL);
+    char *rawReport = kscrs_readReport(reportID.UTF8String, &_storeConfig, NULL);
     XCTAssertTrue(rawReport != NULL);
 
     NSData *data = [NSData dataWithBytesNoCopy:rawReport length:strlen(rawReport) freeWhenDone:YES];
@@ -629,13 +637,13 @@ extern void kscrash_testcode_setRunID(const char *runID);
     kscm_addMonitor(&api);
 
     NSString *runId = [[NSUUID UUID] UUIDString];
-    int64_t reportID1 = [self writeReportWithRunId:runId];
-    int64_t reportID2 = [self writeReportWithRunId:runId];
+    NSString *reportID1 = [self writeReportWithRunId:runId];
+    NSString *reportID2 = [self writeReportWithRunId:runId];
     [self writeRunSidecar:@"TestStitchMonitor" runId:runId contents:@"shared data"];
 
     // Both reports should get the same stitched data
-    char *raw1 = kscrs_readReport(reportID1, &_storeConfig, NULL);
-    char *raw2 = kscrs_readReport(reportID2, &_storeConfig, NULL);
+    char *raw1 = kscrs_readReport(reportID1.UTF8String, &_storeConfig, NULL);
+    char *raw2 = kscrs_readReport(reportID2.UTF8String, &_storeConfig, NULL);
     XCTAssertTrue(raw1 != NULL);
     XCTAssertTrue(raw2 != NULL);
 
@@ -649,7 +657,7 @@ extern void kscrash_testcode_setRunID(const char *runID);
     kscm_removeMonitor(&api);
 }
 
-- (int64_t)writeLargeReportWithRunId:(NSString *)runId reportKeyEarly:(BOOL)reportKeyEarly
+- (NSString *)writeLargeReportWithRunId:(NSString *)runId reportKeyEarly:(BOOL)reportKeyEarly
 {
     // Build a large report (>4 KB) to exercise orphan cleanup on oversized files.
     // When reportKeyEarly=YES, "report" appears near the start but run_id is
@@ -673,7 +681,9 @@ extern void kscrash_testcode_setRunID(const char *runID);
     }
     XCTAssertTrue(json.length > 4096, @"Report must be larger than 4 KB");
     NSData *data = [json dataUsingEncoding:NSUTF8StringEncoding];
-    return kscrs_addUserReport(data.bytes, (int)data.length, &_storeConfig);
+    char reportID[KSID_SIZE];
+    XCTAssertTrue(kscrs_addUserReport(data.bytes, (int)data.length, &_storeConfig, reportID));
+    return @(reportID);
 }
 
 #pragma mark - Orphan Cleanup With Large Reports
@@ -740,7 +750,8 @@ extern void kscrash_testcode_setRunID(const char *runID);
     NSString *json = [NSString
         stringWithFormat:@"{\"report\":{\"breadcrumbs\":[1,2,3],\"nested\":{\"a\":true},\"run_id\":\"%@\"}}", runId];
     NSData *data = [json dataUsingEncoding:NSUTF8StringEncoding];
-    kscrs_addUserReport(data.bytes, (int)data.length, &_storeConfig);
+    char reportID[KSID_SIZE];
+    kscrs_addUserReport(data.bytes, (int)data.length, &_storeConfig, reportID);
     [self writeRunSidecar:@"System" runId:runId contents:@"data"];
 
     NSString *runDir =
@@ -759,7 +770,8 @@ extern void kscrash_testcode_setRunID(const char *runID);
     NSString *json =
         [NSString stringWithFormat:@"{\"meta\":{\"report\":{}},\"report\":{\"run_id\":\"%@\",\"id\":\"evt1\"}}", runId];
     NSData *data = [json dataUsingEncoding:NSUTF8StringEncoding];
-    kscrs_addUserReport(data.bytes, (int)data.length, &_storeConfig);
+    char reportID[KSID_SIZE];
+    kscrs_addUserReport(data.bytes, (int)data.length, &_storeConfig, reportID);
     [self writeRunSidecar:@"System" runId:runId contents:@"data"];
 
     NSString *runDir =
@@ -783,7 +795,8 @@ extern void kscrash_testcode_setRunID(const char *runID);
     NSString *json = [NSString
         stringWithFormat:@"{\"%@\":\"value\",\"report\":{\"run_id\":\"%@\",\"id\":\"evt1\"}}", longKey, runId];
     NSData *data = [json dataUsingEncoding:NSUTF8StringEncoding];
-    kscrs_addUserReport(data.bytes, (int)data.length, &_storeConfig);
+    char reportID[KSID_SIZE];
+    kscrs_addUserReport(data.bytes, (int)data.length, &_storeConfig, reportID);
     [self writeRunSidecar:@"System" runId:runId contents:@"data"];
 
     NSString *runDir =
