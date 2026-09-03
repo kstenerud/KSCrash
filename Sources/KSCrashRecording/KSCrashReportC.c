@@ -1727,8 +1727,8 @@ void kscrashreport_writeRecrashReport(const KSCrash_MonitorContext *const monito
         if (remove(tempPath) < 0) {
             KSLOG_ERROR("Could not remove %s: %s", tempPath, strerror(errno));
         }
-        writeReportInfo(writer, KSCrashField_Report, KSCrashReportType_Minimal, reportID,
-                        monitorContext->processName, monitorContext->monitorId);
+        writeReportInfo(writer, KSCrashField_Report, KSCrashReportType_Minimal, reportID, monitorContext->processName,
+                        monitorContext->monitorId);
         ksfu_flushBufferedWriter(&bufferedWriter);
 
         writer->beginObject(writer, KSCrashField_Crash);
