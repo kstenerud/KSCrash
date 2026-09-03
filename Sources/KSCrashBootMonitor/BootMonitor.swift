@@ -50,7 +50,7 @@ final class BootMonitorPlugin: MonitorPlugin, @unchecked Sendable {
         // without NULL checks.
         kscma_initAPI(api)
         api.pointee.monitorId = { _ in BootMonitorPlugin.monitorID }
-        api.pointee.monitorFlags = { _ in KSCrashMonitorFlagPlugin }
+        api.pointee.monitorFlags = { _ in MonitorFlags.plugin }
         api.pointee.setEnabled = { enabled, context in
             context.map { BootMonitorPlugin.from($0).enabled.value = enabled }
         }

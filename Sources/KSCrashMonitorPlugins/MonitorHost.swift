@@ -28,6 +28,7 @@ import Darwin
 import Foundation
 import KSCrashRecording
 import KSCrashRecordingCore
+import KSCrashReportModel
 
 /// A monitor's typed connection to the exception-handling pipeline, injected through
 /// `CrashMonitor.init(host:configuration:)`.
@@ -59,7 +60,7 @@ public struct MonitorHost<Payload> {
     public struct WrittenReport {
         /// The store's ID for the report, or nil when the event wrote to a caller-supplied
         /// `reportPath` (the store mints no ID there).
-        public let id: Int64?
+        public let id: Report.ID?
         /// The report file's location, when the pipeline reported one.
         public let url: URL?
     }
@@ -124,8 +125,11 @@ public struct MonitorHost<Payload> {
         let path = withUnsafePointer(to: &result.path) {
             $0.withMemoryRebound(to: CChar.self, capacity: Int(PATH_MAX)) { String(cString: $0) }
         }
-        if result.reportId > 0 {
-            return WrittenReport(id: result.reportId, url: path.isEmpty ? nil : URL(fileURLWithPath: path))
+        let reportId = withUnsafePointer(to: &result.reportId) {
+            $0.withMemoryRebound(to: CChar.self, capacity: Int(KSID_SIZE)) { String(cString: $0) }
+        }
+        if let id = Report.ID(reportId) {
+            return WrittenReport(id: id, url: path.isEmpty ? nil : URL(fileURLWithPath: path))
         }
         if !path.isEmpty {
             // A caller-supplied reportPath write: the pipeline reports the path but the store
@@ -139,10 +143,10 @@ public struct MonitorHost<Payload> {
 
     /// This monitor's per-report sidecar path for `reportID`, or nil when sidecars are not
     /// configured.
-    public func reportSidecarURL(reportID: Int64) -> URL? {
+    public func reportSidecarURL(reportID: Report.ID) -> URL? {
         guard let provider = bridge.callbacks?.getReportSidecarPath else { return nil }
         var buffer = [CChar](repeating: 0, count: Int(KSCRS_MAX_PATH_LENGTH))
-        guard provider(bridge.monitorIdC, reportID, &buffer, buffer.count) else { return nil }
+        guard provider(bridge.monitorIdC, reportID.description, &buffer, buffer.count) else { return nil }
         return URL(fileURLWithPath: String(cString: buffer))
     }
 

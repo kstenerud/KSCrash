@@ -89,7 +89,7 @@ final class SidecarMetadataMonitorPluginTests: XCTestCase {
         let api = plugin.api.pointee
         let path = directory.appendingPathComponent(monitorID + ".ksscr").path
         return path.withCString { cPath in
-            api.createStitchedReport(report as CFDictionary, cPath, KSCrashSidecarScopeRun, api.context)
+            api.createStitchedReport(report as CFDictionary, cPath, SidecarScope.run, api.context)
         }.map { $0.takeRetainedValue() as NSDictionary }
     }
 
@@ -143,7 +143,7 @@ final class SidecarMetadataMonitorPluginTests: XCTestCase {
     func test_basePlugin_recordsTheKey_andStitchesIt() throws {
         let plugin = makeBasePlugin()
         // Plugins never count toward the registry's any-monitor-active gate.
-        XCTAssertEqual(plugin.api.pointee.monitorFlags(plugin.api.pointee.context), KSCrashMonitorFlagPlugin)
+        XCTAssertEqual(plugin.api.pointee.monitorFlags(plugin.api.pointee.context), MonitorFlags.plugin)
         enable(plugin)
         XCTAssertEqual(storedValues(monitorID: "TestSidecar")["com.kscrash.test.value"], 42)
 

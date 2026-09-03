@@ -138,7 +138,7 @@ final class InstallConfigurationTests: XCTestCase {
             api.initialize(to: KSCrashMonitorAPI())
             // The production pattern: defaults for every slot first.
             kscma_initAPI(api)
-            api.pointee.monitorFlags = { _ in KSCrashMonitorFlagPlugin }
+            api.pointee.monitorFlags = { _ in MonitorFlags.plugin }
             let id = monitorID
             api.pointee.context = UnsafeMutableRawPointer(mutating: id)
             api.pointee.monitorId = { context in

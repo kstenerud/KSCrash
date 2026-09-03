@@ -235,10 +235,6 @@ let package = Package(
             targets: [Targets.monitors]
         ),
         .library(
-            name: "MonitorPlugins",
-            targets: [Targets.monitorPlugins]
-        ),
-        .library(
             name: "Report",
             targets: [Targets.report]
         ),
@@ -459,8 +455,9 @@ let package = Package(
         .target(
             name: Targets.monitorPlugins,
             dependencies: [
-                .target(name: Targets.recordingCore),
                 .target(name: Targets.recording),
+                .target(name: Targets.recordingCore),
+                .target(name: Targets.report),
                 .target(name: Targets.swiftCore),
             ],
             resources: [
@@ -495,15 +492,6 @@ let package = Package(
                 .target(name: Targets.report),
             ],
             swiftSettings: metricKitSwiftSettings
-        ),
-        .target(
-            name: Targets.monitorPlugins,
-            dependencies: [
-                .target(name: Targets.recording),
-                .target(name: Targets.recordingCore),
-                .target(name: Targets.report),
-                .target(name: Targets.swiftCore),
-            ]
         ),
         .target(
             name: Targets.kscrash,

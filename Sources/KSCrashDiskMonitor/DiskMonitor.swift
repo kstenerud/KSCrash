@@ -59,7 +59,7 @@ private final class DiskMonitorPlugin: MonitorPlugin, @unchecked Sendable {
         // slots without NULL checks.
         kscma_initAPI(api)
         api.pointee.monitorId = { _ in DiskMonitorPlugin.monitorID }
-        api.pointee.monitorFlags = { _ in KSCrashMonitorFlagPlugin }
+        api.pointee.monitorFlags = { _ in MonitorFlags.plugin }
         api.pointee.setEnabled = { enabled, context in
             context.map { DiskMonitorPlugin.from($0).setEnabled(enabled) }
         }
