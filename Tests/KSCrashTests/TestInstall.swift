@@ -57,7 +57,7 @@ enum TestInstall {
             // The core calls these without a NULL check; the rest may stay NULL.
             api.pointee.`init` = { _, _ in }
             api.pointee.monitorId = { _ in Plugin.monitorID }
-            api.pointee.monitorFlags = { _ in KSCrashMonitorFlagPlugin }
+            api.pointee.monitorFlags = { _ in MonitorFlags.plugin }
             api.pointee.setEnabled = { enabled, _ in
                 if enabled, enableTimeConfigurationWitness == nil {
                     enableTimeConfigurationWitness = .some(KSCrash.shared.installConfiguration)

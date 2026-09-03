@@ -83,7 +83,7 @@ public final class SidecarMetadataMonitorPlugin: MonitorPlugin, @unchecked Senda
         }
         // Plugins never count toward the registry's any-monitor-active
         // gate: install success must not hinge on a plugin enabling.
-        api.pointee.monitorFlags = { _ in KSCrashMonitorFlagPlugin }
+        api.pointee.monitorFlags = { _ in .plugin }
         api.pointee.setEnabled = { enabled, context in
             context.map { SidecarMetadataMonitorPlugin.from($0).setEnabled(enabled) }
         }
@@ -162,9 +162,9 @@ public final class SidecarMetadataMonitorPlugin: MonitorPlugin, @unchecked Senda
     }
 
     private func stitched(
-        _ reportDict: CFDictionary, sidecarPath: UnsafePointer<CChar>?, scope: KSCrashSidecarScope
+        _ reportDict: CFDictionary, sidecarPath: UnsafePointer<CChar>?, scope: SidecarScope
     ) -> Unmanaged<CFDictionary>? {
-        guard scope == KSCrashSidecarScopeRun, let sidecarPath else {
+        guard scope == SidecarScope.run, let sidecarPath else {
             return .passRetained(reportDict)
         }
         guard let values = SidecarMetadata.reading(at: String(cString: sidecarPath)) else {

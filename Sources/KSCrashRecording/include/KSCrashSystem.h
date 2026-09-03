@@ -1,13 +1,7 @@
 //
-<<<<<<<< HEAD:Tests/KSCrashMonitorPluginsTests/PublicSurfaceTests.swift
-//  PublicSurfaceTests.swift
-//
-//  Created by Alexander Cohen on 2026-07-14.
-========
 //  KSCrashSystem.h
 //
 //  Created by Alexander Cohen on 2026-01-19.
->>>>>>>> ad5de99d (Make DiskMonitor and BootMonitor Swift plugins):Sources/KSCrashRecording/include/KSCrashSystem.h
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -30,30 +24,6 @@
 // THE SOFTWARE.
 //
 
-<<<<<<<< HEAD:Tests/KSCrashMonitorPluginsTests/PublicSurfaceTests.swift
-import KSCrashMonitorPlugins
-import XCTest
-
-// Compiles against only the public surface: what a third-party monitor sees.
-final class PublicSurfaceTests: XCTestCase {
-    final class ThirdPartyMonitor: CrashMonitor {
-        static let id = "ThirdParty"
-        struct Configuration { var flag = false }
-        let host: MonitorHost<Void>
-        let configuration: Configuration
-        init(host: MonitorHost<Void>, configuration: Configuration) {
-            self.host = host
-            self.configuration = configuration
-        }
-    }
-
-    func testPluginRegistrationShapeCompilesAndInstantiates() {
-        let bridge = ThirdPartyMonitor.plugin(.init(flag: true))
-        XCTAssertTrue(bridge.monitor.configuration.flag)
-        XCTAssertFalse(bridge.isInstalled)
-        XCTAssertFalse(bridge.monitor.host.isEnabled)
-    }
-========
 /**
  * @file KSCrashSystem.h
  * @brief Feeds system facts the recorder classifies against.
@@ -92,7 +62,6 @@ struct KSCrash_MonitorContext;
 void kscm_system_refreshFreeStorageAtEvent(struct KSCrash_MonitorContext *eventContext, void *context);
 
 #ifdef __cplusplus
->>>>>>>> ad5de99d (Make DiskMonitor and BootMonitor Swift plugins):Sources/KSCrashRecording/include/KSCrashSystem.h
 }
 #endif
 
