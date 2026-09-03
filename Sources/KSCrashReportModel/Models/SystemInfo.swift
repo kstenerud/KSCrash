@@ -170,6 +170,12 @@ public struct SystemInfo: Codable, Sendable, Equatable {
     /// Process name.
     public let processName: String?
 
+    /// Process start time as wall-clock nanoseconds since the Unix epoch.
+    public let processStartWallClockNs: UInt64?
+
+    /// Process start time on the monotonic clock, in nanoseconds.
+    public let processStartMonotonicNs: UInt64?
+
     /// System name (e.g., "iOS", "macOS").
     public let systemName: String?
 
@@ -263,6 +269,8 @@ public struct SystemInfo: Codable, Sendable, Equatable {
         parentProcessName: String? = nil,
         processID: Int? = nil,
         processName: String? = nil,
+        processStartWallClockNs: UInt64? = nil,
+        processStartMonotonicNs: UInt64? = nil,
         systemName: String? = nil,
         systemVersion: String? = nil,
         timeZone: String? = nil,
@@ -314,6 +322,8 @@ public struct SystemInfo: Codable, Sendable, Equatable {
         self.parentProcessName = parentProcessName
         self.processID = processID
         self.processName = processName
+        self.processStartWallClockNs = processStartWallClockNs
+        self.processStartMonotonicNs = processStartMonotonicNs
         self.systemName = systemName
         self.systemVersion = systemVersion
         self.timeZone = timeZone
@@ -367,6 +377,8 @@ public struct SystemInfo: Codable, Sendable, Equatable {
         case parentProcessName = "parent_process_name"
         case processID = "process_id"
         case processName = "process_name"
+        case processStartWallClockNs = "process_start_wall_clock_ns"
+        case processStartMonotonicNs = "process_start_monotonic_ns"
         case systemName = "system_name"
         case systemVersion = "system_version"
         case timeZone = "time_zone"
@@ -427,6 +439,8 @@ public struct SystemInfo: Codable, Sendable, Equatable {
         parentProcessName = try c.decodeIfPresent(String.self, forKey: .parentProcessName)
         processID = try c.decodeIfPresent(Int.self, forKey: .processID)
         processName = try c.decodeIfPresent(String.self, forKey: .processName)
+        processStartWallClockNs = try c.decodeIfPresent(UInt64.self, forKey: .processStartWallClockNs)
+        processStartMonotonicNs = try c.decodeIfPresent(UInt64.self, forKey: .processStartMonotonicNs)
         systemName = try c.decodeIfPresent(String.self, forKey: .systemName)
         systemVersion = try c.decodeIfPresent(String.self, forKey: .systemVersion)
         timeZone = try c.decodeIfPresent(String.self, forKey: .timeZone)
@@ -491,6 +505,8 @@ public struct SystemInfo: Codable, Sendable, Equatable {
         try c.encodeIfPresent(parentProcessName, forKey: .parentProcessName)
         try c.encodeIfPresent(processID, forKey: .processID)
         try c.encodeIfPresent(processName, forKey: .processName)
+        try c.encodeIfPresent(processStartWallClockNs, forKey: .processStartWallClockNs)
+        try c.encodeIfPresent(processStartMonotonicNs, forKey: .processStartMonotonicNs)
         try c.encodeIfPresent(systemName, forKey: .systemName)
         try c.encodeIfPresent(systemVersion, forKey: .systemVersion)
         try c.encodeIfPresent(timeZone, forKey: .timeZone)

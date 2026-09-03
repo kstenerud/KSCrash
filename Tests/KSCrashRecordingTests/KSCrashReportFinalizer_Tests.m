@@ -365,7 +365,7 @@ static CFDictionaryRef noopStitchReport(CFDictionaryRef reportDict, __unused con
     [self writeRunSidecar:@"FinalizerTestMonitor" runId:runId contents:@"new_data"];
 
     // Read via the normal path — should see "original_data" (skip re-stitching)
-    char *rawReport = kscrs_readReport(reportID, &_storeConfig);
+    char *rawReport = kscrs_readReport(reportID, &_storeConfig, NULL);
     XCTAssertTrue(rawReport != NULL);
 
     NSData *data = [NSData dataWithBytesNoCopy:rawReport length:strlen(rawReport) freeWhenDone:YES];
@@ -395,7 +395,7 @@ static CFDictionaryRef noopStitchReport(CFDictionaryRef reportDict, __unused con
     [self writeRunSidecar:@"FinalizerTestMonitor" runId:runId contents:@"contaminated"];
 
     // Read via normal path — must return the report as-is
-    char *rawReport = kscrs_readReport(reportID, &_storeConfig);
+    char *rawReport = kscrs_readReport(reportID, &_storeConfig, NULL);
     XCTAssertTrue(rawReport != NULL);
 
     NSData *readData = [NSData dataWithBytesNoCopy:rawReport length:strlen(rawReport) freeWhenDone:YES];
@@ -426,7 +426,7 @@ static CFDictionaryRef noopStitchReport(CFDictionaryRef reportDict, __unused con
     [self writeRunSidecar:@"FinalizerTestMonitor" runId:runId contents:@"hydrated"];
 
     // Read via normal path — stitch must run
-    char *rawReport = kscrs_readReport(reportID, &_storeConfig);
+    char *rawReport = kscrs_readReport(reportID, &_storeConfig, NULL);
     XCTAssertTrue(rawReport != NULL);
 
     NSData *readData = [NSData dataWithBytesNoCopy:rawReport length:strlen(rawReport) freeWhenDone:YES];

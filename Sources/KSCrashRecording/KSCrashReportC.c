@@ -765,7 +765,11 @@ static bool writeObjCObject(const KSCrashReportWriter *const writer, const uintp
                         break;
                 }
             }
-            break;
+            // type and class are already written, so the record is complete:
+            // a restricted (or unhandled) object must not fall through to the
+            // raw-memory fallback, which would add a second "type" key and
+            // could write the object's memory as a string value.
+            return true;
         }
         case KSObjCTypeBlock:
             writer->addStringElement(writer, KSCrashField_Type, KSCrashMemType_Block);
@@ -1482,10 +1486,27 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
             writer->addStringElement(writer, KSCrashField_Type, crash->monitorId);
             const KSCrashMonitorAPI *api = kscm_getMonitor(crash->monitorId);
             if (api && api->writeInReportSection) {
-                // The callback owns its own container. Wrapping it here emitted an empty object
-                // for every monitor that had nothing to say on this event, which is most of
-                // them most of the time; a monitor that writes nothing should produce no key.
-                api->writeInReportSection(crash, writer, api->context);
+                if (strcmp(crash->monitorId, KSCrashExcType_Profile) == 0) {
+                    // Profile is a built-in typed section (`crash.error.profile`
+                    // in the report model) that arrives through the monitor
+                    // mechanism; it lives at its schema key, not in the
+                    // custom-monitor namespace.
+                    writer->beginObject(writer, KSCrashExcType_Profile);
+                    {
+                        api->writeInReportSection(crash, writer, api->context);
+                    }
+                    writer->endContainer(writer);
+                } else {
+                    writer->beginObject(writer, KSCrashField_MonitorData);
+                    {
+                        writer->beginObject(writer, crash->monitorId);
+                        {
+                            api->writeInReportSection(crash, writer, api->context);
+                        }
+                        writer->endContainer(writer);
+                    }
+                    writer->endContainer(writer);
+                }
             }
         }
         writer->addBooleanElement(writer, KSCrashField_IsFatal, crash->requirements.isFatal);
@@ -1781,8 +1802,10 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
         // payload's own or the error object standing in for a rejected one, takes the
         // callback's fields and is closed. An array is closed unwritten, since array
         // elements are nameless and the callback writes keyed fields. A scalar payload
-        // (legal JSON, "user":"..." ) opened nothing at all, so closing here would close
-        // the report root instead.
+        // ("user":"...") opened nothing at all, so closing here would close the report
+        // root instead. Arrays and scalars are written as given, but the contract is an
+        // object: the typed Report does not decode any other shape, so such a report is
+        // kept undelivered by the send.
         KSJSONEncodeContext *userJsonContext = getJsonContext(writer);
         if (userJsonContext->containerLevel > entryLevel) {
             if (g_userSectionWriteCallback != NULL && userJsonContext->isObject[userJsonContext->containerLevel]) {

@@ -77,7 +77,7 @@ final class CrashReportDecodingTests: XCTestCase {
             }
             """
 
-        let report = try CrashReport.decode(from: json)
+        let report = try Report.decode(from: json)
 
         XCTAssertEqual(report.report.id, "test-id")
         XCTAssertEqual(report.crash.error.type, .mach)
@@ -109,7 +109,7 @@ final class CrashReportDecodingTests: XCTestCase {
             }
             """
 
-        let report = try CrashReport.decode(from: json)
+        let report = try Report.decode(from: json)
 
         XCTAssertEqual(report.binaryImages?.count, 1)
         let image = report.binaryImages![0]
@@ -151,7 +151,7 @@ final class CrashReportDecodingTests: XCTestCase {
             }
             """
 
-        let report = try CrashReport.decode(from: json)
+        let report = try Report.decode(from: json)
 
         XCTAssertEqual(report.crash.error.type, .nsexception)
         XCTAssertEqual(report.crash.error.nsexception?.name, "NSInvalidArgumentException")
@@ -192,7 +192,7 @@ final class CrashReportDecodingTests: XCTestCase {
             }
             """
 
-        let report = try CrashReport.decode(from: json)
+        let report = try Report.decode(from: json)
 
         XCTAssertEqual(report.crash.threads?.count, 1)
         let thread = report.crash.threads![0]
@@ -243,7 +243,7 @@ final class CrashReportDecodingTests: XCTestCase {
             }
             """
 
-        let report = try CrashReport.decode(from: json)
+        let report = try Report.decode(from: json)
 
         XCTAssertNotNil(report.crash.lastExceptionBacktrace)
         XCTAssertEqual(report.crash.lastExceptionBacktrace?.contents.count, 2)
@@ -265,7 +265,7 @@ final class CrashReportDecodingTests: XCTestCase {
             }
             """
 
-        let report = try CrashReport.decode(from: json)
+        let report = try Report.decode(from: json)
         XCTAssertNil(report.crash.lastExceptionBacktrace)
     }
 
@@ -295,7 +295,7 @@ final class CrashReportDecodingTests: XCTestCase {
             }
             """
 
-        let report = try CrashReport.decode(from: json)
+        let report = try Report.decode(from: json)
 
         XCTAssertEqual(report.system?.cfBundleExecutable, "MyApp")
         XCTAssertEqual(report.system?.cfBundleIdentifier, "com.example.myapp")
@@ -335,7 +335,7 @@ final class CrashReportDecodingTests: XCTestCase {
             }
             """
 
-        let report = try CrashReport.decode(from: json)
+        let report = try Report.decode(from: json)
 
         XCTAssertEqual(report.system?.batteryLevel, 72)
         XCTAssertEqual(report.system?.batteryState, .charging)
@@ -365,7 +365,7 @@ final class CrashReportDecodingTests: XCTestCase {
             }
             """
 
-        let report = try CrashReport.decode(from: json)
+        let report = try Report.decode(from: json)
 
         XCTAssertNil(report.system?.batteryLevel)
         XCTAssertNil(report.system?.batteryState)
@@ -390,7 +390,7 @@ final class CrashReportDecodingTests: XCTestCase {
                     "system": { "battery_state": \(rawValue) }
                 }
                 """
-            let report = try CrashReport.decode(from: json)
+            let report = try Report.decode(from: json)
             XCTAssertEqual(report.system?.batteryState, expected, "battery_state \(rawValue)")
         }
     }
@@ -406,7 +406,7 @@ final class CrashReportDecodingTests: XCTestCase {
                     "system": { "thermal_state": \(rawValue) }
                 }
                 """
-            let report = try CrashReport.decode(from: json)
+            let report = try Report.decode(from: json)
             XCTAssertEqual(report.system?.thermalState, expected, "thermal_state \(rawValue)")
         }
     }
@@ -422,19 +422,19 @@ final class CrashReportDecodingTests: XCTestCase {
                     "system": { "cpu_state": "\(rawValue)" }
                 }
                 """
-            let report = try CrashReport.decode(from: json)
+            let report = try Report.decode(from: json)
             XCTAssertEqual(report.system?.cpuState, expected, "cpu_state \(rawValue)")
         }
     }
 
     func testDecodeUserData() throws {
-        struct TestUserData: Codable, Sendable {
+        struct TestUserData: Codable, Equatable {
             let key1: String
             let key2: Int
             let key3: Bool
             let key4: NestedData
 
-            struct NestedData: Codable, Sendable {
+            struct NestedData: Codable, Equatable {
                 let nested: String
             }
         }
@@ -460,18 +460,179 @@ final class CrashReportDecodingTests: XCTestCase {
             """
 
         let data = json.data(using: .utf8)!
-        let report = try JSONDecoder().decode(CrashReport<TestUserData>.self, from: data)
+        let report = try JSONDecoder().decode(Report.self, from: data)
 
-        XCTAssertNotNil(report.user)
-        XCTAssertEqual(report.user?.key1, "string value")
-        XCTAssertEqual(report.user?.key2, 42)
-        XCTAssertEqual(report.user?.key3, true)
-        XCTAssertEqual(report.user?.key4.nested, "value")
+        let metadata = try XCTUnwrap(report.metadata)
+        XCTAssertEqual(metadata.value(forKey: "key1"), "string value")
+        XCTAssertEqual(metadata.value(forKey: "key2"), 42)
+        XCTAssertEqual(metadata.value(forKey: "key3"), true)
+        XCTAssertEqual(
+            try metadata.decoded(as: TestUserData.self),
+            TestUserData(
+                key1: "string value", key2: 42, key3: true,
+                key4: TestUserData.NestedData(nested: "value")))
+    }
+
+    func testDecodeCustomMonitorErrorSections() throws {
+        let json = """
+            {
+                "crash": {
+                    "error": {
+                        "type": "my_monitor",
+                        "monitor_data": {
+                            "my_monitor": { "transaction_id": "tx-123", "count": 2 },
+                            "other_monitor": { "flag": true }
+                        }
+                    },
+                    "threads": []
+                },
+                "report": { "id": "test" }
+            }
+            """
+
+        let error = try JSONDecoder().decode(Report.self, from: Data(json.utf8)).crash.error
+        XCTAssertEqual(error.type, .unknown("my_monitor"))
+
+        XCTAssertEqual(error.monitorData?.count, 2)
+        XCTAssertEqual(error.monitorData?["my_monitor"]?.value(forKey: "transaction_id"), "tx-123")
+        XCTAssertEqual(error.monitorData?["other_monitor"]?.value(forKey: "flag"), true)
+
+        struct MyMonitorData: Codable, Equatable {
+            let transactionId: String
+            let count: Int
+            enum CodingKeys: String, CodingKey {
+                case transactionId = "transaction_id"
+                case count
+            }
+        }
+        XCTAssertEqual(
+            try error.monitorData(MyMonitorData.self, for: "my_monitor"),
+            MyMonitorData(transactionId: "tx-123", count: 2))
+        XCTAssertNil(try error.monitorData(MyMonitorData.self, for: "absent"))
+        XCTAssertThrowsError(try error.monitorData(MyMonitorData.self, for: "other_monitor"))
+    }
+
+    /// Unknown keys under crash.error are schema evolution, not sections:
+    /// ignored on decode, like any other unknown key in the model.
+    func testDecodeIgnoresUnknownKeysUnderCrashError() throws {
+        let json = """
+            {
+                "crash": {
+                    "error": { "type": "mach", "future_field": 42, "future_section": { "a": 1 } },
+                    "threads": []
+                },
+                "report": { "id": "test" }
+            }
+            """
+
+        let error = try JSONDecoder().decode(Report.self, from: Data(json.utf8)).crash.error
+        XCTAssertNil(error.monitorData)
+    }
+
+    /// A section must be an object in both namespaces; anything else fails
+    /// the report's decode so the violation is loud, not silently dropped.
+    func testDecodeNonObjectMonitorSectionFailsTheReport() throws {
+        let inError = """
+            {
+                "crash": {
+                    "error": { "type": "mach", "monitor_data": { "my_monitor": 42 } },
+                    "threads": []
+                },
+                "report": { "id": "test" }
+            }
+            """
+        XCTAssertThrowsError(try JSONDecoder().decode(Report.self, from: Data(inError.utf8)))
+
+        let atRoot = """
+            {
+                "crash": { "error": { "type": "mach" }, "threads": [] },
+                "report": { "id": "test" },
+                "monitor_data": { "my_monitor": "not an object" }
+            }
+            """
+        XCTAssertThrowsError(try JSONDecoder().decode(Report.self, from: Data(atRoot.utf8)))
+    }
+
+    func testDecodeLegacyMemoryTermination() throws {
+        let json = """
+            {
+                "crash": {
+                    "error": {
+                        "type": "memory_termination",
+                        "memory_termination": { "memory_pressure": "critical", "memory_level": "warn" }
+                    },
+                    "threads": []
+                },
+                "report": { "id": "test" }
+            }
+            """
+
+        let error = try JSONDecoder().decode(Report.self, from: Data(json.utf8)).crash.error
+        XCTAssertEqual(error.type, .termination)
+        XCTAssertEqual(error.memoryTermination?.value(forKey: "memory_pressure"), "critical")
+        XCTAssertNil(error.monitorData)
+
+        // And it survives a round trip.
+        let reencoded = try JSONDecoder().decode(
+            Report.self, from: JSONEncoder().encode(JSONDecoder().decode(Report.self, from: Data(json.utf8))))
+        XCTAssertEqual(reencoded.crash.error.memoryTermination?.value(forKey: "memory_level"), "warn")
+    }
+
+    func testDecodeMonitorDataNamespace() throws {
+        let json = """
+            {
+                "crash": { "error": { "type": "mach" }, "threads": [] },
+                "report": { "id": "test" },
+                "monitor_data": {
+                    "my_monitor": { "transaction_id": "tx-123" }
+                }
+            }
+            """
+
+        let report = try JSONDecoder().decode(Report.self, from: Data(json.utf8))
+        XCTAssertEqual(report.monitorData?["my_monitor"]?.value(forKey: "transaction_id"), "tx-123")
+
+        struct MyMonitorData: Codable, Equatable {
+            let transactionId: String
+            enum CodingKeys: String, CodingKey {
+                case transactionId = "transaction_id"
+            }
+        }
+        XCTAssertEqual(
+            try report.monitorData(MyMonitorData.self, for: "my_monitor")?.transactionId, "tx-123")
+        XCTAssertNil(try report.monitorData(MyMonitorData.self, for: "absent"))
+    }
+
+    func testDecodeWithoutMonitorData() throws {
+        let json = """
+            {
+                "crash": { "error": { "type": "mach" }, "threads": [] },
+                "report": { "id": "test" }
+            }
+            """
+        let report = try JSONDecoder().decode(Report.self, from: Data(json.utf8))
+        XCTAssertNil(report.monitorData)
+        XCTAssertNil(report.crash.error.monitorData)
+    }
+
+    func testDecodeWithoutUserData() throws {
+        let json = """
+            {
+                "crash": {
+                    "error": { "type": "mach" },
+                    "threads": []
+                },
+                "report": { "id": "test" }
+            }
+            """
+
+        let report = try JSONDecoder().decode(Report.self, from: json.data(using: .utf8)!)
+        XCTAssertNil(report.metadata)
     }
 
     func testDecodeRealNSExceptionReport() throws {
         let url = Bundle.module.url(forResource: "NSException", withExtension: "json")!
-        let report = try CrashReport.decode(from: url)
+        let report = try Report.decode(from: url)
 
         // Verify top-level structure
         XCTAssertEqual(report.report.id, "1DFC2552-8F7C-4D14-B0A8-5FE04E5AE35E")
@@ -506,9 +667,9 @@ final class CrashReportDecodingTests: XCTestCase {
 
     // MARK: - Example Reports
 
-    private func decodeExampleReport(_ name: String) throws -> CrashReport<NoUserData> {
+    private func decodeExampleReport(_ name: String) throws -> Report {
         let url = Bundle.module.url(forResource: name, withExtension: "json")!
-        return try CrashReport.decode(from: url)
+        return try Report.decode(from: url)
     }
 
     func testDecodeExampleAbort() throws {
@@ -676,7 +837,7 @@ final class CrashReportDecodingTests: XCTestCase {
             }
             """
 
-        let report = try CrashReport.decode(from: json)
+        let report = try Report.decode(from: json)
 
         // binary_images is absent, so it should be nil
         XCTAssertNil(report.binaryImages)
@@ -749,7 +910,7 @@ final class CrashReportDecodingTests: XCTestCase {
             }
             """
 
-        let report = try CrashReport.decode(from: json)
+        let report = try Report.decode(from: json)
 
         // In compact mode, binary_images should only contain referenced images
         XCTAssertEqual(report.binaryImages?.count, 2)
@@ -810,7 +971,7 @@ final class CrashReportDecodingTests: XCTestCase {
             }
             """
 
-        let report = try CrashReport.decode(from: json)
+        let report = try Report.decode(from: json)
         XCTAssertNil(report.binaryImages)
         XCTAssertEqual(
             report.crash.threads?[0].backtrace?.contents[0].objectUUID,
@@ -875,7 +1036,7 @@ final class CrashReportDecodingTests: XCTestCase {
             }
             """
 
-        let report = try CrashReport.decode(from: json)
+        let report = try Report.decode(from: json)
 
         let profile = report.crash.error.profile
         XCTAssertNotNil(profile)
@@ -904,7 +1065,7 @@ final class CrashReportDecodingTests: XCTestCase {
             }
             """
 
-        let report = try CrashReport.decode(from: json)
+        let report = try Report.decode(from: json)
         XCTAssertEqual(report.crash.error.isFatal, true)
     }
 
@@ -924,7 +1085,7 @@ final class CrashReportDecodingTests: XCTestCase {
             }
             """
 
-        let report = try CrashReport.decode(from: json)
+        let report = try Report.decode(from: json)
         XCTAssertEqual(report.crash.error.isFatal, false)
     }
 
@@ -943,7 +1104,7 @@ final class CrashReportDecodingTests: XCTestCase {
             }
             """
 
-        let report = try CrashReport.decode(from: json)
+        let report = try Report.decode(from: json)
         XCTAssertNil(report.crash.error.isFatal)
     }
 
@@ -963,7 +1124,7 @@ final class CrashReportDecodingTests: XCTestCase {
             }
             """
 
-        let report = try CrashReport.decode(from: json)
+        let report = try Report.decode(from: json)
         XCTAssertEqual(report.crash.error.isCleanExit, true)
     }
 
@@ -983,7 +1144,7 @@ final class CrashReportDecodingTests: XCTestCase {
             }
             """
 
-        let report = try CrashReport.decode(from: json)
+        let report = try Report.decode(from: json)
         XCTAssertEqual(report.crash.error.isCleanExit, false)
     }
 
@@ -1009,7 +1170,7 @@ final class CrashReportDecodingTests: XCTestCase {
             }
             """
 
-        let report = try CrashReport.decode(from: json)
+        let report = try Report.decode(from: json)
 
         XCTAssertEqual(report.crash.error.type, .termination)
         XCTAssertEqual(report.crash.error.terminationReason, .memoryLimit)
@@ -1034,7 +1195,7 @@ final class CrashReportDecodingTests: XCTestCase {
                 "report": { "id": "test" }
             }
             """
-        let report = try CrashReport.decode(from: json)
+        let report = try Report.decode(from: json)
         XCTAssertEqual(report.crash.error.type, .termination)
     }
 
@@ -1047,7 +1208,7 @@ final class CrashReportDecodingTests: XCTestCase {
                 "report": { "id": "test" }
             }
             """
-        let report = try CrashReport.decode(from: json)
+        let report = try Report.decode(from: json)
         XCTAssertEqual(report.crash.error.type, .termination)
     }
 
@@ -1061,7 +1222,7 @@ final class CrashReportDecodingTests: XCTestCase {
             }
             """
 
-        let report = try CrashReport.decode(from: json)
+        let report = try Report.decode(from: json)
         XCTAssertNil(report.crash.error.terminationReason)
     }
 
@@ -1093,7 +1254,7 @@ final class CrashReportDecodingTests: XCTestCase {
                     "report": { "id": "test" }
                 }
                 """
-            let report = try CrashReport.decode(from: json)
+            let report = try Report.decode(from: json)
             XCTAssertEqual(report.crash.error.terminationReason, expected, "termination_reason \(raw)")
         }
     }
@@ -1118,7 +1279,7 @@ final class CrashReportDecodingTests: XCTestCase {
                     "report": { "id": "test" }
                 }
                 """
-            let report = try CrashReport.decode(from: json)
+            let report = try Report.decode(from: json)
             XCTAssertEqual(report.system?.appMemory?.memoryLevel, expected, "memory_level \(raw)")
             XCTAssertEqual(report.system?.appMemory?.memoryPressure, expected, "memory_pressure \(raw)")
         }
@@ -1137,7 +1298,7 @@ final class CrashReportDecodingTests: XCTestCase {
             }
             """
 
-        let report = try CrashReport.decode(from: json)
+        let report = try Report.decode(from: json)
         XCTAssertEqual(report.system?.appMemory?.memoryLevel, .unknown("future_state"))
         XCTAssertEqual(report.system?.appMemory?.memoryLevel?.isUnknown, true)
     }
@@ -1157,7 +1318,7 @@ final class CrashReportDecodingTests: XCTestCase {
             }
             """
 
-        let report = try CrashReport.decode(from: json)
+        let report = try Report.decode(from: json)
         XCTAssertEqual(report.system?.appMemory?.appTransitionState, .active)
     }
 
@@ -1176,7 +1337,7 @@ final class CrashReportDecodingTests: XCTestCase {
             }
             """
 
-        let report = try CrashReport.decode(from: json)
+        let report = try Report.decode(from: json)
         XCTAssertNil(report.crash.error.isCleanExit)
     }
 
@@ -1188,7 +1349,7 @@ final class CrashReportDecodingTests: XCTestCase {
         XCTAssertFalse(jsonFiles.isEmpty, "No JSON files found in resources")
 
         for fileURL in jsonFiles {
-            let report = try CrashReport.decode(from: fileURL)
+            let report = try Report.decode(from: fileURL)
             XCTAssertFalse(
                 report.crash.error.type.isUnknown,
                 "File \(fileURL.lastPathComponent) has unknown error type: \(report.crash.error.type.rawValue)"

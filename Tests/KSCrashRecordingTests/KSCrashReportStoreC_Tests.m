@@ -100,6 +100,12 @@
 - (NSArray *)getReportIDs
 {
     int reportCount = kscrs_getReportCount(&_storeConfig);
+    // -1 means the directory could not be enumerated; a VLA of that length
+    // would be undefined behavior, so fail loudly instead.
+    if (reportCount < 0) {
+        XCTFail(@"Could not enumerate the reports directory");
+        return @[];
+    }
     int64_t rawReportIDs[reportCount];
     reportCount = kscrs_getReportIDs(rawReportIDs, reportCount, &_storeConfig);
     NSMutableArray *reportIDs = [NSMutableArray new];
@@ -126,7 +132,7 @@
 
 - (void)loadReportID:(int64_t)reportID reportString:(NSString *__autoreleasing *)reportString
 {
-    char *reportBytes = kscrs_readReport(reportID, &_storeConfig);
+    char *reportBytes = kscrs_readReport(reportID, &_storeConfig, NULL);
 
     if (reportBytes == NULL) {
         reportString = nil;
@@ -634,13 +640,145 @@
 
 #pragma mark - Malformed Report Section
 
+- (void)testReadReportStatusOKForAReport
+{
+    [self prepareReportStoreWithPathEnd:@"testReadStatusOK"];
+    int64_t reportID = [self writeUserReportWithStringContents:REPORT_CONTENTS(0)];
+
+    KSCrashReportReadStatus status = KSCrashReportReadStatusUnreadable;
+    char *report = kscrs_readReport(reportID, &_storeConfig, &status);
+    XCTAssertTrue(report != NULL);
+    XCTAssertEqual(status, KSCrashReportReadStatusOK);
+    free(report);
+}
+
+- (void)testReadReportStatusUnreadableForAMissingReport
+{
+    [self prepareReportStoreWithPathEnd:@"testReadStatusUnreadable"];
+
+    KSCrashReportReadStatus status = KSCrashReportReadStatusOK;
+    char *report = kscrs_readReport(12345, &_storeConfig, &status);
+    XCTAssertTrue(report == NULL);
+    XCTAssertEqual(status, KSCrashReportReadStatusUnreadable);
+}
+
+- (void)testReadReportStatusUndecodableForANonObjectReport
+{
+    [self prepareReportStoreWithPathEnd:@"testReadStatusUndecodable"];
+    int64_t arrayID = [self writeUserReportWithStringContents:@"[1,2]"];
+    int64_t emptyID = [self writeUserReportWithStringContents:@""];
+
+    KSCrashReportReadStatus status = KSCrashReportReadStatusOK;
+    XCTAssertTrue(kscrs_readReport(arrayID, &_storeConfig, &status) == NULL);
+    XCTAssertEqual(status, KSCrashReportReadStatusUndecodable);
+
+    status = KSCrashReportReadStatusOK;
+    XCTAssertTrue(kscrs_readReport(emptyID, &_storeConfig, &status) == NULL);
+    XCTAssertEqual(status, KSCrashReportReadStatusUndecodable);
+
+    // A status of NULL is allowed.
+    XCTAssertTrue(kscrs_readReport(arrayID, &_storeConfig, NULL) == NULL);
+}
+
+- (void)testCopyReportRunIDAnswersFromTheReportFile
+{
+    [self prepareReportStoreWithPathEnd:@"testCopyRunID"];
+    int64_t reportID =
+        [self writeUserReportWithStringContents:@"{\"report\":{\"run_id\":\"0155A1E2-D4C3-4B6A-9C8D-1234567890AB\"}}"];
+
+    char *runID = kscrs_copyReportRunID(reportID, &_storeConfig);
+    XCTAssertTrue(runID != NULL);
+    XCTAssertEqual(strcmp(runID, "0155A1E2-D4C3-4B6A-9C8D-1234567890AB"), 0);
+    free(runID);
+
+    // Absent, non-UUID, and missing are all "no run".
+    int64_t noRunID = [self writeUserReportWithStringContents:@"{\"report\":{}}"];
+    XCTAssertTrue(kscrs_copyReportRunID(noRunID, &_storeConfig) == NULL);
+    int64_t badRunID = [self writeUserReportWithStringContents:@"{\"report\":{\"run_id\":\"RUN-A\"}}"];
+    XCTAssertTrue(kscrs_copyReportRunID(badRunID, &_storeConfig) == NULL);
+    XCTAssertTrue(kscrs_copyReportRunID(12345, &_storeConfig) == NULL);
+}
+
+- (void)testCopyReportRunIDSurvivesATornReport
+{
+    [self prepareReportStoreWithPathEnd:@"testCopyRunIDTorn"];
+    // Torn mid-write: the extraction stops at run_id, before the tear.
+    int64_t reportID =
+        [self writeUserReportWithStringContents:
+                  @"{\"report\":{\"run_id\":\"0155A1E2-D4C3-4B6A-9C8D-1234567890AB\"},\"crash\":{\"threads\":"];
+
+    char *runID = kscrs_copyReportRunID(reportID, &_storeConfig);
+    XCTAssertTrue(runID != NULL);
+    XCTAssertEqual(strcmp(runID, "0155A1E2-D4C3-4B6A-9C8D-1234567890AB"), 0);
+    free(runID);
+}
+
+- (void)testGetReportCountAndIDsReturnMinusOneWhenTheDirectoryCannotBeEnumerated
+{
+    [self prepareReportStoreWithPathEnd:@"testEnumFailure"];
+    // Replace the reports directory with a plain file: opendir now fails with
+    // ENOTDIR, the not-ENOENT case the -1 contract covers.
+    NSString *path = self.reportStorePath;
+    XCTAssertTrue([[NSFileManager defaultManager] removeItemAtPath:path error:NULL]);
+    XCTAssertTrue([[NSData data] writeToFile:path atomically:YES]);
+
+    XCTAssertEqual(kscrs_getReportCount(&_storeConfig), -1);
+    int64_t reportIDs[4];
+    XCTAssertEqual(kscrs_getReportIDs(reportIDs, 4, &_storeConfig), -1);
+}
+
+- (void)testDeleteReportKeepsSidecarsWhileTheReportFileRemains
+{
+    [self prepareReportStoreWithSidecarsWithPathEnd:@"testDeleteKeepsSidecars"];
+    int64_t reportID = [self writeUserReportWithStringContents:REPORT_CONTENTS(0)];
+    char sidecarPath[KSCRS_MAX_PATH_LENGTH];
+    XCTAssertTrue(kscrs_getReportSidecarFilePathForReport("TestMonitor", reportID, sidecarPath, sizeof(sidecarPath),
+                                                          &_storeConfig));
+    XCTAssertTrue([@"data" writeToFile:@(sidecarPath) atomically:YES encoding:NSUTF8StringEncoding error:nil]);
+
+    // An undeletable report file will be re-sent, and that delivery needs
+    // the sidecars for the on-read stitch.
+    NSFileManager *fm = NSFileManager.defaultManager;
+    XCTAssertTrue([fm setAttributes:@{ NSFilePosixPermissions : @(0555) } ofItemAtPath:self.reportStorePath error:nil]);
+    XCTAssertFalse(kscrs_deleteReportWithID(reportID, &_storeConfig));
+    XCTAssertTrue([fm setAttributes:@{ NSFilePosixPermissions : @(0755) } ofItemAtPath:self.reportStorePath error:nil]);
+    XCTAssertTrue([fm fileExistsAtPath:@(sidecarPath)]);
+
+    XCTAssertTrue(kscrs_deleteReportWithID(reportID, &_storeConfig));
+    XCTAssertFalse([fm fileExistsAtPath:@(sidecarPath)]);
+}
+
+- (void)testDeleteMissingReportStillDeletesItsSidecars
+{
+    [self prepareReportStoreWithSidecarsWithPathEnd:@"testDeleteMissingCleansSidecars"];
+    char sidecarPath[KSCRS_MAX_PATH_LENGTH];
+    XCTAssertTrue(kscrs_getReportSidecarFilePathForReport("TestMonitor", 424242, sidecarPath, sizeof(sidecarPath),
+                                                          &_storeConfig));
+    XCTAssertTrue([@"data" writeToFile:@(sidecarPath) atomically:YES encoding:NSUTF8StringEncoding error:nil]);
+
+    // The report file is already gone, so its sidecars are orphans: nothing
+    // else sweeps per-report sidecars, so the delete removes them.
+    XCTAssertFalse(kscrs_deleteReportWithID(424242, &_storeConfig));
+    XCTAssertFalse([NSFileManager.defaultManager fileExistsAtPath:@(sidecarPath)]);
+}
+
+- (void)testDeleteReportWithIDReturnsWhetherTheFileWasRemoved
+{
+    [self prepareReportStoreWithPathEnd:@"testDeleteResult"];
+    int64_t reportID = [self writeUserReportWithStringContents:REPORT_CONTENTS(0)];
+
+    XCTAssertTrue(kscrs_deleteReportWithID(reportID, &_storeConfig));
+    XCTAssertFalse(kscrs_deleteReportWithID(reportID, &_storeConfig), @"Already deleted");
+    XCTAssertFalse(kscrs_deleteReportWithID(12345, &_storeConfig), @"Never existed");
+}
+
 - (void)testReadReportWithReportSectionAsString
 {
     [self prepareReportStoreWithPathEnd:@"testMalformedReportString"];
     NSString *json = @"{\"report\":\"not a dict\",\"crash\":{}}";
     int64_t reportID = kscrs_addUserReport(json.UTF8String, (int)json.length, &_storeConfig);
 
-    char *report = kscrs_readReport(reportID, &_storeConfig);
+    char *report = kscrs_readReport(reportID, &_storeConfig, NULL);
     XCTAssertTrue(report != NULL, @"Should not crash on report section being a string");
     free(report);
 }
@@ -651,7 +789,7 @@
     NSString *json = @"{\"report\":[1,2,3],\"crash\":{}}";
     int64_t reportID = kscrs_addUserReport(json.UTF8String, (int)json.length, &_storeConfig);
 
-    char *report = kscrs_readReport(reportID, &_storeConfig);
+    char *report = kscrs_readReport(reportID, &_storeConfig, NULL);
     XCTAssertTrue(report != NULL, @"Should not crash on report section being an array");
     free(report);
 }
@@ -662,7 +800,7 @@
     NSString *json = @"{\"crash\":{\"error\":{}}}";
     int64_t reportID = kscrs_addUserReport(json.UTF8String, (int)json.length, &_storeConfig);
 
-    char *report = kscrs_readReport(reportID, &_storeConfig);
+    char *report = kscrs_readReport(reportID, &_storeConfig, NULL);
     XCTAssertTrue(report != NULL, @"Should not crash when report section is absent");
     free(report);
 }
@@ -683,7 +821,7 @@
     NSString *json = @"{\"report\":\"not a dict\",\"crash\":{}}";
     int64_t reportID = kscrs_addUserReport(json.UTF8String, (int)json.length, &_storeConfig);
 
-    char *report = kscrs_readReport(reportID, &_storeConfig);
+    char *report = kscrs_readReport(reportID, &_storeConfig, NULL);
     XCTAssertTrue(report != NULL, @"Should not crash on malformed report section with run sidecars enabled");
     free(report);
 }

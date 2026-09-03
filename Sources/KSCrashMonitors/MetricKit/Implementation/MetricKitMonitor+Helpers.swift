@@ -40,7 +40,7 @@ let metricKitLog = OSLog(subsystem: "com.kscrash", category: "MetricKit")
 /// lifecycle) are aligned data — pass `false` to let them stitch in, keyed by `runId`. A hang is
 /// a moment within a run that kept going, so its last-moment sidecar does not align — pass `true`.
 func makeMetricKitReportInfo(
-    skeleton: BasicCrashReport, timestamp: Date, runId: String?, finalized: Bool
+    skeleton: Report, timestamp: Date, runId: String?, finalized: Bool
 ) -> ReportInfo {
     ReportInfo(
         id: skeleton.report.id,

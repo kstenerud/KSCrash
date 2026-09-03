@@ -25,10 +25,7 @@
 //
 
 import Foundation
-import KSCrashDemangleFilter
-import KSCrashFilters
-import KSCrashRecording
-import KSCrashSinks
+import KSCrash
 
 // MARK: - Sentinel leak to validate leak detection is working
 
@@ -156,13 +153,14 @@ private func readReports() -> [[String: Any]] {
     let reportCount = reportStore.reportCount
     print("[LeaksTest] Report count: \(reportCount)")
 
-    let reportIDs = reportStore.reportIDs
+    let reportIDs = (try? reportStore.listReportIDs()) ?? []
     print("[LeaksTest] Report IDs: \(reportIDs)")
 
     var reports: [[String: Any]] = []
     for reportID in reportIDs {
-        if let report = reportStore.report(for: reportID.int64Value) {
-            let value = report.value
+        if let data = try? reportStore.reportData(for: reportID.int64Value),
+            let value = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        {
             print("[LeaksTest] Read report \(reportID), \(value.keys.count) top-level keys")
             reports.append(value)
         }
@@ -170,86 +168,46 @@ private func readReports() -> [[String: Any]] {
     return reports
 }
 
-private func exerciseFilterPipeline(reports: [[String: Any]]) {
-    guard !reports.isEmpty else {
-        print("[LeaksTest] No reports to filter")
-        return
-    }
-
-    // Wrap raw dicts into CrashReportDictionary objects for the filter pipeline
-    let crashReports: [CrashReportDictionary] = reports.map { CrashReportDictionary.report(withValue: $0) }
-
-    // Doctor filter: generates automated diagnosis
-    let doctorFilter = CrashReportFilterDoctor()
-    doctorFilter.filterReports(crashReports) { filtered, error in
-        print("[LeaksTest] Doctor filter: \(filtered?.count ?? 0) reports, error: \(String(describing: error))")
-    }
-
-    // Demangle filter: demangles C++/Swift symbols
-    let demangleFilter = CrashReportFilterDemangle()
-    demangleFilter.filterReports(crashReports) { filtered, error in
-        print("[LeaksTest] Demangle filter: \(filtered?.count ?? 0) reports, error: \(String(describing: error))")
-    }
-
-    // JSON encode filter: dict -> Data
-    let jsonEncodeFilter = CrashReportFilterJSONEncode()
-    jsonEncodeFilter.filterReports(crashReports) { filtered, error in
-        print("[LeaksTest] JSON encode: \(filtered?.count ?? 0) reports, error: \(String(describing: error))")
-
-        if let encoded = filtered {
-            // JSON decode filter: Data -> dict (round-trip)
-            let jsonDecodeFilter = CrashReportFilterJSONDecode()
-            jsonDecodeFilter.filterReports(encoded) { decoded, decError in
-                print("[LeaksTest] JSON decode: \(decoded?.count ?? 0) reports, error: \(String(describing: decError))")
-            }
+private func exerciseSendPipeline() {
+    // A logging pass-through stage, so every delivered report walks the whole
+    // Swift pipeline machinery (snapshot, claim, decode, stage, delete).
+    struct LogStage: PipelineStage {
+        func process(_ payload: Report) async throws -> Report? {
+            print(
+                "[LeaksTest] Send stage: report \(payload.report.id), \(String(describing: payload.crash.error.type))")
+            return payload
         }
     }
 
-    // Apple format filter
-    let appleFilter = CrashReportFilterAppleFmt(reportStyle: .symbolicated)
-    appleFilter.filterReports(crashReports) { filtered, error in
-        print("[LeaksTest] Apple format: \(filtered?.count ?? 0) reports, error: \(String(describing: error))")
-    }
+    // The send is async; the leaks test is a synchronous script, so block on a
+    // semaphore. The send runs off the caller's actor, so this cannot deadlock.
+    let done = DispatchSemaphore(value: 0)
+    Task {
+        let configuration = SendConfiguration(
+            reportPipeline: [AnyPipelineStage(LogStage())]
+        )
+        do {
+            let bulk = try await KSCrash.shared.sendReports(with: configuration)
+            print(
+                "[LeaksTest] Swift bulk send: delivered \(bulk.delivered.count), "
+                    + "discarded \(bulk.discarded.count), kept \(bulk.kept.count)")
 
-    // Stringify filter
-    let stringifyFilter = CrashReportFilterStringify()
-    stringifyFilter.filterReports(crashReports) { filtered, error in
-        print("[LeaksTest] Stringify: \(filtered?.count ?? 0) reports, error: \(String(describing: error))")
+            // The bulk send skips current-run reports (the fresh user
+            // exceptions, the hang report). Naming ids is how those are sent
+            // deliberately, and it exercises the selection path too.
+            let remaining = ((try? KSCrash.shared.reportStore?.listReportIDs()) ?? []).map(\.int64Value)
+            let named = try await KSCrash.shared.sendReports(with: configuration, only: remaining)
+            print(
+                "[LeaksTest] Swift named send: delivered \(named.delivered.count), "
+                    + "discarded \(named.discarded.count), kept \(named.kept.count)")
+        } catch {
+            print("[LeaksTest] Swift send failed: \(error)")
+        }
+        done.signal()
     }
-
-    // Exercise the transform filters individually (demangle, doctor, JSON encode).
-    CrashReportFilterDemangle().filterReports(crashReports) { filtered, error in
-        print("[LeaksTest] Demangle: \(filtered?.count ?? 0) reports, error: \(String(describing: error))")
+    if done.wait(timeout: .now() + 10) == .timedOut {
+        print("[LeaksTest] Swift send timed out")
     }
-    CrashReportFilterDoctor().filterReports(crashReports) { filtered, error in
-        print("[LeaksTest] Doctor: \(filtered?.count ?? 0) reports, error: \(String(describing: error))")
-    }
-    CrashReportFilterJSONEncode().filterReports(crashReports) { filtered, error in
-        print("[LeaksTest] JSONEncode: \(filtered?.count ?? 0) reports, error: \(String(describing: error))")
-    }
-
-    // Console sink: exercises the sink's type-guard and completion path.
-    // The sink expects KSCrashReportString inputs (from the Apple formatter),
-    // so passing dictionaries validates the reject-and-continue path, not
-    // the formatting pipeline. Good enough for a leaks test.
-    let consoleSink = CrashReportSinkConsole()
-    consoleSink.filterReports(crashReports) { filtered, error in
-        print("[LeaksTest] Console sink: \(filtered?.count ?? 0) reports, error: \(String(describing: error))")
-    }
-
-    // Combine filter: runs multiple filters in parallel on same input
-    let combine = CrashReportFilterCombine(filters: [
-        "json": CrashReportFilterJSONEncode(),
-        "apple": CrashReportFilterAppleFmt(reportStyle: .symbolicated),
-    ])
-    combine.filterReports(crashReports) { filtered, error in
-        print("[LeaksTest] Combine: \(filtered?.count ?? 0) reports, error: \(String(describing: error))")
-    }
-
-    // Demangle individual symbols
-    _ = CrashReportFilterDemangle.demangledCppSymbol("_ZN5MyApp6MyFunc7doStuffEv")
-    _ = CrashReportFilterDemangle.demangledSwiftSymbol("$s5MyApp6MyFuncC7doStuffyyF")
-    print("[LeaksTest] Exercised symbol demangling")
 }
 
 private func deleteAllReports() {
@@ -295,18 +253,18 @@ private func runLeaksTest() {
 
     // Read reports from Phase 1 (crash + user exceptions),
     // triggering the finalization/stitching pipeline
-    let reports = readReports()
+    _ = readReports()
 
-    // Run all reports through the filter pipeline
-    exerciseFilterPipeline(reports: reports)
+    // Run the pending reports through the Swift send pipeline
+    exerciseSendPipeline()
 
     // Clean up Phase 1 reports
     deleteAllReports()
 
     // Generate fresh user exceptions and process them too
     reportUserExceptions()
-    let freshReports = readReports()
-    exerciseFilterPipeline(reports: freshReports)
+    _ = readReports()
+    exerciseSendPipeline()
     deleteAllReports()
 
     // Spin the run loop so the watchdog's run loop observer activates.
@@ -317,8 +275,8 @@ private func runLeaksTest() {
     exerciseHangDetectionAndRecovery()
 
     // Read and process the hang report
-    let hangReports = readReports()
-    exerciseFilterPipeline(reports: hangReports)
+    _ = readReports()
+    exerciseSendPipeline()
     deleteAllReports()
 
     createSentinelLeak()

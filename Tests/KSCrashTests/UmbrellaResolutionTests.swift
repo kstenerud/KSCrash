@@ -33,7 +33,7 @@ final class UmbrellaResolutionTests: XCTestCase {
     func test_goForwardTypesResolveUnambiguously() {
         let reason: TerminationReason = .clean
         XCTAssertEqual(reason, .clean)
-        let report: CrashReport<NoUserData>? = nil
+        let report: Report? = nil
         XCTAssertNil(report)
         let type: ReportType = .standard
         XCTAssertEqual(type, .standard)

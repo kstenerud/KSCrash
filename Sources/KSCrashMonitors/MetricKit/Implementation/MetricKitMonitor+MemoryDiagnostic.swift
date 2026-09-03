@@ -93,7 +93,7 @@ import os.log
             defer { try? FileManager.default.removeItem(at: tempURL) }
 
             guard let data = try? Data(contentsOf: tempURL),
-                let skeleton = try? JSONDecoder().decode(BasicCrashReport.self, from: data)
+                let skeleton = try? JSONDecoder().decode(Report.self, from: data)
             else {
                 os_log(
                     .error, log: metricKitLog,
@@ -105,10 +105,9 @@ import os.log
             // extraction (linear backtrace per thread, plus binary images).
             let callStackData = buildCallStackData(from: diagnostic.callStackTree.callStackRepresentation)
 
-            // `.memoryLimit` is what marks this as an OOM: KSCrashDoctor keys off the
-            // termination reason to diagnose "the app exceeded its memory limit and was
-            // terminated by the OS." A MetricKit memory exception is exactly that per-process
-            // (jetsam) memory-limit kill.
+            // `.memoryLimit` is what marks this as an OOM in the delivered report's
+            // `terminationReason`: a MetricKit memory exception is exactly the
+            // per-process (jetsam) memory-limit kill.
             let newError = CrashError(
                 type: .termination,
                 subtype: .memoryException,
@@ -117,7 +116,7 @@ import os.log
                 terminationReason: .memoryLimit
             )
 
-            let newCrash = BasicCrashReport.Crash(
+            let newCrash = Report.Crash(
                 diagnosis: nil,
                 error: newError,
                 threads: callStackData.threads,
@@ -139,7 +138,7 @@ import os.log
             // stitches them in on read (see makeMetricKitReportInfo).
             let reportInfo = makeMetricKitReportInfo(
                 skeleton: skeleton, timestamp: timestamp, runId: crashedRunId, finalized: false)
-            let newReport = BasicCrashReport(
+            let newReport = Report(
                 binaryImages: callStackData.binaryImages,
                 crash: newCrash,
                 debug: nil,
@@ -174,7 +173,7 @@ import os.log
         /// report's system info reflects the current session, not the session that was
         /// terminated, so it is discarded except for the process name fallback.
         private func buildSystemInfo(
-            from environment: DiagnosticReport.Environment, skeleton report: BasicCrashReport
+            from environment: DiagnosticReport.Environment, skeleton report: Report
         ) -> SystemInfo {
             let os = environment.osVersion
             let pid = environment.pid

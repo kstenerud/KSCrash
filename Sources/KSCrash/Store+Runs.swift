@@ -1,5 +1,5 @@
 //
-//  RunStore.swift
+//  Store+Runs.swift
 //
 //  Created by Alexander Cohen on 2026-08-09.
 //
@@ -28,41 +28,32 @@ import Foundation
 import KSCrashRecording
 import KSCrashRecordingCore
 import KSCrashReportModel
+import os
 
-/// One past run's on-disk artifacts. A store deletes only what the run
+/// The run-summary half of the store. The store deletes only what a run
 /// exclusively owns (its `.run` files); shared files (`.sessions`, the sidecar
 /// directory) are reclaimed by the directory-level sweep, never here.
-struct RunStore: Sendable {
-    let runID: String
-
-    /// This run's `.run` files, newest first. Usually one; several when
-    /// duplicates decoded to the same runID. Empty when the run has no summary
-    /// on disk.
-    let summaryFiles: [URL]
-
-    let sessionsFile: URL?
-    let sidecarDirectory: URL?
-
-    /// Whether any of this run's `.run` files still exists. A snapshot can go
-    /// stale (a concurrent send may deliver and delete a run after this store
-    /// was built); checking under a send's claim is race-free, because
-    /// deletes only happen under the claim.
-    var hasSummaryOnDisk: Bool {
-        summaryFiles.contains { FileManager.default.fileExists(atPath: $0.path) }
-    }
-
+extension Store {
     /// The run's summary in deliverable form: session records merged from
     /// `.sessions`, metadata stitched from the run's UserInfo sidecar. nil
-    /// when the run has no summary on disk, or when reading its `.sessions`
-    /// or UserInfo sidecar fails in a way a retry could succeed at (the data
-    /// is unknown, so the run waits for a later send). An absent `.sessions`
+    /// when the run has no summary on disk, or when reading its `.run`,
+    /// `.sessions`, or UserInfo sidecar fails in a way a retry could succeed
+    /// at (the data is unknown, so the run waits for a later send). Throws
+    /// when the `.run` file was read but does not decode: that is
+    /// deterministic, so the send surfaces it as a kept item instead of
+    /// silently retrying forever. An absent `.sessions`
     /// means empty records; an absent, empty, or unrecoverably corrupt
     /// sidecar means nil metadata.
-    func summary() -> RunSummary? {
+    ///
+    /// A snapshot can go stale (a concurrent send may deliver and delete a
+    /// run after it was captured); a stale or artifact-only run reads as nil
+    /// here. Under a send's claim that check is race-free, because deletes
+    /// only happen under the claim.
+    func summary(of run: Run) throws -> RunSummary? {
         // The payload is read here, per item, never held by the snapshot: a
         // send keeps at most one summary in memory no matter how many runs
-        // are pending. Newest file first; duplicates are fallbacks.
-        guard let summary = decodedBaseSummary() else {
+        // are pending.
+        guard let summary = try decodedBaseSummary(of: run) else {
             return nil
         }
         // The persisted `.run` deliberately carries neither session records nor
@@ -73,30 +64,30 @@ struct RunStore: Sendable {
         // absent: delivering would ship an incomplete summary and then delete
         // the intact file, so the run is skipped this send and retried by the
         // next one.
-        guard let merged = mergingSessions(into: summary) else {
+        guard let merged = mergingSessions(into: summary, for: run) else {
             return nil
         }
-        return stitchingMetadata(into: merged)
+        return stitchingMetadata(into: merged, for: run)
     }
 
-    private func decodedBaseSummary() -> RunSummary? {
-        let decoder = JSONDecoder()
-        for file in summaryFiles {
-            if let data = try? Data(contentsOf: file),
-                let summary = try? decoder.decode(RunSummary.self, from: data)
-            {
-                return summary
-            }
+    /// Delete this run's own `.run` file.
+    func removeSummary(of run: Run) throws {
+        guard let file = run.summaryFile else {
+            return
         }
-        return nil
+        try FileManager.default.removeItem(at: file)
     }
 
-    /// Delete this run's own `.run` files. Deletes every duplicate, so a run
-    /// whose summary was delivered once can never resurface through a stray
-    /// second file that decoded to the same runID.
-    func removeSummary() throws {
-        for file in summaryFiles {
-            try FileManager.default.removeItem(at: file)
+    private func decodedBaseSummary(of run: Run) throws -> RunSummary? {
+        guard let file = run.summaryFile, let data = try? Data(contentsOf: file) else {
+            // Artifact-only run, stale entry, or unreadable right now.
+            return nil
+        }
+        do {
+            return try JSONDecoder().decode(RunSummary.self, from: data)
+        } catch {
+            os_log(.error, "Undecodable run summary %{public}@: %{public}@", run.runID, String(describing: error))
+            throw error
         }
     }
 
@@ -106,10 +97,10 @@ struct RunStore: Sendable {
     /// sessions, read through the C `.sessions` reader. nil when the file
     /// exists but cannot be read: the records are unknown, not absent, and
     /// the caller must not deliver.
-    private func mergingSessions(into base: RunSummary) -> RunSummary? {
+    private func mergingSessions(into base: RunSummary, for run: Run) -> RunSummary? {
         // No file means the run cut no sessions (the writer creates the file
         // lazily on the first cut).
-        guard let sessionsFile else {
+        guard let sessionsFile = run.sessionsFile else {
             return base
         }
         guard let reader = kssr_open(sessionsFile.path) else {
@@ -165,13 +156,13 @@ struct RunStore: Sendable {
     /// run recorded none, and nil when reading the sidecar fails in a way a
     /// retry could succeed at: the metadata is unknown, not absent, and the
     /// caller must not deliver.
-    private func stitchingMetadata(into base: RunSummary) -> RunSummary? {
+    private func stitchingMetadata(into base: RunSummary, for run: Run) -> RunSummary? {
         // Metadata is stitched at delivery from the run's UserInfo sidecar,
         // never read live and never baked into the `.run`, exactly like
         // session_id from `.sessions` and userInfo on reports. The sidecar is
         // the same file the report stitch reads, so a report and this run's
         // summary always agree on the run's app data.
-        guard let sidecarDirectory else {
+        guard let sidecarDirectory = run.sidecarDirectory else {
             return base
         }
         let path = sidecarDirectory.appendingPathComponent(KSCRS_USERINFO_RUN_SIDECAR_FILENAME).path

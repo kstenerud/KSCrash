@@ -31,6 +31,10 @@ import SwiftUI
 struct ReportingView: View {
     let store: CrashReportStore
 
+    /// The sample send runs through `KSCrash.shared`, so it needs an install;
+    /// in reports-only mode the store stands alone and the demo is hidden.
+    let canUseSwiftSend: Bool
+
     var body: some View {
         List {
             Text("Pending reports: \(store.reportCount)")
@@ -40,11 +44,10 @@ struct ReportingView: View {
             Button("Log Raw to Console") {
                 store.logRawToConsole()
             }
-            Button("Sample Custom Log To Console") {
-                store.sampleLogToConsole()
-            }
-            Button("Log with Alert") {
-                store.logWithAlert()
+            if canUseSwiftSend {
+                Button("Sample Custom Log To Console") {
+                    KSCrash.shared.sampleLogToConsole()
+                }
             }
         }
         .navigationTitle("Report")
