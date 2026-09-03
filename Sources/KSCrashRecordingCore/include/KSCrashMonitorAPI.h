@@ -178,12 +178,35 @@ typedef struct KSCrashMonitorAPI {
      *         be retried on next app launch; during normal reads the
      *         error is silent and the original dict is kept.
      *
+     *         Reserve NULL for a failure a retry could get past. A sidecar
+     *         that is absent, or holds bytes no later read could make sense
+     *         of, is a verdict that will not change: return the report
+     *         unchanged (retained) so it delivers without this section.
+     *         Returning NULL for one of those stops that report being
+     *         finalized for good, and on the hang-recovery path the report is
+     *         deleted outright. See KSCrashSidecarReadResult.
+     *
      * @note Optional. If NULL, no stitching is performed.
      *       Runs at normal app startup time, not during crash handling.
      */
     CFDictionaryRef (*createStitchedReport)(CFDictionaryRef reportDict, const char *sidecarPath,
                                             KSCrashSidecarScope scope, void *context);
 } KSCrashMonitorAPI;
+
+/** How a stitcher's read of its sidecar ended.
+ *
+ *  The split that matters is whether reading again could ever go better, and
+ *  it decides what createStitchedReport hands back: the report unchanged, or
+ *  NULL to be retried.
+ */
+typedef enum {
+    KSCrashSidecarReadOK = 0,
+    /** Absent, or bytes no later read could make sense of (wrong magic,
+     *  a version this build does not know, a torn write). */
+    KSCrashSidecarReadUnrecoverable,
+    /** An environmental failure (I/O) that may not recur. */
+    KSCrashSidecarReadFailure,
+} KSCrashSidecarReadResult;
 
 /**
  * Initialize an API by replacing all callbacks with default no-op implementations.

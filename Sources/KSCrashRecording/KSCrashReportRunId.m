@@ -208,7 +208,7 @@ static KSCrashRunIdResult extractReportFieldFromBytes(const char *rawReport, int
         .onEndContainer = onRunIdEndContainer,
         .onEndData = onIgnore,
     };
-    int result = ksjson_decode(rawReport, length, stringBuffer, sizeof(stringBuffer), &callbacks, &ctx, NULL);
+    int result = ksjson_decode(rawReport, length, stringBuffer, sizeof(stringBuffer), &callbacks, &ctx, 0, NULL);
     if (ctx.found) {
         return KSCrashRunIdResultFound;
     }

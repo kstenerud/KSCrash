@@ -25,6 +25,7 @@
 //
 
 import Foundation
+import KSCrashMonitorPlugins
 import KSCrashRecording
 import KSCrashRecordingCore
 import KSCrashReportModel
@@ -162,8 +163,14 @@ extension Store {
         // Metadata is stitched at delivery from the run's UserInfo sidecar,
         // never read live and never baked into the `.run`, exactly like
         // session_id from `.sessions` and userInfo on reports. The sidecar is
-        // the same file the report stitch reads, so a report and this run's
-        // summary always agree on the run's app data.
+        // the same file the report stitch reads, and both judge a record the
+        // same way, so a report and this run's summary agree on the run's app
+        // data. That includes a container carrying an embedded NUL, which the
+        // two readers cannot agree on (this one keeps the whole string, the
+        // report's C codec stops at the NUL), so both call the record absent
+        // rather than deliver two different values. A top-level string does
+        // not diverge: the store truncates it at the NUL on the way in, so
+        // both readers see the same bytes.
         guard let sidecarDirectory = run.sidecarDirectory else {
             return base
         }
@@ -187,13 +194,17 @@ extension Store {
         // bag starts empty, a removal is a no-op here; it is honored anyway so
         // this stays faithful to the callback contract rather than depending
         // on iteration internals. C callbacks cannot capture, so the bag rides
-        // through the context pointer as an unmanaged box, and every key or
-        // string value that is not valid UTF-8 drops that entry, matching how
-        // the report stitch's NSString construction behaves.
+        // through the context pointer as an unmanaged box, and a key or value
+        // that does not read as a value leaves the key absent, the same
+        // outcome the report stitch reaches by removing it there.
         let box = MetadataBox()
         var callbacks = KSKVSCallbacks()
         callbacks.onString = { key, keyLength, value, valueLength, context in
-            guard let key = kvString(key, keyLength), let value = kvString(value, valueLength) else { return }
+            guard let key = kvString(key, keyLength) else { return }
+            guard let value = kvString(value, valueLength) else {
+                MetadataBox.from(context).metadata.removeValue(forKey: key)
+                return
+            }
             MetadataBox.from(context).metadata.set(value, forKey: key)
         }
         callbacks.onInt64 = { key, keyLength, value, context in
@@ -206,6 +217,14 @@ extension Store {
         }
         callbacks.onDouble = { key, keyLength, value, context in
             guard let key = kvString(key, keyLength) else { return }
+            // JSON carries no non-finite number, so a record holding one (a
+            // foreign writer, or a build that predates the write-side guard)
+            // is absence here too. Delivering it would make the summary
+            // unencodable rather than just missing a key.
+            guard value.isFinite else {
+                MetadataBox.from(context).metadata.removeValue(forKey: key)
+                return
+            }
             MetadataBox.from(context).metadata.set(value, forKey: key)
         }
         callbacks.onBool = { key, keyLength, value, context in
@@ -216,11 +235,30 @@ extension Store {
             guard let key = kvString(key, keyLength) else { return }
             // The same nanoseconds-to-seconds conversion the report userInfo
             // stitch uses, so a date set via the userInfo API reads back as
-            // the identical instant from a report and from this metadata.
+            // the same instant from a report and from this metadata. The
+            // report's is the coarser of the two: it re-encodes the seconds at
+            // DBL_DIG, which at epoch magnitude rounds to about ten
+            // microseconds, while this one is handed over as the Double it is.
             let date = Date(timeIntervalSince1970: Double(nanoseconds) / 1_000_000_000)
             MetadataBox.from(context).metadata.set(date, forKey: key)
         }
+        callbacks.onJSON = { key, keyLength, json, jsonLength, context in
+            guard let key = kvString(key, keyLength) else { return }
+            guard let value = kvContainer(json, jsonLength) else {
+                MetadataBox.from(context).metadata.removeValue(forKey: key)
+                return
+            }
+            MetadataBox.from(context).metadata.set(value, forKey: key)
+        }
         callbacks.onRemoved = { key, keyLength, context in
+            guard let key = kvString(key, keyLength) else { return }
+            MetadataBox.from(context).metadata.removeValue(forKey: key)
+        }
+        callbacks.onUnknown = { key, keyLength, _, context in
+            // A record type this build cannot read leaves the key absent, the
+            // same verdict the report stitch reaches. The bag starts empty so
+            // there is nothing to drop, as with a removal; it is honored for
+            // the same reason.
             guard let key = kvString(key, keyLength) else { return }
             MetadataBox.from(context).metadata.removeValue(forKey: key)
         }
@@ -238,17 +276,6 @@ private final class MetadataBox {
 
     static func from(_ context: UnsafeMutableRawPointer?) -> MetadataBox {
         Unmanaged<MetadataBox>.fromOpaque(context!).takeUnretainedValue()
-    }
-}
-
-/// The buffer's bytes as a string; nil when not valid UTF-8. KV keys and
-/// values are length-delimited, not NUL-terminated.
-private func kvString(_ bytes: UnsafePointer<CChar>?, _ length: UInt16) -> String? {
-    guard let bytes else {
-        return nil
-    }
-    return bytes.withMemoryRebound(to: UInt8.self, capacity: Int(length)) {
-        String(bytes: UnsafeBufferPointer(start: $0, count: Int(length)), encoding: .utf8)
     }
 }
 

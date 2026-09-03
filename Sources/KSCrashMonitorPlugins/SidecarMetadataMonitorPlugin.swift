@@ -127,7 +127,7 @@ public final class SidecarMetadataMonitorPlugin: MonitorPlugin, @unchecked Senda
                 os_log(.error, "%{public}@ cannot enable: no run sidecar path", String(cString: monitorID))
                 return
             }
-            let config = KSKVSConfig(initialCapacity: 512, maxKeyLength: 64, maxStringLength: 64)
+            let config = KSKVSConfig(initialCapacity: 512)
             let store: SidecarMetadata
             do {
                 store = try SidecarMetadata.creating(at: String(cString: path), config: config)

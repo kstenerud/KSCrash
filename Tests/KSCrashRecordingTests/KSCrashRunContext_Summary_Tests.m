@@ -306,8 +306,6 @@ static void populateContext(KSCrashRunContext *ctx)
     NSString *path = [self sidecarPath];
     KSKVSConfig cfg = {
         .initialCapacity = 4096,
-        .maxKeyLength = 256,
-        .maxStringLength = 1024,
     };
     KSKeyValueStore *store = kskvs_create(path.UTF8String, KSKVSModeReadWriteCreate, &cfg, NULL);
     XCTAssertTrue(store != NULL);
@@ -330,8 +328,6 @@ static void populateContext(KSCrashRunContext *ctx)
     NSString *path = [self sidecarPath];
     KSKVSConfig cfg = {
         .initialCapacity = 4096,
-        .maxKeyLength = 256,
-        .maxStringLength = 1024,
     };
     KSKeyValueStore *store = kskvs_create(path.UTF8String, KSKVSModeReadWriteCreate, &cfg, NULL);
     XCTAssertTrue(store != NULL);

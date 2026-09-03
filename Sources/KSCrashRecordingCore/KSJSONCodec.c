@@ -363,6 +363,16 @@ int ksjson_addFloatingPointElement(KSJSONEncodeContext *const context, const cha
     return addFormattedNumber(context, name, buff, bytesWritten);
 }
 
+int ksjson_addFloatElement(KSJSONEncodeContext *const context, const char *const name, float value)
+{
+    char buff[64];
+    int written = (int)ksstring_floatToString(value, buff, sizeof(buff));
+    int bytesWritten = 0;
+    int result = checkWriteResult(written, sizeof(buff), &bytesWritten);
+    unlikely_if(result != KSJSON_OK) { return result; }
+    return addFormattedNumber(context, name, buff, bytesWritten);
+}
+
 int ksjson_addIntegerElement(KSJSONEncodeContext *const context, const char *const name, int64_t value)
 {
     char buff[21];
@@ -562,6 +572,11 @@ typedef struct KSJSONDecodeContext {
     KSJSONDecodeCallbacks *const callbacks;
     /** Data that was specified when calling ksjson_decode(). */
     void *userData;
+    /** Containers currently open. decodeElement recurses per level, so this
+     *  is what keeps a deeply nested document from overflowing the stack; it
+     *  also keeps the decoder from accepting documents the encoder could not
+     *  write back out. */
+    int containerDepth;
 } KSJSONDecodeContext;
 
 /** Ask for more data when an element runs past the end of the window.
@@ -1097,6 +1112,12 @@ static int decodeElement(const char *const name, KSJSONDecodeContext *context)
 
     switch (*context->bufferPtr) {
         case '[': {
+            unlikely_if(context->containerDepth + 1 >= KSJSON_MAX_CONTAINER_DEPTH)
+            {
+                KSLOG_DEBUG("Too many nested containers");
+                return KSJSON_ERROR_DATA_TOO_LONG;
+            }
+            context->containerDepth++;
             context->bufferPtr++;
             result = context->callbacks->onBeginArray(name, context->userData);
             unlikely_if(result != KSJSON_OK) return result;
@@ -1106,6 +1127,7 @@ static int decodeElement(const char *const name, KSJSONDecodeContext *context)
                 unlikely_if(*context->bufferPtr == ']')
                 {
                     context->bufferPtr++;
+                    context->containerDepth--;
                     return context->callbacks->onEndContainer(context->userData);
                 }
                 result = decodeElement(NULL, context);
@@ -1113,11 +1135,22 @@ static int decodeElement(const char *const name, KSJSONDecodeContext *context)
                 skipWhitespace(context);
                 unlikely_if(context->bufferPtr >= context->bufferEnd) { break; }
                 likely_if(*context->bufferPtr == ',') { context->bufferPtr++; }
+                else unlikely_if(*context->bufferPtr != ']')
+                {
+                    KSLOG_DEBUG("Expected ',' or ']' but got '%c'", *context->bufferPtr);
+                    return KSJSON_ERROR_INVALID_CHARACTER;
+                }
             }
             KSLOG_DEBUG("Premature end of data");
             return KSJSON_ERROR_INCOMPLETE;
         }
         case '{': {
+            unlikely_if(context->containerDepth + 1 >= KSJSON_MAX_CONTAINER_DEPTH)
+            {
+                KSLOG_DEBUG("Too many nested containers");
+                return KSJSON_ERROR_DATA_TOO_LONG;
+            }
+            context->containerDepth++;
             context->bufferPtr++;
             result = context->callbacks->onBeginObject(name, context->userData);
             unlikely_if(result != KSJSON_OK) return result;
@@ -1127,6 +1160,7 @@ static int decodeElement(const char *const name, KSJSONDecodeContext *context)
                 unlikely_if(*context->bufferPtr == '}')
                 {
                     context->bufferPtr++;
+                    context->containerDepth--;
                     return context->callbacks->onEndContainer(context->userData);
                 }
                 result = decodeString(context, context->nameBuffer, context->nameBufferLength);
@@ -1145,6 +1179,11 @@ static int decodeElement(const char *const name, KSJSONDecodeContext *context)
                 skipWhitespace(context);
                 unlikely_if(context->bufferPtr >= context->bufferEnd) { break; }
                 likely_if(*context->bufferPtr == ',') { context->bufferPtr++; }
+                else unlikely_if(*context->bufferPtr != '}')
+                {
+                    KSLOG_DEBUG("Expected ',' or '}' but got '%c'", *context->bufferPtr);
+                    return KSJSON_ERROR_INVALID_CHARACTER;
+                }
             }
             KSLOG_DEBUG("Premature end of data");
             return KSJSON_ERROR_INCOMPLETE;
@@ -1226,7 +1265,8 @@ static int decodeElement(const char *const name, KSJSONDecodeContext *context)
 }
 
 int ksjson_decode(const char *const data, int length, char *stringBuffer, int stringBufferLength,
-                  KSJSONDecodeCallbacks *const callbacks, void *const userData, int *const errorOffset)
+                  KSJSONDecodeCallbacks *const callbacks, void *const userData, const int startDepth,
+                  int *const errorOffset)
 {
     char *nameBuffer = stringBuffer;
     int nameBufferLength = stringBufferLength / 4;
@@ -1240,6 +1280,7 @@ int ksjson_decode(const char *const data, int length, char *stringBuffer, int st
                                     .stringBuffer = stringBuffer,
                                     .stringBufferLength = (int)stringBufferLength,
                                     .callbacks = callbacks,
+                                    .containerDepth = startDepth,
                                     .userData = userData };
 
     int result = decodeElement(NULL, &context);

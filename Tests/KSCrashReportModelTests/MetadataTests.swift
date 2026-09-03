@@ -49,6 +49,21 @@ final class MetadataTests: XCTestCase {
         XCTAssertEqual(bag["score", as: Double.self], 98.5)
     }
 
+    func test_setAndGet_containers() {
+        var bag = Metadata()
+        bag["tags"] = ["a", "b"]
+        bag["scores"] = [1, 2]
+        bag["cart"] = ["items": 3]
+        bag["mixed"] = MetadataValue.array([.string("a"), .integer(1)])
+
+        XCTAssertEqual(bag["tags"] as [String]?, ["a", "b"])
+        XCTAssertEqual(bag["scores"] as [Int]?, [1, 2])
+        XCTAssertEqual(bag["cart"] as [String: Int]?, ["items": 3])
+        XCTAssertEqual(bag["mixed"] as MetadataValue?, .array([.string("a"), .integer(1)]))
+        XCTAssertNil(bag["tags"] as [Int]?, "typed reads are exact, never partial")
+        XCTAssertNil(bag["mixed"] as [String]?, "a heterogeneous array is not a [String]")
+    }
+
     func test_get_wrongTypeReturnsNil() {
         var bag = Metadata()
         bag.set(42, forKey: "age")
@@ -193,5 +208,83 @@ final class MetadataStoreConformanceTests: XCTestCase {
         metadata["a"] = 2
         metadata["c"] = Date(timeIntervalSince1970: 0)
         XCTAssertEqual(metadata.keys, ["a", "b", "c"])
+    }
+
+    func test_decodedStorage_dropsNulls() throws {
+        let json = Data(#"{"gone":null,"list":[null,1],"kept":"v"}"#.utf8)
+        let bag = try JSONDecoder().decode(Metadata.self, from: json)
+        XCTAssertEqual(bag.keys, ["kept", "list"])
+        XCTAssertFalse(bag.contains("gone"))
+        XCTAssertEqual(bag["list"] as [Int]?, [1])
+        let encoded = String(decoding: try JSONEncoder().encode(bag), as: UTF8.self)
+        XCTAssertFalse(encoded.contains("null"), encoded)
+    }
+
+    func test_nonFiniteNumber_isAbsence() throws {
+        // JSON carries no infinity or NaN, so a bag holding one encodes to
+        // nothing at all and takes the whole report or run summary it rides
+        // on with it. The live store calls the same value absence; the bag
+        // must not be the one place it survives, and a refused value leaves
+        // the key absent rather than showing what it replaced.
+        var bag = Metadata()
+        bag["ratio"] = 1.5
+        bag["ratio"] = Double.infinity
+        XCTAssertNil(bag["ratio"] as Double?)
+
+        bag["nested"] = MetadataValue.object(["r": .double(.nan)])
+        XCTAssertNil(bag["nested"] as MetadataValue?)
+        XCTAssertEqual(bag.keys, [])
+        XCTAssertNoThrow(try JSONEncoder().encode(bag))
+    }
+
+    func test_null_isAbsence() {
+        var store: any MetadataStore = Metadata()
+        store["gone"] = "value"
+        store["gone"] = MetadataValue.null
+        XCTAssertNil(store["gone"] as MetadataValue?)
+        store["mixed"] = MetadataValue.object(["kept": .integer(1), "dropped": .null])
+        XCTAssertEqual(store["mixed"] as MetadataValue?, .object(["kept": .integer(1)]))
+        store["list"] = MetadataValue.array([.string("a"), .null, .object(["x": .null])])
+        XCTAssertEqual(store["list"] as MetadataValue?, .array([.string("a"), .object([:])]))
+        XCTAssertEqual(store.keys, ["list", "mixed"])
+    }
+
+    func test_containerNullSetDirectly_equalsItsOwnRoundTrip() throws {
+        // A container stored with a null inside is resolved on the way out as
+        // well as on the way in, so the two read APIs cannot disagree.
+        var bag = Metadata()
+        bag.set([1, nil, 2] as [Int?], forKey: "tags")
+
+        let encoded = String(decoding: try JSONEncoder().encode(bag), as: UTF8.self)
+        XCTAssertFalse(encoded.contains("null"), encoded)
+
+        let back = try JSONDecoder().decode(Metadata.self, from: try JSONEncoder().encode(bag))
+        XCTAssertEqual(back, bag)
+    }
+
+    func test_containerNullSetDirectly_decodesIntoANonOptionalProperty() throws {
+        struct Host: Codable {
+            let tags: [Int]
+        }
+        var bag = Metadata()
+        bag.set([1, nil, 2] as [Int?], forKey: "tags")
+
+        // The per-key read already resolves the null away; the whole-bag read
+        // must agree rather than throwing on it.
+        XCTAssertEqual(bag["tags"] as [Int]?, [1, 2])
+        XCTAssertEqual(try bag.decoded(as: Host.self).tags, [1, 2])
+    }
+
+    func test_metadataValue_isAFaithfulJSONCodec() throws {
+        // Null resolution belongs to the bag, not to MetadataValue: report
+        // fields such as a zombie's ivars decode through this type and must
+        // keep what they were given.
+        let json = Data(#"{"a":1,"b":null}"#.utf8)
+        let value = try JSONDecoder().decode(MetadataValue.self, from: json)
+        XCTAssertEqual(value, .object(["a": .integer(1), "b": .null]))
+
+        let array = try JSONDecoder().decode(MetadataValue.self, from: Data("[null,1]".utf8))
+        XCTAssertEqual(array, .array([.null, .integer(1)]))
+        XCTAssertEqual(try JSONDecoder().decode(MetadataValue.self, from: try JSONEncoder().encode(array)), array)
     }
 }

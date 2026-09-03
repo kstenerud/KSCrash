@@ -164,13 +164,17 @@ public struct CrashError: Codable, Sendable, Equatable {
     public let terminationReason: TerminationReason?
 
     /// Memory state at the time of a memory termination.
-    public let memoryTermination: Metadata?
+    public var memoryTermination: Metadata? { memoryTerminationSection?.metadata }
+
+    private let memoryTerminationSection: FaithfulMetadata?
 
     /// Data added by custom monitors, keyed by monitor id. The monitor that
     /// caused the event writes its section here under the id carried in
     /// ``type``. nil when the error carries no custom-monitor data. Use
     /// ``monitorData(_:for:)`` to read a section as its concrete type.
-    public let monitorData: [String: Metadata]?
+    public var monitorData: [String: Metadata]? { monitorSections?.mapValues(\.metadata) }
+
+    private let monitorSections: [String: FaithfulMetadata]?
 
     /// The named monitor's section decoded as `type`. nil when the error
     /// carries no section for that monitor; throws when the section exists
@@ -215,8 +219,8 @@ public struct CrashError: Codable, Sendable, Equatable {
         self.isFatal = isFatal
         self.isCleanExit = isCleanExit
         self.terminationReason = terminationReason
-        self.memoryTermination = memoryTermination
-        self.monitorData = monitorData
+        self.memoryTerminationSection = memoryTermination.map(FaithfulMetadata.init)
+        self.monitorSections = monitorData?.mapValues(FaithfulMetadata.init)
     }
 
     enum CodingKeys: String, CodingKey {
@@ -235,8 +239,8 @@ public struct CrashError: Codable, Sendable, Equatable {
         case isFatal = "is_fatal"
         case isCleanExit = "is_clean_exit"
         case terminationReason = "termination_reason"
-        case memoryTermination = "memory_termination"
-        case monitorData = "monitor_data"
+        case memoryTerminationSection = "memory_termination"
+        case monitorSections = "monitor_data"
     }
 
 }

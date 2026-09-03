@@ -80,7 +80,9 @@ public struct Report: Codable, Sendable, Equatable {
     /// Data contributed by custom monitors at delivery time, keyed by monitor
     /// id. nil when no monitor contributed any. Use ``monitorData(_:for:)``
     /// to read a section as its concrete type.
-    public let monitorData: [String: Metadata]?
+    public var monitorData: [String: Metadata]? { monitorSections?.mapValues(\.metadata) }
+
+    private let monitorSections: [String: FaithfulMetadata]?
 
     /// Whether this report is incomplete (crash during crash handling).
     public let incomplete: Bool?
@@ -105,7 +107,7 @@ public struct Report: Codable, Sendable, Equatable {
         self.recrashReport = recrashReport
         self.system = system
         self.metadata = metadata
-        self.monitorData = monitorData
+        self.monitorSections = monitorData?.mapValues(FaithfulMetadata.init)
         self.incomplete = incomplete
     }
 
@@ -127,7 +129,7 @@ public struct Report: Codable, Sendable, Equatable {
         case recrashReport = "recrash_report"
         case system
         case metadata = "user"
-        case monitorData = "monitor_data"
+        case monitorSections = "monitor_data"
         case incomplete
     }
 }
