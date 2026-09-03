@@ -88,7 +88,15 @@ enum TestInstall {
     private static let result: Result<Void, Error> = Result { try KSCrash.shared.install(configuration) }
 
     /// Installs on first use; rethrows the install's error on every use after a failure.
+    /// Losing the one-per-process install to another suite (the corpse tests' extension-mode
+    /// install, when every test target shares a process) is a skip, not a failure: these
+    /// suites need this install's configuration, and each bundle still runs fully in its own
+    /// process under xcodebuild.
     static func ensure() throws {
-        try result.get()
+        do {
+            try result.get()
+        } catch InstallError.alreadyInstalled {
+            throw XCTSkip("another suite owns the process-wide install")
+        }
     }
 }
