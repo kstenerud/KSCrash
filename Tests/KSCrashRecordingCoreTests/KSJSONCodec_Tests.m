@@ -1102,7 +1102,7 @@ static NSString *toString(NSData *data)
     XCTAssertNotNil(error, @"");
 }
 
-- (void)testDeserializeDictionaryInvalidUTF8Key
+- (void)testDeserializeDictionaryInvalidUTF8KeyKeepingPartialObject
 {
     const unsigned char json[] = { '{', '"', 0xff, '"', ':', '1', '}' };
     NSData *jsonData = [NSData dataWithBytes:json length:sizeof(json)];
@@ -1111,7 +1111,10 @@ static NSString *toString(NSData *data)
 
     XCTAssertNoThrow(result = [KSJSONCodec decode:jsonData options:KSJSONDecodeOptionKeepPartialObject error:&error]);
     XCTAssertEqualObjects(result, @{});
-    XCTAssertNotNil(error);
+    // The unrepresentable member is dropped and the rest of the container
+    // survives; failing the decode is opt-in via
+    // KSJSONDecodeOptionFailOnUnrepresentableString.
+    XCTAssertNil(error);
 }
 
 - (void)testDeserializeDictionaryInvalidUTF8KeyWithIgnoredNull
@@ -1124,7 +1127,10 @@ static NSString *toString(NSData *data)
     KSJSONDecodeOption options = KSJSONDecodeOptionKeepPartialObject | KSJSONDecodeOptionIgnoreNullInObject;
     XCTAssertNoThrow(result = [KSJSONCodec decode:jsonData options:options error:&error]);
     XCTAssertEqualObjects(result, @{});
-    XCTAssertNotNil(error);
+    // The unrepresentable member is dropped and the rest of the container
+    // survives; failing the decode is opt-in via
+    // KSJSONDecodeOptionFailOnUnrepresentableString.
+    XCTAssertNil(error);
 }
 
 - (void)testDeserializeDictionaryInvalidUTF8Value
@@ -1136,7 +1142,10 @@ static NSString *toString(NSData *data)
 
     XCTAssertNoThrow(result = [KSJSONCodec decode:jsonData options:KSJSONDecodeOptionKeepPartialObject error:&error]);
     XCTAssertEqualObjects(result, @{});
-    XCTAssertNotNil(error);
+    // The unrepresentable member is dropped and the rest of the container
+    // survives; failing the decode is opt-in via
+    // KSJSONDecodeOptionFailOnUnrepresentableString.
+    XCTAssertNil(error);
 }
 
 - (void)testDeserializeArrayInvalidUTF8Value
@@ -1148,7 +1157,10 @@ static NSString *toString(NSData *data)
 
     XCTAssertNoThrow(result = [KSJSONCodec decode:jsonData options:KSJSONDecodeOptionKeepPartialObject error:&error]);
     XCTAssertEqualObjects(result, @[]);
-    XCTAssertNotNil(error);
+    // The unrepresentable member is dropped and the rest of the container
+    // survives; failing the decode is opt-in via
+    // KSJSONDecodeOptionFailOnUnrepresentableString.
+    XCTAssertNil(error);
 }
 
 - (void)testDeserializeDictionaryMissingSeparator

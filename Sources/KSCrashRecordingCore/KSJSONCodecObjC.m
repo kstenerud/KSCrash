@@ -159,20 +159,6 @@ static int unrepresentable(KSJSONCodec *codec, NSString *description)
 static int onElement(KSJSONCodec *codec, NSString *name, id element)
 {
     id currentContainer = codec.currentContainer;
-    if ([currentContainer isKindOfClass:[NSMutableDictionary class]] && name == nil) {
-        codec.error = [KSNSErrorHelper errorWithDomain:@"KSJSONCodecObjC"
-                                                  code:0
-                                           description:@"Invalid UTF-8 in JSON object key"];
-        return KSJSON_ERROR_INVALID_CHARACTER;
-    }
-
-    if (element == nil) {
-        codec.error = [KSNSErrorHelper errorWithDomain:@"KSJSONCodecObjC"
-                                                  code:0
-                                           description:@"Invalid UTF-8 in JSON string"];
-        return KSJSON_ERROR_INVALID_CHARACTER;
-    }
-
     if (currentContainer == nil) {
         codec.error = [KSNSErrorHelper errorWithDomain:@"KSJSONCodecObjC"
                                                   code:0
