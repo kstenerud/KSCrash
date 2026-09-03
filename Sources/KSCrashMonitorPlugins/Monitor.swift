@@ -34,7 +34,10 @@ import KSCrashSwiftCore
 /// with closures. The C trampolines recover this class from the api's opaque context pointer.
 ///
 /// Consumers use `Monitor<M>`; `api` is this class's only public member.
-public class MonitorCore: NSObject, MonitorPlugin {
+///
+/// `@unchecked Sendable`: the pointers are immutable for the bridge's lifetime, and the only
+/// mutable state is the lock-guarded callbacks and the atomic enabled flag.
+public class MonitorCore: NSObject, MonitorPlugin, @unchecked Sendable {
 
     /// The C monitor api, alive for the bridge's lifetime (bridges live in `config.plugins`
     /// or as statics, effectively forever).
@@ -148,7 +151,7 @@ public class MonitorCore: NSObject, MonitorPlugin {
 /// or pass its `api` to an install function directly. The monitor is instantiated with the
 /// bridge and reachable via `monitor` right away; `isInstalled` reports whether the pipeline
 /// has connected yet.
-public final class Monitor<M: CrashMonitor>: MonitorCore {
+public final class Monitor<M: CrashMonitor>: MonitorCore, @unchecked Sendable {
 
     /// Backing storage for `monitor`, set before `init` returns. Not a `let`, because building
     /// the monitor needs `self`, which is unavailable until `super.init()` has returned.
