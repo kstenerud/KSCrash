@@ -49,13 +49,14 @@ extension MetricKitMonitor {
             to:
                 KSCrashMonitorAPI(
                     context: nil,
+                    priority: 0,
                     init: { callbacks, cntxt in
                         MetricKitMonitor.from(cntxt)?.callbacks = callbacks?.pointee
                     },
                     monitorId: {
                         MetricKitMonitor.from($0)?.monitorId
                     },
-                    monitorFlags: { _ in KSCrashMonitorFlagPlugin },
+                    monitorFlags: { _ in .plugin },
                     setEnabled: metricKitMonitorSetEnabled,
                     isEnabled: { cntxt in
                         MetricKitMonitor.from(cntxt)?.enabled ?? false

@@ -44,8 +44,11 @@ Built-in monitors are registered via `KSCrashMonitorType` flags in `KSCrashC.c`.
 
 | Monitor | ID | Module | Detects | postSystemEnable |
 |---|---|---|---|---|
-| MetricKit | `"MetricKit"` | Monitors | Apple MetricKit diagnostics (async, hours/days post-crash) | Yes |
-| Profiler | `"Profiler"` | KSCrashProfiler | Sampling profiler (thread backtraces at intervals) | No |
+| MetricKit | `"MetricKit"` | Monitors | Apple MetricKit diagnostics (async, hours/days post-crash). Built on the Swift monitor layer (`.claude/rules/swift-monitors.md`). | Yes |
+| Profiler | `"profile"` (the id doubles as the report's `crash.error.type` and section key; never rename) | KSCrashProfiler | Sampling profiler (thread backtraces at intervals) | No |
+| Corpse | `"Corpse"` | Monitors | Other processes' corpses, in an out-of-process crash reporter (iOS 27 CrashReportExtension). Not registered via `plugins`: `KSCrash.installForExtensionReporting(with:)` registers it and `KSCrash.captureCrashReport` drives it. Built on the Swift monitor layer (`.claude/rules/swift-monitors.md`). | No (never fires in extension mode) |
+
+**Extension-reporting install** (`kscrash_installForExtensionReporting`): a reporter-only process that writes reports about other processes and detects no crashes of its own. It initializes the report store and pipeline, registers the given plugins, enables them, and fires `notifyPostMonitorsEnabled`; it runs no crash-detection monitors, no RunContext (so `notifyPostSystemEnable` never fires), no run id of its own (a capture loads the crashed run's), no run summaries, no console log, and no pruning.
 
 ### Event Classification
 
