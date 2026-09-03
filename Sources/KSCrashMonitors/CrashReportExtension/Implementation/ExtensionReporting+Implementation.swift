@@ -56,7 +56,9 @@ extension ExtensionReporting {
     /// The full capture flow from raw corpse inputs: load the crashed run's ID out of the
     /// corpse (best effort), gather the snapshot, and write the report. The kcdata gather
     /// requires a genuine corpse, so this path is validated against one, not in-process.
-    static func captureCrashReport(corpse: mach_port_t, images: [CorpseSnapshot.Image], exception: Int32) throws -> Report.ID {
+    static func captureCrashReport(corpse: mach_port_t, images: [CorpseSnapshot.Image], exception: Int32) throws
+        -> Report.ID
+    {
         // Load-or-clear, best effort: the run id is per-corpse state, so clear the previous
         // capture's before loading this corpse's. A corpse whose id cannot be read (an app
         // without KSCrash, or one that crashed before install wrote the id) is reported with

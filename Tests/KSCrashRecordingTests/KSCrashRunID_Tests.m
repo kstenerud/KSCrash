@@ -29,6 +29,7 @@
 #import <mach/mach.h>
 
 #import "KSCrashC.h"
+#import "KSCrashCConfiguration.h"
 #import "KSCrashMonitorType.h"
 
 @interface KSCrashRunID_Tests : XCTestCase
@@ -93,9 +94,6 @@ extern void kscrash_testcode_setRunID(const char *runID);
 {
     // Same install dance as the round-trip test, so the id is populated beforehand whenever
     // this class runs first in the process.
-    // No install: the __ks_runid section exists statically and the seam fills it, which is all
-    // the loader reads. Installing here would take the one-per-process install from the Swift
-    // install suites sharing this test process.
     kscrash_testcode_setRunID("aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee");
 
     NSString *saved = @(kscrash_getRunID());

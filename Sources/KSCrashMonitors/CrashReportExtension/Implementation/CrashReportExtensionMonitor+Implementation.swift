@@ -28,8 +28,8 @@ import Darwin
 import Foundation
 import KSCrashMonitorPlugins
 import KSCrashRecording
-import KSCrashReportModel
 import KSCrashRecordingCore
+import KSCrashReportModel
 
 extension CrashReportExtensionMonitor {
 
