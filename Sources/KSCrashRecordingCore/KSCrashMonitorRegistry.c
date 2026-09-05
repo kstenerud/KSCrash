@@ -137,7 +137,7 @@ bool kscmr_addMonitor(KSCrashMonitorAPIList *monitorList, const KSCrashMonitorAP
                 break;
             }
             const char *existingId = monitorIdOf(existing);
-            if (existingId != NULL && strcmp(existingId, newId) == 0) {
+            if (existingId != NULL && strncmp(existingId, newId, KSCRASH_MONITOR_ID_MAX_LENGTH) == 0) {
                 KSLOG_ERROR("A monitor with id \"%s\" was registered concurrently. Backing out.", newId);
                 for (size_t j = 0; j < KSCRASH_MONITOR_API_COUNT; j++) {
                     const KSCrashMonitorAPI *expectedAPI = api;
@@ -175,7 +175,7 @@ const KSCrashMonitorAPI *kscmr_getMonitor(KSCrashMonitorAPIList *monitorList, co
 
     for (size_t i = 0; i < KSCRASH_MONITOR_API_COUNT; i++) {
         const KSCrashMonitorAPI *api = atomic_load(monitorList->apis + i);
-        if (api && strcmp(api->monitorId(api->context), monitorId) == 0) {
+        if (api && strncmp(api->monitorId(api->context), monitorId, KSCRASH_MONITOR_ID_MAX_LENGTH) == 0) {
             return api;
         }
     }

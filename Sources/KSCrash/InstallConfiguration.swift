@@ -205,11 +205,21 @@ extension InstallConfiguration {
             if id.isEmpty || !monitorIDs.insert(id).inserted {
                 throw InstallError.invalidConfiguration("plugin monitor ids must be non-empty and unique: \(id)")
             }
+            // The registry compares ids over KSCRASH_MONITOR_ID_MAX_LENGTH bytes, so two longer
+            // ids sharing that prefix would be one monitor to it; and the id names a sidecar
+            // directory, so it must be a single path component.
+            if id.utf8.count >= KSCRASH_MONITOR_ID_MAX_LENGTH {
+                throw InstallError.invalidConfiguration(
+                    "plugin monitor ids must be shorter than \(KSCRASH_MONITOR_ID_MAX_LENGTH) bytes: \(id)")
+            }
+            if id.contains("/") || id == "." || id == ".." {
+                throw InstallError.invalidConfiguration("plugin monitor ids must be a single path component: \(id)")
+            }
             if id == KSCRASH_MONITOR_ID_UNSET {
                 throw InstallError.invalidConfiguration("a plugin's monitor table must set a real monitor id")
             }
             if kscrash_isBuiltInMonitorID(id) {
-                throw InstallError.invalidConfiguration("plugin monitor id collides with a built-in monitor: \(id)")
+                throw InstallError.invalidConfiguration("plugin monitor id is built in or reserved: \(id)")
             }
         }
     }

@@ -46,6 +46,7 @@
 #include "KSCrashMonitor_Watchdog.h"
 #include "KSCrashMonitor_Zombie.h"
 #include "KSCrashReportC.h"
+#include "KSCrashReportFields.h"
 #include "KSCrashReportFixer.h"
 #include "KSCrashReportStoreC+Private.h"
 #include "KSCrashRunContext.h"
@@ -269,6 +270,11 @@ bool kscrash_isBuiltInMonitorID(const char *monitorID)
     if (monitorID == NULL) {
         return false;
     }
+    // Not a monitor in the table, but the writer routes this id into the typed profile
+    // section, which a plugin cannot satisfy.
+    if (strncmp(monitorID, KSCrashExcType_Profile, KSCRASH_MONITOR_ID_MAX_LENGTH) == 0) {
+        return true;
+    }
     for (size_t i = 0; i < g_monitorMappingCount; i++) {
         KSCrashMonitorAPI *api = g_monitorMappings[i].getAPI();
         if (api == NULL || api->monitorId == NULL) {
@@ -282,8 +288,11 @@ bool kscrash_isBuiltInMonitorID(const char *monitorID)
     return false;
 }
 
-// false when the plugin count exceeds the cap: nothing is registered then,
-// and the install fails rather than silently dropping crash coverage.
+static void clearPluginMonitors(void);
+
+// false when the plugin count exceeds the cap or the registry refuses one (an id already
+// registered, say): nothing stays registered then, and the install fails rather than
+// silently dropping the coverage the caller configured.
 static bool setPluginMonitors(KSCrashMonitorAPI *apis, int count)
 {
     g_pluginCount = 0;
@@ -296,7 +305,12 @@ static bool setPluginMonitors(KSCrashMonitorAPI *apis, int count)
     }
     for (int i = 0; i < count; i++) {
         g_plugins[i] = apis[i];
-        kscm_addMonitor(&g_plugins[i]);
+        if (!kscm_addMonitor(&g_plugins[i])) {
+            const char *id = g_plugins[i].monitorId != NULL ? g_plugins[i].monitorId(g_plugins[i].context) : NULL;
+            KSLOG_ERROR("The registry refused plugin \"%s\"; failing the install", id != NULL ? id : "<unset>");
+            clearPluginMonitors();
+            return false;
+        }
         g_pluginCount++;
     }
     return true;
@@ -576,9 +590,9 @@ void kscrash_testcode_setMonitors(KSCrashMonitorType monitorTypes)
 }
 
 __attribute__((unused))  // For tests. Declared as extern in TestCase
-void kscrash_testcode_setPluginMonitors(KSCrashMonitorAPI *apis, int count)
+bool kscrash_testcode_setPluginMonitors(KSCrashMonitorAPI *apis, int count)
 {
-    setPluginMonitors(apis, count);
+    return setPluginMonitors(apis, count);
 }
 
 __attribute__((unused))  // For tests. Declared as extern in TestCase

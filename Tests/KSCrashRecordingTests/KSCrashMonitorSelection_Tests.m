@@ -37,7 +37,7 @@ extern struct KSCrashMonitorSavedState *kscm_testcode_saveState(void);
 extern void kscm_testcode_restoreState(struct KSCrashMonitorSavedState *saved);
 static struct KSCrashMonitorSavedState *g_savedMonitorState;
 extern void kscrash_testcode_setMonitors(KSCrashMonitorType monitorTypes);
-extern void kscrash_testcode_setPluginMonitors(KSCrashMonitorAPI *apis, int count);
+extern bool kscrash_testcode_setPluginMonitors(KSCrashMonitorAPI *apis, int count);
 extern void kscrash_testcode_clearPluginMonitors(void);
 extern void *kscrash_testcode_savePluginMonitors(void);
 extern void kscrash_testcode_restorePluginMonitors(void *saved);
@@ -121,7 +121,7 @@ static bool pluginIsEnabled(__unused void *context) { return g_pluginEnabled; }
     api.monitorFlags = pluginMonitorFlags;
     api.setEnabled = pluginSetEnabled;
     api.isEnabled = pluginIsEnabled;
-    kscrash_testcode_setPluginMonitors(&api, 1);
+    XCTAssertTrue(kscrash_testcode_setPluginMonitors(&api, 1));
     XCTAssertNotEqual(kscm_getMonitor("TestPlugin"), NULL);
     g_pluginEnabled = true;
 

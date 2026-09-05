@@ -137,8 +137,9 @@ const KSCrashReportStoreCConfiguration *kscrash_getReportStoreConfiguration(void
 /** Whether kscrash_install has completed successfully. */
 bool kscrash_isInstalled(void);
 
-/** Whether this id belongs to one of the framework's built-in monitors.
- * A plugin must not use a built-in id: the id routes report sections,
+/** Whether this id belongs to one of the framework's built-in monitors, or is
+ * otherwise reserved by the report writer (the typed profile section).
+ * A plugin must not use such an id: the id routes report sections,
  * sidecar directories and stitch callbacks.
  */
 bool kscrash_isBuiltInMonitorID(const char *monitorID);
