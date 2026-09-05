@@ -148,6 +148,39 @@ final class SidecarMetadataMonitorPluginTests: XCTestCase {
         XCTAssertEqual(store.keys, ["good", "literal"])
     }
 
+    func test_scalarStringCarryingAnEmbeddedNUL_isAbsent_notAPrefix() throws {
+        // A scalar string crosses into the store NUL-terminated, so one with
+        // an embedded NUL would read back as a prefix. A container with the
+        // same NUL is absence at read time; a scalar is absence at write time.
+        let path = directory.appendingPathComponent("ScalarNUL.ksscr").path
+        let store = try SidecarMetadata.creating(at: path, config: KSKVSConfig(initialCapacity: 512))
+
+        store["s"] = "before"
+        store["s"] = "plain\0text"
+
+        XCTAssertNil(store["s"] as String?)
+        XCTAssertEqual(store.keys, [])
+    }
+
+    func test_keyCarryingAnEmbeddedNUL_isRefused_andNeverTouchesThePrefixKey() throws {
+        // The store reads keys as C strings, so "a\0b" would be "a" to it:
+        // writing it would overwrite "a", removing it would remove "a", and
+        // reading it would return "a"'s value. Such a key is refused outright.
+        let path = directory.appendingPathComponent("KeyNUL.ksscr").path
+        let store = try SidecarMetadata.creating(at: path, config: KSKVSConfig(initialCapacity: 512))
+
+        store["a"] = "kept"
+        store["a\0b"] = "clobber"
+        XCTAssertEqual(store["a"] as String?, "kept")
+        XCTAssertNil(store["a\0b"] as String?)
+
+        store.removeValue(forKey: "a\0b")
+        XCTAssertEqual(store["a"] as String?, "kept")
+        store["a\0b"] = nil as String?
+        XCTAssertEqual(store["a"] as String?, "kept")
+        XCTAssertEqual(store.keys, ["a"])
+    }
+
     func test_keys_omitAJSONRecordWhoseReadIsAbsence() throws {
         // The writer checks only the opening byte, so bytes that open a
         // container but do not decode can reach a file (a torn or foreign

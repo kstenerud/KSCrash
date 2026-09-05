@@ -89,13 +89,18 @@ type to make its own output nicer.
 
 ## Numbers carry their own precision
 
-`ksstring_doubleToString` writes `DBL_DIG` digits; `ksstring_floatToString`
-writes `FLT_DIG`. Which one to use comes from the caller, who knows what the
-value is, never from inspecting the value. Guessing ("this double is close to
-its float cast, so print six digits") put epoch timestamps out by up to 84
-minutes. More digits are not better either: the digits come out of a single
-`double` multiply, so past `DBL_DIG` the tail is that multiply's rounding
-error.
+`ksstring_doubleToString` writes the shortest digits that read back as exactly
+the double; `ksstring_floatToString` the shortest that read back as exactly
+the float. Which one to use comes from the caller, who knows what the value
+is, never from inspecting the value. Guessing ("this double is close to its
+float cast, so print six digits") put epoch timestamps out by up to 84
+minutes. A fixed digit count is wrong in both directions: fifteen lost the
+low end of a timestamp and printed `DBL_MAX` as a number that parses to
+infinity, and more digits than a value carries are noise (the double for 0.1
+is not "0.10000000000000001" to anyone). The digits come from exact integer
+arithmetic on the significand (`KSString.c`, the Steele & White free-format
+algorithm), not from a double multiply, which is what makes every one of them
+the value's own.
 
 ## A refused write clears the key
 
