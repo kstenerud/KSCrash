@@ -26,6 +26,7 @@
 
 import Darwin
 import Foundation
+import KSCrash
 import KSCrashMonitorPlugins
 import KSCrashRecording
 import KSCrashReportModel
@@ -36,9 +37,8 @@ extension ExtensionReporting {
     /// `<kcdataDirectory>/<processName>-<pid>-<timestamp>.kcdata`, best effort. Returns nil
     /// when disabled so the gatherer skips the work entirely.
     static func kcdataSaver() -> ((Data, CorpseSnapshot.CrashInfo?) -> Void)? {
-        guard let configuration = activeConfiguration, configuration.savesKCData,
-            let directory = configuration.kcdataDirectory
-        else { return nil }
+        guard let active, active.savesKCData else { return nil }
+        let directory = active.kcdataDirectory
         return { data, crashInfo in
             let name = [
                 crashInfo?.processName ?? "unknown",
@@ -51,12 +51,12 @@ extension ExtensionReporting {
     }
 }
 
-extension ExtensionReporting {
+extension KSCrash {
 
     /// The full capture flow from raw corpse inputs: load the crashed run's ID out of the
     /// corpse (best effort), gather the snapshot, and write the report. The kcdata gather
     /// requires a genuine corpse, so this path is validated against one, not in-process.
-    static func captureCrashReport(corpse: mach_port_t, images: [CorpseSnapshot.Image], exception: Int32) throws
+    func captureCrashReport(corpse: mach_port_t, images: [CorpseSnapshot.Image], exception: Int32) throws
         -> Report.ID
     {
         // Load-or-clear, best effort: the run id is per-corpse state, so clear the previous
@@ -76,7 +76,7 @@ extension ExtensionReporting {
     /// The capture core, orchestrating an already-gathered snapshot: the crash facts come
     /// from the snapshot's kcdata, the snapshot itself is embedded in the report by the
     /// monitor's report-section writer, and the report goes through the standard pipeline.
-    static func captureCrashReport(snapshot: CorpseSnapshot, corpse: mach_port_t) throws -> Report.ID {
+    func captureCrashReport(snapshot: CorpseSnapshot, corpse: mach_port_t) throws -> Report.ID {
         // Without kcdata there is no crashed thread to unwind; a report without the crash's
         // own thread would be misleading rather than helpful.
         guard let crashInfo = snapshot.crashInfo, let crashedThreadID = crashInfo.crashedThreadID,

@@ -73,7 +73,8 @@ extension KSCrash {
     public func sendReports(with configuration: SendConfiguration) async throws -> SendResult<Report> {
         try await ReportSend.send(
             store: Self.makeStore(),
-            pipeline: configuration.reportPipeline
+            pipeline: configuration.reportPipeline,
+            extensionAreas: configuration.extensionAreas
         )
     }
 
@@ -89,6 +90,7 @@ extension KSCrash {
         try await ReportSend.send(
             store: Self.makeStore(),
             pipeline: configuration.reportPipeline,
+            extensionAreas: configuration.extensionAreas,
             only: Set(ids)
         )
     }

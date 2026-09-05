@@ -96,7 +96,15 @@ enum TestInstall {
         do {
             try result.get()
         } catch InstallError.alreadyInstalled {
-            throw XCTSkip("another suite owns the process-wide install")
+            throw XCTSkip(
+                """
+                SKIPPED, not failed: another test suite already claimed this process's one \
+                KSCrash install (the crash-extension suite installs in extension-reporting \
+                mode when it runs first). Under `swift test` every bundle shares one process, \
+                so whichever suite installs first wins. For full coverage run this bundle \
+                alone (`swift test --filter KSCrashTests`) or via xcodebuild, where bundles \
+                get their own processes. See .claude/rules/testing.md.
+                """)
         }
     }
 }

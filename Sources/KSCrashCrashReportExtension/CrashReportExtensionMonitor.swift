@@ -41,7 +41,7 @@ import KSCrashRecordingCore
 public final class CrashReportExtensionMonitor: CrashMonitor {
     public typealias EventPayload = CorpseSnapshot
 
-    public static let id = "Corpse"
+    public static let id = "corpse"
 
     /// Where the snapshot lands in a delivered report: at the root, since it describes the
     /// crashed process rather than the error. The final-pass stitch moves it there.
