@@ -110,7 +110,11 @@ public final class SidecarMetadata: MetadataStore, @unchecked Sendable {
             // Convert once: for containers metadataValue walks the whole tree.
             let converted = value.metadataValue
             switch converted {
-            case .string(let value): payload = .string(value)
+            case .string(let value):
+                // The store keeps a scalar string NUL-terminated, so one with
+                // an embedded NUL would read back as a prefix. A container
+                // carrying one is absence at read time; a scalar is absence here.
+                payload = value.utf8.contains(0) ? .remove : .string(value)
             case .integer(let value): payload = .integer(value)
             case .unsignedInteger(let value): payload = .unsignedInteger(value)
             case .bool(let value): payload = .bool(value)
@@ -132,8 +136,20 @@ public final class SidecarMetadata: MetadataStore, @unchecked Sendable {
         }
     }
 
+    /// Whether `key` is one the store can carry. The store reads keys as C
+    /// strings, so a key with an embedded NUL would alias the key that is its
+    /// prefix: writing or removing it would land on that other key. Such a key
+    /// is refused everywhere, and never resolved to the prefix.
+    private static func isRepresentable(key: String) -> Bool {
+        !key.utf8.contains(0)
+    }
+
     /// Writes a prepared value under `key`.
     package func apply(_ prepared: PreparedValue, forKey key: String) {
+        guard Self.isRepresentable(key: key) else {
+            os_log(.error, "Metadata key with an embedded NUL refused; nothing written")
+            return
+        }
         switch prepared.payload {
         case .remove: remove(key)
         case .string(let value): record(key) { kskvs_setString(store, key, value) }
@@ -152,6 +168,10 @@ public final class SidecarMetadata: MetadataStore, @unchecked Sendable {
     }
 
     public func removeValue(forKey key: String) {
+        guard Self.isRepresentable(key: key) else {
+            os_log(.error, "Metadata key with an embedded NUL refused; nothing removed")
+            return
+        }
         remove(key)
     }
 
@@ -287,6 +307,7 @@ public final class SidecarMetadata: MetadataStore, @unchecked Sendable {
     }
 
     package func valueSnapshot(forKey key: String) -> ValueSnapshot {
+        guard Self.isRepresentable(key: key) else { return ValueSnapshot() }
         final class Lookup {
             var snapshot = ValueSnapshot()
             static func from(_ context: UnsafeMutableRawPointer?) -> Lookup {
