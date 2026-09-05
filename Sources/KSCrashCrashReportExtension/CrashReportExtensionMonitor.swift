@@ -27,6 +27,7 @@
 import Foundation
 import KSCrashMonitorPlugins
 import KSCrashRecordingCore
+import KSCrashReportModel
 
 /// Writes crash reports for other processes' corpses from an iOS 27 CrashReportExtension, and
 /// enriches them on the app side at read time.
