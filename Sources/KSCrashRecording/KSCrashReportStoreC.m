@@ -1356,15 +1356,14 @@ void kscrs_reclaimOrphanedRunData(const KSCrashReportStoreCConfiguration *const 
     pthread_mutex_unlock(&g_mutex);
 }
 
-
-static void ingestExtensionReports(const KSCrashReportStoreCConfiguration *const config)
+static void ingestExtensionReports(const char *sourceReportsPath, const KSCrashReportStoreCConfiguration *const config)
 {
-    if (config->extensionReportsPath == NULL) {
+    if (sourceReportsPath == NULL) {
         return;
     }
-    DIR *dir = opendir(config->extensionReportsPath);
+    DIR *dir = opendir(sourceReportsPath);
     if (dir == NULL) {
-        KSLOG_ERROR(@"Could not open extension reports path %s: %s", config->extensionReportsPath, strerror(errno));
+        KSLOG_ERROR(@"Could not open extension reports path %s: %s", sourceReportsPath, strerror(errno));
         return;
     }
 
@@ -1399,7 +1398,7 @@ static void ingestExtensionReports(const KSCrashReportStoreCConfiguration *const
     for (size_t i = 0; i < nameCount; i++) {
         char sourcePath[KSCRS_MAX_PATH_LENGTH];
         char destinationPath[KSCRS_MAX_PATH_LENGTH];
-        if (snprintf(sourcePath, sizeof(sourcePath), "%s/%s", config->extensionReportsPath, names[i].name) >=
+        if (snprintf(sourcePath, sizeof(sourcePath), "%s/%s", sourceReportsPath, names[i].name) >=
                 (int)sizeof(sourcePath) ||
             snprintf(destinationPath, sizeof(destinationPath), "%s/%s", config->reportsPath, names[i].name) >=
                 (int)sizeof(destinationPath)) {
@@ -1415,9 +1414,10 @@ static void ingestExtensionReports(const KSCrashReportStoreCConfiguration *const
     free(names);
 }
 
-void kscrs_ingestExtensionReports(const KSCrashReportStoreCConfiguration *const configuration)
+void kscrs_ingestExtensionReports(const char *sourceReportsPath,
+                                  const KSCrashReportStoreCConfiguration *const configuration)
 {
     pthread_mutex_lock(&g_mutex);
-    ingestExtensionReports(configuration);
+    ingestExtensionReports(sourceReportsPath, configuration);
     pthread_mutex_unlock(&g_mutex);
 }

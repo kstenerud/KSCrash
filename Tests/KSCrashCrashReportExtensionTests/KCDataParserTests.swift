@@ -28,7 +28,7 @@ import Foundation
 import KSCrashReportModel
 import XCTest
 
-@testable import KSCrashMonitors
+@testable import KSCrashCrashReportExtension
 
 final class KCDataParserTests: XCTestCase {
 

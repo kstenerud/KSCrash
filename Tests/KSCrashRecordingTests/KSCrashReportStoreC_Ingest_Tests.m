@@ -64,7 +64,6 @@
 
     _appConfig.reportsPath = self.appReportsPath.UTF8String;
     _appConfig.maxReportCount = 10;
-    _appConfig.extensionReportsPath = self.extensionReportsPath.UTF8String;
     kscrs_initialize(&_appConfig);
 }
 
@@ -92,7 +91,7 @@
     NSString *firstID = [self writeExtensionReport];
     NSString *secondID = [self writeExtensionReport];
 
-    kscrs_ingestExtensionReports(&_appConfig);
+    kscrs_ingestExtensionReports(self.extensionReportsPath.UTF8String, &_appConfig);
 
     XCTAssertEqual(kscrs_getReportCount(&_appConfig), 2);
     XCTAssertEqual([self fileCountAt:self.extensionReportsPath], 0u, @"The source directory must drain");
@@ -120,7 +119,7 @@
         [ids addObject:[self writeExtensionReport]];
     }
 
-    kscrs_ingestExtensionReports(&_appConfig);
+    kscrs_ingestExtensionReports(self.extensionReportsPath.UTF8String, &_appConfig);
 
     XCTAssertEqual([self fileCountAt:self.extensionReportsPath], 0u, @"The source directory must drain in one pass");
     XCTAssertEqual(kscrs_getReportCount(&_appConfig), (int)ids.count);
@@ -142,7 +141,7 @@
     NSString *destination = [self.appReportsPath stringByAppendingPathComponent:fileName];
     [@"{\"existing\":true}" writeToFile:destination atomically:YES encoding:NSUTF8StringEncoding error:nil];
 
-    kscrs_ingestExtensionReports(&_appConfig);
+    kscrs_ingestExtensionReports(self.extensionReportsPath.UTF8String, &_appConfig);
 
     XCTAssertEqual([self fileCountAt:self.extensionReportsPath], 1u, @"The source file must stay put");
     NSString *kept = [NSString stringWithContentsOfFile:destination encoding:NSUTF8StringEncoding error:nil];
@@ -158,7 +157,7 @@
     [@"notes" writeToFile:notes atomically:YES encoding:NSUTF8StringEncoding error:nil];
     [@"{}" writeToFile:otherApp atomically:YES encoding:NSUTF8StringEncoding error:nil];
 
-    kscrs_ingestExtensionReports(&_appConfig);
+    kscrs_ingestExtensionReports(self.extensionReportsPath.UTF8String, &_appConfig);
 
     XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:notes]);
     XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:otherApp]);
@@ -169,9 +168,8 @@
 {
     [self prepareStores];
     [self writeExtensionReport];
-    _appConfig.extensionReportsPath = NULL;
 
-    kscrs_ingestExtensionReports(&_appConfig);
+    kscrs_ingestExtensionReports(NULL, &_appConfig);
 
     XCTAssertEqual(kscrs_getReportCount(&_appConfig), 0);
     XCTAssertEqual([self fileCountAt:self.extensionReportsPath], 1u);
@@ -180,9 +178,7 @@
 - (void)testIngestNoOpWithMissingDirectory
 {
     [self prepareStores];
-    _appConfig.extensionReportsPath = "/nonexistent/definitely/not/here";
-
-    kscrs_ingestExtensionReports(&_appConfig);
+    kscrs_ingestExtensionReports("/nonexistent/definitely/not/here", &_appConfig);
 
     XCTAssertEqual(kscrs_getReportCount(&_appConfig), 0);
 }
