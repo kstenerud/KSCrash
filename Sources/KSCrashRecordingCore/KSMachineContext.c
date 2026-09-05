@@ -61,15 +61,35 @@ static KSThread g_reservedThreads[10];
 static int g_reservedThreadsMaxIndex = sizeof(g_reservedThreads) / sizeof(g_reservedThreads[0]) - 1;
 static int g_reservedThreadsCount = 0;
 
-static inline bool getThreadList(KSMachineContext *context)
+/** Find the thread with the given kernel thread id (the id crash info reports) in a thread list. */
+static thread_t findThreadWithID(const thread_act_array_t threads, mach_msg_type_number_t count, uint64_t threadID)
 {
+    for (mach_msg_type_number_t i = 0; i < count; i++) {
+        thread_identifier_info_data_t info;
+        mach_msg_type_number_t infoCount = THREAD_IDENTIFIER_INFO_COUNT;
+        if (thread_info(threads[i], THREAD_IDENTIFIER_INFO, (thread_info_t)&info, &infoCount) == KERN_SUCCESS &&
+            info.thread_id == threadID) {
+            return threads[i];
+        }
+    }
+    return MACH_PORT_NULL;
+}
+
+/** Enumerate the context's task into allThreads. When findThreadID is non-zero, also resolve it
+ *  to a port and set it as the context's thisThread (kernel thread ids are never 0), failing if
+ *  the task has no such thread. */
+static inline bool getThreadList(KSMachineContext *context, uint64_t findThreadID)
+{
+    // Enumerate threads of the context's task (a corpse, when the context targets another task).
+    const task_t sourceTask = context->task;
+    // Port rights and the returned array are always owned by *our* task, so deallocation uses self.
     const task_t thisTask = mach_task_self();
     KSLOG_DEBUG("Getting thread list");
     kern_return_t kr;
     thread_act_array_t threads;
     mach_msg_type_number_t actualThreadCount;
 
-    if ((kr = task_threads(thisTask, &threads, &actualThreadCount)) != KERN_SUCCESS) {
+    if ((kr = task_threads(sourceTask, &threads, &actualThreadCount)) != KERN_SUCCESS) {
         KSLOG_ERROR("task_threads: %s", mach_error_string(kr));
         return false;
     }
@@ -78,6 +98,17 @@ static inline bool getThreadList(KSMachineContext *context)
     if (threadCount > MAX_CAPTURED_THREADS) {
         KSLOG_ERROR("Thread count %d is higher than maximum of %d", threadCount, MAX_CAPTURED_THREADS);
         threadCount = MAX_CAPTURED_THREADS;
+    }
+    if (findThreadID != 0) {
+        context->thisThread = findThreadWithID(threads, actualThreadCount, findThreadID);
+        if (context->thisThread == MACH_PORT_NULL) {
+            KSLOG_ERROR("No thread with id %llu in task 0x%x", (unsigned long long)findThreadID, sourceTask);
+            for (mach_msg_type_number_t i = 0; i < actualThreadCount; i++) {
+                mach_port_deallocate(thisTask, threads[i]);
+            }
+            vm_deallocate(thisTask, (vm_address_t)threads, sizeof(thread_t) * actualThreadCount);
+            return false;
+        }
     }
     const thread_t crashedThread = context->thisThread;
     bool isCrashedThreadInList = false;
@@ -95,8 +126,31 @@ static inline bool getThreadList(KSMachineContext *context)
     }
     context->threadCount = (int)threadCount;
 
-    for (mach_msg_type_number_t i = 0; i < actualThreadCount; i++) {
-        mach_port_deallocate(thisTask, threads[i]);
+    if (sourceTask == thisTask) {
+        // In-process, pthread holds its own send right for every thread, so the raw names
+        // stay valid after we drop ours.
+        for (mach_msg_type_number_t i = 0; i < actualThreadCount; i++) {
+            mach_port_deallocate(thisTask, threads[i]);
+        }
+    } else {
+        // Remote (corpse) task: these are the only send rights we hold, so dropping them
+        // would kill the names before thread_get_state ever runs. Keep the rights for the
+        // captured threads (they live until this short-lived reader process exits) and only
+        // drop the ones that didn't fit in allThreads.
+        for (mach_msg_type_number_t i = threadCount; i < actualThreadCount; i++) {
+            if (threads[i] == crashedThread) {
+                // Enumerated past the clamp but copied into the last allThreads slot; this is
+                // the only send right for the crashed thread, so it must survive for
+                // thread_get_state.
+                continue;
+            }
+            mach_port_deallocate(thisTask, threads[i]);
+        }
+        if (threadCount > 0 && !isCrashedThreadInList) {
+            // The last slot was overwritten with the crashed thread, so its original
+            // occupant is not referenced anywhere either.
+            mach_port_deallocate(thisTask, threads[threadCount - 1]);
+        }
     }
     vm_deallocate(thisTask, (vm_address_t)threads, sizeof(thread_t) * actualThreadCount);
 
@@ -112,6 +166,7 @@ bool ksmc_getContextForThread(KSThread thread, KSMachineContext *destinationCont
     KSLOG_DEBUG("Fill thread 0x%x context into %p. is crashed = %d", thread, destinationContext, isCrashedContext);
     memset(destinationContext, 0, sizeof(*destinationContext));
     destinationContext->thisThread = (thread_t)thread;
+    destinationContext->task = mach_task_self();
     destinationContext->isCurrentThread = thread == ksthread_self();
     destinationContext->isCrashedContext = isCrashedContext;
     destinationContext->isSignalContext = false;
@@ -119,21 +174,71 @@ bool ksmc_getContextForThread(KSThread thread, KSMachineContext *destinationCont
         kscpu_getState(destinationContext);
     }
     if (ksmc_isCrashedContext(destinationContext)) {
-        getThreadList(destinationContext);
+        getThreadList(destinationContext, 0);
     }
     KSLOG_TRACE("Context retrieved.");
+    return true;
+}
+
+bool ksmc_getContextForSiblingThread(KSThread thread, const KSMachineContext *sourceContext,
+                                     KSMachineContext *destinationContext)
+{
+    memset(destinationContext, 0, sizeof(*destinationContext));
+    destinationContext->thisThread = (thread_t)thread;
+    // Inherited BEFORE any state read, so the sibling of a remote (corpse) context never
+    // reads or unwinds this process by mistake.
+    destinationContext->task = sourceContext->task;
+    destinationContext->imageSet = sourceContext->imageSet;
+    // A remote thread's port name can collide with ksthread_self() (names are task-local),
+    // so "current" requires being in this task too.
+    destinationContext->isCurrentThread = destinationContext->task == mach_task_self() && thread == ksthread_self();
+    if (ksmc_canHaveCPUState(destinationContext)) {
+        kscpu_getState(destinationContext);
+    }
     return true;
 }
 
 bool ksmc_getContextForSignal(void *signalUserContext, KSMachineContext *destinationContext)
 {
     KSLOG_DEBUG("Get context from signal user context and put into %p.", destinationContext);
+    // Zero first, like every other constructor: imageSet is a pointer the unwinder dereferences
+    // when non-NULL, so a caller passing a non-zeroed context would otherwise have the crash
+    // handler chase a stale one. (memcpy below fills machineContext, so this costs one memset
+    // of a struct we are about to overwrite most of.)
+    memset(destinationContext, 0, sizeof(*destinationContext));
     _STRUCT_MCONTEXT *sourceContext = ((SignalUserContext *)signalUserContext)->UC_MCONTEXT;
     memcpy(&destinationContext->machineContext, sourceContext, sizeof(destinationContext->machineContext));
     destinationContext->thisThread = (thread_t)ksthread_self();
+    destinationContext->task = mach_task_self();
+    destinationContext->isCurrentThread = true;
     destinationContext->isCrashedContext = true;
     destinationContext->isSignalContext = true;
-    getThreadList(destinationContext);
+    getThreadList(destinationContext, 0);
+    KSLOG_TRACE("Context retrieved.");
+    return true;
+}
+
+bool ksmc_getContextForTaskThread(task_t task, const struct KSBinaryImageSet *imageSet, uint64_t threadID,
+                                  KSMachineContext *destinationContext)
+{
+    KSLOG_DEBUG("Fill context for thread id %llu of task 0x%x into %p.", (unsigned long long)threadID, task,
+                destinationContext);
+    if (threadID == 0) {
+        return false;
+    }
+    memset(destinationContext, 0, sizeof(*destinationContext));
+    destinationContext->task = task;
+    destinationContext->imageSet = imageSet;
+    destinationContext->isCrashedContext = true;
+    // One enumeration serves both the thread list and the id-to-port lookup.
+    if (!getThreadList(destinationContext, threadID)) {
+        return false;
+    }
+    destinationContext->isCurrentThread =
+        task == mach_task_self() && destinationContext->thisThread == (thread_t)ksthread_self();
+    if (ksmc_canHaveCPUState(destinationContext)) {
+        kscpu_getState(destinationContext);
+    }
     KSLOG_TRACE("Context retrieved.");
     return true;
 }

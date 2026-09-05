@@ -60,6 +60,9 @@ struct Store: Sendable {
 
     private let reports: ReportBridge
     private let reclaim: @Sendable () -> Void
+    /// The store's own Reports directory; area scans skip it. nil for the
+    /// bridge-backed test stores, which pull from nowhere.
+    private let reportsDirectory: URL?
 
     /// The production store: the report half and the reclaim go through
     /// the C-backed report store, the one owner of the Reports directory,
@@ -76,10 +79,12 @@ struct Store: Sendable {
         self.init(
             runsDirectory: runsDirectory,
             runSidecarsDirectory: runSidecarsDirectory,
+            reportsDirectory: reportsDirectory,
             liveRunID: liveRunID,
             maxRunCount: maxRunCount,
             reports: ReportBridge(
                 list: { try Store.listReportIDs(in: reportsDirectory) },
+                ingest: { source in kscrs_ingestExtensionReports(source.path, config.pointer) },
                 read: { id in try config.read(id) },
                 runID: { id in config.runID(of: id) },
                 remove: { id in try config.remove(id) }
@@ -91,6 +96,7 @@ struct Store: Sendable {
     init(
         runsDirectory: URL,
         runSidecarsDirectory: URL,
+        reportsDirectory: URL? = nil,
         liveRunID: RunSummary.ID?,
         maxRunCount: Int = 0,
         reports: ReportBridge = .none,
@@ -102,14 +108,26 @@ struct Store: Sendable {
         self.maxRunCount = maxRunCount
         self.reports = reports
         self.reclaim = reclaim
+        self.reportsDirectory = reportsDirectory
     }
 
     /// Every pending crash report, newest first. Throws when the Reports
     /// directory cannot be enumerated; the runs half is not touched.
-    func snapshotReportIDs() throws -> [Report.ID] {
+    func snapshotReportIDs(pullingFrom extensionAreas: [ExtensionConfiguration] = []) throws -> [Report.ID] {
+        // A crash extension's reports are moved in before the listing, so the
+        // same send that finds them delivers them. An area resolves to its
+        // namespace directory, and every bundle-id subdirectory in it except
+        // our own contributes a Reports directory; the area's own resolution
+        // failure (a bad app-group id) throws, since silently pulling from
+        // nowhere would strand the extension's reports forever.
+        for area in extensionAreas {
+            for source in try area.reportsDirectories(excluding: reportsDirectory) {
+                reports.ingest(source)
+            }
+        }
         // The listing is oldest first (the filenames carry the write time),
         // so newest first is its reverse.
-        Array(try reports.list().reversed())
+        return Array(try reports.list().reversed())
     }
 
     /// Every past run with data on disk, as inert values: all artifacts
@@ -386,6 +404,11 @@ struct ReportBridge: Sendable {
     /// store's snapshot derives newest-first by reversal. Throws when the
     /// directory cannot be enumerated; an empty store is an empty array.
     let list: @Sendable () throws -> [Report.ID]
+
+    /// Moves every report in `source` into the store, never replacing an
+    /// existing one. Defaults to a no-op: only the production bridge is backed
+    /// by a real store directory.
+    var ingest: @Sendable (_ source: URL) -> Void = { _ in }
 
     /// One report's stitched JSON. nil when it cannot be read right now.
     /// Throws when the file was read but does not hold a JSON report; that is

@@ -66,6 +66,7 @@
 // #define KSLogger_LocalLevel TRACE
 #include <errno.h>
 #include <fcntl.h>
+#include <mach/thread_info.h>
 #include <math.h>
 #include <pthread.h>
 #include <stdatomic.h>
@@ -448,6 +449,14 @@ static void initStackCursor(KSStackCursor *cursor, int maxDepth, const struct KS
     kssc_initWithUnwindMethods(cursor, maxDepth, machineContext, g_unwindMethods, MAX_UNWIND_METHODS);
 }
 
+/** A symbolicate that always declines. A frame belonging to another task must not be
+ *  symbolicated here: its address is looked up against whatever this process has mapped at
+ *  that address, which names the wrong symbol. Such frames resolve against the report's binary
+ *  images instead. A crash extension could symbolicate them through CrashReporterExtension's
+ *  own symbolication, but symbolication belongs on the backend.
+ */
+static bool neverSymbolicate(__unused KSStackCursor *cursor) { return false; }
+
 /** Get the backtrace for the specified machine context.
  *
  * This function will choose how to fetch the backtrace based on the crash and
@@ -470,10 +479,17 @@ static bool getStackCursor(const KSCrash_MonitorContext *const crash,
     if (ksmc_getThreadFromContext(machineContext) == ksmc_getThreadFromContext(crash->offendingMachineContext) &&
         crash->stackCursor != NULL) {
         *cursor = *((KSStackCursor *)crash->stackCursor);
-        return true;
+    } else {
+        initStackCursor(cursor, KSSC_STACK_OVERFLOW_THRESHOLD, machineContext);
     }
 
-    initStackCursor(cursor, KSSC_STACK_OVERFLOW_THRESHOLD, machineContext);
+    // Applies to whichever cursor we ended up with. A monitor-supplied cursor carries whatever
+    // symbolicate it was built with, so gating this on the fall-through path alone would let a
+    // remote subject's frames be symbolicated against this process's images, on the crashed
+    // thread specifically.
+    if (machineContext->task != mach_task_self()) {
+        cursor->symbolicate = neverSymbolicate;
+    }
     return true;
 }
 
@@ -900,6 +916,13 @@ static void writeMemoryContentsIfNotable(const KSCrashReportWriter *const writer
     }
 }
 
+// Referenced-object introspection dereferences local memory (ObjC objects, C strings), so it
+// must be skipped for a remote (corpse) context, same as notable addresses.
+static bool isLocalMemoryContext(const KSCrash_MonitorContext *const crash)
+{
+    return crash->offendingMachineContext == NULL || crash->offendingMachineContext->task == mach_task_self();
+}
+
 /** Look for a hex value in a string and try to write whatever it references.
  *
  * @param writer The writer.
@@ -1008,7 +1031,7 @@ static void writeStackContents(const KSCrashReportWriter *const writer, const ch
         writer->addBooleanElement(writer, KSCrashField_Overflow, stackOverflow);
         uint8_t stackBuffer[kStackContentsTotalDistance * sizeof(sp)];
         int copyLength = (int)(highAddress - lowAddress);
-        if (ksmem_copySafely((void *)lowAddress, stackBuffer, copyLength)) {
+        if (ksmem_copySafelyFromTask(machineContext->task, (void *)lowAddress, stackBuffer, copyLength)) {
             writer->addDataElement(writer, KSCrashField_Contents, (void *)stackBuffer, copyLength);
         } else {
             writer->addStringElement(writer, KSCrashField_Error, "Stack contents not accessible");
@@ -1046,7 +1069,8 @@ static void writeNotableStackContents(const KSCrashReportWriter *const writer,
     uintptr_t contentsAsPointer;
     char nameBuffer[40];
     for (uintptr_t address = lowAddress; address < highAddress; address += sizeof(address)) {
-        if (ksmem_copySafely((void *)address, &contentsAsPointer, sizeof(contentsAsPointer))) {
+        if (ksmem_copySafelyFromTask(machineContext->task, (void *)address, &contentsAsPointer,
+                                     sizeof(contentsAsPointer))) {
             memcpy(nameBuffer, "stack@0x", 8);
             ksstring_uint64ToHex((uint64_t)address, nameBuffer + 8, sizeof(nameBuffer) - 8, 1, false);
             writeMemoryContentsIfNotable(writer, nameBuffer, contentsAsPointer);
@@ -1222,22 +1246,38 @@ static void writeThread(const KSCrashReportWriter *const writer, const char *con
             writeRegisters(writer, KSCrashField_Registers, machineContext);
         }
         writer->addIntegerElement(writer, KSCrashField_Index, threadIndex);
-        const char *name = kstc_getThreadName(thread);
-        if (name != NULL) {
-            writer->addStringElement(writer, KSCrashField_Name, name);
-        }
-        name = kstc_getQueueName(thread);
-        if (name != NULL) {
-            writer->addStringElement(writer, KSCrashField_DispatchQueue, name);
+        if (machineContext->task == mach_task_self()) {
+            const char *name = kstc_getThreadName(thread);
+            if (name != NULL) {
+                writer->addStringElement(writer, KSCrashField_Name, name);
+            }
+            name = kstc_getQueueName(thread);
+            if (name != NULL) {
+                writer->addStringElement(writer, KSCrashField_DispatchQueue, name);
+            }
+        } else {
+            // A remote (corpse) thread: the cache only knows this process's threads, but the
+            // kernel names any thread port we hold. No queue name; that would take a
+            // cross-task walk of libdispatch structures.
+            char nameBuffer[MAXTHREADNAMESIZE];
+            if (ksthread_getThreadNameFromKernel(thread, nameBuffer, sizeof(nameBuffer))) {
+                writer->addStringElement(writer, KSCrashField_Name, nameBuffer);
+            }
         }
         if (state != NULL) {
             writer->addStringElement(writer, KSCrashField_State, state);
         }
         writer->addBooleanElement(writer, KSCrashField_Crashed, isCrashedThread);
-        writer->addBooleanElement(writer, KSCrashField_CurrentThread, thread == ksthread_self());
+        // The context carries the task-guarded answer (a remote thread's port name is allocated
+        // in this process's IPC space and can collide with ksthread_self()), so ask it rather
+        // than comparing port names here.
+        writer->addBooleanElement(writer, KSCrashField_CurrentThread, machineContext->isCurrentThread);
         if (isCrashedThread) {
             writeStackContents(writer, KSCrashField_Stack, machineContext, stackCursor.state.stackOverflow);
-            if (shouldWriteNotableAddresses) {
+            // Notable-address introspection (ObjC objects, zombies, C strings) dereferences
+            // local memory. For a remote (corpse) context it would read this process's own
+            // memory at the target's addresses, so skip it entirely.
+            if (shouldWriteNotableAddresses && machineContext->task == mach_task_self()) {
                 writeNotableAddresses(writer, KSCrashField_NotableAddresses, machineContext);
             }
         }
@@ -1279,7 +1319,9 @@ static void writeThreads(const KSCrashReportWriter *const writer, const char *co
             if (thread == offendingThread) {
                 writeThread(writer, NULL, crash, context, i, writeNotableAddresses, threadRunState, referencedImages);
             } else if (shouldRecordAllThreads) {
-                ksmc_getContextForThread(thread, &machineContext, false);
+                // Born in the crashed thread's task and image set, so sibling threads unwind
+                // the subject task rather than this one.
+                ksmc_getContextForSiblingThread(thread, context, &machineContext);
                 writeThread(writer, NULL, crash, &machineContext, i, writeNotableAddresses, threadRunState,
                             referencedImages);
             }
@@ -1333,8 +1375,23 @@ static void writeBinaryImage(const KSCrashReportWriter *const writer, const KSBi
  * @param key The object key, if needed.
  */
 static void writeBinaryImages(const KSCrashReportWriter *const writer, const char *const key,
-                              const KSReferencedImageSet *referencedImages)
+                              const KSCrash_MonitorContext *const crash, const KSReferencedImageSet *referencedImages)
 {
+    if (crash->providedBinaryImages != NULL) {
+        // The caller handed us the subject task's image list; this process's own images say
+        // nothing about the subject. Compact mode's referenced-image
+        // filter must NOT apply here: remote frames never symbolicate, so the set stays empty
+        // (and would hold this process's image bases, not the subject's), and filtering would
+        // write an empty binary_images section for a report whose frames can only resolve
+        // against this list.
+        writer->beginArray(writer, key);
+        for (int i = 0; i < crash->providedBinaryImageCount; i++) {
+            writeBinaryImage(writer, &crash->providedBinaryImages[i]);
+        }
+        writer->endContainer(writer);
+        return;
+    }
+
     uint32_t count = 0;
     const ks_dyld_image_info *images = ksbic_getImages(&count);
 
@@ -1419,9 +1476,15 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
 #endif
         writer->beginObject(writer, KSCrashField_Signal);
         {
-            const char *sigName = kssignal_signalName(crash->signal.signum);
-            const char *sigCodeName = kssignal_signalCodeName(crash->signal.signum, crash->signal.sigcode);
-            writer->addUIntegerElement(writer, KSCrashField_Signal, (unsigned)crash->signal.signum);
+            // Default: a mach-shaped producer (the Mach monitor sets it itself, a corpse
+            // capture may not) only needs type/code; no signal is ever 0, so 0 means unset.
+            int signum = crash->signal.signum;
+            if (signum == 0 && crash->mach.type != 0) {
+                signum = ksmach_signalForMachException(crash->mach.type, crash->mach.code);
+            }
+            const char *sigName = kssignal_signalName(signum);
+            const char *sigCodeName = kssignal_signalCodeName(signum, crash->signal.sigcode);
+            writer->addUIntegerElement(writer, KSCrashField_Signal, (unsigned)signum);
             if (sigName != NULL) {
                 writer->addStringElement(writer, KSCrashField_Name, sigName);
             }
@@ -1459,7 +1522,9 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
             {
                 writer->addStringElement(writer, KSCrashField_Name, crash->NSException.name);
                 writer->addStringElement(writer, KSCrashField_UserInfo, crash->NSException.userInfo);
-                writeAddressReferencedByString(writer, KSCrashField_ReferencedObject, crash->crashReason);
+                if (isLocalMemoryContext(crash)) {
+                    writeAddressReferencedByString(writer, KSCrashField_ReferencedObject, crash->crashReason);
+                }
             }
             writer->endContainer(writer);
         } else if (isCrashOfMonitorType(crash, kscm_machexception_getAPI())) {
@@ -1497,7 +1562,8 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
             KSLOG_ERROR("Crash monitor type %s shouldn't be able to cause events!", crash->monitorId);
         } else {
             // We now support custom monitors.
-            writer->addStringElement(writer, KSCrashField_Type, crash->monitorId);
+            writer->addStringElement(writer, KSCrashField_Type,
+                                     crash->errorTypeOverride != NULL ? crash->errorTypeOverride : crash->monitorId);
             const KSCrashMonitorAPI *api = kscm_getMonitor(crash->monitorId);
             if (api && api->writeInReportSection) {
                 if (strcmp(crash->monitorId, KSCrashExcType_Profile) == 0) {
@@ -1506,6 +1572,15 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
                     // mechanism; it lives at its schema key, not in the
                     // custom-monitor namespace.
                     writer->beginObject(writer, KSCrashExcType_Profile);
+                    {
+                        api->writeInReportSection(crash, writer, api->context);
+                    }
+                    writer->endContainer(writer);
+                } else if (strcmp(crash->monitorId, KSCrashField_Corpse) == 0) {
+                    // The corpse monitor's section is a private scratch dump: the final-pass
+                    // stitch consumes it into the report root and deletes it, so it lives at
+                    // its own key rather than in the public custom-monitor namespace.
+                    writer->beginObject(writer, KSCrashField_Corpse);
                     {
                         api->writeInReportSection(crash, writer, api->context);
                     }
@@ -1548,8 +1623,10 @@ static void writeProcessState(const KSCrashReportWriter *const writer, const cha
                 writer->addUIntegerElement(writer, KSCrashField_Address, monitorContext->ZombieException.address);
                 writer->addStringElement(writer, KSCrashField_Name, monitorContext->ZombieException.name);
                 writer->addStringElement(writer, KSCrashField_Reason, monitorContext->ZombieException.reason);
-                writeAddressReferencedByString(writer, KSCrashField_ReferencedObject,
-                                               monitorContext->ZombieException.reason);
+                if (isLocalMemoryContext(monitorContext)) {
+                    writeAddressReferencedByString(writer, KSCrashField_ReferencedObject,
+                                                   monitorContext->ZombieException.reason);
+                }
             }
             writer->endContainer(writer);
         }
@@ -1659,7 +1736,7 @@ void kscrashreport_writeRecrashReport(const KSCrash_MonitorContext *const monito
         if (remove(tempPath) < 0) {
             KSLOG_ERROR("Could not remove %s: %s", tempPath, strerror(errno));
         }
-        writeReportInfo(writer, KSCrashField_Report, KSCrashReportType_Minimal, reportID, NULL,
+        writeReportInfo(writer, KSCrashField_Report, KSCrashReportType_Minimal, reportID, monitorContext->processName,
                         monitorContext->monitorId);
         ksfu_flushBufferedWriter(&bufferedWriter);
 
@@ -1753,8 +1830,8 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
 
     writer->beginObject(writer, KSCrashField_Report);
     {
-        writeReportInfo(writer, KSCrashField_Report, KSCrashReportType_Standard, monitorContext->eventID, NULL,
-                        monitorContext->monitorId);
+        writeReportInfo(writer, KSCrashField_Report, KSCrashReportType_Standard, monitorContext->eventID,
+                        monitorContext->processName, monitorContext->monitorId);
         ksfu_flushBufferedWriter(&bufferedWriter);
 
         // Only collect referenced image addresses when compact mode needs them.
@@ -1764,7 +1841,7 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
         KSReferencedImageSet *referencedImages = g_compactBinaryImages ? &referencedImageStorage : NULL;
 
         if (!monitorContext->omitBinaryImages && !g_compactBinaryImages) {
-            writeBinaryImages(writer, KSCrashField_BinaryImages, NULL);
+            writeBinaryImages(writer, KSCrashField_BinaryImages, monitorContext, NULL);
             ksfu_flushBufferedWriter(&bufferedWriter);
         }
 
@@ -1794,7 +1871,7 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
         writer->endContainer(writer);
 
         if (!monitorContext->omitBinaryImages && g_compactBinaryImages) {
-            writeBinaryImages(writer, KSCrashField_BinaryImages, referencedImages);
+            writeBinaryImages(writer, KSCrashField_BinaryImages, monitorContext, referencedImages);
             ksfu_flushBufferedWriter(&bufferedWriter);
         }
 

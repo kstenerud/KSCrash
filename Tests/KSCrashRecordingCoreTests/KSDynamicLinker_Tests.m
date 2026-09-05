@@ -184,4 +184,76 @@
                    symbolName);
 }
 
+// The layout libSystem's crash reporter annotations use; mirrors the private crash_info_t in
+// KSDynamicLinker.c. Planting one in this test bundle's __DATA,__crash_info gives the
+// cross-task reader a real section to find (with task = mach_task_self).
+#pragma pack(8)
+typedef struct {
+    unsigned version;
+    const char *message;
+    const char *signature;
+    const char *backtrace;
+    const char *message2;
+    void *reserved;
+    void *reserved2;
+    void *reserved3;
+} TestCrashInfo;
+#pragma pack()
+
+__attribute__((section("__DATA,__crash_info"))) static TestCrashInfo g_testCrashInfo = {
+    .version = 4,
+    .message = "test crash message",
+    .message2 = "second message",
+    .signature = "",  // Empty: the reader must skip it.
+    .backtrace = NULL,
+};
+
+- (void)testReadCrashInfoFromTaskImage
+{
+    Dl_info dlinfo = { 0 };
+    XCTAssertNotEqual(dladdr(&g_testCrashInfo, &dlinfo), 0);
+
+    KSCrashInfoStrings strings = { 0 };
+    XCTAssertTrue(ksdl_readCrashInfoFromTaskImage(mach_task_self(), (uintptr_t)dlinfo.dli_fbase, &strings));
+
+    XCTAssertEqualObjects([NSString stringWithUTF8String:strings.message], @"test crash message");
+    XCTAssertEqualObjects([NSString stringWithUTF8String:strings.message2], @"second message");
+    XCTAssertEqual(strings.signature, NULL);
+    XCTAssertEqual(strings.backtrace, NULL);
+
+    ksdl_freeCrashInfoStrings(&strings);
+    XCTAssertEqual(strings.message, NULL);
+    XCTAssertEqual(strings.message2, NULL);
+}
+
+- (void)testReadCrashInfoFromTaskImageWithoutSection
+{
+    // Find an image with no __crash_info section (using the in-process reader as the oracle)
+    // and check the cross-task reader agrees.
+    uint32_t count = 0;
+    const ks_dyld_image_info *images = ksbic_getImages(&count);
+    for (uint32_t i = 0; i < count; i++) {
+        KSBinaryImage image = { 0 };
+        if (!ksdl_binaryImageForHeader(images[i].imageLoadAddress, images[i].imageFilePath, &image)) {
+            continue;
+        }
+        if (image.crashInfoMessage != NULL || image.crashInfoMessage2 != NULL || image.crashInfoBacktrace != NULL ||
+            image.crashInfoSignature != NULL) {
+            continue;
+        }
+        KSCrashInfoStrings strings = { 0 };
+        XCTAssertFalse(
+            ksdl_readCrashInfoFromTaskImage(mach_task_self(), (uintptr_t)images[i].imageLoadAddress, &strings));
+        return;
+    }
+    XCTFail(@"No image without crash info found");
+}
+
+- (void)testReadCrashInfoFromTaskImageBogusAddress
+{
+    KSCrashInfoStrings strings = { 0 };
+    XCTAssertFalse(ksdl_readCrashInfoFromTaskImage(mach_task_self(), 0x1000, &strings));
+    XCTAssertEqual(strings.message, NULL);
+}
+
 @end

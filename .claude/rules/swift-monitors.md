@@ -19,7 +19,7 @@ corpse monitor and MetricKit (`KSCrashMonitors`) and the profiler's internal `Pr
 ```swift
 final class CrashReportExtensionMonitor: CrashMonitor {
     typealias EventPayload = CorpseSnapshot
-    static let id = "Corpse"
+    static let id = "corpse"
 
     let host: MonitorHost<CorpseSnapshot>
     init(host: MonitorHost<CorpseSnapshot>, configuration: Void) {   // nothing to configure

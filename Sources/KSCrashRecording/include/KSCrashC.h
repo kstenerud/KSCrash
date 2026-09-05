@@ -199,6 +199,51 @@ const char *kscrash_getRunSidecarsPath(void);
  *         means run summaries are disabled.
  */
 int kscrash_getMaxRunSummaryCount(void);
+/** Load the run ID of a crashed process from its corpse.
+ *
+ * For a crash extension (iOS 27 CrashReporterExtension): scans the corpse's images
+ * for the section that holds its run ID and copies it into this process's run ID, so a report
+ * written here for that corpse is stamped with the crashed run's ID rather than this process's own.
+ * Pass the corpse task port and the corpse's image load addresses (from the extension's binary image
+ * list); the run ID lives in a known section the scan locates by name.
+ *
+ * @param corpse The corpse task port.
+ * @param imageLoadAddresses The corpse's image load addresses.
+ * @param imageCount The number of entries in @c imageLoadAddresses.
+ * @return true if the run ID was found and loaded, false otherwise.
+ */
+bool kscrash_loadRunIDFromCorpse(task_t corpse, const uint64_t *imageLoadAddresses, uint32_t imageCount);
+
+/** Clear the run ID.
+ *
+ * For a crash extension only, where the run ID is per-corpse state: a capture
+ * clears it before calling kscrash_loadRunIDFromCorpse, so a corpse whose run ID cannot be
+ * read produces a report with no run ID rather than one stamped with a previous corpse's.
+ * Must not be called in a normal install, where the run ID is generated once and stays
+ * read-only for async-signal-safety.
+ */
+void kscrash_clearRunID(void);
+
+/** Install in extension (reporter-only) mode: this process writes reports about other
+ * processes and detects no crashes of its own.
+ *
+ * For a crash extension (iOS 27 CrashReportExtension). The install
+ * directory is the extension's OWN report area, typically inside an App Group container so
+ * the app can read the reports from it later; it is not the app's install directory. This
+ * initializes the report store and the report-writing pipeline and registers the given
+ * plugin monitors, and nothing else: no crash handlers, no last-run-id chain, no run
+ * summaries, no previous-run analysis, no console log, and no report pruning.
+ *
+ *        filenames embed it and the app's store scans by it when reading this area;
+ *        a mismatched name writes reports the app never finds.
+ * @param installPath The extension's report directory (e.g. <app group container>/KSCrash).
+ * @param pluginAPIs Plugin monitors to register (e.g. the crash-report-extension monitor).
+ *        May be NULL.
+ * @param pluginCount The number of entries in @c pluginAPIs.
+ * @return KSCrashInstallErrorNone on success.
+ */
+KSCrashInstallErrorCode kscrash_installForExtensionReporting(const char *const installPath,
+                                                             KSCrashMonitorAPI *pluginAPIs, int pluginCount);
 
 /** Get the run ID from the previous process run.
  *

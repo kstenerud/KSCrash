@@ -613,6 +613,60 @@ final class StoreTests: XCTestCase {
         XCTAssertThrowsError(try store.removeReport(testReportID(1)), "already gone")
     }
 
+    /// The listing drains extension areas first: every bundle-id subdirectory
+    /// of the area's namespace root contributes its Reports files, our own
+    /// directory is skipped, an existing report is never replaced, and the
+    /// pulled reports appear in the same listing.
+    func test_snapshotReportIDs_pullsExtensionAreaReportsIntoTheStore() throws {
+        let base = runsDirectory.deletingLastPathComponent()
+        let area = ExtensionConfiguration(namespace: "AreaTests", container: .url(base))
+        // Our own store doubles as one bundle-id member of the area, proving
+        // the self-skip: nothing is pulled from ourselves.
+        let reportsDirectory = try area.processRoot.appendingPathComponent("Reports")
+        try FileManager.default.createDirectory(at: reportsDirectory, withIntermediateDirectories: true)
+        let extensionReports = try area.namespaceRoot
+            .appendingPathComponent("com.example.extension", isDirectory: true)
+            .appendingPathComponent("Reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: extensionReports, withIntermediateDirectories: true)
+
+        let configuration = UnsafeMutablePointer<KSCrashReportStoreCConfiguration>.allocate(capacity: 1)
+        configuration.initialize(to: KSCrashReportStoreCConfiguration_Default())
+        configuration.pointee.reportsPath = UnsafePointer(strdup(reportsDirectory.path))
+        defer {
+            KSCrashReportStoreCConfiguration_Release(configuration)
+            configuration.deallocate()
+        }
+        let store = Store(
+            runsDirectory: runsDirectory,
+            runSidecarsDirectory: sidecarsDirectory,
+            reportsDirectory: reportsDirectory,
+            liveRunID: nil,
+            maxRunCount: 50,
+            storeConfig: UnsafePointer(configuration)
+        )
+        func name(_ order: Int, _ id: Report.ID) -> String {
+            String(format: "%020d-%@.json", order, id.description)
+        }
+        try makeReportData(runID: "OURS").write(to: reportsDirectory.appendingPathComponent(name(1, testReportID(1))))
+        try makeReportData(runID: "EXT").write(to: extensionReports.appendingPathComponent(name(2, testReportID(2))))
+        // Occupied destination: the move must not clobber.
+        try makeReportData(runID: "OURS").write(to: reportsDirectory.appendingPathComponent(name(3, testReportID(3))))
+        try makeReportData(runID: "EXT").write(to: extensionReports.appendingPathComponent(name(3, testReportID(3))))
+        // Not report-shaped: stays put.
+        try Data("x".utf8).write(to: extensionReports.appendingPathComponent("notes.txt"))
+
+        let ids = try store.snapshotReportIDs(pullingFrom: [area])
+        XCTAssertEqual(ids, [testReportID(3), testReportID(2), testReportID(1)])
+        XCTAssertEqual(try store.report(testReportID(2))?.report.runId, testRunID("EXT"))
+        XCTAssertEqual(
+            try store.report(testReportID(3))?.report.runId, testRunID("OURS"),
+            "an existing report is never replaced by an ingested one")
+        let leftBehind = try FileManager.default.contentsOfDirectory(atPath: extensionReports.path).sorted()
+        XCTAssertEqual(
+            leftBehind, [name(3, testReportID(3)), "notes.txt"],
+            "the clobber-refused report and the foreign file stay in the area")
+    }
+
     func test_removeReport_removesAndPropagatesFailure() throws {
         let reports = FakeReports([testReportID(9): try makeReportData()])
         try makeReportStore(reports).removeReport(testReportID(9))

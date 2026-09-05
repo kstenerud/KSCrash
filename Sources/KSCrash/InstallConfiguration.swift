@@ -48,6 +48,49 @@ public enum Container: Sendable, Equatable {
     }
 }
 
+extension Container {
+    /// The container's base directory. Throws when an app group does not resolve or a
+    /// custom URL is not a file URL.
+    var base: URL {
+        get throws {
+            switch self {
+            case .applicationSupport:
+                return try FileManager.default.url(
+                    for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
+            case .caches:
+                return try FileManager.default.url(
+                    for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
+            case .appGroup(let identifier):
+                guard let url = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: identifier)
+                else {
+                    throw InstallError.containerUnavailable(identifier)
+                }
+                return url
+            case .url(let url):
+                guard url.isFileURL else {
+                    throw InstallError.invalidConfiguration("the container URL must be a file URL: \(url)")
+                }
+                return url
+            }
+        }
+    }
+
+    /// `<container>/KSCrash/<namespace>/` — the directory whose bundle-id subdirectories are
+    /// per-process install roots. The one derivation both the install and an extension area
+    /// use, so two processes sharing a container and namespace cannot disagree on the layout.
+    func namespaceRoot(for namespace: String) throws -> URL {
+        if namespace.isEmpty || namespace == "." || namespace == ".." || namespace.contains("/")
+            || namespace.contains("\0")
+        {
+            throw InstallError.invalidConfiguration("namespace must be a single directory name: \(namespace)")
+        }
+        return
+            try base
+            .appendingPathComponent(String(cString: kscrash_namespaceIdentifier()), isDirectory: true)
+            .appendingPathComponent(namespace, isDirectory: true)
+    }
+}
+
 /// Whether memory near the stack and registers is read at crash time.
 public enum MemoryIntrospection: Sendable, Equatable {
     case disabled
@@ -130,32 +173,8 @@ extension InstallConfiguration {
     /// `InstallError.containerUnavailable` when an app group does not resolve.
     public var locations: Locations {
         get throws {
-            try validateNamespace()
-            let base: URL
-            switch container {
-            case .applicationSupport:
-                base = try FileManager.default.url(
-                    for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
-            case .caches:
-                base = try FileManager.default.url(
-                    for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
-            case .appGroup(let identifier):
-                guard let url = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: identifier)
-                else {
-                    throw InstallError.containerUnavailable(identifier)
-                }
-                base = url
-            case .url(let url):
-                guard url.isFileURL else {
-                    throw InstallError.invalidConfiguration("the container URL must be a file URL: \(url)")
-                }
-                base = url
-            }
             let bundleID = Bundle.main.bundleIdentifier ?? ProcessInfo.processInfo.processName
-            let root =
-                base
-                .appendingPathComponent(String(cString: kscrash_namespaceIdentifier()), isDirectory: true)
-                .appendingPathComponent(namespace, isDirectory: true)
+            let root = try container.namespaceRoot(for: namespace)
                 .appendingPathComponent(bundleID, isDirectory: true)
             // The names are the C store's; the install derives the same directories.
             return Locations(
@@ -174,7 +193,6 @@ extension InstallConfiguration {
     /// Everything `install` refuses up front, so a bad configuration fails at the
     /// call site instead of as a missing directory or a dead monitor later.
     func validate() throws {
-        try validateNamespace()
         // The C configuration carries the counts as Int32; the bridge
         // conversion must never be the place a bad value surfaces.
         if !(0...Int(Int32.max)).contains(maxReportCount) {
@@ -214,11 +232,4 @@ extension InstallConfiguration {
         }
     }
 
-    private func validateNamespace() throws {
-        if namespace.isEmpty || namespace == "." || namespace == ".." || namespace.contains("/")
-            || namespace.contains("\0")
-        {
-            throw InstallError.invalidConfiguration("namespace must be a single directory name: \(namespace)")
-        }
-    }
 }

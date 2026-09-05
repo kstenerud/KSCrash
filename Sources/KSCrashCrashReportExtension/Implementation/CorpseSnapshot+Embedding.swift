@@ -1,7 +1,7 @@
 //
-//  KSTaskRole.h
+//  CorpseSnapshot+Embedding.swift
 //
-//  Created by Alexander Cohen on 2026-03-15.
+//  Created by Alexander Cohen on 2026-09-05.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,31 +24,17 @@
 // THE SOFTWARE.
 //
 
-#ifndef KSTaskRole_h
-#define KSTaskRole_h
+import Foundation
+import KSCrashReportModel
 
-#include "KSCrashNamespace.h"
+extension CorpseSnapshot {
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-/** Query the current task role from the kernel.
- *
- * Returns the task_role_t value (e.g. TASK_FOREGROUND_APPLICATION).
- * Returns TASK_UNSPECIFIED on tvOS/watchOS or on failure.
- */
-int kstaskrole_current(void);
-
-/** Returns a human-readable string for a task role.
- *
- * @param role The task_role_t value to convert.
- * @return A string representation of the role (e.g., "FOREGROUND_APPLICATION").
- */
-const char *kstaskrole_toString(int /*task_role_t*/ role);
-
-#ifdef __cplusplus
+    /// The copy that gets embedded in the report. The image list stays out: it is already the
+    /// report's binary_images section. Copy-and-clear so a future field can never be dropped
+    /// here by forgetting to add it to a member list.
+    func forEmbedding() -> CorpseSnapshot {
+        var copy = self
+        copy.images = []
+        return copy
+    }
 }
-#endif
-
-#endif  // KSTaskRole_h

@@ -36,6 +36,7 @@ enum ReportSend {
     static func send(
         store: Store?,
         pipeline: [AnyPipelineStage<Report>],
+        extensionAreas: [ExtensionConfiguration] = [],
         only selection: Set<Report.ID>? = nil,
         claims: SendClaims<Report.ID> = ReportSend.claims
     ) async throws -> SendResult<Report> {
@@ -43,7 +44,7 @@ enum ReportSend {
             store: store,
             kind: SendKind(
                 label: "report",
-                list: { try $0.snapshotReportIDs() },
+                list: { try $0.snapshotReportIDs(pullingFrom: extensionAreas) },
                 id: { $0 },
                 read: { store, id in
                     // A current-run report may still be updated (an

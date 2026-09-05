@@ -241,6 +241,17 @@ bool kscrs_getReportSidecarFilePath(const char *monitorId, const char *name, con
  */
 void kscrs_reclaimOrphanedRunData(const KSCrashReportStoreCConfiguration *const configuration);
 
+/** Move every report in sourceReportsPath into this store.
+ *
+ * Files that cannot be moved are left in place and retried on the next call; an existing
+ * destination is never replaced. No-op when sourceReportsPath is NULL.
+ *
+ * @param sourceReportsPath The directory to drain (a crash extension's Reports directory).
+ * @param configuration The store configuration.
+ */
+void kscrs_ingestExtensionReports(const char *sourceReportsPath,
+                                  const KSCrashReportStoreCConfiguration *const configuration);
+
 #ifdef __cplusplus
 }
 #endif
