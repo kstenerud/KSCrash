@@ -1576,6 +1576,15 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
                         api->writeInReportSection(crash, writer, api->context);
                     }
                     writer->endContainer(writer);
+                } else if (strcmp(crash->monitorId, KSCrashField_Corpse) == 0) {
+                    // The corpse monitor's section is a private scratch dump: the final-pass
+                    // stitch consumes it into the report root and deletes it, so it lives at
+                    // its own key rather than in the public custom-monitor namespace.
+                    writer->beginObject(writer, KSCrashField_Corpse);
+                    {
+                        api->writeInReportSection(crash, writer, api->context);
+                    }
+                    writer->endContainer(writer);
                 } else {
                     writer->beginObject(writer, KSCrashField_MonitorData);
                     {

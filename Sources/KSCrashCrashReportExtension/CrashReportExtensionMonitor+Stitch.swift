@@ -38,16 +38,14 @@ extension CrashReportExtensionMonitor {
         guard scope == .final,
             let crash = report["crash"] as? [String: Any],
             var error = crash["error"] as? [String: Any],
-            var monitorData = error["monitor_data"] as? [String: Any],
-            let section = monitorData[Self.id] as? [String: Any]
+            let section = error[Self.id] as? [String: Any]
         else { return report }
         guard let snapshot = section["snapshot"] as? [String: Any] else {
-            // A snapshot-less capture: the writer's fence still emitted the (empty) section
-            // object. Cleanup belongs at read time, so sweep it here rather than special-case
-            // the crash-time writer.
+            // A snapshot-less capture: the writer still emitted the (empty) scratch section.
+            // Cleanup belongs at read time, so sweep it here rather than special-case the
+            // crash-time writer.
             guard section.isEmpty else { return report }
-            monitorData[Self.id] = nil
-            error["monitor_data"] = monitorData.isEmpty ? nil : monitorData
+            error[Self.id] = nil
             var result = report
             var mutableCrash = crash
             mutableCrash["error"] = error
@@ -112,8 +110,7 @@ extension CrashReportExtensionMonitor {
         // The snapshot describes the crashed process, not the error: the stitches above read it
         // to fill in system, process and termination facts, so it belongs at the report's root
         // rather than nested in the error the way a monitor's own section is written.
-        monitorData[Self.id] = nil
-        error["monitor_data"] = monitorData.isEmpty ? nil : monitorData
+        error[Self.id] = nil
         result[Self.rootKey] = snapshot
 
         var mutableCrash = crash

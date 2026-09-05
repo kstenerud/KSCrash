@@ -26,12 +26,13 @@
 
 import Darwin
 import Foundation
+import KSCrash
 import KSCrashMonitorPlugins
 import KSCrashRecording
 import KSCrashReportModel
 import XCTest
 
-@testable import KSCrashMonitors
+@testable import KSCrashCrashReportExtension
 
 /// The corpse capture path validated in-process: "the corpse" is our own task, the crashed thread is
 /// a worker parked in a semaphore wait, and the images are our own. A real extension does the same
@@ -45,8 +46,10 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
     /// pipeline at install, with its host) must be shared by every test. This is the real
     /// extension flow: a corpse-reporting install into the process's own report area.
     private static var monitor: CrashReportExtensionMonitor { ExtensionReporting.bridge.monitor }
-    private static let installRoot = URL(fileURLWithPath: NSTemporaryDirectory())
-        .appendingPathComponent(UUID().uuidString)
+    private static let area = ExtensionConfiguration(
+        namespace: "CorpseTests",
+        container: .url(URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString)))
+    private static let installRoot = try! area.processRoot
     /// Where the winning install writes reports. When the extension-reporting install wins the
     /// one-per-process race this is our own root; when another suite's normal install won, the
     /// bridge is attached to that live pipeline instead (the tolerated shared-install pattern)
@@ -54,10 +57,8 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
     private static var reportsDirectory = installRoot.appendingPathComponent("Reports")
 
     private static let install: Bool = {
-        var config = ExtensionReportingConfiguration(appName: "CorpseTestApp", appGroupIdentifier: "group.test")
-        config.installPathOverride = installRoot.path
         do {
-            try ExtensionReporting.install(with: config)
+            try KSCrash.shared.installForExtensionReporting(with: area)
         } catch ExtensionReportingInstallError.install(.alreadyInstalled) {
             // Another suite installed first; the pipeline and a store both exist. Attach the
             // bridge to the live registry (its init reran with the real callbacks) and read
@@ -306,7 +307,7 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
             crashInfo: crashInfo,
             images: Self.ownImages())
 
-        let reportID = try ExtensionReporting.captureCrashReport(snapshot: snapshot, corpse: mach_task_self_)
+        let reportID = try KSCrash.shared.captureCrashReport(snapshot: snapshot, corpse: mach_task_self_)
 
         let report = try Self.readReport(reportID)
         let crash = try XCTUnwrap(report["crash"] as? [String: Any])
@@ -320,7 +321,7 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
 
         // The decoded snapshot is written into the monitor's error section and lifted to the
         // report root by the final-pass stitch, which this read path runs.
-        XCTAssertNil(error["monitor_data"], "the snapshot does not stay in the error section")
+        XCTAssertNil(error["corpse"], "the snapshot does not stay in the error section")
         let embedded = try XCTUnwrap(report["corpse"] as? [String: Any])
         let embeddedInfo = try XCTUnwrap(embedded["crashInfo"] as? [String: Any])
         XCTAssertEqual(embeddedInfo["pid"] as? UInt32, 4242)
@@ -358,7 +359,7 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
             crashInfo: crashInfo,
             images: Self.ownImages())
 
-        let reportID = try ExtensionReporting.captureCrashReport(snapshot: snapshot, corpse: mach_task_self_)
+        let reportID = try KSCrash.shared.captureCrashReport(snapshot: snapshot, corpse: mach_task_self_)
 
         let report = try Self.readReport(reportID)
 
@@ -386,26 +387,29 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
     // all so captures skip the work.
     func testKCDataSaverWritesBlobWhenEnabled() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        var configuration = ExtensionReportingConfiguration(appName: "MyApp", appGroupIdentifier: "group.test")
-        configuration.installPathOverride = root.path
-        let previous = ExtensionReporting.activeConfiguration
+        let kcdataArea = ExtensionConfiguration(namespace: "KCDataTests", container: .url(root))
+        let previous = ExtensionReporting.active
         defer {
-            ExtensionReporting.activeConfiguration = previous
+            ExtensionReporting.active = previous
             try? FileManager.default.removeItem(at: root)
         }
 
-        ExtensionReporting.activeConfiguration = configuration
+        func active(savesKCData: Bool) throws -> ExtensionReporting.Active {
+            ExtensionReporting.Active(
+                area: kcdataArea, root: try kcdataArea.processRoot, savesKCData: savesKCData,
+                kcdataDirectory: try kcdataArea.processRoot.appendingPathComponent("KCData", isDirectory: true))
+        }
+        ExtensionReporting.active = try active(savesKCData: false)
         XCTAssertNil(ExtensionReporting.kcdataSaver(), "off by default")
 
-        configuration.savesKCData = true
-        ExtensionReporting.activeConfiguration = configuration
+        ExtensionReporting.active = try active(savesKCData: true)
         let saver = try XCTUnwrap(ExtensionReporting.kcdataSaver())
 
         let blob = Data([0xAB, 0xCD, 0xEF])
         let crashInfo = CorpseSnapshot.CrashInfo(exceptionCode: 0, exceptionSubcode: 0, processName: "Dead", pid: 7)
         saver(blob, crashInfo)
 
-        let directory = try XCTUnwrap(configuration.kcdataDirectory)
+        let directory = try XCTUnwrap(ExtensionReporting.active?.kcdataDirectory)
         let files = try FileManager.default.contentsOfDirectory(atPath: directory.path)
         let file = try XCTUnwrap(files.first { $0.hasPrefix("Dead-7-") && $0.hasSuffix(".kcdata") })
         XCTAssertEqual(try Data(contentsOf: directory.appendingPathComponent(file)), blob)
@@ -416,7 +420,7 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
             exception: .EXC_CRASH,
             crashInfo: nil,
             images: Self.ownImages())
-        XCTAssertThrowsError(try ExtensionReporting.captureCrashReport(snapshot: snapshot, corpse: mach_task_self_))
+        XCTAssertThrowsError(try KSCrash.shared.captureCrashReport(snapshot: snapshot, corpse: mach_task_self_))
     }
 
     func testWriteReportFailsForAnUnknownCrashedThread() throws {
@@ -469,7 +473,7 @@ extension CrashReportExtensionMonitor_Tests {
                 "app_memory": ["memory_footprint": 111, "memory_remaining": 222, "memory_pressure": "normal"],
                 "application_stats": ["task_role": "TASK_UNSPECIFIED"],
             ],
-            "crash": ["error": ["type": "mach", "monitor_data": ["Corpse": ["snapshot": snapshotDict]]]],
+            "crash": ["error": ["type": "mach", "corpse": ["snapshot": snapshotDict]]],
         ]
 
         let stitched = try Self.monitor.stitchedReport(report, sidecarURL: nil, scope: .final)
@@ -503,7 +507,7 @@ extension CrashReportExtensionMonitor_Tests {
         let encoded = try JSONEncoder().encode(snapshot.forEmbedding())
         let snapshotDict = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
         let report: [String: Any] = [
-            "crash": ["error": ["type": "mach", "monitor_data": ["Corpse": ["snapshot": snapshotDict]]]]
+            "crash": ["error": ["type": "mach", "corpse": ["snapshot": snapshotDict]]]
         ]
 
         let stitched = try Self.monitor.stitchedReport(report, sidecarURL: nil, scope: .final)
@@ -522,7 +526,7 @@ extension CrashReportExtensionMonitor_Tests {
         let encoded = try JSONEncoder().encode(snapshot.forEmbedding())
         let snapshotDict = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
         let report: [String: Any] = [
-            "crash": ["error": ["type": "mach", "monitor_data": ["Corpse": ["snapshot": snapshotDict]]]]
+            "crash": ["error": ["type": "mach", "corpse": ["snapshot": snapshotDict]]]
         ]
 
         let stitched = try Self.monitor.stitchedReport(report, sidecarURL: nil, scope: .final)
@@ -540,14 +544,14 @@ extension CrashReportExtensionMonitor_Tests {
         let encoded = try JSONEncoder().encode(snapshot.forEmbedding())
         let snapshotDict = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
         let report: [String: Any] = [
-            "crash": ["error": ["type": "mach", "monitor_data": ["Corpse": ["snapshot": snapshotDict]]]]
+            "crash": ["error": ["type": "mach", "corpse": ["snapshot": snapshotDict]]]
         ]
 
         let stitched = try Self.monitor.stitchedReport(report, sidecarURL: nil, scope: .final)
 
         XCTAssertEqual(stitched["corpse"] as? NSDictionary, snapshotDict as NSDictionary)
         let error = try XCTUnwrap((stitched["crash"] as? [String: Any])?["error"] as? [String: Any])
-        XCTAssertNil(error["monitor_data"], "the snapshot moved, it was not copied")
+        XCTAssertNil(error["corpse"], "the snapshot moved, it was not copied")
         XCTAssertEqual(error["type"] as? String, "mach", "the rest of the error section is untouched")
     }
 
