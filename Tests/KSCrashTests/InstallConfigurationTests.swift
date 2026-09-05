@@ -175,7 +175,9 @@ final class InstallConfigurationTests: XCTestCase {
         // Built-in ids route sections and sidecars, and the placeholder is
         // not an identity. Both must fail before the C registry's debug-only
         // assert.
-        for reserved in ["System", "Watchdog", "UserInfo", "unset"] {
+        // "profile" is not in the monitor table, but the writer routes it into the typed
+        // profile section, so it is reserved all the same.
+        for reserved in ["System", "Watchdog", "UserInfo", "unset", "profile"] {
             config.plugins = [CountedPlugin(id: reserved)]
             XCTAssertThrowsError(try config.validate(), reserved) { error in
                 guard case .invalidConfiguration? = error as? InstallError else { return XCTFail("\(error)") }
@@ -183,6 +185,21 @@ final class InstallConfigurationTests: XCTestCase {
         }
         config.plugins = [CountedPlugin(id: "MyOwnMonitor")]
         XCTAssertNoThrow(try config.validate())
+    }
+
+    func test_validate_rejectsIDsTheRegistryOrTheSidecarLayoutCannotHold() {
+        var config = InstallConfiguration(namespace: "Ns")
+        // The registry compares KSCRASH_MONITOR_ID_MAX_LENGTH bytes, so a longer id is not
+        // its own identity; the id also names a sidecar directory.
+        let longest = String(repeating: "a", count: Int(KSCRASH_MONITOR_ID_MAX_LENGTH) - 1)
+        config.plugins = [CountedPlugin(id: longest)]
+        XCTAssertNoThrow(try config.validate())
+        for bad in [longest + "a", "Some/Monitor", ".", ".."] {
+            config.plugins = [CountedPlugin(id: bad)]
+            XCTAssertThrowsError(try config.validate(), bad) { error in
+                guard case .invalidConfiguration? = error as? InstallError else { return XCTFail("\(error)") }
+            }
+        }
     }
 
     func test_validate_refusesNegativeCountsAndEmptyClassNames() {
