@@ -87,6 +87,42 @@ final class CrashReportDecodingTests: XCTestCase {
         XCTAssertTrue(report.crash.threads?.isEmpty ?? true)
     }
 
+    /// The corpse snapshot an out-of-process capture embeds is lifted to the report root at
+    /// delivery; the typed model must carry it, or a delivered payload silently drops it.
+    func testDecodeReportWithCorpseSnapshot() throws {
+        let json = """
+            {
+                "corpse": {
+                    "images": [],
+                    "crashInfo": {
+                        "exceptionCode": 1,
+                        "exceptionSubcode": 2,
+                        "processName": "DeadApp",
+                        "pid": 4242,
+                        "crashedThreadID": 7
+                    }
+                },
+                "crash": {
+                    "error": { "type": "mach" },
+                    "threads": []
+                },
+                "report": { "id": "\(testReportID("test"))" },
+                "system": {}
+            }
+            """
+
+        let report = try Report.decode(from: json)
+        let corpse = try XCTUnwrap(report.corpse)
+        XCTAssertEqual(corpse.crashInfo?.processName, "DeadApp")
+        XCTAssertEqual(corpse.crashInfo?.pid, 4242)
+        XCTAssertEqual(corpse.crashInfo?.crashedThreadID, 7)
+
+        // Round trip: a delivered payload keeps the snapshot.
+        let encoded = try JSONEncoder().encode(report)
+        let decoded = try Report.decode(from: encoded)
+        XCTAssertEqual(decoded.corpse, corpse)
+    }
+
     func testDecodeBinaryImage() throws {
         let json = """
             {
