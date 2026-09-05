@@ -52,6 +52,7 @@
 #include "KSDebug.h"
 #include "KSFileUtils.h"
 #include "KSHang.h"
+#include "KSHangEvent.h"
 #include "KSID.h"
 #include "KSLogger.h"
 #include "KSMachineContext.h"
@@ -63,20 +64,8 @@
 #pragma mark - Constants -
 // ============================================================================
 
-// Apple's definition of a "hang" — see KSCrashMonitor_Watchdog.h.
+// Apple's definition of a "hang" (see KSCrashMonitor_Watchdog.h).
 #define KSHANG_THRESHOLD_SECONDS 0.250
-
-#define KSHANG_MAX_OBSERVERS 8
-
-// ============================================================================
-#pragma mark - Types -
-// ============================================================================
-
-typedef struct {
-    KSHangObserverCallback func;
-    void *context;
-    bool active;
-} HangObserver;
 
 // ============================================================================
 #pragma mark - Hang Monitor -
@@ -86,23 +75,23 @@ typedef struct {
 // ---------------------
 // The watchdog monitor uses two threads and two run loops:
 //
-//   1. **Main thread / main run loop** — A CFRunLoopObserver watches for
+//   1. **Main thread / main run loop**: A CFRunLoopObserver watches for
 //      kCFRunLoopAfterWaiting (the run loop woke up and is about to process
 //      work) and kCFRunLoopBeforeWaiting (finished processing, going idle).
 //
-//   2. **Watchdog thread / watchdog run loop** — A dedicated high-priority
+//   2. **Watchdog thread / watchdog run loop**: A dedicated high-priority
 //      pthread that runs its own CFRunLoop.  A repeating CFRunLoopTimer on
 //      this run loop fires every `threshold` seconds to check whether the
 //      main thread is still blocked.
 //
 // The two threads communicate through:
-//   - `enterTime` (_Atomic uint64_t) — written by the main thread when the
+//   - `enterTime` (_Atomic uint64_t): written by the main thread when the
 //     run loop wakes, read by the watchdog timer to measure elapsed time.
 //     Uses relaxed ordering because it is a standalone timing value with no
 //     dependencies on other memory operations.
-//   - `lock` (os_unfair_lock) — protects the mutable `hang` state, sidecar
-//     pointer, and observer array.  Held only briefly for reads/writes of
-//     these fields; never held during I/O or observer callbacks.
+//   - `lock` (os_unfair_lock): protects the mutable `hang` state and sidecar
+//     pointer.  Held only briefly for reads/writes of these fields; never
+//     held during I/O or hang event dispatch.
 //
 // Hang lifecycle
 // --------------
@@ -111,8 +100,8 @@ typedef struct {
 //   2. Timer fires → watchdogTimerFired() reads enterTime, computes elapsed
 //      time.  If >= threshold and no hang is active, it transitions to a new
 //      hang: writes a crash report, opens an mmap'd sidecar file, and
-//      notifies observers.  On subsequent fires it updates the sidecar's
-//      end-timestamp and notifies observers of the update.
+//      dispatches a hang event.  On subsequent fires it updates the sidecar's
+//      end-timestamp and dispatches an update event.
 //   3. Main run loop goes idle → mainRunLoopActivity(BeforeWaiting) cancels
 //      the timer.  If a hang was active, it takes ownership of the hang
 //      state and calls finalizeResolvedHang(), which either deletes the
@@ -150,22 +139,20 @@ typedef struct KSHangMonitor {
     // When true, they're preserved with the sidecar marking them as recovered.
     bool reportsHangs;
 
-    // Protects: hang, sidecar, sidecarPath, observers, observerCount.
-    // IMPORTANT: never hold this during I/O, report writing, or observer
-    // callbacks — the watchdog timer fires every 250ms and must not stall.
+    // Protects: hang, sidecar, sidecarPath.
+    // IMPORTANT: never hold this during I/O, report writing, or hang event
+    // dispatch, because the watchdog timer fires every 250ms and must not stall.
     os_unfair_lock lock;
     KSHangState hang;
 
     // Written by main thread (mainRunLoopActivity), read by watchdog thread
-    // (watchdogTimerFired).  Relaxed ordering is fine — this is a standalone
+    // (watchdogTimerFired).  Relaxed ordering is fine, as this is a standalone
     // timing value with no publish/consume relationship to other fields.
     _Atomic uint64_t enterTime;
 
     KSHangSidecar *sidecar;  // mmap'd, or NULL
     char sidecarPath[PATH_MAX];
 
-    HangObserver observers[KSHANG_MAX_OBSERVERS];
-    int observerCount;
 } KSHangMonitor;
 
 // ============================================================================
@@ -236,26 +223,17 @@ static void sidecar_delete(KSHangMonitor *monitor)
 }
 
 // ============================================================================
-#pragma mark - Observer notification -
+#pragma mark - Hang event dispatch -
 // ============================================================================
 
-// Snapshot the observer array under the lock, then notify outside it.
-// This lets callbacks safely call kshang_add/removeHangObserver without deadlocking.
-static void notifyObservers(KSHangMonitor *monitor, KSHangChangeType type, uint64_t start, uint64_t now)
+// Runs on the watchdog thread, outside the monitor lock: the consumers run
+// arbitrary code and the lock must never wait on them.
+static void notifyHangChange(KSHangChangeType change, uint64_t start, uint64_t now)
 {
-    HangObserver snapshot[KSHANG_MAX_OBSERVERS];
-    int count = 0;
-
-    os_unfair_lock_lock(&monitor->lock);
-    count = monitor->observerCount;
-    memcpy(snapshot, monitor->observers, sizeof(snapshot));
-    os_unfair_lock_unlock(&monitor->lock);
-
-    for (int i = 0; i < count; i++) {
-        if (snapshot[i].active && snapshot[i].func) {
-            snapshot[i].func(type, start, now, snapshot[i].context);
-        }
+    if (change != KSHangChangeTypeUpdated) {
+        kslifecycle_noteHangChange(change == KSHangChangeTypeStarted);
     }
+    kshang_fireHangEvent(change, start, now);
 }
 
 // ============================================================================
@@ -272,7 +250,7 @@ static void populateReportForCurrentHang(KSHangMonitor *monitor)
 
     // Snapshot the hang state and freeze all threads while holding the lock.
     // Taking the lock first guarantees the main thread is not holding it when
-    // suspended — if it's in mainRunLoopActivity, we block until it releases.
+    // suspended: if it's in mainRunLoopActivity, we block until it releases.
     // notify() will call ksmc_suspendEnvironment again (incrementing each
     // thread's suspend count to 2) and its matching ksmc_resumeEnvironment
     // drops it back to 1.  Our resume below drops it to 0.
@@ -327,7 +305,7 @@ static void populateReportForCurrentHang(KSHangMonitor *monitor)
     // same hang before attaching the report path and sidecar.
     os_unfair_lock_lock(&monitor->lock);
     if (monitor->hang.active && monitor->hang.timestamp == hang.timestamp) {
-        monitor->hang.reportId = result.reportId;
+        strlcpy(monitor->hang.reportId, result.reportId, sizeof(monitor->hang.reportId));
         if (strlcpy(monitor->hang.path, result.path, PATH_MAX) >= PATH_MAX) {
             KSLOG_ERROR("Report path too long, discarding hang report");
         } else {
@@ -347,9 +325,9 @@ static void populateReportForCurrentHang(KSHangMonitor *monitor)
     }
     os_unfair_lock_unlock(&monitor->lock);
 
-    KSLOG_INFO("Hang started (reportID: %" PRIx64 ")", result.reportId);
+    KSLOG_INFO("Hang started (reportID: %s)", result.reportId);
 
-    notifyObservers(monitor, KSHangChangeTypeStarted, hang.timestamp, hang.endTimestamp);
+    notifyHangChange(KSHangChangeTypeStarted, hang.timestamp, hang.endTimestamp);
 }
 
 static void writeUpdatedReport(KSHangMonitor *monitor)
@@ -367,7 +345,7 @@ static void writeUpdatedReport(KSHangMonitor *monitor)
     sidecar_update(monitor->sidecar, timestampEnd, monitor->hang.endRole, monitor->hang.endTransitionState);
     os_unfair_lock_unlock(&monitor->lock);
 
-    notifyObservers(monitor, KSHangChangeTypeUpdated, timestampStart, timestampEnd);
+    notifyHangChange(KSHangChangeTypeUpdated, timestampStart, timestampEnd);
 }
 
 static void finalizeResolvedHang(KSHangMonitor *monitor, KSHangState hang)
@@ -400,8 +378,7 @@ static void finalizeResolvedHang(KSHangMonitor *monitor, KSHangState hang)
             // the purpose. It would also race with report deletion (the
             // background write-back could resurrect a deleted report).
             if (!kscrs_finalizeReport(hang.path, hang.reportId)) {
-                KSLOG_ERROR("Failed to finalize hang report %" PRIx64 ", deleting to prevent stale stitching",
-                            hang.reportId);
+                KSLOG_ERROR("Failed to finalize hang report %s, deleting to prevent stale stitching", hang.reportId);
                 unlink(hang.path);
             }
 
@@ -423,10 +400,10 @@ static void finalizeResolvedHang(KSHangMonitor *monitor, KSHangState hang)
         sidecar_delete(monitor);
     }
 
-    KSLOG_INFO("Hang ended (reportID: %" PRIx64 ", duration: %.3f s)", hang.reportId,
+    KSLOG_INFO("Hang ended (reportID: %s, duration: %.3f s)", hang.reportId,
                (double)(hang.endTimestamp - hang.timestamp) / 1e9);
 
-    notifyObservers(monitor, KSHangChangeTypeEnded, hang.timestamp, hang.endTimestamp);
+    notifyHangChange(KSHangChangeTypeEnded, hang.timestamp, hang.endTimestamp);
 }
 
 // ============================================================================
@@ -457,9 +434,9 @@ static void watchdogTimerFired(CFRunLoopTimerRef timer, void *info)
     (void)timer;
     KSHangMonitor *monitor = (KSHangMonitor *)info;
 
-    // Load enterTime exactly once — a second load could see a newer value
-    // if the main thread briefly woke between the two reads, causing us to
-    // initialize the hang with the wrong start timestamp.
+    // Load enterTime exactly once, since a second load could see a newer
+    // value if the main thread briefly woke between the two reads, causing
+    // us to initialize the hang with the wrong start timestamp.
     uint64_t enter = atomic_load_explicit(&monitor->enterTime, memory_order_relaxed);
     uint64_t now = ksdate_uptimeNanoseconds();
     uint64_t hangTime = now - enter;
@@ -509,8 +486,8 @@ static void schedulePings(KSHangMonitor *monitor)
 }
 
 // Runs on the main thread.  Called for both BeforeWaiting (going idle) and
-// AfterWaiting (woke up).  We always cancel the previous timer first — the
-// timer lives on the watchdog run loop but CFRunLoopTimerInvalidate is
+// AfterWaiting (woke up).  We always cancel the previous timer first. The
+// timer lives on the watchdog run loop, but CFRunLoopTimerInvalidate is
 // thread-safe and removes it from all run loops it was added to.
 static void mainRunLoopActivity(CFRunLoopObserverRef obs, CFRunLoopActivity activity, void *info)
 {
@@ -594,7 +571,7 @@ static void *watchdog_thread_main(void *arg)
 
     CFRunLoopRun();
 
-    // Read selfFreeOnExit before signaling — once we signal, watchdog_destroy
+    // Read selfFreeOnExit before signaling. Once we signal, watchdog_destroy
     // may free the monitor immediately, so we must not touch it after.
     bool shouldSelfFree = atomic_load_explicit(&monitor->selfFreeOnExit, memory_order_acquire);
     dispatch_semaphore_signal(monitor->threadExitSemaphore);
@@ -709,58 +686,10 @@ static void watchdog_destroy(KSHangMonitor *monitor)
 }
 
 // ============================================================================
-#pragma mark - Observer API -
+#pragma mark - Hang event API -
 // ============================================================================
 
-KSHangObserverToken kshang_addHangObserver(KSHangObserverCallback callback, void *context)
-{
-    KSHangMonitor *monitor = g_watchdog;
-    if (!monitor || !callback) {
-        return KSHangObserverTokenNotFound;
-    }
-
-    KSHangObserverToken token = KSHangObserverTokenNotFound;
-    os_unfair_lock_lock(&monitor->lock);
-
-    // First, try to reuse an inactive slot
-    for (int i = 0; i < monitor->observerCount; i++) {
-        if (!monitor->observers[i].active) {
-            token = i;
-            break;
-        }
-    }
-
-    // If no inactive slot found, append if there's room
-    if (token == KSHangObserverTokenNotFound && monitor->observerCount < KSHANG_MAX_OBSERVERS) {
-        token = monitor->observerCount;
-        monitor->observerCount++;
-    }
-
-    if (token != KSHangObserverTokenNotFound) {
-        monitor->observers[token].func = callback;
-        monitor->observers[token].context = context;
-        monitor->observers[token].active = true;
-    }
-
-    os_unfair_lock_unlock(&monitor->lock);
-    return token;
-}
-
-void kshang_removeHangObserver(KSHangObserverToken token)
-{
-    KSHangMonitor *monitor = g_watchdog;
-    if (!monitor || token < 0 || token >= KSHANG_MAX_OBSERVERS) {
-        return;
-    }
-
-    os_unfair_lock_lock(&monitor->lock);
-    if (token < monitor->observerCount) {
-        monitor->observers[token].active = false;
-        monitor->observers[token].func = NULL;
-        monitor->observers[token].context = NULL;
-    }
-    os_unfair_lock_unlock(&monitor->lock);
-}
+bool kshang_isEnabled(void) { return g_isEnabled; }
 
 // ============================================================================
 #pragma mark - Monitor API -
@@ -817,7 +746,8 @@ static void monitorInit(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused v
  */
 static void addContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext, __unused void *context)
 {
-    if (!eventContext->requirements.isFatal) {
+    // Only a fatal event in THIS process supersedes an in-progress hang report.
+    if (!kscexc_isLocallyFatal(eventContext->requirements)) {
         return;
     }
 
@@ -826,7 +756,7 @@ static void addContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext
         return;
     }
 
-    // Delete the incomplete hang report — the fatal crash supersedes it.
+    // Delete the incomplete hang report, the fatal crash supersedes it.
     // Keep the run sidecar so the crash report gets hang context at stitch time.
     if (monitor->hang.path[0] != '\0') {
         unlink(monitor->hang.path);
@@ -846,6 +776,10 @@ KSCrashMonitorAPI *kscm_watchdog_getAPI(void)
         api.isEnabled = isEnabled;
         api.addContextualInfoToEvent = addContextualInfoToEvent;
         api.createStitchedReport = kscm_watchdog_createStitchedReport;
+        // Watchdog is last among the sidecar layers so its fatality resolution on its own
+        // reports wins; only the corpse final-pass layer sits above, and it never touches
+        // watchdog reports.
+        api.priority = KSCrashStitchPriorityWatchdog;
     }
     return &api;
 }

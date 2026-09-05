@@ -38,13 +38,58 @@
 extern "C" {
 #endif
 
+/** The id of a monitor that never set one. Not an identity: several monitors can be
+ *  unconfigured at once, so the registry does not treat it as a duplicate.
+ */
+#define KSCRASH_MONITOR_ID_UNSET "unset"
+
+/** The longest monitor id the framework compares against, including the NUL. */
+#define KSCRASH_MONITOR_ID_MAX_LENGTH 64
+
+/** Every callback the core invokes without a NULL check, as one list shared by
+ * kscma_hasRequiredCallbacks and the registry's registration asserts.
+ * notifyPostMonitorsEnabled is deliberately absent: it is the one callback
+ * NULL-checked at its call site.
+ */
+#define KSCRASH_MONITOR_REQUIRED_CALLBACKS(X) \
+    X(init)                                   \
+    X(monitorId)                              \
+    X(monitorFlags)                           \
+    X(setEnabled)                             \
+    X(isEnabled)                              \
+    X(addContextualInfoToEvent)               \
+    X(notifyPostSystemEnable)
+
 /** Scope of a sidecar file being stitched into a report. */
-typedef enum {
+typedef CF_CLOSED_ENUM(int, KSCrashSidecarScope) {
     /** Per-report sidecar: one file per report, stored in Sidecars/<monitorId>/<reportID>.ksscr */
     KSCrashSidecarScopeReport = 0,
     /** Per-run sidecar: one file per process run, stored in RunSidecars/<runID>/<monitorId>.ksscr */
     KSCrashSidecarScopeRun = 1,
-} KSCrashSidecarScope;
+    /** The final pass, after all sidecar stitching: every registered monitor implementing
+     *  createStitchedReport is called once with a NULL sidecarPath, in (priority, id) order.
+     *  The last chance to modify a report before it is handed out; a monitor draws on the
+     *  report itself (e.g. its own embedded section), not a sidecar file. Monitors with
+     *  nothing to add return the input retained, the same convention as an unhandled scope.
+     */
+    KSCrashSidecarScopeFinal = 2,
+} CF_SWIFT_NAME(SidecarScope);
+
+/** The built-in monitors' stitch layers (see KSCrashMonitorAPI.priority): one total order in one
+ *  place, spaced by 10 so a new monitor can slot between layers. Watchdog must stay highest among
+ *  the sidecar layers: its stitch can rewrite the report's type ("hang") and must see every other
+ *  sidecar layer's data. Corpse sits above them all: in the final pass it replaces run-cached
+ *  sidecar values with the at-death truth from a corpse report's embedded snapshot. A colliding
+ *  value does not fail; it silently demotes the ordering to the monitor-id tie-break.
+ */
+enum {
+    KSCrashStitchPriorityLifecycle = 10,
+    KSCrashStitchPriorityResource = 20,
+    KSCrashStitchPrioritySystem = 30,
+    KSCrashStitchPriorityUserInfo = 40,
+    KSCrashStitchPriorityWatchdog = 50,
+    KSCrashStitchPriorityCorpse = 60,
+};
 
 /**
  * Monitor API.
@@ -60,6 +105,12 @@ typedef struct KSCrashMonitorAPI {
      *  Monitors can use this to store instance-specific data (e.g., an
      *  Unmanaged<Self> pointer in Swift). NULL for built-in C monitors. */
     void *context;
+
+    /** Ordering hint for sidecar stitching. When several monitors' sidecars stitch into the same
+     *  report, their createStitchedReport callbacks run in ascending priority order, so a
+     *  higher-priority monitor is applied last and wins on any overlapping keys. Defaults to 0;
+     *  ties break deterministically on monitor id. */
+    int priority;
 
     /**
      * Initialize the monitor.
@@ -98,7 +149,7 @@ typedef struct KSCrashMonitorAPI {
      *
      * This callback is invoked when the report writer encounters a monitor type it doesn't
      * have built-in handling for. The monitor can use the writer to add custom JSON data
-     * to the report's error section under a key matching the monitor's ID.
+     * to the report, placed under `crash.error.monitor_data.<monitorID>`.
      *
      * @param eventContext The monitor context containing event information.
      * @param writer The report writer to use for adding JSON elements.
@@ -116,6 +167,16 @@ typedef struct KSCrashMonitorAPI {
      * it calls this function to merge sidecar data into the decoded report
      * dictionary before delivery.
      *
+     * Placement contract: a custom monitor puts its data in a
+     * framework-owned namespace, under `monitor_data.<monitorID>` at the
+     * report root (delivery-time data) or under
+     * `crash.error.monitor_data.<monitorID>` (the crashing monitor's own
+     * section). A section must be a JSON object; anything else fails typed
+     * delivery of the whole report. Mutating standard report fields is
+     * reserved for built-in monitors whose fields exist in the typed report
+     * model; additions to arbitrary unmodeled fields elsewhere are not
+     * preserved in delivered payloads.
+     *
      * Follows the CF Create Rule: the caller owns the returned dictionary
      * and must release it (via CFRelease or __bridge_transfer to ARC).
      * The input reportDict is owned by the caller; the callback must not
@@ -123,8 +184,9 @@ typedef struct KSCrashMonitorAPI {
      *
      * @param reportDict The decoded report dictionary. Owned by the caller,
      *        the callback must not release it.
-     * @param sidecarPath The full path to the sidecar file for this report.
-     * @param scope Whether this is a per-report or per-run sidecar.
+     * @param sidecarPath The full path to the sidecar file for this report;
+     *        NULL in the final pass, which has no sidecar.
+     * @param scope The sidecar's scope, or KSCrashSidecarScopeFinal for the final pass.
      * @param context The monitor's opaque context pointer.
      *
      * @return A +1 CFDictionaryRef with the (possibly modified) report,
@@ -133,12 +195,35 @@ typedef struct KSCrashMonitorAPI {
      *         be retried on next app launch; during normal reads the
      *         error is silent and the original dict is kept.
      *
+     *         Reserve NULL for a failure a retry could get past. A sidecar
+     *         that is absent, or holds bytes no later read could make sense
+     *         of, is a verdict that will not change: return the report
+     *         unchanged (retained) so it delivers without this section.
+     *         Returning NULL for one of those stops that report being
+     *         finalized for good, and on the hang-recovery path the report is
+     *         deleted outright. See KSCrashSidecarReadResult.
+     *
      * @note Optional. If NULL, no stitching is performed.
      *       Runs at normal app startup time, not during crash handling.
      */
     CFDictionaryRef (*createStitchedReport)(CFDictionaryRef reportDict, const char *sidecarPath,
                                             KSCrashSidecarScope scope, void *context);
 } KSCrashMonitorAPI;
+
+/** How a stitcher's read of its sidecar ended.
+ *
+ *  The split that matters is whether reading again could ever go better, and
+ *  it decides what createStitchedReport hands back: the report unchanged, or
+ *  NULL to be retried.
+ */
+typedef enum {
+    KSCrashSidecarReadOK = 0,
+    /** Absent, or bytes no later read could make sense of (wrong magic,
+     *  a version this build does not know, a torn write). */
+    KSCrashSidecarReadUnrecoverable,
+    /** An environmental failure (I/O) that may not recur. */
+    KSCrashSidecarReadFailure,
+} KSCrashSidecarReadResult;
 
 /**
  * Initialize an API by replacing all callbacks with default no-op implementations.
@@ -148,6 +233,12 @@ typedef struct KSCrashMonitorAPI {
  * @return true if api has been initialized (i.e. api->init was NULL before the call), false otherwise.
  */
 bool kscma_initAPI(KSCrashMonitorAPI *api);
+
+/** Whether every callback the core invokes without a NULL check is set.
+ * @param api The API to check.
+ * @return true when all required callbacks are non-NULL.
+ */
+bool kscma_hasRequiredCallbacks(const KSCrashMonitorAPI *api);
 
 #ifdef __cplusplus
 }

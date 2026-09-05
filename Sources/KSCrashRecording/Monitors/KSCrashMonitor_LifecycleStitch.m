@@ -37,12 +37,16 @@
 CFDictionaryRef kscm_lifecycle_createStitchedReport(CFDictionaryRef reportDict, const char *sidecarPath,
                                                     KSCrashSidecarScope scope, __unused void *context)
 {
-    if (!reportDict || !sidecarPath) {
+    if (reportDict == NULL) {
         return NULL;
     }
     if (scope != KSCrashSidecarScopeRun) {
+        // Not this monitor's scope (e.g. the final pass, which has no sidecar file).
         CFRetain(reportDict);
         return reportDict;
+    }
+    if (sidecarPath == NULL) {
+        return NULL;
     }
 
     // The sidecar is not session_id's data source (that is the run's
@@ -92,7 +96,7 @@ CFDictionaryRef kscm_lifecycle_createStitchedReport(CFDictionaryRef reportDict, 
     id reportVal = dict[KSCrashField_Report];
     id storedRunID = [reportVal isKindOfClass:[NSDictionary class]] ? reportVal[KSCrashField_RunID] : nil;
     NSString *runID = [storedRunID isKindOfClass:[NSString class]] ? storedRunID : nil;
-    char sessionID[37] = "";
+    char sessionID[KSID_SIZE] = "";
     if (kslifecycle_copyLastSessionIDForRunID(runID.UTF8String, sessionID, sizeof(sessionID))) {
         NSMutableDictionary *reportSection =
             [reportVal isKindOfClass:[NSDictionary class]] ? [reportVal mutableCopy] : [NSMutableDictionary dictionary];

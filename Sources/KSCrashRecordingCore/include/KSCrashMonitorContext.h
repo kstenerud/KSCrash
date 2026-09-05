@@ -34,6 +34,8 @@
 #include "KSCrashExceptionHandlingRequirements.h"
 #include "KSCrashMonitorFlag.h"
 #include "KSCrashNamespace.h"
+#include "KSDynamicLinker.h"
+#include "KSID.h"
 #include "KSMachineContext.h"
 
 #ifdef __cplusplus
@@ -99,6 +101,29 @@ typedef struct KSCrash_MonitorContext {
      *  This can be useful in cases where we have no stack.
      */
     bool omitBinaryImages;
+
+    /** When set, the binary images section is written from this list instead of the live
+     *  process's own images. A report about another task (e.g. a corpse) must list that
+     *  task's images: this process's images say nothing about the subject, and symbolication
+     *  resolves frames against this section.
+     *  The array and everything it points to must remain valid until handling completes.
+     */
+    const KSBinaryImage *providedBinaryImages;
+    int providedBinaryImageCount;
+
+    /** When set, written as the report's process_name. A report about a remote subject
+     *  (e.g. a corpse) must name the subject process, not the reporting one, so the
+     *  reporter sets this from what it knows about the subject. NULL omits the field.
+     *  Must remain valid until handling completes.
+     */
+    const char *processName;
+
+    /** When set, the report writer emits this as crash.error.type instead of the monitor id.
+     *  For plugin monitors whose events are standard exceptions (a corpse capture's mach
+     *  exception); the monitor's own report section still writes under the monitor id.
+     *  Must remain valid until handling completes.
+     */
+    const char *errorTypeOverride;
 
     /** Context available to you in monitor API context.
      */
@@ -186,8 +211,8 @@ typedef struct KSCrash_MonitorContext {
 } KSCrash_MonitorContext;
 
 typedef struct KSCrash_ReportResult {
-    /** id as used by the report API */
-    int64_t reportId;
+    /** The report's id (its UUID text), empty when no report was written. */
+    char reportId[KSID_SIZE];
 
     /** the path on disk of this report */
     char path[PATH_MAX];
@@ -215,7 +240,7 @@ typedef bool (*KSCrashReportSidecarFilePathProviderFunc)(const char *monitorId, 
  * @param pathBufferLength The size of pathBuffer in bytes.
  * @return true if the path was successfully written, false on failure.
  */
-typedef bool (*KSCrashReportSidecarPathProviderFunc)(const char *monitorId, int64_t reportID, char *pathBuffer,
+typedef bool (*KSCrashReportSidecarPathProviderFunc)(const char *monitorId, const char *reportID, char *pathBuffer,
                                                      size_t pathBufferLength);
 
 /**
@@ -282,11 +307,18 @@ typedef struct {
      *
      * Also note that requesting thread recording will change the environment into one requiring async-safety. So make
      * sure anything async-unsafe you need is done BEFORE calling this function with `shouldRecordThreads` set!
+     * (Exception: with `requirements.isRemoteSubject` set, no threads of this process are ever suspended and no
+     * async-safety requirement is introduced; the subject's threads are frozen in their own task.)
      *
      * After calling this function, you should fill out any pertinent information in the returned context, and then call
      * handleWithResult().
      *
-     * @param offendingThread The thread that caused the exception.
+     * @param offendingThread The thread of THIS process that the event is about: the crashed thread for an
+     *        in-process crash, the hung main thread for a watchdog report, and so on. It is checked against
+     *        the threads currently inside exception handlers to detect a crashed handler and dual delivery
+     *        of the same crash (e.g. Mach and signal). Pass MACH_PORT_NULL when the event has no local
+     *        subject thread (a remote-subject event such as a corpse report, or a synthesized report about
+     *        a previous run); the calling thread is registered for recrash protection either way.
      * @param requirements Requirements and information about how this exception should be handled.
      * @return a monitor context to be filled out and passed to `handleWithResult()`.
      */

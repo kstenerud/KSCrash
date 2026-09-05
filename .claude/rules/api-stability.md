@@ -1,16 +1,13 @@
 ---
 paths:
   - "Sources/KSCrashRecording/include/*.h"
-  - "Sources/KSCrashFilters/include/*.h"
-  - "Sources/KSCrashSinks/include/*.h"
   - "Sources/KSCrashDiscSpaceMonitor/include/*.h"
   - "Sources/KSCrashBootTimeMonitor/include/*.h"
-  - "Sources/KSCrashDemangleFilter/include/*.h"
 ---
 
 ## Public Modules
 
-The public API surface consists of: **KSCrashRecording**, **KSCrashFilters**, **KSCrashSinks**, **KSCrashDiscSpaceMonitor**, **KSCrashBootTimeMonitor**, and **KSCrashDemangleFilter**. Only files in `Sources/[ModuleName]/include/*.h` are public headers.
+The public API surface consists of: **KSCrashRecording**, **KSCrashDiskMonitor**, **KSCrashBootMonitor**, and the Swift modules (**KSCrash**, **KSCrashReportModel**, **KSCrashMonitors**, **KSCrashMonitorPlugins**, **KSCrashProfiler**). Only files in `Sources/[ModuleName]/include/*.h` are public headers.
 
 ## API Stability
 

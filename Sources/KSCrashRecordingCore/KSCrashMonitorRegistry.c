@@ -26,18 +26,65 @@
 
 #include "KSCrashMonitorRegistry.h"
 
+#include <assert.h>
 #include <stdatomic.h>
+#include <string.h>
 
 #include "KSDebug.h"
 
 // #define KSLogger_LocalLevel TRACE
 #include "KSLogger.h"
 
+/** The monitor's id, or NULL when it does not have one.
+ *
+ * A monitor that never set an id reports the default placeholder, which is not an identity: a
+ * platform can leave several monitors unconfigured (an inert Signal and MachException on
+ * watchOS, say), and those are not duplicates of each other.
+ */
+static const char *monitorIdOf(const KSCrashMonitorAPI *api)
+{
+    if (api == NULL || api->monitorId == NULL) {
+        return NULL;
+    }
+    const char *monitorId = api->monitorId(api->context);
+    if (monitorId != NULL && strncmp(monitorId, KSCRASH_MONITOR_ID_UNSET, KSCRASH_MONITOR_ID_MAX_LENGTH) == 0) {
+        return NULL;
+    }
+    return monitorId;
+}
+
 bool kscmr_addMonitor(KSCrashMonitorAPIList *monitorList, const KSCrashMonitorAPI *api)
 {
     if (api == NULL) {
         return false;
     }
+
+    // The id, not the pointer, is what identifies a monitor: it routes report sections, sidecar
+    // directories and stitch callbacks, so two monitors sharing one would be misrouted. Checked
+    // first, over the whole list, because a duplicate can sit in any slot.
+    const char *newId = monitorIdOf(api);
+    if (newId != NULL) {
+        for (size_t i = 0; i < KSCRASH_MONITOR_API_COUNT; i++) {
+            const KSCrashMonitorAPI *existing = atomic_load(monitorList->apis + i);
+            if (existing == NULL || existing == api) {
+                continue;
+            }
+            const char *existingId = monitorIdOf(existing);
+            if (existingId != NULL && strncmp(existingId, newId, KSCRASH_MONITOR_ID_MAX_LENGTH) == 0) {
+                KSLOG_ERROR("A monitor with id \"%s\" is already registered. Skipping addition.", newId);
+                // Loud in debug, where the mistake is introduced. In release the monitor is
+                // simply not added, which beats misrouting one monitor's sections to another.
+                assert(false);
+                return false;
+            }
+        }
+    }
+
+    // The registry calls these unconditionally, and kscma_initAPI fills them
+    // with no-ops, so a NULL is a table that skipped it. The list lives in
+    // KSCRASH_MONITOR_REQUIRED_CALLBACKS, shared with the Swift install's
+    // validation, which is what enforces it in release.
+    assert(kscma_hasRequiredCallbacks(api));
 
     bool added = false;
     for (size_t i = 0; i < KSCRASH_MONITOR_API_COUNT; i++) {
@@ -107,6 +154,18 @@ const KSCrashMonitorAPI *kscmr_getMonitor(KSCrashMonitorAPIList *monitorList, co
         }
     }
     return NULL;
+}
+
+size_t kscmr_copyStitchableMonitors(KSCrashMonitorAPIList *monitorList, KSCrashMonitorAPI *buffer, size_t capacity)
+{
+    size_t count = 0;
+    for (size_t i = 0; i < KSCRASH_MONITOR_API_COUNT && count < capacity; i++) {
+        const KSCrashMonitorAPI *api = atomic_load(monitorList->apis + i);
+        if (api != NULL && api->createStitchedReport != NULL) {
+            buffer[count++] = *api;
+        }
+    }
+    return count;
 }
 
 bool kscmr_enableMonitors(KSCrashMonitorAPIList *monitorList)

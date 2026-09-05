@@ -28,9 +28,10 @@
  * @file KSKeyValueStore.h
  * @brief Append-only key-value store backed by an mmap'd file.
  *
- * Instance-based, lock-free storage engine. The caller is responsible
- * for synchronization. Supports typed setters, last-write-wins
- * iteration, compaction, and automatic growth.
+ * Instance-based append-only storage engine. Supports typed setters,
+ * last-write-wins iteration, compaction, and automatic growth.
+ *
+ * Keys and values are variable-size, up to 64KB each.
  */
 
 #ifndef HDR_KSKeyValueStore_h
@@ -41,6 +42,7 @@
 #include <stdint.h>
 
 #include "KSCrashNamespace.h"
+#include "KSJSONCodec.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -55,11 +57,34 @@ typedef enum {
     KSKVSModeReadWriteCreate,
 } KSKVSMode;
 
+/** Ceiling on a store file, for both growth and reading an existing one.
+ *  Records are bounded individually (64KB each) but their number is not, and
+ *  the file only ever grows within a run, so without this a live store is
+ *  unbounded on the user's disk and stays mapped for the process lifetime.
+ *  A write that would cross it is refused, which callers surface as the key
+ *  becoming absent.
+ */
+#define KSKVS_MAX_CAPACITY (16u * 1024u * 1024u)
+
+/** How many containers are already open where a stored JSON value is
+ *  re-encoded: a report writes it under report -> "user" -> key. A value is
+ *  judged against the depth left below those, not against the whole limit.
+ */
+#define KSKVS_VALUE_ENCODE_DEPTH 2
+
+/** The deepest container nesting a stored JSON value may carry.
+ *  KSJSON_MAX_CONTAINER_DEPTH counting from KSKVS_VALUE_ENCODE_DEPTH, less
+ *  one for the codec refusing the level that would reach the limit.
+ *  Every reader applies it, so a container one reader delivers is one the
+ *  others deliver too; accepting a deeper one would produce a report the
+ *  encoder cannot write, and an unencodable report is never delivered, taking
+ *  every other value in it along.
+ */
+#define KSKVS_MAX_VALUE_DEPTH 197
+
 /** Configuration for store creation. */
 typedef struct {
-    uint32_t initialCapacity; /**< Starting buffer size (e.g. 4096). */
-    uint16_t maxKeyLength;    /**< Keys longer than this are truncated (e.g. 256). */
-    uint16_t maxStringLength; /**< String values longer than this are truncated (e.g. 1024). */
+    uint32_t initialCapacity; /**< Starting buffer size (e.g. 4096), at most KSKVS_MAX_CAPACITY. */
 } KSKVSConfig;
 
 /** Outcome of kskvs_create. */
@@ -82,6 +107,10 @@ typedef enum {
  *  KSKVSModeRead:            reads existing file into heap. config may be NULL.
  *  KSKVSModeReadWriteCreate: creates file, mmap MAP_SHARED. config is required.
  *
+ *  Read mode may target a file this process is also writing, which is what a
+ *  report finalized during its own run does: the load takes a whole snapshot,
+ *  never one a concurrent compaction or growth is part way through.
+ *
  *  @param outStatus Optional; receives why the call returned NULL
  *                   (KSKVSOpenSuccess when it didn't).
  *  @return A new store, or NULL on failure. Caller must call kskvs_destroy().
@@ -95,13 +124,37 @@ void kskvs_destroy(KSKeyValueStore *store);
 #pragma mark - Typed Setters (NOT thread-safe) -
 // ============================================================================
 
-void kskvs_setString(KSKeyValueStore *store, const char *key, const char *value);
-void kskvs_setInt64(KSKeyValueStore *store, const char *key, int64_t value);
-void kskvs_setUInt64(KSKeyValueStore *store, const char *key, uint64_t value);
-void kskvs_setDouble(KSKeyValueStore *store, const char *key, double value);
-void kskvs_setBool(KSKeyValueStore *store, const char *key, bool value);
-void kskvs_setDate(KSKeyValueStore *store, const char *key, uint64_t nanosecondsSince1970);
-void kskvs_removeValue(KSKeyValueStore *store, const char *key);
+/** Each setter returns false when the write is rejected (empty key, or a key
+ *  or value past the 64KB bound) or cannot be persisted; the
+ *  store is unchanged. Nothing is ever truncated.
+ *
+ *  A write is also rejected once the store has reached its capacity ceiling
+ *  and compaction cannot free room for the record.
+ *
+ *  Writes through one store instance are serialized internally, and a
+ *  read-mode open of the same file never observes a partially applied write.
+ *  Reading a live store any other way (kskvs_iterate, kskvs_lookup) is not
+ *  synchronized against its writer; a caller doing that owns the exclusion.
+ */
+bool kskvs_setString(KSKeyValueStore *store, const char *key, const char *value);
+bool kskvs_setInt64(KSKeyValueStore *store, const char *key, int64_t value);
+bool kskvs_setUInt64(KSKeyValueStore *store, const char *key, uint64_t value);
+bool kskvs_setDouble(KSKeyValueStore *store, const char *key, double value);
+bool kskvs_setBool(KSKeyValueStore *store, const char *key, bool value);
+bool kskvs_setDate(KSKeyValueStore *store, const char *key, int64_t nanosecondsSince1970);
+
+/** Stores `length` bytes of UTF-8 JSON text as the key's value. Only a JSON
+ *  container is a value: bytes that do not open an array or an object are
+ *  rejected. The store does not parse further; consumers interpret the bytes
+ *  at read time and treat anything but a container as absence.
+ */
+bool kskvs_setJSON(KSKeyValueStore *store, const char *key, const char *json, size_t length);
+
+/** Makes the key absent. Unlike the setters this does not fail for want of
+ *  room: a store too full to hold a removal record marks the key's existing
+ *  record removed in place, so a caller can always retract a value.
+ */
+bool kskvs_removeValue(KSKeyValueStore *store, const char *key);
 
 // ============================================================================
 #pragma mark - Reading -
@@ -114,16 +167,34 @@ typedef struct {
     void (*onUInt64)(const char *key, uint16_t keyLen, uint64_t value, void *ctx);
     void (*onDouble)(const char *key, uint16_t keyLen, double value, void *ctx);
     void (*onBool)(const char *key, uint16_t keyLen, bool value, void *ctx);
-    void (*onDate)(const char *key, uint16_t keyLen, uint64_t nanosecondsSince1970, void *ctx);
+    void (*onDate)(const char *key, uint16_t keyLen, int64_t nanosecondsSince1970, void *ctx);
+    /** One JSON container (array or object) as UTF-8 text, not
+     *  NUL-terminated and not validated by the store; a consumer that cannot
+     *  parse it to a container treats the key as absent. */
+    void (*onJSON)(const char *key, uint16_t keyLen, const char *json, uint16_t jsonLen, void *ctx);
     /** Called for keys whose final resolved state is a tombstone (removal).
      *  Allows callers to actively delete keys from a pre-existing dictionary. */
     void (*onRemoved)(const char *key, uint16_t keyLen, void *ctx);
+    /** Called for a record whose type this build does not know. The value is
+     *  not read: a newer writer's record is not an older reader's to judge.
+     *  A reader that starts from a value it already holds for the key still
+     *  has to stop serving it, since the store says it was replaced. */
+    void (*onUnknown)(const char *key, uint16_t keyLen, uint8_t type, void *ctx);
 } KSKVSCallbacks;
 
 /** Iterate resolved (last-write-wins) records and tombstones.
- *  Works on any store (file-backed writable or read-only).
+ *  Works on any store (file-backed writable or read-only). Takes no lock: on
+ *  a live store the caller's own serialization of that store's writes is what
+ *  makes the walk safe.
  */
 void kskvs_iterate(const KSKeyValueStore *store, const KSKVSCallbacks *callbacks, void *context);
+
+/** Look up one key's resolved (last-write-wins) state: exactly one callback
+ *  fires with the latest value, onRemoved fires when the last record is a
+ *  tombstone, and nothing fires for a key the store never saw.
+ *  Works on any store (file-backed writable or read-only).
+ */
+void kskvs_lookup(const KSKeyValueStore *store, const char *key, const KSKVSCallbacks *callbacks, void *context);
 
 #ifdef __cplusplus
 }

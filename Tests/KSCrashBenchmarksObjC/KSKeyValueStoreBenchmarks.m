@@ -31,8 +31,6 @@
 
 static const KSKVSConfig kDefaultConfig = {
     .initialCapacity = 4096,
-    .maxKeyLength = 256,
-    .maxStringLength = 1024,
 };
 
 @interface KSKeyValueStoreBenchmarks : KSBenchmarkTestCaseObjC
@@ -100,7 +98,7 @@ static const KSKVSConfig kDefaultConfig = {
                     kskvs_setBool(store, key, i % 2 == 0);
                     break;
                 case 4:
-                    kskvs_setDate(store, key, (uint64_t)i * 1000000000ULL);
+                    kskvs_setDate(store, key, (int64_t)i * 1000000000LL);
                     break;
             }
         }
@@ -123,7 +121,7 @@ static void benchOnDouble(const char *key, uint16_t keyLen, double value, void *
 
 static void benchOnBool(const char *key, uint16_t keyLen, bool value, void *ctx) { (*(int *)ctx)++; }
 
-static void benchOnDate(const char *key, uint16_t keyLen, uint64_t ns, void *ctx) { (*(int *)ctx)++; }
+static void benchOnDate(const char *key, uint16_t keyLen, int64_t ns, void *ctx) { (*(int *)ctx)++; }
 
 static const KSKVSCallbacks kBenchCallbacks = {
     .onString = benchOnString,
@@ -184,8 +182,6 @@ static const KSKVSCallbacks kBenchCallbacks = {
 {
     const KSKVSConfig smallConfig = {
         .initialCapacity = 512,
-        .maxKeyLength = 64,
-        .maxStringLength = 128,
     };
 
     [self measureBlock:^{
@@ -214,8 +210,6 @@ static const KSKVSCallbacks kBenchCallbacks = {
 {
     const KSKVSConfig smallConfig = {
         .initialCapacity = 512,
-        .maxKeyLength = 64,
-        .maxStringLength = 256,
     };
 
     [self measureBlock:^{

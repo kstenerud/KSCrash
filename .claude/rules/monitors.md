@@ -2,16 +2,24 @@
 paths:
   - "Sources/KSCrashRecording/Monitors/**"
   - "Sources/KSCrashRecordingCore/**/KSCrashMonitor*.{c,h}"
-  - "Sources/KSCrashBootTimeMonitor/**"
-  - "Sources/KSCrashDiscSpaceMonitor/**"
-  - "Sources/Monitors/**"
+  - "Sources/KSCrashBootMonitor/**"
+  - "Sources/KSCrashDiskMonitor/**"
+  - "Sources/KSCrashMonitorPlugins/**"
+  - "Sources/KSCrashMonitors/**"
   - "Sources/KSCrashRecording/include/KSCrashMonitorType.h"
-  - "Sources/KSCrashRecording/include/KSCrashMonitorPlugin.h"
 ---
 
 ## Monitors
 
-Built-in monitors are registered via `KSCrashMonitorType` flags in `KSCrashC.c`. External monitors can be added as plugins via `KSCrashConfiguration.plugins` (Swift: `MonitorPlugin`, ObjC: `KSCrashMonitorPlugin`), which wrap a `KSCrashMonitorAPI` and are registered at install time via `kscm_addMonitor()`. The `KSCrashMonitors` Swift module provides ready-made plugins (e.g., `Monitors.metricKit`).
+Built-in monitors are selected with the Swift `Monitors` option set on `InstallConfiguration`
+(`.default` is every detector but zombies; UserReported and the infrastructure monitors are always
+on) and registered via `KSCrashMonitorType` flags in `KSCrashC.c`. Everything else is a plugin,
+registered by instance in `InstallConfiguration.plugins`: a `MonitorPlugin` (module
+`KSCrashMonitorPlugins`) wraps a `KSCrashMonitorAPI` table, `CMonitorPlugin(api:)` wraps a C
+monitor, and `SidecarMetadataMonitorPlugin` is the base for pure-Swift sidecar recorders. Ready-made
+plugins: `DiskMonitor.plugin()`, `BootMonitor.plugin()`, `MetricKitMonitor.plugin(.init())`. Nothing
+self-registers at link time; `KSCrash.shared.installedPlugin(Type.self)` finds a registered one.
+See `.claude/rules/swift-monitors.md` for the Swift monitor layer.
 
 ### Monitor Reference
 
@@ -23,7 +31,6 @@ Built-in monitors are registered via `KSCrashMonitorType` flags in `KSCrashC.c`.
 | Signal | `"Signal"` | POSIX signals (SIGSEGV, SIGABRT, SIGTERM, etc.) | AsyncSafe | — | No |
 | CPPException | `"CPPException"` | Uncaught C++ exceptions via `__cxa_throw` | — | — | No |
 | NSException | `"NSException"` | Uncaught ObjC exceptions; also user-reported (non-fatal) | — | — | No |
-| Deadlock | `"MainThreadDeadlock"` | Main thread blocked too long (deprecated — use Watchdog) | — | — | No |
 | User | `"UserReported"` | User-triggered reports (API call) | — | — | No |
 | System | `"System"` | Device/OS/app info (model, OS version, memory, disk) | — | Run (`KSCrash_SystemData`) | No |
 | Termination | `"Termination"` | OS-level terminations that cannot be caught at runtime (OOM, thermal kill, CPU watchdog, reboot, upgrades) | — | — | Yes |
@@ -33,19 +40,17 @@ Built-in monitors are registered via `KSCrashMonitorType` flags in `KSCrashC.c`.
 | UserInfo | `"UserInfo"` | User-supplied key-value info (survives crashes) | — | Run (`KSKeyValueStore`) | No |
 | Resource | `"Resource"` | Memory level/pressure, CPU, thermal, battery snapshots; optionally emits non-fatal EXC_RESOURCE reports on CPU warning/critical transitions (`enableCPUExceptionReporting`) | — | Run (`KSCrash_ResourceData`) | No |
 
-**Auto-registered monitors** (registered via `__attribute__((constructor))` when their SPM module is linked):
-
-| Monitor | ID | Module | Detects | postMonitorsEnabled | postSystemEnable |
-|---|---|---|---|---|---|
-| BootTime | `"BootTime"` | KSCrashBootTimeMonitor | Adds device boot time to reports | Yes | No |
-| DiscSpace | `"DiscSpace"` | KSCrashDiscSpaceMonitor | Adds disk space info to reports | Yes | No |
-
-**Plugin monitors** (registered via `KSCrashConfiguration.plugins`):
+**Plugin monitors** (registered via `InstallConfiguration.plugins`):
 
 | Monitor | ID | Module | Detects | postSystemEnable |
 |---|---|---|---|---|
-| MetricKit | `"MetricKit"` | Monitors | Apple MetricKit diagnostics (async, hours/days post-crash) | Yes |
-| Profiler | `"Profiler"` | KSCrashProfiler | Sampling profiler (thread backtraces at intervals) | No |
+| DiskMonitor | `"DiscSpace"` | KSCrashDiskMonitor | Storage and free space, fed into the System run sidecar at enable and every 60s; free space refreshed at event time by a C hook; SystemStitch delivers | No |
+| BootMonitor | `"BootTime"` | KSCrashBootMonitor | Boot time, recorded once into the System run sidecar (post-monitors-enabled); SystemStitch delivers | No |
+| MetricKit | `"MetricKit"` | Monitors | Apple MetricKit diagnostics (async, hours/days post-crash). Built on the Swift monitor layer (`.claude/rules/swift-monitors.md`). || No |
+| Profiler | `"profile"` (the id doubles as the report's `crash.error.type` and section key; never rename) | KSCrashProfiler | Sampling profiler (thread backtraces at intervals) | No |
+| Corpse | `"corpse"` | CrashReportExtension | Other processes' corpses, from an iOS 27 CrashReportExtension. In the extension, `KSCrash.shared.installForExtensionReporting(with:)` (module `KSCrashCrashReportExtension`) registers it and `KSCrash.shared.captureCrashReport(from:)` drives it. In the app that pulls the extension's reports (`SendConfiguration.extensionAreas`), register it via `config.plugins = [CrashReportExtensionMonitor.plugin()]`: it detects nothing there and stitches in the final pass (priority `KSCrashStitchPriorityCorpse`, above every sidecar layer), replacing run-cached values with the report's embedded at-death snapshot data and then moving that snapshot out of its private scratch section `crash.error.corpse` to the report root as `corpse` (the snapshot describes the whole dead process, and the section is not part of the public `monitor_data` namespace). Its reports carry `error.type = "mach"` (context `errorTypeOverride`). Built on the Swift monitor layer (`.claude/rules/swift-monitors.md`). | No (never fires in extension mode) |
+
+**Extension-reporting install** (`kscrash_installForExtensionReporting`): a reporter-only process that writes reports about other processes and detects no crashes of its own. It initializes the report store and pipeline, registers the given plugins, enables them, and fires `notifyPostMonitorsEnabled`; it runs no crash-detection monitors, no RunContext (so `notifyPostSystemEnable` never fires), no run id of its own (a capture loads the crashed run's), no run summaries, no console log, and no pruning. On the app side, `KSCrashReportStoreConfiguration.extensionAppGroupIdentifier` names the same App Group; `sendAllReports` then first moves the extension's reports into the app store (no re-IDing, nanosecond ID seeds make collisions a non-event, and the move never replaces an existing file), where they stitch against their run's sidecars and send like any other report.
 
 ### Event Classification
 
@@ -58,6 +63,8 @@ Three fields classify each event. See `run-context.md` for how these feed into t
 | `cleanExit` | Lifecycle sidecar | Per-run flag — determines `crashedLastLaunch` on next launch |
 
 Rules: when `isFatal=true`, `isCleanExit` must be explicitly set. When `isFatal=false`, `isCleanExit` is meaningless. Only the Lifecycle observer and clean-exit signal handler set `cleanExit=true`; dirty crashes explicitly set it to `false`.
+
+**Remote-subject exception**: an event with `requirements.isRemoteSubject` (a corpse report written by a crash extension) describes another task's death. Its `isFatal` classifies the event for the report only; no process-local effect fires: no threads of the reporting process are suspended, no fatal handler state latches, monitors stay enabled, and Lifecycle leaves `cleanShutdown`/`fatalReported` untouched. Consumers that react to "this process is dying" must use `kscexc_isLocallyFatal()`, never bare `isFatal`.
 
 **Event matrix:**
 
@@ -82,6 +89,7 @@ Rules: when `isFatal=true`, `isCleanExit` must be explicitly set. When `isFatal=
 | MetricKit (memory exception, iOS 27+) | MetricKit | true | false | unchanged |
 | Profiler | Profiler | false | — | unchanged |
 | CPU exception (warning/critical) | Resource | false | — | unchanged |
+| Corpse capture (remote subject) | Corpse | true (for the subject) | false | unchanged (remote-subject exception) |
 | Recrash (crash-in-handler) | Monitor.c | true | false | false |
 | Normal exit (UIKit terminating) | Lifecycle observer | — | — | true |
 
@@ -113,7 +121,7 @@ The watchdog monitor uses a fixed 250ms threshold to detect hangs on the main th
 
 The MetricKit monitor turns each received diagnostic into a report. It consumes two delivery mechanisms: the legacy `MXMetricManagerSubscriber` handles `MXDiagnosticPayload`s (crash, hang, metrics) on every OS version, and on iOS 27+ the `MetricManager.diagnosticReports` async stream adds memory exceptions, the only source of `MemoryExceptionDiagnostic`. Every other case of that stream is ignored, so the two paths never overlap. The stream code is gated to Xcode 27+ (Swift 6.4) targeting iOS device or simulator; under Xcode 26 the package builds without it. The two mechanisms deliver on different threads, so skeleton-report production is serialized with a dedicated lock (`skeletonLock`). Each added report posts `diagnosticReportAddedNotification` with that report's id in `userInfo`; per-diagnostic handling lives in one `MetricKitMonitor+<Kind>Diagnostic.swift` file per kind.
 
-`MXCrashDiagnostic` becomes a normal (fatal) crash report. A `MemoryExceptionDiagnostic` is modelled like the heuristic OOMs so `KSCrashDoctor` diagnoses it the same way: a fatal `.termination` with `terminationReason == .memoryLimit`, tagged `error.subtype == .memoryException` to tell it apart from other terminations, carrying the call stack the diagnostic provides. Crash and memory reports are the dead run's last moment, so they are left unfinalized and the store stitches that run's aligned sidecars in on read. `MXHangDiagnostic` becomes a **profile report**: its `callStackTree` is a sample-merged trie across all threads, not a single backtrace, so it is converted to weighted per-thread samples (`MXCallStackTree.extractProfileData`) and stored in `ProfileInfo`. The report's `error.type` is `.profile` and it carries the generic `error.subtype == .hang` to identify the hang; this is the same discriminator the watchdog-driven `HangProfiler` should use, rather than matching on a profile name. Because a hang has no per-sample timing, each sample carries a `count` (multiplicity) and the profile's monotonic timing fields are nil; only `duration` (the hang duration) is set. Hang reports are non-fatal, describe a moment within a run that kept going, and stay finalized, so they do not touch current-run `cleanExit` and no sidecar stitching applies. CPU/diskWrite/appLaunch diagnostics are not yet ingested (dump-only).
+`MXCrashDiagnostic` becomes a normal (fatal) crash report. A `MemoryExceptionDiagnostic` is modelled like the heuristic OOMs: a fatal `.termination` with `terminationReason == .memoryLimit`, tagged `error.subtype == .memoryException` to tell it apart from other terminations, carrying the call stack the diagnostic provides. Crash and memory reports are the dead run's last moment, so they are left unfinalized and the store stitches that run's aligned sidecars in on read. `MXHangDiagnostic` becomes a **profile report**: its `callStackTree` is a sample-merged trie across all threads, not a single backtrace, so it is converted to weighted per-thread samples (`MXCallStackTree.extractProfileData`) and stored in `ProfileInfo`. The report's `error.type` is `.profile` and it carries the generic `error.subtype == .hang` to identify the hang; this is the same discriminator the watchdog-driven `HangProfiler` should use, rather than matching on a profile name. Because a hang has no per-sample timing, each sample carries a `count` (multiplicity) and the profile's monotonic timing fields are nil; only `duration` (the hang duration) is set. Hang reports are non-fatal, describe a moment within a run that kept going, and stay finalized, so they do not touch current-run `cleanExit` and no sidecar stitching applies. CPU/diskWrite/appLaunch diagnostics are not yet ingested (dump-only).
 
 ### KSCrashMonitorFlagAsyncSafe
 

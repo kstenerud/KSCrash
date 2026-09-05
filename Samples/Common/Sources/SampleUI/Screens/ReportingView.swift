@@ -24,27 +24,24 @@
 // THE SOFTWARE.
 //
 
-import KSCrashRecording
+import KSCrash
 import LibraryBridge
 import SwiftUI
 
 struct ReportingView: View {
-    let store: CrashReportStore
+    let reports: PendingReports
 
     var body: some View {
         List {
-            Text("Pending reports: \(store.reportCount)")
+            Text("Pending reports: \(reports.count)")
             Button("Log To Console") {
-                store.logToConsole()
+                reports.logToConsole()
             }
             Button("Log Raw to Console") {
-                store.logRawToConsole()
+                reports.logRawToConsole()
             }
             Button("Sample Custom Log To Console") {
-                store.sampleLogToConsole()
-            }
-            Button("Log with Alert") {
-                store.logWithAlert()
+                KSCrash.shared.sampleLogToConsole()
             }
         }
         .navigationTitle("Report")

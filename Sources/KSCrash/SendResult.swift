@@ -25,29 +25,40 @@
 //
 
 import Foundation
+import KSCrashReportModel
+
+/// A payload kind the store holds and a send walks, keyed by its own
+/// identity: `Report.ID` for reports, `RunSummary.ID` for run summaries. The
+/// selective sends take these ids back.
+public protocol SendPayload: PipelineValue, Identifiable where ID: Hashable & Sendable {}
+
+extension Report: SendPayload {}
+
+extension RunSummary: SendPayload {}
 
 /// The per-item outcomes of one send, in processing order. Items being
 /// processed by a concurrent send are not part of this send and do not appear.
-public struct SendResult<Payload: PipelineValue>: Sendable {
+public struct SendResult<Payload: SendPayload>: Sendable {
 
     /// What happened to one item.
     public enum Outcome: Sendable {
-        /// The item completed the pipeline and is deleted from disk. Carries
-        /// the final post-pipeline payload when the configuration asks for
-        /// payloads in the result, nil otherwise.
-        case delivered(Payload?)
+        /// The item completed the pipeline and its file is deleted. A
+        /// failed delete is not surfaced here: the next send processes the
+        /// item again.
+        case delivered
 
-        /// A stage returned nil: the item is deleted from disk and will never
-        /// be sent again.
+        /// A stage returned nil: the item's file is deleted and it is never
+        /// sent again. A failed delete is not surfaced here: the next send
+        /// processes the item again.
         case discarded
 
-        /// A stage threw this error: the item stays on disk and is retried by
-        /// the next send.
+        /// A stage threw this error, or the item was read but does not
+        /// decode: the item stays on disk and is retried by the next send.
         case kept(any Error)
     }
 
     public struct Item: Sendable {
-        public let id: String
+        public let id: Payload.ID
         public let outcome: Outcome
 
         /// Time spent loading and processing this item, in seconds.
@@ -57,7 +68,7 @@ public struct SendResult<Payload: PipelineValue>: Sendable {
     public let items: [Item]
 
     /// Ids of the items that completed the pipeline, in processing order.
-    public var delivered: [String] {
+    public var delivered: [Payload.ID] {
         items.compactMap { item in
             if case .delivered = item.outcome { return item.id }
             return nil
@@ -65,7 +76,7 @@ public struct SendResult<Payload: PipelineValue>: Sendable {
     }
 
     /// Ids of the items a stage discarded, in processing order.
-    public var discarded: [String] {
+    public var discarded: [Payload.ID] {
         items.compactMap { item in
             if case .discarded = item.outcome { return item.id }
             return nil
@@ -73,18 +84,9 @@ public struct SendResult<Payload: PipelineValue>: Sendable {
     }
 
     /// Ids of the items left on disk for the next send, in processing order.
-    public var kept: [String] {
+    public var kept: [Payload.ID] {
         items.compactMap { item in
             if case .kept = item.outcome { return item.id }
-            return nil
-        }
-    }
-
-    /// The delivered items' payloads; empty unless the configuration asks for
-    /// payloads in the result.
-    public var deliveredPayloads: [Payload] {
-        items.compactMap { item in
-            if case .delivered(let payload) = item.outcome { return payload }
             return nil
         }
     }

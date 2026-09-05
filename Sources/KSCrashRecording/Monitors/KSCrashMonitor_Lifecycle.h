@@ -227,23 +227,10 @@ bool kslifecycle_copyLastSessionIDForRunID(const char *runID, char *buf, size_t 
  */
 KSCrashAppTransitionState kslifecycle_currentTransitionState(void);
 
-/** The current session id, or NULL if none is open. Borrowed: points at a
- *  thread-local buffer valid until the next kslifecycle_currentSessionID() call
- *  on the same thread; copy it to keep it.
- *
- *  Not async-signal-safe; never call from a crash or signal handler.
+/** Records whether the main thread is currently hanging. Called by the hang
+ * monitor on hang start and end; safe to call while the monitor is disabled.
  */
-const char *kslifecycle_currentSessionID(void);
-
-/** Observe that the given user ID is active right now.
- *
- *  Cuts a new session for the user change, keeping the current perceptibility.
- *  Pass NULL or an empty string for an anonymous user. No-op before the monitor
- *  is enabled or when session recording is unavailable.
- *
- *  Called from `-[KSCrash setUserID:]` on every user change.
- */
-void kscm_lifecycle_observeUser(const char *userID);
+void kslifecycle_noteHangChange(bool hangActive);
 
 /** Access the Lifecycle Monitor API.
  */

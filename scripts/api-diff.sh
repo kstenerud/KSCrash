@@ -75,15 +75,12 @@ public_modules() {
 import json, sys
 ALLOWLIST = {
     "KSCrashRecording",
-    "KSCrashFilters",
-    "KSCrashSinks",
-    "KSCrashInstallations",
-    "KSCrashDiscSpaceMonitor",
-    "KSCrashBootTimeMonitor",
-    "KSCrashDemangleFilter",
+    "KSCrashDiskMonitor",
+    "KSCrashBootMonitor",
+    "KSCrashMonitorPlugins",
     "KSCrashProfiler",
-    "Monitors",
-    "Report",
+    "KSCrashMonitors",
+    "KSCrashReportModel",
     "KSCrash",
 }
 d = json.load(sys.stdin)
@@ -160,7 +157,7 @@ cmd_dump() {
     mods="$(public_modules)"
     [ -n "$mods" ] || die "no public-library modules discovered in $(pwd)"
 
-    local objc_only_modules=" KSCrashRecording KSCrashRecordingCore KSCrashFilters KSCrashSinks KSCrashInstallations KSCrashDiscSpaceMonitor KSCrashBootTimeMonitor KSCrashDemangleFilter "
+    local objc_only_modules=" KSCrashRecording KSCrashRecordingCore "
     local filter_script
     filter_script="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)/api-diff-filter-c.py"
     local M failed=0

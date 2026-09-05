@@ -385,4 +385,45 @@
     XCTAssertEqualObjects([NSString stringWithUTF8String:r.user], [longUser substringToIndex:126]);
 }
 
+#pragma mark - Concurrent access
+
+- (void)testConcurrentAppendsAndReadsExcludeEachOther
+{
+    NSString *path = [_dir stringByAppendingPathComponent:@"concurrent.sessions"];
+    _writer = kssw_open(path.fileSystemRepresentation);
+    XCTAssertTrue(_writer != NULL);
+
+    // A reader decoding while the writer cuts must never see partial I/O:
+    // every decode yields a valid prefix of complete records.
+    const int cuts = 200;
+    dispatch_semaphore_t done = dispatch_semaphore_create(0);
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        for (int i = 0; i < cuts; i++) {
+            char user[32];
+            snprintf(user, sizeof(user), "user_%d", i);
+            kssw_update(self->_writer, (i % 2) == 0, user);
+        }
+        dispatch_semaphore_signal(done);
+    });
+
+    int lastCount = 0;
+    do {
+        KSSessionReader *reader = kssr_open(path.fileSystemRepresentation);
+        XCTAssertTrue(reader != NULL);
+        int count = kssr_count(reader);
+        XCTAssertGreaterThanOrEqual(count, lastCount, @"decoded prefixes only grow");
+        if (count > 0) {
+            KSSessionRecord rec;
+            XCTAssertTrue(kssr_sessionAt(reader, count - 1, &rec));
+            XCTAssertNotNil([[NSUUID alloc] initWithUUIDString:@(rec.guid)], @"every decoded record is complete");
+        }
+        lastCount = count;
+        kssr_close(reader);
+    } while (dispatch_semaphore_wait(done, DISPATCH_TIME_NOW) != 0);
+
+    KSSessionReader *reader = kssr_open(path.fileSystemRepresentation);
+    XCTAssertEqual(kssr_count(reader), cuts, @"all cuts landed");
+    kssr_close(reader);
+}
+
 @end

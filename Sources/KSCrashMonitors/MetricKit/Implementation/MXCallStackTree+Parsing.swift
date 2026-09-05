@@ -31,7 +31,7 @@ import os.log
 // MARK: - Output
 
 struct CallStackData {
-    let threads: [BasicCrashReport.Thread]
+    let threads: [Report.Thread]
     /// Index of the crashed thread, or nil if no thread was attributed.
     let crashedThreadIndex: Int?
     let binaryImages: [BinaryImage]
@@ -92,7 +92,7 @@ struct CallStackTreeRepresentation: Decodable {
 // yields the correct backtrace. Do NOT use this for a hang tree, which branches: see
 // `buildProfileData`.
 func buildCallStackData(from tree: CallStackTreeRepresentation) -> CallStackData {
-    var threads: [BasicCrashReport.Thread] = []
+    var threads: [Report.Thread] = []
     var crashedIndex: Int?
     var seenUUIDs = Set<String>()
     var images: [BinaryImage] = []
@@ -133,7 +133,7 @@ func buildCallStackData(from tree: CallStackTreeRepresentation) -> CallStackData
         }
 
         let backtrace = Backtrace(contents: stackFrames, skipped: 0)
-        let thread = BasicCrashReport.Thread(
+        let thread = Report.Thread(
             backtrace: backtrace,
             crashed: isAttributed,
             currentThread: isAttributed,
@@ -240,7 +240,6 @@ func buildProfileData(from tree: CallStackTreeRepresentation, primaryThreadIndex
 
     // MARK: - MXCallStackTree Parsing
 
-    @available(iOS 14.0, macOS 12.0, *)
     extension MXCallStackTree {
 
         func extractCallStackData() -> CallStackData {

@@ -41,14 +41,13 @@ private typealias _MachError = KSCrashReportModel.MachError
 
 #if KSCRASH_HAS_METRICKIT
 
-    @available(iOS 14.0, macOS 12.0, *)
     @available(tvOS, unavailable)
     @available(watchOS, unavailable)
     extension MetricKitMonitor {
 
         @discardableResult
-        func processCrashDiagnostic(_ diagnostic: MXCrashDiagnostic, timestamp: Date) -> Int64? {
-            // Phase 1: Write skeleton report to a temp file via C callbacks.
+        func processCrashDiagnostic(_ diagnostic: MXCrashDiagnostic, timestamp: Date) -> Report.ID? {
+            // Phase 1: Write skeleton report to a temp file via the host.
             guard let tempURL = writeSkeletonReport() else { return nil }
             defer { try? FileManager.default.removeItem(at: tempURL) }
 
@@ -56,11 +55,13 @@ private typealias _MachError = KSCrashReportModel.MachError
             return postProcessReport(atPath: tempURL.path, diagnostic: diagnostic, timestamp: timestamp)
         }
 
-        private func postProcessReport(atPath path: String, diagnostic: MXCrashDiagnostic, timestamp: Date) -> Int64? {
+        private func postProcessReport(atPath path: String, diagnostic: MXCrashDiagnostic, timestamp: Date) -> Report
+            .ID?
+        {
             let url = URL(fileURLWithPath: path)
 
             guard let data = try? Data(contentsOf: url),
-                let report = try? JSONDecoder().decode(BasicCrashReport.self, from: data)
+                let report = try? JSONDecoder().decode(Report.self, from: data)
             else {
                 os_log(
                     .error, log: metricKitLog, "[MONITORS] Failed to read or decode skeleton report at %{public}@",
@@ -145,7 +146,7 @@ private typealias _MachError = KSCrashReportModel.MachError
                 isCleanExit: false
             )
 
-            let newCrash = BasicCrashReport.Crash(
+            let newCrash = Report.Crash(
                 diagnosis: nil,
                 error: newError,
                 threads: callStackData.threads,
@@ -175,7 +176,7 @@ private typealias _MachError = KSCrashReportModel.MachError
             // not finalized, so the store stitches them in on read (see makeMetricKitReportInfo).
             let reportInfo = makeMetricKitReportInfo(
                 skeleton: report, timestamp: timestamp, runId: crashedRunId, finalized: false)
-            let newReport = BasicCrashReport(
+            let newReport = Report(
                 binaryImages: callStackData.binaryImages,
                 crash: newCrash,
                 debug: nil,
@@ -192,16 +193,15 @@ private typealias _MachError = KSCrashReportModel.MachError
                 return nil
             }
 
-            var reportID: Int64 = 0
-            newData.withUnsafeBytes { buffer in
-                guard let ptr = buffer.baseAddress?.assumingMemoryBound(to: CChar.self) else { return }
-                reportID = kscrash_addUserReport(ptr, Int32(buffer.count))
-                os_log(
-                    .default, log: metricKitLog,
-                    "[MONITORS] Added MetricKit report (id=%lld, %d bytes, %{public}@ error, app %{public}@, runId=%{public}@)",
-                    reportID, buffer.count, errorType.rawValue, diagnostic.applicationVersion,
-                    crashedRunId ?? "none")
+            guard let reportID = addMetricKitReport(newData) else {
+                os_log(.error, log: metricKitLog, "[MONITORS] Failed to store MetricKit report")
+                return nil
             }
+            os_log(
+                .default, log: metricKitLog,
+                "[MONITORS] Added MetricKit report (id=%{public}@, %d bytes, %{public}@ error, app %{public}@, runId=%{public}@)",
+                reportID.description, newData.count, errorType.rawValue, diagnostic.applicationVersion,
+                crashedRunId ?? "none")
             return reportID
         }
     }

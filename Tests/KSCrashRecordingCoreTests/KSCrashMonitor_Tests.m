@@ -43,7 +43,7 @@ static _Atomic bool g_dummyEnabledState = false;
 static _Atomic bool g_dummyPostSystemEnabled = false;
 static const char *const g_eventID = "TestEventID";
 static const char *g_copiedEventID = NULL;
-static int64_t g_dummyResultReportId = 1;
+static const char *g_dummyResultReportId = "4C1B2F3E-0000-4000-8000-000000000001";
 
 static KSCrash_ExceptionHandlerCallbacks dummyExceptionHandlerCallbacks;
 static void dummyInit(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused void *context)
@@ -88,12 +88,12 @@ static KSCrashMonitorAPI g_secondDummyMonitor = {};
 
 static BOOL g_exceptionHandled = NO;
 static BOOL g_finalizeCalled = NO;
-static int64_t g_finalizedReportId = 0;
+static char g_finalizedReportId[KSID_SIZE] = "";
 
 static void myEventCallback(struct KSCrash_MonitorContext *context, KSCrash_ReportResult *result)
 {
     if (result) {
-        result->reportId = g_dummyResultReportId;
+        strlcpy(result->reportId, g_dummyResultReportId, sizeof(result->reportId));
     }
     g_exceptionHandled = YES;
     g_copiedEventID = strdup(context->eventID);
@@ -102,10 +102,15 @@ static void myEventCallback(struct KSCrash_MonitorContext *context, KSCrash_Repo
 static void myFinalizeCallback(__unused struct KSCrash_MonitorContext *context, const KSCrash_ReportResult *result)
 {
     g_finalizeCalled = YES;
-    g_finalizedReportId = result->reportId;
+    strlcpy(g_finalizedReportId, result->reportId, sizeof(g_finalizedReportId));
 }
 
 extern void kscm_testcode_resetState(void);
+struct KSCrashMonitorSavedState;
+extern struct KSCrashMonitorSavedState *kscm_testcode_saveState(void);
+extern void kscm_testcode_restoreState(struct KSCrashMonitorSavedState *saved);
+static struct KSCrashMonitorSavedState *g_savedMonitorState;
+extern void kscm_testcode_clearHandlingFatalException(void);
 
 - (void)setUp
 {
@@ -134,7 +139,20 @@ extern void kscm_testcode_resetState(void);
     g_secondDummyMonitor.isEnabled = secondDummyIsEnabled;
     g_secondDummyEnabledState = false;
 
+    g_savedMonitorState = kscm_testcode_saveState();
     kscm_testcode_resetState();
+}
+
+- (void)tearDown
+{
+    kscm_testcode_restoreState(g_savedMonitorState);
+    // Tests here deliberately latch the process-global fatal-exception state, and it outlives
+    // this suite: other bundles sharing the process then have their events refused, and the
+    // MetricKit end-to-end test skips itself rather than failing, so a real regression there
+    // would ship green. Clear just the latch. Not resetState, which also wipes the registered
+    // monitors and the pipeline callbacks and would leave later suites with no monitor system.
+    kscm_testcode_clearHandlingFatalException();
+    [super tearDown];
 }
 
 - (bool)cstringIsEqual:(const char *)a to:(const char *)b
@@ -628,7 +646,7 @@ static atomic_int g_counter = 0;
 
     KSCrash_ReportResult result = {};
     dummyExceptionHandlerCallbacks.handleWithResult(ctx, &result, false);
-    XCTAssert(result.reportId == g_dummyResultReportId);
+    XCTAssertEqual(strcmp(result.reportId, g_dummyResultReportId), 0);
 }
 
 - (void)testFinalizeCalledForNonFatalWithFinalizeTrue
@@ -638,7 +656,7 @@ static atomic_int g_counter = 0;
     kscm_setEventCallbackWithResult(myEventCallback);
     kscm_setFinalizeReportCallback(myFinalizeCallback);
     g_finalizeCalled = NO;
-    g_finalizedReportId = 0;
+    g_finalizedReportId[0] = '\0';
 
     KSCrash_MonitorContext *ctx = dummyExceptionHandlerCallbacks.notify(
         (thread_t)ksthread_self(),
@@ -646,7 +664,7 @@ static atomic_int g_counter = 0;
     dummyExceptionHandlerCallbacks.handleWithResult(ctx, NULL, true);
 
     XCTAssertTrue(g_finalizeCalled);
-    XCTAssertEqual(g_finalizedReportId, g_dummyResultReportId);
+    XCTAssertEqual(strcmp(g_finalizedReportId, g_dummyResultReportId), 0);
 }
 
 - (void)testFinalizeNotCalledForFatalWithFinalizeTrue
@@ -679,6 +697,121 @@ static atomic_int g_counter = 0;
     dummyExceptionHandlerCallbacks.handleWithResult(ctx, NULL, false);
 
     XCTAssertFalse(g_finalizeCalled);
+}
+
+#pragma mark - Remote Subject Tests
+
+// A remote subject means the event describes another task (a corpse); the reporting
+// process is healthy, so none of the process-local effects may fire.
+
+#if KSCRASH_HAS_THREADS_API
+- (void)testRemoteSubjectDoesNotSuspendThreads
+{
+    kscm_addMonitor(&g_dummyMonitor);
+    kscm_enableMonitors();
+    kscm_setEventCallbackWithResult(myEventCallback);
+
+    atomic_store(&g_counter, 0);
+    dispatch_semaphore_t threadStarted = dispatch_semaphore_create(0);
+    NSThread *thread = [[NSThread alloc] initWithBlock:^{
+        dispatch_semaphore_signal(threadStarted);
+        while (!NSThread.currentThread.isCancelled) {
+            atomic_fetch_add(&g_counter, 1);
+            usleep(100);
+        }
+    }];
+    thread.qualityOfService = NSQualityOfServiceUserInteractive;
+    [thread start];
+    long result = dispatch_semaphore_wait(threadStarted, dispatch_time(DISPATCH_TIME_NOW, 1 * NSEC_PER_SEC));
+    XCTAssertEqual(result, 0, @"Counter thread should start");
+    bool incrementing = false;
+    for (int i = 0; i < 100 && !incrementing; i++) {
+        incrementing = [self isCounterIncrementing];
+    }
+    XCTAssertTrue(incrementing, @"Counter thread should be incrementing");
+
+    KSCrash_MonitorContext *ctx = dummyExceptionHandlerCallbacks.notify(
+        (thread_t)ksthread_self(), (KSCrash_ExceptionHandlingRequirements) { .shouldRecordAllThreads = true,
+                                                                             .shouldWriteReport = true,
+                                                                             .isRemoteSubject = true });
+
+    // The subject's threads are frozen in its own task; ours must keep running.
+    XCTAssertEqual(ctx->suspendedThreadsCount, 0, @"A remote subject must not suspend this process's threads");
+    XCTAssertFalse(ctx->requirements.asyncSafetyBecauseThreadsSuspended);
+    XCTAssertTrue(ctx->requirements.shouldRecordAllThreads,
+                  @"shouldRecordAllThreads must survive as a writer directive");
+    incrementing = false;
+    for (int i = 0; i < 100 && !incrementing; i++) {
+        incrementing = [self isCounterIncrementing];
+    }
+    XCTAssertTrue(incrementing, @"Counter thread should still be incrementing during remote-subject handling");
+
+    dummyExceptionHandlerCallbacks.handle(ctx);
+    [thread cancel];
+}
+#endif
+
+- (void)testRemoteSubjectFatalDoesNotLatchFatalStateOrDisableMonitors
+{
+    kscm_addMonitor(&g_dummyMonitor);
+    kscm_enableMonitors();
+    kscm_setEventCallbackWithResult(myEventCallback);
+
+    KSCrash_MonitorContext *ctx = dummyExceptionHandlerCallbacks.notify(
+        (thread_t)ksthread_self(), (KSCrash_ExceptionHandlingRequirements) {
+                                       .isFatal = true, .shouldWriteReport = true, .isRemoteSubject = true });
+    XCTAssertFalse(kscm_testcode_isHandlingFatalException(),
+                   @"A remote subject's fatal event must not mark this process as dying");
+    dummyExceptionHandlerCallbacks.handle(ctx);
+    XCTAssertTrue(g_dummyEnabledState, @"A remote subject's fatal event must not disable this process's monitors");
+
+    // Control: a local fatal event latches, exactly as before.
+    ctx = dummyExceptionHandlerCallbacks.notify(
+        (thread_t)ksthread_self(),
+        (KSCrash_ExceptionHandlingRequirements) { .isFatal = true, .shouldWriteReport = true });
+    XCTAssertTrue(kscm_testcode_isHandlingFatalException(), @"A local fatal event must latch the handler state");
+    dummyExceptionHandlerCallbacks.handle(ctx);
+    XCTAssertFalse(g_dummyEnabledState, @"A local fatal event must still disable monitors");
+}
+
+- (void)testNullOffendingThreadDoesNotMatchFreedHandlerSlots
+{
+    // A freed handler slot reads as 0. MACH_PORT_NULL (also 0) as the offending thread must
+    // not match it and fabricate a recrash. Construct the hole: slot 0 freed while slot 1
+    // is still active, so the next notify gets slot 2 with a zeroed slot below it.
+    kscm_addMonitor(&g_dummyMonitor);
+    kscm_enableMonitors();
+    kscm_setEventCallbackWithResult(myEventCallback);
+
+    KSCrash_MonitorContext *ctx1 = dummyExceptionHandlerCallbacks.notify(
+        (thread_t)ksthread_self(), (KSCrash_ExceptionHandlingRequirements) { .shouldWriteReport = true });
+
+    dispatch_semaphore_t workerNotified = dispatch_semaphore_create(0);
+    dispatch_semaphore_t releaseWorker = dispatch_semaphore_create(0);
+    NSThread *worker = [[NSThread alloc] initWithBlock:^{
+        KSCrash_MonitorContext *ctx2 = dummyExceptionHandlerCallbacks.notify(
+            (thread_t)ksthread_self(), (KSCrash_ExceptionHandlingRequirements) { .shouldWriteReport = true });
+        dispatch_semaphore_signal(workerNotified);
+        dispatch_semaphore_wait(releaseWorker, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC));
+        dummyExceptionHandlerCallbacks.handle(ctx2);
+        dispatch_semaphore_signal(workerNotified);
+    }];
+    [worker start];
+    XCTAssertEqual(dispatch_semaphore_wait(workerNotified, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC)), 0);
+
+    // Free slot 0 while the worker still holds slot 1.
+    dummyExceptionHandlerCallbacks.handle(ctx1);
+
+    KSCrash_MonitorContext *ctx3 = dummyExceptionHandlerCallbacks.notify(
+        MACH_PORT_NULL, (KSCrash_ExceptionHandlingRequirements) { .shouldWriteReport = true, .isRemoteSubject = true });
+    XCTAssertFalse(ctx3->requirements.crashedDuringExceptionHandling,
+                   @"MACH_PORT_NULL must not match a freed (zeroed) handler slot");
+    XCTAssertFalse(ctx3->requirements.asyncSafety);
+    XCTAssertFalse(ctx3->requirements.isFatal, @"Recrash handling must not have stomped the requirements");
+
+    dummyExceptionHandlerCallbacks.handle(ctx3);
+    dispatch_semaphore_signal(releaseWorker);
+    XCTAssertEqual(dispatch_semaphore_wait(workerNotified, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC)), 0);
 }
 
 @end

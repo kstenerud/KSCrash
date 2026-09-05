@@ -38,38 +38,55 @@
 
 #import "KSLogger.h"
 
-static bool readResourceData(const char *path, KSCrash_ResourceData *out)
+/** Read the resource sidecar, saying whether reading again could go better. */
+static KSCrashSidecarReadResult readResourceData(const char *path, KSCrash_ResourceData *out)
 {
-    if (!path || !out) return false;
+    if (!path || !out) return KSCrashSidecarReadFailure;
 
     int fd = open(path, O_RDONLY);
-    if (fd == -1) return false;
+    if (fd == -1) return errno == ENOENT ? KSCrashSidecarReadUnrecoverable : KSCrashSidecarReadFailure;
 
     memset(out, 0, sizeof(*out));
     bool ok = ksfu_readBytesFromFD(fd, (char *)out, (int)sizeof(*out));
     close(fd);
 
+    // A short read means the run died part way through writing this, and a
+    // wrong magic or version is a verdict about the bytes: neither changes on
+    // a later read.
     if (!ok || out->magic != KSRESOURCE_MAGIC || out->version == 0 || out->version > KSCrash_Resource_CurrentVersion) {
-        return false;
+        return KSCrashSidecarReadUnrecoverable;
     }
-    return true;
+    return KSCrashSidecarReadOK;
 }
 
 CFDictionaryRef kscm_resource_createStitchedReport(CFDictionaryRef reportDict, const char *sidecarPath,
                                                    KSCrashSidecarScope scope, __unused void *context)
 {
-    if (!reportDict || !sidecarPath) {
+    if (reportDict == NULL) {
         return NULL;
     }
     if (scope != KSCrashSidecarScopeRun) {
+        // Not this monitor's scope (e.g. the final pass, which has no sidecar file).
         CFRetain(reportDict);
         return reportDict;
     }
+    if (sidecarPath == NULL) {
+        return NULL;
+    }
 
     KSCrash_ResourceData data = {};
-    if (!readResourceData(sidecarPath, &data)) {
+    KSCrashSidecarReadResult readResult = readResourceData(sidecarPath, &data);
+    if (readResult == KSCrashSidecarReadFailure) {
         KSLOG_ERROR(@"Failed to read resource sidecar at %s", sidecarPath);
         return NULL;
+    }
+    if (readResult != KSCrashSidecarReadOK) {
+        // NULL is the retry signal, and retrying this never gets further: it
+        // would stop the report being finalized for good. Deliver it without
+        // the resource section.
+        KSLOG_ERROR(@"Unreadable resource sidecar at %s; delivering without it", sidecarPath);
+        CFRetain(reportDict);
+        return reportDict;
     }
 
     NSMutableDictionary *dict = [(__bridge NSDictionary *)reportDict mutableCopy];

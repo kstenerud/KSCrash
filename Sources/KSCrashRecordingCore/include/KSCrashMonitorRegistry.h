@@ -64,6 +64,13 @@ typedef struct {
  *
  * @return bool True if at least one monitor was successfully enabled, false if no monitors were enabled.
  */
+/** Copy every registered monitor api that implements createStitchedReport into `buffer`,
+ * by value (so the caller never holds registry pointers across a walk), up to `capacity`.
+ *
+ * @return The number of apis copied.
+ */
+size_t kscmr_copyStitchableMonitors(KSCrashMonitorAPIList *monitorList, KSCrashMonitorAPI *buffer, size_t capacity);
+
 bool kscmr_enableMonitors(KSCrashMonitorAPIList *monitorList);
 
 /**
@@ -95,7 +102,7 @@ void kscmr_disableAllMonitors(KSCrashMonitorAPIList *monitorList);
  *
  * This is safe to call from a crash handler (signal handler context) because
  * it only disables monitors whose setEnabled() implementation is async-signal-safe.
- * Non-async-safe monitors (e.g., Memory, Deadlock, Watchdog) are skipped since
+ * Non-async-safe monitors (e.g., Memory, Watchdog) are skipped since
  * their cleanup may involve ObjC messaging or other non-signal-safe operations,
  * and they don't need cleanup anyway since the process is terminating.
  */

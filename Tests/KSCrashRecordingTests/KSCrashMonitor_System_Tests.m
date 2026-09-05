@@ -54,11 +54,17 @@ static bool stubRunSidecarPath(const char *monitorId, char *pathBuffer, size_t p
 @property(nonatomic, strong) NSString *tempDir;
 @end
 
+struct KSCrashMonitorSavedState;
+extern struct KSCrashMonitorSavedState *kscm_testcode_saveState(void);
+extern void kscm_testcode_restoreState(struct KSCrashMonitorSavedState *saved);
+static struct KSCrashMonitorSavedState *g_savedMonitorState;
+
 @implementation KSCrashMonitor_System_Tests
 
 - (void)setUp
 {
     [super setUp];
+    g_savedMonitorState = kscm_testcode_saveState();
     self.tempDir = [NSTemporaryDirectory() stringByAppendingPathComponent:[[NSUUID UUID] UUIDString]];
     [[NSFileManager defaultManager] createDirectoryAtPath:self.tempDir
                               withIntermediateDirectories:YES
@@ -76,6 +82,7 @@ static bool stubRunSidecarPath(const char *monitorId, char *pathBuffer, size_t p
     [[NSFileManager defaultManager] removeItemAtPath:self.tempDir error:nil];
     g_sidecarPath[0] = '\0';
     ksdl_init();
+    kscm_testcode_restoreState(g_savedMonitorState);
     [super tearDown];
 }
 
@@ -113,6 +120,72 @@ static bool stubRunSidecarPath(const char *monitorId, char *pathBuffer, size_t p
     XCTAssertGreaterThan(sc.memorySize, 0ULL, @"memorySize should be non-zero");
     XCTAssertTrue(sc.cpuArchitecture[0] != '\0', @"cpuArchitecture should be populated");
     XCTAssertGreaterThan(sc.processID, 0, @"processID should be non-zero");
+
+    api->setEnabled(false, NULL);
+}
+
+- (void)testSetBootTimeLandsInTheSidecarForClassification
+{
+    KSCrashMonitorAPI *api = kscm_system_getAPI();
+    KSCrash_ExceptionHandlerCallbacks callbacks = { .getRunSidecarPath = stubRunSidecarPath };
+    api->init(&callbacks, NULL);
+    api->setEnabled(true, NULL);
+
+    // The boot monitor plugin feeds this before RunContext reads the struct;
+    // reboot classification compares it across runs.
+    kscm_system_setBootTime(1234567);
+
+    NSString *sidecarFile = [self.tempDir stringByAppendingPathComponent:@"System.ksscr"];
+    KSCrash_SystemData sc = {};
+    int fd = open(sidecarFile.fileSystemRepresentation, O_RDONLY);
+    XCTAssertNotEqual(fd, -1, @"Failed to open sidecar: %s", strerror(errno));
+    XCTAssertTrue(ksfu_readBytesFromFD(fd, (char *)&sc, (int)sizeof(sc)));
+    close(fd);
+    XCTAssertEqual(sc.bootTimestamp, 1234567);
+
+    api->setEnabled(false, NULL);
+}
+
+- (void)testSetDiscSpaceWritesSidecar
+{
+    KSCrashMonitorAPI *api = kscm_system_getAPI();
+    KSCrash_ExceptionHandlerCallbacks callbacks = { .getRunSidecarPath = stubRunSidecarPath };
+    api->init(&callbacks, NULL);
+    api->setEnabled(true, NULL);
+
+    // The disk monitor plugin feeds this at enable and on each poll.
+    kscm_system_setDiscSpace(1000, 400);
+
+    NSString *sidecarFile = [self.tempDir stringByAppendingPathComponent:@"System.ksscr"];
+    KSCrash_SystemData sc = {};
+    int fd = open(sidecarFile.fileSystemRepresentation, O_RDONLY);
+    XCTAssertNotEqual(fd, -1, @"Failed to open sidecar: %s", strerror(errno));
+    XCTAssertTrue(ksfu_readBytesFromFD(fd, (char *)&sc, (int)sizeof(sc)));
+    close(fd);
+    XCTAssertEqual(sc.storageSize, 1000);
+    XCTAssertEqual(sc.freeStorageSize, 400);
+
+    api->setEnabled(false, NULL);
+}
+
+- (void)testRefreshFreeStorageAtEventOverwritesTheLastPoll
+{
+    KSCrashMonitorAPI *api = kscm_system_getAPI();
+    KSCrash_ExceptionHandlerCallbacks callbacks = { .getRunSidecarPath = stubRunSidecarPath };
+    api->init(&callbacks, NULL);
+    api->setEnabled(true, NULL);
+
+    kscm_system_setDiscSpace(1000, 1);
+    kscm_system_refreshFreeStorageAtEvent(NULL, NULL);
+
+    NSString *sidecarFile = [self.tempDir stringByAppendingPathComponent:@"System.ksscr"];
+    KSCrash_SystemData sc = {};
+    int fd = open(sidecarFile.fileSystemRepresentation, O_RDONLY);
+    XCTAssertNotEqual(fd, -1, @"Failed to open sidecar: %s", strerror(errno));
+    XCTAssertTrue(ksfu_readBytesFromFD(fd, (char *)&sc, (int)sizeof(sc)));
+    close(fd);
+    XCTAssertEqual(sc.storageSize, 1000, @"total is the poller's value");
+    XCTAssertGreaterThan(sc.freeStorageSize, 1ULL, @"the event refresh re-samples free storage");
 
     api->setEnabled(false, NULL);
 }
@@ -276,7 +349,7 @@ static bool stubRunSidecarPath(const char *monitorId, char *pathBuffer, size_t p
     XCTAssertNotNil(reportInfo[KSCrashField_ProcessName], @"processName should be stitched into report info");
 }
 
-- (void)testStitchRejectsInvalidMagic
+- (void)testStitchDeliversTheReportUnchangedForInvalidMagic
 {
     KSCrashMonitorAPI *api = kscm_system_getAPI();
 
@@ -292,7 +365,10 @@ static bool stubRunSidecarPath(const char *monitorId, char *pathBuffer, size_t p
 
     NSDictionary *result = (__bridge_transfer NSDictionary *)api->createStitchedReport(
         (__bridge CFDictionaryRef)minimalReport, sidecarFile.fileSystemRepresentation, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result == nil, @"createStitchedReport should return NULL for invalid magic");
+    // NULL is the retry signal, and no later read makes sense of these bytes:
+    // returning it would stop the report being finalized for good. It
+    // delivers without the system section instead.
+    XCTAssertEqualObjects(result, minimalReport);
 }
 
 - (void)testGetSystemDataForPath_v1Sidecar_toleratesShortReadAndZeroFills

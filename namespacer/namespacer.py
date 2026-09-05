@@ -45,19 +45,11 @@ import sys
 ALWAYS_ADDED_SYMBOLS = [
                         "i_kslog_logObjC",
                         "i_kslog_logObjCBasic",
-                        "KSCrashAlertViewProcess",
+                        "kscrash_reportNSException",
                         "KSCrashAppMemory",
                         "KSCrashAppMemoryTrackerDelegate",
-                        "KSCrashMailProcess",
-                        "KSCrashReportNoID",
+                        "KSCrashReportID",
                        ]
-
-# Ignore anything in an `NS_SWIFT_NAME()` macro that matches any of these:
-SWIFT_NAME_IGNORED = [
-                        re.compile(".*\\).*"),
-                        re.compile(".*\\..*"),
-                        re.compile("[^A-Z]"),
-                     ]
 
 # Ignore function names that match any of these:
 FUNCTION_NAME_IGNORED = [
@@ -309,16 +301,17 @@ def get_symbols_of_kind(translation_unit, kinds, ignore_matching):
     return list(dict.fromkeys(symbols))
 
 
-def extract_swift_names(contents, ignore_matching):
-    names = re.findall(r'NS_SWIFT_NAME\((.*)\)', contents)
-    return [name for name in names if not matches_any(name, ignore_matching)]
+def swift_names(contents):
+    # Names given to Swift by NS_SWIFT_NAME/CF_SWIFT_NAME. These are never namespaced: two
+    # copies of KSCrash are two Swift modules, which already scope them, and renaming them
+    # would break KSCrash's own Swift sources, which spell them out.
+    return set(re.findall(r'(?:NS|CF)_SWIFT_NAME\(([^()]*)\)', contents))
 
 
 def collect_symbols(path):
     tu = get_translation_unit(path)
     contents = Path(path).read_text()
     symbols = []
-    symbols += extract_swift_names(contents, SWIFT_NAME_IGNORED)
     symbols += get_symbols_of_kind(tu, [clang.cindex.CursorKind.FUNCTION_DECL], FUNCTION_NAME_IGNORED + LIBC_IGNORED)
     symbols += get_symbols_of_kind(tu, [clang.cindex.CursorKind.VAR_DECL], VARIABLE_NAME_IGNORED)
     symbols += get_symbols_of_kind(tu, [
@@ -345,9 +338,15 @@ def load_symbols_from_compilation_units(base_path):
                                                     re.compile(".*KSCrashTestTools.*"),
                                                   ])
     symbols = []
+    excluded = set()
     for path in paths:
         symbols += collect_symbols(path)
-    symbols = list(dict.fromkeys(symbols))
+        excluded |= swift_names(Path(path).read_text())
+    # Excluded across the whole tree, not per file: a header's symbols are collected again in
+    # every compilation unit that includes it, where the macro text is not in view. A
+    # swift_name argument also reaches `symbols` as a bogus declaration, because the macro
+    # expands to nothing in this parse: `} CF_SWIFT_NAME(Foo);` reads as a declarator.
+    symbols = [s for s in dict.fromkeys(symbols) if s not in excluded]
     symbols.sort()
     return symbols
 

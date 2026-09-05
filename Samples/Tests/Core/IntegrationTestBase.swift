@@ -37,7 +37,7 @@ class IntegrationTestBase: XCTestCase {
     private(set) var app: XCUIApplication!
 
     private(set) var installUrl: URL!
-    private(set) var appleReportsUrl: URL!
+    private(set) var deliveredReportsUrl: URL!
     private(set) var stateUrl: URL!
     private(set) var actionCompletedUrl: URL!
 
@@ -82,11 +82,11 @@ class IntegrationTestBase: XCTestCase {
         installUrl = FileManager.default.temporaryDirectory
             .appendingPathComponent("KSCrash")
             .appendingPathComponent(UUID().uuidString)
-        appleReportsUrl = installUrl.appendingPathComponent("__TEST_REPORTS__")
+        deliveredReportsUrl = installUrl.appendingPathComponent("__TEST_REPORTS__")
         stateUrl = installUrl.appendingPathComponent("__test_state__.json")
         actionCompletedUrl = installUrl.appendingPathComponent("__test_action_completed__")
 
-        try FileManager.default.createDirectory(at: appleReportsUrl, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: deliveredReportsUrl, withIntermediateDirectories: true)
         log.info("KSCrash install path: \(installUrl.path)")
 
         app = XCUIApplication()
@@ -192,7 +192,7 @@ class IntegrationTestBase: XCTestCase {
             case reportNotFound
         }
 
-        let reportsUrl = installUrl.appendingPathComponent("Reports")
+        let reportsUrl = try reportsDirectoryUrl()
         let reportUrl = try FileManager.default
             .contentsOfDirectory(atPath: reportsUrl.path)
             .first
@@ -202,7 +202,7 @@ class IntegrationTestBase: XCTestCase {
     }
 
     func readRawCrashReportData() throws -> Data {
-        let reportsDirUrl = installUrl.appendingPathComponent("Reports")
+        let reportsDirUrl = try reportsDirectoryUrl()
         let reportUrl = try waitForFile(in: reportsDirUrl, timeout: reportTimeout)
         let reportData = try Data(contentsOf: reportUrl)
         return reportData
@@ -221,35 +221,29 @@ class IntegrationTestBase: XCTestCase {
         return report
     }
 
-    func readCrashReport() throws -> CrashReport<NoUserData> {
+    func readCrashReport() throws -> Report {
         let reportData = try readRawCrashReportData()
-        let report = try JSONDecoder().decode(CrashReport<NoUserData>.self, from: reportData)
+        let report = try JSONDecoder().decode(Report.self, from: reportData)
         return report
     }
 
-    func decodeCrashReport(reportData: Data) throws -> CrashReport<NoUserData> {
-        return try JSONDecoder().decode(CrashReport<NoUserData>.self, from: reportData)
+    func decodeCrashReport(reportData: Data) throws -> Report {
+        return try JSONDecoder().decode(Report.self, from: reportData)
     }
 
     func hasCrashReport() throws -> Bool {
-        let reportsDirUrl = installUrl.appendingPathComponent("Reports")
+        let reportsDirUrl = try reportsDirectoryUrl()
         let files = try? FileManager.default.contentsOfDirectory(atPath: reportsDirUrl.path)
         return (files ?? []).isEmpty == false
     }
 
-    func readAppleReportData() throws -> Data {
-        let url = try waitForFile(in: appleReportsUrl, timeout: reportTimeout)
+    func readDeliveredReportData() throws -> Data {
+        let url = try waitForFile(in: deliveredReportsUrl, timeout: reportTimeout)
         return try Data(contentsOf: url)
     }
 
-    func readAppleReport() throws -> String {
-        let url = try waitForFile(in: appleReportsUrl, timeout: reportTimeout)
-        let appleReport = try String(contentsOf: url)
-        return appleReport
-    }
-
     func launchAndInstall(installOverride: ((inout InstallConfig) throws -> Void)? = nil) throws {
-        var installConfig = InstallConfig(installPath: installUrl.path)
+        var installConfig = InstallConfig(namespace: "IntegrationTests", basePath: installUrl.path)
         try installOverride?(&installConfig)
         app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
             install: installConfig,
@@ -262,7 +256,7 @@ class IntegrationTestBase: XCTestCase {
     func launchAndCrash(_ crashId: CrashTriggerId, installOverride: ((inout InstallConfig) throws -> Void)? = nil)
         throws
     {
-        var installConfig = InstallConfig(installPath: installUrl.path)
+        var installConfig = InstallConfig(namespace: "IntegrationTests", basePath: installUrl.path)
         try installOverride?(&installConfig)
         app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
             crash: .init(triggerId: crashId),
@@ -279,7 +273,7 @@ class IntegrationTestBase: XCTestCase {
     )
         throws
     {
-        var installConfig = InstallConfig(installPath: installUrl.path)
+        var installConfig = InstallConfig(namespace: "IntegrationTests", basePath: installUrl.path)
         try installOverride?(&installConfig)
         try? FileManager.default.removeItem(at: actionCompletedUrl)
         app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
@@ -297,7 +291,7 @@ class IntegrationTestBase: XCTestCase {
         nsException: UserReportConfig.NSExceptionReport? = nil,
         installOverride: ((inout InstallConfig) throws -> Void)? = nil
     ) throws {
-        var installConfig = InstallConfig(installPath: installUrl.path)
+        var installConfig = InstallConfig(namespace: "IntegrationTests", basePath: installUrl.path)
         try installOverride?(&installConfig)
         app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
             userReport: .init(userException: userException, nsException: nsException),
@@ -322,37 +316,50 @@ class IntegrationTestBase: XCTestCase {
         }
     }
 
-    func launchAndReportCrash() throws -> String {
-        app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
-            report: .init(directoryPath: appleReportsUrl.path),
-            install: .init(installPath: installUrl.path),
-            config: runConfig
-        )
-
-        launchAppAndRunScript()
-        let report = try readAppleReport()
-        return report
+    /// Relaunch the app, deliver the pending reports through the Swift send,
+    /// and return the delivered report decoded from the dump directory.
+    func launchAndReportCrash() throws -> Report {
+        try decodeCrashReport(reportData: launchAndReportCrashRaw())
     }
 
     func launchAndReportCrashRaw(
         installOverride: ((inout InstallConfig) throws -> Void)? = nil
     ) throws -> Data {
-        var installConfig = InstallConfig(installPath: installUrl.path)
+        var installConfig = InstallConfig(namespace: "IntegrationTests", basePath: installUrl.path)
         try installOverride?(&installConfig)
         app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
-            report: .init(directoryPath: appleReportsUrl.path, rawJSON: true),
+            report: .init(directoryPath: deliveredReportsUrl.path),
             install: installConfig,
             config: runConfig
         )
 
         launchAppAndRunScript()
-        return try readAppleReportData()
+        return try readDeliveredReportData()
     }
 
     func readState() throws -> KSCrashState {
         let data = try Data(contentsOf: stateUrl)
         let state = try JSONDecoder().decode(KSCrashState.self, from: data)
         return state
+    }
+
+    /// The install's reports directory, read from the state file the app
+    /// writes at install time; the harness never re-derives the layout.
+    func reportsDirectoryUrl() throws -> URL {
+        enum LocalError: Error {
+            case reportsPathNotInState
+        }
+        guard let path = try readState().reportsPath else { throw LocalError.reportsPathNotInState }
+        return URL(fileURLWithPath: path, isDirectory: true)
+    }
+
+    /// The install's runs directory, read from the same state file.
+    func runsDirectoryUrl() throws -> URL {
+        enum LocalError: Error {
+            case runsPathNotInState
+        }
+        guard let path = try readState().runsPath else { throw LocalError.runsPathNotInState }
+        return URL(fileURLWithPath: path, isDirectory: true)
     }
 
     func terminate() throws {

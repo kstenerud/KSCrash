@@ -111,6 +111,11 @@ static bool isThreadAlreadyHandlingAnException(int maxCount, thread_t offendingT
     }
     for (int i = 0; i < maxCount; i++) {
         thread_t handlerThread = atomic_load(&g_state.threadsHandlingExceptions[i]);
+        if (handlerThread == MACH_PORT_NULL) {
+            // Freed slot. Skipping it also keeps a MACH_PORT_NULL offendingThread (an event
+            // with no local subject thread, e.g. a corpse report) from matching it.
+            continue;
+        }
         if (handlerThread == handlingThread || handlerThread == offendingThread) {
             return true;
         }
@@ -295,6 +300,9 @@ static KSCrash_MonitorContext *notifyException(const mach_port_t offendingThread
         requirements.shouldRecordAllThreads = false;
         requirements.isFatal = true;
         requirements.isCleanExit = false;
+        // A recrash is this process's own handler crashing, no matter whose event
+        // was being handled when it happened.
+        requirements.isRemoteSubject = false;
     } else if (wasHandlingFatalException) {
         // This is an incidental exception that happened while we were handling a fatal
         // exception. Pause this handler to allow the other handler to finish.
@@ -303,13 +311,16 @@ static KSCrash_MonitorContext *notifyException(const mach_port_t offendingThread
     }
 
     g_state.crashedDuringExceptionHandling |= isCrashedDuringExceptionHandling;
-    g_state.isHandlingFatalException |= requirements.isFatal;
+    g_state.isHandlingFatalException |= kscexc_isLocallyFatal(requirements);
 
     KSCrash_MonitorContext *ctx = getNextMonitorContext(requirements);
     ctx->threadHandlerIndex = thisThreadHandlerIndex;
     ctx->requirements = requirements;
 
-    if (ctx->requirements.shouldRecordAllThreads) {
+    if (ctx->requirements.shouldRecordAllThreads && !kscexc_isRemoteSubject(ctx->requirements)) {
+        // Suspension freezes this process for a consistent thread walk. A remote subject's
+        // threads are frozen in their own task, so shouldRecordAllThreads stays purely a
+        // writer directive and this process keeps running (the capture path isn't async-safe).
         KSLOG_DEBUG("shouldRecordAllThreads, so suspending threads");
         ctx->suspendedThreads = NULL;
         ctx->suspendedThreadsCount = 0;
@@ -351,7 +362,8 @@ static void handleException(struct KSCrash_MonitorContext *ctx, KSCrash_ReportRe
 
     // If the exception is fatal, we need to uninstall ourselves so that
     // other installed crash handler libraries can run when we finish.
-    if (ctx->requirements.isFatal) {
+    // A remote subject's fatal event doesn't end this process, so its monitors stay armed.
+    if (kscexc_isLocallyFatal(ctx->requirements)) {
         KSLOG_DEBUG("Exception is fatal. Restoring original handlers.");
         kscmr_disableAsyncSafeMonitors(&g_state.monitors);
     }
@@ -360,8 +372,8 @@ static void handleException(struct KSCrash_MonitorContext *ctx, KSCrash_ReportRe
 
     // Finalize after threads are resumed and the exception slot is freed,
     // since it involves ObjC/JSON/file I/O.
-    if (finalize && !ctx->requirements.isFatal && localResult.reportId > 0 && g_state.onFinalizeReport) {
-        KSLOG_DEBUG("Finalizing non-fatal report %" PRId64, localResult.reportId);
+    if (finalize && !ctx->requirements.isFatal && localResult.reportId[0] != '\0' && g_state.onFinalizeReport) {
+        KSLOG_DEBUG("Finalizing non-fatal report %s", localResult.reportId);
         g_state.onFinalizeReport(ctx, &localResult);
     }
 
@@ -396,6 +408,12 @@ const KSCrashMonitorAPI *kscm_getMonitor(const char *monitorId)
 {
     init();
     return kscmr_getMonitor(&g_state.monitors, monitorId);
+}
+
+size_t kscm_copyStitchableMonitors(KSCrashMonitorAPI *buffer, size_t capacity)
+{
+    init();
+    return kscmr_copyStitchableMonitors(&g_state.monitors, buffer, capacity);
 }
 
 void kscm_setReportSidecarFilePathProvider(KSCrashReportSidecarFilePathProviderFunc provider)
@@ -437,4 +455,70 @@ void kscm_testcode_resetState(void)
 {
     g_initialized = false;
     memset(&g_state, 0, sizeof(g_state));
+}
+
+/** Everything a suite that resets the core must hand back: the registry and
+ *  callbacks, plus which registered monitors were enabled at the time.
+ */
+struct KSCrashMonitorSavedState {
+    __typeof__(g_state) state;
+    KSCrash_ExceptionHandlerCallbacks exceptionCallbacks;
+    bool initialized;
+    bool enabled[KSCRASH_MONITOR_API_COUNT];
+};
+
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+struct KSCrashMonitorSavedState *
+kscm_testcode_saveState(void)
+{
+    struct KSCrashMonitorSavedState *saved = calloc(1, sizeof(*saved));
+    // Byte copies: g_state holds atomics, and nothing runs concurrently in a test process.
+    memcpy(&saved->state, &g_state, sizeof(g_state));
+    saved->exceptionCallbacks = g_exceptionCallbacks;
+    saved->initialized = g_initialized;
+    for (size_t i = 0; i < KSCRASH_MONITOR_API_COUNT; i++) {
+        const KSCrashMonitorAPI *api = g_state.monitors.apis[i];
+        saved->enabled[i] = api != NULL && api->isEnabled(api->context);
+    }
+    // The suite runs against a quiet core: whatever is live stays off until restore.
+    kscmr_disableAllMonitors(&g_state.monitors);
+    return saved;
+}
+
+/** Puts back what kscm_testcode_saveState captured and frees it. The monitors the
+ *  suite registered are disabled first; the saved ones that were enabled are enabled again.
+ */
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+void kscm_testcode_restoreState(struct KSCrashMonitorSavedState *saved)
+{
+    kscmr_disableAllMonitors(&g_state.monitors);
+    memcpy(&g_state, &saved->state, sizeof(g_state));
+    g_exceptionCallbacks = saved->exceptionCallbacks;
+    g_initialized = saved->initialized;
+    for (size_t i = 0; i < KSCRASH_MONITOR_API_COUNT; i++) {
+        const KSCrashMonitorAPI *api = g_state.monitors.apis[i];
+        if (saved->enabled[i] && api != NULL && !api->isEnabled(api->context)) {
+            // Re-init first: the suite may have re-inited the monitor with its own callbacks.
+            if (api->init != NULL) {
+                api->init(&g_exceptionCallbacks, api->context);
+            }
+            api->setEnabled(true, api->context);
+        }
+    }
+    free(saved);
+}
+
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+bool kscm_testcode_isHandlingFatalException(void)
+{
+    return g_state.isHandlingFatalException;
+}
+
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+// Clears only the fatal latch. A test that simulates a fatal event must undo it, or every later
+// event in the process is refused; kscm_testcode_resetState is the wrong tool for that, since it
+// wipes the registered monitors and callbacks along with it.
+void kscm_testcode_clearHandlingFatalException(void)
+{
+    g_state.isHandlingFatalException = false;
 }

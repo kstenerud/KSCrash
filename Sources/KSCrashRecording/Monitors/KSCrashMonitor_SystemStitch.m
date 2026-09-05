@@ -50,17 +50,34 @@ static void setTimestamp(NSMutableDictionary *dict, NSString *key, int64_t times
 }
 
 CFDictionaryRef kscm_system_createStitchedReport(CFDictionaryRef reportDict, const char *sidecarPath,
-                                                 __unused KSCrashSidecarScope scope, __unused void *context)
+                                                 KSCrashSidecarScope scope, __unused void *context)
 {
-    if (!reportDict || !sidecarPath) {
+    if (reportDict == NULL) {
+        return NULL;
+    }
+    if (scope != KSCrashSidecarScopeRun) {
+        // Not this monitor's scope (e.g. the final pass, which has no sidecar file).
+        CFRetain(reportDict);
+        return reportDict;
+    }
+    if (sidecarPath == NULL) {
         return NULL;
     }
 
     // Read the binary struct from disk
     KSCrash_SystemData sc = {};
-    if (!kscm_system_getSystemDataForPath(sidecarPath, &sc)) {
+    KSCrashSidecarReadResult readResult = kscm_system_readSystemData(sidecarPath, &sc);
+    if (readResult == KSCrashSidecarReadFailure) {
         KSLOG_ERROR(@"Failed to read system sidecar at %s", sidecarPath);
         return NULL;
+    }
+    if (readResult != KSCrashSidecarReadOK) {
+        // NULL is the retry signal, and retrying this never gets further: it
+        // would stop the report being finalized for good. Deliver it without
+        // the system section.
+        KSLOG_ERROR(@"Unreadable system sidecar at %s; delivering without it", sidecarPath);
+        CFRetain(reportDict);
+        return reportDict;
     }
 
     NSMutableDictionary *dict = [(__bridge NSDictionary *)reportDict mutableCopy];

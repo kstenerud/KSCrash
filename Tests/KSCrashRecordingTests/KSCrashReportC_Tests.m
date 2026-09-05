@@ -26,8 +26,13 @@
 
 #import <XCTest/XCTest.h>
 
+#import "KSCrashMonitor.h"
+#import "KSCrashMonitorAPI.h"
+#import "KSCrashMonitorHelper.h"
 #import "KSCrashMonitor_MachException.h"
+#import "KSCrashMonitor_NSException.h"
 #import "KSCrashReportC.h"
+#import "KSDynamicLinker.h"
 #import "KSJSONCodec.h"
 #import "KSMachineContext.h"
 #import "KSStackCursor_SelfThread.h"
@@ -37,23 +42,167 @@
 #include <stdatomic.h>
 #include <stdio.h>
 
+static const char *customSectionMonitorId(__unused void *context) { return "TestCustomMonitor"; }
+static const char *profileLikeMonitorId(__unused void *context) { return "profile"; }
+static const char *floatSectionMonitorId(__unused void *context) { return "TestFloatMonitor"; }
+static void writeFloatMonitorSection(__unused const KSCrash_MonitorContext *eventContext,
+                                     const KSCrashReportWriter *writer, __unused void *context)
+{
+    writer->addFloatElement(writer, "ratio", 0.2f);
+    writer->addFloatingPointElement(writer, "precise", 0.1);
+    writer->addFloatingPointElement(writer, "infinite", (double)INFINITY);
+    writer->addFloatElement(writer, "notANumber", NAN);
+}
+static void writeTestMonitorSection(__unused const KSCrash_MonitorContext *eventContext,
+                                    const KSCrashReportWriter *writer, __unused void *context)
+{
+    writer->addStringElement(writer, "custom_key", "custom_value");
+}
+
+/// A class the tests restrict via doNotIntrospectClasses.
+@interface KSCrashTestRestrictedSecret : NSObject
+@end
+@implementation KSCrashTestRestrictedSecret
+@end
+
 @interface KSCrashReportC_Tests : XCTestCase
 @end
 
-@implementation KSCrashReportC_Tests
+@implementation KSCrashReportC_Tests {
+    KSCrashMonitorAPI _customMonitorAPI;
+    KSCrashMonitorAPI _profileLikeMonitorAPI;
+    KSCrashMonitorAPI _floatMonitorAPI;
+}
 
 - (void)setUp
 {
     [super setUp];
-    // Clear any existing userInfo before each test
-    kscrashreport_setUserInfoJSON(NULL);
 }
 
 - (void)tearDown
 {
-    // Clean up after each test
-    kscrashreport_setUserInfoJSON(NULL);
+    kscm_removeMonitor(&_customMonitorAPI);
+    kscm_removeMonitor(&_profileLikeMonitorAPI);
+    kscm_removeMonitor(&_floatMonitorAPI);
     [super tearDown];
+}
+
+/// A monitor-caused report for the monitor id `idFunc` returns, written and
+/// read back.
+- (NSDictionary *)writeReportForMonitor:(KSCrashMonitorAPI *)monitorAPI monitorId:(const char *(*)(void *))idFunc
+{
+    return [self writeReportForMonitor:monitorAPI monitorId:idFunc section:writeTestMonitorSection];
+}
+
+- (NSDictionary *)writeReportForMonitor:(KSCrashMonitorAPI *)monitorAPI
+                              monitorId:(const char *(*)(void *))idFunc
+                                section:(void (*)(const KSCrash_MonitorContext *, const KSCrashReportWriter *,
+                                                  void *))section
+{
+    kscma_initAPI(monitorAPI);
+    monitorAPI->monitorId = idFunc;
+    monitorAPI->writeInReportSection = section;
+    kscm_addMonitor(monitorAPI);
+
+    struct KSMachineContext machineContext = { 0 };
+    XCTAssertTrue(ksmc_getContextForThread(pthread_mach_thread_np(pthread_self()), &machineContext, true));
+    KSStackCursor stackCursor;
+    kssc_initSelfThread(&stackCursor, 0);
+
+    KSCrash_MonitorContext context = { 0 };
+    snprintf(context.eventID, sizeof(context.eventID), "MONITORSECTIONTEST");
+    context.offendingMachineContext = &machineContext;
+    context.stackCursor = &stackCursor;
+    context.omitBinaryImages = true;
+    context.monitorId = monitorAPI->monitorId(NULL);
+
+    NSString *path = [self temporaryReportPath];
+    NSDictionary *json = nil;
+    @try {
+        kscrashreport_writeStandardReport(&context, path.UTF8String);
+        json = [self readJSONObjectAtPath:path];
+    } @finally {
+        [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+    }
+    return json;
+}
+
+- (void)testWriteRecrashReportPreservesTheOriginalReportID
+{
+    struct KSMachineContext machineContext = { 0 };
+    XCTAssertTrue(ksmc_getContextForThread(pthread_mach_thread_np(pthread_self()), &machineContext, true));
+    KSStackCursor stackCursor;
+    kssc_initSelfThread(&stackCursor, 0);
+
+    KSCrash_MonitorContext context = { 0 };
+    snprintf(context.eventID, sizeof(context.eventID), "4c1b2f3e-0000-4000-8000-00000000000a");
+    context.offendingMachineContext = &machineContext;
+    context.stackCursor = &stackCursor;
+    context.omitBinaryImages = true;
+    context.monitorId = "TestMonitor";
+
+    NSString *path = [self temporaryReportPath];
+    NSDictionary *json = nil;
+    @try {
+        kscrashreport_writeStandardReport(&context, path.UTF8String);
+
+        // The handler crashed: the recrash context has its own fresh event
+        // id, but the rewritten file keeps the identity its filename carries.
+        KSCrash_MonitorContext recrashContext = { 0 };
+        snprintf(recrashContext.eventID, sizeof(recrashContext.eventID), "ffffffff-ffff-4fff-8fff-ffffffffffff");
+        recrashContext.offendingMachineContext = &machineContext;
+        recrashContext.stackCursor = &stackCursor;
+        recrashContext.omitBinaryImages = true;
+        recrashContext.monitorId = "TestMonitor";
+        kscrashreport_writeRecrashReport(&recrashContext, path.UTF8String, "4c1b2f3e-0000-4000-8000-00000000000a");
+        json = [self readJSONObjectAtPath:path];
+    } @finally {
+        [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+    }
+
+    XCTAssertEqualObjects(json[@"report"][@"id"], @"4c1b2f3e-0000-4000-8000-00000000000a");
+    XCTAssertEqualObjects(json[@"recrash_report"][@"report"][@"id"], @"4c1b2f3e-0000-4000-8000-00000000000a",
+                          @"the embedded original keeps its id too");
+}
+
+- (void)testWriteStandardReportFencesACustomMonitorSection
+{
+    NSDictionary *error = [self writeReportForMonitor:&_customMonitorAPI
+                                            monitorId:customSectionMonitorId][@"crash"][@"error"];
+
+    XCTAssertEqualObjects(error[@"type"], @"TestCustomMonitor");
+    XCTAssertEqualObjects(error[@"monitor_data"][@"TestCustomMonitor"][@"custom_key"], @"custom_value");
+    XCTAssertNil(error[@"TestCustomMonitor"], @"The section lives only in the fenced namespace");
+}
+
+- (void)testWriteStandardReportKeepsTheProfileSectionAtItsSchemaKey
+{
+    NSDictionary *error = [self writeReportForMonitor:&_profileLikeMonitorAPI
+                                            monitorId:profileLikeMonitorId][@"crash"][@"error"];
+
+    XCTAssertEqualObjects(error[@"type"], @"profile");
+    XCTAssertEqualObjects(error[@"profile"][@"custom_key"], @"custom_value");
+    XCTAssertNil(error[@"monitor_data"], @"Profile is a typed section, not custom-monitor data");
+}
+
+- (void)testWriteStandardReportKeepsAFloatAtItsOwnPrecision
+{
+    // A float widened to a double and printed at DBL_DIG carries the
+    // widening's noise, not the value: 0.2f comes out 0.200000002980232. The
+    // writer takes floats through their own slot so the digits it prints are
+    // the ones the value is worth.
+    NSDictionary *section =
+        [self writeReportForMonitor:&_floatMonitorAPI monitorId:floatSectionMonitorId
+                            section:writeFloatMonitorSection][@"crash"][@"error"][@"monitor_data"][@"TestFloatMonitor"];
+
+    XCTAssertEqualObjects([section[@"ratio"] stringValue], @"0.2");
+    XCTAssertEqualObjects([section[@"precise"] stringValue], @"0.1");
+
+    // JSON carries no infinity: the encoder writes `1e999`, and one of those
+    // anywhere in a report makes the whole thing undeliverable, so the element
+    // is left out rather than written. The keys that can be written still are.
+    XCTAssertNil(section[@"infinite"]);
+    XCTAssertNil(section[@"notANumber"]);
 }
 
 - (NSString *)temporaryReportPath
@@ -79,183 +228,7 @@
 
 #pragma mark - Basic Functionality Tests
 
-- (void)testSetAndGetUserInfo
-{
-    const char *testJSON = "{\"key\":\"value\"}";
-    kscrashreport_setUserInfoJSON(testJSON);
-
-    const char *result = kscrashreport_getUserInfoJSON();
-    XCTAssertNotEqual(result, NULL, @"getUserInfoJSON should return non-NULL after setting");
-    XCTAssertTrue(strcmp(result, testJSON) == 0, @"Retrieved JSON should match set JSON");
-    free((void *)result);
-}
-
-- (void)testSetNullClearsUserInfo
-{
-    const char *testJSON = "{\"key\":\"value\"}";
-    kscrashreport_setUserInfoJSON(testJSON);
-
-    kscrashreport_setUserInfoJSON(NULL);
-
-    const char *result = kscrashreport_getUserInfoJSON();
-    XCTAssertEqual(result, NULL, @"getUserInfoJSON should return NULL after setting NULL");
-}
-
-- (void)testGetUserInfoReturnsNewCopy
-{
-    const char *testJSON = "{\"key\":\"value\"}";
-    kscrashreport_setUserInfoJSON(testJSON);
-
-    const char *result1 = kscrashreport_getUserInfoJSON();
-    const char *result2 = kscrashreport_getUserInfoJSON();
-
-    XCTAssertNotEqual(result1, result2, @"Each call should return a new copy");
-    XCTAssertTrue(strcmp(result1, result2) == 0, @"Both copies should have same content");
-
-    free((void *)result1);
-    free((void *)result2);
-}
-
 #pragma mark - Contention Tests
-
-/**
- * Test concurrent set/get operations under moderate contention.
- * Validates that operations complete without deadlock and data remains consistent.
- */
-- (void)testConcurrentSetGet
-{
-    const int kNumThreads = 4;
-    const int kIterationsPerThread = 100;
-
-    dispatch_group_t group = dispatch_group_create();
-    dispatch_queue_t queue = dispatch_queue_create("test.concurrent", DISPATCH_QUEUE_CONCURRENT);
-
-    __block atomic_int successfulSets = 0;
-    __block atomic_int successfulGets = 0;
-    __block atomic_int skippedGets = 0;
-
-    for (int t = 0; t < kNumThreads; t++) {
-        dispatch_group_async(group, queue, ^{
-            char jsonBuffer[64];
-
-            for (int i = 0; i < kIterationsPerThread; i++) {
-                // Alternate between set and get operations
-                if (i % 2 == 0) {
-                    snprintf(jsonBuffer, sizeof(jsonBuffer), "{\"thread\":%d,\"iter\":%d}", t, i);
-                    kscrashreport_setUserInfoJSON(jsonBuffer);
-                    atomic_fetch_add(&successfulSets, 1);
-                } else {
-                    const char *result = kscrashreport_getUserInfoJSON();
-                    if (result != NULL) {
-                        atomic_fetch_add(&successfulGets, 1);
-                        free((void *)result);
-                    } else {
-                        atomic_fetch_add(&skippedGets, 1);
-                    }
-                }
-            }
-        });
-    }
-
-    dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
-
-    // Verify no deadlock occurred (we reached this point)
-    int totalSets = atomic_load(&successfulSets);
-    int totalGets = atomic_load(&successfulGets);
-    int totalSkipped = atomic_load(&skippedGets);
-
-    XCTAssertEqual(totalSets, kNumThreads * kIterationsPerThread / 2, @"All set operations should complete");
-    XCTAssertEqual(totalGets + totalSkipped, kNumThreads * kIterationsPerThread / 2,
-                   @"All get operations should complete (successfully or skipped)");
-
-    NSLog(@"Concurrent test: %d sets, %d successful gets, %d skipped gets", totalSets, totalGets, totalSkipped);
-}
-
-/**
- * Test high contention scenario with many threads competing for access.
- * Under extreme contention, the skip behavior should kick in.
- */
-- (void)testHighContentionSkipBehavior
-{
-    const int kNumThreads = 16;
-    const int kIterationsPerThread = 500;
-
-    dispatch_group_t group = dispatch_group_create();
-    dispatch_queue_t queue = dispatch_queue_create("test.highContention", DISPATCH_QUEUE_CONCURRENT);
-
-    __block atomic_int totalOperations = 0;
-    __block atomic_int skippedGets = 0;
-
-    // Set an initial value
-    kscrashreport_setUserInfoJSON("{\"initial\":true}");
-
-    for (int t = 0; t < kNumThreads; t++) {
-        dispatch_group_async(group, queue, ^{
-            char jsonBuffer[64];
-
-            for (int i = 0; i < kIterationsPerThread; i++) {
-                // Rapid fire set/get operations to create contention
-                snprintf(jsonBuffer, sizeof(jsonBuffer), "{\"t\":%d,\"i\":%d}", t, i);
-                kscrashreport_setUserInfoJSON(jsonBuffer);
-                atomic_fetch_add(&totalOperations, 1);
-
-                const char *result = kscrashreport_getUserInfoJSON();
-                atomic_fetch_add(&totalOperations, 1);
-                if (result != NULL) {
-                    free((void *)result);
-                } else {
-                    atomic_fetch_add(&skippedGets, 1);
-                }
-            }
-        });
-    }
-
-    dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
-
-    int total = atomic_load(&totalOperations);
-    int skipped = atomic_load(&skippedGets);
-
-    // Under high contention, we expect some skips, but the system should remain stable
-    XCTAssertEqual(total, kNumThreads * kIterationsPerThread * 2, @"All operations should attempt to complete");
-
-    NSLog(@"High contention test: %d total operations, %d skipped gets (%.2f%%)", total, skipped,
-          (double)skipped / (kNumThreads * kIterationsPerThread) * 100.0);
-
-    // Verify that after contention subsides, operations work normally
-    const char *testJSON = "{\"postContention\":true}";
-    kscrashreport_setUserInfoJSON(testJSON);
-    const char *result = kscrashreport_getUserInfoJSON();
-    XCTAssertNotEqual(result, NULL, @"Operations should work normally after contention subsides");
-    if (result != NULL) {
-        XCTAssertTrue(strcmp(result, testJSON) == 0, @"Value should be correctly set after contention");
-        free((void *)result);
-    }
-}
-
-/**
- * Test that rapid successive sets don't cause issues.
- */
-- (void)testRapidSuccessiveSets
-{
-    const int kIterations = 1000;
-
-    for (int i = 0; i < kIterations; i++) {
-        char jsonBuffer[64];
-        snprintf(jsonBuffer, sizeof(jsonBuffer), "{\"iteration\":%d}", i);
-        kscrashreport_setUserInfoJSON(jsonBuffer);
-    }
-
-    // Final value should be set correctly
-    char expectedJSON[64];
-    snprintf(expectedJSON, sizeof(expectedJSON), "{\"iteration\":%d}", kIterations - 1);
-
-    const char *result = kscrashreport_getUserInfoJSON();
-    XCTAssertNotEqual(result, NULL, @"Should have a value set");
-    if (result != NULL) {
-        XCTAssertTrue(strcmp(result, expectedJSON) == 0, @"Last set value should persist");
-        free((void *)result);
-    }
-}
 
 - (void)testWriteStandardReportPreserves64BitMachCodeAndSubcode
 {
@@ -298,168 +271,158 @@
 }
 
 /** Write a report carrying the given user info and hand back the file's raw bytes. */
-- (NSString *)rawReportWithUserInfoJSON:(const char *)userInfoJSON
+- (void)testRestrictedClassObjectWritesASingleTypeAndNoContents
 {
+    __attribute__((objc_precise_lifetime)) KSCrashTestRestrictedSecret *secret = [KSCrashTestRestrictedSecret new];
+    const char *restricted[] = { "KSCrashTestRestrictedSecret" };
+    kscrashreport_setDoNotIntrospectClasses(restricted, 1);
+
     struct KSMachineContext machineContext = { 0 };
     XCTAssertTrue(ksmc_getContextForThread(pthread_mach_thread_np(pthread_self()), &machineContext, true));
-    KSCrash_MonitorContext context = { 0 };
-    snprintf(context.eventID, sizeof(context.eventID), "USERINFOTEST");
-    context.offendingMachineContext = &machineContext;
-    context.registersAreValid = true;
-    context.omitBinaryImages = true;
-    context.monitorId = kscm_machexception_getAPI()->monitorId(NULL);
-    context.mach.type = EXC_BAD_ACCESS;
-    context.signal.signum = SIGBUS;
+    KSStackCursor stackCursor;
+    kssc_initSelfThread(&stackCursor, 0);
 
-    kscrashreport_setUserInfoJSON(userInfoJSON);
+    KSCrash_MonitorContext context = { 0 };
+    snprintf(context.eventID, sizeof(context.eventID), "RESTRICTEDTEST");
+    context.offendingMachineContext = &machineContext;
+    context.stackCursor = &stackCursor;
+    context.omitBinaryImages = true;
+    context.monitorId = kscm_nsexception_getAPI()->monitorId(NULL);
+    context.NSException.name = "TestException";
+    char reason[64];
+    snprintf(reason, sizeof(reason), "Object at %p is upset", (__bridge void *)secret);
+    context.crashReason = reason;
+
+    NSString *path = [self temporaryReportPath];
+    NSDictionary *json = nil;
+    @try {
+        kscrashreport_writeStandardReport(&context, path.UTF8String);
+        json = [self readJSONObjectAtPath:path];
+    } @finally {
+        [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+        kscrashreport_setDoNotIntrospectClasses(NULL, 0);
+    }
+
+    NSDictionary *referenced = json[@"crash"][@"error"][@"nsexception"][@"referenced_object"];
+    XCTAssertNotNil(referenced);
+    // The restricted record is complete as address + type + class. The
+    // raw-memory fallback must not run: it would add a second "type" key
+    // (surfacing here as "unknown" or "string" under last-key-wins) and
+    // could write the restricted object's memory as a string value.
+    XCTAssertEqualObjects(referenced[@"type"], @"objc_object");
+    XCTAssertEqualObjects(referenced[@"class"], @"KSCrashTestRestrictedSecret");
+    XCTAssertNil(referenced[@"value"]);
+    XCTAssertNil(referenced[@"ivars"]);
+}
+
+#pragma mark - Provided Binary Images
+
+/** Build the minimal context the writer needs, pointing at the current thread. */
+- (void)fillWriterContext:(KSCrash_MonitorContext *)context machineContext:(struct KSMachineContext *)machineContext
+{
+    XCTAssertTrue(ksmc_getContextForThread(pthread_mach_thread_np(pthread_self()), machineContext, true));
+    snprintf(context->eventID, sizeof(context->eventID), "BINARYIMAGETEST");
+    context->offendingMachineContext = machineContext;
+    context->registersAreValid = true;
+    context->monitorId = kscm_machexception_getAPI()->monitorId(NULL);
+    context->mach.type = EXC_BAD_ACCESS;
+    context->signal.signum = SIGBUS;
+}
+
+// An out-of-process report (a corpse) must list the subject's images, which the caller
+// provides, not whatever happens to be loaded in the reporting process.
+- (void)testWriteStandardReportUsesProvidedBinaryImages
+{
+    struct KSMachineContext machineContext = { 0 };
+    KSCrash_MonitorContext context = { 0 };
+    [self fillWriterContext:&context machineContext:&machineContext];
+
+    const uint8_t uuid[16] = { 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+                               0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF };
+    KSBinaryImage providedImages[2] = {
+        { .address = 0x100000000,
+          .vmAddress = 0x4000,
+          .size = 0x8000,
+          .name = "/corpse/app/Binary",
+          .uuid = uuid,
+          .cpuType = 16777228,
+          .cpuSubType = 2 },
+        { .address = 0x200000000, .size = 0x4000, .name = "/corpse/lib/Framework", .uuid = NULL, .cpuType = 16777228 },
+    };
+    context.providedBinaryImages = providedImages;
+    context.providedBinaryImageCount = 2;
+
     NSString *path = [self temporaryReportPath];
     @try {
         kscrashreport_writeStandardReport(&context, path.UTF8String);
-        return [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:nil];
+
+        NSArray *images = [self readJSONObjectAtPath:path][@"binary_images"];
+        XCTAssertEqual(images.count, 2, @"Exactly the provided images, nothing from live dyld");
+
+        NSDictionary *first = images[0];
+        XCTAssertEqual([first[@"image_addr"] unsignedLongLongValue], 0x100000000);
+        XCTAssertEqual([first[@"image_vmaddr"] unsignedLongLongValue], 0x4000);
+        XCTAssertEqual([first[@"image_size"] unsignedLongLongValue], 0x8000);
+        XCTAssertEqualObjects(first[@"name"], @"/corpse/app/Binary");
+        XCTAssertEqualObjects([first[@"uuid"] lowercaseString], @"00112233-4455-6677-8899-aabbccddeeff");
+        XCTAssertEqual([first[@"cpu_type"] intValue], 16777228);
+        XCTAssertEqual([first[@"cpu_subtype"] intValue], 2);
+
+        NSDictionary *second = images[1];
+        XCTAssertEqual([second[@"image_addr"] unsignedLongLongValue], 0x200000000);
+        XCTAssertEqualObjects(second[@"name"], @"/corpse/lib/Framework");
     } @finally {
         [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
-        kscrashreport_setUserInfoJSON(NULL);
     }
 }
 
-- (NSUInteger)countOfString:(NSString *)needle in:(NSString *)haystack
+// Compact mode must not filter a provided image list: remote frames never populate the
+// referenced-image set (they don't symbolicate, and the set would hold this process's
+// bases anyway), so filtering would ship an empty binary_images section.
+- (void)testWriteStandardReportKeepsProvidedBinaryImagesInCompactMode
 {
-    NSUInteger count = 0;
-    NSRange search = NSMakeRange(0, haystack.length);
-    while (search.length > 0) {
-        NSRange found = [haystack rangeOfString:needle options:0 range:search];
-        if (found.location == NSNotFound) {
-            break;
-        }
-        count++;
-        search = NSMakeRange(NSMaxRange(found), haystack.length - NSMaxRange(found));
-    }
-    return count;
-}
+    struct KSMachineContext machineContext = { 0 };
+    KSCrash_MonitorContext context = { 0 };
+    [self fillWriterContext:&context machineContext:&machineContext];
 
-// Whatever the payload is, the report gets exactly one user section and stays parseable.
-// Counted against the raw bytes on purpose: NSJSONSerialization keeps the last of a
-// duplicated key and would hide the very thing this is guarding.
-- (void)testWriteStandardReportWritesExactlyOneUserSection
-{
-    NSString *oversized = [@"" stringByPaddingToLength:KSJSON_MAX_EMBEDDED_STRING_LENGTH + 1000
-                                            withString:@"x"
-                                       startingAtIndex:0];
-    NSMutableString *tooDeep = [NSMutableString string];
-    int depth = KSJSON_MAX_CONTAINER_DEPTH + 50;
-    for (int i = 0; i < depth; i++) {
-        [tooDeep appendString:@"["];
-    }
-    [tooDeep appendString:@"1"];
-    for (int i = 0; i < depth; i++) {
-        [tooDeep appendString:@"]"];
-    }
-
-    NSDictionary<NSString *, NSString *> *payloads = @{
-        @"object" : @"{\"ok\":1}",
-        @"array" : @"[1,2,3]",
-        @"string" : @"\"just a string\"",
-        @"malformed" : @"{\"nope\":",
-        @"oversized value" : [NSString stringWithFormat:@"{\"big\":\"%@\"}", oversized],
-        @"oversized value nested" : [NSString stringWithFormat:@"{\"a\":{\"big\":\"%@\"}}", oversized],
-        @"oversized value in array" : [NSString stringWithFormat:@"[\"%@\"]", oversized],
-        @"oversized key" : [NSString stringWithFormat:@"{\"%@\":1}", oversized],
-        @"too deep" : tooDeep,
+    KSBinaryImage providedImages[2] = {
+        { .address = 0x100000000, .size = 0x8000, .name = "/corpse/app/Binary", .cpuType = 16777228 },
+        { .address = 0x200000000, .size = 0x4000, .name = "/corpse/lib/Framework", .cpuType = 16777228 },
     };
+    context.providedBinaryImages = providedImages;
+    context.providedBinaryImageCount = 2;
 
-    for (NSString *label in payloads) {
-        NSString *raw = [self rawReportWithUserInfoJSON:payloads[label].UTF8String];
-        XCTAssertNotNil(raw, @"%@", label);
+    kscrashreport_setCompactBinaryImages(true);
+    NSString *path = [self temporaryReportPath];
+    @try {
+        kscrashreport_writeStandardReport(&context, path.UTF8String);
 
-        XCTAssertEqual([self countOfString:@"\"user\":" in:raw], 1u, @"%@ must produce one user section", label);
-
-        NSError *error = nil;
-        id decoded = [NSJSONSerialization JSONObjectWithData:[raw dataUsingEncoding:NSUTF8StringEncoding]
-                                                     options:0
-                                                       error:&error];
-        XCTAssertNotNil(decoded, @"%@ must leave the report parseable: %@", label, error);
-        XCTAssertNotNil(decoded[@"debug"], @"%@ must leave later sections in the report root", label);
+        NSArray *images = [self readJSONObjectAtPath:path][@"binary_images"];
+        XCTAssertEqual(images.count, 2, @"Compact mode must keep every provided image");
+    } @finally {
+        kscrashreport_setCompactBinaryImages(false);
+        [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
     }
 }
 
-// A payload the codec refuses is replaced whole by an error element carrying the original,
-// rather than being partially written and then annotated.
-- (void)testWriteStandardReportReplacesRejectedUserInfoWithAnError
+- (void)testWriteStandardReportDefaultsToLiveBinaryImages
 {
-    NSString *oversized = [@"" stringByPaddingToLength:KSJSON_MAX_EMBEDDED_STRING_LENGTH + 1000
-                                            withString:@"x"
-                                       startingAtIndex:0];
-    NSString *payload = [NSString stringWithFormat:@"{\"big\":\"%@\"}", oversized];
-    NSString *raw = [self rawReportWithUserInfoJSON:payload.UTF8String];
+    // The live path reads the binary image cache, which install normally initializes.
+    ksdl_init();
 
-    NSDictionary *json = [NSJSONSerialization JSONObjectWithData:[raw dataUsingEncoding:NSUTF8StringEncoding]
-                                                         options:0
-                                                           error:nil];
-    XCTAssertEqualObjects(json[@"user"][@"error"], @"Invalid JSON data: Data too long");
-    XCTAssertEqualObjects(json[@"user"][@"json_data"], payload, @"the rejected payload is kept verbatim");
-    XCTAssertNil(json[@"user"][@"big"], @"none of the rejected payload may reach the report");
-}
+    struct KSMachineContext machineContext = { 0 };
+    KSCrash_MonitorContext context = { 0 };
+    [self fillWriterContext:&context machineContext:&machineContext];
 
-// Payloads within the limits are embedded as themselves, not routed through the error path.
-- (void)testWriteStandardReportEmbedsAcceptedUserInfo
-{
-    NSString *raw = [self rawReportWithUserInfoJSON:"{\"ok\":1}"];
-    NSDictionary *json = [NSJSONSerialization JSONObjectWithData:[raw dataUsingEncoding:NSUTF8StringEncoding]
-                                                         options:0
-                                                           error:nil];
-    XCTAssertEqualObjects(json[@"user"], @{ @"ok" : @1 });
+    NSString *path = [self temporaryReportPath];
+    @try {
+        kscrashreport_writeStandardReport(&context, path.UTF8String);
 
-    raw = [self rawReportWithUserInfoJSON:"[1,2,3]"];
-    json = [NSJSONSerialization JSONObjectWithData:[raw dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
-    XCTAssertEqualObjects(json[@"user"], (@[ @1, @2, @3 ]));
-}
-
-/**
- * Test concurrent reads don't interfere with each other.
- */
-- (void)testConcurrentReads
-{
-    const int kNumThreads = 8;
-    const int kReadsPerThread = 200;
-
-    // Set a known value
-    const char *testJSON = "{\"shared\":\"value\",\"number\":42}";
-    kscrashreport_setUserInfoJSON(testJSON);
-
-    dispatch_group_t group = dispatch_group_create();
-    dispatch_queue_t queue = dispatch_queue_create("test.concurrentReads", DISPATCH_QUEUE_CONCURRENT);
-
-    __block atomic_int successfulReads = 0;
-    __block atomic_int correctValues = 0;
-    __block atomic_int skippedReads = 0;
-
-    for (int t = 0; t < kNumThreads; t++) {
-        dispatch_group_async(group, queue, ^{
-            for (int i = 0; i < kReadsPerThread; i++) {
-                const char *result = kscrashreport_getUserInfoJSON();
-                if (result != NULL) {
-                    atomic_fetch_add(&successfulReads, 1);
-                    if (strcmp(result, testJSON) == 0) {
-                        atomic_fetch_add(&correctValues, 1);
-                    }
-                    free((void *)result);
-                } else {
-                    atomic_fetch_add(&skippedReads, 1);
-                }
-            }
-        });
+        NSArray *images = [self readJSONObjectAtPath:path][@"binary_images"];
+        XCTAssertGreaterThan(images.count, 10, @"Without a provided list, the live process's images are written");
+    } @finally {
+        [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
     }
-
-    dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
-
-    int reads = atomic_load(&successfulReads);
-    int correct = atomic_load(&correctValues);
-    int skipped = atomic_load(&skippedReads);
-
-    XCTAssertEqual(reads + skipped, kNumThreads * kReadsPerThread, @"All read attempts should complete");
-    XCTAssertEqual(reads, correct, @"All successful reads should return correct value");
-
-    NSLog(@"Concurrent reads test: %d successful, %d correct, %d skipped", reads, correct, skipped);
 }
 
 @end

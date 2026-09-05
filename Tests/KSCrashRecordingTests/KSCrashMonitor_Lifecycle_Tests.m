@@ -30,7 +30,11 @@
 #import "KSCrashHang.h"
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitor_Lifecycle.h"
+#import "KSCrashMonitor_Resource.h"
+#import "KSCrashMonitor_System.h"
 #import "KSCrashMonitor_Termination.h"
+#import "KSCrashMonitor_UserInfo.h"
+#import "KSCrashMonitor_Watchdog.h"
 #import "KSCrashRunContext.h"
 #import "KSSessionStore.h"
 
@@ -45,9 +49,12 @@
 
 // Test helpers declared extern (defined in production code with __attribute__((unused)))
 extern void kscm_testcode_resetState(void);
+struct KSCrashMonitorSavedState;
+extern struct KSCrashMonitorSavedState *kscm_testcode_saveState(void);
+extern void kscm_testcode_restoreState(struct KSCrashMonitorSavedState *saved);
+static struct KSCrashMonitorSavedState *g_savedMonitorState;
 extern void kscrash_testcode_setLastRunID(const char *runID);
 extern void kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionState state);
-extern void kscm_lifecycle_testcode_hangChange(KSHangChangeType change);
 extern void kscm_lifecycle_testcode_setTaskRole(int32_t role);
 extern void ksruncontext_testcode_setReason(KSTerminationReason reason);
 extern void ksruncontext_testcode_setLifecycleData(const KSCrash_LifecycleData *data);
@@ -125,6 +132,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     g_testDir[sizeof(g_testDir) - 1] = '\0';
 
     // Reset the monitor infrastructure and provide test callbacks
+    g_savedMonitorState = kscm_testcode_saveState();
     kscm_testcode_resetState();
     kscm_setRunSidecarPathProvider(testGetRunSidecarPath);
     kscm_setRunSidecarPathForRunIDProvider(testGetRunSidecarPathForRunID);
@@ -142,6 +150,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
         api->setEnabled(false, api->context);
     }
     kscrash_testcode_setLastRunID(NULL);
+    kscm_testcode_restoreState(g_savedMonitorState);
     [[NSFileManager defaultManager] removeItemAtPath:self.tempPath error:nil];
     [super tearDown];
 }
@@ -563,6 +572,28 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     XCTAssertFalse(data.cleanExit);
 }
 
+- (void)testRemoteSubjectFatalEventLeavesSidecarUntouched
+{
+    [self enableMonitor];
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateDeactivating);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateBackground);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateTerminating);
+
+    KSCrashMonitorAPI *api = kscm_lifecycle_getAPI();
+    KSCrash_MonitorContext eventContext = { 0 };
+    // A fatal event about another task (a corpse): this process is healthy, so its
+    // run state must not be charged with the crash.
+    eventContext.requirements.isFatal = true;
+    eventContext.requirements.isRemoteSubject = true;
+    api->addContextualInfoToEvent(&eventContext, api->context);
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    XCTAssertTrue(data.cleanExit, @"A remote subject's fatal event must not clear cleanExit");
+    XCTAssertFalse(data.monitorHandlerRan, @"A remote subject's fatal event must not set monitorHandlerRan");
+}
+
 - (void)testFatalCleanExitSetsCleanShutdown
 {
     [self enableMonitor];
@@ -649,7 +680,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
 - (void)testHangStartedSetsFlag
 {
     [self enableMonitor];
-    kscm_lifecycle_testcode_hangChange(KSHangChangeTypeStarted);
+    kslifecycle_noteHangChange(true);
 
     KSCrash_LifecycleData data = { 0 };
     XCTAssertTrue(readCurrentSidecar(&data));
@@ -659,8 +690,8 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
 - (void)testHangEndedClearsFlag
 {
     [self enableMonitor];
-    kscm_lifecycle_testcode_hangChange(KSHangChangeTypeStarted);
-    kscm_lifecycle_testcode_hangChange(KSHangChangeTypeEnded);
+    kslifecycle_noteHangChange(true);
+    kslifecycle_noteHangChange(false);
 
     KSCrash_LifecycleData data = { 0 };
     XCTAssertTrue(readCurrentSidecar(&data));
@@ -774,101 +805,50 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     return rec;
 }
 
-- (void)testLaunchSessionRecordedOnEnable
-{
-    [self enableMonitor];
-    XCTAssertGreaterThanOrEqual([self sessionCount], 1, @"enable records the launch session");
-    KSSessionRecord r = [self lastSession];
-    XCTAssertNotNil([[NSUUID alloc] initWithUUIDString:@(r.guid)], @"a valid session id");
-    XCTAssertEqual(r.user[0], '\0', @"launch session is anonymous until a user is set");
-}
-
-- (void)testPerceptibilityFlipCutsSession
-{
-    [self enableMonitor];
-    // Drive to a known imperceptible state. From here each active<->background
-    // alternation is a guaranteed perceptibility flip, so the deltas below are
-    // deterministic regardless of the (host-dependent) launch perceptibility.
-    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateBackground);
-    int base = [self sessionCount];
-    XCTAssertGreaterThanOrEqual(base, 1);
-
-    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);  // NO -> YES
-    XCTAssertEqual([self sessionCount], base + 1);
-    XCTAssertTrue([self lastSession].perceptible, @"newest session is perceptible");
-
-    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateBackground);  // YES -> NO
-    XCTAssertEqual([self sessionCount], base + 2);
-    XCTAssertFalse([self lastSession].perceptible);
-
-    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);        // NO -> YES
-    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateDeactivating);  // YES -> YES (no flip)
-    XCTAssertEqual([self sessionCount], base + 3, @"a non-flip transition does not cut a session");
-}
-
-- (void)testUserChangeCutsSessionIncludingLogout
-{
-    [self enableMonitor];
-    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);  // known perceptible
-    int base = [self sessionCount];
-
-    kscm_lifecycle_observeUser("bob");
-    XCTAssertEqual([self sessionCount], base + 1);
-    XCTAssertEqualObjects(@([self lastSession].user), @"bob");
-    XCTAssertTrue([self lastSession].perceptible);
-
-    kscm_lifecycle_observeUser("bob");  // unchanged
-    XCTAssertEqual([self sessionCount], base + 1, @"the same user is a no-op");
-
-    kscm_lifecycle_observeUser("alice");
-    XCTAssertEqual([self sessionCount], base + 2);
-    XCTAssertEqualObjects(@([self lastSession].user), @"alice");
-
-    kscm_lifecycle_observeUser(NULL);  // logout is still a session change
-    XCTAssertEqual([self sessionCount], base + 3);
-    XCTAssertEqual([self lastSession].user[0], '\0');
-}
-
-- (void)testNoWriterWhenSummaryPathUnavailable
-{
-    // Enable with no summary-sidecar provider (feature disabled): no writer, no file.
-    KSCrashMonitorAPI *api = kscm_lifecycle_getAPI();
-    KSCrash_ExceptionHandlerCallbacks callbacks = { 0 };
-    callbacks.getRunSidecarPath = testGetRunSidecarPath;
-    callbacks.getRunSidecarPathForRunID = testGetRunSidecarPathForRunID;
-    callbacks.getSummarySidecarPath = NULL;
-    api->init(&callbacks, api->context);
-    api->setEnabled(true, api->context);
-
-    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateBackground);
-    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
-    kscm_lifecycle_observeUser("bob");
-
-    XCTAssertEqual([self sessionCount], 0, @"no provider => no writer => no sessions file");
-}
-
-- (void)testCurrentSessionIDMatchesLastCut
-{
-    [self enableMonitor];
-    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
-    kscm_lifecycle_observeUser("dave");  // cut a session for the user
-
-    const char *sid = kslifecycle_currentSessionID();
-    XCTAssertTrue(sid != NULL, @"a session is open after a cut");
-    XCTAssertEqualObjects(@(sid), @([self lastSession].guid), @"getter matches the .sessions last entry");
-}
-
 - (void)testCopyLastSessionIDForRunIDReturnsLastGuid
 {
     [self enableMonitor];
-    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
-    kscm_lifecycle_observeUser("erin");
+    // The Swift layer owns the writer now; write the run's sessions file
+    // directly through the store to exercise the read side. The writer's call
+    // site owns directory creation.
+    [[NSFileManager defaultManager] createDirectoryAtPath:[self.sessionsFilePath stringByDeletingLastPathComponent]
+                              withIntermediateDirectories:YES
+                                               attributes:nil
+                                                    error:nil];
+    KSSessionWriter *writer = kssw_open(self.sessionsFilePath.fileSystemRepresentation);
+    kssw_update(writer, true, "erin");
+    kssw_close(writer);
 
     // The test provider keys on the extension, not the runID, so any id resolves
     // to the one sessions file this run wrote.
     char buf[64] = "";
     XCTAssertTrue(kslifecycle_copyLastSessionIDForRunID("any-run-id", buf, sizeof(buf)));
     XCTAssertEqualObjects(@(buf), @([self lastSession].guid));
+}
+
+// The built-in stitch ladder is a single total order: each monitor carries its named layer, the
+// layers are strictly ascending (a collision would silently demote ordering to the id
+// tie-break), and Watchdog is highest (its stitch can rewrite the report type and must win).
+- (void)testBuiltInStitchPriorityLadder
+{
+    KSCrashMonitorAPI *apis[] = {
+        kscm_lifecycle_getAPI(), kscm_resource_getAPI(), kscm_system_getAPI(),
+        kscm_userinfo_getAPI(),  kscm_watchdog_getAPI(),
+    };
+    int expected[] = {
+        KSCrashStitchPriorityLifecycle, KSCrashStitchPriorityResource, KSCrashStitchPrioritySystem,
+        KSCrashStitchPriorityUserInfo,  KSCrashStitchPriorityWatchdog,
+    };
+    const int count = 5;
+    for (int i = 0; i < count; i++) {
+        XCTAssertEqual(apis[i]->priority, expected[i]);
+        if (i > 0) {
+            XCTAssertLessThan(apis[i - 1]->priority, apis[i]->priority, @"Layers must be strictly ascending");
+        }
+    }
+    XCTAssertEqual(apis[count - 1], kscm_watchdog_getAPI(), @"Watchdog stitches last among the sidecar layers");
+    XCTAssertGreaterThan(KSCrashStitchPriorityCorpse, KSCrashStitchPriorityWatchdog,
+                         @"The corpse final-pass layer must sit above every sidecar layer");
 }
 
 @end

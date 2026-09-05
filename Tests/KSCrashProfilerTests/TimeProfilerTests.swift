@@ -724,6 +724,21 @@ final class TimeProfilerTests: XCTestCase {
 
     // MARK: - Write Report Tests
 
+    func testProfileMonitorIDMatchesTheReportWireFormat() {
+        // The monitor id doubles as the report's crash.error.type and its section key; the
+        // report model decodes CrashError.profile from the exact string "profile". Renaming
+        // the id silently breaks profile-report decoding.
+        XCTAssertEqual(ProfileMonitor.id, "profile")
+    }
+
+    func testProfileMonitorIsEnabledAfterSelfRegistration() {
+        // The profiler registers itself lazily, long after install ran the bulk enable pass,
+        // and kscm_addMonitor registers without enabling. Before it enabled itself the flag
+        // stayed false for the process lifetime, so every hook the registry gates on
+        // isEnabled (notifyPost*, addContextualInfoToEvent) silently skipped the profiler.
+        XCTAssertTrue(ProfileMonitor.shared.isEnabled)
+    }
+
     func testWriteReportCanBeCalled() {
         let profiler = TimeProfiler(thread: pthread_self())
 

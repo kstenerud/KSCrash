@@ -32,6 +32,7 @@
 #include "KSCrashCConfiguration.h"
 #include "KSCrashError.h"
 #include "KSCrashNamespace.h"
+#include "KSID.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -42,6 +43,26 @@ extern "C" {
 /** The default name of a folder (inside the KSCrash install path) that is used for report store.
  */
 #define KSCRS_DEFAULT_REPORTS_FOLDER "Reports"
+
+/** The other store directories an install creates next to Reports. Shared with
+ *  the Swift install's Locations; change them together. */
+#define KSCRS_DEFAULT_REPORT_SIDECARS_FOLDER "Sidecars"
+#define KSCRS_DEFAULT_RUN_SIDECARS_FOLDER "RunSidecars"
+#define KSCRS_DEFAULT_RUNS_FOLDER "Runs"
+#define KSCRS_DEFAULT_DATA_FOLDER "Data"
+
+/** Report files are "<KSCRS_REPORT_NAME_DIGITS decimal digits of wall-clock
+ *  nanoseconds>-<report id>.<KSCRS_REPORT_FILENAME_EXTENSION>". The digits
+ *  carry the write order; the id (the report's UUID text, KSID_LENGTH
+ *  characters) is the identity. */
+#define KSCRS_REPORT_ID_LENGTH KSID_LENGTH
+#define KSCRS_REPORT_NAME_DIGITS 20
+#define KSCRS_REPORT_FILENAME_EXTENSION "json"
+
+/** The report id in a store filename, into a KSID_SIZE buffer.
+ *  False for any name that is not a report's: the single authority on the
+ *  filename grammar, for the C and Swift stores alike. */
+bool kscrs_parseReportFilename(const char *filename, char *reportIDBuffer);
 
 /** The UserInfo monitor's id, and its per-run sidecar filename inside a run's
  *  RunSidecars/<runID>/ directory. The filename is the id plus the sidecar
@@ -58,6 +79,11 @@ extern "C" {
 #define KSCRS_RUN_SUMMARY_FILENAME_DIGITS 19
 #define KSCRS_RUN_SUMMARY_FILENAME_EXTENSION "run"
 
+/** A run's session log is "<runID>.sessions". Shared by the Lifecycle
+ *  monitor's writer and reader, the reclaim, and the Swift store's grouping;
+ *  change them together. */
+#define KSCRS_SESSIONS_FILENAME_EXTENSION "sessions"
+
 /** Initialize the report store.
  *
  * @param configuration The store configuretion (e.g. reports path, app name etc).
@@ -68,19 +94,22 @@ KSCrashInstallErrorCode kscrs_initialize(const KSCrashReportStoreCConfiguration 
  *
  * @param configuration The store configuretion (e.g. reports path, app name etc).
  *
- * @return The number of reports on disk.
+ * @return The number of reports on disk (an absent reports directory is 0),
+ *         or -1 when the reports directory cannot be enumerated.
  */
 int kscrs_getReportCount(const KSCrashReportStoreCConfiguration *const configuration);
 
-/** Get a list of IDs for all reports on disk.
- *
- * @param reportIDs An array big enough to hold all report IDs.
- * @param count How many reports the array can hold.
- * @param configuration The store configuretion (e.g. reports path, app name etc).
- *
- * @return The number of report IDs that were placed in the array.
- */
-int kscrs_getReportIDs(int64_t *reportIDs, int count, const KSCrashReportStoreCConfiguration *const configuration);
+/** Why kscrs_readReport returned NULL. */
+typedef enum {
+    KSCrashReportReadStatusOK = 0,
+
+    /** The report file is missing or could not be read. */
+    KSCrashReportReadStatusUnreadable,
+
+    /** The report file was read but does not hold a JSON report object, so it
+     * cannot be stitched or delivered. Reading it again gives the same answer. */
+    KSCrashReportReadStatusUndecodable,
+} KSCrashReportReadStatus;
 
 /** Read a report.
  *
@@ -88,10 +117,12 @@ int kscrs_getReportIDs(int64_t *reportIDs, int count, const KSCrashReportStoreCC
  *
  * @param reportID The report's ID.
  * @param configuration The store configuretion (e.g. reports path, app name etc).
+ * @param status Why a NULL was returned (may be NULL).
  *
- * @return The NULL terminated report, or NULL if not found.
+ * @return The NULL terminated report, or NULL if it could not be read or is not a report.
  */
-char *kscrs_readReport(int64_t reportID, const KSCrashReportStoreCConfiguration *const configuration);
+char *kscrs_readReport(const char *reportID, const KSCrashReportStoreCConfiguration *const configuration,
+                       KSCrashReportReadStatus *status);
 
 /** Read a report at a given path.
  * This is a convenience method for reading reports that are not in the standard reports directory.
@@ -104,16 +135,68 @@ char *kscrs_readReport(int64_t reportID, const KSCrashReportStoreCConfiguration 
  */
 char *kscrs_readReportAtPath(const char *path);
 
-/** Add a custom report to the store.
+/** Get a run-scoped sidecar file path.
  *
- * @param report The report's contents (must be JSON encoded).
- * @param reportLength The length of the report in bytes.
+ * Builds: <runSidecarsPath>/<runID>/<monitorId>.ksscr
+ * Creates the run subdirectory if it doesn't exist.
+ *
+ * @param monitorId The unique identifier of the monitor.
+ * @param pathBuffer Buffer to receive the sidecar file path.
+ * @param pathBufferLength The size of the path buffer.
+ * @param configuration The store configuration containing the runSidecarsPath.
+ *
+ * @return true if the path was successfully written, false on failure.
+ */
+bool kscrs_getRunSidecarFilePath(const char *monitorId, char *pathBuffer, size_t pathBufferLength,
+                                 const KSCrashReportStoreCConfiguration *const configuration);
+
+/** Get a run-summary "summary sidecar" file path.
+ *
+ * Builds: <runSummariesPath>/<runID>.<extension>. Path building only: read
+ * paths (the delivery stitches) must not mutate disk, so the writer's call
+ * site creates the directory. Rejects non-UUID run IDs. Does not check
+ * whether the feature is enabled; the caller decides that.
+ *
+ * @param runID The run the file belongs to.
+ * @param extension The file extension without a dot, e.g. "sessions".
+ * @param pathBuffer Buffer to receive the file path.
+ * @param pathBufferLength The size of the path buffer.
+ * @param configuration The store configuration containing the runSummariesPath.
+ *
+ * @return true if the path was successfully written, false on failure.
+ */
+bool kscrs_getSummarySidecarFilePath(const char *runID, const char *extension, char *pathBuffer,
+                                     size_t pathBufferLength,
+                                     const KSCrashReportStoreCConfiguration *const configuration);
+
+/** The run a report belongs to, from the report file alone: nothing is
+ * stitched and no run artifacts are touched.
+ *
+ * @warning MEMORY MANAGEMENT WARNING: User is responsible for calling free() on the returned value.
+ *
+ * @param reportID The report's ID.
  * @param configuration The store configuretion (e.g. reports path, app name etc).
  *
- * @return The new report's ID.
+ * @return The NULL terminated run id (a UUID string), or NULL when the
+ *         report cannot be read or records no valid run.
  */
-int64_t kscrs_addUserReport(const char *report, int reportLength,
-                            const KSCrashReportStoreCConfiguration *const configuration);
+char *kscrs_copyReportRunID(const char *reportID, const KSCrashReportStoreCConfiguration *const configuration);
+
+/** Add a custom report to the store.
+ *
+ * @param report The report's contents: JSON in the standard KSCrash report
+ *               shape. A report of any other shape is never delivered by the
+ *               send.
+ * @param reportLength The length of the report in bytes.
+ * @param configuration The store configuretion (e.g. reports path, app name etc).
+ * @param reportIDOut Receives the report's id, NUL terminated, in a buffer of at
+ *                    least KSID_SIZE bytes: the payload's own report.id when that
+ *                    is a UUID, else one minted here and written into the payload.
+ *
+ * @return true when the report was stored.
+ */
+bool kscrs_addUserReport(const char *report, int reportLength,
+                         const KSCrashReportStoreCConfiguration *const configuration, char *reportIDOut);
 
 /** Delete all reports on disk.
  *
@@ -125,8 +208,10 @@ void kscrs_deleteAllReports(const KSCrashReportStoreCConfiguration *const config
  *
  * @param reportID An ID of report to delete.
  * @param configuration The store configuretion (e.g. reports path, app name etc).
+ *
+ * @return true if the report file was removed.
  */
-void kscrs_deleteReportWithID(int64_t reportID, const KSCrashReportStoreCConfiguration *const configuration);
+bool kscrs_deleteReportWithID(const char *reportID, const KSCrashReportStoreCConfiguration *const configuration);
 
 /** Get a sidecar file path.
  *
@@ -155,6 +240,17 @@ bool kscrs_getReportSidecarFilePath(const char *monitorId, const char *name, con
  * @param configuration The store configuration.
  */
 void kscrs_reclaimOrphanedRunData(const KSCrashReportStoreCConfiguration *const configuration);
+
+/** Move every report in sourceReportsPath into this store.
+ *
+ * Files that cannot be moved are left in place and retried on the next call; an existing
+ * destination is never replaced. No-op when sourceReportsPath is NULL.
+ *
+ * @param sourceReportsPath The directory to drain (a crash extension's Reports directory).
+ * @param configuration The store configuration.
+ */
+void kscrs_ingestExtensionReports(const char *sourceReportsPath,
+                                  const KSCrashReportStoreCConfiguration *const configuration);
 
 #ifdef __cplusplus
 }

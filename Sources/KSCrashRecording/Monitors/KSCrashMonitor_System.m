@@ -37,6 +37,9 @@
 
 #import "KSCrashMonitor_System.h"
 
+#import "KSCrashSystem.h"
+
+#import <sys/mount.h>
 #import "KSBinaryImageCache.h"
 #import "KSCPU.h"
 #import "KSCrashMonitorContext.h"
@@ -509,6 +512,50 @@ static void initialize(void)
     ks_spinlock_unlock(&g_systemDataLock);
 }
 
+void kscm_system_setBootTime(int64_t bootTimestamp)
+{
+    const char *override = getenv("KSCRASH_TEST_BOOT_TIMESTAMP");
+    if (override) {
+        bootTimestamp = strtoll(override, NULL, 10);
+    }
+    ks_spinlock_lock(&g_systemDataLock);
+    if (g_systemData != NULL) {
+        g_systemData->bootTimestamp = bootTimestamp;
+    }
+    ks_spinlock_unlock(&g_systemDataLock);
+}
+
+void kscm_system_setDiscSpace(uint64_t storageSize, uint64_t freeStorageSize)
+{
+    ks_spinlock_lock(&g_systemDataLock);
+    if (g_systemData != NULL) {
+        g_systemData->storageSize = storageSize;
+        g_systemData->freeStorageSize = freeStorageSize;
+    }
+    ks_spinlock_unlock(&g_systemDataLock);
+}
+
+void kscm_system_refreshFreeStorageAtEvent(struct KSCrash_MonitorContext *eventContext, __unused void *context)
+{
+    if (eventContext != NULL && eventContext->requirements.crashedDuringExceptionHandling) {
+        // Recrash handling records the bare minimum and nothing more.
+        return;
+    }
+    struct statfs s;
+    if (statfs("/", &s) != 0) {
+        return;
+    }
+    // Bounded: runs on the event path, where threads may be suspended
+    // holding this lock.
+    if (!ks_spinlock_lock_bounded(&g_systemDataLock)) {
+        return;
+    }
+    if (g_systemData != NULL) {
+        g_systemData->freeStorageSize = (uint64_t)s.f_bfree * (uint64_t)s.f_bsize;
+    }
+    ks_spinlock_unlock(&g_systemDataLock);
+}
+
 static const char *monitorId(__unused void *context) { return "System"; }
 
 static void monitorInit(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused void *context)
@@ -572,10 +619,15 @@ bool kscm_system_getSystemData(KSCrash_SystemData *dst)
 
 bool kscm_system_getSystemDataForPath(const char *path, KSCrash_SystemData *outData)
 {
-    if (!path || !outData) return false;
+    return kscm_system_readSystemData(path, outData) == KSCrashSidecarReadOK;
+}
+
+KSCrashSidecarReadResult kscm_system_readSystemData(const char *path, KSCrash_SystemData *outData)
+{
+    if (!path || !outData) return KSCrashSidecarReadFailure;
 
     int fd = open(path, O_RDONLY);
-    if (fd == -1) return false;
+    if (fd == -1) return errno == ENOENT ? KSCrashSidecarReadUnrecoverable : KSCrashSidecarReadFailure;
 
     KSCrash_SystemData data = { 0 };
     // Tolerate short reads: a sidecar written by an older (version < current)
@@ -587,18 +639,20 @@ bool kscm_system_getSystemDataForPath(const char *path, KSCrash_SystemData *outD
     struct stat st;
     if (fstat(fd, &st) != 0) {
         close(fd);
-        return false;
+        return KSCrashSidecarReadFailure;
     }
     size_t bytesToRead = (size_t)st.st_size < sizeof(data) ? (size_t)st.st_size : sizeof(data);
     bool readOK = (bytesToRead > 0) && ksfu_readBytesFromFD(fd, (char *)&data, (int)bytesToRead);
     close(fd);
 
+    // An empty or short file is a write that never finished, and a wrong magic
+    // or version is a verdict about the bytes: no later read gets further.
     if (!readOK || data.magic != KSSYS_MAGIC || data.version == 0 || data.version > KSCrash_System_CurrentVersion) {
-        return false;
+        return KSCrashSidecarReadUnrecoverable;
     }
 
     *outData = data;
-    return true;
+    return KSCrashSidecarReadOK;
 }
 
 bool kscm_system_getSystemDataForRunID(const char *runID, KSCrash_SystemData *outData)
@@ -614,42 +668,6 @@ bool kscm_system_getSystemDataForRunID(const char *runID, KSCrash_SystemData *ou
     return kscm_system_getSystemDataForPath(sidecarPath, outData);
 }
 
-void kscm_system_setBootTime(int64_t bootTimestamp)
-{
-    const char *override = getenv("KSCRASH_TEST_BOOT_TIMESTAMP");
-    if (override) {
-        bootTimestamp = strtoll(override, NULL, 10);
-    }
-    ks_spinlock_lock(&g_systemDataLock);
-    if (g_systemData != NULL) {
-        g_systemData->bootTimestamp = bootTimestamp;
-    }
-    ks_spinlock_unlock(&g_systemDataLock);
-}
-
-void kscm_system_setDiscSpace(uint64_t storageSize, uint64_t freeStorageSize)
-{
-    ks_spinlock_lock(&g_systemDataLock);
-    if (g_systemData != NULL) {
-        g_systemData->storageSize = storageSize;
-        g_systemData->freeStorageSize = freeStorageSize;
-    }
-    ks_spinlock_unlock(&g_systemDataLock);
-}
-
-void kscm_system_setFreeStorageSize(uint64_t freeStorageSize)
-{
-    // Bounded: called from disc space monitor's addContextualInfoToEvent on the
-    // crash path, where threads may be suspended holding this lock.
-    if (!ks_spinlock_lock_bounded(&g_systemDataLock)) {
-        return;
-    }
-    if (g_systemData != NULL) {
-        g_systemData->freeStorageSize = freeStorageSize;
-    }
-    ks_spinlock_unlock(&g_systemDataLock);
-}
-
 KSCrashMonitorAPI *kscm_system_getAPI(void)
 {
     static KSCrashMonitorAPI api = { 0 };
@@ -660,6 +678,7 @@ KSCrashMonitorAPI *kscm_system_getAPI(void)
         api.isEnabled = isEnabled_func;
         api.addContextualInfoToEvent = addContextualInfoToEvent;
         api.createStitchedReport = kscm_system_createStitchedReport;
+        api.priority = KSCrashStitchPrioritySystem;
     }
     return &api;
 }

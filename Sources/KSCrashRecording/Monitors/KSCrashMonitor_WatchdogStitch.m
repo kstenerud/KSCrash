@@ -41,34 +41,58 @@
 // Returns a +1 CFDictionaryRef per the CF Create Rule, as specified by the
 // createStitchedReport contract in KSCrashMonitorAPI.h. The early-return for
 // non-run scopes retains the input to satisfy this ownership requirement.
+/** Read the hang sidecar, saying whether reading again could go better.
+ *  Cannot use ksfu_mmap, which truncates with O_TRUNC.
+ */
+static KSCrashSidecarReadResult readHangSidecar(const char *path, KSHangSidecar *out)
+{
+    int fd = open(path, O_RDONLY);
+    if (fd == -1) {
+        KSLOG_ERROR(@"Failed to open sidecar at %s: %s", path, strerror(errno));
+        return errno == ENOENT ? KSCrashSidecarReadUnrecoverable : KSCrashSidecarReadFailure;
+    }
+    bool didRead = ksfu_readBytesFromFD(fd, (char *)out, (int)sizeof(*out));
+    close(fd);
+    if (!didRead) {
+        // Short of a whole sidecar: the run died part way through writing it,
+        // and the bytes that are missing are not coming.
+        KSLOG_ERROR(@"Failed to read sidecar at %s", path);
+        return KSCrashSidecarReadUnrecoverable;
+    }
+    if (out->magic != KSHANG_SIDECAR_MAGIC || out->version == 0 || out->version > KSHANG_SIDECAR_CURRENT_VERSION) {
+        KSLOG_ERROR(@"Invalid sidecar at %s (magic=0x%x version=%d)", path, out->magic, out->version);
+        return KSCrashSidecarReadUnrecoverable;
+    }
+    return KSCrashSidecarReadOK;
+}
+
 CFDictionaryRef kscm_watchdog_createStitchedReport(CFDictionaryRef reportDict, const char *sidecarPath,
                                                    KSCrashSidecarScope scope, __unused void *context)
 {
-    if (!reportDict || !sidecarPath) {
+    if (reportDict == NULL) {
         return NULL;
     }
     if (scope != KSCrashSidecarScopeRun) {
+        // Not this monitor's scope (e.g. the final pass, which has no sidecar file).
         CFRetain(reportDict);
         return reportDict;
     }
+    if (sidecarPath == NULL) {
+        return NULL;
+    }
 
-    // Read the sidecar from disk (can't use ksfu_mmap — it truncates with O_TRUNC)
     KSHangSidecar sc = {};
-    int fd = open(sidecarPath, O_RDONLY);
-    if (fd == -1) {
-        KSLOG_ERROR(@"Failed to open sidecar at %s: %s", sidecarPath, strerror(errno));
+    KSCrashSidecarReadResult readResult = readHangSidecar(sidecarPath, &sc);
+    if (readResult == KSCrashSidecarReadFailure) {
         return NULL;
     }
-    if (!ksfu_readBytesFromFD(fd, (char *)&sc, (int)sizeof(sc))) {
-        KSLOG_ERROR(@"Failed to read sidecar at %s", sidecarPath);
-        close(fd);
-        return NULL;
-    }
-    close(fd);
-
-    if (sc.magic != KSHANG_SIDECAR_MAGIC || sc.version == 0 || sc.version > KSHANG_SIDECAR_CURRENT_VERSION) {
-        KSLOG_ERROR(@"Invalid sidecar at %s (magic=0x%x version=%d)", sidecarPath, sc.magic, sc.version);
-        return NULL;
+    if (readResult != KSCrashSidecarReadOK) {
+        // No later read gets further, and NULL here is not free: it stops this
+        // report being finalized for good, and on the hang-recovery path
+        // kscm_watchdog deletes the report outright. Deliver it without the
+        // hang section instead.
+        CFRetain(reportDict);
+        return reportDict;
     }
 
     bool recovered = sc.recovered;

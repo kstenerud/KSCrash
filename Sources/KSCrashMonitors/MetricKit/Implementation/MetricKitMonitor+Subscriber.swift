@@ -25,6 +25,7 @@
 //
 
 import Foundation
+import KSCrashMonitorPlugins
 import KSCrashRecording
 import KSCrashRecordingCore
 import KSCrashReportModel
@@ -44,7 +45,6 @@ import os.log
 
 #if KSCRASH_HAS_METRICKIT
 
-    @available(iOS 14.0, macOS 12.0, *)
     @available(tvOS, unavailable)
     @available(watchOS, unavailable)
     extension MetricKitMonitor: MXMetricManagerSubscriber {
@@ -68,7 +68,7 @@ import os.log
                         }
                     }
                 }
-                if dumpPayloadsToDocuments {
+                if configuration.dumpsPayloadsToDocuments {
                     payload.dump()
                 }
             }
@@ -81,7 +81,7 @@ import os.log
                 os_log(.default, log: metricKitLog, "[MONITORS] Received %d metric payload(s)", payloads.count)
 
                 for payload in payloads {
-                    if dumpPayloadsToDocuments {
+                    if configuration.dumpsPayloadsToDocuments {
                         payload.dump()
                     }
                 }
@@ -90,44 +90,39 @@ import os.log
 
         // MARK: - Shared Report Machinery
 
-        /// Writes a skeleton report to a temp file via the C callbacks and returns its URL.
+        /// Writes a skeleton report to a temp file via the host and returns its URL.
         /// The caller is responsible for removing the file once it has been post-processed.
         /// Shared by every diagnostic handler (crash, hang, memory).
         func writeSkeletonReport() -> URL? {
-            guard let callbacks = callbacks else {
-                os_log(.error, log: metricKitLog, "[MONITORS] No callbacks available, skipping diagnostic")
-                return nil
-            }
-
             let tempURL = FileManager.default.temporaryDirectory
                 .appendingPathComponent("kscrash-metrickit-\(UUID().uuidString).json")
 
             // Use isFatal=0 for the skeleton so that Lifecycle's addContextualInfoToEvent
             // doesn't mark the current run as unclean — MetricKit diagnostics describe a
             // previous run. We set isFatal/isCleanExit on the final report in post-processing.
-            let requirements = KSCrash_ExceptionHandlingRequirements(
-                shouldRecordAllThreads: 0,
-                shouldWriteReport: 1,
-                isFatal: 0,
-                isCleanExit: 0,
-                asyncSafety: 0,
-                asyncSafetyBecauseThreadsSuspended: 0,
-                crashedDuringExceptionHandling: 0,
-                shouldExitImmediately: 0
-            )
+            // `.nonFatal` carries exactly those bits (shouldRecordAllThreads/isFatal/isCleanExit/
+            // isRemoteSubject all 0, shouldWriteReport 1); `EventRequirements.init` is internal to
+            // KSCrashMonitorPlugins, so a custom bitfield can't be built from outside that module.
+            let skeletonRequirements = EventRequirements.nonFatal
 
             // notify()/handle() mutate shared exception-handling state in KSCrashMonitor.c that
             // is not safe to enter concurrently. The legacy subscriber and the iOS 27 memory
             // stream deliver on different threads, so serialize the whole sequence.
             return skeletonLock.withLock {
-                let context = callbacks.notify(thread_t(ksthread_self()), requirements)
-                kscm_fillMonitorContext(context, api)
-                context?.pointee.omitBinaryImages = true
-                tempURL.path.withCString { cPath in
-                    context?.pointee.reportPath = cPath
-                    callbacks.handle(context)
+                // withCString's pointer is only valid inside its own closure, so the whole
+                // host.handle call (which reads context.pointee.reportPath from inside
+                // handleWithResult, after configure returns) must run inside it; setting
+                // reportPath from within configure's own (narrower) closure would leave it
+                // dangling by the time the write actually happens.
+                let written = tempURL.path.withCString { cPath in
+                    try? host.handle(
+                        requirements: skeletonRequirements, subjectThread: thread_t(ksthread_self())
+                    ) { context in
+                        context.pointee.omitBinaryImages = true
+                        context.pointee.reportPath = cPath
+                    }
                 }
-                return tempURL
+                return written != nil ? tempURL : nil
             }
         }
 
@@ -136,7 +131,7 @@ import os.log
         /// discarded except for the process name and bundle identifier fallbacks. Shared by the
         /// crash and hang handlers (the memory handler builds its own from the typed environment).
         func buildSystemInfo(
-            metaData meta: MXMetaData, applicationVersion: String, skeleton report: BasicCrashReport
+            metaData meta: MXMetaData, applicationVersion: String, skeleton report: Report
         )
             -> SystemInfo
         {

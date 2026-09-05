@@ -24,18 +24,32 @@
 // THE SOFTWARE.
 //
 
+import KSCrash
+import KSCrashMonitorPlugins
 import KSCrashRecording
+import KSCrashRecordingCore
 import KSCrashReportModel
 import XCTest
 
+@testable import KSCrashCrashReportExtension
 @testable import KSCrashMonitors
 
 #if KSCRASH_HAS_METRICKIT
 
-    @available(iOS 14.0, macOS 12.0, *)
     final class MetricKitMonitorTests: XCTestCase {
 
-        private var monitor: MetricKitMonitor { Monitors.metricKit }
+        /// One bridge for the whole class (constructing `Monitor<MetricKitMonitor>` more than
+        /// once per process would trip the duplicate-id precondition), installed with an empty
+        /// callbacks table the way `Monitor_Tests` drives the bridge, enough for every test
+        /// here, none of which write an actual report through the host.
+        private static let bridge: Monitor<MetricKitMonitor> = {
+            let bridge = MetricKitMonitor.plugin(.init())
+            var callbacks = KSCrash_ExceptionHandlerCallbacks()
+            withUnsafeMutablePointer(to: &callbacks) { bridge.api.pointee.`init`($0, bridge.api.pointee.context) }
+            return bridge
+        }()
+
+        private var monitor: MetricKitMonitor { Self.bridge.monitor }
 
         override func setUp() {
             super.setUp()
@@ -47,20 +61,20 @@ import XCTest
         // MARK: - Monitor API Lifecycle
 
         func testMonitorId() {
-            let api = monitor.api.pointee
+            let api = Self.bridge.api.pointee
             let monitorId = api.monitorId(api.context)
             XCTAssertNotNil(monitorId)
             XCTAssertEqual(String(cString: monitorId!), "MetricKit")
         }
 
         func testMonitorFlags() {
-            let api = monitor.api.pointee
+            let api = Self.bridge.api.pointee
             let flags = api.monitorFlags(api.context)
-            XCTAssertEqual(flags, KSCrashMonitorFlagPlugin)
+            XCTAssertEqual(flags, .plugin)
         }
 
         func testEnableDisable() {
-            let api = monitor.api.pointee
+            let api = Self.bridge.api.pointee
             XCTAssertFalse(api.isEnabled(api.context))
 
             api.setEnabled(true, api.context)
@@ -71,7 +85,7 @@ import XCTest
         }
 
         func testIdempotentEnable() {
-            let api = monitor.api.pointee
+            let api = Self.bridge.api.pointee
             api.setEnabled(true, api.context)
             api.setEnabled(true, api.context)
             XCTAssertTrue(api.isEnabled(api.context))
@@ -82,37 +96,111 @@ import XCTest
         }
 
         func testMonitorPlugin() {
-            XCTAssertNotNil(Monitors.metricKit.api)
+            XCTAssertTrue(Self.bridge.isInstalled)
+        }
+
+        // MARK: - End-to-End Skeleton Pipeline
+        //
+        // Everything above drives `Self.bridge` with an empty callbacks table, exercising the
+        // bridge's own lifecycle in isolation. This section instead hooks the SAME bridge (a
+        // second `Monitor<MetricKitMonitor>` would trip the duplicate-id precondition) up to a
+        // real, in-process report-writing pipeline and drives `writeSkeletonReport()` the way
+        // the subscriber does for a diagnostic, proving the ported skeleton path actually
+        // reaches a stored report: writeSkeletonReport -> host.handle -> real pipeline -> a
+        // report the store can read back.
+
+        /// The process-wide install is shared across every suite in this process (see
+        /// .claude/rules/testing.md): whichever suite got there first, the pipeline and a
+        /// store both exist, and the reports land in that install's Reports directory.
+        private static let pipelineReportsDirectory: URL? = {
+            let area = ExtensionConfiguration(
+                namespace: "MetricKitE2E",
+                container: .url(URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString)))
+            var reports: URL?
+            do {
+                try KSCrash.shared.installForExtensionReporting(with: area)
+                reports = try area.processRoot.appendingPathComponent("Reports", isDirectory: true)
+            } catch ExtensionReportingInstallError.install(.alreadyInstalled) {
+                // Another suite installed first; read back from its report area, a sibling of
+                // its Runs directory.
+                guard let runs = kscrash_getRunSummariesPath() else { return nil }
+                reports = URL(fileURLWithPath: String(cString: runs))
+                    .deletingLastPathComponent().appendingPathComponent("Reports", isDirectory: true)
+            } catch {
+                return nil
+            }
+            // The bridge's `init` callback already ran once above with an empty callbacks
+            // table; adding it to the live registry re-runs `init`, this time with the real
+            // exception-handling callbacks the install brought up (see kscm_addMonitor).
+            kscm_addMonitor(bridge.api)
+            kscm_setMonitorEnabled(bridge.api, true)
+            return reports
+        }()
+
+        func testWriteSkeletonReportEndToEnd() throws {
+            let reportsDirectory = try XCTUnwrap(
+                Self.pipelineReportsDirectory, "a report-writing pipeline should be available")
+
+            guard let url = monitor.writeSkeletonReport() else {
+                // When every test target shares one process, an earlier suite's simulated
+                // fatal crash latches the pipeline's fatal state for the rest of the process
+                // and further writes are dropped by design (see .claude/rules/testing.md).
+                try XCTSkipIf(
+                    kscm_testcode_isHandlingFatalException(),
+                    "an earlier suite simulated a fatal crash in this process")
+                XCTFail("writeSkeletonReport should produce a temp report URL once the pipeline is installed")
+                return
+            }
+            defer { try? FileManager.default.removeItem(at: url) }
+
+            let data = try Data(contentsOf: url)
+            XCTAssertNotNil(
+                try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                "the skeleton report file should contain a JSON object")
+
+            // Mirror what the diagnostic handlers do after post-processing the skeleton (see
+            // MetricKitMonitor+CrashDiagnostic.swift): add the resulting report to the store.
+            // This is what proves the path reaches an actual stored report, not just a temp file.
+            let reportID = try XCTUnwrap(addMetricKitReport(data), "the skeleton report should store")
+
+            var config = KSCrashReportStoreCConfiguration_Default()
+            let cReportsPath = strdup(reportsDirectory.path)
+            config.reportsPath = UnsafePointer(cReportsPath)
+            defer { free(cReportsPath) }
+            let raw = try XCTUnwrap(kscrs_readReport(reportID.description, &config, nil))
+            defer { free(raw) }
+            let stored = try JSONSerialization.jsonObject(with: Data(bytes: raw, count: strlen(raw)))
+            XCTAssertNotNil((stored as? [String: Any])?["report"], "the stored report should parse as JSON")
         }
 
         // MARK: - Diagnostic Report Notifications
 
-        // The monitor is a shared singleton and posts asynchronously on the main queue, so a
-        // post from another test can land during a wait here. Each test below filters to its own
-        // unique id and tolerates extra posts (assertForOverFulfill = false).
+        // Posts arrive asynchronously on the main queue, so a straggler from an
+        // earlier wait can land here. Each test filters to its own unique id and
+        // tolerates extra posts (assertForOverFulfill = false).
 
         func testNotificationPostedWhenDiagnosticReportRecorded() {
             let notificationExpectation = expectation(description: "Diagnostic report notification")
             notificationExpectation.assertForOverFulfill = false
-            var observedID: Int64?
+            var observedID: Report.ID?
 
             let observer = NotificationCenter.default.addObserver(
                 forName: MetricKitMonitor.diagnosticReportAddedNotification,
-                object: Monitors.metricKit,
+                object: monitor,
                 queue: nil
             ) { notification in
-                guard let id = notification.userInfo?[MetricKitMonitor.diagnosticReportIDUserInfoKey] as? Int64,
-                    id == 4242
+                guard let id = notification.userInfo?[MetricKitMonitor.diagnosticReportIDUserInfoKey] as? Report.ID,
+                    id == testReportID(4242)
                 else { return }
                 observedID = id
                 notificationExpectation.fulfill()
             }
             defer { NotificationCenter.default.removeObserver(observer) }
 
-            monitor.recordDiagnosticReport(4242)
+            monitor.recordDiagnosticReport(testReportID(4242))
 
             wait(for: [notificationExpectation], timeout: 2.0)
-            XCTAssertEqual(observedID, 4242)
+            XCTAssertEqual(observedID, testReportID(4242))
         }
 
         func testNotificationPostedOnMainThread() {
@@ -122,7 +210,7 @@ import XCTest
 
             let observer = NotificationCenter.default.addObserver(
                 forName: MetricKitMonitor.diagnosticReportAddedNotification,
-                object: Monitors.metricKit,
+                object: monitor,
                 queue: nil
             ) { _ in
                 if !Thread.isMainThread {
@@ -133,7 +221,7 @@ import XCTest
             defer { NotificationCenter.default.removeObserver(observer) }
 
             DispatchQueue.global().async {
-                self.monitor.recordDiagnosticReport(1)
+                self.monitor.recordDiagnosticReport(testReportID(1))
             }
 
             wait(for: [notificationExpectation], timeout: 2.0)
@@ -150,12 +238,12 @@ import XCTest
                 object: nil,
                 queue: nil
             ) { notification in
-                objectIsPlugin = (notification.object as AnyObject) === Monitors.metricKit
+                objectIsPlugin = (notification.object as AnyObject) === self.monitor
                 notificationExpectation.fulfill()
             }
             defer { NotificationCenter.default.removeObserver(observer) }
 
-            monitor.recordDiagnosticReport(1)
+            monitor.recordDiagnosticReport(testReportID(1))
 
             wait(for: [notificationExpectation], timeout: 2.0)
             XCTAssertTrue(objectIsPlugin, "Notification object should be the plugin instance")
@@ -168,36 +256,36 @@ import XCTest
         }
 
         func testDiagnosticReportIDsAccumulateInOrder() {
-            monitor.recordDiagnosticReport(42)
-            monitor.recordDiagnosticReport(99)
-            XCTAssertEqual(monitor.diagnosticReportIDs, [42, 99])
+            monitor.recordDiagnosticReport(testReportID(42))
+            monitor.recordDiagnosticReport(testReportID(99))
+            XCTAssertEqual(monitor.diagnosticReportIDs, [testReportID(42), testReportID(99)])
         }
 
         func testNotificationCarriesOnlyTheAddedID() {
-            var observedIDs: [Int64] = []
+            var observedIDs: [Report.ID] = []
             let notificationExpectation = expectation(description: "Two notifications")
             notificationExpectation.expectedFulfillmentCount = 2
             notificationExpectation.assertForOverFulfill = false
 
             let observer = NotificationCenter.default.addObserver(
                 forName: MetricKitMonitor.diagnosticReportAddedNotification,
-                object: Monitors.metricKit,
+                object: monitor,
                 queue: nil
             ) { notification in
-                guard let id = notification.userInfo?[MetricKitMonitor.diagnosticReportIDUserInfoKey] as? Int64,
-                    id == 7707 || id == 1313
+                guard let id = notification.userInfo?[MetricKitMonitor.diagnosticReportIDUserInfoKey] as? Report.ID,
+                    id == testReportID(7707) || id == testReportID(1313)
                 else { return }
                 observedIDs.append(id)
                 notificationExpectation.fulfill()
             }
             defer { NotificationCenter.default.removeObserver(observer) }
 
-            monitor.recordDiagnosticReport(7707)
-            monitor.recordDiagnosticReport(1313)
+            monitor.recordDiagnosticReport(testReportID(7707))
+            monitor.recordDiagnosticReport(testReportID(1313))
 
             wait(for: [notificationExpectation], timeout: 2.0)
             // Each post carries exactly the id that was just added, never the accumulated array.
-            XCTAssertEqual(Set(observedIDs), [7707, 1313])
+            XCTAssertEqual(Set(observedIDs), [testReportID(7707), testReportID(1313)])
         }
 
         // MARK: - Call Stack Tree Flattening
@@ -663,7 +751,7 @@ import XCTest
             XCTAssertEqual(stackFrames.count, MetricKitRunIdHandler.expectedTotalFrameCount)
 
             let backtrace = Backtrace(contents: stackFrames, skipped: 0)
-            let thread = BasicCrashReport.Thread(
+            let thread = Report.Thread(
                 backtrace: backtrace,
                 crashed: false,
                 currentThread: false,
@@ -713,7 +801,7 @@ import XCTest
                 stackFrames.append(StackFrame(instructionAddr: UInt64(0xE000 + i), objectName: "libpthread"))
             }
 
-            let thread = BasicCrashReport.Thread(
+            let thread = Report.Thread(
                 backtrace: Backtrace(contents: stackFrames, skipped: 0),
                 crashed: false, currentThread: false, index: 0)
             let callStackData = CallStackData(threads: [thread], crashedThreadIndex: 0, binaryImages: [])
@@ -762,7 +850,7 @@ import XCTest
                 stackFrames.append(StackFrame(instructionAddr: UInt64(0xE000 + i), objectName: "libpthread"))
             }
 
-            let thread = BasicCrashReport.Thread(
+            let thread = Report.Thread(
                 backtrace: Backtrace(contents: stackFrames, skipped: 0),
                 crashed: false, currentThread: false, index: 0)
             let callStackData = CallStackData(threads: [thread], crashedThreadIndex: 0, binaryImages: [])
@@ -803,7 +891,7 @@ import XCTest
                 )
             }
             let backtrace = Backtrace(contents: stackFrames, skipped: 0)
-            let thread = BasicCrashReport.Thread(
+            let thread = Report.Thread(
                 backtrace: backtrace,
                 crashed: false,
                 currentThread: false,
@@ -848,7 +936,7 @@ import XCTest
                 stackFrames.append(StackFrame(instructionAddr: UInt64(0xE000 + i), objectName: "libpthread"))
             }
 
-            let thread = BasicCrashReport.Thread(
+            let thread = Report.Thread(
                 backtrace: Backtrace(contents: stackFrames, skipped: 0),
                 crashed: false, currentThread: false, index: 0)
             let callStackData = CallStackData(threads: [thread], crashedThreadIndex: 0, binaryImages: [])
@@ -887,7 +975,7 @@ import XCTest
                 )
             }
             let backtrace = Backtrace(contents: stackFrames, skipped: 0)
-            let thread = BasicCrashReport.Thread(
+            let thread = Report.Thread(
                 backtrace: backtrace,
                 crashed: false,
                 currentThread: false,
@@ -908,3 +996,14 @@ import XCTest
     }
 
 #endif
+
+/// A report id for a small test number: one deterministic UUID per value.
+private func testReportID(_ value: Int) -> Report.ID {
+    Report.ID(
+        uuid: UUID(
+            uuid: (
+                0, 0, 0, 0, 0, 0, 0x40, 0, 0x80, 0, 0, 0,
+                UInt8((value >> 24) & 0xFF), UInt8((value >> 16) & 0xFF),
+                UInt8((value >> 8) & 0xFF), UInt8(value & 0xFF)
+            )))
+}

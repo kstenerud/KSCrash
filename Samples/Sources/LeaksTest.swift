@@ -25,10 +25,8 @@
 //
 
 import Foundation
-import KSCrashDemangleFilter
-import KSCrashFilters
+import KSCrash
 import KSCrashRecording
-import KSCrashSinks
 
 // MARK: - Sentinel leak to validate leak detection is working
 
@@ -64,11 +62,11 @@ private func createSentinelLeak() {
 // MARK: - KSCrash Setup
 
 private func installKSCrash() -> Bool {
-    let config = CrashInstallConfiguration()
+    var config = InstallConfiguration(namespace: "LeaksTest")
     config.monitors = .all
-    config.enableHangReporting = true
+    config.reportsResolvedHangs = true
     do {
-        try KSCrash.shared.install(with: config)
+        try KSCrash.shared.install(config)
         print("[LeaksTest] KSCrash installed successfully")
         return true
     } catch {
@@ -77,39 +75,41 @@ private func installKSCrash() -> Bool {
     }
 }
 
+private func reportsDirectory() -> URL? {
+    try? KSCrash.shared.installConfiguration?.locations.reports
+}
+
 // MARK: - API Exercising
 
 private func exerciseKSCrashAPIs() {
-    // Set user info using per-key API with various types
-    KSCrash.shared.setUserInfo(true, forKey: "leaks_test")
-    KSCrash.shared.setUserInfo("Hello from leaks test", forKey: "test_string")
-    KSCrash.shared.setUserInfo(42, forKey: "test_number")
-    KSCrash.shared.setUserInfo(3.14159, forKey: "test_double")
-    KSCrash.shared.setUserInfo(Date(), forKey: "test_date")
-    print("[LeaksTest] Set userInfo")
+    // Live metadata with various types, written through to the crash-safe store
+    let metadata = KSCrash.shared.metadata
+    metadata["leaks_test"] = true
+    metadata["test_string"] = "Hello from leaks test"
+    metadata["test_number"] = 42
+    metadata["test_double"] = 3.14159
+    metadata["test_date"] = Date()
+    print("[LeaksTest] Set metadata: \(metadata.keys.joined(separator: ", "))")
 
     // Access various properties
-    let systemInfo = KSCrash.shared.systemInfo
-    print("[LeaksTest] System info keys: \(systemInfo.keys.joined(separator: ", "))")
+    print("[LeaksTest] Run ID: \(String(describing: KSCrash.shared.runID))")
+    print("[LeaksTest] Previous run ID: \(String(describing: KSCrash.shared.previousRunID))")
+    print("[LeaksTest] Session ID: \(String(describing: KSCrash.shared.sessionID))")
+    let reason = KSCrash.shared.previousTerminationReason
+    print("[LeaksTest] Previous termination: \(reason.rawValue) (abnormal: \(reason.isAbnormal))")
 
-    let crashedLastLaunch = KSCrash.shared.crashedLastLaunch
-    print("[LeaksTest] Crashed last launch: \(crashedLastLaunch)")
+    KSCrash.shared.setUserID("leaks-tester")
 
-    let activeDuration = KSCrash.shared.activeDurationSinceLastCrash
-    print("[LeaksTest] Active duration since last crash: \(activeDuration)")
-
-    let launchesSinceLastCrash = KSCrash.shared.launchesSinceLastCrash
-    print("[LeaksTest] Launches since last crash: \(launchesSinceLastCrash)")
-
-    // Update userInfo again
-    KSCrash.shared.setUserInfo("exercised", forKey: "leaks_test_phase")
-    KSCrash.shared.setUserInfo(Date().timeIntervalSince1970, forKey: "timestamp")
-    print("[LeaksTest] Updated userInfo")
+    // Update metadata again
+    metadata["leaks_test_phase"] = "exercised"
+    metadata["timestamp"] = Date().timeIntervalSince1970
+    metadata.removeValue(forKey: "test_double")
+    print("[LeaksTest] Updated metadata")
 }
 
 private func reportUserExceptions() {
     // Non-fatal user exception with stack trace
-    KSCrash.shared.reportUserException(
+    KSCrash.shared.reportException(
         "LeaksTestException",
         reason: "Testing for memory leaks",
         language: "Swift",
@@ -121,7 +121,7 @@ private func reportUserExceptions() {
     print("[LeaksTest] Reported user exception (non-fatal, no threads)")
 
     // Non-fatal user exception with all threads logged
-    KSCrash.shared.reportUserException(
+    KSCrash.shared.reportException(
         "LeaksTestAllThreads",
         reason: "Testing thread capture",
         language: "Swift",
@@ -133,7 +133,7 @@ private func reportUserExceptions() {
     print("[LeaksTest] Reported user exception (non-fatal, all threads)")
 
     // Non-fatal with different language tag
-    KSCrash.shared.reportUserException(
+    KSCrash.shared.reportException(
         "LeaksTestObjC",
         reason: "Testing ObjC path",
         language: "Objective-C",
@@ -147,114 +147,92 @@ private func reportUserExceptions() {
 
 // MARK: - Report Reading and Processing
 
+/// The pending report ids, parsed from the store's filenames with the
+/// exported grammar constants.
+private func pendingReportIDs() -> [Report.ID] {
+    guard let directory = reportsDirectory() else { return [] }
+    let names = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
+    let suffix = "." + KSCRS_REPORT_FILENAME_EXTENSION
+    return names.sorted().compactMap { name in
+        guard name.hasSuffix(suffix) else { return nil }
+        let id = name.dropFirst(Int(KSCRS_REPORT_NAME_DIGITS) + 1).dropLast(suffix.count)
+        return Report.ID(String(id))
+    }
+}
+
 private func readReports() -> [[String: Any]] {
-    guard let reportStore = KSCrash.shared.reportStore else {
-        print("[LeaksTest] No report store available")
+    guard let directory = reportsDirectory() else {
+        print("[LeaksTest] No reports directory available")
         return []
     }
-
-    let reportCount = reportStore.reportCount
-    print("[LeaksTest] Report count: \(reportCount)")
-
-    let reportIDs = reportStore.reportIDs
-    print("[LeaksTest] Report IDs: \(reportIDs)")
+    let names = ((try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []).sorted()
+    print("[LeaksTest] Report count: \(names.count)")
 
     var reports: [[String: Any]] = []
-    for reportID in reportIDs {
-        if let report = reportStore.report(for: reportID.int64Value) {
-            let value = report.value
-            print("[LeaksTest] Read report \(reportID), \(value.keys.count) top-level keys")
+    for name in names {
+        if let data = try? Data(contentsOf: directory.appendingPathComponent(name)),
+            let value = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        {
+            print("[LeaksTest] Read report \(name), \(value.keys.count) top-level keys")
             reports.append(value)
         }
     }
     return reports
 }
 
-private func exerciseFilterPipeline(reports: [[String: Any]]) {
-    guard !reports.isEmpty else {
-        print("[LeaksTest] No reports to filter")
-        return
-    }
-
-    // Wrap raw dicts into CrashReportDictionary objects for the filter pipeline
-    let crashReports: [CrashReportDictionary] = reports.map { CrashReportDictionary.report(withValue: $0) }
-
-    // Doctor filter: generates automated diagnosis
-    let doctorFilter = CrashReportFilterDoctor()
-    doctorFilter.filterReports(crashReports) { filtered, error in
-        print("[LeaksTest] Doctor filter: \(filtered?.count ?? 0) reports, error: \(String(describing: error))")
-    }
-
-    // Demangle filter: demangles C++/Swift symbols
-    let demangleFilter = CrashReportFilterDemangle()
-    demangleFilter.filterReports(crashReports) { filtered, error in
-        print("[LeaksTest] Demangle filter: \(filtered?.count ?? 0) reports, error: \(String(describing: error))")
-    }
-
-    // JSON encode filter: dict -> Data
-    let jsonEncodeFilter = CrashReportFilterJSONEncode()
-    jsonEncodeFilter.filterReports(crashReports) { filtered, error in
-        print("[LeaksTest] JSON encode: \(filtered?.count ?? 0) reports, error: \(String(describing: error))")
-
-        if let encoded = filtered {
-            // JSON decode filter: Data -> dict (round-trip)
-            let jsonDecodeFilter = CrashReportFilterJSONDecode()
-            jsonDecodeFilter.filterReports(encoded) { decoded, decError in
-                print("[LeaksTest] JSON decode: \(decoded?.count ?? 0) reports, error: \(String(describing: decError))")
-            }
+private func exerciseSendPipeline() {
+    // A logging pass-through stage, so every delivered report walks the whole
+    // Swift pipeline machinery (snapshot, claim, decode, stage, delete).
+    struct LogStage: PipelineStage {
+        func process(_ payload: Report) async throws -> Report? {
+            print(
+                "[LeaksTest] Send stage: report \(payload.report.id), \(String(describing: payload.crash.error.type))")
+            return payload
         }
     }
 
-    // Apple format filter
-    let appleFilter = CrashReportFilterAppleFmt(reportStyle: .symbolicated)
-    appleFilter.filterReports(crashReports) { filtered, error in
-        print("[LeaksTest] Apple format: \(filtered?.count ?? 0) reports, error: \(String(describing: error))")
-    }
+    // The send is async; the leaks test is a synchronous script, so block on a
+    // semaphore. The send runs off the caller's actor, so this cannot deadlock.
+    let done = DispatchSemaphore(value: 0)
+    Task {
+        let configuration = SendConfiguration(
+            reportPipeline: [AnyPipelineStage(LogStage())]
+        )
+        do {
+            let bulk = try await KSCrash.shared.sendReports(with: configuration)
+            print(
+                "[LeaksTest] Swift bulk send: delivered \(bulk.delivered.count), "
+                    + "discarded \(bulk.discarded.count), kept \(bulk.kept.count)")
 
-    // Stringify filter
-    let stringifyFilter = CrashReportFilterStringify()
-    stringifyFilter.filterReports(crashReports) { filtered, error in
-        print("[LeaksTest] Stringify: \(filtered?.count ?? 0) reports, error: \(String(describing: error))")
+            // The bulk send skips current-run reports (the fresh user
+            // exceptions, the hang report). Naming ids is how those are sent
+            // deliberately, and it exercises the selection path too.
+            let named = try await KSCrash.shared.sendReports(with: configuration, only: pendingReportIDs())
+            print(
+                "[LeaksTest] Swift named send: delivered \(named.delivered.count), "
+                    + "discarded \(named.discarded.count), kept \(named.kept.count)")
+        } catch {
+            print("[LeaksTest] Swift send failed: \(error)")
+        }
+        done.signal()
     }
-
-    // Exercise the transform filters individually (demangle, doctor, JSON encode).
-    CrashReportFilterDemangle().filterReports(crashReports) { filtered, error in
-        print("[LeaksTest] Demangle: \(filtered?.count ?? 0) reports, error: \(String(describing: error))")
+    if done.wait(timeout: .now() + 10) == .timedOut {
+        print("[LeaksTest] Swift send timed out")
     }
-    CrashReportFilterDoctor().filterReports(crashReports) { filtered, error in
-        print("[LeaksTest] Doctor: \(filtered?.count ?? 0) reports, error: \(String(describing: error))")
-    }
-    CrashReportFilterJSONEncode().filterReports(crashReports) { filtered, error in
-        print("[LeaksTest] JSONEncode: \(filtered?.count ?? 0) reports, error: \(String(describing: error))")
-    }
-
-    // Console sink: exercises the sink's type-guard and completion path.
-    // The sink expects KSCrashReportString inputs (from the Apple formatter),
-    // so passing dictionaries validates the reject-and-continue path, not
-    // the formatting pipeline. Good enough for a leaks test.
-    let consoleSink = CrashReportSinkConsole()
-    consoleSink.filterReports(crashReports) { filtered, error in
-        print("[LeaksTest] Console sink: \(filtered?.count ?? 0) reports, error: \(String(describing: error))")
-    }
-
-    // Combine filter: runs multiple filters in parallel on same input
-    let combine = CrashReportFilterCombine(filters: [
-        "json": CrashReportFilterJSONEncode(),
-        "apple": CrashReportFilterAppleFmt(reportStyle: .symbolicated),
-    ])
-    combine.filterReports(crashReports) { filtered, error in
-        print("[LeaksTest] Combine: \(filtered?.count ?? 0) reports, error: \(String(describing: error))")
-    }
-
-    // Demangle individual symbols
-    _ = CrashReportFilterDemangle.demangledCppSymbol("_ZN5MyApp6MyFunc7doStuffEv")
-    _ = CrashReportFilterDemangle.demangledSwiftSymbol("$s5MyApp6MyFuncC7doStuffyyF")
-    print("[LeaksTest] Exercised symbol demangling")
 }
 
 private func deleteAllReports() {
-    guard let reportStore = KSCrash.shared.reportStore else { return }
-    reportStore.deleteAllReports()
+    // A discarding send deletes every named report through the public surface.
+    struct DiscardStage: PipelineStage {
+        func process(_ payload: Report) async throws -> Report? { nil }
+    }
+    let done = DispatchSemaphore(value: 0)
+    Task {
+        let configuration = SendConfiguration(reportPipeline: [AnyPipelineStage(DiscardStage())])
+        _ = try? await KSCrash.shared.sendReports(with: configuration, only: pendingReportIDs())
+        done.signal()
+    }
+    _ = done.wait(timeout: .now() + 10)
     print("[LeaksTest] Deleted all reports")
 }
 
@@ -295,18 +273,18 @@ private func runLeaksTest() {
 
     // Read reports from Phase 1 (crash + user exceptions),
     // triggering the finalization/stitching pipeline
-    let reports = readReports()
+    _ = readReports()
 
-    // Run all reports through the filter pipeline
-    exerciseFilterPipeline(reports: reports)
+    // Run the pending reports through the Swift send pipeline
+    exerciseSendPipeline()
 
     // Clean up Phase 1 reports
     deleteAllReports()
 
     // Generate fresh user exceptions and process them too
     reportUserExceptions()
-    let freshReports = readReports()
-    exerciseFilterPipeline(reports: freshReports)
+    _ = readReports()
+    exerciseSendPipeline()
     deleteAllReports()
 
     // Spin the run loop so the watchdog's run loop observer activates.
@@ -317,8 +295,8 @@ private func runLeaksTest() {
     exerciseHangDetectionAndRecovery()
 
     // Read and process the hang report
-    let hangReports = readReports()
-    exerciseFilterPipeline(reports: hangReports)
+    _ = readReports()
+    exerciseSendPipeline()
     deleteAllReports()
 
     createSentinelLeak()

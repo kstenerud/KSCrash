@@ -48,7 +48,7 @@ public struct LastDeallocedNSException: Codable, Sendable, Equatable {
     public let reason: String?
 
     /// Object referenced in the exception reason.
-    public let referencedObject: ReferencedObject?
+    public let referencedObject: MemoryContents?
 
     enum CodingKeys: String, CodingKey {
         case address

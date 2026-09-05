@@ -125,20 +125,17 @@ bool kscm_system_getSystemData(KSCrash_SystemData *dst);
  */
 bool kscm_system_getSystemDataForPath(const char *path, KSCrash_SystemData *outData);
 
+/** The same read, saying whether reading again could go better: a caller that
+ *  has to choose between delivering without this data and asking to be
+ *  retried needs to tell those apart.
+ */
+KSCrashSidecarReadResult kscm_system_readSystemData(const char *path, KSCrash_SystemData *outData);
+
 /** Reads a system snapshot from a specific run's sidecar file.
  *  Use with kscrash_getRunID() for current run or kscrash_getLastRunID() for previous.
  *  Returns false if the run ID has no valid sidecar or data fails validation.
  */
 bool kscm_system_getSystemDataForRunID(const char *runID, KSCrash_SystemData *outData);
-
-/** Set the boot timestamp (seconds since epoch) on the system monitor's mmap'd struct. */
-void kscm_system_setBootTime(int64_t bootTimestamp);
-
-/** Set storage and free storage sizes on the system monitor's mmap'd struct. */
-void kscm_system_setDiscSpace(uint64_t storageSize, uint64_t freeStorageSize);
-
-/** Update just the free storage size on the system monitor's mmap'd struct. */
-void kscm_system_setFreeStorageSize(uint64_t freeStorageSize);
 
 /** Stitch system sidecar data into a report at delivery time.
  *

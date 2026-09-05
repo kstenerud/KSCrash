@@ -199,28 +199,13 @@ let cxxTestLinkerSettings: [LinkerSetting] = [
 let package = Package(
     name: "KSCrash",
     platforms: [
-        .iOS(.v13),
-        .tvOS(.v13),
-        .watchOS(.v6),
-        .macOS(.v10_15),
+        .iOS(.v15),
+        .tvOS(.v15),
+        .watchOS(.v8),
+        .macOS(.v12),
         .visionOS(.v1),
     ],
     products: [
-        .library(
-            name: "Reporting",
-            targets: [
-                Targets.filters,
-                Targets.sinks,
-            ]
-        ),
-        .library(
-            name: "Filters",
-            targets: [Targets.filters]
-        ),
-        .library(
-            name: "Sinks",
-            targets: [Targets.sinks]
-        ),
         .library(
             name: "Recording",
             targets: [Targets.recording]
@@ -230,20 +215,24 @@ let package = Package(
             targets: [Targets.recordingCore]
         ),
         .library(
-            name: "DiscSpaceMonitor",
-            targets: [Targets.discSpaceMonitor]
+            name: "DiskMonitor",
+            targets: [Targets.diskMonitor]
         ),
         .library(
-            name: "BootTimeMonitor",
-            targets: [Targets.bootTimeMonitor]
-        ),
-        .library(
-            name: "DemangleFilter",
-            targets: [Targets.demangleFilter]
+            name: "BootMonitor",
+            targets: [Targets.bootMonitor]
         ),
         .library(
             name: "Profiler",
             targets: [Targets.profiler]
+        ),
+        .library(
+            name: "MonitorPlugins",
+            targets: [Targets.monitorPlugins]
+        ),
+        .library(
+            name: "CrashReportExtension",
+            targets: [Targets.crashReportExtension]
         ),
         .library(
             name: "Monitors",
@@ -301,50 +290,6 @@ let package = Package(
         ),
 
         .target(
-            name: Targets.filters,
-            dependencies: [
-                .target(name: Targets.recording),
-                .target(name: Targets.recordingCore),
-                .target(name: Targets.reportingCore),
-            ],
-            resources: [
-                .copy("Resources/PrivacyInfo.xcprivacy")
-            ],
-            cSettings: [
-                .unsafeFlags(warningFlags)
-            ]
-        ),
-        .testTarget(
-            name: Targets.filters.tests,
-            dependencies: [
-                .target(name: Targets.filters),
-                .target(name: Targets.recording),
-                .target(name: Targets.recordingCore),
-                .target(name: Targets.reportingCore),
-            ],
-            resources: [
-                .process("Resources")
-            ],
-            cSettings: [
-                .unsafeFlags(warningFlags)
-            ]
-        ),
-
-        .target(
-            name: Targets.sinks,
-            dependencies: [
-                .target(name: Targets.recording),
-                .target(name: Targets.filters),
-            ],
-            resources: [
-                .copy("Resources/PrivacyInfo.xcprivacy")
-            ],
-            cSettings: [
-                .unsafeFlags(warningFlags)
-            ]
-        ),
-
-        .target(
             name: Targets.recordingCore,
             dependencies: [
                 .target(name: Targets.core)
@@ -379,32 +324,6 @@ let package = Package(
         ),
 
         .target(
-            name: Targets.reportingCore,
-            dependencies: [
-                .target(name: Targets.core)
-            ],
-            resources: [
-                .copy("Resources/PrivacyInfo.xcprivacy")
-            ],
-            cSettings: [
-                .unsafeFlags(warningFlags)
-            ],
-            linkerSettings: [
-                .linkedLibrary("z")
-            ]
-        ),
-        .testTarget(
-            name: Targets.reportingCore.tests,
-            dependencies: [
-                .target(name: Targets.reportingCore),
-                .target(name: Targets.core),
-            ],
-            cSettings: [
-                .unsafeFlags(warningFlags)
-            ]
-        ),
-
-        .target(
             name: Targets.core,
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy")
@@ -424,82 +343,27 @@ let package = Package(
         ),
 
         .target(
-            name: Targets.discSpaceMonitor,
+            name: Targets.diskMonitor,
             dependencies: [
-                .target(name: Targets.recordingCore),
+                .target(name: Targets.monitorPlugins),
                 .target(name: Targets.recording),
+                .target(name: Targets.recordingCore),
+                .target(name: Targets.swiftCore),
             ],
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy")
-            ],
-            cSettings: [
-                .headerSearchPath("../\(Targets.recording)/Monitors"),
-                .unsafeFlags(warningFlags),
             ]
         ),
-        .testTarget(
-            name: Targets.discSpaceMonitor.tests,
-            dependencies: [
-                .target(name: Targets.discSpaceMonitor),
-                .target(name: Targets.recording),
-                .target(name: Targets.recordingCore),
-            ],
-            cSettings: [
-                .headerSearchPath("../../Sources/\(Targets.recording)/Monitors"),
-                .unsafeFlags(warningFlags),
-            ]
-        ),
-
         .target(
-            name: Targets.bootTimeMonitor,
+            name: Targets.bootMonitor,
             dependencies: [
-                .target(name: Targets.recordingCore),
+                .target(name: Targets.monitorPlugins),
                 .target(name: Targets.recording),
+                .target(name: Targets.recordingCore),
+                .target(name: Targets.swiftCore),
             ],
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy")
-            ],
-            cSettings: [
-                .headerSearchPath("../\(Targets.recording)/Monitors"),
-                .unsafeFlags(warningFlags),
-            ]
-        ),
-        .testTarget(
-            name: Targets.bootTimeMonitor.tests,
-            dependencies: [
-                .target(name: Targets.bootTimeMonitor),
-                .target(name: Targets.recording),
-                .target(name: Targets.recordingCore),
-            ],
-            cSettings: [
-                .headerSearchPath("../../Sources/\(Targets.recording)/Monitors"),
-                .unsafeFlags(warningFlags),
-            ]
-        ),
-
-        .target(
-            name: Targets.demangleFilter,
-            dependencies: [
-                .target(name: Targets.recording)
-            ],
-            resources: [
-                .copy("Resources/PrivacyInfo.xcprivacy")
-            ],
-            cSettings: [
-                .unsafeFlags(warningFlags)
-            ],
-            cxxSettings: [
-                .unsafeFlags(warningFlags)
-            ]
-        ),
-        .testTarget(
-            name: Targets.demangleFilter.tests,
-            dependencies: [
-                .target(name: Targets.demangleFilter),
-                .target(name: Targets.recording),
-            ],
-            cSettings: [
-                .unsafeFlags(warningFlags)
             ]
         ),
 
@@ -536,6 +400,7 @@ let package = Package(
                 .target(name: Targets.recordingCore),
                 .target(name: Targets.recording),
                 .target(name: Targets.profiler),
+                .target(name: Targets.report),
             ]
         ),
 
@@ -561,7 +426,10 @@ let package = Package(
         ),
 
         .target(
-            name: Targets.swiftCore
+            name: Targets.swiftCore,
+            dependencies: [
+                .target(name: Targets.core)
+            ]
         ),
         .testTarget(
             name: Targets.swiftCore.tests,
@@ -576,6 +444,7 @@ let package = Package(
                 .target(name: Targets.recordingCore),
                 .target(name: Targets.recording),
                 .target(name: Targets.swiftCore),
+                .target(name: Targets.monitorPlugins),
             ],
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy")
@@ -589,12 +458,55 @@ let package = Package(
         ),
 
         .target(
+            name: Targets.monitorPlugins,
+            dependencies: [
+                .target(name: Targets.recording),
+                .target(name: Targets.recordingCore),
+                .target(name: Targets.report),
+                .target(name: Targets.swiftCore),
+            ],
+            resources: [
+                .copy("Resources/PrivacyInfo.xcprivacy")
+            ]
+        ),
+        .target(
+            name: Targets.crashReportExtension,
+            dependencies: [
+                .target(name: Targets.kscrash),
+                .target(name: Targets.monitorPlugins),
+                .target(name: Targets.recording),
+                .target(name: Targets.recordingCore),
+                .target(name: Targets.report),
+                .target(name: Targets.swiftCore),
+            ]
+        ),
+        .testTarget(
+            name: Targets.crashReportExtension.tests,
+            dependencies: [
+                .target(name: Targets.crashReportExtension),
+                .target(name: Targets.kscrash),
+                .target(name: Targets.monitorPlugins),
+                .target(name: Targets.monitors),
+                .target(name: Targets.recording),
+                .target(name: Targets.recordingCore),
+                .target(name: Targets.report),
+            ]
+        ),
+        .testTarget(
+            name: Targets.monitorPlugins.tests,
+            dependencies: [
+                .target(name: Targets.monitorPlugins)
+            ]
+        ),
+
+        .target(
             name: Targets.monitors,
             dependencies: [
                 .target(name: Targets.recordingCore),
                 .target(name: Targets.recording),
                 .target(name: Targets.report),
                 .target(name: Targets.swiftCore),
+                .target(name: Targets.monitorPlugins),
             ],
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy")
@@ -606,6 +518,8 @@ let package = Package(
             dependencies: [
                 .target(name: Targets.monitors),
                 .target(name: Targets.report),
+                .target(name: Targets.crashReportExtension),
+                .target(name: Targets.kscrash),
             ],
             swiftSettings: metricKitSwiftSettings
         ),
@@ -616,6 +530,7 @@ let package = Package(
                 .target(name: Targets.recordingCore),
                 .target(name: Targets.report),
                 .target(name: Targets.swiftCore),
+                .target(name: Targets.monitorPlugins),
             ]
         ),
         .testTarget(
@@ -624,6 +539,9 @@ let package = Package(
                 .target(name: Targets.kscrash),
                 .target(name: Targets.recordingCore),
                 .target(name: Targets.swiftCore),
+                .target(name: Targets.monitorPlugins),
+                .target(name: Targets.diskMonitor),
+                .target(name: Targets.bootMonitor),
             ]
         ),
     ],
@@ -632,15 +550,11 @@ let package = Package(
 
 enum Targets {
     static let recording = "KSCrashRecording"
-    static let filters = "KSCrashFilters"
-    static let sinks = "KSCrashSinks"
     static let recordingCore = "KSCrashRecordingCore"
     static let recordingCoreSwift = "KSCrashRecordingCoreSwift"
-    static let reportingCore = "KSCrashReportingCore"
     static let core = "KSCrashCore"
-    static let discSpaceMonitor = "KSCrashDiscSpaceMonitor"
-    static let bootTimeMonitor = "KSCrashBootTimeMonitor"
-    static let demangleFilter = "KSCrashDemangleFilter"
+    static let diskMonitor = "KSCrashDiskMonitor"
+    static let bootMonitor = "KSCrashBootMonitor"
     static let report = "KSCrashReportModel"
     static let kscrash = "KSCrash"
     static let testTools = "KSCrashTestTools"
@@ -650,6 +564,8 @@ enum Targets {
     static let swiftCore = "KSCrashSwiftCore"
     static let profiler = "KSCrashProfiler"
     static let monitors = "KSCrashMonitors"
+    static let monitorPlugins = "KSCrashMonitorPlugins"
+    static let crashReportExtension = "KSCrashCrashReportExtension"
 }
 
 extension String {

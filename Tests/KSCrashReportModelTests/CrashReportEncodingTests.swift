@@ -88,7 +88,7 @@ final class CrashReportEncodingTests: XCTestCase {
     // MARK: - Round-Trip: Constructed Reports
 
     func testRoundTripConstructedMachReport() throws {
-        let report = BasicCrashReport(
+        let report = Report(
             binaryImages: [
                 BinaryImage(
                     cpuSubtype: 9,
@@ -99,7 +99,7 @@ final class CrashReportEncodingTests: XCTestCase {
                     uuid: "ABC-123"
                 )
             ],
-            crash: BasicCrashReport.Crash(
+            crash: Report.Crash(
                 diagnosis: "Test diagnosis",
                 error: CrashError(
                     address: 0xDEAD,
@@ -119,7 +119,7 @@ final class CrashReportEncodingTests: XCTestCase {
                     type: .mach
                 ),
                 threads: [
-                    BasicCrashReport.Thread(
+                    Report.Thread(
                         backtrace: Backtrace(
                             contents: [
                                 StackFrame(
@@ -142,7 +142,7 @@ final class CrashReportEncodingTests: XCTestCase {
                         currentThread: true,
                         index: 0
                     ),
-                    BasicCrashReport.Thread(
+                    Report.Thread(
                         crashed: false,
                         currentThread: false,
                         index: 1,
@@ -151,7 +151,7 @@ final class CrashReportEncodingTests: XCTestCase {
                 ]
             ),
             report: ReportInfo(
-                id: "test-constructed-id",
+                id: testReportID("test-constructed-id"),
                 processName: "TestApp",
                 type: .standard,
                 version: ReportVersion(major: 3, minor: 8, patch: 0),
@@ -171,7 +171,7 @@ final class CrashReportEncodingTests: XCTestCase {
         let (original, roundTripped) = try roundTrip(report)
 
         // Verify report info
-        XCTAssertEqual(roundTripped.report.id, "test-constructed-id")
+        XCTAssertEqual(roundTripped.report.id, testReportID("test-constructed-id"))
         XCTAssertEqual(roundTripped.report.processName, "TestApp")
         XCTAssertEqual(roundTripped.report.type, .standard)
         XCTAssertEqual(roundTripped.report.version?.major, 3)
@@ -225,8 +225,8 @@ final class CrashReportEncodingTests: XCTestCase {
     }
 
     func testRoundTripConstructedSignalReport() throws {
-        let report = BasicCrashReport(
-            crash: BasicCrashReport.Crash(
+        let report = Report(
+            crash: Report.Crash(
                 error: CrashError(
                     signal: SignalError(
                         code: 0,
@@ -237,7 +237,7 @@ final class CrashReportEncodingTests: XCTestCase {
                     reason: "abort() called"
                 )
             ),
-            report: ReportInfo(id: "signal-test")
+            report: ReportInfo(id: testReportID("signal-test"))
         )
 
         let (_, roundTripped) = try roundTrip(report)
@@ -250,14 +250,14 @@ final class CrashReportEncodingTests: XCTestCase {
     }
 
     func testRoundTripLastExceptionBacktrace() throws {
-        let report = BasicCrashReport(
-            crash: BasicCrashReport.Crash(
+        let report = Report(
+            crash: Report.Crash(
                 error: CrashError(
                     nsexception: ExceptionInfo(name: "NSInvalidArgumentException"),
                     type: .nsexception
                 ),
                 threads: [
-                    BasicCrashReport.Thread(
+                    Report.Thread(
                         backtrace: Backtrace(
                             contents: [
                                 StackFrame(instructionAddr: 0x3000, symbolName: "handleUncaughtException")
@@ -285,7 +285,7 @@ final class CrashReportEncodingTests: XCTestCase {
                     skipped: 0
                 )
             ),
-            report: ReportInfo(id: "last-exc-bt-test")
+            report: ReportInfo(id: testReportID("last-exc-bt-test"))
         )
 
         let (_, roundTripped) = try roundTrip(report)
@@ -301,36 +301,36 @@ final class CrashReportEncodingTests: XCTestCase {
     }
 
     func testRoundTripIsFatal() throws {
-        let fatal = BasicCrashReport(
-            crash: BasicCrashReport.Crash(
+        let fatal = Report(
+            crash: Report.Crash(
                 error: CrashError(type: .signal, isFatal: true)
             ),
-            report: ReportInfo(id: "fatal-test")
+            report: ReportInfo(id: testReportID("fatal-test"))
         )
         let (_, roundTrippedFatal) = try roundTrip(fatal)
         XCTAssertEqual(roundTrippedFatal.crash.error.isFatal, true)
 
-        let nonFatal = BasicCrashReport(
-            crash: BasicCrashReport.Crash(
+        let nonFatal = Report(
+            crash: Report.Crash(
                 error: CrashError(type: .signal, isFatal: false)
             ),
-            report: ReportInfo(id: "non-fatal-test")
+            report: ReportInfo(id: testReportID("non-fatal-test"))
         )
         let (_, roundTrippedNonFatal) = try roundTrip(nonFatal)
         XCTAssertEqual(roundTrippedNonFatal.crash.error.isFatal, false)
     }
 
     func testRoundTripMinimalReport() throws {
-        let report = BasicCrashReport(
-            crash: BasicCrashReport.Crash(
+        let report = Report(
+            crash: Report.Crash(
                 error: CrashError(type: .mach)
             ),
-            report: ReportInfo(id: "minimal")
+            report: ReportInfo(id: testReportID("minimal"))
         )
 
         let (_, roundTripped) = try roundTrip(report)
 
-        XCTAssertEqual(roundTripped.report.id, "minimal")
+        XCTAssertEqual(roundTripped.report.id, testReportID("minimal"))
         XCTAssertEqual(roundTripped.crash.error.type, .mach)
         XCTAssertNil(roundTripped.binaryImages)
         XCTAssertNil(roundTripped.system)
@@ -339,11 +339,11 @@ final class CrashReportEncodingTests: XCTestCase {
     }
 
     func testStackFrameObjectUUIDRoundTrip() throws {
-        let report = BasicCrashReport(
-            crash: BasicCrashReport.Crash(
+        let report = Report(
+            crash: Report.Crash(
                 error: CrashError(type: .mach),
                 threads: [
-                    BasicCrashReport.Thread(
+                    Report.Thread(
                         backtrace: Backtrace(
                             contents: [
                                 StackFrame(
@@ -364,7 +364,7 @@ final class CrashReportEncodingTests: XCTestCase {
                     )
                 ]
             ),
-            report: ReportInfo(id: "uuid-test")
+            report: ReportInfo(id: testReportID("uuid-test"))
         )
 
         let (_, roundTripped) = try roundTrip(report)
@@ -396,12 +396,12 @@ final class CrashReportEncodingTests: XCTestCase {
             uuid: "11111111-2222-3333-4444-555555555555"
         )
 
-        let report = BasicCrashReport(
+        let report = Report(
             binaryImages: [appImage, kernelImage],
-            crash: BasicCrashReport.Crash(
+            crash: Report.Crash(
                 error: CrashError(type: .mach),
                 threads: [
-                    BasicCrashReport.Thread(
+                    Report.Thread(
                         backtrace: Backtrace(
                             contents: [
                                 StackFrame(
@@ -427,7 +427,7 @@ final class CrashReportEncodingTests: XCTestCase {
                     )
                 ]
             ),
-            report: ReportInfo(id: "compact-roundtrip")
+            report: ReportInfo(id: testReportID("compact-roundtrip"))
         )
 
         let (_, roundTripped) = try roundTrip(report)
@@ -453,11 +453,11 @@ final class CrashReportEncodingTests: XCTestCase {
     }
 
     func testRoundTripResourceFields() throws {
-        let report = BasicCrashReport(
-            crash: BasicCrashReport.Crash(
+        let report = Report(
+            crash: Report.Crash(
                 error: CrashError(type: .mach)
             ),
-            report: ReportInfo(id: "resource-test"),
+            report: ReportInfo(id: testReportID("resource-test")),
             system: SystemInfo(
                 batteryLevel: 85,
                 batteryState: .charging,
@@ -485,11 +485,11 @@ final class CrashReportEncodingTests: XCTestCase {
     }
 
     func testRoundTripLowPowerMode() throws {
-        let report = BasicCrashReport(
-            crash: BasicCrashReport.Crash(
+        let report = Report(
+            crash: Report.Crash(
                 error: CrashError(type: .mach)
             ),
-            report: ReportInfo(id: "lpm-test"),
+            report: ReportInfo(id: testReportID("lpm-test")),
             system: SystemInfo(lowPowerModeEnabled: true)
         )
 
@@ -499,9 +499,9 @@ final class CrashReportEncodingTests: XCTestCase {
 
     func testRoundTripAllBatteryStates() throws {
         for state: BatteryState in [.unknown, .unplugged, .charging, .full] {
-            let report = BasicCrashReport(
-                crash: BasicCrashReport.Crash(error: CrashError(type: .mach)),
-                report: ReportInfo(id: "battery-\(state)"),
+            let report = Report(
+                crash: Report.Crash(error: CrashError(type: .mach)),
+                report: ReportInfo(id: testReportID("battery-\(state)")),
                 system: SystemInfo(batteryState: state)
             )
             let (_, roundTripped) = try roundTrip(report)
@@ -511,9 +511,9 @@ final class CrashReportEncodingTests: XCTestCase {
 
     func testRoundTripAllThermalStates() throws {
         for state: ThermalState in [.nominal, .fair, .serious, .critical] {
-            let report = BasicCrashReport(
-                crash: BasicCrashReport.Crash(error: CrashError(type: .mach)),
-                report: ReportInfo(id: "thermal-\(state)"),
+            let report = Report(
+                crash: Report.Crash(error: CrashError(type: .mach)),
+                report: ReportInfo(id: testReportID("thermal-\(state)")),
                 system: SystemInfo(thermalState: state)
             )
             let (_, roundTripped) = try roundTrip(report)
@@ -524,7 +524,7 @@ final class CrashReportEncodingTests: XCTestCase {
     // MARK: - Encoding Key Verification
 
     func testEncodingUsesSnakeCaseKeys() throws {
-        let report = BasicCrashReport(
+        let report = Report(
             binaryImages: [
                 BinaryImage(
                     cpuSubtype: 1,
@@ -534,10 +534,10 @@ final class CrashReportEncodingTests: XCTestCase {
                     name: "test"
                 )
             ],
-            crash: BasicCrashReport.Crash(
+            crash: Report.Crash(
                 error: CrashError(type: .mach),
                 threads: [
-                    BasicCrashReport.Thread(
+                    Report.Thread(
                         backtrace: Backtrace(
                             contents: [
                                 StackFrame(
@@ -552,7 +552,7 @@ final class CrashReportEncodingTests: XCTestCase {
                         index: 0
                     )
                 ],
-                crashedThread: BasicCrashReport.Thread(
+                crashedThread: Report.Thread(
                     crashed: true,
                     currentThread: true,
                     index: 0
@@ -563,7 +563,7 @@ final class CrashReportEncodingTests: XCTestCase {
                 )
             ),
             report: ReportInfo(
-                id: "key-test",
+                id: testReportID("key-test"),
                 processName: "Test",
                 monitorId: "TestMonitor"
             )
@@ -609,31 +609,31 @@ final class CrashReportEncodingTests: XCTestCase {
     }
 
     func testRoundTripIsCleanExit() throws {
-        let clean = BasicCrashReport(
-            crash: BasicCrashReport.Crash(
+        let clean = Report(
+            crash: Report.Crash(
                 error: CrashError(type: .signal, isFatal: true, isCleanExit: true)
             ),
-            report: ReportInfo(id: "clean-exit-test")
+            report: ReportInfo(id: testReportID("clean-exit-test"))
         )
         let (_, roundTrippedClean) = try roundTrip(clean)
         XCTAssertEqual(roundTrippedClean.crash.error.isCleanExit, true)
 
-        let crash = BasicCrashReport(
-            crash: BasicCrashReport.Crash(
+        let crash = Report(
+            crash: Report.Crash(
                 error: CrashError(type: .signal, isFatal: true, isCleanExit: false)
             ),
-            report: ReportInfo(id: "crash-exit-test")
+            report: ReportInfo(id: testReportID("crash-exit-test"))
         )
         let (_, roundTrippedCrash) = try roundTrip(crash)
         XCTAssertEqual(roundTrippedCrash.crash.error.isCleanExit, false)
     }
 
     func testEncodingIsCleanExitUsesSnakeCaseKey() throws {
-        let report = BasicCrashReport(
-            crash: BasicCrashReport.Crash(
+        let report = Report(
+            crash: Report.Crash(
                 error: CrashError(type: .signal, isFatal: true, isCleanExit: true)
             ),
-            report: ReportInfo(id: "key-test")
+            report: ReportInfo(id: testReportID("key-test"))
         )
 
         let data = try JSONEncoder().encode(report)
@@ -645,11 +645,11 @@ final class CrashReportEncodingTests: XCTestCase {
     }
 
     func testEncodingResourceFieldsUseSnakeCaseKeys() throws {
-        let report = BasicCrashReport(
-            crash: BasicCrashReport.Crash(
+        let report = Report(
+            crash: Report.Crash(
                 error: CrashError(type: .mach)
             ),
-            report: ReportInfo(id: "key-test"),
+            report: ReportInfo(id: testReportID("key-test")),
             system: SystemInfo(
                 lowPowerModeEnabled: false,
                 batteryLevel: 50,
@@ -693,8 +693,8 @@ final class CrashReportEncodingTests: XCTestCase {
     }
 
     func testRoundTripTermination() throws {
-        let report = BasicCrashReport(
-            crash: BasicCrashReport.Crash(
+        let report = Report(
+            crash: Report.Crash(
                 error: CrashError(
                     signal: SignalError(code: 0, name: "SIGKILL", signal: 9),
                     type: .termination,
@@ -704,9 +704,9 @@ final class CrashReportEncodingTests: XCTestCase {
                 )
             ),
             report: ReportInfo(
-                id: "termination-test",
+                id: testReportID("termination-test"),
                 type: .standard,
-                runId: "prev-run-id",
+                runId: "0C1D2E3F-4A5B-4C6D-8E7F-A0B1C2D3E4F5",
                 monitorId: "Termination"
             )
         )
@@ -719,13 +719,13 @@ final class CrashReportEncodingTests: XCTestCase {
         XCTAssertEqual(roundTripped.crash.error.isCleanExit, false)
         XCTAssertEqual(roundTripped.crash.error.signal?.signal, 9)
         XCTAssertEqual(roundTripped.crash.error.signal?.name, "SIGKILL")
-        XCTAssertEqual(roundTripped.report.runId, "prev-run-id")
+        XCTAssertEqual(roundTripped.report.runId, RunSummary.ID("0C1D2E3F-4A5B-4C6D-8E7F-A0B1C2D3E4F5"))
         XCTAssertEqual(roundTripped.report.monitorId, "Termination")
     }
 
     func testRoundTripSystemChangeTermination() throws {
-        let report = BasicCrashReport(
-            crash: BasicCrashReport.Crash(
+        let report = Report(
+            crash: Report.Crash(
                 error: CrashError(
                     type: .termination,
                     isFatal: false,
@@ -734,7 +734,7 @@ final class CrashReportEncodingTests: XCTestCase {
                 )
             ),
             report: ReportInfo(
-                id: "os-upgrade-test",
+                id: testReportID("os-upgrade-test"),
                 type: .standard,
                 monitorId: "Termination"
             )
@@ -750,14 +750,14 @@ final class CrashReportEncodingTests: XCTestCase {
     }
 
     func testEncodingTerminationUsesSnakeCaseKeys() throws {
-        let report = BasicCrashReport(
-            crash: BasicCrashReport.Crash(
+        let report = Report(
+            crash: Report.Crash(
                 error: CrashError(
                     type: .termination,
                     terminationReason: .thermal
                 )
             ),
-            report: ReportInfo(id: "key-test")
+            report: ReportInfo(id: testReportID("key-test"))
         )
 
         let data = try JSONEncoder().encode(report)
@@ -770,11 +770,11 @@ final class CrashReportEncodingTests: XCTestCase {
     }
 
     func testEncodingIsFatalUsesSnakeCaseKey() throws {
-        let report = BasicCrashReport(
-            crash: BasicCrashReport.Crash(
+        let report = Report(
+            crash: Report.Crash(
                 error: CrashError(type: .signal, isFatal: true)
             ),
-            report: ReportInfo(id: "key-test")
+            report: ReportInfo(id: testReportID("key-test"))
         )
 
         let data = try JSONEncoder().encode(report)
@@ -786,12 +786,230 @@ final class CrashReportEncodingTests: XCTestCase {
 
     // MARK: - Helpers
 
-    private func roundTrip(_ report: BasicCrashReport) throws -> (
-        original: BasicCrashReport, roundTripped: BasicCrashReport
+    func testMonitorDataRoundTripsOnBothChannels() throws {
+        var section = Metadata()
+        section.set("tx-123", forKey: "transaction_id")
+        section.set(2, forKey: "count")
+
+        let report = Report(
+            crash: .init(
+                error: CrashError(
+                    type: .unknown("my_monitor"),
+                    monitorData: ["my_monitor": section])),
+            report: .init(id: testReportID("rt")),
+            monitorData: ["stitcher": section]
+        )
+
+        let (original, roundTripped) = try roundTrip(report)
+        XCTAssertEqual(original, roundTripped)
+
+        // The wire keys: both namespaces are named monitor_data, one under
+        // the error section and one at the report root.
+        let data = try JSONEncoder().encode(report)
+        let dict = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertNotNil((dict["monitor_data"] as? [String: Any])?["stitcher"])
+        let errorDict = try XCTUnwrap(
+            ((dict["crash"] as? [String: Any])?["error"] as? [String: Any]))
+        XCTAssertNotNil((errorDict["monitor_data"] as? [String: Any])?["my_monitor"])
+        XCTAssertEqual(errorDict["type"] as? String, "my_monitor")
+    }
+
+    // MARK: - Wire Fidelity
+
+    /// Decode and re-encode is what the send path does to every report, so a key
+    /// the model does not carry is a key the consumer never sees. Every non-null
+    /// leaf in a fixture must come out the other side.
+    func testExampleReportsLoseNoKeys() throws {
+        // Shapes the writer no longer emits and the model deliberately normalizes:
+        // the pre-3.x {major, minor} version object is re-encoded as a version
+        // string, and the pre-3.x backtrace under last_dealloced_nsexception is
+        // not modeled because it is not written any more.
+        let legacy = [
+            "report.version.major", "report.version.minor",
+            "recrash_report.report.version.major", "recrash_report.report.version.minor",
+            "process.last_dealloced_nsexception.backtrace",
+        ]
+        let urls = try XCTUnwrap(Bundle.module.urls(forResourcesWithExtension: "json", subdirectory: nil))
+        XCTAssertFalse(urls.isEmpty)
+        for url in urls {
+            let originalData = try Data(contentsOf: url)
+            let report = try JSONDecoder().decode(Report.self, from: originalData)
+            let encodedData = try JSONEncoder().encode(report)
+            let original = leafPaths(of: try JSONSerialization.jsonObject(with: originalData))
+            let reencoded = leafPaths(of: try JSONSerialization.jsonObject(with: encodedData))
+            let dropped = original.subtracting(reencoded).filter { path in
+                !legacy.contains { path.hasPrefix($0) }
+            }
+            XCTAssertTrue(dropped.isEmpty, "\(url.lastPathComponent) dropped \(dropped.sorted())")
+        }
+    }
+
+    func testRoundTripProcessStartTimes() throws {
+        let report = Report(
+            crash: Report.Crash(error: CrashError(type: .mach)),
+            report: ReportInfo(id: testReportID("process-start")),
+            system: SystemInfo(
+                processStartWallClockNs: 1_755_600_000_123_456_789,
+                processStartMonotonicNs: 98_765_432_101)
+        )
+
+        let (_, roundTripped) = try roundTrip(report)
+        XCTAssertEqual(roundTripped.system?.processStartWallClockNs, 1_755_600_000_123_456_789)
+        XCTAssertEqual(roundTripped.system?.processStartMonotonicNs, 98_765_432_101)
+
+        let dict = try JSONSerialization.jsonObject(with: JSONEncoder().encode(report)) as? [String: Any]
+        let system = try XCTUnwrap(dict?["system"] as? [String: Any])
+        XCTAssertEqual(system["process_start_wall_clock_ns"] as? UInt64, 1_755_600_000_123_456_789)
+        XCTAssertEqual(system["process_start_monotonic_ns"] as? UInt64, 98_765_432_101)
+    }
+
+    /// The exception register names are per architecture; the model carries
+    /// whatever set the writer emitted.
+    func testRoundTripExceptionRegistersPerArchitecture() throws {
+        let perArchitecture: [[String: UInt64]] = [
+            ["exception": 0x1, "esr": 0x9200_0046, "far": 0x10],
+            ["exception": 0x1, "fsr": 0x7, "far": 0x10],
+            ["trapno": 0xe, "err": 0x4, "faultvaddr": 0x10],
+        ]
+        for exception in perArchitecture {
+            let thread = Report.Thread(
+                crashed: true, currentThread: true, index: 0,
+                registers: Registers(basic: ["pc": 0x1000], exception: exception))
+            let report = Report(
+                crash: Report.Crash(error: CrashError(type: .mach), threads: [thread]),
+                report: ReportInfo(id: testReportID("registers")))
+
+            let (_, roundTripped) = try roundTrip(report)
+            XCTAssertEqual(roundTripped.crash.threads?.first?.registers?.exception, exception)
+            XCTAssertEqual(roundTripped.crash.threads?.first?.registers?.basic, ["pc": 0x1000])
+        }
+    }
+
+    func testDecodeMemoryContents() throws {
+        let json = """
+            {
+              "address": 4302217216,
+              "type": "objc_object",
+              "class": "NSMutableArray",
+              "last_deallocated_obj": "NSException",
+              "first_object": {
+                "address": 4302217300,
+                "type": "objc_object",
+                "class": "Widget",
+                "ivars": {
+                  "_count": 3,
+                  "_scale": 1.5,
+                  "_visible": true,
+                  "_name": {
+                    "address": 4302217400,
+                    "type": "objc_object",
+                    "class": "__NSCFString",
+                    "value": "hello"
+                  },
+                  "_delegate": {
+                    "address": 0,
+                    "type": "null_pointer"
+                  }
+                }
+              }
+            }
+            """
+        let contents = try JSONDecoder().decode(MemoryContents.self, from: Data(json.utf8))
+
+        XCTAssertEqual(contents.address, 4_302_217_216)
+        XCTAssertEqual(contents.type, .objcObject)
+        XCTAssertEqual(contents.class, "NSMutableArray")
+        XCTAssertEqual(contents.lastDeallocatedObject, "NSException")
+        XCTAssertNil(contents.value)
+
+        let first = try XCTUnwrap(contents.firstObject)
+        XCTAssertEqual(first.class, "Widget")
+        XCTAssertEqual(first.ivars?["_count"], .integer(3))
+        XCTAssertEqual(first.ivars?["_scale"], .double(1.5))
+        XCTAssertEqual(first.ivars?["_visible"], .bool(true))
+        XCTAssertEqual(
+            first.ivars?["_name"],
+            .object([
+                "address": .integer(4_302_217_400), "type": .string("objc_object"),
+                "class": .string("__NSCFString"), "value": .string("hello"),
+            ]))
+        XCTAssertEqual(first.ivars?["_delegate"], .object(["address": .integer(0), "type": .string("null_pointer")]))
+        XCTAssertNil(first.firstObject)
+
+        // The re-encoded JSON carries every key of the source.
+        let reencoded = try JSONSerialization.jsonObject(with: JSONEncoder().encode(contents))
+        let source = try JSONSerialization.jsonObject(with: Data(json.utf8))
+        XCTAssertEqual(leafPaths(of: reencoded), leafPaths(of: source))
+    }
+
+    func testRoundTripMemoryContentsInReport() throws {
+        let referenced = MemoryContents(
+            address: 0x1000, type: .objcObject, class: "NSString", value: .string("boom"))
+        let notable = MemoryContents(
+            address: 0x2000, type: .objcObject, class: "Widget",
+            firstObject: MemoryContents(address: 0x3000, type: .string, value: .string("first")),
+            ivars: ["_count": .integer(2)], lastDeallocatedObject: "Gadget")
+        let report = Report(
+            crash: Report.Crash(
+                error: CrashError(
+                    nsexception: ExceptionInfo(name: "NSGenericException", referencedObject: referenced),
+                    type: .nsexception),
+                threads: [
+                    Report.Thread(
+                        crashed: true, currentThread: true, index: 0,
+                        notableAddresses: ["x0": notable, "x1": referenced])
+                ]),
+            process: ProcessState(
+                lastDeallocedNSException: LastDeallocedNSException(
+                    address: 0x4000, name: "NSRangeException", reason: "r", referencedObject: notable)),
+            report: ReportInfo(id: testReportID("memory-contents")))
+
+        let (original, roundTripped) = try roundTrip(report)
+        XCTAssertEqual(original, roundTripped)
+        XCTAssertEqual(roundTripped.crash.error.nsexception?.referencedObject, referenced)
+        XCTAssertEqual(roundTripped.crash.threads?.first?.notableAddresses?["x0"], notable)
+        XCTAssertEqual(
+            roundTripped.process?.lastDeallocedNSException?.referencedObject?.firstObject?.value, .string("first"))
+    }
+
+    func testMemoryTypeKeepsUnknownWireValues() throws {
+        XCTAssertEqual(MemoryType(rawValue: "objc_block"), .objcBlock)
+        XCTAssertEqual(MemoryType(rawValue: "unknown"), .unknown)
+        XCTAssertEqual(MemoryType(rawValue: "future_kind"), .other("future_kind"))
+        XCTAssertEqual(MemoryType.other("future_kind").rawValue, "future_kind")
+    }
+
+    /// Dotted paths of every non-null leaf, array elements by index. Nulls are
+    /// skipped because the model encodes an absent value as a missing key.
+    private func leafPaths(of value: Any, at path: String = "", into paths: inout Set<String>) {
+        switch value {
+        case let dict as [String: Any]:
+            for (key, child) in dict {
+                leafPaths(of: child, at: path.isEmpty ? key : path + "." + key, into: &paths)
+            }
+        case let array as [Any]:
+            for (index, child) in array.enumerated() {
+                leafPaths(of: child, at: path + "[\(index)]", into: &paths)
+            }
+        case is NSNull:
+            break
+        default:
+            paths.insert(path)
+        }
+    }
+
+    private func leafPaths(of value: Any) -> Set<String> {
+        var paths = Set<String>()
+        leafPaths(of: value, at: "", into: &paths)
+        return paths
+    }
+
+    private func roundTrip(_ report: Report) throws -> (
+        original: Report, roundTripped: Report
     ) {
         let encoder = JSONEncoder()
         let data = try encoder.encode(report)
-        let decoded = try JSONDecoder().decode(BasicCrashReport.self, from: data)
+        let decoded = try JSONDecoder().decode(Report.self, from: data)
         return (report, decoded)
     }
 
@@ -800,7 +1018,7 @@ final class CrashReportEncodingTests: XCTestCase {
     {
         let url = Bundle.module.url(forResource: name, withExtension: "json")!
         let originalData = try Data(contentsOf: url)
-        let report = try JSONDecoder().decode(BasicCrashReport.self, from: originalData)
+        let report = try JSONDecoder().decode(Report.self, from: originalData)
 
         // Encode back to JSON
         let encoder = JSONEncoder()
@@ -808,7 +1026,7 @@ final class CrashReportEncodingTests: XCTestCase {
         let encodedData = try encoder.encode(report)
 
         // Decode the encoded JSON
-        let roundTripped = try JSONDecoder().decode(BasicCrashReport.self, from: encodedData)
+        let roundTripped = try JSONDecoder().decode(Report.self, from: encodedData)
 
         // Verify key fields survive the round trip
         XCTAssertEqual(

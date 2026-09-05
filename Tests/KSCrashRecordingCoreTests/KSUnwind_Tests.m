@@ -9,6 +9,7 @@
 #import <mach-o/compact_unwind_encoding.h>
 #import <mach-o/dyld.h>
 #import <mach-o/loader.h>
+#import <mach/mach.h>
 #import <pthread.h>
 
 #import "KSBacktrace.h"
@@ -17,11 +18,18 @@
 #import "KSMach-O.h"
 #import "KSMachineContext.h"
 #import "KSMachineContext_Apple.h"
+#import "KSMemory.h"
 #import "KSStackCursor_MachineContext.h"
 #import "KSThread.h"
 #import "Unwind/KSCompactUnwind.h"
 #import "Unwind/KSDwarfUnwind.h"
 #import "Unwind/KSStackCursor_Unwind.h"
+
+// A known value in a named __DATA section, to exercise the section-find + cross-task read that
+// kscrash_loadRunIDFromCorpse uses to pull the run id out of a corpse. `used` keeps the linker from
+// stripping it; the value mimics a UUID run id.
+static char g_ksTestSectionValue[] __attribute__((section("__DATA,__ks_test_rid"), used)) =
+    "11111111-2222-3333-4444-555555555555";
 
 static void ks_dwarf_test_helper(void) __attribute__((noinline));
 static void ks_dwarf_test_helper(void) {}
@@ -730,7 +738,7 @@ static KSTestUnwindSection validTestUnwindSection(void)
     uintptr_t bp = 0;  // No base pointer for frameless
 
     KSCompactUnwindResult result;
-    bool success = kscu_x86_64_decode(encoding, 0x1000, sp, bp, &result);
+    bool success = kscu_x86_64_decode(encoding, 0x1000, sp, bp, &result, mach_task_self());
 
     XCTAssertTrue(success, @"Frameless leaf decode should succeed");
     XCTAssertTrue(result.valid, @"Result should be valid");
@@ -763,7 +771,7 @@ static KSTestUnwindSection validTestUnwindSection(void)
     uintptr_t bp = 0;
 
     KSCompactUnwindResult result;
-    bool success = kscu_x86_64_decode(encoding, 0x1000, sp, bp, &result);
+    bool success = kscu_x86_64_decode(encoding, 0x1000, sp, bp, &result, mach_task_self());
 
     XCTAssertTrue(success, @"Frameless non-leaf decode should succeed");
     XCTAssertTrue(result.valid, @"Result should be valid");
@@ -790,7 +798,7 @@ static KSTestUnwindSection validTestUnwindSection(void)
     uintptr_t sp = (uintptr_t)&mockStack[0];
 
     KSCompactUnwindResult result;
-    bool success = kscu_x86_64_decode(encoding, 0x1000, sp, 0, &result);
+    bool success = kscu_x86_64_decode(encoding, 0x1000, sp, 0, &result, mach_task_self());
 
     XCTAssertTrue(success, @"Frameless with larger stack should succeed");
     XCTAssertEqual(result.returnAddress, 0xCAFEBABE12345678, @"Return address should be at RSP+64");
@@ -820,7 +828,7 @@ static KSTestUnwindSection validTestUnwindSection(void)
     uintptr_t sp = (uintptr_t)&mockStack[0];
 
     KSCompactUnwindResult result;
-    bool success = kscu_x86_decode(encoding, 0x1000, sp, 0, &result);
+    bool success = kscu_x86_decode(encoding, 0x1000, sp, 0, &result, mach_task_self());
 
     XCTAssertTrue(success, @"Frameless leaf decode should succeed");
     XCTAssertTrue(result.valid, @"Result should be valid");
@@ -848,7 +856,7 @@ static KSTestUnwindSection validTestUnwindSection(void)
     uintptr_t sp = (uintptr_t)&mockStack[0];
 
     KSCompactUnwindResult result;
-    bool success = kscu_x86_decode(encoding, 0x1000, sp, 0, &result);
+    bool success = kscu_x86_decode(encoding, 0x1000, sp, 0, &result, mach_task_self());
 
     XCTAssertTrue(success, @"Frameless non-leaf decode should succeed");
     XCTAssertEqual(result.returnAddress, 0xDEADBEEF, @"Return address should be at ESP+16");
@@ -885,7 +893,7 @@ static KSTestUnwindSection validTestUnwindSection(void)
     uintptr_t lr = 0x9999999999999999;  // Should be ignored for frame-based
 
     KSCompactUnwindResult result;
-    bool success = kscu_arm64_decode(encoding, 0x1000, sp, fp, lr, &result);
+    bool success = kscu_arm64_decode(encoding, 0x1000, sp, fp, lr, &result, mach_task_self());
 
     XCTAssertTrue(success, @"Frame-based decode should succeed");
     XCTAssertTrue(result.valid, @"Result should be valid");
@@ -920,7 +928,7 @@ static KSTestUnwindSection validTestUnwindSection(void)
     uintptr_t sp = (uintptr_t)&mockStack[0];  // SP at bottom
 
     KSCompactUnwindResult result;
-    bool success = kscu_arm64_decode(encoding, 0x1000, sp, fp, 0, &result);
+    bool success = kscu_arm64_decode(encoding, 0x1000, sp, fp, 0, &result, mach_task_self());
 
     XCTAssertTrue(success, @"Frame-based with saved regs should succeed");
     XCTAssertTrue(result.valid, @"Result should be valid");
@@ -944,7 +952,7 @@ static KSTestUnwindSection validTestUnwindSection(void)
     uintptr_t lr = 0xDEADBEEFCAFEBABE;
 
     KSCompactUnwindResult result;
-    bool success = kscu_arm64_decode(encoding, 0x1000, sp, fp, lr, &result);
+    bool success = kscu_arm64_decode(encoding, 0x1000, sp, fp, lr, &result, mach_task_self());
 
     XCTAssertTrue(success, @"Frameless leaf decode should succeed");
     XCTAssertTrue(result.valid, @"Result should be valid");
@@ -978,7 +986,7 @@ static KSTestUnwindSection validTestUnwindSection(void)
     uintptr_t fp = 0x9000;  // Should be passed through
 
     KSCompactUnwindResult result;
-    bool success = kscu_arm64_decode(encoding, 0x1000, sp, fp, 0, &result);
+    bool success = kscu_arm64_decode(encoding, 0x1000, sp, fp, 0, &result, mach_task_self());
 
     XCTAssertTrue(success, @"Frameless non-leaf decode should succeed");
     XCTAssertTrue(result.valid, @"Result should be valid");
@@ -1006,7 +1014,7 @@ static KSTestUnwindSection validTestUnwindSection(void)
     uintptr_t sp = (uintptr_t)&mockStack[0];
 
     KSCompactUnwindResult result;
-    bool success = kscu_arm64_decode(encoding, 0x1000, sp, 0x5000, 0, &result);
+    bool success = kscu_arm64_decode(encoding, 0x1000, sp, 0x5000, 0, &result, mach_task_self());
 
     XCTAssertTrue(success, @"Frameless with larger stack should succeed");
     XCTAssertEqual(result.returnAddress, 0xCAFEBABE12345678, @"Return address should be at SP+120");
@@ -1020,7 +1028,7 @@ static KSTestUnwindSection validTestUnwindSection(void)
     compact_unwind_encoding_t encoding = KSCU_UNWIND_ARM64_MODE_DWARF;
 
     KSCompactUnwindResult result;
-    bool success = kscu_arm64_decode(encoding, 0x1000, 0x2000, 0x3000, 0x4000, &result);
+    bool success = kscu_arm64_decode(encoding, 0x1000, 0x2000, 0x3000, 0x4000, &result, mach_task_self());
 
     XCTAssertFalse(success, @"DWARF mode should fail compact unwind decode");
     XCTAssertFalse(result.valid, @"Result should not be valid");
@@ -1033,7 +1041,7 @@ static KSTestUnwindSection validTestUnwindSection(void)
     compact_unwind_encoding_t encoding = KSCU_UNWIND_ARM64_MODE_FRAME;
 
     KSCompactUnwindResult result;
-    bool success = kscu_arm64_decode(encoding, 0x1000, 0x2000, 0, 0x4000, &result);
+    bool success = kscu_arm64_decode(encoding, 0x1000, 0x2000, 0, 0x4000, &result, mach_task_self());
 
     XCTAssertFalse(success, @"Frame-based with NULL FP should fail");
 }
@@ -1105,7 +1113,8 @@ static bool expressionEndsWithin(const uint8_t *expr, size_t len, const uint8_t 
         KSDwarfCFIRow row;
         // The contract is only that this returns without reading past the buffer. Whatever it
         // reports, it must not have recorded an expression rule pointing outside the section.
-        bool built = ksdwarf_buildCFIRow(cieData, sizeof(cieData), cases[i].fde, cases[i].size, 0x1000, false, &row);
+        bool built = ksdwarf_buildCFIRow(cieData, sizeof(cieData), cases[i].fde, cases[i].size, 0x1000, false, &row,
+                                         mach_task_self(), 0);
         if (built) {
             const uint8_t *fdeEnd = cases[i].fde + cases[i].size;
             if (row.cfaRule == KSDwarfRuleExpression) {
@@ -1172,7 +1181,7 @@ static bool expressionEndsWithin(const uint8_t *expr, size_t len, const uint8_t 
     size_t fdeSize = sizeof(fdeData);
 
     KSDwarfCFIRow row;
-    bool success = ksdwarf_buildCFIRow(cieData, cieSize, fdeData, fdeSize, 0x1000, false, &row);
+    bool success = ksdwarf_buildCFIRow(cieData, cieSize, fdeData, fdeSize, 0x1000, false, &row, mach_task_self(), 0);
 
     XCTAssertTrue(success, @"Building CFI row should succeed");
     XCTAssertEqual(row.cfaRegister, 7, @"CFA register should be r7");
@@ -1221,7 +1230,7 @@ static bool expressionEndsWithin(const uint8_t *expr, size_t len, const uint8_t 
 
     // Build row at PC 0x1003 (after restore)
     KSDwarfCFIRow row;
-    bool success = ksdwarf_buildCFIRow(cieData, cieSize, fdeData, fdeSize, 0x1003, false, &row);
+    bool success = ksdwarf_buildCFIRow(cieData, cieSize, fdeData, fdeSize, 0x1003, false, &row, mach_task_self(), 0);
 
     XCTAssertTrue(success, @"Building CFI row should succeed");
 
@@ -1264,7 +1273,7 @@ static bool expressionEndsWithin(const uint8_t *expr, size_t len, const uint8_t 
     size_t fdeSize = sizeof(fdeData);
 
     KSDwarfCFIRow row;
-    bool success = ksdwarf_buildCFIRow(cieData, cieSize, fdeData, fdeSize, 0x1003, false, &row);
+    bool success = ksdwarf_buildCFIRow(cieData, cieSize, fdeData, fdeSize, 0x1003, false, &row, mach_task_self(), 0);
 
     XCTAssertTrue(success, @"Building CFI row should succeed");
     XCTAssertEqual(row.registers[32].type, KSDwarfRuleOffset, @"Register 32 should have offset rule");
@@ -1308,7 +1317,7 @@ static bool expressionEndsWithin(const uint8_t *expr, size_t len, const uint8_t 
 
     // Build row at PC 0x1004 (after restore_state)
     KSDwarfCFIRow row;
-    bool success = ksdwarf_buildCFIRow(cieData, cieSize, fdeData, fdeSize, 0x1004, false, &row);
+    bool success = ksdwarf_buildCFIRow(cieData, cieSize, fdeData, fdeSize, 0x1004, false, &row, mach_task_self(), 0);
 
     XCTAssertTrue(success, @"Building CFI row should succeed");
 
@@ -1415,7 +1424,7 @@ static bool expressionEndsWithin(const uint8_t *expr, size_t len, const uint8_t 
     uintptr_t sp = (uintptr_t)&stack[0];
 
     KSDwarfUnwindResult result;
-    bool success = ksdwarf_unwind(ehFrame, ehLen, 0x1000, sp, 0, 0, 0, &result);
+    bool success = ksdwarf_unwind(ehFrame, ehLen, 0x1000, sp, 0, 0, 0, &result, mach_task_self(), 0);
     XCTAssertTrue(success, @"DWARF unwind with expression should succeed");
     XCTAssertTrue(result.valid, @"Result should be valid");
     XCTAssertEqual(result.returnAddress, expectedRA, @"Return address should be loaded via expression");
@@ -1503,7 +1512,7 @@ static bool expressionEndsWithin(const uint8_t *expr, size_t len, const uint8_t 
     uintptr_t sp = (uintptr_t)&stack[0];
 
     KSDwarfUnwindResult result;
-    bool success = ksdwarf_unwind(ehFrame, ehLen, 0x1000, sp, 0, 0, 0, &result);
+    bool success = ksdwarf_unwind(ehFrame, ehLen, 0x1000, sp, 0, 0, 0, &result, mach_task_self(), 0);
     XCTAssertTrue(success, @"DWARF unwind with CFA expression should succeed");
     XCTAssertTrue(result.valid, @"Result should be valid");
     XCTAssertEqual(result.returnAddress, expectedRA, @"Return address should be loaded at CFA");
@@ -1593,7 +1602,7 @@ static bool expressionEndsWithin(const uint8_t *expr, size_t len, const uint8_t 
     uintptr_t sp = (uintptr_t)&stack[0];
 
     KSDwarfUnwindResult result;
-    bool success = ksdwarf_unwind(ehFrame, ehLen, 0x1000, sp, 0, 0, 0, &result);
+    bool success = ksdwarf_unwind(ehFrame, ehLen, 0x1000, sp, 0, 0, 0, &result, mach_task_self(), 0);
     XCTAssertTrue(success, @"DWARF unwind with stack_value should succeed");
     XCTAssertTrue(result.valid, @"Result should be valid");
     XCTAssertEqual(result.returnAddress, expectedRA, @"Return address should match stack_value expression");
@@ -1680,15 +1689,93 @@ static bool expressionEndsWithin(const uint8_t *expr, size_t len, const uint8_t 
     size_t cieSize = 0;
     bool is64bit = false;
 
-    bool found = ksdwarf_findFDE(ehFrame, ehLen, 0x1000, 0, &fde, &fdeSize, &cie, &cieSize, &is64bit);
+    bool found =
+        ksdwarf_findFDE(ehFrame, ehLen, 0x1000, 0, &fde, &fdeSize, &cie, &cieSize, &is64bit, mach_task_self(), 0);
     XCTAssertTrue(found, @"Should find FDE in 64-bit DWARF data");
     XCTAssertTrue(is64bit, @"Should report 64-bit DWARF format");
 
     KSDwarfCFIRow row;
-    bool success = ksdwarf_buildCFIRow(cie, cieSize, fde, fdeSize, 0x1000, is64bit, &row);
+    bool success = ksdwarf_buildCFIRow(cie, cieSize, fde, fdeSize, 0x1000, is64bit, &row, mach_task_self(), 0);
     XCTAssertTrue(success, @"Building CFI row should succeed for 64-bit format");
     XCTAssertEqual(row.cfaRegister, cfaReg, @"CFA register should match");
     XCTAssertEqual(row.cfaOffset, ptrSize, @"CFA offset should match pointer size");
+}
+
+// Real Darwin eh_frame encodes FDE pointers pcrel (CIE 'zR' encoding 0x1B on arm64). The pcrel
+// base is the address of the pcStart FIELD itself, matching libunwind's getEncodedP; a base off
+// by even the 4-byte CIE-pointer width shifts every FDE's range, so PCs in a function's last
+// bytes miss their FDE. The other synthetic fixtures use absolute encoding, so only this test
+// pins the base.
+- (void)testDwarf_FindFDE_PcrelEncoding
+{
+    const uint8_t ptrSize = (uint8_t)sizeof(uintptr_t);
+
+    uint8_t cieContent[64];
+    size_t cieLen = 0;
+    appendU8(cieContent, &cieLen, 0x00);
+    appendU8(cieContent, &cieLen, 0x00);
+    appendU8(cieContent, &cieLen, 0x00);
+    appendU8(cieContent, &cieLen, 0x00);  // CIE ID = 0
+    appendU8(cieContent, &cieLen, 0x03);  // Version = 3
+    appendU8(cieContent, &cieLen, 'z');
+    appendU8(cieContent, &cieLen, 'R');
+    appendU8(cieContent, &cieLen, 0x00);                 // Augmentation string
+    appendULEB(cieContent, &cieLen, 1);                  // Code alignment factor
+    appendSLEB(cieContent, &cieLen, -(int64_t)ptrSize);  // Data alignment factor
+    appendULEB(cieContent, &cieLen, 30);                 // Return address register
+    appendULEB(cieContent, &cieLen, 1);                  // Augmentation data length
+    appendU8(cieContent, &cieLen, 0x1B);                 // DW_EH_PE_pcrel | DW_EH_PE_sdata4
+
+    uint8_t fdeContent[32];
+    size_t fdeLen = 0;
+    for (int i = 0; i < 4; i++) {
+        appendU8(fdeContent, &fdeLen, 0x00);  // CIE pointer (patched later)
+    }
+    writeU32LE(&fdeContent[fdeLen], 0x1000);  // pcStart: field-relative +0x1000
+    fdeLen += 4;
+    writeU32LE(&fdeContent[fdeLen], 0x10);  // pcRange (format bits only, no pcrel)
+    fdeLen += 4;
+    appendU8(fdeContent, &fdeLen, 0x00);  // Augmentation data length
+
+    uint8_t ehFrame[256];
+    size_t ehLen = 0;
+    writeU32LE(&ehFrame[ehLen], (uint32_t)cieLen);
+    ehLen += 4;
+    memcpy(&ehFrame[ehLen], cieContent, cieLen);
+    ehLen += cieLen;
+    writeU32LE(&ehFrame[ehLen], (uint32_t)fdeLen);
+    ehLen += 4;
+    size_t fdeStart = ehLen;
+    memcpy(&ehFrame[ehLen], fdeContent, fdeLen);
+    ehLen += fdeLen;
+    writeU32LE(&ehFrame[ehLen], 0x00);  // Terminator
+    ehLen += 4;
+
+    writeU32LE(&ehFrame[fdeStart], (uint32_t)(fdeStart));
+
+    // The base: the pcStart field's own address (after the 4-byte CIE pointer).
+    const uintptr_t fieldAddr = (uintptr_t)&ehFrame[fdeStart + 4];
+    const uintptr_t functionStart = fieldAddr + 0x1000;
+
+    const uint8_t *fde = NULL;
+    size_t fdeSize = 0;
+    const uint8_t *cie = NULL;
+    size_t cieSize = 0;
+    bool is64bit = false;
+
+    // Both ends of the range resolve against the field-address base.
+    XCTAssertTrue(ksdwarf_findFDE(ehFrame, ehLen, functionStart, 0, &fde, &fdeSize, &cie, &cieSize, &is64bit,
+                                  mach_task_self(), 0));
+    XCTAssertTrue(ksdwarf_findFDE(ehFrame, ehLen, functionStart + 0xF, 0, &fde, &fdeSize, &cie, &cieSize, &is64bit,
+                                  mach_task_self(), 0),
+                  @"The function's last byte must still match (a base 4 low excludes it)");
+
+    // Outside the range: just before (where a CIE-pointer-field base would have put the
+    // start) and just past the end.
+    XCTAssertFalse(ksdwarf_findFDE(ehFrame, ehLen, functionStart - 4, 0, &fde, &fdeSize, &cie, &cieSize, &is64bit,
+                                   mach_task_self(), 0));
+    XCTAssertFalse(ksdwarf_findFDE(ehFrame, ehLen, functionStart + 0x10, 0, &fde, &fdeSize, &cie, &cieSize, &is64bit,
+                                   mach_task_self(), 0));
 }
 
 // =============================================================================
@@ -1710,14 +1797,14 @@ static bool expressionEndsWithin(const uint8_t *expr, size_t len, const uint8_t 
     bool is64bit = false;
 
     bool found = ksdwarf_findFDE(info.ehFrame, info.ehFrameSize, address, (uintptr_t)info.header, &fde, &fdeSize, &cie,
-                                 &cieSize, &is64bit);
+                                 &cieSize, &is64bit, mach_task_self(), 0);
     if (!found) {
         // The test function might not have FDE (e.g., leaf function with no unwind info)
         XCTSkip(@"No FDE found for test helper function - this is expected for simple leaf functions");
     }
 
     KSDwarfCFIRow row;
-    bool built = ksdwarf_buildCFIRow(cie, cieSize, fde, fdeSize, address, is64bit, &row);
+    bool built = ksdwarf_buildCFIRow(cie, cieSize, fde, fdeSize, address, is64bit, &row, mach_task_self(), 0);
     XCTAssertTrue(built, @"Should build CFI row from real __eh_frame data");
 }
 
@@ -1928,6 +2015,324 @@ static bool expressionEndsWithin(const uint8_t *expr, size_t len, const uint8_t 
                       @"Should not have more than 10 consecutive identical addresses. "
                       @"Found %d repeats, which suggests the unwinder is stuck.",
                       maxConsecutiveRepeats);
+}
+
+#pragma mark - Image Set
+
+// A set built from the local images must answer unwind-info lookups identically to the
+// live dyld-backed cache. This is the in-process proof that a set can drive the unwinder,
+// which is what the out-of-process (corpse) path will rely on for shared-cache images.
+- (void)testImageSetMatchesLiveUnwindLookup
+{
+    ksdl_init();
+
+    KSBinaryImageSet *set = ksbic_createSetFromLocalImages();
+    XCTAssertTrue(set != NULL, @"Failed to build image set from local images");
+
+    // Harvest real code addresses spanning several images (test binary, XCTest, libsystem, dyld).
+    uintptr_t addresses[64] = { 0 };
+    int count = ksbt_captureBacktrace(pthread_self(), addresses, 64);
+    XCTAssertGreaterThan(count, 1, @"Expected a multi-frame backtrace to sample addresses from");
+
+    int comparedWithCompactUnwind = 0;
+    for (int i = 0; i < count; i++) {
+        KSBinaryImageUnwindInfo live = { 0 };
+        KSBinaryImageUnwindInfo viaSet = { 0 };
+        bool liveFound = ksbic_getUnwindInfoForAddress(addresses[i], &live);
+        bool setFound = ksbic_getUnwindInfoForAddressInSet(
+            set, addresses[i], KSBinaryImageUnwindSectionCompactUnwind | KSBinaryImageUnwindSectionEhFrame, &viaSet);
+
+        XCTAssertEqual(liveFound, setFound, @"Set and live cache disagree on presence for address %p",
+                       (void *)addresses[i]);
+        if (liveFound && setFound) {
+            XCTAssertEqual(live.header, viaSet.header, @"header mismatch for %p", (void *)addresses[i]);
+            XCTAssertEqual(live.slide, viaSet.slide, @"slide mismatch for %p", (void *)addresses[i]);
+            XCTAssertEqual(live.unwindInfo, viaSet.unwindInfo, @"unwindInfo mismatch for %p", (void *)addresses[i]);
+            XCTAssertEqual(live.unwindInfoSize, viaSet.unwindInfoSize);
+            XCTAssertEqual(live.ehFrame, viaSet.ehFrame, @"ehFrame mismatch for %p", (void *)addresses[i]);
+            XCTAssertEqual(live.ehFrameSize, viaSet.ehFrameSize);
+            XCTAssertEqual(live.hasCompactUnwind, viaSet.hasCompactUnwind);
+            XCTAssertEqual(live.hasEhFrame, viaSet.hasEhFrame);
+            if (live.hasCompactUnwind) {
+                comparedWithCompactUnwind++;
+            }
+        }
+    }
+    XCTAssertGreaterThan(comparedWithCompactUnwind, 0, @"Expected at least one frame backed by compact unwind info");
+
+    // A clearly-invalid address resolves in neither.
+    KSBinaryImageUnwindInfo bogus = { 0 };
+    XCTAssertFalse(ksbic_getUnwindInfoForAddressInSet(set, 0x1, KSBinaryImageUnwindSectionCompactUnwind, &bogus));
+    XCTAssertFalse(
+        ksbic_getUnwindInfoForAddressInSet(NULL, addresses[0], KSBinaryImageUnwindSectionCompactUnwind, &bogus));
+
+    ksbic_destroySet(set);
+}
+
+// Drive the real cursor over the same frozen stack twice: once resolving unwind info from the
+// live dyld cache (imageSet == NULL) and once from a local image set. Since the set is built
+// from the same images, the unwound frames must be identical. This exercises the machine-context
+// imageSet wiring end to end, the path the out-of-process corpse unwind will take.
+- (void)testImageSetDrivesCursorIdenticallyToLiveCache
+{
+#if TARGET_OS_WATCH
+    XCTSkip(@"Cannot test on watchOS without pthread support");
+#else
+    ksdl_init();
+
+    KSBinaryImageSet *set = ksbic_createSetFromLocalImages();
+    XCTAssertTrue(set != NULL);
+
+    KSUnwindTestThread *helper = [[KSUnwindTestThread alloc] init];
+    [helper start];
+    [helper suspend];
+
+    // One frozen register context, walked twice. The thread stays suspended across both walks.
+    KSMachineContext machineContext;
+    ksmc_getContextForThread(helper.machThread, &machineContext, false);
+
+    uintptr_t live[128];
+    int liveCount = 0;
+    machineContext.imageSet = NULL;
+    KSStackCursor liveCursor;
+    kssc_initWithUnwind(&liveCursor, 128, &machineContext);
+    while (liveCount < 128 && liveCursor.advanceCursor(&liveCursor)) {
+        live[liveCount++] = liveCursor.stackEntry.address;
+    }
+
+    uintptr_t viaSet[128];
+    int setCount = 0;
+    machineContext.imageSet = set;
+    KSStackCursor setCursor;
+    kssc_initWithUnwind(&setCursor, 128, &machineContext);
+    while (setCount < 128 && setCursor.advanceCursor(&setCursor)) {
+        viaSet[setCount++] = setCursor.stackEntry.address;
+    }
+
+    [helper resume];
+    [helper stop];
+
+    XCTAssertGreaterThan(liveCount, 2, @"Expected a multi-frame unwind");
+    XCTAssertEqual(liveCount, setCount, @"Set-driven unwind produced a different frame count");
+    for (int i = 0; i < liveCount && i < setCount; i++) {
+        XCTAssertEqual(live[i], viaSet[i], @"Frame %d differs: live %p vs set %p", i, (void *)live[i],
+                       (void *)viaSet[i]);
+    }
+
+    ksbic_destroySet(set);
+#endif
+}
+
+// Build descriptors from the current process's image list (+ dyld), exactly the (baseAddress, path)
+// pairs a crash extension hands us, into the array the caller must free.
+static uint32_t ks_test_buildLocalDescriptors(KSBinaryImageDescriptor **outDescriptors)
+{
+    uint32_t imageCount = 0;
+    const ks_dyld_image_info *images = ksbic_getImages(&imageCount);
+    KSBinaryImageDescriptor *descriptors = malloc((imageCount + 1) * sizeof(KSBinaryImageDescriptor));
+    uint32_t n = 0;
+    for (uint32_t i = 0; i < imageCount; i++) {
+        if (images[i].imageLoadAddress != NULL) {
+            descriptors[n].loadAddress = (uintptr_t)images[i].imageLoadAddress;
+            descriptors[n].name = images[i].imageFilePath;
+            n++;
+        }
+    }
+    const struct mach_header *dyldHeader = ksbic_getDyldHeader();
+    if (dyldHeader != NULL) {
+        descriptors[n].loadAddress = (uintptr_t)dyldHeader;
+        descriptors[n].name = ksbic_getDyldPath();
+        n++;
+    }
+    *outDescriptors = descriptors;
+    return n;
+}
+
+// The remote-read harness: build a set by reading image headers and copying the unwind sections
+// *through a task port*, pointed at our own task. The parsed geometry (slide, sizes, flags) must
+// match the live getsectiondata-backed cache, and the copied bytes must be byte-identical to the
+// live mapped bytes. The pointers differ now (the set holds copies), so we compare contents. This
+// validates the from-bytes Mach-O parser and the section copy before any real corpse exists.
+- (void)testTaskImageSetMatchesLiveUnwindLookup
+{
+    ksdl_init();
+
+    KSBinaryImageDescriptor *descriptors = NULL;
+    uint32_t descriptorCount = ks_test_buildLocalDescriptors(&descriptors);
+    XCTAssertGreaterThan(descriptorCount, 0u);
+
+    KSBinaryImageSet *set = ksbic_createSetFromTaskImages(mach_task_self(), descriptors, descriptorCount);
+    free(descriptors);
+    XCTAssertTrue(set != NULL, @"Failed to build image set by reading headers from the task");
+
+    uintptr_t addresses[64] = { 0 };
+    int count = ksbt_captureBacktrace(pthread_self(), addresses, 64);
+    XCTAssertGreaterThan(count, 1);
+
+    int comparedWithCompactUnwind = 0;
+    for (int i = 0; i < count; i++) {
+        KSBinaryImageUnwindInfo live = { 0 };
+        KSBinaryImageUnwindInfo viaSet = { 0 };
+        bool liveFound = ksbic_getUnwindInfoForAddress(addresses[i], &live);
+        bool setFound = ksbic_getUnwindInfoForAddressInSet(
+            set, addresses[i], KSBinaryImageUnwindSectionCompactUnwind | KSBinaryImageUnwindSectionEhFrame, &viaSet);
+
+        XCTAssertEqual(liveFound, setFound, @"Set and live cache disagree on presence for %p", (void *)addresses[i]);
+        if (liveFound && setFound) {
+            XCTAssertEqual(live.header, viaSet.header, @"header mismatch for %p", (void *)addresses[i]);
+            XCTAssertEqual(live.slide, viaSet.slide, @"slide mismatch for %p", (void *)addresses[i]);
+            XCTAssertEqual(live.hasCompactUnwind, viaSet.hasCompactUnwind);
+            XCTAssertEqual(live.hasEhFrame, viaSet.hasEhFrame);
+
+            // The set holds copies, so the bytes must match even though the pointers do not.
+            XCTAssertEqual(live.unwindInfoSize, viaSet.unwindInfoSize);
+            if (live.hasCompactUnwind) {
+                XCTAssertEqual(0, memcmp(live.unwindInfo, viaSet.unwindInfo, live.unwindInfoSize),
+                               @"unwind_info bytes differ for %p", (void *)addresses[i]);
+                comparedWithCompactUnwind++;
+            }
+            XCTAssertEqual(live.ehFrameSize, viaSet.ehFrameSize);
+            if (live.hasEhFrame) {
+                XCTAssertEqual(0, memcmp(live.ehFrame, viaSet.ehFrame, live.ehFrameSize),
+                               @"eh_frame bytes differ for %p", (void *)addresses[i]);
+            }
+        }
+    }
+    XCTAssertGreaterThan(comparedWithCompactUnwind, 0, @"Expected at least one compact-unwind frame to compare");
+
+    ksbic_destroySet(set);
+}
+
+// Sections resolve independently: a compact-only lookup must not copy __eh_frame out of the
+// task (it can be hundreds of KB per image and DWARF is rarely consulted); a later eh_frame
+// lookup on the same image then resolves it.
+- (void)testTaskImageSetResolvesSectionsIndependently
+{
+    ksdl_init();
+
+    KSBinaryImageDescriptor *descriptors = NULL;
+    uint32_t descriptorCount = ks_test_buildLocalDescriptors(&descriptors);
+    XCTAssertGreaterThan(descriptorCount, 0u);
+
+    KSBinaryImageSet *set = ksbic_createSetFromTaskImages(mach_task_self(), descriptors, descriptorCount);
+    free(descriptors);
+    XCTAssertTrue(set != NULL);
+
+    // Find an address whose image carries BOTH sections, using the live cache as the oracle.
+    uintptr_t addresses[64] = { 0 };
+    int count = ksbt_captureBacktrace(pthread_self(), addresses, 64);
+    uintptr_t address = 0;
+    for (int i = 0; i < count; i++) {
+        KSBinaryImageUnwindInfo live = { 0 };
+        if (ksbic_getUnwindInfoForAddress(addresses[i], &live) && live.hasCompactUnwind && live.hasEhFrame) {
+            address = addresses[i];
+            break;
+        }
+    }
+    if (address == 0) {
+        ksbic_destroySet(set);
+        XCTSkip(@"No sampled image carries both unwind sections");
+    }
+
+    KSBinaryImageUnwindInfo compactOnly = { 0 };
+    XCTAssertTrue(
+        ksbic_getUnwindInfoForAddressInSet(set, address, KSBinaryImageUnwindSectionCompactUnwind, &compactOnly));
+    XCTAssertTrue(compactOnly.hasCompactUnwind);
+    XCTAssertFalse(compactOnly.hasEhFrame, @"eh_frame must not be copied by a compact-only lookup");
+
+    KSBinaryImageUnwindInfo withEhFrame = { 0 };
+    XCTAssertTrue(ksbic_getUnwindInfoForAddressInSet(set, address, KSBinaryImageUnwindSectionEhFrame, &withEhFrame));
+    XCTAssertTrue(withEhFrame.hasEhFrame, @"eh_frame must resolve on first request");
+    XCTAssertTrue(withEhFrame.hasCompactUnwind, @"the earlier compact resolve must persist");
+
+    ksbic_destroySet(set);
+}
+
+// End to end: a set whose geometry was parsed by reading headers through the task port drives the
+// real cursor identically to the live cache. This is the in-process stand-in for the corpse unwind,
+// exercising everything except literal cross-process port semantics.
+- (void)testTaskImageSetDrivesCursorIdenticallyToLiveCache
+{
+#if TARGET_OS_WATCH
+    XCTSkip(@"Cannot test on watchOS without pthread support");
+#else
+    ksdl_init();
+
+    KSBinaryImageDescriptor *descriptors = NULL;
+    uint32_t descriptorCount = ks_test_buildLocalDescriptors(&descriptors);
+    KSBinaryImageSet *set = ksbic_createSetFromTaskImages(mach_task_self(), descriptors, descriptorCount);
+    free(descriptors);
+    XCTAssertTrue(set != NULL);
+
+    KSUnwindTestThread *helper = [[KSUnwindTestThread alloc] init];
+    [helper start];
+    [helper suspend];
+
+    KSMachineContext machineContext;
+    ksmc_getContextForThread(helper.machThread, &machineContext, false);
+
+    uintptr_t live[128];
+    int liveCount = 0;
+    machineContext.imageSet = NULL;
+    KSStackCursor liveCursor;
+    kssc_initWithUnwind(&liveCursor, 128, &machineContext);
+    while (liveCount < 128 && liveCursor.advanceCursor(&liveCursor)) {
+        live[liveCount++] = liveCursor.stackEntry.address;
+    }
+
+    uintptr_t viaSet[128];
+    int setCount = 0;
+    machineContext.imageSet = set;
+    KSStackCursor setCursor;
+    kssc_initWithUnwind(&setCursor, 128, &machineContext);
+    while (setCount < 128 && setCursor.advanceCursor(&setCursor)) {
+        viaSet[setCount++] = setCursor.stackEntry.address;
+    }
+
+    [helper resume];
+    [helper stop];
+
+    XCTAssertGreaterThan(liveCount, 2, @"Expected a multi-frame unwind");
+    XCTAssertEqual(liveCount, setCount, @"Task-read set produced a different frame count");
+    for (int i = 0; i < liveCount && i < setCount; i++) {
+        XCTAssertEqual(live[i], viaSet[i], @"Frame %d differs: live %p vs set %p", i, (void *)live[i],
+                       (void *)viaSet[i]);
+    }
+
+    ksbic_destroySet(set);
+#endif
+}
+
+// Locate a named section across a task's images and read its bytes cross-task. This is the
+// mechanism kscrash_loadRunIDFromCorpse uses to pull the crashed run's id out of a corpse's
+// __ks_runid section; here we point it at our own task and a known test section.
+- (void)testFindSectionInTaskImageLocatesAndReadsValue
+{
+    uintptr_t sectionAddr = 0;
+    uintptr_t sectionSize = 0;
+    bool found = false;
+
+    // Scan our own loaded images for the test section, exactly as the loader scans the corpse's.
+    uint32_t imageCount = _dyld_image_count();
+    for (uint32_t i = 0; i < imageCount; i++) {
+        const struct mach_header *header = _dyld_get_image_header(i);
+        if (header != NULL && ksbic_findSectionInTaskImage(mach_task_self(), (uintptr_t)header, "__DATA",
+                                                           "__ks_test_rid", &sectionAddr, &sectionSize)) {
+            found = true;
+            break;
+        }
+    }
+    XCTAssertTrue(found, @"Should locate the test section in one of our images");
+    XCTAssertGreaterThanOrEqual(sectionSize, (uintptr_t)sizeof(g_ksTestSectionValue));
+
+    char buffer[64] = { 0 };
+    XCTAssertTrue(ksmem_copySafelyFromTask(mach_task_self(), (const void *)sectionAddr, buffer,
+                                           (int)strlen(g_ksTestSectionValue)));
+    XCTAssertEqual(0, strcmp(buffer, g_ksTestSectionValue), @"Read section bytes should match the known value");
+
+    // A section that does not exist is not found.
+    XCTAssertFalse(ksbic_findSectionInTaskImage(mach_task_self(), (uintptr_t)_dyld_get_image_header(0), "__DATA",
+                                                "__ks_absent_sec", &sectionAddr, &sectionSize));
 }
 
 @end

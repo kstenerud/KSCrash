@@ -467,29 +467,25 @@ static void stopDataProtectionObservers(void)
 // Cross-platform: low power mode
 static void writeLowPowerMode(void)
 {
-    if (@available(macOS 12.0, iOS 9.0, tvOS 9.0, watchOS 2.0, *)) {
-        uint8_t mode = NSProcessInfo.processInfo.lowPowerModeEnabled ? 1 : 0;
-        uint64_t now = ksdate_continuousNanoseconds();
-        resourceUpdate(^(KSCrash_ResourceData *res) {
-            res->lowPowerMode = mode;
-            res->lowPowerUpdatedAtNs = now;
-        });
-    }
+    uint8_t mode = NSProcessInfo.processInfo.lowPowerModeEnabled ? 1 : 0;
+    uint64_t now = ksdate_continuousNanoseconds();
+    resourceUpdate(^(KSCrash_ResourceData *res) {
+        res->lowPowerMode = mode;
+        res->lowPowerUpdatedAtNs = now;
+    });
 }
 
 static void startPowerObserver(void)
 {
     writeLowPowerMode();
 
-    if (@available(macOS 12.0, iOS 9.0, tvOS 9.0, watchOS 2.0, *)) {
-        g_powerStateObserver =
-            [NSNotificationCenter.defaultCenter addObserverForName:NSProcessInfoPowerStateDidChangeNotification
-                                                            object:nil
-                                                             queue:nil
-                                                        usingBlock:^(__unused NSNotification *note) {
-                                                            writeLowPowerMode();
-                                                        }];
-    }
+    g_powerStateObserver =
+        [NSNotificationCenter.defaultCenter addObserverForName:NSProcessInfoPowerStateDidChangeNotification
+                                                        object:nil
+                                                         queue:nil
+                                                    usingBlock:^(__unused NSNotification *note) {
+                                                        writeLowPowerMode();
+                                                    }];
 }
 
 static void stopPowerObserver(void)
@@ -630,6 +626,7 @@ KSCrashMonitorAPI *kscm_resource_getAPI(void)
         api.setEnabled = setEnabled;
         api.isEnabled = isEnabled_func;
         api.createStitchedReport = kscm_resource_createStitchedReport;
+        api.priority = KSCrashStitchPriorityResource;
     }
     return &api;
 }
