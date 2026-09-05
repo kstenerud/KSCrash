@@ -37,10 +37,10 @@ import XCTest
     @available(iOS 14.0, macOS 12.0, *)
     final class MetricKitMonitorTests: XCTestCase {
 
-        /// One bridge for the whole class (constructing `Monitor<MetricKitMonitor>` more than
-        /// once per process would trip the duplicate-id precondition), installed with an empty
-        /// callbacks table the way `Monitor_Tests` drives the bridge, enough for every test
-        /// here, none of which write an actual report through the host.
+        /// One bridge for the whole class, installed with an empty callbacks table the way
+        /// `Monitor_Tests` drives the bridge, enough for every test here, none of which write
+        /// an actual report through the host. (Constructing a second bridge is fine; only
+        /// registering two with the same id is refused, and nothing here registers.)
         private static let bridge: Monitor<MetricKitMonitor> = {
             let bridge = MetricKitMonitor.plugin(.init())
             var callbacks = KSCrash_ExceptionHandlerCallbacks()
