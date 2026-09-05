@@ -237,6 +237,8 @@
 #define kscm_system_setDiscSpace KSCRASH_NS(kscm_system_setDiscSpace)
 #define kscm_system_setFreeStorageSize KSCRASH_NS(kscm_system_setFreeStorageSize)
 #define kscm_termination_getAPI KSCRASH_NS(kscm_termination_getAPI)
+#define kscm_testcode_clearHandlingFatalException KSCRASH_NS(kscm_testcode_clearHandlingFatalException)
+#define kscm_testcode_isHandlingFatalException KSCRASH_NS(kscm_testcode_isHandlingFatalException)
 #define kscm_testcode_resetState KSCRASH_NS(kscm_testcode_resetState)
 #define kscm_user_getAPI KSCRASH_NS(kscm_user_getAPI)
 #define kscm_userinfo_createStitchedReport KSCRASH_NS(kscm_userinfo_createStitchedReport)

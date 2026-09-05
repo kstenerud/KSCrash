@@ -91,7 +91,7 @@ public class MonitorCore: NSObject, MonitorPlugin {
             to:
                 KSCrashMonitorAPI(
                     context: nil,
-                    priority: Int32(stitchPriority),
+                    priority: Int32(clamping: stitchPriority),
                     init: { callbacks, context in
                         guard let bridge = MonitorCore.from(context) else { return }
                         bridge.lock.withLock { $0.callbacks = callbacks?.pointee }

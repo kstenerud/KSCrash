@@ -50,7 +50,8 @@ public protocol CrashMonitor: AnyObject {
     /// Defaults to `.plugin`.
     static var flags: MonitorFlags { get }
 
-    /// Sidecar stitch ordering; higher wins on overlapping keys. Defaults to 0.
+    /// Sidecar stitch ordering; higher wins on overlapping keys. Defaults to 0. Values outside
+    /// the `Int32` range are clamped.
     static var stitchPriority: Int { get }
 
     /// Called when the bridge is created, before installation. An event raised from inside
