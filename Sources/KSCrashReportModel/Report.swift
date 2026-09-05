@@ -72,6 +72,11 @@ public struct Report: Codable, Sendable, Equatable {
     /// System information at the time of crash.
     public let system: SystemInfo?
 
+    /// A crashed process's snapshot, embedded by an out-of-process capture (an iOS 27
+    /// CrashReportExtension) and lifted to the report root at delivery. nil for reports this
+    /// process wrote about itself.
+    public let corpse: CorpseSnapshot?
+
     /// App data attached via the userInfo API. The user section must be a
     /// JSON object; a report whose user section is any other shape does not
     /// decode.
@@ -95,6 +100,7 @@ public struct Report: Codable, Sendable, Equatable {
         report: ReportInfo,
         recrashReport: RecrashReport? = nil,
         system: SystemInfo? = nil,
+        corpse: CorpseSnapshot? = nil,
         metadata: Metadata? = nil,
         monitorData: [String: Metadata]? = nil,
         incomplete: Bool? = nil
@@ -106,6 +112,7 @@ public struct Report: Codable, Sendable, Equatable {
         self.report = report
         self.recrashReport = recrashReport
         self.system = system
+        self.corpse = corpse
         self.metadata = metadata
         self.monitorSections = monitorData?.mapValues(FaithfulMetadata.init)
         self.incomplete = incomplete
@@ -128,6 +135,7 @@ public struct Report: Codable, Sendable, Equatable {
         case report
         case recrashReport = "recrash_report"
         case system
+        case corpse
         case metadata = "user"
         case monitorSections = "monitor_data"
         case incomplete
