@@ -61,6 +61,19 @@ final class Monitor_Tests: XCTestCase {
         XCTAssertEqual(api.monitorFlags(api.context), .plugin)
     }
 
+    final class OutOfRangePriorityMonitor: CrashMonitor {
+        static let id = "OutOfRangePriorityMonitor"
+        static let stitchPriority = Int.max
+        init(host: MonitorHost<Void>, configuration: Void) {}
+    }
+
+    func testStitchPriorityIsClampedToTheTable() {
+        // A conformer's Int is wider than the C table's int; constructing the plugin must not
+        // trap on a value past it.
+        let monitor = Monitor(OutOfRangePriorityMonitor.self)
+        XCTAssertEqual(monitor.api.pointee.priority, Int32.max)
+    }
+
     func testMonitorExistsBeforeInstall() {
         let monitor = Monitor(TestMonitor.self)
         XCTAssertFalse(monitor.isInstalled)

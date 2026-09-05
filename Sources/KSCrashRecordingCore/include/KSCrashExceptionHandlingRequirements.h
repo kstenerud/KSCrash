@@ -134,6 +134,25 @@ static inline bool kscexc_requiresAsyncSafety(KSCrash_ExceptionHandlingRequireme
     return requirements.asyncSafety || requirements.asyncSafetyBecauseThreadsSuspended;
 }
 
+/** True when the event describes a subject other than the current process (see `isRemoteSubject`).
+ *  Process-local effects (thread suspension, fatal handler state, run-state bookkeeping such as
+ *  the Lifecycle sidecar's cleanShutdown/fatalReported) must not fire for such an event.
+ */
+static inline bool kscexc_isRemoteSubject(KSCrash_ExceptionHandlingRequirements requirements)
+{
+    return requirements.isRemoteSubject;
+}
+
+/** True when the event is fatal FOR THIS PROCESS: a remote subject's death is fatal for the
+ *  subject, not for the healthy reporter writing about it. Every consumer that latches fatal
+ *  state, marks the run as crashed, or otherwise reacts to "this process is dying" must use
+ *  this, not `isFatal` alone.
+ */
+static inline bool kscexc_isLocallyFatal(KSCrash_ExceptionHandlingRequirements requirements)
+{
+    return requirements.isFatal && !kscexc_isRemoteSubject(requirements);
+}
+
 #ifdef __cplusplus
 }
 #endif

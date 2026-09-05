@@ -116,6 +116,32 @@ bool kscmr_addMonitor(KSCrashMonitorAPIList *monitorList, const KSCrashMonitorAP
         }
     }
 
+    // Two threads registering different tables with the same id can both pass the scan above
+    // before either lands in a slot. Settle that after the fact by slot order: the earliest slot
+    // carrying this id wins and a later one backs out. Both racers see the same earliest slot,
+    // so exactly one survives, which is what the pre-insertion scan promises.
+    if (newId != NULL) {
+        for (size_t i = 0; i < KSCRASH_MONITOR_API_COUNT; i++) {
+            const KSCrashMonitorAPI *existing = atomic_load(monitorList->apis + i);
+            if (existing == NULL) {
+                continue;
+            }
+            if (existing == api) {
+                // Ours is the earliest slot with this id.
+                break;
+            }
+            const char *existingId = monitorIdOf(existing);
+            if (existingId != NULL && strcmp(existingId, newId) == 0) {
+                KSLOG_ERROR("A monitor with id \"%s\" was registered concurrently. Backing out.", newId);
+                for (size_t j = 0; j < KSCRASH_MONITOR_API_COUNT; j++) {
+                    const KSCrashMonitorAPI *expectedAPI = api;
+                    atomic_compare_exchange_strong(monitorList->apis + j, &expectedAPI, NULL);
+                }
+                return false;
+            }
+        }
+    }
+
     KSLOG_DEBUG("Monitor %s injected.", api->monitorId(api->context));
     return true;
 }
