@@ -126,8 +126,9 @@ size_t ksstring_uint64ToDecimal(uint64_t value, char *dst, size_t bufSize);
 /** Convert a double to a JSON-compatible string. Async-signal-safe.
  *
  * NaN → "null", ±Inf → "1e999"/"-1e999", 0 → "0.0".
- * DBL_DIG significant digits, so the value reads back as itself.
- * Strips trailing fractional zeros (keeps at least one digit after '.').
+ * The shortest digits that read back as exactly this value, so 0.1 is "0.1"
+ * and the double above 1.0 is "1.0000000000000002".
+ * Keeps at least one digit after '.'.
  *
  * @param value The value to convert.
  * @param dst The destination buffer.
@@ -138,10 +139,10 @@ size_t ksstring_doubleToString(double value, char *dst, size_t bufSize);
 
 /** Convert a float to a JSON-compatible string. Async-signal-safe.
  *
- * Same shape as ksstring_doubleToString, at FLT_DIG significant digits: the
- * digits a float holds, without the noise of widening it to a double. Use it
- * only for a value that really is a float; a double formatted this way loses
- * its low end.
+ * Same shape as ksstring_doubleToString, with the shortest digits that read
+ * back as exactly this float: 0.2f is "0.2", without the noise of widening it
+ * to a double. Use it only for a value that really is a float; a double
+ * formatted this way loses its low end.
  *
  * @param value The value to convert.
  * @param dst The destination buffer.
