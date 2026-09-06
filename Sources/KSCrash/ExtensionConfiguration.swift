@@ -58,8 +58,15 @@ extension ExtensionConfiguration {
         get throws { try container.processRoot(for: namespace) }
     }
 
-    /// Every Reports directory in the area other than `excluded` (the caller's own): one per
-    /// bundle-id subdirectory. An area that does not exist yet contributes nothing.
+    /// Every extension store's Reports directory in the area other than `excluded` (the
+    /// caller's own): one per bundle-id subdirectory. An area that does not exist yet
+    /// contributes nothing.
+    ///
+    /// Only an extension-reporting install is a source: it publishes each report whole out of
+    /// its staging directory and keeps nothing beside its reports. A normal install sharing
+    /// the container (a widget, say) writes reports in place and keeps their sidecars and run
+    /// data in its own store, so moving its files would tear a write and strand the rest. The
+    /// staging directory, which only the extension install creates, is what tells them apart.
     package func reportsDirectories(excluding excluded: URL?) throws -> [URL] {
         let root = try namespaceRoot
         guard let entries = try? FileManager.default.contentsOfDirectory(atPath: root.path) else { return [] }
@@ -69,8 +76,9 @@ extension ExtensionConfiguration {
             if let excluded, reports.standardizedFileURL.path == excluded.standardizedFileURL.path {
                 return nil
             }
+            let staging = reports.appendingPathComponent(KSCRS_EXTENSION_STAGING_FOLDER, isDirectory: true)
             var isDirectory: ObjCBool = false
-            guard FileManager.default.fileExists(atPath: reports.path, isDirectory: &isDirectory),
+            guard FileManager.default.fileExists(atPath: staging.path, isDirectory: &isDirectory),
                 isDirectory.boolValue
             else { return nil }
             return reports

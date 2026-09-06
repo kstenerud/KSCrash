@@ -627,7 +627,16 @@ final class StoreTests: XCTestCase {
         let extensionReports = try area.namespaceRoot
             .appendingPathComponent("com.example.extension", isDirectory: true)
             .appendingPathComponent("Reports", isDirectory: true)
-        try FileManager.default.createDirectory(at: extensionReports, withIntermediateDirectories: true)
+        // The staging directory is what marks a sibling as an extension store.
+        try FileManager.default.createDirectory(
+            at: extensionReports.appendingPathComponent(KSCRS_EXTENSION_STAGING_FOLDER),
+            withIntermediateDirectories: true)
+        // A normal install sharing the container (a widget): writes in place,
+        // keeps its own sidecars, has no staging directory, must be left alone.
+        let widgetReports = try area.namespaceRoot
+            .appendingPathComponent("com.example.widget", isDirectory: true)
+            .appendingPathComponent("Reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: widgetReports, withIntermediateDirectories: true)
 
         let configuration = UnsafeMutablePointer<KSCrashReportStoreCConfiguration>.allocate(capacity: 1)
         configuration.initialize(to: KSCrashReportStoreCConfiguration_Default())
@@ -654,16 +663,20 @@ final class StoreTests: XCTestCase {
         try makeReportData(runID: "EXT").write(to: extensionReports.appendingPathComponent(name(3, testReportID(3))))
         // Not report-shaped: stays put.
         try Data("x".utf8).write(to: extensionReports.appendingPathComponent("notes.txt"))
+        try makeReportData(runID: "WIDGET").write(to: widgetReports.appendingPathComponent(name(4, testReportID(4))))
 
         let ids = try store.snapshotReportIDs(pullingFrom: [area])
         XCTAssertEqual(ids, [testReportID(3), testReportID(2), testReportID(1)])
+        XCTAssertEqual(
+            try FileManager.default.contentsOfDirectory(atPath: widgetReports.path), [name(4, testReportID(4))],
+            "a sibling without a staging directory is not an extension store and is left alone")
         XCTAssertEqual(try store.report(testReportID(2))?.report.runId, testRunID("EXT"))
         XCTAssertEqual(
             try store.report(testReportID(3))?.report.runId, testRunID("OURS"),
             "an existing report is never replaced by an ingested one")
         let leftBehind = try FileManager.default.contentsOfDirectory(atPath: extensionReports.path).sorted()
         XCTAssertEqual(
-            leftBehind, [name(3, testReportID(3)), "notes.txt"],
+            leftBehind, [KSCRS_EXTENSION_STAGING_FOLDER, name(3, testReportID(3)), "notes.txt"],
             "the clobber-refused report and the foreign file stay in the area")
     }
 
@@ -673,8 +686,11 @@ final class StoreTests: XCTestCase {
         // and skipped rather than turning every send into a throw.
         let reports = FakeReports([testReportID(1): try makeReportData()])
         let store = makeReportStore(reports)
+        // A non-file URL cannot be a container anywhere, unlike an app group,
+        // which resolves for any identifier outside a device sandbox.
         let unresolvable = ExtensionConfiguration(
-            namespace: "AreaTests", container: .appGroup("group.kscrash.tests.not-entitled"))
+            namespace: "AreaTests", container: .url(URL(string: "https://example.invalid/area")!))
+        XCTAssertThrowsError(try unresolvable.namespaceRoot, "the area must really not resolve")
         XCTAssertEqual(try store.snapshotReportIDs(pullingFrom: [unresolvable]), [testReportID(1)])
     }
 
