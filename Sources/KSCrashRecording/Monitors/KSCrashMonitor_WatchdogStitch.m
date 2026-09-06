@@ -48,8 +48,10 @@ static KSCrashSidecarReadResult readHangSidecar(const char *path, KSHangSidecar 
 {
     int fd = open(path, O_RDONLY);
     if (fd == -1) {
-        KSLOG_ERROR(@"Failed to open sidecar at %s: %s", path, strerror(errno));
-        return errno == ENOENT ? KSCrashSidecarReadUnrecoverable : KSCrashSidecarReadFailure;
+        // Before logging: the logger's own writes can replace errno.
+        int openError = errno;
+        KSLOG_ERROR(@"Failed to open sidecar at %s: %s", path, strerror(openError));
+        return openError == ENOENT ? KSCrashSidecarReadUnrecoverable : KSCrashSidecarReadFailure;
     }
     bool didRead = ksfu_readBytesFromFD(fd, (char *)out, (int)sizeof(*out));
     close(fd);

@@ -408,6 +408,29 @@ static NSString *writeRawSidecar(NSString *dir, NSData *data)
     XCTAssertEqualObjects(user[@"good"], @"v");
 }
 
+- (void)testStitchDropsAContainerWithARawControlByte
+{
+    // Written by a foreign writer: this library's own escapes control
+    // characters. Foundation refuses the document, so the record is absence.
+    NSString *path = buildSidecarFile(self.tempDir, ^(KSKeyValueStore *store) {
+        const char *json = "{\"a\":\"x\ny\"}";
+        XCTAssertTrue(kskvs_setJSON(store, "raw", json, strlen(json)));
+        static const char nul[] = "{\"a\":\"x\0y\"}";
+        XCTAssertTrue(kskvs_setJSON(store, "nul", nul, sizeof(nul) - 1));
+        XCTAssertTrue(kskvs_setString(store, "good", "v"));
+    });
+
+    NSDictionary *report = makeMinimalReport();
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_userinfo_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
+
+    NSDictionary *user = result[KSCrashField_User];
+    XCTAssertNil(user[@"raw"]);
+    XCTAssertNil(user[@"nul"]);
+    XCTAssertEqualObjects(user[@"good"], @"v");
+}
+
 - (void)testStitchedContainerKeepsTheFirstDuplicateEvenWhenItIsNull
 {
     // The first of a duplicate name wins, and a null first occurrence means

@@ -778,7 +778,9 @@ static void dispatchRecord(const KSKeyValueStore *store, uint32_t pos, const KSK
     const KSKVSRecordHeader *rec = (const KSKVSRecordHeader *)(store->storage + pos);
     const char *key = (const char *)(store->storage + pos + KSKVS_RECORD_HEADER_SIZE);
     uint16_t keyLen = rec->keyLen;
-    if (rec->type == KSKVSTypeRemoved) {
+    // A key holding a NUL reads as removed: readers that take keys as C
+    // strings would file it under its prefix, the others under the whole key.
+    if (rec->type == KSKVSTypeRemoved || memchr(key, 0, keyLen) != NULL) {
         if (callbacks->onRemoved) {
             callbacks->onRemoved(key, keyLen, context);
         }

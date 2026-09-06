@@ -303,6 +303,32 @@ static void collectJSON(const char *key, uint16_t keyLen, const char *json, uint
     XCTAssertEqualObjects(strings, @{ @"k" : @"v" });
 }
 
+- (void)test_keyWithAnEmbeddedNUL_readsAsRemoved
+{
+    // Readers that take keys as C strings would file such a record under its
+    // prefix and the others under the whole key, so no reader sees a value.
+    NSData *image = kskvstest_storeImage(^(NSMutableData *records) {
+        NSString *nulKey = [NSString stringWithFormat:@"a%Cb", (unichar)0];
+        kskvstest_appendRecord(records, nulKey, 1 /* string */, [@"v" dataUsingEncoding:NSUTF8StringEncoding]);
+        kskvstest_appendRecord(records, @"a", 1 /* string */, [@"kept" dataUsingEncoding:NSUTF8StringEncoding]);
+    });
+    XCTAssertTrue([image writeToFile:self.path atomically:YES]);
+
+    KSKeyValueStore *reader = kskvs_create(self.path.UTF8String, KSKVSModeRead, NULL, NULL);
+    XCTAssertTrue(reader != NULL);
+    NSMutableDictionary *strings = [NSMutableDictionary dictionary];
+    NSMutableArray *removed = [NSMutableArray array];
+    KSKVSCallbacks stringsOnly = { .onString = collectString };
+    kskvs_iterate(reader, &stringsOnly, (__bridge void *)strings);
+    KSKVSCallbacks removedOnly = { .onRemoved = countRemoved };
+    kskvs_iterate(reader, &removedOnly, (__bridge void *)removed);
+    kskvs_destroy(reader);
+
+    XCTAssertEqualObjects(strings, @{ @"a" : @"kept" });
+    NSArray *expectedRemoved = @[ [NSString stringWithFormat:@"a%Cb", (unichar)0] ];
+    XCTAssertEqualObjects(removed, expectedRemoved);
+}
+
 - (void)test_read_absentFile_reportsAbsent
 {
     KSKVSOpenStatus status = KSKVSOpenSuccess;
