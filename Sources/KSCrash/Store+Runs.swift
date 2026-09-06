@@ -235,10 +235,7 @@ extension Store {
             guard let key = kvString(key, keyLength) else { return }
             // The same nanoseconds-to-seconds conversion the report userInfo
             // stitch uses, so a date set via the userInfo API reads back as
-            // the same instant from a report and from this metadata. The
-            // report's is the coarser of the two: it re-encodes the seconds at
-            // DBL_DIG, which at epoch magnitude rounds to about ten
-            // microseconds, while this one is handed over as the Double it is.
+            // the same instant from a report and from this metadata.
             let date = Date(timeIntervalSince1970: Double(nanoseconds) / 1_000_000_000)
             MetadataBox.from(context).metadata.set(date, forKey: key)
         }

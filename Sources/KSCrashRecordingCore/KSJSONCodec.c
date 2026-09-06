@@ -757,6 +757,13 @@ static int decodeString(KSJSONDecodeContext *context, char *dstBuffer, int dstBu
         const char *src = context->bufferPtr + 1;
         fastCopy = true;
         for (; src < context->bufferEnd && *src != '\"'; src++) {
+            // A raw control character is not JSON (RFC 8259, 7); Foundation
+            // refuses the document, and so must every reader of the same bytes.
+            unlikely_if((unsigned char)*src < ' ')
+            {
+                KSLOG_DEBUG("Raw control character 0x%02x in string", *src);
+                return KSJSON_ERROR_INVALID_CHARACTER;
+            }
             unlikely_if(*src == '\\')
             {
                 fastCopy = false;

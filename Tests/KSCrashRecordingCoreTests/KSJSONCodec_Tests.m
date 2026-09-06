@@ -994,6 +994,30 @@ static NSString *toString(NSData *data)
     XCTAssertNotNil(error, @"");
 }
 
+- (void)testDeserializeRefusesRawControlCharactersInStrings
+{
+    // RFC 8259 allows no raw control character in a string, and Foundation
+    // refuses such a document; the codec must reach the same verdict so a
+    // record every other reader calls undecodable is not a value here.
+    for (unsigned char c = 0; c < 0x20; c++) {
+        char json[] = "[\"a?b\"]";
+        json[3] = (char)c;
+        NSError *error = nil;
+        id result = [KSJSONCodec decode:[NSData dataWithBytes:json length:sizeof(json) - 1] options:0 error:&error];
+        XCTAssertNil(result, @"0x%02x", c);
+        XCTAssertNotNil(error, @"0x%02x", c);
+    }
+    // 0x7f is not a control character to JSON.
+    NSError *error = nil;
+    id result = [KSJSONCodec decode:toData(@"[\"a\x7f"
+                                            "b\"]")
+                            options:0
+                              error:&error];
+    XCTAssertEqualObjects(result, @[ @"a\x7f"
+                                      "b" ]);
+    XCTAssertNil(error);
+}
+
 - (void)testDeserializeArrayInvalidEscape
 {
     NSError *error = (NSError *)self;
