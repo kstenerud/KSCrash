@@ -130,9 +130,18 @@ final class Monitor_Tests: XCTestCase {
             "the monitor exists from construction, so it hears every change")
     }
 
-    func testMonitorIDFreesOnDeinit() {
-        do { _ = Monitor(TestMonitor.self) }
-        _ = Monitor(TestMonitor.self)  // would trap if the first registration leaked
+    func testRemovedMonitorLeavesTheRegistryAndItsIDFree() {
+        do {
+            let monitor = Monitor(TestMonitor.self)
+            XCTAssertTrue(kscm_addMonitor(monitor.api))
+            XCTAssertNotNil(kscm_getMonitor(TestMonitor.id))
+            kscm_removeMonitor(monitor.api)
+        }
+        XCTAssertNil(kscm_getMonitor(TestMonitor.id))
+        // The id is free again: a second bridge with the same id registers.
+        let again = Monitor(TestMonitor.self)
+        XCTAssertTrue(kscm_addMonitor(again.api))
+        kscm_removeMonitor(again.api)
     }
 
     final class StitchMonitor: CrashMonitor {

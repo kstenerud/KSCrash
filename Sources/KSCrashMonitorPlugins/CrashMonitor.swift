@@ -80,6 +80,8 @@ public protocol CrashMonitor: AnyObject {
     ///
     /// For `.final` there is no sidecar (`sidecarURL` is nil): after all sidecar stitching,
     /// every monitor gets one last chance to modify the report, drawing on the report itself.
+    /// Throwing there is the same as returning `report` unchanged: with no sidecar to reread,
+    /// a retry could not go differently.
     func stitchedReport(_ report: [String: Any], sidecarURL: URL?, scope: SidecarScope) throws -> [String: Any]
 }
 
