@@ -28,6 +28,7 @@
 
 #import "KSCrashInstallConfiguration.h"
 #import "KSCrashMonitor.h"
+#import "KSCrashReport.h"
 #import "KSCrashReportFields.h"
 #import "KSCrashReportStore.h"
 #import "KSCrashReportStoreC+Private.h"
@@ -251,11 +252,23 @@ static CFDictionaryRef noopStitchReport(CFDictionaryRef reportDict, __unused con
     XCTAssertEqualObjects(read[@"samples"], expected);
     XCTAssertEqualObjects(read[@"detail"][@"missing"], [NSNull null]);
 
+    KSCrashReportStoreConfiguration *configuration = [KSCrashReportStoreConfiguration new];
+    configuration.appName = @(_storeConfig.appName);
+    configuration.reportsPath = @(_storeConfig.reportsPath);
+    KSCrashReportStore *store = [KSCrashReportStore storeWithConfiguration:configuration error:nil];
+    // Delivery uses reportForID:, which decodes the C reader's output again.
+    XCTAssertEqualObjects([store reportForID:reportID].value, read);
+    XCTAssertEqualObjects(
+        [NSJSONSerialization JSONObjectWithData:[store reportDataForID:reportID].value options:0 error:nil], read);
+
     XCTAssertTrue(kscrs_finalizeReport(path.UTF8String, reportID));
     NSDictionary *finalized = [self readReportJSON:path];
     XCTAssertEqualObjects(finalized[@"samples"], expected);
     XCTAssertEqualObjects(finalized[@"detail"][@"missing"], [NSNull null]);
     XCTAssertEqualObjects(finalized[@"report"][@"finalized"], @YES);
+    XCTAssertEqualObjects([store reportForID:reportID].value, finalized);
+    XCTAssertEqualObjects(
+        [NSJSONSerialization JSONObjectWithData:[store reportDataForID:reportID].value options:0 error:nil], finalized);
 }
 
 #pragma mark - Stitching Integration

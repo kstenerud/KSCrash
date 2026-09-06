@@ -384,11 +384,9 @@ typedef void (^KSChainApplyFilter)(id filter, NSArray *items, KSChainStepComplet
     }
 
     NSError *error = nil;
-    NSMutableDictionary *crashReport =
-        [KSJSONCodec decode:jsonData
-                    options:KSJSONDecodeOptionIgnoreNullInArray | KSJSONDecodeOptionIgnoreNullInObject |
-                            KSJSONDecodeOptionKeepPartialObject
-                      error:&error];
+    NSMutableDictionary *crashReport = [KSJSONCodec decode:jsonData
+                                                   options:KSJSONDecodeOptionKeepPartialObject
+                                                     error:&error];
     if (error != nil) {
         KSLOG_ERROR(@"Encountered error loading crash report %" PRIx64 ": %@", reportID, error);
     }
