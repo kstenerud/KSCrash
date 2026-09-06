@@ -231,6 +231,33 @@ static CFDictionaryRef noopStitchReport(CFDictionaryRef reportDict, __unused con
     XCTAssertEqualObjects(report[@"report"][@"id"], @"evt1");
 }
 
+- (void)testReadAndFinalizeKeepNullsInPlace
+{
+    // A null a monitor wrote is a value: dropping it re-indexes the array
+    // around it, so the read and the finalized file both keep it.
+    [self prepareStore:@"testKeepNulls"];
+    NSString *json = @"{\"report\":{\"run_id\":\"r\",\"id\":\"evt1\"},"
+                     @"\"samples\":[10,null,30],\"detail\":{\"missing\":null}}";
+    NSData *data = [json dataUsingEncoding:NSUTF8StringEncoding];
+    int64_t reportID = kscrs_addUserReport(data.bytes, (int)data.length, &_storeConfig);
+    NSString *path = [self reportPathForID:reportID];
+
+    char *readBack = kscrs_readReport(reportID, &_storeConfig);
+    XCTAssertTrue(readBack != NULL);
+    NSDictionary *read = [KSJSONCodec decode:[NSData dataWithBytesNoCopy:readBack length:strlen(readBack)]
+                                     options:KSJSONDecodeOptionNone
+                                       error:nil];
+    NSArray *expected = @[ @10, [NSNull null], @30 ];
+    XCTAssertEqualObjects(read[@"samples"], expected);
+    XCTAssertEqualObjects(read[@"detail"][@"missing"], [NSNull null]);
+
+    XCTAssertTrue(kscrs_finalizeReport(path.UTF8String, reportID));
+    NSDictionary *finalized = [self readReportJSON:path];
+    XCTAssertEqualObjects(finalized[@"samples"], expected);
+    XCTAssertEqualObjects(finalized[@"detail"][@"missing"], [NSNull null]);
+    XCTAssertEqualObjects(finalized[@"report"][@"finalized"], @YES);
+}
+
 #pragma mark - Stitching Integration
 
 - (void)testFinalizeStitchesRunSidecars
