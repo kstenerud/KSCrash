@@ -533,12 +533,16 @@ extern void kscrash_testcode_setRunID(const char *runID);
     // cannot litter the store forever, whatever its filename.
     NSString *writerNamed = [self writeRunSummaryJSON:@"{\"not_run_id\":1}" named:@"300.run"];
     NSString *foreignNamed = [self writeRunSummaryJSON:@"{}" named:@"backup.run"];
+    // A run_id that is not a UUID is one the send's listing skips as
+    // unidentifiable, so it is garbage here too.
+    NSString *nonUUID = [self writeRunSummaryJSON:@"{\"run_id\":\"abc\"}" named:@"400.run"];
 
     kscrs_reclaimOrphanedRunData(&_storeConfig);
     NSFileManager *fm = [NSFileManager defaultManager];
     XCTAssertFalse([fm fileExistsAtPath:orphanDir]);
     XCTAssertFalse([fm fileExistsAtPath:writerNamed]);
     XCTAssertFalse([fm fileExistsAtPath:foreignNamed]);
+    XCTAssertFalse([fm fileExistsAtPath:nonUUID]);
 }
 
 - (void)testDeleteReportWithNoRunSidecarsPathDoesNotCrash

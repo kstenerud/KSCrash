@@ -207,13 +207,16 @@ extension InstallConfiguration {
             }
             // The registry compares ids over KSCRASH_MONITOR_ID_MAX_LENGTH bytes, so two longer
             // ids sharing that prefix would be one monitor to it; and the id names a sidecar
-            // directory, so it must be a single path component.
+            // directory, so it must be a single path component that the sidecar walks list.
+            // Byte checks: a String compare is by grapheme, so a "/" followed by a combining
+            // mark would pass it; and the walks skip every entry starting with ".".
             if id.utf8.count >= KSCRASH_MONITOR_ID_MAX_LENGTH {
                 throw InstallError.invalidConfiguration(
                     "plugin monitor ids must be shorter than \(KSCRASH_MONITOR_ID_MAX_LENGTH) bytes: \(id)")
             }
-            if id.contains("/") || id == "." || id == ".." {
-                throw InstallError.invalidConfiguration("plugin monitor ids must be a single path component: \(id)")
+            if id.utf8.contains(UInt8(ascii: "/")) || id.utf8.first == UInt8(ascii: ".") {
+                throw InstallError.invalidConfiguration(
+                    "plugin monitor ids must be a single path component not starting with a dot: \(id)")
             }
             if id == KSCRASH_MONITOR_ID_UNSET {
                 throw InstallError.invalidConfiguration("a plugin's monitor table must set a real monitor id")
@@ -225,8 +228,10 @@ extension InstallConfiguration {
     }
 
     private func validateNamespace() throws {
-        if namespace.isEmpty || namespace == "." || namespace == ".." || namespace.contains("/")
-            || namespace.contains("\0")
+        // Byte checks: a String compare is by grapheme, so a "/" followed by a combining mark
+        // would pass it.
+        if namespace.isEmpty || namespace == "." || namespace == ".." || namespace.utf8.contains(UInt8(ascii: "/"))
+            || namespace.utf8.contains(0)
         {
             throw InstallError.invalidConfiguration("namespace must be a single directory name: \(namespace)")
         }

@@ -115,7 +115,7 @@ final class InstallConfigurationTests: XCTestCase {
     }
 
     func test_namespace_mustBeADirectoryName() {
-        for bad in ["", "/", "a/b", ".", ".."] {
+        for bad in ["", "/", "a/b", ".", "..", "a/\u{301}b", "a\0b"] {
             XCTAssertThrowsError(try InstallConfiguration(namespace: bad).locations, bad) { error in
                 guard case .invalidConfiguration? = error as? InstallError else { return XCTFail("\(error)") }
             }
@@ -194,7 +194,9 @@ final class InstallConfigurationTests: XCTestCase {
         let longest = String(repeating: "a", count: Int(KSCRASH_MONITOR_ID_MAX_LENGTH) - 1)
         config.plugins = [CountedPlugin(id: longest)]
         XCTAssertNoThrow(try config.validate())
-        for bad in [longest + "a", "Some/Monitor", ".", ".."] {
+        // "a/\u{301}b" hides its slash behind a combining mark from a grapheme compare, and the
+        // sidecar walks skip every dot entry, so a ".hidden" plugin would stitch nothing.
+        for bad in [longest + "a", "Some/Monitor", ".", "..", "a/\u{301}b", ".hidden"] {
             config.plugins = [CountedPlugin(id: bad)]
             XCTAssertThrowsError(try config.validate(), bad) { error in
                 guard case .invalidConfiguration? = error as? InstallError else { return XCTFail("\(error)") }

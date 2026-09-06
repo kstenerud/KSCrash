@@ -855,6 +855,61 @@
     XCTAssertEqual(kscrs_getReportCount(&_storeConfig), 0);
 }
 
+- (void)testAddUserReportRejectsATruncatedPayloadThatCarriesAnID
+{
+    [self prepareReportStoreWithPathEnd:@"testTruncatedPayloadWithID"];
+    // A valid report.id must not exempt an object payload from decoding whole.
+    NSString *json = @"{\"report\":{\"id\":\"4c1b2f3e-0000-4000-8000-000000000009\"},\"crash\":{\"error\"";
+    char reportIDBuffer[KSID_SIZE];
+    XCTAssertFalse(kscrs_addUserReport(json.UTF8String, (int)json.length, &_storeConfig, reportIDBuffer));
+    XCTAssertEqual(kscrs_getReportCount(&_storeConfig), 0);
+}
+
+- (void)testAddUserReportKeepsNullsInThePayload
+{
+    [self prepareReportStoreWithPathEnd:@"testUserReportNulls"];
+    // The id injection rewrites the payload; the stored file must still carry
+    // the caller's nulls in place.
+    NSString *json = @"{\"report\":{},\"samples\":[10,null,30]}";
+    char reportIDBuffer[KSID_SIZE];
+    XCTAssertTrue(kscrs_addUserReport(json.UTF8String, (int)json.length, &_storeConfig, reportIDBuffer));
+    NSString *reportsPath = @(_storeConfig.reportsPath);
+    NSArray<NSString *> *files = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:reportsPath error:nil];
+    XCTAssertEqual(files.count, 1u);
+    NSData *stored = [NSData dataWithContentsOfFile:[reportsPath stringByAppendingPathComponent:files.firstObject]];
+    NSDictionary *decoded = [NSJSONSerialization JSONObjectWithData:stored options:0 error:nil];
+    NSArray *expected = @[ @10, [NSNull null], @30 ];
+    XCTAssertEqualObjects(decoded[@"samples"], expected);
+}
+
+- (void)testAddUserReportFailedReAddKeepsTheStoredReport
+{
+    [self prepareReportStoreWithPathEnd:@"testReAddKeepsStored"];
+    NSString *json = @"{\"report\":{\"id\":\"4c1b2f3e-0000-4000-8000-00000000000b\"},\"v\":1}";
+    NSString *first = [self writeUserReportWithStringContents:json];
+    XCTAssertEqualObjects(first, @"4c1b2f3e-0000-4000-8000-00000000000b");
+
+    // A re-add that cannot be written (the store's directory is read-only for
+    // the duration) must leave the stored report as it was.
+    NSString *reportsPath = @(_storeConfig.reportsPath);
+    XCTAssertTrue([[NSFileManager defaultManager] setAttributes:@{ NSFilePosixPermissions : @0555 }
+                                                   ofItemAtPath:reportsPath
+                                                          error:nil]);
+    NSString *again = @"{\"report\":{\"id\":\"4c1b2f3e-0000-4000-8000-00000000000b\"},\"v\":2}";
+    char reportIDBuffer[KSID_SIZE];
+    XCTAssertFalse(kscrs_addUserReport(again.UTF8String, (int)again.length, &_storeConfig, reportIDBuffer),
+                   @"the re-add fails");
+    [[NSFileManager defaultManager] setAttributes:@{ NSFilePosixPermissions : @0755 }
+                                     ofItemAtPath:reportsPath
+                                            error:nil];
+    XCTAssertEqual((int)[self getReportIDs].count, 1, @"no temp file survives the failed write");
+
+    NSString *loaded;
+    [self loadReportID:first reportString:&loaded];
+    XCTAssertTrue([loaded containsString:@"\"v\": 1"] || [loaded containsString:@"\"v\":1"],
+                  @"the stored report survived the failed re-add");
+}
+
 - (void)testReadReportWithReportSectionAsString
 {
     [self prepareReportStoreWithPathEnd:@"testMalformedReportString"];

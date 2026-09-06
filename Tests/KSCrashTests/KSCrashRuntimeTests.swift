@@ -72,6 +72,10 @@ final class KSCrashRuntimeTests: XCTestCase {
         KSCrash.shared.setUserID(String(repeating: "a", count: limit - 1) + "🚗")
         XCTAssertEqual(
             KSCrash.shared.metadata[KSCRASH_USERID_KEY] as String?, String(repeating: "a", count: limit - 1))
+        // The session record is a C string, so it ends at the first NUL; the
+        // metadata key carries the same prefix rather than refusing the id.
+        KSCrash.shared.setUserID("ab\0cd")
+        XCTAssertEqual(KSCrash.shared.metadata[KSCRASH_USERID_KEY] as String?, "ab")
         KSCrash.shared.setUserID(nil)
     }
 

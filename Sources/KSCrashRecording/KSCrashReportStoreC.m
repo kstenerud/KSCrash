@@ -562,7 +562,10 @@ static NSSet<NSString *> *summaryReferencedRunIDs(const char *runSummariesPath)
         // Strict decode: a torn file fails here and joins the garbage branch.
         id json = [KSJSONCodec decode:data options:KSJSONDecodeOptionNone error:nil];
         id runID = [json isKindOfClass:[NSDictionary class]] ? json[KSCrashRunSummaryField_RunID] : nil;
-        if ([runID isKindOfClass:[NSString class]] && [runID length] > 0) {
+        // Usable means what the send's listing accepts: a UUID. Anything else
+        // is never listed, so nothing else would ever remove it.
+        uuid_t parsed;
+        if ([runID isKindOfClass:[NSString class]] && uuid_parse([runID UTF8String], parsed) == 0) {
             [runIDs addObject:runID];
         } else {
             [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
@@ -993,10 +996,8 @@ static NSData *payloadWithInjectedID(const char *report, int reportLength, const
         *statusOut = PayloadStatusRejected;
         NSData *data = [NSData dataWithBytesNoCopy:(void *)report length:(NSUInteger)reportLength freeWhenDone:NO];
         NSError *error = nil;
-        NSMutableDictionary *dict =
-            [KSJSONCodec decode:data
-                        options:KSJSONDecodeOptionIgnoreNullInArray | KSJSONDecodeOptionIgnoreNullInObject
-                          error:&error];
+        // Nulls stay: the payload is stored as the caller wrote it, id aside.
+        NSMutableDictionary *dict = [KSJSONCodec decode:data options:KSJSONDecodeOptionNone error:&error];
         if (error != nil || ![dict isKindOfClass:[NSDictionary class]]) {
             return nil;
         }
@@ -1036,23 +1037,20 @@ bool kscrs_addUserReport(const char *report, int reportLength,
         }
     } else {
         // The extractor accepts any case, but the store's grammar (filenames,
-        // listing) is lowercase; canonicalize, and rewrite the payload when
-        // that changes the text so report.id still matches the filename.
+        // listing) is lowercase; canonicalize and rewrite the payload so
+        // report.id matches the filename. The rewrite is also the whole-decode
+        // check an object payload must pass, id or no id.
         uuid_t parsed;
         if (uuid_parse(reportIDOut, parsed) != 0) {
             pthread_mutex_unlock(&g_mutex);
             return false;
         }
-        char canonical[KSID_SIZE];
-        uuid_unparse_lower(parsed, canonical);
-        if (strncmp(canonical, reportIDOut, KSID_SIZE) != 0) {
-            strlcpy(reportIDOut, canonical, KSID_SIZE);
-            payload = payloadWithInjectedID(report, reportLength, reportIDOut, &payloadStatus);
-            if (payloadStatus == PayloadStatusRejected) {
-                KSLOG_ERROR(@"Could not canonicalize the report id; not storing the report");
-                pthread_mutex_unlock(&g_mutex);
-                return false;
-            }
+        uuid_unparse_lower(parsed, reportIDOut);
+        payload = payloadWithInjectedID(report, reportLength, reportIDOut, &payloadStatus);
+        if (payloadStatus == PayloadStatusRejected) {
+            KSLOG_ERROR(@"Report payload does not decode whole; not storing the report");
+            pthread_mutex_unlock(&g_mutex);
+            return false;
         }
     }
     const char *bytes = payload != nil ? payload.bytes : report;
@@ -1064,16 +1062,30 @@ bool kscrs_addUserReport(const char *report, int reportLength,
     if (!findReportPath(reportIDOut, crashReportPath, configuration, NULL)) {
         getCrashReportPath(nextReportNs(), reportIDOut, crashReportPath, configuration);
     }
+    // Write beside the target and rename over it, so a failed write on a
+    // re-add cannot truncate the report already stored under that id.
+    char tmpPath[KSCRS_MAX_PATH_LENGTH];
+    int tmpLength = snprintf(tmpPath, sizeof(tmpPath), "%s.tmp", crashReportPath);
+    if (tmpLength < 0 || tmpLength >= (int)sizeof(tmpPath)) {
+        KSLOG_ERROR(@"Report path too long for temp file: %s", crashReportPath);
+        pthread_mutex_unlock(&g_mutex);
+        return false;
+    }
     bool written = false;
-    int fd = open(crashReportPath, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    int fd = open(tmpPath, O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (fd < 0) {
-        KSLOG_ERROR(@"Could not open file %s: %s", crashReportPath, strerror(errno));
+        KSLOG_ERROR(@"Could not open file %s: %s", tmpPath, strerror(errno));
     } else {
         written = ksfu_writeBytesToFD(fd, bytes, length);
-        if (!written) {
-            KSLOG_ERROR(@"Could not write to file %s", crashReportPath);
-        }
         close(fd);
+        if (written && rename(tmpPath, crashReportPath) != 0) {
+            KSLOG_ERROR(@"Could not rename %s to %s: %s", tmpPath, crashReportPath, strerror(errno));
+            written = false;
+        }
+        if (!written) {
+            KSLOG_ERROR(@"Could not write report to %s", crashReportPath);
+            unlink(tmpPath);
+        }
     }
     pthread_mutex_unlock(&g_mutex);
     return written;

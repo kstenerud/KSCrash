@@ -44,10 +44,13 @@ final class HangEventsTests: XCTestCase {
         }
         let first = await withTimeout(seconds: 5) { await iterator.next() }
         await blocker.value
-        guard let first else {
+        guard let first = try first.value() else {
             throw XCTSkip("hangs are not monitored in this environment, the stream finished")
         }
-        XCTAssertEqual(first.change, .started)
+        // The phase is not pinned, for the reason the independence test below
+        // gives: any main-thread stall in the process is a hang, so the first
+        // event on a fresh stream can be the tail of one this test did not
+        // cause. That an event arrives, with sane timestamps, is the contract.
         XCTAssertGreaterThan(first.startTimestamp, 0)
         XCTAssertGreaterThanOrEqual(first.endTimestamp, first.startTimestamp)
     }
@@ -63,7 +66,7 @@ final class HangEventsTests: XCTestCase {
         async let firstB = withTimeout(seconds: 5) { await b.next() }
         let (eventA, eventB) = await (firstA, firstB)
         await blocker.value
-        guard let eventA, let eventB else {
+        guard let eventA = try eventA.value(), let eventB = try eventB.value() else {
             throw XCTSkip("hangs are not monitored in this environment, the streams finished")
         }
         // Independence is the point: both streams see the same event. Which
@@ -81,7 +84,7 @@ final class HangEventsTests: XCTestCase {
             let until = Date().addingTimeInterval(0.6)
             while Date() < until {}
         }
-        let events = await withTaskGroup(of: HangEvent?.self) { group in
+        let events = await withTaskGroup(of: Awaited<HangEvent>.self) { group in
             for stream in streams {
                 group.addTask {
                     await withTimeout(seconds: 5) {
@@ -90,14 +93,14 @@ final class HangEventsTests: XCTestCase {
                     }
                 }
             }
-            var events: [HangEvent?] = []
+            var events: [Awaited<HangEvent>] = []
             for await event in group {
                 events.append(event)
             }
             return events
         }
         await blocker.value
-        let received = events.compactMap { $0 }
+        let received = try events.compactMap { try $0.value() }
         guard !received.isEmpty else {
             throw XCTSkip("hangs are not monitored in this environment, the streams finished")
         }
@@ -106,15 +109,33 @@ final class HangEventsTests: XCTestCase {
     }
 }
 
-/// nil when `body` did not produce a value in time.
-private func withTimeout<T: Sendable>(seconds: Double, _ body: @escaping @Sendable () async -> T?) async -> T? {
-    await withTaskGroup(of: T?.self) { group in
-        group.addTask { await body() }
+/// What waiting on a stream produced. A stream that finished (hangs are not
+/// monitored here) is a reason to skip; one that stays silent is a failure,
+/// since the hub lost the event.
+private enum Awaited<T: Sendable>: Sendable {
+    case value(T)
+    case finished
+    case timedOut
+
+    func value() throws -> T? {
+        switch self {
+        case .value(let value): return value
+        case .finished: return nil
+        case .timedOut: throw HubSilent()
+        }
+    }
+
+    struct HubSilent: Error {}
+}
+
+private func withTimeout<T: Sendable>(seconds: Double, _ body: @escaping @Sendable () async -> T?) async -> Awaited<T> {
+    await withTaskGroup(of: Awaited<T>.self) { group in
+        group.addTask { await body().map(Awaited.value) ?? .finished }
         group.addTask {
             try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
-            return nil
+            return .timedOut
         }
-        let first = await group.next() ?? nil
+        let first = await group.next() ?? .timedOut
         group.cancelAll()
         return first
     }

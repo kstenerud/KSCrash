@@ -71,7 +71,12 @@ extension KSCrash {
     /// (reject-over-limit) and the session writer (truncate-over-limit)
     /// always agree.
     private static func truncatedUserID(_ userID: String?) -> String? {
-        guard let userID else { return nil }
+        guard var userID else { return nil }
+        // The session writer reads the id as a C string, so it ends at the
+        // first NUL; cut there first, so both sinks see the same prefix.
+        if let nul = userID.utf8.firstIndex(of: 0) {
+            userID = String(userID[..<nul])
+        }
         guard userID.utf8.count >= Int(KSSESSION_MAX_USER_LENGTH) else { return userID }
         var buffer = [CChar](repeating: 0, count: Int(KSSESSION_MAX_USER_LENGTH))
         userID.withCString { kssession_copyUtf8Truncated(&buffer, $0, buffer.count) }
