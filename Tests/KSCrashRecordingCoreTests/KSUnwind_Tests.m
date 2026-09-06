@@ -1132,6 +1132,90 @@ static bool expressionEndsWithin(const uint8_t *expr, size_t len, const uint8_t 
     }
 }
 
+- (void)testDwarf_AugmentationLengthPastEndOfBufferIsRejected
+{
+    // The CIE's and the FDE's augmentation data lengths are ULEB128s read straight out of the
+    // section, which for a corpse is a copy of a crashed (possibly smashed) process's bytes.
+    // A length past the entry used to put the instruction pointer outside the buffer, either
+    // far past it or, for a length near 2^64, wrapped below it. Both must be refused.
+    const uint8_t cieHostileAugLen[] = {
+        0x00, 0x00, 0x00, 0x00,  // CIE ID
+        0x03,                    // version
+        'z',  'R',  0x00,        // augmentation "zR"
+        0x01,                    // code alignment
+        0x78,                    // data alignment (-8)
+        0x10,                    // return address register
+        0xFF, 0xFF, 0xFF, 0x7F,  // augmentation data length: far past the entry
+        0x03,                    // FDE pointer encoding: udata4
+        0x0C, 0x07, 0x08,        // DW_CFA_def_cfa r7, 8
+    };
+    const uint8_t cieData[] = {
+        0x00, 0x00, 0x00, 0x00,  // CIE ID
+        0x03,                    // version
+        'z',  'R',  0x00,        // augmentation "zR"
+        0x01,                    // code alignment
+        0x78,                    // data alignment (-8)
+        0x10,                    // return address register
+        0x01,                    // augmentation data length
+        0x03,                    // FDE pointer encoding: udata4
+        0x0C, 0x07, 0x08,        // DW_CFA_def_cfa r7, 8
+    };
+    const uint8_t fdeData[] = {
+        0x00, 0x00, 0x00, 0x00,  // CIE pointer
+        0x00, 0x10, 0x00, 0x00,  // PC start 0x1000
+        0x00, 0x01, 0x00, 0x00,  // PC range 0x100
+        0x00,                    // augmentation data length
+        0x0C, 0x07, 0x10,        // DW_CFA_def_cfa r7, 16
+    };
+    const uint8_t fdeFarAugLen[] = {
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00,
+        0x00, 0x01, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0x7F,  // augmentation data length: far past the entry
+        0x0C, 0x07, 0x10,
+    };
+    const uint8_t fdeWrappingAugLen[] = {
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x10,
+        0x00,
+        0x00,
+        0x00,
+        0x01,
+        0x00,
+        0x00,
+        // augmentation data length: 2^64 - 16, which wraps the pointer below the buffer
+        0xF0,
+        0xFF,
+        0xFF,
+        0xFF,
+        0xFF,
+        0xFF,
+        0xFF,
+        0xFF,
+        0xFF,
+        0x01,
+        0x0C,
+        0x07,
+        0x10,
+    };
+
+    KSDwarfCFIRow row;
+    XCTAssertFalse(ksdwarf_buildCFIRow(cieHostileAugLen, sizeof(cieHostileAugLen), fdeData, sizeof(fdeData), 0x1000,
+                                       false, &row, mach_task_self(), 0),
+                   @"a CIE augmentation past the entry must be refused");
+    XCTAssertFalse(ksdwarf_buildCFIRow(cieData, sizeof(cieData), fdeFarAugLen, sizeof(fdeFarAugLen), 0x1000, false,
+                                       &row, mach_task_self(), 0),
+                   @"an FDE augmentation past the entry must be refused");
+    XCTAssertFalse(ksdwarf_buildCFIRow(cieData, sizeof(cieData), fdeWrappingAugLen, sizeof(fdeWrappingAugLen), 0x1000,
+                                       false, &row, mach_task_self(), 0),
+                   @"an FDE augmentation that wraps the pointer must be refused");
+    // And the well-formed pair still builds, so the bound is not simply refusing everything.
+    XCTAssertTrue(ksdwarf_buildCFIRow(cieData, sizeof(cieData), fdeData, sizeof(fdeData), 0x1000, false, &row,
+                                      mach_task_self(), 0));
+}
+
 - (void)testDwarf_BuildCFIRow_OffsetWithNegativeDataAlign
 {
     // Test: DW_CFA_offset with positive ULEB128 operand and negative data alignment factor

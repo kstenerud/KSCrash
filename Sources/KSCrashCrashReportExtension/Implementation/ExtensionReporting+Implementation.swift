@@ -59,6 +59,8 @@ extension KSCrash {
     func captureCrashReport(corpse: mach_port_t, images: [CorpseSnapshot.Image], exception: Int32) throws
         -> Report.ID
     {
+        ExtensionReporting.captureLock.lock()
+        defer { ExtensionReporting.captureLock.unlock() }
         // Load-or-clear, best effort: the run id is per-corpse state, so clear the previous
         // capture's before loading this corpse's. A corpse whose id cannot be read (an app
         // without KSCrash, or one that crashed before install wrote the id) is reported with
@@ -77,6 +79,8 @@ extension KSCrash {
     /// from the snapshot's kcdata, the snapshot itself is embedded in the report by the
     /// monitor's report-section writer, and the report goes through the standard pipeline.
     func captureCrashReport(snapshot: CorpseSnapshot, corpse: mach_port_t) throws -> Report.ID {
+        ExtensionReporting.captureLock.lock()
+        defer { ExtensionReporting.captureLock.unlock() }
         // Without kcdata there is no crashed thread to unwind; a report without the crash's
         // own thread would be misleading rather than helpful.
         guard let crashInfo = snapshot.crashInfo, let crashedThreadID = crashInfo.crashedThreadID,

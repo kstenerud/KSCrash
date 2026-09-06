@@ -75,7 +75,7 @@ extension Container {
         }
     }
 
-    /// `<container>/KSCrash/<namespace>/` — the directory whose bundle-id subdirectories are
+    /// `<container>/KSCrash/<namespace>/`, the directory whose bundle-id subdirectories are
     /// per-process install roots. The one derivation both the install and an extension area
     /// use, so two processes sharing a container and namespace cannot disagree on the layout.
     func namespaceRoot(for namespace: String) throws -> URL {
@@ -88,6 +88,14 @@ extension Container {
             try base
             .appendingPathComponent(String(cString: kscrash_namespaceIdentifier()), isDirectory: true)
             .appendingPathComponent(namespace, isDirectory: true)
+    }
+
+    /// This process's install root inside the namespace: one bundle-id subdirectory per
+    /// process, which is what lets an app and its extensions share an area and tell their
+    /// reports apart.
+    func processRoot(for namespace: String) throws -> URL {
+        let bundleID = Bundle.main.bundleIdentifier ?? ProcessInfo.processInfo.processName
+        return try namespaceRoot(for: namespace).appendingPathComponent(bundleID, isDirectory: true)
     }
 }
 
@@ -173,9 +181,7 @@ extension InstallConfiguration {
     /// `InstallError.containerUnavailable` when an app group does not resolve.
     public var locations: Locations {
         get throws {
-            let bundleID = Bundle.main.bundleIdentifier ?? ProcessInfo.processInfo.processName
-            let root = try container.namespaceRoot(for: namespace)
-                .appendingPathComponent(bundleID, isDirectory: true)
+            let root = try container.processRoot(for: namespace)
             // The names are the C store's; the install derives the same directories.
             return Locations(
                 root: root,

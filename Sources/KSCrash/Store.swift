@@ -59,7 +59,7 @@ struct Store: Sendable {
     let maxRunCount: Int
 
     private let reports: ReportBridge
-    private let reclaim: @Sendable () -> Void
+    private let reclaim: @Sendable (_ retainingUnreferencedRuns: Bool) -> Void
     /// The store's own Reports directory; area scans skip it. nil for the
     /// bridge-backed test stores, which pull from nowhere.
     private let reportsDirectory: URL?
@@ -89,7 +89,19 @@ struct Store: Sendable {
                 runID: { id in config.runID(of: id) },
                 remove: { id in try config.remove(id) }
             ),
-            reclaim: { kscrs_reclaimOrphanedRunData(config.pointer) }
+            reclaim: { retaining in
+                // The retention window exists for reports still sitting in a
+                // crash extension's store. A send that pulls from no
+                // extension area has none coming, so its unreferenced runs
+                // are orphans on sight, as they always were.
+                if retaining {
+                    kscrs_reclaimOrphanedRunData(config.pointer)
+                } else {
+                    var immediate = config.pointer.pointee
+                    immediate.runSidecarRetentionSeconds = 0
+                    kscrs_reclaimOrphanedRunData(&immediate)
+                }
+            }
         )
     }
 
@@ -100,7 +112,7 @@ struct Store: Sendable {
         liveRunID: RunSummary.ID?,
         maxRunCount: Int = 0,
         reports: ReportBridge = .none,
-        reclaim: @escaping @Sendable () -> Void = {}
+        reclaim: @escaping @Sendable (_ retainingUnreferencedRuns: Bool) -> Void = { _ in }
     ) {
         self.runsDirectory = runsDirectory
         self.runSidecarsDirectory = runSidecarsDirectory
@@ -117,12 +129,19 @@ struct Store: Sendable {
         // A crash extension's reports are moved in before the listing, so the
         // same send that finds them delivers them. An area resolves to its
         // namespace directory, and every bundle-id subdirectory in it except
-        // our own contributes a Reports directory; the area's own resolution
-        // failure (a bad app-group id) throws, since silently pulling from
-        // nowhere would strand the extension's reports forever.
+        // our own contributes a Reports directory. An area that does not
+        // resolve (a bad app-group id, a missing entitlement) is logged and
+        // skipped: the app's own reports are not held hostage to it, and the
+        // extension's stay where they are until it is fixed.
         for area in extensionAreas {
-            for source in try area.reportsDirectories(excluding: reportsDirectory) {
-                reports.ingest(source)
+            do {
+                for source in try area.reportsDirectories(excluding: reportsDirectory) {
+                    reports.ingest(source)
+                }
+            } catch {
+                os_log(
+                    .error, "Extension area %{public}@ could not be resolved; its reports are not pulled: %{public}@",
+                    area.namespace, String(describing: error))
             }
         }
         // The listing is oldest first (the filenames carry the write time),
@@ -283,9 +302,12 @@ struct Store: Sendable {
             + artifactOnly.sorted { $0.runID.description < $1.runID.description }
     }
 
-    /// Remove shared run data nothing references any more.
-    func reclaimOrphans() {
-        reclaim()
+    /// Remove shared run data nothing references any more. With
+    /// `retainingUnreferencedRuns`, run data nothing references yet is kept
+    /// for the configured window, for a report a crash extension has not
+    /// handed over yet.
+    func reclaimOrphans(retainingUnreferencedRuns: Bool = false) {
+        reclaim(retainingUnreferencedRuns)
     }
 
     /// Delete the oldest writer-named `.run` files beyond `max`; 0 or

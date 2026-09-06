@@ -94,15 +94,18 @@ typedef struct {
      */
     int maxRunSummaryCount;
 
-    /** How long to keep run-sidecar directories that no report references, in seconds.
+    /** How long to keep a run's data (its sidecar directory and its sessions
+     * file) once nothing references it, in seconds, measured from its newest
+     * write.
      *
      * A crash caught by the app's crash extension sits in the App Group container until
-     * the user next opens the app. If this store deletes that run's sidecar directory
-     * before the report is ingested, the report can never be enriched with it. Keeping
-     * unreferenced directories for this window costs a few kilobytes per run.
+     * the user next opens the app. If this store deletes that run's data before the
+     * report is ingested, the report can never be enriched with it. Keeping
+     * unreferenced data for this window costs a few kilobytes per run, and the send
+     * applies it only when it pulls from an extension area.
      *
-     * Directories referenced by a report on disk are always kept, whatever their age.
-     * Zero or negative deletes unreferenced directories immediately.
+     * Data referenced by a report on disk is always kept, whatever its age.
+     * Zero or negative deletes unreferenced data immediately.
      *
      * **Default**: 30 days.
      */

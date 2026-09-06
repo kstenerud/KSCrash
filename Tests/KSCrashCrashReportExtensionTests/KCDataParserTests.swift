@@ -43,20 +43,43 @@ final class KCDataParserTests: XCTestCase {
     private func le32(_ v: UInt32) -> [UInt8] { (0..<4).map { UInt8((v >> (8 * $0)) & 0xFF) } }
     private func le64(_ v: UInt64) -> [UInt8] { (0..<8).map { UInt8((v >> (8 * $0)) & 0xFF) } }
 
-    /// Build a kcdata crash-info buffer: a BEGIN marker, the given items, then an END marker, each a
-    /// 16-byte TLV header (type, size, flags) plus payload, padded to 16 bytes.
-    private func buildKCData(_ items: [(type: UInt32, payload: [UInt8])]) -> Data {
-        var buf = [UInt8]()
-        func appendItem(_ type: UInt32, _ payload: [UInt8]) {
-            buf += le32(type)
-            buf += le32(UInt32(payload.count))
-            buf += le64(0)  // flags
-            buf += payload
-            while buf.count % 16 != 0 { buf.append(0) }
-        }
-        appendItem(kBegin, [])
-        for item in items { appendItem(item.type, item.payload) }
-        appendItem(kEnd, [])
+    private let kBeginOSReason: UInt32 = 0x53A2_0900
+    private let kNested: UInt32 = 0x38
+
+    /// One item the way `kcdata_get_memory_addr` writes it: a 16-byte header (type, size, flags)
+    /// and the payload padded to 16 bytes, with the size field covering the padding and the
+    /// padding count recorded in the flags.
+    private func structItem(_ type: UInt32, _ payload: [UInt8]) -> [UInt8] {
+        let padding = (16 - payload.count % 16) % 16
+        return le32(type) + le32(UInt32(payload.count + padding)) + le64(0x80 | UInt64(padding)) + payload
+            + [UInt8](repeating: 0, count: padding)
+    }
+
+    /// One array item the way `kcdata_get_memory_addr_for_array` writes it: the padding count in
+    /// the type's low nibble, the element type and count in the flags.
+    private func arrayItem(_ elementType: UInt32, _ elements: [[UInt8]]) -> [UInt8] {
+        let payload = elements.flatMap { $0 }
+        let padding = (16 - payload.count % 16) % 16
+        return le32(0x20 | UInt32(padding)) + le32(UInt32(payload.count + padding))
+            + le64(UInt64(elementType) << 32 | UInt64(elements.count)) + payload
+            + [UInt8](repeating: 0, count: padding)
+    }
+
+    /// The exit reason's own buffer, embedded whole as one nested item the way
+    /// `populate_corpse_crashinfo` embeds the os_reason's kcdata.
+    private func nestedOSReason(_ items: [(type: UInt32, payload: [UInt8])]) -> [UInt8] {
+        var inner = structItem(kBeginOSReason, [])
+        for item in items { inner += structItem(item.type, item.payload) }
+        inner += structItem(kEnd, [])
+        return structItem(kNested, inner)
+    }
+
+    /// Build a kcdata crash-info buffer: a BEGIN marker, the given items, then an END marker.
+    private func buildKCData(_ items: [(type: UInt32, payload: [UInt8])], raw: [[UInt8]] = []) -> Data {
+        var buf = structItem(kBegin, [])
+        for item in items { buf += structItem(item.type, item.payload) }
+        for item in raw { buf += item }
+        buf += structItem(kEnd, [])
         return Data(buf)
     }
 
@@ -149,14 +172,16 @@ final class KCDataParserTests: XCTestCase {
         let kExitReasonUserDesc: UInt32 = 0x1002
         let desc = "Library not loaded: @rpath/Gone.framework\n  Referenced from: <ABC> /App\n\tReason: tried"
         let info = KCDataParser.parse(
-            buildKCData([(kExitReasonUserDesc, Array(desc.utf8) + [0])]), exception: EXC_CRASH)?.crashInfo
+            buildKCData([], raw: [nestedOSReason([(kExitReasonUserDesc, Array(desc.utf8) + [0])])]),
+            exception: EXC_CRASH)?.crashInfo
         XCTAssertEqual(info?.exitReasonDescription, desc)
     }
 
     func testDescriptionWithOtherControlCharactersIsRejected() {
         let kExitReasonUserDesc: UInt32 = 0x1002
         let info = KCDataParser.parse(
-            buildKCData([(kExitReasonUserDesc, Array("bad\u{01}data".utf8) + [0])]), exception: EXC_CRASH)?.crashInfo
+            buildKCData([], raw: [nestedOSReason([(kExitReasonUserDesc, Array("bad\u{01}data".utf8) + [0])])]),
+            exception: EXC_CRASH)?.crashInfo
         XCTAssertNil(info?.exitReasonDescription)
     }
 
@@ -240,17 +265,49 @@ final class KCDataParserTests: XCTestCase {
     }
 
     func testDecodesExitReasonCompanionItems() {
+        // The snapshot is a top-level item; its companions travel inside the os_reason's own
+        // kcdata buffer, embedded whole as one nested item, and the kernel pads the four-byte
+        // payload out to sixteen with the count in the flags.
         let info = KCDataParser.parse(
-            buildKCData([
-                (kExitReasonSnapshot, le32(4) + le64(2) + le64(0x8)),  // namespace, code, flags
-                (0x1005, le64(0xABC)),  // workloop id
-                (0x1006, le64(3)),  // dispatch queue number
-                (0x1003, [1, 2, 3, 4]),  // user payload
-            ]), exception: EXC_CRASH)?.crashInfo
+            buildKCData(
+                [(kExitReasonSnapshot, le32(4) + le64(2) + le64(0x8))],  // namespace, code, flags
+                raw: [
+                    nestedOSReason([
+                        (0x1002, Array("jetsam".utf8) + [0]),  // user description
+                        (0x1005, le64(0xABC)),  // workloop id
+                        (0x1006, le64(3)),  // dispatch queue number
+                        (0x1003, [1, 2, 3, 4]),  // user payload
+                    ])
+                ]), exception: EXC_CRASH)?.crashInfo
         XCTAssertEqual(info?.exitReason?.flags, 0x8)
+        XCTAssertEqual(info?.exitReasonDescription, "jetsam")
         XCTAssertEqual(info?.exitReason?.workloopID, 0xABC)
         XCTAssertEqual(info?.exitReason?.dispatchQueueNo, 3)
-        XCTAssertEqual(info?.exitReason?.userPayload, Data([1, 2, 3, 4]))
+        XCTAssertEqual(info?.exitReason?.userPayload, Data([1, 2, 3, 4]), "the padding is not payload")
+    }
+
+    func testExitReasonCompanionsAtTheTopLevelAreNotWhatTheKernelWrites() {
+        // A top-level companion is still read (the walker treats every level alike), but the
+        // nested form is the one a corpse carries; this pins that nesting is not required
+        // for the snapshot itself.
+        let info = KCDataParser.parse(
+            buildKCData([(kExitReasonSnapshot, le32(4) + le64(2) + le64(0x8))]), exception: EXC_CRASH)?.crashInfo
+        XCTAssertEqual(info?.exitReason?.flags, 0x8)
+        XCTAssertNil(info?.exitReasonDescription)
+    }
+
+    func testDecodesArrayShapedProcessItems() {
+        // udata pointers and coalition ids are written as arrays: the element type sits in
+        // the flags and the header type only says how much padding follows.
+        let decoded = KCDataParser.parse(
+            buildKCData(
+                [],
+                raw: [
+                    arrayItem(0x81C, [le64(0x1000), le64(0x2000), le64(0x3000)]),  // udata ptrs
+                    arrayItem(0x81B, [le64(77), le64(78)]),  // coalition ids: resource, jetsam
+                ]), exception: EXC_CRASH)
+        XCTAssertEqual(decoded?.process?.udataPtrs, [0x1000, 0x2000, 0x3000])
+        XCTAssertEqual(decoded?.process?.coalitionID, 77)
     }
 
     func testEmptySectionsStayNil() {

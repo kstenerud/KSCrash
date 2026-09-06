@@ -26,19 +26,13 @@
 
 import Foundation
 
-/// Everything the extension monitor gathers from a crashed process: the crash facts and process
-/// record decoded from the corpse kcdata, plus the few task figures kcdata does not carry, read
-/// off the corpse port. The image list is handed to us by CrashedProcess.
+/// What a crash extension recorded about a crashed process: the crash facts and the process
+/// record the kernel attached to the corpse, plus the task figures it read off the corpse
+/// itself. A report about a corpse carries one at its `corpse` key.
 ///
-/// kcdata is the preferred source; the corpse port is only consulted for data kcdata lacks, and
-/// no field is stored from two sources. Classified crash facts (signal, mach exception, resource,
-/// exit reason) are typed via the report model; everything else is the raw kernel value. It is
-/// intentionally Codable so it can be dumped to JSON for inspection during bring-up.
-/// Fields are `var` with nil defaults purely for the synthesized memberwise init (17 hand-written
-/// assignments invite silent transposition); a snapshot is never mutated after gathering.
-/// Public in name only: the corpse monitor's typed event payload must be visible wherever the
-/// monitor class is, but everything inside stays internal; the extension's capture path is the
-/// only producer and consumer.
+/// Classified crash facts (signal, mach exception, resource, exit reason) use the report
+/// model's own types; everything else is the raw kernel value. Every field is optional:
+/// what the kernel did not record is nil, and no figure is ever synthesized.
 public struct CorpseSnapshot: Codable, Sendable, Equatable {
     /// The original Mach exception type from `CrashReason.exception` (reliable, unlike its `codes`).
     public var exception: MachExceptionType?

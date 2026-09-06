@@ -34,13 +34,10 @@ import KSCrashReportModel
     import CrashReportExtension
 #endif
 
-/// The extension-reporting install's process-wide state: the capture flow reads the area and
-/// kcdata options the install ran with.
+/// The extension-reporting install's process-wide state: the kcdata options the install ran
+/// with, which the capture flow reads.
 enum ExtensionReporting {
     struct Active {
-        let area: ExtensionConfiguration
-        /// This process's install root inside the area.
-        let root: URL
         let savesKCData: Bool
         let kcdataDirectory: URL
     }
@@ -50,6 +47,12 @@ enum ExtensionReporting {
     /// The monitor bridge the extension process installs and captures through. App-side, the
     /// developer registers `CrashReportExtensionMonitor` through `config.plugins` instead.
     static let bridge = Monitor(CrashReportExtensionMonitor.self)
+
+    /// Captures run one at a time: the crashed run's id travels from the corpse to the
+    /// report writer through a process global, and the system makes no promise about
+    /// delivering one corpse at a time. Recursive, since the raw-input capture runs the
+    /// snapshot capture inside it.
+    static let captureLock = NSRecursiveLock()
 }
 
 /// Thrown by `installForExtensionReporting(with:)`.
@@ -101,8 +104,6 @@ extension KSCrash {
             throw ExtensionReportingInstallError.install(result)
         }
         ExtensionReporting.active = ExtensionReporting.Active(
-            area: area,
-            root: root,
             savesKCData: savesKCData,
             kcdataDirectory: kcdataDirectory ?? root.appendingPathComponent("KCData", isDirectory: true))
     }
