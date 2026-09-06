@@ -79,8 +79,10 @@ extension Container {
     /// per-process install roots. The one derivation both the install and an extension area
     /// use, so two processes sharing a container and namespace cannot disagree on the layout.
     func namespaceRoot(for namespace: String) throws -> URL {
-        if namespace.isEmpty || namespace == "." || namespace == ".." || namespace.contains("/")
-            || namespace.contains("\0")
+        // Byte checks: a String compare is by grapheme, so a "/" followed by a combining mark
+        // would pass it.
+        if namespace.isEmpty || namespace == "." || namespace == ".." || namespace.utf8.contains(UInt8(ascii: "/"))
+            || namespace.utf8.contains(0)
         {
             throw InstallError.invalidConfiguration("namespace must be a single directory name: \(namespace)")
         }

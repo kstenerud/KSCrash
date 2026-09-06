@@ -175,9 +175,9 @@ final class InstallConfigurationTests: XCTestCase {
         // Built-in ids route sections and sidecars, and the placeholder is
         // not an identity. Both must fail before the C registry's debug-only
         // assert.
-        // "profile" and "corpse" are not in the monitor table, but the writer routes them
-        // into sections of its own, so they are reserved all the same.
-        for reserved in ["System", "Watchdog", "UserInfo", "unset", "profile", "corpse"] {
+        // "profile" is not in the monitor table, but the profiler registers its own bridge
+        // under it outside the plugin list, so it is reserved all the same.
+        for reserved in ["System", "Watchdog", "UserInfo", "unset", "profile"] {
             config.plugins = [CountedPlugin(id: reserved)]
             XCTAssertThrowsError(try config.validate(), reserved) { error in
                 guard case .invalidConfiguration? = error as? InstallError else { return XCTFail("\(error)") }

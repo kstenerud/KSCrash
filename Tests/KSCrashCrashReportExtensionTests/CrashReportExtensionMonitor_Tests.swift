@@ -26,12 +26,12 @@
 
 import Darwin
 import Foundation
-import KSCrash
 import KSCrashMonitorPlugins
 import KSCrashRecording
 import KSCrashReportModel
 import XCTest
 
+@testable import KSCrash
 @testable import KSCrashCrashReportExtension
 
 /// The corpse capture path validated in-process: "the corpse" is our own task, the crashed thread is
@@ -56,8 +56,15 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
     /// and reports land in that install's Reports directory, a sibling of its Runs directory.
     private static var reportsDirectory = installRoot.appendingPathComponent("Reports")
 
+    /// A report a previous extension process never finished, planted before the install.
+    private static let staleStagedReport = installRoot.appendingPathComponent("Reports")
+        .appendingPathComponent(KSCRS_EXTENSION_STAGING_FOLDER).appendingPathComponent("stale.json")
+
     private static let install: Bool = {
         letTheInstallSuiteClaimTheProcess()
+        try? FileManager.default.createDirectory(
+            at: staleStagedReport.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? Data("{".utf8).write(to: staleStagedReport)
         do {
             try KSCrash.shared.installForExtensionReporting(with: area)
         } catch ExtensionReportingInstallError.install(.alreadyInstalled) {
@@ -99,6 +106,14 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
         XCTAssertTrue(Self.install, "extension-reporting install should succeed")
     }
 
+    func testAppSideRegistrationPassesInstallValidation() throws {
+        // The documented app-side setup: the corpse monitor goes in through the plugin
+        // list like any other, so its id must not read as reserved to validate().
+        var config = InstallConfiguration(namespace: "AppSide")
+        config.plugins = [CrashReportExtensionMonitor.plugin()]
+        XCTAssertNoThrow(try config.validate())
+    }
+
     func testExtensionReportingInstallCreatesOnlyReportState() throws {
         try XCTSkipIf(
             Self.reportsDirectory != Self.installRoot.appendingPathComponent("Reports"),
@@ -110,6 +125,15 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
         XCTAssertFalse(exists("Data/last_run_id"), "no last-run chain in a reporter-only install")
         XCTAssertFalse(exists("Runs"), "no run summaries in a reporter-only install")
         XCTAssertFalse(exists("Data/ConsoleLog.txt"), "no console log in a reporter-only install")
+    }
+
+    func testExtensionReportingInstallSweepsTheStagingDirectory() throws {
+        try XCTSkipIf(
+            Self.reportsDirectory != Self.installRoot.appendingPathComponent("Reports"),
+            "another suite's normal install won the process; the reporter-only layout is not ours to assert")
+        // An extension killed at its budget leaves its half-written report in staging, where
+        // nothing else ever looks; the next extension install must not let them pile up.
+        XCTAssertFalse(FileManager.default.fileExists(atPath: Self.staleStagedReport.path))
     }
 
     func testWrittenReportIsPublishedWholeOutOfTheStagingDirectory() throws {

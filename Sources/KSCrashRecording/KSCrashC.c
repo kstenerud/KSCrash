@@ -272,6 +272,7 @@ static void onExceptionEvent(struct KSCrash_MonitorContext *monitorContext, KSCr
             // Nothing exists under the minted ID, so there is no report to hand back or announce.
             return;
         }
+        bool published = true;
         if (g_publishedReportsPath != NULL) {
             // Extension mode: the store wrote into its staging directory, out of sight of the
             // app's ingest, which renames whatever it finds in Reports and would otherwise move
@@ -284,11 +285,14 @@ static void onExceptionEvent(struct KSCrash_MonitorContext *monitorContext, KSCr
                 rename(crashReportFilePath, publishedPath) == 0) {
                 strlcpy(g_lastCrashReportFilePath, publishedPath, sizeof(g_lastCrashReportFilePath));
             } else {
+                // The app will never see it, so the caller must not be told it was written;
+                // the next extension install sweeps the staging directory.
                 KSLOG_ERROR("Could not publish report %s: %s", crashReportFilePath, strerror(errno));
+                published = false;
             }
         }
 
-        if (result) {
+        if (result && published) {
             strlcpy(result->reportId, monitorContext->eventID, sizeof(result->reportId));
             strlcpy(result->path, g_lastCrashReportFilePath, sizeof(result->path));
         }
@@ -309,10 +313,11 @@ bool kscrash_isBuiltInMonitorID(const char *monitorID)
     if (monitorID == NULL) {
         return false;
     }
-    // Not monitors in the table, but the writer routes these ids into sections of its own:
-    // the typed profile section, and the corpse monitor's private scratch section.
-    if (strncmp(monitorID, KSCrashExcType_Profile, KSCRASH_MONITOR_ID_MAX_LENGTH) == 0 ||
-        strncmp(monitorID, KSCrashField_Corpse, KSCRASH_MONITOR_ID_MAX_LENGTH) == 0) {
+    // Not a monitor in the table, but the writer routes this id into the typed profile
+    // section, and the profiler registers its own bridge outside the plugin list. The
+    // corpse id is not reserved: the corpse monitor is a plugin the app registers itself,
+    // and the registry refuses a second monitor under any id.
+    if (strncmp(monitorID, KSCrashExcType_Profile, KSCRASH_MONITOR_ID_MAX_LENGTH) == 0) {
         return true;
     }
     for (size_t i = 0; i < g_monitorMappingCount; i++) {
@@ -655,6 +660,9 @@ KSCrashInstallErrorCode
     if (storeInitResult != KSCrashInstallErrorNone) {
         return storeInitResult;
     }
+    // Whatever a previous extension process left in staging is a report it never finished
+    // (killed at its budget) or never published; nothing else ever looks in here.
+    ksfu_deleteContentsOfPath(g_reportStoreConfig.reportsPath);
 
     kscm_setEventCallbackWithResult(onExceptionEvent);
 
