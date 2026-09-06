@@ -326,7 +326,8 @@ static void populateReportForCurrentHang(KSHangMonitor *monitor)
     // writing the report.  Compare timestamps to make sure it's still the
     // same hang before attaching the report path and sidecar.
     os_unfair_lock_lock(&monitor->lock);
-    if (monitor->hang.active && monitor->hang.timestamp == hang.timestamp) {
+    bool stillActive = monitor->hang.active && monitor->hang.timestamp == hang.timestamp;
+    if (stillActive) {
         monitor->hang.reportId = result.reportId;
         if (strlcpy(monitor->hang.path, result.path, PATH_MAX) >= PATH_MAX) {
             KSLOG_ERROR("Report path too long, discarding hang report");
@@ -346,6 +347,17 @@ static void populateReportForCurrentHang(KSHangMonitor *monitor)
         KSLOG_DEBUG("hang changed during report population - discarding");
     }
     os_unfair_lock_unlock(&monitor->lock);
+
+    if (!stillActive) {
+        // The main thread resolved this hang while the report was being
+        // written and has already delivered its Ended, so a Started now would
+        // land after it and leave the lifecycle's hang flag set. The report
+        // was never attached to the hang, so nothing else will remove it.
+        if (result.path[0] != '\0' && unlink(result.path) != 0) {
+            KSLOG_ERROR("Failed to delete discarded hang report at %s: %s", result.path, strerror(errno));
+        }
+        return;
+    }
 
     KSLOG_INFO("Hang started (reportID: %" PRIx64 ")", result.reportId);
 
