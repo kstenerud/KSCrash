@@ -50,77 +50,39 @@ final class RunSummarySendTests: XCTestCase {
 
     // MARK: - Helpers
 
-    private final class Counter: Sendable {
-        private let count = UnfairLock(0)
-        var value: Int { count.withLock { $0 } }
-        func increment() { count.withLock { $0 += 1 } }
-    }
-
-    private struct ClosureStage: PipelineStage {
-        let body: @Sendable (RunSummary) async throws -> RunSummary?
-        func process(_ payload: RunSummary) async throws -> RunSummary? {
-            try await body(payload)
-        }
-    }
-
-    private struct StageError: Error {}
-
-    private func makeStore() -> RunDataStore {
+    /// `listFails` makes the report half's listing throw, standing in for an
+    /// unreadable Reports directory.
+    private func makeStore(listFails: Bool = false, maxRunCount: Int = 50) -> Store {
         let counter = reclaimCount
-        return RunDataStore(
+        return Store(
             runsDirectory: runsDirectory,
             runSidecarsDirectory: sidecarsDirectory,
-            maxRunCount: 50,
-            liveRunID: nil
-        ) { counter.increment() }
+            liveRunID: nil,
+            maxRunCount: maxRunCount,
+            reports: ReportBridge(
+                list: {
+                    if listFails { throw StageError() }
+                    return []
+                },
+                read: { _ in nil },
+                runID: { _ in nil },
+                remove: { _ in }
+            ),
+            reclaim: { counter.increment() }
+        )
     }
 
     private func send(
         pipeline: [AnyPipelineStage<RunSummary>] = [.init(ClosureStage { $0 })],
-        includesDeliveredPayloads: Bool = false,
-        claims: SendClaims = SendClaims()
+        listFails: Bool = false,
+        claims: SendClaims<String> = SendClaims()
     ) async throws -> SendResult<RunSummary> {
         try await RunSummarySend.send(
-            store: makeStore(), pipeline: pipeline,
-            includesDeliveredPayloads: includesDeliveredPayloads, claims: claims)
-    }
-
-    private func assertOutcomes(
-        _ result: SendResult<RunSummary>,
-        delivered: [String] = [],
-        discarded: [String] = [],
-        kept: [String] = [],
-        file: StaticString = #filePath,
-        line: UInt = #line
-    ) {
-        XCTAssertEqual(result.delivered, delivered, file: file, line: line)
-        XCTAssertEqual(result.discarded, discarded, file: file, line: line)
-        XCTAssertEqual(result.kept, kept, file: file, line: line)
-    }
-
-    private func makeSummary(runID: String) -> RunSummary {
-        RunSummary(
-            schemaVersion: 1,
-            sdkVersion: "test",
-            runID: runID,
-            deviceID: "device",
-            startedAtMs: 1_000,
-            endedAtMs: 2_000,
-            isBeingDebugged: false,
-            outcome: .init(terminationReason: .clean, userPerceptible: false),
-            durations: .init(activeMs: 0, backgroundMs: 0),
-            sessions: .init(records: []),
-            app: .init(bundleID: "bundle", version: "1", shortVersion: "1", hostKind: .app),
-            os: .init(name: "os", version: "1", build: "1"),
-            device: .init(
-                model: "model", modelFamily: "family", architecture: "arch",
-                binaryArchitecture: "arch", isTranslated: false, isJailbroken: false)
-        )
+            store: makeStore(listFails: listFails), pipeline: pipeline, claims: claims)
     }
 
     private func writeSummary(runID: String, startNs: UInt64) throws {
-        let url = runsDirectory.appendingPathComponent(String(format: "%019llu.run", startNs))
-        try JSONEncoder().encode(makeSummary(runID: runID)).write(to: url)
+        try KSCrashTests.writeSummary(makeSummary(runID: runID), startNs: startNs, in: runsDirectory)
     }
 
     private var summaryFileCount: Int {
@@ -150,10 +112,82 @@ final class RunSummarySendTests: XCTestCase {
         XCTAssertEqual(reclaimCount.value, 1)
     }
 
+    func test_unreadableReportsDirectory_stillDeliversSummaries() async throws {
+        // The summary send depends on the Runs directory only: damage to
+        // the reports half must not block run-summary delivery.
+        try writeSummary(runID: "RUN", startNs: 100)
+
+        let result = try await send(listFails: true)
+        assertOutcomes(result, delivered: ["RUN"])
+        XCTAssertEqual(summaryFileCount, 0)
+    }
+
+    /// A `.run` that still yields its identity but no longer decodes as the
+    /// full model (a schema break across an upgrade) is a kept item carrying
+    /// the decode error, not a silent skip; the file stays for a later SDK.
+    func test_summaryThatFailsTheFullDecode_isKeptWithTheError_andStays() async throws {
+        try writeSummary(runID: "OK", startNs: 100)
+        try Data(#"{"run_id": "BROKEN", "started_at_ms": 1000}"#.utf8)
+            .write(to: runsDirectory.appendingPathComponent(String(format: "%019llu.run", UInt64(200))))
+
+        let result = try await send()
+
+        assertOutcomes(result, delivered: ["OK"], kept: ["BROKEN"])
+        let kept = try XCTUnwrap(result.items.first { $0.id == "BROKEN" })
+        guard case .kept(let error) = kept.outcome else {
+            return XCTFail("expected a kept outcome, got \(kept.outcome)")
+        }
+        XCTAssertTrue(error is DecodingError, "\(error)")
+        XCTAssertEqual(summaryFileCount, 1)
+    }
+
+    /// A run_id alone must list: the strict model decode is the health gate,
+    /// so a summary missing its timestamp is a kept item naming the missing
+    /// field, never a silent skip.
+    func test_summaryMissingItsTimestamp_isKeptWithTheError_andStays() async throws {
+        try writeSummary(runID: "OK", startNs: 100)
+        try Data(#"{"run_id": "BROKEN"}"#.utf8)
+            .write(to: runsDirectory.appendingPathComponent(String(format: "%019llu.run", UInt64(200))))
+
+        let result = try await send()
+
+        assertOutcomes(result, delivered: ["OK"], kept: ["BROKEN"])
+        let kept = try XCTUnwrap(result.items.first { $0.id == "BROKEN" })
+        guard case .kept(let error) = kept.outcome else {
+            return XCTFail("expected a kept outcome, got \(kept.outcome)")
+        }
+        XCTAssertTrue(error is DecodingError, "\(error)")
+        XCTAssertEqual(summaryFileCount, 1)
+    }
+
+    /// A mistyped timestamp in a non-writer-named file costs the run its
+    /// ordering, not its listing: it still surfaces as a kept item.
+    func test_summaryWithAMistypedTimestamp_isKeptWithTheError_andStays() async throws {
+        try Data(#"{"run_id": "BROKEN", "started_at_ms": "100"}"#.utf8)
+            .write(to: runsDirectory.appendingPathComponent("foreign.run"))
+
+        let result = try await send()
+
+        assertOutcomes(result, kept: ["BROKEN"])
+        XCTAssertEqual(summaryFileCount, 1)
+    }
+
+    /// A `.run` that does not even yield an identity cannot be keyed, so it
+    /// is not an item: skipped, left on disk for pruning.
+    func test_summaryWithoutAnIdentity_isNotAnItem() async throws {
+        try writeSummary(runID: "OK", startNs: 100)
+        try Data("not json".utf8)
+            .write(to: runsDirectory.appendingPathComponent(String(format: "%019llu.run", UInt64(200))))
+
+        let result = try await send()
+
+        assertOutcomes(result, delivered: ["OK"])
+        XCTAssertEqual(summaryFileCount, 1)
+    }
+
     func test_notInstalled_returnsEmptyWithoutReclaim() async throws {
         let result = try await RunSummarySend.send(
-            store: nil, pipeline: [.init(ClosureStage { $0 })],
-            includesDeliveredPayloads: false, claims: SendClaims())
+            store: nil, pipeline: [passThrough()], claims: SendClaims())
         XCTAssertTrue(result.items.isEmpty)
         XCTAssertEqual(reclaimCount.value, 0)
     }
@@ -173,11 +207,11 @@ final class RunSummarySendTests: XCTestCase {
         try writeSummary(runID: "ORIGINAL", startNs: 100)
 
         let replaced = makeSummary(runID: "REPLACED")
-        let first = ClosureStage { summary in
+        let first = ClosureStage<RunSummary> { summary in
             XCTAssertEqual(summary.runID, "ORIGINAL")
             return replaced
         }
-        let second = ClosureStage { summary in
+        let second = ClosureStage<RunSummary> { summary in
             XCTAssertEqual(summary.runID, "REPLACED")
             return summary
         }
@@ -192,7 +226,7 @@ final class RunSummarySendTests: XCTestCase {
         try writeSummary(runID: "DROPPED", startNs: 100)
         try writeSummary(runID: "SENT", startNs: 200)
 
-        let sampler = ClosureStage { summary in
+        let sampler = ClosureStage<RunSummary> { summary in
             summary.runID == "DROPPED" ? nil : summary
         }
 
@@ -205,7 +239,7 @@ final class RunSummarySendTests: XCTestCase {
         try writeSummary(runID: "FAILING", startNs: 200)
         try writeSummary(runID: "FINE", startNs: 100)
 
-        let flaky = ClosureStage { summary in
+        let flaky = ClosureStage<RunSummary> { summary in
             if summary.runID == "FAILING" {
                 throw StageError()
             }
@@ -225,7 +259,7 @@ final class RunSummarySendTests: XCTestCase {
     func test_keptOutcome_carriesTheStageError() async throws {
         try writeSummary(runID: "FAILING", startNs: 100)
 
-        let flaky = ClosureStage { _ in throw StageError() }
+        let flaky = ClosureStage<RunSummary> { _ in throw StageError() }
         let result = try await send(pipeline: [.init(flaky)])
 
         XCTAssertEqual(result.items.count, 1)
@@ -235,33 +269,28 @@ final class RunSummarySendTests: XCTestCase {
         XCTAssertTrue(error is StageError)
     }
 
-    func test_deliveredPayload_nilByDefault() async throws {
-        try writeSummary(runID: "PLAIN", startNs: 100)
-
-        let result = try await send()
-        guard case .delivered(let payload) = result.items[0].outcome else {
-            return XCTFail("expected .delivered, got \(result.items[0].outcome)")
-        }
-        XCTAssertNil(payload)
-        XCTAssertTrue(result.deliveredPayloads.isEmpty)
-    }
-
-    func test_deliveredPayload_isFinalWhenConfigured() async throws {
+    func test_rewritingStage_laterStagesSeeTheRewrite_itemIdStaysTheRuns() async throws {
         try writeSummary(runID: "ORIGINAL", startNs: 100)
 
         let replaced = makeSummary(runID: "REPLACED")
-        let rewriting = ClosureStage { _ in replaced }
+        let rewriting = ClosureStage<RunSummary> { _ in replaced }
+        let seen = UnfairLock([String]())
+        let capturing = ClosureStage<RunSummary> { summary in
+            seen.withLock { $0.append(summary.runID) }
+            return summary
+        }
 
-        let result = try await send(pipeline: [.init(rewriting)], includesDeliveredPayloads: true)
-        // The payload is the post-pipeline value; the item id stays the run's.
-        XCTAssertEqual(result.items[0].id, "ORIGINAL")
-        XCTAssertEqual(result.deliveredPayloads.map(\.runID), ["REPLACED"])
+        let result = try await send(pipeline: [.init(rewriting), .init(capturing)])
+        // Payloads flow through the stages, never into the result: the item
+        // id stays the run's, and the rewrite is what the next stage sees.
+        assertOutcomes(result, delivered: ["ORIGINAL"])
+        XCTAssertEqual(seen.withLock { $0 }, ["REPLACED"])
     }
 
     func test_durations_areNonNegative() async throws {
         try writeSummary(runID: "TIMED", startNs: 100)
 
-        let slow = ClosureStage { summary in
+        let slow = ClosureStage<RunSummary> { summary in
             try await Task.sleep(nanoseconds: 2_000_000)
             return summary
         }
@@ -276,7 +305,7 @@ final class RunSummarySendTests: XCTestCase {
         try writeSummary(runID: "HELD", startNs: 100)
         try writeSummary(runID: "FREE", startNs: 200)
 
-        let claims = SendClaims()
+        let claims = SendClaims<String>()
         XCTAssertTrue(claims.claim("HELD"))
 
         let result = try await send(claims: claims)
@@ -291,22 +320,20 @@ final class RunSummarySendTests: XCTestCase {
     func test_reentrantSendFromAStage_returnsEmptyWithoutDeadlock() async throws {
         try writeSummary(runID: "OUTER", startNs: 100)
 
-        let claims = SendClaims()
+        let claims = SendClaims<String>()
         let counter = reclaimCount
         let runsDirectory = runsDirectory!
         let sidecarsDirectory = sidecarsDirectory!
-        let reentrant = ClosureStage { summary in
+        let reentrant = ClosureStage<RunSummary> { summary in
             // A send started from inside a stage finds the outer send's run
             // claimed: empty result, no deadlock.
-            let store = RunDataStore(
+            let store = Store(
                 runsDirectory: runsDirectory,
                 runSidecarsDirectory: sidecarsDirectory,
-                maxRunCount: 50,
                 liveRunID: nil
             ) { counter.increment() }
             let inner = try await RunSummarySend.send(
-                store: store, pipeline: [.init(ClosureStage { $0 })],
-                includesDeliveredPayloads: false, claims: claims)
+                store: store, pipeline: [passThrough()], claims: claims)
             XCTAssertTrue(inner.items.isEmpty)
             return summary
         }
@@ -321,8 +348,8 @@ final class RunSummarySendTests: XCTestCase {
             try writeSummary(runID: runID, startNs: UInt64(100 + index))
         }
 
-        let claims = SendClaims()
-        let slow = ClosureStage { summary in
+        let claims = SendClaims<String>()
+        let slow = ClosureStage<RunSummary> { summary in
             try await Task.sleep(nanoseconds: 5_000_000)
             return summary
         }
@@ -344,8 +371,7 @@ final class RunSummarySendTests: XCTestCase {
         try writeSummary(runID: "OTHER", startNs: 200)
 
         let result = try await RunSummarySend.send(
-            store: makeStore(), pipeline: [.init(ClosureStage { $0 })],
-            includesDeliveredPayloads: false,
+            store: makeStore(), pipeline: [passThrough()],
             only: ["WANTED", "UNKNOWN"], claims: SendClaims())
 
         assertOutcomes(result, delivered: ["WANTED"])
@@ -356,8 +382,7 @@ final class RunSummarySendTests: XCTestCase {
         try writeSummary(runID: "PRESENT", startNs: 100)
 
         let result = try await RunSummarySend.send(
-            store: makeStore(), pipeline: [.init(ClosureStage { $0 })],
-            includesDeliveredPayloads: false,
+            store: makeStore(), pipeline: [passThrough()],
             only: [], claims: SendClaims())
 
         XCTAssertTrue(result.items.isEmpty)
@@ -368,7 +393,7 @@ final class RunSummarySendTests: XCTestCase {
         try writeSummary(runID: "FLAKY", startNs: 200)
         try writeSummary(runID: "OK", startNs: 100)
 
-        let failOnce = ClosureStage { summary in
+        let failOnce = ClosureStage<RunSummary> { summary in
             if summary.runID == "FLAKY" {
                 throw StageError()
             }
@@ -379,11 +404,40 @@ final class RunSummarySendTests: XCTestCase {
 
         // The retry call site: resend exactly what the last send kept.
         let retry = try await RunSummarySend.send(
-            store: makeStore(), pipeline: [.init(ClosureStage { $0 })],
-            includesDeliveredPayloads: false,
+            store: makeStore(), pipeline: [passThrough()],
             only: Set(first.kept), claims: SendClaims())
         assertOutcomes(retry, delivered: ["FLAKY"])
         XCTAssertEqual(summaryFileCount, 0)
+    }
+
+    // MARK: - Retention
+
+    func test_bulkSend_prunesBeyondCapBeforeListing() async throws {
+        try writeSummary(runID: "OLDEST", startNs: 100)
+        try writeSummary(runID: "MID", startNs: 200)
+        try writeSummary(runID: "NEW", startNs: 300)
+
+        let result = try await RunSummarySend.send(
+            store: makeStore(maxRunCount: 2), pipeline: [passThrough()], claims: SendClaims())
+
+        // The beyond-cap run is pruned before the listing: not an item, file gone.
+        assertOutcomes(result, delivered: ["NEW", "MID"])
+        XCTAssertEqual(summaryFileCount, 0)
+    }
+
+    func test_only_neverPrunes_soANamedBeyondCapRunIsDelivered() async throws {
+        try writeSummary(runID: "OLDEST", startNs: 100)
+        try writeSummary(runID: "MID", startNs: 200)
+        try writeSummary(runID: "NEW", startNs: 300)
+
+        let result = try await RunSummarySend.send(
+            store: makeStore(maxRunCount: 1), pipeline: [passThrough()],
+            only: ["OLDEST"], claims: SendClaims())
+
+        // A selective send touches only what it names: the beyond-cap named
+        // run is delivered, and the unselected runs' files stay on disk.
+        assertOutcomes(result, delivered: ["OLDEST"])
+        XCTAssertEqual(summaryFileCount, 2)
     }
 
     // MARK: - Cancellation
@@ -392,7 +446,7 @@ final class RunSummarySendTests: XCTestCase {
         try writeSummary(runID: "FIRST", startNs: 200)
         try writeSummary(runID: "SECOND", startNs: 100)
 
-        let cancelling = ClosureStage { summary in
+        let cancelling = ClosureStage<RunSummary> { summary in
             withUnsafeCurrentTask { $0?.cancel() }
             return summary
         }
@@ -401,7 +455,7 @@ final class RunSummarySendTests: XCTestCase {
         let result = try await Task {
             try await RunSummarySend.send(
                 store: store, pipeline: [.init(cancelling)],
-                includesDeliveredPayloads: false, claims: SendClaims())
+                claims: SendClaims())
         }.value
 
         assertOutcomes(result, delivered: ["FIRST"])

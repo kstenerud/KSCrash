@@ -27,26 +27,13 @@
 #import <Foundation/Foundation.h>
 
 #include "KSCrashNamespace.h"
-#import "KSCrashReportFilter.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
-@class KSCrashReportDictionary;
-@class KSCrashReportData;
 @class KSCrashReportStoreConfiguration;
-@class KSCrashSendConfiguration;
-
-typedef NS_ENUM(NSUInteger, KSCrashReportCleanupPolicy) {
-    KSCrashReportCleanupPolicyNever,
-    KSCrashReportCleanupPolicyOnSuccess,
-    KSCrashReportCleanupPolicyAlways,
-} NS_SWIFT_NAME(CrashReportCleanupPolicy);
 
 /** A unique identifier for a crash report. */
 typedef int64_t KSCrashReportID NS_SWIFT_NAME(CrashReportID);
-
-/** Sentinel value indicating no report is available. */
-FOUNDATION_EXTERN const KSCrashReportID KSCrashReportNoID;
 
 NS_SWIFT_NAME(CrashReportStore)
 @interface KSCrashReportStore : NSObject
@@ -58,20 +45,12 @@ NS_SWIFT_NAME(CrashReportStore)
 - (instancetype)init NS_UNAVAILABLE;
 + (instancetype)new NS_UNAVAILABLE;
 
-/** The report store with the default configuration.
- *
- * @param error If an error occurs, upon return contains an NSError object that
- *               describes the problem.
- *
- * @return The default report store or `nil` if an error occurred.
- */
-+ (nullable instancetype)defaultStoreWithError:(NSError **)error;
-
 /** The report store with the given configuration.
  * If the configuration is nil, the default configuration will be used.
  *
  * @param configuration The configuration to use.
- * @param error If an error occurs, upon return contains an NSError object that
+ * @param error Set when the store cannot be initialized (`KSCrashErrorDomain`,
+ * the install error code).
  *
  * @return The report store or `nil` if an error occurred.
  */
@@ -80,94 +59,53 @@ NS_SWIFT_NAME(CrashReportStore)
 
 #pragma mark - Configuration
 
-/** The total number of unsent reports. Note: This is an expensive operation.
+/** The number of unsent reports; 0 when the store cannot be read (see
+ * listReportIDsWithError: for the failure). Note: This is an expensive operation.
  */
 @property(nonatomic, readonly, assign) NSInteger reportCount;
 
 #pragma mark - Reports API
 
-/** Get all unsent report IDs. */
-@property(nonatomic, readonly, strong) NSArray<NSNumber *> *reportIDs;
-
-/** Get the oldest unsent report ID, or KSCrashReportNoID if the store is empty. */
-@property(nonatomic, readonly, assign) KSCrashReportID nextReportID;
-
-/** Send all outstanding crash reports using the given send configuration.
+/** Get report Data. The JSON fields are described in KSCrashReportFields.h.
  *
- * Reports are run through @c configuration.reportFilters in order; the last
- * filter is the terminal sink that actually delivers them. An empty
- * @c reportFilters chain completes with an error.
+ * @param reportID An ID of report.
+ * @param error Set when the report could not be read (`NSFileReadUnknownError`)
+ * or was read but is not a JSON report (`NSFileReadCorruptFileError`).
  *
- * It will only attempt to send the most recent reports; all others will be
- * deleted. Depending on @c configuration.reportCleanupPolicy the sent reports
- * may then be deleted locally.
- *
- * Reports from the current process run are excluded because they may still
- * be updated while the process is alive. To send a specific report by ID
- * (including current-run reports), use
- * @c sendReportWithID:configuration:completion:.
- *
- * @param configuration The filter chain and cleanup policy to use.
- * @param onCompletion Called when sending is complete (nil = ignore).
+ * @return The report's JSON data, or nil on error.
  */
-- (void)sendAllReportsWithConfiguration:(KSCrashSendConfiguration *)configuration
-                             completion:(nullable KSCrashReportFilterCompletion)onCompletion
-    NS_SWIFT_NAME(sendAllReports(with:completion:));
+- (nullable NSData *)reportDataForID:(KSCrashReportID)reportID error:(NSError **)error NS_SWIFT_NAME(reportData(for:));
 
-/** Send a single report by ID using the given send configuration.
- *
- * Equivalent to calling
- * @c sendReportWithID:includeCurrentRun:configuration:completion: with @c YES.
- *
- * @param reportID The ID of the report to send.
- * @param configuration The filter chain and cleanup policy to use.
- * @param onCompletion Called when sending is complete (nil = ignore).
- */
-- (void)sendReportWithID:(KSCrashReportID)reportID
-           configuration:(KSCrashSendConfiguration *)configuration
-              completion:(nullable KSCrashReportFilterCompletion)onCompletion
-    NS_SWIFT_NAME(sendReport(id:with:completion:));
-
-/** Send a single report by ID, optionally including current-run reports.
- *
- * @param reportID The ID of the report to send.
- * @param includeCurrentRun If YES, sends the report even if it belongs to the current run.
- *                          If NO and the report is from the current run, calls onCompletion
- *                          with an error.
- * @param configuration The filter chain and cleanup policy to use.
- * @param onCompletion Called when sending is complete (nil = ignore).
- */
-- (void)sendReportWithID:(KSCrashReportID)reportID
-       includeCurrentRun:(BOOL)includeCurrentRun
-           configuration:(KSCrashSendConfiguration *)configuration
-              completion:(nullable KSCrashReportFilterCompletion)onCompletion
-    NS_SWIFT_NAME(sendReport(id:includeCurrentRun:with:completion:));
-
-/** Get report.
+/** The run a report belongs to, from the report file alone: nothing is
+ * stitched and no run artifacts are touched.
  *
  * @param reportID An ID of report.
  *
- * @return A crash report with a dictionary value. The dictionary fields are described in KSCrashReportFields.h.
+ * @return The run id (a UUID string), or nil when the report cannot be read
+ * or records no valid run.
  */
-- (nullable KSCrashReportDictionary *)reportForID:(KSCrashReportID)reportID NS_SWIFT_NAME(report(for:));
-
-/** Get report Data.
- *
- * @param reportID An ID of report.
- *
- * @return A crash report with a data value.
- */
-- (nullable KSCrashReportData *)reportDataForID:(int64_t)reportID NS_SWIFT_NAME(reportData(for:));
+- (nullable NSString *)runIDForReportID:(KSCrashReportID)reportID NS_SWIFT_NAME(runID(of:));
 
 /** Delete all unsent reports.
  */
 - (void)deleteAllReports;
 
-/** Delete report.
+/** All unsent report IDs, oldest first.
  *
- * @param reportID An ID of report to delete.
+ * @param error Set when the reports directory cannot be enumerated.
+ *
+ * @return The report IDs, or nil on error. An empty store is an empty array.
  */
-- (void)deleteReportWithID:(KSCrashReportID)reportID NS_SWIFT_NAME(deleteReport(with:));
+- (nullable NSArray<NSNumber *> *)listReportIDsWithError:(NSError **)error;
+
+/** Delete one report.
+ *
+ * @param reportID The ID of the report to delete.
+ * @param error Set when the report file could not be removed.
+ *
+ * @return YES if the report file was removed.
+ */
+- (BOOL)removeReportWithID:(KSCrashReportID)reportID error:(NSError **)error;
 
 /** Remove on-disk run data (run sidecar directories and session sidecars) for
  * runs no longer referenced by any report or run summary.

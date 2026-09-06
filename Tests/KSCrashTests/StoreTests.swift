@@ -1,5 +1,5 @@
 //
-//  RunDataStoreTests.swift
+//  StoreTests.swift
 //
 //  Created by Alexander Cohen on 2026-08-09.
 //
@@ -24,19 +24,21 @@
 // THE SOFTWARE.
 //
 
+import KSCrashRecording
 import KSCrashRecordingCore
+import KSCrashSwiftCore
 import XCTest
 
 @testable import KSCrash
 
-final class RunDataStoreTests: XCTestCase {
+final class StoreTests: XCTestCase {
 
     private var runsDirectory: URL!
     private var sidecarsDirectory: URL!
 
     override func setUpWithError() throws {
         let base = URL(fileURLWithPath: NSTemporaryDirectory())
-            .appendingPathComponent("RunDataStoreTests-\(UUID().uuidString)")
+            .appendingPathComponent("StoreTests-\(UUID().uuidString)")
         runsDirectory = base.appendingPathComponent("Runs")
         sidecarsDirectory = base.appendingPathComponent("RunSidecars")
         try FileManager.default.createDirectory(at: runsDirectory, withIntermediateDirectories: true)
@@ -49,40 +51,26 @@ final class RunDataStoreTests: XCTestCase {
 
     // MARK: - Helpers
 
-    private func makeStore(maxRunCount: Int = 50, liveRunID: String? = nil) -> RunDataStore {
-        RunDataStore(
+    private func makeStore(liveRunID: String? = nil) -> Store {
+        Store(
             runsDirectory: runsDirectory,
             runSidecarsDirectory: sidecarsDirectory,
-            maxRunCount: maxRunCount,
             liveRunID: liveRunID
         )
     }
 
-    private func makeSummary(runID: String, startedAtMs: Int64 = 1_000, endedAtMs: Int64 = 2_000) -> RunSummary {
-        RunSummary(
-            schemaVersion: 1,
-            sdkVersion: "test",
-            runID: runID,
-            deviceID: "device",
-            startedAtMs: startedAtMs,
-            endedAtMs: endedAtMs,
-            isBeingDebugged: false,
-            outcome: .init(terminationReason: .clean, userPerceptible: false),
-            durations: .init(activeMs: 0, backgroundMs: 0),
-            sessions: .init(records: []),
-            app: .init(bundleID: "bundle", version: "1", shortVersion: "1", hostKind: .app),
-            os: .init(name: "os", version: "1", build: "1"),
-            device: .init(
-                model: "model", modelFamily: "family", architecture: "arch",
-                binaryArchitecture: "arch", isTranslated: false, isJailbroken: false)
-        )
+    private func snapshotRuns(liveRunID: String? = nil) throws -> [Run] {
+        try makeStore(liveRunID: liveRunID).snapshotRuns()
+    }
+
+    private func summary(at index: Int = 0) throws -> RunSummary? {
+        let store = makeStore()
+        return try store.summary(of: store.snapshotRuns()[index])
     }
 
     @discardableResult
     private func writeSummary(_ summary: RunSummary, startNs: UInt64) throws -> URL {
-        let url = runsDirectory.appendingPathComponent(String(format: "%019llu.run", startNs))
-        try JSONEncoder().encode(summary).write(to: url)
-        return url
+        try KSCrashTests.writeSummary(summary, startNs: startNs, in: runsDirectory)
     }
 
     private func writeSessions(runID: String, cuts: [(perceptible: Bool, user: String?)]) {
@@ -110,13 +98,13 @@ final class RunDataStoreTests: XCTestCase {
 
     func test_runs_missingDirectory_isEmpty() throws {
         try FileManager.default.removeItem(at: runsDirectory)
-        XCTAssertEqual(try makeStore().runs().count, 0)
+        XCTAssertEqual(try snapshotRuns().count, 0)
     }
 
     func test_runs_missingSidecarsDirectory_isEmptyNotAnError() throws {
         try writeSummary(makeSummary(runID: "NOSIDE"), startNs: 100)
         try FileManager.default.removeItem(at: sidecarsDirectory)
-        let runs = try makeStore().runs()
+        let runs = try snapshotRuns()
         XCTAssertEqual(runs.count, 1)
         XCTAssertNil(runs[0].sidecarDirectory)
     }
@@ -130,7 +118,7 @@ final class RunDataStoreTests: XCTestCase {
         // Unreadable is a broken store, not "no sidecars": mistaking it for
         // absence would deliver pending summaries without their metadata and
         // let reclaim drop the still-present sidecars.
-        XCTAssertThrowsError(try makeStore().runs())
+        XCTAssertThrowsError(try snapshotRuns())
     }
 
     func test_runs_ordersNewestFirst() throws {
@@ -138,8 +126,19 @@ final class RunDataStoreTests: XCTestCase {
         try writeSummary(makeSummary(runID: "BBB"), startNs: 300)
         try writeSummary(makeSummary(runID: "CCC"), startNs: 200)
 
-        let runs = try makeStore().runs()
+        let runs = try snapshotRuns()
         XCTAssertEqual(runs.map(\.runID), ["BBB", "CCC", "AAA"])
+    }
+
+    func test_runs_corruptTimestampSaturatesNewest_insteadOfWrapping() throws {
+        try writeSummary(makeSummary(runID: "HONEST"), startNs: 100)
+        // Non-writer-named, so ordering falls back to the decoded timestamp;
+        // Int64.max * 1e6 would wrap far below any honest key.
+        try Data(#"{"run_id": "CORRUPT", "started_at_ms": 9223372036854775807}"#.utf8)
+            .write(to: runsDirectory.appendingPathComponent("foreign.run"))
+
+        let runs = try snapshotRuns()
+        XCTAssertEqual(runs.map(\.runID), ["CORRUPT", "HONEST"])
     }
 
     func test_runs_groupsArtifactsByRunID() throws {
@@ -148,10 +147,10 @@ final class RunDataStoreTests: XCTestCase {
         writeSessions(runID: runID, cuts: [(true, nil)])
         try writeUserInfo(runID: runID) { kskvs_setString($0, "k", "v") }
 
-        let runs = try makeStore().runs()
+        let runs = try snapshotRuns()
         XCTAssertEqual(runs.count, 1)
         XCTAssertEqual(runs[0].runID, runID)
-        XCTAssertEqual(runs[0].summaryFiles.count, 1)
+        XCTAssertNotNil(runs[0].summaryFile)
         XCTAssertNotNil(runs[0].sessionsFile)
         XCTAssertNotNil(runs[0].sidecarDirectory)
     }
@@ -160,9 +159,9 @@ final class RunDataStoreTests: XCTestCase {
         try writeSummary(makeSummary(runID: "WITHSUMMARY"), startNs: 100)
         writeSessions(runID: "ORPHAN", cuts: [(true, nil)])
 
-        let runs = try makeStore().runs()
+        let runs = try snapshotRuns()
         XCTAssertEqual(runs.map(\.runID), ["WITHSUMMARY", "ORPHAN"])
-        XCTAssertNil(runs[1].summary())
+        XCTAssertNil(try summary(at: 1))
     }
 
     func test_runs_excludesLiveRun_evenArtifactOnly() throws {
@@ -170,8 +169,8 @@ final class RunDataStoreTests: XCTestCase {
         try writeSummary(makeSummary(runID: "LIVE"), startNs: 200)
         writeSessions(runID: "LIVEORPHAN", cuts: [(true, nil)])
 
-        XCTAssertEqual(try makeStore(liveRunID: "LIVE").runs().map(\.runID), ["DEAD", "LIVEORPHAN"])
-        XCTAssertEqual(try makeStore(liveRunID: "LIVEORPHAN").runs().map(\.runID), ["LIVE", "DEAD"])
+        XCTAssertEqual(try snapshotRuns(liveRunID: "LIVE").map(\.runID), ["DEAD", "LIVEORPHAN"])
+        XCTAssertEqual(try snapshotRuns(liveRunID: "LIVEORPHAN").map(\.runID), ["LIVE", "DEAD"])
     }
 
     func test_runs_skipsCorruptAndRunIDLessSummaries() throws {
@@ -179,7 +178,7 @@ final class RunDataStoreTests: XCTestCase {
         try writeSummary(makeSummary(runID: ""), startNs: 100)
         try writeSummary(makeSummary(runID: "GOOD"), startNs: 200)
 
-        let runs = try makeStore().runs()
+        let runs = try snapshotRuns()
         XCTAssertEqual(runs.map(\.runID), ["GOOD"])
         // Skipped files stay on disk for pruning.
         XCTAssertEqual(
@@ -187,24 +186,9 @@ final class RunDataStoreTests: XCTestCase {
                 .count, 3)
     }
 
-    func test_runs_duplicateRunID_oneStoreNewestSummary() throws {
-        try writeSummary(makeSummary(runID: "DUP", startedAtMs: 1), startNs: 100)
-        try writeSummary(makeSummary(runID: "DUP", startedAtMs: 2), startNs: 200)
-
-        let runs = try makeStore().runs()
-        XCTAssertEqual(runs.count, 1)
-        XCTAssertEqual(runs[0].summaryFiles.count, 2)
-        XCTAssertEqual(runs[0].summary()?.startedAtMs, 2)
-
-        try runs[0].removeSummary()
-        XCTAssertEqual(
-            try FileManager.default.contentsOfDirectory(atPath: runsDirectory.path).filter { $0.hasSuffix(".run") }
-                .count, 0)
-    }
-
     // MARK: - Prune
 
-    func test_runs_prunesOldestBeyondMaxRunCount() throws {
+    func test_prune_deletesOldestBeyondCap() throws {
         for ns in [100, 200, 300, 400] as [UInt64] {
             try writeSummary(makeSummary(runID: "RUN\(ns)"), startNs: ns)
         }
@@ -213,18 +197,22 @@ final class RunDataStoreTests: XCTestCase {
             to: runsDirectory.appendingPathComponent("5.run"))
         try Data("x".utf8).write(to: runsDirectory.appendingPathComponent("notdigits.run"))
 
-        let runs = try makeStore(maxRunCount: 2).runs()
-        XCTAssertEqual(runs.map(\.runID), ["RUN400", "RUN300"])
+        let store = makeStore()
+        store.pruneRunSummaries(keepingNewest: 2)
+
+        XCTAssertEqual(try store.snapshotRuns().map(\.runID), ["RUN400", "RUN300"])
         let remaining = try FileManager.default.contentsOfDirectory(atPath: runsDirectory.path).sorted()
         // Oldest three writer-named files pruned; the non-writer-named file is untouched.
         XCTAssertEqual(remaining, ["0000000000000000300.run", "0000000000000000400.run", "notdigits.run"])
     }
 
-    func test_runs_pruneDisabled_keepsEverything() throws {
+    func test_prune_zeroCap_keepsEverything() throws {
         for ns in [100, 200, 300] as [UInt64] {
             try writeSummary(makeSummary(runID: "RUN\(ns)"), startNs: ns)
         }
-        XCTAssertEqual(try makeStore(maxRunCount: 0).runs().count, 3)
+        let store = makeStore()
+        store.pruneRunSummaries(keepingNewest: 0)
+        XCTAssertEqual(try store.snapshotRuns().count, 3)
     }
 
     // MARK: - Sessions merge
@@ -234,7 +222,7 @@ final class RunDataStoreTests: XCTestCase {
         try writeSummary(makeSummary(runID: runID, endedAtMs: .max), startNs: 100)
         writeSessions(runID: runID, cuts: [(true, nil), (true, "alice"), (false, "alice")])
 
-        let summary = try XCTUnwrap(makeStore().runs()[0].summary())
+        let summary = try XCTUnwrap(summary())
         let records = summary.sessions.records
         XCTAssertEqual(records.count, 3)
 
@@ -258,7 +246,7 @@ final class RunDataStoreTests: XCTestCase {
         try writeSummary(makeSummary(runID: runID, endedAtMs: 0), startNs: 100)
         writeSessions(runID: runID, cuts: [(true, nil)])
 
-        let record = try XCTUnwrap(makeStore().runs()[0].summary()?.sessions.records.first)
+        let record = try XCTUnwrap(summary()?.sessions.records.first)
         XCTAssertEqual(record.endedAtMs, record.startedAtMs)
     }
 
@@ -273,7 +261,7 @@ final class RunDataStoreTests: XCTestCase {
         var badGUID: [CChar] = [CChar(bitPattern: 0xC3), CChar(bitPattern: 0x28), 0]
         kssession_testcode_appendRawEntry(sessionsPath, UInt64.max / 2, true, &badGUID, "bob", false)
 
-        let records = try XCTUnwrap(makeStore().runs()[0].summary()).sessions.records
+        let records = try XCTUnwrap(summary()).sessions.records
         // The corrupt record is dropped; the valid ones survive, and the last
         // valid one's end still comes from its (corrupt) successor's start,
         // not from the run's end (which would be .max here).
@@ -293,7 +281,7 @@ final class RunDataStoreTests: XCTestCase {
         kssession_testcode_appendRawEntry(
             sessionsPath, UInt64.max / 2, true, "AAAA1111-2222-3333-4444-555555555555", nil, true)
 
-        let records = try XCTUnwrap(makeStore().runs()[0].summary()).sessions.records
+        let records = try XCTUnwrap(summary()).sessions.records
         XCTAssertEqual(records.count, 2)
         // 128 un-terminated bytes on disk; the reader's forced terminator caps
         // the user at 127 characters.
@@ -310,16 +298,16 @@ final class RunDataStoreTests: XCTestCase {
 
         // Unreadable is unknown, not absent: delivering would ship empty
         // records and then destroy the intact file.
-        XCTAssertNil(try makeStore().runs()[0].summary())
+        XCTAssertNil(try summary())
 
         try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: sessionsPath)
-        let records = try XCTUnwrap(makeStore().runs()[0].summary()).sessions.records
+        let records = try XCTUnwrap(summary()).sessions.records
         XCTAssertEqual(records.map(\.userID), ["alice"])
     }
 
     func test_summary_withoutSessionsFile_keepsEmptyRecords() throws {
         try writeSummary(makeSummary(runID: "NOSESSIONS"), startNs: 100)
-        let summary = try XCTUnwrap(makeStore().runs()[0].summary())
+        let summary = try XCTUnwrap(summary())
         XCTAssertEqual(summary.sessions.records.count, 0)
     }
 
@@ -339,7 +327,7 @@ final class RunDataStoreTests: XCTestCase {
             kskvs_removeValue(store, "gone")
         }
 
-        let metadata = try XCTUnwrap(makeStore().runs()[0].summary()?.metadata)
+        let metadata = try XCTUnwrap(summary()?.metadata)
         XCTAssertEqual(metadata.value(forKey: "name", as: String.self), "alice")
         XCTAssertEqual(metadata.value(forKey: "count", as: Int64.self), -42)
         XCTAssertEqual(metadata.value(forKey: "big", as: UInt64.self), 42)
@@ -360,8 +348,7 @@ final class RunDataStoreTests: XCTestCase {
         let storedNs = UInt64(original.timeIntervalSince1970 * 1e9)
         try writeUserInfo(runID: runID) { kskvs_setDate($0, "when", storedNs) }
 
-        let stitched = try XCTUnwrap(
-            makeStore().runs()[0].summary()?.metadata?.value(forKey: "when", as: Date.self))
+        let stitched = try XCTUnwrap(summary()?.metadata?.value(forKey: "when", as: Date.self))
         // Identical to what the report userInfo stitch produces for the same key.
         XCTAssertEqual(stitched, Date(timeIntervalSince1970: Double(storedNs) / 1e9))
         XCTAssertEqual(stitched.timeIntervalSince1970, original.timeIntervalSince1970, accuracy: 1e-6)
@@ -374,13 +361,13 @@ final class RunDataStoreTests: XCTestCase {
             kskvs_setString(store, "k", "v")
             kskvs_removeValue(store, "k")
         }
-        let summary = try XCTUnwrap(makeStore().runs()[0].summary())
+        let summary = try XCTUnwrap(summary())
         XCTAssertNil(summary.metadata)
     }
 
     func test_summary_metadata_nilWithoutSidecar() throws {
         try writeSummary(makeSummary(runID: "BARE"), startNs: 100)
-        let summary = try XCTUnwrap(makeStore().runs()[0].summary())
+        let summary = try XCTUnwrap(summary())
         XCTAssertNil(summary.metadata)
     }
 
@@ -394,12 +381,12 @@ final class RunDataStoreTests: XCTestCase {
         // A crash before the header write leaves a short file; no later read
         // can recover anything, so the summary still delivers.
         try Data([0x00, 0x01]).write(to: path)
-        XCTAssertNil(try XCTUnwrap(makeStore().runs()[0].summary()).metadata)
+        XCTAssertNil(try XCTUnwrap(summary()).metadata)
 
         // A crash after ftruncate but before the header write leaves a full
         // page of zeros (bad magic); same outcome.
         try Data(repeating: 0, count: 4096).write(to: path)
-        XCTAssertNil(try XCTUnwrap(makeStore().runs()[0].summary()).metadata)
+        XCTAssertNil(try XCTUnwrap(summary()).metadata)
     }
 
     func test_summary_unreadableUserInfoSidecar_skipsTheRunInsteadOfDroppingMetadata() throws {
@@ -413,10 +400,10 @@ final class RunDataStoreTests: XCTestCase {
 
         // Unreadable is unknown, not absent: delivering would ship the
         // summary without its metadata and then delete the intact `.run`.
-        XCTAssertNil(try makeStore().runs()[0].summary())
+        XCTAssertNil(try summary())
 
         try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: path)
-        let metadata = try XCTUnwrap(makeStore().runs()[0].summary()?.metadata)
+        let metadata = try XCTUnwrap(summary()?.metadata)
         XCTAssertEqual(metadata.value(forKey: "k", as: String.self), "v")
     }
 
@@ -428,10 +415,11 @@ final class RunDataStoreTests: XCTestCase {
         writeSessions(runID: runID, cuts: [(true, nil)])
         try writeUserInfo(runID: runID) { kskvs_setString($0, "k", "v") }
 
-        let run = try makeStore().runs()[0]
-        try run.removeSummary()
+        let store = makeStore()
+        let run = try store.snapshotRuns()[0]
+        try store.removeSummary(of: run)
 
-        XCTAssertFalse(FileManager.default.fileExists(atPath: run.summaryFiles[0].path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: try XCTUnwrap(run.summaryFile).path))
         XCTAssertTrue(FileManager.default.fileExists(atPath: try XCTUnwrap(run.sessionsFile).path))
         XCTAssertTrue(
             FileManager.default.fileExists(
@@ -439,20 +427,163 @@ final class RunDataStoreTests: XCTestCase {
                     .path))
 
         // The next snapshot sees the run as artifact-only.
-        let after = try makeStore().runs()
+        let after = try store.snapshotRuns()
         XCTAssertEqual(after.count, 1)
-        XCTAssertNil(after[0].summary())
+        XCTAssertNil(try store.summary(of: after[0]))
     }
 
     func test_reclaimOrphans_invokesInjectedReclaim() {
         let called = expectation(description: "reclaim")
-        let store = RunDataStore(
+        let store = Store(
             runsDirectory: runsDirectory,
             runSidecarsDirectory: sidecarsDirectory,
-            maxRunCount: 1,
             liveRunID: nil
         ) { called.fulfill() }
         store.reclaimOrphans()
         wait(for: [called], timeout: 1)
+    }
+
+    // MARK: - Reports
+
+    private struct BridgeError: Error {}
+
+    private func makeReportStore(
+        _ reports: FakeReports, listFails: Bool = false, removeFails: Bool = false
+    ) -> Store {
+        Store(
+            runsDirectory: runsDirectory,
+            runSidecarsDirectory: sidecarsDirectory,
+            liveRunID: nil,
+            reports: ReportBridge(
+                list: {
+                    if listFails { throw BridgeError() }
+                    return reports.ids
+                },
+                read: { reports.data(for: $0) },
+                runID: { _ in nil },
+                remove: {
+                    if removeFails { throw BridgeError() }
+                    reports.remove($0)
+                }
+            )
+        )
+    }
+
+    /// In-memory stand-in for the C report store.
+    private final class FakeReports: Sendable {
+        private let storage: UnfairLock<[ReportID: Data]>
+
+        init(_ contents: [ReportID: Data]) {
+            storage = UnfairLock(contents)
+        }
+
+        var ids: [ReportID] { storage.withLock { Array($0.keys) } }
+        func data(for id: ReportID) -> Data? { storage.withLock { $0[id] } }
+        func remove(_ id: ReportID) { storage.withLock { _ = $0.removeValue(forKey: id) } }
+    }
+
+    private func makeReportData(runID: String = "RUN") throws -> Data {
+        try JSONEncoder().encode(
+            Report(
+                crash: .init(error: CrashError(type: .signal)),
+                report: .init(id: "report-id", runId: runID)
+            ))
+    }
+
+    func test_snapshotReportIDs_newestFirst() throws {
+        let reports = FakeReports([3: Data(), 1: Data(), 2: Data()])
+        XCTAssertEqual(try makeReportStore(reports).snapshotReportIDs(), [3, 2, 1])
+    }
+
+    func test_snapshotReportIDs_throwsWhenReportListFails() {
+        XCTAssertThrowsError(try makeReportStore(FakeReports([:]), listFails: true).snapshotReportIDs())
+    }
+
+    func test_snapshotReportIDs_doesNotTouchTheRunsHalf() throws {
+        try FileManager.default.removeItem(at: runsDirectory)
+        try makeUnreadableDirectory(at: runsDirectory)
+        let reports = FakeReports([1: Data()])
+        XCTAssertEqual(try makeReportStore(reports).snapshotReportIDs(), [1])
+    }
+
+    func test_snapshotRuns_doesNotTouchTheReportsHalf() throws {
+        try writeSummary(makeSummary(runID: "RUN"), startNs: 100)
+        let store = makeReportStore(FakeReports([:]), listFails: true)
+        XCTAssertEqual(try store.snapshotRuns().map(\.runID), ["RUN"])
+    }
+
+    func test_report_decodesStitchedData() throws {
+        let reports = FakeReports([7: try makeReportData(runID: "SEVEN")])
+        let report = try XCTUnwrap(makeReportStore(reports).report(7))
+        XCTAssertEqual(report.report.runId, "SEVEN")
+    }
+
+    func test_report_nilWhenMissing_throwsWhenUndecodable() throws {
+        let reports = FakeReports([5: Data("not json".utf8)])
+        let store = makeReportStore(reports)
+        XCTAssertNil(try store.report(6))
+        XCTAssertThrowsError(try store.report(5)) { error in
+            XCTAssertTrue(error is DecodingError, "\(error)")
+        }
+    }
+
+    func test_report_propagatesTheBridgeReadError() throws {
+        struct NotAReport: Error {}
+        let store = Store(
+            runsDirectory: runsDirectory,
+            runSidecarsDirectory: sidecarsDirectory,
+            liveRunID: nil,
+            reports: ReportBridge(
+                list: { [5] }, read: { _ in throw NotAReport() }, runID: { _ in nil }, remove: { _ in })
+        )
+        XCTAssertThrowsError(try store.report(5)) { error in
+            XCTAssertTrue(error is NotAReport, "\(error)")
+        }
+    }
+
+    // MARK: - Production bridge (C-backed report store)
+
+    /// The production read must tell "not a report" (the C store read the file
+    /// but found no JSON object) from "cannot read right now": the first is
+    /// thrown, the second is nil.
+    func test_productionBridge_throwsForANonReportFile_nilForAMissingOne() throws {
+        let reportsDirectory = runsDirectory.deletingLastPathComponent().appendingPathComponent("Reports")
+        let configuration = CrashReportStoreConfiguration()
+        configuration.reportsPath = reportsDirectory.path
+        configuration.appName = "App"
+        let reportStore = try CrashReportStore(configuration: configuration)
+        let store = Store(
+            runsDirectory: runsDirectory,
+            runSidecarsDirectory: sidecarsDirectory,
+            liveRunID: nil,
+            maxRunCount: 50,
+            reportStore: reportStore
+        )
+
+        // Named like the C store names them: <app>-report-<16 hex digits>.json.
+        func reportURL(_ id: ReportID) -> URL {
+            reportsDirectory.appendingPathComponent(String(format: "App-report-%016llx.json", id))
+        }
+        try makeReportData(runID: "REAL").write(to: reportURL(1))
+        try Data("[1,2]".utf8).write(to: reportURL(2))
+        try Data().write(to: reportURL(3))
+
+        XCTAssertEqual(try store.snapshotReportIDs(), [3, 2, 1])
+        XCTAssertEqual(try store.report(1)?.report.runId, "REAL")
+        for id in [ReportID(2), 3] {
+            XCTAssertThrowsError(try store.report(id), "report \(id)") { error in
+                XCTAssertEqual((error as? CocoaError)?.code, .fileReadCorruptFile, "\(error)")
+            }
+        }
+        XCTAssertNil(try store.report(4))
+        XCTAssertEqual(try store.snapshotReportIDs(), [3, 2, 1], "nothing is deleted by a read")
+    }
+
+    func test_removeReport_removesAndPropagatesFailure() throws {
+        let reports = FakeReports([9: try makeReportData()])
+        try makeReportStore(reports).removeReport(9)
+        XCTAssertNil(reports.data(for: 9))
+
+        XCTAssertThrowsError(try makeReportStore(reports, removeFails: true).removeReport(9))
     }
 }

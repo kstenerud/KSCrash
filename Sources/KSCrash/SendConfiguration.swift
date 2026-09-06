@@ -33,15 +33,16 @@ public struct SendConfiguration: Sendable {
     /// `SendError.emptyPipeline` on an empty one.
     public var runSummaryPipeline: [AnyPipelineStage<RunSummary>]
 
-    /// Whether delivered items carry their final payload in the result.
-    /// Defaults to false, so a send never accumulates payloads in memory.
-    public var includesDeliveredPayloads: Bool
+    /// The stages a crash report passes through, in order. Must hold at least
+    /// one stage by the time reports are sent: `sendReports` throws
+    /// `SendError.emptyPipeline` on an empty one.
+    public var reportPipeline: [AnyPipelineStage<Report>]
 
     public init(
         runSummaryPipeline: [AnyPipelineStage<RunSummary>] = [],
-        includesDeliveredPayloads: Bool = false
+        reportPipeline: [AnyPipelineStage<Report>] = []
     ) {
         self.runSummaryPipeline = runSummaryPipeline
-        self.includesDeliveredPayloads = includesDeliveredPayloads
+        self.reportPipeline = reportPipeline
     }
 }

@@ -27,9 +27,7 @@
 import Combine
 import CrashCallback
 import Foundation
-import KSCrashDemangleFilter
-import KSCrashFilters
-import KSCrashRecording
+import KSCrash
 import Logging
 import SwiftUI
 
@@ -131,9 +129,7 @@ public class InstallBridge: ObservableObject {
     }
 
     // Installs normally and flags that report sending should use the sample
-    // filter chain (demangle -> SampleFilter -> SampleSink). With installations
-    // removed, the chain is now passed at send time instead of being baked into
-    // an installation subclass.
+    // pipeline (SampleLogStage -> KeepOnDiskStage), passed at send time.
     public func useSampleSendPipeline() {
         guard !installed else {
             error = .alreadyInstalled
@@ -149,19 +145,21 @@ public class InstallBridge: ObservableObject {
     }
 
     public func sendViaSamplePipeline(completion: @escaping (Error?) -> Void) {
-        guard let store = reportStore else {
+        guard installed else {
             completion(InstallationError.unexpectedError("KSCrash is not installed"))
             return
         }
-        let cfg = CrashSendConfiguration()
-        cfg.reportFilters = [
-            CrashReportFilterDemangle(),
-            SampleFilter(),
-            SampleSink(),
-        ]
-        cfg.reportCleanupPolicy = .never
-        store.sendAllReports(with: cfg) { _, error in
-            completion(error)
+        Task { @MainActor in
+            do {
+                let configuration = SendConfiguration(reportPipeline: [
+                    AnyPipelineStage(SampleLogStage()),
+                    AnyPipelineStage(KeepOnDiskStage()),
+                ])
+                _ = try await KSCrash.shared.sendReports(with: configuration)
+                completion(nil)
+            } catch {
+                completion(error)
+            }
         }
     }
 

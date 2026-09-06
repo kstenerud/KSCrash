@@ -163,6 +163,24 @@ public struct CrashError: Codable, Sendable, Equatable {
     /// Termination reason for resource termination reports.
     public let terminationReason: TerminationReason?
 
+    /// Memory state at the time of a memory termination.
+    public let memoryTermination: Metadata?
+
+    /// Data added by custom monitors, keyed by monitor id. The monitor that
+    /// caused the event writes its section here under the id carried in
+    /// ``type``. nil when the error carries no custom-monitor data. Use
+    /// ``monitorData(_:for:)`` to read a section as its concrete type.
+    public let monitorData: [String: Metadata]?
+
+    /// The named monitor's section decoded as `type`. nil when the error
+    /// carries no section for that monitor; throws when the section exists
+    /// but does not decode as `type`.
+    public func monitorData<Value: Decodable>(
+        _ type: Value.Type = Value.self, for monitorID: String
+    ) throws -> Value? {
+        try monitorData.decodedSection(Value.self, for: monitorID)
+    }
+
     public init(
         address: UInt64? = nil,
         mach: MachError? = nil,
@@ -178,7 +196,9 @@ public struct CrashError: Codable, Sendable, Equatable {
         profile: ProfileInfo? = nil,
         isFatal: Bool? = nil,
         isCleanExit: Bool? = nil,
-        terminationReason: TerminationReason? = nil
+        terminationReason: TerminationReason? = nil,
+        memoryTermination: Metadata? = nil,
+        monitorData: [String: Metadata]? = nil
     ) {
         self.address = address
         self.mach = mach
@@ -195,6 +215,8 @@ public struct CrashError: Codable, Sendable, Equatable {
         self.isFatal = isFatal
         self.isCleanExit = isCleanExit
         self.terminationReason = terminationReason
+        self.memoryTermination = memoryTermination
+        self.monitorData = monitorData
     }
 
     enum CodingKeys: String, CodingKey {
@@ -213,5 +235,8 @@ public struct CrashError: Codable, Sendable, Equatable {
         case isFatal = "is_fatal"
         case isCleanExit = "is_clean_exit"
         case terminationReason = "termination_reason"
+        case memoryTermination = "memory_termination"
+        case monitorData = "monitor_data"
     }
+
 }

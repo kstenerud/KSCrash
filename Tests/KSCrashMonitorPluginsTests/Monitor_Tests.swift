@@ -144,6 +144,31 @@ final class Monitor_Tests: XCTestCase {
         kscm_removeMonitor(again.api)
     }
 
+    final class SectionMonitor: CrashMonitor {
+        static let id = "SectionMonitor"
+        init(host: MonitorHost<Void>, configuration: Void) {}
+        func writeReportSection(payload: Void, writer: ReportSectionWriter) {
+            writer.add("custom_key", "custom_value")
+        }
+    }
+
+    func testReportSectionIsWrittenDirectlyIntoTheWritersFence() {
+        // The crash-time writer opens the monitor's section itself, under
+        // crash.error.monitor_data.<id> or the schema home of a typed section like profile
+        // (KSCrashReportC_Tests pins that side). A bridge that opened another object named
+        // by the id would double-nest every section written through the layer.
+        let bridge = Monitor(SectionMonitor.self)
+        recordedWriterEvents = []
+        var writer = makeRecordingWriter()
+        var context = KSCrash_MonitorContext()
+        withUnsafePointer(to: &context) { context in
+            withUnsafePointer(to: &writer) { writer in
+                bridge.api.pointee.writeInReportSection(context, writer, bridge.api.pointee.context)
+            }
+        }
+        XCTAssertEqual(recordedWriterEvents, ["string custom_key=custom_value"])
+    }
+
     final class StitchMonitor: CrashMonitor {
         static let id = "StitchMonitor"
         let host: MonitorHost<Void>
@@ -213,4 +238,25 @@ final class Monitor_Tests: XCTestCase {
         XCTAssertEqual(dict["a"] as? Int, 1)
         XCTAssertEqual(dict.count, 1)
     }
+}
+
+// MARK: - Recording writer
+
+/// What the bridge asked of a `ReportWriter`. File scope, because the writer's function
+/// pointers must be non-capturing closures.
+private nonisolated(unsafe) var recordedWriterEvents: [String] = []
+
+private func makeRecordingWriter() -> ReportWriter {
+    var writer = ReportWriter()
+    writer.beginObject = { _, name in
+        recordedWriterEvents.append("begin " + (name.map { String(cString: $0) } ?? ""))
+    }
+    writer.beginArray = { _, name in
+        recordedWriterEvents.append("array " + (name.map { String(cString: $0) } ?? ""))
+    }
+    writer.endContainer = { _ in recordedWriterEvents.append("end") }
+    writer.addStringElement = { _, name, value in
+        recordedWriterEvents.append("string \(String(cString: name!))=\(String(cString: value!))")
+    }
+    return writer
 }

@@ -32,17 +32,15 @@ extension KSCrash {
     /// Send the pending run summaries through
     /// `configuration.runSummaryPipeline`, one at a time, newest run first,
     /// and return the per-run outcomes. Summaries are only ever handed to
-    /// stages one at a time; the result carries payloads only when
-    /// `configuration.includesDeliveredPayloads` is set. Concurrent sends
-    /// partition the pending runs between them. Throws when the run store
-    /// cannot be read; cancellation stops between runs and returns the
+    /// stages one at a time, and never held in the result. Concurrent sends
+    /// partition the pending runs between them. Throws only when the run
+    /// store cannot be read; cancellation stops between runs and returns the
     /// outcomes so far. Before `install`, the result is empty. An empty
     /// `runSummaryPipeline` throws `SendError.emptyPipeline`.
     public func sendRunSummaries(with configuration: SendConfiguration) async throws -> SendResult<RunSummary> {
         try await RunSummarySend.send(
-            store: Self.runDataStore(reportStore: reportStore),
-            pipeline: configuration.runSummaryPipeline,
-            includesDeliveredPayloads: configuration.includesDeliveredPayloads
+            store: Self.store(reportStore: reportStore),
+            pipeline: configuration.runSummaryPipeline
         )
     }
 
@@ -54,9 +52,43 @@ extension KSCrash {
         only ids: [String]
     ) async throws -> SendResult<RunSummary> {
         try await RunSummarySend.send(
-            store: Self.runDataStore(reportStore: reportStore),
+            store: Self.store(reportStore: reportStore),
             pipeline: configuration.runSummaryPipeline,
-            includesDeliveredPayloads: configuration.includesDeliveredPayloads,
+            only: Set(ids)
+        )
+    }
+
+    /// Send the pending crash reports through `configuration.reportPipeline`,
+    /// one at a time, newest report first, and return the per-report
+    /// outcomes. Reports are only ever handed to stages one at a time, and
+    /// never held in the result. Reports from the
+    /// current run are skipped, they may still be updated; use
+    /// `sendReports(with:only:)` to send one deliberately. A report that does
+    /// not decode is reported as kept, carrying the decode error, and stays on
+    /// disk. Concurrent sends partition the pending reports between them.
+    /// Throws only when the report store cannot be read; cancellation stops
+    /// between reports and returns the outcomes so far. Before `install`, the
+    /// result is empty. An empty `reportPipeline` throws
+    /// `SendError.emptyPipeline`.
+    public func sendReports(with configuration: SendConfiguration) async throws -> SendResult<Report> {
+        try await ReportSend.send(
+            store: Self.store(reportStore: reportStore),
+            pipeline: configuration.reportPipeline
+        )
+    }
+
+    /// Like `sendReports(with:)`, but only for the reports whose ids are in
+    /// `ids` (the ids a previous result reported), and current-run reports
+    /// are sent rather than skipped: naming an id is a deliberate choice.
+    /// Every other pending report is untouched and absent from the result.
+    /// Unknown ids match nothing; an empty `ids` sends nothing.
+    public func sendReports(
+        with configuration: SendConfiguration,
+        only ids: [ReportID]
+    ) async throws -> SendResult<Report> {
+        try await ReportSend.send(
+            store: Self.store(reportStore: reportStore),
+            pipeline: configuration.reportPipeline,
             only: Set(ids)
         )
     }
@@ -65,11 +97,12 @@ extension KSCrash {
     // of install-time configuration (paths resolve to NULL before install, so
     // early sends correctly see no store), and cross-send coordination lives
     // in SendClaims, not here. Nothing is gained by caching it.
-    private static func runDataStore(reportStore: CrashReportStore?) -> RunDataStore? {
+    private static func store(reportStore: CrashReportStore?) -> Store? {
         // The resolved paths can be non-NULL while an install is still in
         // flight or after one failed partway; a nonnil reportStore is what
-        // marks a completed install, and it also carries the reclaim. Without
-        // it there is no store, and the send stays empty as documented.
+        // marks a completed install, and it also backs the report half and
+        // the reclaim. Without it there is no store, and the send stays
+        // empty as documented.
         guard let reportStore,
             let runsPath = kscrash_getRunSummariesPath(),
             let sidecarsPath = kscrash_getRunSidecarsPath()
@@ -77,12 +110,12 @@ extension KSCrash {
             return nil
         }
         let liveRunID = String(cString: kscrash_getRunID())
-        return RunDataStore(
+        return Store(
             runsDirectory: URL(fileURLWithPath: String(cString: runsPath), isDirectory: true),
             runSidecarsDirectory: URL(fileURLWithPath: String(cString: sidecarsPath), isDirectory: true),
-            maxRunCount: Int(kscrash_getMaxRunSummaryCount()),
             liveRunID: liveRunID.isEmpty ? nil : liveRunID,
-            reclaim: { reportStore.reclaimOrphanedRunData() }
+            maxRunCount: Int(kscrash_getMaxRunSummaryCount()),
+            reportStore: reportStore
         )
     }
 }

@@ -116,7 +116,7 @@ typedef struct KSCrashMonitorAPI {
      *
      * This callback is invoked when the report writer encounters a monitor type it doesn't
      * have built-in handling for. The monitor can use the writer to add custom JSON data
-     * to the report's error section under a key matching the monitor's ID.
+     * to the report, placed under `crash.error.monitor_data.<monitorID>`.
      *
      * @param eventContext The monitor context containing event information.
      * @param writer The report writer to use for adding JSON elements.
@@ -133,6 +133,16 @@ typedef struct KSCrashMonitorAPI {
      * When the report store finds a matching sidecar file for this monitor,
      * it calls this function to merge sidecar data into the decoded report
      * dictionary before delivery.
+     *
+     * Placement contract: a custom monitor puts its data in a
+     * framework-owned namespace, under `monitor_data.<monitorID>` at the
+     * report root (delivery-time data) or under
+     * `crash.error.monitor_data.<monitorID>` (the crashing monitor's own
+     * section). A section must be a JSON object; anything else fails typed
+     * delivery of the whole report. Mutating standard report fields is
+     * reserved for built-in monitors whose fields exist in the typed report
+     * model; additions to arbitrary unmodeled fields elsewhere are not
+     * preserved in delivered payloads.
      *
      * Follows the CF Create Rule: the caller owns the returned dictionary
      * and must release it (via CFRelease or __bridge_transfer to ARC).

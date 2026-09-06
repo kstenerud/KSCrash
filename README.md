@@ -50,20 +50,22 @@ That's it. KSCrash will catch crashes and store reports on disk.
 
 ### Send
 
-A `CrashSendConfiguration` holds the ordered filter chain (last element = terminal sink) and the
-cleanup policy. There is no installation object and no held sink; the configuration is passed to
-each send call. Sinks and filters come from the `Sinks`, `Filters`, and `DemangleFilter` products
-(`import KSCrashSinks`, `KSCrashFilters`, `KSCrashDemangleFilter`).
+Sending is async Swift in the `KSCrash` product (`import KSCrash`). A `SendConfiguration` holds a
+pipeline of `PipelineStage`s per payload kind; each pending report (or run summary) walks the
+stages one at a time. A stage returns the payload to pass it on, `nil` to discard it, or throws to
+keep it on disk for the next send. A report that reaches the end of the pipeline is deleted.
 
 ```swift
-let sink = CrashReportSinkStandard(url: URL(string: "http://put.your.url.here")!)
-let config = CrashSendConfiguration()
-config.reportFilters = [CrashReportFilterDemangle(), CrashReportFilterDoctor()] + sink.defaultCrashReportFilterSet
-config.reportCleanupPolicy = .onSuccess
-
-KSCrash.shared.sendAllReports(with: config) { reports, error in
-    // Stuff to do when report sending is complete
+struct Upload: PipelineStage {
+    func process(_ payload: Report) async throws -> Report? {
+        try await upload(JSONEncoder().encode(payload))  // throw to retry next send
+        return payload
+    }
 }
+
+let config = SendConfiguration(reportPipeline: [AnyPipelineStage(Upload())])
+let result = try await KSCrash.shared.sendReports(with: config)
+// result.delivered / result.discarded / result.kept: the report ids per outcome
 ```
 
 ## Features
@@ -99,7 +101,6 @@ store with zero crash-time overhead.
 - **Report**: Strongly-typed Swift model for crash reports (`KSCrashReportModel` module)
 - **Zombie Detection**: Catches messages to deallocated objects
 - **Memory Tracking**: Real-time memory pressure monitoring via `AppMemoryTracker`
-- **Crash Doctor**: Automatic crash cause diagnosis
 - **Custom Crashes**: Report exceptions from scripting languages via `reportUserException`
 - **Namespacing**: Embed KSCrash in your own library without symbol clashes
 

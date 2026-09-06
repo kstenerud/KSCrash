@@ -58,6 +58,11 @@ extern "C" {
 #define KSCRS_RUN_SUMMARY_FILENAME_DIGITS 19
 #define KSCRS_RUN_SUMMARY_FILENAME_EXTENSION "run"
 
+/** A run's session log is "<runID>.sessions". Shared by the Lifecycle
+ *  monitor's writer and reader, the reclaim, and the Swift store's grouping;
+ *  change them together. */
+#define KSCRS_SESSIONS_FILENAME_EXTENSION "sessions"
+
 /** Initialize the report store.
  *
  * @param configuration The store configuretion (e.g. reports path, app name etc).
@@ -68,7 +73,8 @@ KSCrashInstallErrorCode kscrs_initialize(const KSCrashReportStoreCConfiguration 
  *
  * @param configuration The store configuretion (e.g. reports path, app name etc).
  *
- * @return The number of reports on disk.
+ * @return The number of reports on disk (an absent reports directory is 0),
+ *         or -1 when the reports directory cannot be enumerated.
  */
 int kscrs_getReportCount(const KSCrashReportStoreCConfiguration *const configuration);
 
@@ -78,9 +84,23 @@ int kscrs_getReportCount(const KSCrashReportStoreCConfiguration *const configura
  * @param count How many reports the array can hold.
  * @param configuration The store configuretion (e.g. reports path, app name etc).
  *
- * @return The number of report IDs that were placed in the array.
+ * @return The number of report IDs that were placed in the array (an absent
+ *         reports directory is 0), or -1 when the reports directory cannot be
+ *         enumerated.
  */
 int kscrs_getReportIDs(int64_t *reportIDs, int count, const KSCrashReportStoreCConfiguration *const configuration);
+
+/** Why kscrs_readReport returned NULL. */
+typedef enum {
+    KSCrashReportReadStatusOK = 0,
+
+    /** The report file is missing or could not be read. */
+    KSCrashReportReadStatusUnreadable,
+
+    /** The report file was read but does not hold a JSON report object, so it
+     * cannot be stitched or delivered. Reading it again gives the same answer. */
+    KSCrashReportReadStatusUndecodable,
+} KSCrashReportReadStatus;
 
 /** Read a report.
  *
@@ -88,10 +108,12 @@ int kscrs_getReportIDs(int64_t *reportIDs, int count, const KSCrashReportStoreCC
  *
  * @param reportID The report's ID.
  * @param configuration The store configuretion (e.g. reports path, app name etc).
+ * @param status Why a NULL was returned (may be NULL).
  *
- * @return The NULL terminated report, or NULL if not found.
+ * @return The NULL terminated report, or NULL if it could not be read or is not a report.
  */
-char *kscrs_readReport(int64_t reportID, const KSCrashReportStoreCConfiguration *const configuration);
+char *kscrs_readReport(int64_t reportID, const KSCrashReportStoreCConfiguration *const configuration,
+                       KSCrashReportReadStatus *status);
 
 /** Read a report at a given path.
  * This is a convenience method for reading reports that are not in the standard reports directory.
@@ -104,9 +126,24 @@ char *kscrs_readReport(int64_t reportID, const KSCrashReportStoreCConfiguration 
  */
 char *kscrs_readReportAtPath(const char *path);
 
+/** The run a report belongs to, from the report file alone: nothing is
+ * stitched and no run artifacts are touched.
+ *
+ * @warning MEMORY MANAGEMENT WARNING: User is responsible for calling free() on the returned value.
+ *
+ * @param reportID The report's ID.
+ * @param configuration The store configuretion (e.g. reports path, app name etc).
+ *
+ * @return The NULL terminated run id (a UUID string), or NULL when the
+ *         report cannot be read or records no valid run.
+ */
+char *kscrs_copyReportRunID(int64_t reportID, const KSCrashReportStoreCConfiguration *const configuration);
+
 /** Add a custom report to the store.
  *
- * @param report The report's contents (must be JSON encoded).
+ * @param report The report's contents: JSON in the standard KSCrash report
+ *               shape. A report of any other shape is never delivered by the
+ *               send.
  * @param reportLength The length of the report in bytes.
  * @param configuration The store configuretion (e.g. reports path, app name etc).
  *
@@ -125,8 +162,10 @@ void kscrs_deleteAllReports(const KSCrashReportStoreCConfiguration *const config
  *
  * @param reportID An ID of report to delete.
  * @param configuration The store configuretion (e.g. reports path, app name etc).
+ *
+ * @return true if the report file was removed.
  */
-void kscrs_deleteReportWithID(int64_t reportID, const KSCrashReportStoreCConfiguration *const configuration);
+bool kscrs_deleteReportWithID(int64_t reportID, const KSCrashReportStoreCConfiguration *const configuration);
 
 /** Get a sidecar file path.
  *
