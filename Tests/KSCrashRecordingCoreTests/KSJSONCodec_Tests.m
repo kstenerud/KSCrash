@@ -931,22 +931,47 @@ static NSString *toString(NSData *data)
     XCTAssertNotNil(error, @"");
 }
 
-- (void)testSerializeDictionaryBadCharacter
+- (void)testSerializeDictionaryControlCharacterInKey
 {
-    NSError *error = (NSError *)self;
-    id source = [NSDictionary dictionaryWithObject:@"blah" forKey:@"blah\x01blah"];
+    NSError *error = nil;
+    id source = [NSDictionary dictionaryWithObject:@"blah"
+                                            forKey:@"blah\x01"
+                                                    "blah"];
     NSString *result = toString([KSJSONCodec encode:source options:KSJSONEncodeOptionSorted error:&error]);
-    XCTAssertNil(result, @"");
-    XCTAssertNotNil(error, @"");
+    XCTAssertEqualObjects(result, @"{\"blah\\u0001blah\":\"blah\"}", @"");
+    XCTAssertNil(error, @"");
 }
 
-- (void)testSerializeArrayBadCharacter
+- (void)testSerializeArrayControlCharacter
 {
-    NSError *error = (NSError *)self;
-    id source = [NSArray arrayWithObject:@"test\x01ing"];
+    NSError *error = nil;
+    id source = [NSArray arrayWithObject:@"a\x1b"
+                                          "[31m\x1f"
+                                          "b\x7f"];
     NSString *result = toString([KSJSONCodec encode:source options:KSJSONEncodeOptionSorted error:&error]);
-    XCTAssertNil(result, @"");
-    XCTAssertNotNil(error, @"");
+    XCTAssertEqualObjects(result, @"[\"a\\u001b[31m\\u001fb\x7f\"]", @"");
+    XCTAssertNil(error, @"");
+}
+
+- (void)testControlCharactersRoundTripThroughEncodeAndDecode
+{
+    // Every control character JSON cannot carry raw, plus the ones with a
+    // short escape, in one string longer than the encoder's work buffer.
+    // NUL stays out: the codec's C strings end there, a known limit.
+    NSMutableString *string = [NSMutableString string];
+    for (int pass = 0; pass < 40; pass++) {
+        for (unichar c = 1; c < 0x20; c++) {
+            [string appendFormat:@"%C%C", c, (unichar)('a' + (c % 26))];
+        }
+    }
+    NSError *error = nil;
+    NSData *encoded = [KSJSONCodec encode:@[ string ] options:0 error:&error];
+    XCTAssertNotNil(encoded, @"%@", error);
+    XCTAssertNil(error, @"");
+    id decoded = [KSJSONCodec decode:encoded options:0 error:&error];
+    XCTAssertEqualObjects(decoded, @[ string ], @"");
+    id foundation = [NSJSONSerialization JSONObjectWithData:encoded options:0 error:&error];
+    XCTAssertEqualObjects(foundation, @[ string ], @"%@", error);
 }
 
 - (void)testDeserializeArrayInvalidUnicodeSequence

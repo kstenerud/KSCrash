@@ -161,8 +161,17 @@ static int appendEscapedString(KSJSONEncodeContext *const context, const char *r
             default:
                 unlikely_if((unsigned char)*src < ' ')
                 {
-                    KSLOG_DEBUG("Invalid character 0x%02x in string: %s", *src, string);
-                    return KSJSON_ERROR_INVALID_CHARACTER;
+                    // \u00XX is JSON's only spelling for a control character.
+                    // Refusing it fails the whole encode, and at delivery that
+                    // strands the report.
+                    static const char hex[] = "0123456789abcdef";
+                    *dst++ = '\\';
+                    *dst++ = 'u';
+                    *dst++ = '0';
+                    *dst++ = '0';
+                    *dst++ = hex[((unsigned char)*src) >> 4];
+                    *dst++ = hex[((unsigned char)*src) & 0x0f];
+                    break;
                 }
                 *dst++ = *src;
         }
@@ -190,7 +199,8 @@ static int addEscapedString(KSJSONEncodeContext *const context, const char *rest
     int offset = 0;
     while (offset < length) {
         int toAdd = length - offset;
-        unlikely_if(toAdd > KSJSONCODEC_WorkBufferSize / 2) { toAdd = KSJSONCODEC_WorkBufferSize / 2; }
+        // A control character expands to six bytes (\u00XX), the widest escape.
+        unlikely_if(toAdd > KSJSONCODEC_WorkBufferSize / 6) { toAdd = KSJSONCODEC_WorkBufferSize / 6; }
         result = appendEscapedString(context, string + offset, toAdd);
         unlikely_if(result != KSJSON_OK) { break; }
         offset += toAdd;
