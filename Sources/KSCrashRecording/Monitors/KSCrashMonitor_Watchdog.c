@@ -78,6 +78,20 @@ typedef struct {
     bool active;
 } HangObserver;
 
+// One record per announced hang. It survives hang being cleared on recovery,
+// so Ended can wait for all observers to receive Started/Updated. Updates may
+// coalesce while a callback is busy; start/end transitions are never coalesced.
+typedef struct HangNotifications {
+    struct HangNotifications *next;
+    uint64_t timestamp;
+    uint64_t startEndTimestamp;
+    uint64_t updateTimestamp;
+    uint64_t endTimestamp;
+    bool startedPending;
+    bool updatedPending;
+    bool endedPending;
+} HangNotifications;
+
 // ============================================================================
 #pragma mark - Hang Monitor -
 // ============================================================================
@@ -142,7 +156,7 @@ typedef struct KSHangMonitor {
     dispatch_semaphore_t threadExitSemaphore;
 
     // Set by watchdog_destroy on timeout.  Tells the watchdog thread to
-    // call sidecar_delete + free(monitor) itself when it finally exits,
+    // release its ownership of the monitor when it finally exits,
     // avoiding a use-after-free if destroy returns before the thread stops.
     _Atomic bool selfFreeOnExit;
 
@@ -155,6 +169,14 @@ typedef struct KSHangMonitor {
     // callbacks — the watchdog timer fires every 250ms and must not stall.
     os_unfair_lock lock;
     KSHangState hang;
+
+    // Protected by lock. A single caller drains notifications outside the lock.
+    HangNotifications *notificationsHead;
+    HangNotifications *notificationsTail;
+    bool deliveringNotifications;
+    bool stopping;
+    // A callback may disable the monitor. Keep it alive until delivery returns.
+    atomic_uint references;
 
     // Written by main thread (mainRunLoopActivity), read by watchdog thread
     // (watchdogTimerFired).  Relaxed ordering is fine — this is a standalone
@@ -235,6 +257,20 @@ static void sidecar_delete(KSHangMonitor *monitor)
     }
 }
 
+static void releaseMonitor(KSHangMonitor *monitor)
+{
+    if (atomic_fetch_sub(&monitor->references, 1) != 1) {
+        return;
+    }
+    sidecar_delete(monitor);
+    while (monitor->notificationsHead) {
+        HangNotifications *next = monitor->notificationsHead->next;
+        free(monitor->notificationsHead);
+        monitor->notificationsHead = next;
+    }
+    free(monitor);
+}
+
 // ============================================================================
 #pragma mark - Observer notification -
 // ============================================================================
@@ -258,9 +294,137 @@ static void notifyObservers(KSHangMonitor *monitor, KSHangChangeType type, uint6
     }
 }
 
+// Called under monitor->lock in the same critical section that attaches the
+// report. Recovery either precedes this reservation (no notifications), or
+// completes this record with Ended, even if Started has not been delivered yet.
+static void reserveHangNotifications(KSHangMonitor *monitor, KSHangState hang)
+{
+    if (monitor->stopping) {
+        return;
+    }
+    HangNotifications *notifications = calloc(1, sizeof(*notifications));
+    if (!notifications) {
+        KSLOG_ERROR("Failed to allocate hang notifications");
+        return;
+    }
+    notifications->timestamp = hang.timestamp;
+    notifications->startEndTimestamp = hang.endTimestamp;
+    notifications->startedPending = true;
+    if (monitor->notificationsTail) {
+        monitor->notificationsTail->next = notifications;
+    } else {
+        monitor->notificationsHead = notifications;
+    }
+    monitor->notificationsTail = notifications;
+}
+
+// Called under monitor->lock. An unannounced hang has no notification record.
+static HangNotifications *notificationsForHang(KSHangMonitor *monitor, uint64_t timestamp)
+{
+    for (HangNotifications *item = monitor->notificationsHead; item; item = item->next) {
+        if (item->timestamp == timestamp) {
+            return item;
+        }
+    }
+    return NULL;
+}
+
+static void deliverHangNotifications(KSHangMonitor *monitor)
+{
+    os_unfair_lock_lock(&monitor->lock);
+    if (monitor->deliveringNotifications || monitor->stopping) {
+        os_unfair_lock_unlock(&monitor->lock);
+        return;
+    }
+    monitor->deliveringNotifications = true;
+    atomic_fetch_add(&monitor->references, 1);
+
+    while (!monitor->stopping && monitor->notificationsHead) {
+        HangNotifications *item = monitor->notificationsHead;
+        KSHangChangeType type;
+        uint64_t endTimestamp;
+        bool finished = false;
+        if (item->startedPending) {
+            item->startedPending = false;
+            type = KSHangChangeTypeStarted;
+            endTimestamp = item->startEndTimestamp;
+        } else if (item->updatedPending) {
+            item->updatedPending = false;
+            type = KSHangChangeTypeUpdated;
+            endTimestamp = item->updateTimestamp;
+        } else if (item->endedPending) {
+            type = KSHangChangeTypeEnded;
+            endTimestamp = item->endTimestamp;
+            monitor->notificationsHead = item->next;
+            if (!item->next) {
+                monitor->notificationsTail = NULL;
+            }
+            finished = true;
+        } else {
+            break;
+        }
+        uint64_t timestamp = item->timestamp;
+        os_unfair_lock_unlock(&monitor->lock);
+
+        // No state lock is held across callbacks. Reentrant/concurrent recovery
+        // only records Ended; this caller delivers it after the whole batch.
+        notifyObservers(monitor, type, timestamp, endTimestamp);
+        if (finished) {
+            free(item);
+        }
+        os_unfair_lock_lock(&monitor->lock);
+    }
+    monitor->deliveringNotifications = false;
+    os_unfair_lock_unlock(&monitor->lock);
+    releaseMonitor(monitor);
+}
+
 // ============================================================================
 #pragma mark - Report writing -
 // ============================================================================
+
+static bool attachReportToHang(KSHangMonitor *monitor, KSHangState hang, KSCrash_ReportResult result)
+{
+    // Re-check: the main thread may have resolved the hang while we were
+    // writing the report.  Compare timestamps to make sure it's still the
+    // same hang before attaching the report path and sidecar.
+    os_unfair_lock_lock(&monitor->lock);
+    bool stillActive = monitor->hang.active && monitor->hang.timestamp == hang.timestamp;
+    if (stillActive) {
+        reserveHangNotifications(monitor, hang);
+        monitor->hang.reportId = result.reportId;
+        if (strlcpy(monitor->hang.path, result.path, PATH_MAX) >= PATH_MAX) {
+            KSLOG_ERROR("Report path too long, discarding hang report");
+        } else {
+            monitor->sidecar = sidecar_open(monitor);
+            if (monitor->sidecar) {
+                monitor->sidecar->startTimestamp = monitor->hang.timestamp;
+                monitor->sidecar->startRole = monitor->hang.role;
+                monitor->sidecar->startTransitionState = monitor->hang.transitionState;
+                sidecar_update(monitor->sidecar, monitor->hang.endTimestamp, monitor->hang.endRole,
+                               monitor->hang.endTransitionState);
+            } else {
+                KSLOG_ERROR("Failed to open run sidecar for hang report");
+            }
+        }
+    } else {
+        KSLOG_DEBUG("hang changed during report population - discarding");
+    }
+    os_unfair_lock_unlock(&monitor->lock);
+
+    if (!stillActive) {
+        // Recovery preceded notification reservation. Suppress both events
+        // and remove the report, which was never attached to the hang.
+        if (result.path[0] != '\0' && unlink(result.path) != 0) {
+            KSLOG_ERROR("Failed to delete discarded hang report at %s: %s", result.path, strerror(errno));
+        }
+        return false;
+    }
+
+    KSLOG_INFO("Hang started (reportID: %" PRIx64 ")", result.reportId);
+
+    return true;
+}
 
 // Called on the watchdog thread when a new hang is first detected.
 // Runs OUTSIDE the lock because report writing involves I/O.
@@ -322,46 +486,9 @@ static void populateReportForCurrentHang(KSHangMonitor *monitor)
 
     ksmc_resumeEnvironment(&suspendedThreads, &suspendedThreadsCount);
 
-    // Re-check: the main thread may have resolved the hang while we were
-    // writing the report.  Compare timestamps to make sure it's still the
-    // same hang before attaching the report path and sidecar.
-    os_unfair_lock_lock(&monitor->lock);
-    bool stillActive = monitor->hang.active && monitor->hang.timestamp == hang.timestamp;
-    if (stillActive) {
-        monitor->hang.reportId = result.reportId;
-        if (strlcpy(monitor->hang.path, result.path, PATH_MAX) >= PATH_MAX) {
-            KSLOG_ERROR("Report path too long, discarding hang report");
-        } else {
-            monitor->sidecar = sidecar_open(monitor);
-            if (monitor->sidecar) {
-                monitor->sidecar->startTimestamp = monitor->hang.timestamp;
-                monitor->sidecar->startRole = monitor->hang.role;
-                monitor->sidecar->startTransitionState = monitor->hang.transitionState;
-                sidecar_update(monitor->sidecar, monitor->hang.endTimestamp, monitor->hang.endRole,
-                               monitor->hang.endTransitionState);
-            } else {
-                KSLOG_ERROR("Failed to open run sidecar for hang report");
-            }
-        }
-    } else {
-        KSLOG_DEBUG("hang changed during report population - discarding");
+    if (attachReportToHang(monitor, hang, result)) {
+        deliverHangNotifications(monitor);
     }
-    os_unfair_lock_unlock(&monitor->lock);
-
-    if (!stillActive) {
-        // The main thread resolved this hang while the report was being
-        // written and has already delivered its Ended, so a Started now would
-        // land after it and leave the lifecycle's hang flag set. The report
-        // was never attached to the hang, so nothing else will remove it.
-        if (result.path[0] != '\0' && unlink(result.path) != 0) {
-            KSLOG_ERROR("Failed to delete discarded hang report at %s: %s", result.path, strerror(errno));
-        }
-        return;
-    }
-
-    KSLOG_INFO("Hang started (reportID: %" PRIx64 ")", result.reportId);
-
-    notifyObservers(monitor, KSHangChangeTypeStarted, hang.timestamp, hang.endTimestamp);
 }
 
 static void writeUpdatedReport(KSHangMonitor *monitor)
@@ -377,9 +504,14 @@ static void writeUpdatedReport(KSHangMonitor *monitor)
     timestampStart = monitor->hang.timestamp;
     timestampEnd = monitor->hang.endTimestamp;
     sidecar_update(monitor->sidecar, timestampEnd, monitor->hang.endRole, monitor->hang.endTransitionState);
+    HangNotifications *notifications = notificationsForHang(monitor, timestampStart);
+    if (notifications) {
+        notifications->updateTimestamp = timestampEnd;
+        notifications->updatedPending = true;
+    }
     os_unfair_lock_unlock(&monitor->lock);
 
-    notifyObservers(monitor, KSHangChangeTypeUpdated, timestampStart, timestampEnd);
+    deliverHangNotifications(monitor);
 }
 
 static void finalizeResolvedHang(KSHangMonitor *monitor, KSHangState hang)
@@ -438,7 +570,14 @@ static void finalizeResolvedHang(KSHangMonitor *monitor, KSHangState hang)
     KSLOG_INFO("Hang ended (reportID: %" PRIx64 ", duration: %.3f s)", hang.reportId,
                (double)(hang.endTimestamp - hang.timestamp) / 1e9);
 
-    notifyObservers(monitor, KSHangChangeTypeEnded, hang.timestamp, hang.endTimestamp);
+    os_unfair_lock_lock(&monitor->lock);
+    HangNotifications *notifications = notificationsForHang(monitor, hang.timestamp);
+    if (notifications) {
+        notifications->endTimestamp = hang.endTimestamp;
+        notifications->endedPending = true;
+    }
+    os_unfair_lock_unlock(&monitor->lock);
+    deliverHangNotifications(monitor);
 }
 
 // ============================================================================
@@ -612,8 +751,7 @@ static void *watchdog_thread_main(void *arg)
     dispatch_semaphore_signal(monitor->threadExitSemaphore);
 
     if (shouldSelfFree) {
-        sidecar_delete(monitor);
-        free(monitor);
+        releaseMonitor(monitor);
     }
     return NULL;
 }
@@ -629,6 +767,7 @@ static KSHangMonitor *watchdog_create(CFRunLoopRef runLoop, double threshold, bo
         return NULL;
     }
 
+    atomic_init(&monitor->references, 1);
     monitor->reportsHangs = reportsHangs;
     monitor->lock = OS_UNFAIR_LOCK_INIT;
     monitor->runLoop = runLoop;
@@ -698,6 +837,7 @@ static void watchdog_destroy(KSHangMonitor *monitor)
     os_unfair_lock_lock(&monitor->lock);
     rl = monitor->watchdogRunLoop;
     monitor->watchdogRunLoop = NULL;
+    monitor->stopping = true;
     os_unfair_lock_unlock(&monitor->lock);
 
     if (rl) {
@@ -715,9 +855,7 @@ static void watchdog_destroy(KSHangMonitor *monitor)
         }
     }
 
-    sidecar_delete(monitor);
-
-    free(monitor);
+    releaseMonitor(monitor);
 }
 
 // ============================================================================
@@ -861,3 +999,40 @@ KSCrashMonitorAPI *kscm_watchdog_getAPI(void)
     }
     return &api;
 }
+
+// For tests: drive the production attachment/recovery paths without a timer or
+// suspending the test process. Declared extern only in the test translation unit.
+void kscm_watchdog_testcode_create(void)
+{
+    g_watchdog = calloc(1, sizeof(*g_watchdog));
+    atomic_init(&g_watchdog->references, 1);
+    g_watchdog->lock = OS_UNFAIR_LOCK_INIT;
+    atomic_store(&g_isEnabled, true);
+}
+
+void kscm_watchdog_testcode_begin(uint64_t timestamp)
+{
+    os_unfair_lock_lock(&g_watchdog->lock);
+    kshangstate_init(&g_watchdog->hang, timestamp, TASK_FOREGROUND_APPLICATION, KSCrashAppTransitionStateActive);
+    os_unfair_lock_unlock(&g_watchdog->lock);
+}
+
+void kscm_watchdog_testcode_reportReady(uint64_t timestamp, const char *path, bool deliver)
+{
+    KSHangState hang = { .timestamp = timestamp, .endTimestamp = timestamp + 1 };
+    KSCrash_ReportResult result = { .reportId = (int64_t)timestamp };
+    strlcpy(result.path, path, sizeof(result.path));
+    if (attachReportToHang(g_watchdog, hang, result) && deliver) {
+        deliverHangNotifications(g_watchdog);
+    }
+}
+
+void kscm_watchdog_testcode_update(uint64_t endTimestamp)
+{
+    os_unfair_lock_lock(&g_watchdog->lock);
+    g_watchdog->hang.endTimestamp = endTimestamp;
+    os_unfair_lock_unlock(&g_watchdog->lock);
+    writeUpdatedReport(g_watchdog);
+}
+
+void kscm_watchdog_testcode_recover(void) { mainRunLoopActivity(NULL, kCFRunLoopBeforeWaiting, g_watchdog); }
