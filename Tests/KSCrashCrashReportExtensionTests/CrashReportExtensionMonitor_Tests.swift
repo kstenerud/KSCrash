@@ -57,6 +57,7 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
     private static var reportsDirectory = installRoot.appendingPathComponent("Reports")
 
     private static let install: Bool = {
+        letTheInstallSuiteClaimTheProcess()
         do {
             try KSCrash.shared.installForExtensionReporting(with: area)
         } catch ExtensionReportingInstallError.install(.alreadyInstalled) {
@@ -111,6 +112,31 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
         XCTAssertFalse(exists("Data/ConsoleLog.txt"), "no console log in a reporter-only install")
     }
 
+    func testWrittenReportIsPublishedWholeOutOfTheStagingDirectory() throws {
+        try XCTSkipIf(
+            Self.reportsDirectory != Self.installRoot.appendingPathComponent("Reports"),
+            "another suite's normal install won the process; the reporter-only layout is not ours to assert")
+        let worker = ParkedThread()
+        defer { worker.release() }
+
+        // The app ingests Reports by renaming whatever it finds there, with no lock between
+        // the processes, so a report must only appear there once it is complete: the store
+        // writes into a staging directory the ingest's grammar skips and publishes on close.
+        let reportID = try Self.monitor.writeReport(
+            corpse: mach_task_self_,
+            crashedThreadID: worker.machThreadID,
+            images: Self.ownImages(),
+            exception: EXC_BAD_ACCESS,
+            code: 0,
+            subcode: 0)
+
+        let staging = Self.reportsDirectory.appendingPathComponent(".staging")
+        let staged = (try? FileManager.default.contentsOfDirectory(atPath: staging.path)) ?? []
+        XCTAssertTrue(staged.isEmpty, "nothing may linger in staging: \(staged)")
+        let published = try FileManager.default.contentsOfDirectory(atPath: Self.reportsDirectory.path)
+        XCTAssertTrue(published.contains { $0.contains(reportID.description) }, "the report is published whole")
+    }
+
     func testWriteReportForOwnTaskProducesReadableCrashReport() throws {
         let worker = ParkedThread()
         defer { worker.release() }
@@ -126,9 +152,12 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
         let report = try Self.readReport(reportID)
 
         // The report is stamped with this run's ID (in the extension this is the ID loaded
-        // from the corpse, so it stitches against the crashed run's sidecars).
+        // from the corpse, so it stitches against the crashed run's sidecars). With no id
+        // loaded, as in a reporter-only install that captured nothing, the key is absent: an
+        // empty id is not one, and the model refuses it.
         let info = try XCTUnwrap(report["report"] as? [String: Any])
-        XCTAssertEqual(info["run_id"] as? String, String(cString: kscrash_getRunID()))
+        let runID = String(cString: kscrash_getRunID())
+        XCTAssertEqual(info["run_id"] as? String, runID.isEmpty ? nil : runID)
 
         // The error section carries the mach exception we were handed, typed like a report
         // the in-process Mach monitor would have written.
@@ -199,9 +228,8 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
         let report = try Self.readReport(reportID)
         let crash = try XCTUnwrap(report["crash"] as? [String: Any])
         let error = try XCTUnwrap(crash["error"] as? [String: Any])
-        XCTAssertNil(
-            (error["monitor_data"] as? [String: Any])?["Corpse"],
-            "a monitor that writes nothing must not leave an empty section")
+        XCTAssertNil(error["corpse"], "the empty scratch section is swept at read time")
+        XCTAssertNil(error["monitor_data"], "and nothing lands in the custom-monitor namespace")
         XCTAssertNil(report["corpse"], "and the final-pass stitch has nothing to lift to the root")
 
         // The rest of the error section is unaffected, so the report is still well formed.
@@ -396,7 +424,7 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
 
         func active(savesKCData: Bool) throws -> ExtensionReporting.Active {
             ExtensionReporting.Active(
-                area: kcdataArea, root: try kcdataArea.processRoot, savesKCData: savesKCData,
+                savesKCData: savesKCData,
                 kcdataDirectory: try kcdataArea.processRoot.appendingPathComponent("KCData", isDirectory: true))
         }
         ExtensionReporting.active = try active(savesKCData: false)
@@ -458,7 +486,7 @@ extension CrashReportExtensionMonitor_Tests {
         snapshot.vmInfo = CorpseSnapshot.VMInfo(
             virtualSize: 0, residentSize: 0, residentSizePeak: 0, reusable: 0,
             compressed: 0, compressedPeak: 0, compressedLifetime: 0, limitBytesRemaining: 333, regionCount: 0)
-        snapshot.taskRole = TaskRole(rawValue: "TASK_FOREGROUND_APPLICATION")
+        snapshot.taskRole = TaskRole(rawValue: "FOREGROUND_APPLICATION")
         snapshot.crashInfo = CorpseSnapshot.CrashInfo(exceptionCode: 0, exceptionSubcode: 0)
         snapshot.crashInfo?.exitReason = CorpseSnapshot.CrashInfo.ExitReason(
             namespace: .OS_REASON_JETSAM, code: ExitReasonCode(rawValue: 10), flags: 4)
@@ -484,7 +512,7 @@ extension CrashReportExtensionMonitor_Tests {
         XCTAssertEqual(appMemory["memory_remaining"] as? Int64, 333)
         XCTAssertEqual(appMemory["memory_pressure"] as? String, "normal", "keys the corpse cannot know stay stitched")
         let appStats = try XCTUnwrap(system["application_stats"] as? [String: Any])
-        XCTAssertEqual(appStats["task_role"] as? String, "TASK_FOREGROUND_APPLICATION")
+        XCTAssertEqual(appStats["task_role"] as? String, "FOREGROUND_APPLICATION")
 
         let error = try XCTUnwrap((stitched["crash"] as? [String: Any])?["error"] as? [String: Any])
         let exitReason = try XCTUnwrap(error["exit_reason"] as? [String: Any])
@@ -539,7 +567,7 @@ extension CrashReportExtensionMonitor_Tests {
 
     func testFinalStitchMovesTheSnapshotToTheReportRoot() throws {
         var snapshot = CorpseSnapshot(images: [])
-        snapshot.taskRole = TaskRole(rawValue: "TASK_FOREGROUND_APPLICATION")
+        snapshot.taskRole = TaskRole(rawValue: "FOREGROUND_APPLICATION")
 
         let encoded = try JSONEncoder().encode(snapshot.forEmbedding())
         let snapshotDict = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
@@ -611,4 +639,28 @@ private final class ParkedThread {
         #endif
         unpark.signal()
     }
+}
+
+/// Lets the KSCrashTests bundle, when its suites are going to run in this
+/// process, make its one install before this suite installs in
+/// extension-reporting mode: those suites can only skip when they lose the
+/// race, while this one attaches to a live pipeline and keeps running. Decided
+/// on what the run selected, not on what the bundle holds, so a filtered run
+/// of this suite alone still exercises the extension-reporting install. See
+/// .claude/rules/testing.md.
+private func letTheInstallSuiteClaimTheProcess() {
+    // The runner names the selection in a `-XCTest` argument: `All`, or a
+    // comma list of `Module.Class/test`. The default suite is no use here; it
+    // holds every test in the bundle whatever was selected.
+    let arguments = ProcessInfo.processInfo.arguments
+    var runsInstallSuite = true
+    if let index = arguments.firstIndex(of: "-XCTest"), index + 1 < arguments.count {
+        let selection = arguments[index + 1]
+        runsInstallSuite =
+            selection == "All" || selection.split(separator: ",").contains { $0.hasPrefix("KSCrashTests.") }
+    }
+    guard runsInstallSuite, let claim = NSClassFromString("KSCrashTestsInstallClaim") as? NSObject.Type else {
+        return
+    }
+    _ = claim.perform(NSSelectorFromString("claim"))
 }

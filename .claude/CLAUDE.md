@@ -66,7 +66,7 @@ KSCrash is a layered crash reporting framework:
 - **Sessions & Run Summaries**: Per-run `.sessions` log, `.run` telemetry, session_id stitching, and orphan reclaim (see `.claude/rules/sessions.md`)
 - **Metadata**: App data recorded live to a per-run key-value sidecar and read back at delivery into both the report and the run summary (see `.claude/rules/metadata-store.md`)
 
-Public modules (API surface): KSCrashRecording, KSCrashDiskMonitor, KSCrashBootMonitor, KSCrash (Swift umbrella, the async send), KSCrashMonitors (Swift), KSCrashMonitorPlugins (Swift, the plugin base), KSCrashReportModel (Swift), KSCrashProfiler (Swift). Public headers: `Sources/[ModuleName]/include/*.h`.
+Public modules (API surface): KSCrashRecording, KSCrashDiskMonitor, KSCrashBootMonitor, KSCrash (Swift umbrella, the async send), KSCrashMonitors (Swift), KSCrashMonitorPlugins (Swift, the plugin base), KSCrashReportModel (Swift), KSCrashProfiler (Swift), KSCrashCrashReportExtension (Swift, the iOS 27 crash extension support). Public headers: `Sources/[ModuleName]/include/*.h`.
 
 ## Source-Breaking Changes
 

@@ -113,4 +113,14 @@ static uint64_t threadIDOfPort(thread_t port)
     XCTAssertFalse(ksmc_getContextForTaskThread(mach_task_self(), NULL, UINT64_MAX, &machineContext));
 }
 
+- (void)testGetContextForTaskThreadRefusesARemoteTaskWithoutAnImageSet
+{
+    // Without an image set the unwinder would read this process's images for another
+    // task's addresses: a confident, wrong backtrace. The kernel task port stands in for
+    // a task that is not ours; the refusal comes before any thread is looked up.
+    KSMachineContext machineContext = { 0 };
+    task_t notOurs = mach_task_self() + 4;  // any name that is not our own task port
+    XCTAssertFalse(ksmc_getContextForTaskThread(notOurs, NULL, 1, &machineContext));
+}
+
 @end

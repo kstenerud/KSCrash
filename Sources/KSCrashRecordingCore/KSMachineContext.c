@@ -226,6 +226,13 @@ bool ksmc_getContextForTaskThread(task_t task, const struct KSBinaryImageSet *im
     if (threadID == 0) {
         return false;
     }
+    if (imageSet == NULL && task != mach_task_self()) {
+        // With no image set the unwinder falls back to this process's live dyld cache, which
+        // says nothing about another task: the result would be a plausible-looking backtrace
+        // through the wrong images. Refuse rather than mislead.
+        KSLOG_ERROR("A remote task needs an image set to unwind against");
+        return false;
+    }
     memset(destinationContext, 0, sizeof(*destinationContext));
     destinationContext->task = task;
     destinationContext->imageSet = imageSet;

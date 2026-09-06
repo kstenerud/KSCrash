@@ -26,12 +26,15 @@
 
 #import <XCTest/XCTest.h>
 
+#import "KSCrashC.h"
 #import "KSCrashMonitor.h"
 #import "KSCrashMonitorAPI.h"
 #import "KSCrashMonitorHelper.h"
 #import "KSCrashMonitor_MachException.h"
 #import "KSCrashMonitor_NSException.h"
 #import "KSCrashReportC.h"
+
+extern void kscrash_testcode_setRunID(const char *runID);
 #import "KSDynamicLinker.h"
 #import "KSJSONCodec.h"
 #import "KSMachineContext.h"
@@ -173,6 +176,23 @@ static void writeTestMonitorSection(__unused const KSCrash_MonitorContext *event
     XCTAssertEqualObjects(error[@"type"], @"TestCustomMonitor");
     XCTAssertEqualObjects(error[@"monitor_data"][@"TestCustomMonitor"][@"custom_key"], @"custom_value");
     XCTAssertNil(error[@"TestCustomMonitor"], @"The section lives only in the fenced namespace");
+}
+
+- (void)testWriteStandardReportOmitsAnEmptyRunID
+{
+    // A corpse the extension could not stamp has no run id. An empty string
+    // is not an id: the report model refuses it and the report is never sent.
+    const char *current = kscrash_getRunID();
+    NSString *saved = current != NULL ? @(current) : nil;
+    kscrash_clearRunID();
+    NSDictionary *info = nil;
+    @try {
+        info = [self writeReportForMonitor:&_customMonitorAPI monitorId:customSectionMonitorId][@"report"];
+    } @finally {
+        kscrash_testcode_setRunID(saved.length > 0 ? saved.UTF8String : NULL);
+    }
+    XCTAssertNotNil(info[@"id"]);
+    XCTAssertNil(info[@"run_id"], @"an empty run id is absence, not \"\"");
 }
 
 - (void)testWriteStandardReportKeepsTheProfileSectionAtItsSchemaKey

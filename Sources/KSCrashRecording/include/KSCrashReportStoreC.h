@@ -43,6 +43,9 @@ extern "C" {
 /** The default name of a folder (inside the KSCrash install path) that is used for report store.
  */
 #define KSCRS_DEFAULT_REPORTS_FOLDER "Reports"
+/** Where a crash extension's store writes a report before it is complete; a
+ *  dot directory inside Reports, which the ingest's filename grammar skips. */
+#define KSCRS_EXTENSION_STAGING_FOLDER ".staging"
 
 /** The other store directories an install creates next to Reports. Shared with
  *  the Swift install's Locations; change them together. */

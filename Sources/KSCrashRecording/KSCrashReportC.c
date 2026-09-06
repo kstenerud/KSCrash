@@ -1566,7 +1566,7 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
                                      crash->errorTypeOverride != NULL ? crash->errorTypeOverride : crash->monitorId);
             const KSCrashMonitorAPI *api = kscm_getMonitor(crash->monitorId);
             if (api && api->writeInReportSection) {
-                if (strcmp(crash->monitorId, KSCrashExcType_Profile) == 0) {
+                if (strncmp(crash->monitorId, KSCrashExcType_Profile, KSCRASH_MONITOR_ID_MAX_LENGTH) == 0) {
                     // Profile is a built-in typed section (`crash.error.profile`
                     // in the report model) that arrives through the monitor
                     // mechanism; it lives at its schema key, not in the
@@ -1576,7 +1576,7 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
                         api->writeInReportSection(crash, writer, api->context);
                     }
                     writer->endContainer(writer);
-                } else if (strcmp(crash->monitorId, KSCrashField_Corpse) == 0) {
+                } else if (strncmp(crash->monitorId, KSCrashField_Corpse, KSCRASH_MONITOR_ID_MAX_LENGTH) == 0) {
                     // The corpse monitor's section is a private scratch dump: the final-pass
                     // stitch consumes it into the report root and deletes it, so it lives at
                     // its own key rather than in the public custom-monitor namespace.
@@ -1654,7 +1654,13 @@ static void writeReportInfo(const KSCrashReportWriter *const writer, const char 
         writer->addStringElement(writer, KSCrashField_ProcessName, processName);
         writer->addUIntegerElement(writer, KSCrashField_Timestamp, ksdate_microseconds());
         writer->addStringElement(writer, KSCrashField_Type, type);
-        writer->addStringElement(writer, KSCrashField_RunID, kscrash_getRunID());
+        // A corpse the extension could not stamp has no run id; the key is
+        // absent then, since an empty id is not one and the report model
+        // refuses it, which would strand the report unsent.
+        const char *runID = kscrash_getRunID();
+        if (runID != NULL && runID[0] != '\0') {
+            writer->addStringElement(writer, KSCrashField_RunID, runID);
+        }
         if (monitorId != NULL) {
             writer->addStringElement(writer, KSCrashField_MonitorId, monitorId);
         }

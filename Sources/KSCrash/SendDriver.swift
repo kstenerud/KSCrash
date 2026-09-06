@@ -47,6 +47,10 @@ struct SendKind<Payload: SendPayload, Item: Sendable>: Sendable {
     let read: @Sendable (Store, Item) throws -> Payload?
 
     let remove: @Sendable (Store, Item) throws -> Void
+
+    /// Whether this send pulls reports from a crash extension's store, so run
+    /// data nothing references yet may still be waited for. Defaults to false.
+    var retainsUnreferencedRuns: Bool = false
 }
 
 /// The send loop shared by every payload kind: the pending items, newest
@@ -99,7 +103,7 @@ enum SendDriver {
         // However the send ends past this point (exhausted, cancelled, or a
         // crash of a stage's task), sweep once: the reclaim is reference-aware
         // and idempotent, so it is safe on every exit path.
-        defer { store.reclaimOrphans() }
+        defer { store.reclaimOrphans(retainingUnreferencedRuns: kind.retainsUnreferencedRuns) }
 
         var results: [SendResult<Payload>.Item] = []
         for item in items {

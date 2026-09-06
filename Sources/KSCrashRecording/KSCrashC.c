@@ -105,6 +105,12 @@ static const size_t g_monitorMappingCount = sizeof(g_monitorMappings) / sizeof(g
 /** True if KSCrash has been installed. */
 static atomic_bool g_installed = false;
 
+// Extension mode only: where a finished report is renamed to once written. The store itself
+// writes into a staging directory below it, so a report is never visible to the app's ingest
+// while this process is still writing it. NULL in a normal install, where the store's own
+// Reports directory is the published one.
+static const char *g_publishedReportsPath = NULL;
+
 static bool g_shouldAddConsoleLogToReport = false;
 static bool g_shouldPrintPreviousLog = false;
 static char g_consoleLogPath[KSFU_MAX_PATH_LENGTH];
@@ -262,6 +268,21 @@ static void onExceptionEvent(struct KSCrash_MonitorContext *monitorContext, KSCr
         kscrs_getNextCrashReport(monitorContext->eventID, crashReportFilePath, &g_reportStoreConfig);
         strlcpy(g_lastCrashReportFilePath, crashReportFilePath, sizeof(g_lastCrashReportFilePath));
         kscrashreport_writeStandardReport(monitorContext, crashReportFilePath);
+        if (g_publishedReportsPath != NULL) {
+            // Extension mode: the store wrote into its staging directory, out of sight of the
+            // app's ingest, which renames whatever it finds in Reports and would otherwise move
+            // a file this process is still writing. The file is complete now, so publish it.
+            const char *filename = strrchr(crashReportFilePath, '/');
+            filename = filename != NULL ? filename + 1 : crashReportFilePath;
+            char publishedPath[KSFU_MAX_PATH_LENGTH];
+            if (snprintf(publishedPath, sizeof(publishedPath), "%s/%s", g_publishedReportsPath, filename) <
+                    (int)sizeof(publishedPath) &&
+                rename(crashReportFilePath, publishedPath) == 0) {
+                strlcpy(g_lastCrashReportFilePath, publishedPath, sizeof(g_lastCrashReportFilePath));
+            } else {
+                KSLOG_ERROR("Could not publish report %s: %s", crashReportFilePath, strerror(errno));
+            }
+        }
         if (result) {
             strlcpy(result->reportId, monitorContext->eventID, sizeof(result->reportId));
             strlcpy(result->path, g_lastCrashReportFilePath, sizeof(result->path));
@@ -283,9 +304,10 @@ bool kscrash_isBuiltInMonitorID(const char *monitorID)
     if (monitorID == NULL) {
         return false;
     }
-    // Not a monitor in the table, but the writer routes this id into the typed profile
-    // section, which a plugin cannot satisfy.
-    if (strncmp(monitorID, KSCrashExcType_Profile, KSCRASH_MONITOR_ID_MAX_LENGTH) == 0) {
+    // Not monitors in the table, but the writer routes these ids into sections of its own:
+    // the typed profile section, and the corpse monitor's private scratch section.
+    if (strncmp(monitorID, KSCrashExcType_Profile, KSCRASH_MONITOR_ID_MAX_LENGTH) == 0 ||
+        strncmp(monitorID, KSCrashField_Corpse, KSCRASH_MONITOR_ID_MAX_LENGTH) == 0) {
         return true;
     }
     for (size_t i = 0; i < g_monitorMappingCount; i++) {
@@ -358,16 +380,23 @@ static void setMonitors(KSCrashMonitorType monitorTypes)
     }
 }
 
-static void handleConfiguration(KSCrashCConfiguration *configuration)
+// The store paths are the install's strdups; a retry after a failed install
+// re-enters, so the previous attempt's strings are released before the reset
+// drops the pointers. Both install entry points start here.
+static void resetStoreConfig(void)
 {
-    // The store paths are the install loop's strdups; a retry after a failed
-    // install re-enters here, so release the previous attempt's strings
-    // before the reset drops the pointers.
     free((char *)g_reportStoreConfig.reportsPath);
     free((char *)g_reportStoreConfig.reportSidecarsPath);
     free((char *)g_reportStoreConfig.runSidecarsPath);
     free((char *)g_reportStoreConfig.runSummariesPath);
+    free((char *)g_publishedReportsPath);
+    g_publishedReportsPath = NULL;
     g_reportStoreConfig = KSCrashReportStoreCConfiguration_Default();
+}
+
+static void handleConfiguration(KSCrashCConfiguration *configuration)
+{
+    resetStoreConfig();
     g_reportStoreConfig.maxReportCount = configuration->maxReportCount;
     g_reportStoreConfig.maxRunSummaryCount = configuration->maxRunSummaryCount;
 
@@ -594,11 +623,28 @@ KSCrashInstallErrorCode
     // the app at read time), no thread cache (it only knows this process's threads; remote
     // threads are named straight from the kernel), and no dynamic-linker symbol cache
     // (a subject's frames must resolve against its provided images, never this process's).
-    g_reportStoreConfig = KSCrashReportStoreCConfiguration_Default();
+    resetStoreConfig();
     g_reportStoreConfig.maxReportCount = 0;  // Never prune from here.
     KSCrashInstallErrorCode pathResult = resolveStoreConfigDefaults(installPath);
     if (pathResult != KSCrashInstallErrorNone) {
         return pathResult;
+    }
+    // The app ingests whatever Reports holds by renaming it, and there is no lock between
+    // the two processes, so the store writes below Reports in a dot directory the ingest's
+    // filename grammar skips, and a finished report is renamed up into Reports (see
+    // onExceptionEvent).
+    {
+        char stagingPath[KSFU_MAX_PATH_LENGTH];
+        if (snprintf(stagingPath, sizeof(stagingPath), "%s/" KSCRS_EXTENSION_STAGING_FOLDER,
+                     g_reportStoreConfig.reportsPath) >= (int)sizeof(stagingPath)) {
+            KSLOG_ERROR("Staging path is too long.");
+            return KSCrashInstallErrorPathTooLong;
+        }
+        g_publishedReportsPath = g_reportStoreConfig.reportsPath;
+        g_reportStoreConfig.reportsPath = strdup(stagingPath);
+        if (g_reportStoreConfig.reportsPath == NULL) {
+            return KSCrashInstallErrorCouldNotInitializeStore;
+        }
     }
     KSCrashInstallErrorCode storeInitResult = kscrs_initialize(&g_reportStoreConfig);
     if (storeInitResult != KSCrashInstallErrorNone) {
@@ -657,6 +703,7 @@ void kscrash_clearRunID(void)
     memset(g_runIDSection.runID, 0, sizeof(g_runIDSection.runID));
 }
 
+__attribute__((unused))  // For tests. Declared as extern in TestCase
 void kscrash_testcode_setRunID(const char *runID)
 {
     // Tests only. Install generates the run id once per process and clearing it is otherwise
@@ -698,32 +745,36 @@ bool kscrash_loadRunIDFromCorpse(task_t corpse, const uint64_t *imageLoadAddress
                                           &sectionAddr, &sectionSize)) {
             continue;
         }
-        if (sectionSize < sizeof(KSRunIDSectionPayload)) {
-            continue;
-        }
 
-        KSRunIDSectionPayload payload;
-        if (!ksmem_copySafelyFromTask(corpse, (const void *)sectionAddr, &payload, sizeof(payload))) {
-            continue;
-        }
-        payload.namespaceID[sizeof(payload.namespaceID) - 1] = '\0';
-        payload.runID[KSC_UUID_STRING_LENGTH] = '\0';
+        // Two namespaced copies of KSCrash linked into one image each contribute a payload,
+        // and the linker lays same-named sections out back to back (the payload is a char
+        // struct, so with no padding). Walk every payload the section holds, since the copy
+        // in this namespace can be any of them.
+        for (uintptr_t offset = 0; offset + sizeof(KSRunIDSectionPayload) <= sectionSize;
+             offset += sizeof(KSRunIDSectionPayload)) {
+            KSRunIDSectionPayload payload;
+            if (!ksmem_copySafelyFromTask(corpse, (const void *)(sectionAddr + offset), &payload, sizeof(payload))) {
+                break;
+            }
+            payload.namespaceID[sizeof(payload.namespaceID) - 1] = '\0';
+            payload.runID[KSC_UUID_STRING_LENGTH] = '\0';
 
-        // Only accept the KSCrash copy in the same namespace as this one; with multiple
-        // namespaced copies in one app each carries its own __ks_runid section.
-        if (strcmp(payload.namespaceID, g_runIDSection.namespaceID) != 0) {
-            continue;
-        }
+            // Only accept the KSCrash copy in the same namespace as this one; with multiple
+            // namespaced copies in one app each carries its own __ks_runid section.
+            if (strncmp(payload.namespaceID, g_runIDSection.namespaceID, sizeof(payload.namespaceID)) != 0) {
+                continue;
+            }
 
-        // Only accept a well-formed UUID; an uninitialized section reads as zeros and is skipped.
-        uuid_t parsed;
-        if (uuid_parse(payload.runID, parsed) != 0) {
-            continue;
-        }
+            // Only accept a well-formed UUID; an uninitialized section reads as zeros and is skipped.
+            uuid_t parsed;
+            if (uuid_parse(payload.runID, parsed) != 0) {
+                continue;
+            }
 
-        memcpy(g_runIDSection.runID, payload.runID, KSC_UUID_STRING_LENGTH);
-        g_runIDSection.runID[KSC_UUID_STRING_LENGTH] = '\0';
-        return true;
+            memcpy(g_runIDSection.runID, payload.runID, KSC_UUID_STRING_LENGTH);
+            g_runIDSection.runID[KSC_UUID_STRING_LENGTH] = '\0';
+            return true;
+        }
     }
     return false;
 }

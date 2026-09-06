@@ -33,6 +33,8 @@ final class ReportSendTests: XCTestCase {
 
     private var reportsDirectory: URL!
     private let reclaimCount = Counter()
+    /// What the last reclaim was told about retaining unreferenced runs.
+    private let reclaimRetained = UnfairLock<Bool?>(nil)
 
     override func setUpWithError() throws {
         reportsDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
@@ -73,6 +75,7 @@ final class ReportSendTests: XCTestCase {
     ) -> Store {
         let directory = reportsDirectory!
         let counter = reclaimCount
+        let retained = reclaimRetained
         return Store(
             runsDirectory: runsDirectory,
             runSidecarsDirectory: directory.appendingPathComponent("RunSidecars"),
@@ -99,7 +102,10 @@ final class ReportSendTests: XCTestCase {
                 },
                 remove: { try FileManager.default.removeItem(at: directory.appendingPathComponent("\($0).json")) }
             ),
-            reclaim: { counter.increment() }
+            reclaim: { retaining in
+                counter.increment()
+                retained.withLock { $0 = retaining }
+            }
         )
     }
 
@@ -121,6 +127,21 @@ final class ReportSendTests: XCTestCase {
     }
 
     // MARK: - Tests
+
+    func test_send_retainsUnreferencedRunsOnlyWhenPullingFromExtensionAreas() async throws {
+        // The retention window is for reports still sitting in a crash
+        // extension's store. A send with no extension area has none coming,
+        // so its reclaim deletes unreferenced run data on sight, as before.
+        _ = try await send()
+        XCTAssertEqual(reclaimRetained.withLock { $0 }, false)
+
+        let area = ExtensionConfiguration(
+            namespace: "SendTests", container: .url(reportsDirectory.appendingPathComponent("area")))
+        _ = try await ReportSend.send(
+            store: makeStore(), pipeline: [.init(ClosureStage { $0 })], extensionAreas: [area],
+            claims: SendClaims())
+        XCTAssertEqual(reclaimRetained.withLock { $0 }, true)
+    }
 
     func test_send_deliversNewestFirst_andDeletes() async throws {
         try writeReport(id: testReportID(1))

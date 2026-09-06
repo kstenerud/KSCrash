@@ -1216,9 +1216,6 @@ static bool populateEntryFromTask(task_t task, uintptr_t loadAddress, const char
     return true;
 }
 
-// Lazily copy the requested unwind sections of a remote entry out of its source task. A failed
-// or absent copy leaves that section's fields empty (unwindable via frame pointers only), and
-// is not retried.
 /** True when a section recorded from @c entry's header actually lies inside that image.
  *
  * The address and size come from an untrusted section_64 in a possibly memory-smashed process,
@@ -1240,6 +1237,9 @@ static bool sectionLiesWithinImage(const KSBinaryImageSetEntry *entry, uintptr_t
     return size <= (uintptr_t)(end - addr);
 }
 
+// Lazily copy the requested unwind sections of a remote entry out of its source task. A failed
+// or absent copy leaves that section's fields empty (unwindable via frame pointers only), and
+// is not retried.
 static void resolveSetEntrySections(KSBinaryImageSet *set, KSBinaryImageSetEntry *entry, uint32_t wantedSections)
 {
     if ((wantedSections & KSBinaryImageUnwindSectionCompactUnwind) && !entry->unwindInfoResolved) {

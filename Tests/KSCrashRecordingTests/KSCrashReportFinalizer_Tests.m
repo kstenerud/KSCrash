@@ -453,6 +453,29 @@ static CFDictionaryRef noopStitchReport(CFDictionaryRef reportDict, __unused con
     XCTAssertNil(report2[@"report"][@"finalized"]);
 }
 
+- (void)testFinalizeSucceedsWhenAMonitorReturnsNullInTheFinalPass
+{
+    [self prepareStore:@"testFinalPassNull"];
+
+    // The failing monitor returns NULL in every scope. With no sidecar of its
+    // own, the only pass that reaches it is the final one, which has no
+    // sidecar to reread on a retry: a NULL there is "nothing to add", and
+    // finalization must not be held back by it (a plugin written to the old
+    // always-a-path contract returns NULL exactly there).
+    kscma_initAPI(&_failingMonitorAPI);
+    _failingMonitorAPI.monitorId = failingMonitorId;
+    _failingMonitorAPI.createStitchedReport = failingStitchReport;
+    kscm_addMonitor(&_failingMonitorAPI);
+
+    NSString *runId = [[NSUUID UUID] UUIDString];
+    NSString *reportID = [self writeReportWithRunId:runId];
+    NSString *path = [self reportPathForID:reportID];
+
+    XCTAssertTrue(kscrs_finalizeReport(path.UTF8String, reportID.UTF8String));
+    NSDictionary *report = [self readReportJSON:path];
+    XCTAssertEqualObjects(report[@"report"][@"finalized"], @YES);
+}
+
 - (void)testFinalizeSucceedsWithNoopSidecar
 {
     [self prepareStore:@"testNoopSidecar"];

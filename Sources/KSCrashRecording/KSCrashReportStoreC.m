@@ -381,7 +381,7 @@ static int compareMonitorPriority(const void *a, const void *b)
     }
     const char *ida = ma->monitorId != NULL ? ma->monitorId(ma->context) : "";
     const char *idb = mb->monitorId != NULL ? mb->monitorId(mb->context) : "";
-    return strcmp(ida, idb);
+    return strncmp(ida, idb, KSCRASH_MONITOR_ID_MAX_LENGTH);
 }
 
 // Apply one monitor's stitch, returning the (possibly replaced) report.
@@ -401,6 +401,14 @@ static NSDictionary *applyStitch(NSDictionary *report, const KSCrashMonitorAPI *
     }
     if (stitched != NULL) {
         return (__bridge_transfer NSDictionary *)stitched;
+    }
+    if (scope == KSCrashSidecarScopeFinal) {
+        // No sidecar was read, so there is nothing a retry could get past: a
+        // NULL here is a monitor with nothing to say (one written to the
+        // contract that always handed it a path, say), not a failure. Treating
+        // it as one would block finalization of every report, and the watchdog
+        // deletes a recovered hang report whose finalization fails.
+        return report;
     }
     if (stitchFailed != NULL) {
         *stitchFailed = true;
@@ -443,7 +451,7 @@ static const KSCrashMonitorAPI *runSidecarMonitorForEntry(const struct dirent *e
     // Strip .ksscr extension to get monitorId
     char monitorId[256];
     const char *dot = strrchr(ent->d_name, '.');
-    if (dot == NULL || strcmp(dot, ".ksscr") != 0) {
+    if (dot == NULL || strncmp(dot, ".ksscr", sizeof(".ksscr")) != 0) {
         return NULL;
     }
     size_t nameLen = (size_t)(dot - ent->d_name);
@@ -705,12 +713,50 @@ static NSSet<NSString *> *summaryReferencedRunIDs(const char *runSummariesPath)
     return runIDs;
 }
 
+// Whether an unreferenced run's data is younger than the retention window,
+// measured from its newest write: a run directory's own mtime is its start
+// (APFS touches it only when an entry is created or removed), and a run can
+// outlive the window before it ever crashes. An unknown age keeps the data:
+// stat can fail for reasons that say nothing about age (data protection while
+// the device is locked, or the entry going away under us), and deleting a
+// run's data early is the exact loss the window exists to prevent, so only a
+// positive "this is old enough" answer may delete.
+static bool isWithinRetention(NSString *path, bool isDirectory, double retentionSeconds)
+{
+    if (retentionSeconds <= 0) {
+        return false;
+    }
+    NSFileManager *fm = [NSFileManager defaultManager];
+    time_t newest = 0;
+    bool haveAge = false;
+    NSMutableArray<NSString *> *paths = [NSMutableArray arrayWithObject:path];
+    if (isDirectory) {
+        for (NSString *entry in [fm contentsOfDirectoryAtPath:path error:nil]) {
+            [paths addObject:[path stringByAppendingPathComponent:entry]];
+        }
+    }
+    for (NSString *candidate in paths) {
+        struct stat st;
+        if (stat(candidate.fileSystemRepresentation, &st) != 0) {
+            return true;
+        }
+        if (!haveAge || st.st_mtimespec.tv_sec > newest) {
+            newest = st.st_mtimespec.tv_sec;
+            haveAge = true;
+        }
+    }
+    return !haveAge || difftime(time(NULL), newest) < retentionSeconds;
+}
+
 // Reclaim on-disk data for runs nothing references any more. Idempotent: it
 // recomputes the reference sets each call, so it can run at the end of any send
 // flow. RunSidecars and .sessions are both kept while a report OR a summary
 // references the run: reports stitch run sidecars and session ids at delivery,
 // and a pending summary needs its .sessions for the record merge and its
-// UserInfo run sidecar for the metadata stitch.
+// UserInfo run sidecar for the metadata stitch. Unreferenced is not the same
+// as orphaned: a report for the run may still be waiting in a crash
+// extension's store, so both kinds of data are kept until they age past the
+// retention window.
 static void reclaimOrphanedRunData(const KSCrashReportStoreCConfiguration *const config)
 {
     @autoreleasepool {
@@ -736,26 +782,15 @@ static void reclaimOrphanedRunData(const KSCrashReportStoreCConfiguration *const
         NSMutableSet<NSString *> *refs = [reportRefs mutableCopy];
         [refs unionSet:summaryRefs];
         NSFileManager *fm = [NSFileManager defaultManager];
+        const double retention = config->runSidecarRetentionSeconds;
 
         if (config->runSidecarsPath != NULL) {
             NSString *dir = @(config->runSidecarsPath);
             for (NSString *entry in [fm contentsOfDirectoryAtPath:dir error:nil]) {
                 if (![entry hasPrefix:@"."] && ![refs containsObject:entry]) {
                     NSString *runDir = [dir stringByAppendingPathComponent:entry];
-                    // Unreferenced is not the same as orphaned: a report for this run may still
-                    // be waiting in a crash extension's store, so keep the directory until it
-                    // ages past the retention window.
-                    if (config->runSidecarRetentionSeconds > 0) {
-                        // An unknown age keeps the directory. stat can fail for reasons that say
-                        // nothing about age (data protection while the device is locked, or the
-                        // entry going away under us), and deleting a run's sidecars early is the
-                        // exact loss the window exists to prevent, so only a positive "this is
-                        // old enough" answer may delete.
-                        struct stat dirStat;
-                        if (stat(runDir.fileSystemRepresentation, &dirStat) != 0 ||
-                            difftime(time(NULL), dirStat.st_mtimespec.tv_sec) < config->runSidecarRetentionSeconds) {
-                            continue;
-                        }
+                    if (isWithinRetention(runDir, true, retention)) {
+                        continue;
                     }
                     [fm removeItemAtPath:runDir error:nil];
                 }
@@ -769,7 +804,11 @@ static void reclaimOrphanedRunData(const KSCrashReportStoreCConfiguration *const
                     continue;
                 }
                 if (![refs containsObject:entry.stringByDeletingPathExtension]) {
-                    [fm removeItemAtPath:[dir stringByAppendingPathComponent:entry] error:nil];
+                    NSString *path = [dir stringByAppendingPathComponent:entry];
+                    if (isWithinRetention(path, false, retention)) {
+                        continue;
+                    }
+                    [fm removeItemAtPath:path error:nil];
                 }
             }
         }
@@ -1352,39 +1391,18 @@ static void ingestExtensionReports(const char *sourceReportsPath, const KSCrashR
     if (sourceReportsPath == NULL) {
         return;
     }
-    DIR *dir = opendir(sourceReportsPath);
-    if (dir == NULL) {
-        KSLOG_ERROR(@"Could not open extension reports path %s: %s", sourceReportsPath, strerror(errno));
+    // The source is another store's Reports directory, so its own lister does the listing:
+    // collected before any rename, since removing entries from a directory while readdir is
+    // walking it is unspecified and could skip some.
+    KSCrashReportStoreCConfiguration source = *config;
+    source.reportsPath = sourceReportsPath;
+    ReportName *names = NULL;
+    int listed = listReportNames(&names, &source);
+    if (listed < 0) {
+        KSLOG_ERROR(@"Could not list extension reports at %s", sourceReportsPath);
         return;
     }
-
-    // Collect first, rename after closedir. Removing entries from a directory while readdir is
-    // walking it is unspecified: the offsets the next getdirentries refill resumes from are
-    // invalidated, so entries can be skipped and the directory would not reliably drain in one
-    // pass. Only the names are kept, since both paths are derivable from a name.
-    ReportName *names = NULL;
-    size_t nameCount = 0;
-    size_t nameCapacity = 0;
-    struct dirent *ent;
-    while ((ent = readdir(dir)) != NULL) {
-        char reportID[KSCRS_REPORT_ID_LENGTH + 1];
-        if (!kscrs_parseReportFilename(ent->d_name, reportID)) {
-            continue;
-        }
-        if (nameCount == nameCapacity) {
-            size_t newCapacity = nameCapacity == 0 ? 16 : nameCapacity * 2;
-            ReportName *grown = realloc(names, newCapacity * sizeof(*names));
-            if (grown == NULL) {
-                KSLOG_ERROR(@"Out of memory collecting extension reports; ingesting the %zu found so far", nameCount);
-                break;
-            }
-            names = grown;
-            nameCapacity = newCapacity;
-        }
-        strlcpy(names[nameCount].name, ent->d_name, sizeof(names[nameCount].name));
-        nameCount++;
-    }
-    closedir(dir);
+    size_t nameCount = (size_t)listed;
 
     for (size_t i = 0; i < nameCount; i++) {
         char sourcePath[KSCRS_MAX_PATH_LENGTH];

@@ -373,26 +373,16 @@ bool kscu_findEntry(const void *unwindInfo, size_t unwindInfoSize, uintptr_t tar
     // The index table gates everything below, and both its offset and its count are read out of
     // the section rather than known. Bound it before the search walks it: a truncated or
     // malformed __unwind_info would otherwise send the binary search outside the mapped section,
-    // here in a crash handler. Subtracting only after the offset check keeps the remaining-space
-    // arithmetic from wrapping, and the count is widened because indexCount * 12 overflows a
-    // 32-bit size_t.
-    if (header->indexSectionOffset > unwindInfoSize) {
-        KSLOG_TRACE("Index section offset 0x%x is past the end of the section", header->indexSectionOffset);
-        return false;
-    }
-    const uint64_t indexTableSize =
-        (uint64_t)header->indexCount * sizeof(struct unwind_info_section_header_index_entry);
-    if (indexTableSize > (uint64_t)(unwindInfoSize - header->indexSectionOffset)) {
-        KSLOG_TRACE("Index table of %u entries does not fit in the section", header->indexCount);
+    // here in a crash handler. The count is widened because indexCount * 12 overflows a 32-bit
+    // size_t.
+    if (!rangeInSection(unwindInfoSize, header->indexSectionOffset,
+                        (uint64_t)header->indexCount * sizeof(struct unwind_info_section_header_index_entry))) {
+        KSLOG_TRACE("Index table of %u entries at 0x%x does not fit in the section", header->indexCount,
+                    header->indexSectionOffset);
         return false;
     }
 
     // Binary search the first-level index
-    if (!rangeInSection(unwindInfoSize, header->indexSectionOffset,
-                        (uint64_t)header->indexCount * sizeof(struct unwind_info_section_header_index_entry))) {
-        KSLOG_TRACE("First-level index out of bounds");
-        return false;
-    }
     const struct unwind_info_section_header_index_entry *indices =
         (const struct unwind_info_section_header_index_entry *)(sectionBase + header->indexSectionOffset);
 

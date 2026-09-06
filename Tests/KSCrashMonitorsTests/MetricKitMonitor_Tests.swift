@@ -122,6 +122,7 @@ import XCTest
                 URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString))
             configuration.monitors = []
             var reports: URL?
+            letTheInstallSuiteClaimTheProcess()
             do {
                 try KSCrash.shared.install(configuration)
                 reports = try configuration.locations.reports
@@ -1011,4 +1012,28 @@ private func testReportID(_ value: Int) -> Report.ID {
                 UInt8((value >> 24) & 0xFF), UInt8((value >> 16) & 0xFF),
                 UInt8((value >> 8) & 0xFF), UInt8(value & 0xFF)
             )))
+}
+
+/// Lets the KSCrashTests bundle, when its suites are going to run in this
+/// process, make its one install before this suite installs in
+/// extension-reporting mode: those suites can only skip when they lose the
+/// race, while this one attaches to a live pipeline and keeps running. Decided
+/// on what the run selected, not on what the bundle holds, so a filtered run
+/// of this suite alone still exercises the extension-reporting install. See
+/// .claude/rules/testing.md.
+private func letTheInstallSuiteClaimTheProcess() {
+    // The runner names the selection in a `-XCTest` argument: `All`, or a
+    // comma list of `Module.Class/test`. The default suite is no use here; it
+    // holds every test in the bundle whatever was selected.
+    let arguments = ProcessInfo.processInfo.arguments
+    var runsInstallSuite = true
+    if let index = arguments.firstIndex(of: "-XCTest"), index + 1 < arguments.count {
+        let selection = arguments[index + 1]
+        runsInstallSuite =
+            selection == "All" || selection.split(separator: ",").contains { $0.hasPrefix("KSCrashTests.") }
+    }
+    guard runsInstallSuite, let claim = NSClassFromString("KSCrashTestsInstallClaim") as? NSObject.Type else {
+        return
+    }
+    _ = claim.perform(NSSelectorFromString("claim"))
 }

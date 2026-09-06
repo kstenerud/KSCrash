@@ -203,6 +203,10 @@ typedef struct KSCrashMonitorAPI {
      *         finalized for good, and on the hang-recovery path the report is
      *         deleted outright. See KSCrashSidecarReadResult.
      *
+     *         In the final pass there is no sidecar a retry could reread, so
+     *         a NULL there counts as "nothing to add" and the report is kept
+     *         as it was.
+     *
      * @note Optional. If NULL, no stitching is performed.
      *       Runs at normal app startup time, not during crash handling.
      */

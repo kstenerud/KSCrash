@@ -405,6 +405,11 @@ static bool parseCIE(const uint8_t *cieData, size_t cieSize, task_t task, KSDwar
     if (outCIE->augmentation[0] == 'z') {
         outCIE->hasAugmentation = true;
         uint64_t augLen = readULEB128(&reader);
+        // The length is untrusted bytes (a copy of a crashed process's section, or a smashed
+        // live one): past the entry it would put every later read outside the buffer.
+        if (augLen > (uint64_t)(reader.end - reader.data)) {
+            return false;
+        }
         const uint8_t *augEnd = reader.data + augLen;
 
         for (const char *aug = outCIE->augmentation + 1; *aug && reader.data < augEnd; aug++) {
@@ -495,6 +500,11 @@ static bool parseFDE(const uint8_t *fdeData, size_t fdeSize, const KSDwarfCIE *c
     // Augmentation data if CIE has 'z' augmentation
     if (cie->hasAugmentation) {
         uint64_t augLen = readULEB128(&reader);
+        // Same bound as the CIE's: a hostile length would otherwise wrap the instruction
+        // pointer below the buffer, or leave a negative length that reads past it.
+        if (augLen > (uint64_t)(reader.end - reader.data)) {
+            return false;
+        }
         const uint8_t *augStart = reader.data;
 
         // Parse LSDA if present
