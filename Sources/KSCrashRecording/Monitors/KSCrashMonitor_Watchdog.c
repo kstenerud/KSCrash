@@ -98,8 +98,8 @@ typedef struct {
 // The two threads communicate through:
 //   - `enterTime` (_Atomic uint64_t) — written by the main thread when the
 //     run loop wakes, read by the watchdog timer to measure elapsed time.
-//     Uses relaxed ordering because it is a standalone timing value with no
-//     dependencies on other memory operations.
+//     Cleared under `lock` before resolving a hang when the run loop goes
+//     idle. The timer revalidates its snapshot under that same lock.
 //   - `lock` (os_unfair_lock) — protects the mutable `hang` state, sidecar
 //     pointer, and observer array.  Held only briefly for reads/writes of
 //     these fields; never held during I/O or observer callbacks.
@@ -156,9 +156,10 @@ typedef struct KSHangMonitor {
     os_unfair_lock lock;
     KSHangState hang;
 
-    // Written by main thread (mainRunLoopActivity), read by watchdog thread
-    // (watchdogTimerFired).  Relaxed ordering is fine — this is a standalone
-    // timing value with no publish/consume relationship to other fields.
+    // Start of the current run-loop interval, or zero while idle. Closing an
+    // interval and validating a timer's snapshot both happen under lock.
+    // Atomic for the timer's initial read outside the lock; relaxed ordering
+    // suffices because lock synchronizes closure with hang-state changes.
     _Atomic uint64_t enterTime;
 
     KSHangSidecar *sidecar;  // mmap'd, or NULL
@@ -469,10 +470,12 @@ static void watchdogTimerFired(CFRunLoopTimerRef timer, void *info)
     (void)timer;
     KSHangMonitor *monitor = (KSHangMonitor *)info;
 
-    // Load enterTime exactly once — a second load could see a newer value
-    // if the main thread briefly woke between the two reads, causing us to
-    // initialize the hang with the wrong start timestamp.
+    // Keep this snapshot for both elapsed time and the hang's identity.
+    // The locked read below only validates it; never substitute a newer time.
     uint64_t enter = atomic_load_explicit(&monitor->enterTime, memory_order_relaxed);
+    if (enter == 0) {
+        return;
+    }
     uint64_t now = ksdate_uptimeNanoseconds();
     uint64_t hangTime = now - enter;
 
@@ -487,6 +490,13 @@ static void watchdogTimerFired(CFRunLoopTimerRef timer, void *info)
     bool shouldUpdateHang = false;
 
     os_unfair_lock_lock(&monitor->lock);
+    // Invalidating a timer cannot cancel a callback already running. The
+    // main thread may have closed this interval, or even started another,
+    // since our initial read. Do not start or update a hang for stale work.
+    if (enter != atomic_load_explicit(&monitor->enterTime, memory_order_relaxed)) {
+        os_unfair_lock_unlock(&monitor->lock);
+        return;
+    }
     if (!monitor->hang.active) {
         kshangstate_init(&monitor->hang, enter, currentRole, currentTransition);
         monitor->hang.endTimestamp = now;
@@ -510,6 +520,8 @@ static void watchdogTimerFired(CFRunLoopTimerRef timer, void *info)
 
 static void schedulePings(KSHangMonitor *monitor)
 {
+    // The preceding BeforeWaiting closed the old interval under lock. This
+    // new timestamp also keeps its in-flight callbacks stale after waking.
     atomic_store_explicit(&monitor->enterTime, ksdate_uptimeNanoseconds(), memory_order_relaxed);
 
     CFRunLoopTimerContext timerCtx = {
@@ -540,6 +552,8 @@ static void mainRunLoopActivity(CFRunLoopObserverRef obs, CFRunLoopActivity acti
         bool hadHang = false;
 
         os_unfair_lock_lock(&monitor->lock);
+        // Close even intervals that never reached the hang threshold.
+        atomic_store_explicit(&monitor->enterTime, 0, memory_order_relaxed);
         if (monitor->hang.active) {
             hang = monitor->hang;
             kshangstate_clear(&monitor->hang);
