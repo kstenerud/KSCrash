@@ -53,6 +53,16 @@ static const char *monitorIdOf(const KSCrashMonitorAPI *api)
     return monitorId;
 }
 
+// Tests only: lets a test drive the duplicate-id refusal, which asserts in debug builds and
+// would otherwise abort the test process. Never touched outside a test.
+static bool g_duplicateIdAsserts = true;
+
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+void kscmr_testcode_setDuplicateIdAsserts(bool asserts)
+{
+    g_duplicateIdAsserts = asserts;
+}
+
 bool kscmr_addMonitor(KSCrashMonitorAPIList *monitorList, const KSCrashMonitorAPI *api)
 {
     if (api == NULL) {
@@ -74,7 +84,7 @@ bool kscmr_addMonitor(KSCrashMonitorAPIList *monitorList, const KSCrashMonitorAP
                 KSLOG_ERROR("A monitor with id \"%s\" is already registered. Skipping addition.", newId);
                 // Loud in debug, where the mistake is introduced. In release the monitor is
                 // simply not added, which beats misrouting one monitor's sections to another.
-                assert(false);
+                assert(!g_duplicateIdAsserts);
                 return false;
             }
         }

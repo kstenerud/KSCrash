@@ -422,22 +422,14 @@ typedef const KSCrashMonitorAPI *(*SidecarMonitorForEntryFunc)(const struct dire
                                                                const KSCrashReportStoreCConfiguration *config,
                                                                const char *reportID);
 
-// Report-scope entries are monitor directory names; require a sidecar file for this report.
+// Report-scope entries are monitor directory names. Whether the monitor has a sidecar for
+// this particular report is decided where the path is built, in the stitch loop.
 static const KSCrashMonitorAPI *reportSidecarMonitorForEntry(const struct dirent *ent,
-                                                             const KSCrashReportStoreCConfiguration *config,
-                                                             const char *reportID)
+                                                             __unused const KSCrashReportStoreCConfiguration *config,
+                                                             __unused const char *reportID)
 {
     const KSCrashMonitorAPI *api = kscm_getMonitor(ent->d_name);
     if (api == NULL || api->createStitchedReport == NULL) {
-        return NULL;
-    }
-    // Skip monitors with no sidecar for this specific report (absence is not a stitch failure).
-    char sidecarPath[KSCRS_MAX_PATH_LENGTH];
-    if (!buildReportSidecarFilePath(config->reportSidecarsPath, ent->d_name, reportID, sidecarPath,
-                                    sizeof(sidecarPath))) {
-        return NULL;
-    }
-    if (access(sidecarPath, F_OK) != 0) {
         return NULL;
     }
     return api;
@@ -518,6 +510,12 @@ static NSDictionary *stitchSidecarsIntoReport(NSDictionary *report, DIR *dir, KS
                                              sizeof(sidecarPath))
                 : buildRunSidecarFilePath(config->runSidecarsPath, runID, monitorId, sidecarPath, sizeof(sidecarPath));
         if (!builtPath) {
+            continue;
+        }
+        // A monitor with no sidecar for this report has nothing to stitch; absence is not a
+        // stitch failure. (Run-scope entries were listed from the run's own directory, so the
+        // file exists there by construction; the check is cheap either way.)
+        if (access(sidecarPath, F_OK) != 0) {
             continue;
         }
         result = applyStitch(result, api, sidecarPath, scope, stitchFailed);

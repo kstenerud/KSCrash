@@ -222,32 +222,11 @@ bool ksbic_getUnwindInfoForAddress(uintptr_t address, KSBinaryImageUnwindInfo *_
  * as the section pointers stored in each entry reference bytes readable in the current
  * process.
  *
- * Opaque. Create with ksbic_createSetFromTaskImages (remote images) or
- * ksbic_createSetFromLocalImages (this process's images) and release with
- * ksbic_destroySet. Confine each set to a single thread: lookups lazily copy a remote
- * image's unwind sections out of the source task on first hit.
+ * Opaque. Create with ksbic_createSetFromTaskImages and release with ksbic_destroySet.
+ * Confine each set to a single thread: lookups lazily copy a remote image's unwind
+ * sections out of the source task on first hit.
  */
 typedef struct KSBinaryImageSet KSBinaryImageSet;
-
-/**
- * Build an image set from the current process's loaded images.
- *
- * Allocates, so this is NOT async-signal-safe and must not run from a crash handler.
- * It is the counterpart to (and a building block for) ksbic_createSetFromTaskImages: the
- * same per-image entries describe shared-cache images that are mapped into both the target
- * task and this one.
- *
- * NOT interchangeable with ksbic_createSetFromTaskImages(mach_task_self(), ...), despite
- * describing the same images. Entries here are born fully resolved, pointing straight at
- * in-process sections, so no lookup ever allocates. The task builder instead records each
- * section's remote address for a lazy cross-task copy, which mallocs and vm_reads on first
- * hit. This is therefore the only allocation-free way to obtain a set, which is what an
- * in-process consumer that cannot allocate during lookups needs. Do not delete it as unused
- * on the strength of the task builder existing.
- *
- * @return A newly allocated set the caller must release with ksbic_destroySet, or NULL on failure.
- */
-KSBinaryImageSet *_Nullable ksbic_createSetFromLocalImages(void);
 
 /**
  * Describes one image to load into a set: its load address in the target task, and an
@@ -324,8 +303,7 @@ bool ksbic_findSectionInTaskImage(task_t task, uintptr_t loadAddress, const char
                                   uintptr_t *_Nullable outSize);
 
 /**
- * Release an image set created by ksbic_createSetFromTaskImages or
- * ksbic_createSetFromLocalImages.
+ * Release an image set created by ksbic_createSetFromTaskImages.
  *
  * @param set The set to release. NULL is allowed and ignored.
  */
