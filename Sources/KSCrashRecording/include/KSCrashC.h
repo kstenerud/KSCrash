@@ -235,9 +235,9 @@ void kscrash_clearRunID(void);
  * plugin monitors, and nothing else: no crash handlers, no last-run-id chain, no run
  * summaries, no previous-run analysis, no console log, and no report pruning.
  *
- *        filenames embed it and the app's store scans by it when reading this area;
- *        a mismatched name writes reports the app never finds.
  * @param installPath The extension's report directory (e.g. <app group container>/KSCrash).
+ *        The app's store scans this area by the same layout when it ingests, so a
+ *        mismatched path writes reports the app never finds.
  * @param pluginAPIs Plugin monitors to register (e.g. the crash-report-extension monitor).
  *        May be NULL.
  * @param pluginCount The number of entries in @c pluginAPIs.

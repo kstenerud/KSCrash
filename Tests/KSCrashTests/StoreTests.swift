@@ -459,7 +459,7 @@ final class StoreTests: XCTestCase {
             runsDirectory: runsDirectory,
             runSidecarsDirectory: sidecarsDirectory,
             liveRunID: nil
-        ) { called.fulfill() }
+        ) { _ in called.fulfill() }
         store.reclaimOrphans()
         wait(for: [called], timeout: 1)
     }
@@ -665,6 +665,17 @@ final class StoreTests: XCTestCase {
         XCTAssertEqual(
             leftBehind, [name(3, testReportID(3)), "notes.txt"],
             "the clobber-refused report and the foreign file stay in the area")
+    }
+
+    func test_snapshotReportIDs_skipsAnAreaThatDoesNotResolve() throws {
+        // An app group this process is not entitled to does not resolve. The
+        // app's own reports must still be listed and sent; the area is logged
+        // and skipped rather than turning every send into a throw.
+        let reports = FakeReports([testReportID(1): try makeReportData()])
+        let store = makeReportStore(reports)
+        let unresolvable = ExtensionConfiguration(
+            namespace: "AreaTests", container: .appGroup("group.kscrash.tests.not-entitled"))
+        XCTAssertEqual(try store.snapshotReportIDs(pullingFrom: [unresolvable]), [testReportID(1)])
     }
 
     func test_removeReport_removesAndPropagatesFailure() throws {

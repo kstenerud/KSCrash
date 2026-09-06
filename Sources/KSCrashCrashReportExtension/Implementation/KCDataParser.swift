@@ -51,6 +51,15 @@ enum KCDataParser {
 
     private static let bufferBeginCrashInfo: UInt32 = 0xDEAD_F157
     private static let bufferEnd: UInt32 = 0xF191_58ED
+    /// An embedded kcdata buffer, with its own begin and end items. The corpse's exit reason
+    /// arrives this way: the os_reason's whole buffer is one nested item, and the
+    /// EXIT_REASON_* companions live inside it, never at the top level.
+    private static let nestedKCData: UInt32 = 0x38
+    /// Array items: the header type is ARRAY_PAD0 plus the padding byte count, and the flags
+    /// carry the element type in the high word and the count in the low word.
+    private static let arrayTypeRange: ClosedRange<UInt32> = 0x20...0x2F
+    private static let structHasPadding: UInt64 = 0x80
+    private static let structPaddingMask: UInt64 = 0xF
 
     // TASK_CRASHINFO_* item types (kern/kcdata.h, macOS 27 SDK).
     private static let extModInfo: UInt32 = 0x801
@@ -229,230 +238,255 @@ enum KCDataParser {
         var haveProcess = false
         var workqueue: CorpseSnapshot.Workqueue?
 
-        var off = 0
-        while off + 16 <= n {
-            let type = u32(off)
-            let rawSize = u32(off + 4)
-            let d = off + 16
-            if type == bufferEnd { break }
-            // A truncated or corrupt blob can end mid-item or carry a garbage size; stop
-            // rather than let the out-of-range u32/u64 helpers fabricate zero-valued crash
-            // facts. The bound is checked before UInt32 -> Int so a hostile size cannot trap
-            // the conversion or the offset addition on a 32-bit Int platform.
-            if UInt64(rawSize) > UInt64(n - d) { break }
-            let size = Int(rawSize)
-
-            switch type {
-            case exceptionCodes where size >= 16:
-                excCode = u64(d)
-                excSub = u64(d + 8)
-                haveExc = true
-            case pid where size >= 4:
-                procPID = u32(d)
-            case procName:
-                processName = string(d, min(size, 64))
-            case procPath:
-                processPath = string(d, size)
-            case crashedThreadID where size >= 8:
-                threadID = u64(d)
-            case cpuType where size >= 4:
-                cpu = i32(d)
-            case exceptionType where size >= 4:
-                kernelExceptionType = i32(d)
-            case memoryLimit where size >= 8:
-                memLimit = u64(d)
-            // These two sit inside the ledger id range, so they must match before it.
-            case memoryLimitIncrease where size >= 4:
-                memLimitIncrease = u32(d)
-            case personaID where size >= 4:
-                process.personaID = u32(d)
-                haveProcess = true
-
-            case exitReasonSnapshot where size >= 12:
-                erNamespace = u32(d)
-                erCode = u64(d + 4)
-                if size >= 20 { erFlags = u64(d + 12) }
-                haveER = true
-            case exitReasonUserDesc:
-                erDesc = string(d, size)
-            case exitReasonUserPayload where size > 0:
-                erPayload = Data(b[d..<(d + size)])
-            case exitReasonWorkloopID where size >= 8:
-                erWorkloopID = u64(d)
-            case exitReasonDispatchQueueNo where size >= 8:
-                erDispatchQueueNo = u64(d)
-            case exitReasonCodesigningInfo where size >= 2108:
-                // struct codesigning_exit_reason_info (packed): two u64s, two 1024-byte paths,
-                // four u64 modtimes, eight u8 flags, one u32.
-                erCodeSigning = .init(
-                    virtualAddress: u64(d), fileOffset: u64(d + 8),
-                    pathname: string(d + 16, 1024), filename: string(d + 1040, 1024),
-                    codesigModtimeSecs: u64(d + 2064), codesigModtimeNsecs: u64(d + 2072),
-                    pageModtimeSecs: u64(d + 2080), pageModtimeNsecs: u64(d + 2088),
-                    pathTruncated: b[d + 2096] != 0, objectCodesigned: b[d + 2097] != 0,
-                    pageCodesigValidated: b[d + 2098] != 0, pageCodesigTainted: b[d + 2099] != 0,
-                    pageCodesigNx: b[d + 2100] != 0, pageWpmapped: b[d + 2101] != 0,
-                    pageSlid: b[d + 2102] != 0, pageDirty: b[d + 2103] != 0,
-                    pageShadowDepth: u32(d + 2104))
-
-            case rusageInfo where size >= 16:
-                // struct rusage_info: a 16-byte uuid then u64 fields appended version over
-                // version, so decode as a prefix: fill fields in order while bytes remain.
-                var v = CorpseSnapshot.Rusage()
-                v.uuid = uuidString(d)
-                var o = d + 16
-                for field in Self.rusageFields {
-                    guard o + 8 <= d + size else { break }
-                    v[keyPath: field] = u64(o)
-                    o += 8
+        // Walks the items between two offsets; a nested buffer is walked the same way, with
+        // its own end item closing only the nested walk.
+        func walk(from start: Int, to end: Int, depth: Int) {
+            var off = start
+            while off + 16 <= end {
+                let rawType = u32(off)
+                let rawSize = u32(off + 4)
+                let flags = u64(off + 8)
+                let d = off + 16
+                if rawType == bufferEnd { break }
+                // A truncated or corrupt blob can end mid-item or carry a garbage size; stop
+                // rather than let the out-of-range u32/u64 helpers fabricate zero-valued crash
+                // facts. The bound is checked before UInt32 -> Int so a hostile size cannot trap
+                // the conversion or the offset addition on a 32-bit Int platform.
+                if UInt64(rawSize) > UInt64(end - d) { break }
+                let paddedSize = Int(rawSize)
+                // The kernel pads a struct item out to 16 bytes and records how many bytes of
+                // that are padding in the flags; the payload ends before them.
+                var size = paddedSize
+                var type = rawType
+                var arrayCount = 0
+                if arrayTypeRange.contains(rawType) {
+                    // The element type is what the item is about; the padding sits in the type.
+                    type = UInt32(truncatingIfNeeded: flags >> 32)
+                    arrayCount = Int(UInt32(truncatingIfNeeded: flags))
+                    size -= Int(rawType - arrayTypeRange.lowerBound)
+                } else if flags & structHasPadding != 0 {
+                    size -= Int(flags & structPaddingMask)
                 }
-                rusage = v
+                if size < 0 { size = 0 }
 
-            case ledgerRange where size >= 8:
-                if let field = Self.ledgerFields[type] {
-                    ledgers[keyPath: field] = u64(d)
-                    haveLedgers = true
+                switch type {
+                case nestedKCData where depth < 4:
+                    walk(from: d, to: d + size, depth: depth + 1)
+                case exceptionCodes where size >= 16:
+                    excCode = u64(d)
+                    excSub = u64(d + 8)
+                    haveExc = true
+                case pid where size >= 4:
+                    procPID = u32(d)
+                case procName:
+                    processName = string(d, min(size, 64))
+                case procPath:
+                    processPath = string(d, size)
+                case crashedThreadID where size >= 8:
+                    threadID = u64(d)
+                case cpuType where size >= 4:
+                    cpu = i32(d)
+                case exceptionType where size >= 4:
+                    kernelExceptionType = i32(d)
+                case memoryLimit where size >= 8:
+                    memLimit = u64(d)
+                // These two sit inside the ledger id range, so they must match before it.
+                case memoryLimitIncrease where size >= 4:
+                    memLimitIncrease = u32(d)
+                case personaID where size >= 4:
+                    process.personaID = u32(d)
+                    haveProcess = true
+
+                case exitReasonSnapshot where size >= 12:
+                    erNamespace = u32(d)
+                    erCode = u64(d + 4)
+                    if size >= 20 { erFlags = u64(d + 12) }
+                    haveER = true
+                case exitReasonUserDesc:
+                    erDesc = string(d, size)
+                case exitReasonUserPayload where size > 0:
+                    erPayload = Data(b[d..<(d + size)])
+                case exitReasonWorkloopID where size >= 8:
+                    erWorkloopID = u64(d)
+                case exitReasonDispatchQueueNo where size >= 8:
+                    erDispatchQueueNo = u64(d)
+                case exitReasonCodesigningInfo where size >= 2108:
+                    // struct codesigning_exit_reason_info (packed): two u64s, two 1024-byte paths,
+                    // four u64 modtimes, eight u8 flags, one u32.
+                    erCodeSigning = .init(
+                        virtualAddress: u64(d), fileOffset: u64(d + 8),
+                        pathname: string(d + 16, 1024), filename: string(d + 1040, 1024),
+                        codesigModtimeSecs: u64(d + 2064), codesigModtimeNsecs: u64(d + 2072),
+                        pageModtimeSecs: u64(d + 2080), pageModtimeNsecs: u64(d + 2088),
+                        pathTruncated: b[d + 2096] != 0, objectCodesigned: b[d + 2097] != 0,
+                        pageCodesigValidated: b[d + 2098] != 0, pageCodesigTainted: b[d + 2099] != 0,
+                        pageCodesigNx: b[d + 2100] != 0, pageWpmapped: b[d + 2101] != 0,
+                        pageSlid: b[d + 2102] != 0, pageDirty: b[d + 2103] != 0,
+                        pageShadowDepth: u32(d + 2104))
+
+                case rusageInfo where size >= 16:
+                    // struct rusage_info: a 16-byte uuid then u64 fields appended version over
+                    // version, so decode as a prefix: fill fields in order while bytes remain.
+                    var v = CorpseSnapshot.Rusage()
+                    v.uuid = uuidString(d)
+                    var o = d + 16
+                    for field in Self.rusageFields {
+                        guard o + 8 <= d + size else { break }
+                        v[keyPath: field] = u64(o)
+                        o += 8
+                    }
+                    rusage = v
+
+                case ledgerRange where size >= 8:
+                    if let field = Self.ledgerFields[type] {
+                        ledgers[keyPath: field] = u64(d)
+                        haveLedgers = true
+                    }
+
+                case kernelTriageV1 where size >= 640:
+                    // struct kernel_triage_info_v1: five 128-char strings; keep the non-empty ones.
+                    let strings = (0..<5).compactMap { string(d + $0 * 128, 128) }
+                    if !strings.isEmpty { triage = strings }
+
+                case procCSFlags where size >= 4:
+                    codeSigning.csFlags = u32(d)
+                    haveCodeSigning = true
+                case csSigningID:
+                    codeSigning.signingID = string(d, min(size, 64))
+                    haveCodeSigning = true
+                case csTeamID:
+                    codeSigning.teamID = string(d, min(size, 32))
+                    haveCodeSigning = true
+                case csValidationCategory where size >= 4:
+                    codeSigning.validationCategory = u32(d)
+                    haveCodeSigning = true
+                case csTrustLevel where size >= 4:
+                    codeSigning.trustLevel = u32(d)
+                    haveCodeSigning = true
+                case csAuxiliaryInfo where size >= 8:
+                    codeSigning.auxiliaryInfo = u64(d)
+                    haveCodeSigning = true
+                case taskSecurityConfig where size >= 4:
+                    codeSigning.securityConfig = u32(d)
+                    haveCodeSigning = true
+
+                case ppid where size >= 4:
+                    process.ppid = u32(d)
+                    haveProcess = true
+                case responsiblePid where size >= 4:
+                    process.responsiblePid = u32(d)
+                    haveProcess = true
+                case uid where size >= 4:
+                    process.uid = u32(d)
+                    haveProcess = true
+                case gid where size >= 4:
+                    process.gid = u32(d)
+                    haveProcess = true
+                case procFlags where size >= 4:
+                    process.procFlags = u32(d)
+                    haveProcess = true
+                case procStatus where size >= 1:
+                    process.procStatus = b[d]
+                    haveProcess = true
+                case procPSAFlags where size >= 2:
+                    process.psaFlags = u16(d)
+                    haveProcess = true
+                case procStartTime where size >= 16:
+                    // struct timeval64.
+                    process.startTimeSec = u64(d)
+                    process.startTimeUSec = u64(d + 8)
+                    haveProcess = true
+                case userStack where size >= 8:
+                    process.userStackAddress = u64(d)
+                    haveProcess = true
+                case argsLen where size >= 4:
+                    process.argsLen = u32(d)
+                    haveProcess = true
+                case procArgc where size >= 4:
+                    process.argc = u32(d)
+                    haveProcess = true
+                case dirtyFlags where size >= 4:
+                    process.dirtyFlags = u32(d)
+                    haveProcess = true
+                case bsdInfoWithUniqID where size >= 32:
+                    // struct crashinfo_proc_uniqidentifierinfo (packed): uuid[16], u64 unique,
+                    // u64 parent-unique, then reserved.
+                    process.executableUUID = uuidString(d)
+                    process.uniqueID = u64(d + 16)
+                    process.parentUniqueID = u64(d + 24)
+                    haveProcess = true
+                case procCPUType where size >= 4:
+                    process.procCPUType = i32(d)
+                    haveProcess = true
+                case taskIsCorpseFork where size >= 4:
+                    process.isCorpseFork = u32(d) != 0
+                    haveProcess = true
+                case crashCount where size >= 4:
+                    process.crashCount = i32(d)
+                    haveProcess = true
+                case throttleTimeout where size >= 4:
+                    process.throttleTimeout = i32(d)
+                    haveProcess = true
+                case memorystatusEffectivePriority where size >= 4:
+                    process.memorystatusEffectivePriority = i32(d)
+                    haveProcess = true
+                case rlimCore where size >= 8:
+                    process.rlimCore = u64(d)
+                    haveProcess = true
+                case coreAllowed where size >= 1:
+                    process.coreAllowed = b[d] != 0
+                    haveProcess = true
+                case sandboxProfile:
+                    process.sandboxProfile = string(d, min(size, 32))
+                    haveProcess = true
+                case taskUUID where size >= 16:
+                    process.taskUUID = uuidString(d)
+                    haveProcess = true
+                case coalitionID where size >= 8:
+                    // Written as an array of the coalition types; the first is the resource
+                    // coalition, the id reports have always carried.
+                    process.coalitionID = u64(d)
+                    haveProcess = true
+                case udataPtrs where size >= 8:
+                    let count = arrayCount > 0 ? min(arrayCount, size / 8) : size / 8
+                    process.udataPtrs = (0..<count).map { u64(d + $0 * 8) }
+                    haveProcess = true
+                case voucherInfo where size >= 16:
+                    // struct crashinfo_voucher (packed): u64 thread id, u32 originator, u32 proximate.
+                    process.voucher = .init(threadID: u64(d), originatorPid: u32(d + 8), proximatePid: u32(d + 12))
+                    haveProcess = true
+                case extModInfo where size >= 48:
+                    // struct vm_extmod_statistics: six i64 counters.
+                    process.externalModifications = .init(
+                        taskForPidCount: i64(d), taskForPidCallerCount: i64(d + 8),
+                        threadCreationCount: i64(d + 16), threadCreationCallerCount: i64(d + 24),
+                        threadSetStateCount: i64(d + 32), threadSetStateCallerCount: i64(d + 40))
+                    haveProcess = true
+                case taskDyldInfo where size >= 20:
+                    // struct task_dyld_info: u64 addr, u64 size, i32 format.
+                    process.dyldInfo = .init(
+                        allImageInfoAddr: u64(d), allImageInfoSize: u64(d + 8), allImageInfoFormat: i32(d + 16))
+                    haveProcess = true
+                case jitAddressRange where size >= 16:
+                    process.jitAddressRange = .init(startAddress: u64(d), endAddress: u64(d + 8))
+                    haveProcess = true
+
+                case workQueueInfo where size >= 16:
+                    // struct proc_workqueueinfo: four u32s.
+                    workqueue = .init(
+                        totalThreads: u32(d), runningThreads: u32(d + 4),
+                        blockedThreads: u32(d + 8), state: u32(d + 12))
+
+                default:
+                    break
                 }
 
-            case kernelTriageV1 where size >= 640:
-                // struct kernel_triage_info_v1: five 128-char strings; keep the non-empty ones.
-                let strings = (0..<5).compactMap { string(d + $0 * 128, 128) }
-                if !strings.isEmpty { triage = strings }
-
-            case procCSFlags where size >= 4:
-                codeSigning.csFlags = u32(d)
-                haveCodeSigning = true
-            case csSigningID:
-                codeSigning.signingID = string(d, min(size, 64))
-                haveCodeSigning = true
-            case csTeamID:
-                codeSigning.teamID = string(d, min(size, 32))
-                haveCodeSigning = true
-            case csValidationCategory where size >= 4:
-                codeSigning.validationCategory = u32(d)
-                haveCodeSigning = true
-            case csTrustLevel where size >= 4:
-                codeSigning.trustLevel = u32(d)
-                haveCodeSigning = true
-            case csAuxiliaryInfo where size >= 8:
-                codeSigning.auxiliaryInfo = u64(d)
-                haveCodeSigning = true
-            case taskSecurityConfig where size >= 4:
-                codeSigning.securityConfig = u32(d)
-                haveCodeSigning = true
-
-            case ppid where size >= 4:
-                process.ppid = u32(d)
-                haveProcess = true
-            case responsiblePid where size >= 4:
-                process.responsiblePid = u32(d)
-                haveProcess = true
-            case uid where size >= 4:
-                process.uid = u32(d)
-                haveProcess = true
-            case gid where size >= 4:
-                process.gid = u32(d)
-                haveProcess = true
-            case procFlags where size >= 4:
-                process.procFlags = u32(d)
-                haveProcess = true
-            case procStatus where size >= 1:
-                process.procStatus = b[d]
-                haveProcess = true
-            case procPSAFlags where size >= 2:
-                process.psaFlags = u16(d)
-                haveProcess = true
-            case procStartTime where size >= 16:
-                // struct timeval64.
-                process.startTimeSec = u64(d)
-                process.startTimeUSec = u64(d + 8)
-                haveProcess = true
-            case userStack where size >= 8:
-                process.userStackAddress = u64(d)
-                haveProcess = true
-            case argsLen where size >= 4:
-                process.argsLen = u32(d)
-                haveProcess = true
-            case procArgc where size >= 4:
-                process.argc = u32(d)
-                haveProcess = true
-            case dirtyFlags where size >= 4:
-                process.dirtyFlags = u32(d)
-                haveProcess = true
-            case bsdInfoWithUniqID where size >= 32:
-                // struct crashinfo_proc_uniqidentifierinfo (packed): uuid[16], u64 unique,
-                // u64 parent-unique, then reserved.
-                process.executableUUID = uuidString(d)
-                process.uniqueID = u64(d + 16)
-                process.parentUniqueID = u64(d + 24)
-                haveProcess = true
-            case procCPUType where size >= 4:
-                process.procCPUType = i32(d)
-                haveProcess = true
-            case taskIsCorpseFork where size >= 4:
-                process.isCorpseFork = u32(d) != 0
-                haveProcess = true
-            case crashCount where size >= 4:
-                process.crashCount = i32(d)
-                haveProcess = true
-            case throttleTimeout where size >= 4:
-                process.throttleTimeout = i32(d)
-                haveProcess = true
-            case memorystatusEffectivePriority where size >= 4:
-                process.memorystatusEffectivePriority = i32(d)
-                haveProcess = true
-            case rlimCore where size >= 8:
-                process.rlimCore = u64(d)
-                haveProcess = true
-            case coreAllowed where size >= 1:
-                process.coreAllowed = b[d] != 0
-                haveProcess = true
-            case sandboxProfile:
-                process.sandboxProfile = string(d, min(size, 32))
-                haveProcess = true
-            case taskUUID where size >= 16:
-                process.taskUUID = uuidString(d)
-                haveProcess = true
-            case coalitionID where size >= 8:
-                process.coalitionID = u64(d)
-                haveProcess = true
-            case udataPtrs where size >= 8:
-                process.udataPtrs = stride(from: d, to: d + (size / 8) * 8, by: 8).map { u64($0) }
-                haveProcess = true
-            case voucherInfo where size >= 16:
-                // struct crashinfo_voucher (packed): u64 thread id, u32 originator, u32 proximate.
-                process.voucher = .init(threadID: u64(d), originatorPid: u32(d + 8), proximatePid: u32(d + 12))
-                haveProcess = true
-            case extModInfo where size >= 48:
-                // struct vm_extmod_statistics: six i64 counters.
-                process.externalModifications = .init(
-                    taskForPidCount: i64(d), taskForPidCallerCount: i64(d + 8),
-                    threadCreationCount: i64(d + 16), threadCreationCallerCount: i64(d + 24),
-                    threadSetStateCount: i64(d + 32), threadSetStateCallerCount: i64(d + 40))
-                haveProcess = true
-            case taskDyldInfo where size >= 20:
-                // struct task_dyld_info: u64 addr, u64 size, i32 format.
-                process.dyldInfo = .init(
-                    allImageInfoAddr: u64(d), allImageInfoSize: u64(d + 8), allImageInfoFormat: i32(d + 16))
-                haveProcess = true
-            case jitAddressRange where size >= 16:
-                process.jitAddressRange = .init(startAddress: u64(d), endAddress: u64(d + 8))
-                haveProcess = true
-
-            case workQueueInfo where size >= 16:
-                // struct proc_workqueueinfo: four u32s.
-                workqueue = .init(
-                    totalThreads: u32(d), runningThreads: u32(d + 4),
-                    blockedThreads: u32(d + 8), state: u32(d + 12))
-
-            default:
-                break
+                let next = (off + 16 + paddedSize + 15) & ~15
+                if next <= off { break }
+                off = next
             }
-
-            let next = (off + 16 + size + 15) & ~15
-            if next <= off { break }
-            off = next
         }
+        walk(from: 0, to: n, depth: 0)
 
         // Decode the raw exception code. EXC_RESOURCE packs a resource bitfield; every other
         // (signal/fault) crash packs (signal << 24) | (mach exception << 20) | subcode, with the

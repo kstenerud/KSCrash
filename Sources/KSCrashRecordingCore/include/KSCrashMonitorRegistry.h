@@ -54,6 +54,13 @@ typedef struct {
     _Atomic(const KSCrashMonitorAPI *) apis[KSCRASH_MONITOR_API_COUNT];
 } KSCrashMonitorAPIList;
 
+/** Copy every registered monitor api that implements createStitchedReport into `buffer`,
+ * by value (so the caller never holds registry pointers across a walk), up to `capacity`.
+ *
+ * @return The number of apis copied.
+ */
+size_t kscmr_copyStitchableMonitors(KSCrashMonitorAPIList *monitorList, KSCrashMonitorAPI *buffer, size_t capacity);
+
 /**
  * Enable all added crash monitors.
  *
@@ -64,13 +71,6 @@ typedef struct {
  *
  * @return bool True if at least one monitor was successfully enabled, false if no monitors were enabled.
  */
-/** Copy every registered monitor api that implements createStitchedReport into `buffer`,
- * by value (so the caller never holds registry pointers across a walk), up to `capacity`.
- *
- * @return The number of apis copied.
- */
-size_t kscmr_copyStitchableMonitors(KSCrashMonitorAPIList *monitorList, KSCrashMonitorAPI *buffer, size_t capacity);
-
 bool kscmr_enableMonitors(KSCrashMonitorAPIList *monitorList);
 
 /**

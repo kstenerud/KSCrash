@@ -36,6 +36,19 @@ import XCTest
 
 /// The one install the test process makes: the C core installs once, so every
 /// test that needs an installed reporter shares this one.
+///
+/// Under `swift test` every bundle shares one process, and the suites that
+/// install in extension-reporting mode sort ahead of this one. They look this
+/// class up by name through the runtime before installing and let it claim
+/// the process first, so the install this bundle's suites need always wins
+/// and they attach to it instead of the other way round.
+@objc(KSCrashTestsInstallClaim)
+final class InstallClaim: NSObject {
+    @objc static func claim() {
+        _ = try? TestInstall.ensure()
+    }
+}
+
 /// The last report id the did-write crash-time callback delivered; the
 /// callback must stay non-capturing, so this is file scope.
 nonisolated(unsafe) var didWriteWitness: String?

@@ -55,10 +55,7 @@ extension ExtensionConfiguration {
 
     /// This process's install root inside the area.
     package var processRoot: URL {
-        get throws {
-            let bundleID = Bundle.main.bundleIdentifier ?? ProcessInfo.processInfo.processName
-            return try namespaceRoot.appendingPathComponent(bundleID, isDirectory: true)
-        }
+        get throws { try container.processRoot(for: namespace) }
     }
 
     /// Every Reports directory in the area other than `excluded` (the caller's own): one per
@@ -68,7 +65,7 @@ extension ExtensionConfiguration {
         guard let entries = try? FileManager.default.contentsOfDirectory(atPath: root.path) else { return [] }
         return entries.sorted().compactMap { entry in
             let reports = root.appendingPathComponent(entry, isDirectory: true)
-                .appendingPathComponent("Reports", isDirectory: true)
+                .appendingPathComponent(KSCRS_DEFAULT_REPORTS_FOLDER, isDirectory: true)
             if let excluded, reports.standardizedFileURL.path == excluded.standardizedFileURL.path {
                 return nil
             }

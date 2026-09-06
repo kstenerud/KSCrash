@@ -92,7 +92,8 @@ bool ksmc_getContextForThread(KSThread thread, struct KSMachineContext *destinat
  *
  * @param task The task the thread belongs to (e.g. a corpse port, or mach_task_self()).
  * @param imageSet Image set supplying the task's unwind info, or NULL to use the live
- *                 process's dyld image cache (only correct when task is the current task).
+ *                 process's dyld image cache. NULL is accepted only when task is the
+ *                 current task; for any other task the call fails.
  * @param threadID The kernel thread id of the subject thread. Must not be 0.
  * @param destinationContext The context to fill.
  * @return true if the context was filled, false if the task's threads could not be

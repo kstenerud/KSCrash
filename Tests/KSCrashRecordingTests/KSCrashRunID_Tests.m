@@ -26,16 +26,38 @@
 
 #import <XCTest/XCTest.h>
 #import <mach-o/dyld.h>
+#import <mach-o/loader.h>
 #import <mach/mach.h>
 
 #import "KSCrashC.h"
 #import "KSCrashCConfiguration.h"
 #import "KSCrashMonitorType.h"
 
+extern void kscrash_testcode_setRunID(const char *runID);
+
 @interface KSCrashRunID_Tests : XCTestCase
 @end
 
-@implementation KSCrashRunID_Tests
+@implementation KSCrashRunID_Tests {
+    // The run id is process state that every later report in the process is
+    // written with and stitched by. These tests seed a known one; the one
+    // the install generated goes back afterwards, or reports written by later
+    // suites look for their run sidecars under the seeded id and find none.
+    NSString *_originalRunID;
+}
+
+- (void)setUp
+{
+    [super setUp];
+    const char *runID = kscrash_getRunID();
+    _originalRunID = runID != NULL ? @(runID) : nil;
+}
+
+- (void)tearDown
+{
+    kscrash_testcode_setRunID(_originalRunID.length > 0 ? _originalRunID.UTF8String : NULL);
+    [super tearDown];
+}
 
 // The real round trip for kscrash_loadRunIDFromCorpse: install (no monitors, so no crash handlers
 // are wired; a temp dir keeps it isolated) only to populate this process's run id, then point the
@@ -48,14 +70,8 @@
     // install suites sharing this test process.
     kscrash_testcode_setRunID("aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee");
 
-    // When every test target shares one process (older SwiftPM aggregates them), the corpse
-    // tests win the one-per-process install in extension-reporting mode, which generates no run
-    // id by design (and their captures clear it). The loader is exercised against a real corpse
-    // section by those same tests, so skipping here loses nothing.
     const char *runID = kscrash_getRunID();
-    XCTSkipIf(runID == NULL || strlen(runID) != 36,
-              @"another suite installed in extension-reporting mode; no run id to round-trip");
-    XCTAssertTrue(runID != NULL && strlen(runID) == 36, @"Run id should be populated after install");
+    XCTAssertTrue(runID != NULL && strlen(runID) == 36, @"Run id should be populated by the seed");
     char expected[64] = { 0 };
     strlcpy(expected, runID, sizeof(expected));
 
@@ -74,6 +90,67 @@
     XCTAssertEqual(0, strcmp(kscrash_getRunID(), expected), @"Loaded run id should match the installed one");
 }
 
+// Two namespaced copies of KSCrash linked into one image each emit a __ks_runid payload, and
+// the linker lays them out back to back in one section. The loader must find this namespace's
+// copy wherever it sits, not just first. Modelled with a synthetic image whose section points
+// at two payloads, a foreign namespace's first.
+- (void)testLoadRunIDFromCorpseFindsThisNamespaceBehindAnotherCopy
+{
+    typedef struct {
+        char namespaceID[64];
+        char runID[37];
+    } Payload;
+    static Payload payloads[2];
+    memset(payloads, 0, sizeof(payloads));
+    strlcpy(payloads[0].namespaceID, "KSCrashSomeoneElses", sizeof(payloads[0].namespaceID));
+    strlcpy(payloads[0].runID, "11111111-2222-4333-8444-555555555555", sizeof(payloads[0].runID));
+    strlcpy(payloads[1].namespaceID, kscrash_namespaceIdentifier(), sizeof(payloads[1].namespaceID));
+    strlcpy(payloads[1].runID, "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee", sizeof(payloads[1].runID));
+
+    static struct {
+        struct mach_header_64 header;
+        struct segment_command_64 text;
+        struct segment_command_64 data;
+        struct section_64 runIDSection;
+    } image;
+    memset(&image, 0, sizeof(image));
+    image.header.magic = MH_MAGIC_64;
+    image.header.ncmds = 2;
+    image.header.sizeofcmds = (uint32_t)(sizeof(image) - sizeof(struct mach_header_64));
+    image.text.cmd = LC_SEGMENT_64;
+    image.text.cmdsize = sizeof(struct segment_command_64);
+    strlcpy(image.text.segname, "__TEXT", sizeof(image.text.segname));
+    // vmaddr equal to the load address makes the slide zero, so section
+    // addresses are the real ones.
+    image.text.vmaddr = (uint64_t)(uintptr_t)&image;
+    image.text.vmsize = sizeof(image);
+    image.text.filesize = sizeof(image);
+    image.data.cmd = LC_SEGMENT_64;
+    image.data.cmdsize = sizeof(struct segment_command_64) + sizeof(struct section_64);
+    strlcpy(image.data.segname, "__DATA", sizeof(image.data.segname));
+    image.data.vmaddr = (uint64_t)(uintptr_t)payloads;
+    image.data.vmsize = sizeof(payloads);
+    image.data.filesize = sizeof(payloads);
+    image.data.nsects = 1;
+    strlcpy(image.runIDSection.sectname, "__ks_runid", sizeof(image.runIDSection.sectname));
+    strlcpy(image.runIDSection.segname, "__DATA", sizeof(image.runIDSection.segname));
+    image.runIDSection.addr = (uint64_t)(uintptr_t)payloads;
+    image.runIDSection.size = sizeof(payloads);
+
+    kscrash_clearRunID();
+    uint64_t loadAddress = (uint64_t)(uintptr_t)&image;
+    XCTAssertTrue(kscrash_loadRunIDFromCorpse(mach_task_self(), &loadAddress, 1));
+    XCTAssertEqualObjects(@(kscrash_getRunID()), @"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee");
+
+    // With only the foreign copy present nothing is loaded, and nothing is invented.
+    image.runIDSection.size = sizeof(payloads[0]);
+    image.data.vmsize = sizeof(payloads[0]);
+    image.data.filesize = sizeof(payloads[0]);
+    kscrash_clearRunID();
+    XCTAssertFalse(kscrash_loadRunIDFromCorpse(mach_task_self(), &loadAddress, 1));
+    XCTAssertEqual(strlen(kscrash_getRunID()), (size_t)0);
+}
+
 - (void)testLoadRunIDFromCorpseRejectsInvalidArguments
 {
     uint64_t addr = 0;
@@ -81,8 +158,6 @@
     XCTAssertFalse(kscrash_loadRunIDFromCorpse(mach_task_self(), NULL, 1));
     XCTAssertFalse(kscrash_loadRunIDFromCorpse(mach_task_self(), &addr, 0));
 }
-
-extern void kscrash_testcode_setRunID(const char *runID);
 
 // Load-or-clear: a capture clears the run id before loading the next corpse's, so a corpse
 // whose id cannot be read is reported with no run id, never a previous corpse's. Clearing

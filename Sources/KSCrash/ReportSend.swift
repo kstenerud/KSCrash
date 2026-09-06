@@ -67,7 +67,8 @@ enum ReportSend {
                     }
                     return report
                 },
-                remove: { try $0.removeReport($1) }
+                remove: { try $0.removeReport($1) },
+                retainsUnreferencedRuns: !extensionAreas.isEmpty
             ),
             pipeline: pipeline,
             only: selection,

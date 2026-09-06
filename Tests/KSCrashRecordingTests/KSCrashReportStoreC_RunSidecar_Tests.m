@@ -622,15 +622,66 @@ static CFDictionaryRef throwingStitchReport(__unused CFDictionaryRef reportDict,
 
 #pragma mark - Run Sidecar Retention Window
 
+- (void)setModificationDate:(NSDate *)date ofItemAtPath:(NSString *)path
+{
+    NSError *error = nil;
+    XCTAssertTrue([[NSFileManager defaultManager] setAttributes:@{ NSFileModificationDate : date }
+                                                   ofItemAtPath:path
+                                                          error:&error],
+                  @"%@", error);
+}
+
+// Ages the whole directory: its entries first, then the directory itself, since
+// age is measured from the newest write anywhere in it.
 - (void)setModificationDate:(NSDate *)date forRunSidecarDirWithRunID:(NSString *)runId
 {
     NSString *runDir =
         [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:runId];
-    NSError *error = nil;
-    XCTAssertTrue([[NSFileManager defaultManager] setAttributes:@{ NSFileModificationDate : date }
-                                                   ofItemAtPath:runDir
-                                                          error:&error],
-                  @"%@", error);
+    for (NSString *entry in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:runDir error:nil]) {
+        [self setModificationDate:date ofItemAtPath:[runDir stringByAppendingPathComponent:entry]];
+    }
+    [self setModificationDate:date ofItemAtPath:runDir];
+}
+
+- (void)testOrphanCleanupMeasuresAgeFromTheNewestWriteInTheDir
+{
+    // A directory's own mtime is the run's start (an entry was last created
+    // then); a run that outlives the window and then crashes has fresh writes
+    // inside, and those are what say the data is still wanted.
+    [self prepareStoreWithRunSidecars:@"testRetentionNewestWrite"];
+    _storeConfig.runSidecarRetentionSeconds = KSCRS_DEFAULT_RUN_SIDECAR_RETENTION_SECONDS;
+    NSString *runId = [[NSUUID UUID] UUIDString];
+    [self writeRunSidecar:@"System" runId:runId contents:@"system data"];
+    NSString *runDir =
+        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:runId];
+    [self setModificationDate:[NSDate dateWithTimeIntervalSinceNow:-31.0 * 24.0 * 60.0 * 60.0] ofItemAtPath:runDir];
+
+    kscrash_testcode_setRunID("11111111-aaaa-bbbb-cccc-000000000001");
+    kscrs_reclaimOrphanedRunData(&_storeConfig);
+
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir],
+                  @"An old directory with a fresh write inside is still within the window");
+}
+
+- (void)testOrphanCleanupAppliesTheWindowToSessionsFiles
+{
+    // The sessions file carries the run's session ids, which a corpse report
+    // stitches at delivery, so it waits out the window like the sidecars do.
+    [self prepareStoreWithRunSidecars:@"testRetentionSessions"];
+    _storeConfig.runSidecarRetentionSeconds = KSCRS_DEFAULT_RUN_SIDECAR_RETENTION_SECONDS;
+    NSString *young = [[NSUUID UUID] UUIDString];
+    NSString *aged = [[NSUUID UUID] UUIDString];
+    NSString *youngPath = [self writeSessionsFileForRunId:young];
+    NSString *agedPath = [self writeSessionsFileForRunId:aged];
+    [self setModificationDate:[NSDate dateWithTimeIntervalSinceNow:-31.0 * 24.0 * 60.0 * 60.0] ofItemAtPath:agedPath];
+
+    kscrash_testcode_setRunID("11111111-aaaa-bbbb-cccc-000000000001");
+    kscrs_reclaimOrphanedRunData(&_storeConfig);
+
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:youngPath],
+                  @"An unreferenced sessions file inside the window must survive");
+    XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:agedPath],
+                   @"An unreferenced sessions file past the window is deleted");
 }
 
 - (void)testOrphanCleanupKeepsYoungUnreferencedRunSidecarDir
