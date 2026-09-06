@@ -38,6 +38,7 @@ extern void kscm_testcode_restoreState(struct KSCrashMonitorSavedState *saved);
 static struct KSCrashMonitorSavedState *g_savedMonitorState;
 extern void kscrash_testcode_setMonitors(KSCrashMonitorType monitorTypes);
 extern bool kscrash_testcode_setPluginMonitors(KSCrashMonitorAPI *apis, int count);
+extern void kscmr_testcode_setDuplicateIdAsserts(bool asserts);
 extern void kscrash_testcode_clearPluginMonitors(void);
 extern void *kscrash_testcode_savePluginMonitors(void);
 extern void kscrash_testcode_restorePluginMonitors(void *saved);
@@ -131,6 +132,33 @@ static bool pluginIsEnabled(__unused void *context) { return g_pluginEnabled; }
     // enableMonitors has already switched the plugins on by the time install
     // can fail, so removal has to turn them back off.
     XCTAssertFalse(g_pluginEnabled);
+    kscrash_testcode_restorePluginMonitors(savedPlugins);
+}
+
+- (void)testARefusedPluginFailsTheInstallInsteadOfSilentlyDroppingIt
+{
+    // Something registered ahead of the install already owns the id (a monitor that
+    // self-registers on first use, say). The registry refuses the plugin, and the install
+    // must report that rather than succeed without the coverage it was configured with.
+    // The refusal asserts in debug builds; the seam turns that off for this one test.
+    void *savedPlugins = kscrash_testcode_savePluginMonitors();
+    KSCrashMonitorAPI earlier = { 0 };
+    kscma_initAPI(&earlier);
+    earlier.monitorId = pluginMonitorId;
+    earlier.monitorFlags = pluginMonitorFlags;
+    earlier.setEnabled = pluginSetEnabled;
+    earlier.isEnabled = pluginIsEnabled;
+    XCTAssertTrue(kscm_addMonitor(&earlier));
+
+    KSCrashMonitorAPI plugin = earlier;
+    kscmr_testcode_setDuplicateIdAsserts(false);
+    bool installed = kscrash_testcode_setPluginMonitors(&plugin, 1);
+    kscmr_testcode_setDuplicateIdAsserts(true);
+    XCTAssertFalse(installed);
+    // The earlier registration is untouched and nothing of the plugin's stayed behind.
+    XCTAssertEqual(kscm_getMonitor("TestPlugin"), &earlier);
+
+    kscm_removeMonitor(&earlier);
     kscrash_testcode_restorePluginMonitors(savedPlugins);
 }
 

@@ -1298,52 +1298,6 @@ KSBinaryImageSet *ksbic_createSetFromTaskImages(task_t task, const KSBinaryImage
     return set;
 }
 
-// Fill one set entry from a live in-process image. The sections are already mapped, so the
-// entry is born resolved and there is nothing to copy lazily.
-static bool populateLocalSetEntry(const struct mach_header *header, const char *name, KSBinaryImageSetEntry *entry)
-{
-    memset(entry, 0, sizeof(*entry));
-    if (!populateCacheEntry(header, name, &entry->range)) {
-        return false;
-    }
-    entry->sourceTask = MACH_PORT_NULL;
-    entry->unwindInfoResolved = true;
-    entry->ehFrameResolved = true;
-    return true;
-}
-
-KSBinaryImageSet *ksbic_createSetFromLocalImages(void)
-{
-    uint32_t imageCount = 0;
-    const ks_dyld_image_info *images = ksbic_getImages(&imageCount);
-
-    // +1 because dyld is not part of the normal image list (see ksbic_getDyldHeader).
-    uint32_t capacity = imageCount + 1;
-    KSBinaryImageSet *set = malloc(sizeof(KSBinaryImageSet) + (size_t)capacity * sizeof(KSBinaryImageSetEntry));
-    if (set == NULL) {
-        return NULL;
-    }
-    // Entries point at mapped image memory, so this set owns no copied buffers.
-    set->ownedCount = 0;
-    set->ownedBuffers = NULL;
-
-    uint32_t n = 0;
-    for (uint32_t i = 0; i < imageCount; i++) {
-        const struct mach_header *header = images[i].imageLoadAddress;
-        if (header != NULL && populateLocalSetEntry(header, images[i].imageFilePath, &set->entries[n])) {
-            n++;
-        }
-    }
-    const struct mach_header *dyldHeader = ksbic_getDyldHeader();
-    if (dyldHeader != NULL && populateLocalSetEntry(dyldHeader, ksbic_getDyldPath(), &set->entries[n])) {
-        n++;
-    }
-
-    set->count = n;
-    qsort(set->entries, n, sizeof(*set->entries), compareSetEntriesByStart);
-    return set;
-}
-
 void ksbic_destroySet(KSBinaryImageSet *set)
 {
     if (set == NULL) {
