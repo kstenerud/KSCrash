@@ -36,10 +36,10 @@
     private func monitorWithDuplicateID() -> UnsafeMutablePointer<KSCrashMonitorAPI> {
         let api = UnsafeMutablePointer<KSCrashMonitorAPI>.allocate(capacity: 1)
         api.initialize(to: KSCrashMonitorAPI())
+        // Every callback is a no-op default, so the registry's own required-callbacks check
+        // passes and the duplicate-id assert is the only thing that can kill the child.
+        kscma_initAPI(api)
         api.pointee.monitorId = { _ in UnsafePointer(duplicateID) }
-        // kscm_addMonitor calls init on a monitor it accepted; the rest stay null, since a
-        // registration this test never completes reaches nothing else.
-        api.pointee.`init` = { _, _ in }
         return api
     }
 
