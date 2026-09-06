@@ -26,6 +26,7 @@
 
 #import "FileBasedTestCase.h"
 
+#import "KSCrashC.h"
 #import "KSCrashInstallConfiguration.h"
 #import "KSCrashMonitor.h"
 #import "KSCrashReport.h"
@@ -33,6 +34,7 @@
 #import "KSCrashReportStore.h"
 #import "KSCrashReportStoreC+Private.h"
 #import "KSCrashReportStoreC.h"
+#import "KSCrashSendConfiguration.h"
 #import "KSJSONCodecObjC.h"
 
 #include <inttypes.h>
@@ -82,6 +84,16 @@ static CFDictionaryRef noopStitchReport(CFDictionaryRef reportDict, __unused con
 }
 
 #pragma mark - Tests
+
+@interface FinalizerPassthroughFilter : NSObject <KSCrashReportFilter>
+@end
+
+@implementation FinalizerPassthroughFilter
+- (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
+{
+    onCompletion(reports, nil);
+}
+@end
 
 @interface KSCrashReportFinalizer_Tests : FileBasedTestCase
 @end
@@ -269,6 +281,65 @@ static CFDictionaryRef noopStitchReport(CFDictionaryRef reportDict, __unused con
     XCTAssertEqualObjects([store reportForID:reportID].value, finalized);
     XCTAssertEqualObjects(
         [NSJSONSerialization JSONObjectWithData:[store reportDataForID:reportID].value options:0 error:nil], finalized);
+}
+
+- (void)testSendingPreservesNullPayloadsWithMissingOrNullRunMetadata
+{
+    [self prepareStore:@"testSendNulls"];
+    KSCrashReportStoreConfiguration *configuration = [KSCrashReportStoreConfiguration new];
+    configuration.appName = @(_storeConfig.appName);
+    configuration.reportsPath = @(_storeConfig.reportsPath);
+    KSCrashReportStore *store = [KSCrashReportStore storeWithConfiguration:configuration error:nil];
+    KSCrashSendConfiguration *send = [KSCrashSendConfiguration new];
+    send.reportFilters = @[ [FinalizerPassthroughFilter new] ];
+    send.reportCleanupPolicy = KSCrashReportCleanupPolicyNever;
+
+    NSArray *metadata = @[
+        @{}, @{ @"report" : [NSNull null] }, @{ @"report" : @ {} }, @{ @"report" : @ { @"run_id" : [NSNull null] } },
+        @{ @"report" : @ { @"run_id" : @42 } }
+    ];
+    NSMutableArray *expected = [NSMutableArray array];
+    for (NSDictionary *fields in metadata) {
+        NSMutableDictionary *source = [fields mutableCopy];
+        source[@"samples"] = @[ @10, [NSNull null], @30 ];
+        source[@"detail"] = @{ @"missing" : [NSNull null] };
+        NSData *data = [NSJSONSerialization dataWithJSONObject:source options:0 error:nil];
+        int64_t reportID = kscrs_addUserReport(data.bytes, (int)data.length, &_storeConfig);
+        [expected addObject:source];
+        XCTestExpectation *sent = [self expectationWithDescription:@"single report sent"];
+        [store sendReportWithID:reportID
+              includeCurrentRun:NO
+                  configuration:send
+                     completion:^(NSArray *reports, NSError *error) {
+                         XCTAssertNil(error);
+                         XCTAssertEqual(reports.count, 1U);
+                         XCTAssertEqualObjects([(KSCrashReportDictionary *)reports.firstObject value], source);
+                         [sent fulfill];
+                     }];
+        [self waitForExpectations:@[ sent ] timeout:2];
+    }
+
+    // A real current-run ID must still be excluded by both delivery paths.
+    NSDictionary *current = @{ @"report" : @ { @"run_id" : @(kscrash_getRunID()) } };
+    NSData *data = [NSJSONSerialization dataWithJSONObject:current options:0 error:nil];
+    int64_t currentID = kscrs_addUserReport(data.bytes, (int)data.length, &_storeConfig);
+    XCTestExpectation *skipped = [self expectationWithDescription:@"current run skipped"];
+    [store sendReportWithID:currentID
+          includeCurrentRun:NO
+              configuration:send
+                 completion:^(NSArray *reports, NSError *error) {
+                     XCTAssertNotNil(error);
+                     XCTAssertEqual(reports.count, 0U);
+                     [skipped fulfill];
+                 }];
+    XCTestExpectation *allSent = [self expectationWithDescription:@"all prior reports sent"];
+    [store sendAllReportsWithConfiguration:send
+                                completion:^(NSArray *reports, NSError *error) {
+                                    XCTAssertNil(error);
+                                    XCTAssertEqualObjects([reports valueForKey:@"value"], expected);
+                                    [allSent fulfill];
+                                }];
+    [self waitForExpectations:@[ skipped, allSent ] timeout:2];
 }
 
 #pragma mark - Stitching Integration
