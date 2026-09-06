@@ -50,6 +50,11 @@ Consequences, each of which has cost someone a bug:
   the NUL, while Foundation keeps them whole. Neither reader can be talked out
   of its own string handling, so the record is absence to both rather than a
   value they read differently.
+- A raw control byte inside a stored JSON string, and a key holding a NUL, are
+  absence everywhere too. Only a foreign writer produces either (this library's
+  encoder escapes control characters and its key path refuses a NUL), but the
+  C decoder used to keep the byte where Foundation refuses the document, and the
+  key was filed under its prefix by the C readers and whole by the Swift ones.
 - Nulls are resolved after the document is decoded, not by dropping members
   during the decode: dropping one loses the verdict on its *name*, and a
   duplicate name whose first occurrence was null then escaped the first-wins
