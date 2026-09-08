@@ -42,15 +42,15 @@ public struct SendConfiguration: Sendable {
     /// installed with, and every report found in it is moved into this app's own store at
     /// the start of `sendReports`, so the same send delivers it. An existing report is
     /// never replaced. Empty by default: apps without extensions pull from nowhere.
-    public var extensionAreas: [ExtensionConfiguration]
+    public var corpseAreas: [CorpseReportingConfiguration]
 
     public init(
         runSummaryPipeline: [AnyPipelineStage<RunSummary>] = [],
         reportPipeline: [AnyPipelineStage<Report>] = [],
-        extensionAreas: [ExtensionConfiguration] = []
+        corpseAreas: [CorpseReportingConfiguration] = []
     ) {
         self.runSummaryPipeline = runSummaryPipeline
         self.reportPipeline = reportPipeline
-        self.extensionAreas = extensionAreas
+        self.corpseAreas = corpseAreas
     }
 }

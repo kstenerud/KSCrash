@@ -196,7 +196,7 @@
 #define kscrash_getRunSidecarsPath KSCRASH_NS(kscrash_getRunSidecarsPath)
 #define kscrash_getRunSummariesPath KSCRASH_NS(kscrash_getRunSummariesPath)
 #define kscrash_install KSCRASH_NS(kscrash_install)
-#define kscrash_installForExtensionReporting KSCRASH_NS(kscrash_installForExtensionReporting)
+#define kscrash_installForCorpseReporting KSCRASH_NS(kscrash_installForCorpseReporting)
 #define kscrash_isBuiltInMonitorID KSCRASH_NS(kscrash_isBuiltInMonitorID)
 #define kscrash_isInstalled KSCRASH_NS(kscrash_isInstalled)
 #define kscrash_loadRunIDFromCorpse KSCRASH_NS(kscrash_loadRunIDFromCorpse)

@@ -1,5 +1,5 @@
 //
-//  ExtensionReporting.swift
+//  CorpseReporting.swift
 //
 //  Created by Alexander Cohen on 2026-07-05.
 //
@@ -36,7 +36,7 @@ import KSCrashReportModel
 
 /// The extension-reporting install's process-wide state: the kcdata options the install ran
 /// with, which the capture flow reads.
-enum ExtensionReporting {
+enum CorpseReporting {
     struct Active {
         let savesKCData: Bool
         let kcdataDirectory: URL
@@ -55,8 +55,8 @@ enum ExtensionReporting {
     static let captureLock = NSRecursiveLock()
 }
 
-/// Thrown by `installForExtensionReporting(with:)`.
-public enum ExtensionReportingInstallError: Error {
+/// Thrown by `installForCorpseReporting(with:)`.
+public enum CorpseReportingInstallError: Error {
     /// The underlying install failed.
     case install(KSCrashInstallError.Code)
 }
@@ -68,17 +68,17 @@ extension KSCrash {
     /// else. No crash handlers, no app-lifecycle state, no console log. Call once, from the
     /// extension's init; each corpse is then reported with `captureCrashReport`.
     ///
-    /// `area` is the same value the app lists in `SendConfiguration.extensionAreas`; both
+    /// `area` is the same value the app lists in `SendConfiguration.corpseAreas`; both
     /// sides derive the report area's layout from it identically. Throws the area's own
     /// resolution errors (`InstallError.containerUnavailable` for an unresolvable app group)
-    /// and `ExtensionReportingInstallError.install` when the install itself fails.
+    /// and `CorpseReportingInstallError.install` when the install itself fails.
     ///
     /// ```swift
     /// struct MyCrashReporter: CrashReporterExtension {
     ///     init() {
-    ///         let area = ExtensionConfiguration(
+    ///         let area = CorpseReportingConfiguration(
     ///             namespace: "MyApp", container: .appGroup("group.com.example.app"))
-    ///         try? KSCrash.shared.installForExtensionReporting(with: area)
+    ///         try? KSCrash.shared.installForCorpseReporting(with: area)
     ///     }
     ///
     ///     func processCrashReport(process: CrashedProcess) {
@@ -93,17 +93,21 @@ extension KSCrash {
     ///     crash-info blob before parsing it, best effort. Off by default.
     ///   - kcdataDirectory: Where `savesKCData` dumps the blobs; the install root's `KCData`
     ///     directory when nil.
-    public func installForExtensionReporting(
-        with area: ExtensionConfiguration,
+    public func installForCorpseReporting(
+        with area: CorpseReportingConfiguration,
         savesKCData: Bool = false,
         kcdataDirectory: URL? = nil
     ) throws {
         let root = try area.processRoot
-        let result = kscrash_installForExtensionReporting(root.path, ExtensionReporting.bridge.api, 1)
+        // Declare what this store is before creating it: the app decides whether it may
+        // drain an area by reading this, so a store that cannot say what it is must not
+        // come into existence and collect reports nobody will come for.
+        try StoreManifest.write(kind: StoreManifest.corpseKind, atProcessRoot: root)
+        let result = kscrash_installForCorpseReporting(root.path, CorpseReporting.bridge.api, 1)
         guard result == KSCrashInstallError.Code.none else {
-            throw ExtensionReportingInstallError.install(result)
+            throw CorpseReportingInstallError.install(result)
         }
-        ExtensionReporting.active = ExtensionReporting.Active(
+        CorpseReporting.active = CorpseReporting.Active(
             savesKCData: savesKCData,
             kcdataDirectory: kcdataDirectory ?? root.appendingPathComponent("KCData", isDirectory: true))
     }
@@ -116,7 +120,7 @@ extension KSCrash {
 
         /// Writes a standard KSCrash crash report for a crashed process, from inside a
         /// CrashReportExtension's `processCrashReport(process:)`. The report lands in the
-        /// report area configured by `installForExtensionReporting(with:)`, stamped with the
+        /// report area configured by `installForCorpseReporting(with:)`, stamped with the
         /// crashed run's ID when the process embedded KSCrash, and the app picks it up on a
         /// later launch. Returns the new report's ID.
         ///

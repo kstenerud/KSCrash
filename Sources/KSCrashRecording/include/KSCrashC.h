@@ -243,8 +243,8 @@ void kscrash_clearRunID(void);
  * @param pluginCount The number of entries in @c pluginAPIs.
  * @return KSCrashInstallErrorNone on success.
  */
-KSCrashInstallErrorCode kscrash_installForExtensionReporting(const char *const installPath,
-                                                             KSCrashMonitorAPI *pluginAPIs, int pluginCount);
+KSCrashInstallErrorCode kscrash_installForCorpseReporting(const char *const installPath, KSCrashMonitorAPI *pluginAPIs,
+                                                          int pluginCount);
 
 /** Get the run ID from the previous process run.
  *

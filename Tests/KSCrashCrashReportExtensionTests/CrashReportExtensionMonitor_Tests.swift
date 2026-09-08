@@ -45,8 +45,8 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
     /// Install happens once per process, so the bridge that got registered (connected to the
     /// pipeline at install, with its host) must be shared by every test. This is the real
     /// extension flow: a corpse-reporting install into the process's own report area.
-    private static var monitor: CrashReportExtensionMonitor { ExtensionReporting.bridge.monitor }
-    private static let area = ExtensionConfiguration(
+    private static var monitor: CrashReportExtensionMonitor { CorpseReporting.bridge.monitor }
+    private static let area = CorpseReportingConfiguration(
         namespace: "CorpseTests",
         container: .url(URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString)))
     private static let installRoot = try! area.processRoot
@@ -66,13 +66,13 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
             at: staleStagedReport.deletingLastPathComponent(), withIntermediateDirectories: true)
         try? Data("{".utf8).write(to: staleStagedReport)
         do {
-            try KSCrash.shared.installForExtensionReporting(with: area)
-        } catch ExtensionReportingInstallError.install(.alreadyInstalled) {
+            try KSCrash.shared.installForCorpseReporting(with: area)
+        } catch CorpseReportingInstallError.install(.alreadyInstalled) {
             // Another suite installed first; the pipeline and a store both exist. Attach the
             // bridge to the live registry (its init reran with the real callbacks) and read
             // back from that install's report area.
-            guard kscm_addMonitor(ExtensionReporting.bridge.api) else { return false }
-            kscm_setMonitorEnabled(ExtensionReporting.bridge.api, true)
+            guard kscm_addMonitor(CorpseReporting.bridge.api) else { return false }
+            kscm_setMonitorEnabled(CorpseReporting.bridge.api, true)
             guard let runs = kscrash_getRunSummariesPath() else { return false }
             reportsDirectory = URL(fileURLWithPath: String(cString: runs))
                 .deletingLastPathComponent().appendingPathComponent("Reports")
@@ -114,7 +114,7 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
         XCTAssertNoThrow(try config.validate())
     }
 
-    func testExtensionReportingInstallCreatesOnlyReportState() throws {
+    func testCorpseReportingInstallCreatesOnlyReportState() throws {
         try XCTSkipIf(
             Self.reportsDirectory != Self.installRoot.appendingPathComponent("Reports"),
             "another suite's normal install won the process; the reporter-only layout is not ours to assert")
@@ -127,7 +127,18 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
         XCTAssertFalse(exists("Data/ConsoleLog.txt"), "no console log in a reporter-only install")
     }
 
-    func testExtensionReportingInstallSweepsTheStagingDirectory() throws {
+    func testCorpseReportingInstallDeclaresTheStoreDrainable() throws {
+        try XCTSkipIf(
+            Self.reportsDirectory != Self.installRoot.appendingPathComponent("Reports"),
+            "another suite's normal install won the process; the reporter-only layout is not ours to assert")
+        // The app finds this store by its declaration alone, so the install writing one is
+        // the difference between reports being collected and reports being stranded.
+        let manifest = try XCTUnwrap(StoreManifest.read(atProcessRoot: Self.installRoot))
+        XCTAssertEqual(manifest.kind, StoreManifest.corpseKind)
+        XCTAssertTrue(manifest.isDrainable)
+    }
+
+    func testCorpseReportingInstallSweepsTheStagingDirectory() throws {
         try XCTSkipIf(
             Self.reportsDirectory != Self.installRoot.appendingPathComponent("Reports"),
             "another suite's normal install won the process; the reporter-only layout is not ours to assert")
@@ -439,29 +450,29 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
     // all so captures skip the work.
     func testKCDataSaverWritesBlobWhenEnabled() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        let kcdataArea = ExtensionConfiguration(namespace: "KCDataTests", container: .url(root))
-        let previous = ExtensionReporting.active
+        let kcdataArea = CorpseReportingConfiguration(namespace: "KCDataTests", container: .url(root))
+        let previous = CorpseReporting.active
         defer {
-            ExtensionReporting.active = previous
+            CorpseReporting.active = previous
             try? FileManager.default.removeItem(at: root)
         }
 
-        func active(savesKCData: Bool) throws -> ExtensionReporting.Active {
-            ExtensionReporting.Active(
+        func active(savesKCData: Bool) throws -> CorpseReporting.Active {
+            CorpseReporting.Active(
                 savesKCData: savesKCData,
                 kcdataDirectory: try kcdataArea.processRoot.appendingPathComponent("KCData", isDirectory: true))
         }
-        ExtensionReporting.active = try active(savesKCData: false)
-        XCTAssertNil(ExtensionReporting.kcdataSaver(), "off by default")
+        CorpseReporting.active = try active(savesKCData: false)
+        XCTAssertNil(CorpseReporting.kcdataSaver(), "off by default")
 
-        ExtensionReporting.active = try active(savesKCData: true)
-        let saver = try XCTUnwrap(ExtensionReporting.kcdataSaver())
+        CorpseReporting.active = try active(savesKCData: true)
+        let saver = try XCTUnwrap(CorpseReporting.kcdataSaver())
 
         let blob = Data([0xAB, 0xCD, 0xEF])
         let crashInfo = CorpseSnapshot.CrashInfo(exceptionCode: 0, exceptionSubcode: 0, processName: "Dead", pid: 7)
         saver(blob, crashInfo)
 
-        let directory = try XCTUnwrap(ExtensionReporting.active?.kcdataDirectory)
+        let directory = try XCTUnwrap(CorpseReporting.active?.kcdataDirectory)
         let files = try FileManager.default.contentsOfDirectory(atPath: directory.path)
         let file = try XCTUnwrap(files.first { $0.hasPrefix("Dead-7-") && $0.hasSuffix(".kcdata") })
         XCTAssertEqual(try Data(contentsOf: directory.appendingPathComponent(file)), blob)

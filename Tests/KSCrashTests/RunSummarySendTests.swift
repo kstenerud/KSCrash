@@ -121,10 +121,10 @@ final class RunSummarySendTests: XCTestCase {
         XCTAssertEqual(reclaimRetained.withLock { $0 }, false)
 
         try writeSummary(runID: "SECOND", startNs: 200)
-        let area = ExtensionConfiguration(
+        let area = CorpseReportingConfiguration(
             namespace: "SendTests", container: .url(runsDirectory.appendingPathComponent("area")))
         _ = try await RunSummarySend.send(
-            store: makeStore(), pipeline: [.init(ClosureStage { $0 })], extensionAreas: [area],
+            store: makeStore(), pipeline: [.init(ClosureStage { $0 })], corpseAreas: [area],
             claims: SendClaims())
         XCTAssertEqual(reclaimRetained.withLock { $0 }, true)
     }
