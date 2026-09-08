@@ -36,7 +36,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
-#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -46,15 +45,14 @@
 
 /** The buffer size to use when writing log entries.
  *
- * If this value is > 0, any log entries that expand beyond this length will
- * be truncated.
- * If this value = 0, the logging system will dynamically allocate memory
- * and never truncate. However, the log functions won't be async-safe.
- *
- * Unless you're logging from within signal handlers, it's safe to set it to 0.
+ * Log entries that expand beyond this length are truncated.
  */
 #ifndef KSLOGGER_CBufferSize
 #define KSLOGGER_CBufferSize 1024
+#endif
+
+#if KSLOGGER_CBufferSize <= 0
+#error KSLOGGER_CBufferSize must be greater than 0; the logger formats into a fixed buffer to stay signal-safe.
 #endif
 
 /** Where console logs will be written */
@@ -91,8 +89,6 @@ static inline void writeFmtToLog(const char *fmt, ...)
     writeFmtArgsToLog(fmt, args);
     va_end(args);
 }
-
-#if KSLOGGER_CBufferSize > 0
 
 /** The file descriptor where log entries get written. */
 static int g_fd = -1;
@@ -334,64 +330,6 @@ bool kslog_setLogFilename(const char *filename, bool overwrite)
     setLogFD(fd);
     return true;
 }
-
-#else  // if KSLogger_CBufferSize <= 0
-
-static FILE *g_file = NULL;
-
-static inline void setLogFD(FILE *file)
-{
-    if (g_file != NULL && g_file != stdout && g_file != stderr && g_file != stdin) {
-        fclose(g_file);
-    }
-    g_file = file;
-}
-
-void writeToLog(const char *const str)
-{
-    if (g_file != NULL) {
-        fprintf(g_file, "%s", str);
-    }
-    fprintf(stdout, "%s", str);
-}
-
-static inline void writeFmtArgsToLog(const char *fmt, va_list args)
-{
-    unlikely_if(g_file == NULL) { g_file = stdout; }
-
-    if (fmt == NULL) {
-        writeToLog("(null)");
-    } else {
-        vfprintf(g_file, fmt, args);
-    }
-}
-
-static inline void flushLog(void) { fflush(g_file); }
-
-bool kslog_setLogFilename(const char *filename, bool overwrite)
-{
-    // Not remembered across calls, for the reason the descriptor variant
-    // above gives; setLogFD closes the stream it replaces, so this must not
-    // hand it back its own closed stream, and a NULL filename must not reach
-    // strlcpy.
-    FILE *file = NULL;
-    if (filename != NULL) {
-        file = fopen(filename, overwrite ? "wb" : "ab");
-        unlikely_if(file == NULL)
-        {
-            writeFmtToLog("KSLogger: Could not open %s: %s", filename, strerror(errno));
-            return false;
-        }
-        if (filename != g_logFilename) {
-            strlcpy(g_logFilename, filename, sizeof(g_logFilename));
-        }
-    }
-
-    setLogFD(file);
-    return true;
-}
-
-#endif
 
 bool kslog_clearLogFile(void) { return kslog_setLogFilename(g_logFilename, true); }
 

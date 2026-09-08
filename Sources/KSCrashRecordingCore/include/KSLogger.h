@@ -138,19 +138,13 @@
  * IMPORTANT NOTES
  * ===============
  *
- * The C logger changes its behavior depending on the value of the preprocessor
- * define KSLogger_CBufferSize.
+ * The C logger is async-signal-safe: it formats with a built-in signal-safe
+ * formatter into a fixed-size buffer and writes with write(), never
+ * vsnprintf()/printf(). Log messages longer than that buffer are truncated.
  *
- * If KSLogger_CBufferSize is > 0, the C logger will behave in an async-signal-safe
- * manner, using a built-in signal-safe formatter and write() instead of
- * vsnprintf()/printf(). Any log messages that exceed the length specified by
- * KSLogger_CBufferSize will be truncated.
- *
- * If KSLogger_CBufferSize == 0, the C logger will use printf(), and there will
- * be no limit on the log message length.
- *
- * KSLogger_CBufferSize can only be set as a preprocessor define, and will
- * default to 1024 if not specified during compilation.
+ * The buffer length is KSLOGGER_CBufferSize, which can only be set as a
+ * preprocessor define, and will default to 1024 if not specified during
+ * compilation.
  */
 
 // ============================================================================
