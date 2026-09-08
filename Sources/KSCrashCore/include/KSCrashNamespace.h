@@ -453,6 +453,7 @@
 #define ksmc_hasValidExceptionRegisters KSCRASH_NS(ksmc_hasValidExceptionRegisters)
 #define ksmc_indexOfThread KSCRASH_NS(ksmc_indexOfThread)
 #define ksmc_isCrashedContext KSCRASH_NS(ksmc_isCrashedContext)
+#define ksmc_isReservedThread KSCRASH_NS(ksmc_isReservedThread)
 #define ksmc_resumeEnvironment KSCRASH_NS(ksmc_resumeEnvironment)
 #define ksmc_suspendEnvironment KSCRASH_NS(ksmc_suspendEnvironment)
 #define ksmem_copyMaxPossible KSCRASH_NS(ksmem_copyMaxPossible)
