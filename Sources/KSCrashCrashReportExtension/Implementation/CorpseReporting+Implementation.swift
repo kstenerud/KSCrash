@@ -1,5 +1,5 @@
 //
-//  ExtensionReporting+Implementation.swift
+//  CorpseReporting+Implementation.swift
 //
 //  Created by Alexander Cohen on 2026-07-05.
 //
@@ -31,7 +31,7 @@ import KSCrashMonitorPlugins
 import KSCrashRecording
 import KSCrashReportModel
 
-extension ExtensionReporting {
+extension CorpseReporting {
 
     /// The debug dump for `savesKCData`: writes the raw blob to
     /// `<kcdataDirectory>/<processName>-<pid>-<timestamp>.kcdata`, best effort. Returns nil
@@ -59,8 +59,8 @@ extension KSCrash {
     func captureCrashReport(corpse: mach_port_t, images: [CorpseSnapshot.Image], exception: Int32) throws
         -> Report.ID
     {
-        ExtensionReporting.captureLock.lock()
-        defer { ExtensionReporting.captureLock.unlock() }
+        CorpseReporting.captureLock.lock()
+        defer { CorpseReporting.captureLock.unlock() }
         // Load-or-clear, best effort: the run id is per-corpse state, so clear the previous
         // capture's before loading this corpse's. A corpse whose id cannot be read (an app
         // without KSCrash, or one that crashed before install wrote the id) is reported with
@@ -71,7 +71,7 @@ extension KSCrash {
 
         let snapshot = CorpseGatherer.gather(
             corpse: corpse, exception: exception, images: images,
-            saveKCData: ExtensionReporting.kcdataSaver())
+            saveKCData: CorpseReporting.kcdataSaver())
         return try captureCrashReport(snapshot: snapshot, corpse: corpse)
     }
 
@@ -79,8 +79,8 @@ extension KSCrash {
     /// from the snapshot's kcdata, the snapshot itself is embedded in the report by the
     /// monitor's report-section writer, and the report goes through the standard pipeline.
     func captureCrashReport(snapshot: CorpseSnapshot, corpse: mach_port_t) throws -> Report.ID {
-        ExtensionReporting.captureLock.lock()
-        defer { ExtensionReporting.captureLock.unlock() }
+        CorpseReporting.captureLock.lock()
+        defer { CorpseReporting.captureLock.unlock() }
         // Without kcdata there is no crashed thread to unwind; a report without the crash's
         // own thread would be misleading rather than helpful.
         guard let crashInfo = snapshot.crashInfo, let crashedThreadID = crashInfo.crashedThreadID,
@@ -90,8 +90,8 @@ extension KSCrash {
         }
 
         // The monitor exists immediately, but it is only connected to the pipeline once
-        // installForExtensionReporting has run.
-        let bridge = ExtensionReporting.bridge
+        // installForCorpseReporting has run.
+        let bridge = CorpseReporting.bridge
         guard bridge.isInstalled else {
             throw CrashReportExtensionMonitor.CaptureFailure()
         }

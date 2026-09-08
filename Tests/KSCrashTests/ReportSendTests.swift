@@ -135,10 +135,10 @@ final class ReportSendTests: XCTestCase {
         _ = try await send()
         XCTAssertEqual(reclaimRetained.withLock { $0 }, false)
 
-        let area = ExtensionConfiguration(
+        let area = CorpseReportingConfiguration(
             namespace: "SendTests", container: .url(reportsDirectory.appendingPathComponent("area")))
         _ = try await ReportSend.send(
-            store: makeStore(), pipeline: [.init(ClosureStage { $0 })], extensionAreas: [area],
+            store: makeStore(), pipeline: [.init(ClosureStage { $0 })], corpseAreas: [area],
             claims: SendClaims())
         XCTAssertEqual(reclaimRetained.withLock { $0 }, true)
     }

@@ -619,7 +619,7 @@ final class StoreTests: XCTestCase {
     /// pulled reports appear in the same listing.
     func test_snapshotReportIDs_pullsExtensionAreaReportsIntoTheStore() throws {
         let base = runsDirectory.deletingLastPathComponent()
-        let area = ExtensionConfiguration(namespace: "AreaTests", container: .url(base))
+        let area = CorpseReportingConfiguration(namespace: "AreaTests", container: .url(base))
         // Our own store doubles as one bundle-id member of the area, proving
         // the self-skip: nothing is pulled from ourselves.
         let reportsDirectory = try area.processRoot.appendingPathComponent("Reports")
@@ -627,12 +627,12 @@ final class StoreTests: XCTestCase {
         let extensionReports = try area.namespaceRoot
             .appendingPathComponent("com.example.extension", isDirectory: true)
             .appendingPathComponent("Reports", isDirectory: true)
-        // The staging directory is what marks a sibling as an extension store.
-        try FileManager.default.createDirectory(
-            at: extensionReports.appendingPathComponent(KSCRS_EXTENSION_STAGING_FOLDER),
-            withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: extensionReports, withIntermediateDirectories: true)
+        // A sibling is a source only because its own install said so.
+        try StoreManifest.write(
+            kind: StoreManifest.corpseKind, atProcessRoot: extensionReports.deletingLastPathComponent())
         // A normal install sharing the container (a widget): writes in place,
-        // keeps its own sidecars, has no staging directory, must be left alone.
+        // keeps its own sidecars, declares no manifest, must be left alone.
         let widgetReports = try area.namespaceRoot
             .appendingPathComponent("com.example.widget", isDirectory: true)
             .appendingPathComponent("Reports", isDirectory: true)
@@ -669,15 +669,92 @@ final class StoreTests: XCTestCase {
         XCTAssertEqual(ids, [testReportID(3), testReportID(2), testReportID(1)])
         XCTAssertEqual(
             try FileManager.default.contentsOfDirectory(atPath: widgetReports.path), [name(4, testReportID(4))],
-            "a sibling without a staging directory is not an extension store and is left alone")
+            "a sibling that declares no corpse store is left alone")
         XCTAssertEqual(try store.report(testReportID(2))?.report.runId, testRunID("EXT"))
         XCTAssertEqual(
             try store.report(testReportID(3))?.report.runId, testRunID("OURS"),
             "an existing report is never replaced by an ingested one")
         let leftBehind = try FileManager.default.contentsOfDirectory(atPath: extensionReports.path).sorted()
         XCTAssertEqual(
-            leftBehind, [KSCRS_EXTENSION_STAGING_FOLDER, name(3, testReportID(3)), "notes.txt"],
+            leftBehind, [name(3, testReportID(3)), "notes.txt"],
             "the clobber-refused report and the foreign file stay in the area")
+    }
+
+    func test_snapshotReportIDs_leavesAStoreThatReportsForItselfAlone() throws {
+        // What an ordinary install beside the app looks like: it declares itself, and the
+        // declaration is a refusal. Its reports are stitched from sidecars living in its
+        // own store, so one moved without them would arrive explaining nothing.
+        let base = runsDirectory.deletingLastPathComponent()
+        let area = CorpseReportingConfiguration(namespace: "SelfKindTests", container: .url(base))
+        let ownReports = try area.processRoot.appendingPathComponent("Reports")
+        try FileManager.default.createDirectory(at: ownReports, withIntermediateDirectories: true)
+
+        let siblingRoot = try area.namespaceRoot.appendingPathComponent("com.example.widget", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: siblingRoot.appendingPathComponent("Reports", isDirectory: true), withIntermediateDirectories: true)
+        try StoreManifest.write(kind: StoreManifest.selfKind, atProcessRoot: siblingRoot)
+
+        XCTAssertEqual(try area.reportsDirectories(excluding: ownReports), [])
+    }
+
+    func test_storeManifest_writeFailureIsThrown() throws {
+        // The corpse install leans on this: it declares itself before creating the store,
+        // so a store that cannot say what it is never comes into existence and never
+        // collects reports the app will not come for.
+        let parent = runsDirectory.deletingLastPathComponent().appendingPathComponent("Locked", isDirectory: true)
+        try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
+        try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: parent.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: parent.path) }
+
+        XCTAssertThrowsError(
+            try StoreManifest.write(
+                kind: StoreManifest.corpseKind,
+                atProcessRoot: parent.appendingPathComponent("child", isDirectory: true)))
+    }
+
+    func test_snapshotReportIDs_skipsADeclaredStoreWithNoReportsDirectory() throws {
+        // A store mid-creation, or one whose reports were deleted: a declaration alone is
+        // not a directory to drain.
+        let base = runsDirectory.deletingLastPathComponent()
+        let area = CorpseReportingConfiguration(namespace: "NoReportsTests", container: .url(base))
+        let ownReports = try area.processRoot.appendingPathComponent("Reports")
+        try FileManager.default.createDirectory(at: ownReports, withIntermediateDirectories: true)
+
+        let siblingRoot = try area.namespaceRoot.appendingPathComponent("com.example.bare", isDirectory: true)
+        try StoreManifest.write(kind: StoreManifest.corpseKind, atProcessRoot: siblingRoot)
+
+        XCTAssertEqual(try area.reportsDirectories(excluding: ownReports), [])
+    }
+
+    func test_storeManifest_unreadableBytesAreNoDeclarationAtAll() throws {
+        let root = runsDirectory.deletingLastPathComponent().appendingPathComponent("Unreadable", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try Data("{ not json".utf8).write(to: root.appendingPathComponent(StoreManifest.filename))
+        XCTAssertNil(StoreManifest.read(atProcessRoot: root))
+    }
+
+    func test_snapshotReportIDs_ignoresAStoreWhoseManifestItCannotHonor() throws {
+        // A kind this version does not know, and a schema it does not know, are both
+        // stores it was not invited into, so neither is drained.
+        let base = runsDirectory.deletingLastPathComponent()
+        let area = CorpseReportingConfiguration(namespace: "ManifestTests", container: .url(base))
+        let reportsDirectory = try area.processRoot.appendingPathComponent("Reports")
+        try FileManager.default.createDirectory(at: reportsDirectory, withIntermediateDirectories: true)
+
+        for (entry, manifest) in [
+            ("com.example.future", StoreManifest(schema: StoreManifest.currentSchema, kind: "something-newer")),
+            (
+                "com.example.newer",
+                StoreManifest(schema: StoreManifest.currentSchema + 1, kind: StoreManifest.corpseKind)
+            ),
+        ] {
+            let processRoot = try area.namespaceRoot.appendingPathComponent(entry, isDirectory: true)
+            let reports = processRoot.appendingPathComponent("Reports", isDirectory: true)
+            try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+            try JSONEncoder().encode(manifest).write(to: processRoot.appendingPathComponent(StoreManifest.filename))
+        }
+
+        XCTAssertEqual(try area.reportsDirectories(excluding: reportsDirectory), [])
     }
 
     func test_snapshotReportIDs_skipsAnAreaThatDoesNotResolve() throws {
@@ -688,7 +765,7 @@ final class StoreTests: XCTestCase {
         let store = makeReportStore(reports)
         // A non-file URL cannot be a container anywhere, unlike an app group,
         // which resolves for any identifier outside a device sandbox.
-        let unresolvable = ExtensionConfiguration(
+        let unresolvable = CorpseReportingConfiguration(
             namespace: "AreaTests", container: .url(URL(string: "https://example.invalid/area")!))
         XCTAssertThrowsError(try unresolvable.namespaceRoot, "the area must really not resolve")
         XCTAssertEqual(try store.snapshotReportIDs(pullingFrom: [unresolvable]), [testReportID(1)])

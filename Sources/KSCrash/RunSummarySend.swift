@@ -36,7 +36,7 @@ enum RunSummarySend {
     static func send(
         store: Store?,
         pipeline: [AnyPipelineStage<RunSummary>],
-        extensionAreas: [ExtensionConfiguration] = [],
+        corpseAreas: [CorpseReportingConfiguration] = [],
         only selection: Set<RunSummary.ID>? = nil,
         claims: SendClaims<RunSummary.ID> = RunSummarySend.claims
     ) async throws -> SendResult<RunSummary> {
@@ -54,7 +54,7 @@ enum RunSummarySend {
                 // extension's report for that run may still be waiting in an
                 // area the report send has not pulled from yet; the same
                 // window the report send keeps applies here.
-                retainsUnreferencedRuns: !extensionAreas.isEmpty
+                retainsUnreferencedRuns: !corpseAreas.isEmpty
             ),
             pipeline: pipeline,
             only: selection,

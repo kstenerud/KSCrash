@@ -32,7 +32,7 @@ import KSCrashReportModel
 /// Writes crash reports for other processes' corpses from an iOS 27 CrashReportExtension, and
 /// enriches them on the app side at read time.
 ///
-/// In the extension it is registered by `KSCrash.installForExtensionReporting(with:)` and
+/// In the extension it is registered by `KSCrash.installForCorpseReporting(with:)` and
 /// driven by `KSCrash.captureCrashReport`; the report write itself lives in
 /// `writeReport(corpse:...)` (Implementation). In the app that ingests the extension's
 /// reports, register it like any plugin (`config.plugins =

@@ -41,7 +41,7 @@ extension KSCrash {
         try await RunSummarySend.send(
             store: Self.makeStore(),
             pipeline: configuration.runSummaryPipeline,
-            extensionAreas: configuration.extensionAreas
+            corpseAreas: configuration.corpseAreas
         )
     }
 
@@ -55,7 +55,7 @@ extension KSCrash {
         try await RunSummarySend.send(
             store: Self.makeStore(),
             pipeline: configuration.runSummaryPipeline,
-            extensionAreas: configuration.extensionAreas,
+            corpseAreas: configuration.corpseAreas,
             only: Set(ids)
         )
     }
@@ -76,7 +76,7 @@ extension KSCrash {
         try await ReportSend.send(
             store: Self.makeStore(),
             pipeline: configuration.reportPipeline,
-            extensionAreas: configuration.extensionAreas
+            corpseAreas: configuration.corpseAreas
         )
     }
 
@@ -92,7 +92,7 @@ extension KSCrash {
         try await ReportSend.send(
             store: Self.makeStore(),
             pipeline: configuration.reportPipeline,
-            extensionAreas: configuration.extensionAreas,
+            corpseAreas: configuration.corpseAreas,
             only: Set(ids)
         )
     }

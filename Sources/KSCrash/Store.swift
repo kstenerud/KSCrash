@@ -125,7 +125,7 @@ struct Store: Sendable {
 
     /// Every pending crash report, newest first. Throws when the Reports
     /// directory cannot be enumerated; the runs half is not touched.
-    func snapshotReportIDs(pullingFrom extensionAreas: [ExtensionConfiguration] = []) throws -> [Report.ID] {
+    func snapshotReportIDs(pullingFrom corpseAreas: [CorpseReportingConfiguration] = []) throws -> [Report.ID] {
         // A crash extension's reports are moved in before the listing, so the
         // same send that finds them delivers them. An area resolves to its
         // namespace directory, and every bundle-id subdirectory in it except
@@ -133,7 +133,7 @@ struct Store: Sendable {
         // resolve (a bad app-group id, a missing entitlement) is logged and
         // skipped: the app's own reports are not held hostage to it, and the
         // extension's stay where they are until it is fixed.
-        for area in extensionAreas {
+        for area in corpseAreas {
             do {
                 for source in try area.reportsDirectories(excluding: reportsDirectory) {
                     reports.ingest(source)

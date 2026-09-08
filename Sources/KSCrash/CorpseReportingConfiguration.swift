@@ -1,5 +1,5 @@
 //
-//  ExtensionConfiguration.swift
+//  CorpseReportingConfiguration.swift
 //
 //  Created by Alexander Cohen on 2026-09-05.
 //
@@ -29,10 +29,10 @@ import Foundation
 /// A shared report area: a crash extension installs into it, and the app's send pulls
 /// reports out of it.
 ///
-/// The extension passes a value to `installForExtensionReporting(with:)`; the app lists
-/// the same value in `SendConfiguration.extensionAreas`. Both sides derive the on-disk
+/// The extension passes a value to `installForCorpseReporting(with:)`; the app lists
+/// the same value in `SendConfiguration.corpseAreas`. Both sides derive the on-disk
 /// layout from it identically, so they cannot disagree about where reports live.
-public struct ExtensionConfiguration: Sendable, Equatable {
+public struct CorpseReportingConfiguration: Sendable, Equatable {
 
     /// The install namespace shared with the app.
     public var namespace: String
@@ -47,7 +47,7 @@ public struct ExtensionConfiguration: Sendable, Equatable {
     }
 }
 
-extension ExtensionConfiguration {
+extension CorpseReportingConfiguration {
     /// The directory whose bundle-id subdirectories are per-process install roots.
     package var namespaceRoot: URL {
         get throws { try container.namespaceRoot(for: namespace) }
@@ -62,23 +62,23 @@ extension ExtensionConfiguration {
     /// caller's own): one per bundle-id subdirectory. An area that does not exist yet
     /// contributes nothing.
     ///
-    /// Only an extension-reporting install is a source: it publishes each report whole out of
-    /// its staging directory and keeps nothing beside its reports. A normal install sharing
-    /// the container (a widget, say) writes reports in place and keeps their sidecars and run
-    /// data in its own store, so moving its files would tear a write and strand the rest. The
-    /// staging directory, which only the extension install creates, is what tells them apart.
+    /// A store is a source only when it says so, in the manifest its own install wrote. A
+    /// corpse-reporting store publishes each report whole and keeps nothing beside it, so
+    /// another process may take one. A normal install sharing the container (a widget, say)
+    /// writes reports in place and keeps their sidecars and run data in its own store, so
+    /// moving its files would tear a write and strand the rest.
     package func reportsDirectories(excluding excluded: URL?) throws -> [URL] {
         let root = try namespaceRoot
         guard let entries = try? FileManager.default.contentsOfDirectory(atPath: root.path) else { return [] }
         return entries.sorted().compactMap { entry in
-            let reports = root.appendingPathComponent(entry, isDirectory: true)
-                .appendingPathComponent(KSCRS_DEFAULT_REPORTS_FOLDER, isDirectory: true)
+            let processRoot = root.appendingPathComponent(entry, isDirectory: true)
+            let reports = processRoot.appendingPathComponent(KSCRS_DEFAULT_REPORTS_FOLDER, isDirectory: true)
             if let excluded, reports.standardizedFileURL.path == excluded.standardizedFileURL.path {
                 return nil
             }
-            let staging = reports.appendingPathComponent(KSCRS_EXTENSION_STAGING_FOLDER, isDirectory: true)
+            guard StoreManifest.read(atProcessRoot: processRoot)?.isDrainable == true else { return nil }
             var isDirectory: ObjCBool = false
-            guard FileManager.default.fileExists(atPath: staging.path, isDirectory: &isDirectory),
+            guard FileManager.default.fileExists(atPath: reports.path, isDirectory: &isDirectory),
                 isDirectory.boolValue
             else { return nil }
             return reports
