@@ -36,7 +36,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
-#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -46,15 +45,14 @@
 
 /** The buffer size to use when writing log entries.
  *
- * If this value is > 0, any log entries that expand beyond this length will
- * be truncated.
- * If this value = 0, the logging system will dynamically allocate memory
- * and never truncate. However, the log functions won't be async-safe.
- *
- * Unless you're logging from within signal handlers, it's safe to set it to 0.
+ * Log entries that expand beyond this length are truncated.
  */
 #ifndef KSLOGGER_CBufferSize
 #define KSLOGGER_CBufferSize 1024
+#endif
+
+#if KSLOGGER_CBufferSize <= 0
+#error KSLOGGER_CBufferSize must be greater than 0; the logger formats into a fixed buffer to stay signal-safe.
 #endif
 
 /** Where console logs will be written */
@@ -91,8 +89,6 @@ static inline void writeFmtToLog(const char *fmt, ...)
     writeFmtArgsToLog(fmt, args);
     va_end(args);
 }
-
-#if KSLOGGER_CBufferSize > 0
 
 /** The file descriptor where log entries get written. */
 static int g_fd = -1;
@@ -308,7 +304,13 @@ static inline void setLogFD(int fd)
 
 bool kslog_setLogFilename(const char *filename, bool overwrite)
 {
-    static int fd = -1;
+    // The descriptor must NOT be remembered across calls. setLogFD closes the
+    // one it is replacing, so carrying a previous value here (what a NULL
+    // filename used to do) would leave g_fd naming a closed descriptor. The
+    // next open() anywhere in the process, the host app's files included,
+    // gets that number and then receives this logger's output, which for an
+    // mmap'd file shows up as corruption rather than an error.
+    int fd = -1;
     if (filename != NULL) {
         int openMask = O_WRONLY | O_CREAT;
         if (overwrite) {
@@ -323,72 +325,27 @@ bool kslog_setLogFilename(const char *filename, bool overwrite)
         if (filename != g_logFilename) {
             strlcpy(g_logFilename, filename, sizeof(g_logFilename));
         }
+    } else {
+        // The name goes with the descriptor. kslog_clearLogFile reads it back
+        // in, so a name left behind here would let a later call reopen with
+        // O_TRUNC, and truncate, a file the host told this logger to stop
+        // writing.
+        g_logFilename[0] = '\0';
     }
 
     setLogFD(fd);
     return true;
 }
 
-#else  // if KSLogger_CBufferSize <= 0
-
-static FILE *g_file = NULL;
-
-static inline void setLogFD(FILE *file)
+bool kslog_clearLogFile(void)
 {
-    if (g_file != NULL && g_file != stdout && g_file != stderr && g_file != stdin) {
-        fclose(g_file);
+    // Nothing to clear while file logging is off, and reopening by name is
+    // exactly how it would come back on.
+    if (g_logFilename[0] == '\0') {
+        return true;
     }
-    g_file = file;
+    return kslog_setLogFilename(g_logFilename, true);
 }
-
-void writeToLog(const char *const str)
-{
-    if (g_file != NULL) {
-        fprintf(g_file, "%s", str);
-    }
-    fprintf(stdout, "%s", str);
-}
-
-static inline void writeFmtArgsToLog(const char *fmt, va_list args)
-{
-    unlikely_if(g_file == NULL) { g_file = stdout; }
-
-    if (fmt == NULL) {
-        writeToLog("(null)");
-    } else {
-        vfprintf(g_file, fmt, args);
-    }
-}
-
-static inline void flushLog(void) { fflush(g_file); }
-
-bool kslog_setLogFilename(const char *filename, bool overwrite)
-{
-    static FILE *file = NULL;
-    FILE *oldFile = file;
-    if (filename != NULL) {
-        file = fopen(filename, overwrite ? "wb" : "ab");
-        unlikely_if(file == NULL)
-        {
-            writeFmtToLog("KSLogger: Could not open %s: %s", filename, strerror(errno));
-            return false;
-        }
-    }
-    if (filename != g_logFilename) {
-        strlcpy(g_logFilename, filename, sizeof(g_logFilename));
-    }
-
-    if (oldFile != NULL) {
-        fclose(oldFile);
-    }
-
-    setLogFD(file);
-    return true;
-}
-
-#endif
-
-bool kslog_clearLogFile(void) { return kslog_setLogFilename(g_logFilename, true); }
 
 // ===========================================================================
 #pragma mark - C -
