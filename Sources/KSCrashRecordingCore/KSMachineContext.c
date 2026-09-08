@@ -27,6 +27,7 @@
 #include "KSMachineContext.h"
 
 #include <mach/mach.h>
+#include <stdatomic.h>
 
 #if __has_include(<sys/_types/_ucontext64.h>)
 #include <sys/_types/_ucontext64.h>
@@ -59,7 +60,11 @@ typedef ucontext_t SignalUserContext;
 
 static KSThread g_reservedThreads[10];
 static int g_reservedThreadsMaxIndex = sizeof(g_reservedThreads) / sizeof(g_reservedThreads[0]) - 1;
-static int g_reservedThreadsCount = 0;
+// Registration calls are serialized. Mach exception handlers can run before installation finishes,
+// so publish the initialized, append-only prefix to crash-time and other concurrent readers without
+// taking a blocking lock.
+_Static_assert(ATOMIC_INT_LOCK_FREE == 2, "Reserved thread lookup must be lock-free");
+static atomic_int g_reservedThreadsCount = 0;
 
 static inline bool getThreadList(KSMachineContext *context)
 {
@@ -140,25 +145,25 @@ bool ksmc_getContextForSignal(void *signalUserContext, KSMachineContext *destina
 
 void ksmc_addReservedThread(KSThread thread)
 {
-    int nextIndex = g_reservedThreadsCount;
+    int nextIndex = atomic_load_explicit(&g_reservedThreadsCount, memory_order_relaxed);
     if (nextIndex > g_reservedThreadsMaxIndex) {
         KSLOG_ERROR("Too many reserved threads (%d). Max is %d", nextIndex, g_reservedThreadsMaxIndex);
         return;
     }
-    g_reservedThreads[g_reservedThreadsCount++] = thread;
+    g_reservedThreads[nextIndex] = thread;
+    atomic_store_explicit(&g_reservedThreadsCount, nextIndex + 1, memory_order_release);
 }
 
-#if KSCRASH_HAS_THREADS_API
-static inline bool isThreadInList(thread_t thread, KSThread *list, int listCount)
+bool ksmc_isReservedThread(KSThread thread)
 {
-    for (int i = 0; i < listCount; i++) {
-        if (list[i] == (KSThread)thread) {
+    const int count = atomic_load_explicit(&g_reservedThreadsCount, memory_order_acquire);
+    for (int i = 0; i < count; i++) {
+        if (g_reservedThreads[i] == thread) {
             return true;
         }
     }
     return false;
 }
-#endif
 
 void ksmc_suspendEnvironment(thread_act_array_t *threadsToSuspend, mach_msg_type_number_t *threadsToSuspendCount)
 {
@@ -189,7 +194,7 @@ void ksmc_suspendEnvironment(thread_act_array_t *threadsToSuspend, mach_msg_type
 
     for (mach_msg_type_number_t i = 0; i < threadsCount; i++) {
         thread_t thread = threads[i];
-        if (thread != thisThread && !isThreadInList(thread, g_reservedThreads, g_reservedThreadsCount)) {
+        if (thread != thisThread && !ksmc_isReservedThread(thread)) {
             if ((kr = thread_suspend(thread)) != KERN_SUCCESS) {
                 // Note the error and keep going.
                 KSLOG_ERROR("thread_suspend (%08x): %s", thread, mach_error_string(kr));
@@ -233,7 +238,7 @@ void ksmc_resumeEnvironment(thread_act_array_t *threads_inOut, mach_msg_type_num
 
     for (mach_msg_type_number_t i = 0; i < numThreads; i++) {
         thread_t thread = threads[i];
-        if (thread != thisThread && !isThreadInList(thread, g_reservedThreads, g_reservedThreadsCount)) {
+        if (thread != thisThread && !ksmc_isReservedThread(thread)) {
             if ((kr = thread_resume(thread)) != KERN_SUCCESS) {
                 // Record the error and keep going.
                 KSLOG_ERROR("thread_resume (%08x): %s", thread, mach_error_string(kr));

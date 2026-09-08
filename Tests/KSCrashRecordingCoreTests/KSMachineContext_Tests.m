@@ -33,6 +33,49 @@
 
 @implementation KSMachineContext_Tests
 
+- (void)testReservedThreadLookup
+{
+    const KSThread reservedThread = ~(KSThread)0;
+
+    XCTAssertFalse(ksmc_isReservedThread(reservedThread));
+    ksmc_addReservedThread(reservedThread);
+    XCTAssertTrue(ksmc_isReservedThread(reservedThread));
+    XCTAssertFalse(ksmc_isReservedThread(reservedThread - 1));
+}
+
+- (void)testReservedThreadLookupConcurrentRegistration
+{
+    // Use only two additional process-lifetime slots, including when other suites install monitors.
+    const KSThread firstThread = ~(KSThread)0 - 2;
+    const KSThread secondThread = ~(KSThread)0 - 3;
+    dispatch_group_t group = dispatch_group_create();
+    dispatch_queue_t queue = dispatch_queue_create("reserved-thread-registration", DISPATCH_QUEUE_CONCURRENT);
+    dispatch_semaphore_t start = dispatch_semaphore_create(0);
+    dispatch_group_async(group, queue, ^{
+        dispatch_semaphore_wait(start, DISPATCH_TIME_FOREVER);
+        ksmc_addReservedThread(firstThread);
+        ksmc_addReservedThread(secondThread);
+    });
+    for (int reader = 0; reader < 4; reader++) {
+        dispatch_group_async(group, queue, ^{
+            dispatch_semaphore_wait(start, DISPATCH_TIME_FOREVER);
+            for (int i = 0; i < 10000; i++) {
+                (void)ksmc_isReservedThread(firstThread);
+                (void)ksmc_isReservedThread(secondThread);
+            }
+        });
+    }
+    for (int i = 0; i < 5; i++) {
+        dispatch_semaphore_signal(start);
+    }
+    dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
+
+    XCTAssertTrue(ksmc_isReservedThread(firstThread));
+    XCTAssertTrue(ksmc_isReservedThread(secondThread));
+    XCTAssertFalse(ksmc_isReservedThread(firstThread - 2));
+    XCTAssertFalse(ksmc_isReservedThread(MACH_PORT_NULL));
+}
+
 - (void)testSuspendResumeThreads
 {
     thread_act_array_t threads1 = NULL;
