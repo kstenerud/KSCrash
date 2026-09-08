@@ -133,9 +133,26 @@ bool ksmc_hasValidExceptionRegisters(const struct KSMachineContext *const contex
 
 /** Add a thread to the reserved threads list.
  *
+ * Registration calls must be serialized, as they are during KSCrash monitor installation.
+ * Lookup may run concurrently with registration. The list is fixed-capacity and process-lifetime;
+ * this does not retain a Mach right or remove IDs when threads exit.
+ *
  * @param thread The thread to add to the list.
  */
 void ksmc_addReservedThread(KSThread thread);
+
+/** Check whether a thread is reserved for KSCrash infrastructure.
+ *
+ * Reserved threads must not be suspended or unwound by clients while KSCrash is installed.
+ * This lookup is lock-free and may run concurrently with registration. It observes registrations
+ * published at the time of the query; it does not prevent subsequent registration. Clients using
+ * it to filter thread capture should do so after monitor installation has completed.
+ *
+ * @param thread The thread to check.
+ *
+ * @return true if the thread is reserved by KSCrash.
+ */
+bool ksmc_isReservedThread(KSThread thread);
 
 #ifdef __cplusplus
 }
