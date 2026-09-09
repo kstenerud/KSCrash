@@ -86,10 +86,13 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
     /// written file back the same way, by the id in its name.
     private static func readReport(_ id: Report.ID) throws -> [String: Any] {
         let dir = reportsDirectory
+        let files = try FileManager.default.contentsOfDirectory(atPath: dir.path)
+        let matches = files.filter { $0.contains(id.description) }
+        // More than one file naming an id would mean the store minted a duplicate, which
+        // would make every later assertion a coin toss over which one was read.
+        XCTAssertLessThanOrEqual(matches.count, 1, "one id, one file: \(matches)")
         let name = try XCTUnwrap(
-            FileManager.default.contentsOfDirectory(atPath: dir.path)
-                .first { $0.contains(id.description) },
-            "a report file named by the id should exist")
+            matches.first, "a report file named by the id should exist; store holds \(files.count) files")
         var config = KSCrashReportStoreCConfiguration_Default()
         let cReportsPath = strdup(dir.path)
         config.reportsPath = UnsafePointer(cReportsPath)
@@ -100,6 +103,29 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
         defer { free(raw) }
         let data = Data(bytes: raw, count: strlen(raw))
         return try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    }
+
+    /// Everything needed to tell "the capture wrote the wrong report" apart from "the read
+    /// found someone else's report" apart from "the report was stitched after the fact",
+    /// carried in the assertion message so a failure on a machine we cannot attach to still
+    /// explains itself.
+    private static func diagnostics(_ report: [String: Any], captured: Report.ID) -> String {
+        let info = report["report"] as? [String: Any]
+        let error = (report["crash"] as? [String: Any])?["error"] as? [String: Any]
+        let files = (try? FileManager.default.contentsOfDirectory(atPath: reportsDirectory.path)) ?? []
+        let matching = files.filter { $0.contains(captured.description) }
+        return """
+            captured id: \(captured)
+            report.id: \(info?["id"] as? String ?? "nil")
+            report.process_name: \(info?["process_name"] as? String ?? "nil")
+            report.finalized: \(info?["finalized"] as? Bool ?? false)
+            report top-level keys: \(report.keys.sorted())
+            crash.error keys: \(error?.keys.sorted() ?? [])
+            crash.error.type: \(error?["type"] as? String ?? "nil")
+            crash.error.hang present: \(error?["hang"] != nil)
+            files naming this id: \(matching)
+            files in store: \(files.count)
+            """
     }
 
     override func setUpWithError() throws {
@@ -261,15 +287,16 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
             subcode: 0)
 
         let report = try Self.readReport(reportID)
-        let crash = try XCTUnwrap(report["crash"] as? [String: Any])
-        let error = try XCTUnwrap(crash["error"] as? [String: Any])
-        XCTAssertNil(error["corpse"], "the empty scratch section is swept at read time")
-        XCTAssertNil(error["monitor_data"], "and nothing lands in the custom-monitor namespace")
-        XCTAssertNil(report["corpse"], "and the final-pass stitch has nothing to lift to the root")
+        let diagnostics = Self.diagnostics(report, captured: reportID)
+        let crash = try XCTUnwrap(report["crash"] as? [String: Any], diagnostics)
+        let error = try XCTUnwrap(crash["error"] as? [String: Any], diagnostics)
+        XCTAssertNil(error["corpse"], "the empty scratch section is swept at read time. \(diagnostics)")
+        XCTAssertNil(error["monitor_data"], "and nothing lands in the custom-monitor namespace. \(diagnostics)")
+        XCTAssertNil(report["corpse"], "and the final-pass stitch has nothing to lift to the root. \(diagnostics)")
 
         // The rest of the error section is unaffected, so the report is still well formed.
-        XCTAssertNotNil(error["type"])
-        XCTAssertNotNil(report["binary_images"])
+        XCTAssertNotNil(error["type"], diagnostics)
+        XCTAssertNotNil(report["binary_images"], diagnostics)
     }
 
     func testWriteReportCorrectsLyingImageSizes() throws {
@@ -426,18 +453,20 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
 
         let report = try Self.readReport(reportID)
 
+        let diagnostics = Self.diagnostics(report, captured: reportID)
+
         // The report names the corpse's process, not this (reporting) one.
-        let info = try XCTUnwrap(report["report"] as? [String: Any])
-        XCTAssertEqual(info["process_name"] as? String, "CorpseTestApp")
+        let info = try XCTUnwrap(report["report"] as? [String: Any], diagnostics)
+        XCTAssertEqual(info["process_name"] as? String, "CorpseTestApp", diagnostics)
 
         // The kcdata signal wins over the mach-exception mapping (which gives 0 for EXC_CRASH).
-        let crash = try XCTUnwrap(report["crash"] as? [String: Any])
-        let error = try XCTUnwrap(crash["error"] as? [String: Any])
-        let signal = try XCTUnwrap(error["signal"] as? [String: Any])
-        XCTAssertEqual(signal["signal"] as? Int32, SIGABRT)
+        let crash = try XCTUnwrap(report["crash"] as? [String: Any], diagnostics)
+        let error = try XCTUnwrap(crash["error"] as? [String: Any], diagnostics)
+        let signal = try XCTUnwrap(error["signal"] as? [String: Any], diagnostics)
+        XCTAssertEqual(signal["signal"] as? Int32, SIGABRT, diagnostics)
 
         // The embedded snapshot drops the image list; the report's binary_images carries it.
-        let embedded = try XCTUnwrap(report["corpse"] as? [String: Any])
+        let embedded = try XCTUnwrap(report["corpse"] as? [String: Any], diagnostics)
         XCTAssertEqual((embedded["images"] as? [Any])?.count, 0)
         XCTAssertFalse(try XCTUnwrap(report["binary_images"] as? [[String: Any]]).isEmpty)
 
