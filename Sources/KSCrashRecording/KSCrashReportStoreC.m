@@ -640,11 +640,10 @@ static char *readReportAtPath(const char *path, int64_t reportID, const KSCrashR
         __attribute__((objc_precise_lifetime)) NSData *jsonData = [NSData dataWithBytesNoCopy:rawReport
                                                                                        length:(NSUInteger)rawLength
                                                                                  freeWhenDone:YES];
-        NSMutableDictionary *dict =
-            [KSJSONCodec decode:jsonData
-                        options:KSJSONDecodeOptionIgnoreNullInArray | KSJSONDecodeOptionIgnoreNullInObject |
-                                KSJSONDecodeOptionKeepPartialObject
-                          error:nil];
+        // Nulls stay: a null a monitor wrote is a value, and dropping one
+        // re-indexes the array holding it. Only the app-owned user section
+        // resolves nulls, and its stitch does that itself.
+        NSMutableDictionary *dict = [KSJSONCodec decode:jsonData options:KSJSONDecodeOptionKeepPartialObject error:nil];
         if (![dict isKindOfClass:[NSDictionary class]]) {
             KSLOG_ERROR(@"Failed to decode report at path: %s", path);
             return NULL;
@@ -725,11 +724,8 @@ bool kscrs_finalizeReport(const char *reportPath, int64_t reportID)
 
         // Decode once
         NSData *jsonData = [NSData dataWithBytesNoCopy:rawReport length:(NSUInteger)rawLength freeWhenDone:YES];
-        NSMutableDictionary *dict =
-            [KSJSONCodec decode:jsonData
-                        options:KSJSONDecodeOptionIgnoreNullInArray | KSJSONDecodeOptionIgnoreNullInObject |
-                                KSJSONDecodeOptionKeepPartialObject
-                          error:nil];
+        // Nulls stay, as in readReportAtPath.
+        NSMutableDictionary *dict = [KSJSONCodec decode:jsonData options:KSJSONDecodeOptionKeepPartialObject error:nil];
         if (![dict isKindOfClass:[NSDictionary class]]) {
             pthread_mutex_unlock(&g_mutex);
             return false;

@@ -29,6 +29,7 @@
 #import "KSCrashReport.h"
 #import "KSCrashReportFields.h"
 #import "KSCrashReportFilterAppleFmt.h"
+#import "KSJSONCodecObjC.h"
 
 @interface KSCrashReportFilterAppleFmt_Tests : XCTestCase
 @end
@@ -70,6 +71,26 @@
                  result = stringReport.value;
              }];
     return result;
+}
+
+- (void)testBinaryImageWithNullUUIDFormatsWithoutChangingThePayload
+{
+    NSMutableDictionary *source =
+        [[self _minimalReportWithCrash:@{ KSCrashField_Error : @ { KSCrashField_Type : @"signal" } }] mutableCopy];
+    source[KSCrashField_BinaryImages] = @[ @{
+        KSCrashField_Name : @"/tmp/no-uuid.dylib",
+        KSCrashField_UUID : [NSNull null],
+        KSCrashField_ImageAddress : @4096,
+        KSCrashField_ImageSize : @4096,
+        KSCrashField_CPUType : @16777228,
+        KSCrashField_CPUSubType : @0
+    } ];
+    NSData *data = [NSJSONSerialization dataWithJSONObject:source options:0 error:nil];
+    NSDictionary *report = [KSJSONCodec decode:data options:KSJSONDecodeOptionKeepPartialObject error:nil];
+    NSString *formatted = [self _appleFormatStringForReport:report];
+    XCTAssertTrue([formatted containsString:@"no-uuid.dylib"]);
+    XCTAssertEqualObjects(report, source);
+    XCTAssertEqualObjects(report[KSCrashField_BinaryImages][0][KSCrashField_UUID], [NSNull null]);
 }
 
 - (void)testLastExceptionBacktracePresent

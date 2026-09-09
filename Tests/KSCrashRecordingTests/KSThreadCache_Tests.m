@@ -74,4 +74,34 @@ extern void kstc_reset(void);
     kstc_unfreeze();
 }
 
+- (void)testQueueNameSearchSetBeforeInitAppliesToTheFirstCache
+{
+    // The install sets the flag before init; the initial cache must honor it
+    // rather than wait a polling interval (60 s in production) for the next.
+    dispatch_queue_t queue = dispatch_queue_create("com.kscrash.tests.queue-name", DISPATCH_QUEUE_SERIAL);
+    dispatch_semaphore_t parked = dispatch_semaphore_create(0);
+    dispatch_semaphore_t release = dispatch_semaphore_create(0);
+    __block thread_t queueThread = MACH_PORT_NULL;
+    dispatch_async(queue, ^{
+        queueThread = mach_thread_self();
+        dispatch_semaphore_signal(parked);
+        dispatch_semaphore_wait(release, DISPATCH_TIME_FOREVER);
+    });
+    XCTAssertEqual(dispatch_semaphore_wait(parked, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC)), 0L);
+
+    kstc_setSearchQueueNames(true);
+    kstc_init(3600);
+
+    kstc_freeze();
+    const char *name = kstc_getQueueName((KSThread)queueThread);
+    XCTAssertTrue(name != NULL);
+    if (name != NULL) {
+        XCTAssertEqualObjects([NSString stringWithUTF8String:name], @"com.kscrash.tests.queue-name");
+    }
+    kstc_unfreeze();
+
+    dispatch_semaphore_signal(release);
+    mach_port_deallocate(mach_task_self(), queueThread);
+}
+
 @end

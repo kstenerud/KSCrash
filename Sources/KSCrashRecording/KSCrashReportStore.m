@@ -46,6 +46,16 @@
 
 const KSCrashReportID KSCrashReportNoID = 0;
 
+static NSString *reportRunID(NSDictionary *report)
+{
+    id section = report[KSCrashField_Report];
+    if (![section isKindOfClass:[NSDictionary class]]) {
+        return nil;
+    }
+    id runID = section[KSCrashField_RunID];
+    return [runID isKindOfClass:[NSString class]] ? runID : nil;
+}
+
 /// A chain step: receives the previous filter's output (or the initial items)
 /// and either advances the chain or terminates it. Type-erased over the report
 /// and run-summary element types so one chain runner serves both paths.
@@ -132,8 +142,7 @@ typedef void (^KSChainApplyFilter)(id filter, NSArray *items, KSChainStepComplet
         if (report == nil) {
             continue;
         }
-        NSString *reportRunID = report.value[@"report"][@"run_id"];
-        if ([reportRunID isEqualToString:currentRunID]) {
+        if ([reportRunID(report.value) isEqualToString:currentRunID]) {
             KSLOG_INFO(@"Skipping report from current run (run_id: %@)", currentRunID);
             continue;
         }
@@ -193,8 +202,7 @@ typedef void (^KSChainApplyFilter)(id filter, NSArray *items, KSChainStepComplet
 
     if (!includeCurrentRun) {
         NSString *currentRunID = [NSString stringWithUTF8String:kscrash_getRunID()];
-        NSString *reportRunID = report.value[@"report"][@"run_id"];
-        if ([reportRunID isEqualToString:currentRunID]) {
+        if ([reportRunID(report.value) isEqualToString:currentRunID]) {
             KSLOG_INFO(@"Skipping report from current run (run_id: %@)", currentRunID);
             kscrash_callCompletion(
                 onCompletion, @[],
@@ -384,11 +392,9 @@ typedef void (^KSChainApplyFilter)(id filter, NSArray *items, KSChainStepComplet
     }
 
     NSError *error = nil;
-    NSMutableDictionary *crashReport =
-        [KSJSONCodec decode:jsonData
-                    options:KSJSONDecodeOptionIgnoreNullInArray | KSJSONDecodeOptionIgnoreNullInObject |
-                            KSJSONDecodeOptionKeepPartialObject
-                      error:&error];
+    NSMutableDictionary *crashReport = [KSJSONCodec decode:jsonData
+                                                   options:KSJSONDecodeOptionKeepPartialObject
+                                                     error:&error];
     if (error != nil) {
         KSLOG_ERROR(@"Encountered error loading crash report %" PRIx64 ": %@", reportID, error);
     }

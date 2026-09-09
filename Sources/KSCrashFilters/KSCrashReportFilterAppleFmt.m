@@ -351,6 +351,10 @@ static NSDictionary *g_registerOrders;
 
 - (NSString *)toCompactUUID:(NSString *)uuid
 {
+    // Images without LC_UUID are recorded with a JSON null.
+    if (![uuid isKindOfClass:[NSString class]]) {
+        return nil;
+    }
     return [[uuid lowercaseString] stringByReplacingOccurrencesOfString:@"-" withString:@""];
 }
 

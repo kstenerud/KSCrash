@@ -26,12 +26,15 @@
 
 #import "FileBasedTestCase.h"
 
+#import "KSCrashC.h"
 #import "KSCrashInstallConfiguration.h"
 #import "KSCrashMonitor.h"
+#import "KSCrashReport.h"
 #import "KSCrashReportFields.h"
 #import "KSCrashReportStore.h"
 #import "KSCrashReportStoreC+Private.h"
 #import "KSCrashReportStoreC.h"
+#import "KSCrashSendConfiguration.h"
 #import "KSJSONCodecObjC.h"
 
 #include <inttypes.h>
@@ -81,6 +84,16 @@ static CFDictionaryRef noopStitchReport(CFDictionaryRef reportDict, __unused con
 }
 
 #pragma mark - Tests
+
+@interface FinalizerPassthroughFilter : NSObject <KSCrashReportFilter>
+@end
+
+@implementation FinalizerPassthroughFilter
+- (void)filterReports:(NSArray<id<KSCrashReport>> *)reports onCompletion:(KSCrashReportFilterCompletion)onCompletion
+{
+    onCompletion(reports, nil);
+}
+@end
 
 @interface KSCrashReportFinalizer_Tests : FileBasedTestCase
 @end
@@ -229,6 +242,104 @@ static CFDictionaryRef noopStitchReport(CFDictionaryRef reportDict, __unused con
     NSDictionary *report = [self readReportJSON:path];
     XCTAssertEqualObjects(report[@"report"][@"run_id"], runId);
     XCTAssertEqualObjects(report[@"report"][@"id"], @"evt1");
+}
+
+- (void)testReadAndFinalizeKeepNullsInPlace
+{
+    // A null a monitor wrote is a value: dropping it re-indexes the array
+    // around it, so the read and the finalized file both keep it.
+    [self prepareStore:@"testKeepNulls"];
+    NSString *json = @"{\"report\":{\"run_id\":\"r\",\"id\":\"evt1\"},"
+                     @"\"samples\":[10,null,30],\"detail\":{\"missing\":null}}";
+    NSData *data = [json dataUsingEncoding:NSUTF8StringEncoding];
+    int64_t reportID = kscrs_addUserReport(data.bytes, (int)data.length, &_storeConfig);
+    NSString *path = [self reportPathForID:reportID];
+
+    char *readBack = kscrs_readReport(reportID, &_storeConfig);
+    XCTAssertTrue(readBack != NULL);
+    NSDictionary *read = [KSJSONCodec decode:[NSData dataWithBytesNoCopy:readBack length:strlen(readBack)]
+                                     options:KSJSONDecodeOptionNone
+                                       error:nil];
+    NSArray *expected = @[ @10, [NSNull null], @30 ];
+    XCTAssertEqualObjects(read[@"samples"], expected);
+    XCTAssertEqualObjects(read[@"detail"][@"missing"], [NSNull null]);
+
+    KSCrashReportStoreConfiguration *configuration = [KSCrashReportStoreConfiguration new];
+    configuration.appName = @(_storeConfig.appName);
+    configuration.reportsPath = @(_storeConfig.reportsPath);
+    KSCrashReportStore *store = [KSCrashReportStore storeWithConfiguration:configuration error:nil];
+    // Delivery uses reportForID:, which decodes the C reader's output again.
+    XCTAssertEqualObjects([store reportForID:reportID].value, read);
+    XCTAssertEqualObjects(
+        [NSJSONSerialization JSONObjectWithData:[store reportDataForID:reportID].value options:0 error:nil], read);
+
+    XCTAssertTrue(kscrs_finalizeReport(path.UTF8String, reportID));
+    NSDictionary *finalized = [self readReportJSON:path];
+    XCTAssertEqualObjects(finalized[@"samples"], expected);
+    XCTAssertEqualObjects(finalized[@"detail"][@"missing"], [NSNull null]);
+    XCTAssertEqualObjects(finalized[@"report"][@"finalized"], @YES);
+    XCTAssertEqualObjects([store reportForID:reportID].value, finalized);
+    XCTAssertEqualObjects(
+        [NSJSONSerialization JSONObjectWithData:[store reportDataForID:reportID].value options:0 error:nil], finalized);
+}
+
+- (void)testSendingPreservesNullPayloadsWithMissingOrNullRunMetadata
+{
+    [self prepareStore:@"testSendNulls"];
+    KSCrashReportStoreConfiguration *configuration = [KSCrashReportStoreConfiguration new];
+    configuration.appName = @(_storeConfig.appName);
+    configuration.reportsPath = @(_storeConfig.reportsPath);
+    KSCrashReportStore *store = [KSCrashReportStore storeWithConfiguration:configuration error:nil];
+    KSCrashSendConfiguration *send = [KSCrashSendConfiguration new];
+    send.reportFilters = @[ [FinalizerPassthroughFilter new] ];
+    send.reportCleanupPolicy = KSCrashReportCleanupPolicyNever;
+
+    NSArray *metadata = @[
+        @{}, @{ @"report" : [NSNull null] }, @{ @"report" : @ {} }, @{ @"report" : @ { @"run_id" : [NSNull null] } },
+        @{ @"report" : @ { @"run_id" : @42 } }
+    ];
+    NSMutableArray *expected = [NSMutableArray array];
+    for (NSDictionary *fields in metadata) {
+        NSMutableDictionary *source = [fields mutableCopy];
+        source[@"samples"] = @[ @10, [NSNull null], @30 ];
+        source[@"detail"] = @{ @"missing" : [NSNull null] };
+        NSData *data = [NSJSONSerialization dataWithJSONObject:source options:0 error:nil];
+        int64_t reportID = kscrs_addUserReport(data.bytes, (int)data.length, &_storeConfig);
+        [expected addObject:source];
+        XCTestExpectation *sent = [self expectationWithDescription:@"single report sent"];
+        [store sendReportWithID:reportID
+              includeCurrentRun:NO
+                  configuration:send
+                     completion:^(NSArray *reports, NSError *error) {
+                         XCTAssertNil(error);
+                         XCTAssertEqual(reports.count, 1U);
+                         XCTAssertEqualObjects([(KSCrashReportDictionary *)reports.firstObject value], source);
+                         [sent fulfill];
+                     }];
+        [self waitForExpectations:@[ sent ] timeout:2];
+    }
+
+    // A real current-run ID must still be excluded by both delivery paths.
+    NSDictionary *current = @{ @"report" : @ { @"run_id" : @(kscrash_getRunID()) } };
+    NSData *data = [NSJSONSerialization dataWithJSONObject:current options:0 error:nil];
+    int64_t currentID = kscrs_addUserReport(data.bytes, (int)data.length, &_storeConfig);
+    XCTestExpectation *skipped = [self expectationWithDescription:@"current run skipped"];
+    [store sendReportWithID:currentID
+          includeCurrentRun:NO
+              configuration:send
+                 completion:^(NSArray *reports, NSError *error) {
+                     XCTAssertNotNil(error);
+                     XCTAssertEqual(reports.count, 0U);
+                     [skipped fulfill];
+                 }];
+    XCTestExpectation *allSent = [self expectationWithDescription:@"all prior reports sent"];
+    [store sendAllReportsWithConfiguration:send
+                                completion:^(NSArray *reports, NSError *error) {
+                                    XCTAssertNil(error);
+                                    XCTAssertEqualObjects([reports valueForKey:@"value"], expected);
+                                    [allSent fulfill];
+                                }];
+    [self waitForExpectations:@[ skipped, allSent ] timeout:2];
 }
 
 #pragma mark - Stitching Integration
