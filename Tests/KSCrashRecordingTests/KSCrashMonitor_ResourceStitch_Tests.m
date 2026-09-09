@@ -41,15 +41,20 @@ static NSString *createTempDir(void)
     return dir;
 }
 
-static NSString *writeResourceSidecar(NSString *dir, KSCrash_ResourceData data)
+static NSString *writeResourceSidecarBytes(NSString *dir, const KSCrash_ResourceData *data, size_t length)
 {
     NSString *path = [dir stringByAppendingPathComponent:@"Resource.ksscr"];
     int fd = open(path.UTF8String, O_WRONLY | O_CREAT | O_TRUNC, 0644);
     NSCAssert(fd >= 0, @"Failed to open sidecar for writing: %s", path.UTF8String);
-    ssize_t written = write(fd, &data, sizeof(data));
-    NSCAssert(written == (ssize_t)sizeof(data), @"Short write to sidecar");
+    ssize_t written = write(fd, data, length);
+    NSCAssert(written == (ssize_t)length, @"Short write to sidecar");
     close(fd);
     return path;
+}
+
+static NSString *writeResourceSidecar(NSString *dir, KSCrash_ResourceData data)
+{
+    return writeResourceSidecarBytes(dir, &data, sizeof(data));
 }
 
 static KSCrash_ResourceData makeValidResourceData(void)
@@ -59,9 +64,12 @@ static KSCrash_ResourceData makeValidResourceData(void)
     data.version = KSCrash_Resource_CurrentVersion;
     data.memoryPressure = 0;  // normal
     data.memoryLevel = 1;     // warn
+    data.memoryHeadroom = 2;  // urgent
     data.memoryFootprint = 50000000;
     data.memoryRemaining = 150000000;
     data.memoryLimit = 200000000;
+    data.systemMemoryRemaining = 500000000;
+    data.systemMemoryLimit = 8000000000;
     data.batteryLevel = 72;
     data.batteryState = KSCrashBatteryStateCharging;
     data.lowPowerMode = 0;
@@ -174,6 +182,88 @@ static KSCrash_ResourceData makeValidResourceData(void)
                                                      KSCrashSidecarScopeRun, NULL) == NULL);
 }
 
+#pragma mark - Older Versions
+
+- (void)testVersion1SidecarLoadsWithoutSystemFields
+{
+    KSCrash_ResourceData data = makeValidResourceData();
+    data.version = 1;
+    NSString *path = writeResourceSidecarBytes(self.tempDir, &data, KSCrash_Resource_V1Size);
+    NSDictionary *report = @{};
+
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_resource_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
+
+    NSDictionary *appMemory = result[KSCrashField_System][KSCrashField_AppMemory];
+    XCTAssertEqualObjects(appMemory[KSCrashField_MemoryFootprint], @(50000000));
+    XCTAssertEqualObjects(appMemory[KSCrashField_MemoryLevel], @"warn");
+    XCTAssertNil(appMemory[KSCrashField_MemoryHeadroom]);
+    XCTAssertNil(appMemory[KSCrashField_SystemMemoryRemaining]);
+    XCTAssertNil(appMemory[KSCrashField_SystemMemoryLimit]);
+}
+
+- (void)testVersion2SidecarTruncatedToV1SizeReturnsNull
+{
+    KSCrash_ResourceData data = makeValidResourceData();
+    NSString *path = writeResourceSidecarBytes(self.tempDir, &data, KSCrash_Resource_V1Size);
+    NSDictionary *report = @{};
+
+    XCTAssertTrue(kscm_resource_createStitchedReport((__bridge CFDictionaryRef)report, path.UTF8String,
+                                                     KSCrashSidecarScopeRun, NULL) == NULL);
+}
+
+- (void)testVersion1SidecarAtV2SizeReturnsNull
+{
+    // The declared version's size must match the size read: a v1 declaration
+    // can only legitimately exist in a v1-sized file.
+    KSCrash_ResourceData data = makeValidResourceData();
+    data.version = 1;
+    NSString *path = writeResourceSidecarBytes(self.tempDir, &data, KSCrash_Resource_V2Size);
+    NSDictionary *report = @{};
+
+    XCTAssertTrue(kscm_resource_createStitchedReport((__bridge CFDictionaryRef)report, path.UTF8String,
+                                                     KSCrashSidecarScopeRun, NULL) == NULL);
+}
+
+- (void)testOutOfRangeStateBytesStitchAsUnknown
+{
+    // Single-byte corruption of a state field must degrade to "unknown", not
+    // abort report delivery.
+    KSCrash_ResourceData data = makeValidResourceData();
+    data.memoryHeadroom = 200;
+    data.memoryLevel = 250;
+    NSString *path = writeResourceSidecar(self.tempDir, data);
+    NSDictionary *report = @{};
+
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_resource_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
+
+    NSDictionary *appMemory = result[KSCrashField_System][KSCrashField_AppMemory];
+    XCTAssertEqualObjects(appMemory[KSCrashField_MemoryHeadroom], @"unknown");
+    XCTAssertEqualObjects(appMemory[KSCrashField_MemoryLevel], @"unknown");
+    XCTAssertEqualObjects(appMemory[KSCrashField_MemoryPressure], @"normal");
+}
+
+- (void)testZeroSystemMemoryLimitOmitsSystemFields
+{
+    KSCrash_ResourceData data = makeValidResourceData();
+    data.systemMemoryRemaining = 0;
+    data.systemMemoryLimit = 0;
+    NSString *path = writeResourceSidecar(self.tempDir, data);
+    NSDictionary *report = @{};
+
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_resource_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
+
+    NSDictionary *appMemory = result[KSCrashField_System][KSCrashField_AppMemory];
+    XCTAssertNil(appMemory[KSCrashField_MemoryHeadroom]);
+    XCTAssertNil(appMemory[KSCrashField_SystemMemoryRemaining]);
+    XCTAssertNil(appMemory[KSCrashField_SystemMemoryLimit]);
+}
+
 #pragma mark - Valid Stitch
 
 - (void)testStitchCreatesSystemDict
@@ -206,6 +296,9 @@ static KSCrash_ResourceData makeValidResourceData(void)
     XCTAssertEqualObjects(appMemory[KSCrashField_MemoryLimit], @(200000000));
     XCTAssertEqualObjects(appMemory[KSCrashField_MemoryPressure], @"normal");
     XCTAssertEqualObjects(appMemory[KSCrashField_MemoryLevel], @"warn");
+    XCTAssertEqualObjects(appMemory[KSCrashField_MemoryHeadroom], @"urgent");
+    XCTAssertEqualObjects(appMemory[KSCrashField_SystemMemoryRemaining], @(500000000));
+    XCTAssertEqualObjects(appMemory[KSCrashField_SystemMemoryLimit], @(8000000000));
 }
 
 - (void)testStitchResourceFields

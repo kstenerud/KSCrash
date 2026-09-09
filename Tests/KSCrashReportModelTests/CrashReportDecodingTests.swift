@@ -1124,6 +1124,46 @@ final class CrashReportDecodingTests: XCTestCase {
         }
     }
 
+    func testDecodeMemoryHeadroom() throws {
+        let json = """
+            {
+                "crash": { "error": { "type": "signal" } },
+                "system": {
+                    "app_memory": {
+                        "memory_headroom": "urgent",
+                        "system_memory_remaining": 500000000,
+                        "system_memory_limit": 8000000000
+                    }
+                },
+                "report": { "id": "test" }
+            }
+            """
+
+        let report = try CrashReport.decode(from: json)
+        XCTAssertEqual(report.system?.appMemory?.memoryHeadroom, .urgent)
+        XCTAssertEqual(report.system?.appMemory?.systemMemoryRemaining, 500_000_000)
+        XCTAssertEqual(report.system?.appMemory?.systemMemoryLimit, 8_000_000_000)
+    }
+
+    func testDecodeMemoryHeadroomAbsent() throws {
+        let json = """
+            {
+                "crash": { "error": { "type": "signal" } },
+                "system": {
+                    "app_memory": {
+                        "memory_level": "normal"
+                    }
+                },
+                "report": { "id": "test" }
+            }
+            """
+
+        let report = try CrashReport.decode(from: json)
+        XCTAssertNil(report.system?.appMemory?.memoryHeadroom)
+        XCTAssertNil(report.system?.appMemory?.systemMemoryRemaining)
+        XCTAssertNil(report.system?.appMemory?.systemMemoryLimit)
+    }
+
     func testDecodeUnknownMemoryState() throws {
         let json = """
             {
