@@ -31,15 +31,25 @@
 #pragma clang diagnostic pop
 // clang-format on
 
+#include <dlfcn.h>
+#include <errno.h>
+#include <mach-o/getsect.h>
+#include <mach/mach.h>
+#include <string.h>
+#include <sys/mman.h>
+#include <unistd.h>
+
 #include <atomic>
 #include <exception>
 #include <stdexcept>
 #include <string>
 #include <thread>
 #include <typeinfo>
+#include <utility>
 #include <vector>
 
 #include "KSCxaThrowSwapper.h"
+#include "KSPlatformSpecificDefines.h"
 #include "KSSystemCapabilities.h"
 
 #pragma mark - Test Exception Classes
@@ -75,6 +85,103 @@ static void resetHandlerState()
     g_handlerCallCount.store(0, std::memory_order_relaxed);
     g_lastThrownException.store(nullptr, std::memory_order_relaxed);
     g_lastTypeInfo.store(nullptr, std::memory_order_relaxed);
+}
+
+#pragma mark - Memory Protection Helpers
+
+// Deliberately not ksmacho_getSectionProtection, so the code under test is not its own oracle.
+static vm_prot_t protectionOfPage(uintptr_t page)
+{
+    vm_address_t regionAddress = (vm_address_t)page;
+    vm_size_t regionSize = 0;
+    vm_region_basic_info_data_64_t info;
+    mach_msg_type_number_t count = VM_REGION_BASIC_INFO_COUNT_64;
+    memory_object_name_t object;
+    kern_return_t kr = vm_region_64(mach_task_self(), &regionAddress, &regionSize, VM_REGION_BASIC_INFO_64,
+                                    (vm_region_info_64_t)&info, &count, &object);
+    return kr == KERN_SUCCESS ? info.protection : VM_PROT_NONE;
+}
+
+static const mach_header_t *headerOfThisImage(void)
+{
+    Dl_info info;
+    if (dladdr((const void *)&testHandler, &info) == 0) {
+        return NULL;
+    }
+    return (const mach_header_t *)info.dli_fbase;
+}
+
+/// __DATA_CONST of the image containing this test code, which holds its __cxa_throw binding.
+static bool dataConstSegmentOfThisImage(uintptr_t *outStart, size_t *outSize)
+{
+    const mach_header_t *header = headerOfThisImage();
+    if (header == NULL) {
+        return false;
+    }
+    unsigned long size = 0;
+    uint8_t *start = getsegmentdata(header, SEG_DATA_CONST, &size);
+    if (start == NULL || size == 0) {
+        return false;
+    }
+    *outStart = (uintptr_t)start;
+    *outSize = (size_t)size;
+    return true;
+}
+
+/// Copy of this image's __DATA_CONST,__got entries, to detect whether the swapper rewrote one.
+static std::vector<void *> dataConstGotEntriesOfThisImage(void)
+{
+    const mach_header_t *header = headerOfThisImage();
+    if (header == NULL) {
+        return {};
+    }
+    unsigned long size = 0;
+    // Cast via void* to avoid alignment warnings
+    void *sectionStart = getsectiondata(header, SEG_DATA_CONST, "__got", &size);
+    if (sectionStart == NULL) {
+        return {};
+    }
+    void **entries = (void **)sectionStart;
+    return std::vector<void *>(entries, entries + size / sizeof(void *));
+}
+
+static size_t countChangedEntries(const std::vector<void *> &before, const std::vector<void *> &after)
+{
+    size_t changed = 0;
+    for (size_t i = 0; i < before.size() && i < after.size(); i++) {
+        if (before[i] != after[i]) {
+            changed++;
+        }
+    }
+    return changed;
+}
+
+static size_t countPagesWithProtection(uintptr_t start, size_t size, vm_prot_t protection, bool present)
+{
+    size_t pageSize = (size_t)getpagesize();
+    size_t matched = 0;
+    for (uintptr_t page = start & ~(pageSize - 1); page < start + size; page += pageSize) {
+        bool hasProtection = (protectionOfPage(page) & protection) != 0;
+        if (hasProtection == present) {
+            matched++;
+        }
+    }
+    return matched;
+}
+
+static int posixProtection(vm_prot_t protection)
+{
+    int result = PROT_NONE;
+    if (protection & VM_PROT_READ) {
+        result |= PROT_READ;
+    }
+    if (protection & VM_PROT_WRITE) {
+        result |= PROT_WRITE;
+    }
+    if (protection & VM_PROT_EXECUTE) {
+        result |= PROT_EXEC;
+    }
+    return result;
 }
 
 #pragma mark - Test Class
@@ -430,6 +537,102 @@ static void resetHandlerState()
 
         ksct_swapReset();
     }
+}
+
+#pragma mark - Memory Protection Tests
+
+/// Makes this image's __DATA_CONST writable; a teardown block restores each page's original protection.
+- (void)makeDataConstOfThisImageWritable:(uintptr_t)start size:(size_t)size
+{
+    size_t pageSize = (size_t)getpagesize();
+    uintptr_t pageStart = start & ~(pageSize - 1);
+    std::vector<std::pair<uintptr_t, vm_prot_t>> originalProtections;
+    for (uintptr_t page = pageStart; page < start + size; page += pageSize) {
+        originalProtections.emplace_back(page, protectionOfPage(page));
+    }
+    [self addTeardownBlock:^{
+        for (const auto &pageAndProtection : originalProtections) {
+            mprotect((void *)pageAndProtection.first, pageSize, posixProtection(pageAndProtection.second));
+        }
+    }];
+    XCTAssertEqual(mprotect((void *)pageStart, (start - pageStart) + size, PROT_READ | PROT_WRITE), 0,
+                   @"Precondition: could not make __DATA_CONST writable: %s", strerror(errno));
+}
+
+/// A __DATA_CONST page that is writable when the swapper runs must stay writable after swap and reset.
+- (void)testSwapKeepsWritableDataConstWritable
+{
+    XCTSkipIf(KSCRASH_HAS_SANITIZER, @"Sanitizers conflict with __cxa_throw swapper");
+
+    uintptr_t start = 0;
+    size_t size = 0;
+    XCTSkipUnless(dataConstSegmentOfThisImage(&start, &size), @"Test image has no __DATA_CONST segment");
+    [self makeDataConstOfThisImageWritable:start size:size];
+
+    std::vector<void *> gotBeforeSwap = dataConstGotEntriesOfThisImage();
+    ksct_swap(testHandler);
+    XCTSkipIf(countChangedEntries(gotBeforeSwap, dataConstGotEntriesOfThisImage()) == 0,
+              @"__cxa_throw of the test image is not bound in __DATA_CONST on this platform");
+    XCTAssertEqual(countPagesWithProtection(start, size, VM_PROT_WRITE, false), 0UL,
+                   @"ksct_swap must not make a writable __DATA_CONST page read-only");
+
+    ksct_swapReset();
+    XCTAssertEqual(countPagesWithProtection(start, size, VM_PROT_WRITE, false), 0UL,
+                   @"ksct_swapReset must not make a writable __DATA_CONST page read-only");
+}
+
+/// A read-only __DATA_CONST page must come back read-only after swap and reset.
+- (void)testSwapKeepsReadOnlyDataConstReadOnly
+{
+    XCTSkipIf(KSCRASH_HAS_SANITIZER, @"Sanitizers conflict with __cxa_throw swapper");
+
+    uintptr_t start = 0;
+    size_t size = 0;
+    XCTSkipUnless(dataConstSegmentOfThisImage(&start, &size), @"Test image has no __DATA_CONST segment");
+    XCTSkipIf(countPagesWithProtection(start, size, VM_PROT_WRITE, true) != 0,
+              @"__DATA_CONST of the test image is writable on this platform");
+
+    std::vector<void *> gotBeforeSwap = dataConstGotEntriesOfThisImage();
+    ksct_swap(testHandler);
+    XCTSkipIf(countChangedEntries(gotBeforeSwap, dataConstGotEntriesOfThisImage()) == 0,
+              @"__cxa_throw of the test image is not bound in __DATA_CONST on this platform");
+    XCTAssertEqual(countPagesWithProtection(start, size, VM_PROT_WRITE, true), 0UL,
+                   @"ksct_swap must not leave a read-only __DATA_CONST page writable");
+
+    ksct_swapReset();
+    XCTAssertEqual(countPagesWithProtection(start, size, VM_PROT_WRITE, true), 0UL,
+                   @"ksct_swapReset must not leave a read-only __DATA_CONST page writable");
+}
+
+#pragma mark - Image Loading Tests
+
+/// Loads Metal after the swap. On the iOS 26.5 simulator this maps MetalSerializer.framework, whose
+/// unprotected __DATA_CONST page the swapper used to turn read-only, crashing map_images_nolock.
+- (void)testSwapDoesNotBreakImagesLoadedLater
+{
+    XCTSkipIf(KSCRASH_HAS_SANITIZER, @"Sanitizers conflict with __cxa_throw swapper");
+
+    ksct_swap(testHandler);
+
+    void *metal = dlopen("/System/Library/Frameworks/Metal.framework/Metal", RTLD_NOW);
+    XCTSkipIf(metal == NULL, @"Metal is not available on this platform");
+    typedef CFTypeRef (*CreateSystemDefaultDevice)(void);
+    CreateSystemDefaultDevice createDevice = (CreateSystemDefaultDevice)dlsym(metal, "MTLCreateSystemDefaultDevice");
+    XCTSkipIf(createDevice == NULL, @"MTLCreateSystemDefaultDevice is not available on this platform");
+
+    CFTypeRef device = createDevice();
+    if (device != NULL) {
+        CFRelease(device);
+    }
+
+    // Only count this test's throw; images loaded by Metal may throw internally.
+    resetHandlerState();
+    try {
+        throw TestException();
+    } catch (const TestException &e) {
+        (void)e;
+    }
+    XCTAssertEqual(g_handlerCallCount.load(), 1, @"Handler should still be called after loading more images");
 }
 
 @end

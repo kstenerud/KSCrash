@@ -82,7 +82,7 @@ typedef struct {
     uintptr_t image;
     _Atomic(uintptr_t) function;  // Atomic: non-zero signals slot is ready (written last)
     void **binding;               // Pointer to the GOT entry, for restoring original
-    bool isConstSegment;          // True if binding is in __DATA_CONST (needs mprotect)
+    bool isConstSegment;          // True if binding is in __DATA_CONST (may need mprotect)
 } KSAddressPair;
 
 // Maximum number of dylibs we expect to handle. Modern iOS apps typically have
@@ -179,16 +179,34 @@ static uintptr_t findAddress(void *address)
     return (uintptr_t)NULL;
 }
 
+static int posixProtection(vm_prot_t protection)
+{
+    int result = PROT_NONE;
+    if (protection & VM_PROT_READ) {
+        result |= PROT_READ;
+    }
+    if (protection & VM_PROT_WRITE) {
+        result |= PROT_WRITE;
+    }
+    if (protection & VM_PROT_EXECUTE) {
+        result |= PROT_EXEC;
+    }
+    return result;
+}
+
 static bool writeProtectedBinding(void **binding, void *value, bool isConstSegment)
 {
-    // __DATA_CONST segments are read-only and need mprotect to write.
     // __DATA segments are writable, so we can write directly without syscalls.
-    // This avoids the vm_region syscall that ksmacho_getSectionProtection would use.
-    //
-    // Note: mprotect operates on page granularity. While multiple dylibs could
-    // theoretically share a page, Mach-O segments are typically page-aligned in
-    // memory, making it safe to toggle protection during serial image loading.
     if (!isConstSegment) {
+        *binding = value;
+        return true;
+    }
+
+    // __DATA_CONST is not always read-only: dyld only protects segments flagged SG_READ_ONLY and
+    // reopens them around the Objective-C map_images callback. Hand the page back with the
+    // protection it had, or the next write by dyld or the Objective-C runtime faults.
+    vm_prot_t currentProtection = ksmacho_getSectionProtection(binding);
+    if (currentProtection & VM_PROT_WRITE) {
         *binding = value;
         return true;
     }
@@ -206,10 +224,7 @@ static bool writeProtectedBinding(void **binding, void *value, bool isConstSegme
 
     *binding = value;
 
-    // Restore read-only protection. __DATA_CONST is always non-executable and read-only,
-    // so PROT_READ is the correct restoration. If this code were ever extended to other
-    // segments, we'd need to query/preserve the original protection flags.
-    if (mprotect((void *)pageStart, protectSize, PROT_READ) != 0) {
+    if (mprotect((void *)pageStart, protectSize, posixProtection(currentProtection)) != 0) {
         KSLOG_WARN("mprotect restore failed for binding at %p: %s", (void *)binding, strerror(errno));
         // Continue anyway - the write succeeded, protection restore is best-effort
     }
