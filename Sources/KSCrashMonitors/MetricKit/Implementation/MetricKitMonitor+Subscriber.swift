@@ -105,7 +105,7 @@ import os.log
             // Use isFatal=0 for the skeleton so that Lifecycle's addContextualInfoToEvent
             // doesn't mark the current run as unclean — MetricKit diagnostics describe a
             // previous run. We set isFatal/isCleanExit on the final report in post-processing.
-            let requirements = KSCrash_ExceptionHandlingRequirements(
+            let requirements = EventRequirements(
                 shouldRecordAllThreads: 0,
                 shouldWriteReport: 1,
                 isFatal: 0,
@@ -113,7 +113,8 @@ import os.log
                 asyncSafety: 0,
                 asyncSafetyBecauseThreadsSuspended: 0,
                 crashedDuringExceptionHandling: 0,
-                shouldExitImmediately: 0
+                shouldExitImmediately: 0,
+                isRemoteSubject: 0
             )
 
             // notify()/handle() mutate shared exception-handling state in KSCrashMonitor.c that

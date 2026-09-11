@@ -1482,11 +1482,10 @@ static void writeError(const KSCrashReportWriter *const writer, const char *cons
             writer->addStringElement(writer, KSCrashField_Type, crash->monitorId);
             const KSCrashMonitorAPI *api = kscm_getMonitor(crash->monitorId);
             if (api && api->writeInReportSection) {
-                writer->beginObject(writer, crash->monitorId);
-                {
-                    api->writeInReportSection(crash, writer, api->context);
-                }
-                writer->endContainer(writer);
+                // The callback owns its own container. Wrapping it here emitted an empty object
+                // for every monitor that had nothing to say on this event, which is most of
+                // them most of the time; a monitor that writes nothing should produce no key.
+                api->writeInReportSection(crash, writer, api->context);
             }
         }
         writer->addBooleanElement(writer, KSCrashField_IsFatal, crash->requirements.isFatal);

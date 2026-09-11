@@ -38,13 +38,25 @@
 extern "C" {
 #endif
 
+/** The id of a monitor that never set one. Not an identity: several monitors can be
+ *  unconfigured at once, so the registry does not treat it as a duplicate.
+ */
+#define KSCRASH_MONITOR_ID_UNSET "unset"
+
 /** Scope of a sidecar file being stitched into a report. */
-typedef enum {
+typedef CF_CLOSED_ENUM(int, KSCrashSidecarScope) {
     /** Per-report sidecar: one file per report, stored in Sidecars/<monitorId>/<reportID>.ksscr */
     KSCrashSidecarScopeReport = 0,
     /** Per-run sidecar: one file per process run, stored in RunSidecars/<runID>/<monitorId>.ksscr */
     KSCrashSidecarScopeRun = 1,
-} KSCrashSidecarScope;
+    /** The final pass, after all sidecar stitching: every registered monitor implementing
+     *  createStitchedReport is called once with a NULL sidecarPath, in (priority, id) order.
+     *  The last chance to modify a report before it is handed out; a monitor draws on the
+     *  report itself (e.g. its own embedded section), not a sidecar file. Monitors with
+     *  nothing to add return the input retained, the same convention as an unhandled scope.
+     */
+    KSCrashSidecarScopeFinal = 2,
+} CF_SWIFT_NAME(SidecarScope);
 
 /**
  * Monitor API.
@@ -60,6 +72,12 @@ typedef struct KSCrashMonitorAPI {
      *  Monitors can use this to store instance-specific data (e.g., an
      *  Unmanaged<Self> pointer in Swift). NULL for built-in C monitors. */
     void *context;
+
+    /** Ordering hint for sidecar stitching. When several monitors' sidecars stitch into the same
+     *  report, their createStitchedReport callbacks run in ascending priority order, so a
+     *  higher-priority monitor is applied last and wins on any overlapping keys. Defaults to 0;
+     *  ties break deterministically on monitor id. */
+    int priority;
 
     /**
      * Initialize the monitor.

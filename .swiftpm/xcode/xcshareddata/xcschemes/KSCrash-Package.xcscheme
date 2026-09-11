@@ -189,6 +189,20 @@
                ReferencedContainer = "container:">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "MonitorPlugins"
+               BuildableName = "MonitorPlugins"
+               BlueprintName = "MonitorPlugins"
+               ReferencedContainer = "container:">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
@@ -399,6 +413,16 @@
                BlueprintIdentifier = "SwiftCoreTests"
                BuildableName = "SwiftCoreTests"
                BlueprintName = "SwiftCoreTests"
+               ReferencedContainer = "container:">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "KSCrashMonitorPluginsTests"
+               BuildableName = "KSCrashMonitorPluginsTests"
+               BlueprintName = "KSCrashMonitorPluginsTests"
                ReferencedContainer = "container:">
             </BuildableReference>
          </TestableReference>

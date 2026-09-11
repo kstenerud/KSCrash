@@ -9,7 +9,7 @@
 
 static void default_init(__unused KSCrash_ExceptionHandlerCallbacks *callbacks, __unused void *context) {}
 static KSCrashMonitorFlag default_monitorFlags(__unused void *context) { return 0; }
-static const char *default_monitorId(__unused void *context) { return "unset"; }
+static const char *default_monitorId(__unused void *context) { return KSCRASH_MONITOR_ID_UNSET; }
 static void default_setEnabled(__unused bool isEnabled, __unused void *context) {}
 static bool default_isEnabled(__unused void *context) { return false; }
 static void default_addContextualInfoToEvent(__unused struct KSCrash_MonitorContext *eventContext,

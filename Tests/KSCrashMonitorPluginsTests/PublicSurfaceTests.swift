@@ -1,7 +1,7 @@
 //
-//  KSCrashMonitorProperty.h
+//  PublicSurfaceTests.swift
 //
-//  Created by Gleb Linnik on 29.05.2024.
+//  Created by Alexander Cohen on 2026-07-14.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,37 +24,26 @@
 // THE SOFTWARE.
 //
 
-#ifndef KSCrashMonitorProperty_h
-#define KSCrashMonitorProperty_h
+import KSCrashMonitorPlugins
+import XCTest
 
-#include <CoreFoundation/CFBase.h>
+// Compiles against only the public surface: what a third-party monitor sees.
+final class PublicSurfaceTests: XCTestCase {
+    final class ThirdPartyMonitor: CrashMonitor {
+        static let id = "ThirdParty"
+        struct Configuration { var flag = false }
+        let host: MonitorHost<Void>
+        let configuration: Configuration
+        init(host: MonitorHost<Void>, configuration: Configuration) {
+            self.host = host
+            self.configuration = configuration
+        }
+    }
 
-#include "KSCrashNamespace.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-typedef CF_OPTIONS(unsigned int, KSCrashMonitorFlag) {
-    /** Indicates that no flags are set. */
-    KSCrashMonitorFlagNone = 0,
-
-    /** Indicates that the monitor with this flag will not be enabled if a debugger is attached. */
-    KSCrashMonitorFlagDebuggerUnsafe = 1 << 0,
-
-    /** Indicates that the monitor is safe to be used in an asynchronous environment.
-     * Monitors without this flag are considered unsafe for asynchronous operations by default. */
-    KSCrashMonitorFlagAsyncSafe = 1 << 1,
-
-    /** Plugin monitor — not registered through the type system.
-     * Plugin monitors do not count toward the "any active monitor"
-     * check during activation. */
-    KSCrashMonitorFlagPlugin = 1 << 2,
-
-} CF_SWIFT_NAME(MonitorFlags);
-
-#ifdef __cplusplus
+    func testPluginRegistrationShapeCompilesAndInstantiates() {
+        let bridge = ThirdPartyMonitor.plugin(.init(flag: true))
+        XCTAssertTrue(bridge.monitor.configuration.flag)
+        XCTAssertFalse(bridge.isInstalled)
+        XCTAssertFalse(bridge.monitor.host.isEnabled)
+    }
 }
-#endif
-
-#endif /* KSCrashMonitorProperty_h */
