@@ -48,6 +48,7 @@ static KSCrash_LifecycleData makeLifecycle(bool cleanExit, bool monitorHandlerRa
     lc.version = KSCrash_Lifecycle_CurrentVersion;
     lc.cleanExit = cleanExit;
     lc.monitorHandlerRan = monitorHandlerRan;
+    lc.userPerceptible = true;
     return lc;
 }
 
@@ -411,6 +412,37 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonUnexplained);
 }
 
+// MARK: - Background exit
+
+- (void)testNothingCriticalWhileNotUserPerceptibleReturnsBackgroundExit
+{
+    KSCrash_LifecycleData lc = makeLifecycle(false, false);
+    lc.userPerceptible = false;
+    KSCrash_ResourceData res = makeResource();
+    KSCrash_SystemData sys = sameSystem();
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonBackgroundExit);
+}
+
+- (void)testCriticalMemoryWhileNotUserPerceptibleStillReturnsMemoryLimit
+{
+    KSCrash_LifecycleData lc = makeLifecycle(false, false);
+    lc.userPerceptible = false;
+    KSCrash_ResourceData res = makeResource();
+    res.memoryLevel = KSCrashAppMemoryStateCritical;
+    KSCrash_SystemData sys = sameSystem();
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonMemoryLimit);
+}
+
+- (void)testAppUpgradeWhileNotUserPerceptibleStillReturnsAppUpgrade
+{
+    KSCrash_LifecycleData lc = makeLifecycle(false, false);
+    lc.userPerceptible = false;
+    KSCrash_ResourceData res = makeResource();
+    KSCrash_SystemData prev = makeSystem("17.4", "21E258", "1.0", "100", 1000);
+    KSCrash_SystemData curr = makeSystem("17.4", "21E258", "1.1", "101", 1000);
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &prev, &curr), KSTerminationReasonAppUpgrade);
+}
+
 // MARK: - reasonToString
 
 - (void)testReasonToString
@@ -429,6 +461,7 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     XCTAssertTrue(strcmp(kstermination_reasonToString(KSTerminationReasonAppUpgrade), "app_upgrade") == 0);
     XCTAssertTrue(strcmp(kstermination_reasonToString(KSTerminationReasonReboot), "reboot") == 0);
     XCTAssertTrue(strcmp(kstermination_reasonToString(KSTerminationReasonUnexplained), "unexplained") == 0);
+    XCTAssertTrue(strcmp(kstermination_reasonToString(KSTerminationReasonBackgroundExit), "background_exit") == 0);
 }
 
 // MARK: - producesReport
@@ -457,6 +490,7 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     XCTAssertFalse(kstermination_producesReport(KSTerminationReasonOSUpgrade));
     XCTAssertFalse(kstermination_producesReport(KSTerminationReasonAppUpgrade));
     XCTAssertFalse(kstermination_producesReport(KSTerminationReasonReboot));
+    XCTAssertFalse(kstermination_producesReport(KSTerminationReasonBackgroundExit));
 }
 
 @end

@@ -89,8 +89,16 @@ enum
 
     // -- Fallback --
 
-    /** The previous run did not exit cleanly but no specific cause was identified. */
+    /** The previous run ended while the app was user-perceptible, no crash handler ran and no specific
+     *  cause was identified. */
     KSTerminationReasonUnexplained,
+
+    // -- Background (appended after Unexplained to keep the existing values stable) --
+
+    /** The previous run ended while the app was not user-perceptible (suspended in the background, or
+     *  prewarmed and never used) and no crash handler ran: the system reclaimed it or the user removed
+     *  it from the app switcher. Not a crash, produces no report. */
+    KSTerminationReasonBackgroundExit,
 };
 #ifndef __OBJC__
 typedef int KSTerminationReason;

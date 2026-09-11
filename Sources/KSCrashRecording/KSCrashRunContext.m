@@ -174,6 +174,12 @@ static KSTerminationReason determineReason(const KSCrash_LifecycleData *prevLife
         return KSTerminationReasonLowBattery;
     }
 
+    // Nothing points at a fault. An app that was not user-perceptible when it last updated its
+    // lifecycle (suspended, or prewarmed and never used) was reclaimed by the system or removed by
+    // the user, which is ordinary iOS behaviour. Only a foreground exit stays unexplained.
+    if (!prevLifecycle->userPerceptible) {
+        return KSTerminationReasonBackgroundExit;
+    }
     return KSTerminationReasonUnexplained;
 }
 
