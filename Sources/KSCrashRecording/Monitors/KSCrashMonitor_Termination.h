@@ -34,7 +34,8 @@
  *
  * System changes (OS upgrade, app upgrade, reboot) are checked first because
  * they explain an unclean shutdown without it being a crash. Resource reasons
- * are checked next, falling back to "unexplained" if nothing matches.
+ * are checked next. If nothing matches, an app that was not user-perceptible
+ * ended as a "background_exit" (no report); a foreground exit is "unexplained".
  */
 
 #ifndef KSCrashMonitor_Termination_h
