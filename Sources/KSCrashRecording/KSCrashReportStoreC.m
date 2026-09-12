@@ -1059,7 +1059,17 @@ bool kscrs_addUserReport(const char *report, int reportLength,
     // The id is the identity: re-adding an id already in the store overwrites
     // that report's file, so one id can never mean two files and a re-add is
     // idempotent. Only otherwise does the report get a fresh timestamped name.
-    if (!findReportPath(reportIDOut, crashReportPath, configuration, NULL)) {
+    bool scanComplete = false;
+    if (!findReportPath(reportIDOut, crashReportPath, configuration, &scanComplete)) {
+        // Only a complete scan proves the id is absent. A failed one says
+        // nothing, and minting a fresh name on it would file a second report
+        // under an id already stored, outliving the transient failure that
+        // caused it: refuse the add instead.
+        if (!scanComplete) {
+            KSLOG_ERROR(@"Could not enumerate %s; not storing the report", configuration->reportsPath);
+            pthread_mutex_unlock(&g_mutex);
+            return false;
+        }
         getCrashReportPath(nextReportNs(), reportIDOut, crashReportPath, configuration);
     }
     // Write beside the target and rename over it, so a failed write on a

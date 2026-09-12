@@ -350,6 +350,34 @@
                   @"the re-add replaced the payload");
 }
 
+- (void)testAddUserReportRefusesWhenTheStoreCannotBeListed
+{
+    [self prepareReportStoreWithPathEnd:@"testAddUnlistableStore"];
+    NSString *json = @"{\"report\":{\"id\":\"4c1b2f3e-0000-4000-8000-00000000000c\"},\"v\":1}";
+    NSString *first = [self writeUserReportWithStringContents:json];
+
+    // Writable but not listable, so the re-add can still create files and
+    // nothing but the scan's verdict stops it filing a second one under an
+    // id already stored.
+    NSString *reportsPath = @(_storeConfig.reportsPath);
+    XCTAssertTrue([[NSFileManager defaultManager] setAttributes:@{ NSFilePosixPermissions : @0300 }
+                                                   ofItemAtPath:reportsPath
+                                                          error:nil]);
+    NSString *again = @"{\"report\":{\"id\":\"4c1b2f3e-0000-4000-8000-00000000000c\"},\"v\":2}";
+    char reportIDBuffer[KSID_SIZE];
+    XCTAssertFalse(kscrs_addUserReport(again.UTF8String, (int)again.length, &_storeConfig, reportIDBuffer),
+                   @"the add refuses rather than risk two files under one id");
+    [[NSFileManager defaultManager] setAttributes:@{ NSFilePosixPermissions : @0755 }
+                                     ofItemAtPath:reportsPath
+                                            error:nil];
+
+    XCTAssertEqual((int)[self getReportIDs].count, 1, @"one id is still one file");
+    NSString *loaded;
+    [self loadReportID:first reportString:&loaded];
+    XCTAssertTrue([loaded containsString:@"\"v\": 1"] || [loaded containsString:@"\"v\":1"],
+                  @"the stored report is untouched");
+}
+
 - (void)testStoresLoadsWithUnicodePath
 {
     [self prepareReportStoreWithPathEnd:@"ЙогуртЙод"];
