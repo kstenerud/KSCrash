@@ -158,6 +158,27 @@ final class SidecarMetadataMonitorPluginTests: XCTestCase {
         XCTAssertEqual(report, ["report": ["id": "x"]] as NSDictionary)
     }
 
+    func test_corruptSidecar_deliversTheReportUntouched() throws {
+        let path = directory.appendingPathComponent("TestSidecar.ksscr")
+        try Data([0x01, 0x02]).write(to: path)
+        let plugin = makeBasePlugin()
+        let report = try XCTUnwrap(stitched(plugin, monitorID: "TestSidecar", report: ["report": ["id": "x"]]))
+        XCTAssertEqual(report, ["report": ["id": "x"]] as NSDictionary)
+    }
+
+    func test_unreadableSidecar_asksForARetry() throws {
+        let plugin = makeBasePlugin()
+        enable(plugin)
+        let path = directory.appendingPathComponent("TestSidecar.ksscr")
+        // The store the enable above wrote is intact; only this process's
+        // ability to open it again is taken away, which is the environmental
+        // failure a later read could get past.
+        try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: path.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: path.path) }
+
+        XCTAssertNil(stitched(plugin, monitorID: "TestSidecar", report: ["report": ["id": "x"]]))
+    }
+
     func test_plugins_areDistinctInstances() {
         XCTAssertTrue(DiskMonitor.plugin() !== DiskMonitor.plugin())
         XCTAssertTrue(BootMonitor.plugin() !== BootMonitor.plugin())

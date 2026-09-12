@@ -60,9 +60,17 @@ public final class SidecarMetadata: MetadataStore, @unchecked Sendable {
         return SidecarMetadata(store: store)
     }
 
-    /// A read-only view of the store at `path`; nil when absent or unreadable.
-    static func reading(at path: String) -> SidecarMetadata? {
-        kskvs_create(path, KSKVSModeRead, nil, nil).map { SidecarMetadata(store: $0) }
+    /// A read-only view of the store at `path`.
+    ///
+    /// Throws `OpenError` carrying why the open failed: a caller that decides
+    /// whether to retry needs the difference between a file no later read
+    /// could recover and an environmental failure that may not recur.
+    static func reading(at path: String) throws -> SidecarMetadata {
+        var status = KSKVSOpenSuccess
+        guard let store = kskvs_create(path, KSKVSModeRead, nil, &status) else {
+            throw OpenError(status: status)
+        }
+        return SidecarMetadata(store: store)
     }
 
     public subscript<Value: MetadataValueRepresentable>(key: String) -> Value? {
