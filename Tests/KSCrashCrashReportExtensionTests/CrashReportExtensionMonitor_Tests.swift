@@ -67,7 +67,7 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
         try? Data("{".utf8).write(to: staleStagedReport)
         do {
             try KSCrash.shared.installForCorpseReporting(with: area)
-        } catch CorpseReportingInstallError.install(.alreadyInstalled) {
+        } catch InstallError.alreadyInstalled {
             // Another suite installed first; the pipeline and a store both exist. Attach the
             // bridge to the live registry (its init reran with the real callbacks) and read
             // back from that install's report area.
@@ -203,7 +203,7 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
         try JSONEncoder().encode(foreign).write(to: processRoot.appendingPathComponent(StoreManifest.filename))
 
         XCTAssertThrowsError(try KSCrash.shared.installForCorpseReporting(with: area)) { error in
-            guard case CorpseReportingInstallError.install(.alreadyInstalled) = error else {
+            guard case InstallError.alreadyInstalled = error else {
                 return XCTFail("expected the one-install-per-process refusal, got \(error)")
             }
         }
