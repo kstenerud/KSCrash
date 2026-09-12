@@ -60,7 +60,7 @@ final class SidecarMetadataMonitorPluginTests: XCTestCase {
         XCTAssertTrue(invalidUTF8.withUnsafeBufferPointer { kskvs_setString(raw, "bad", $0.baseAddress) })
         kskvs_destroy(raw)
 
-        let store = try XCTUnwrap(SidecarMetadata.reading(at: path))
+        let store = try SidecarMetadata.reading(at: path)
         XCTAssertNil(store["bad"] as String?)
         XCTAssertEqual(store.keys, ["good"])
     }
@@ -78,7 +78,7 @@ final class SidecarMetadataMonitorPluginTests: XCTestCase {
         XCTAssertTrue(kskvs_setDouble(raw, "nan", .nan))
         kskvs_destroy(raw)
 
-        let store = try XCTUnwrap(SidecarMetadata.reading(at: path))
+        let store = try SidecarMetadata.reading(at: path)
         XCTAssertNil(store["inf"] as Double?)
         XCTAssertNil(store["nan"] as Double?)
         XCTAssertEqual(store.keys, ["good"])
@@ -192,7 +192,7 @@ final class SidecarMetadataMonitorPluginTests: XCTestCase {
         XCTAssertTrue("{broken".withCString { kskvs_setJSON(raw, "bad", $0, strlen($0)) })
         kskvs_destroy(raw)
 
-        let store = try XCTUnwrap(SidecarMetadata.reading(at: path))
+        let store = try SidecarMetadata.reading(at: path)
         XCTAssertEqual(store.keys, ["good"])
         XCTAssertNil(store["bad"] as MetadataValue?)
     }
@@ -251,7 +251,7 @@ final class SidecarMetadataMonitorPluginTests: XCTestCase {
         // The persisted bytes keep the nulls; a fresh reader strips them too.
         let bytes = try Data(contentsOf: URL(fileURLWithPath: path))
         XCTAssertTrue(String(decoding: bytes, as: UTF8.self).contains("null"))
-        let read = try XCTUnwrap(SidecarMetadata.reading(at: path))
+        let read = try SidecarMetadata.reading(at: path)
         XCTAssertEqual(read["mixed"] as MetadataValue?, .object(["kept": .integer(1)]))
         XCTAssertEqual(read.keys, ["list", "mixed"])
     }
