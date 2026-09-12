@@ -70,8 +70,9 @@ extension KSCrash {
     ///
     /// `area` is the same value the app lists in `SendConfiguration.corpseAreas`; both
     /// sides derive the report area's layout from it identically. Throws the area's own
-    /// resolution errors (`InstallError.containerUnavailable` for an unresolvable app group)
-    /// and `CorpseReportingInstallError.install` when the install itself fails.
+    /// resolution errors (`InstallError.containerUnavailable` for an unresolvable app group),
+    /// `InstallError.invalidConfiguration` when the area belongs to a normal install, and
+    /// `CorpseReportingInstallError.install` when the install itself fails.
     ///
     /// ```swift
     /// struct MyCrashReporter: CrashReporterExtension {
@@ -102,9 +103,30 @@ extension KSCrash {
         // Declare what this store is before creating it: the app decides whether it may
         // drain an area by reading this, so a store that cannot say what it is must not
         // come into existence and collect reports nobody will come for.
+        let manifestURL = root.appendingPathComponent(StoreManifest.filename)
+        // An area a normal install declared is not this one's to claim: that store writes
+        // its reports in place and stitches them from sidecars and run data beside them.
+        // Refusing before anything is written names the misconfiguration, and keeps the
+        // declaration below from standing over someone else's even for the moment before
+        // the install itself is refused.
+        if StoreManifest.read(atProcessRoot: root)?.kind == StoreManifest.selfKind {
+            throw InstallError.invalidConfiguration(
+                "the area for namespace \(area.namespace) is declared as a self-install store")
+        }
+        let previousDeclaration = try? Data(contentsOf: manifestURL)
         try StoreManifest.write(kind: StoreManifest.corpseKind, atProcessRoot: root)
         let result = kscrash_installForCorpseReporting(root.path, CorpseReporting.bridge.api, 1)
         guard result == KSCrashInstallError.Code.none else {
+            // Nothing was installed, so the declaration above outlives the call as a lie.
+            // Left standing over a normal install's store sharing this container, it
+            // invites another process to drain reports that are written in place and
+            // stitched from sidecars and run data that would stay behind. Put back what
+            // was there, including nothing.
+            if let previousDeclaration {
+                try? previousDeclaration.write(to: manifestURL, options: .atomic)
+            } else {
+                try? FileManager.default.removeItem(at: manifestURL)
+            }
             throw CorpseReportingInstallError.install(result)
         }
         CorpseReporting.active = CorpseReporting.Active(
