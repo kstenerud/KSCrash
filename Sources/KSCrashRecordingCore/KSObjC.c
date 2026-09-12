@@ -1267,6 +1267,24 @@ int64_t ksobjc_numberAsInteger(const void *object)
 
 bool ksobjc_numberIsFloat(const void *object) { return CFNumberIsFloatType((CFNumberRef)object); }
 
+bool ksobjc_numberIsFloat32(const void *object)
+{
+    // A tagged number holds an integer, never a float.
+    if (isValidTaggedPointer(object)) {
+        return false;
+    }
+    switch (CFNumberGetType((CFNumberRef)object)) {
+        case kCFNumberFloat32Type:
+        case kCFNumberFloatType:
+#if defined(CGFLOAT_IS_DOUBLE) && !CGFLOAT_IS_DOUBLE
+        case kCFNumberCGFloatType:
+#endif
+            return true;
+        default:
+            return false;
+    }
+}
+
 static bool numberIsValid(const void *const datePtr)
 {
     struct __CFNumber temp;

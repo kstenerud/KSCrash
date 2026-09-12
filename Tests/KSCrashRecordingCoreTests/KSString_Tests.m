@@ -689,13 +689,95 @@
 
 - (void)testDoubleToStringDblMax
 {
+    // Fifteen digits round DBL_MAX up past the representable range, and a
+    // reader parses that as infinity: a finite value the writer accepted would
+    // come back non-finite. The shortest round-tripping digits are seventeen here.
     char buf[64];
     ksstring_doubleToString(DBL_MAX, buf, sizeof(buf));
-    // DBL_MAX at 15 significant digits rounds to a value above DBL_MAX,
-    // which strtod returns as inf. This matches snprintf("%.*g", DBL_DIG, DBL_MAX).
-    char expected[64];
-    snprintf(expected, sizeof(expected), "%.*g", DBL_DIG, DBL_MAX);
-    XCTAssertEqualObjects(@(buf), @(expected));
+    XCTAssertEqualObjects(@(buf), @"1.7976931348623157e+308");
+    XCTAssertEqualWithAccuracy(strtod(buf, NULL), DBL_MAX, 0);
+}
+
+- (void)testDoubleToStringIsShortestExactRoundTrip
+{
+    // Every double reads back as itself, with the fewest digits that do so:
+    // no fixed count is right for both 0.1 and the double just above 1.0.
+    struct {
+        double value;
+        const char *expected;
+    } cases[] = {
+        { 0.1, "0.1" },
+        { 0.30000000000000004, "0.30000000000000004" },
+        { 1.0000000000000002, "1.0000000000000002" },
+        { 1757100000.123456, "1757100000.123456" },
+        { 1e15, "1e+15" },
+        { 123456789012345.0, "123456789012345.0" },
+        { 5e-324, "5e-324" },
+        { DBL_MIN, "2.2250738585072014e-308" },
+        { 0.0001, "0.0001" },
+        { 0.00001, "1e-5" },
+        { -2.5, "-2.5" },
+    };
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+        char buf[64];
+        ksstring_doubleToString(cases[i].value, buf, sizeof(buf));
+        XCTAssertEqualObjects(@(buf), @(cases[i].expected));
+        XCTAssertEqualWithAccuracy(strtod(buf, NULL), cases[i].value, 0, @"%s", buf);
+    }
+
+    // And across the whole format, including denormals and powers of two.
+    uint64_t state = 0x9E3779B97F4A7C15ull;
+    for (int i = 0; i < 200000; i++) {
+        state ^= state << 13;
+        state ^= state >> 7;
+        state ^= state << 17;
+        double value;
+        memcpy(&value, &state, sizeof(value));
+        if (!isfinite(value)) {
+            continue;
+        }
+        char buf[64];
+        ksstring_doubleToString(value, buf, sizeof(buf));
+        XCTAssertEqualWithAccuracy(strtod(buf, NULL), value, 0, @"%.17g -> %s", value, buf);
+    }
+    for (int e = -1074; e <= 1023; e++) {
+        double value = ldexp(1.0, e);
+        char buf[64];
+        ksstring_doubleToString(value, buf, sizeof(buf));
+        XCTAssertEqualWithAccuracy(strtod(buf, NULL), value, 0, @"2^%d -> %s", e, buf);
+    }
+}
+
+- (void)testFloatToStringIsShortestExactRoundTrip
+{
+    struct {
+        float value;
+        const char *expected;
+    } cases[] = {
+        { 0.2f, "0.2" },     { 1.00000012f, "1.0000001" }, { FLT_MAX, "3.4028235e+38" },
+        { 1e-45f, "1e-45" }, { 3.14159f, "3.14159" },
+    };
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+        char buf[64];
+        ksstring_floatToString(cases[i].value, buf, sizeof(buf));
+        XCTAssertEqualObjects(@(buf), @(cases[i].expected));
+        XCTAssertEqualWithAccuracy(strtof(buf, NULL), cases[i].value, 0.0f, @"%s", buf);
+    }
+    uint64_t state = 0x9E3779B97F4A7C15ull;
+    for (int i = 0; i < 200000; i++) {
+        state ^= state << 13;
+        state ^= state >> 7;
+        state ^= state << 17;
+        uint32_t bits = (uint32_t)state;
+        float value;
+        memcpy(&value, &bits, sizeof(value));
+        if (!isfinite(value)) {
+            continue;
+        }
+        char buf[64];
+        ksstring_floatToString(value, buf, sizeof(buf));
+        XCTAssertEqualWithAccuracy(strtof(buf, NULL), value, 0.0f, @"%.9g -> %s", value, buf);
+    }
 }
 
 - (void)testDoubleToStringDblMin
@@ -732,8 +814,32 @@
     double ts = 757382400.123456;
     ksstring_doubleToString(ts, buf, sizeof(buf));
     double parsed = strtod(buf, NULL);
-    // FLT_DIG precision (6 significant digits) for float-representable values
-    XCTAssertEqualWithAccuracy(parsed, ts, fabs(ts) * 1e-5);
+    XCTAssertEqualWithAccuracy(parsed, ts, 0, @"An epoch timestamp must survive the round trip exactly, got: %s", buf);
+}
+
+- (void)testDoubleToStringKeepsTheLowDigitsOfALargeValue
+{
+    // A value close to its float cast used to take a 6-significant-digit
+    // path, which rounded the whole number: 1774333777.5 came back as
+    // 1774330000, an hour off, and disagreed with the run summary, which
+    // carries the same value through Foundation.
+    double values[] = { 1774333777.5, 1234567.89, 16777216.0, 999999.5, 1700085055.92 };
+    for (size_t i = 0; i < sizeof(values) / sizeof(values[0]); i++) {
+        char buf[32];
+        ksstring_doubleToString(values[i], buf, sizeof(buf));
+        double parsed = strtod(buf, NULL);
+        XCTAssertEqualWithAccuracy(parsed, values[i], 0, @"Round-trip lost digits: %.17g -> %s -> %.17g", values[i],
+                                   buf, parsed);
+    }
+}
+
+- (void)testDoubleToStringDoesNotInventDigits
+{
+    // Shortest means shortest: a value with a short exact decimal form gets
+    // exactly that, not a tail of digits it never carried.
+    char buf[32];
+    ksstring_doubleToString(1774333777.5, buf, sizeof(buf));
+    XCTAssertEqualObjects(@(buf), @"1774333777.5");
 }
 
 - (void)testDoubleToStringBufSizeZero

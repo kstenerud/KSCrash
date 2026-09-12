@@ -58,6 +58,13 @@ typedef NS_ENUM(NSInteger, KSJSONDecodeOption) {
 
     /** Return the partially decoded object if an error is encountered */
     KSJSONDecodeOptionKeepPartialObject = 4,
+
+    /** Fail the decode when a string or member name is not representable
+     *  (invalid UTF-8) instead of dropping that one member. Use it where the
+     *  document is a single value that must match another reader's verdict
+     *  exactly; leave it off where dropping a member is better than losing
+     *  the rest of the document. */
+    KSJSONDecodeOptionFailOnUnrepresentableString = 8,
 } NS_SWIFT_NAME(JSONDecodeOption);
 
 NS_ASSUME_NONNULL_BEGIN
@@ -95,6 +102,19 @@ NS_ASSUME_NONNULL_BEGIN
  *         option is not set, nil when an error occurs.
  */
 + (nullable id)decode:(NSData *)JSONData options:(KSJSONDecodeOption)options error:(NSError **)error;
+
+/**
+ * Decodes a payload destined to be re-encoded inside another document.
+ *
+ * @param startDepth Containers already open at the destination. Nesting is judged
+ *                   against the depth left under them, so a payload that decodes
+ *                   here can always be written back out. Zero decodes a document
+ *                   standing on its own, which is what decode:options:error: does.
+ */
++ (nullable id)decode:(NSData *)JSONData
+              options:(KSJSONDecodeOption)options
+           startDepth:(int)startDepth
+                error:(NSError **)error;
 
 @end
 

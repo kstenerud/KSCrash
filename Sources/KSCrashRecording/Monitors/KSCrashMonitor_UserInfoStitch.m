@@ -25,6 +25,7 @@
 //
 
 #import "KSCrashMonitor_UserInfo.h"
+#import "KSJSONCodecObjC.h"
 #import "KSKeyValueStore.h"
 
 #import "KSCrashReportFields.h"
@@ -38,14 +39,26 @@
 #pragma mark - Iteration Callbacks -
 // ============================================================================
 
+/** A key whose final record does not read as a value is absent, not unchanged:
+ *  the crash-time callback may already have written the same key into the user
+ *  section, and it must not go on serving a value the store says was replaced.
+ *  This is the same outcome the live getter, `keys`, and the run-summary
+ *  stitch produce for that record. */
+static void resolveToAbsence(NSMutableDictionary *dict, NSString *key) { [dict removeObjectForKey:key]; }
+
 static void onString(const char *key, uint16_t keyLen, const char *value, uint16_t valueLen, void *ctx)
 {
     NSMutableDictionary *dict = (__bridge NSMutableDictionary *)ctx;
     NSString *nsKey = [[NSString alloc] initWithBytes:key length:keyLen encoding:NSUTF8StringEncoding];
-    NSString *nsVal = [[NSString alloc] initWithBytes:value length:valueLen encoding:NSUTF8StringEncoding];
-    if (nsKey && nsVal) {
-        dict[nsKey] = nsVal;
+    if (nsKey == nil) {
+        return;
     }
+    NSString *nsVal = [[NSString alloc] initWithBytes:value length:valueLen encoding:NSUTF8StringEncoding];
+    if (nsVal == nil) {
+        resolveToAbsence(dict, nsKey);
+        return;
+    }
+    dict[nsKey] = nsVal;
 }
 
 static void onInt64(const char *key, uint16_t keyLen, int64_t value, void *ctx)
@@ -70,9 +83,19 @@ static void onDouble(const char *key, uint16_t keyLen, double value, void *ctx)
 {
     NSMutableDictionary *dict = (__bridge NSMutableDictionary *)ctx;
     NSString *nsKey = [[NSString alloc] initWithBytes:key length:keyLen encoding:NSUTF8StringEncoding];
-    if (nsKey) {
-        dict[nsKey] = @(value);
+    if (nsKey == nil) {
+        return;
     }
+    // JSON carries no non-finite number: the encoder writes `1e999` for an
+    // infinity and `null` for a NaN, and the strict reader on the other side
+    // rejects the whole report over it. A record holding one (a foreign
+    // writer, or a build that predates the write-side guard) is absence, the
+    // same verdict the run summary reaches.
+    if (!isfinite(value)) {
+        resolveToAbsence(dict, nsKey);
+        return;
+    }
+    dict[nsKey] = @(value);
 }
 
 static void onBool(const char *key, uint16_t keyLen, bool value, void *ctx)
@@ -89,8 +112,132 @@ static void onDate(const char *key, uint16_t keyLen, int64_t nanosecondsSince197
     NSMutableDictionary *dict = (__bridge NSMutableDictionary *)ctx;
     NSString *nsKey = [[NSString alloc] initWithBytes:key length:keyLen encoding:NSUTF8StringEncoding];
     if (nsKey) {
+        // Seconds since 1970, the model's date representation, not an NSDate:
+        // the encoder would turn an NSDate into a second-resolution UTC
+        // string, which reads back as a string rather than the instant that
+        // was set, and would disagree with the same run's summary.
         NSTimeInterval seconds = (NSTimeInterval)nanosecondsSince1970 / 1e9;
-        dict[nsKey] = [NSDate dateWithTimeIntervalSince1970:seconds];
+        dict[nsKey] = @(seconds);
+    }
+}
+
+/** Whether the bytes carry an escaped NUL.
+ *
+ *  JSON can only express a NUL as a `\\u0000` escape, and the C codec this
+ *  stitch runs on builds NUL-terminated C strings, so a string carrying one
+ *  keeps only its prefix here, and two member names differing only past a NUL
+ *  collapse into one. Foundation, which the live getter and the run summary
+ *  read with, keeps the whole thing. Neither reader can be talked out of its
+ *  own string handling, so the record is absence to both rather than a value
+ *  they read differently.
+ */
+static bool containsEscapedNUL(const char *json, uint16_t length)
+{
+    for (uint16_t i = 0; i < length; i++) {
+        if (json[i] != '\\') {
+            continue;
+        }
+        uint16_t run = 0;
+        while ((uint32_t)i + run < length && json[i + run] == '\\') {
+            run++;
+        }
+        // An even run is that many literal backslashes and escapes nothing; an
+        // odd one ends in an escape, so the `u0000` after it is a real NUL.
+        if ((run & 1) && (uint32_t)i + run + 5 <= length && json[i + run] == 'u' &&
+            strncmp(json + i + run + 1, "0000", 4) == 0) {
+            return true;
+        }
+        i = (uint16_t)(i + run - 1);
+    }
+    return false;
+}
+
+/** The value as the report should carry it, or nil when the whole record has
+ *  to read as absence.
+ *
+ *  Nulls are dropped here rather than by the decoder's ignore-null options,
+ *  which drop a member before its name is recorded: a duplicate name whose
+ *  first occurrence was null then escaped the first-wins rule, and the report
+ *  kept a member the run summary dropped. Foundation decodes the document
+ *  whole and resolves nulls afterwards; this is the same order.
+ *
+ *  A non-finite number rejects the record instead of just that member. The C
+ *  decoder turns an out-of-range token such as `1e999` into an infinity, and
+ *  re-encoding writes `1e999` straight back into the report, which the strict
+ *  reader on the other side then rejects whole. Foundation refuses those bytes
+ *  outright, so absence is what every other reader of the record already says.
+ */
+static id cleanedForReport(id value)
+{
+    if ([value isKindOfClass:[NSNumber class]]) {
+        if (CFNumberIsFloatType((__bridge CFNumberRef)value) && !isfinite([value doubleValue])) {
+            return nil;
+        }
+        return value;
+    }
+    if ([value isKindOfClass:[NSArray class]]) {
+        NSMutableArray *cleaned = [NSMutableArray arrayWithCapacity:[(NSArray *)value count]];
+        for (id element in value) {
+            if ([element isKindOfClass:[NSNull class]]) {
+                continue;
+            }
+            id cleanedElement = cleanedForReport(element);
+            if (cleanedElement == nil) {
+                return nil;
+            }
+            [cleaned addObject:cleanedElement];
+        }
+        return cleaned;
+    }
+    if ([value isKindOfClass:[NSDictionary class]]) {
+        NSMutableDictionary *cleaned = [NSMutableDictionary dictionaryWithCapacity:[(NSDictionary *)value count]];
+        for (NSString *name in value) {
+            id member = [(NSDictionary *)value objectForKey:name];
+            if ([member isKindOfClass:[NSNull class]]) {
+                continue;
+            }
+            id cleanedMember = cleanedForReport(member);
+            if (cleanedMember == nil) {
+                return nil;
+            }
+            [cleaned setObject:cleanedMember forKey:name];
+        }
+        return cleaned;
+    }
+    return value;
+}
+
+static void onJSON(const char *key, uint16_t keyLen, const char *json, uint16_t jsonLen, void *ctx)
+{
+    NSMutableDictionary *dict = (__bridge NSMutableDictionary *)ctx;
+    NSString *nsKey = [[NSString alloc] initWithBytes:key length:keyLen encoding:NSUTF8StringEncoding];
+    if (nsKey == nil) {
+        return;
+    }
+    if (json == NULL || containsEscapedNUL(json, jsonLen)) {
+        resolveToAbsence(dict, nsKey);
+        return;
+    }
+    // The store does not validate JSON, so undecodable bytes (a torn or
+    // foreign record) are absence, never a delivery failure; so is anything
+    // but a container, the only JSON values.
+    // FailOnUnrepresentableString because the whole record is one value: the
+    // live getter and the run-summary stitch read these bytes with Foundation,
+    // which rejects the document, so dropping just the bad member here would
+    // put a value in the report that every other reader calls absent.
+    NSData *data = [NSData dataWithBytesNoCopy:(void *)json length:jsonLen freeWhenDone:NO];
+    id value = [KSJSONCodec decode:data
+                           options:KSJSONDecodeOptionFailOnUnrepresentableString
+                        startDepth:KSKVS_VALUE_ENCODE_DEPTH
+                             error:nil];
+    id cleaned = nil;
+    if ([value isKindOfClass:[NSArray class]] || [value isKindOfClass:[NSDictionary class]]) {
+        cleaned = cleanedForReport(value);
+    }
+    if (cleaned != nil) {
+        dict[nsKey] = cleaned;
+    } else {
+        resolveToAbsence(dict, nsKey);
     }
 }
 
@@ -107,6 +254,16 @@ static void onRemoved(const char *key, uint16_t keyLen, void *ctx)
     }
 }
 
+/** A record this build cannot read is not a reason to go on serving the value
+ *  it replaced: the crash-time callback may have written this key into the
+ *  user section already, and the other readers of the record all report the
+ *  key as absent. This is the only reader that starts from a value, so it is
+ *  the only one that has to do anything here. */
+static void onUnknown(const char *key, uint16_t keyLen, __unused uint8_t type, void *ctx)
+{
+    onRemoved(key, keyLen, ctx);
+}
+
 // ============================================================================
 #pragma mark - Stitch -
 // ============================================================================
@@ -119,9 +276,21 @@ CFDictionaryRef kscm_userinfo_createStitchedReport(CFDictionaryRef reportDict, c
     }
 
     // Read sidecar via KSKeyValueStore (validates magic, version).
-    KSKeyValueStore *store = kskvs_create(sidecarPath, KSKVSModeRead, NULL, NULL);
+    KSKVSOpenStatus status = KSKVSOpenSuccess;
+    KSKeyValueStore *store = kskvs_create(sidecarPath, KSKVSModeRead, NULL, &status);
     if (store == NULL) {
-        return NULL;
+        // NULL is the retry signal, and a file no later read could recover is
+        // not worth retrying: returning it for a corrupt sidecar (or one that
+        // went away between the directory scan and this open) stops
+        // finalization for good, stranding every report of the run while the
+        // same run's summary delivers. Only an environmental failure waits.
+        // Delivering without the metadata is what the run summary does with
+        // the same file.
+        if (status == KSKVSOpenFailure) {
+            return NULL;
+        }
+        CFRetain(reportDict);
+        return reportDict;
     }
 
     NSMutableDictionary *dict = [(__bridge NSDictionary *)reportDict mutableCopy];
@@ -142,7 +311,9 @@ CFDictionaryRef kscm_userinfo_createStitchedReport(CFDictionaryRef reportDict, c
         .onDouble = onDouble,
         .onBool = onBool,
         .onDate = onDate,
+        .onJSON = onJSON,
         .onRemoved = onRemoved,
+        .onUnknown = onUnknown,
     };
     kskvs_iterate(store, &callbacks, (__bridge void *)userSection);
     kskvs_destroy(store);

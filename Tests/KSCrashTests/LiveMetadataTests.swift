@@ -72,6 +72,34 @@ final class LiveMetadataTests: XCTestCase {
             (metadata["when"] as Date?)?.timeIntervalSince1970 ?? 0, when.timeIntervalSince1970, accuracy: 1e-6)
     }
 
+    func test_containersRoundTrip() {
+        let metadata = KSCrash.shared.metadata
+        metadata["tags"] = ["checkout", "beta"]
+        metadata["scores"] = [1, 2, 3]
+        metadata["cart"] = ["items": 3, "retries": 0]
+        metadata["mixed"] = MetadataValue.object([
+            "name": .string("a"), "count": .integer(2), "flags": .array([.bool(true)]),
+        ])
+        XCTAssertEqual(metadata["tags"] as [String]?, ["checkout", "beta"])
+        XCTAssertEqual(metadata["scores"] as [Int]?, [1, 2, 3])
+        XCTAssertEqual(metadata["cart"] as [String: Int]?, ["items": 3, "retries": 0])
+        XCTAssertEqual(
+            metadata["mixed"] as MetadataValue?,
+            .object(["name": .string("a"), "count": .integer(2), "flags": .array([.bool(true)])]))
+        XCTAssertNil(metadata["tags"] as [Int]?, "typed reads are exact, never partial")
+        for key in ["tags", "scores", "cart", "mixed"] { metadata.removeValue(forKey: key) }
+    }
+
+    func test_longStrings_arePersisted_notRejected() {
+        // The retired per-store limits capped strings at 1KB; only the record
+        // format's 64KB bound applies now.
+        let metadata = KSCrash.shared.metadata
+        let long = String(repeating: "x", count: 8_192)
+        metadata["long"] = long
+        XCTAssertEqual(metadata["long"] as String?, long)
+        metadata.removeValue(forKey: "long")
+    }
+
     func test_datesBefore1970RoundTrip() {
         let metadata = KSCrash.shared.metadata
         let birthday = Date(timeIntervalSince1970: -157_766_400)

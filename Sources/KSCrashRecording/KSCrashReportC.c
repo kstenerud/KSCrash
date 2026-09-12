@@ -66,6 +66,7 @@
 // #define KSLogger_LocalLevel TRACE
 #include <errno.h>
 #include <fcntl.h>
+#include <math.h>
 #include <pthread.h>
 #include <stdatomic.h>
 #include <stdio.h>
@@ -193,9 +194,26 @@ static void addBooleanElement(const KSCrashReportWriter *const writer, const cha
     ksjson_addBooleanElement(getJsonContext(writer), key, value);
 }
 
+// JSON carries no infinity: the encoder writes `1e999`, which the reader on
+// the other side refuses, so one of these anywhere in a report makes the whole
+// thing undeliverable and takes every other value in it along. An app's
+// NSNumber, a float ivar, and a monitor's own section can all hold one, so the
+// refusal lives here rather than at each of those. The element is omitted,
+// which is how absence reads everywhere else.
 static void addFloatingPointElement(const KSCrashReportWriter *const writer, const char *const key, const double value)
 {
+    if (!isfinite(value)) {
+        return;
+    }
     ksjson_addFloatingPointElement(getJsonContext(writer), key, value);
+}
+
+static void addFloatElement(const KSCrashReportWriter *const writer, const char *const key, const float value)
+{
+    if (!isfinite(value)) {
+        return;
+    }
+    ksjson_addFloatElement(getJsonContext(writer), key, value);
 }
 
 static void addIntegerElement(const KSCrashReportWriter *const writer, const char *const key, const int64_t value)
@@ -552,7 +570,14 @@ static void writeNumberContents(const KSCrashReportWriter *const writer, const c
                                 const uintptr_t objectAddress, __unused int *limit)
 {
     const void *object = (const void *)objectAddress;
-    writer->addFloatingPointElement(writer, key, ksobjc_numberAsFloat(object));
+    double value = ksobjc_numberAsFloat(object);
+    // A float widened to a double and printed at DBL_DIG shows the widening's
+    // noise rather than what the app stored: 0.2f comes out 0.200000002980232.
+    if (ksobjc_numberIsFloat32(object)) {
+        writer->addFloatElement(writer, key, (float)value);
+    } else {
+        writer->addFloatingPointElement(writer, key, value);
+    }
 }
 
 /** Write an array to the report.
@@ -660,7 +685,9 @@ static void writeUnknownObjectContents(const KSCrashReportWriter *const writer, 
                         break;
                     case 'f':
                         ksobjc_ivarValue(object, ivar->index, &f32);
-                        writer->addFloatingPointElement(writer, ivar->name, f32);
+                        // A float's digits are worth FLT_DIG; the rest of what
+                        // a widening double print shows is the widening.
+                        writer->addFloatElement(writer, ivar->name, f32);
                         break;
                     case 'd':
                         ksobjc_ivarValue(object, ivar->index, &f64);
@@ -1575,6 +1602,7 @@ static void prepareReportWriter(KSCrashReportWriter *const writer, KSJSONEncodeC
 {
     writer->addBooleanElement = addBooleanElement;
     writer->addFloatingPointElement = addFloatingPointElement;
+    writer->addFloatElement = addFloatElement;
     writer->addIntegerElement = addIntegerElement;
     writer->addUIntegerElement = addUIntegerElement;
     writer->addStringElement = addStringElement;

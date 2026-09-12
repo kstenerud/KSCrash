@@ -41,9 +41,25 @@ public struct Metadata: MetadataStore, Equatable, Sendable {
     /// Whether the bag holds no keys.
     public var isEmpty: Bool { storage.isEmpty }
 
-    /// Stores `value` under `key`, replacing any existing value.
+    /// Stores `value` under `key`, replacing any existing value. A `.null`
+    /// removes the key; a container keeps its key with its null members and
+    /// elements dropped, even when that leaves the container empty. A value
+    /// the bag cannot hold leaves the key absent rather than keeping what was
+    /// there before.
     public mutating func set(_ value: some MetadataValueConvertible, forKey key: String) {
-        storage[key] = value.metadataValue
+        // Convert once: for containers metadataValue walks the whole tree.
+        let converted = value.metadataValue
+        // A non-finite number has no JSON form, so keeping one would make the
+        // whole report or run summary carrying this bag unencodable. The live
+        // store reaches the same verdict for the same value: the key is
+        // absent, never left showing what it replaced.
+        // Null means absence, and the bag resolves it on the way in as well as
+        // on the way out, so storage, equality, encoding, and every read agree.
+        guard !converted.hasNonFiniteNumber, let resolved = converted.strippingNulls else {
+            storage.removeValue(forKey: key)
+            return
+        }
+        storage[key] = resolved
     }
 
     /// The value under `key` as `type`, or nil when the key is absent or holds a different type.
@@ -102,9 +118,45 @@ public struct Metadata: MetadataStore, Equatable, Sendable {
     }
 }
 
+/// A `Metadata` decoded exactly as written, nulls included.
+///
+/// `monitor_data` sections and the legacy `memory_termination` section reuse
+/// `Metadata` for its typed reads, but they are JSON a monitor produced rather
+/// than the app-owned bag: a null there is a value the monitor wrote, and
+/// dropping it would re-index the array holding it and erase the difference
+/// between a member set to null and one that was never written.
+struct FaithfulMetadata: Codable, Equatable, Sendable {
+    let metadata: Metadata
+
+    init(_ metadata: Metadata) {
+        self.metadata = metadata
+    }
+
+    init(from decoder: Decoder) throws {
+        metadata = Metadata(unresolved: try [String: MetadataValue](from: decoder))
+    }
+
+    func encode(to encoder: Encoder) throws {
+        try metadata.encode(to: encoder)
+    }
+}
+
 extension Metadata: Codable {
+    // Null means absence, and the bag is where that policy lives: MetadataValue
+    // itself stays a faithful JSON codec, since report fields such as a
+    // zombie's ivars decode through it and must keep what they were given.
+    // Decoding resolves nulls the same way `set` does, so storage never holds
+    // one and encoding can hand it over untouched. That is what makes a bag
+    // equal to its own round-trip, and `decoded(as:)` never hand a null to a
+    // non-optional property.
     public init(from decoder: Decoder) throws {
-        storage = try [String: MetadataValue](from: decoder)
+        storage = try [String: MetadataValue](from: decoder).compactMapValues(\.strippingNulls)
+    }
+
+    /// A bag over exactly these members, nulls kept. The sections that are not
+    /// the app-owned bag decode through here; see `FaithfulMetadata`.
+    init(unresolved storage: [String: MetadataValue]) {
+        self.storage = storage
     }
     public func encode(to encoder: Encoder) throws {
         try storage.encode(to: encoder)
