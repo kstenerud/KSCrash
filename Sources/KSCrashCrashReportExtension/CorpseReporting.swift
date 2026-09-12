@@ -55,12 +55,6 @@ enum CorpseReporting {
     static let captureLock = NSRecursiveLock()
 }
 
-/// Thrown by `installForCorpseReporting(with:)`.
-public enum CorpseReportingInstallError: Error {
-    /// The underlying install failed.
-    case install(KSCrashInstallError.Code)
-}
-
 extension KSCrash {
 
     /// Install in extension-reporting mode: initializes the report store and the
@@ -70,9 +64,9 @@ extension KSCrash {
     ///
     /// `area` is the same value the app lists in `SendConfiguration.corpseAreas`; both
     /// sides derive the report area's layout from it identically. Throws the area's own
-    /// resolution errors (`InstallError.containerUnavailable` for an unresolvable app group),
+    /// resolution errors: `InstallError.containerUnavailable` for an unresolvable app group,
     /// `InstallError.invalidConfiguration` when the area belongs to a normal install, and
-    /// `CorpseReportingInstallError.install` when the install itself fails.
+    /// the install's own `InstallError` when the install itself fails.
     ///
     /// ```swift
     /// struct MyCrashReporter: CrashReporterExtension {
@@ -127,7 +121,7 @@ extension KSCrash {
             } else {
                 try? FileManager.default.removeItem(at: manifestURL)
             }
-            throw CorpseReportingInstallError.install(result)
+            throw InstallError(code: result)
         }
         CorpseReporting.active = CorpseReporting.Active(
             savesKCData: savesKCData,
