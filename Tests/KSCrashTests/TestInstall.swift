@@ -38,7 +38,17 @@ import XCTest
 /// test that needs an installed reporter shares this one.
 /// The last report id the did-write crash-time callback delivered; the
 /// callback must stay non-capturing, so this is file scope.
-nonisolated(unsafe) var didWriteWitness: String?
+///
+/// Guarded because the callback genuinely fires on more than one thread: a monitor
+/// writing a report on its own thread (the watchdog does) can overlap a report the
+/// test thread is writing.
+private nonisolated(unsafe) var didWriteWitnessStorage: String?
+private let didWriteWitnessLock = NSLock()
+
+var didWriteWitness: String? {
+    get { didWriteWitnessLock.withLock { didWriteWitnessStorage } }
+    set { didWriteWitnessLock.withLock { didWriteWitnessStorage = newValue } }
+}
 
 /// What the plugin's enable saw when it read `KSCrash.shared` mid-install
 /// (outer nil until enable runs). Plugin callbacks may reasonably touch the

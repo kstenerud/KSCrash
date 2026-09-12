@@ -775,6 +775,26 @@ static atomic_int g_counter = 0;
     XCTAssertFalse(g_dummyEnabledState, @"A local fatal event must still disable monitors");
 }
 
+/** Whether a notify raised from a fresh thread, naming `offendingThread`, is classed a
+ * recrash. Each probe needs its own thread: a second notify from a thread that already
+ * holds a handler slot matches on the handler thread alone, whatever the offending
+ * thread says. */
+- (BOOL)recrashSeenByWorkerNotifying:(thread_t)offendingThread
+{
+    __block BOOL isRecrash = NO;
+    dispatch_semaphore_t done = dispatch_semaphore_create(0);
+    NSThread *worker = [[NSThread alloc] initWithBlock:^{
+        KSCrash_MonitorContext *ctx = dummyExceptionHandlerCallbacks.notify(
+            offendingThread, (KSCrash_ExceptionHandlingRequirements) { .shouldWriteReport = true });
+        isRecrash = ctx->requirements.crashedDuringExceptionHandling;
+        dummyExceptionHandlerCallbacks.handle(ctx);
+        dispatch_semaphore_signal(done);
+    }];
+    [worker start];
+    XCTAssertEqual(dispatch_semaphore_wait(done, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC)), 0);
+    return isRecrash;
+}
+
 - (void)testObservedSubjectThreadIsNotReadAsARecrash
 {
     // The watchdog reports about the main thread without that thread having faulted: it
@@ -795,31 +815,12 @@ static atomic_int g_counter = 0;
 
     // Each probe needs its own thread: a second notify from a thread that already holds a
     // slot matches on the handler thread alone, whatever the offending thread says.
-    __block BOOL observedIsRecrash = YES;
-    NSThread *observer = [[NSThread alloc] initWithBlock:^{
-        KSCrash_MonitorContext *ctx = dummyExceptionHandlerCallbacks.notify(
-            MACH_PORT_NULL, (KSCrash_ExceptionHandlingRequirements) { .shouldWriteReport = true });
-        observedIsRecrash = ctx->requirements.crashedDuringExceptionHandling;
-        dummyExceptionHandlerCallbacks.handle(ctx);
-    }];
-    [observer start];
-    while (!observer.isFinished) {
-        [NSThread sleepForTimeInterval:0.01];
-    }
-    XCTAssertFalse(observedIsRecrash, @"An observed subject must not be read as a recrash");
-
-    __block BOOL faultedIsRecrash = NO;
-    NSThread *faulted = [[NSThread alloc] initWithBlock:^{
-        KSCrash_MonitorContext *ctx = dummyExceptionHandlerCallbacks.notify(
-            subject, (KSCrash_ExceptionHandlingRequirements) { .shouldWriteReport = true });
-        faultedIsRecrash = ctx->requirements.crashedDuringExceptionHandling;
-        dummyExceptionHandlerCallbacks.handle(ctx);
-    }];
-    [faulted start];
-    while (!faulted.isFinished) {
-        [NSThread sleepForTimeInterval:0.01];
-    }
-    XCTAssertTrue(faultedIsRecrash, @"A thread that faulted while handling is still a recrash");
+    // The semaphore is the happens-before edge for reading the result back; polling
+    // isFinished would leave the read racing the worker's write.
+    XCTAssertFalse([self recrashSeenByWorkerNotifying:MACH_PORT_NULL],
+                   @"An observed subject must not be read as a recrash");
+    XCTAssertTrue([self recrashSeenByWorkerNotifying:subject],
+                  @"A thread that faulted while handling is still a recrash");
 
     dummyExceptionHandlerCallbacks.handle(held);
 }
