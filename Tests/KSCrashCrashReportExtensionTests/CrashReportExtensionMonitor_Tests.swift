@@ -164,6 +164,64 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
         XCTAssertTrue(manifest.isDrainable)
     }
 
+    /// setUpWithError has already asserted an install owns this process, so a second one
+    /// is refused for certain: the area below is untouched by it.
+    private func areaRefusedAnInstall(named namespace: String) throws
+        -> (area: CorpseReportingConfiguration, processRoot: URL)
+    {
+        let container = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString)
+        let area = CorpseReportingConfiguration(namespace: namespace, container: .url(container))
+        let processRoot = try area.processRoot
+        try FileManager.default.createDirectory(at: processRoot, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: container) }
+        return (area, processRoot)
+    }
+
+    func testCorpseInstallRefusesAnAreaANormalInstallDeclared() throws {
+        let (area, processRoot) = try areaRefusedAnInstall(named: "CorpseOverSelfDeclaration")
+        // A normal install's store. Its reports are written in place and stitched from
+        // sidecars beside them, so this area is not a corpse install's to claim, and it
+        // must not be left saying it is even for the moment before the install is refused.
+        try StoreManifest.write(kind: StoreManifest.selfKind, atProcessRoot: processRoot)
+
+        XCTAssertThrowsError(try KSCrash.shared.installForCorpseReporting(with: area)) { error in
+            guard case InstallError.invalidConfiguration = error else {
+                return XCTFail("expected the area to be refused as misconfigured, got \(error)")
+            }
+        }
+
+        let manifest = try XCTUnwrap(StoreManifest.read(atProcessRoot: processRoot))
+        XCTAssertEqual(manifest.kind, StoreManifest.selfKind, "the declaration was never written over")
+        XCTAssertFalse(manifest.isDrainable)
+    }
+
+    func testRefusedCorpseInstallLeavesTheStoreDeclarationAsItWas() throws {
+        let (area, processRoot) = try areaRefusedAnInstall(named: "CorpseRefusedOverForeign")
+        // A kind this build does not know: not a self-install store, so the install is not
+        // refused up front, and not a corpse store, so the restore is observable.
+        let foreign = StoreManifest(schema: StoreManifest.currentSchema, kind: "something-newer")
+        try JSONEncoder().encode(foreign).write(to: processRoot.appendingPathComponent(StoreManifest.filename))
+
+        XCTAssertThrowsError(try KSCrash.shared.installForCorpseReporting(with: area)) { error in
+            guard case CorpseReportingInstallError.install(.alreadyInstalled) = error else {
+                return XCTFail("expected the one-install-per-process refusal, got \(error)")
+            }
+        }
+
+        let manifest = try XCTUnwrap(StoreManifest.read(atProcessRoot: processRoot))
+        XCTAssertEqual(manifest, foreign, "a refused install puts back what it found")
+        XCTAssertFalse(manifest.isDrainable, "a refused install must not leave the store drainable")
+    }
+
+    func testRefusedCorpseInstallLeavesNoDeclarationWhereThereWasNone() throws {
+        let (area, processRoot) = try areaRefusedAnInstall(named: "CorpseRefusedOverNothing")
+        XCTAssertThrowsError(try KSCrash.shared.installForCorpseReporting(with: area))
+
+        XCTAssertNil(
+            StoreManifest.read(atProcessRoot: processRoot),
+            "a store that was never created must not be left declaring itself")
+    }
+
     func testCorpseReportingInstallSweepsTheStagingDirectory() throws {
         try XCTSkipIf(
             Self.reportsDirectory != Self.installRoot.appendingPathComponent("Reports"),
