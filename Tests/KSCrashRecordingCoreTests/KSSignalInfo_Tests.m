@@ -84,4 +84,20 @@
     XCTAssertTrue(numSignals > 0, @"");
 }
 
+- (void)testSIGKILLHasANameForKernelSourcedReports
+{
+    XCTAssertEqualObjects([NSString stringWithUTF8String:kssignal_signalName(SIGKILL)], @"SIGKILL");
+}
+
+- (void)testSIGKILLIsNeverInTheRegistrationList
+{
+    // SIGKILL is named so kernel-sourced reports can label it, but it is not catchable;
+    // registering a handler for it must never be attempted.
+    const int *fatalSignals = kssignal_fatalSignals();
+    int count = kssignal_numFatalSignals();
+    for (int i = 0; i < count; i++) {
+        XCTAssertNotEqual(fatalSignals[i], SIGKILL);
+    }
+}
+
 @end

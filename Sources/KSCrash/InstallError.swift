@@ -45,7 +45,7 @@ public enum InstallError: Error, Equatable, Sendable {
     /// A C install error with no Swift case; the value is the raw code.
     case unknown(Int)
 
-    init(code: KSCrashInstallError.Code) {
+    package init(code: KSCrashInstallError.Code) {
         switch code {
         case .alreadyInstalled: self = .alreadyInstalled
         case .pathTooLong: self = .pathTooLong

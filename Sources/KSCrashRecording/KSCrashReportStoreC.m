@@ -35,6 +35,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
 #include <uuid/uuid.h>
@@ -267,6 +268,20 @@ static int getReportCount(const KSCrashReportStoreCConfiguration *const config)
     return count;
 }
 
+// Pure path builder (no directory creation): the single place the per-report sidecar path
+// format lives. Used by the writer-side helpers (which mkdir first) and the read/stitch/delete
+// paths (which must not create directories).
+static bool buildReportSidecarFilePath(const char *sidecarsBasePath, const char *monitorId, const char *reportID,
+                                       char *pathBuffer, size_t pathBufferLength)
+{
+    if (sidecarsBasePath == NULL || monitorId == NULL || reportID == NULL || pathBuffer == NULL ||
+        pathBufferLength == 0) {
+        return false;
+    }
+    return snprintf(pathBuffer, pathBufferLength, "%s/%s/%s.ksscr", sidecarsBasePath, monitorId, reportID) <
+           (int)pathBufferLength;
+}
+
 static bool getReportSidecarFilePath(const char *sidecarsBasePath, const char *monitorId, const char *name,
                                      const char *extension, char *pathBuffer, size_t pathBufferLength)
 {
@@ -294,6 +309,19 @@ static bool getReportSidecarFilePathForReport(const char *sidecarsBasePath, cons
     return getReportSidecarFilePath(sidecarsBasePath, monitorId, reportID, "ksscr", pathBuffer, pathBufferLength);
 }
 
+// Pure path builder (no directory creation): the single place the run sidecar path format
+// lives. Used by the writer-side helpers (which mkdir first) and the read/stitch paths.
+static bool buildRunSidecarFilePath(const char *runSidecarsPath, const char *runID, const char *monitorId,
+                                    char *pathBuffer, size_t pathBufferLength)
+{
+    if (runSidecarsPath == NULL || runID == NULL || runID[0] == '\0' || monitorId == NULL || pathBuffer == NULL ||
+        pathBufferLength == 0) {
+        return false;
+    }
+    return snprintf(pathBuffer, pathBufferLength, "%s/%s/%s.ksscr", runSidecarsPath, runID, monitorId) <
+           (int)pathBufferLength;
+}
+
 static bool getRunSidecarFilePath(const char *runSidecarsPath, const char *monitorId, char *pathBuffer,
                                   size_t pathBufferLength)
 {
@@ -309,11 +337,7 @@ static bool getRunSidecarFilePath(const char *runSidecarsPath, const char *monit
         return false;
     }
     ksfu_makePath(runDir);
-    if (snprintf(pathBuffer, pathBufferLength, "%s/%s." KSCRS_RUN_SIDECAR_EXTENSION, runDir, monitorId) >=
-        (int)pathBufferLength) {
-        return false;
-    }
-    return true;
+    return buildRunSidecarFilePath(runSidecarsPath, runID, monitorId, pathBuffer, pathBufferLength);
 }
 
 static void deleteReportSidecarsForReport(const char *reportID, const KSCrashReportStoreCConfiguration *const config)
@@ -331,12 +355,189 @@ static void deleteReportSidecarsForReport(const char *reportID, const KSCrashRep
             continue;
         }
         char sidecarPath[KSCRS_MAX_PATH_LENGTH];
-        if (snprintf(sidecarPath, sizeof(sidecarPath), "%s/%s/%s.ksscr", config->reportSidecarsPath, ent->d_name,
-                     reportID) < (int)sizeof(sidecarPath)) {
+        if (buildReportSidecarFilePath(config->reportSidecarsPath, ent->d_name, reportID, sidecarPath,
+                                       sizeof(sidecarPath))) {
             ksfu_removeFile(sidecarPath, false, NULL);
         }
     }
     closedir(dir);
+}
+
+// Sized to the monitor registry so a stitch pass can never be truncated: every registered monitor
+// fits. The sidecar loops still guard the bound, since they count directory entries.
+#define KSCRS_MAX_STITCHES KSCRASH_MONITOR_API_COUNT
+
+// Order monitors by priority ascending, so a higher-priority monitor stitches last and wins on any
+// overlapping keys. Ties break on monitor id for a stable order regardless of directory listing order.
+// Compares KSCrashMonitorAPI values, not pointers: the stitch loops copy each API by value so a
+// monitor removed concurrently (kscm_removeMonitor) can't leave a dangling registry pointer held
+// across the whole readdir/sort/stitch walk.
+static int compareMonitorPriority(const void *a, const void *b)
+{
+    const KSCrashMonitorAPI *ma = (const KSCrashMonitorAPI *)a;
+    const KSCrashMonitorAPI *mb = (const KSCrashMonitorAPI *)b;
+    if (ma->priority != mb->priority) {
+        return ma->priority < mb->priority ? -1 : 1;
+    }
+    const char *ida = ma->monitorId != NULL ? ma->monitorId(ma->context) : "";
+    const char *idb = mb->monitorId != NULL ? mb->monitorId(mb->context) : "";
+    return strncmp(ida, idb, KSCRASH_MONITOR_ID_MAX_LENGTH);
+}
+
+// Apply one monitor's stitch, returning the (possibly replaced) report.
+static NSDictionary *applyStitch(NSDictionary *report, const KSCrashMonitorAPI *api, const char *sidecarPath,
+                                 KSCrashSidecarScope scope, bool *stitchFailed)
+{
+    CFDictionaryRef stitched = NULL;
+    @try {
+        stitched = api->createStitchedReport((__bridge CFDictionaryRef)report, sidecarPath, scope, api->context);
+    } @catch (NSException *exception) {
+        // The walk runs under the store mutex; an exception unwinding through the C frames
+        // above would leave it locked forever. Contain the callback and count it as a
+        // stitch failure instead.
+        const char *monitorId = api->monitorId != NULL ? api->monitorId(api->context) : "<unknown>";
+        KSLOG_ERROR(@"Stitch callback for %s threw %@: %@", monitorId, exception.name, exception.reason);
+        stitched = NULL;
+    }
+    if (stitched != NULL) {
+        return (__bridge_transfer NSDictionary *)stitched;
+    }
+    if (scope == KSCrashSidecarScopeFinal) {
+        // No sidecar was read, so there is nothing a retry could get past: a
+        // NULL here is a monitor with nothing to say (one written to the
+        // contract that always handed it a path, say), not a failure. Treating
+        // it as one would block finalization of every report, and the watchdog
+        // deletes a recovered hang report whose finalization fails.
+        return report;
+    }
+    if (stitchFailed != NULL) {
+        *stitchFailed = true;
+    }
+    return report;
+}
+
+// Resolve one sidecar directory entry to its monitor, or NULL when the entry doesn't name a
+// registered monitor with a stitchable sidecar. `reportID` is only meaningful for the report scope.
+typedef const KSCrashMonitorAPI *(*SidecarMonitorForEntryFunc)(const struct dirent *ent,
+                                                               const KSCrashReportStoreCConfiguration *config,
+                                                               const char *reportID);
+
+// Report-scope entries are monitor directory names. Whether the monitor has a sidecar for
+// this particular report is decided where the path is built, in the stitch loop.
+static const KSCrashMonitorAPI *reportSidecarMonitorForEntry(const struct dirent *ent,
+                                                             __unused const KSCrashReportStoreCConfiguration *config,
+                                                             __unused const char *reportID)
+{
+    const KSCrashMonitorAPI *api = kscm_getMonitor(ent->d_name);
+    if (api == NULL || api->createStitchedReport == NULL) {
+        return NULL;
+    }
+    return api;
+}
+
+// Run-scope entries are `<monitorId>.ksscr` files inside the run's directory.
+static const KSCrashMonitorAPI *runSidecarMonitorForEntry(const struct dirent *ent,
+                                                          __unused const KSCrashReportStoreCConfiguration *config,
+                                                          __unused const char *reportID)
+{
+    // Strip .ksscr extension to get monitorId
+    char monitorId[256];
+    const char *dot = strrchr(ent->d_name, '.');
+    if (dot == NULL || strncmp(dot, ".ksscr", sizeof(".ksscr")) != 0) {
+        return NULL;
+    }
+    size_t nameLen = (size_t)(dot - ent->d_name);
+    if (nameLen == 0 || nameLen >= sizeof(monitorId)) {
+        return NULL;
+    }
+    memcpy(monitorId, ent->d_name, nameLen);
+    monitorId[nameLen] = '\0';
+
+    const KSCrashMonitorAPI *api = kscm_getMonitor(monitorId);
+    if (api == NULL || api->createStitchedReport == NULL) {
+        return NULL;
+    }
+    return api;
+}
+
+// Shared stitch skeleton for both sidecar scopes. Takes ownership of `dir` (always closes it),
+// collects each entry's monitor via `monitorForEntry`, sorts by priority, and applies the
+// stitches. `reportID` drives the report scope's sidecar paths, `runID` the run scope's.
+static NSDictionary *stitchSidecarsIntoReport(NSDictionary *report, DIR *dir, KSCrashSidecarScope scope,
+                                              const KSCrashReportStoreCConfiguration *const config,
+                                              const char *reportID, const char *runID,
+                                              SidecarMonitorForEntryFunc monitorForEntry, bool *stitchFailed)
+{
+    // Copy each matching API by value so the walk never holds registry pointers across the
+    // readdir/sort/stitch phases (a concurrently removed monitor would leave them dangling).
+    KSCrashMonitorAPI monitors[KSCRS_MAX_STITCHES];
+    size_t count = 0;
+    struct dirent *ent;
+    while ((ent = readdir(dir)) != NULL) {
+        if (ent->d_name[0] == '.') {
+            continue;
+        }
+        const KSCrashMonitorAPI *api = monitorForEntry(ent, config, reportID);
+        if (api == NULL) {
+            continue;
+        }
+        if (count >= KSCRS_MAX_STITCHES) {
+            KSLOG_WARN(@"More than %d %s sidecars to stitch; skipping the rest", KSCRS_MAX_STITCHES,
+                       scope == KSCrashSidecarScopeReport ? "report" : "run");
+            // Dropped sidecars mean an incomplete report; flag it so the write-back is
+            // aborted and the report can be retried instead of silently losing data.
+            if (stitchFailed != NULL) {
+                *stitchFailed = true;
+            }
+            break;
+        }
+        monitors[count++] = *api;
+    }
+    closedir(dir);
+
+    qsort(monitors, count, sizeof(*monitors), compareMonitorPriority);
+    NSDictionary *result = report;
+    for (size_t i = 0; i < count; i++) {
+        const KSCrashMonitorAPI *api = &monitors[i];
+        const char *monitorId = api->monitorId != NULL ? api->monitorId(api->context) : NULL;
+        if (monitorId == NULL) {
+            continue;
+        }
+        char sidecarPath[KSCRS_MAX_PATH_LENGTH];
+        bool builtPath =
+            scope == KSCrashSidecarScopeReport
+                ? buildReportSidecarFilePath(config->reportSidecarsPath, monitorId, reportID, sidecarPath,
+                                             sizeof(sidecarPath))
+                : buildRunSidecarFilePath(config->runSidecarsPath, runID, monitorId, sidecarPath, sizeof(sidecarPath));
+        if (!builtPath) {
+            continue;
+        }
+        // A monitor with no sidecar for this report has nothing to stitch; absence is not a
+        // stitch failure. (Run-scope entries were listed from the run's own directory, so the
+        // file exists there by construction; the check is cheap either way.)
+        if (access(sidecarPath, F_OK) != 0) {
+            continue;
+        }
+        result = applyStitch(result, api, sidecarPath, scope, stitchFailed);
+    }
+    return result;
+}
+
+// The final pass: after all sidecar stitching, every registered monitor implementing
+// createStitchedReport gets one call with no sidecar, in (priority, id) order. The last
+// chance to modify a report before it is handed out; a monitor draws on the report itself
+// (e.g. the corpse monitor's embedded snapshot). Monitors with nothing to add return the
+// input retained, the unhandled-scope convention.
+static NSDictionary *stitchFinalPassIntoReport(NSDictionary *report, bool *stitchFailed)
+{
+    KSCrashMonitorAPI monitors[KSCRS_MAX_STITCHES];
+    size_t count = kscm_copyStitchableMonitors(monitors, KSCRS_MAX_STITCHES);
+    qsort(monitors, count, sizeof(*monitors), compareMonitorPriority);
+    NSDictionary *result = report;
+    for (size_t i = 0; i < count; i++) {
+        result = applyStitch(result, &monitors[i], NULL, KSCrashSidecarScopeFinal, stitchFailed);
+    }
+    return result;
 }
 
 static NSDictionary *stitchReportSidecarsIntoReport(NSDictionary *report, const char *reportID,
@@ -354,34 +555,8 @@ static NSDictionary *stitchReportSidecarsIntoReport(NSDictionary *report, const 
         }
         return report;
     }
-    NSDictionary *result = report;
-    struct dirent *ent;
-    while ((ent = readdir(dir)) != NULL) {
-        if (ent->d_name[0] == '.') {
-            continue;
-        }
-        const KSCrashMonitorAPI *api = kscm_getMonitor(ent->d_name);
-        if (api == NULL || api->createStitchedReport == NULL) {
-            continue;
-        }
-        char sidecarPath[KSCRS_MAX_PATH_LENGTH];
-        if (snprintf(sidecarPath, sizeof(sidecarPath), "%s/%s/%s.ksscr", config->reportSidecarsPath, ent->d_name,
-                     reportID) >= (int)sizeof(sidecarPath)) {
-            continue;
-        }
-        if (access(sidecarPath, F_OK) != 0) {
-            continue;
-        }
-        CFDictionaryRef stitched = api->createStitchedReport((__bridge CFDictionaryRef)result, sidecarPath,
-                                                             KSCrashSidecarScopeReport, api->context);
-        if (stitched != NULL) {
-            result = (__bridge_transfer NSDictionary *)stitched;
-        } else if (stitchFailed != NULL) {
-            *stitchFailed = true;
-        }
-    }
-    closedir(dir);
-    return result;
+    return stitchSidecarsIntoReport(report, dir, KSCrashSidecarScopeReport, config, reportID, NULL,
+                                    reportSidecarMonitorForEntry, stitchFailed);
 }
 
 static NSDictionary *stitchRunSidecarsIntoReport(NSDictionary *report,
@@ -421,46 +596,8 @@ static NSDictionary *stitchRunSidecarsIntoReport(NSDictionary *report,
         }
         return report;
     }
-
-    NSDictionary *result = report;
-    struct dirent *ent;
-    while ((ent = readdir(dir)) != NULL) {
-        if (ent->d_name[0] == '.') {
-            continue;
-        }
-        // Strip .ksscr extension to get monitorId
-        char monitorId[256];
-        const char *dot = strrchr(ent->d_name, '.');
-        if (dot == NULL || strcmp(dot, ".ksscr") != 0) {
-            continue;
-        }
-        size_t nameLen = (size_t)(dot - ent->d_name);
-        if (nameLen == 0 || nameLen >= sizeof(monitorId)) {
-            continue;
-        }
-        memcpy(monitorId, ent->d_name, nameLen);
-        monitorId[nameLen] = '\0';
-
-        const KSCrashMonitorAPI *api = kscm_getMonitor(monitorId);
-        if (api == NULL || api->createStitchedReport == NULL) {
-            continue;
-        }
-
-        char sidecarPath[KSCRS_MAX_PATH_LENGTH];
-        if (snprintf(sidecarPath, sizeof(sidecarPath), "%s/%s", runDir, ent->d_name) >= (int)sizeof(sidecarPath)) {
-            continue;
-        }
-
-        CFDictionaryRef stitched = api->createStitchedReport((__bridge CFDictionaryRef)result, sidecarPath,
-                                                             KSCrashSidecarScopeRun, api->context);
-        if (stitched != NULL) {
-            result = (__bridge_transfer NSDictionary *)stitched;
-        } else if (stitchFailed != NULL) {
-            *stitchFailed = true;
-        }
-    }
-    closedir(dir);
-    return result;
+    return stitchSidecarsIntoReport(report, dir, KSCrashSidecarScopeRun, config, NULL, runIdStr.UTF8String,
+                                    runSidecarMonitorForEntry, stitchFailed);
 }
 
 // UUID: 8-4-4-4-12 hex digits with hyphens = 36 chars
@@ -574,12 +711,50 @@ static NSSet<NSString *> *summaryReferencedRunIDs(const char *runSummariesPath)
     return runIDs;
 }
 
+// Whether an unreferenced run's data is younger than the retention window,
+// measured from its newest write: a run directory's own mtime is its start
+// (APFS touches it only when an entry is created or removed), and a run can
+// outlive the window before it ever crashes. An unknown age keeps the data:
+// stat can fail for reasons that say nothing about age (data protection while
+// the device is locked, or the entry going away under us), and deleting a
+// run's data early is the exact loss the window exists to prevent, so only a
+// positive "this is old enough" answer may delete.
+static bool isWithinRetention(NSString *path, bool isDirectory, double retentionSeconds)
+{
+    if (retentionSeconds <= 0) {
+        return false;
+    }
+    NSFileManager *fm = [NSFileManager defaultManager];
+    time_t newest = 0;
+    bool haveAge = false;
+    NSMutableArray<NSString *> *paths = [NSMutableArray arrayWithObject:path];
+    if (isDirectory) {
+        for (NSString *entry in [fm contentsOfDirectoryAtPath:path error:nil]) {
+            [paths addObject:[path stringByAppendingPathComponent:entry]];
+        }
+    }
+    for (NSString *candidate in paths) {
+        struct stat st;
+        if (stat(candidate.fileSystemRepresentation, &st) != 0) {
+            return true;
+        }
+        if (!haveAge || st.st_mtimespec.tv_sec > newest) {
+            newest = st.st_mtimespec.tv_sec;
+            haveAge = true;
+        }
+    }
+    return !haveAge || difftime(time(NULL), newest) < retentionSeconds;
+}
+
 // Reclaim on-disk data for runs nothing references any more. Idempotent: it
 // recomputes the reference sets each call, so it can run at the end of any send
 // flow. RunSidecars and .sessions are both kept while a report OR a summary
 // references the run: reports stitch run sidecars and session ids at delivery,
 // and a pending summary needs its .sessions for the record merge and its
-// UserInfo run sidecar for the metadata stitch.
+// UserInfo run sidecar for the metadata stitch. Unreferenced is not the same
+// as orphaned: a report for the run may still be waiting in a crash
+// extension's store, so both kinds of data are kept until they age past the
+// retention window.
 static void reclaimOrphanedRunData(const KSCrashReportStoreCConfiguration *const config)
 {
     @autoreleasepool {
@@ -605,12 +780,17 @@ static void reclaimOrphanedRunData(const KSCrashReportStoreCConfiguration *const
         NSMutableSet<NSString *> *refs = [reportRefs mutableCopy];
         [refs unionSet:summaryRefs];
         NSFileManager *fm = [NSFileManager defaultManager];
+        const double retention = config->runSidecarRetentionSeconds;
 
         if (config->runSidecarsPath != NULL) {
             NSString *dir = @(config->runSidecarsPath);
             for (NSString *entry in [fm contentsOfDirectoryAtPath:dir error:nil]) {
                 if (![entry hasPrefix:@"."] && ![refs containsObject:entry]) {
-                    [fm removeItemAtPath:[dir stringByAppendingPathComponent:entry] error:nil];
+                    NSString *runDir = [dir stringByAppendingPathComponent:entry];
+                    if (isWithinRetention(runDir, true, retention)) {
+                        continue;
+                    }
+                    [fm removeItemAtPath:runDir error:nil];
                 }
             }
         }
@@ -622,7 +802,11 @@ static void reclaimOrphanedRunData(const KSCrashReportStoreCConfiguration *const
                     continue;
                 }
                 if (![refs containsObject:entry.stringByDeletingPathExtension]) {
-                    [fm removeItemAtPath:[dir stringByAppendingPathComponent:entry] error:nil];
+                    NSString *path = [dir stringByAppendingPathComponent:entry];
+                    if (isWithinRetention(path, false, retention)) {
+                        continue;
+                    }
+                    [fm removeItemAtPath:path error:nil];
                 }
             }
         }
@@ -779,6 +963,7 @@ static char *readReportAtPath(const char *path, const char *reportID,
                     report = stitchReportSidecarsIntoReport(report, reportID, config, NULL);
                 }
             }
+            report = stitchFinalPassIntoReport(report, NULL);
         }
 
         // Encode once at the bottom
@@ -864,6 +1049,7 @@ bool kscrs_finalizeReport(const char *reportPath, const char *reportID)
         bool stitchFailed = false;
         report = stitchRunSidecarsIntoReport(report, &g_stitchConfig, &stitchFailed);
         report = stitchReportSidecarsIntoReport(report, reportID, &g_stitchConfig, &stitchFailed);
+        report = stitchFinalPassIntoReport(report, &stitchFailed);
         if (stitchFailed) {
             KSLOG_ERROR(@"Stitching failed for report %s, skipping finalization to allow retry on next read", reportID);
             pthread_mutex_unlock(&g_mutex);
@@ -1161,11 +1347,7 @@ bool kscrs_getRunSidecarFilePathForRunID(const char *monitorId, const char *runI
     if (uuid_parse(runID, parsed) != 0) {
         return false;
     }
-    if (snprintf(pathBuffer, pathBufferLength, "%s/%s/%s.ksscr", runSidecarsPath, runID, monitorId) >=
-        (int)pathBufferLength) {
-        return false;
-    }
-    return true;
+    return buildRunSidecarFilePath(runSidecarsPath, runID, monitorId, pathBuffer, pathBufferLength);
 }
 
 bool kscrs_getSummarySidecarFilePath(const char *runID, const char *extension, char *pathBuffer,
@@ -1199,5 +1381,50 @@ void kscrs_reclaimOrphanedRunData(const KSCrashReportStoreCConfiguration *const 
 {
     pthread_mutex_lock(&g_mutex);
     reclaimOrphanedRunData(configuration);
+    pthread_mutex_unlock(&g_mutex);
+}
+
+static void ingestExtensionReports(const char *sourceReportsPath, const KSCrashReportStoreCConfiguration *const config)
+{
+    if (sourceReportsPath == NULL) {
+        return;
+    }
+    // The source is another store's Reports directory, so its own lister does the listing:
+    // collected before any rename, since removing entries from a directory while readdir is
+    // walking it is unspecified and could skip some.
+    KSCrashReportStoreCConfiguration source = *config;
+    source.reportsPath = sourceReportsPath;
+    ReportName *names = NULL;
+    int listed = listReportNames(&names, &source);
+    if (listed < 0) {
+        KSLOG_ERROR(@"Could not list extension reports at %s", sourceReportsPath);
+        return;
+    }
+    size_t nameCount = (size_t)listed;
+
+    for (size_t i = 0; i < nameCount; i++) {
+        char sourcePath[KSCRS_MAX_PATH_LENGTH];
+        char destinationPath[KSCRS_MAX_PATH_LENGTH];
+        if (snprintf(sourcePath, sizeof(sourcePath), "%s/%s", sourceReportsPath, names[i].name) >=
+                (int)sizeof(sourcePath) ||
+            snprintf(destinationPath, sizeof(destinationPath), "%s/%s", config->reportsPath, names[i].name) >=
+                (int)sizeof(destinationPath)) {
+            continue;
+        }
+        // RENAME_EXCL: never replace an existing report. The app and group containers
+        // share a volume on iOS, so no cross-device fallback is needed; if a macOS setup
+        // ever crosses volumes, the file stays put and the error is logged each send.
+        if (renamex_np(sourcePath, destinationPath, RENAME_EXCL) != 0) {
+            KSLOG_ERROR(@"Could not ingest extension report %s: %s", names[i].name, strerror(errno));
+        }
+    }
+    free(names);
+}
+
+void kscrs_ingestExtensionReports(const char *sourceReportsPath,
+                                  const KSCrashReportStoreCConfiguration *const configuration)
+{
+    pthread_mutex_lock(&g_mutex);
+    ingestExtensionReports(sourceReportsPath, configuration);
     pthread_mutex_unlock(&g_mutex);
 }

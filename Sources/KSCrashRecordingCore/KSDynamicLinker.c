@@ -32,6 +32,7 @@
 #include <mach-o/nlist.h>
 #include <mach-o/stab.h>
 #include <stdatomic.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "KSBinaryImageCache.h"
@@ -353,6 +354,66 @@ static void getCrashInfo(const struct mach_header *header, KSBinaryImage *buffer
         KSLOG_DEBUG("Found signature: %s", crashInfo->signature);
         buffer->crashInfoSignature = crashInfo->signature;
     }
+}
+
+/** Copy one __crash_info string out of @c task, mirroring isValidCrashInfoMessage's contract:
+ * the string must be non-empty and terminate within KSDL_MaxCrashInfoStringLength + 1 readable
+ * bytes. Returns a heap copy, or NULL.
+ */
+static char *copyCrashInfoStringFromTask(task_t task, const char *taskAddress)
+{
+    if (taskAddress == NULL) {
+        return NULL;
+    }
+    char buffer[KSDL_MaxCrashInfoStringLength + 1];
+    int copied = ksmem_copyMaxPossibleFromTask(task, taskAddress, buffer, (int)sizeof(buffer));
+    if (copied <= 0 || buffer[0] == 0) {
+        return NULL;
+    }
+    if (memchr(buffer, 0, (size_t)copied) == NULL) {
+        // Never terminated within the cap (or the readable range); not a valid message.
+        return NULL;
+    }
+    return strdup(buffer);
+}
+
+bool ksdl_readCrashInfoFromTaskImage(task_t task, uintptr_t loadAddress, KSCrashInfoStrings *buffer)
+{
+    memset(buffer, 0, sizeof(*buffer));
+
+    uintptr_t sectionAddress = 0;
+    uintptr_t sectionSize = 0;
+    if (!ksbic_findSectionInTaskImage(task, loadAddress, SEG_DATA, KSDL_SECT_CRASH_INFO, &sectionAddress,
+                                      &sectionSize)) {
+        return false;
+    }
+    // Include message and message2, the same floor as the in-process reader.
+    if (sectionSize < offsetof(crash_info_t, reserved)) {
+        return false;
+    }
+    crash_info_t crashInfo = { 0 };
+    size_t readSize = sectionSize < sizeof(crashInfo) ? sectionSize : sizeof(crashInfo);
+    if (!ksmem_copySafelyFromTask(task, (const void *)sectionAddress, &crashInfo, (int)readSize)) {
+        return false;
+    }
+    if (crashInfo.version != 4 && crashInfo.version != 5) {
+        return false;
+    }
+    buffer->message = copyCrashInfoStringFromTask(task, crashInfo.message);
+    buffer->message2 = copyCrashInfoStringFromTask(task, crashInfo.message2);
+    buffer->backtrace = copyCrashInfoStringFromTask(task, crashInfo.backtrace);
+    buffer->signature = copyCrashInfoStringFromTask(task, crashInfo.signature);
+    return buffer->message != NULL || buffer->message2 != NULL || buffer->backtrace != NULL ||
+           buffer->signature != NULL;
+}
+
+void ksdl_freeCrashInfoStrings(KSCrashInfoStrings *strings)
+{
+    free(strings->message);
+    free(strings->message2);
+    free(strings->backtrace);
+    free(strings->signature);
+    memset(strings, 0, sizeof(*strings));
 }
 
 bool ksdl_binaryImageForHeader(const void *const header_ptr, const char *const image_name, KSBinaryImage *buffer)

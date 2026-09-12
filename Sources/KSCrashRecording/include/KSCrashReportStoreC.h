@@ -43,6 +43,9 @@ extern "C" {
 /** The default name of a folder (inside the KSCrash install path) that is used for report store.
  */
 #define KSCRS_DEFAULT_REPORTS_FOLDER "Reports"
+/** Where a crash extension's store writes a report before it is complete; a
+ *  dot directory inside Reports, which the ingest's filename grammar skips. */
+#define KSCRS_EXTENSION_STAGING_FOLDER ".staging"
 
 /** The other store directories an install creates next to Reports. Shared with
  *  the Swift install's Locations; change them together. */
@@ -240,6 +243,17 @@ bool kscrs_getReportSidecarFilePath(const char *monitorId, const char *name, con
  * @param configuration The store configuration.
  */
 void kscrs_reclaimOrphanedRunData(const KSCrashReportStoreCConfiguration *const configuration);
+
+/** Move every report in sourceReportsPath into this store.
+ *
+ * Files that cannot be moved are left in place and retried on the next call; an existing
+ * destination is never replaced. No-op when sourceReportsPath is NULL.
+ *
+ * @param sourceReportsPath The directory to drain (a crash extension's Reports directory).
+ * @param configuration The store configuration.
+ */
+void kscrs_ingestExtensionReports(const char *sourceReportsPath,
+                                  const KSCrashReportStoreCConfiguration *const configuration);
 
 #ifdef __cplusplus
 }

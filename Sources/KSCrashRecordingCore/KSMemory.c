@@ -31,20 +31,21 @@
 
 #include "KSLogger.h"
 
-static inline int copySafely(const void *restrict const src, void *restrict const dst, const int byteCount)
+static inline int copySafely(task_t task, const void *restrict const src, void *restrict const dst, const int byteCount)
 {
     vm_size_t bytesCopied = 0;
     kern_return_t result =
-        vm_read_overwrite(mach_task_self(), (vm_address_t)src, (vm_size_t)byteCount, (vm_address_t)dst, &bytesCopied);
+        vm_read_overwrite(task, (vm_address_t)src, (vm_size_t)byteCount, (vm_address_t)dst, &bytesCopied);
     if (result != KERN_SUCCESS) {
         return 0;
     }
     return (int)bytesCopied;
 }
 
-static inline int copyMaxPossible(const void *restrict const src, void *restrict const dst, const int byteCount)
+static inline int copyMaxPossible(task_t task, const void *restrict const src, void *restrict const dst,
+                                  const int byteCount)
 {
-    if (copySafely(src, dst, 1) != 1) {
+    if (copySafely(task, src, dst, 1) != 1) {
         return 0;
     }
     if (byteCount <= 1) {
@@ -66,7 +67,7 @@ static inline int copyMaxPossible(const void *restrict const src, void *restrict
             break;
         }
 
-        if (copySafely(pSrc, pDst, copyLength) == copyLength) {
+        if (copySafely(task, pSrc, pDst, copyLength) == copyLength) {
             bytesCopied += copyLength;
             pSrc += copyLength;
             pDst += copyLength;
@@ -82,15 +83,16 @@ static inline int copyMaxPossible(const void *restrict const src, void *restrict
     return bytesCopied;
 }
 
+// Shared scratch buffer for the readability probes. Single-threaded use only (report generation).
 static char g_memoryTestBuffer[10240];
-static inline bool isMemoryReadable(const void *const memory, const int byteCount)
+static inline bool isMemoryReadable(task_t task, const void *const memory, const int byteCount)
 {
     const int testBufferSize = sizeof(g_memoryTestBuffer);
     int bytesRemaining = byteCount;
 
     while (bytesRemaining > 0) {
         int bytesToCopy = bytesRemaining > testBufferSize ? testBufferSize : bytesRemaining;
-        if (copySafely(memory, g_memoryTestBuffer, bytesToCopy) != bytesToCopy) {
+        if (copySafely(task, memory, g_memoryTestBuffer, bytesToCopy) != bytesToCopy) {
             break;
         }
         bytesRemaining -= bytesToCopy;
@@ -100,32 +102,45 @@ static inline bool isMemoryReadable(const void *const memory, const int byteCoun
 
 int ksmem_maxReadableBytes(const void *const memory, const int tryByteCount)
 {
+    const task_t task = mach_task_self();
     const int testBufferSize = sizeof(g_memoryTestBuffer);
     const uint8_t *currentPosition = memory;
     int bytesRemaining = tryByteCount;
 
     while (bytesRemaining > testBufferSize) {
-        if (!isMemoryReadable(currentPosition, testBufferSize)) {
+        if (!isMemoryReadable(task, currentPosition, testBufferSize)) {
             break;
         }
         currentPosition += testBufferSize;
         bytesRemaining -= testBufferSize;
     }
-    bytesRemaining -= copyMaxPossible(currentPosition, g_memoryTestBuffer, testBufferSize);
+    bytesRemaining -= copyMaxPossible(task, currentPosition, g_memoryTestBuffer, testBufferSize);
     return tryByteCount - bytesRemaining;
 }
 
 bool ksmem_isMemoryReadable(const void *const memory, const int byteCount)
 {
-    return isMemoryReadable(memory, byteCount);
+    return isMemoryReadable(mach_task_self(), memory, byteCount);
 }
 
 int ksmem_copyMaxPossible(const void *restrict const src, void *restrict const dst, const int byteCount)
 {
-    return copyMaxPossible(src, dst, byteCount);
+    return copyMaxPossible(mach_task_self(), src, dst, byteCount);
+}
+
+int ksmem_copyMaxPossibleFromTask(task_t task, const void *restrict const src, void *restrict const dst,
+                                  const int byteCount)
+{
+    return copyMaxPossible(task, src, dst, byteCount);
 }
 
 bool ksmem_copySafely(const void *restrict const src, void *restrict const dst, const int byteCount)
 {
-    return copySafely(src, dst, byteCount);
+    return copySafely(mach_task_self(), src, dst, byteCount) != 0;
+}
+
+bool ksmem_copySafelyFromTask(task_t task, const void *restrict const src, void *restrict const dst,
+                              const int byteCount)
+{
+    return copySafely(task, src, dst, byteCount) != 0;
 }

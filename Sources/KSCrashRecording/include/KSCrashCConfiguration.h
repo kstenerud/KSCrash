@@ -45,6 +45,8 @@ extern "C" {
 
 /** The most plugin monitors an install accepts (more fail the install). */
 #define KSC_MAX_PLUGINS 64
+/** Default retention window for unreferenced run-sidecar directories: 30 days. */
+#define KSCRS_DEFAULT_RUN_SIDECAR_RETENTION_SECONDS (30.0 * 24.0 * 60.0 * 60.0)
 
 /** Configuration for managing crash reports through the report store API.
  */
@@ -91,6 +93,23 @@ typedef struct {
      * **Default**: 50
      */
     int maxRunSummaryCount;
+
+    /** How long to keep a run's data (its sidecar directory and its sessions
+     * file) once nothing references it, in seconds, measured from its newest
+     * write.
+     *
+     * A crash caught by the app's crash extension sits in the App Group container until
+     * the user next opens the app. If this store deletes that run's data before the
+     * report is ingested, the report can never be enriched with it. Keeping
+     * unreferenced data for this window costs a few kilobytes per run, and the send
+     * applies it only when it pulls from an extension area.
+     *
+     * Data referenced by a report on disk is always kept, whatever its age.
+     * Zero or negative deletes unreferenced data immediately.
+     *
+     * **Default**: 30 days.
+     */
+    double runSidecarRetentionSeconds;
 } KSCrashReportStoreCConfiguration;
 
 static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_Default(void)
@@ -102,6 +121,7 @@ static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_
         .runSummariesPath = NULL,
         .maxReportCount = 50,
         .maxRunSummaryCount = 50,
+        .runSidecarRetentionSeconds = KSCRS_DEFAULT_RUN_SIDECAR_RETENTION_SECONDS,
     };
 }
 
@@ -115,6 +135,7 @@ static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_
         .runSummariesPath = configuration->runSummariesPath ? strdup(configuration->runSummariesPath) : NULL,
         .maxReportCount = configuration->maxReportCount,
         .maxRunSummaryCount = configuration->maxRunSummaryCount,
+        .runSidecarRetentionSeconds = configuration->runSidecarRetentionSeconds,
     };
 }
 

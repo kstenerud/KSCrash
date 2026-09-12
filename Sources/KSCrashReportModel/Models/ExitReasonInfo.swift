@@ -31,7 +31,19 @@ public struct ExitReasonInfo: Codable, Sendable, Equatable {
     /// Exit reason code. (ex: 0x8badf00d)
     public let code: UInt64
 
-    public init(code: UInt64) {
+    /// The namespace the code belongs to, when known. A code is only meaningful within its
+    /// namespace, so the same number means different things under jetsam and code signing.
+    ///
+    /// Absent from reports written by the crashing process itself, which records only a code.
+    /// A corpse report carries it, because kcdata's exit reason knows it.
+    public let namespace: ExitReasonNamespace?
+
+    /// OS reason flags, when known. Same availability as `namespace`.
+    public let flags: UInt64?
+
+    public init(code: UInt64, namespace: ExitReasonNamespace? = nil, flags: UInt64? = nil) {
         self.code = code
+        self.namespace = namespace
+        self.flags = flags
     }
 }

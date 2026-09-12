@@ -68,9 +68,10 @@ public struct MonitorHost<Payload> {
     /// Runs one event through the pipeline: notify → monitor-context fill → `configure` for the
     /// raw per-event fields → payload boxing → handle. Returns the written report.
     ///
-    /// A nil `payload` writes the report WITHOUT this monitor's report section
-    /// (`writeReportSection` never runs for the event); the corpse monitor uses this for
-    /// snapshot-less captures.
+    /// A nil `payload` writes the report without this monitor's values:
+    /// `writeReportSection` never runs for the event. The writer still opens the monitor's
+    /// section, so the key is present and empty unless a stitch sweeps it, which is what the
+    /// corpse monitor does for its snapshot-less captures.
     ///
     /// `configure` sets the raw per-event fields on the monitor context: mach codes, machine
     /// context, provided images, processName.

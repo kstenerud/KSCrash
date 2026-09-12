@@ -19,7 +19,7 @@ corpse monitor and MetricKit (`KSCrashMonitors`) and the profiler's internal `Pr
 ```swift
 final class CrashReportExtensionMonitor: CrashMonitor {
     typealias EventPayload = CorpseSnapshot
-    static let id = "Corpse"
+    static let id = "corpse"
 
     let host: MonitorHost<CorpseSnapshot>
     init(host: MonitorHost<CorpseSnapshot>, configuration: Void) {   // nothing to configure
@@ -130,8 +130,9 @@ public struct MonitorHost<Payload> {
 }
 ```
 
-A nil `payload` writes the report WITHOUT the monitor's report section (the corpse monitor uses
-this for snapshot-less captures); the payload-less overload is constrained to `Payload == Void`
+A nil `payload` writes the report without the monitor's values (`writeReportSection` never runs;
+the writer still opens the section, so the key is present and empty unless a stitch sweeps it, as
+the corpse monitor's does for snapshot-less captures); the payload-less overload is constrained to `Payload == Void`
 monitors, whose `writeReportSection` still runs. `handle` refuses (throws `.refused`) when the
 bridge isn't installed yet, the pipeline is shutting down, or it returns the shared
 exit-immediately bail-out context, matching the hand-rolled monitors' contract. `configure`

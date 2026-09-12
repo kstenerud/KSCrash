@@ -50,9 +50,17 @@ static void setTimestamp(NSMutableDictionary *dict, NSString *key, int64_t times
 }
 
 CFDictionaryRef kscm_system_createStitchedReport(CFDictionaryRef reportDict, const char *sidecarPath,
-                                                 __unused KSCrashSidecarScope scope, __unused void *context)
+                                                 KSCrashSidecarScope scope, __unused void *context)
 {
-    if (!reportDict || !sidecarPath) {
+    if (reportDict == NULL) {
+        return NULL;
+    }
+    if (scope != KSCrashSidecarScopeRun) {
+        // Not this monitor's scope (e.g. the final pass, which has no sidecar file).
+        CFRetain(reportDict);
+        return reportDict;
+    }
+    if (sidecarPath == NULL) {
         return NULL;
     }
 

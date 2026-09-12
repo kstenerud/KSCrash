@@ -231,6 +231,10 @@ let package = Package(
             targets: [Targets.monitorPlugins]
         ),
         .library(
+            name: "CrashReportExtension",
+            targets: [Targets.crashReportExtension]
+        ),
+        .library(
             name: "Monitors",
             targets: [Targets.monitors]
         ),
@@ -465,6 +469,29 @@ let package = Package(
                 .copy("Resources/PrivacyInfo.xcprivacy")
             ]
         ),
+        .target(
+            name: Targets.crashReportExtension,
+            dependencies: [
+                .target(name: Targets.kscrash),
+                .target(name: Targets.monitorPlugins),
+                .target(name: Targets.recording),
+                .target(name: Targets.recordingCore),
+                .target(name: Targets.report),
+                .target(name: Targets.swiftCore),
+            ]
+        ),
+        .testTarget(
+            name: Targets.crashReportExtension.tests,
+            dependencies: [
+                .target(name: Targets.crashReportExtension),
+                .target(name: Targets.kscrash),
+                .target(name: Targets.monitorPlugins),
+                .target(name: Targets.monitors),
+                .target(name: Targets.recording),
+                .target(name: Targets.recordingCore),
+                .target(name: Targets.report),
+            ]
+        ),
         .testTarget(
             name: Targets.monitorPlugins.tests,
             dependencies: [
@@ -491,6 +518,8 @@ let package = Package(
             dependencies: [
                 .target(name: Targets.monitors),
                 .target(name: Targets.report),
+                .target(name: Targets.crashReportExtension),
+                .target(name: Targets.kscrash),
             ],
             swiftSettings: metricKitSwiftSettings
         ),
@@ -536,6 +565,7 @@ enum Targets {
     static let profiler = "KSCrashProfiler"
     static let monitors = "KSCrashMonitors"
     static let monitorPlugins = "KSCrashMonitorPlugins"
+    static let crashReportExtension = "KSCrashCrashReportExtension"
 }
 
 extension String {

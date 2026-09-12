@@ -40,7 +40,8 @@ extension KSCrash {
     public func sendRunSummaries(with configuration: SendConfiguration) async throws -> SendResult<RunSummary> {
         try await RunSummarySend.send(
             store: Self.makeStore(),
-            pipeline: configuration.runSummaryPipeline
+            pipeline: configuration.runSummaryPipeline,
+            corpseAreas: configuration.corpseAreas
         )
     }
 
@@ -54,6 +55,7 @@ extension KSCrash {
         try await RunSummarySend.send(
             store: Self.makeStore(),
             pipeline: configuration.runSummaryPipeline,
+            corpseAreas: configuration.corpseAreas,
             only: Set(ids)
         )
     }
@@ -73,7 +75,8 @@ extension KSCrash {
     public func sendReports(with configuration: SendConfiguration) async throws -> SendResult<Report> {
         try await ReportSend.send(
             store: Self.makeStore(),
-            pipeline: configuration.reportPipeline
+            pipeline: configuration.reportPipeline,
+            corpseAreas: configuration.corpseAreas
         )
     }
 
@@ -89,6 +92,7 @@ extension KSCrash {
         try await ReportSend.send(
             store: Self.makeStore(),
             pipeline: configuration.reportPipeline,
+            corpseAreas: configuration.corpseAreas,
             only: Set(ids)
         )
     }

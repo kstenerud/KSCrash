@@ -24,12 +24,14 @@
 // THE SOFTWARE.
 //
 
+import KSCrash
 import KSCrashMonitorPlugins
 import KSCrashRecording
 import KSCrashRecordingCore
 import KSCrashReportModel
 import XCTest
 
+@testable import KSCrashCrashReportExtension
 @testable import KSCrashMonitors
 
 #if KSCRASH_HAS_METRICKIT
@@ -95,6 +97,86 @@ import XCTest
 
         func testMonitorPlugin() {
             XCTAssertTrue(Self.bridge.isInstalled)
+        }
+
+        // MARK: - End-to-End Skeleton Pipeline
+        //
+        // Everything above drives `Self.bridge` with an empty callbacks table, exercising the
+        // bridge's own lifecycle in isolation. This section instead hooks the SAME bridge (a
+        // second `Monitor<MetricKitMonitor>` would trip the duplicate-id precondition) up to a
+        // real, in-process report-writing pipeline and drives `writeSkeletonReport()` the way
+        // the subscriber does for a diagnostic, proving the ported skeleton path actually
+        // reaches a stored report: writeSkeletonReport -> host.handle -> real pipeline -> a
+        // report the store can read back.
+
+        /// The process-wide install is shared across every suite in this process (see
+        /// .claude/rules/testing.md): whichever suite got there first, the pipeline and a
+        /// store both exist, and the reports land in that install's Reports directory.
+        private static let pipelineReportsDirectory: URL? = {
+            // An ordinary install, because that is what an app running MetricKit has. The
+            // extension install is not a lighter stand-in for one: it redirects the store
+            // into a staging directory that only the capture path publishes out of, so a
+            // report stored through any other path would never reach Reports.
+            var configuration = InstallConfiguration(namespace: "MetricKitE2E")
+            configuration.container = .url(
+                URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString))
+            configuration.monitors = []
+            var reports: URL?
+            letTheInstallSuiteClaimTheProcess()
+            do {
+                try KSCrash.shared.install(configuration)
+                reports = try configuration.locations.reports
+            } catch InstallError.alreadyInstalled {
+                // Another suite installed first; read back from its report area, a sibling of
+                // its Runs directory.
+                guard let runs = kscrash_getRunSummariesPath() else { return nil }
+                reports = URL(fileURLWithPath: String(cString: runs))
+                    .deletingLastPathComponent().appendingPathComponent("Reports", isDirectory: true)
+            } catch {
+                return nil
+            }
+            // The bridge's `init` callback already ran once above with an empty callbacks
+            // table; adding it to the live registry re-runs `init`, this time with the real
+            // exception-handling callbacks the install brought up (see kscm_addMonitor).
+            kscm_addMonitor(bridge.api)
+            kscm_setMonitorEnabled(bridge.api, true)
+            return reports
+        }()
+
+        func testWriteSkeletonReportEndToEnd() throws {
+            let reportsDirectory = try XCTUnwrap(
+                Self.pipelineReportsDirectory, "a report-writing pipeline should be available")
+
+            guard let url = monitor.writeSkeletonReport() else {
+                // When every test target shares one process, an earlier suite's simulated
+                // fatal crash latches the pipeline's fatal state for the rest of the process
+                // and further writes are dropped by design (see .claude/rules/testing.md).
+                try XCTSkipIf(
+                    kscm_testcode_isHandlingFatalException(),
+                    "an earlier suite simulated a fatal crash in this process")
+                XCTFail("writeSkeletonReport should produce a temp report URL once the pipeline is installed")
+                return
+            }
+            defer { try? FileManager.default.removeItem(at: url) }
+
+            let data = try Data(contentsOf: url)
+            XCTAssertNotNil(
+                try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                "the skeleton report file should contain a JSON object")
+
+            // Mirror what the diagnostic handlers do after post-processing the skeleton (see
+            // MetricKitMonitor+CrashDiagnostic.swift): add the resulting report to the store.
+            // This is what proves the path reaches an actual stored report, not just a temp file.
+            let reportID = try XCTUnwrap(addMetricKitReport(data), "the skeleton report should store")
+
+            var config = KSCrashReportStoreCConfiguration_Default()
+            let cReportsPath = strdup(reportsDirectory.path)
+            config.reportsPath = UnsafePointer(cReportsPath)
+            defer { free(cReportsPath) }
+            let raw = try XCTUnwrap(kscrs_readReport(reportID.description, &config, nil))
+            defer { free(raw) }
+            let stored = try JSONSerialization.jsonObject(with: Data(bytes: raw, count: strlen(raw)))
+            XCTAssertNotNil((stored as? [String: Any])?["report"], "the stored report should parse as JSON")
         }
 
         // MARK: - Diagnostic Report Notifications
@@ -930,4 +1012,28 @@ private func testReportID(_ value: Int) -> Report.ID {
                 UInt8((value >> 24) & 0xFF), UInt8((value >> 16) & 0xFF),
                 UInt8((value >> 8) & 0xFF), UInt8(value & 0xFF)
             )))
+}
+
+/// Lets the KSCrashTests bundle, when its suites are going to run in this
+/// process, make its one install before this suite installs in
+/// extension-reporting mode: those suites can only skip when they lose the
+/// race, while this one attaches to a live pipeline and keeps running. Decided
+/// on what the run selected, not on what the bundle holds, so a filtered run
+/// of this suite alone still exercises the extension-reporting install. See
+/// .claude/rules/testing.md.
+private func letTheInstallSuiteClaimTheProcess() {
+    // The runner names the selection in a `-XCTest` argument: `All`, or a
+    // comma list of `Module.Class/test`. The default suite is no use here; it
+    // holds every test in the bundle whatever was selected.
+    let arguments = ProcessInfo.processInfo.arguments
+    var runsInstallSuite = true
+    if let index = arguments.firstIndex(of: "-XCTest"), index + 1 < arguments.count {
+        let selection = arguments[index + 1]
+        runsInstallSuite =
+            selection == "All" || selection.split(separator: ",").contains { $0.hasPrefix("KSCrashTests.") }
+    }
+    guard runsInstallSuite, let claim = NSClassFromString("KSCrashTestsInstallClaim") as? NSObject.Type else {
+        return
+    }
+    _ = claim.perform(NSSelectorFromString("claim"))
 }

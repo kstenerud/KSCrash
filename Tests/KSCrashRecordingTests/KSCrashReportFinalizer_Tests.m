@@ -39,9 +39,14 @@
 static const char *finalizerTestMonitorId(__unused void *context) { return "FinalizerTestMonitor"; }
 
 static CFDictionaryRef finalizerTestStitchReport(CFDictionaryRef reportDict, const char *sidecarPath,
-                                                 __unused KSCrashSidecarScope scope, __unused void *context)
+                                                 KSCrashSidecarScope scope, __unused void *context)
 {
     @autoreleasepool {
+        if (scope == KSCrashSidecarScopeFinal) {
+            // The final pass has no sidecar file; nothing to add.
+            CFRetain(reportDict);
+            return reportDict;
+        }
         NSDictionary *decoded = (__bridge NSDictionary *)reportDict;
         if (![decoded isKindOfClass:[NSDictionary class]]) {
             return NULL;
@@ -446,6 +451,29 @@ static CFDictionaryRef noopStitchReport(CFDictionaryRef reportDict, __unused con
     // The report on disk should NOT have a finalized flag
     NSDictionary *report2 = [self readReportJSON:path];
     XCTAssertNil(report2[@"report"][@"finalized"]);
+}
+
+- (void)testFinalizeSucceedsWhenAMonitorReturnsNullInTheFinalPass
+{
+    [self prepareStore:@"testFinalPassNull"];
+
+    // The failing monitor returns NULL in every scope. With no sidecar of its
+    // own, the only pass that reaches it is the final one, which has no
+    // sidecar to reread on a retry: a NULL there is "nothing to add", and
+    // finalization must not be held back by it (a plugin written to the old
+    // always-a-path contract returns NULL exactly there).
+    kscma_initAPI(&_failingMonitorAPI);
+    _failingMonitorAPI.monitorId = failingMonitorId;
+    _failingMonitorAPI.createStitchedReport = failingStitchReport;
+    kscm_addMonitor(&_failingMonitorAPI);
+
+    NSString *runId = [[NSUUID UUID] UUIDString];
+    NSString *reportID = [self writeReportWithRunId:runId];
+    NSString *path = [self reportPathForID:reportID];
+
+    XCTAssertTrue(kscrs_finalizeReport(path.UTF8String, reportID.UTF8String));
+    NSDictionary *report = [self readReportJSON:path];
+    XCTAssertEqualObjects(report[@"report"][@"finalized"], @YES);
 }
 
 - (void)testFinalizeSucceedsWithNoopSidecar

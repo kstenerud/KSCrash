@@ -121,13 +121,13 @@ static KSCrash_SystemData makeValidSystemData(void)
 
 - (void)testNullReportReturnsNull
 {
-    XCTAssertTrue(kscm_system_createStitchedReport(NULL, "/tmp/fake", KSCrashSidecarScopeReport, NULL) == NULL);
+    XCTAssertTrue(kscm_system_createStitchedReport(NULL, "/tmp/fake", KSCrashSidecarScopeRun, NULL) == NULL);
 }
 
 - (void)testNullSidecarPathReturnsNull
 {
-    XCTAssertTrue(kscm_system_createStitchedReport((__bridge CFDictionaryRef) @{}, NULL, KSCrashSidecarScopeReport,
-                                                   NULL) == NULL);
+    XCTAssertTrue(
+        kscm_system_createStitchedReport((__bridge CFDictionaryRef) @{}, NULL, KSCrashSidecarScopeRun, NULL) == NULL);
 }
 
 - (void)testMissingSidecarFileDeliversTheReportUnchanged
@@ -205,7 +205,7 @@ static KSCrash_SystemData makeValidSystemData(void)
     NSDictionary *report = @{};
 
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
-        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
     XCTAssertTrue(result != nil);
 
     NSDictionary *system = result[KSCrashField_System];
@@ -241,7 +241,7 @@ static KSCrash_SystemData makeValidSystemData(void)
     NSDictionary *report = @{};
 
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
-        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
     XCTAssertTrue(result != nil);
 
     NSDictionary *system = result[KSCrashField_System];
@@ -265,7 +265,7 @@ static KSCrash_SystemData makeValidSystemData(void)
     NSDictionary *report = @{};
 
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
-        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
     XCTAssertTrue(result != nil);
 
     NSDictionary *system = result[KSCrashField_System];
@@ -285,7 +285,7 @@ static KSCrash_SystemData makeValidSystemData(void)
     NSDictionary *report = @{};
 
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
-        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
     XCTAssertTrue(result != nil);
 
     NSDictionary *system = result[KSCrashField_System];
@@ -309,7 +309,7 @@ static KSCrash_SystemData makeValidSystemData(void)
     NSDictionary *report = @{};
 
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
-        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
     XCTAssertTrue(result != nil);
 
     NSDictionary *system = result[KSCrashField_System];
@@ -327,7 +327,7 @@ static KSCrash_SystemData makeValidSystemData(void)
     NSDictionary *report = @{};
 
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
-        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
     XCTAssertTrue(result != nil);
 
     NSDictionary *memory = result[KSCrashField_System][KSCrashField_Memory];
@@ -349,7 +349,7 @@ static KSCrash_SystemData makeValidSystemData(void)
     NSDictionary *report = @{};
 
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
-        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
     XCTAssertTrue(result != nil);
 
     NSDictionary *system = result[KSCrashField_System];
@@ -367,7 +367,7 @@ static KSCrash_SystemData makeValidSystemData(void)
     NSDictionary *report = @{};
 
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
-        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
     XCTAssertTrue(result != nil);
 
     NSDictionary *system = result[KSCrashField_System];
@@ -388,7 +388,7 @@ static KSCrash_SystemData makeValidSystemData(void)
     NSDictionary *report = @{};
 
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
-        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
     XCTAssertTrue(result != nil);
 
     NSDictionary *system = result[KSCrashField_System];
@@ -410,7 +410,7 @@ static KSCrash_SystemData makeValidSystemData(void)
     NSDictionary *report = @{ KSCrashField_Report : @ { @"id" : @"test-id" } };
 
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
-        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
     XCTAssertTrue(result != nil);
 
     NSString *processName = result[KSCrashField_Report][KSCrashField_ProcessName];
@@ -425,7 +425,7 @@ static KSCrash_SystemData makeValidSystemData(void)
     NSDictionary *report = @{};
 
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
-        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
     XCTAssertTrue(result != nil);
 
     // No report section should be created just for process_name
@@ -446,13 +446,23 @@ static KSCrash_SystemData makeValidSystemData(void)
     };
 
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
-        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
     XCTAssertTrue(result != nil);
 
     NSDictionary *system = result[KSCrashField_System];
     XCTAssertEqualObjects(system[@"custom_field"], @"custom_value");
     // Also verify new fields were added
     XCTAssertEqualObjects(system[KSCrashField_SystemName], @"iOS");
+}
+
+- (void)testNonRunScopesReturnTheInputRetained
+{
+    // The System sidecar is run-scoped; any other scope (a per-report walk, the final pass)
+    // must pass the report through unchanged rather than reading the path.
+    NSDictionary *report = @{ @"a" : @1 };
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
+        (__bridge CFDictionaryRef)report, NULL, KSCrashSidecarScopeFinal, NULL);
+    XCTAssertEqualObjects(result, report);
 }
 
 @end

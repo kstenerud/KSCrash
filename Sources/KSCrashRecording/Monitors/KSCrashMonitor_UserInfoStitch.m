@@ -269,9 +269,17 @@ static void onUnknown(const char *key, uint16_t keyLen, __unused uint8_t type, v
 // ============================================================================
 
 CFDictionaryRef kscm_userinfo_createStitchedReport(CFDictionaryRef reportDict, const char *sidecarPath,
-                                                   __unused KSCrashSidecarScope scope, __unused void *context)
+                                                   KSCrashSidecarScope scope, __unused void *context)
 {
-    if (!reportDict || !sidecarPath) {
+    if (reportDict == NULL) {
+        return NULL;
+    }
+    if (scope != KSCrashSidecarScopeRun) {
+        // Not this monitor's scope (e.g. the final pass, which has no sidecar file).
+        CFRetain(reportDict);
+        return reportDict;
+    }
+    if (sidecarPath == NULL) {
         return NULL;
     }
 

@@ -28,6 +28,7 @@
 #define HDR_KSDynamicLinker_h
 
 #include <dlfcn.h>
+#include <mach/mach.h>
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -93,6 +94,37 @@ bool ksdl_binaryImageForHeader(const void *const header_ptr, const char *const i
  * @return true if at least some information was found.
  */
 bool ksdl_dladdr(const uintptr_t address, Dl_info *const info);
+
+/** The __crash_info strings read out of one image of a task.
+ * Every non-NULL field is heap-allocated; release with ksdl_freeCrashInfoStrings.
+ */
+typedef struct {
+    char *message;
+    char *message2;
+    char *backtrace;
+    char *signature;
+} KSCrashInfoStrings;
+
+/** Read the __DATA,__crash_info strings from an image of @c task.
+ *
+ * The section coordinates and the message strings are read out of @c task (cross-task), so this
+ * works against another process (e.g. a corpse). Allocates; not async-signal-safe.
+ *
+ * @param task The task whose image to read.
+ *
+ * @param loadAddress The image's load address in @c task.
+ *
+ * @param buffer Receives the strings found; all fields NULL when none.
+ *
+ * @return true if at least one string was found.
+ */
+bool ksdl_readCrashInfoFromTaskImage(task_t task, uintptr_t loadAddress, KSCrashInfoStrings *buffer);
+
+/** Free the strings of a KSCrashInfoStrings and NULL its fields.
+ *
+ * @param strings The strings to free. Fields that are NULL are ignored.
+ */
+void ksdl_freeCrashInfoStrings(KSCrashInfoStrings *strings);
 
 #ifdef __cplusplus
 }

@@ -27,9 +27,12 @@
 #ifndef KSCompactUnwind_h
 #define KSCompactUnwind_h
 
+#include <mach/mach_types.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+
+#include "KSMemory.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -184,6 +187,23 @@ bool kscu_encodingRequiresDwarf(compact_unwind_encoding_t encoding);
  */
 uint32_t kscu_getMode(compact_unwind_encoding_t encoding);
 
+// MARK: - Memory Access
+
+/**
+ * Read a pointer-sized value safely from a task's memory.
+ *
+ * This function is async-signal-safe.
+ *
+ * @param task Task to read from. mach_task_self() in-process; a remote task port otherwise.
+ * @param address Address to read from.
+ * @param outValue Receives the value on success.
+ * @return True if the read succeeded.
+ */
+static inline bool kscu_readTaskPointer(task_t task, uintptr_t address, uintptr_t *outValue)
+{
+    return ksmem_copySafelyFromTask(task, (const void *)address, outValue, sizeof(*outValue));
+}
+
 // MARK: - Architecture-Specific Decoders
 
 #if defined(__arm64__)
@@ -198,10 +218,12 @@ uint32_t kscu_getMode(compact_unwind_encoding_t encoding);
  * @param fp Current frame pointer.
  * @param lr Current link register (return address in leaf functions).
  * @param result Output structure for recovered register values.
+ * @param task Task whose stack memory to read. mach_task_self() for this process; a remote task
+ *        port to unwind a thread in another task.
  * @return True if decoding succeeded, false if DWARF fallback is needed.
  */
 bool kscu_arm64_decode(compact_unwind_encoding_t encoding, uintptr_t pc, uintptr_t sp, uintptr_t fp, uintptr_t lr,
-                       KSCompactUnwindResult *result);
+                       KSCompactUnwindResult *result, task_t task);
 #endif
 
 #if defined(__x86_64__)
@@ -215,10 +237,12 @@ bool kscu_arm64_decode(compact_unwind_encoding_t encoding, uintptr_t pc, uintptr
  * @param sp Current stack pointer.
  * @param bp Current base pointer (frame pointer).
  * @param result Output structure for recovered register values.
+ * @param task Task whose stack memory to read. mach_task_self() for this process; a remote task
+ *        port to unwind a thread in another task.
  * @return True if decoding succeeded, false if DWARF fallback is needed.
  */
 bool kscu_x86_64_decode(compact_unwind_encoding_t encoding, uintptr_t pc, uintptr_t sp, uintptr_t bp,
-                        KSCompactUnwindResult *result);
+                        KSCompactUnwindResult *result, task_t task);
 #endif
 
 #if defined(__arm__) && !defined(__arm64__)
@@ -233,10 +257,12 @@ bool kscu_x86_64_decode(compact_unwind_encoding_t encoding, uintptr_t pc, uintpt
  * @param r7 Current frame pointer (R7 on ARM32).
  * @param lr Current link register.
  * @param result Output structure for recovered register values.
+ * @param task Task whose stack memory to read. mach_task_self() for this process; a remote task
+ *        port to unwind a thread in another task.
  * @return True if decoding succeeded, false if DWARF fallback is needed.
  */
 bool kscu_arm_decode(compact_unwind_encoding_t encoding, uintptr_t pc, uintptr_t sp, uintptr_t r7, uintptr_t lr,
-                     KSCompactUnwindResult *result);
+                     KSCompactUnwindResult *result, task_t task);
 #endif
 
 #if defined(__i386__)
@@ -250,10 +276,12 @@ bool kscu_arm_decode(compact_unwind_encoding_t encoding, uintptr_t pc, uintptr_t
  * @param sp Current stack pointer.
  * @param bp Current base pointer (frame pointer).
  * @param result Output structure for recovered register values.
+ * @param task Task whose stack memory to read. mach_task_self() for this process; a remote task
+ *        port to unwind a thread in another task.
  * @return True if decoding succeeded, false if DWARF fallback is needed.
  */
 bool kscu_x86_decode(compact_unwind_encoding_t encoding, uintptr_t pc, uintptr_t sp, uintptr_t bp,
-                     KSCompactUnwindResult *result);
+                     KSCompactUnwindResult *result, task_t task);
 #endif
 
 #ifdef __cplusplus

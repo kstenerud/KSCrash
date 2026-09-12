@@ -39,10 +39,15 @@
 static const char *testMonitorId(__unused void *context) { return "TestStitchMonitor"; }
 
 // Reads the sidecar file as UTF-8 text and inserts it under "test_stitch" in the report.
-static CFDictionaryRef testStitchReport(CFDictionaryRef reportDict, const char *sidecarPath,
-                                        __unused KSCrashSidecarScope scope, __unused void *context)
+static CFDictionaryRef testStitchReport(CFDictionaryRef reportDict, const char *sidecarPath, KSCrashSidecarScope scope,
+                                        __unused void *context)
 {
     @autoreleasepool {
+        if (scope != KSCrashSidecarScopeRun) {
+            // The final pass reaches every registered monitor with no sidecar; nothing to add.
+            CFRetain(reportDict);
+            return reportDict;
+        }
         NSDictionary *decoded = (__bridge NSDictionary *)reportDict;
         if (![decoded isKindOfClass:[NSDictionary class]]) {
             return NULL;
@@ -64,6 +69,72 @@ static CFDictionaryRef testStitchReport(CFDictionaryRef reportDict, const char *
 
 // Test helpers exposed from KSCrashC.c.
 extern void kscrash_testcode_setRunID(const char *runID);
+#pragma mark - Test monitors for stitch ordering
+
+static const char *orderMonitorAId(__unused void *context) { return "OrderMonitorA"; }
+static const char *orderMonitorBId(__unused void *context) { return "OrderMonitorB"; }
+
+// Writes its sidecar's contents under a shared "ordered" key, so whichever monitor stitches last wins.
+static CFDictionaryRef orderedStitchReport(CFDictionaryRef reportDict, const char *sidecarPath,
+                                           KSCrashSidecarScope scope, __unused void *context)
+{
+    @autoreleasepool {
+        if (scope != KSCrashSidecarScopeRun) {
+            // The final pass reaches every registered monitor with no sidecar; nothing to add.
+            CFRetain(reportDict);
+            return reportDict;
+        }
+        NSDictionary *decoded = (__bridge NSDictionary *)reportDict;
+        if (![decoded isKindOfClass:[NSDictionary class]]) {
+            return NULL;
+        }
+        NSString *content = [NSString stringWithContentsOfFile:[NSString stringWithUTF8String:sidecarPath]
+                                                      encoding:NSUTF8StringEncoding
+                                                         error:nil];
+        if (content == nil) {
+            return NULL;
+        }
+        NSMutableDictionary *dict = [decoded mutableCopy];
+        dict[@"ordered"] = content;
+        return (__bridge_retained CFDictionaryRef)dict;
+    }
+}
+
+#pragma mark - Final-pass test monitor
+
+static const char *finalPassMonitorId(__unused void *context) { return "FinalPassMonitor"; }
+
+// Marks the report when the final pass reaches it; retains-and-returns for sidecar scopes.
+static CFDictionaryRef finalPassStitchReport(CFDictionaryRef reportDict, const char *sidecarPath,
+                                             KSCrashSidecarScope scope, __unused void *context)
+{
+    @autoreleasepool {
+        if (scope != KSCrashSidecarScopeFinal) {
+            CFRetain(reportDict);
+            return reportDict;
+        }
+        NSDictionary *decoded = (__bridge NSDictionary *)reportDict;
+        if (![decoded isKindOfClass:[NSDictionary class]]) {
+            return NULL;
+        }
+        NSMutableDictionary *dict = [decoded mutableCopy];
+        dict[@"final_pass"] = @YES;
+        dict[@"final_pass_sidecar_path"] = sidecarPath == NULL ? @"null" : @"set";
+        return (__bridge_retained CFDictionaryRef)dict;
+    }
+}
+
+#pragma mark - Throwing test monitor
+
+static const char *throwingMonitorId(__unused void *context) { return "ThrowingTestMonitor"; }
+
+// Simulates a broken plugin stitcher: throws no matter the scope.
+static CFDictionaryRef throwingStitchReport(__unused CFDictionaryRef reportDict, __unused const char *sidecarPath,
+                                            __unused KSCrashSidecarScope scope, __unused void *context)
+{
+    [NSException raise:NSInternalInconsistencyException format:@"broken stitcher"];
+    return NULL;
+}
 
 @interface KSCrashReportStoreC_RunSidecar_Tests : FileBasedTestCase
 @end
@@ -255,6 +326,10 @@ extern void kscrash_testcode_setRunID(const char *runID);
 }
 
 #pragma mark - Run Sidecar Orphan Cleanup
+
+// The tests in this group leave runSidecarRetentionSeconds at 0 (the setUp memset), which
+// means delete-on-sight; they double as coverage for the zero-retention behavior. The
+// retention-window tests further down set it explicitly.
 
 - (void)testInitializationCleansOrphanedRunSidecars
 {
@@ -545,6 +620,123 @@ extern void kscrash_testcode_setRunID(const char *runID);
     XCTAssertFalse([fm fileExistsAtPath:nonUUID]);
 }
 
+#pragma mark - Run Sidecar Retention Window
+
+- (void)setModificationDate:(NSDate *)date ofItemAtPath:(NSString *)path
+{
+    NSError *error = nil;
+    XCTAssertTrue([[NSFileManager defaultManager] setAttributes:@{ NSFileModificationDate : date }
+                                                   ofItemAtPath:path
+                                                          error:&error],
+                  @"%@", error);
+}
+
+// Ages the whole directory: its entries first, then the directory itself, since
+// age is measured from the newest write anywhere in it.
+- (void)setModificationDate:(NSDate *)date forRunSidecarDirWithRunID:(NSString *)runId
+{
+    NSString *runDir =
+        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:runId];
+    for (NSString *entry in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:runDir error:nil]) {
+        [self setModificationDate:date ofItemAtPath:[runDir stringByAppendingPathComponent:entry]];
+    }
+    [self setModificationDate:date ofItemAtPath:runDir];
+}
+
+- (void)testOrphanCleanupMeasuresAgeFromTheNewestWriteInTheDir
+{
+    // A directory's own mtime is the run's start (an entry was last created
+    // then); a run that outlives the window and then crashes has fresh writes
+    // inside, and those are what say the data is still wanted.
+    [self prepareStoreWithRunSidecars:@"testRetentionNewestWrite"];
+    _storeConfig.runSidecarRetentionSeconds = KSCRS_DEFAULT_RUN_SIDECAR_RETENTION_SECONDS;
+    NSString *runId = [[NSUUID UUID] UUIDString];
+    [self writeRunSidecar:@"System" runId:runId contents:@"system data"];
+    NSString *runDir =
+        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:runId];
+    [self setModificationDate:[NSDate dateWithTimeIntervalSinceNow:-31.0 * 24.0 * 60.0 * 60.0] ofItemAtPath:runDir];
+
+    kscrash_testcode_setRunID("11111111-aaaa-bbbb-cccc-000000000001");
+    kscrs_reclaimOrphanedRunData(&_storeConfig);
+
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir],
+                  @"An old directory with a fresh write inside is still within the window");
+}
+
+- (void)testOrphanCleanupAppliesTheWindowToSessionsFiles
+{
+    // The sessions file carries the run's session ids, which a corpse report
+    // stitches at delivery, so it waits out the window like the sidecars do.
+    [self prepareStoreWithRunSidecars:@"testRetentionSessions"];
+    _storeConfig.runSidecarRetentionSeconds = KSCRS_DEFAULT_RUN_SIDECAR_RETENTION_SECONDS;
+    NSString *young = [[NSUUID UUID] UUIDString];
+    NSString *aged = [[NSUUID UUID] UUIDString];
+    NSString *youngPath = [self writeSessionsFileForRunId:young];
+    NSString *agedPath = [self writeSessionsFileForRunId:aged];
+    [self setModificationDate:[NSDate dateWithTimeIntervalSinceNow:-31.0 * 24.0 * 60.0 * 60.0] ofItemAtPath:agedPath];
+
+    kscrash_testcode_setRunID("11111111-aaaa-bbbb-cccc-000000000001");
+    kscrs_reclaimOrphanedRunData(&_storeConfig);
+
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:youngPath],
+                  @"An unreferenced sessions file inside the window must survive");
+    XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:agedPath],
+                   @"An unreferenced sessions file past the window is deleted");
+}
+
+- (void)testOrphanCleanupKeepsYoungUnreferencedRunSidecarDir
+{
+    [self prepareStoreWithRunSidecars:@"testRetentionYoung"];
+    _storeConfig.runSidecarRetentionSeconds = KSCRS_DEFAULT_RUN_SIDECAR_RETENTION_SECONDS;
+    NSString *runId = [[NSUUID UUID] UUIDString];
+    [self writeRunSidecar:@"System" runId:runId contents:@"system data"];
+
+    kscrash_testcode_setRunID("11111111-aaaa-bbbb-cccc-000000000001");
+    kscrs_reclaimOrphanedRunData(&_storeConfig);
+
+    NSString *runDir =
+        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:runId];
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir],
+                  @"An unreferenced dir inside the retention window must survive");
+}
+
+- (void)testOrphanCleanupDeletesAgedUnreferencedRunSidecarDir
+{
+    [self prepareStoreWithRunSidecars:@"testRetentionAged"];
+    _storeConfig.runSidecarRetentionSeconds = KSCRS_DEFAULT_RUN_SIDECAR_RETENTION_SECONDS;
+    NSString *runId = [[NSUUID UUID] UUIDString];
+    [self writeRunSidecar:@"System" runId:runId contents:@"system data"];
+    [self setModificationDate:[NSDate dateWithTimeIntervalSinceNow:-31.0 * 24.0 * 60.0 * 60.0]
+        forRunSidecarDirWithRunID:runId];
+
+    kscrash_testcode_setRunID("11111111-aaaa-bbbb-cccc-000000000001");
+    kscrs_reclaimOrphanedRunData(&_storeConfig);
+
+    NSString *runDir =
+        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:runId];
+    XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:runDir],
+                   @"An unreferenced dir past the retention window must be deleted");
+}
+
+- (void)testOrphanCleanupKeepsAgedReferencedRunSidecarDir
+{
+    [self prepareStoreWithRunSidecars:@"testRetentionReferenced"];
+    _storeConfig.runSidecarRetentionSeconds = KSCRS_DEFAULT_RUN_SIDECAR_RETENTION_SECONDS;
+    NSString *runId = [[NSUUID UUID] UUIDString];
+    [self writeReportWithRunId:runId];
+    [self writeRunSidecar:@"System" runId:runId contents:@"system data"];
+    [self setModificationDate:[NSDate dateWithTimeIntervalSinceNow:-31.0 * 24.0 * 60.0 * 60.0]
+        forRunSidecarDirWithRunID:runId];
+
+    kscrash_testcode_setRunID("11111111-aaaa-bbbb-cccc-000000000001");
+    kscrs_reclaimOrphanedRunData(&_storeConfig);
+
+    NSString *runDir =
+        [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:runId];
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:runDir],
+                  @"A referenced dir is kept regardless of age");
+}
+
 - (void)testDeleteReportWithNoRunSidecarsPathDoesNotCrash
 {
     [self prepareStoreWithRunSidecars:@"testDeleteNoRunSidecars"];
@@ -593,6 +785,105 @@ extern void kscrash_testcode_setRunID(const char *runID);
     XCTAssertEqualObjects(decoded[@"test_stitch"], @"hello from sidecar");
 
     kscm_removeMonitor(&api);
+}
+
+- (void)testThrowingStitchCallbackIsContainedAndDoesNotPoisonTheStore
+{
+    [self prepareStoreWithRunSidecars:@"testThrowingStitch"];
+
+    KSCrashMonitorAPI api = {};
+    kscma_initAPI(&api);
+    api.monitorId = throwingMonitorId;
+    api.createStitchedReport = throwingStitchReport;
+    kscm_addMonitor(&api);
+
+    NSString *reportID = [self writeReportWithRunId:[[NSUUID UUID] UUIDString]];
+
+    // The read survives the throw (final pass reaches the broken monitor) and the report
+    // comes back unstitched rather than lost.
+    char *rawReport = kscrs_readReport(reportID.UTF8String, &_storeConfig, NULL);
+    XCTAssertTrue(rawReport != NULL);
+    free(rawReport);
+
+    // Finalization reports the failure instead of wedging.
+    // The filename grammar is <wallClockNs>-<id>.json; the exact name does not
+    // matter here, only that the path does not hold a decodable report.
+    NSString *path = [NSString stringWithFormat:@"%s/00000000000000000001-%@.json", _storeConfig.reportsPath, reportID];
+    XCTAssertFalse(kscrs_finalizeReport(path.UTF8String, reportID.UTF8String));
+
+    kscm_removeMonitor(&api);
+
+    // The regression this pins: an exception unwinding through the walk used to leave the
+    // store mutex locked, so this next call deadlocked forever.
+    kscrs_setStitchConfig(&_storeConfig);
+}
+
+- (void)testFinalPassReachesRegisteredMonitorsWithNoSidecar
+{
+    [self prepareStoreWithRunSidecars:@"testFinalPass"];
+
+    KSCrashMonitorAPI api = {};
+    kscma_initAPI(&api);
+    api.monitorId = finalPassMonitorId;
+    api.createStitchedReport = finalPassStitchReport;
+    kscm_addMonitor(&api);
+
+    // No sidecars anywhere: the final pass alone must reach the monitor.
+    NSString *reportID = [self writeReportWithRunId:[[NSUUID UUID] UUIDString]];
+    char *rawReport = kscrs_readReport(reportID.UTF8String, &_storeConfig, NULL);
+    XCTAssertTrue(rawReport != NULL);
+
+    NSData *data = [NSData dataWithBytesNoCopy:rawReport length:strlen(rawReport) freeWhenDone:YES];
+    NSDictionary *decoded = [KSJSONCodec decode:data options:KSJSONDecodeOptionNone error:nil];
+    XCTAssertEqualObjects(decoded[@"final_pass"], @YES, @"the final pass must run on read");
+    XCTAssertEqualObjects(decoded[@"final_pass_sidecar_path"], @"null", @"the final pass has no sidecar file");
+
+    kscm_removeMonitor(&api);
+}
+
+- (void)testRunSidecarStitchAppliesInPriorityOrder
+{
+    [self prepareStoreWithRunSidecars:@"testStitchPriorityOrder"];
+
+    KSCrashMonitorAPI apiA = {};
+    kscma_initAPI(&apiA);
+    apiA.monitorId = orderMonitorAId;
+    apiA.createStitchedReport = orderedStitchReport;
+    KSCrashMonitorAPI apiB = {};
+    kscma_initAPI(&apiB);
+    apiB.monitorId = orderMonitorBId;
+    apiB.createStitchedReport = orderedStitchReport;
+
+    NSString *runId = [[NSUUID UUID] UUIDString];
+    [self writeRunSidecar:@"OrderMonitorA" runId:runId contents:@"from-A"];
+    [self writeRunSidecar:@"OrderMonitorB" runId:runId contents:@"from-B"];
+
+    // Higher priority stitches last and wins the shared key: B wins here.
+    apiA.priority = 0;
+    apiB.priority = 10;
+    kscm_addMonitor(&apiA);
+    kscm_addMonitor(&apiB);
+    NSString *reportID = [self writeReportWithRunId:runId];
+    char *raw = kscrs_readReport(reportID.UTF8String, &_storeConfig, NULL);
+    NSData *data = [NSData dataWithBytesNoCopy:raw length:strlen(raw) freeWhenDone:YES];
+    NSDictionary *decoded = [KSJSONCodec decode:data options:KSJSONDecodeOptionNone error:nil];
+    XCTAssertEqualObjects(decoded[@"ordered"], @"from-B");
+    kscm_removeMonitor(&apiA);
+    kscm_removeMonitor(&apiB);
+
+    // Flip the priorities: A now wins, proving the order follows priority, not registration or the
+    // directory listing.
+    apiA.priority = 10;
+    apiB.priority = 0;
+    kscm_addMonitor(&apiA);
+    kscm_addMonitor(&apiB);
+    NSString *reportID2 = [self writeReportWithRunId:runId];
+    char *raw2 = kscrs_readReport(reportID2.UTF8String, &_storeConfig, NULL);
+    NSData *data2 = [NSData dataWithBytesNoCopy:raw2 length:strlen(raw2) freeWhenDone:YES];
+    NSDictionary *decoded2 = [KSJSONCodec decode:data2 options:KSJSONDecodeOptionNone error:nil];
+    XCTAssertEqualObjects(decoded2[@"ordered"], @"from-A");
+    kscm_removeMonitor(&apiA);
+    kscm_removeMonitor(&apiB);
 }
 
 - (void)testRunSidecarNotStitchedWhenNoMatchingSidecar
