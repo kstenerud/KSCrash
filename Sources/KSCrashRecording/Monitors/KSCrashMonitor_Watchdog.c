@@ -268,8 +268,15 @@ static void populateReportForCurrentHang(KSHangMonitor *monitor)
         return;
     }
 
+    // No offending thread: the main thread is this report's subject, but it did not
+    // fault, it was observed. Naming it here makes the recrash check read it as
+    // evidence that the faulting thread is already inside a handler, and a hung main
+    // thread is very often hung precisely because it is writing another report. The
+    // event would then be classed a recrash and rewrite that report's file in place,
+    // destroying it. The recrash test is about the handler thread, and the handler
+    // here is this watchdog thread, which notify() reads for itself.
     KSCrash_MonitorContext *crashContext = g_callbacks.notify(
-        (thread_t)ksthread_main(),
+        MACH_PORT_NULL,
         (KSCrash_ExceptionHandlingRequirements) {
             .asyncSafety = false, .isFatal = false, .shouldRecordAllThreads = true, .shouldWriteReport = true });
 

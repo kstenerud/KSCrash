@@ -35,9 +35,13 @@
 // Stub callbacks for testing hang detection
 static KSCrash_MonitorContext g_stubContext;
 
-static KSCrash_MonitorContext *stubNotify(__unused thread_t thread,
-                                          __unused KSCrash_ExceptionHandlingRequirements requirements)
+/** The offending thread the watchdog last named, or the sentinel if it has not raised
+ * an event yet. MACH_PORT_NULL is a meaningful value here, so the sentinel is not it. */
+static thread_t g_stubNotifyThread = (thread_t)~0u;
+
+static KSCrash_MonitorContext *stubNotify(thread_t thread, __unused KSCrash_ExceptionHandlingRequirements requirements)
 {
+    g_stubNotifyThread = thread;
     memset(&g_stubContext, 0, sizeof(g_stubContext));
     return &g_stubContext;
 }
@@ -171,6 +175,37 @@ static void captureHangStart(KSHangChangeType change, uint64_t start, uint64_t e
 
     XCTAssertGreaterThan(capture.start, 0ULL);
     XCTAssertGreaterThanOrEqual(capture.end, capture.start);
+
+    api->setEnabled(false, NULL);
+}
+
+- (void)testHangEventNamesNoOffendingThread
+{
+    // The main thread is this report's subject, but it did not fault, it was observed.
+    // Naming it would let the recrash check match it against a live handler slot, and a
+    // hung main thread is very often hung because it is writing another report; the event
+    // would then be classed a recrash and rewrite that report's file in place. Passing
+    // MACH_PORT_NULL is what keeps an observed subject out of that check.
+    KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
+    KSCrash_ExceptionHandlerCallbacks callbacks = { .notify = stubNotify,
+                                                    .handle = stubHandle_deprecated,
+                                                    .handleWithResult = stubHandle };
+    g_stubNotifyThread = (thread_t)~0u;
+    api->init(&callbacks, NULL);
+    api->setEnabled(true, NULL);
+
+    KSSempahore *waiter = [KSSempahore withValue:0];
+    HangCapture capture = { .waiter = waiter };
+    g_hangCapture = &capture;
+    KSHangEventCallback previous = kshang_setHangEventCallback(captureHangStart);
+
+    XCTAssertTrue([waiter waitForTimeInterval:5]);
+    kshang_setHangEventCallback(previous);
+    g_hangCapture = NULL;
+
+    XCTAssertNotEqual(g_stubNotifyThread, (thread_t)~0u, @"the watchdog should have raised an event");
+    XCTAssertEqual(g_stubNotifyThread, (thread_t)MACH_PORT_NULL,
+                   @"an observed subject must not be named as the offending thread");
 
     api->setEnabled(false, NULL);
 }
