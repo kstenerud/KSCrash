@@ -68,55 +68,12 @@
 extern "C" {
 #endif
 
-#include <CoreFoundation/CoreFoundation.h>
-#include <stdint.h>
+#include <stdbool.h>
 
 #include "KSCrashNamespace.h"
 
-/**
- * Describes the type of hang state change being reported to observers.
- */
-typedef CF_ENUM(uint8_t, KSHangChangeType) {
-    /** No change (placeholder value). */
-    KSHangChangeTypeNone = 0,
-    /** A new hang has been detected and a report is being generated. */
-    KSHangChangeTypeStarted = 1,
-    /** An ongoing hang's duration has been updated. */
-    KSHangChangeTypeUpdated = 2,
-    /** The hang has ended (main thread became responsive). */
-    KSHangChangeTypeEnded = 3,
-} CF_SWIFT_NAME(HangChangeType);
-
-/**
- * C function pointer type for observing hang state changes.
- *
- * @param change The type of hang state change.
- * @param startTimestamp Monotonic timestamp (ns) when the hang started.
- * @param endTimestamp Monotonic timestamp (ns) of the current/end state.
- * @param context User-provided context pointer.
- */
-typedef void (*KSHangObserverCallback)(KSHangChangeType change, uint64_t startTimestamp, uint64_t endTimestamp,
-                                       void *context);
-
-/** Opaque token returned by kshang_addHangObserver. Use with kshang_removeHangObserver. */
-typedef int KSHangObserverToken;
-
-/** Sentinel value indicating an invalid or failed observer registration. */
-enum { KSHangObserverTokenNotFound = -1 };
-
-/** Registers a C observer for hang state changes.
- *
- * @param callback The function to call on hang state changes.
- * @param context User-provided context pointer passed to callback on each call.
- * @return A token identifying the observer, or KSHangObserverTokenNotFound on failure.
- */
-KSHangObserverToken kshang_addHangObserver(KSHangObserverCallback callback, void *context);
-
-/** Removes a previously registered observer.
- *
- * @param token The token returned by kshang_addHangObserver.
- */
-void kshang_removeHangObserver(KSHangObserverToken token);
+/** Whether the hang monitor is currently enabled. */
+bool kshang_isEnabled(void);
 
 #ifdef __cplusplus
 }

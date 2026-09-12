@@ -37,7 +37,6 @@ import os.log
 
 #if KSCRASH_HAS_METRICKIT
 
-    @available(iOS 14.0, macOS 12.0, *)
     @available(tvOS, unavailable)
     @available(watchOS, unavailable)
     extension MetricKitMonitor {
@@ -47,7 +46,7 @@ import os.log
         private static let mainRunloopHangThreadIndex = 0
 
         @discardableResult
-        func processHangDiagnostic(_ diagnostic: MXHangDiagnostic, timestamp: Date) -> Int64? {
+        func processHangDiagnostic(_ diagnostic: MXHangDiagnostic, timestamp: Date) -> Report.ID? {
             guard let tempURL = writeSkeletonReport() else { return nil }
             defer { try? FileManager.default.removeItem(at: tempURL) }
 
@@ -59,7 +58,7 @@ import os.log
         // error.subtype == .hang, rather than inventing a fatal error type. The report is
         // non-fatal and describes a previous window, so it must not touch current-run state.
         private func postProcessHangReport(atPath path: String, diagnostic: MXHangDiagnostic, timestamp: Date)
-            -> Int64?
+            -> Report.ID?
         {
             let url = URL(fileURLWithPath: path)
 
@@ -139,16 +138,15 @@ import os.log
                 return nil
             }
 
-            var reportID: Int64 = 0
-            newData.withUnsafeBytes { buffer in
-                guard let ptr = buffer.baseAddress?.assumingMemoryBound(to: CChar.self) else { return }
-                reportID = kscrash_addUserReport(ptr, Int32(buffer.count))
-                os_log(
-                    .default, log: metricKitLog,
-                    "[MONITORS] Added MetricKit hang report (id=%lld, %d bytes, %d threads, app %{public}@, runId=%{public}@)",
-                    reportID, buffer.count, profileData.threads.count, diagnostic.applicationVersion,
-                    crashedRunId ?? "none")
+            guard let reportID = addMetricKitReport(newData) else {
+                os_log(.error, log: metricKitLog, "[MONITORS] Failed to store MetricKit report")
+                return nil
             }
+            os_log(
+                .default, log: metricKitLog,
+                "[MONITORS] Added MetricKit hang report (id=%{public}@, %d bytes, %d threads, app %{public}@, runId=%{public}@)",
+                reportID.description, newData.count, profileData.threads.count, diagnostic.applicationVersion,
+                crashedRunId ?? "none")
             return reportID
         }
 

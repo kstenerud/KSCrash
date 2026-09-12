@@ -31,15 +31,21 @@ import KSCrash
 import Logging
 import SwiftUI
 
-public enum BasePath: String, CaseIterable {
+public enum ContainerChoice: String, CaseIterable {
     case `default`
     case cache
     case applicationSupport
+
+    var container: Container {
+        switch self {
+        case .default: return .default
+        case .cache: return .caches
+        case .applicationSupport: return .applicationSupport
+        }
+    }
 }
 
 public class InstallBridge: ObservableObject {
-    public typealias MonitorType = KSCrashRecording.MonitorType
-
     public enum InstallationError: Error, LocalizedError {
         case kscrashError(String)
         case unexpectedError(String)
@@ -57,32 +63,24 @@ public class InstallBridge: ObservableObject {
 
     private static let logger = Logger(label: "InstallBridge")
 
-    private func setBasePath(_ value: BasePath) {
-        let basePath = value.basePaths.first.flatMap { $0 + "/KSCrash" }
-        Self.logger.info("Setting KSCrash base path to: \(basePath ?? "<default>")")
-        config.installPath = basePath
-    }
-
-    private var config: CrashInstallConfiguration
+    private var config: InstallConfiguration
     private var disposables = Set<AnyCancellable>()
 
-    @Published public var basePath: BasePath = .default
+    @Published public var container: ContainerChoice = .default
     @Published public var installed: Bool = false
-    @Published public var reportsOnlySetup: Bool = false
     @Published public var error: InstallationError?
 
-    @Published public var reportStore: CrashReportStore?
+    /// Where the install put its reports; nil until installed.
+    @Published public var reportsDirectory: URL?
     @Published public var useSamplePipeline: Bool = false
 
     public init() {
-        config = .init()
+        config = InstallConfiguration(namespace: "Sample")
 
-        // Example of setting a crash notify callback from Swift.
-        // To see this in action, comment out the following line below this block:
-        //     "config.isWritingReportCallback = integrationTestIsWritingReportCallback"
-        // Then tap "Install", "Report", "Log Raw to Console" in the sample app to see these custom fields in the raw report.
-        let cb: @convention(c) (UnsafePointer<ExceptionHandlingPlan>, UnsafePointer<ReportWriter>) -> Void = {
-            plan, writer in
+        // Example of adding custom fields at crash time from Swift. The tests
+        // use integrationTestIsWritingReportCallback instead (set below).
+        var callbacks = UnsafeCrashTimeCallbacks()
+        callbacks.isWritingReport = { plan, writer in
             writer.pointee.beginObject(writer, "plan")
             writer.pointee.addBooleanElement(writer, "isFatal", plan.pointee.isFatal)
             writer.pointee.addBooleanElement(writer, "requiresAsyncSafety", plan.pointee.requiresAsyncSafety)
@@ -91,21 +89,23 @@ public class InstallBridge: ObservableObject {
             writer.pointee.addBooleanElement(writer, "shouldRecordAllThreads", plan.pointee.shouldRecordAllThreads)
             writer.pointee.endContainer(writer)
         }
-        config.isWritingReportCallback = cb
-        // The above block is an example only. We use integrationTestIsWritingReportCallback in the tests.
-        config.isWritingReportCallback = integrationTestIsWritingReportCallback
+        callbacks.isWritingReport = integrationTestIsWritingReportCallback
+        config.unsafeCrashTimeCallbacks = callbacks
 
-        $basePath
+        $container
             .removeDuplicates()
-            .sink(receiveValue: setBasePath(_:))
+            .sink { [weak self] choice in
+                Self.logger.info("Setting KSCrash container to: \(choice.rawValue)")
+                self?.config.container = choice.container
+            }
             .store(in: &disposables)
     }
 
     private func handleInstallation(_ block: () throws -> Void) {
         do {
             try block()
-        } catch let error as KSCrashInstallError {
-            let message = error.localizedDescription
+        } catch let error as InstallError {
+            let message = String(describing: error)
             Self.logger.error("Failed to install KSCrash: \(message)")
             self.error = .kscrashError(message)
         } catch {
@@ -122,8 +122,8 @@ public class InstallBridge: ObservableObject {
         }
 
         handleInstallation {
-            try KSCrash.shared.install(with: config)
-            reportStore = KSCrash.shared.reportStore
+            try KSCrash.shared.install(config)
+            reportsDirectory = try KSCrash.shared.installConfiguration?.locations.reports
             installed = true
         }
     }
@@ -131,16 +131,9 @@ public class InstallBridge: ObservableObject {
     // Installs normally and flags that report sending should use the sample
     // pipeline (SampleLogStage -> KeepOnDiskStage), passed at send time.
     public func useSampleSendPipeline() {
-        guard !installed else {
-            error = .alreadyInstalled
-            return
-        }
-
-        handleInstallation {
-            try KSCrash.shared.install(with: config)
-            reportStore = KSCrash.shared.reportStore
+        install()
+        if installed {
             useSamplePipeline = true
-            installed = true
         }
     }
 
@@ -162,84 +155,19 @@ public class InstallBridge: ObservableObject {
             }
         }
     }
-
-    public func setupReportsOnly() {
-        do {
-            let config = CrashReportStoreConfiguration()
-            config.reportsPath = self.config.installPath.map { $0 + "/" + CrashReportStore.defaultInstallSubfolder }
-            reportStore = try CrashReportStore(configuration: config)
-            reportsOnlySetup = true
-        } catch let error as KSCrashInstallError {
-            let message = error.localizedDescription
-            Self.logger.error("Failed to install KSCrash: \(message)")
-            self.error = .kscrashError(message)
-        } catch {
-            let message = error.localizedDescription
-            Self.logger.error("Unexpected error during KSCrash installation: \(message)")
-            self.error = .unexpectedError(message)
-        }
-    }
 }
 
 // An utility method to simplify binding of config fields
 extension InstallBridge {
-    public func configBinding<T>(for keyPath: WritableKeyPath<CrashInstallConfiguration, T>) -> Binding<T> {
-        .init { [config] in
-            config[keyPath: keyPath]
+    public func configBinding<T>(for keyPath: WritableKeyPath<InstallConfiguration, T>) -> Binding<T> {
+        // InstallConfiguration is a struct: a plain [config] capture would
+        // freeze the getter on install-time values while the setter mutates
+        // self.config, so every SwiftUI refresh would appear to revert.
+        .init { [weak self, config] in
+            self?.config[keyPath: keyPath] ?? config[keyPath: keyPath]
         } set: { [weak self] val in
             self?.objectWillChange.send()
             self?.config[keyPath: keyPath] = val
-        }
-    }
-}
-
-// Monitor types are specified here
-extension InstallBridge {
-    public static let allRawMonitorTypes: [(monitor: MonitorType, name: String, description: String)] = [
-        (.machException, "Mach Exception", "Low-level system exceptions"),
-        (.signal, "Signal", "UNIX-style signals indicating abnormal program termination"),
-        (.cppException, "C++ Exception", "Unhandled exceptions in C++ code"),
-        (.nsException, "NSException", "Unhandled Objective-C exceptions"),
-        (.watchdog, "Watchdog", "Hangs and watchdog timeout terminations"),
-        (
-            .termination, "Termination",
-            "OS terminations from resource exhaustion (OOM, thermal) or maintenance (reboot, app upgrade)"
-        ),
-        (.zombie, "Zombie", "Attempts to access deallocated objects"),
-        (.userReported, "User Reported", "Custom crash reports"),
-        (.system, "System", "Additional system information added to reports"),
-        (.applicationState, "Application State", "Application lifecycle added to report"),
-    ]
-
-    public static let allCompositeMonitorTypes: [(monitor: MonitorType, name: String)] = [
-        (.all, "All"),
-        (.fatal, "Fatal"),
-
-        (.productionSafe, "Production-safe"),
-        (.productionSafeMinimal, "Production-safe Minimal"),
-
-        (.required, "Required"),
-        (.optional, "Optional"),
-
-        (.debuggerSafe, "Debugger-safe"),
-        (.debuggerUnsafe, "Debugger-unsafe"),
-
-        (.asyncSafe, "Async-safe"),
-        (.asyncUnsafe, "Async-unsafe"),
-
-        (.manual, "Manual"),
-    ]
-}
-
-extension BasePath {
-    var basePaths: [String] {
-        switch self {
-        case .default:
-            return []
-        case .cache:
-            return NSSearchPathForDirectoriesInDomains(.cachesDirectory, .userDomainMask, true)
-        case .applicationSupport:
-            return NSSearchPathForDirectoriesInDomains(.applicationSupportDirectory, .userDomainMask, true)
         }
     }
 }

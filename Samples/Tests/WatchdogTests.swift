@@ -70,7 +70,7 @@ import XCTest
             XCTAssertEqual(rawReport.crash.error.signal?.signal, 9, "Should be SIGKILL (signal 9)")
 
             let state = try readState()
-            XCTAssertTrue(state.crashedLastLaunch)
+            XCTAssertTrue(state.previousRunWasAbnormal)
             XCTAssertEqual(state.terminationReason, .hang)
         }
 
@@ -102,7 +102,7 @@ import XCTest
             // Trigger a temporary hang that recovers. The watchdog detects
             // the hang, writes a report, and when the main thread resumes
             // finalization stitches the report in-place during the same launch.
-            var installConfig = InstallConfig(installPath: installUrl.path)
+            var installConfig = InstallConfig(namespace: "IntegrationTests", basePath: installUrl.path)
             installConfig.isWatchdogEnabled = true
             installConfig.isHangReportingEnabled = true
             app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
@@ -114,7 +114,7 @@ import XCTest
 
             // The report file appears as soon as the hang is detected (before
             // recovery), so wait specifically for the finalized flag.
-            let reportsDirUrl = installUrl.appendingPathComponent("Reports")
+            let reportsDirUrl = try reportsDirectoryUrl()
             let finalizedExpectation = XCTNSPredicateExpectation(
                 predicate: NSPredicate { _, _ in
                     guard let files = try? FileManager.default.contentsOfDirectory(atPath: reportsDirUrl.path),
@@ -162,7 +162,7 @@ import XCTest
                 // Trigger a hang during app init (before UIApplicationDidBecomeActive).
                 // The watchdog detects and writes a report, but since the hang started
                 // before Active, the report should be deleted on recovery.
-                var installConfig = InstallConfig(installPath: installUrl.path)
+                var installConfig = InstallConfig(namespace: "IntegrationTests", basePath: installUrl.path)
                 installConfig.isWatchdogEnabled = true
                 installConfig.isHangReportingEnabled = true
                 app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
@@ -175,7 +175,7 @@ import XCTest
                 // Wait for the hang to resolve and any reports to be cleaned up.
                 // A startup hang report is created during detection but deleted on
                 // recovery, so the Reports directory should end up empty.
-                let reportsDirUrl = installUrl.appendingPathComponent("Reports")
+                let reportsDirUrl = try reportsDirectoryUrl()
                 let emptyExpectation = XCTNSPredicateExpectation(
                     predicate: NSPredicate { _, _ in
                         guard let files = try? FileManager.default.contentsOfDirectory(atPath: reportsDirUrl.path)
@@ -217,7 +217,7 @@ import XCTest
             XCTAssertNil(hangInfo?.hangRecovered, "Hang should not be marked as recovered")
 
             let state = try readState()
-            XCTAssertTrue(state.crashedLastLaunch)
+            XCTAssertTrue(state.previousRunWasAbnormal)
             XCTAssertEqual(state.terminationReason, .crash)
         }
     }

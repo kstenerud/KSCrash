@@ -43,7 +43,7 @@ static _Atomic bool g_dummyEnabledState = false;
 static _Atomic bool g_dummyPostSystemEnabled = false;
 static const char *const g_eventID = "TestEventID";
 static const char *g_copiedEventID = NULL;
-static int64_t g_dummyResultReportId = 1;
+static const char *g_dummyResultReportId = "4C1B2F3E-0000-4000-8000-000000000001";
 
 static KSCrash_ExceptionHandlerCallbacks dummyExceptionHandlerCallbacks;
 static void dummyInit(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused void *context)
@@ -88,12 +88,12 @@ static KSCrashMonitorAPI g_secondDummyMonitor = {};
 
 static BOOL g_exceptionHandled = NO;
 static BOOL g_finalizeCalled = NO;
-static int64_t g_finalizedReportId = 0;
+static char g_finalizedReportId[KSID_SIZE] = "";
 
 static void myEventCallback(struct KSCrash_MonitorContext *context, KSCrash_ReportResult *result)
 {
     if (result) {
-        result->reportId = g_dummyResultReportId;
+        strlcpy(result->reportId, g_dummyResultReportId, sizeof(result->reportId));
     }
     g_exceptionHandled = YES;
     g_copiedEventID = strdup(context->eventID);
@@ -102,10 +102,14 @@ static void myEventCallback(struct KSCrash_MonitorContext *context, KSCrash_Repo
 static void myFinalizeCallback(__unused struct KSCrash_MonitorContext *context, const KSCrash_ReportResult *result)
 {
     g_finalizeCalled = YES;
-    g_finalizedReportId = result->reportId;
+    strlcpy(g_finalizedReportId, result->reportId, sizeof(g_finalizedReportId));
 }
 
 extern void kscm_testcode_resetState(void);
+struct KSCrashMonitorSavedState;
+extern struct KSCrashMonitorSavedState *kscm_testcode_saveState(void);
+extern void kscm_testcode_restoreState(struct KSCrashMonitorSavedState *saved);
+static struct KSCrashMonitorSavedState *g_savedMonitorState;
 extern bool kscm_testcode_isHandlingFatalException(void);
 extern void kscm_testcode_clearHandlingFatalException(void);
 
@@ -136,11 +140,13 @@ extern void kscm_testcode_clearHandlingFatalException(void);
     g_secondDummyMonitor.isEnabled = secondDummyIsEnabled;
     g_secondDummyEnabledState = false;
 
+    g_savedMonitorState = kscm_testcode_saveState();
     kscm_testcode_resetState();
 }
 
 - (void)tearDown
 {
+    kscm_testcode_restoreState(g_savedMonitorState);
     // Tests here deliberately latch the process-global fatal-exception state, and it outlives
     // this suite: other bundles sharing the process then have their events refused, and the
     // MetricKit end-to-end test skips itself rather than failing, so a real regression there
@@ -641,7 +647,7 @@ static atomic_int g_counter = 0;
 
     KSCrash_ReportResult result = {};
     dummyExceptionHandlerCallbacks.handleWithResult(ctx, &result, false);
-    XCTAssert(result.reportId == g_dummyResultReportId);
+    XCTAssertEqual(strcmp(result.reportId, g_dummyResultReportId), 0);
 }
 
 - (void)testFinalizeCalledForNonFatalWithFinalizeTrue
@@ -651,7 +657,7 @@ static atomic_int g_counter = 0;
     kscm_setEventCallbackWithResult(myEventCallback);
     kscm_setFinalizeReportCallback(myFinalizeCallback);
     g_finalizeCalled = NO;
-    g_finalizedReportId = 0;
+    g_finalizedReportId[0] = '\0';
 
     KSCrash_MonitorContext *ctx = dummyExceptionHandlerCallbacks.notify(
         (thread_t)ksthread_self(),
@@ -659,7 +665,7 @@ static atomic_int g_counter = 0;
     dummyExceptionHandlerCallbacks.handleWithResult(ctx, NULL, true);
 
     XCTAssertTrue(g_finalizeCalled);
-    XCTAssertEqual(g_finalizedReportId, g_dummyResultReportId);
+    XCTAssertEqual(strcmp(g_finalizedReportId, g_dummyResultReportId), 0);
 }
 
 - (void)testFinalizeNotCalledForFatalWithFinalizeTrue
@@ -767,6 +773,56 @@ static atomic_int g_counter = 0;
     XCTAssertTrue(kscm_testcode_isHandlingFatalException(), @"A local fatal event must latch the handler state");
     dummyExceptionHandlerCallbacks.handle(ctx);
     XCTAssertFalse(g_dummyEnabledState, @"A local fatal event must still disable monitors");
+}
+
+/** Whether a notify raised from a fresh thread, naming `offendingThread`, is classed a
+ * recrash. Each probe needs its own thread: a second notify from a thread that already
+ * holds a handler slot matches on the handler thread alone, whatever the offending
+ * thread says. */
+- (BOOL)recrashSeenByWorkerNotifying:(thread_t)offendingThread
+{
+    __block BOOL isRecrash = NO;
+    dispatch_semaphore_t done = dispatch_semaphore_create(0);
+    NSThread *worker = [[NSThread alloc] initWithBlock:^{
+        KSCrash_MonitorContext *ctx = dummyExceptionHandlerCallbacks.notify(
+            offendingThread, (KSCrash_ExceptionHandlingRequirements) { .shouldWriteReport = true });
+        isRecrash = ctx->requirements.crashedDuringExceptionHandling;
+        dummyExceptionHandlerCallbacks.handle(ctx);
+        dispatch_semaphore_signal(done);
+    }];
+    [worker start];
+    XCTAssertEqual(dispatch_semaphore_wait(done, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC)), 0);
+    return isRecrash;
+}
+
+- (void)testObservedSubjectThreadIsNotReadAsARecrash
+{
+    // The watchdog reports about the main thread without that thread having faulted: it
+    // observes it. A hung main thread is very often hung because it is writing another
+    // report, so if such an event named it as the offending thread, the recrash check
+    // would match the live handler slot and the event would rewrite that report's file
+    // in place, destroying it. An observed subject is passed as MACH_PORT_NULL, which
+    // must not match a live slot; naming the thread still must, since that is a real
+    // recrash for a fault delivered to a different handler thread.
+    kscm_addMonitor(&g_dummyMonitor);
+    kscm_enableMonitors();
+    kscm_setEventCallbackWithResult(myEventCallback);
+
+    const thread_t subject = (thread_t)ksthread_self();
+    KSCrash_MonitorContext *held = dummyExceptionHandlerCallbacks.notify(
+        subject, (KSCrash_ExceptionHandlingRequirements) { .shouldWriteReport = true });
+    XCTAssertFalse(held->requirements.crashedDuringExceptionHandling);
+
+    // Each probe needs its own thread: a second notify from a thread that already holds a
+    // slot matches on the handler thread alone, whatever the offending thread says.
+    // The semaphore is the happens-before edge for reading the result back; polling
+    // isFinished would leave the read racing the worker's write.
+    XCTAssertFalse([self recrashSeenByWorkerNotifying:MACH_PORT_NULL],
+                   @"An observed subject must not be read as a recrash");
+    XCTAssertTrue([self recrashSeenByWorkerNotifying:subject],
+                  @"A thread that faulted while handling is still a recrash");
+
+    dummyExceptionHandlerCallbacks.handle(held);
 }
 
 - (void)testNullOffendingThreadDoesNotMatchFreedHandlerSlots

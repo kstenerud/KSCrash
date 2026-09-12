@@ -25,17 +25,29 @@
 #ifndef HDR_KSID_h
 #define HDR_KSID_h
 
+#include <stdbool.h>
+
 #include "KSCrashNamespace.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+/** The length of an ID's text (8-4-4-4-12 lowercase hex), and the buffer size that holds it with its terminator. */
+#define KSID_LENGTH 36
+#define KSID_SIZE (KSID_LENGTH + 1)
+
 /** Generate a new human readabale, null terminated, globally unique ID string.
  *
  * @param destinationBuffer37Bytes Buffer of at least 37 bytes to hold the ID.
  */
 void ksid_generate(char *destinationBuffer37Bytes);
+
+/** Whether a NUL terminated string is an ID in the form ksid_generate
+ * produces: 36 characters, 8-4-4-4-12, lowercase hex and dashes.
+ * Async-signal-safe.
+ */
+bool ksid_isValid(const char *id);
 
 #ifdef __cplusplus
 }

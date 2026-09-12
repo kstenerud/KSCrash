@@ -50,13 +50,14 @@ swift format format --in-place --configuration .swift-format <file>  # single Sw
 
 KSCrash is a layered crash reporting framework:
 
-- **Recording**: Core crash detection and reporting
+- **Install & Runtime**: Swift-owned in the `KSCrash` module: `KSCrash.shared.install(InstallConfiguration)`, plugins by instance, `metadata` (LiveMetadata), `SessionRecorder`, `hangEvents`, `Backtrace`
+- **Recording**: Core crash detection and reporting (C, driven by the Swift install)
 - **Send**: The Swift async send in the `KSCrash` module (`sendReports`, `sendRunSummaries`): pending items walk a `PipelineStage` pipeline one at a time
 - **Monitors**: Crash detection mechanisms (see `.claude/rules/monitors.md` for the full reference)
 - **RunContext**: Cross-monitor shared state and previous-run analysis (see `.claude/rules/run-context.md`)
 - **Sessions & Run Summaries**: Per-run `.sessions` log, `.run` telemetry, session_id stitching, and orphan reclaim (see `.claude/rules/sessions.md`)
 
-Public modules (API surface): KSCrashRecording, KSCrashDiscSpaceMonitor, KSCrashBootTimeMonitor, KSCrash (Swift umbrella, the async send), KSCrashMonitors (Swift), KSCrashMonitorPlugins (Swift), KSCrashReportModel (Swift), KSCrashProfiler (Swift). Public headers: `Sources/[ModuleName]/include/*.h`.
+Public modules (API surface): KSCrashRecording, KSCrashDiskMonitor, KSCrashBootMonitor, KSCrash (Swift umbrella, the async send), KSCrashMonitors (Swift), KSCrashMonitorPlugins (Swift, the plugin base), KSCrashReportModel (Swift), KSCrashProfiler (Swift). Public headers: `Sources/[ModuleName]/include/*.h`.
 
 ## Source-Breaking Changes
 

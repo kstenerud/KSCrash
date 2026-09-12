@@ -61,7 +61,6 @@ import XCTest
             XCTAssertGreaterThan(enabledCount, 0)
         }
 
-        @available(macOS 12.0, iOS 15.0, tvOS 15.0, watchOS 8.0, *)
         func testSwiftAsyncStackTracesEnabledCapturesAsyncCallers() async {
             defer { kssc_setSwiftAsyncStackTracesEnabled(false) }
 
@@ -83,20 +82,17 @@ import XCTest
             )
         }
 
-        @available(macOS 12.0, iOS 15.0, tvOS 15.0, watchOS 8.0, *)
         @inline(never)
         private func swiftAsyncOuterFrame() async -> [String] {
             await swiftAsyncMiddleFrame()
         }
 
-        @available(macOS 12.0, iOS 15.0, tvOS 15.0, watchOS 8.0, *)
         @inline(never)
         private func swiftAsyncMiddleFrame() async -> [String] {
             await Task { @MainActor in }.value
             return await swiftAsyncInnerFrame()
         }
 
-        @available(macOS 12.0, iOS 15.0, tvOS 15.0, watchOS 8.0, *)
         @inline(never)
         private func swiftAsyncInnerFrame() async -> [String] {
             let entries = 128

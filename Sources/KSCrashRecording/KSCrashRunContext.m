@@ -48,7 +48,6 @@
 #import "KSLogger.h"
 
 // Defined in KSCrash.m. Forward-declared here to avoid importing KSCrash.h.
-FOUNDATION_EXPORT const unsigned char KSCrashFrameworkVersionString[];
 
 // ============================================================================
 #pragma mark - Globals -
@@ -337,8 +336,7 @@ void ksruncontext_persistPreviousRunSummary(const char *runSummariesPath)
 #pragma mark - Build Summary -
 // ============================================================================
 
-// Reserved UserInfo key, mirrors the one in -[KSCrash setUserID:].
-static const char kUserIDKey[] = "com.kscrash.userid";
+static const char kUserIDKey[] = KSCRASH_USERID_KEY;
 
 typedef struct {
     // Mutable result: the last string value seen for kUserIDKey, or nil if
@@ -348,24 +346,20 @@ typedef struct {
     __strong NSString *userID;
 } UserIDReadContext;
 
-static void userInfoOnString(const char *key, uint16_t keyLen, const char *value, uint16_t valueLen, void *ctx)
+// kskvs_lookup fires only for kUserIDKey, so the callbacks take the value as given.
+static void userInfoOnString(__unused const char *key, __unused uint16_t keyLen, const char *value, uint16_t valueLen,
+                             void *ctx)
 {
     UserIDReadContext *out = (UserIDReadContext *)ctx;
-    if (keyLen != sizeof(kUserIDKey) - 1 || memcmp(key, kUserIDKey, keyLen) != 0) {
-        return;
-    }
     NSString *str = [[NSString alloc] initWithBytes:value length:valueLen encoding:NSUTF8StringEncoding];
     if (str) {
         out->userID = str;
     }
 }
 
-static void userInfoOnRemoved(const char *key, uint16_t keyLen, void *ctx)
+static void userInfoOnRemoved(__unused const char *key, __unused uint16_t keyLen, void *ctx)
 {
     UserIDReadContext *out = (UserIDReadContext *)ctx;
-    if (keyLen != sizeof(kUserIDKey) - 1 || memcmp(key, kUserIDKey, keyLen) != 0) {
-        return;
-    }
     out->userID = nil;
 }
 
@@ -384,7 +378,7 @@ static NSString *readUserIDFromSidecar(const char *sidecarPath)
         .onString = userInfoOnString,
         .onRemoved = userInfoOnRemoved,
     };
-    kskvs_iterate(store, &callbacks, &ctx);
+    kskvs_lookup(store, kUserIDKey, &callbacks, &ctx);
     kskvs_destroy(store);
 
     return ctx.userID;

@@ -27,9 +27,9 @@ void integrationTestIsWritingReportCallback(const KSCrash_ExceptionHandlingPlan 
 void setIntegrationTestIsWritingReportCallback(void (^ _Nonnull implementation)(const KSCrash_ExceptionHandlingPlan *const _Nonnull plan, const struct KSCrashReportWriter * _Nonnull writer));
 
 
-void integrationTestDidWriteReportCallback(const KSCrash_ExceptionHandlingPlan *const _Nonnull plan, int64_t reportID);
+void integrationTestDidWriteReportCallback(const KSCrash_ExceptionHandlingPlan *const _Nonnull plan, const char *_Nonnull reportID);
 
-void setIntegrationTestDidWriteReportCallback(void (^ _Nonnull implementation)(const KSCrash_ExceptionHandlingPlan *const _Nonnull plan, int64_t reportID));
+void setIntegrationTestDidWriteReportCallback(void (^ _Nonnull implementation)(const KSCrash_ExceptionHandlingPlan *const _Nonnull plan, const char *_Nonnull reportID));
 
 int integrationTestIgnoreSIGPIPE(void);
 

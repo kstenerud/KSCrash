@@ -28,6 +28,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <os/lock.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -78,7 +79,7 @@ _Static_assert(sizeof(KSSessionFileHeader) == 24, "KSSessionFileHeader layout ch
 typedef struct {
     uint32_t magic;                        // KSSESSION_ENTRY_MAGIC
     uint8_t perceptible;                   //
-    uuid_string_t guid;                    // uppercase UUID string (36 chars + NUL)
+    uuid_string_t guid;                    // lowercase UUID string (36 chars + NUL)
     uint64_t startMonoNs;                  // CLOCK_MONOTONIC_RAW ns at session open
     char user[KSSESSION_MAX_USER_LENGTH];  // empty == anonymous
 } KSSessionEntry;
@@ -116,8 +117,14 @@ struct KSSessionWriter {
  *  use. Returns false if anything fails to write; once that happens the writer
  *  is marked broken and refuses further writes, because a torn or headerless
  *  tail would make the rest of the file unreadable anyway. */
-static bool appendSession(KSSessionWriter *writer, const char *guid, uint64_t startMonoNs, bool perceptible,
-                          const char *user)
+// Appends and decodes exclude each other: delivery stitches read the live
+// run's file while the writer is active, and neither side may see the other's
+// partial I/O. Everything else about writer and reader instances stays
+// caller-synchronized. Never taken on the crash path.
+static os_unfair_lock g_fileLock = OS_UNFAIR_LOCK_INIT;
+
+static bool appendSessionLocked(KSSessionWriter *writer, const char *guid, uint64_t startMonoNs, bool perceptible,
+                                const char *user)
 {
     if (writer->broken) {
         return false;
@@ -176,6 +183,15 @@ failed_broken:
     return false;
 }
 
+static bool appendSession(KSSessionWriter *writer, const char *guid, uint64_t startMonoNs, bool perceptible,
+                          const char *user)
+{
+    os_unfair_lock_lock(&g_fileLock);
+    bool appended = appendSessionLocked(writer, guid, startMonoNs, perceptible, user);
+    os_unfair_lock_unlock(&g_fileLock);
+    return appended;
+}
+
 KSSessionWriter *kssw_open(const char *path)
 {
     if (path == NULL || path[0] == '\0') {
@@ -196,7 +212,7 @@ KSSessionWriter *kssw_open(const char *path)
  *  boundary so a multibyte character is never split. Assumes valid UTF-8 input;
  *  a character straddling the limit (e.g. an emoji) is dropped whole, so the
  *  reader never hands the JSON send path malformed UTF-8. */
-static void copyUtf8Truncated(char *dst, const char *src, size_t dstSize)
+void kssession_copyUtf8Truncated(char *dst, const char *src, size_t dstSize)
 {
     if (dstSize == 0) {
         return;
@@ -265,7 +281,7 @@ const char *kssw_update(KSSessionWriter *writer, bool perceptible, const char *u
     // truncated value; a userID longer than the buffer must not re-cut a session
     // on every update.
     char user[KSSESSION_MAX_USER_LENGTH];
-    copyUtf8Truncated(user, (userID != NULL) ? userID : "", sizeof(user));
+    kssession_copyUtf8Truncated(user, (userID != NULL) ? userID : "", sizeof(user));
     return reconcileSession(writer, perceptible, user);
 }
 
@@ -278,7 +294,7 @@ const char *kssw_updateUser(KSSessionWriter *writer, const char *userID)
     // why the caller never has to fetch perceptibility (and so can't read a stale
     // value that races a concurrent perceptibility change).
     char user[KSSESSION_MAX_USER_LENGTH];
-    copyUtf8Truncated(user, (userID != NULL) ? userID : "", sizeof(user));
+    kssession_copyUtf8Truncated(user, (userID != NULL) ? userID : "", sizeof(user));
     return reconcileSession(writer, writer->openPerceptible, user);
 }
 
@@ -494,7 +510,13 @@ KSSessionReader *kssr_open(const char *path)
     if (reader == NULL) {
         return NULL;
     }
-    if (path != NULL && path[0] != '\0' && !decodeFile(reader, path)) {
+    bool decoded = true;
+    if (path != NULL && path[0] != '\0') {
+        os_unfair_lock_lock(&g_fileLock);
+        decoded = decodeFile(reader, path);
+        os_unfair_lock_unlock(&g_fileLock);
+    }
+    if (!decoded) {
         kssr_close(reader);  // allocation failure: honor the NULL-on-OOM contract
         return NULL;
     }

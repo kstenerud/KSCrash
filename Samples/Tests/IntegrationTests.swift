@@ -54,7 +54,7 @@ final class NSExceptionTests: IntegrationTestBase {
             "Delivered report should keep last_exception_backtrace")
 
         let state = try readState()
-        XCTAssertTrue(state.crashedLastLaunch)
+        XCTAssertTrue(state.previousRunWasAbnormal)
         XCTAssertEqual(state.terminationReason, .crash)
     }
 
@@ -101,7 +101,7 @@ final class NSExceptionTests: IntegrationTestBase {
             "Delivered report should keep last_exception_backtrace")
 
         let state = try readState()
-        XCTAssertTrue(state.crashedLastLaunch)
+        XCTAssertTrue(state.previousRunWasAbnormal)
         XCTAssertEqual(state.terminationReason, .crash)
     }
 }
@@ -126,7 +126,7 @@ final class NSExceptionTests: IntegrationTestBase {
                 "Mach crash should not have last_exception_backtrace")
 
             let state = try readState()
-            XCTAssertTrue(state.crashedLastLaunch)
+            XCTAssertTrue(state.previousRunWasAbnormal)
             XCTAssertEqual(state.terminationReason, .crash)
         }
 
@@ -215,7 +215,7 @@ final class CppTests: IntegrationTestBase {
             "Delivered report should keep last_exception_backtrace")
 
         let state = try readState()
-        XCTAssertTrue(state.crashedLastLaunch)
+        XCTAssertTrue(state.previousRunWasAbnormal)
         XCTAssertEqual(state.terminationReason, .crash)
     }
 
@@ -307,7 +307,7 @@ final class CppTests: IntegrationTestBase {
             "Delivered report should keep last_exception_backtrace")
 
         let state = try readState()
-        XCTAssertTrue(state.crashedLastLaunch)
+        XCTAssertTrue(state.previousRunWasAbnormal)
         XCTAssertEqual(state.terminationReason, .crash)
     }
 }
@@ -330,7 +330,7 @@ final class CppTests: IntegrationTestBase {
             XCTAssertEqual(delivered.crash.error.signal?.name, "SIGABRT")
 
             let state = try readState()
-            XCTAssertTrue(state.crashedLastLaunch)
+            XCTAssertTrue(state.previousRunWasAbnormal)
             XCTAssertEqual(state.terminationReason, .crash)
         }
 
@@ -354,7 +354,7 @@ final class CppTests: IntegrationTestBase {
             // Relaunch to check state — previous run should be classified as clean
             try launchAndInstall()
             let state = try readState()
-            XCTAssertFalse(state.crashedLastLaunch)
+            XCTAssertFalse(state.previousRunWasAbnormal)
             XCTAssertEqual(state.terminationReason, .clean)
         }
     }
@@ -390,7 +390,7 @@ final class CppTests: IntegrationTestBase {
             XCTAssertNotNil(deliveredFrame)
 
             let state = try readState()
-            XCTAssertTrue(state.crashedLastLaunch)
+            XCTAssertTrue(state.previousRunWasAbnormal)
             XCTAssertEqual(state.terminationReason, .crash)
         }
     }
@@ -405,7 +405,7 @@ final class CppTests: IntegrationTestBase {
 
             _ = try launchAndReportCrash()
             let state = try readState()
-            XCTAssertTrue(state.crashedLastLaunch)
+            XCTAssertTrue(state.previousRunWasAbnormal)
             XCTAssertEqual(state.terminationReason, .memoryLimit)
         }
     }
@@ -462,7 +462,7 @@ final class UserReportedTests: IntegrationTestBase {
             "Delivered last_exception_backtrace should keep the specific symbol")
 
         let state = try readState()
-        XCTAssertFalse(state.crashedLastLaunch)
+        XCTAssertFalse(state.previousRunWasAbnormal)
         XCTAssertEqual(state.terminationReason, .clean)
     }
 
@@ -535,7 +535,7 @@ final class UserReportedTests: IntegrationTestBase {
         XCTAssertEqual(delivered.crash.error.reason, Self.crashReason)
 
         let state = try readState()
-        XCTAssertFalse(state.crashedLastLaunch)
+        XCTAssertFalse(state.previousRunWasAbnormal)
         XCTAssertEqual(state.terminationReason, .clean)
     }
 }

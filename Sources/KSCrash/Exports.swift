@@ -24,5 +24,6 @@
 // THE SOFTWARE.
 //
 
+@_exported import KSCrashMonitorPlugins
 @_exported import KSCrashRecording
 @_exported import KSCrashReportModel

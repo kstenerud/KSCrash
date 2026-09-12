@@ -44,16 +44,16 @@ void setIntegrationTestIsWritingReportCallback(void (^implementation)(const KSCr
     g_integrationTestIsWritingReportCallback = implementation;
 }
 
-static void (^g_integrationTestDidWriteReportCallback)(const KSCrash_ExceptionHandlingPlan *const _Nonnull plan, int64_t reportID) =
-^void (const KSCrash_ExceptionHandlingPlan *const _Nonnull plan, int64_t reportID) {
+static void (^g_integrationTestDidWriteReportCallback)(const KSCrash_ExceptionHandlingPlan *const _Nonnull plan, const char *reportID) =
+^void (const KSCrash_ExceptionHandlingPlan *const _Nonnull plan, const char *reportID) {
     // Do nothing by default
 };
 
-void integrationTestDidWriteReportCallback(const KSCrash_ExceptionHandlingPlan *const _Nonnull plan, int64_t reportID) {
+void integrationTestDidWriteReportCallback(const KSCrash_ExceptionHandlingPlan *const _Nonnull plan, const char *reportID) {
     g_integrationTestDidWriteReportCallback(plan, reportID);
 }
 
-void setIntegrationTestDidWriteReportCallback(void (^ _Nonnull implementation)(const KSCrash_ExceptionHandlingPlan *const _Nonnull plan, int64_t reportID)) {
+void setIntegrationTestDidWriteReportCallback(void (^ _Nonnull implementation)(const KSCrash_ExceptionHandlingPlan *const _Nonnull plan, const char *reportID)) {
     g_integrationTestDidWriteReportCallback = implementation;
 }
 

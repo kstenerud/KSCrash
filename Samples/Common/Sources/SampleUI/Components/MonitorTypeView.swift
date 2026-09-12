@@ -25,14 +25,25 @@
 //
 
 import Foundation
+import KSCrash
 import LibraryBridge
 import SwiftUI
 
 struct MonitorTypeView: View {
 
-    @Binding var monitors: InstallBridge.MonitorType
+    @Binding var monitors: Monitors
 
-    private func monitorBinding(_ monitor: InstallBridge.MonitorType) -> Binding<Bool> {
+    private static let allMonitors: [(monitor: Monitors, name: String, description: String)] = [
+        (.machExceptions, "Mach Exceptions", "Low-level system exceptions"),
+        (.signals, "Signals", "UNIX-style signals indicating abnormal program termination"),
+        (.cppExceptions, "C++ Exceptions", "Unhandled exceptions in C++ code"),
+        (.nsExceptions, "NSExceptions", "Unhandled Objective-C exceptions"),
+        (.terminations, "Terminations", "OS terminations from resource exhaustion or maintenance"),
+        (.hangs, "Hangs", "Main-thread hangs and watchdog timeout terminations"),
+        (.zombies, "Zombies", "Attempts to access deallocated objects"),
+    ]
+
+    private func monitorBinding(_ monitor: Monitors) -> Binding<Bool> {
         return .init(
             get: {
                 monitors.contains(monitor)
@@ -49,7 +60,7 @@ struct MonitorTypeView: View {
     var body: some View {
         List {
             Section(header: Text("Monitors")) {
-                ForEach(InstallBridge.allRawMonitorTypes, id: \.monitor.rawValue) { (monitor, name, description) in
+                ForEach(Self.allMonitors, id: \.monitor.rawValue) { (monitor, name, description) in
                     Toggle(isOn: monitorBinding(monitor)) {
                         VStack(alignment: .leading) {
                             Text(name)
@@ -60,23 +71,10 @@ struct MonitorTypeView: View {
                     }
                 }
             }
-            Section(header: Text("Composite")) {
-                ForEach(InstallBridge.allCompositeMonitorTypes, id: \.name) { (monitor, name) in
-                    HStack {
-                        Text(name)
-                        Spacer()
-                        Group {
-                            Button("+") { monitors.formUnion(monitor) }
-                                .disabled(monitors.intersection(monitor) == monitor)
-                                .tint(Color.green)
-                            Button("-") { monitors.subtract(monitor) }
-                                .disabled(monitors.intersection(monitor).isEmpty)
-                                .tint(Color.red)
-                        }
-                        .buttonStyle(.bordered)
-                        .font(.subheadline.monospaced())
-                    }
-                }
+            Section(header: Text("Sets")) {
+                Button("Default") { monitors = .default }
+                Button("All") { monitors = .all }
+                Button("None") { monitors = [] }
             }
         }
     }

@@ -48,15 +48,15 @@ final class ReportSendTests: XCTestCase {
 
     /// Real files, so delete semantics are exercised, keyed like the C store
     /// would key them: one file per report ID.
-    private func writeReport(id: ReportID, runID: String = "DEAD") throws {
+    private func writeReport(id: Report.ID, runID: String = "DEAD") throws {
         let report = Report(
             crash: .init(error: CrashError(type: .signal)),
-            report: .init(id: "report-\(id)", runId: runID)
+            report: .init(id: id, runId: testRunID(runID))
         )
         try JSONEncoder().encode(report).write(to: reportURL(id))
     }
 
-    private func reportURL(_ id: ReportID) -> URL {
+    private func reportURL(_ id: Report.ID) -> URL {
         reportsDirectory.appendingPathComponent("\(id).json")
     }
 
@@ -68,7 +68,7 @@ final class ReportSendTests: XCTestCase {
     private var runsDirectory: URL { reportsDirectory.appendingPathComponent("Runs") }
 
     private func makeStore(
-        liveRunID: String? = "LIVE", listFails: Bool = false, undecodable: Set<ReportID> = [],
+        liveRunID: RunSummary.ID? = testRunID("LIVE"), listFails: Bool = false, undecodable: Set<Report.ID> = [],
         peekBlind: Bool = false
     ) -> Store {
         let directory = reportsDirectory!
@@ -82,7 +82,9 @@ final class ReportSendTests: XCTestCase {
                     if listFails { throw StageError() }
                     return try FileManager.default.contentsOfDirectory(atPath: directory.path)
                         .filter { $0.hasSuffix(".json") }
-                        .compactMap { ReportID(($0 as NSString).deletingPathExtension) }
+                        .compactMap { Report.ID(($0 as NSString).deletingPathExtension) }
+                        // Oldest first, as the C store lists them.
+                        .sorted { $0.description < $1.description }
                 },
                 read: {
                     if undecodable.contains($0) { throw CocoaError(.fileReadCorruptFile) }
@@ -103,12 +105,12 @@ final class ReportSendTests: XCTestCase {
 
     private func send(
         pipeline: [AnyPipelineStage<Report>] = [.init(ClosureStage { $0 })],
-        only selection: Set<ReportID>? = nil,
-        liveRunID: String? = "LIVE",
+        only selection: Set<Report.ID>? = nil,
+        liveRunID: RunSummary.ID? = testRunID("LIVE"),
         listFails: Bool = false,
-        undecodable: Set<ReportID> = [],
+        undecodable: Set<Report.ID> = [],
         peekBlind: Bool = false,
-        claims: SendClaims<ReportID> = SendClaims()
+        claims: SendClaims<Report.ID> = SendClaims()
     ) async throws -> SendResult<Report> {
         try await ReportSend.send(
             store: makeStore(
@@ -121,39 +123,39 @@ final class ReportSendTests: XCTestCase {
     // MARK: - Tests
 
     func test_send_deliversNewestFirst_andDeletes() async throws {
-        try writeReport(id: 1)
-        try writeReport(id: 2)
+        try writeReport(id: testReportID(1))
+        try writeReport(id: testReportID(2))
 
-        let seen = UnfairLock([String]())
+        let seen = UnfairLock([Report.ID]())
         let stage = ClosureStage<Report> { report in
             seen.withLock { $0.append(report.report.id) }
             return report
         }
 
         let result = try await send(pipeline: [.init(stage)])
-        assertOutcomes(result, delivered: [2, 1])
-        XCTAssertEqual(seen.withLock { $0 }, ["report-2", "report-1"])
+        assertOutcomes(result, delivered: [testReportID(2), testReportID(1)])
+        XCTAssertEqual(seen.withLock { $0 }, [testReportID(2), testReportID(1)])
         XCTAssertEqual(reportFileCount, 0)
         XCTAssertGreaterThan(reclaimCount.value, 0)
     }
 
     func test_send_discardedIsDeletedAndNeverSentAgain() async throws {
-        try writeReport(id: 1)
+        try writeReport(id: testReportID(1))
         let result = try await send(pipeline: [.init(ClosureStage<Report> { _ in nil })])
-        assertOutcomes(result, discarded: [1])
+        assertOutcomes(result, discarded: [testReportID(1)])
         XCTAssertEqual(reportFileCount, 0)
     }
 
     func test_send_stageThrow_keepsOnDisk() async throws {
-        try writeReport(id: 1)
+        try writeReport(id: testReportID(1))
         let result = try await send(pipeline: [.init(ClosureStage<Report> { _ in throw StageError() })])
-        assertOutcomes(result, kept: [1])
+        assertOutcomes(result, kept: [testReportID(1)])
         XCTAssertEqual(reportFileCount, 1)
     }
 
     func test_send_emptyPipeline_throwsAndTouchesNothing() async throws {
-        try writeReport(id: 1)
-        try writeReport(id: 2)
+        try writeReport(id: testReportID(1))
+        try writeReport(id: testReportID(2))
         do {
             _ = try await send(pipeline: [])
             XCTFail("expected SendError.emptyPipeline")
@@ -165,19 +167,19 @@ final class ReportSendTests: XCTestCase {
     }
 
     func test_send_claimedReport_isNotAnItemAndUntouched() async throws {
-        try writeReport(id: 1)
-        try writeReport(id: 2)
+        try writeReport(id: testReportID(1))
+        try writeReport(id: testReportID(2))
 
-        let claims = SendClaims<ReportID>()
-        XCTAssertTrue(claims.claim(1))
+        let claims = SendClaims<Report.ID>()
+        XCTAssertTrue(claims.claim(testReportID(1)))
         let result = try await send(claims: claims)
-        assertOutcomes(result, delivered: [2])
+        assertOutcomes(result, delivered: [testReportID(2)])
         XCTAssertEqual(reportFileCount, 1)
     }
 
     func test_send_cancellation_stopsBetweenItems() async throws {
-        for id: ReportID in 1...4 {
-            try writeReport(id: id)
+        for number in 1...4 {
+            try writeReport(id: testReportID(number))
         }
 
         let stage = ClosureStage<Report> { report in
@@ -189,17 +191,17 @@ final class ReportSendTests: XCTestCase {
         let result = try await sendTask.value
         // The first (newest) report processes, then the loop sees the
         // cancellation and returns what it has.
-        assertOutcomes(result, delivered: [4])
+        assertOutcomes(result, delivered: [testReportID(4)])
         XCTAssertEqual(reportFileCount, 3)
     }
 
     func test_send_undecodableReport_isKeptWithTheDecodeError_andStays() async throws {
-        try writeReport(id: 1)
-        try Data("not json".utf8).write(to: reportURL(2))
+        try writeReport(id: testReportID(1))
+        try Data("not json".utf8).write(to: reportURL(testReportID(2)))
 
         let result = try await send()
-        assertOutcomes(result, delivered: [1], kept: [2])
-        let kept = try XCTUnwrap(result.items.first { $0.id == 2 })
+        assertOutcomes(result, delivered: [testReportID(1)], kept: [testReportID(2)])
+        let kept = try XCTUnwrap(result.items.first { $0.id == testReportID(2) })
         guard case .kept(let error) = kept.outcome else {
             return XCTFail("expected a kept outcome, got \(kept.outcome)")
         }
@@ -210,12 +212,12 @@ final class ReportSendTests: XCTestCase {
     /// The store's own "read, but not a report" answer (a throwing bridge read)
     /// is the same kept outcome as a typed decode failure.
     func test_send_reportTheStoreCannotDecode_isKeptWithTheStoreError_andStays() async throws {
-        try writeReport(id: 1)
-        try writeReport(id: 2)
+        try writeReport(id: testReportID(1))
+        try writeReport(id: testReportID(2))
 
-        let result = try await send(undecodable: [2])
-        assertOutcomes(result, delivered: [1], kept: [2])
-        let kept = try XCTUnwrap(result.items.first { $0.id == 2 })
+        let result = try await send(undecodable: [testReportID(2)])
+        assertOutcomes(result, delivered: [testReportID(1)], kept: [testReportID(2)])
+        let kept = try XCTUnwrap(result.items.first { $0.id == testReportID(2) })
         guard case .kept(let error) = kept.outcome else {
             return XCTFail("expected a kept outcome, got \(kept.outcome)")
         }
@@ -224,32 +226,32 @@ final class ReportSendTests: XCTestCase {
     }
 
     func test_send_reportGoneAfterListing_isNotAnItem() async throws {
-        try writeReport(id: 1)
-        try writeReport(id: 2)
+        try writeReport(id: testReportID(1))
+        try writeReport(id: testReportID(2))
 
         // Report 2 (newest) goes first; its stage deletes report 1's file, so
         // report 1 is a stale listing entry by the time it is read.
-        let url = reportURL(1)
+        let url = reportURL(testReportID(1))
         let stage = ClosureStage<Report> { report in
             try FileManager.default.removeItem(at: url)
             return report
         }
 
         let result = try await send(pipeline: [.init(stage)])
-        assertOutcomes(result, delivered: [2])
+        assertOutcomes(result, delivered: [testReportID(2)])
         XCTAssertEqual(reportFileCount, 0)
     }
 
     func test_send_currentRunReport_skippedInBulk_sentWhenNamed() async throws {
-        try writeReport(id: 1, runID: "DEAD")
-        try writeReport(id: 2, runID: "LIVE")
+        try writeReport(id: testReportID(1), runID: "DEAD")
+        try writeReport(id: testReportID(2), runID: "LIVE")
 
         let bulk = try await send()
-        assertOutcomes(bulk, delivered: [1])
+        assertOutcomes(bulk, delivered: [testReportID(1)])
         XCTAssertEqual(reportFileCount, 1)
 
-        let named = try await send(only: [2])
-        assertOutcomes(named, delivered: [2])
+        let named = try await send(only: [testReportID(2)])
+        assertOutcomes(named, delivered: [testReportID(2)])
         XCTAssertEqual(reportFileCount, 0)
     }
 
@@ -257,7 +259,7 @@ final class ReportSendTests: XCTestCase {
     /// writing before the full read: the decoded run is the authoritative
     /// check, so the live-run report is still skipped, not delivered.
     func test_send_currentRunReport_skippedInBulk_evenWhenThePeekIsBlind() async throws {
-        try writeReport(id: 1, runID: "LIVE")
+        try writeReport(id: testReportID(1), runID: "LIVE")
 
         let result = try await send(peekBlind: true)
         XCTAssertTrue(result.items.isEmpty)
@@ -265,9 +267,9 @@ final class ReportSendTests: XCTestCase {
     }
 
     func test_send_only_unknownIDsMatchNothing_emptySendsNothing() async throws {
-        try writeReport(id: 1)
+        try writeReport(id: testReportID(1))
 
-        let unknown = try await send(only: [42])
+        let unknown = try await send(only: [testReportID(42)])
         XCTAssertTrue(unknown.items.isEmpty)
 
         let empty = try await send(only: [])
@@ -276,11 +278,11 @@ final class ReportSendTests: XCTestCase {
     }
 
     func test_send_deleteFailure_stillDelivered() async throws {
-        try writeReport(id: 1)
+        try writeReport(id: testReportID(1))
         let store = makeStore()
         // Remove the file mid-flight through a stage, so the driver's delete
         // fails after a successful pipeline pass.
-        let url = reportURL(1)
+        let url = reportURL(testReportID(1))
         let stage = ClosureStage<Report> { report in
             try FileManager.default.removeItem(at: url)
             return report
@@ -288,7 +290,7 @@ final class ReportSendTests: XCTestCase {
         let result = try await ReportSend.send(
             store: store, pipeline: [.init(ClosureStage<Report> { $0 }), .init(stage)],
             claims: SendClaims())
-        assertOutcomes(result, delivered: [1])
+        assertOutcomes(result, delivered: [testReportID(1)])
     }
 
     func test_send_storeListFailure_throws() async {
@@ -302,10 +304,10 @@ final class ReportSendTests: XCTestCase {
         // The report send depends on the Reports directory only: damage to
         // the runs half must not block crash-report delivery.
         try makeUnreadableDirectory(at: runsDirectory)
-        try writeReport(id: 1)
+        try writeReport(id: testReportID(1))
 
         let result = try await send()
-        assertOutcomes(result, delivered: [1])
+        assertOutcomes(result, delivered: [testReportID(1)])
         XCTAssertEqual(reportFileCount, 0)
     }
 
