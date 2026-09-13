@@ -501,44 +501,144 @@ static atomic_int g_counter = 0;
     XCTAssertFalse(ctx->requirements.shouldExitImmediately);
 }
 
-- (void)testSimultaneousUnrelatedExceptionsFatalFirst
+- (void)testAnEventTheAppOrOSAskedForIsNeverDelayedByAReportInFlight
 {
-    // Unrelated exceptions after a fatal exception should be delayed (blocked).
-
+    // Nothing waits on a report in flight. A write suspends every thread and unwinds every
+    // stack, so any spin short enough for a crash path would expire long before it finished
+    // and the event would proceed anyway: waiting would cost delay and buy no exclusion.
     kscm_addMonitor(&g_dummyMonitor);
     kscm_enableMonitors();
-    __block KSCrash_MonitorContext *ctx = NULL;
 
-    ctx = dummyExceptionHandlerCallbacks.notify(
+    KSCrash_MonitorContext *inFlight = dummyExceptionHandlerCallbacks.notify(
         (thread_t)ksthread_self(),
         (KSCrash_ExceptionHandlingRequirements) { .isFatal = true, .shouldWriteReport = true });
-    XCTAssertTrue(ctx->requirements.isFatal);
-    XCTAssertFalse(ctx->requirements.crashedDuringExceptionHandling);
-    XCTAssertFalse(ctx->requirements.asyncSafety);
-    XCTAssertFalse(ctx->requirements.shouldExitImmediately);
-    XCTAssertFalse(ctx->requirements.shouldRecordAllThreads);
+    XCTAssertFalse(inFlight->requirements.refusedReportInFlight);
 
-    // Test non-fatal thread after fatal - should be blocked (timeout)
-    dispatch_group_t group1 =
+    dispatch_group_t nonFatal =
         [self startThreads:1
                  withBlock:^{
                      dummyExceptionHandlerCallbacks.notify(
                          (thread_t)ksthread_self(),
                          (KSCrash_ExceptionHandlingRequirements) { .isFatal = false, .shouldWriteReport = true });
                  }];
-    long result = [self waitForGroup:group1 timeout:0.5];
-    XCTAssertNotEqual(result, 0, @"Non-fatal exception after fatal should be blocked");
+    XCTAssertEqual([self waitForGroup:nonFatal timeout:0.5], 0,
+                   @"A non-fatal event the app asked for must not be delayed");
 
-    // Test fatal thread after fatal - should also be blocked (timeout)
-    dispatch_group_t group2 =
+    dispatch_group_t fatal =
         [self startThreads:1
                  withBlock:^{
                      dummyExceptionHandlerCallbacks.notify(
                          (thread_t)ksthread_self(),
                          (KSCrash_ExceptionHandlingRequirements) { .isFatal = true, .shouldWriteReport = true });
                  }];
-    result = [self waitForGroup:group2 timeout:0.5];
-    XCTAssertNotEqual(result, 0, @"Fatal exception after fatal should be blocked");
+    XCTAssertEqual([self waitForGroup:fatal timeout:0.5], 0, @"A fatal event must not be delayed");
+}
+
+/** Whether a yielding event raised from a fresh thread is refused. It must be a fresh
+ * thread: raised from a thread that already holds a handler slot it would be classed a
+ * recrash instead, and a recrash never yields. */
+- (BOOL)yieldingEventFromAnotherThreadIsRefused
+{
+    __block BOOL refused = NO;
+    dispatch_semaphore_t done = dispatch_semaphore_create(0);
+    NSThread *worker = [[NSThread alloc] initWithBlock:^{
+        KSCrash_MonitorContext *ctx = dummyExceptionHandlerCallbacks.notify(
+            MACH_PORT_NULL,
+            (KSCrash_ExceptionHandlingRequirements) { .shouldWriteReport = true, .yieldsToReportInFlight = true });
+        refused = ctx->requirements.refusedReportInFlight;
+        if (!refused) {
+            dummyExceptionHandlerCallbacks.handle(ctx);
+        }
+        dispatch_semaphore_signal(done);
+    }];
+    [worker start];
+    XCTAssertEqual(dispatch_semaphore_wait(done, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC)), 0);
+    return refused;
+}
+
+- (void)testARefusedEventGivesItsHandlerSlotBack
+{
+    // A refusal is routine, so it must cost nothing that accumulates. The handler slot the
+    // refused event took on the way in is handed straight back, unlike the meltdown bail
+    // which keeps its slot deliberately. Proven by what happens after: the slot table only
+    // resets its index once every slot is free, so a single leaked slot would keep the
+    // index climbing and the run below would eventually be told to exit immediately.
+    kscm_addMonitor(&g_dummyMonitor);
+    kscm_enableMonitors();
+
+    KSCrash_MonitorContext *inFlight = dummyExceptionHandlerCallbacks.notify(
+        (thread_t)ksthread_self(),
+        (KSCrash_ExceptionHandlingRequirements) { .isFatal = false, .shouldWriteReport = true });
+    XCTAssertFalse(inFlight->requirements.refusedReportInFlight);
+
+    // More refusals than the slot table holds (MAX_SIMULTANEOUS_EXCEPTIONS is 200), all
+    // while the first report stays open. A refusal that took a slot on its way in would
+    // march the index up and these would end in the overload bail instead.
+    for (int i = 0; i < 250; i++) {
+        XCTAssertTrue([self yieldingEventFromAnotherThreadIsRefused], @"refusal %d", i);
+    }
+    XCTAssertTrue(g_dummyEnabledState, @"Refusals must not trip the overload bail and disable monitors");
+    dummyExceptionHandlerCallbacks.handle(inFlight);
+
+    // More events than the slot table holds. Each frees its slot, so the index resets every
+    // time and none of them runs out of room.
+    for (int i = 0; i < 300; i++) {
+        KSCrash_MonitorContext *ctx = dummyExceptionHandlerCallbacks.notify(
+            (thread_t)ksthread_self(),
+            (KSCrash_ExceptionHandlingRequirements) { .isFatal = false, .shouldWriteReport = true });
+        XCTAssertFalse(ctx->requirements.shouldExitImmediately, @"Refusals must not have consumed slots");
+        XCTAssertFalse(ctx->requirements.refusedReportInFlight);
+        dummyExceptionHandlerCallbacks.handle(ctx);
+    }
+}
+
+- (void)testARecrashIsHandledEvenWhenTheEventWouldHaveYielded
+{
+    // Our own handler crashing is never optional. An event carrying the yield flag that
+    // turns out to be a recrash is handled as a recrash rather than dropped, whatever a
+    // report in flight would otherwise mean for it.
+    kscm_addMonitor(&g_dummyMonitor);
+    kscm_enableMonitors();
+
+    KSCrash_MonitorContext *inFlight = dummyExceptionHandlerCallbacks.notify(
+        (thread_t)ksthread_self(),
+        (KSCrash_ExceptionHandlingRequirements) { .isFatal = false, .shouldWriteReport = true });
+    XCTAssertFalse(inFlight->requirements.refusedReportInFlight);
+
+    // Same thread, so it is already holding a handler slot: this is a recrash.
+    KSCrash_MonitorContext *recrash = dummyExceptionHandlerCallbacks.notify(
+        (thread_t)ksthread_self(),
+        (KSCrash_ExceptionHandlingRequirements) { .shouldWriteReport = true, .yieldsToReportInFlight = true });
+    XCTAssertTrue(recrash->requirements.crashedDuringExceptionHandling, @"Should be seen as a recrash");
+    XCTAssertFalse(recrash->requirements.refusedReportInFlight, @"A recrash must not be dropped");
+    XCTAssertFalse(recrash->requirements.yieldsToReportInFlight, @"and must no longer claim it would yield");
+
+    dummyExceptionHandlerCallbacks.handle(recrash);
+    dummyExceptionHandlerCallbacks.handle(inFlight);
+}
+
+- (void)testAnEventNobodyAskedForIsRefusedWhileAReportIsInFlight
+{
+    // The whole point of the gate: a hang the watchdog noticed, or any other capture nobody
+    // asked for, steps aside rather than being written beside a report already in flight.
+    kscm_addMonitor(&g_dummyMonitor);
+    kscm_enableMonitors();
+
+    XCTAssertFalse([self yieldingEventFromAnotherThreadIsRefused],
+                   @"With nothing in flight it should be written like any other event");
+
+    KSCrash_MonitorContext *inFlight = dummyExceptionHandlerCallbacks.notify(
+        (thread_t)ksthread_self(),
+        (KSCrash_ExceptionHandlingRequirements) { .isFatal = false, .shouldWriteReport = true });
+    XCTAssertFalse(inFlight->requirements.refusedReportInFlight);
+
+    XCTAssertTrue([self yieldingEventFromAnotherThreadIsRefused],
+                  @"An event nobody asked for must step aside while a report is being written");
+
+    // And it is taken again once that report is done.
+    dummyExceptionHandlerCallbacks.handle(inFlight);
+    XCTAssertFalse([self yieldingEventFromAnotherThreadIsRefused],
+                   @"With the report finished the same event should be written");
 }
 
 // NOTE: testOverloadThreadHandlerNonFatal is intentionally disabled.
@@ -571,6 +671,13 @@ static atomic_int g_counter = 0;
     XCTAssertFalse(ctx->requirements.shouldExitImmediately);
     XCTAssertFalse(ctx->requirements.shouldRecordAllThreads);
 
+    // Each thread has to still be running while the overload builds. The handler tells
+    // handlers apart by mach thread port, and these threads notify without ever handing
+    // the event back, so their slots stay occupied; a thread that exited would have its
+    // port recycled by a later one, that port would match its own stale slot, and the
+    // event would read as a recrash. Two of those end the process, since the recrash flag
+    // is sticky. Hold every thread until the assertions are done.
+    dispatch_semaphore_t release = dispatch_semaphore_create(0);
     dispatch_group_t group =
         [self startThreads:1000
                  withBlock:^{
@@ -580,12 +687,17 @@ static atomic_int g_counter = 0;
                      if (threadCtx != NULL && threadCtx->requirements.shouldExitImmediately) {
                          atomic_fetch_add(&exitImmediatelyCount, 1);
                      }
+                     dispatch_semaphore_wait(release, dispatch_time(DISPATCH_TIME_NOW, 10 * NSEC_PER_SEC));
                  }];
     [self waitForGroup:group timeout:2.0];
     XCTAssertFalse(g_dummyEnabledState);
     // At least some threads should have been told to exit immediately due to overload detection.
     // We can't assert on a specific count because thread scheduling is non-deterministic.
     XCTAssertGreaterThan(exitImmediatelyCount, 0, @"At least some threads should be told to exit immediately");
+
+    for (int i = 0; i < 1000; i++) {
+        dispatch_semaphore_signal(release);
+    }
 }
 
 - (void)testHandleExceptionAddsContextualInfoFatal

@@ -33,8 +33,8 @@ import KSCrashReportModel
 /// A monitor's typed connection to the exception-handling pipeline, injected through
 /// `CrashMonitor.init(host:configuration:)`.
 ///
-/// The host goes live when the bridge installs; before then `handle` throws `.refused` and the
-/// sidecar accessors return nil.
+/// The host goes live when the bridge installs; before then `handle` throws `.notInstalled` and
+/// the sidecar accessors return nil.
 public struct MonitorHost<Payload> {
     /// The bridge, which owns the callbacks, the enabled flag, and the api identity. Unowned
     /// to break the cycle: the bridge owns the monitor that holds this host, and a host lives
@@ -49,8 +49,16 @@ public struct MonitorHost<Payload> {
     public var isEnabled: Bool { bridge.isEnabled }
 
     public enum EventError: Error {
-        /// The pipeline refused the event (not yet installed, shutting down, or a recrash
-        /// flood whose bail-out context must not be touched).
+        /// The event was raised before the monitor's bridge joined the pipeline, so there
+        /// was nothing to raise it to. A caller error: wait for installation.
+        case notInstalled
+        /// A report was already being written and this event declared
+        /// ``EventRequirements/yieldsToReportInFlight``, so it was dropped.
+        ///
+        /// The event asked to be dropped in this case, so nothing went wrong.
+        case yielded
+        /// The pipeline is not accepting events: it is shutting down, or handling a recrash
+        /// flood whose bail-out context must not be touched.
         case refused
         /// The pipeline accepted the event but produced no report.
         case notWritten
@@ -107,12 +115,17 @@ public struct MonitorHost<Payload> {
         finalize: Bool,
         configure: (UnsafeMutablePointer<KSCrash_MonitorContext>) -> Void
     ) throws -> WrittenReport {
-        guard let callbacks = bridge.callbacks,
-            let context = callbacks.notify(subjectThread, requirements)
-        else { throw EventError.refused }
+        guard let callbacks = bridge.callbacks else { throw EventError.notInstalled }
+        guard let context = callbacks.notify(subjectThread, requirements) else {
+            throw EventError.refused
+        }
+        // Both bail-out contexts are shared slots with the same contract: do nothing, touch
+        // nothing, get out. They are told apart because a caller reacts differently, one
+        // being routine and the other not.
+        if context.pointee.requirements.refusedReportInFlight != 0 {
+            throw EventError.yielded
+        }
         if context.pointee.requirements.shouldExitImmediately != 0 {
-            // Pipeline meltdown (a recrash flood): the returned context is a shared bail-out
-            // slot whose contract is do nothing, touch nothing, get out.
             throw EventError.refused
         }
         kscm_fillMonitorContext(context, bridge.api)
@@ -203,10 +216,14 @@ extension EventRequirements {
         asyncSafetyBecauseThreadsSuspended: 0,
         crashedDuringExceptionHandling: 0,
         shouldExitImmediately: 0,
-        isRemoteSubject: 1
+        isRemoteSubject: 1,
+        yieldsToReportInFlight: 0,
+        refusedReportInFlight: 0
     )
 
-    /// A non-fatal report about this process; the app keeps running.
+    /// A non-fatal report about this process that the app asked for; the app keeps running.
+    ///
+    /// Written whether or not another report is in flight, and never delayed by one.
     public static let nonFatal = EventRequirements(
         shouldRecordAllThreads: 0,
         shouldWriteReport: 1,
@@ -216,6 +233,27 @@ extension EventRequirements {
         asyncSafetyBecauseThreadsSuspended: 0,
         crashedDuringExceptionHandling: 0,
         shouldExitImmediately: 0,
-        isRemoteSubject: 0
+        isRemoteSubject: 0,
+        yieldsToReportInFlight: 0,
+        refusedReportInFlight: 0
+    )
+
+    /// A non-fatal report that may be dropped rather than written alongside one already
+    /// being written.
+    ///
+    /// Use it where losing the event costs nothing. `handle` throws
+    /// ``MonitorHost/EventError/yielded`` when it is dropped.
+    public static let opportunistic = EventRequirements(
+        shouldRecordAllThreads: 0,
+        shouldWriteReport: 1,
+        isFatal: 0,
+        isCleanExit: 0,
+        asyncSafety: 0,
+        asyncSafetyBecauseThreadsSuspended: 0,
+        crashedDuringExceptionHandling: 0,
+        shouldExitImmediately: 0,
+        isRemoteSubject: 0,
+        yieldsToReportInFlight: 1,
+        refusedReportInFlight: 0
     )
 }
