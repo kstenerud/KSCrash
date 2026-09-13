@@ -29,6 +29,13 @@ The suites share the process politely; keep it that way:
   reads reports back from that install's report area instead of its own.
 - Tests that only need a run id never install: they seed it through
   `kscrash_testcode_setRunID`.
+- A test that calls `notify` without handing the context to the handler leaks a
+  report-in-flight count as well as a handler slot. The count is process-global and
+  never reclaimed, so every later event that declared `yieldsToReportInFlight` is
+  refused for the rest of the run: the watchdog and resource monitors simply stop
+  reporting, in a later suite, with nothing pointing back here. Hand every context
+  to the handler, or clear the latch in tearDown with
+  `kscm_testcode_clearHandlingFatalException`.
 - Never reset the whole monitor system from a tearDown
   (`kscm_testcode_resetState` wipes the registered monitors and pipeline
   callbacks for every later suite); use the narrow seams

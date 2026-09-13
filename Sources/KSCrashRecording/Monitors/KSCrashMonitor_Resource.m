@@ -194,10 +194,16 @@ static void reportCPUState(KSCrashCPU *cpu) KS_KEEP_FUNCTION_IN_STACKTRACE
     // for the polling path. All thread stacks are captured regardless,
     // which is where the real diagnostic value is.
     thread_t mainThread = (thread_t)ksthread_main();
-    KSCrash_MonitorContext *ctx = g_callbacks.notify(
-        mainThread,
-        (KSCrash_ExceptionHandlingRequirements) {
-            .asyncSafety = false, .isFatal = false, .shouldRecordAllThreads = true, .shouldWriteReport = true });
+    KSCrash_MonitorContext *ctx =
+        g_callbacks.notify(mainThread, (KSCrash_ExceptionHandlingRequirements) { .asyncSafety = false,
+                                                                                 .isFatal = false,
+                                                                                 .shouldRecordAllThreads = true,
+                                                                                 .shouldWriteReport = true,
+                                                                                 .yieldsToReportInFlight = true });
+    if (ctx->requirements.refusedReportInFlight) {
+        KSLOG_DEBUG("A report is already being written; skipping this resource report");
+        return;
+    }
 
     KSMachineContext machineContext = { 0 };
     ksmc_getContextForThread(mainThread, &machineContext, true);

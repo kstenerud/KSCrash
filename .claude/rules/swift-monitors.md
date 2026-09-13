@@ -79,7 +79,7 @@ Not exposed yet, deliberately: `addContextualInfoToEvent` (the wrapper no-ops it
 
 The monitor is created in `init`, before any registration; an event raised from inside
 `init(host:configuration:)` is written without the monitor's report section (the bridge isn't
-registered with the pipeline until installation, so `host.handle` throws `.refused` there).
+registered with the pipeline until installation, so `host.handle` throws `.notInstalled` there).
 
 **Threading**: callbacks arrive on whatever thread the pipeline uses. The bridge's own state
 (callbacks, enabled flag) is lock-guarded (the enabled flag lock-free on the read side, see the
@@ -133,13 +133,16 @@ public struct MonitorHost<Payload> {
 A nil `payload` writes the report without the monitor's values (`writeReportSection` never runs;
 the writer still opens the section, so the key is present and empty unless a stitch sweeps it, as
 the corpse monitor's does for snapshot-less captures); the payload-less overload is constrained to `Payload == Void`
-monitors, whose `writeReportSection` still runs. `handle` refuses (throws `.refused`) when the
-bridge isn't installed yet, the pipeline is shutting down, or it returns the shared
-exit-immediately bail-out context, matching the hand-rolled monitors' contract. `configure`
+monitors, whose `writeReportSection` still runs. `handle` throws rather than write: `.notInstalled`
+before the bridge joins the pipeline, `.refused` when the pipeline is shutting down or returns the
+shared exit-immediately bail-out context, and `.yielded` when a report was already being written and
+the event declared `yieldsToReportInFlight`. The cases are separate because `.yielded` means the
+event was dropped exactly as it asked to be, and the others mean something went wrong. `configure`
 receives the raw monitor context on purpose: the low-level per-event fields (mach codes,
 provided images, machine context, processName) are genuinely low-level, and wrapping them would
-just rename them. `EventRequirements` has two presets, `.fatalRemoteSubject` and `.nonFatal`
-(more land with the monitors that need them).
+just rename them. `EventRequirements` has three presets: `.fatalRemoteSubject`, `.nonFatal`, and
+`.opportunistic`, which sets `yieldsToReportInFlight` so the event is dropped rather than written
+alongside a report already in flight (more land with the monitors that need them).
 
 ## ReportSectionWriter
 
@@ -171,7 +174,7 @@ forbid using `self` before `super.init()` returns, so it can't be a `let` assign
 phase as delegating up. The backing is set before `init` returns, so every external access sees
 a non-nil monitor for the object's whole observable lifetime. `isInstalled` (`callbacks != nil`,
 lock-guarded) is the separate question of whether the bridge has connected to the pipeline yet;
-`host.handle` throws `.refused` and the sidecar accessors return nil before then.
+`host.handle` throws `.notInstalled` and the sidecar accessors return nil before then.
 
 Ids are unique per process, enforced in C by `kscmr_addMonitor`, which refuses an id already
 registered (and asserts in debug) for every plugin language, not just Swift. Ids route report

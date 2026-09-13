@@ -37,6 +37,7 @@
 #include "KSCrashMonitorRegistry.h"
 #include "KSDebug.h"
 #include "KSID.h"
+#include "KSSpinLock.h"
 #include "KSString.h"
 #include "KSSystemCapabilities.h"
 #include "KSThread.h"
@@ -67,6 +68,8 @@ static struct {
      * bailoutContext.requirements.exitImmediately MUST always be true.
      */
     KSCrash_MonitorContext exitImmediatelyContext;
+    /** Returned to an event that yields rather than be written beside another report. */
+    KSCrash_MonitorContext reportInFlightContext;
 
     _Atomic thread_t threadsHandlingExceptions[MAX_SIMULTANEOUS_EXCEPTIONS];
     atomic_int handlingExceptionIndex;
@@ -93,6 +96,18 @@ static KSCrash_MonitorContext *asyncSafeContextAtIndex(int index)
     return &g_state.asyncSafeContext[((size_t)index) & ASYNC_SAFE_INDEX_MASK];
 }
 
+/** How many events are having their reports written right now.
+ *
+ * A counter rather than a lock, because the two tiers are not a mutual exclusion: an event
+ * the app or the OS asked for always proceeds and so always counts itself in, whether or not
+ * anyone else is writing. Only an event nobody asked for consults the count, and it does so
+ * by claiming the count itself, which is why it compares-and-exchanges from zero rather than
+ * reading and then incrementing.
+ *
+ * Atomics only: this is reached on crash paths, where nothing else is safe.
+ */
+static atomic_int g_reportsInFlight;
+
 static void init(void)
 {
     bool expectInitialized = false;
@@ -101,7 +116,9 @@ static void init(void)
     }
 
     memset(&g_state, 0, sizeof(g_state));
+    atomic_store(&g_reportsInFlight, 0);
     g_state.exitImmediatelyContext.requirements.shouldExitImmediately = true;
+    g_state.reportInFlightContext.requirements.refusedReportInFlight = true;
 }
 
 static bool isThreadAlreadyHandlingAnException(int maxCount, thread_t offendingThread, thread_t handlingThread)
@@ -122,6 +139,25 @@ static bool isThreadAlreadyHandlingAnException(int maxCount, thread_t offendingT
     }
     return false;
 }
+
+/** Count this event in, unless it would rather be dropped than share.
+ *
+ * false only for an event that declared `yieldsToReportInFlight` while another report is in
+ * flight. Nothing ever waits here: a report write suspends every thread and unwinds every
+ * stack, so any spin short enough for a crash path would expire long before the write
+ * finished and the event would proceed anyway, having bought delay and no exclusion.
+ */
+static bool acquireReportWriteGate(KSCrash_ExceptionHandlingRequirements requirements)
+{
+    if (requirements.yieldsToReportInFlight) {
+        int noneInFlight = 0;
+        return atomic_compare_exchange_strong(&g_reportsInFlight, &noneInFlight, 1);
+    }
+    atomic_fetch_add(&g_reportsInFlight, 1);
+    return true;
+}
+
+static void releaseReportWriteGate(void) { atomic_fetch_sub(&g_reportsInFlight, 1); }
 
 static int beginHandlingException(thread_t handlerThread)
 {
@@ -242,35 +278,52 @@ static KSCrash_MonitorContext *notifyException(const mach_port_t offendingThread
     // to do based on whether the exception is fatal, what kinds of other exceptions are already in
     // progress, and whether there's already a handler running on this thread (i.e. our handler has crashed).
     //
-    // | 1st exc   | 2nd exc | 3rd exc | same handler thread? | Procedure        |
-    // | --------- | ------- | ------- | -------------------- | ---------------- |
-    // | any       |         |         |                      | normal handling  |
-    // | non-fatal | any     |         | N                    | normal handling  |
-    // | fatal     | any     |         | N                    | block            |
-    // | any       | any     |         | Y                    | recrash handling |
-    // | any       | any     | any     | Y                    | exit             |
+    // | 1st exc | 2nd exc | 3rd exc | same handler thread? | Procedure        |
+    // | ------- | ------- | ------- | -------------------- | ---------------- |
+    // | any     |         |         |                      | normal handling  |
+    // | any     | any     |         | N                    | normal handling  |
+    // | any     | any     |         | Y                    | recrash handling |
+    // | any     | any     | any     | Y                    | exit             |
     //
     // Where:
     // - Normal handling means build a standard crash report.
     // - Recrash handling means build a minimal recrash report and be very cautious.
-    // - Block means block this thread for a few seconds so it doesn't return before the other handler does.
     // - Exit means `_exit(1)` immediately because we can't recover anymore.
     //
-    // If no other exceptions are in progress (simple case), handle things normally.
-    // If a non-fatal exception is already in progress, they won't conflict so handle things normally.
-    // If a fatal exception is already in progress, block to let the fatal exception handler finish.
     // If we get another exception on the SAME thread, we're dealing with a recrash.
     // If we get YET ANOTHER exception on the same thread (the recrash handler has crashed),
     // we're stuck in a crash loop, so exit the app.
+    //
+    // Overlapping writes are a separate question from recrash, and the report-write gate
+    // below answers it. Nothing waits: an event that declared `yieldsToReportInFlight` is
+    // refused while a report is in flight, and every other event is written regardless. A
+    // write suspends every thread and unwinds every stack, so any wait a crash path could
+    // afford would expire long before it finished.
 
     // Note: This function needs to be quick to minimize the chances
     //       of a context switch before we (possibly) suspend threads.
 
     const thread_t thisThread = (thread_t)ksthread_self();
+
+    // Admission for an event that would rather be dropped than share happens before a
+    // handler slot is taken. A slot's index is only reclaimed once every slot is free, so
+    // refusals arriving while another report is still open would march the index toward the
+    // overload bail and eventually disable the monitors, which is a steep price for an
+    // event we are choosing not to write. A recrash goes the long way round instead and is
+    // handled below, since our own handler crashing is never optional. That test reads the
+    // slots without taking one, so a slot appearing in the moment between it and the
+    // refusal is missed; the event is then dropped rather than recorded as a recrash, which
+    // is the same thing we were about to do to it anyway.
+    if (initialRequirements.yieldsToReportInFlight &&
+        !isThreadAlreadyHandlingAnException(atomic_load(&g_state.handlingExceptionIndex), offendingThread,
+                                            thisThread) &&
+        atomic_load(&g_reportsInFlight) != 0) {
+        return &g_state.reportInFlightContext;
+    }
+
     const int thisThreadHandlerIndex = beginHandlingException(thisThread);
 
     // Our state from before this exception
-    const bool wasHandlingFatalException = g_state.isHandlingFatalException;
     const bool wasCrashedDuringExceptionHandling = g_state.crashedDuringExceptionHandling;
 
     // Our state now
@@ -297,17 +350,27 @@ static KSCrash_MonitorContext *notifyException(const mach_port_t offendingThread
         // This is a recrash, so be more conservative in our handling.
         requirements.crashedDuringExceptionHandling = true;
         requirements.asyncSafety = true;
+        // Our own handler crashed. Nothing about that is optional, whatever the event
+        // that triggered it had declared.
+        requirements.yieldsToReportInFlight = false;
         requirements.shouldRecordAllThreads = false;
         requirements.isFatal = true;
         requirements.isCleanExit = false;
         // A recrash is this process's own handler crashing, no matter whose event
         // was being handled when it happened.
         requirements.isRemoteSubject = false;
-    } else if (wasHandlingFatalException) {
-        // This is an incidental exception that happened while we were handling a fatal
-        // exception. Pause this handler to allow the other handler to finish.
-        // 2 seconds should be ample time for it to finish and terminate the app.
-        sleep(2);
+    }
+    // No fixed pause here for an incidental exception arriving while a fatal one is
+    // handled. The report-write gate below covers it: such an event either steps aside or
+    // is written regardless, decided on what it declared rather than on a guess at how long
+    // the other handler needs.
+
+    if (!acquireReportWriteGate(requirements)) {
+        // A report is already being written and this event would rather be dropped than
+        // written beside it. Give the handler slot straight back: unlike the meltdown bail
+        // below, this happens routinely, and a slot leaked per refusal would fill the table.
+        endHandlingException(thisThreadHandlerIndex);
+        return &g_state.reportInFlightContext;
     }
 
     g_state.crashedDuringExceptionHandling |= isCrashedDuringExceptionHandling;
@@ -369,6 +432,11 @@ static void handleException(struct KSCrash_MonitorContext *ctx, KSCrash_ReportRe
     }
 
     endHandlingException(ctx->threadHandlerIndex);
+    // The shared bail slots never took the gate; a caller that ignored their flags and
+    // handled one anyway must not release someone else's write.
+    if (ctx != &g_state.exitImmediatelyContext && ctx != &g_state.reportInFlightContext) {
+        releaseReportWriteGate();
+    }
 
     // Finalize after threads are resumed and the exception slot is freed,
     // since it involves ObjC/JSON/file I/O.
@@ -455,6 +523,7 @@ void kscm_testcode_resetState(void)
 {
     g_initialized = false;
     memset(&g_state, 0, sizeof(g_state));
+    atomic_store(&g_reportsInFlight, 0);
 }
 
 /** Everything a suite that resets the core must hand back: the registry and
@@ -521,4 +590,9 @@ __attribute__((unused))  // For tests. Declared as extern in TestCase
 void kscm_testcode_clearHandlingFatalException(void)
 {
     g_state.isHandlingFatalException = false;
+    // The in-flight count is the other process-global latch a test can leave set, by
+    // notifying an event it never hands to the handler. Left standing it outlives the
+    // suite and every later yielding event is refused, which would look like a dead
+    // monitor rather than a dirty fixture.
+    atomic_store(&g_reportsInFlight, 0);
 }

@@ -26,6 +26,7 @@
 
 #import <XCTest/XCTest.h>
 #import <mach/task_policy.h>
+#import <stdatomic.h>
 
 #import "KSCrashHang.h"
 #import "KSCrashMonitorContext.h"
@@ -39,15 +40,24 @@ static KSCrash_MonitorContext g_stubContext;
  * an event yet. MACH_PORT_NULL is a meaningful value here, so the sentinel is not it. */
 static thread_t g_stubNotifyThread = (thread_t)~0u;
 
+/** Makes the stub answer every event the way the handler answers one that yielded.
+ * Atomic: the test thread sets it while the watchdog's own thread is already running. */
+static _Atomic(bool) g_stubRefusesReportInFlight = false;
+
+/** How many events reached the handler; a refused one never should. */
+static _Atomic(int) g_stubHandleCount = 0;
+
 static KSCrash_MonitorContext *stubNotify(thread_t thread, __unused KSCrash_ExceptionHandlingRequirements requirements)
 {
     g_stubNotifyThread = thread;
     memset(&g_stubContext, 0, sizeof(g_stubContext));
+    g_stubContext.requirements.refusedReportInFlight = atomic_load(&g_stubRefusesReportInFlight);
     return &g_stubContext;
 }
 
 static void stubHandle(__unused KSCrash_MonitorContext *context, KSCrash_ReportResult *result, __unused bool finalize)
 {
+    atomic_fetch_add(&g_stubHandleCount, 1);
     strlcpy(result->reportId, "4C1B2F3E-0000-4000-8000-000000000001", sizeof(result->reportId));
     result->path[0] = '\0';
 }
@@ -175,6 +185,37 @@ static void captureHangStart(KSHangChangeType change, uint64_t start, uint64_t e
 
     XCTAssertGreaterThan(capture.start, 0ULL);
     XCTAssertGreaterThanOrEqual(capture.end, capture.start);
+
+    api->setEnabled(false, NULL);
+}
+
+- (void)testAHangThatYieldsStillReportsThatItStarted
+{
+    // A yielded hang writes no report, but the hang happened. The lifecycle notifications
+    // describe the hang, not the report, and the hang is already active by now, so later
+    // ticks take the update path and never come back here. Without Started, an observer
+    // would see an Updated for a hang it was never told about and an Ended clearing it.
+    KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
+    KSCrash_ExceptionHandlerCallbacks callbacks = { .notify = stubNotify,
+                                                    .handle = stubHandle_deprecated,
+                                                    .handleWithResult = stubHandle };
+    atomic_store(&g_stubRefusesReportInFlight, true);
+    atomic_store(&g_stubHandleCount, 0);
+    api->init(&callbacks, NULL);
+    api->setEnabled(true, NULL);
+
+    KSSempahore *waiter = [KSSempahore withValue:0];
+    HangCapture capture = { .waiter = waiter };
+    g_hangCapture = &capture;
+    KSHangEventCallback previous = kshang_setHangEventCallback(captureHangStart);
+
+    XCTAssertTrue([waiter waitForTimeInterval:5], @"A yielded hang must still report that it started");
+    kshang_setHangEventCallback(previous);
+    g_hangCapture = NULL;
+    atomic_store(&g_stubRefusesReportInFlight, false);
+
+    XCTAssertGreaterThan(capture.start, 0ULL);
+    XCTAssertEqual(atomic_load(&g_stubHandleCount), 0, @"A refused event must never reach the handler");
 
     api->setEnabled(false, NULL);
 }
