@@ -411,7 +411,7 @@ void ksfu_closeBufferedWriter(KSBufferedWriter *writer)
     }
 }
 
-bool ksfu_writeBufferedWriter(KSBufferedWriter *writer, const char *restrict const data, const int length)
+bool ksfu_writeBufferedWriter(KSBufferedWriter *writer, const char *__restrict const data, const int length)
 {
     if (length > writer->bufferLength - writer->position) {
         if (!ksfu_flushBufferedWriter(writer)) {

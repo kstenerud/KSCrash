@@ -327,8 +327,9 @@ int ksjson_endDataElement(KSJSONEncodeContext *const context);
  *
  * @return KSJSON_OK if the process was successful.
  */
-int ksjson_addJSONElement(KSJSONEncodeContext *const encodeContext, const char *restrict const name,
-                          const char *restrict const jsonData, const int jsonDataLength, const bool closeLastContainer);
+int ksjson_addJSONElement(KSJSONEncodeContext *const encodeContext, const char *__restrict const name,
+                          const char *__restrict const jsonData, const int jsonDataLength,
+                          const bool closeLastContainer);
 
 /** Check whether a payload can be embedded into a given destination.
  *
@@ -413,8 +414,8 @@ int ksjson_endContainer(KSJSONEncodeContext *context);
  *
  * @param closeLastContainer If false, do not close the last container.
  */
-int ksjson_addJSONFromFile(KSJSONEncodeContext *const context, const char *restrict const name,
-                           const char *restrict const filename, const bool closeLastContainer);
+int ksjson_addJSONFromFile(KSJSONEncodeContext *const context, const char *__restrict const name,
+                           const char *__restrict const filename, const bool closeLastContainer);
 
 /** Check whether a file's contents can be embedded into a given destination.
  *
