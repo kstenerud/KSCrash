@@ -205,7 +205,7 @@ void ksfu_closeBufferedWriter(KSBufferedWriter *writer);
  *
  * @return True if the data was successfully written.
  */
-bool ksfu_writeBufferedWriter(KSBufferedWriter *writer, const char *restrict const data, const int length);
+bool ksfu_writeBufferedWriter(KSBufferedWriter *writer, const char *__restrict const data, const int length);
 
 /** Flush a buffered writer, writing all uncommitted data to disk.
  *

@@ -67,7 +67,7 @@ int ksmem_maxReadableBytes(const void *const memory, const int tryByteCount);
  *
  * @return true if successful.
  */
-bool ksmem_copySafely(const void *restrict const src, void *restrict const dst, int byteCount);
+bool ksmem_copySafely(const void *__restrict const src, void *__restrict const dst, int byteCount);
 
 /** Copies up to numBytes of data from src to dest, stopping if memory
  * becomes inaccessible.
@@ -80,7 +80,7 @@ bool ksmem_copySafely(const void *restrict const src, void *restrict const dst, 
  *
  * @return The number of bytes actually copied.
  */
-int ksmem_copyMaxPossible(const void *restrict const src, void *restrict const dst, int byteCount);
+int ksmem_copyMaxPossible(const void *__restrict const src, void *__restrict const dst, int byteCount);
 
 #ifdef __cplusplus
 }
