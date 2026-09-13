@@ -432,11 +432,6 @@ static void handleException(struct KSCrash_MonitorContext *ctx, KSCrash_ReportRe
     }
 
     endHandlingException(ctx->threadHandlerIndex);
-    // The shared bail slots never took the gate; a caller that ignored their flags and
-    // handled one anyway must not release someone else's write.
-    if (ctx != &g_state.exitImmediatelyContext && ctx != &g_state.reportInFlightContext) {
-        releaseReportWriteGate();
-    }
 
     // Finalize after threads are resumed and the exception slot is freed,
     // since it involves ObjC/JSON/file I/O.
@@ -444,6 +439,15 @@ static void handleException(struct KSCrash_MonitorContext *ctx, KSCrash_ReportRe
         g_state.onFinalizeReport) {
         KSLOG_DEBUG("Finalizing non-fatal report %s", localResult.reportId);
         g_state.onFinalizeReport(ctx, &localResult);
+    }
+
+    // Only now is this report finished. Finalization stitches and rewrites it, so releasing
+    // before that would let an event that yields see nothing in flight and start another
+    // report while this one is still being written.
+    // The shared bail slots never took the gate; a caller that ignored their flags and
+    // handled one anyway must not release someone else's write.
+    if (ctx != &g_state.exitImmediatelyContext && ctx != &g_state.reportInFlightContext) {
+        releaseReportWriteGate();
     }
 
     if (ctx->isHeapAllocated) {
