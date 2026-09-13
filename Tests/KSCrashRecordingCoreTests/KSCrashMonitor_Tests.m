@@ -592,6 +592,68 @@ static atomic_int g_counter = 0;
     }
 }
 
+- (void)testARecrashNamesTheReportOfTheHandlerThatCrashed
+{
+    // Not simply the most recent report. With two handlers in flight, a single
+    // process-wide record of the last report written names whichever finished most
+    // recently, which can belong to a handler that is perfectly healthy, and a recrash
+    // rewriting that file would destroy it.
+    kscm_addMonitor(&g_dummyMonitor);
+    kscm_enableMonitors();
+
+    KSCrash_MonitorContext *mine = dummyExceptionHandlerCallbacks.notify(
+        (thread_t)ksthread_self(), (KSCrash_ExceptionHandlingRequirements) { .shouldWriteReport = true });
+    strlcpy(mine->writtenReportPath, "/tmp/mine.json", sizeof(mine->writtenReportPath));
+
+    // A second handler on another thread, whose report is written after ours.
+    dispatch_semaphore_t wrote = dispatch_semaphore_create(0);
+    dispatch_semaphore_t release = dispatch_semaphore_create(0);
+    dispatch_semaphore_t finished = dispatch_semaphore_create(0);
+    NSThread *other = [[NSThread alloc] initWithBlock:^{
+        KSCrash_MonitorContext *theirs = dummyExceptionHandlerCallbacks.notify(
+            (thread_t)ksthread_self(), (KSCrash_ExceptionHandlingRequirements) { .shouldWriteReport = true });
+        strlcpy(theirs->writtenReportPath, "/tmp/theirs.json", sizeof(theirs->writtenReportPath));
+        dispatch_semaphore_signal(wrote);
+        dispatch_semaphore_wait(release, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC));
+        dummyExceptionHandlerCallbacks.handle(theirs);
+        dispatch_semaphore_signal(finished);
+    }];
+    [other start];
+    XCTAssertEqual(dispatch_semaphore_wait(wrote, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC)), 0);
+
+    // Our own handler crashes. Same thread, so this is a recrash of ours, not of theirs.
+    KSCrash_MonitorContext *recrash = dummyExceptionHandlerCallbacks.notify(
+        (thread_t)ksthread_self(), (KSCrash_ExceptionHandlingRequirements) { .shouldWriteReport = true });
+    XCTAssertTrue(recrash->requirements.crashedDuringExceptionHandling);
+    XCTAssertEqualObjects(@(recrash->writtenReportPath), @"/tmp/mine.json",
+                          @"a recrash rewrites the report of the handler that crashed");
+
+    dispatch_semaphore_signal(release);
+    XCTAssertEqual(dispatch_semaphore_wait(finished, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC)), 0);
+    dummyExceptionHandlerCallbacks.handle(recrash);
+    dummyExceptionHandlerCallbacks.handle(mine);
+}
+
+- (void)testARecrashOfAHandlerThatWroteNothingHasNothingToRewrite
+{
+    // The handler crashed before it got as far as a report, so there is no file to turn
+    // into a recrash report and the event is written as a report of its own instead.
+    kscm_addMonitor(&g_dummyMonitor);
+    kscm_enableMonitors();
+
+    KSCrash_MonitorContext *mine = dummyExceptionHandlerCallbacks.notify(
+        (thread_t)ksthread_self(), (KSCrash_ExceptionHandlingRequirements) { .shouldWriteReport = true });
+    XCTAssertEqual(mine->writtenReportPath[0], '\0', @"nothing written yet");
+
+    KSCrash_MonitorContext *recrash = dummyExceptionHandlerCallbacks.notify(
+        (thread_t)ksthread_self(), (KSCrash_ExceptionHandlingRequirements) { .shouldWriteReport = true });
+    XCTAssertTrue(recrash->requirements.crashedDuringExceptionHandling);
+    XCTAssertEqual(recrash->writtenReportPath[0], '\0', @"no report to rewrite");
+
+    dummyExceptionHandlerCallbacks.handle(recrash);
+    dummyExceptionHandlerCallbacks.handle(mine);
+}
+
 - (void)testARecrashIsHandledEvenWhenTheEventWouldHaveYielded
 {
     // Our own handler crashing is never optional. An event carrying the yield flag that

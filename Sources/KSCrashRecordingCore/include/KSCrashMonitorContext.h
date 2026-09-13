@@ -27,6 +27,7 @@
 #ifndef HDR_KSCrashMonitorContext_h
 #define HDR_KSCrashMonitorContext_h
 
+#include <limits.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -207,6 +208,20 @@ typedef struct KSCrash_MonitorContext {
 
     /** Absolute path where this report should be written (use default value if NULL)*/
     const char *reportPath;
+
+    /** The file this event's report is written to, empty until there is one.
+     *
+     * Per event rather than process-wide: when two reports are written at once, a single
+     * record of "the last report" names whichever finished most recently, and a recrash
+     * rewriting that file would destroy a report belonging to another handler entirely.
+     *
+     * A recrash has this filled in before it writes, with the report the crashed handler
+     * was part way through, because rewriting that file is exactly what a recrash does.
+     * It is copied in rather than pointed at: a pointer into the other handler's context
+     * would be read across the whole recrash write while that context could in principle
+     * be freed underneath it.
+     */
+    char writtenReportPath[PATH_MAX];
 
 } KSCrash_MonitorContext;
 
