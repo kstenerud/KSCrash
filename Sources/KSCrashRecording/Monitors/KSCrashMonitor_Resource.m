@@ -183,12 +183,16 @@ static void reportCPUState(KSCrashCPU *cpu) KS_KEEP_FUNCTION_IN_STACKTRACE
     // for the polling path. All thread stacks are captured regardless,
     // which is where the real diagnostic value is.
     thread_t mainThread = (thread_t)ksthread_main();
+    // No offending thread: the main thread is this report's primary thread, but it did not
+    // fault, it was observed. Naming it here would let the recrash check match it against a
+    // live handler slot, and this event would then be handled as a recrash and rewrite that
+    // report's file in place. The machine context is captured from it below regardless.
     KSCrash_MonitorContext *ctx =
-        g_callbacks.notify(mainThread, (KSCrash_ExceptionHandlingRequirements) { .asyncSafety = false,
-                                                                                 .isFatal = false,
-                                                                                 .shouldRecordAllThreads = true,
-                                                                                 .shouldWriteReport = true,
-                                                                                 .yieldsToReportInFlight = true });
+        g_callbacks.notify(MACH_PORT_NULL, (KSCrash_ExceptionHandlingRequirements) { .asyncSafety = false,
+                                                                                     .isFatal = false,
+                                                                                     .shouldRecordAllThreads = true,
+                                                                                     .shouldWriteReport = true,
+                                                                                     .yieldsToReportInFlight = true });
     if (ctx->requirements.refusedReportInFlight) {
         KSLOG_DEBUG("A report is already being written; skipping this resource report");
         return;
