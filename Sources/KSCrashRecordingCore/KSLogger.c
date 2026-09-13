@@ -36,6 +36,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
+#include <stdatomic.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -90,16 +91,33 @@ static inline void writeFmtToLog(const char *fmt, ...)
     va_end(args);
 }
 
-/** The file descriptor where log entries get written. */
-static int g_fd = -1;
+/** The file descriptor where log entries get written.
+ *
+ * Atomic because a crash handler reads it while another thread may be changing it.
+ *
+ * This does not make the descriptor's lifetime safe. A writer that has already loaded the
+ * number can still have it closed and handed to another open() before its write lands, and
+ * the log line then goes into an unrelated file.
+ *
+ * Left that way on purpose. The window is the few instructions between the load and the
+ * write, and the setter runs a handful of times in a process, at install and at clear,
+ * never in steady state; the worst of it is a single line in the wrong file, where the bug
+ * this replaced left the descriptor closed for good and sent every later line astray.
+ * Closing it properly means the logger owning a descriptor number for the process lifetime
+ * and dup2'ing onto it, so the number never returns to the pool. That costs a descriptor
+ * held forever inside someone else's app and a write to /dev/null for every line while
+ * logging is off. Not worth it for this.
+ */
+static _Atomic(int) g_fd = -1;
 
 static void writeToLog(const char *const str)
 {
-    if (g_fd >= 0) {
+    const int fd = atomic_load(&g_fd);
+    if (fd >= 0) {
         int bytesToWrite = (int)strlen(str);
         const char *pos = str;
         while (bytesToWrite > 0) {
-            int bytesWritten = (int)write(g_fd, pos, (unsigned)bytesToWrite);
+            int bytesWritten = (int)write(fd, pos, (unsigned)bytesToWrite);
             unlikely_if(bytesWritten == -1) { break; }
             bytesToWrite -= bytesWritten;
             pos += bytesWritten;
@@ -296,10 +314,15 @@ static inline void flushLog(void)
 
 static inline void setLogFD(int fd)
 {
-    if (g_fd >= 0 && g_fd != STDOUT_FILENO && g_fd != STDERR_FILENO && g_fd != STDIN_FILENO) {
-        close(g_fd);
+    // Publish before closing, never the other way round. Closing first leaves the global
+    // naming a closed descriptor until the store lands, and a handler interrupting in that
+    // window reads it and writes to whatever another thread's open() has since been given.
+    // A writer that loaded the old number before this point is a separate problem that this
+    // ordering does not solve; see g_fd.
+    const int previous = atomic_exchange(&g_fd, fd);
+    if (previous >= 0 && previous != STDOUT_FILENO && previous != STDERR_FILENO && previous != STDIN_FILENO) {
+        close(previous);
     }
-    g_fd = fd;
 }
 
 bool kslog_setLogFilename(const char *filename, bool overwrite)
