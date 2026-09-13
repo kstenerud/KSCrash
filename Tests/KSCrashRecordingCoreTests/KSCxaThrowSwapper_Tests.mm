@@ -31,6 +31,14 @@
 #pragma clang diagnostic pop
 // clang-format on
 
+// These carry pointer parameters spelled with a restrict qualifier. Bare `restrict` is C
+// only, so a C++ translation unit including any of them fails to compile, and nothing else
+// in the package reaches them from C++ today. Including them here keeps that from being
+// discovered by whoever next adds an include to a widely shared header.
+#import "KSFileUtils.h"
+#import "KSJSONCodec.h"
+#import "KSMemory.h"
+
 #include <atomic>
 #include <exception>
 #include <stdexcept>

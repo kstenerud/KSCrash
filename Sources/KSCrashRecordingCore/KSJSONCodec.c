@@ -117,13 +117,13 @@ const char *ksjson_stringForError(const int error)
  *
  * @return KSJSON_OK if the data was handled successfully.
  */
-static int appendEscapedString(KSJSONEncodeContext *const context, const char *restrict const string, int length)
+static int appendEscapedString(KSJSONEncodeContext *const context, const char *__restrict const string, int length)
 {
     char workBuffer[KSJSONCODEC_WorkBufferSize];
     const char *const srcEnd = string + length;
 
-    const char *restrict src = string;
-    char *restrict dst = workBuffer;
+    const char *__restrict src = string;
+    char *__restrict dst = workBuffer;
 
     // Simple case (no escape or special characters)
     for (; src < srcEnd && *src != '\\' && *src != '\"' && (unsigned char)*src >= ' '; src++) {
@@ -182,7 +182,7 @@ static int appendEscapedString(KSJSONEncodeContext *const context, const char *r
  *
  * @return KSJSON_OK if the data was handled successfully.
  */
-static int addEscapedString(KSJSONEncodeContext *const context, const char *restrict const string, int length)
+static int addEscapedString(KSJSONEncodeContext *const context, const char *__restrict const string, int length)
 {
     int result = KSJSON_OK;
 
@@ -208,7 +208,7 @@ static int addEscapedString(KSJSONEncodeContext *const context, const char *rest
  *
  * @return KSJSON_OK if the data was handled successfully.
  */
-static int addQuotedEscapedString(KSJSONEncodeContext *const context, const char *restrict const string, int length)
+static int addQuotedEscapedString(KSJSONEncodeContext *const context, const char *__restrict const string, int length)
 {
     int result;
     unlikely_if((result = addJSONData(context, "\"", 1)) != KSJSON_OK) { return result; }
@@ -1624,8 +1624,8 @@ int ksjson_checkJSONFile(const KSJSONEncodeContext *const destination, const cha
     return result;
 }
 
-int ksjson_addJSONFromFile(KSJSONEncodeContext *const encodeContext, const char *restrict const name,
-                           const char *restrict const filename, const bool closeLastContainer)
+int ksjson_addJSONFromFile(KSJSONEncodeContext *const encodeContext, const char *__restrict const name,
+                           const char *__restrict const filename, const bool closeLastContainer)
 {
     char nameBuffer[KSJSON_MAX_EMBEDDED_STRING_LENGTH + 1];
     char stringBuffer[KSJSON_MAX_EMBEDDED_STRING_LENGTH + 1];
@@ -1662,8 +1662,9 @@ int ksjson_addJSONFromFile(KSJSONEncodeContext *const encodeContext, const char 
     return result;
 }
 
-int ksjson_addJSONElement(KSJSONEncodeContext *const encodeContext, const char *restrict const name,
-                          const char *restrict const jsonData, const int jsonDataLength, const bool closeLastContainer)
+int ksjson_addJSONElement(KSJSONEncodeContext *const encodeContext, const char *__restrict const name,
+                          const char *__restrict const jsonData, const int jsonDataLength,
+                          const bool closeLastContainer)
 {
     char nameBuffer[KSJSON_MAX_EMBEDDED_STRING_LENGTH + 1];
     char stringBuffer[KSJSON_MAX_EMBEDDED_STRING_LENGTH + 1];

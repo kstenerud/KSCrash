@@ -392,7 +392,7 @@ static void addTextLinesFromFile(const KSCrashReportWriter *const writer, const 
     ksfu_closeBufferedReader(&reader);
 }
 
-static int addJSONData(const char *restrict const data, const int length, void *restrict userData)
+static int addJSONData(const char *__restrict const data, const int length, void *__restrict userData)
 {
     KSBufferedWriter *writer = (KSBufferedWriter *)userData;
     const bool success = ksfu_writeBufferedWriter(writer, data, length);
