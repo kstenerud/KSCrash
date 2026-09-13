@@ -19,6 +19,29 @@ A good test: if removing the comment would make a future change risky, keep it. 
 
 Anything shipped as public API documents only the **contract** — what a type, field, or method means to a consumer. This covers public headers (`Sources/[Module]/include/*.h`) and the source of public Swift modules (e.g. `KSCrashReportModel`), both the doc comments and the inline comments.
 
+Document the **reason**, never the instance. Say what a thing means, what it
+guarantees, and what obligation it puts on a caller. Do not enumerate who uses it
+today, which monitors set it, what the current call sites do, or why those
+particular callers made that choice. Callers come and go; the reason does not. A
+doc that lists today's users is wrong the first time someone adds or removes one,
+and wrong docs are worse than short ones.
+
+This bites hardest on public API, where the reader has none of the context the
+list assumed.
+
+```
+// Wrong: a catalogue of today's callers and their motivations.
+// Set it on events nobody asked for: a hang the watchdog noticed, a resource
+// sample, a plugin's periodic capture. A monitor that polls will see this
+// whenever a pass coincides with a report being written.
+
+// Right: what it means, why it exists, what the caller owes.
+// Drop this event rather than write its report alongside one already being
+// written. Reports are written one at a time where that costs nothing, because
+// the handler keeps a single record of which report it wrote last. Set it only
+// where losing the event costs nothing.
+```
+
 Never put implementation details in these files: how a value is produced or persisted, on-disk/wire formats, which subsystem writes it, version history ("added after…", "predates the field"), or migration/compatibility reasoning. Those belong in the implementation (`.m`/`.c`/private files) or the commit message, never on the consumer-facing surface. The "why" and "invariant" comments described above are for internal and crash-time code, not the public API.
 
 ## C String Functions

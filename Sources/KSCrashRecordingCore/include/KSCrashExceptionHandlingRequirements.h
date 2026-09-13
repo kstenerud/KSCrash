@@ -35,6 +35,16 @@ extern "C" {
 
 /**
  * Information about the current requirements for handling a particular event.
+ *
+ * This struct travels in both directions and the two kinds of field sit side by side, so
+ * every field says which it is:
+ *
+ * - `Input` is declared by the caller and passed to notify.
+ * - `Output` is set by the handler and read back off the context notify returns. A caller
+ *   never sets one.
+ * - An input marked "the handler may overrule it" can come back changed, because an event
+ *   raised while our own handler is crashing is no longer the event the caller described.
+ *   Read those back off the returned context rather than assuming what you passed survived.
  */
 typedef struct {
     /**
@@ -42,11 +52,15 @@ typedef struct {
      *
      * This will require stopping all threads, and so `asyncSafetyBecauseThreadsSuspended` will be set once the threads
      * are stopped.
+     *
+     * Input. The handler may overrule it.
      */
     unsigned shouldRecordAllThreads : 1;
 
     /**
      * The handler should try to write a report about this event.
+     *
+     * Input.
      */
     unsigned shouldWriteReport : 1;
 
@@ -56,12 +70,16 @@ typedef struct {
      * The subject is this process unless `isRemoteSubject` is set. To ask whether THIS
      * process is dying, which is what every "wind down now" decision means, use
      * `kscexc_isLocallyFatal` rather than this field alone.
+     *
+     * Input. The handler may overrule it.
      */
     unsigned isFatal : 1;
 
     /**
      * The exit was expected and not a crash (e.g., SIGTERM).
      * Only meaningful when `isFatal` is true.
+     *
+     * Input. The handler may overrule it.
      */
     unsigned isCleanExit : 1;
 
@@ -82,6 +100,8 @@ typedef struct {
      * Note: Do not test this value directly! Use `kscexc_requiresAsyncSafety`.
      *
      * @see https://www.man7.org/linux/man-pages/man7/signal-safety.7.html
+     *
+     * Input. The handler may overrule it.
      */
     unsigned asyncSafety : 1;
 
@@ -90,6 +110,8 @@ typedef struct {
      * Once all threads are resumed, this field will be cleared.
      *
      * Note: Do not test this value directly! Use `kscexc_requiresAsyncSafety`.
+     *
+     * Output, in answer to `shouldRecordAllThreads`.
      */
     unsigned asyncSafetyBecauseThreadsSuspended : 1;
 
@@ -103,6 +125,8 @@ typedef struct {
      * The report writer will produce only a minimal report (without threads,
      * so this will also set `shouldRecordThreads` to false). The original
      * report and "recrash" reports will then be merged.
+     *
+     * Output.
      */
     unsigned crashedDuringExceptionHandling : 1;
 
@@ -114,6 +138,8 @@ typedef struct {
      * fatal exceptions simultaneously.
      *
      * Do nothing. Touch nothing. Exit the exception handler immediately.
+     *
+     * Output.
      */
     unsigned shouldExitImmediately : 1;
 
@@ -128,8 +154,36 @@ typedef struct {
      * monitors stay enabled, and the current run is not marked as crashed).
      *
      * Note: Do not test this value directly! Use `kscexc_isRemoteSubject`.
+     *
+     * Input. The handler may overrule it.
      */
     unsigned isRemoteSubject : 1;
+
+    /**
+     * Drop this event rather than write its report alongside one already being written.
+     *
+     * Reports are written one at a time where that costs nothing, because the handler
+     * keeps a single record of which report it wrote last and recrash handling rewrites
+     * that report in place.
+     *
+     * Set it only where losing the event costs nothing, because the handler drops it
+     * outright and says so through `refusedReportInFlight`. Leave it clear otherwise:
+     * such events are neither delayed nor refused, since nothing waits here. A report
+     * write is far longer than any wait a crash path can afford, so waiting would buy
+     * delay and no exclusion.
+     *
+     * Input. The handler may overrule it.
+     */
+    unsigned yieldsToReportInFlight : 1;
+
+    /**
+     * The handler refused this event because a report was already being written and the
+     * event declared `yieldsToReportInFlight`. The returned context is a shared bail-out
+     * slot: do nothing with it, and do not call the handler.
+     *
+     * Output, in answer to `yieldsToReportInFlight`.
+     */
+    unsigned refusedReportInFlight : 1;
 
 } KSCrash_ExceptionHandlingRequirements CF_SWIFT_NAME(EventRequirements);
 

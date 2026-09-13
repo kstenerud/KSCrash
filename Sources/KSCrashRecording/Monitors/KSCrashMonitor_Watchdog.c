@@ -275,10 +275,24 @@ static void populateReportForCurrentHang(KSHangMonitor *monitor)
     // event would then be classed a recrash and rewrite that report's file in place,
     // destroying it. The recrash test is about the handler thread, and the handler
     // here is this watchdog thread, which notify() reads for itself.
-    KSCrash_MonitorContext *crashContext = g_callbacks.notify(
-        MACH_PORT_NULL,
-        (KSCrash_ExceptionHandlingRequirements) {
-            .asyncSafety = false, .isFatal = false, .shouldRecordAllThreads = true, .shouldWriteReport = true });
+    KSCrash_MonitorContext *crashContext =
+        g_callbacks.notify(MACH_PORT_NULL, (KSCrash_ExceptionHandlingRequirements) { .asyncSafety = false,
+                                                                                     .isFatal = false,
+                                                                                     .shouldRecordAllThreads = true,
+                                                                                     .shouldWriteReport = true,
+                                                                                     .yieldsToReportInFlight = true });
+    if (crashContext->requirements.refusedReportInFlight) {
+        // A report is already being written, so this hang goes unreported: the hang is
+        // already active, so later ticks take the update path and never come back here.
+        // The hang itself still happened, and the lifecycle notifications describe the hang
+        // rather than the report, so Started is published exactly as it would have been.
+        // Skipping it would leave observers with an Updated before any Started, and an
+        // Ended clearing a hang they were never told about.
+        ksmc_resumeEnvironment(&suspendedThreads, &suspendedThreadsCount);
+        KSLOG_DEBUG("A report is already being written; this hang is reported without one");
+        notifyHangChange(KSHangChangeTypeStarted, hang.timestamp, hang.endTimestamp);
+        return;
+    }
 
     KSMachineContext machineContext = { 0 };
     ksmc_getContextForThread(ksthread_main(), &machineContext, true);
