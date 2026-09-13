@@ -72,6 +72,10 @@ static struct {
     KSCrash_MonitorContext reportInFlightContext;
 
     _Atomic thread_t threadsHandlingExceptions[MAX_SIMULTANEOUS_EXCEPTIONS];
+    /** The event each of those handlers is working on, so a recrash can rewrite the report
+     * belonging to the handler that crashed rather than whichever was written last. Cleared
+     * with the thread, which happens before a heap context is freed. */
+    _Atomic(struct KSCrash_MonitorContext *) contextsHandlingExceptions[MAX_SIMULTANEOUS_EXCEPTIONS];
     atomic_int handlingExceptionIndex;
 
     /**
@@ -121,7 +125,8 @@ static void init(void)
     g_state.reportInFlightContext.requirements.refusedReportInFlight = true;
 }
 
-static bool isThreadAlreadyHandlingAnException(int maxCount, thread_t offendingThread, thread_t handlingThread)
+/** The slot of the handler this event is a recrash of, or -1 when it is not one. */
+static int handlerSlotAlreadyHandlingAnException(int maxCount, thread_t offendingThread, thread_t handlingThread)
 {
     if (maxCount > MAX_SIMULTANEOUS_EXCEPTIONS) {
         maxCount = MAX_SIMULTANEOUS_EXCEPTIONS;
@@ -134,10 +139,10 @@ static bool isThreadAlreadyHandlingAnException(int maxCount, thread_t offendingT
             continue;
         }
         if (handlerThread == handlingThread || handlerThread == offendingThread) {
-            return true;
+            return i;
         }
     }
-    return false;
+    return -1;
 }
 
 /** Count this event in, unless it would rather be dropped than share.
@@ -174,6 +179,9 @@ static void endHandlingException(int threadIndex)
     // was never stored into in the first place, so there's nothing to clear and
     // attempting it would write OOB.
     if (threadIndex >= 0 && threadIndex < MAX_SIMULTANEOUS_EXCEPTIONS) {
+        // Context first: a recrash that reads the slot must never see a thread still
+        // handling paired with an event that has gone.
+        atomic_store(&g_state.contextsHandlingExceptions[threadIndex], NULL);
         atomic_store(&g_state.threadsHandlingExceptions[threadIndex], 0);
     }
 
@@ -315,8 +323,8 @@ static KSCrash_MonitorContext *notifyException(const mach_port_t offendingThread
     // refusal is missed; the event is then dropped rather than recorded as a recrash, which
     // is the same thing we were about to do to it anyway.
     if (initialRequirements.yieldsToReportInFlight &&
-        !isThreadAlreadyHandlingAnException(atomic_load(&g_state.handlingExceptionIndex), offendingThread,
-                                            thisThread) &&
+        handlerSlotAlreadyHandlingAnException(atomic_load(&g_state.handlingExceptionIndex), offendingThread,
+                                              thisThread) < 0 &&
         atomic_load(&g_reportsInFlight) != 0) {
         return &g_state.reportInFlightContext;
     }
@@ -328,8 +336,9 @@ static KSCrash_MonitorContext *notifyException(const mach_port_t offendingThread
 
     // Our state now
     KSCrash_ExceptionHandlingRequirements requirements = initialRequirements;
-    const bool isCrashedDuringExceptionHandling =
-        isThreadAlreadyHandlingAnException(thisThreadHandlerIndex, offendingThread, thisThread);
+    const int recrashedHandlerSlot =
+        handlerSlotAlreadyHandlingAnException(thisThreadHandlerIndex, offendingThread, thisThread);
+    const bool isCrashedDuringExceptionHandling = recrashedHandlerSlot >= 0;
 
     if (thisThreadHandlerIndex > MAX_SIMULTANEOUS_EXCEPTIONS) {
         // This should never happen, but it is theoretically possible for tons of
@@ -379,6 +388,21 @@ static KSCrash_MonitorContext *notifyException(const mach_port_t offendingThread
     KSCrash_MonitorContext *ctx = getNextMonitorContext(requirements);
     ctx->threadHandlerIndex = thisThreadHandlerIndex;
     ctx->requirements = requirements;
+
+    if (isCrashedDuringExceptionHandling) {
+        // The report the crashed handler had got to, if it had got to one. Its context is
+        // alive: that handler being mid-flight is what made this event a recrash.
+        struct KSCrash_MonitorContext *interrupted =
+            atomic_load(&g_state.contextsHandlingExceptions[recrashedHandlerSlot]);
+        if (interrupted != NULL) {
+            // A recrash rewrites the interrupted report in place, so that file is this
+            // event's report too.
+            strlcpy(ctx->writtenReportPath, interrupted->writtenReportPath, sizeof(ctx->writtenReportPath));
+        }
+    }
+    if (thisThreadHandlerIndex < MAX_SIMULTANEOUS_EXCEPTIONS) {
+        atomic_store(&g_state.contextsHandlingExceptions[thisThreadHandlerIndex], ctx);
+    }
 
     if (ctx->requirements.shouldRecordAllThreads && !kscexc_isRemoteSubject(ctx->requirements)) {
         // Suspension freezes this process for a consistent thread walk. A remote subject's

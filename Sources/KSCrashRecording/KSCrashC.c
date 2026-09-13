@@ -114,7 +114,6 @@ static const char *g_publishedReportsPath = NULL;
 static bool g_shouldAddConsoleLogToReport = false;
 static bool g_shouldPrintPreviousLog = false;
 static char g_consoleLogPath[KSFU_MAX_PATH_LENGTH];
-static char g_lastCrashReportFilePath[KSFU_MAX_PATH_LENGTH];
 static KSCrashReportStoreCConfiguration g_reportStoreConfig;
 static KSCrashWillWriteReportCallback g_willWriteReportCallback;
 static KSCrashIsWritingReportCallback g_isWritingReportCallback;
@@ -245,15 +244,21 @@ static void onExceptionEvent(struct KSCrash_MonitorContext *monitorContext, KSCr
 
     monitorContext->consoleLogPath = g_shouldAddConsoleLogToReport ? g_consoleLogPath : NULL;
 
-    if (monitorContext->requirements.crashedDuringExceptionHandling) {
-        // The rewritten file keeps its identity: the id is parsed from the
-        // path's own filename (async-signal-safe), so it can never pair with
-        // another crash's id the way a second id global could.
+    if (monitorContext->requirements.crashedDuringExceptionHandling && monitorContext->writtenReportPath[0] != '\0') {
+        // Rewrite the report the crashed handler was writing, named by its own context
+        // rather than by a process-wide record of the last report: with two reports being
+        // written at once, that record names whichever finished most recently, which can
+        // belong to a handler that is perfectly healthy.
+        //
+        // The rewritten file keeps its identity: the id is parsed from the path's own
+        // filename (async-signal-safe), so it can never pair with another crash's id the
+        // way a second id global could.
+        const char *interruptedPath = monitorContext->writtenReportPath;
         char recrashReportID[KSID_SIZE] = { 0 };
-        const char *filename = strrchr(g_lastCrashReportFilePath, '/');
-        filename = filename != NULL ? filename + 1 : g_lastCrashReportFilePath;
+        const char *filename = strrchr(interruptedPath, '/');
+        filename = filename != NULL ? filename + 1 : interruptedPath;
         kscrs_parseReportFilename(filename, recrashReportID);
-        kscrashreport_writeRecrashReport(monitorContext, g_lastCrashReportFilePath, recrashReportID);
+        kscrashreport_writeRecrashReport(monitorContext, interruptedPath, recrashReportID);
     } else if (monitorContext->reportPath) {
         const KSCrashReportWriteStatus status =
             kscrashreport_writeStandardReport(monitorContext, monitorContext->reportPath);
@@ -267,7 +272,7 @@ static void onExceptionEvent(struct KSCrash_MonitorContext *monitorContext, KSCr
         // The event id minted with the context is the report's identity.
         char crashReportFilePath[KSFU_MAX_PATH_LENGTH];
         kscrs_getNextCrashReport(monitorContext->eventID, crashReportFilePath, &g_reportStoreConfig);
-        strlcpy(g_lastCrashReportFilePath, crashReportFilePath, sizeof(g_lastCrashReportFilePath));
+        strlcpy(monitorContext->writtenReportPath, crashReportFilePath, sizeof(monitorContext->writtenReportPath));
         if (kscrashreport_writeStandardReport(monitorContext, crashReportFilePath) != KSCrashReportWriteStatusOK) {
             // Nothing exists under the minted ID, so there is no report to hand back or announce.
             return;
@@ -283,7 +288,7 @@ static void onExceptionEvent(struct KSCrash_MonitorContext *monitorContext, KSCr
             if (snprintf(publishedPath, sizeof(publishedPath), "%s/%s", g_publishedReportsPath, filename) <
                     (int)sizeof(publishedPath) &&
                 rename(crashReportFilePath, publishedPath) == 0) {
-                strlcpy(g_lastCrashReportFilePath, publishedPath, sizeof(g_lastCrashReportFilePath));
+                strlcpy(monitorContext->writtenReportPath, publishedPath, sizeof(monitorContext->writtenReportPath));
             } else {
                 // The app will never see it, so the caller must not be told it was written;
                 // the next extension install sweeps the staging directory.
@@ -294,7 +299,7 @@ static void onExceptionEvent(struct KSCrash_MonitorContext *monitorContext, KSCr
 
         if (result && published) {
             strlcpy(result->reportId, monitorContext->eventID, sizeof(result->reportId));
-            strlcpy(result->path, g_lastCrashReportFilePath, sizeof(result->path));
+            strlcpy(result->path, monitorContext->writtenReportPath, sizeof(result->path));
         }
         if (g_didWriteReportCallback != NULL) {
             KSCrash_ExceptionHandlingPlan plan = ksexc_monitorContextToPlan(monitorContext);
