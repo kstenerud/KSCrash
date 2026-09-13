@@ -384,6 +384,8 @@ typedef void (^KSChainApplyFilter)(id filter, NSArray *items, KSChainStepComplet
     }
 
     NSError *error = nil;
+    // IgnoreNull: a report holds no nulls, so one found in an older or foreign
+    // report resolves to absence rather than reaching a consumer.
     NSMutableDictionary *crashReport =
         [KSJSONCodec decode:jsonData
                     options:KSJSONDecodeOptionIgnoreNullInArray | KSJSONDecodeOptionIgnoreNullInObject |

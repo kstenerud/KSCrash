@@ -640,6 +640,8 @@ static char *readReportAtPath(const char *path, int64_t reportID, const KSCrashR
         __attribute__((objc_precise_lifetime)) NSData *jsonData = [NSData dataWithBytesNoCopy:rawReport
                                                                                        length:(NSUInteger)rawLength
                                                                                  freeWhenDone:YES];
+        // IgnoreNull: a report holds no nulls, so one found in an older or foreign
+        // report resolves to absence rather than reaching a consumer.
         NSMutableDictionary *dict =
             [KSJSONCodec decode:jsonData
                         options:KSJSONDecodeOptionIgnoreNullInArray | KSJSONDecodeOptionIgnoreNullInObject |
@@ -723,7 +725,7 @@ bool kscrs_finalizeReport(const char *reportPath, int64_t reportID)
             return false;
         }
 
-        // Decode once
+        // Decode once. IgnoreNull as in readReportAtPath: a report holds no nulls.
         NSData *jsonData = [NSData dataWithBytesNoCopy:rawReport length:(NSUInteger)rawLength freeWhenDone:YES];
         NSMutableDictionary *dict =
             [KSJSONCodec decode:jsonData

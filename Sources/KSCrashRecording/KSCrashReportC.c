@@ -217,6 +217,11 @@ static void addUIntegerElement(const KSCrashReportWriter *const writer, const ch
 
 static void addStringElement(const KSCrashReportWriter *const writer, const char *const key, const char *const value)
 {
+    // A report holds no nulls: a value the producer does not have is omitted,
+    // never written as null. See KSCrashReportWriter.h.
+    if (value == NULL) {
+        return;
+    }
     ksjson_addStringElement(getJsonContext(writer), key, value, KSJSON_SIZE_AUTOMATIC);
 }
 
@@ -270,39 +275,40 @@ static void endDataElement(const KSCrashReportWriter *const writer) { ksjson_end
 static void addUUIDElement(const KSCrashReportWriter *const writer, const char *const key,
                            const unsigned char *const value)
 {
+    // A report holds no nulls: a value the producer does not have is omitted,
+    // never written as null. See KSCrashReportWriter.h.
     if (value == NULL) {
-        ksjson_addNullElement(getJsonContext(writer), key);
-    } else {
-        char uuidBuffer[37];
-        const unsigned char *src = value;
-        char *dst = uuidBuffer;
-        for (int i = 0; i < 4; i++) {
-            *dst++ = g_hexNybbles[(*src >> 4) & 15];
-            *dst++ = g_hexNybbles[(*src++) & 15];
-        }
-        *dst++ = '-';
-        for (int i = 0; i < 2; i++) {
-            *dst++ = g_hexNybbles[(*src >> 4) & 15];
-            *dst++ = g_hexNybbles[(*src++) & 15];
-        }
-        *dst++ = '-';
-        for (int i = 0; i < 2; i++) {
-            *dst++ = g_hexNybbles[(*src >> 4) & 15];
-            *dst++ = g_hexNybbles[(*src++) & 15];
-        }
-        *dst++ = '-';
-        for (int i = 0; i < 2; i++) {
-            *dst++ = g_hexNybbles[(*src >> 4) & 15];
-            *dst++ = g_hexNybbles[(*src++) & 15];
-        }
-        *dst++ = '-';
-        for (int i = 0; i < 6; i++) {
-            *dst++ = g_hexNybbles[(*src >> 4) & 15];
-            *dst++ = g_hexNybbles[(*src++) & 15];
-        }
-
-        ksjson_addStringElement(getJsonContext(writer), key, uuidBuffer, (int)(dst - uuidBuffer));
+        return;
     }
+    char uuidBuffer[37];
+    const unsigned char *src = value;
+    char *dst = uuidBuffer;
+    for (int i = 0; i < 4; i++) {
+        *dst++ = g_hexNybbles[(*src >> 4) & 15];
+        *dst++ = g_hexNybbles[(*src++) & 15];
+    }
+    *dst++ = '-';
+    for (int i = 0; i < 2; i++) {
+        *dst++ = g_hexNybbles[(*src >> 4) & 15];
+        *dst++ = g_hexNybbles[(*src++) & 15];
+    }
+    *dst++ = '-';
+    for (int i = 0; i < 2; i++) {
+        *dst++ = g_hexNybbles[(*src >> 4) & 15];
+        *dst++ = g_hexNybbles[(*src++) & 15];
+    }
+    *dst++ = '-';
+    for (int i = 0; i < 2; i++) {
+        *dst++ = g_hexNybbles[(*src >> 4) & 15];
+        *dst++ = g_hexNybbles[(*src++) & 15];
+    }
+    *dst++ = '-';
+    for (int i = 0; i < 6; i++) {
+        *dst++ = g_hexNybbles[(*src >> 4) & 15];
+        *dst++ = g_hexNybbles[(*src++) & 15];
+    }
+
+    ksjson_addStringElement(getJsonContext(writer), key, uuidBuffer, (int)(dst - uuidBuffer));
 }
 
 /** Stand in for a payload the codec refused.
