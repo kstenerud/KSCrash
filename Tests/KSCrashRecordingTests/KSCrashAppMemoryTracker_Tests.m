@@ -112,6 +112,43 @@
 
 #pragma mark - Observer Tests
 
+- (void)testInitialCallbackIsSynchronousAndReentrant
+{
+    KSCrashAppMemory *sample = [[KSCrashAppMemory alloc] initWithFootprint:10
+                                                                 remaining:90
+                                                                  pressure:KSCrashAppMemoryStateNormal
+                                                           systemRemaining:500
+                                                               systemLimit:1000];
+    testsupport_KSCrashAppMemorySetProvider(^KSCrashAppMemory * {
+        return sample;
+    });
+
+    KSCrashAppMemoryTracker *tracker = [[KSCrashAppMemoryTracker alloc] init];
+    NSThread *caller = NSThread.currentThread;
+    __block BOOL initialDelivered = NO;
+    __block id addedObserver;
+    __weak KSCrashAppMemoryTracker *weakTracker = tracker;
+    id observer = [tracker addObserverWithBlock:^(KSCrashAppMemory *memory, KSCrashAppMemoryTrackerChangeType changes) {
+        if (changes != KSCrashAppMemoryTrackerChangeTypeNone) return;
+        XCTAssertEqualObjects(NSThread.currentThread, caller);
+        XCTAssertEqualObjects(memory, sample);
+        // Both operations re-enter the tracker and acquire its lock.
+        KSCrashAppMemoryTracker *currentTracker = weakTracker;
+        XCTAssertLessThanOrEqual(currentTracker.pressure, KSCrashAppMemoryStateTerminal);
+        addedObserver =
+            [currentTracker addObserverWithBlock:^(__unused KSCrashAppMemory *laterMemory,
+                                                   __unused KSCrashAppMemoryTrackerChangeType laterChanges) {
+            }];
+        initialDelivered = YES;
+    }];
+
+    [tracker start];
+    XCTAssertTrue(initialDelivered);
+    XCTAssertNotNil(addedObserver);
+    [tracker stop];
+    XCTAssertNotNil(observer);
+}
+
 - (void)testAddObserver
 {
     KSCrashAppMemoryTracker *tracker = [[KSCrashAppMemoryTracker alloc] init];

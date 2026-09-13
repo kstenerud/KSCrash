@@ -160,6 +160,10 @@ FOUNDATION_EXPORT void testsupport_KSCrashAppMemorySetProvider(KSCrashAppMemoryP
         observers = [_observers allObjects];
         os_unfair_lock_unlock(&_lock);
     }
+    // Keep this initial callback synchronous on the caller's thread and outside
+    // _lock so observers can re-enter the tracker. It may interleave with a
+    // heartbeat; brief startup staleness is acceptable for diagnostic snapshots.
+    // Avoid queue hops or generation tracking solely to order this delivery.
     [self _handleMemoryChange:[self currentAppMemory] type:KSCrashAppMemoryTrackerChangeTypeNone observers:observers];
 }
 

@@ -246,51 +246,37 @@ static void stopCPUObserver(void) { g_cpuObserver = nil; }
 #pragma mark - Memory Observer -
 // ============================================================================
 
+static void writeMemorySnapshot(KSCrashAppMemory *memory)
+{
+    if (memory == nil) return;
+
+    // Publish all memory fields from one sample. The timestamp already dirties
+    // the sidecar's single mmap page; filling the other fields adds no pages
+    // to write back. Tracker thresholds still control the update frequency.
+    uint64_t now = ksdate_continuousNanoseconds();
+    resourceUpdate(^(KSCrash_ResourceData *res) {
+        res->memoryFootprint = memory.footprint;
+        res->memoryRemaining = memory.remaining;
+        res->memoryLimit = memory.limit;
+        res->systemMemoryRemaining = memory.systemRemaining;
+        res->systemMemoryLimit = memory.systemLimit;
+        res->memoryPressure = (uint8_t)memory.pressure;
+        res->memoryLevel = (uint8_t)memory.level;
+        res->memoryHeadroom = (uint8_t)memory.headroom;
+        res->memoryUpdatedAtNs = now;
+    });
+}
+
 static void startMemoryObserver(void)
 {
     g_memoryObserver = [KSCrashAppMemoryTracker.sharedInstance
-        addObserverWithBlock:^(KSCrashAppMemory *memory, KSCrashAppMemoryTrackerChangeType changes) {
-            uint64_t now = ksdate_continuousNanoseconds();
-            resourceUpdate(^(KSCrash_ResourceData *res) {
-                if (changes & KSCrashAppMemoryTrackerChangeTypeFootprint) {
-                    res->memoryFootprint = memory.footprint;
-                    res->memoryRemaining = memory.remaining;
-                    res->memoryLimit = memory.limit;
-                }
-                if (changes & KSCrashAppMemoryTrackerChangeTypeSystemRemaining) {
-                    res->systemMemoryRemaining = memory.systemRemaining;
-                    res->systemMemoryLimit = memory.systemLimit;
-                }
-                if (changes & KSCrashAppMemoryTrackerChangeTypePressure) {
-                    res->memoryPressure = (uint8_t)memory.pressure;
-                }
-                if (changes & KSCrashAppMemoryTrackerChangeTypeLevel) {
-                    res->memoryLevel = (uint8_t)memory.level;
-                }
-                if (changes & KSCrashAppMemoryTrackerChangeTypeHeadroom) {
-                    res->memoryHeadroom = (uint8_t)memory.headroom;
-                }
-                res->memoryUpdatedAtNs = now;
-            });
+        addObserverWithBlock:^(KSCrashAppMemory *memory, __unused KSCrashAppMemoryTrackerChangeType changes) {
+            writeMemorySnapshot(memory);
         }];
 
     // Seed with current values so the sidecar isn't all-zero if a crash
     // happens before the first real change/heartbeat notification.
-    KSCrashAppMemory *current = KSCrashAppMemoryTracker.sharedInstance.currentAppMemory;
-    if (current != nil) {
-        uint64_t now = ksdate_continuousNanoseconds();
-        resourceUpdate(^(KSCrash_ResourceData *res) {
-            res->memoryFootprint = current.footprint;
-            res->memoryRemaining = current.remaining;
-            res->memoryLimit = current.limit;
-            res->systemMemoryRemaining = current.systemRemaining;
-            res->systemMemoryLimit = current.systemLimit;
-            res->memoryPressure = (uint8_t)current.pressure;
-            res->memoryLevel = (uint8_t)current.level;
-            res->memoryHeadroom = (uint8_t)current.headroom;
-            res->memoryUpdatedAtNs = now;
-        });
-    }
+    writeMemorySnapshot(KSCrashAppMemoryTracker.sharedInstance.currentAppMemory);
 }
 
 static void stopMemoryObserver(void) { g_memoryObserver = nil; }
