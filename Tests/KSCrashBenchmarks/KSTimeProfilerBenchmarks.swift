@@ -200,7 +200,11 @@ import XCTest
                 let id2 = profiler.beginProfile(named: "benchmark")
                 let id3 = profiler.beginProfile(named: "benchmark")
 
-                Thread.sleep(forTimeInterval: 0.03)
+                // Ten intervals, the same margin the other 10ms benchmark leaves. Three
+                // was enough on an idle machine and not on a loaded CI runner, where the
+                // sampling timer can miss that many ticks and the run ends with no
+                // samples at all.
+                Thread.sleep(forTimeInterval: 0.1)
 
                 _ = profiler.endProfile(id: id1)
                 _ = profiler.endProfile(id: id2)

@@ -50,28 +50,29 @@ extern void kstc_reset(void);
     kstc_init(1);
     [thread start];
 
-    // Poll until the cache picks up the thread name (up to 10 s).
-    const char *cName = NULL;
+    // Poll until the cache reports the name the thread was given (up to 10 s).
+    // NSThread applies the name as the thread starts, and the cache reads it
+    // with pthread_getname_np from another thread, so a read that wins that
+    // race sees the name absent or part way written. Only the settled value
+    // answers the question, so stopping at the first non-NULL read is what
+    // made this test fail on a loaded machine with a truncated name.
+    NSString *name = nil;
     NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:10.0];
-    while ([deadline timeIntervalSinceNow] > 0) {
+    for (;;) {
         kstc_freeze();
-        cName = kstc_getThreadName(thread.thread);
-        if (cName != NULL) {
+        const char *cName = kstc_getThreadName(thread.thread);
+        // Copy while frozen; the cache owns the buffer.
+        name = cName != NULL ? [NSString stringWithUTF8String:cName] : nil;
+        kstc_unfreeze();
+        if ([name isEqualToString:expectedName] || [deadline timeIntervalSinceNow] <= 0) {
             break;
         }
-        kstc_unfreeze();
         [NSThread sleepForTimeInterval:0.05];
     }
 
-    if (cName != NULL) {
-        NSString *name = [NSString stringWithUTF8String:cName];
-        XCTAssertEqualObjects(name, expectedName, @"Thread name didn't match expected name");
-    } else {
-        XCTFail(@"Failed to get thread name within 10 seconds");
-    }
+    XCTAssertEqualObjects(name, expectedName, @"Thread name didn't match expected name");
 
     [thread cancel];
-    kstc_unfreeze();
 }
 
 @end
