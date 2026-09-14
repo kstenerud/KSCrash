@@ -32,9 +32,19 @@ NS_ASSUME_NONNULL_BEGIN
 
 typedef NS_OPTIONS(NSUInteger, KSCrashAppMemoryTrackerChangeType) {
     KSCrashAppMemoryTrackerChangeTypeNone = 0,
+    /** The app's memory level moved to a new state. */
     KSCrashAppMemoryTrackerChangeTypeLevel = 1 << 0,
+    /** Memory pressure on the app moved to a new state. */
     KSCrashAppMemoryTrackerChangeTypePressure = 1 << 1,
+    /** The app's own memory use (footprint, remaining, limit) moved, including
+     *  whenever the level changes. */
     KSCrashAppMemoryTrackerChangeTypeFootprint = 1 << 2,
+    /** The device's memory headroom moved to a new state. */
+    KSCrashAppMemoryTrackerChangeTypeHeadroom = 1 << 3,
+    /** Device-wide available memory (systemRemaining/systemLimit) moved,
+     *  including whenever the headroom changes. Separate from Footprint, which
+     *  only tracks the app's own memory. */
+    KSCrashAppMemoryTrackerChangeTypeSystemRemaining = 1 << 4,
 } NS_SWIFT_NAME(AppMemoryTrackerChangeType);
 
 typedef void (^KSCrashAppMemoryTrackerObserverBlock)(KSCrashAppMemory *memory,
@@ -55,6 +65,7 @@ NS_SWIFT_NAME(AppMemoryTracker)
 
 @property(atomic, readonly) KSCrashAppMemoryState pressure;
 @property(atomic, readonly) KSCrashAppMemoryState level;
+@property(atomic, readonly) KSCrashAppMemoryState headroom;
 
 @property(nonatomic, readonly, nullable) KSCrashAppMemory *currentAppMemory;
 

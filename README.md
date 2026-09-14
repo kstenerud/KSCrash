@@ -98,7 +98,7 @@ store with zero crash-time overhead.
 - **MetricKit**: Apple diagnostic payload integration (`KSCrashMonitors` module)
 - **Report**: Strongly-typed Swift model for crash reports (`KSCrashReportModel` module)
 - **Zombie Detection**: Catches messages to deallocated objects
-- **Memory Tracking**: Real-time memory pressure monitoring via `AppMemoryTracker`
+- **Memory Tracking**: Real-time memory level, pressure, and device headroom monitoring via `AppMemoryTracker`
 - **Crash Doctor**: Automatic crash cause diagnosis
 - **Custom Crashes**: Report exceptions from scripting languages via `reportUserException`
 - **Namespacing**: Embed KSCrash in your own library without symbol clashes

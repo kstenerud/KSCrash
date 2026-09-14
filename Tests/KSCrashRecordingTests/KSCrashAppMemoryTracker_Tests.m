@@ -30,6 +30,11 @@
 #import "KSCrashAppMemory+Private.h"
 #import "KSCrashAppMemoryTracker.h"
 
+@interface KSCrashAppMemoryTracker (Tests)
+- (void)_heartbeat:(BOOL)sendObservers;
+- (void)_memoryPressureChanged:(dispatch_source_memorypressure_flags_t)flags sendObservers:(BOOL)sendObservers;
+@end
+
 @interface KSCrashAppMemoryTracker_Tests : XCTestCase
 @end
 
@@ -90,12 +95,22 @@
     XCTAssertNotNil(memory);
     XCTAssertTrue(memory.footprint > 0);
     XCTAssertTrue(memory.limit > 0);
+    // A test process is nowhere near its limit on any host, so a platform
+    // that reports no usable limit must not read as terminal.
+    XCTAssertNotEqual(memory.level, KSCrashAppMemoryStateTerminal);
+    XCTAssertTrue(memory.systemLimit > 0);
+    XCTAssertTrue(memory.systemRemaining > 0);
+    XCTAssertTrue(memory.systemRemaining < memory.systemLimit);
 }
 
 - (void)testCurrentAppMemoryWithProvider
 {
     testsupport_KSCrashAppMemorySetProvider(^KSCrashAppMemory *_Nonnull {
-        return [[KSCrashAppMemory alloc] initWithFootprint:500 remaining:500 pressure:KSCrashAppMemoryStateWarn];
+        return [[KSCrashAppMemory alloc] initWithFootprint:500
+                                                 remaining:500
+                                                  pressure:KSCrashAppMemoryStateWarn
+                                           systemRemaining:0
+                                               systemLimit:0];
     });
 
     KSCrashAppMemoryTracker *tracker = [[KSCrashAppMemoryTracker alloc] init];
@@ -107,6 +122,43 @@
 }
 
 #pragma mark - Observer Tests
+
+- (void)testInitialCallbackIsSynchronousAndReentrant
+{
+    KSCrashAppMemory *sample = [[KSCrashAppMemory alloc] initWithFootprint:10
+                                                                 remaining:90
+                                                                  pressure:KSCrashAppMemoryStateNormal
+                                                           systemRemaining:500
+                                                               systemLimit:1000];
+    testsupport_KSCrashAppMemorySetProvider(^KSCrashAppMemory * {
+        return sample;
+    });
+
+    KSCrashAppMemoryTracker *tracker = [[KSCrashAppMemoryTracker alloc] init];
+    NSThread *caller = NSThread.currentThread;
+    __block BOOL initialDelivered = NO;
+    __block id addedObserver;
+    __weak KSCrashAppMemoryTracker *weakTracker = tracker;
+    id observer = [tracker addObserverWithBlock:^(KSCrashAppMemory *memory, KSCrashAppMemoryTrackerChangeType changes) {
+        if (changes != KSCrashAppMemoryTrackerChangeTypeNone) return;
+        XCTAssertEqualObjects(NSThread.currentThread, caller);
+        XCTAssertEqualObjects(memory, sample);
+        // Both operations re-enter the tracker and acquire its lock.
+        KSCrashAppMemoryTracker *currentTracker = weakTracker;
+        XCTAssertLessThanOrEqual(currentTracker.pressure, KSCrashAppMemoryStateTerminal);
+        addedObserver =
+            [currentTracker addObserverWithBlock:^(__unused KSCrashAppMemory *laterMemory,
+                                                   __unused KSCrashAppMemoryTrackerChangeType laterChanges) {
+            }];
+        initialDelivered = YES;
+    }];
+
+    [tracker start];
+    XCTAssertTrue(initialDelivered);
+    XCTAssertNotNil(addedObserver);
+    [tracker stop];
+    XCTAssertNotNil(observer);
+}
 
 - (void)testAddObserver
 {
@@ -366,7 +418,9 @@
         uint64_t footprint = atomic_load(&currentFootprint);
         return [[KSCrashAppMemory alloc] initWithFootprint:footprint
                                                  remaining:100 - footprint
-                                                  pressure:KSCrashAppMemoryStateNormal];
+                                                  pressure:KSCrashAppMemoryStateNormal
+                                           systemRemaining:0
+                                               systemLimit:0];
     });
 
     KSCrashAppMemoryTracker *tracker = [[KSCrashAppMemoryTracker alloc] init];
@@ -380,6 +434,10 @@
         [tracker addObserverWithBlock:^(__unused KSCrashAppMemory *memory, KSCrashAppMemoryTrackerChangeType changes) {
             if ((changes & KSCrashAppMemoryTrackerChangeTypeLevel) && !levelChangeDetected) {
                 levelChangeDetected = YES;
+                // A state change reports the bytes that caused it, even though
+                // they moved by less than the 1 MiB change threshold (here: 50
+                // bytes).
+                XCTAssertTrue(changes & KSCrashAppMemoryTrackerChangeTypeFootprint);
                 [expectation fulfill];
             }
         }];
@@ -395,6 +453,187 @@
     [tracker stop];
 
     (void)observer;  // Keep observer alive
+}
+
+#pragma mark - Headroom Tests
+
+- (void)testHeadroomChangeNotification
+{
+    // 849 of 1000 used is normal headroom; 851 crosses into warn.
+    __block uint64_t currentSystemRemaining = 151;
+
+    testsupport_KSCrashAppMemorySetProvider(^KSCrashAppMemory *_Nonnull {
+        return [[KSCrashAppMemory alloc] initWithFootprint:10
+                                                 remaining:90
+                                                  pressure:KSCrashAppMemoryStateNormal
+                                           systemRemaining:currentSystemRemaining
+                                               systemLimit:1000];
+    });
+
+    KSCrashAppMemoryTracker *tracker = [[KSCrashAppMemoryTracker alloc] init];
+    [tracker _heartbeat:NO];
+    XCTAssertEqual(tracker.headroom, KSCrashAppMemoryStateNormal);
+
+    __block KSCrashAppMemoryTrackerChangeType observedChanges = KSCrashAppMemoryTrackerChangeTypeNone;
+    __block KSCrashAppMemory *observedMemory = nil;
+    id observer = [tracker addObserverWithBlock:^(KSCrashAppMemory *memory, KSCrashAppMemoryTrackerChangeType changes) {
+        observedChanges = changes;
+        observedMemory = memory;
+    }];
+
+    // The crossing moves system remaining by 2, under the 1% change threshold
+    // of 10, yet a state change still reports the bytes that caused it.
+    currentSystemRemaining = 149;
+    [tracker _heartbeat:NO];
+    XCTAssertEqual(tracker.headroom, KSCrashAppMemoryStateWarn);
+    XCTAssertTrue(observedChanges & KSCrashAppMemoryTrackerChangeTypeHeadroom);
+    XCTAssertTrue(observedChanges & KSCrashAppMemoryTrackerChangeTypeSystemRemaining);
+    XCTAssertEqual(observedMemory.systemRemaining, 149);
+
+    (void)observer;  // Keep observer alive
+}
+
+- (void)testSystemRemainingChangeDoesNotClaimFootprintChange
+{
+    __block _Atomic(uint64_t) currentSystemRemaining = 9000;
+
+    testsupport_KSCrashAppMemorySetProvider(^KSCrashAppMemory *_Nonnull {
+        uint64_t systemRemaining = atomic_load(&currentSystemRemaining);
+        return [[KSCrashAppMemory alloc] initWithFootprint:10
+                                                 remaining:90
+                                                  pressure:KSCrashAppMemoryStateNormal
+                                           systemRemaining:systemRemaining
+                                               systemLimit:10000];
+    });
+
+    KSCrashAppMemoryTracker *tracker = [[KSCrashAppMemoryTracker alloc] init];
+
+    XCTestExpectation *expectation = [self expectationWithDescription:@"System remaining change detected"];
+    expectation.expectedFulfillmentCount = 1;
+
+    __block BOOL systemChangeDetected = NO;
+
+    // The first heartbeat also reports SystemRemaining (0 -> 9000), so key on
+    // the 9000 -> 8000 move specifically.
+    id observer = [tracker addObserverWithBlock:^(KSCrashAppMemory *memory, KSCrashAppMemoryTrackerChangeType changes) {
+        if ((changes & KSCrashAppMemoryTrackerChangeTypeSystemRemaining) && memory.systemRemaining == 8000 &&
+            !systemChangeDetected) {
+            systemChangeDetected = YES;
+            // Device-wide movement is not an app footprint change; observers
+            // must be able to tell the two apart.
+            XCTAssertFalse(changes & KSCrashAppMemoryTrackerChangeTypeFootprint);
+            XCTAssertFalse(changes & KSCrashAppMemoryTrackerChangeTypeHeadroom);
+            [expectation fulfill];
+        }
+    }];
+
+    [tracker start];
+
+    // Move system remaining well past the 1% threshold, but stay inside the
+    // normal headroom band and leave the footprint untouched.
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        atomic_store(&currentSystemRemaining, 8000);
+    });
+
+    [self waitForExpectations:@[ expectation ] timeout:3.0];
+    [tracker stop];
+
+    (void)observer;  // Keep observer alive
+}
+
+- (void)testProviderFailureKeepsLastState
+{
+    __block BOOL providerFails = NO;
+
+    testsupport_KSCrashAppMemorySetProvider(^KSCrashAppMemory *_Nullable {
+        if (providerFails) {
+            return nil;
+        }
+        return [[KSCrashAppMemory alloc] initWithFootprint:80
+                                                 remaining:20
+                                                  pressure:KSCrashAppMemoryStateNormal
+                                           systemRemaining:40
+                                               systemLimit:1000];
+    });
+
+    KSCrashAppMemoryTracker *tracker = [[KSCrashAppMemoryTracker alloc] init];
+
+    __block NSUInteger callbacks = 0;
+    id observer =
+        [tracker addObserverWithBlock:^(KSCrashAppMemory *memory, __unused KSCrashAppMemoryTrackerChangeType changes) {
+            // A failed sample must never surface as a nil snapshot.
+            XCTAssertNotNil(memory);
+            callbacks++;
+        }];
+
+    [tracker _heartbeat:NO];
+    XCTAssertEqual(tracker.level, KSCrashAppMemoryStateCritical);
+    XCTAssertEqual(tracker.headroom, KSCrashAppMemoryStateCritical);
+    XCTAssertEqual(callbacks, 1);
+
+    // A failed sample must not fabricate a recovery to normal or reach observers.
+    providerFails = YES;
+    [tracker _heartbeat:NO];
+    XCTAssertEqual(tracker.level, KSCrashAppMemoryStateCritical);
+    XCTAssertEqual(tracker.headroom, KSCrashAppMemoryStateCritical);
+    XCTAssertEqual(callbacks, 1);
+
+    (void)observer;  // Keep observer alive
+}
+
+- (void)testStartWithFailingProviderDeliversNothing
+{
+    testsupport_KSCrashAppMemorySetProvider(^KSCrashAppMemory *_Nullable {
+        return nil;
+    });
+
+    KSCrashAppMemoryTracker *tracker = [[KSCrashAppMemoryTracker alloc] init];
+
+    __block NSUInteger callbacks = 0;
+    id observer = [tracker
+        addObserverWithBlock:^(__unused KSCrashAppMemory *memory, __unused KSCrashAppMemoryTrackerChangeType changes) {
+            callbacks++;
+        }];
+
+    // -start delivers its first sample synchronously, so a failed one must be
+    // dropped before this returns.
+    [tracker start];
+    XCTAssertEqual(callbacks, 0);
+    [tracker stop];
+
+    (void)observer;  // Keep observer alive
+}
+
+- (void)testStartWithoutObserversTakesNoSample
+{
+    __block _Atomic(int) samples = 0;
+    testsupport_KSCrashAppMemorySetProvider(^KSCrashAppMemory *_Nonnull {
+        atomic_fetch_add(&samples, 1);
+        return [[KSCrashAppMemory alloc] initWithFootprint:10
+                                                 remaining:90
+                                                  pressure:KSCrashAppMemoryStateNormal
+                                           systemRemaining:500
+                                               systemLimit:1000];
+    });
+
+    KSCrashAppMemoryTracker *tracker = [[KSCrashAppMemoryTracker alloc] init];
+    // Hold the heartbeat queue so the timer's first tick can't sample; only
+    // -start itself could.
+    dispatch_queue_t queue = [tracker valueForKey:@"heartbeatQueue"];
+    dispatch_suspend(queue);
+    [tracker start];
+    XCTAssertEqual(atomic_load(&samples), 0);
+    [tracker stop];
+    dispatch_resume(queue);
+}
+
+- (void)testPressureChangeUsesFlagsHandedIn
+{
+    // Never started, so there is no pressure source to read: the state must
+    // come from the flags handed in, as when -stop races a firing handler.
+    KSCrashAppMemoryTracker *tracker = [[KSCrashAppMemoryTracker alloc] init];
+    [tracker _memoryPressureChanged:DISPATCH_MEMORYPRESSURE_CRITICAL sendObservers:NO];
+    XCTAssertEqual(tracker.pressure, KSCrashAppMemoryStateCritical);
 }
 
 @end

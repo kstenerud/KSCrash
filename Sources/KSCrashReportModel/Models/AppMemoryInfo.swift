@@ -26,11 +26,12 @@
 
 import Foundation
 
-/// App memory state classification.
+/// How close memory is to running out.
 ///
-/// Mirrors the C `KSCrashAppMemoryState` enum (`KSCrashAppMemory.h`). Values are
-/// emitted as lowercase strings in the report JSON and used for both the app's
-/// own memory level and system-wide memory pressure.
+/// For `AppMemoryInfo.memoryLevel` and `AppMemoryInfo.memoryPressure`, a state
+/// describes how close the app was to being terminated for memory. For
+/// `AppMemoryInfo.memoryHeadroom`, it describes how close the device as a whole
+/// was to running out of memory.
 public enum MemoryState: RawRepresentable, Codable, Sendable, Equatable {
     case normal
     case warn
@@ -75,7 +76,7 @@ public struct AppMemoryInfo: Codable, Sendable, Equatable {
     /// Memory remaining before limit in bytes.
     public let memoryRemaining: UInt64?
 
-    /// System memory pressure level.
+    /// Memory pressure the system was putting on the app.
     public let memoryPressure: MemoryState?
 
     /// App memory level.
@@ -83,6 +84,17 @@ public struct AppMemoryInfo: Codable, Sendable, Equatable {
 
     /// Memory limit for the app in bytes.
     public let memoryLimit: UInt64?
+
+    /// System-wide memory headroom: how close the device as a whole is to
+    /// running out of reclaimable memory.
+    public let memoryHeadroom: MemoryState?
+
+    /// Available memory device-wide in bytes: free pages plus the purgeable
+    /// and file-backed pages the kernel can reclaim cheaply.
+    public let systemMemoryRemaining: UInt64?
+
+    /// Total physical memory on the device in bytes.
+    public let systemMemoryLimit: UInt64?
 
     /// App transition state at crash time.
     public let appTransitionState: AppTransitionState?
@@ -93,6 +105,9 @@ public struct AppMemoryInfo: Codable, Sendable, Equatable {
         case memoryPressure = "memory_pressure"
         case memoryLevel = "memory_level"
         case memoryLimit = "memory_limit"
+        case memoryHeadroom = "memory_headroom"
+        case systemMemoryRemaining = "system_memory_remaining"
+        case systemMemoryLimit = "system_memory_limit"
         case appTransitionState = "app_transition_state"
     }
 }
