@@ -134,6 +134,8 @@ static bool extractRunIdWithFullDecode(const char *rawReport, int length, char *
 {
     @autoreleasepool {
         NSData *data = [NSData dataWithBytesNoCopy:(void *)rawReport length:(NSUInteger)length freeWhenDone:NO];
+        // IgnoreNull: a report holds no nulls, so one found in an older or foreign
+        // report resolves to absence rather than reaching a consumer.
         NSDictionary *dict =
             [KSJSONCodec decode:data
                         options:KSJSONDecodeOptionIgnoreNullInArray | KSJSONDecodeOptionIgnoreNullInObject |

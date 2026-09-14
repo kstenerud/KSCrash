@@ -26,16 +26,55 @@
 
 #import <XCTest/XCTest.h>
 
+#import "KSCrashMonitor.h"
 #import "KSCrashMonitor_MachException.h"
 #import "KSCrashReportC.h"
 #import "KSJSONCodec.h"
 #import "KSMachineContext.h"
 #import "KSStackCursor_SelfThread.h"
 
+#include <math.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdatomic.h>
 #include <stdio.h>
+
+#pragma mark - Test monitor exercising the no-nulls contract
+
+// Guarded with the tests that use it: without Mach there is no report to write,
+// and an unused file-scope function is an error in that build.
+#if KSCRASH_HAS_MACH
+
+static const char *nullContractMonitorId(__unused void *context) { return "NullContractTestMonitor"; }
+
+static void nullContractWriteSection(__unused const KSCrash_MonitorContext *eventContext,
+                                     const KSCrashReportWriter *writer, __unused void *context)
+{
+    static const unsigned char uuidBytes[16] = { 0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF,
+                                                 0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10 };
+    writer->addStringElement(writer, "present_string", "value");
+    writer->addStringElement(writer, "absent_string", NULL);
+    writer->addUUIDElement(writer, "present_uuid", uuidBytes);
+    writer->addUUIDElement(writer, "absent_uuid", NULL);
+    writer->addFloatingPointElement(writer, "present_double", 1.5);
+    writer->addFloatingPointElement(writer, "absent_nan", NAN);
+    writer->addFloatingPointElement(writer, "absent_inf", INFINITY);
+    writer->addFloatingPointElement(writer, "absent_neg_inf", -INFINITY);
+    writer->addDataElement(writer, "present_data", "\x01\x02", 2);
+    // A length with no pointer: the encoder would walk the NULL.
+    writer->addDataElement(writer, "absent_data", NULL, 2);
+    writer->beginArray(writer, "list");
+    {
+        writer->addStringElement(writer, NULL, "a");
+        writer->addStringElement(writer, NULL, NULL);
+        writer->addStringElement(writer, NULL, "b");
+    }
+    writer->endContainer(writer);
+}
+
+static KSCrashMonitorAPI g_nullContractMonitorAPI;
+
+#endif
 
 @interface KSCrashReportC_Tests : XCTestCase
 @end
@@ -460,6 +499,112 @@
     XCTAssertEqual(reads, correct, @"All successful reads should return correct value");
 
     NSLog(@"Concurrent reads test: %d successful, %d correct, %d skipped", reads, correct, skipped);
+}
+
+#pragma mark - No Nulls In A Report
+
+/** Collect the paths of every JSON null in the tree, so a failure names the offender. */
+- (void)collectNullPathsIn:(id)node path:(NSString *)path into:(NSMutableArray<NSString *> *)paths
+{
+    if ([node isKindOfClass:[NSDictionary class]]) {
+        for (NSString *key in (NSDictionary *)node) {
+            id value = [(NSDictionary *)node objectForKey:key];
+            NSString *childPath = [NSString stringWithFormat:@"%@.%@", path, key];
+            if ([value isKindOfClass:[NSNull class]]) {
+                [paths addObject:childPath];
+            } else {
+                [self collectNullPathsIn:value path:childPath into:paths];
+            }
+        }
+    } else if ([node isKindOfClass:[NSArray class]]) {
+        NSArray *array = (NSArray *)node;
+        for (NSUInteger i = 0; i < array.count; i++) {
+            id value = array[i];
+            NSString *childPath = [NSString stringWithFormat:@"%@[%lu]", path, (unsigned long)i];
+            if ([value isKindOfClass:[NSNull class]]) {
+                [paths addObject:childPath];
+            } else {
+                [self collectNullPathsIn:value path:childPath into:paths];
+            }
+        }
+    }
+}
+
+- (NSDictionary *)writeReportForMonitorId:(const char *)monitorId toPath:(NSString *)path
+{
+    struct KSMachineContext machineContext = { 0 };
+    XCTAssertTrue(ksmc_getContextForThread(pthread_mach_thread_np(pthread_self()), &machineContext, true));
+
+    KSStackCursor stackCursor;
+    kssc_initSelfThread(&stackCursor, 0);
+
+    KSCrash_MonitorContext context = { 0 };
+    snprintf(context.eventID, sizeof(context.eventID), "NULLCONTRACT");
+    context.offendingMachineContext = &machineContext;
+    context.stackCursor = &stackCursor;
+    context.registersAreValid = true;
+    context.monitorId = monitorId;
+    context.crashReason = "No-nulls contract test";
+
+    kscrashreport_writeStandardReport(&context, path.UTF8String);
+    return [self readJSONObjectAtPath:path];
+}
+
+- (void)testWriterOmitsNullValuesInsteadOfWritingNull
+{
+#if KSCRASH_HAS_MACH
+    kscma_initAPI(&g_nullContractMonitorAPI);
+    g_nullContractMonitorAPI.monitorId = nullContractMonitorId;
+    g_nullContractMonitorAPI.writeInReportSection = nullContractWriteSection;
+    kscm_addMonitor(&g_nullContractMonitorAPI);
+
+    NSString *path = [self temporaryReportPath];
+    @try {
+        NSDictionary *json = [self writeReportForMonitorId:nullContractMonitorId(NULL) toPath:path];
+        NSDictionary *section = json[@"crash"][@"error"][@"NullContractTestMonitor"];
+        XCTAssertNotNil(section, @"the test monitor's section should be present");
+
+        XCTAssertEqualObjects(section[@"present_string"], @"value");
+        XCTAssertEqualObjects(section[@"present_uuid"], @"01234567-89AB-CDEF-FEDC-BA9876543210");
+        XCTAssertEqualObjects(section[@"present_double"], @1.5);
+        XCTAssertEqualObjects(section[@"present_data"], @"0102");
+
+        // A value the producer does not have leaves no trace at all: not a null,
+        // and not a key holding one.
+        XCTAssertNil(section[@"absent_string"]);
+        XCTAssertNil(section[@"absent_uuid"]);
+        XCTAssertFalse([section.allKeys containsObject:@"absent_string"]);
+        XCTAssertFalse([section.allKeys containsObject:@"absent_uuid"]);
+
+        // JSON has no non-finite numbers: NaN would go out as the literal null
+        // and an infinity as 1e999, which a strict reader rejects whole.
+        XCTAssertFalse([section.allKeys containsObject:@"absent_nan"]);
+        XCTAssertFalse([section.allKeys containsObject:@"absent_inf"]);
+        XCTAssertFalse([section.allKeys containsObject:@"absent_neg_inf"]);
+        XCTAssertFalse([section.allKeys containsObject:@"absent_data"]);
+
+        // Same in an array: the element is not added, rather than added as null.
+        XCTAssertEqualObjects(section[@"list"], (@[ @"a", @"b" ]));
+    } @finally {
+        kscm_removeMonitor(&g_nullContractMonitorAPI);
+        [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+    }
+#endif
+}
+
+- (void)testStandardReportHoldsNoNulls
+{
+#if KSCRASH_HAS_MACH
+    NSString *path = [self temporaryReportPath];
+    @try {
+        NSDictionary *json = [self writeReportForMonitorId:kscm_machexception_getAPI()->monitorId(NULL) toPath:path];
+        NSMutableArray<NSString *> *nullPaths = [NSMutableArray array];
+        [self collectNullPathsIn:json path:@"" into:nullPaths];
+        XCTAssertEqualObjects(nullPaths, @[], @"a report holds no nulls");
+    } @finally {
+        [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+    }
+#endif
 }
 
 @end

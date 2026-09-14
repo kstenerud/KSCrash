@@ -56,6 +56,14 @@ extern "C" {
 
 /**
  * Encapsulates report writing functionality.
+ *
+ * A report holds no JSON nulls. Absence is its only "no value": a value the
+ * producer does not have omits its element, so a consumer that finds a key
+ * finds a value under it, and an array index means the same thing to every
+ * reader. Passing a NULL value to an element function omits the element
+ * rather than writing null, as does a non-finite floating point value, which
+ * JSON cannot spell. JSON handed over whole has its nulls dropped when the
+ * report is read.
  */
 typedef struct KSCrashReportWriter {
     /** Add a boolean element to the report.
@@ -74,7 +82,7 @@ typedef struct KSCrashReportWriter {
      *
      * @param name The name to give this element.
      *
-     * @param value The value to add.
+     * @param value The value to add. A non-finite value adds nothing.
      */
     void (*addFloatingPointElement)(const struct KSCrashReportWriter *writer, const char *name, double value);
 
@@ -104,7 +112,7 @@ typedef struct KSCrashReportWriter {
      *
      * @param name The name to give this element.
      *
-     * @param value The value to add.
+     * @param value The value to add. NULL adds nothing.
      */
     void (*addStringElement)(const struct KSCrashReportWriter *writer, const char *name, const char *value);
 
@@ -147,7 +155,7 @@ typedef struct KSCrashReportWriter {
      *
      * @param name The name to give this element.
      *
-     * @param value A pointer to the binary data.
+     * @param value A pointer to the binary data. NULL adds nothing.
      *
      * @param length The length of the data.
      */
@@ -184,7 +192,7 @@ typedef struct KSCrashReportWriter {
      *
      * @param name The name to give this element.
      *
-     * @param value A pointer to the binary UUID data.
+     * @param value A pointer to the binary UUID data. NULL adds nothing.
      */
     void (*addUUIDElement)(const struct KSCrashReportWriter *writer, const char *name, const unsigned char *value);
 

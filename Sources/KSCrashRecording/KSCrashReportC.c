@@ -67,6 +67,7 @@
 // #define KSLogger_LocalLevel TRACE
 #include <errno.h>
 #include <fcntl.h>
+#include <math.h>
 #include <pthread.h>
 #include <stdatomic.h>
 #include <stdio.h>
@@ -202,6 +203,13 @@ static void addBooleanElement(const KSCrashReportWriter *const writer, const cha
 
 static void addFloatingPointElement(const KSCrashReportWriter *const writer, const char *const key, const double value)
 {
+    // A report holds no nulls, and JSON has no non-finite numbers: NaN would be
+    // written as the literal null and an infinity as 1e999, which the strict
+    // reader on the other side rejects, stranding the whole report. Omitting is
+    // the same answer the writer gives any value it does not have.
+    if (!isfinite(value)) {
+        return;
+    }
     ksjson_addFloatingPointElement(getJsonContext(writer), key, value);
 }
 
@@ -217,6 +225,11 @@ static void addUIntegerElement(const KSCrashReportWriter *const writer, const ch
 
 static void addStringElement(const KSCrashReportWriter *const writer, const char *const key, const char *const value)
 {
+    // A report holds no nulls: a value the producer does not have is omitted,
+    // never written as null. See KSCrashReportWriter.h.
+    if (value == NULL) {
+        return;
+    }
     ksjson_addStringElement(getJsonContext(writer), key, value, KSJSON_SIZE_AUTOMATIC);
 }
 
@@ -252,6 +265,12 @@ done:
 static void addDataElement(const KSCrashReportWriter *const writer, const char *const key, const char *const value,
                            const int length)
 {
+    // A report holds no nulls: a value the producer does not have is omitted,
+    // never written as null. See KSCrashReportWriter.h. The encoder walks this
+    // pointer, so a NULL with a length would fault rather than write anything.
+    if (value == NULL) {
+        return;
+    }
     ksjson_addDataElement(getJsonContext(writer), key, value, length);
 }
 
@@ -270,9 +289,9 @@ static void endDataElement(const KSCrashReportWriter *const writer) { ksjson_end
 static void addUUIDElement(const KSCrashReportWriter *const writer, const char *const key,
                            const unsigned char *const value)
 {
-    if (value == NULL) {
-        ksjson_addNullElement(getJsonContext(writer), key);
-    } else {
+    // A report holds no nulls: a value the producer does not have is omitted,
+    // never written as null. See KSCrashReportWriter.h.
+    if (value != NULL) {
         char uuidBuffer[37];
         const unsigned char *src = value;
         char *dst = uuidBuffer;

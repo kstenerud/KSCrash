@@ -688,4 +688,26 @@
     free(report);
 }
 
+- (void)testReadingAnOlderReportDropsItsNulls
+{
+    [self prepareReportStoreWithPathEnd:@"testReadingAnOlderReportDropsItsNulls"];
+    // A report written before the no-nulls contract, or by a foreign writer.
+    NSString *json = @"{\"report\":{\"id\":\"1\"},\"crash\":{\"missing\":null,\"present\":\"kept\","
+                     @"\"list\":[\"a\",null,\"b\"]}}";
+    int64_t reportID = [self writeCrashReportWithStringContents:json];
+
+    char *reportBytes = kscrs_readReport(reportID, &_storeConfig);
+    XCTAssertTrue(reportBytes != NULL);
+    NSData *data = [NSData dataWithBytesNoCopy:reportBytes length:strlen(reportBytes) freeWhenDone:YES];
+
+    NSError *error = nil;
+    NSDictionary *decoded = [NSJSONSerialization JSONObjectWithData:data options:0 error:&error];
+    XCTAssertNil(error);
+
+    NSDictionary *crash = decoded[@"crash"];
+    XCTAssertEqualObjects(crash[@"present"], @"kept");
+    XCTAssertFalse([crash.allKeys containsObject:@"missing"], @"a null member reads as absence");
+    XCTAssertEqualObjects(crash[@"list"], (@[ @"a", @"b" ]), @"a null element reads as absence");
+}
+
 @end
