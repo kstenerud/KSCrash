@@ -93,13 +93,28 @@ extern void kstc_reset(void);
     kstc_setSearchQueueNames(true);
     kstc_init(3600);
 
-    kstc_freeze();
-    const char *name = kstc_getQueueName((KSThread)queueThread);
-    XCTAssertTrue(name != NULL);
-    if (name != NULL) {
-        XCTAssertEqualObjects([NSString stringWithUTF8String:name], @"com.kscrash.tests.queue-name");
+    // Poll until the cache reports the queue name (up to 10 s). freeze() gives
+    // up after one brief retry and leaves the caller with no cache at all, and
+    // a monitor thread holds the cache while it rebuilds, so a single read can
+    // come back NULL while queue-name search is working perfectly. Only a read
+    // that got a cache answers the question. The flag is what is under test: if
+    // init discarded it, every rebuild reads it as false and the name never
+    // appears, so this still fails at the deadline.
+    NSString *name = nil;
+    NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:10.0];
+    for (;;) {
+        kstc_freeze();
+        const char *cName = kstc_getQueueName((KSThread)queueThread);
+        // Copy while frozen; the cache owns the buffer.
+        name = cName != NULL ? [NSString stringWithUTF8String:cName] : nil;
+        kstc_unfreeze();
+        if (name != nil || [deadline timeIntervalSinceNow] <= 0) {
+            break;
+        }
+        [NSThread sleepForTimeInterval:0.05];
     }
-    kstc_unfreeze();
+
+    XCTAssertEqualObjects(name, @"com.kscrash.tests.queue-name");
 
     dispatch_semaphore_signal(release);
     mach_port_deallocate(mach_task_self(), queueThread);
