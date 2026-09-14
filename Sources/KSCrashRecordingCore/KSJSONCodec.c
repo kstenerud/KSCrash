@@ -61,6 +61,13 @@
 #define KSJSONCODEC_WorkBufferSize 512
 #endif
 
+/* The escaper chunks its input by how far one byte can expand, so a buffer
+ * smaller than the widest escape leaves no room for a single character and
+ * the chunk loop would never advance. Fail the build rather than hang an
+ * encode that a crash report depends on.
+ */
+_Static_assert(KSJSONCODEC_WorkBufferSize >= 6, "KSJSONCODEC_WorkBufferSize must hold one \\u00XX escape");
+
 // ============================================================================
 #pragma mark - Helpers -
 // ============================================================================
