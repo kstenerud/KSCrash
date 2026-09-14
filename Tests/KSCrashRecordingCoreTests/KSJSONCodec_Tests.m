@@ -974,6 +974,21 @@ static NSString *toString(NSData *data)
     XCTAssertEqualObjects(foundation, @[ string ], @"%@", error);
 }
 
+- (void)testSerializeStringWithNulIsRefused
+{
+    // Escaping a NUL would encode cleanly and come back cut short, because the
+    // decoder hands strings over NUL-terminated. Refusing beats delivering a
+    // prefix as though it were the whole string.
+    const char bytes[] = { 'a', '\0', 'b' };
+    NSString *withNul = [[NSString alloc] initWithBytes:bytes length:sizeof(bytes) encoding:NSUTF8StringEncoding];
+    XCTAssertEqual(withNul.length, 3u, @"the test string must actually carry the NUL");
+
+    NSError *error = nil;
+    NSData *encoded = [KSJSONCodec encode:@[ withNul ] options:0 error:&error];
+    XCTAssertNil(encoded, @"");
+    XCTAssertNotNil(error, @"");
+}
+
 - (void)testDeserializeArrayInvalidUnicodeSequence
 {
     NSError *error = (NSError *)self;

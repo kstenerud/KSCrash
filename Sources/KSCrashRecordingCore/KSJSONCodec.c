@@ -166,11 +166,23 @@ static int appendEscapedString(KSJSONEncodeContext *const context, const char *_
                 *dst++ = 't';
                 break;
             default:
+                unlikely_if(*src == '\0')
+                {
+                    // The codec writes what it can represent and errors on what
+                    // it cannot. A NUL is the one control character in the second
+                    // group: the decoder hands strings back NUL-terminated, so an
+                    // escaped one returns cut short. Refusing says so rather than
+                    // delivering a prefix as though it were whole.
+                    KSLOG_DEBUG("NUL in string: %s", string);
+                    return KSJSON_ERROR_INVALID_CHARACTER;
+                }
                 unlikely_if((unsigned char)*src < ' ')
                 {
-                    // \u00XX is JSON's only spelling for a control character.
-                    // Refusing it fails the whole encode, and at delivery that
-                    // strands the report.
+                    // Every other control character is representable: \u00XX is
+                    // JSON's spelling for it and the decoder has always read it
+                    // back. Refusing instead cost the value its contents, and a
+                    // report that already holds one could not be re-encoded at
+                    // delivery at all.
                     static const char hex[] = "0123456789abcdef";
                     *dst++ = '\\';
                     *dst++ = 'u';
