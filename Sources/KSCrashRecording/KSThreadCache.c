@@ -209,11 +209,11 @@ void kstc_init(int pollingIntervalInSeconds)
     }
 
     atomic_store(&g_pollingIntervalInSeconds, pollingIntervalInSeconds);
-    atomic_store(&g_searchQueueNames, false);
     atomic_store(&g_frozenCache, NULL);
 
-    // Create initial cache
-    KSThreadCacheData *initialCache = createCache(false);
+    // The install sets the queue-name flag before calling init, so the
+    // initial cache honors it too rather than waiting a polling interval.
+    KSThreadCacheData *initialCache = createCache(atomic_load(&g_searchQueueNames));
     atomic_store(&g_activeCache, initialCache);
 
     // Start background monitoring thread

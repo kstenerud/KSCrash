@@ -75,4 +75,52 @@ extern void kstc_reset(void);
     [thread cancel];
 }
 
+- (void)testQueueNameSearchSetBeforeInitIsHonored
+{
+    // The install sets the flag before init, and init used to discard it, so no
+    // cache ever searched queue names. This cannot tell the initial cache apart
+    // from a later rebuild: the monitor re-reads the flag every cycle and polls
+    // once a second for its first few, so there is no window in which only the
+    // initial cache has answered.
+    dispatch_queue_t queue = dispatch_queue_create("com.kscrash.tests.queue-name", DISPATCH_QUEUE_SERIAL);
+    dispatch_semaphore_t parked = dispatch_semaphore_create(0);
+    dispatch_semaphore_t release = dispatch_semaphore_create(0);
+    __block thread_t queueThread = MACH_PORT_NULL;
+    dispatch_async(queue, ^{
+        queueThread = mach_thread_self();
+        dispatch_semaphore_signal(parked);
+        dispatch_semaphore_wait(release, DISPATCH_TIME_FOREVER);
+    });
+    XCTAssertEqual(dispatch_semaphore_wait(parked, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC)), 0L);
+
+    kstc_setSearchQueueNames(true);
+    kstc_init(3600);
+
+    // Poll until the cache reports the queue name (up to 10 s). freeze() gives
+    // up after one brief retry and leaves the caller with no cache at all, and
+    // a monitor thread holds the cache while it rebuilds, so a single read can
+    // come back NULL while queue-name search is working perfectly. Only a read
+    // that got a cache answers the question. The flag is what is under test: if
+    // init discarded it, every rebuild reads it as false and the name never
+    // appears, so this still fails at the deadline.
+    NSString *name = nil;
+    NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:10.0];
+    for (;;) {
+        kstc_freeze();
+        const char *cName = kstc_getQueueName((KSThread)queueThread);
+        // Copy while frozen; the cache owns the buffer.
+        name = cName != NULL ? [NSString stringWithUTF8String:cName] : nil;
+        kstc_unfreeze();
+        if (name != nil || [deadline timeIntervalSinceNow] <= 0) {
+            break;
+        }
+        [NSThread sleepForTimeInterval:0.05];
+    }
+
+    XCTAssertEqualObjects(name, @"com.kscrash.tests.queue-name");
+
+    dispatch_semaphore_signal(release);
+    mach_port_deallocate(mach_task_self(), queueThread);
+}
+
 @end
