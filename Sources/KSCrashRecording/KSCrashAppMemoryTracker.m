@@ -132,8 +132,11 @@ FOUNDATION_EXPORT void testsupport_KSCrashAppMemorySetProvider(KSCrashAppMemoryP
 
     __weak __typeof(self) weakMe = self;
 
-    dispatch_source_set_event_handler(_pressureSource, ^{
-        [weakMe _memoryPressureChanged:YES];
+    // The handler reads the source that fired. It retains that source until
+    // -stop cancels it, which releases the handler.
+    dispatch_source_t pressureSource = _pressureSource;
+    dispatch_source_set_event_handler(pressureSource, ^{
+        [weakMe _memoryPressureChanged:dispatch_source_get_data(pressureSource) sendObservers:YES];
     });
     dispatch_activate(_pressureSource);
 
@@ -164,6 +167,14 @@ FOUNDATION_EXPORT void testsupport_KSCrashAppMemorySetProvider(KSCrashAppMemoryP
     // _lock so observers can re-enter the tracker. It may interleave with a
     // heartbeat; brief startup staleness is acceptable for diagnostic snapshots.
     // Avoid queue hops or generation tracking solely to order this delivery.
+    // A sample costs kernel round trips, so skip it when nobody would get it.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    BOOL hasDelegate = self.delegate != nil;
+#pragma clang diagnostic pop
+    if (observers.count == 0 && !hasDelegate) {
+        return;
+    }
     [self _handleMemoryChange:[self currentAppMemory] type:KSCrashAppMemoryTrackerChangeTypeNone observers:observers];
 }
 
@@ -222,18 +233,19 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
     // How about a limit of 3GB.
     uint64_t limit = 3000000000;
     uint64_t remaining = limit < info.phys_footprint ? 0 : limit - info.phys_footprint;
-#elif KSCRASH_HOST_MAC
-    // macOS doesn't limit memory usage the same way as it's implemented for other OSs.
-    // So we just mock limit by having a large value instead (128 GB).
+#elif KSCRASH_HOST_MAC || TARGET_OS_MACCATALYST
+    // macOS, Mac Catalyst included, doesn't limit memory usage the same way as other OSs
+    // and reports no remaining bytes. So we just mock limit by having a large value instead (128 GB).
     uint64_t limit = 137438953472;  // 128 GB
     uint64_t remaining = limit < info.phys_footprint ? 0 : limit - info.phys_footprint;
 #else
     uint64_t remaining = info.limit_bytes_remaining;
 #endif
 
-    // The host port send right is cached for the lifetime of the process;
-    // pairing it with mach_port_deallocate would invalidate it for anything
-    // else holding it. Physical memory is process-lifetime constant.
+    // Fetched once: each mach_host_self() call adds a reference to the host
+    // port's send right, so fetching it per sample would need a matching
+    // mach_port_deallocate each time. Physical memory is process-lifetime
+    // constant.
     static host_t hostPort;
     static uint64_t physicalMemory;
     static dispatch_once_t onceToken;
@@ -334,20 +346,21 @@ static void postStateChangeNotification(id object, NSNotificationName name, KSCr
     NSArray<KSCrashAppMemoryTrackerObserverBlock> *observers = nil;
     KSCrashAppMemoryState oldLevel;
     KSCrashAppMemoryState oldHeadroom;
-    BOOL levelChanged = NO;
-    BOOL headroomChanged = NO;
-    BOOL footprintChanged = NO;
-    BOOL systemRemainingChanged = NO;
+    KSCrashAppMemoryTrackerChangeType changes = KSCrashAppMemoryTrackerChangeTypeNone;
     {
         os_unfair_lock_lock(&_lock);
 
         oldLevel = _level;
         _level = newLevel;
-        levelChanged = newLevel != oldLevel;
+        if (newLevel != oldLevel) {
+            changes |= KSCrashAppMemoryTrackerChangeTypeLevel;
+        }
 
         oldHeadroom = _headroom;
         _headroom = newHeadroom;
-        headroomChanged = newHeadroom != oldHeadroom;
+        if (newHeadroom != oldHeadroom) {
+            changes |= KSCrashAppMemoryTrackerChangeTypeHeadroom;
+        }
 
         // the amount footprint needs to change for any footprint notifs.
         const uint64_t kKSCrashFootprintMinChange = 1ULL << 20;  // 1 MiB
@@ -357,18 +370,19 @@ static void postStateChangeNotification(id object, NSNotificationName name, KSCr
         // we're looking for anything larger.
         // A state transition always publishes the bytes that caused it, even
         // when the boundary was crossed by less than the threshold.
-        if (levelChanged || KSABS_DIFF(newFootprint, _footprint) > kKSCrashFootprintMinChange) {
+        if (newLevel != oldLevel || KSABS_DIFF(newFootprint, _footprint) > kKSCrashFootprintMinChange) {
             _footprint = newFootprint;
-            footprintChanged = YES;
+            changes |= KSCrashAppMemoryTrackerChangeTypeFootprint;
         }
 
         // Device-wide remaining is churned by every process on the system, so
         // its threshold scales with the device (1% of physical memory); the
         // 1 MiB footprint threshold would fire on nearly every heartbeat.
         const uint64_t kSystemRemainingMinChange = memory.systemLimit / 100;
-        if (headroomChanged || KSABS_DIFF(newSystemRemaining, _systemRemaining) > kSystemRemainingMinChange) {
+        if (newHeadroom != oldHeadroom ||
+            KSABS_DIFF(newSystemRemaining, _systemRemaining) > kSystemRemainingMinChange) {
             _systemRemaining = newSystemRemaining;
-            systemRemainingChanged = YES;
+            changes |= KSCrashAppMemoryTrackerChangeTypeSystemRemaining;
         }
 
         // clear out NULLs from observers
@@ -377,29 +391,15 @@ static void postStateChangeNotification(id object, NSNotificationName name, KSCr
         os_unfair_lock_unlock(&_lock);
     }
 
-    KSCrashAppMemoryTrackerChangeType changes = KSCrashAppMemoryTrackerChangeTypeNone;
-    if (levelChanged) {
-        changes |= KSCrashAppMemoryTrackerChangeTypeLevel;
-    }
-    if (headroomChanged) {
-        changes |= KSCrashAppMemoryTrackerChangeTypeHeadroom;
-    }
-    if (footprintChanged) {
-        changes |= KSCrashAppMemoryTrackerChangeTypeFootprint;
-    }
-    if (systemRemainingChanged) {
-        changes |= KSCrashAppMemoryTrackerChangeTypeSystemRemaining;
-    }
-
     if (changes != KSCrashAppMemoryTrackerChangeTypeNone) {
         [self _handleMemoryChange:memory type:changes observers:observers];
     }
 
-    if (headroomChanged && sendObservers) {
+    if (newHeadroom != oldHeadroom && sendObservers) {
         postStateChangeNotification(self, KSCrashAppMemoryHeadroomChangedNotification, oldHeadroom, newHeadroom);
     }
 
-    if (levelChanged && sendObservers) {
+    if (newLevel != oldLevel && sendObservers) {
         postStateChangeNotification(self, KSCrashAppMemoryLevelChangedNotification, oldLevel, newLevel);
 #if TARGET_OS_SIMULATOR
 
@@ -423,11 +423,12 @@ static void postStateChangeNotification(id object, NSNotificationName name, KSCr
     }
 }
 
-- (void)_memoryPressureChanged:(BOOL)sendObservers
+- (void)_memoryPressureChanged:(dispatch_source_memorypressure_flags_t)flags sendObservers:(BOOL)sendObservers
 {
-    // This handles system based memory pressure.
+    // This handles system based memory pressure. The flags come from the source
+    // that fired, never from _pressureSource, which -stop and -start replace on
+    // another thread while this runs on the heartbeat queue.
     KSCrashAppMemoryState newPressure = KSCrashAppMemoryStateNormal;
-    dispatch_source_memorypressure_flags_t flags = dispatch_source_get_data(_pressureSource);
     switch (flags) {
         case DISPATCH_MEMORYPRESSURE_NORMAL:
             newPressure = KSCrashAppMemoryStateNormal;

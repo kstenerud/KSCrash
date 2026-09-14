@@ -26,11 +26,12 @@
 
 import Foundation
 
-/// App memory state classification.
+/// How close memory is to running out.
 ///
-/// Mirrors the C `KSCrashAppMemoryState` enum (`KSCrashAppMemory.h`). Values are
-/// emitted as lowercase strings in the report JSON and used for the app's own
-/// memory level, system-wide memory pressure, and system-wide memory headroom.
+/// For `AppMemoryInfo.memoryLevel` and `AppMemoryInfo.memoryPressure`, a state
+/// describes how close the app was to being terminated for memory. For
+/// `AppMemoryInfo.memoryHeadroom`, it describes how close the device as a whole
+/// was to running out of memory.
 public enum MemoryState: RawRepresentable, Codable, Sendable, Equatable {
     case normal
     case warn
@@ -75,7 +76,7 @@ public struct AppMemoryInfo: Codable, Sendable, Equatable {
     /// Memory remaining before limit in bytes.
     public let memoryRemaining: UInt64?
 
-    /// System memory pressure level.
+    /// Memory pressure the system was putting on the app.
     public let memoryPressure: MemoryState?
 
     /// App memory level.

@@ -110,12 +110,18 @@ static KSCrashAppMemory *SystemMemory(uint64_t systemRemaining)
     XCTAssertEqual(memory.headroom, KSCrashAppMemoryStateNormal);
 
     // A remaining above the limit clamps to zero used rather than underflowing.
-    KSCrashAppMemory *inverted = [[KSCrashAppMemory alloc] initWithFootprint:50
-                                                                   remaining:50
-                                                                    pressure:KSCrashAppMemoryStateNormal
-                                                             systemRemaining:2000
-                                                                 systemLimit:1000];
-    XCTAssertEqual(inverted.headroom, KSCrashAppMemoryStateNormal);
+    XCTAssertEqual(SystemMemory(2000).headroom, KSCrashAppMemoryStateNormal);
+}
+
+- (void)testEqualSamplesHashEqually
+{
+    KSCrashAppMemory *a = SystemMemory(200);
+    KSCrashAppMemory *b = SystemMemory(200);
+    XCTAssertEqualObjects(a, b);
+    XCTAssertEqual(a.hash, b.hash);
+    NSSet *set = [NSSet setWithObjects:a, b, nil];
+    XCTAssertEqual(set.count, 1);
+    XCTAssertNotEqualObjects(a, SystemMemory(201));
 }
 
 - (void)testStateToStringIsTotal

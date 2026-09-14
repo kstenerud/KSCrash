@@ -1,7 +1,7 @@
 //
 //  KSCrashMonitor_Resource_Tests.m
 //
-//  Created by Codex on 2026-09-13.
+//  Created by Alexander Cohen on 2026-09-13.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //

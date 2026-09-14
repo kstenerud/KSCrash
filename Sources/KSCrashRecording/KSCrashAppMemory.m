@@ -23,7 +23,6 @@ static KSCrashAppMemoryState StateFromUsage(uint64_t used, uint64_t limit, uint6
     if (limit == 0) {
         return KSCrashAppMemoryStateNormal;
     }
-    baselineBasisPoints = MIN(baselineBasisPoints, 10000);
     uint64_t scale = 10000 - baselineBasisPoints;
     double usedRatio = (double)used / (double)limit;
 
@@ -65,6 +64,16 @@ static KSCrashAppMemoryState StateFromUsage(uint64_t used, uint64_t limit, uint6
     KSCrashAppMemory *comp = (KSCrashAppMemory *)object;
     return comp.footprint == self.footprint && comp.remaining == self.remaining && comp.pressure == self.pressure &&
            comp.systemRemaining == self.systemRemaining && comp.systemLimit == self.systemLimit;
+}
+
+- (NSUInteger)hash
+{
+    uint64_t hash = _footprint;
+    hash = hash * 31 + _remaining;
+    hash = hash * 31 + _pressure;
+    hash = hash * 31 + _systemRemaining;
+    hash = hash * 31 + _systemLimit;
+    return (NSUInteger)hash;
 }
 
 - (uint64_t)limit

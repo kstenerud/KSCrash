@@ -31,7 +31,7 @@
 /**
  * Application Memory
  *
- * There are two kinds of app memory handled here, LIMIT and PRESSURE.
+ * There are three kinds of memory state handled here: LIMIT, PRESSURE and HEADROOM.
  *
  * LIMIT
  * Limit (aka AppMemoryLevel) is the maximum amount of memory you can use by through
@@ -52,8 +52,9 @@
  * Headroom (aka AppMemoryHeadroom) is how much memory the device as a whole has left
  * before the system starts paying to reclaim more: truly free pages plus the file-backed
  * and purgeable pages the kernel can drop cheaply. Unlike limit and pressure, which are
- * about this app, headroom is about the device. It tends to move before pressure does,
- * so it is an early signal that the whole system is running out of room.
+ * about this app, headroom is about the device. It is independent of this app's own
+ * limit, so it can show the device running out of room while the app still has room
+ * in its own budget.
  *
  * My recommendation around memory pressure however is to have a robust app restoration
  * system and not bother too much with background memory, as long as your foreground
@@ -81,7 +82,12 @@ typedef NSString *KSCrashAppMemoryKeys NS_TYPED_ENUM NS_SWIFT_NAME(AppMemoryKeys
 FOUNDATION_EXPORT KSCrashAppMemoryKeys const KSCrashAppMemoryNewValueKey NS_SWIFT_NAME(newValue);
 FOUNDATION_EXPORT KSCrashAppMemoryKeys const KSCrashAppMemoryOldValueKey NS_SWIFT_NAME(oldValue);
 
-/** The memory state for level and pressure. */
+/** How close memory is to running out.
+ *
+ *  For level and pressure, the states describe how close this app is to being
+ *  terminated for memory. For headroom, they describe how close the device as a
+ *  whole is to running out of memory, whatever this app's own state.
+ */
 typedef NS_ENUM(NSUInteger, KSCrashAppMemoryState) {
 
     /** Everything is A-OK, go on with your business. */
@@ -93,18 +99,22 @@ typedef NS_ENUM(NSUInteger, KSCrashAppMemoryState) {
     /** Things are getting serious, allocations should be handled carefully. */
     KSCrashAppMemoryStateUrgent,
 
-    /** At this point you are seconds away from being terminated.
+    /** For level and pressure: at this point you are seconds away from being terminated.
      *  You likely just received or are about to receive a
      *  UIApplicationDidReceiveMemoryWarningNotification.
+     *  For headroom: the device is nearly out of memory, and the system is likely
+     *  reclaiming memory and terminating apps.
      */
     KSCrashAppMemoryStateCritical,
 
-    /** You have been or will be terminated. Out-Of-Memory. SIGKILL. */
+    /** For level and pressure: you have been or will be terminated. Out-Of-Memory. SIGKILL.
+     *  For headroom: the device has almost no memory left.
+     */
     KSCrashAppMemoryStateTerminal
 } NS_SWIFT_NAME(AppMemoryState);
 
 /**
- * Helpers to convert to and from pressure/level and strings.
+ * Helpers to convert a memory state to and from a string.
  * `KSCrashAppMemoryStateToString` returns a `const char*`
  * because it needs to be async safe.
  */

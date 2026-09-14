@@ -95,17 +95,14 @@ static id g_protectedDataUnavailableObserver = nil;
 // ============================================================================
 
 // Re-apply env-var overrides after every resourceUpdate so polled values
-// don't clobber the faked ones.  getenv() returns NULL immediately in
-// production (no env vars set), so the cost is negligible.
+// don't clobber the faked ones. Only the integration tests set these; in
+// production each getenv() scans the environment and finds nothing.
 static void applyResourceTestOverrides(KSCrash_ResourceData *res)
 {
     const char *val;
     if ((val = getenv("KSCRASH_TEST_MEMORY_PRESSURE")) != NULL) res->memoryPressure = (uint8_t)atoi(val);
-    if ((val = getenv("KSCRASH_TEST_MEMORY_LEVEL")) != NULL) res->memoryLevel = (uint8_t)atoi(val);
-    if ((val = getenv("KSCRASH_TEST_MEMORY_HEADROOM")) != NULL) res->memoryHeadroom = (uint8_t)atoi(val);
     if ((val = getenv("KSCRASH_TEST_THERMAL_STATE")) != NULL) res->thermalState = (uint8_t)atoi(val);
     if ((val = getenv("KSCRASH_TEST_CPU_USER")) != NULL) res->cpuUsageUser = (uint16_t)atoi(val);
-    if ((val = getenv("KSCRASH_TEST_CPU_SYSTEM")) != NULL) res->cpuUsageSystem = (uint16_t)atoi(val);
     if ((val = getenv("KSCRASH_TEST_CPU_CORES")) != NULL) res->cpuCoreCount = (uint8_t)atoi(val);
     if ((val = getenv("KSCRASH_TEST_CPU_STATE")) != NULL) res->cpuState = (uint8_t)atoi(val);
     if ((val = getenv("KSCRASH_TEST_BATTERY_LEVEL")) != NULL) res->batteryLevel = (uint8_t)atoi(val);
@@ -140,17 +137,6 @@ static void resourceSet(KSCrash_ResourceData *res)
     if (old) {
         ksfu_munmap(old, sizeof(KSCrash_ResourceData));
     }
-}
-
-// ============================================================================
-#pragma mark - Validation -
-// ============================================================================
-
-static bool validateResourceData(const KSCrash_ResourceData *data)
-{
-    if (data->magic != KSRESOURCE_MAGIC) return false;
-    if (data->version == 0 || data->version > KSCrash_Resource_CurrentVersion) return false;
-    return true;
 }
 
 // ============================================================================
@@ -508,7 +494,8 @@ bool ksresource_getSnapshot(KSCrash_ResourceData *outData)
 
     bool ok = false;
     os_unfair_lock_lock(&g_resourceLock);
-    if (g_resource && validateResourceData(g_resource)) {
+    if (g_resource && g_resource->magic == KSRESOURCE_MAGIC && g_resource->version != 0 &&
+        g_resource->version <= KSCrash_Resource_CurrentVersion) {
         *outData = *g_resource;
         ok = true;
     }
