@@ -265,6 +265,12 @@ done:
 static void addDataElement(const KSCrashReportWriter *const writer, const char *const key, const char *const value,
                            const int length)
 {
+    // A report holds no nulls: a value the producer does not have is omitted,
+    // never written as null. See KSCrashReportWriter.h. The encoder walks this
+    // pointer, so a NULL with a length would fault rather than write anything.
+    if (value == NULL) {
+        return;
+    }
     ksjson_addDataElement(getJsonContext(writer), key, value, length);
 }
 
@@ -285,38 +291,37 @@ static void addUUIDElement(const KSCrashReportWriter *const writer, const char *
 {
     // A report holds no nulls: a value the producer does not have is omitted,
     // never written as null. See KSCrashReportWriter.h.
-    if (value == NULL) {
-        return;
-    }
-    char uuidBuffer[37];
-    const unsigned char *src = value;
-    char *dst = uuidBuffer;
-    for (int i = 0; i < 4; i++) {
-        *dst++ = g_hexNybbles[(*src >> 4) & 15];
-        *dst++ = g_hexNybbles[(*src++) & 15];
-    }
-    *dst++ = '-';
-    for (int i = 0; i < 2; i++) {
-        *dst++ = g_hexNybbles[(*src >> 4) & 15];
-        *dst++ = g_hexNybbles[(*src++) & 15];
-    }
-    *dst++ = '-';
-    for (int i = 0; i < 2; i++) {
-        *dst++ = g_hexNybbles[(*src >> 4) & 15];
-        *dst++ = g_hexNybbles[(*src++) & 15];
-    }
-    *dst++ = '-';
-    for (int i = 0; i < 2; i++) {
-        *dst++ = g_hexNybbles[(*src >> 4) & 15];
-        *dst++ = g_hexNybbles[(*src++) & 15];
-    }
-    *dst++ = '-';
-    for (int i = 0; i < 6; i++) {
-        *dst++ = g_hexNybbles[(*src >> 4) & 15];
-        *dst++ = g_hexNybbles[(*src++) & 15];
-    }
+    if (value != NULL) {
+        char uuidBuffer[37];
+        const unsigned char *src = value;
+        char *dst = uuidBuffer;
+        for (int i = 0; i < 4; i++) {
+            *dst++ = g_hexNybbles[(*src >> 4) & 15];
+            *dst++ = g_hexNybbles[(*src++) & 15];
+        }
+        *dst++ = '-';
+        for (int i = 0; i < 2; i++) {
+            *dst++ = g_hexNybbles[(*src >> 4) & 15];
+            *dst++ = g_hexNybbles[(*src++) & 15];
+        }
+        *dst++ = '-';
+        for (int i = 0; i < 2; i++) {
+            *dst++ = g_hexNybbles[(*src >> 4) & 15];
+            *dst++ = g_hexNybbles[(*src++) & 15];
+        }
+        *dst++ = '-';
+        for (int i = 0; i < 2; i++) {
+            *dst++ = g_hexNybbles[(*src >> 4) & 15];
+            *dst++ = g_hexNybbles[(*src++) & 15];
+        }
+        *dst++ = '-';
+        for (int i = 0; i < 6; i++) {
+            *dst++ = g_hexNybbles[(*src >> 4) & 15];
+            *dst++ = g_hexNybbles[(*src++) & 15];
+        }
 
-    ksjson_addStringElement(getJsonContext(writer), key, uuidBuffer, (int)(dst - uuidBuffer));
+        ksjson_addStringElement(getJsonContext(writer), key, uuidBuffer, (int)(dst - uuidBuffer));
+    }
 }
 
 /** Stand in for a payload the codec refused.

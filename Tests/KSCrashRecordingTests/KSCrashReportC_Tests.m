@@ -60,6 +60,9 @@ static void nullContractWriteSection(__unused const KSCrash_MonitorContext *even
     writer->addFloatingPointElement(writer, "absent_nan", NAN);
     writer->addFloatingPointElement(writer, "absent_inf", INFINITY);
     writer->addFloatingPointElement(writer, "absent_neg_inf", -INFINITY);
+    writer->addDataElement(writer, "present_data", "\x01\x02", 2);
+    // A length with no pointer: the encoder would walk the NULL.
+    writer->addDataElement(writer, "absent_data", NULL, 2);
     writer->beginArray(writer, "list");
     {
         writer->addStringElement(writer, NULL, "a");
@@ -564,6 +567,7 @@ static KSCrashMonitorAPI g_nullContractMonitorAPI;
         XCTAssertEqualObjects(section[@"present_string"], @"value");
         XCTAssertEqualObjects(section[@"present_uuid"], @"01234567-89AB-CDEF-FEDC-BA9876543210");
         XCTAssertEqualObjects(section[@"present_double"], @1.5);
+        XCTAssertEqualObjects(section[@"present_data"], @"0102");
 
         // A value the producer does not have leaves no trace at all: not a null,
         // and not a key holding one.
@@ -577,6 +581,7 @@ static KSCrashMonitorAPI g_nullContractMonitorAPI;
         XCTAssertFalse([section.allKeys containsObject:@"absent_nan"]);
         XCTAssertFalse([section.allKeys containsObject:@"absent_inf"]);
         XCTAssertFalse([section.allKeys containsObject:@"absent_neg_inf"]);
+        XCTAssertFalse([section.allKeys containsObject:@"absent_data"]);
 
         // Same in an array: the element is not added, rather than added as null.
         XCTAssertEqualObjects(section[@"list"], (@[ @"a", @"b" ]));

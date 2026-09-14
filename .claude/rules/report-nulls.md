@@ -46,12 +46,18 @@ and a null-holding one are equally unreadable to a consumer counting positions.
 ## The read side drops
 
 Reports written before this contract, and reports from a foreign writer, can
-still hold nulls. Every path that decodes a report passes
-`KSJSONDecodeOptionIgnoreNullInArray | KSJSONDecodeOptionIgnoreNullInObject`,
-so those nulls resolve to absence before anything sees them:
-`readReportAtPath` and `kscrs_finalizeReport` in `KSCrashReportStoreC.m`,
+still hold nulls. The store is what normalizes them: every read it performs
+passes `KSJSONDecodeOptionIgnoreNullInArray |
+KSJSONDecodeOptionIgnoreNullInObject`, so those nulls resolve to absence
+before a report leaves it. That is `readReportAtPath` and
+`kscrs_finalizeReport` in `KSCrashReportStoreC.m`,
 `extractRunIdWithFullDecode` in `KSCrashReportRunId.m`, and the report load in
-`KSCrashReportStore.m`. Adding a report decode means passing them too.
+`KSCrashReportStore.m`. Adding a read to the store means passing them too.
+
+A consumer that decodes raw report bytes itself rather than going through the
+store picks its own options and gets whatever the bytes hold;
+`KSCrashReportFilterJSONDecode` defaults to `KSJSONDecodeOptionNone` and is one
+of these.
 
 ## The doors nulls can still come through
 

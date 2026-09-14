@@ -155,7 +155,7 @@ typedef struct KSCrashReportWriter {
      *
      * @param name The name to give this element.
      *
-     * @param value A pointer to the binary data.
+     * @param value A pointer to the binary data. NULL adds nothing.
      *
      * @param length The length of the data.
      */
