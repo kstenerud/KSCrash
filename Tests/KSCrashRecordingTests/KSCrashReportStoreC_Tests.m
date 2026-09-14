@@ -667,6 +667,30 @@
     free(report);
 }
 
+- (void)testReportHoldingAControlCharacterStaysReadable
+{
+    [self prepareReportStoreWithPathEnd:@"testControlCharStaysReadable"];
+    // App-supplied JSON is copied into the report verbatim, so an escaped
+    // control character reaches disk. Reading decodes it to the raw byte and
+    // re-encodes; while the encoder refused those, this returned NULL and the
+    // report could never be delivered, on this or any later attempt.
+    NSString *json = @"{\"report\":{\"id\":\"1\"},\"user\":{\"note\":\"red\\u001btext\"}}";
+    int64_t reportID = [self writeCrashReportWithStringContents:json];
+
+    char *bytes = kscrs_readReport(reportID, &_storeConfig);
+    XCTAssertTrue(bytes != NULL, @"a report holding a control character must still read");
+    if (bytes == NULL) {
+        // Reading on would fault and take every other test in the bundle with it.
+        return;
+    }
+    NSData *data = [NSData dataWithBytesNoCopy:bytes length:strlen(bytes) freeWhenDone:YES];
+
+    NSError *error = nil;
+    NSDictionary *decoded = [NSJSONSerialization JSONObjectWithData:data options:0 error:&error];
+    XCTAssertNil(error);
+    XCTAssertEqualObjects(decoded[@"user"][@"note"], (@"red\x1btext"), @"the byte survives the round trip");
+}
+
 - (void)testReadReportWithReportSectionAsStringWithRunSidecars
 {
     self.reportStorePath = [self.tempPath stringByAppendingPathComponent:@"testMalformedRunSidecars"];
