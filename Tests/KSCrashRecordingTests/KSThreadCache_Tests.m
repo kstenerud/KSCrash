@@ -75,10 +75,13 @@ extern void kstc_reset(void);
     [thread cancel];
 }
 
-- (void)testQueueNameSearchSetBeforeInitAppliesToTheFirstCache
+- (void)testQueueNameSearchSetBeforeInitIsHonored
 {
-    // The install sets the flag before init; the initial cache must honor it
-    // rather than wait a polling interval (60 s in production) for the next.
+    // The install sets the flag before init, and init used to discard it, so no
+    // cache ever searched queue names. This cannot tell the initial cache apart
+    // from a later rebuild: the monitor re-reads the flag every cycle and polls
+    // once a second for its first few, so there is no window in which only the
+    // initial cache has answered.
     dispatch_queue_t queue = dispatch_queue_create("com.kscrash.tests.queue-name", DISPATCH_QUEUE_SERIAL);
     dispatch_semaphore_t parked = dispatch_semaphore_create(0);
     dispatch_semaphore_t release = dispatch_semaphore_create(0);
