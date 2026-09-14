@@ -61,6 +61,13 @@
 #define KSJSONCODEC_WorkBufferSize 512
 #endif
 
+/* The escaper chunks its input by how far one byte can expand, so a buffer
+ * smaller than the widest escape leaves no room for a single character and
+ * the chunk loop would never advance. Fail the build rather than hang an
+ * encode that a crash report depends on.
+ */
+_Static_assert(KSJSONCODEC_WorkBufferSize >= 6, "KSJSONCODEC_WorkBufferSize must hold one \\u00XX escape");
+
 // ============================================================================
 #pragma mark - Helpers -
 // ============================================================================
@@ -159,10 +166,31 @@ static int appendEscapedString(KSJSONEncodeContext *const context, const char *_
                 *dst++ = 't';
                 break;
             default:
+                unlikely_if(*src == '\0')
+                {
+                    // The codec writes what it can represent and errors on what
+                    // it cannot. A NUL is the one control character in the second
+                    // group: the decoder hands strings back NUL-terminated, so an
+                    // escaped one returns cut short. Refusing says so rather than
+                    // delivering a prefix as though it were whole.
+                    KSLOG_DEBUG("NUL in string: %s", string);
+                    return KSJSON_ERROR_INVALID_CHARACTER;
+                }
                 unlikely_if((unsigned char)*src < ' ')
                 {
-                    KSLOG_DEBUG("Invalid character 0x%02x in string: %s", *src, string);
-                    return KSJSON_ERROR_INVALID_CHARACTER;
+                    // Every other control character is representable: \u00XX is
+                    // JSON's spelling for it and the decoder has always read it
+                    // back. Refusing instead cost the value its contents, and a
+                    // report that already holds one could not be re-encoded at
+                    // delivery at all.
+                    static const char hex[] = "0123456789abcdef";
+                    *dst++ = '\\';
+                    *dst++ = 'u';
+                    *dst++ = '0';
+                    *dst++ = '0';
+                    *dst++ = hex[((unsigned char)*src) >> 4];
+                    *dst++ = hex[((unsigned char)*src) & 0x0f];
+                    break;
                 }
                 *dst++ = *src;
         }
@@ -190,7 +218,8 @@ static int addEscapedString(KSJSONEncodeContext *const context, const char *__re
     int offset = 0;
     while (offset < length) {
         int toAdd = length - offset;
-        unlikely_if(toAdd > KSJSONCODEC_WorkBufferSize / 2) { toAdd = KSJSONCODEC_WorkBufferSize / 2; }
+        // A control character expands to six bytes (\u00XX), the widest escape.
+        unlikely_if(toAdd > KSJSONCODEC_WorkBufferSize / 6) { toAdd = KSJSONCODEC_WorkBufferSize / 6; }
         result = appendEscapedString(context, string + offset, toAdd);
         unlikely_if(result != KSJSON_OK) { break; }
         offset += toAdd;
