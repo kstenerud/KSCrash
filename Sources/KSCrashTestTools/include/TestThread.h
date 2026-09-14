@@ -29,6 +29,17 @@
 
 @interface TestThread : NSThread
 
+/** The mach thread, valid only once the thread is actually running. */
 @property(atomic, readwrite, assign) thread_t thread;
+
+/** Block until the thread is scheduled and `thread` is set.
+ *
+ * `thread` is assigned by the thread itself, so it stays MACH_PORT_NULL until
+ * the OS gets round to running it. Sleeping a fixed interval instead is what
+ * makes these tests fail on a loaded machine.
+ *
+ * @return YES if the thread came up before the timeout.
+ */
+- (BOOL)waitUntilRunningWithTimeout:(NSTimeInterval)timeout;
 
 @end

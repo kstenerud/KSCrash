@@ -44,7 +44,7 @@
 {
     TestThread *thread = [[TestThread alloc] init];
     [thread start];
-    [NSThread sleepForTimeInterval:0.1];
+    XCTAssertTrue([thread waitUntilRunningWithTimeout:10.0], @"thread never came up");
     kern_return_t kr;
     kr = thread_suspend(thread.thread);
     XCTAssertTrue(kr == KERN_SUCCESS, @"");

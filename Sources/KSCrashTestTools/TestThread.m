@@ -27,6 +27,8 @@
 #import "TestThread.h"
 #import "KSThread.h"
 
+#import <mach/mach.h>
+
 @implementation TestThread
 
 - (void)main
@@ -35,6 +37,18 @@
     while (!self.isCancelled) {
         [[self class] sleepForTimeInterval:0.1];
     }
+}
+
+- (BOOL)waitUntilRunningWithTimeout:(NSTimeInterval)timeout
+{
+    NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:timeout];
+    while (self.thread == MACH_PORT_NULL) {
+        if ([deadline timeIntervalSinceNow] <= 0) {
+            return self.thread != MACH_PORT_NULL;
+        }
+        [NSThread sleepForTimeInterval:0.01];
+    }
+    return YES;
 }
 
 @end
