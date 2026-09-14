@@ -33,12 +33,17 @@
 #import "KSMachineContext.h"
 #import "KSStackCursor_SelfThread.h"
 
+#include <math.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdatomic.h>
 #include <stdio.h>
 
 #pragma mark - Test monitor exercising the no-nulls contract
+
+// Guarded with the tests that use it: without Mach there is no report to write,
+// and an unused file-scope function is an error in that build.
+#if KSCRASH_HAS_MACH
 
 static const char *nullContractMonitorId(__unused void *context) { return "NullContractTestMonitor"; }
 
@@ -51,6 +56,10 @@ static void nullContractWriteSection(__unused const KSCrash_MonitorContext *even
     writer->addStringElement(writer, "absent_string", NULL);
     writer->addUUIDElement(writer, "present_uuid", uuidBytes);
     writer->addUUIDElement(writer, "absent_uuid", NULL);
+    writer->addFloatingPointElement(writer, "present_double", 1.5);
+    writer->addFloatingPointElement(writer, "absent_nan", NAN);
+    writer->addFloatingPointElement(writer, "absent_inf", INFINITY);
+    writer->addFloatingPointElement(writer, "absent_neg_inf", -INFINITY);
     writer->beginArray(writer, "list");
     {
         writer->addStringElement(writer, NULL, "a");
@@ -61,6 +70,8 @@ static void nullContractWriteSection(__unused const KSCrash_MonitorContext *even
 }
 
 static KSCrashMonitorAPI g_nullContractMonitorAPI;
+
+#endif
 
 @interface KSCrashReportC_Tests : XCTestCase
 @end
@@ -552,6 +563,7 @@ static KSCrashMonitorAPI g_nullContractMonitorAPI;
 
         XCTAssertEqualObjects(section[@"present_string"], @"value");
         XCTAssertEqualObjects(section[@"present_uuid"], @"01234567-89AB-CDEF-FEDC-BA9876543210");
+        XCTAssertEqualObjects(section[@"present_double"], @1.5);
 
         // A value the producer does not have leaves no trace at all: not a null,
         // and not a key holding one.
@@ -560,9 +572,16 @@ static KSCrashMonitorAPI g_nullContractMonitorAPI;
         XCTAssertFalse([section.allKeys containsObject:@"absent_string"]);
         XCTAssertFalse([section.allKeys containsObject:@"absent_uuid"]);
 
+        // JSON has no non-finite numbers: NaN would go out as the literal null
+        // and an infinity as 1e999, which a strict reader rejects whole.
+        XCTAssertFalse([section.allKeys containsObject:@"absent_nan"]);
+        XCTAssertFalse([section.allKeys containsObject:@"absent_inf"]);
+        XCTAssertFalse([section.allKeys containsObject:@"absent_neg_inf"]);
+
         // Same in an array: the element is not added, rather than added as null.
         XCTAssertEqualObjects(section[@"list"], (@[ @"a", @"b" ]));
     } @finally {
+        kscm_removeMonitor(&g_nullContractMonitorAPI);
         [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
     }
 #endif

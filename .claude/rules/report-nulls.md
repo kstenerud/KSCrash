@@ -23,13 +23,18 @@ who read it.
 
 ## The write side omits
 
-A value the producer does not have adds no element. `addStringElement` and
-`addUUIDElement` in `KSCrashReportC.c` return early on a NULL value, which is
-the enforcement point for every caller present and future: fixing it there
-rather than at each callsite is what keeps the next unguarded call from
-reopening the hole. The codec keeps `ksjson_addNullElement`, since the codec
-writes whatever JSON its caller asks for; the report writer is the layer that
-refuses.
+A value the producer does not have adds no element. `addStringElement`,
+`addUUIDElement` and `addFloatingPointElement` in `KSCrashReportC.c` return
+early rather than write one, which is the enforcement point for every caller
+present and future: fixing it there rather than at each callsite is what keeps
+the next unguarded call from reopening the hole. The codec keeps
+`ksjson_addNullElement`, since the codec writes whatever JSON its caller asks
+for; the report writer is the layer that refuses.
+
+A non-finite double is refused for the same reason, not a different one. JSON
+has no NaN and no infinity, so the number formatter spells them `null` and
+`1e999`, and the second is worse than the first: a strict reader rejects the
+document, so one unwritable number strands the whole report.
 
 In an array this means the element is not added at all, so an array is only as
 long as the values that existed. Nothing KSCrash writes puts a scalar it might
@@ -50,13 +55,14 @@ so those nulls resolve to absence before anything sees them:
 
 ## The doors nulls can still come through
 
-JSON handed to the writer whole is never inspected on the way in:
-`customStackTrace` on the user-reported-exception path, and
-`ReportSectionWriter.encode` from a Swift monitor. Both land on disk as given
-and are resolved by the read side above. A Swift monitor's payload should not
-emit nulls in the first place: a nil member is an omitted member, which is what
-`JSONEncoder` does with a synthesized `Codable` already.
+JSON handed to the writer whole is never inspected on the way in, and lands on
+disk as given:
 
-The `user` section is the app's own bag and resolves its nulls itself, in
-`cleanedForReport` (`KSCrashMonitor_UserInfoStitch.m`), for the reasons in
-`metadata-store.md`.
+- the app's `user` section, copied verbatim from the JSON it set
+  (`addJSONElement` in `KSCrashReportC.c`)
+- `customStackTrace` on the user-reported-exception path
+- `ReportSectionWriter.encode` from a Swift monitor
+
+The read side above is what resolves those. A Swift monitor's payload should
+not emit nulls in the first place: a nil member is an omitted member, which is
+what `JSONEncoder` does with a synthesized `Codable` already.

@@ -61,8 +61,9 @@ extern "C" {
  * producer does not have omits its element, so a consumer that finds a key
  * finds a value under it, and an array index means the same thing to every
  * reader. Passing a NULL value to an element function omits the element
- * rather than writing null, and JSON handed over whole has its nulls dropped
- * when the report is read.
+ * rather than writing null, as does a non-finite floating point value, which
+ * JSON cannot spell. JSON handed over whole has its nulls dropped when the
+ * report is read.
  */
 typedef struct KSCrashReportWriter {
     /** Add a boolean element to the report.
@@ -81,7 +82,7 @@ typedef struct KSCrashReportWriter {
      *
      * @param name The name to give this element.
      *
-     * @param value The value to add.
+     * @param value The value to add. A non-finite value adds nothing.
      */
     void (*addFloatingPointElement)(const struct KSCrashReportWriter *writer, const char *name, double value);
 

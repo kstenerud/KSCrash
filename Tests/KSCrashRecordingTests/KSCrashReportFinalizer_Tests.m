@@ -231,6 +231,30 @@ static CFDictionaryRef noopStitchReport(CFDictionaryRef reportDict, __unused con
     XCTAssertEqualObjects(report[@"report"][@"id"], @"evt1");
 }
 
+- (void)testFinalizeDropsNullsFromAnOlderReport
+{
+    [self prepareStore:@"testFinalizeDropsNulls"];
+    NSString *runId = [[NSUUID UUID] UUIDString];
+    // A report written before the no-nulls contract, or by a foreign writer.
+    NSString *json =
+        [NSString stringWithFormat:@"{\"report\":{\"run_id\":\"%@\",\"id\":\"evt1\"},"
+                                   @"\"crash\":{\"missing\":null,\"present\":\"kept\",\"list\":[\"a\",null,\"b\"]}}",
+                                   runId];
+    NSData *data = [json dataUsingEncoding:NSUTF8StringEncoding];
+    int64_t reportID = kscrs_addUserReport(data.bytes, (int)data.length, &_storeConfig);
+    NSString *path = [self reportPathForID:reportID];
+
+    XCTAssertTrue(kscrs_finalizeReport(path.UTF8String, reportID));
+
+    // The rewritten file itself: finalization decodes, stitches and writes back,
+    // so a null surviving here lands on disk for every later reader.
+    NSDictionary *report = [self readReportJSON:path];
+    NSDictionary *crash = report[@"crash"];
+    XCTAssertEqualObjects(crash[@"present"], @"kept");
+    XCTAssertFalse([crash.allKeys containsObject:@"missing"], @"a null member reads as absence");
+    XCTAssertEqualObjects(crash[@"list"], (@[ @"a", @"b" ]), @"a null element reads as absence");
+}
+
 #pragma mark - Stitching Integration
 
 - (void)testFinalizeStitchesRunSidecars

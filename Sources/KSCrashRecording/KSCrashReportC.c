@@ -67,6 +67,7 @@
 // #define KSLogger_LocalLevel TRACE
 #include <errno.h>
 #include <fcntl.h>
+#include <math.h>
 #include <pthread.h>
 #include <stdatomic.h>
 #include <stdio.h>
@@ -202,6 +203,13 @@ static void addBooleanElement(const KSCrashReportWriter *const writer, const cha
 
 static void addFloatingPointElement(const KSCrashReportWriter *const writer, const char *const key, const double value)
 {
+    // A report holds no nulls, and JSON has no non-finite numbers: NaN would be
+    // written as the literal null and an infinity as 1e999, which the strict
+    // reader on the other side rejects, stranding the whole report. Omitting is
+    // the same answer the writer gives any value it does not have.
+    if (!isfinite(value)) {
+        return;
+    }
     ksjson_addFloatingPointElement(getJsonContext(writer), key, value);
 }
 
