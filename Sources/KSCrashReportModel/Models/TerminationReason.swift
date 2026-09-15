@@ -46,6 +46,7 @@ public enum TerminationReason: RawRepresentable, Codable, Sendable, Equatable {
     case cpu
     // Fallback
     case unexplained
+    case backgroundExit
     case unknown(String)
 
     public init(rawValue: String) {
@@ -64,6 +65,7 @@ public enum TerminationReason: RawRepresentable, Codable, Sendable, Equatable {
         case "thermal": self = .thermal
         case "cpu": self = .cpu
         case "unexplained": self = .unexplained
+        case "background_exit": self = .backgroundExit
         default: self = .unknown(rawValue)
         }
     }
@@ -84,6 +86,7 @@ public enum TerminationReason: RawRepresentable, Codable, Sendable, Equatable {
         case .thermal: return "thermal"
         case .cpu: return "cpu"
         case .unexplained: return "unexplained"
+        case .backgroundExit: return "background_exit"
         case .unknown(let value): return value
         }
     }
