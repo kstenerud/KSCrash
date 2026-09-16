@@ -144,7 +144,7 @@ final class Monitor_Tests: XCTestCase {
         kscm_removeMonitor(again.api)
     }
 
-    final class SectionMonitor: CrashMonitor {
+    final class SectionMonitor: ReportSectionWriting {
         static let id = "SectionMonitor"
         init(host: MonitorHost<Void>, configuration: Void) {}
         func writeReportSection(payload: Void, writer: ReportSectionWriter) {
@@ -168,7 +168,7 @@ final class Monitor_Tests: XCTestCase {
         XCTAssertEqual(recordedWriterEvents, ["string custom_key=custom_value"])
     }
 
-    final class ConfiguringSectionMonitor: CrashMonitor {
+    final class ConfiguringSectionMonitor: ReportSectionWriting {
         static let id = "ConfiguringSectionMonitor"
         let host: MonitorHost<String>
         init(host: MonitorHost<String>, configuration: Void) { self.host = host }
@@ -219,7 +219,7 @@ final class Monitor_Tests: XCTestCase {
         XCTAssertEqual(recordedWriterEvents, ["string payload=kept"])
     }
 
-    final class StitchMonitor: CrashMonitor {
+    final class StitchMonitor: ReportStitching {
         static let id = "StitchMonitor"
         let host: MonitorHost<Void>
         var shouldThrow = false
@@ -275,18 +275,29 @@ final class Monitor_Tests: XCTestCase {
         XCTAssertNil(failed)
     }
 
-    func testDefaultStitchIsANoOp() throws {
+    func testAMonitorDeclaringNoReportWorkLeavesBothHooksNull() {
+        // TestMonitor conforms to neither capability, so the C side skips it outright: the
+        // report writer opens no section for it and the stitch passes leave it out. Both
+        // callers guard on NULL, which is what makes silence free rather than an empty
+        // object and a dictionary round trip on every report.
         let monitor = Monitor(TestMonitor.self)
-        let api = monitor.api.pointee
         install(monitor)
+        XCTAssertNil(monitor.api.pointee.writeInReportSection)
+        XCTAssertNil(monitor.api.pointee.createStitchedReport)
+    }
 
-        let input = ["a": 1] as CFDictionary
-        let out = "x.ksscr".withCString { path in
-            api.createStitchedReport(input, path, SidecarScope.report, api.context)
-        }
-        let dict = try XCTUnwrap(out?.takeRetainedValue() as? [String: Any])
-        XCTAssertEqual(dict["a"] as? Int, 1)
-        XCTAssertEqual(dict.count, 1)
+    func testDeclaredCapabilitiesInstallTheirHooks() {
+        // Held in locals: the bridge owns `api`, so reading through a temporary's pointer
+        // would be reading freed memory.
+        let writes = Monitor(SectionMonitor.self)
+        XCTAssertNotNil(writes.api.pointee.writeInReportSection)
+        XCTAssertNil(
+            writes.api.pointee.createStitchedReport, "writing a section says nothing about stitching")
+
+        let stitches = Monitor(StitchMonitor.self)
+        XCTAssertNotNil(stitches.api.pointee.createStitchedReport)
+        XCTAssertNil(
+            stitches.api.pointee.writeInReportSection, "stitching says nothing about writing a section")
     }
 }
 

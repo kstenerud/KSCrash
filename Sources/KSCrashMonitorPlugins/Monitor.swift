@@ -194,30 +194,58 @@ public final class Monitor<M: CrashMonitor>: MonitorCore {
         systemDidEnableHandler = { [unowned self] in
             self.monitor.systemDidEnable()
         }
-        stitchHandler = { [unowned self] dict, path, scope in
-            guard let report = dict as? [String: Any],
-                let stitched = try? self.monitor.stitchedReport(
-                    report, sidecarURL: path.map { URL(fileURLWithPath: String(cString: $0)) },
-                    scope: scope)
-            else { return nil }
-            return Unmanaged.passRetained(stitched as CFDictionary)
-        }
-        writeSectionHandler = { [unowned self] eventContext, writerPointer in
-            // The crash-time writer opens this callback's enclosing section itself, so
-            // values are written straight into it; opening another object here would
-            // double-nest every section written through the layer.
-            guard let writer = ReportSectionWriter(writerPointer) else { return }
-            // callbackContext on this monitor's events belongs to MonitorHost.handle, which
-            // only ever puts a PayloadBox there (nil for payload-less events).
-            if let raw = eventContext?.pointee.callbackContext {
-                guard let payload = Unmanaged<PayloadBox>.fromOpaque(raw).takeUnretainedValue().value as? M.EventPayload
-                else { return }
-                self.monitor.writeReportSection(payload: payload, writer: writer)
-            } else if let unit = () as? M.EventPayload {
-                // Payload-less event of a Void-payload monitor: the callback still fires.
-                self.monitor.writeReportSection(payload: unit, writer: writer)
+
+        // A monitor declares report work by conformance, so the C hook it does not implement
+        // stays NULL and its callers skip it outright: the report writer opens no section for
+        // it, and the stitch passes leave it out. Both hooks are guarded on NULL by the C
+        // side, which is what makes a non-conforming monitor cost nothing rather than cost an
+        // empty object and a dictionary round trip on every report.
+        if let stitcher = monitor as? any ReportStitching {
+            stitchHandler = { dict, path, scope in
+                guard let report = dict as? [String: Any],
+                    let stitched = try? stitcher.stitchedReport(
+                        report, sidecarURL: path.map { URL(fileURLWithPath: String(cString: $0)) },
+                        scope: scope)
+                else { return nil }
+                return Unmanaged.passRetained(stitched as CFDictionary)
             }
+        } else {
+            api.pointee.createStitchedReport = nil
         }
+
+        if let sectionWriter = monitor as? any ReportSectionWriting {
+            writeSectionHandler = { eventContext, writerPointer in
+                // The crash-time writer opens this callback's enclosing section itself, so
+                // values are written straight into it; opening another object here would
+                // double-nest every section written through the layer.
+                guard let writer = ReportSectionWriter(writerPointer) else { return }
+                // callbackContext on this monitor's events belongs to MonitorHost.handle,
+                // which only ever puts a PayloadBox there (nil for payload-less events).
+                let payload = eventContext?.pointee.callbackContext.map {
+                    Unmanaged<PayloadBox>.fromOpaque($0).takeUnretainedValue().value
+                }
+                writeSection(sectionWriter, payload: payload, writer: writer)
+            }
+        } else {
+            api.pointee.writeInReportSection = nil
+        }
+    }
+}
+
+/// Calls `writeReportSection` with the payload typed as the monitor's own `EventPayload`.
+///
+/// A free generic function because the bridge holds the monitor as `any ReportSectionWriting`,
+/// whose `EventPayload` cannot be named at that point; passing it here opens the existential
+/// so the payload can be cast to the concrete type the monitor declared.
+private func writeSection<M: ReportSectionWriting>(
+    _ monitor: M, payload: Any?, writer: ReportSectionWriter
+) {
+    if let payload {
+        guard let typed = payload as? M.EventPayload else { return }
+        monitor.writeReportSection(payload: typed, writer: writer)
+    } else if let unit = () as? M.EventPayload {
+        // Payload-less event of a Void-payload monitor: the callback still fires.
+        monitor.writeReportSection(payload: unit, writer: writer)
     }
 }
 

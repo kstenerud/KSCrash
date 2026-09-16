@@ -17,7 +17,7 @@ corpse monitor and MetricKit (`KSCrashMonitors`) and the profiler's internal `Pr
 ## The developer surface
 
 ```swift
-final class CrashReportExtensionMonitor: CrashMonitor {
+final class CrashReportExtensionMonitor: ReportSectionWriting {
     typealias EventPayload = CorpseSnapshot
     static let id = "Corpse"
 
@@ -60,13 +60,35 @@ public protocol CrashMonitor: AnyObject {
     func enabledDidChange(_ isEnabled: Bool)      // default no-op
     func monitorsDidEnable()                      // default no-op (notifyPostMonitorsEnabled)
     func systemDidEnable()                        // default no-op (notifyPostSystemEnable; never fires in extension mode)
-    func writeReportSection(payload: EventPayload, writer: ReportSectionWriter)  // default no-op
+}
+
+public protocol ReportSectionWriting: CrashMonitor {
+    func writeReportSection(payload: EventPayload, writer: ReportSectionWriter)
+}
+
+public protocol ReportStitching: CrashMonitor {
     func stitchedReport(_ report: [String: Any], sidecarURL: URL?,
-                        scope: SidecarScope) throws -> [String: Any]  // default returns report; throw = stitch error
+                        scope: SidecarScope) throws -> [String: Any]  // throw = stitch error
                                                                       // sidecarURL is nil for .final (the post-sidecar
-                                                                      // pass over every monitor, priority order)
+                                                                      // pass over every stitching monitor, priority order)
 }
 ```
+
+**The two report-producing callbacks are conformances, not defaulted methods, and that is
+load-bearing twice over.** Swift has no optional protocol requirements, so the alternative is a
+default implementation, and a default cannot distinguish a monitor that meant to implement the
+method and got the signature wrong from one that had nothing to say. The first of those compiles
+clean and writes nothing for the life of the monitor. Second, the C hooks are nullable: the
+bridge leaves `writeInReportSection` or `createStitchedReport` NULL for a monitor that does not
+conform, and both callers already guard on NULL, so a monitor that writes nothing produces no
+key at all (rather than an empty object) and a monitor that does not stitch drops out of every
+stitch pass (rather than retaining and returning the report unchanged on each one). Conformance
+is checked once in `Monitor<M>.init` with a runtime cast; calling through the resulting
+existential goes via a small generic free function, which opens it so `EventPayload` can be
+named. `.plugin()` and the raw `Monitor(Type.self, config)` are both unaffected.
+
+The three notifications keep their no-op defaults on purpose: a notification that never arrives
+shows up the first time a monitor is exercised, and splitting them out would buy no nullable hook.
 
 `MonitorFlags`, `SidecarScope` and `EventRequirements` are the C types themselves, imported
 under Swift names: `KSCrashMonitorFlag` is a `CF_OPTIONS` (so it lands as an option set),
@@ -182,8 +204,8 @@ into another's.
 | Monitor | Status |
 |---|---|
 | Corpse (CrashReportExtension) | Born on this layer |
-| MetricKit | Ported: `MetricKitMonitor: CrashMonitor`, registered via `MetricKitMonitor.plugin(.init())` (it has a real `Configuration`) |
-| Profiler | Ported: internal `ProfileMonitor: CrashMonitor` (id "profile", the report wire format), self-registering `shared` bridge |
+| MetricKit | Ported: `MetricKitMonitor: CrashMonitor` (writes no section and does not stitch, so both its C hooks stay NULL), registered via `MetricKitMonitor.plugin(.init())` (it has a real `Configuration`) |
+| Profiler | Ported: internal `ProfileMonitor: ReportSectionWriting` (id "profile", the report wire format), self-registering `shared` bridge |
 
 **Module placement**: the layer lives in its own target, `KSCrashMonitorPlugins` (product
 `MonitorPlugins`), depended on by `KSCrashMonitors` and `KSCrashProfiler`.

@@ -31,13 +31,16 @@ import KSCrashRecordingCore
 /// A plugin monitor written in Swift. Conform, then register `MyMonitor.plugin(configuration)`
 /// (or `MyMonitor.plugin()` when `Configuration == Void`) in `config.plugins`; the system
 /// instantiates the monitor immediately, handing it its `MonitorHost` and its configuration.
-/// Everything below `init(host:configuration:)` is optional and defaults to a no-op.
+/// The notifications below `init(host:configuration:)` are optional and default to a no-op.
+/// Writing report data is not: conform to `ReportSectionWriting` or `ReportStitching` to take
+/// part in it.
 ///
 /// Plugin monitors run in a healthy process (MetricKit, Profiler, corpse reporting), never
 /// inside a crash handler.
 public protocol CrashMonitor: AnyObject {
     /// Typed per-event payload, carried from `host.handle(payload:)` to
-    /// `writeReportSection(payload:)`. `Void` for monitors that don't write report sections.
+    /// `ReportSectionWriting.writeReportSection(payload:)`. `Void` for monitors that don't
+    /// write report sections.
     associatedtype EventPayload = Void
 
     /// Whatever configuration this monitor needs, passed through `MyMonitor.plugin(config)`
@@ -68,21 +71,6 @@ public protocol CrashMonitor: AnyObject {
     /// After RunContext is initialized (notifyPostSystemEnable). Never fires in an
     /// extension-reporting install, where RunContext does not initialize.
     func systemDidEnable()
-
-    /// Runs during the report write, inside the error section's object for this monitor's id,
-    /// with the payload that was passed to `host.handle(payload:)` for this event.
-    func writeReportSection(payload: EventPayload, writer: ReportSectionWriter)
-
-    /// Stitches this monitor's sidecar data into a report at delivery time. Runs at normal app
-    /// startup, not during crash handling. Return the (possibly modified) report; throw to
-    /// signal a stitch error (finalization aborts the write-back so the report is retried on
-    /// the next read; normal reads keep the original silently).
-    ///
-    /// For `.final` there is no sidecar (`sidecarURL` is nil): after all sidecar stitching,
-    /// every monitor gets one last chance to modify the report, drawing on the report itself.
-    /// Throwing there is the same as returning `report` unchanged: with no sidecar to reread,
-    /// a retry could not go differently.
-    func stitchedReport(_ report: [String: Any], sidecarURL: URL?, scope: SidecarScope) throws -> [String: Any]
 }
 
 extension CrashMonitor {
@@ -91,10 +79,37 @@ extension CrashMonitor {
     public func enabledDidChange(_ isEnabled: Bool) {}
     public func monitorsDidEnable() {}
     public func systemDidEnable() {}
-    public func writeReportSection(payload: EventPayload, writer: ReportSectionWriter) {}
-    public func stitchedReport(_ report: [String: Any], sidecarURL: URL?, scope: SidecarScope) throws -> [String: Any] {
-        report
-    }
+}
+
+/// A monitor that writes a section into the crash report as the report is written.
+///
+/// Conforming is the declaration that this monitor produces report data. A monitor that does
+/// not conform is never called and contributes no section. That is also why this is a
+/// conformance rather than another defaulted method: a default cannot tell a monitor that
+/// meant to write a section and got the signature wrong from one that had nothing to say, and
+/// the first of those writes nothing for the life of the monitor without a diagnostic.
+public protocol ReportSectionWriting: CrashMonitor {
+    /// Runs during the report write, inside the error section's object for this monitor's id,
+    /// with the payload that was passed to `host.handle(payload:)` for this event.
+    func writeReportSection(payload: EventPayload, writer: ReportSectionWriter)
+}
+
+/// A monitor that modifies a report at delivery time.
+///
+/// Conforming is the declaration that this monitor stitches. A monitor that does not conform
+/// takes no part in stitching, including the final pass. See `ReportSectionWriting` for why
+/// this is a conformance and not a defaulted method.
+public protocol ReportStitching: CrashMonitor {
+    /// Stitches this monitor's sidecar data into a report at delivery time. Runs at normal app
+    /// startup, not during crash handling. Return the (possibly modified) report; throw to
+    /// signal a stitch error (finalization aborts the write-back so the report is retried on
+    /// the next read; normal reads keep the original silently).
+    ///
+    /// For `.final` there is no sidecar (`sidecarURL` is nil): after all sidecar stitching,
+    /// every stitching monitor gets one last chance to modify the report, drawing on the
+    /// report itself. Throwing there is the same as returning `report` unchanged: with no
+    /// sidecar to reread, a retry could not go differently.
+    func stitchedReport(_ report: [String: Any], sidecarURL: URL?, scope: SidecarScope) throws -> [String: Any]
 }
 
 extension CrashMonitor {
