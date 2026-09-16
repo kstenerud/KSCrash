@@ -72,9 +72,10 @@ public struct MonitorHost<Payload> {
     /// `configure` sets the raw per-event fields on the monitor context: mach codes, machine
     /// context, provided images, processName.
     ///
-    /// `finalize` only applies to reports the store minted an ID for. An event whose `configure`
-    /// sets a custom `reportPath` writes outside the store and never finalizes, even with
-    /// `finalize: true`.
+    /// `finalize` stitches the report and marks it finalized before `handle` returns; without
+    /// it the same stitch runs when the report is next read. It applies only to reports the
+    /// store minted an ID for, so an event whose `configure` sets a custom `reportPath` never
+    /// finalizes, and neither does a locally fatal event, where the process is terminating.
     public func handle(
         payload: Payload?,
         requirements: EventRequirements,

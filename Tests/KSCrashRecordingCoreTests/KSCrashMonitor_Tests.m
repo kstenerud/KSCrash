@@ -694,6 +694,27 @@ static atomic_int g_counter = 0;
     XCTAssertFalse(g_finalizeCalled);
 }
 
+- (void)testFinalizeCalledForRemoteSubjectFatalWithFinalizeTrue
+{
+    // The gate exists because a locally fatal event is about to die and finalization does
+    // ObjC/JSON/file I/O. A remote subject's death is not this process's: nothing was
+    // suspended and the reporter is healthy, so finalization may run.
+    kscm_addMonitor(&g_dummyMonitor);
+    kscm_enableMonitors();
+    kscm_setEventCallbackWithResult(myEventCallback);
+    kscm_setFinalizeReportCallback(myFinalizeCallback);
+    g_finalizeCalled = NO;
+    g_finalizedReportId = 0;
+
+    KSCrash_MonitorContext *ctx = dummyExceptionHandlerCallbacks.notify(
+        (thread_t)MACH_PORT_NULL, (KSCrash_ExceptionHandlingRequirements) {
+                                      .isFatal = true, .shouldWriteReport = true, .isRemoteSubject = true });
+    dummyExceptionHandlerCallbacks.handleWithResult(ctx, NULL, true);
+
+    XCTAssertTrue(g_finalizeCalled);
+    XCTAssertEqual(g_finalizedReportId, g_dummyResultReportId);
+}
+
 #pragma mark - Remote Subject Tests
 
 // A remote subject means the event describes another task (a corpse); the reporting

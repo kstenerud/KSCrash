@@ -51,7 +51,11 @@ typedef struct {
     unsigned shouldWriteReport : 1;
 
     /**
-     * The process will terminate once exception handling completes.
+     * The subject of this event will terminate once exception handling completes.
+     *
+     * The subject is this process unless `isRemoteSubject` is set. To ask whether THIS
+     * process is dying, which is what every "wind down now" decision means, use
+     * `kscexc_isLocallyFatal` rather than this field alone.
      */
     unsigned isFatal : 1;
 
