@@ -192,15 +192,10 @@ public final class Monitor<M: CrashMonitor>: MonitorCore {
             return Unmanaged.passRetained(stitched as CFDictionary)
         }
         writeSectionHandler = { [unowned self] eventContext, writerPointer in
-            // The section object opens on the monitor's first written value and closes here
-            // only if that happened, so a monitor that writes nothing adds no key at all.
-            let section = ReportSectionWriter.PendingSection(name: M.id)
-            guard let writer = ReportSectionWriter(writerPointer, section: section) else { return }
-            defer {
-                if section.isOpen {
-                    writer.endContainer()
-                }
-            }
+            // The crash-time writer opens this callback's enclosing section itself, so
+            // values are written straight into it; opening another object here would
+            // double-nest every section written through the layer.
+            guard let writer = ReportSectionWriter(writerPointer) else { return }
             // callbackContext on this monitor's events belongs to MonitorHost.handle, which
             // only ever puts a PayloadBox there (nil for payload-less events).
             if let raw = eventContext?.pointee.callbackContext {
