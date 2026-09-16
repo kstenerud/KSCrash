@@ -120,11 +120,15 @@ public struct InstallConfiguration: Sendable {
     /// Crash-time callbacks; see `UnsafeCrashTimeCallbacks` for the contract.
     public var unsafeCrashTimeCallbacks: UnsafeCrashTimeCallbacks?
 
-    // Every knob below starts at the C default (`KSCrashCConfiguration_Default`),
-    // the one place a default value is written; the doc comments state them.
+    // Every concrete default below comes from `KSCrashCConfiguration_Default`,
+    // the one place its value is written; optional overrides remain nil so the
+    // bridge leaves that C default unchanged.
 
     /// Default `.default`.
     public var monitors: Monitors
+    /// Overrides the Mach exceptions handled by the Mach exception monitor.
+    /// `nil` uses KSCrash's standard exception mask; `0` is the empty mask. Default `nil`.
+    public var machExceptionMask: UInt32?
     /// Default 50.
     public var maxReportCount: Int
     /// Default 50.
@@ -152,6 +156,7 @@ public struct InstallConfiguration: Sendable {
         self.namespace = namespace
         let defaults = KSCrashCConfiguration_Default()
         monitors = Monitors(rawValue: defaults.monitors.rawValue)
+        machExceptionMask = nil
         maxReportCount = Int(defaults.maxReportCount)
         maxRunSummaryCount = Int(defaults.maxRunSummaryCount)
         searchesQueueNames = defaults.enableQueueNameSearch

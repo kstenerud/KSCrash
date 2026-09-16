@@ -31,6 +31,7 @@
 #define HDR_KSCrashMonitor_MachException_h
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #include "KSCrashMonitorAPI.h"
 #include "KSCrashNamespace.h"
@@ -41,6 +42,11 @@ extern "C" {
 
 /** Access the Monitor API. */
 KSCrashMonitorAPI *kscm_machexception_getAPI(void);
+
+/** Configure the exception mask used on the next monitor installation.
+ * A value of 0 is the empty exception set.
+ */
+void kscm_machexception_setExceptionMask(uint32_t exceptionMask);
 
 #ifdef __cplusplus
 }

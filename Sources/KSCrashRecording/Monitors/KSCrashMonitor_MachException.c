@@ -106,9 +106,6 @@ enum {
 #define MACH_ERROR_CODE_MASK 0xFFFFFFFF
 #endif
 
-static const exception_mask_t kInterestingExceptions =
-    EXC_MASK_BAD_ACCESS | EXC_MASK_BAD_INSTRUCTION | EXC_MASK_ARITHMETIC | EXC_MASK_SOFTWARE | EXC_MASK_BREAKPOINT;
-
 // ============================================================================
 #pragma mark - Types -
 // ============================================================================
@@ -179,6 +176,7 @@ typedef struct {
 static struct {
     _Atomic(KSCM_InstalledState) installedState;
     atomic_bool isEnabled;
+    exception_mask_t exceptionMask;  // Configured before monitor installation.
     ExceptionContext contexts[kContextCount];
     KSCrash_ExceptionHandlerCallbacks callbacks;
     int currentRestorePoint;
@@ -229,7 +227,7 @@ static bool saveExceptionPortsRestorePoint(int contextIndex)
 {
     MachExceptionHandlerRestorePoint *restorePoint = &g_state.contexts[contextIndex].machExceptionHandlerRestorePoint;
     kern_return_t kr =
-        task_get_exception_ports(mach_task_self(), kInterestingExceptions, restorePoint->masks, &restorePoint->count,
+        task_get_exception_ports(mach_task_self(), g_state.exceptionMask, restorePoint->masks, &restorePoint->count,
                                  restorePoint->ports, restorePoint->behaviors, restorePoint->flavors);
     if (kr != KERN_SUCCESS) {
         MACH_ERROR(kr, "task_get_exception_ports");
@@ -491,7 +489,7 @@ static bool startNewExceptionHandler(int contextIndex, const char *threadName)
         goto onFailure;
     }
 
-    kr = task_set_exception_ports(taskSelf, kInterestingExceptions, ctx->exceptionPort,
+    kr = task_set_exception_ports(taskSelf, g_state.exceptionMask, ctx->exceptionPort,
                                   (exception_behavior_t)(EXCEPTION_DEFAULT | MACH_EXCEPTION_CODES), THREAD_STATE_NONE);
     if (kr != KERN_SUCCESS) {
         MACH_ERROR(kr, "task_set_exception_ports");
@@ -575,6 +573,15 @@ static void init(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused void *co
 }
 
 #endif
+
+void kscm_machexception_setExceptionMask(uint32_t exceptionMask)
+{
+#if KSCRASH_HAS_MACH
+    g_state.exceptionMask = (exception_mask_t)exceptionMask;
+#else
+    (void)exceptionMask;
+#endif
+}
 
 KSCrashMonitorAPI *kscm_machexception_getAPI(void)
 {

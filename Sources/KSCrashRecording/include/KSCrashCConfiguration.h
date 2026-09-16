@@ -45,6 +45,8 @@ extern "C" {
 
 /** The most plugin monitors an install accepts (more fail the install). */
 #define KSC_MAX_PLUGINS 64
+/** KSCrash's standard Mach exception mask: bad access, bad instruction, arithmetic, software, and breakpoint. */
+#define KSC_STANDARD_MACH_EXCEPTION_MASK ((uint32_t)0x6e)
 /** Default retention window for unreferenced run-sidecar directories: 30 days. */
 #define KSCRS_DEFAULT_RUN_SIDECAR_RETENTION_SECONDS (30.0 * 24.0 * 60.0 * 60.0)
 
@@ -326,6 +328,15 @@ typedef struct {
      * **Default**: false
      */
     bool enableSwiftAsyncStackTraces;
+
+    /** Mach exceptions handled by the Mach exception monitor.
+     * A value of 0 is the empty exception set.
+     *
+     * This has no effect when the Mach exception monitor is disabled or unavailable.
+     *
+     * **Default**: `KSC_STANDARD_MACH_EXCEPTION_MASK`
+     */
+    uint32_t machExceptionMask;
 } KSCrashCConfiguration;
 
 static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
@@ -348,6 +359,7 @@ static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
         .enableCompactBinaryImages = false,
         .plugins = { .apis = NULL, .length = 0, .release = NULL },
         .enableSwiftAsyncStackTraces = false,
+        .machExceptionMask = KSC_STANDARD_MACH_EXCEPTION_MASK,
     };
 }
 

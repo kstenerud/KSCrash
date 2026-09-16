@@ -572,6 +572,7 @@ KSCrashInstallErrorCode kscrash_install(const char *const installPath, KSCrashCC
     kscm_setEventCallbackWithResult(onExceptionEvent);
     kscm_setFinalizeReportCallback(onFinalizeReport);
 
+    kscm_machexception_setExceptionMask(configuration->machExceptionMask);
     setMonitors(configuration->monitors);
     if (!setPluginMonitors(configuration->plugins.apis, configuration->plugins.length)) {
         return KSCrashInstallErrorInvalidParameter;

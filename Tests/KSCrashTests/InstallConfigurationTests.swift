@@ -24,6 +24,7 @@
 // THE SOFTWARE.
 //
 
+import Darwin
 import Foundation
 import KSCrashRecording
 import XCTest
@@ -35,6 +36,7 @@ final class InstallConfigurationTests: XCTestCase {
         let config = InstallConfiguration(namespace: "T")
         XCTAssertEqual(config.namespace, "T")
         XCTAssertEqual(config.monitors, .default)
+        XCTAssertNil(config.machExceptionMask)
         XCTAssertTrue(config.plugins.isEmpty)
         XCTAssertEqual(config.maxReportCount, 50)
         XCTAssertEqual(config.maxRunSummaryCount, 50)
@@ -235,9 +237,15 @@ final class InstallConfigurationTests: XCTestCase {
         var bridged = InstallConfiguration(namespace: "Ns").makeCConfiguration()
         defer { KSCrashCConfiguration_Release(&bridged) }
         let c = KSCrashCConfiguration_Default()
+        XCTAssertEqual(
+            c.machExceptionMask,
+            UInt32(
+                EXC_MASK_BAD_ACCESS | EXC_MASK_BAD_INSTRUCTION | EXC_MASK_ARITHMETIC | EXC_MASK_SOFTWARE
+                    | EXC_MASK_BREAKPOINT))
         XCTAssertEqual(bridged.maxReportCount, c.maxReportCount)
         XCTAssertEqual(bridged.maxRunSummaryCount, c.maxRunSummaryCount)
         XCTAssertEqual(bridged.monitors, c.monitors)
+        XCTAssertEqual(bridged.machExceptionMask, c.machExceptionMask)
         XCTAssertEqual(bridged.enableQueueNameSearch, c.enableQueueNameSearch)
         XCTAssertEqual(bridged.enableMemoryIntrospection, c.enableMemoryIntrospection)
         XCTAssertEqual(bridged.doNotIntrospectClasses.length, c.doNotIntrospectClasses.length)
@@ -254,10 +262,23 @@ final class InstallConfigurationTests: XCTestCase {
         XCTAssertNil(bridged.didWriteReportCallback)
     }
 
+    func test_bridge_copiesExplicitMachExceptionMasks() {
+        for mask: UInt32 in [0, 0x1234] {
+            var config = InstallConfiguration(namespace: "Ns")
+            config.machExceptionMask = mask
+            var bridged = config.makeCConfiguration()
+            XCTAssertEqual(bridged.machExceptionMask, mask)
+            KSCrashCConfiguration_Release(&bridged)
+        }
+    }
+
     func test_isAValue() {
         let original = InstallConfiguration(namespace: "Ns")
         var copy = original
         copy.maxReportCount = 1
+        copy.machExceptionMask = 0
         XCTAssertEqual(original.maxReportCount, 50)
+        XCTAssertNil(original.machExceptionMask)
+        XCTAssertEqual(copy.machExceptionMask, .some(0))
     }
 }

@@ -37,6 +37,9 @@ extension InstallConfiguration {
         config.maxReportCount = Int32(maxReportCount)
         config.maxRunSummaryCount = Int32(maxRunSummaryCount)
         config.monitors = monitors.cValue
+        if let machExceptionMask {
+            config.machExceptionMask = machExceptionMask
+        }
         config.enableQueueNameSearch = searchesQueueNames
         switch memoryIntrospection {
         case .disabled:

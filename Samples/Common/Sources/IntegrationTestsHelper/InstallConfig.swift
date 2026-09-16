@@ -39,6 +39,7 @@ public struct InstallConfig: Codable {
     public var isCompactBinaryImagesEnabled: Bool?
     public var ignoreSIGPIPEBeforeInstall: Bool?
     public var isSwiftAsyncStackTracesEnabled: Bool?
+    public var machExceptionMask: UInt32?
 
     public var postInstallSIGSEGVHandlerMarkerPath: String?
 
@@ -73,6 +74,9 @@ extension InstallConfig {
         }
         if let isSwiftAsyncStackTracesEnabled {
             config.usesSwiftAsyncStackTraces = isSwiftAsyncStackTracesEnabled
+        }
+        if let machExceptionMask {
+            config.machExceptionMask = machExceptionMask
         }
         setIntegrationTestWillWriteReportCallback({
             (plan: UnsafeMutablePointer<ExceptionHandlingPlan>, ctx: UnsafePointer<KSCrash_MonitorContext>) in

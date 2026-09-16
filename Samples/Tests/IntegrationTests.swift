@@ -190,6 +190,33 @@ final class NSExceptionTests: IntegrationTestBase {
                 rawReport.crashedThread?.backtrace?.contents.first?.instructionAddr,
                 "The signal context and Mach report must point to the same faulting instruction")
         }
+
+        func testEmptyMaskRoutesFaultDirectlyToSignal() throws {
+            let signalMarkerURL = installUrl.appendingPathComponent("__empty_mask_signal__")
+
+            try launchAndCrash(.mach_badAccess) { configuration in
+                configuration.machExceptionMask = 0
+                configuration.postInstallSIGSEGVHandlerMarkerPath = signalMarkerURL.path
+            }
+
+            // An empty Mach mask must let this fault reach the signal chain
+            // without first producing a Mach report. Signal reports can include a derived
+            // Mach equivalent; `type` identifies the monitor that actually handled the fault.
+            let rawReport = try readCrashReport()
+            try rawReport.validate()
+            XCTAssertEqual(rawReport.crash.error.type, .signal)
+            XCTAssertEqual(rawReport.crash.error.signal?.signal, UInt64(SIGSEGV))
+
+            let markerData = try Data(contentsOf: signalMarkerURL)
+            XCTAssertEqual(markerData.count, MemoryLayout<IntegrationTestSignalMarker>.size)
+            guard markerData.count == MemoryLayout<IntegrationTestSignalMarker>.size else {
+                return
+            }
+            let marker = markerData.withUnsafeBytes {
+                $0.loadUnaligned(as: IntegrationTestSignalMarker.self)
+            }
+            XCTAssertEqual(marker.signalNumber, SIGSEGV)
+        }
     }
 
 #endif
