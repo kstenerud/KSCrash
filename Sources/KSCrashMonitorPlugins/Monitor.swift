@@ -104,6 +104,10 @@ public class MonitorCore: NSObject, MonitorPlugin {
                     },
                     setEnabled: { isEnabled, context in
                         guard let bridge = MonitorCore.from(context) else { return }
+                        // The flag is the source of truth (`host.isEnabled` reads it); the
+                        // notification is advisory. Concurrent calls can deliver it in the
+                        // opposite order to the flag, which is not worth a lock here: the
+                        // flag is read during crash handling, where taking one can deadlock.
                         if bridge.enabled.exchange(isEnabled) != isEnabled {
                             bridge.enabledChangeHandler(isEnabled)
                         }
@@ -138,6 +142,13 @@ public class MonitorCore: NSObject, MonitorPlugin {
     }
 
     deinit {
+        // The registry stores `api` raw, so freeing it while still registered leaves the
+        // next event dereferencing freed memory, possibly in a crash handler. Asking the
+        // registry is the real question; `isInstalled` stays true after a correct
+        // `kscm_removeMonitor`, which only calls setEnabled(false) on the way out.
+        assert(
+            kscm_getMonitor(monitorIdC) != UnsafePointer(api),
+            "a monitor bridge was released while still registered; bridges must outlive their registration")
         api.deinitialize(count: 1)
         api.deallocate()
         free(monitorIdC)
