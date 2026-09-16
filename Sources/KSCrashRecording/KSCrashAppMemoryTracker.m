@@ -285,8 +285,10 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
         atomic_store(&lastSystemRemaining, systemRemaining);
         atomic_store(&lastSystemLimit, systemLimit);
     } else {
-        systemRemaining = atomic_load(&lastSystemRemaining);
+        // Read the pair in the opposite order it is written: a nonzero limit
+        // proves the matching remaining landed first.
         systemLimit = atomic_load(&lastSystemLimit);
+        systemRemaining = systemLimit != 0 ? atomic_load(&lastSystemRemaining) : 0;
     }
 
     return [[KSCrashAppMemory alloc] initWithFootprint:info.phys_footprint
