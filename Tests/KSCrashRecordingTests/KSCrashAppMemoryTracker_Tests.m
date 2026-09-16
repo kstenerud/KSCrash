@@ -31,8 +31,7 @@
 #import "KSCrashAppMemoryTracker.h"
 
 @interface KSCrashAppMemoryTracker (Tests)
-- (void)_heartbeat:(BOOL)sendObservers;
-- (void)_memoryPressureChanged:(dispatch_source_memorypressure_flags_t)flags sendObservers:(BOOL)sendObservers;
+- (void)_heartbeat:(BOOL)sendObservers pressure:(KSCrashAppMemoryState)pressure;
 @end
 
 @interface KSCrashAppMemoryTracker_Tests : XCTestCase
@@ -471,7 +470,7 @@
     });
 
     KSCrashAppMemoryTracker *tracker = [[KSCrashAppMemoryTracker alloc] init];
-    [tracker _heartbeat:NO];
+    [tracker _heartbeat:NO pressure:KSCrashAppMemoryStateNormal];
     XCTAssertEqual(tracker.headroom, KSCrashAppMemoryStateNormal);
 
     __block KSCrashAppMemoryTrackerChangeType observedChanges = KSCrashAppMemoryTrackerChangeTypeNone;
@@ -484,7 +483,7 @@
     // The crossing moves system remaining by 2, under the 1% change threshold
     // of 10, yet a state change still reports the bytes that caused it.
     currentSystemRemaining = 149;
-    [tracker _heartbeat:NO];
+    [tracker _heartbeat:NO pressure:KSCrashAppMemoryStateNormal];
     XCTAssertEqual(tracker.headroom, KSCrashAppMemoryStateWarn);
     XCTAssertTrue(observedChanges & KSCrashAppMemoryTrackerChangeTypeHeadroom);
     XCTAssertTrue(observedChanges & KSCrashAppMemoryTrackerChangeTypeSystemRemaining);
@@ -566,14 +565,14 @@
             callbacks++;
         }];
 
-    [tracker _heartbeat:NO];
+    [tracker _heartbeat:NO pressure:KSCrashAppMemoryStateNormal];
     XCTAssertEqual(tracker.level, KSCrashAppMemoryStateCritical);
     XCTAssertEqual(tracker.headroom, KSCrashAppMemoryStateCritical);
     XCTAssertEqual(callbacks, 1);
 
     // A failed sample must not fabricate a recovery to normal or reach observers.
     providerFails = YES;
-    [tracker _heartbeat:NO];
+    [tracker _heartbeat:NO pressure:KSCrashAppMemoryStateNormal];
     XCTAssertEqual(tracker.level, KSCrashAppMemoryStateCritical);
     XCTAssertEqual(tracker.headroom, KSCrashAppMemoryStateCritical);
     XCTAssertEqual(callbacks, 1);
@@ -627,12 +626,68 @@
     dispatch_resume(queue);
 }
 
-- (void)testPressureChangeUsesFlagsHandedIn
+- (void)testPressureChangeLostToFailedSampleIsReportedByNextHeartbeat
 {
-    // Never started, so there is no pressure source to read: the state must
-    // come from the flags handed in, as when -stop races a firing handler.
+    // The provider stands in for the real sampler, so it also stands in for the
+    // pressure source: each event below sets the pressure its samples carry.
+    __block BOOL providerFails = NO;
+    __block KSCrashAppMemoryState providerPressure = KSCrashAppMemoryStateNormal;
+    testsupport_KSCrashAppMemorySetProvider(^KSCrashAppMemory *_Nullable {
+        if (providerFails) {
+            return nil;
+        }
+        return [[KSCrashAppMemory alloc] initWithFootprint:10
+                                                 remaining:90
+                                                  pressure:providerPressure
+                                           systemRemaining:500
+                                               systemLimit:1000];
+    });
     KSCrashAppMemoryTracker *tracker = [[KSCrashAppMemoryTracker alloc] init];
-    [tracker _memoryPressureChanged:DISPATCH_MEMORYPRESSURE_CRITICAL sendObservers:NO];
+    [tracker _heartbeat:NO pressure:KSCrashAppMemoryStateNormal];
+
+    __block NSUInteger callbacks = 0;
+    __block KSCrashAppMemoryTrackerChangeType observedChanges = KSCrashAppMemoryTrackerChangeTypeNone;
+    __block KSCrashAppMemoryState observedPressure = KSCrashAppMemoryStateNormal;
+    id observer = [tracker addObserverWithBlock:^(KSCrashAppMemory *memory, KSCrashAppMemoryTrackerChangeType changes) {
+        callbacks++;
+        observedChanges = changes;
+        observedPressure = memory.pressure;
+    }];
+
+    providerPressure = KSCrashAppMemoryStateCritical;
+    [tracker _heartbeat:YES pressure:KSCrashAppMemoryStateCritical];
+    XCTAssertEqual(callbacks, 1);
+    XCTAssertEqual(tracker.pressure, KSCrashAppMemoryStateCritical);
+    XCTAssertEqual(observedPressure, KSCrashAppMemoryStateCritical);
+
+    // The recovery's heartbeat sample fails, so that heartbeat reports nothing.
+    providerPressure = KSCrashAppMemoryStateNormal;
+    providerFails = YES;
+    [tracker _heartbeat:YES pressure:KSCrashAppMemoryStateNormal];
+    XCTAssertEqual(callbacks, 1);
+    XCTAssertEqual(tracker.pressure, KSCrashAppMemoryStateCritical);
+
+    // Nothing else moved, yet the next good heartbeat reports the recovery.
+    providerFails = NO;
+    [tracker _heartbeat:NO pressure:KSCrashAppMemoryStateNormal];
+    XCTAssertEqual(callbacks, 2);
+    XCTAssertTrue(observedChanges & KSCrashAppMemoryTrackerChangeTypePressure);
+    XCTAssertEqual(tracker.pressure, KSCrashAppMemoryStateNormal);
+    XCTAssertEqual(observedPressure, KSCrashAppMemoryStateNormal);
+
+    // Once reported, later heartbeats don't repeat it.
+    [tracker _heartbeat:NO pressure:KSCrashAppMemoryStateNormal];
+    XCTAssertEqual(callbacks, 2);
+
+    (void)observer;  // Keep observer alive
+}
+
+- (void)testHeartbeatRecordsPressureHandedIn
+{
+    // Nothing reads _pressureSource, so -stop and -start replacing it can't
+    // race a firing handler: the pressure comes in as an argument.
+    KSCrashAppMemoryTracker *tracker = [[KSCrashAppMemoryTracker alloc] init];
+    [tracker _heartbeat:NO pressure:KSCrashAppMemoryStateCritical];
     XCTAssertEqual(tracker.pressure, KSCrashAppMemoryStateCritical);
 }
 

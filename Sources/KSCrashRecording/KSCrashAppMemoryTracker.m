@@ -72,6 +72,18 @@ FOUNDATION_EXPORT void testsupport_KSCrashAppMemorySetProvider(KSCrashAppMemoryP
 }
 @end
 
+static KSCrashAppMemoryState StateFromPressureFlags(dispatch_source_memorypressure_flags_t flags)
+{
+    switch (flags) {
+        case DISPATCH_MEMORYPRESSURE_WARN:
+            return KSCrashAppMemoryStateWarn;
+        case DISPATCH_MEMORYPRESSURE_CRITICAL:
+            return KSCrashAppMemoryStateCritical;
+        default:
+            return KSCrashAppMemoryStateNormal;
+    }
+}
+
 @implementation KSCrashAppMemoryTracker
 
 + (instancetype)sharedInstance
@@ -132,18 +144,20 @@ FOUNDATION_EXPORT void testsupport_KSCrashAppMemorySetProvider(KSCrashAppMemoryP
 
     __weak __typeof(self) weakMe = self;
 
-    // The handler reads the source that fired. It retains that source until
-    // -stop cancels it, which releases the handler.
+    // Both handlers read pressure from this captured source, never from
+    // _pressureSource, which -stop and -start replace on another thread. The
+    // capture keeps the source alive until -stop cancels it, which releases
+    // the handlers.
     dispatch_source_t pressureSource = _pressureSource;
     dispatch_source_set_event_handler(pressureSource, ^{
-        [weakMe _memoryPressureChanged:dispatch_source_get_data(pressureSource) sendObservers:YES];
+        [weakMe _heartbeat:YES pressure:StateFromPressureFlags(dispatch_source_get_data(pressureSource))];
     });
     dispatch_activate(_pressureSource);
 
     // memory limit (level)
     _limitSource = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, _heartbeatQueue);
     dispatch_source_set_event_handler(_limitSource, ^{
-        [weakMe _heartbeat:YES];
+        [weakMe _heartbeat:YES pressure:StateFromPressureFlags(dispatch_source_get_data(pressureSource))];
     });
     dispatch_source_set_timer(_limitSource, dispatch_time(DISPATCH_TIME_NOW, 0), NSEC_PER_SEC, NSEC_PER_SEC / 10);
     dispatch_activate(_limitSource);
@@ -282,10 +296,15 @@ static KSCrashAppMemory *_Nullable _ProvideCrashAppMemory(KSCrashAppMemoryState 
                                            systemLimit:systemLimit];
 }
 
-- (nullable KSCrashAppMemory *)currentAppMemory
+- (nullable KSCrashAppMemory *)_appMemoryWithPressure:(KSCrashAppMemoryState)pressure
 {
     KSCrashAppMemoryProvider provider = KSCrashAppMemoryGetProvider();
-    return provider ? provider() : _ProvideCrashAppMemory(self.pressure);
+    return provider ? provider() : _ProvideCrashAppMemory(pressure);
+}
+
+- (nullable KSCrashAppMemory *)currentAppMemory
+{
+    return [self _appMemoryWithPressure:self.pressure];
 }
 
 /** Headroom, level, and pressure notifications are one family: async on the
@@ -327,10 +346,10 @@ static void postStateChangeNotification(id object, NSNotificationName name, KSCr
 // ie: MAX(x,y) - MIN(x,y)
 #define KSABS_DIFF(x, y) ((x) > (y) ? (x) - (y) : (y) - (x))
 
-- (void)_heartbeat:(BOOL)sendObservers
+- (void)_heartbeat:(BOOL)sendObservers pressure:(KSCrashAppMemoryState)pressure
 {
     // This handles the memory limit and system headroom.
-    KSCrashAppMemory *memory = [self currentAppMemory];
+    KSCrashAppMemory *memory = [self _appMemoryWithPressure:pressure];
     if (memory == nil) {
         // Failed sample (task_info error): skip the tick. Reading a nil
         // snapshot would see all zeros and fabricate level/headroom
@@ -340,12 +359,14 @@ static void postStateChangeNotification(id object, NSNotificationName name, KSCr
 
     KSCrashAppMemoryState newLevel = memory.level;
     KSCrashAppMemoryState newHeadroom = memory.headroom;
+    KSCrashAppMemoryState newPressure = memory.pressure;
     uint64_t newFootprint = memory.footprint;
     uint64_t newSystemRemaining = memory.systemRemaining;
 
     NSArray<KSCrashAppMemoryTrackerObserverBlock> *observers = nil;
     KSCrashAppMemoryState oldLevel;
     KSCrashAppMemoryState oldHeadroom;
+    KSCrashAppMemoryState oldPressure;
     KSCrashAppMemoryTrackerChangeType changes = KSCrashAppMemoryTrackerChangeTypeNone;
     {
         os_unfair_lock_lock(&_lock);
@@ -385,6 +406,12 @@ static void postStateChangeNotification(id object, NSNotificationName name, KSCr
             changes |= KSCrashAppMemoryTrackerChangeTypeSystemRemaining;
         }
 
+        oldPressure = _pressure;
+        _pressure = newPressure;
+        if (newPressure != oldPressure) {
+            changes |= KSCrashAppMemoryTrackerChangeTypePressure;
+        }
+
         // clear out NULLs from observers
         [_observers compact];
         observers = [_observers allObjects];
@@ -397,6 +424,10 @@ static void postStateChangeNotification(id object, NSNotificationName name, KSCr
 
     if (newHeadroom != oldHeadroom && sendObservers) {
         postStateChangeNotification(self, KSCrashAppMemoryHeadroomChangedNotification, oldHeadroom, newHeadroom);
+    }
+
+    if (newPressure != oldPressure && sendObservers) {
+        postStateChangeNotification(self, KSCrashAppMemoryPressureChangedNotification, oldPressure, newPressure);
     }
 
     if (newLevel != oldLevel && sendObservers) {
@@ -420,45 +451,6 @@ static void postStateChangeNotification(id object, NSNotificationName name, KSCr
             _exit(0);
         }
 #endif
-    }
-}
-
-- (void)_memoryPressureChanged:(dispatch_source_memorypressure_flags_t)flags sendObservers:(BOOL)sendObservers
-{
-    // This handles system based memory pressure. The flags come from the source
-    // that fired, never from _pressureSource, which -stop and -start replace on
-    // another thread while this runs on the heartbeat queue.
-    KSCrashAppMemoryState newPressure = KSCrashAppMemoryStateNormal;
-    switch (flags) {
-        case DISPATCH_MEMORYPRESSURE_NORMAL:
-            newPressure = KSCrashAppMemoryStateNormal;
-            break;
-        case DISPATCH_MEMORYPRESSURE_WARN:
-            newPressure = KSCrashAppMemoryStateWarn;
-            break;
-        case DISPATCH_MEMORYPRESSURE_CRITICAL:
-            newPressure = KSCrashAppMemoryStateCritical;
-            break;
-        default:
-            newPressure = KSCrashAppMemoryStateNormal;
-    }
-
-    NSArray<KSCrashAppMemoryTrackerObserverBlock> *observers = nil;
-    KSCrashAppMemoryState oldPressure;
-    {
-        os_unfair_lock_lock(&_lock);
-        oldPressure = _pressure;
-        _pressure = newPressure;
-        [_observers compact];
-        observers = [_observers allObjects];
-        os_unfair_lock_unlock(&_lock);
-    }
-
-    if (oldPressure != newPressure && sendObservers) {
-        [self _handleMemoryChange:[self currentAppMemory]
-                             type:KSCrashAppMemoryTrackerChangeTypePressure
-                        observers:observers];
-        postStateChangeNotification(self, KSCrashAppMemoryPressureChangedNotification, oldPressure, newPressure);
     }
 }
 

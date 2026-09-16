@@ -31,7 +31,7 @@
 #import "KSCrashMonitor_Resource.h"
 
 @interface KSCrashAppMemoryTracker (ResourceTests)
-- (void)_heartbeat:(BOOL)sendObservers;
+- (void)_heartbeat:(BOOL)sendObservers pressure:(KSCrashAppMemoryState)pressure;
 @end
 
 static NSString *g_sidecarPath;
@@ -118,7 +118,7 @@ static KSCrashAppMemory *memorySample(uint64_t footprint, uint64_t systemRemaini
 {
     // The tracker and resource seed can sample opposite sides of a boundary.
     self.sample = memorySample(76000000, 49000000, KSCrashAppMemoryStateCritical);
-    [self.tracker _heartbeat:NO];
+    [self.tracker _heartbeat:NO pressure:KSCrashAppMemoryStateNormal];
     self.sample = memorySample(74000000, 51000000, KSCrashAppMemoryStateNormal);
     kscm_resource_getAPI()->setEnabled(true, NULL);
     [self assertSidecarMatchesSample:self.sample];
@@ -133,7 +133,7 @@ static KSCrashAppMemory *memorySample(uint64_t footprint, uint64_t systemRemaini
     // flags are sent. All persisted values, including pressure, must still
     // come from this sample instead of retaining labels from the initial seed.
     self.sample = memorySample(80000000, 30000000, KSCrashAppMemoryStateCritical);
-    [self.tracker _heartbeat:NO];
+    [self.tracker _heartbeat:NO pressure:KSCrashAppMemoryStateNormal];
     XCTAssertEqual(observedChanges,
                    KSCrashAppMemoryTrackerChangeTypeFootprint | KSCrashAppMemoryTrackerChangeTypeSystemRemaining);
     [self assertSidecarMatchesSample:self.sample];
