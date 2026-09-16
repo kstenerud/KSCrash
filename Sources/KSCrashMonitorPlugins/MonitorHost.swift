@@ -112,10 +112,12 @@ public struct MonitorHost<Payload> {
             throw EventError.refused
         }
         kscm_fillMonitorContext(context, bridge.api)
-        // Assigned explicitly (nil included) so no stale pointer survives from a previous
-        // event in this slot.
-        context.pointee.callbackContext = boxedPayload
         configure(context)
+        // Assigned explicitly (nil included) so no stale pointer survives from a previous
+        // event in this slot, and after `configure` so a monitor setting `callbackContext`
+        // itself (what the hand-rolled monitors did) cannot leave something here that the
+        // write side would read back as a PayloadBox.
+        context.pointee.callbackContext = boxedPayload
 
         var result = KSCrash_ReportResult()
         callbacks.handleWithResult(context, &result, finalize)

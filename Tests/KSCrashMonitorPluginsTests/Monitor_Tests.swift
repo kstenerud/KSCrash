@@ -168,6 +168,57 @@ final class Monitor_Tests: XCTestCase {
         XCTAssertEqual(recordedWriterEvents, ["string custom_key=custom_value"])
     }
 
+    final class ConfiguringSectionMonitor: CrashMonitor {
+        static let id = "ConfiguringSectionMonitor"
+        let host: MonitorHost<String>
+        init(host: MonitorHost<String>, configuration: Void) { self.host = host }
+        func writeReportSection(payload: String, writer: ReportSectionWriter) {
+            writer.add("payload", payload)
+        }
+    }
+
+    func testConfigureCannotClobberThePayloadBox() {
+        // `configure` receives the raw context, and setting callbackContext on it is exactly
+        // what the hand-rolled monitors did, so a port will reach for it. The box has to be
+        // written after configure runs, or the write side reinterprets whatever was left
+        // there as a PayloadBox.
+        //
+        // The section is written from inside handleWithResult, where the real pipeline
+        // writes it: the box only lives for the duration of the handle call.
+        let bridge = Monitor(ConfiguringSectionMonitor.self)
+        var context = KSCrash_MonitorContext()
+        var writer = makeRecordingWriter()
+        var decoy = 0xDEAD_BEEF
+        recordedWriterEvents = []
+
+        withUnsafeMutablePointer(to: &context) { contextPointer in
+            withUnsafePointer(to: &writer) { writerPointer in
+                eventContext = contextPointer
+                sectionWriterUnderTest = writerPointer
+                bridgeUnderTest = bridge.api
+
+                var callbacks = KSCrash_ExceptionHandlerCallbacks()
+                callbacks.notify = { _, _ in eventContext }
+                callbacks.handleWithResult = { ctx, _, _ in
+                    // The report id is left unset, so handle() ends up throwing .notWritten.
+                    // The section is written before that, which is all this test is about.
+                    let api = bridgeUnderTest!
+                    api.pointee.writeInReportSection(ctx, sectionWriterUnderTest, api.pointee.context)
+                }
+                withUnsafeMutablePointer(to: &callbacks) {
+                    bridge.api.pointee.`init`($0, bridge.api.pointee.context)
+                }
+
+                withUnsafeMutableBytes(of: &decoy) { decoyBytes in
+                    _ = try? bridge.monitor.host.handle(payload: "kept", requirements: .nonFatal) { ctx in
+                        ctx.pointee.callbackContext = decoyBytes.baseAddress
+                    }
+                }
+            }
+        }
+        XCTAssertEqual(recordedWriterEvents, ["string payload=kept"])
+    }
+
     final class StitchMonitor: CrashMonitor {
         static let id = "StitchMonitor"
         let host: MonitorHost<Void>
@@ -244,6 +295,12 @@ final class Monitor_Tests: XCTestCase {
 /// What the bridge asked of a `ReportWriter`. File scope, because the writer's function
 /// pointers must be non-capturing closures.
 private nonisolated(unsafe) var recordedWriterEvents: [String] = []
+
+/// The context `notify` hands back, for the same reason: the callbacks table's function
+/// pointers must be non-capturing closures.
+private nonisolated(unsafe) var eventContext: UnsafeMutablePointer<KSCrash_MonitorContext>?
+private nonisolated(unsafe) var sectionWriterUnderTest: UnsafePointer<ReportWriter>?
+private nonisolated(unsafe) var bridgeUnderTest: UnsafeMutablePointer<KSCrashMonitorAPI>?
 
 private func makeRecordingWriter() -> ReportWriter {
     var writer = ReportWriter()
