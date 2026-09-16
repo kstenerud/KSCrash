@@ -360,10 +360,15 @@ extension Store {
     /// now (missing file, stale listing entry, or a read failure): skipped,
     /// kept on disk, retried by the next send. Throws when the report was
     /// read but does not decode, whether the C store found no JSON report in
-    /// the file or the typed decode failed: that is deterministic, so the
-    /// send surfaces it as a kept item instead of silently retrying it
-    /// forever; the file stays on disk. Under a send's claim the stale check
-    /// is race-free, because deletes only happen under the claim.
+    /// the file or the typed decode failed: the send surfaces that as a kept
+    /// item rather than passing a half-read report down the pipeline, and the
+    /// file stays on disk. It is deliberately not deleted. A report that does
+    /// not decode may be this model's bug rather than a bad file, and deleting
+    /// on a decode failure would turn one bad release into permanent loss of
+    /// the data this library exists to keep; a wasted read per send is the
+    /// cheaper side of that trade, and pruning is what eventually clears it.
+    /// Under a send's claim the stale check is race-free, because deletes only
+    /// happen under the claim.
     func report(_ id: ReportID) throws -> Report? {
         guard let data = try reports.read(id) else {
             return nil

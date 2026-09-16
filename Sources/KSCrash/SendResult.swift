@@ -60,6 +60,12 @@ public struct SendResult<Payload: SendPayload>: Sendable {
 
         /// A stage threw this error, or the item was read but does not
         /// decode: the item stays on disk and is retried by the next send.
+        ///
+        /// Retries are unbounded. Nothing counts attempts or backs off, so an
+        /// item that can never succeed is re-read and re-run on every send
+        /// until `maxReportCount` pruning ages it out. An undecodable item
+        /// cannot be discarded from a stage either, because the read throws
+        /// before the pipeline runs.
         case kept(any Error)
     }
 

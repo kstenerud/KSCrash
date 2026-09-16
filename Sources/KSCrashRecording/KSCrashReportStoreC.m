@@ -571,6 +571,14 @@ static void pruneReports(const KSCrashReportStoreCConfiguration *const config)
         int64_t reportIDs[reportCount];
         reportCount = getReportIDs(reportIDs, reportCount, config);
 
+        // The ids are sorted ascending and are time-derived, so this deletes
+        // the oldest surplus. deleteReportWithID's result is deliberately
+        // ignored: a delete fails for transient reasons (data protection
+        // before first unlock, a file briefly held open) and the next prune
+        // retries it. Walking further down the list to make up the shortfall
+        // would delete NEWER reports because an older one was momentarily
+        // locked, trading fresher crash data for a cap the next prune
+        // reaches anyway. The store sits over its cap until then.
         for (int i = 0; i < reportCount - config->maxReportCount; i++) {
             deleteReportWithID(reportIDs[i], config);
         }
