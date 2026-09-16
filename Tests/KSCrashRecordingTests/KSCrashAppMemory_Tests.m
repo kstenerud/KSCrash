@@ -67,6 +67,8 @@ static KSCrashAppMemory *SystemMemory(uint64_t systemRemaining)
     XCTAssertEqual(Memory(25).level, KSCrashAppMemoryStateWarn);
     XCTAssertEqual(Memory(50).level, KSCrashAppMemoryStateUrgent);
     XCTAssertEqual(Memory(75).level, KSCrashAppMemoryStateCritical);
+    XCTAssertEqual(Memory(89).level, KSCrashAppMemoryStateCritical);
+    XCTAssertEqual(Memory(90).level, KSCrashAppMemoryStateTerminal);
     XCTAssertEqual(Memory(95).level, KSCrashAppMemoryStateTerminal);
 
     XCTAssertEqual(Memory(0).isOutOfMemory, NO);
@@ -83,13 +85,15 @@ static KSCrashAppMemory *SystemMemory(uint64_t systemRemaining)
 
 - (void)testAppMemoryHeadroom
 {
-    // Baseline 0.80 shifts the 25/50/75/95 ladder into the top 20% of the
-    // range: bands land at >15% / 10-15% / 5-10% / 1-5% / <1% remaining.
+    // Baseline 0.80 shifts the 25/50/75/90 ladder into the top 20% of the
+    // range: bands land at >15% / 10-15% / 5-10% / 2-5% / <2% remaining.
     XCTAssertEqual(SystemMemory(1000).headroom, KSCrashAppMemoryStateNormal);
     XCTAssertEqual(SystemMemory(200).headroom, KSCrashAppMemoryStateNormal);
     XCTAssertEqual(SystemMemory(150).headroom, KSCrashAppMemoryStateWarn);
     XCTAssertEqual(SystemMemory(100).headroom, KSCrashAppMemoryStateUrgent);
     XCTAssertEqual(SystemMemory(50).headroom, KSCrashAppMemoryStateCritical);
+    XCTAssertEqual(SystemMemory(25).headroom, KSCrashAppMemoryStateCritical);
+    XCTAssertEqual(SystemMemory(15).headroom, KSCrashAppMemoryStateTerminal);
     XCTAssertEqual(SystemMemory(10).headroom, KSCrashAppMemoryStateTerminal);
     XCTAssertEqual(SystemMemory(0).headroom, KSCrashAppMemoryStateTerminal);
 

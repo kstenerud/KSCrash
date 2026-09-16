@@ -6,12 +6,12 @@ NS_ASSUME_NONNULL_BEGIN
 
 /** Derive a state from a used value and its enclosing limit.
  *
- *  `baselineBasisPoints` (0-10000) shifts the 25/50/75/95 ladder up the range,
+ *  `baselineBasisPoints` (0-10000) shifts the 25/50/75/90 ladder up the range,
  *  treating [0, baseline] as a logical zero that always reports normal. Headroom
  *  passes 8000 (0.80) because a ratio against physical memory is dominated by
  *  wired kernel pages and always-on system overhead; only the top ~20% of the
  *  range is meaningful headroom, putting the headroom band edges at 0.85, 0.90,
- *  0.95, and 0.99 of physical memory. Retuning the shared ladder moves those
+ *  0.95, and 0.98 of physical memory. Retuning the shared ladder moves those
  *  bands too.
  *
  *  Thresholds are built in integer basis points so band boundaries stay exact;
@@ -32,7 +32,7 @@ static KSCrashAppMemoryState StateFromUsage(uint64_t used, uint64_t limit, uint6
     return usedRatio < KSCRASH_STATE_THRESHOLD(2500)   ? KSCrashAppMemoryStateNormal
            : usedRatio < KSCRASH_STATE_THRESHOLD(5000) ? KSCrashAppMemoryStateWarn
            : usedRatio < KSCRASH_STATE_THRESHOLD(7500) ? KSCrashAppMemoryStateUrgent
-           : usedRatio < KSCRASH_STATE_THRESHOLD(9500) ? KSCrashAppMemoryStateCritical
+           : usedRatio < KSCRASH_STATE_THRESHOLD(9000) ? KSCrashAppMemoryStateCritical
                                                        : KSCrashAppMemoryStateTerminal;
 
 #undef KSCRASH_STATE_THRESHOLD
