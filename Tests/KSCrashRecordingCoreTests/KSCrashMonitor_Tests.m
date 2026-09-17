@@ -31,6 +31,8 @@
 
 #import "KSCrashExceptionHandlingPlan+Private.h"
 #import "KSCrashMonitor.h"
+#import "KSCrashMonitorHelper.h"
+#import "KSDebug.h"
 
 @interface KSCrashMonitor_Tests : XCTestCase
 @end
@@ -55,6 +57,11 @@ static void dummyInit(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused voi
 static const char *dummyMonitorId(__unused void *context) { return "Dummy Monitor"; }
 
 static KSCrashMonitorFlag dummyMonitorFlags(__unused void *context) { return KSCrashMonitorFlagAsyncSafe; }
+
+static KSCrashMonitorFlag debuggerUnsafeMonitorFlags(__unused void *context)
+{
+    return KSCrashMonitorFlagAsyncSafe | KSCrashMonitorFlagDebuggerUnsafe;
+}
 
 static void dummySetEnabled(bool isEnabled, __unused void *context) { g_dummyEnabledState = isEnabled; }
 static bool dummyIsEnabled(__unused void *context) { return g_dummyEnabledState; }
@@ -232,6 +239,26 @@ extern void kscm_testcode_clearHandlingFatalException(void);
     kscm_removeMonitor(&g_dummyMonitor);
     kscm_enableMonitors();
     XCTAssertFalse(g_dummyMonitor.isEnabled(NULL), @"The monitor should be disabled after removal.");
+}
+
+- (void)testSetMonitorEnabledAppliesTheDebuggerMask
+{
+    // Stated against ksdebug_isBeingTraced() so the test holds with or without a debugger attached.
+    const bool expectedUnderMask = !ksdebug_isBeingTraced();
+
+    g_dummyMonitor.monitorFlags = debuggerUnsafeMonitorFlags;
+    kscm_setMonitorEnabled(&g_dummyMonitor, true);
+    bool isEnabled = g_dummyEnabledState;
+    XCTAssertEqual(isEnabled, expectedUnderMask, @"A debugger-unsafe monitor stays disabled under a debugger");
+    kscm_setMonitorEnabled(&g_dummyMonitor, false);
+    isEnabled = g_dummyEnabledState;
+    XCTAssertFalse(isEnabled);
+
+    // Control: a monitor without the flag enables either way.
+    g_dummyMonitor.monitorFlags = dummyMonitorFlags;
+    kscm_setMonitorEnabled(&g_dummyMonitor, true);
+    isEnabled = g_dummyEnabledState;
+    XCTAssertTrue(isEnabled);
 }
 
 #pragma mark - Monitor Exception Handling Tests
