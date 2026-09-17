@@ -39,6 +39,7 @@ static inline KSCrash_ExceptionHandlingPlan ksexc_monitorContextToPlan(const KSC
         .isCleanExit = context->requirements.isCleanExit,
         .requiresAsyncSafety = kscexc_requiresAsyncSafety(context->requirements),
         .crashedDuringExceptionHandling = context->requirements.crashedDuringExceptionHandling,
+        .isRemoteSubject = kscexc_isRemoteSubject(context->requirements),
     };
 }
 

@@ -29,6 +29,7 @@
 #import <stdatomic.h>
 #import <string.h>
 
+#import "KSCrashExceptionHandlingPlan+Private.h"
 #import "KSCrashMonitor.h"
 
 @interface KSCrashMonitor_Tests : XCTestCase
@@ -788,6 +789,32 @@ static atomic_int g_counter = 0;
     XCTAssertTrue(kscm_testcode_isHandlingFatalException(), @"A local fatal event must latch the handler state");
     dummyExceptionHandlerCallbacks.handle(ctx);
     XCTAssertFalse(g_dummyEnabledState, @"A local fatal event must still disable monitors");
+}
+
+- (void)testRemoteSubjectReachesTheReportPlan
+{
+    // The is-writing and did-write report callbacks receive only the plan, not the monitor
+    // context, so the plan is the only place they can tell whose death `isFatal` means.
+    kscm_addMonitor(&g_dummyMonitor);
+    kscm_enableMonitors();
+    kscm_setEventCallbackWithResult(myEventCallback);
+
+    KSCrash_MonitorContext *ctx = dummyExceptionHandlerCallbacks.notify(
+        MACH_PORT_NULL, (KSCrash_ExceptionHandlingRequirements) {
+                            .isFatal = true, .shouldWriteReport = true, .isRemoteSubject = true });
+    const KSCrash_ExceptionHandlingPlan remotePlan = ksexc_monitorContextToPlan(ctx);
+    XCTAssertTrue(remotePlan.isRemoteSubject);
+    XCTAssertTrue(remotePlan.isFatal, @"isFatal describes the subject, as it does on the requirements");
+    dummyExceptionHandlerCallbacks.handle(ctx);
+
+    // Control: a local fatal event's plan names this process as the subject.
+    ctx = dummyExceptionHandlerCallbacks.notify(
+        (thread_t)ksthread_self(),
+        (KSCrash_ExceptionHandlingRequirements) { .isFatal = true, .shouldWriteReport = true });
+    const KSCrash_ExceptionHandlingPlan localPlan = ksexc_monitorContextToPlan(ctx);
+    XCTAssertFalse(localPlan.isRemoteSubject);
+    XCTAssertTrue(localPlan.isFatal);
+    dummyExceptionHandlerCallbacks.handle(ctx);
 }
 
 - (void)testNullOffendingThreadDoesNotMatchFreedHandlerSlots
