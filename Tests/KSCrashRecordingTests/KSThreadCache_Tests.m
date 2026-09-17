@@ -41,6 +41,16 @@ extern void kstc_reset(void);
     kstc_reset();
 }
 
+- (void)tearDown
+{
+    // The cache and the queue-name flag are process globals, and the polling
+    // thread outlives this class. Leaving the flag on means every later
+    // rebuild in the bundle reads queue names off threads other tests are
+    // tearing down, which faults in ksthread_getQueueName.
+    kstc_reset();
+    [super tearDown];
+}
+
 - (void)testGetThreadName
 {
     NSString *expectedName = @"This is a test thread";
