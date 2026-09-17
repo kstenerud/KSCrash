@@ -107,7 +107,8 @@ typedef NS_ENUM(NSUInteger, KSCrashAppMemoryState) {
      */
     KSCrashAppMemoryStateCritical,
 
-    /** For level and pressure: you have been or will be terminated. Out-Of-Memory. SIGKILL.
+    /** For level and pressure: termination for memory is imminent, or has already
+     *  happened. Out-Of-Memory. SIGKILL.
      *  For headroom: the device has almost no memory left.
      */
     KSCrashAppMemoryStateTerminal
