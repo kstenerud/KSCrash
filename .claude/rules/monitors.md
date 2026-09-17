@@ -31,7 +31,7 @@ Built-in monitors are registered via `KSCrashMonitorType` flags in `KSCrashC.c`.
 | Zombie | `"Zombie"` | Messages sent to deallocated ObjC objects | — | — | No |
 | Watchdog | `"Watchdog"` | Main thread hangs (250ms threshold); also fatal when the OS kills the app during a hang | — | Run (`KSHangSidecar`) | No |
 | UserInfo | `"UserInfo"` | User-supplied key-value info (survives crashes) | — | Run (`KSKeyValueStore`) | No |
-| Resource | `"Resource"` | Memory level/pressure, CPU, thermal, battery snapshots; optionally emits non-fatal EXC_RESOURCE reports on CPU warning/critical transitions (`enableCPUExceptionReporting`) | — | Run (`KSCrash_ResourceData`) | No |
+| Resource | `"Resource"` | Memory level/pressure/headroom, CPU, thermal, battery snapshots; optionally emits non-fatal EXC_RESOURCE reports on CPU warning/critical transitions (`enableCPUExceptionReporting`) | — | Run (`KSCrash_ResourceData`) | No |
 
 **Auto-registered monitors** (registered via `__attribute__((constructor))` when their SPM module is linked):
 

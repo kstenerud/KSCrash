@@ -31,7 +31,7 @@
 /**
  * Application Memory
  *
- * There are two kinds of app memory handled here, LIMIT and PRESSURE.
+ * There are three kinds of memory state handled here: LIMIT, PRESSURE and HEADROOM.
  *
  * LIMIT
  * Limit (aka AppMemoryLevel) is the maximum amount of memory you can use by through
@@ -47,6 +47,14 @@
  * foreground app, this is where pressure can come in very handy. That being said, pressure
  * is mostly useful in the background, it can help you not get your app jetsamed or simply
  * stay up longer for whatever reason you might have.
+ *
+ * HEADROOM
+ * Headroom (aka AppMemoryHeadroom) is how much memory the device as a whole has left
+ * before the system starts paying to reclaim more: truly free pages plus the file-backed
+ * and purgeable pages the kernel can drop cheaply. Unlike limit and pressure, which are
+ * about this app, headroom is about the device. It is independent of this app's own
+ * limit, so it can show the device running out of room while the app still has room
+ * in its own budget.
  *
  * My recommendation around memory pressure however is to have a robust app restoration
  * system and not bother too much with background memory, as long as your foreground
@@ -66,12 +74,20 @@ FOUNDATION_EXPORT NSNotificationName const KSCrashAppMemoryLevelChangedNotificat
 /** Notification sent when the memory pressure changes. */
 FOUNDATION_EXPORT NSNotificationName const KSCrashAppMemoryPressureChangedNotification NS_SWIFT_NAME(AppMemoryPressureChangedNotification);
 
+/** Notification sent when the memory headroom changes. */
+FOUNDATION_EXPORT NSNotificationName const KSCrashAppMemoryHeadroomChangedNotification NS_SWIFT_NAME(AppMemoryHeadroomChangedNotification);
+
 /** Notification keys that hold new and old values in the _userInfo_ dictionary. */
 typedef NSString *KSCrashAppMemoryKeys NS_TYPED_ENUM NS_SWIFT_NAME(AppMemoryKeys);
 FOUNDATION_EXPORT KSCrashAppMemoryKeys const KSCrashAppMemoryNewValueKey NS_SWIFT_NAME(newValue);
 FOUNDATION_EXPORT KSCrashAppMemoryKeys const KSCrashAppMemoryOldValueKey NS_SWIFT_NAME(oldValue);
 
-/** The memory state for level and pressure. */
+/** How close memory is to running out.
+ *
+ *  For level and pressure, the states describe how close this app is to being
+ *  terminated for memory. For headroom, they describe how close the device as a
+ *  whole is to running out of memory, whatever this app's own state.
+ */
 typedef NS_ENUM(NSUInteger, KSCrashAppMemoryState) {
 
     /** Everything is A-OK, go on with your business. */
@@ -83,18 +99,23 @@ typedef NS_ENUM(NSUInteger, KSCrashAppMemoryState) {
     /** Things are getting serious, allocations should be handled carefully. */
     KSCrashAppMemoryStateUrgent,
 
-    /** At this point you are seconds away from being terminated.
+    /** For level and pressure: at this point you are seconds away from being terminated.
      *  You likely just received or are about to receive a
      *  UIApplicationDidReceiveMemoryWarningNotification.
+     *  For headroom: the device is nearly out of memory, and the system is likely
+     *  reclaiming memory and terminating apps.
      */
     KSCrashAppMemoryStateCritical,
 
-    /** You have been or will be terminated. Out-Of-Memory. SIGKILL. */
+    /** For level and pressure: termination for memory is imminent, or has already
+     *  happened. Out-Of-Memory. SIGKILL.
+     *  For headroom: the device has almost no memory left.
+     */
     KSCrashAppMemoryStateTerminal
 } NS_SWIFT_NAME(AppMemoryState);
 
 /**
- * Helpers to convert to and from pressure/level and strings.
+ * Helpers to convert a memory state to and from a string.
  * `KSCrashAppMemoryStateToString` returns a `const char*`
  * because it needs to be async safe.
  */
@@ -135,6 +156,20 @@ NS_SWIFT_NAME(AppMemory)
 
 /** The current memory pressure. */
 @property(readonly, nonatomic, assign) KSCrashAppMemoryState pressure;
+
+/** How much memory the device has left before it must page or compress to
+ *  reclaim more: free pages plus the purgeable and file-backed pages the
+ *  kernel can drop cheaply. Matches Activity Monitor's "Free + Cached Files".
+ */
+@property(readonly, nonatomic, assign) uint64_t systemRemaining;
+
+/** Total physical memory on the device. */
+@property(readonly, nonatomic, assign) uint64_t systemLimit;
+
+/** The current memory headroom: the state of the device's memory as a whole,
+ *  derived from `systemRemaining` against `systemLimit`.
+ */
+@property(readonly, nonatomic, assign) KSCrashAppMemoryState headroom;
 
 /** True when the app is totally out of memory. */
 @property(readonly, nonatomic, assign) BOOL isOutOfMemory;

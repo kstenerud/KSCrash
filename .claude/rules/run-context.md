@@ -51,7 +51,7 @@ This order is load-bearing: monitors must be enabled before RunContext reads the
 | Reason | Meaning | Produces report? |
 |---|---|---|
 | `MemoryLimit` | App memory level reached `KSCrashAppMemoryStateCritical` | Yes |
-| `MemoryPressure` | System-wide memory pressure reached `KSCrashAppMemoryStateCritical` | Yes |
+| `MemoryPressure` | Memory pressure on the app reached `KSCrashAppMemoryStateCritical` | Yes |
 | `CPU` | CPU usage exceeded `KSCRASH_CPU_USAGE_CRITICAL` permil across all cores | Yes |
 | `Thermal` | Device thermal state reached `NSProcessInfoThermalStateCritical` | Yes |
 | `LowBattery` | Battery at or below `KSCRASH_BATTERY_LEVEL_CRITICAL`% and `KSCrashBatteryStateUnplugged` | Yes |

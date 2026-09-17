@@ -48,6 +48,7 @@
 #import <unistd.h>
 #import "KSExcResource.h"
 
+#import <sys/stat.h>
 #import <sys/sysctl.h>
 #import <time.h>
 #import "KSSysCtl.h"
@@ -94,16 +95,14 @@ static id g_protectedDataUnavailableObserver = nil;
 // ============================================================================
 
 // Re-apply env-var overrides after every resourceUpdate so polled values
-// don't clobber the faked ones.  getenv() returns NULL immediately in
-// production (no env vars set), so the cost is negligible.
+// don't clobber the faked ones. Only the integration tests set these; in
+// production each getenv() scans the environment and finds nothing.
 static void applyResourceTestOverrides(KSCrash_ResourceData *res)
 {
     const char *val;
     if ((val = getenv("KSCRASH_TEST_MEMORY_PRESSURE")) != NULL) res->memoryPressure = (uint8_t)atoi(val);
-    if ((val = getenv("KSCRASH_TEST_MEMORY_LEVEL")) != NULL) res->memoryLevel = (uint8_t)atoi(val);
     if ((val = getenv("KSCRASH_TEST_THERMAL_STATE")) != NULL) res->thermalState = (uint8_t)atoi(val);
     if ((val = getenv("KSCRASH_TEST_CPU_USER")) != NULL) res->cpuUsageUser = (uint16_t)atoi(val);
-    if ((val = getenv("KSCRASH_TEST_CPU_SYSTEM")) != NULL) res->cpuUsageSystem = (uint16_t)atoi(val);
     if ((val = getenv("KSCRASH_TEST_CPU_CORES")) != NULL) res->cpuCoreCount = (uint8_t)atoi(val);
     if ((val = getenv("KSCRASH_TEST_CPU_STATE")) != NULL) res->cpuState = (uint8_t)atoi(val);
     if ((val = getenv("KSCRASH_TEST_BATTERY_LEVEL")) != NULL) res->batteryLevel = (uint8_t)atoi(val);
@@ -138,17 +137,6 @@ static void resourceSet(KSCrash_ResourceData *res)
     if (old) {
         ksfu_munmap(old, sizeof(KSCrash_ResourceData));
     }
-}
-
-// ============================================================================
-#pragma mark - Validation -
-// ============================================================================
-
-static bool validateResourceData(const KSCrash_ResourceData *data)
-{
-    if (data->magic != KSRESOURCE_MAGIC) return false;
-    if (data->version == 0 || data->version > KSCrash_Resource_CurrentVersion) return false;
-    return true;
 }
 
 // ============================================================================
@@ -244,41 +232,37 @@ static void stopCPUObserver(void) { g_cpuObserver = nil; }
 #pragma mark - Memory Observer -
 // ============================================================================
 
+static void writeMemorySnapshot(KSCrashAppMemory *memory)
+{
+    if (memory == nil) return;
+
+    // Publish all memory fields from one sample. The timestamp already dirties
+    // the sidecar's single mmap page; filling the other fields adds no pages
+    // to write back. Tracker thresholds still control the update frequency.
+    uint64_t now = ksdate_continuousNanoseconds();
+    resourceUpdate(^(KSCrash_ResourceData *res) {
+        res->memoryFootprint = memory.footprint;
+        res->memoryRemaining = memory.remaining;
+        res->memoryLimit = memory.limit;
+        res->systemMemoryRemaining = memory.systemRemaining;
+        res->systemMemoryLimit = memory.systemLimit;
+        res->memoryPressure = (uint8_t)memory.pressure;
+        res->memoryLevel = (uint8_t)memory.level;
+        res->memoryHeadroom = (uint8_t)memory.headroom;
+        res->memoryUpdatedAtNs = now;
+    });
+}
+
 static void startMemoryObserver(void)
 {
     g_memoryObserver = [KSCrashAppMemoryTracker.sharedInstance
-        addObserverWithBlock:^(KSCrashAppMemory *memory, KSCrashAppMemoryTrackerChangeType changes) {
-            uint64_t now = ksdate_continuousNanoseconds();
-            resourceUpdate(^(KSCrash_ResourceData *res) {
-                if (changes & KSCrashAppMemoryTrackerChangeTypeFootprint) {
-                    res->memoryFootprint = memory.footprint;
-                    res->memoryRemaining = memory.remaining;
-                    res->memoryLimit = memory.limit;
-                }
-                if (changes & KSCrashAppMemoryTrackerChangeTypePressure) {
-                    res->memoryPressure = (uint8_t)memory.pressure;
-                }
-                if (changes & KSCrashAppMemoryTrackerChangeTypeLevel) {
-                    res->memoryLevel = (uint8_t)memory.level;
-                }
-                res->memoryUpdatedAtNs = now;
-            });
+        addObserverWithBlock:^(KSCrashAppMemory *memory, __unused KSCrashAppMemoryTrackerChangeType changes) {
+            writeMemorySnapshot(memory);
         }];
 
     // Seed with current values so the sidecar isn't all-zero if a crash
     // happens before the first real change/heartbeat notification.
-    KSCrashAppMemory *current = KSCrashAppMemoryTracker.sharedInstance.currentAppMemory;
-    if (current != nil) {
-        uint64_t now = ksdate_continuousNanoseconds();
-        resourceUpdate(^(KSCrash_ResourceData *res) {
-            res->memoryFootprint = current.footprint;
-            res->memoryRemaining = current.remaining;
-            res->memoryLimit = current.limit;
-            res->memoryPressure = (uint8_t)current.pressure;
-            res->memoryLevel = (uint8_t)current.level;
-            res->memoryUpdatedAtNs = now;
-        });
-    }
+    writeMemorySnapshot(KSCrashAppMemoryTracker.sharedInstance.currentAppMemory);
 }
 
 static void stopMemoryObserver(void) { g_memoryObserver = nil; }
@@ -510,12 +494,43 @@ bool ksresource_getSnapshot(KSCrash_ResourceData *outData)
 
     bool ok = false;
     os_unfair_lock_lock(&g_resourceLock);
-    if (g_resource && validateResourceData(g_resource)) {
+    if (g_resource && g_resource->magic == KSRESOURCE_MAGIC && g_resource->version != 0 &&
+        g_resource->version <= KSCrash_Resource_CurrentVersion) {
         *outData = *g_resource;
         ok = true;
     }
     os_unfair_lock_unlock(&g_resourceLock);
     return ok;
+}
+
+bool ksresource_readSnapshotFromPath(const char *path, KSCrash_ResourceData *outData)
+{
+    if (!path || !outData) return false;
+
+    int fd = open(path, O_RDONLY);
+    if (fd == -1) return false;
+
+    // Most files are current-version: read the full struct, or the v1 prefix
+    // for a smaller file from an older run. The file size decides which, so
+    // a v1 file never takes a doomed full-size read (whose EOF would log an
+    // error on a working path). The declared version must match the size
+    // that read, so a torn file never passes.
+    struct stat st;
+    if (fstat(fd, &st) != 0 || st.st_size < (off_t)KSCrash_Resource_V1Size) {
+        close(fd);
+        return false;
+    }
+    memset(outData, 0, sizeof(*outData));
+    uint8_t expectedVersion = 2;
+    size_t readSize = KSCrash_Resource_V2Size;
+    if (st.st_size < (off_t)KSCrash_Resource_V2Size) {
+        expectedVersion = 1;
+        readSize = KSCrash_Resource_V1Size;
+    }
+    bool readOK = ksfu_readBytesFromFD(fd, (char *)outData, (int)readSize);
+    close(fd);
+
+    return readOK && outData->magic == KSRESOURCE_MAGIC && outData->version == expectedVersion;
 }
 
 bool ksresource_getSnapshotForRunID(const char *runID, KSCrash_ResourceData *outData)
@@ -528,17 +543,7 @@ bool ksresource_getSnapshotForRunID(const char *runID, KSCrash_ResourceData *out
         return false;
     }
 
-    int fd = open(sidecarPath, O_RDONLY);
-    if (fd == -1) return false;
-
-    KSCrash_ResourceData data = { 0 };
-    bool readOK = ksfu_readBytesFromFD(fd, (char *)&data, (int)sizeof(data));
-    close(fd);
-
-    if (!readOK || !validateResourceData(&data)) return false;
-
-    *outData = data;
-    return true;
+    return ksresource_readSnapshotFromPath(sidecarPath, outData);
 }
 
 // ============================================================================
