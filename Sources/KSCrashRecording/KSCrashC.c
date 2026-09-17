@@ -263,18 +263,22 @@ static void onExceptionEvent(struct KSCrash_MonitorContext *monitorContext, KSCr
     if (monitorContext->requirements.crashedDuringExceptionHandling) {
         kscrashreport_writeRecrashReport(monitorContext, g_lastCrashReportFilePath);
     } else if (monitorContext->reportPath) {
-        kscrashreport_writeStandardReport(monitorContext, monitorContext->reportPath);
+        const KSCrashReportWriteStatus status =
+            kscrashreport_writeStandardReport(monitorContext, monitorContext->reportPath);
         // No store ID for a caller-supplied path, but report the write in the result so a
-        // caller can tell it happened; an event rerouted away from this branch (recrash,
-        // vetoed write) leaves the result empty.
-        if (result) {
+        // caller can tell it happened; a report that was never created, or an event rerouted
+        // away from this branch (recrash, vetoed write), leaves the result empty.
+        if (result && status == KSCrashReportWriteStatusOK) {
             strlcpy(result->path, monitorContext->reportPath, sizeof(result->path));
         }
     } else {
         char crashReportFilePath[KSFU_MAX_PATH_LENGTH];
         int64_t reportID = kscrs_getNextCrashReport(crashReportFilePath, &g_reportStoreConfig);
         strlcpy(g_lastCrashReportFilePath, crashReportFilePath, sizeof(g_lastCrashReportFilePath));
-        kscrashreport_writeStandardReport(monitorContext, crashReportFilePath);
+        if (kscrashreport_writeStandardReport(monitorContext, crashReportFilePath) != KSCrashReportWriteStatusOK) {
+            // Nothing exists under the minted ID, so there is no report to hand back or announce.
+            return;
+        }
 
         if (result) {
             result->reportId = reportID;
@@ -699,4 +703,10 @@ void kscrash_testcode_setLastRunID(const char *runID)
     } else {
         g_lastRunID[0] = '\0';
     }
+}
+
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+void kscrash_testcode_onExceptionEvent(struct KSCrash_MonitorContext *monitorContext, KSCrash_ReportResult *result)
+{
+    onExceptionEvent(monitorContext, result);
 }

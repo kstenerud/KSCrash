@@ -1714,14 +1714,15 @@ static void writeDebugInfo(const KSCrashReportWriter *const writer, const char *
     writer->endContainer(writer);
 }
 
-void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorContext, const char *const path)
+KSCrashReportWriteStatus kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorContext,
+                                                           const char *const path)
 {
     KSLOG_INFO("Writing crash report to %s", path);
     char writeBuffer[1024];
     KSBufferedWriter bufferedWriter;
 
     if (!ksfu_openBufferedWriter(&bufferedWriter, path, writeBuffer, sizeof(writeBuffer))) {
-        return;
+        return KSCrashReportWriteStatusNotCreated;
     }
 
     kstc_freeze();
@@ -1821,6 +1822,7 @@ void kscrashreport_writeStandardReport(KSCrash_MonitorContext *const monitorCont
     ksjson_endEncode(getJsonContext(writer));
     ksfu_closeBufferedWriter(&bufferedWriter);
     kstc_unfreeze();
+    return KSCrashReportWriteStatusOK;
 }
 
 void kscrashreport_setUserInfoJSON(const char *const userInfoJSON)

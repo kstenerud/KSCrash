@@ -135,8 +135,9 @@ public struct MonitorHost<Payload> {
             // mints no ID.
             return WrittenReport(id: nil, url: URL(fileURLWithPath: path))
         }
-        // Neither an ID nor a path: the pipeline accepted the event but dropped the write
-        // (vetoed by a callback, or rerouted while the process handles a fatal exception).
+        // Neither an ID nor a path: the pipeline accepted the event but wrote nothing (vetoed
+        // by a callback, rerouted while the process handles a fatal exception, or the report
+        // file could not be created).
         throw EventError.notWritten
     }
 
