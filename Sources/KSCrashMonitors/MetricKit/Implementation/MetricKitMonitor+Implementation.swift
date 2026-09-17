@@ -42,9 +42,9 @@ import os.log
 @available(watchOS, unavailable)
 extension MetricKitMonitor {
 
-    /// The bridge owns enable/disable dispatch and only calls this on an actual state change
-    /// (see `Monitor<M>`), so no idempotency guard is needed here, unlike the old hand-rolled
-    /// C `setEnabled` callback this replaces.
+    /// Called only when the bridge's enabled flag actually changes (see `Monitor<M>`), so a
+    /// repeated enable or disable never reaches here. Enabling and disabling concurrently is not
+    /// supported: the calls can then arrive in the opposite order to the flag.
     public func enabledDidChange(_ isEnabled: Bool) {
         #if KSCRASH_HAS_METRICKIT
             if isEnabled {
