@@ -240,20 +240,25 @@ jobs:
           # gives counts, and the verdict this suite produces is a sentence in a
           # label, which is the only explanation anyone gets: nothing can attach
           # a debugger to a device in a rack.
-          # Dump the raw shapes rather than guessing at them: the session
-          # endpoint does not use the same schema as the build summary.
+          # Per-test instrumentation logs are where XCTest's assertion text
+          # lives. The session JSON nests them under .testcases.data[].testcases[]
+          # and names a URL per test; the build-level devicelogs endpoint returns
+          # a web page, not logs.
           report_failures() {
             BUILD_JSON=$1
             echo "$BUILD_JSON" | jq -r '.devices[]?.sessions[]?.id' | while read -r SESSION; do
               [ -n "$SESSION" ] || continue
-              echo "===== session $SESSION ====="
-              curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
-                "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/builds/$ID/sessions/$SESSION" \
-                | jq '.' | head -120
-              echo "===== device log (tail) ====="
-              curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
-                "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/builds/$ID/sessions/$SESSION/devicelogs" \
-                | tail -60
+              SESSION_JSON=$(curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
+                "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/builds/$ID/sessions/$SESSION")
+              echo "$SESSION_JSON" | jq -r '
+                .testcases.data[]?.testcases[]?
+                | select(.status != "passed")
+                | "\(.name)\t\(.duration)\t\(.instrumentation_log)"
+              ' | while IFS=$(printf '\t') read -r NAME DURATION LOGURL; do
+                echo "===== FAILED $NAME (${DURATION}s) ====="
+                [ -n "$LOGURL" ] && curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" "$LOGURL" \
+                  | grep -viE "^\\s*$" | tail -30
+              done
             done
           }
 
