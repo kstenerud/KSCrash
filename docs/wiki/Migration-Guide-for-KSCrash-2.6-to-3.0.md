@@ -56,7 +56,7 @@ and two are renamed.
 | `BootTimeMonitor`                               | `BootMonitor` (`import KSCrashBootMonitor`)     |
 | `Monitors`, `Profiler`, `Report`, `RecordingCore` | unchanged                                     |
 | new                                             | `MonitorPlugins`, for writing your own monitor  |
-| new                                             | `CrashReportExtension`, for iOS 27 crash extensions |
+| new                                             | `CrashReportExtension`, for reporting corpses from an iOS 27 `CrashReportExtension` |
 
 ## Install
 

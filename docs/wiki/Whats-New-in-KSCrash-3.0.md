@@ -113,11 +113,16 @@ correctness. Events that must be recorded leave the flag clear and are never
 refused or delayed: a report write is far longer than any wait a crash path can
 afford, so waiting would buy delay and no exclusion.
 
-## Reporting for a crash extension
+## CrashReportExtension: reporting another process's corpse
 
-New in 3.0, and only relevant if you ship an iOS 27 crash report extension. The
-extension installs in corpse-reporting mode and captures each corpse it is
-handed; the app lists the same shared area and drains it on its next send.
+Everything else here is about reporting on the process KSCrash is running in.
+This is the exception: iOS 27's `CrashReportExtension` hands your extension the
+**corpse** of a process that has already died, a Mach task you can still read
+registers, threads and memory out of, and 3.0 can turn one into a KSCrash
+report.
+
+The extension installs in corpse-reporting mode and captures each corpse it is
+given; the app lists the same shared area and drains it on its next send.
 
 ```mermaid
 flowchart LR
