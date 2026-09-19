@@ -50,7 +50,10 @@ typedef struct {
     bool shouldWriteReport;
 
     /**
-     * The process will terminate once exception handling completes.
+     * The subject of this event will terminate once exception handling completes.
+     *
+     * The subject is this process unless `isRemoteSubject` is set. To ask whether THIS
+     * process is dying, check `isFatal && !isRemoteSubject`.
      */
     const bool isFatal;
 
@@ -90,6 +93,13 @@ typedef struct {
      * report and "recrash" reports will then be merged.
      */
     const bool crashedDuringExceptionHandling;
+
+    /**
+     * The event describes a subject other than the current process (e.g. another process's
+     * corpse, or a previous run of this app). The reporting process itself is healthy, and
+     * `isFatal` describes the subject rather than this process.
+     */
+    const bool isRemoteSubject;
 
 } CF_SWIFT_NAME(ExceptionHandlingPlan) KSCrash_ExceptionHandlingPlan;
 
