@@ -119,6 +119,19 @@ config.plugins = [MyMonitor.plugin()]
 an event and returns the written report, and the per-event payload is delivered
 back to `writeReportSection` typed rather than as a void pointer.
 
+**None of this is async-signal-safe, and it is not meant to be.** A Swift
+monitor runs in a healthy process, never inside a crash handler: Swift protocol
+dispatch, ARC, allocation and locking are all off limits once a signal or Mach
+exception handler is running, and this layer uses all of them. It is for
+monitors that observe a live process and raise their own events, which is what
+MetricKit, the profiler and corpse capture do.
+
+The crash-time monitors stay in C for that reason. If you are catching signals
+or Mach exceptions, you are writing a `KSCrashMonitorAPI` table under the
+async-signal-safety rules and wrapping it with `CMonitorPlugin(api:)`; the Swift
+layer is not an option there, and choosing it would put a malloc in a signal
+handler.
+
 Section writing and stitching are separate protocols
 (`ReportSectionWriting`, `ReportStitching`) rather than methods with defaults,
 so a monitor that does neither leaves the corresponding C hooks null: it
