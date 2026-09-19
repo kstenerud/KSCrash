@@ -1,0 +1,186 @@
+name: Corpse Device Tests
+
+# Manual only, deliberately. Every run of this consumes a real device session,
+# and the terminations under test kill the device's foreground app repeatedly,
+# so it is not something to fire on every push. Run it when the corpse path or
+# the extension changes.
+#
+# `run_on_device` defaults to false so the expensive half is opt-in: a dispatch
+# with it off proves the whole thing still compiles against the iOS 27 device
+# SDK and costs no device time at all.
+on:
+  workflow_dispatch:
+    inputs:
+      run_on_device:
+        description: 'Upload and run on BrowserStack (consumes a device session)'
+        required: false
+        type: boolean
+        default: false
+      device:
+        description: 'BrowserStack device, e.g. iPhone 17 Pro-27'
+        required: false
+        type: string
+        default: 'iPhone 17 Pro-27'
+
+permissions:
+  contents: read
+
+jobs:
+  corpse:
+    name: Corpse Device Tests
+    # The Xcode 27 preview image, published under a bare label rather than by
+    # macOS version. macos-15 carries no Xcode 27 and therefore no iOS 27 SDK,
+    # and without that SDK CrashReportExtension does not exist to link against.
+    runs-on: xcode-27
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      # Beta-only images must ask for 'latest', not 'latest-stable': setup-xcode
+      # treats any Xcode whose LicenseInfo.plist says "beta" as unstable, so
+      # 'latest-stable' resolves to an older Xcode on this image.
+      - name: Use Xcode 27
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest
+
+      - name: Show Toolchain
+        run: |
+          xcodebuild -version
+          # Fail loudly here rather than at the link step with a confusing
+          # "no such module CrashReportExtension".
+          xcodebuild -showsdks | grep -q "iphoneos27" \
+            || { echo "::error::no iOS 27 device SDK on this runner"; exit 1; }
+
+      - name: Install Tuist
+        uses: jdx/mise-action@v4
+        with:
+          install: true
+          cache: true
+        env:
+          MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}/.mise.toml
+
+      - name: Generate Project
+        working-directory: ./Samples
+        run: mise exec -- tuist generate --verbose --no-open
+
+      # Builds host, extension and test runner. This alone is the compile gate:
+      # if the corpse API or the extension's shape drifts, it fails here without
+      # spending a device session.
+      - name: Build For Testing
+        working-directory: ./Samples
+        run: |
+          set -o pipefail && xcodebuild build-for-testing \
+            -workspace KSCrashSamples.xcworkspace \
+            -scheme CorpseBrowserStack \
+            -sdk iphoneos \
+            -configuration Release \
+            -derivedDataPath build/DerivedData \
+            -only-testing:CorpseTests \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcbeautify
+
+      - name: Package App And Test Runner
+        if: ${{ inputs.run_on_device }}
+        working-directory: ./Samples
+        run: |
+          PRODUCTS=build/DerivedData/Build/Products/Release-iphoneos
+
+          # BrowserStack wants the app as an .ipa (Payload/ layout) and the test
+          # runner as a plain zipped .app.
+          mkdir -p Payload
+          cp -R "$PRODUCTS/CorpseHost.app" Payload/
+          zip --symlinks -qr "$GITHUB_WORKSPACE/CorpseHost.ipa" Payload
+
+          cd "$PRODUCTS"
+          zip --symlinks -qr "$GITHUB_WORKSPACE/CorpseTests.zip" "CorpseTests-Runner.app"
+
+          cd "$GITHUB_WORKSPACE"
+          ls -lh CorpseHost.ipa CorpseTests.zip
+
+          # The extension has to have survived packaging; if it did not, every
+          # test would fail later with a confusing "no report" instead of this.
+          if [ ! -d "Payload/CorpseHost.app/Extensions/CorpseReporter.appex" ]; then
+            echo "::error::CorpseReporter.appex is not embedded in the app"
+            exit 1
+          fi
+        shell: bash
+
+      - name: Upload App
+        if: ${{ inputs.run_on_device }}
+        id: upload_app
+        env:
+          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+        run: |
+          RESPONSE=$(curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
+            -X POST "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/app" \
+            -F "file=@CorpseHost.ipa")
+          echo "$RESPONSE"
+          URL=$(echo "$RESPONSE" | jq -r '.app_url')
+          [ -n "$URL" ] && [ "$URL" != "null" ] || { echo "::error::app upload failed"; exit 1; }
+          echo "app_url=$URL" >> $GITHUB_OUTPUT
+
+      - name: Upload Test Suite
+        if: ${{ inputs.run_on_device }}
+        id: upload_tests
+        env:
+          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+        run: |
+          RESPONSE=$(curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
+            -X POST "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/test-suite" \
+            -F "file=@CorpseTests.zip")
+          echo "$RESPONSE"
+          URL=$(echo "$RESPONSE" | jq -r '.test_suite_url')
+          [ -n "$URL" ] && [ "$URL" != "null" ] || { echo "::error::test suite upload failed"; exit 1; }
+          echo "test_suite_url=$URL" >> $GITHUB_OUTPUT
+
+      - name: Run On Device
+        if: ${{ inputs.run_on_device }}
+        id: run
+        env:
+          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+          # Through the environment and built with jq, never interpolated into
+          # the shell: DEVICE is dispatch input, so pasting it into a command
+          # line would let it run as shell.
+          DEVICE: ${{ inputs.device }}
+          APP_URL: ${{ steps.upload_app.outputs.app_url }}
+          TEST_SUITE_URL: ${{ steps.upload_tests.outputs.test_suite_url }}
+        run: |
+          PAYLOAD=$(jq -n \
+            --arg app "$APP_URL" \
+            --arg suite "$TEST_SUITE_URL" \
+            --arg device "$DEVICE" \
+            '{app: $app, testSuite: $suite, devices: [$device], deviceLogs: true, project: "KSCrash Corpse"}')
+          RESPONSE=$(curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
+            -X POST "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/build" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD")
+          echo "$RESPONSE"
+          ID=$(echo "$RESPONSE" | jq -r '.build_id')
+          [ -n "$ID" ] && [ "$ID" != "null" ] || { echo "::error::could not start build"; exit 1; }
+          echo "build_id=$ID" >> $GITHUB_OUTPUT
+
+      - name: Wait For Result
+        if: ${{ inputs.run_on_device }}
+        env:
+          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+          BUILD_ID: ${{ steps.run.outputs.build_id }}
+        run: |
+          ID="$BUILD_ID"
+          for _ in $(seq 1 60); do
+            STATUS_JSON=$(curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
+              "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/builds/$ID")
+            STATUS=$(echo "$STATUS_JSON" | jq -r '.status')
+            echo "status: $STATUS"
+            case "$STATUS" in
+              running|queued) sleep 30 ;;
+              *) echo "$STATUS_JSON" | jq '.'; [ "$STATUS" = "passed" ] && exit 0 || exit 1 ;;
+            esac
+          done
+          echo "::error::timed out waiting for the device run"
+          exit 1

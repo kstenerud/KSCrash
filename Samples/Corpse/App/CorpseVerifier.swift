@@ -1,0 +1,170 @@
+//
+//  CorpseVerifier.swift
+//
+//  Created by Alexander Cohen on 2026-09-19.
+//
+//  Copyright (c) 2012 Karl Stenerud. All rights reserved.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall remain in place
+// in this source code.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// THE SOFTWARE.
+//
+
+import Foundation
+import KSCrash
+import KSCrashReportModel
+
+/// Captures every report the send pipeline carries, so the verdict is built from
+/// the payload a real backend would have received rather than from a file read
+/// off disk. A report that reads fine on disk and reaches a stage malformed is
+/// exactly the failure this test exists to catch, and only a stage sees that.
+///
+/// It returns the payload unchanged, so the driver records `delivered` and the
+/// file is removed, which is itself asserted: a corpse report that can never be
+/// delivered is retried forever with no backoff.
+private struct CapturingStage: PipelineStage {
+    let captured: Captured
+
+    final class Captured: @unchecked Sendable {
+        private let lock = NSLock()
+        private var storage: [Report] = []
+
+        func append(_ report: Report) {
+            lock.lock()
+            defer { lock.unlock() }
+            storage.append(report)
+        }
+
+        var reports: [Report] {
+            lock.lock()
+            defer { lock.unlock() }
+            return storage
+        }
+    }
+
+    func process(_ payload: Report) async throws -> Report? {
+        captured.append(payload)
+        return payload
+    }
+}
+
+/// What the UI test reads back. Everything is a string because it crosses to the
+/// test through the UI, and a failure has to explain itself from the label alone:
+/// nobody can attach to the device this ran on.
+struct CorpseVerdict {
+    var passed: Bool
+    var summary: String
+    var detail: String
+}
+
+enum CorpseVerifier {
+
+    /// Drains the extension's area, sends, and reports what arrived.
+    ///
+    /// The app's own install is a normal one; only `corpseAreas` at send time
+    /// points at the shared area the extension wrote into. That is the documented
+    /// integration, and doing it any other way here would test something users
+    /// would not be doing.
+    /// - Parameter expectedRun: the run id the test watched die. Reports from any
+    ///   other run are ignored rather than accepted, because a leftover from an
+    ///   earlier case would otherwise satisfy every assertion below.
+    static func run(expecting expectation: CorpseExpectation, fromRun expectedRun: String?) async
+        -> CorpseVerdict
+    {
+        let captured = CapturingStage.Captured()
+        var send = SendConfiguration()
+        send.reportPipeline = [AnyPipelineStage(CapturingStage(captured: captured))]
+        send.corpseAreas = [CorpseArea.configuration]
+
+        let result: SendResult<Report>
+        do {
+            result = try await KSCrash.shared.sendReports(with: send)
+        } catch {
+            return CorpseVerdict(
+                passed: false, summary: "send-failed", detail: "sendReports threw: \(error)")
+        }
+
+        let reports = captured.reports
+        // Identity first: pick the report belonging to the run the test killed,
+        // never merely the first one that happens to be lying around.
+        let fromExpectedRun = reports.filter { report in
+            guard let expectedRun else { return true }
+            return report.report.runId?.description == expectedRun
+        }
+        guard let report = fromExpectedRun.first(where: { expectation.matches($0) }) ?? fromExpectedRun.first
+        else {
+            return CorpseVerdict(
+                passed: false, summary: "no-report",
+                detail: """
+                    nothing arrived for run \(expectedRun ?? "any") / \(expectation.triggerID).
+                    reports seen: \(reports.count), runs: \(reports.map { $0.report.runId?.description ?? "nil" })
+                    sent items: \(result.items.count)
+                    """)
+        }
+
+        var failures: [String] = []
+
+        // The whole point of the path: the report describes the process that
+        // died, produced by a process that did not.
+        if !expectation.matches(report) {
+            failures.append(
+                "classified as \(report.crash.error.type), expected \(expectation.errorType)")
+        }
+        // The identity that had to cross a process boundary: the extension reads
+        // it out of the corpse's __ks_runid section, so a mismatch means the
+        // report is not the crashed run's.
+        switch (report.report.runId?.description, expectedRun) {
+        case (nil, _):
+            failures.append("no run id: the crashed run's identity did not survive the corpse")
+        case (let actual?, let expected?) where actual != expected:
+            failures.append("run id \(actual) is not the run that crashed (\(expected))")
+        default:
+            break
+        }
+        if report.crash.threads?.isEmpty ?? true {
+            failures.append("no threads: the corpse port produced no thread state")
+        }
+        if report.crash.crashedThread == nil {
+            failures.append("no crashed thread named")
+        }
+        if report.binaryImages?.isEmpty ?? true {
+            failures.append("no binary images")
+        }
+        // Written only by a capture from a corpse, so its absence means this
+        // report came from somewhere else entirely.
+        if report.corpse == nil {
+            failures.append("no corpse section: this was not an out-of-process capture")
+        }
+
+        // Delivered means the driver removed it. Anything else leaves the report
+        // on disk to be retried forever.
+        let delivered = result.items.filter {
+            if case .delivered = $0.outcome { return true }
+            return false
+        }
+        if delivered.isEmpty {
+            failures.append("nothing was delivered; outcomes: \(result.items.map { "\($0.outcome)" })")
+        }
+
+        return CorpseVerdict(
+            passed: failures.isEmpty,
+            summary: failures.isEmpty ? "pass" : "fail",
+            detail: failures.isEmpty
+                ? "\(expectation.triggerID): \(reports.count) report(s), run \(report.report.runId?.description ?? "?")"
+                : failures.joined(separator: " | "))
+    }
+}
