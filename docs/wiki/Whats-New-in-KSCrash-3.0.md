@@ -156,11 +156,42 @@ async-signal-safety rules and wrapping it with `CMonitorPlugin(api:)`; the Swift
 layer is not an option there, and choosing it would put a malloc in a signal
 handler.
 
-Section writing and stitching are separate protocols (`ReportSectionWriting`,
-`ReportStitching`) rather than methods with defaults, which is what makes those
-hooks nullable. A default implementation cannot tell a monitor that meant to
-write a section and got the signature wrong from one that had nothing to say,
-and the first of those compiles clean and writes nothing forever.
+### Adding to a report later: ReportStitching
+
+Writing a section happens while the report is being written. `ReportStitching`
+is the other opportunity, at **delivery** time, when the store reads a report to
+send it, typically on a later launch:
+
+```swift
+func stitchedReport(_ report: [String: Any], sidecarURL: URL?,
+                    scope: SidecarScope) throws -> [String: Any]
+```
+
+This exists because of the hot-path rule. A monitor watching a running app
+should write as little as it can, as cheaply as it can, usually raw bytes into
+a **sidecar** file next to the report. Interpreting those bytes, turning them
+into JSON and merging them into the report, is deferred to delivery, which runs
+at normal startup in a healthy process where allocation and Objective-C are
+fine. The watchdog does this: it cannot parse JSON while the main thread is
+hung, so it updates a small mmap'd struct and stitches it in later.
+
+You get called once per sidecar of yours, with `scope` saying which kind it was
+(`.run` for a per-run sidecar, `.report` for a per-report one), and then once
+more with `scope == .final` and no `sidecarURL`, after all sidecars have been
+stitched, so you can adjust the report using what is now in it.
+
+Throwing means the stitch failed: during finalization the write-back is
+abandoned so the report is retried on the next read, and on a normal read the
+original is kept silently. Throwing on the final pass is the same as returning
+the report unchanged, since with no sidecar to reread a retry cannot go
+differently.
+
+Like section writing, this is a conformance rather than a defaulted method, and
+that is deliberate. A default cannot tell a monitor that meant to implement the
+method and got the signature wrong from one that had nothing to say, and the
+first compiles clean and does nothing forever. A monitor that does not conform
+is left out of the stitch pass entirely rather than being called to return the
+report unchanged.
 
 ## Hangs as a stream
 
