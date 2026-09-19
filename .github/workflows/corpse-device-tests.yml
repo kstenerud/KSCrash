@@ -162,6 +162,30 @@ jobs:
           [ -n "$URL" ] && [ "$URL" != "null" ] || { echo "::error::test suite upload failed"; exit 1; }
           echo "test_suite_url=$URL" >> $GITHUB_OUTPUT
 
+      # Listing devices costs nothing, and a wrong device string otherwise fails
+      # the run with a message that does not say which strings are valid. Beta
+      # OS versions are named differently from released ones.
+      - name: Show Available iOS Devices
+        if: ${{ inputs.run_on_device || contains(github.event.pull_request.labels.*.name, 'corpse-device-run') }}
+        env:
+          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+          DEVICE: ${{ inputs.device || 'iPhone 17 Pro-27' }}
+          WANTED_MAJOR: '27'
+        run: |
+          DEVICES=$(curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
+            "https://api-cloud.browserstack.com/app-automate/devices.json")
+          echo "--- iOS ${WANTED_MAJOR}.x devices ---"
+          echo "$DEVICES" | jq -r --arg major "$WANTED_MAJOR" \
+            '.[] | select(.os == "ios") | select(.os_version | startswith($major))
+             | "\(.device)-\(.os_version)"' | sort -u
+          echo "--- newest iOS versions offered ---"
+          echo "$DEVICES" | jq -r '.[] | select(.os == "ios") | .os_version' \
+            | sort -u -V | tail -8
+          echo "--- is the requested device present? ---"
+          echo "$DEVICES" | jq -r '.[] | select(.os == "ios") | "\(.device)-\(.os_version)"' \
+            | grep -Fx "$DEVICE" && echo "yes" || echo "NO: $DEVICE is not offered"
+
       - name: Run On Device
         if: ${{ inputs.run_on_device || contains(github.event.pull_request.labels.*.name, 'corpse-device-run') }}
         id: run
