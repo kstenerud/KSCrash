@@ -84,7 +84,10 @@ static inline int copyMaxPossible(task_t task, const void *__restrict const src,
     return bytesCopied;
 }
 
-// Shared scratch buffer for the readability probes. Single-threaded use only (report generation).
+// Shared scratch destination for the readability probes. Report generation is NOT
+// single-threaded (see MAX_SIMULTANEOUS_EXCEPTIONS), so several threads can be writing
+// here at once. That is harmless only because nothing ever reads it back: every answer
+// comes from copySafely's byte count, never from these bytes. Do not add a read.
 static char g_memoryTestBuffer[10240];
 static inline bool isMemoryReadable(task_t task, const void *const memory, const int byteCount)
 {
