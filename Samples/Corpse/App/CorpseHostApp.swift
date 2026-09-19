@@ -41,6 +41,11 @@ struct CorpseHostApp: App {
 
     @State private var verdict: CorpseVerdict?
 
+    /// Why the install failed, if it did. Surfaced through the UI because it is
+    /// otherwise invisible: a failed install shows up only as a missing run id,
+    /// which reads like a capture problem rather than a setup one.
+    static var installError: String?
+
     init() {
         var config = InstallConfiguration(namespace: CorpseArea.namespace)
         config.container = .appGroup(CorpseArea.appGroup)
@@ -57,7 +62,7 @@ struct CorpseHostApp: App {
         } catch {
             // Deliberately not fatal: the verifier reports the absence of a
             // report, which is a more useful failure than a dead host.
-            print("corpse host install failed: \(error)")
+            Self.installError = "\(error)"
         }
     }
 
@@ -70,7 +75,7 @@ struct CorpseHostApp: App {
                     .accessibilityIdentifier("corpse.runid")
                 Text(verdict?.summary ?? "ready")
                     .accessibilityIdentifier("corpse.status")
-                Text(verdict?.detail ?? "")
+                Text(verdict?.detail ?? Self.installError.map { "install failed: \($0)" } ?? "")
                     .accessibilityIdentifier("corpse.detail")
                     .font(.footnote)
                     .multilineTextAlignment(.center)
