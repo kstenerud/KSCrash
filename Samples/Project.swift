@@ -1,4 +1,50 @@
+import Foundation
 import ProjectDescription
+
+/// The development team for the corpse pair, read from `Corpse/signing.env`,
+/// which is not committed.
+///
+/// Read from the file rather than the environment because a Tuist manifest runs
+/// in its own process and does not inherit exported variables. With no file
+/// there are no settings, so CI keeps building these unsigned.
+let corpseSigningValues: [String: String] = {
+    // Relative to the working directory, not #filePath: Tuist compiles the
+    // manifest from a copy elsewhere, so #filePath does not point at the
+    // checkout. Generate runs from Samples/.
+    let candidates = [
+        FileManager.default.currentDirectoryPath + "/Corpse/signing.env",
+        FileManager.default.currentDirectoryPath + "/Samples/Corpse/signing.env",
+    ]
+    guard let text = candidates.lazy.compactMap({ try? String(contentsOfFile: $0, encoding: .utf8) }).first
+    else { return [:] }
+    var values: [String: String] = [:]
+    for line in text.split(separator: "\n") {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.hasPrefix("#"), let eq = trimmed.firstIndex(of: "=") else { continue }
+        let key = String(trimmed[trimmed.startIndex..<eq])
+        var value = String(trimmed[trimmed.index(after: eq)...])
+        if value.hasPrefix("\""), value.hasSuffix("\""), value.count >= 2 {
+            value = String(value.dropFirst().dropLast())
+        }
+        values[key] = value
+    }
+    return values
+}()
+
+/// Automatic signing, with no profile named.
+///
+/// The profiles Xcode creates for these targets are Xcode-managed, and a
+/// managed profile cannot be named by a manually-managed configuration, so
+/// letting Xcode choose is the only way to use them. `xcodebuild
+/// -allowProvisioningUpdates`, which the run script passes, refreshes them
+/// without Xcode itself being open.
+var corpseSigning: SettingsDictionary {
+    guard let team = corpseSigningValues["TUIST_CORPSE_TEAM"], !team.isEmpty else { return [:] }
+    return [
+        "DEVELOPMENT_TEAM": .string(team),
+        "CODE_SIGN_STYLE": .string("Automatic"),
+    ]
+}
 
 /// The one thing the corpse host and its extension share. Both rebuild their
 /// `CorpseReportingConfiguration` from it independently, on purpose: that is how
@@ -92,7 +138,8 @@ let project = Project(
                 .package(product: "CrashReportExtension", type: .runtime),
                 .package(product: "Report", type: .runtime),
                 .package(product: "CrashTriggers", type: .runtime),
-            ]
+            ],
+            settings: .settings(base: corpseSigning)
         ),
 
         // The bundle identifier must be a child of the host's; the system will
@@ -121,9 +168,9 @@ let project = Project(
                 .package(product: "KSCrash", type: .runtime),
                 .package(product: "CrashReportExtension", type: .runtime),
             ],
-            settings: .settings(base: [
-                "SUPPORTED_PLATFORMS": "iphoneos"
-            ])
+            settings: .settings(
+                base: corpseSigning
+                    .merging(["SUPPORTED_PLATFORMS": "iphoneos"]) { _, new in new })
         ),
 
         .target(
@@ -136,11 +183,12 @@ let project = Project(
             dependencies: [
                 .target(name: "CorpseHost")
             ],
-            settings: .settings(base: [
-                // BrowserStack discovers tests via `nm -U -g | grep '.test'`.
-                // -enable-testing exports Swift symbols globally (T not t).
-                "OTHER_SWIFT_FLAGS": ["-Xfrontend", "-enable-testing"]
-            ])
+            settings: .settings(
+                base: corpseSigning.merging([
+                    // BrowserStack discovers tests via `nm -U -g | grep '.test'`.
+                    // -enable-testing exports Swift symbols globally (T not t).
+                    "OTHER_SWIFT_FLAGS": ["-Xfrontend", "-enable-testing"]
+                ]) { _, new in new })
         ),
     ],
     schemes: [
@@ -157,7 +205,11 @@ let project = Project(
             name: "CorpseBrowserStack",
             shared: true,
             buildAction: .buildAction(targets: ["CorpseHost", "CorpseTests"]),
-            testAction: .targets(["CorpseTests"], configuration: .release),
+            // attachDebugger defaults to true, and the launch watchdog does not
+            // fire under a debugger: a hung launch simply sits there instead of
+            // being killed with 0x8badf00d, so the termination under test never
+            // happens. Sample's own test action turns it off for the same reason.
+            testAction: .targets(["CorpseTests"], configuration: .release, attachDebugger: false),
             runAction: .runAction(executable: "CorpseHost")
         ),
     ]
