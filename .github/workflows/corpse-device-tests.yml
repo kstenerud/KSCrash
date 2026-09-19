@@ -240,22 +240,20 @@ jobs:
           # gives counts, and the verdict this suite produces is a sentence in a
           # label, which is the only explanation anyone gets: nothing can attach
           # a debugger to a device in a rack.
+          # Dump the raw shapes rather than guessing at them: the session
+          # endpoint does not use the same schema as the build summary.
           report_failures() {
             BUILD_JSON=$1
             echo "$BUILD_JSON" | jq -r '.devices[]?.sessions[]?.id' | while read -r SESSION; do
               [ -n "$SESSION" ] || continue
-              echo "--- session $SESSION ---"
+              echo "===== session $SESSION ====="
               curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
                 "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/builds/$ID/sessions/$SESSION" \
-                | jq -r '
-                  (.testcases[]? // empty)
-                  | select(.status != "passed")
-                  | "FAILED \(.class_name // "?").\(.name // "?")\n    \((.failures // []) | map(.reason // .message // tostring) | join("\n    "))"
-                '
-              echo "--- device log (tail) ---"
+                | jq '.' | head -120
+              echo "===== device log (tail) ====="
               curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
                 "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/builds/$ID/sessions/$SESSION/devicelogs" \
-                | tail -40
+                | tail -60
             done
           }
 
