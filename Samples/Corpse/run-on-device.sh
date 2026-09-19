@@ -4,8 +4,8 @@
 #
 # These cannot run anywhere else: CrashReportExtension ships in the device SDK
 # only, and the path under test starts with the system handing a real corpse to
-# a real extension. They also need an App Group, which a device farm's re-signing
-# strips, so a device you control is currently the only place they run at all.
+# a real extension. CI runs them on BrowserStack; this script is for running
+# them against a device on your desk.
 #
 # Signing comes from Samples/Corpse/signing.env, which is not committed. Copy
 # signing.env.example and fill it in. Manual signing is deliberate: automatic
