@@ -98,14 +98,26 @@ void kscrashreport_setCompactBinaryImages(bool enabled);
 #pragma mark - Main API -
 // ============================================================================
 
+/** Outcome of kscrashreport_writeStandardReport. */
+typedef enum {
+    /** The report file was created and written to the end. Errors after creation are not detected. */
+    KSCrashReportWriteStatusOK = 0,
+
+    /** The report file could not be created, so nothing was written. */
+    KSCrashReportWriteStatusNotCreated,
+} KSCrashReportWriteStatus;
+
 /** Write a standard crash report to a file.
  *
  * @param monitorContext Contextual information about the crash and environment.
  *                       The caller must fill this out before passing it in.
  *
  * @param path The file to write to.
+ *
+ * @return The outcome of the write (see KSCrashReportWriteStatus).
  */
-void kscrashreport_writeStandardReport(struct KSCrash_MonitorContext *const monitorContext, const char *path);
+KSCrashReportWriteStatus kscrashreport_writeStandardReport(struct KSCrash_MonitorContext *const monitorContext,
+                                                           const char *path);
 
 /** Write a minimal crash report to a file.
  *

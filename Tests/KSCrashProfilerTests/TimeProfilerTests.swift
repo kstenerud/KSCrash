@@ -724,6 +724,21 @@ final class TimeProfilerTests: XCTestCase {
 
     // MARK: - Write Report Tests
 
+    func testProfileMonitorIDMatchesTheReportWireFormat() {
+        // The monitor id doubles as the report's crash.error.type and its section key; the
+        // report model decodes CrashError.profile from the exact string "profile". Renaming
+        // the id silently breaks profile-report decoding.
+        XCTAssertEqual(ProfileMonitor.id, "profile")
+    }
+
+    func testProfileMonitorIsEnabledAfterSelfRegistration() {
+        // The profiler registers itself lazily, long after install ran the bulk enable pass,
+        // and kscm_addMonitor registers without enabling. Before it enabled itself the flag
+        // stayed false for the process lifetime, so every hook the registry gates on
+        // isEnabled (notifyPost*, addContextualInfoToEvent) silently skipped the profiler.
+        XCTAssertTrue(ProfileMonitor.shared.isEnabled)
+    }
+
     func testWriteReportCanBeCalled() {
         let profiler = TimeProfiler(thread: pthread_self())
 
@@ -763,5 +778,17 @@ final class TimeProfilerTests: XCTestCase {
         _ = profile1?.writeReport()
         _ = profile2?.writeReport()
         _ = profile3?.writeReport()
+    }
+}
+
+// MARK: - Monitor conformance
+
+final class ProfileMonitorConformanceTests: XCTestCase {
+    func testTheProfilerDeclaresItWritesAReportSection() {
+        // ProfileMonitor's whole job on the monitor layer is its report section, and that
+        // callback only runs because the type conforms to ReportSectionWriting. Dropping the
+        // conformance leaves the method behind as dead code and the hook NULL, which no other
+        // profiler test would notice: none of them write a report.
+        XCTAssertNotNil(ProfileMonitor.shared.api.pointee.writeInReportSection)
     }
 }

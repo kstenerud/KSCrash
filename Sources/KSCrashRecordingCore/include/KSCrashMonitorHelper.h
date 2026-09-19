@@ -31,6 +31,7 @@
 
 #include "KSCrashMonitor.h"
 #include "KSCrashNamespace.h"
+#include "KSDebug.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -58,6 +59,27 @@ static void inline kscm_fillMonitorContext(KSCrash_MonitorContext *monitorContex
         monitorContext->monitorId = monitorApi->monitorId(monitorApi->context);
         monitorContext->monitorFlags = monitorApi->monitorFlags(monitorApi->context);
     }
+}
+
+/** Set one monitor's enabled state.
+ *
+ * Applies the same debugger policy as `kscm_enableMonitors`: while a debugger is attached, a
+ * monitor flagged `KSCrashMonitorFlagDebuggerUnsafe` stays disabled. It skips the bulk pass's
+ * any-monitor-active accounting.
+ *
+ * Chiefly for a monitor that registers itself after install, which `kscm_addMonitor` registers
+ * but does not enable, since the bulk enable pass has already run by then.
+ */
+static inline void kscm_setMonitorEnabled(const KSCrashMonitorAPI *api, bool isEnabled)
+{
+    if (api == NULL || api->setEnabled == NULL) {
+        return;
+    }
+    if (isEnabled && api->monitorFlags != NULL &&
+        (api->monitorFlags(api->context) & KSCrashMonitorFlagDebuggerUnsafe) && ksdebug_isBeingTraced()) {
+        isEnabled = false;
+    }
+    api->setEnabled(isEnabled, api->context);
 }
 
 #ifdef __cplusplus
