@@ -86,6 +86,10 @@ let project = Project(
             dependencies: [
                 .target(name: "CorpseReporter", condition: .when([.ios])),
                 .package(product: "KSCrash", type: .runtime),
+                // The app side needs this too, not just the extension: it
+                // registers CrashReportExtensionMonitor as a plugin so the
+                // reports the extension wrote can be drained at send.
+                .package(product: "CrashReportExtension", type: .runtime),
                 .package(product: "Report", type: .runtime),
                 .package(product: "CrashTriggers", type: .runtime),
             ]
