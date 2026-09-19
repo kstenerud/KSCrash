@@ -55,7 +55,7 @@ The run summary is built from the previous run's context by `buildSummary` in
 `sessions.records`; the records are the single source of truth for a run's sessions and
 are merged in only at send time.
 
-At send, the Swift store (`RunStore.summary()` in the `KSCrash` module) reads
+At send, the Swift store (`Store.summary(of:)` in `Store+Runs.swift`, `KSCrash` module) reads
 `<run_id>.sessions` through the C reader and attaches the records. There are no aggregate
 session/user counts on the summary; a consumer derives whatever it needs from
 `records` (each record carries its perceptibility, user, and timestamps).
@@ -68,9 +68,10 @@ nothing points at any more: run sidecars **and** `.sessions` are both kept while
 report or a `.run` summary references the run (a pending summary needs its `.sessions`
 for the record merge and its UserInfo run sidecar for the metadata stitch), and the
 live run is always kept. A queued summary that cannot be READ aborts the pass,
-mirroring the unreadable-report rule; one that reads but does not DECODE is
-deterministic garbage (a store is single-process, so the only source is a crash
-mid-persist) and is deleted on the spot. `kscrs_deleteAllReports` deletes only
+mirroring the unreadable-report rule; one that reads but does not DECODE, or
+decodes without a usable run_id, is deterministic garbage (the writer always
+emits run_id; a crash mid-persist fails the strict decode) and is deleted on
+the spot. `kscrs_deleteAllReports` deletes only
 reports and report sidecars; run data is left for the next send-flow reclaim, so
 pending summaries keep their artifacts. See `monitor-sidecars.md` for the run-sidecar side.
 
@@ -80,6 +81,7 @@ pending summaries keep their artifacts. See `monitor-sidecars.md` for the run-si
 - `KSCrashMonitor_Lifecycle.{h,m}`: live session recording; `kslifecycle_currentSessionID`, `kslifecycle_copyLastSessionIDForRunID`
 - `KSCrashMonitor_LifecycleStitch.m`: adds `report.session_id` at delivery
 - `KSCrashRunContext.m`: `buildSummary`, `ksruncontext_persistPreviousRunSummary`
-- `Sources/KSCrash/RunStore.swift` / `RunSummarySend.swift`: send-time merge, metadata stitch, and the async send
+- `Sources/KSCrash/Store.swift` / `Store+Runs.swift`: the store, its run listing (`snapshotRuns()`), send-time merge and metadata stitch
+- `Sources/KSCrash/SendDriver.swift` / `RunSummarySend.swift`: the shared send loop and the run-summary send built on it
 - `KSCrashReportStoreC.m`: `kscrs_reclaimOrphanedRunData`
 - `KSCrashReportFields.h`: `KSCrashRunSummaryField_*` wire keys, `KSCrashField_SessionID`

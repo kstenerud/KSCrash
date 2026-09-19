@@ -520,12 +520,17 @@ extern void kscrash_testcode_setRunID(const char *runID);
     [self writeRunSidecar:@"UserInfo" runId:orphanRunId contents:@"orphan"];
     NSString *orphanDir =
         [[NSString stringWithUTF8String:_storeConfig.runSidecarsPath] stringByAppendingPathComponent:orphanRunId];
-    // Decodes fine but references nothing: permanently malformed, must not
-    // block reclamation forever.
-    [self writeRunSummaryJSON:@"{\"not_run_id\":1}" named:@"300.run"];
+    // Decodes fine but references nothing: deterministic garbage (only the
+    // writer produces .run files, and it always emits run_id), deleted so it
+    // cannot litter the store forever, whatever its filename.
+    NSString *writerNamed = [self writeRunSummaryJSON:@"{\"not_run_id\":1}" named:@"300.run"];
+    NSString *foreignNamed = [self writeRunSummaryJSON:@"{}" named:@"backup.run"];
 
     kscrs_reclaimOrphanedRunData(&_storeConfig);
-    XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:orphanDir]);
+    NSFileManager *fm = [NSFileManager defaultManager];
+    XCTAssertFalse([fm fileExistsAtPath:orphanDir]);
+    XCTAssertFalse([fm fileExistsAtPath:writerNamed]);
+    XCTAssertFalse([fm fileExistsAtPath:foreignNamed]);
 }
 
 - (void)testDeleteReportWithNoRunSidecarsPathDoesNotCrash
@@ -568,7 +573,7 @@ extern void kscrash_testcode_setRunID(const char *runID);
     int64_t reportID = [self writeReportWithRunId:runId];
     [self writeRunSidecar:@"TestStitchMonitor" runId:runId contents:@"hello from sidecar"];
 
-    char *rawReport = kscrs_readReport(reportID, &_storeConfig);
+    char *rawReport = kscrs_readReport(reportID, &_storeConfig, NULL);
     XCTAssertTrue(rawReport != NULL);
 
     NSData *data = [NSData dataWithBytesNoCopy:rawReport length:strlen(rawReport) freeWhenDone:YES];
@@ -589,7 +594,7 @@ extern void kscrash_testcode_setRunID(const char *runID);
     int64_t reportID = [self writeReportWithRunId:runId];
     // No run sidecar written
 
-    char *rawReport = kscrs_readReport(reportID, &_storeConfig);
+    char *rawReport = kscrs_readReport(reportID, &_storeConfig, NULL);
     XCTAssertTrue(rawReport != NULL);
 
     NSData *data = [NSData dataWithBytesNoCopy:rawReport length:strlen(rawReport) freeWhenDone:YES];
@@ -608,7 +613,7 @@ extern void kscrash_testcode_setRunID(const char *runID);
     // Write a sidecar for a monitor that isn't registered
     [self writeRunSidecar:@"UnknownMonitor" runId:runId contents:@"should be ignored"];
 
-    char *rawReport = kscrs_readReport(reportID, &_storeConfig);
+    char *rawReport = kscrs_readReport(reportID, &_storeConfig, NULL);
     XCTAssertTrue(rawReport != NULL);
 
     NSData *data = [NSData dataWithBytesNoCopy:rawReport length:strlen(rawReport) freeWhenDone:YES];
@@ -629,8 +634,8 @@ extern void kscrash_testcode_setRunID(const char *runID);
     [self writeRunSidecar:@"TestStitchMonitor" runId:runId contents:@"shared data"];
 
     // Both reports should get the same stitched data
-    char *raw1 = kscrs_readReport(reportID1, &_storeConfig);
-    char *raw2 = kscrs_readReport(reportID2, &_storeConfig);
+    char *raw1 = kscrs_readReport(reportID1, &_storeConfig, NULL);
+    char *raw2 = kscrs_readReport(reportID2, &_storeConfig, NULL);
     XCTAssertTrue(raw1 != NULL);
     XCTAssertTrue(raw2 != NULL);
 

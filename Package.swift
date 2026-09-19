@@ -207,21 +207,6 @@ let package = Package(
     ],
     products: [
         .library(
-            name: "Reporting",
-            targets: [
-                Targets.filters,
-                Targets.sinks,
-            ]
-        ),
-        .library(
-            name: "Filters",
-            targets: [Targets.filters]
-        ),
-        .library(
-            name: "Sinks",
-            targets: [Targets.sinks]
-        ),
-        .library(
             name: "Recording",
             targets: [Targets.recording]
         ),
@@ -236,10 +221,6 @@ let package = Package(
         .library(
             name: "BootTimeMonitor",
             targets: [Targets.bootTimeMonitor]
-        ),
-        .library(
-            name: "DemangleFilter",
-            targets: [Targets.demangleFilter]
         ),
         .library(
             name: "Profiler",
@@ -305,50 +286,6 @@ let package = Package(
         ),
 
         .target(
-            name: Targets.filters,
-            dependencies: [
-                .target(name: Targets.recording),
-                .target(name: Targets.recordingCore),
-                .target(name: Targets.reportingCore),
-            ],
-            resources: [
-                .copy("Resources/PrivacyInfo.xcprivacy")
-            ],
-            cSettings: [
-                .unsafeFlags(warningFlags)
-            ]
-        ),
-        .testTarget(
-            name: Targets.filters.tests,
-            dependencies: [
-                .target(name: Targets.filters),
-                .target(name: Targets.recording),
-                .target(name: Targets.recordingCore),
-                .target(name: Targets.reportingCore),
-            ],
-            resources: [
-                .process("Resources")
-            ],
-            cSettings: [
-                .unsafeFlags(warningFlags)
-            ]
-        ),
-
-        .target(
-            name: Targets.sinks,
-            dependencies: [
-                .target(name: Targets.recording),
-                .target(name: Targets.filters),
-            ],
-            resources: [
-                .copy("Resources/PrivacyInfo.xcprivacy")
-            ],
-            cSettings: [
-                .unsafeFlags(warningFlags)
-            ]
-        ),
-
-        .target(
             name: Targets.recordingCore,
             dependencies: [
                 .target(name: Targets.core)
@@ -376,32 +313,6 @@ let package = Package(
             name: Targets.recordingCoreSwift.tests,
             dependencies: [
                 .target(name: Targets.recordingCore)
-            ],
-            cSettings: [
-                .unsafeFlags(warningFlags)
-            ]
-        ),
-
-        .target(
-            name: Targets.reportingCore,
-            dependencies: [
-                .target(name: Targets.core)
-            ],
-            resources: [
-                .copy("Resources/PrivacyInfo.xcprivacy")
-            ],
-            cSettings: [
-                .unsafeFlags(warningFlags)
-            ],
-            linkerSettings: [
-                .linkedLibrary("z")
-            ]
-        ),
-        .testTarget(
-            name: Targets.reportingCore.tests,
-            dependencies: [
-                .target(name: Targets.reportingCore),
-                .target(name: Targets.core),
             ],
             cSettings: [
                 .unsafeFlags(warningFlags)
@@ -478,32 +389,6 @@ let package = Package(
             cSettings: [
                 .headerSearchPath("../../Sources/\(Targets.recording)/Monitors"),
                 .unsafeFlags(warningFlags),
-            ]
-        ),
-
-        .target(
-            name: Targets.demangleFilter,
-            dependencies: [
-                .target(name: Targets.recording)
-            ],
-            resources: [
-                .copy("Resources/PrivacyInfo.xcprivacy")
-            ],
-            cSettings: [
-                .unsafeFlags(warningFlags)
-            ],
-            cxxSettings: [
-                .unsafeFlags(warningFlags)
-            ]
-        ),
-        .testTarget(
-            name: Targets.demangleFilter.tests,
-            dependencies: [
-                .target(name: Targets.demangleFilter),
-                .target(name: Targets.recording),
-            ],
-            cSettings: [
-                .unsafeFlags(warningFlags)
             ]
         ),
 
@@ -659,15 +544,11 @@ let package = Package(
 
 enum Targets {
     static let recording = "KSCrashRecording"
-    static let filters = "KSCrashFilters"
-    static let sinks = "KSCrashSinks"
     static let recordingCore = "KSCrashRecordingCore"
     static let recordingCoreSwift = "KSCrashRecordingCoreSwift"
-    static let reportingCore = "KSCrashReportingCore"
     static let core = "KSCrashCore"
     static let discSpaceMonitor = "KSCrashDiscSpaceMonitor"
     static let bootTimeMonitor = "KSCrashBootTimeMonitor"
-    static let demangleFilter = "KSCrashDemangleFilter"
     static let report = "KSCrashReportModel"
     static let kscrash = "KSCrash"
     static let testTools = "KSCrashTestTools"

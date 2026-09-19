@@ -34,13 +34,10 @@
 #import "KSCrashMonitor_System.h"
 #import "KSCrashMonitor_Termination.h"
 #import "KSCrashMonitor_UserInfo.h"
-#import "KSCrashReport.h"
 #import "KSCrashReportFields.h"
 #import "KSCrashRunContext.h"
-#import "KSCrashSendConfiguration.h"
 #import "KSDate.h"
 #import "KSJSONCodecObjC.h"
-#import "KSNSErrorHelper.h"
 
 // #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
@@ -339,37 +336,6 @@ static void onNSExceptionHandlingEnabled(NSUncaughtExceptionHandler *uncaughtExc
 
     _reportStore = reportStore;
     return YES;
-}
-
-- (NSError *)notInstalledError
-{
-    return
-        [KSNSErrorHelper errorWithDomain:[[self class] description]
-                                    code:0
-                             description:@"Reporting is not allowed before calling `installWithConfiguration:error:`"];
-}
-
-- (void)sendAllReportsWithConfiguration:(KSCrashSendConfiguration *)configuration
-                             completion:(KSCrashReportFilterCompletion)onCompletion
-{
-    KSCrashReportStore *store = self.reportStore;
-    if (store == nil) {
-        kscrash_callCompletion(onCompletion, @[], [self notInstalledError]);
-        return;
-    }
-    [store sendAllReportsWithConfiguration:configuration completion:onCompletion];
-}
-
-- (void)sendReportWithID:(KSCrashReportID)reportID
-           configuration:(KSCrashSendConfiguration *)configuration
-              completion:(KSCrashReportFilterCompletion)onCompletion
-{
-    KSCrashReportStore *store = self.reportStore;
-    if (store == nil) {
-        kscrash_callCompletion(onCompletion, @[], [self notInstalledError]);
-        return;
-    }
-    [store sendReportWithID:reportID configuration:configuration completion:onCompletion];
 }
 
 - (void)reportUserException:(NSString *)name

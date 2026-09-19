@@ -25,69 +25,45 @@
 //
 
 import Foundation
-import KSCrashFilters
-import KSCrashRecording
-import KSCrashSinks
+import KSCrash
 import Logging
 
 public struct ReportConfig: Codable {
     public var directoryPath: String
-    public var rawJSON: Bool
 
-    public init(directoryPath: String, rawJSON: Bool = false) {
+    public init(directoryPath: String) {
         self.directoryPath = directoryPath
-        self.rawJSON = rawJSON
     }
 }
 
 extension ReportConfig {
-    func report() {
+    /// Returns once every delivered report is on disk, so the runner's
+    /// completion marker means "the reports are there".
+    func report() async {
         let url = URL(fileURLWithPath: directoryPath)
-        guard let store = KSCrash.shared.reportStore else {
-            return
-        }
-        let cfg = CrashSendConfiguration()
-        cfg.reportFilters =
-            rawJSON
-            ? [CrashReportFilterJSONEncode(), DirectorySink(url)]
-            : [CrashReportFilterAppleFmt(), DirectorySink(url)]
-        cfg.reportCleanupPolicy = .always
-        store.sendAllReports(with: cfg)
+        let configuration = SendConfiguration(
+            reportPipeline: [AnyPipelineStage(DirectoryStage(directoryUrl: url))]
+        )
+        _ = try? await KSCrash.shared.sendReports(with: configuration)
     }
 }
 
-public class DirectorySink: NSObject, CrashReportFilter {
-    private static let logger = Logger(label: "DirectorySink")
+/// Terminal stage: writes each delivered report's JSON into the directory,
+/// where the integration tests pick it up.
+struct DirectoryStage: PipelineStage {
+    private static let logger = Logger(label: "DirectoryStage")
 
-    private let directoryUrl: URL
+    let directoryUrl: URL
 
-    public init(_ directoryUrl: URL) {
-        self.directoryUrl = directoryUrl
-    }
-
-    public func filterReports(
-        _ reports: [any KSCrashReport], onCompletion: (([any KSCrashReport]?, (any Error)?) -> Void)? = nil
-    ) {
-        let prefix = UUID().uuidString
-        for (idx, report) in reports.enumerated() {
-            let fileName = "\(prefix)-\(idx).ips"
-            let fileUrl = directoryUrl.appendingPathComponent(fileName)
-
-            let data: Data
-            if let stringReport = report as? CrashReportString {
-                data = stringReport.value.data(using: .utf8)!
-            } else if let dataReport = report as? CrashReportData {
-                data = dataReport.value
-            } else {
-                continue
-            }
-
-            do {
-                try data.write(to: fileUrl)
-            } catch {
-                Self.logger.error("Failed to save report: \(error)")
-            }
+    func process(_ payload: Report) async throws -> Report? {
+        let fileName = "\(payload.report.id)-\(UUID().uuidString).ips"
+        let fileUrl = directoryUrl.appendingPathComponent(fileName)
+        do {
+            try JSONEncoder().encode(payload).write(to: fileUrl)
+        } catch {
+            Self.logger.error("Failed to save report: \(error)")
+            throw error
         }
-        onCompletion?(reports, nil)
+        return payload
     }
 }

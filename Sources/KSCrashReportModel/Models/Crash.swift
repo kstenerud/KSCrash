@@ -26,7 +26,7 @@
 
 import Foundation
 
-extension CrashReport {
+extension Report {
     /// Information about the crash event.
     public struct Crash: Codable, Sendable, Equatable {
         /// Human-readable diagnosis of the crash.

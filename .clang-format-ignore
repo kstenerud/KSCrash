@@ -1,7 +1,3 @@
 Sources/KSCrashRecordingCore/KSObjCApple.h
 Tests/NamespaceTests/SPMApproach/CrashLibA/Sources/KSCrashLibA/KSObjCApple.h
 Tests/NamespaceTests/SPMApproach/CrashLibB/Sources/KSCrashLibB/KSObjCApple.h
-Sources/KSCrashDemangleFilter/llvm/*
-Sources/KSCrashDemangleFilter/llvm/*/*
-Sources/KSCrashDemangleFilter/swift/*
-Sources/KSCrashDemangleFilter/swift/*/*

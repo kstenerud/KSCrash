@@ -28,7 +28,6 @@
 
 #import "KSCrashMonitorType.h"
 #import "KSCrashNamespace.h"
-#import "KSCrashReportFilter.h"
 #import "KSCrashReportStore.h"
 #import "KSCrashReportWriter.h"
 #import "KSSystemCapabilities.h"
@@ -37,8 +36,6 @@
 NS_ASSUME_NONNULL_BEGIN
 
 @class KSCrashInstallConfiguration;
-@class KSCrashReportDictionary;
-@class KSCrashSendConfiguration;
 
 /**
  * Reports any crashes that occur in the application.
@@ -145,7 +142,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property(class, atomic, readonly) KSCrash *sharedInstance NS_SWIFT_NAME(shared);
 
 /** Install the crash reporter.
- * The reporter will record crashes, but will not send any crash reports unless a sink is set.
+ * The reporter records crashes; sending them is a separate, explicit step.
  *
  * @param configuration The configuration to use for installation.
  * @param error A pointer to an NSError object. If an error occurs, this pointer is set to an actual error object
@@ -165,33 +162,7 @@ NS_ASSUME_NONNULL_BEGIN
  */
 @property(nonatomic, strong, readonly, nullable) KSCrashReportStore *reportStore;
 
-#pragma mark - Sending -
-
-/** Send all outstanding crash reports using the given send configuration.
- *
- * Forwards to the installed report store. If the crash reporter is not
- * installed, @c onCompletion is called with an error.
- *
- * @param configuration The filter chain and cleanup policy to use.
- * @param onCompletion Called when sending is complete (nil = ignore).
- */
-- (void)sendAllReportsWithConfiguration:(KSCrashSendConfiguration *)configuration
-                             completion:(nullable KSCrashReportFilterCompletion)onCompletion
-    NS_SWIFT_NAME(sendAllReports(with:completion:));
-
-/** Send a single report by ID using the given send configuration.
- *
- * Forwards to the installed report store. If the crash reporter is not
- * installed, @c onCompletion is called with an error.
- *
- * @param reportID The ID of the report to send.
- * @param configuration The filter chain and cleanup policy to use.
- * @param onCompletion Called when sending is complete (nil = ignore).
- */
-- (void)sendReportWithID:(KSCrashReportID)reportID
-           configuration:(KSCrashSendConfiguration *)configuration
-              completion:(nullable KSCrashReportFilterCompletion)onCompletion
-    NS_SWIFT_NAME(sendReport(id:with:completion:));
+#pragma mark - Reporting -
 
 /** Report a custom, user defined exception.
  * This can be useful when dealing with scripting languages.

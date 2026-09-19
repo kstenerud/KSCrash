@@ -54,7 +54,9 @@ struct MainView: View {
 
             NavigationLink("Crash", destination: CrashView())
             if let store = bridge.reportStore {
-                NavigationLink("Report", destination: ReportingView(store: store))
+                NavigationLink(
+                    "Report",
+                    destination: ReportingView(store: store, canUseSwiftSend: !bridge.reportsOnlySetup))
             } else {
                 Text("Reporting is not available")
             }

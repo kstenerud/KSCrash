@@ -45,11 +45,9 @@ import sys
 ALWAYS_ADDED_SYMBOLS = [
                         "i_kslog_logObjC",
                         "i_kslog_logObjCBasic",
-                        "KSCrashAlertViewProcess",
                         "KSCrashAppMemory",
                         "KSCrashAppMemoryTrackerDelegate",
-                        "KSCrashMailProcess",
-                        "KSCrashReportNoID",
+                        "KSCrashReportID",
                        ]
 
 # Ignore anything in an `NS_SWIFT_NAME()` macro that matches any of these:

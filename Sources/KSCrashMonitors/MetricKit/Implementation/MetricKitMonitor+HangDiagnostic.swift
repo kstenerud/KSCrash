@@ -64,7 +64,7 @@ import os.log
             let url = URL(fileURLWithPath: path)
 
             guard let data = try? Data(contentsOf: url),
-                let report = try? JSONDecoder().decode(BasicCrashReport.self, from: data)
+                let report = try? JSONDecoder().decode(Report.self, from: data)
             else {
                 os_log(
                     .error, log: metricKitLog, "[MONITORS] Failed to read or decode skeleton report at %{public}@",
@@ -107,7 +107,7 @@ import os.log
                 isFatal: false
             )
 
-            let newCrash = BasicCrashReport.Crash(diagnosis: nil, error: newError)
+            let newCrash = Report.Crash(diagnosis: nil, error: newError)
 
             let newSystem = buildSystemInfo(
                 metaData: diagnostic.metaData,
@@ -123,7 +123,7 @@ import os.log
             // does not align: finalized, so the store leaves it alone (see makeMetricKitReportInfo).
             let reportInfo = makeMetricKitReportInfo(
                 skeleton: report, timestamp: timestamp, runId: crashedRunId, finalized: true)
-            let newReport = BasicCrashReport(
+            let newReport = Report(
                 binaryImages: [],
                 crash: newCrash,
                 debug: nil,
