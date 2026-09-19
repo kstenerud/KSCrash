@@ -96,12 +96,13 @@ final class InstallConfigurationTests: XCTestCase {
             // An unsandboxed macOS process, every simulator, and Mac Catalyst
             // are handed a container URL for any group id.
             throw XCTSkip("app group containers always resolve outside a device sandbox")
+        #else
+            var config = InstallConfiguration(namespace: "Ns")
+            config.container = .appGroup("group.does.not.exist.kscrash")
+            XCTAssertThrowsError(try config.locations) { error in
+                XCTAssertEqual(error as? InstallError, .containerUnavailable("group.does.not.exist.kscrash"))
+            }
         #endif
-        var config = InstallConfiguration(namespace: "Ns")
-        config.container = .appGroup("group.does.not.exist.kscrash")
-        XCTAssertThrowsError(try config.locations) { error in
-            XCTAssertEqual(error as? InstallError, .containerUnavailable("group.does.not.exist.kscrash"))
-        }
     }
 
     func test_urlContainer_mustBeAFileURL() throws {
