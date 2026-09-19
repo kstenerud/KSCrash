@@ -1,14 +1,24 @@
 name: Corpse Device Tests
 
-# Manual only, deliberately. Every run of this consumes a real device session,
-# and the terminations under test kill the device's foreground app repeatedly,
-# so it is not something to fire on every push. Run it when the corpse path or
-# the extension changes.
+# Split in two on purpose, because the halves cost wildly different things.
 #
-# `run_on_device` defaults to false so the expensive half is opt-in: a dispatch
-# with it off proves the whole thing still compiles against the iOS 27 device
-# SDK and costs no device time at all.
+# Building is cheap, so it runs on any pull request that touches the corpse
+# path, and catches the common failure: the extension or the capture API drifts
+# and nothing notices until someone runs a device.
+#
+# Running is not cheap. It consumes a real device session and kills the
+# foreground app over and over, so it never happens just because a PR exists.
+# It needs an explicit dispatch with run_on_device, or the 'corpse-device-run'
+# label on the PR.
 on:
+  # On a pull request this only builds, which costs no device time, and only
+  # when something it covers actually changed.
+  pull_request:
+    paths:
+      - 'Samples/Corpse/**'
+      - 'Samples/Project.swift'
+      - 'Sources/KSCrashCrashReportExtension/**'
+      - '.github/workflows/corpse-device-tests.yml'
   workflow_dispatch:
     inputs:
       run_on_device:
@@ -82,7 +92,7 @@ jobs:
             | xcbeautify
 
       - name: Package App And Test Runner
-        if: ${{ inputs.run_on_device }}
+        if: ${{ inputs.run_on_device || contains(github.event.pull_request.labels.*.name, 'corpse-device-run') }}
         working-directory: ./Samples
         run: |
           PRODUCTS=build/DerivedData/Build/Products/Release-iphoneos
@@ -108,7 +118,7 @@ jobs:
         shell: bash
 
       - name: Upload App
-        if: ${{ inputs.run_on_device }}
+        if: ${{ inputs.run_on_device || contains(github.event.pull_request.labels.*.name, 'corpse-device-run') }}
         id: upload_app
         env:
           BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
@@ -123,7 +133,7 @@ jobs:
           echo "app_url=$URL" >> $GITHUB_OUTPUT
 
       - name: Upload Test Suite
-        if: ${{ inputs.run_on_device }}
+        if: ${{ inputs.run_on_device || contains(github.event.pull_request.labels.*.name, 'corpse-device-run') }}
         id: upload_tests
         env:
           BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
@@ -138,7 +148,7 @@ jobs:
           echo "test_suite_url=$URL" >> $GITHUB_OUTPUT
 
       - name: Run On Device
-        if: ${{ inputs.run_on_device }}
+        if: ${{ inputs.run_on_device || contains(github.event.pull_request.labels.*.name, 'corpse-device-run') }}
         id: run
         env:
           BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
@@ -146,7 +156,7 @@ jobs:
           # Through the environment and built with jq, never interpolated into
           # the shell: DEVICE is dispatch input, so pasting it into a command
           # line would let it run as shell.
-          DEVICE: ${{ inputs.device }}
+          DEVICE: ${{ inputs.device || 'iPhone 17 Pro-27' }}
           APP_URL: ${{ steps.upload_app.outputs.app_url }}
           TEST_SUITE_URL: ${{ steps.upload_tests.outputs.test_suite_url }}
         run: |
@@ -165,7 +175,7 @@ jobs:
           echo "build_id=$ID" >> $GITHUB_OUTPUT
 
       - name: Wait For Result
-        if: ${{ inputs.run_on_device }}
+        if: ${{ inputs.run_on_device || contains(github.event.pull_request.labels.*.name, 'corpse-device-run') }}
         env:
           BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
           BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
