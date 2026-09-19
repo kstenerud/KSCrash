@@ -62,7 +62,11 @@ final class CorpseTests: XCTestCase {
         let runIDLabel = app.staticTexts["corpse.runid"]
         XCTAssertTrue(runIDLabel.waitForExistence(timeout: 30), "\(trigger): app never came up")
         let runID = runIDLabel.label
-        XCTAssertNotEqual(runID, "no-run-id", "\(trigger): install produced no run id")
+        // The app puts the install's own error in the detail label, so a setup
+        // failure explains itself instead of looking like a missing report.
+        XCTAssertNotEqual(
+            runID, "no-run-id",
+            "\(trigger): install produced no run id. \(app.staticTexts["corpse.detail"].label)")
 
         // Tapping rather than crashing on launch keeps the read above from
         // racing the process death.
