@@ -50,9 +50,13 @@ still hold nulls. The store is what normalizes them: every read it performs
 passes `KSJSONDecodeOptionIgnoreNullInArray |
 KSJSONDecodeOptionIgnoreNullInObject`, so those nulls resolve to absence
 before a report leaves it. That is `readReportAtPath` and
-`kscrs_finalizeReport` in `KSCrashReportStoreC.m`,
-`extractRunIdWithFullDecode` in `KSCrashReportRunId.m`, and the report load in
-`KSCrashReportStore.m`. Adding a read to the store means passing them too.
+`kscrs_finalizeReport` in `KSCrashReportStoreC.m`, and
+`extractRunIdWithFullDecode` in `KSCrashReportRunId.m`. Adding a read to the
+store means passing them too.
+
+The Swift send reads bytes through `kscrs_readReport`, so it inherits
+`readReportAtPath`'s normalization rather than performing its own; there is no
+longer an Objective-C dictionary read to pass options to.
 
 A consumer that decodes raw report bytes itself rather than going through the
 store picks its own options and gets whatever the bytes hold;

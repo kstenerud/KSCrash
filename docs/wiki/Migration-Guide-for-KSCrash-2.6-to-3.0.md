@@ -7,7 +7,8 @@ what changed is how you install, configure, and talk to KSCrash at runtime.
 Unlike 2.6, **3.0 is source-breaking**: the ObjC facade (`KSCrash.h`,
 `KSCrashInstallConfiguration`, `KSCrashReportStore`) is gone, with no deprecated
 aliases. Migration is mechanical; this guide maps every removed surface to its
-replacement.
+replacement, and nothing else. For the capabilities 3.0 adds, see
+[What's New in KSCrash 3.0](Whats-New-in-KSCrash-3.0).
 
 ## What moved
 
@@ -40,6 +41,22 @@ Every arrow is a rename or a reshape of the same capability, not a new idea to
 learn. What the picture leaves out is the point of it: the C recording core,
 the on-disk report format and the crash-time behaviour are untouched, which is
 why reports written by 2.6 still read in 3.0.
+
+## What to change in Package.swift
+
+The first thing you hit is the dependency list, because five products are gone
+and two are renamed.
+
+| 2.6 product | 3.0 |
+| ----------------------------------------------- | ----------------------------------------------- |
+| `Recording`                                     | `Recording`, and add `KSCrash` for install and send |
+| `Installations`                                 | gone, `KSCrash` installs and sends              |
+| `Filters`, `Sinks`, `DemangleFilter`, `Reporting` | gone, replaced by pipeline stages you write   |
+| `DiscSpaceMonitor`                              | `DiskMonitor` (`import KSCrashDiskMonitor`)     |
+| `BootTimeMonitor`                               | `BootMonitor` (`import KSCrashBootMonitor`)     |
+| `Monitors`, `Profiler`, `Report`, `RecordingCore` | unchanged                                     |
+| new                                             | `MonitorPlugins`, for writing your own monitor  |
+| new                                             | `CrashReportExtension`, for iOS 27 crash extensions |
 
 ## Install
 
@@ -134,7 +151,8 @@ at delivery. Custom monitors conform to
 | -------------------------------------------- | ---------------------------------------------- |
 | `setUserInfo(_:forKey:)` / per-key getters   | `KSCrash.shared.metadata["key"] = value` (a typed `MetadataStore`; same crash-safe store underneath, and it now holds arrays and dictionaries as well as scalars) |
 | `crashedLastLaunch`                          | `previousTerminationReason.isAbnormal`         |
-| `sessionsSinceLaunch` and the other counters | removed; derive from run summaries' session records |
+| `activeDurationSinceLaunch` / `backgroundDurationSinceLaunch` | `RunSummary.durations.activeMs` / `.backgroundMs` |
+| `sessionsSinceLaunch` and the `…SinceLastCrash` counters | derived from run summaries, see below |
 | `reportUserException(...)`                   | `reportException(_:reason:language:lineOfCode:stackTrace:logAllThreads:terminateProgram:)` |
 | `report(_ exception:logAllThreads:)`         | `reportException(_ exception:logAllThreads:)`  |
 | `KSCrash+Hang.h` `addHangObserver:`          | `KSCrash.shared.hangEvents` (an `AsyncStream<HangEvent>`) |
@@ -194,57 +212,33 @@ does not know are preserved rather than dropped: they read back through
 `monitorData(_:for:)` under `crash.error.monitor_data.<id>` and the report's own
 `monitor_data` namespace.
 
-Nulls differ between the two. In the app-owned metadata a null means absence and
-the key is removed, because that is what "no value" means to a bag someone sets
-by hand. In monitor-written sections a null is a value and is kept, because
-dropping one would renumber the array around it.
+Nulls and containers behave differently from 2.6, and that is described in
+[What's New](Whats-New-in-KSCrash-3.0#metadata-holds-containers-and-reports-hold-no-nulls).
 
-## Run summaries
+## Where the launch counters went
 
-3.0 records one telemetry summary per process run, delivered by its own send
-and its own pipeline. A summary describes how a run ended whether or not it
-crashed, so it is the replacement for 2.6's launch counters:
+3.0 records one telemetry summary per process run (see
+[What's New](Whats-New-in-KSCrash-3.0#run-summaries)); the counters that used to
+hang off `KSCrash.shared` are read off those instead.
 
-```swift
-let summaries = try await KSCrash.shared.sendRunSummaries(with: send)
-```
+A summary covers exactly one run, so the per-launch durations map straight
+across: `durations.activeMs` and `durations.backgroundMs` are what
+`activeDurationSinceLaunch` and `backgroundDurationSinceLaunch` returned.
 
-Summaries are telemetry and are never sampled; reports are diagnostics and may
-be. Each summary carries the run's session records, from which any per-run
-count you used to read off `KSCrash.shared` can be derived.
+The four `…SinceLastCrash` values are derived rather than stored. Every summary
+carries `outcome.terminationReason` and `sessions.records`, so walk the
+summaries back to the most recent crashed run and aggregate:
 
-## Reporting for a crash extension
+| 2.6 | derive from summaries |
+| ---------------------------------- | ------------------------------------------- |
+| `launchesSinceLastCrash`           | how many summaries you walked               |
+| `sessionsSinceLastCrash`           | total `sessions.records` across them        |
+| `activeDurationSinceLastCrash`     | sum of `durations.activeMs`                 |
+| `backgroundDurationSinceLastCrash` | sum of `durations.backgroundMs`             |
 
-New in 3.0, and only relevant if you ship an iOS 27 crash report extension. The
-extension installs in corpse-reporting mode and captures each corpse it is
-handed; the app lists the same shared area and drains it on its next send.
-
-```mermaid
-flowchart LR
-  C["a corpse handed to<br/>your extension"] --> W["captureCrashReport"]
-  W --> S["Reports/.staging"]
-  S -->|"renamed once whole"| R["Reports/"]
-  R -->|"drained at the app's<br/>next sendReports"| A["the app's own store"]
-  A --> D["delivered through<br/>your pipeline"]
-```
-
-```swift
-// In the extension
-let area = CorpseReportingConfiguration(
-    namespace: "MyApp", container: .appGroup("group.com.example.app"))
-try KSCrash.shared.installForCorpseReporting(with: area)
-_ = try KSCrash.shared.captureCrashReport(from: process)
-
-// In the app
-config.plugins = [CrashReportExtensionMonitor.plugin()]   // stitches at read time
-send.corpseAreas = [area]                                  // same value, drained at send
-```
-
-A corpse-reporting install is not a lighter app install. It arms no crash
-detection, owns no run of its own, and keeps no metadata, sessions or run
-summaries, because everything it reports belongs to a process that has already
-died. The app-facing API is meaningless in that process; install normally
-instead if what you want is an extension that reports its own crashes.
+This is deliberate rather than an omission. Keeping them live would mean the
+SDK holding counters across runs that the summary stream already describes,
+and the backend is where that aggregation belongs.
 
 ## Deployment floor
 
@@ -256,3 +250,58 @@ tvOS 13 / watchOS 6 / macOS 10.15).
 `kscrash_install(installPath, KSCrashCConfiguration)` still exists and is the
 supported path for embedders that cannot take Swift (the namespaced-library
 setup uses it). The C user-info setters are gone; metadata is Swift-only.
+
+## Removed API index
+
+The sections above map capabilities. This is the symbol-by-symbol version, for
+working through a compiler's error list.
+
+`KSCrash` instance API:
+
+| 2.6 | 3.0 |
+| --------------------------------- | ------------------------------------------- |
+| `installWithConfiguration:`       | `install(_ configuration: InstallConfiguration)` |
+| `reportUserException:`            | `reportException(_:reason:language:lineOfCode:stackTrace:logAllThreads:terminateProgram:)` |
+| `reportNSException:`              | `reportException(_:logAllThreads:)`         |
+| `uncaughtExceptionHandler`        | removed, KSCrash installs its own           |
+| `crashedLastLaunch`               | `previousTerminationReason.isAbnormal`      |
+| `systemInfo`                      | removed, on every report's `system` section |
+| `reportStore`                     | `Store`, reached through the send           |
+| `sessionsSinceLaunch`, `launchesSinceLastCrash`, `sessionsSinceLastCrash`, `activeDuration…`, `backgroundDuration…` | run summaries, see Run summaries |
+
+User info, all replaced by `KSCrash.shared.metadata["key"]`:
+
+`setUserInfoString:`, `setUserInfoBool:`, `setUserInfoDate:`,
+`setUserInfoDouble:`, `setUserInfoInteger:`,
+`setUserInfoUnsignedInteger:`, `removeUserInfoValueForKey:`.
+
+Backtrace:
+
+| 2.6 | 3.0 |
+| ---------------------------------- | ------------------------------------ |
+| `captureBacktraceFromThread:`      | `Backtrace.capture(thread:maxFrames:)` |
+| `captureBacktraceFromMachThread:`  | `Backtrace.capture(machThread:maxFrames:)` |
+| `symbolicateAddress:`              | `Backtrace.symbolicate(_:)`          |
+| `quickSymbolicateAddress:`         | `Backtrace.quickSymbolicate(_:)`     |
+
+Hang observation: `addHangObserver:` becomes `KSCrash.shared.hangEvents`, an
+`AsyncStream<HangEvent>`.
+
+Report store, all replaced by the Swift `Store` and the async send:
+
+`storeWithConfiguration:`, `defaultStoreWithError:`, `defaultInstallSubfolder`,
+`reportCount`, `reportIDs`, `nextReportID`, `reportForID:`, `reportDataForID:`,
+`deleteReportWithID:`, `deleteAllReports`, `sendAllReportsWithCompletion:`,
+`sendReportWithID:`, `sink`, `reportCleanupPolicy`,
+`cleanupOrphanedRunSidecars`.
+
+Plugins: `KSCrashBasicMonitorPlugin`, `pluginWithAPI:` and `initWithAPI:` become
+the `MonitorPlugin` protocol in `KSCrashMonitorPlugins`, with `CMonitorPlugin(api:)`
+wrapping a C monitor table.
+
+Whole products, covered above rather than symbol by symbol: `Installations`
+(the `KSCrashInstallation` classes), `Filters` (every `KSCrashReportFilter*`,
+including `KSCrashDoctor`), `Sinks` (every `KSCrashReportSink*`),
+`DemangleFilter`, and `Reporting` (`KSHTTPRequestSender`, `KSReachabilityKSCrash`
+and the other delivery helpers). Their replacement is a `PipelineStage` you
+write, or your own networking.
