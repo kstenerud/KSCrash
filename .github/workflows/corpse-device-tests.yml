@@ -173,9 +173,24 @@ jobs:
           DEVICE: ${{ inputs.device || 'iPhone 18 Pro-27' }}
           WANTED_MAJOR: '27'
         run: |
+          # The generic App Automate list is NOT the same as what XCUITest
+          # accepts: a device can appear there and still be rejected by the
+          # xcuitest build endpoint as BROWSERSTACK_INVALID_DEVICE. Ask the
+          # framework-specific list first and fall back to the generic one.
+          echo "=== xcuitest device list ==="
+          XC=$(curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
+            "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/devices.json")
+          if echo "$XC" | jq -e 'type == "array"' >/dev/null 2>&1; then
+            echo "$XC" | jq -r --arg major "$WANTED_MAJOR" \
+              '.[] | select((.os // "ios") == "ios") | select(.os_version | startswith($major))
+               | "\(.device)-\(.os_version)"' | sort -u
+          else
+            echo "(no xcuitest-specific list; response was: $(echo "$XC" | head -c 300))"
+          fi
+
           DEVICES=$(curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
             "https://api-cloud.browserstack.com/app-automate/devices.json")
-          echo "--- iOS ${WANTED_MAJOR}.x devices ---"
+          echo "--- iOS ${WANTED_MAJOR}.x devices (generic list) ---"
           echo "$DEVICES" | jq -r --arg major "$WANTED_MAJOR" \
             '.[] | select(.os == "ios") | select(.os_version | startswith($major))
              | "\(.device)-\(.os_version)"' | sort -u
