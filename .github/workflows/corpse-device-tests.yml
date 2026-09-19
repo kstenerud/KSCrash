@@ -1,22 +1,11 @@
 name: Corpse Device Tests
 
-# Split in two on purpose, because the halves cost wildly different things.
-#
-# Building is cheap, so it runs on any pull request that touches the corpse
-# path, and catches the common failure: the extension or the capture API drifts
-# and nothing notices until someone runs a device.
-#
-# Running is not cheap. It consumes a real device session and kills the
-# foreground app over and over, so it never happens just because a PR exists.
-# It needs an explicit dispatch with run_on_device, or the 'corpse-device-run'
-# label on the PR.
+# Runs on a real device, the way the benchmarks do: on any pull request that
+# touches the corpse path. Nothing here can run in a simulator, since
+# CrashReportExtension is absent from that SDK and the path under test begins
+# with the system handing over a process that really died.
 on:
-  # On a pull request this only builds, which costs no device time, and only
-  # when something it covers actually changed.
   pull_request:
-    # `labeled` is here so adding corpse-device-run starts a run rather than
-    # waiting for the next push.
-    types: [opened, synchronize, reopened, labeled]
     paths:
       - 'Samples/Corpse/**'
       - 'Samples/Project.swift'
@@ -24,11 +13,6 @@ on:
       - '.github/workflows/corpse-device-tests.yml'
   workflow_dispatch:
     inputs:
-      run_on_device:
-        description: 'Upload and run on BrowserStack (consumes a device session)'
-        required: false
-        type: boolean
-        default: false
       device:
         description: 'BrowserStack device. XCUITest supports fewer devices than the generic App Automate list: iPhone 18 Pro-27 appears there but is refused here.'
         required: false
@@ -37,6 +21,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   corpse:
@@ -176,7 +164,6 @@ jobs:
             "$APP/Extensions/CorpseReporter.appex/Info.plist"
 
       - name: Package App And Test Runner
-        if: ${{ inputs.run_on_device || contains(github.event.pull_request.labels.*.name, 'corpse-device-run') }}
         working-directory: ./Samples
         run: |
           PRODUCTS=build/DerivedData/Build/Products/Release-iphoneos
@@ -195,7 +182,6 @@ jobs:
         shell: bash
 
       - name: Upload App
-        if: ${{ inputs.run_on_device || contains(github.event.pull_request.labels.*.name, 'corpse-device-run') }}
         id: upload_app
         env:
           BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
@@ -211,7 +197,6 @@ jobs:
           echo "app_url=$URL" >> $GITHUB_OUTPUT
 
       - name: Upload Test Suite
-        if: ${{ inputs.run_on_device || contains(github.event.pull_request.labels.*.name, 'corpse-device-run') }}
         id: upload_tests
         env:
           BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
@@ -229,7 +214,6 @@ jobs:
       # the run with a message that does not say which strings are valid. Beta
       # OS versions are named differently from released ones.
       - name: Show Available iOS Devices
-        if: ${{ inputs.run_on_device || contains(github.event.pull_request.labels.*.name, 'corpse-device-run') }}
         env:
           BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
           BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
@@ -265,7 +249,6 @@ jobs:
             | grep -Fx "$DEVICE" && echo "yes" || echo "NO: $DEVICE is not offered"
 
       - name: Run On Device
-        if: ${{ inputs.run_on_device || contains(github.event.pull_request.labels.*.name, 'corpse-device-run') }}
         id: run
         env:
           BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
@@ -292,7 +275,6 @@ jobs:
           echo "build_id=$ID" >> $GITHUB_OUTPUT
 
       - name: Wait For Result
-        if: ${{ inputs.run_on_device || contains(github.event.pull_request.labels.*.name, 'corpse-device-run') }}
         env:
           BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
           BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
