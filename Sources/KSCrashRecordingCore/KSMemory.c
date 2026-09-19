@@ -118,9 +118,7 @@ int ksmem_maxReadableBytes(const void *const memory, const int tryByteCount)
         currentPosition += testBufferSize;
         bytesRemaining -= testBufferSize;
     }
-    // Probe only what is left to answer for. Passing testBufferSize here would fill the whole
-    // scratch buffer and report readable bytes the caller never asked about, so a request for
-    // 256 bytes could answer 10240. A caller sizing a copy off that overruns its buffer.
+    // Only what is left to answer for: the result must never exceed tryByteCount.
     bytesRemaining -= copyMaxPossible(task, currentPosition, g_memoryTestBuffer, bytesRemaining);
     return tryByteCount - bytesRemaining;
 }
