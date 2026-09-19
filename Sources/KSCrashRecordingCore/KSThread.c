@@ -167,8 +167,7 @@ bool ksthread_getQueueName(const KSThread thread, char *const buffer, int bufLen
     // dereferencing leaves a window between the two. copySafely returns an error where a
     // dereference would fault.
     dispatch_queue_t dispatch_queue = NULL;
-    if (!ksmem_copySafely(dispatch_queue_ptr, &dispatch_queue, (int)sizeof(dispatch_queue)) ||
-        dispatch_queue == NULL) {
+    if (!ksmem_copySafely(dispatch_queue_ptr, &dispatch_queue, (int)sizeof(dispatch_queue)) || dispatch_queue == NULL) {
         KSLOG_TRACE("This thread doesn't have a dispatch queue attached : %p", thread);
         return false;
     }
