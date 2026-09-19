@@ -113,16 +113,32 @@ correctness. Events that must be recorded leave the flag clear and are never
 refused or delayed: a report write is far longer than any wait a crash path can
 afford, so waiting would buy delay and no exclusion.
 
-## CrashReportExtension: reporting another process's corpse
+## Out-of-process reporting with CrashReportExtension
 
-Everything else here is about reporting on the process KSCrash is running in.
-This is the exception: iOS 27's `CrashReportExtension` hands your extension the
-**corpse** of a process that has already died, a Mach task you can still read
-registers, threads and memory out of, and 3.0 can turn one into a KSCrash
-report.
+Everywhere else, KSCrash writes the report from inside the dying process, in a
+signal or Mach exception handler, under async-signal-safety rules. iOS 27's
+`CrashReportExtension` offers the other arrangement, and 3.0 supports it.
 
-The extension installs in corpse-reporting mode and captures each corpse it is
-given; the app lists the same shared area and drains it on its next send.
+You ship a `CrashReporterExtension`, and the system calls it after your app
+dies:
+
+```swift
+func processCrashReport(process: CrashedProcess)
+```
+
+`CrashedProcess` carries the crash `reason`, the `binaryImages`, symbolication,
+and a `corpsePort`, a **read-only** Mach port onto the dead process, enough to
+read its threads, registers and memory. So the report is produced by a healthy
+process, about a dead one, with no handler running inside the crash and none of
+the async-signal-safety constraints that come with one.
+
+The extension's bundle identifier has to be a child of the app's
+(`com.example.myapp.crash-handler` for `com.example.myapp`), and its
+`Info.plist` has to declare the extension point.
+
+KSCrash captures from that corpse. The extension installs in corpse-reporting
+mode and captures each `CrashedProcess` it is handed; the app lists the same
+shared area and drains it on its next send.
 
 ```mermaid
 flowchart LR
