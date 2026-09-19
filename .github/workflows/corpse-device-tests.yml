@@ -256,8 +256,14 @@ jobs:
                 | "\(.name)\t\(.duration)\t\(.instrumentation_log)"
               ' | while IFS=$(printf '\t') read -r NAME DURATION LOGURL; do
                 echo "===== FAILED $NAME (${DURATION}s) ====="
-                [ -n "$LOGURL" ] && curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" "$LOGURL" \
-                  | grep -viE "^\\s*$" | tail -30
+                [ -n "$LOGURL" ] || continue
+                LOG=$(curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" "$LOGURL")
+                # The assertion text is in the body, not the trailing summary.
+                echo "$LOG" | grep -aiE "error:|XCTAssert|XCTFail|Assertion Failure|failed -|XCTSkip|Restarting after unexpected exit|crash" \
+                  | head -20
+                echo "--- last lines before the summary ---"
+                echo "$LOG" | grep -av "^$" | grep -avE "IDETestOperationsObserver|privacy|Apple products|serial numbers|peripheral|IP addresses|consent|devicectl|Wrote file|Partial" \
+                  | tail -12
               done
             done
           }
