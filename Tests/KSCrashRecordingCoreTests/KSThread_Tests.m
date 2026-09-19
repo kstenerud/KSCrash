@@ -29,6 +29,8 @@
 #import "KSThread.h"
 #import "TestThread.h"
 
+#include <stdatomic.h>
+
 @interface KSThread_Tests : XCTestCase
 @end
 
@@ -144,6 +146,47 @@
     stateName = ksthread_state_name(state);
     NSString *stateString = @"TH_STATE_STOPPED";
     XCTAssertEqual(strcmp(stateName, stateString.UTF8String), 0);
+}
+
+- (void)testGetQueueNameOnThreadsThatKeepExiting
+{
+    // The reported crash: the queue slot lives in the target thread's pthread structure, so
+    // reading it races that thread's exit. Read every thread in the process, the way the
+    // cache's polling thread does, while a bounded number of short-lived threads come and
+    // go underneath. A faulting read takes the test process down, so finishing is the pass.
+    const int kRounds = 40;
+    const int kThreadsPerRound = 4;
+
+    char buffer[256];
+    for (int round = 0; round < kRounds; round++) {
+        NSMutableArray<NSThread *> *threadsThisRound = [NSMutableArray array];
+        for (int i = 0; i < kThreadsPerRound; i++) {
+            NSThread *thread = [[NSThread alloc] initWithBlock:^{
+                [NSThread sleepForTimeInterval:0.001];
+            }];
+            [thread start];
+            [threadsThisRound addObject:thread];
+        }
+
+        thread_act_array_t threads = NULL;
+        mach_msg_type_number_t threadCount = 0;
+        if (task_threads(mach_task_self(), &threads, &threadCount) == KERN_SUCCESS) {
+            for (mach_msg_type_number_t i = 0; i < threadCount; i++) {
+                // Whatever it answers is fine; not faulting is the point.
+                (void)ksthread_getQueueName((KSThread)threads[i], buffer, sizeof(buffer));
+                mach_port_deallocate(mach_task_self(), threads[i]);
+            }
+            vm_deallocate(mach_task_self(), (vm_address_t)threads, sizeof(thread_t) * threadCount);
+        }
+
+        // Let this round's threads finish before starting the next, so the test cannot
+        // outrun the thread pool.
+        for (NSThread *thread in threadsThisRound) {
+            while (!thread.isFinished) {
+                [NSThread sleepForTimeInterval:0.001];
+            }
+        }
+    }
 }
 
 - (void)testGetQueueNameRejectsNonPositiveBufferLengths

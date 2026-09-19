@@ -155,40 +155,53 @@ bool ksthread_getQueueName(const KSThread thread, char *const buffer, int bufLen
         return false;
     }
     dispatch_queue_t *dispatch_queue_ptr = (dispatch_queue_t *)idInfo->dispatch_qaddr;
-    if (!ksmem_isMemoryReadable(dispatch_queue_ptr, sizeof(*dispatch_queue_ptr))) {
-        KSLOG_DEBUG("Thread %p has an invalid dispatch queue pointer %p", thread, dispatch_queue_ptr);
-        return false;
-    }
     // thread_handle shouldn't be 0 also, because
     // identifier_info->dispatch_qaddr =  identifier_info->thread_handle +
     // get_dispatchqueue_offset_from_proc(thread->task->bsd_info);
-    if (dispatch_queue_ptr == NULL || idInfo->thread_handle == 0 || *dispatch_queue_ptr == NULL) {
+    if (dispatch_queue_ptr == NULL || idInfo->thread_handle == 0) {
         KSLOG_TRACE("This thread doesn't have a dispatch queue attached : %p", thread);
         return false;
     }
 
-    dispatch_queue_t dispatch_queue = *dispatch_queue_ptr;
+    // The slot belongs to `thread`, which can exit mid-read, and checking readability then
+    // dereferencing leaves a window between the two. copySafely returns an error where a
+    // dereference would fault.
+    dispatch_queue_t dispatch_queue = NULL;
+    if (!ksmem_copySafely(dispatch_queue_ptr, &dispatch_queue, (int)sizeof(dispatch_queue)) || dispatch_queue == NULL) {
+        KSLOG_TRACE("This thread doesn't have a dispatch queue attached : %p", thread);
+        return false;
+    }
+
     const char *queue_name = dispatch_queue_get_label(dispatch_queue);
     if (queue_name == NULL) {
         KSLOG_TRACE("Error while getting dispatch queue name : %p", dispatch_queue);
         return false;
     }
-    KSLOG_TRACE("Dispatch queue name: %s", queue_name);
-    int length = (int)strlen(queue_name);
 
-    // Queue label must be a null terminated string.
-    int iLabel;
-    for (iLabel = 0; iLabel < length + 1; iLabel++) {
-        if (queue_name[iLabel] < ' ' || queue_name[iLabel] > '~') {
-            break;
-        }
-    }
-    if (queue_name[iLabel] != 0) {
-        // Found a non-null, invalid char.
-        KSLOG_TRACE("Queue label contains invalid chars");
+    // Same reason, and maxReadableBytes first because copying bufLength bytes outright
+    // fails when the label sits near the end of its mapping.
+    const int readable = ksmem_maxReadableBytes(queue_name, bufLength);
+    if (readable < 1 || !ksmem_copySafely(queue_name, buffer, readable)) {
+        KSLOG_TRACE("Could not read the queue label : %p", dispatch_queue);
         return false;
     }
-    strlcpy(buffer, queue_name, (size_t)bufLength);
+
+    // Queue label must be a printable, NUL terminated string.
+    int iLabel;
+    for (iLabel = 0; iLabel < readable; iLabel++) {
+        if (buffer[iLabel] == 0) {
+            break;
+        }
+        if (buffer[iLabel] < ' ' || buffer[iLabel] > '~') {
+            KSLOG_TRACE("Queue label contains invalid chars");
+            return false;
+        }
+    }
+    if (iLabel == readable) {
+        KSLOG_TRACE("Queue label is not NUL terminated within %d bytes", bufLength);
+        return false;
+    }
+
     KSLOG_TRACE("Queue label = %s", buffer);
     return true;
 }
