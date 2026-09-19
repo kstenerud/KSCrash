@@ -25,13 +25,23 @@
 //
 
 import Foundation
+import KSCrashTestTools
 import XCTest
 
 @testable import KSCrash
 
 final class HangEventsTests: XCTestCase {
+    // The hang monitor is armed here rather than by the install: it is
+    // process-global, and one left running suspends every thread and writes a
+    // report for any main-thread stall in the tests that follow.
     override func setUpWithError() throws {
         try TestInstall.ensure()
+        hangtest_arm()
+    }
+
+    override func tearDown() {
+        hangtest_disarm()
+        super.tearDown()
     }
 
     func test_hangEvents_reportAHangOfTheMainThread() async throws {
