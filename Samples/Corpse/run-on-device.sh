@@ -46,7 +46,7 @@ mise exec -- tuist generate --no-open
 # Everything runs, memory included. It exhausts the device and evicts whatever
 # else is open, which is a reason to name a single test when you are on your own
 # phone, not a reason to drop it from a full run.
-exec xcodebuild test \
+xcodebuild test \
   -workspace KSCrashSamples.xcworkspace \
   -scheme CorpseBrowserStack \
   -destination "id=$DEVICE_ID" \
