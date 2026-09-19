@@ -41,6 +41,61 @@ enum CorpseArea {
     static var configuration: CorpseReportingConfiguration {
         CorpseReportingConfiguration(namespace: namespace, container: .appGroup(appGroup))
     }
+
+    /// Where a run about to die records its own id.
+    ///
+    /// Most cases let the test read the id off the screen before killing the
+    /// app, which keeps the pin independent of the code under test. A launch
+    /// hang cannot: the watchdog kills the process before any UI exists, so the
+    /// dying run writes the id itself and the next launch reads it back.
+    static var runIDReceipt: URL? {
+        // The app's own container. Only this app writes it and only this app
+        // reads it back; the extension has no interest in it, so it has no
+        // business in the shared group.
+        try? FileManager.default
+            .url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+            .appendingPathComponent("last-run-id.txt")
+    }
+
+    static func recordRunID(_ id: String) {
+        guard let url = runIDReceipt else { return }
+        try? FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? Data(id.utf8).write(to: url)
+    }
+
+    static func recordedRunID() -> String? {
+        guard let url = runIDReceipt, let data = try? Data(contentsOf: url) else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+}
+
+/// A hang the OS actually punishes.
+///
+/// iOS only watchdogs transitions it polices, launch above all: an app that has
+/// not finished launching within roughly twenty seconds is killed with
+/// 0x8badf00d. A main thread blocked *after* launch is merely unresponsive, and
+/// the system leaves it alone, which is why the sample's existing watchdog
+/// trigger has to SIGKILL itself and therefore produces no corpse.
+///
+/// So this burns the main thread with real work during launch, before any scene
+/// exists, and waits to be killed.
+enum LaunchHang {
+    static let triggerID = "corpse-launch-hang"
+
+    static func hangUntilKilled() {
+        let deadline = Date().addingTimeInterval(120)
+        var sink = 0.0
+        // Real work rather than sleep: a sleeping main thread and a busy one are
+        // not the same to the watchdog, and busy is what a real launch hang is.
+        while Date() < deadline {
+            for i in 1...200_000 {
+                sink += (Double(i) * 1.000_001).squareRoot()
+            }
+        }
+        // Never reached; keeps the compiler from discarding the work above.
+        if sink == .infinity { abort() }
+    }
 }
 
 /// How the UI test drives the app. Everything the app does is decided by launch

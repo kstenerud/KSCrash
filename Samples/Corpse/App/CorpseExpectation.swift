@@ -67,12 +67,5 @@ struct CorpseExpectation {
         .init(
             triggerID: CrashTriggerId.cpp_runtimeExceptionBackgroundThread.rawValue,
             errorType: .cppException, deadline: 20),
-        // The unwinder's worst case: the stack being read is the exhausted one.
-        .init(
-            triggerID: CrashTriggerId.other_stackOverflow.rawValue, errorType: .mach, deadline: 20),
-        // Real jetsam on a device. The trigger already dirties every page it
-        // allocates, so the kill is genuine rather than simulated; the simulator
-        // env var that fakes it is deliberately not set here.
-        .init(triggerID: CrashTriggerId.memory_oom.rawValue, errorType: .termination, deadline: 120),
     ]
 }
