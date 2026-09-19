@@ -69,7 +69,7 @@ try KSCrash.shared.install(with: config)
 
 // 3.0
 import KSCrash
-var config = InstallConfiguration(namespace: "MyApp")
+let config = InstallConfiguration(namespace: "MyApp")
 try KSCrash.shared.install(config)
 ```
 
