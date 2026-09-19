@@ -94,6 +94,25 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             | xcbeautify
 
+      # The extension being embedded is the thing most likely to go quietly
+      # wrong, and it looks identical to a capture bug once it reaches a device:
+      # the app runs, nothing ever writes a report. Checking here names it.
+      - name: Check The Extension Was Embedded
+        working-directory: ./Samples
+        run: |
+          APP=build/DerivedData/Build/Products/Release-iphoneos/CorpseHost.app
+          echo "--- app bundle ---"
+          find "$APP" -maxdepth 2 -name "*.appex" -o -maxdepth 1 -type d | sort
+          if [ ! -d "$APP/Extensions/CorpseReporter.appex" ]; then
+            echo "::error::CorpseReporter.appex is not in $APP/Extensions"
+            echo "--- anywhere in the bundle? ---"
+            find "$APP" -name "*.appex" -maxdepth 3 || true
+            exit 1
+          fi
+          echo "embedded, and its identifier is:"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" \
+            "$APP/Extensions/CorpseReporter.appex/Info.plist"
+
       - name: Package App And Test Runner
         if: ${{ inputs.run_on_device || contains(github.event.pull_request.labels.*.name, 'corpse-device-run') }}
         working-directory: ./Samples
@@ -111,13 +130,6 @@ jobs:
 
           cd "$GITHUB_WORKSPACE"
           ls -lh CorpseHost.ipa CorpseTests.zip
-
-          # The extension has to have survived packaging; if it did not, every
-          # test would fail later with a confusing "no report" instead of this.
-          if [ ! -d "Payload/CorpseHost.app/Extensions/CorpseReporter.appex" ]; then
-            echo "::error::CorpseReporter.appex is not embedded in the app"
-            exit 1
-          fi
         shell: bash
 
       - name: Upload App
