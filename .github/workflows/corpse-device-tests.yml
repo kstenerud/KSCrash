@@ -30,10 +30,10 @@ on:
         type: boolean
         default: false
       device:
-        description: 'BrowserStack device. iOS 27 is offered on iPhone 18 Pro, 18 Pro Max, 16 Pro Max, 15 Pro and 15; not on iPhone 17 Pro.'
+        description: 'BrowserStack device. XCUITest supports fewer devices than the generic App Automate list: iPhone 18 Pro-27 appears there but is refused here.'
         required: false
         type: string
-        default: 'iPhone 18 Pro-27'
+        default: 'iPhone 15 Pro-27'
 
 permissions:
   contents: read
@@ -170,7 +170,7 @@ jobs:
         env:
           BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
           BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
-          DEVICE: ${{ inputs.device || 'iPhone 18 Pro-27' }}
+          DEVICE: ${{ inputs.device || 'iPhone 15 Pro-27' }}
           WANTED_MAJOR: '27'
         run: |
           # The generic App Automate list is NOT the same as what XCUITest
@@ -210,7 +210,7 @@ jobs:
           # Through the environment and built with jq, never interpolated into
           # the shell: DEVICE is dispatch input, so pasting it into a command
           # line would let it run as shell.
-          DEVICE: ${{ inputs.device || 'iPhone 18 Pro-27' }}
+          DEVICE: ${{ inputs.device || 'iPhone 15 Pro-27' }}
           APP_URL: ${{ steps.upload_app.outputs.app_url }}
           TEST_SUITE_URL: ${{ steps.upload_tests.outputs.test_suite_url }}
         run: |
