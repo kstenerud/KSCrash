@@ -236,6 +236,29 @@ jobs:
           BUILD_ID: ${{ steps.run.outputs.build_id }}
         run: |
           ID="$BUILD_ID"
+          # Print each test's own failure before exiting. The build summary only
+          # gives counts, and the verdict this suite produces is a sentence in a
+          # label, which is the only explanation anyone gets: nothing can attach
+          # a debugger to a device in a rack.
+          report_failures() {
+            BUILD_JSON=$1
+            echo "$BUILD_JSON" | jq -r '.devices[]?.sessions[]?.id' | while read -r SESSION; do
+              [ -n "$SESSION" ] || continue
+              echo "--- session $SESSION ---"
+              curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
+                "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/builds/$ID/sessions/$SESSION" \
+                | jq -r '
+                  (.testcases[]? // empty)
+                  | select(.status != "passed")
+                  | "FAILED \(.class_name // "?").\(.name // "?")\n    \((.failures // []) | map(.reason // .message // tostring) | join("\n    "))"
+                '
+              echo "--- device log (tail) ---"
+              curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
+                "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/builds/$ID/sessions/$SESSION/devicelogs" \
+                | tail -40
+            done
+          }
+
           for _ in $(seq 1 60); do
             STATUS_JSON=$(curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
               "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/builds/$ID")
@@ -243,7 +266,12 @@ jobs:
             echo "status: $STATUS"
             case "$STATUS" in
               running|queued) sleep 30 ;;
-              *) echo "$STATUS_JSON" | jq '.'; [ "$STATUS" = "passed" ] && exit 0 || exit 1 ;;
+              *)
+                echo "$STATUS_JSON" | jq '.'
+                if [ "$STATUS" = "passed" ]; then exit 0; fi
+                report_failures "$STATUS_JSON"
+                exit 1
+                ;;
             esac
           done
           echo "::error::timed out waiting for the device run"
