@@ -5,6 +5,40 @@
 to its replacement. This page is the other half: what 3.0 can do that 2.6 could
 not, whether or not you are migrating.
 
+## Telemetry and diagnostics are different things
+
+The Swift API is the visible change. This one shapes everything else: 3.0 stops
+treating the crash report as the unit of both measurement and investigation,
+and splits those into two payloads with different rules.
+
+**Telemetry is the run summary.** One per process run, crash or no crash. It
+says how the run ended, how long it spent foreground and background, on which
+app, OS and device, and what sessions it contained. This is what metrics are
+built from: crash-free rate, session counts, how a release is behaving in the
+field. Summaries are **never sampled**, because a rate computed from a sampled
+denominator is not that rate.
+
+**Diagnostics are reports**, and in 3.0 a single run can produce many of them,
+from several sources at once:
+
+- KSCrash's own handlers, for signals and Mach exceptions
+- MetricKit, whose diagnostics arrive hours or days later
+- an iOS 27 `CrashReportExtension` capture, written out of process
+- profiles and hangs
+
+They overlap deliberately. Two sources can describe the same crash, which is a
+feature when you are trying to understand one, and a trap if you are counting.
+**Do not count reports.** The number of reports a run produced is a function of
+which sources you enabled and which of them happened to fire, not of how the
+app behaved. Counting them measures your configuration.
+
+What this buys you is freedom to choose. Turn MetricKit off and you can still
+root-cause a run from the other sources. Use only the iOS 27 extension and skip
+in-process handlers entirely. Run all of them and sample, because a diagnostic
+does not need full coverage to do its job: you need enough instances of a crash
+to understand it, not every instance. The run summaries keep telling you how
+often it happens while the reports tell you why.
+
 ## Run summaries
 
 2.6 told you about crashes. 3.0 also tells you about the runs that did not
@@ -20,13 +54,9 @@ let summaries = try await KSCrash.shared.sendRunSummaries(with: send)
 
 A summary says how the run ended (`outcome.terminationReason`), how long it
 spent foreground and background (`durations.activeMs`, `.backgroundMs`), which
-app, OS and device it was, and the sessions it contained. Because one arrives
-for a clean exit too, a backend can compute a crash-free rate rather than
-counting only the failures.
-
-Summaries are telemetry and are **never sampled**; reports are diagnostics and
-may be. That split is deliberate: sampling the thing you compute rates from
-would bias the rate.
+app, OS and device it was, and the sessions it contained. One arrives for a
+clean exit as well as a crash, which is what makes it the denominator: a
+backend can compute a crash-free rate rather than counting only the failures.
 
 ## Sessions
 
