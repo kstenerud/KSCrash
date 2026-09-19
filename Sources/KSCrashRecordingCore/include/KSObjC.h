@@ -290,6 +290,15 @@ bool ksobjc_numberIsFloat(const void *object);
  */
 double ksobjc_numberAsFloat(const void *object);
 
+/** Whether the number holds a single-precision float. Its value still comes
+ * back widened from ksobjc_numberAsFloat, and a caller printing it has to know
+ * which of the two precisions the digits are worth.
+ *
+ * @param object The number.
+ * @return Whether the stored value is a 32-bit float.
+ */
+bool ksobjc_numberIsFloat32(const void *object);
+
 /** Get the contents of a number as an integer value.
  * If the number was stored as floating point, it will be
  * truncated as per C's conversion rules.

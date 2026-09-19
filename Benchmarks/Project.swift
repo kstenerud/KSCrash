@@ -37,6 +37,7 @@ let project = Project(
                 .package(product: "Recording", type: .runtime),
                 .package(product: "RecordingCore", type: .runtime),
                 .package(product: "Profiler", type: .runtime),
+                .package(product: "Report", type: .runtime),
             ],
             settings: .settings(base: [
                 "HEADER_SEARCH_PATHS": [
@@ -61,6 +62,7 @@ let project = Project(
                 .package(product: "Recording", type: .runtime),
                 .package(product: "RecordingCore", type: .runtime),
                 .package(product: "Profiler", type: .runtime),
+                .package(product: "Report", type: .runtime),
             ],
             settings: .settings(base: [
                 "HEADER_SEARCH_PATHS": [

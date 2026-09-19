@@ -212,7 +212,8 @@ bool ksruncontext_contextForRunID(const char *runID, KSCrashSidecarRunPathForRun
     }
 
     if (pathForRunID("Resource", runID, sidecarPath, sizeof(sidecarPath))) {
-        outContext->resourceValid = ksresource_readSnapshotFromPath(sidecarPath, &outContext->resource);
+        outContext->resourceValid =
+            ksresource_readSnapshotFromPath(sidecarPath, &outContext->resource) == KSCrashSidecarReadOK;
         anyValid |= outContext->resourceValid;
     }
 

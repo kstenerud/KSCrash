@@ -46,9 +46,18 @@ CFDictionaryRef kscm_resource_createStitchedReport(CFDictionaryRef reportDict, c
     }
 
     KSCrash_ResourceData data = {};
-    if (!ksresource_readSnapshotFromPath(sidecarPath, &data)) {
+    KSCrashSidecarReadResult readResult = ksresource_readSnapshotFromPath(sidecarPath, &data);
+    if (readResult == KSCrashSidecarReadFailure) {
         KSLOG_ERROR(@"Failed to read resource sidecar at %s", sidecarPath);
         return NULL;
+    }
+    if (readResult != KSCrashSidecarReadOK) {
+        // NULL is the retry signal, and retrying this never gets further: it
+        // would stop the report being finalized for good. Deliver it without
+        // the resource section.
+        KSLOG_ERROR(@"Unreadable resource sidecar at %s; delivering without it", sidecarPath);
+        CFRetain(reportDict);
+        return reportDict;
     }
 
     NSMutableDictionary *dict = [(__bridge NSDictionary *)reportDict mutableCopy];

@@ -64,6 +64,9 @@
 /** If true, don't store nulls in objects */
 @property(nonatomic, readwrite, assign) bool ignoreNullsInObjects;
 
+/** Fail the decode on an unrepresentable string rather than dropping it. */
+@property(nonatomic, readwrite, assign) bool failOnUnrepresentableString;
+
 #pragma mark Constructors
 
 /** Convenience constructor.
@@ -121,6 +124,7 @@
         _sorted = (encodeOptions & KSJSONEncodeOptionSorted) != 0;
         _ignoreNullsInArrays = (decodeOptions & KSJSONDecodeOptionIgnoreNullInArray) != 0;
         _ignoreNullsInObjects = (decodeOptions & KSJSONDecodeOptionIgnoreNullInObject) != 0;
+        _failOnUnrepresentableString = (decodeOptions & KSJSONDecodeOptionFailOnUnrepresentableString) != 0;
     }
     return self;
 }
@@ -142,23 +146,19 @@ static inline NSString *_Nullable stringFromCString(const char *const string)
 
 #pragma mark Callbacks
 
+/** Drop the member, or fail the whole decode when the caller asked for that. */
+static int unrepresentable(KSJSONCodec *codec, NSString *description)
+{
+    if (!codec.failOnUnrepresentableString) {
+        return KSJSON_OK;
+    }
+    codec.error = [KSNSErrorHelper errorWithDomain:@"KSJSONCodecObjC" code:0 description:@"%@", description];
+    return KSJSON_ERROR_INVALID_DATA;
+}
+
 static int onElement(KSJSONCodec *codec, NSString *name, id element)
 {
     id currentContainer = codec.currentContainer;
-    if ([currentContainer isKindOfClass:[NSMutableDictionary class]] && name == nil) {
-        codec.error = [KSNSErrorHelper errorWithDomain:@"KSJSONCodecObjC"
-                                                  code:0
-                                           description:@"Invalid UTF-8 in JSON object key"];
-        return KSJSON_ERROR_INVALID_CHARACTER;
-    }
-
-    if (element == nil) {
-        codec.error = [KSNSErrorHelper errorWithDomain:@"KSJSONCodecObjC"
-                                                  code:0
-                                           description:@"Invalid UTF-8 in JSON string"];
-        return KSJSON_ERROR_INVALID_CHARACTER;
-    }
-
     if (currentContainer == nil) {
         codec.error = [KSNSErrorHelper errorWithDomain:@"KSJSONCodecObjC"
                                                   code:0
@@ -166,8 +166,28 @@ static int onElement(KSJSONCodec *codec, NSString *name, id element)
         return KSJSON_ERROR_INVALID_DATA;
     }
 
+    // A nil element or member name means those bytes were not representable
+    // (stringFromCString: returns nil for invalid UTF-8). Drop that one member
+    // by default rather than failing the decode: report reads pass
+    // KeepPartialObject, so an error here would keep the container built so
+    // far and finalization would write that truncation back over the report.
+    // Inserting nil is not an option either, since addObject: raises.
+    if (element == nil) {
+        return unrepresentable(codec, @"Decoded string is not representable (invalid UTF-8)");
+    }
+
     if ([currentContainer isKindOfClass:[NSMutableDictionary class]]) {
-        [(NSMutableDictionary *)currentContainer setValue:element forKey:name];
+        if (name == nil) {
+            return unrepresentable(codec, @"Object member name is not representable (invalid UTF-8)");
+        }
+        // The first of a duplicate member name wins, which is what Foundation
+        // does with the same bytes. Overwriting instead left the two readers
+        // of one document holding different values for the key.
+        if ([(NSMutableDictionary *)currentContainer objectForKey:name] != nil) {
+            return KSJSON_OK;
+        }
+        // setObject:forKey:, never setValue:forKey:, which is KVC.
+        [(NSMutableDictionary *)currentContainer setObject:element forKey:name];
     } else {
         [(NSMutableArray *)currentContainer addObject:element];
     }
@@ -227,9 +247,16 @@ static int onNullElement(const char *const cName, void *const userData)
     KSJSONCodec *codec = (__bridge KSJSONCodec *)userData;
 
     id currentContainer = codec.currentContainer;
-    if ([currentContainer isKindOfClass:[NSDictionary class]] && name == nil) {
-        return onElement(codec, name, [NSNull null]);
+
+    // The name is judged before the null is dropped. Dropping the member
+    // first would also drop the verdict on its name, so a document a stricter
+    // reader rejects outright would decode here minus one member, and the
+    // report would carry a value every other reader of these bytes calls
+    // absent.
+    if (cName != NULL && name == nil && [currentContainer isKindOfClass:[NSDictionary class]]) {
+        return unrepresentable(codec, @"Object member name is not representable (invalid UTF-8)");
     }
+
     if ((codec.ignoreNullsInArrays && [currentContainer isKindOfClass:[NSArray class]]) ||
         (codec.ignoreNullsInObjects && [currentContainer isKindOfClass:[NSDictionary class]])) {
         return KSJSON_OK;
@@ -310,9 +337,21 @@ static int encodeObject(KSJSONCodec *codec, id object, NSString *name, KSJSONEnc
         CFNumberType numberType = CFNumberGetType((__bridge CFNumberRef)object);
         switch (numberType) {
             case kCFNumberFloat32Type:
-            case kCFNumberFloat64Type:
             case kCFNumberFloatType:
+#if defined(CGFLOAT_IS_DOUBLE) && !CGFLOAT_IS_DOUBLE
+            // CGFloat is a 32-bit float on the watch, where widening it would
+            // add the same noise this branch exists to keep out.
             case kCFNumberCGFloatType:
+#endif
+                // Written as a float: widening one to a double first and
+                // printing every digit of the result would turn 0.2f into
+                // 0.200000002980232, which is the widening's noise, not the
+                // value the caller stored.
+                return ksjson_addFloatElement(context, cName, [object floatValue]);
+            case kCFNumberFloat64Type:
+#if !defined(CGFLOAT_IS_DOUBLE) || CGFLOAT_IS_DOUBLE
+            case kCFNumberCGFloatType:
+#endif
             case kCFNumberDoubleType:
                 return ksjson_addFloatingPointElement(context, cName, [object doubleValue]);
             case kCFNumberCharType:
@@ -380,7 +419,12 @@ static int encodeObject(KSJSONCodec *codec, id object, NSString *name, KSJSONEnc
                                                    description:@"Invalid key: %@", key];
                 return KSJSON_ERROR_INVALID_DATA;
             }
-            if ((result = encodeObject(codec, [object valueForKey:key], key, context)) != KSJSON_OK) {
+            // objectForKey:, never valueForKey:, which applies KVC: a key
+            // beginning with '@' is stripped and forwarded as a property name,
+            // so "@count" would encode the dictionary's element count and
+            // "@id" would raise. App-supplied keys reach here nested in the
+            // user section.
+            if ((result = encodeObject(codec, [(NSDictionary *)object objectForKey:key], key, context)) != KSJSON_OK) {
                 return result;
             }
         }
@@ -428,12 +472,29 @@ static int encodeObject(KSJSONCodec *codec, id object, NSString *name, KSJSONEnc
 
 + (id)decode:(NSData *)JSONData options:(KSJSONDecodeOption)decodeOptions error:(NSError *__autoreleasing *)error
 {
+    return [self decode:JSONData options:decodeOptions startDepth:0 error:error];
+}
+
++ (id)decode:(NSData *)JSONData
+       options:(KSJSONDecodeOption)decodeOptions
+    startDepth:(int)startDepth
+         error:(NSError *__autoreleasing *)error
+{
     KSJSONCodec *codec = [self codecWithEncodeOptions:0 decodeOptions:decodeOptions];
+    // Scratch for decoded names and strings: ksjson_decode gives names a
+    // quarter of it, and a decoded string is never longer than its encoded
+    // form, so 4x the input (plus NUL room) suffices for any input. The 20MB
+    // cap bounds the allocation; a string past it fails as too long.
     const size_t decodeMaxStringSize = 20000000;
-    NSMutableData *stringBuffer = [NSMutableData dataWithLength:decodeMaxStringSize];
+    size_t scratchSize = ((size_t)JSONData.length + 1) * 4;
+    if (scratchSize > decodeMaxStringSize) {
+        scratchSize = decodeMaxStringSize;
+    }
+    NSMutableData *stringBuffer = [NSMutableData dataWithLength:scratchSize];
     int errorOffset;
-    int result = ksjson_decode(JSONData.bytes, (int)JSONData.length, stringBuffer.mutableBytes,
-                               (int)stringBuffer.length, codec.callbacks, (__bridge void *)codec, &errorOffset);
+    int result =
+        ksjson_decode(JSONData.bytes, (int)JSONData.length, stringBuffer.mutableBytes, (int)stringBuffer.length,
+                      codec.callbacks, (__bridge void *)codec, startDepth, &errorOffset);
     if (result != KSJSON_OK && codec.error == nil) {
         codec.error = [KSNSErrorHelper errorWithDomain:@"KSJSONCodecObjC"
                                                   code:0

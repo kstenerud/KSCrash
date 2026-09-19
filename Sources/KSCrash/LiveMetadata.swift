@@ -39,12 +39,8 @@ import os
 /// Dates range from 1677-09-21 to 2262-04-11; assigning one outside that range
 /// removes the key instead of storing it.
 public final class LiveMetadata: MetadataStore, Sendable {
-    /// The store's shapes. Readers need no configuration, so these bound only
-    /// what a writer accepts; a write with a longer key or string is rejected.
     private enum StoreLimits {
         static let initialCapacity: UInt32 = 4096
-        static let maxKeyLength: UInt16 = 256
-        static let maxStringLength: UInt16 = 1024
     }
 
     private struct State {
@@ -69,10 +65,7 @@ public final class LiveMetadata: MetadataStore, Sendable {
     func attach(path: String) throws {
         try state.withLock { state in
             guard state.store == nil else { return }
-            let config = KSKVSConfig(
-                initialCapacity: StoreLimits.initialCapacity,
-                maxKeyLength: StoreLimits.maxKeyLength,
-                maxStringLength: StoreLimits.maxStringLength)
+            let config = KSKVSConfig(initialCapacity: StoreLimits.initialCapacity)
             do {
                 state.store = try SidecarMetadata.creating(at: path, config: config)
                 state.unavailableReason = nil
@@ -96,13 +89,36 @@ public final class LiveMetadata: MetadataStore, Sendable {
     // The store operation itself runs inside the lock: the kvs is
     // caller-synchronized, and this lock is its synchronization.
     public subscript<Value: MetadataValueRepresentable>(key: String) -> Value? {
-        get { state.withLock { $0.store?[key] } }
+        get {
+            // The lock covers the store walk; judging the container payload
+            // it copies out does not, and a full JSON parse under this lock
+            // would block every other metadata reader and writer for as long
+            // as it runs, which is what the setter and `keys` are both shaped
+            // to avoid.
+            guard let stored = state.withLock({ $0.store?.valueSnapshot(forKey: key) })?.resolved else {
+                return nil
+            }
+            return Value.decode(from: stored)
+        }
         set {
+            // With no store the write is dropped, so nothing is worth
+            // preparing: before install, and after a degraded one, that is
+            // every write, and for a container the preparation is a tree walk
+            // plus a JSON encode.
+            let (hasStore, reason) = state.withLock { ($0.store != nil, $0.unavailableReason) }
+            guard hasStore else {
+                return notedDroppedWrite(unavailableReason: reason, key: key)
+            }
+            // Convert and serialize before taking the lock: for a container
+            // that is a tree walk plus a JSON encode, and it touches nothing
+            // the lock protects. Holding the lock across it would make every
+            // other thread writing metadata wait on this value's encoding.
+            let prepared = SidecarMetadata.PreparedValue(newValue)
             state.withLock { state in
                 guard let store = state.store else {
                     return notedDroppedWrite(unavailableReason: state.unavailableReason, key: key)
                 }
-                store[key] = newValue
+                store.apply(prepared, forKey: key)
             }
         }
     }
@@ -126,6 +142,11 @@ public final class LiveMetadata: MetadataStore, Sendable {
     }
 
     public var keys: [String] {
-        state.withLock { $0.store?.keys ?? [] }
+        // The walk needs the lock, since it must not race a write; judging
+        // the container payloads it copies out does not, and a full JSON
+        // parse per container key under this lock would block every writing
+        // thread for the whole walk.
+        guard let snapshot = state.withLock({ $0.store?.keySnapshot() }) else { return [] }
+        return snapshot.resolvedNames
     }
 }

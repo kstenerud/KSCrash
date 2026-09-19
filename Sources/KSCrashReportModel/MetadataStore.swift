@@ -24,12 +24,20 @@
 // THE SOFTWARE.
 //
 
-/// Keyed access to scalar metadata: `String`, `Bool`, `Int`, `Int64`,
-/// `UInt64`, `Double`, and `Date`. Conformers are a report's `Metadata` and
-/// the live store on `KSCrash`.
+/// Keyed access to metadata: the scalars `String`, `Bool`, `Int`, `Int64`,
+/// `UInt64`, `Double`, and `Date`, plus arrays and string-keyed dictionaries
+/// of representable values (`MetadataValue` itself for heterogeneous shapes).
+/// Conformers are a report's `Metadata` and the live store on `KSCrash`.
 public protocol MetadataStore {
-    /// Reads or writes the value under `key`. Assigning nil removes the key;
-    /// reading a key that holds another type yields nil.
+    /// Reads or writes the value under `key`. Assigning nil (or `.null`)
+    /// removes the key; reading a key that holds another type yields nil.
+    /// JSON null means absence: null members and elements inside a container
+    /// never surface from a read.
+    ///
+    /// A value a store cannot hold also leaves the key absent rather than
+    /// keeping what was there before, so a read never reports a value that was
+    /// replaced. A value with no JSON form, an extreme `Date`, and a key or
+    /// value too large for the store are all refused that way.
     subscript<Value: MetadataValueRepresentable>(key: String) -> Value? { get set }
 
     /// Removes any value under `key`.

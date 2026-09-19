@@ -610,6 +610,17 @@ static NSArray *g_test_strings;
     XCTAssertFalse(isFloat, "");
 }
 
+- (void)testNumberIsFloat32
+{
+    // A float widened to a double and printed at DBL_DIG shows the widening's
+    // noise (0.2f becomes 0.200000002980232), so the report writer has to be
+    // told which of the two precisions the digits are worth.
+    XCTAssertTrue(ksobjc_numberIsFloat32((__bridge void *)[NSNumber numberWithFloat:0.2f]));
+    XCTAssertFalse(ksobjc_numberIsFloat32((__bridge void *)[NSNumber numberWithDouble:0.2]));
+    XCTAssertFalse(ksobjc_numberIsFloat32((__bridge void *)[NSNumber numberWithInt:1]));
+    XCTAssertFalse(ksobjc_numberIsFloat32((__bridge void *)[NSNumber numberWithBool:YES]));
+}
+
 - (void)testFloatNumber
 {
     Float64 expected = 0.1;
