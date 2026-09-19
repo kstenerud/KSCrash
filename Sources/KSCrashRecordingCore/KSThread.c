@@ -163,12 +163,9 @@ bool ksthread_getQueueName(const KSThread thread, char *const buffer, int bufLen
         return false;
     }
 
-    // Everything below reads memory owned by `thread`, which can exit at any point while we
-    // are looking at it. Asking whether an address is readable and then dereferencing it is
-    // two operations, and the thread can die in between, so these go through copySafely:
-    // vm_read_overwrite returns an error where a dereference would fault and take the
-    // process down. This runs on the thread cache's polling thread for every thread in the
-    // process, so "another thread exited just now" is the normal case, not the rare one.
+    // The slot belongs to `thread`, which can exit mid-read, and checking readability then
+    // dereferencing leaves a window between the two. copySafely returns an error where a
+    // dereference would fault.
     dispatch_queue_t dispatch_queue = NULL;
     if (!ksmem_copySafely(dispatch_queue_ptr, &dispatch_queue, (int)sizeof(dispatch_queue)) ||
         dispatch_queue == NULL) {
@@ -182,17 +179,15 @@ bool ksthread_getQueueName(const KSThread thread, char *const buffer, int bufLen
         return false;
     }
 
-    // Copy the label before inspecting it, for the same reason: walking it in place would
-    // read the queue's memory one byte at a time with no way to survive it going away.
-    // maxReadableBytes first, because a single copy of bufLength bytes fails outright when
-    // the label sits near the end of its mapping.
+    // Same reason, and maxReadableBytes first because copying bufLength bytes outright
+    // fails when the label sits near the end of its mapping.
     const int readable = ksmem_maxReadableBytes(queue_name, bufLength);
     if (readable < 1 || !ksmem_copySafely(queue_name, buffer, readable)) {
         KSLOG_TRACE("Could not read the queue label : %p", dispatch_queue);
         return false;
     }
 
-    // Queue label must be a printable, NUL terminated string, judged on our own copy.
+    // Queue label must be a printable, NUL terminated string.
     int iLabel;
     for (iLabel = 0; iLabel < readable; iLabel++) {
         if (buffer[iLabel] == 0) {
@@ -204,8 +199,6 @@ bool ksthread_getQueueName(const KSThread thread, char *const buffer, int bufLen
         }
     }
     if (iLabel == readable) {
-        // No terminator in what we could read, so the label is longer than the caller's
-        // buffer or not a string at all. Either way there is nothing safe to hand back.
         KSLOG_TRACE("Queue label is not NUL terminated within %d bytes", bufLength);
         return false;
     }
