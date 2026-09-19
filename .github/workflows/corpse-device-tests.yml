@@ -45,6 +45,11 @@ jobs:
     # macOS version. macos-15 carries no Xcode 27 and therefore no iOS 27 SDK,
     # and without that SDK CrashReportExtension does not exist to link against.
     runs-on: xcode-27
+    # Secrets cannot be read from a step's `if`, so the one decision that gates
+    # signing is lifted to the job's environment, where it can be.
+    env:
+      CORPSE_HAS_SIGNING: ${{ secrets.CORPSE_SIGNING_CERT != '' }}
+      CORPSE_TEAM: ${{ secrets.CORPSE_TEAM }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v7
@@ -81,7 +86,7 @@ jobs:
       # and only the compile gate runs: an unsigned app carries no entitlements
       # at all, so its App Group cannot survive to the device.
       - name: Import Signing
-        if: ${{ secrets.CORPSE_SIGNING_CERT != '' }}
+        if: ${{ env.CORPSE_HAS_SIGNING == 'true' }}
         env:
           CORPSE_SIGNING_CERT: ${{ secrets.CORPSE_SIGNING_CERT }}
           CORPSE_SIGNING_CERT_PASSWORD: ${{ secrets.CORPSE_SIGNING_CERT_PASSWORD }}
@@ -114,6 +119,11 @@ jobs:
       - name: Build For Testing
         working-directory: ./Samples
         run: |
+          if [ "$CORPSE_HAS_SIGNING" = "true" ]; then
+            SIGNING_FLAGS="DEVELOPMENT_TEAM=$CORPSE_TEAM CODE_SIGN_STYLE=Manual"
+          else
+            SIGNING_FLAGS="CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO"
+          fi
           set -o pipefail && xcodebuild build-for-testing \
             -workspace KSCrashSamples.xcworkspace \
             -scheme CorpseBrowserStack \
@@ -121,7 +131,7 @@ jobs:
             -configuration Release \
             -derivedDataPath build/DerivedData \
             -only-testing:CorpseTests \
-            ${{ secrets.CORPSE_SIGNING_CERT != '' && format('DEVELOPMENT_TEAM={0} CODE_SIGN_STYLE=Manual', secrets.CORPSE_TEAM) || 'CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO' }} \
+            $SIGNING_FLAGS \
             | xcbeautify
 
       # The extension being embedded is the thing most likely to go quietly
