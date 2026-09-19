@@ -36,6 +36,19 @@ import XCTest
 
 /// The one install the test process makes: the C core installs once, so every
 /// test that needs an installed reporter shares this one.
+///
+/// Under `swift test` every bundle shares one process, and the suites that
+/// install in extension-reporting mode sort ahead of this one. They look this
+/// class up by name through the runtime before installing and let it claim
+/// the process first, so the install this bundle's suites need always wins
+/// and they attach to it instead of the other way round.
+@objc(KSCrashTestsInstallClaim)
+final class InstallClaim: NSObject {
+    @objc static func claim() {
+        _ = try? TestInstall.ensure()
+    }
+}
+
 /// The last report id the did-write crash-time callback delivered; the
 /// callback must stay non-capturing, so this is file scope.
 ///
@@ -98,7 +111,23 @@ enum TestInstall {
     private static let result: Result<Void, Error> = Result { try KSCrash.shared.install(configuration) }
 
     /// Installs on first use; rethrows the install's error on every use after a failure.
+    /// Losing the one-per-process install to another suite (the corpse tests' extension-mode
+    /// install, when every test target shares a process) is a skip, not a failure: these
+    /// suites need this install's configuration, and each bundle still runs fully in its own
+    /// process under xcodebuild.
     static func ensure() throws {
-        try result.get()
+        do {
+            try result.get()
+        } catch InstallError.alreadyInstalled {
+            throw XCTSkip(
+                """
+                SKIPPED, not failed: another test suite already claimed this process's one \
+                KSCrash install (the crash-extension suite installs in extension-reporting \
+                mode when it runs first). Under `swift test` every bundle shares one process, \
+                so whichever suite installs first wins. For full coverage run this bundle \
+                alone (`swift test --filter KSCrashTests`) or via xcodebuild, where bundles \
+                get their own processes. See .claude/rules/testing.md.
+                """)
+        }
     }
 }

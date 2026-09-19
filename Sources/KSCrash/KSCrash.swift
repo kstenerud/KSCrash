@@ -70,6 +70,13 @@ public final class KSCrash: Sendable {
         }
         do {
             try configuration.install(at: locations)
+            // Best effort, unlike the corpse store's: nothing reads this one to decide
+            // anything, so a store that cannot describe itself still reports crashes.
+            do {
+                try StoreManifest.write(kind: StoreManifest.selfKind, atProcessRoot: locations.root)
+            } catch {
+                os_log(.error, "Could not describe the store: %{public}@", String(describing: error))
+            }
             // Crash capture is armed; a metadata-store failure degrades metadata
             // only, recorded as metadata.unavailableReason, never a failed install.
             do {

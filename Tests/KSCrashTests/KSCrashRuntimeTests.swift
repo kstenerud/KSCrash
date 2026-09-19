@@ -79,6 +79,15 @@ final class KSCrashRuntimeTests: XCTestCase {
         KSCrash.shared.setUserID(nil)
     }
 
+    func test_install_describesTheStoreAsReportingForItself() throws {
+        // The app delivers its own reports, so no other process may take them: the
+        // declaration exists to say exactly that to whoever reads the container.
+        let manifest = try XCTUnwrap(
+            StoreManifest.read(atProcessRoot: TestInstall.configuration.locations.root))
+        XCTAssertEqual(manifest.kind, StoreManifest.selfKind)
+        XCTAssertFalse(manifest.isDrainable)
+    }
+
     func test_registeredCMonitorPlugins_populateTheSystemFields() throws {
         let before = try Set(Store.listReportIDs(in: TestInstall.configuration.locations.reports))
         KSCrash.shared.reportException(

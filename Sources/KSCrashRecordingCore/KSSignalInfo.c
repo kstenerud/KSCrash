@@ -88,11 +88,23 @@ static const KSSignalCodeInfo g_sigSegVCodes[] = {
 #define SIGNAL_INFO_NOCODES(SIGNAL) { SIGNAL, #SIGNAL, 0, 0 }
 
 static const KSSignalInfo g_fatalSignalData[] = {
-    SIGNAL_INFO_NOCODES(SIGABRT),       SIGNAL_INFO(SIGBUS, g_sigBusCodes),   SIGNAL_INFO(SIGFPE, g_sigFPECodes),
-    SIGNAL_INFO(SIGILL, g_sigIllCodes), SIGNAL_INFO_NOCODES(SIGPIPE),         SIGNAL_INFO(SIGSEGV, g_sigSegVCodes),
-    SIGNAL_INFO_NOCODES(SIGSYS),        SIGNAL_INFO(SIGTRAP, g_sigTrapCodes), SIGNAL_INFO_NOCODES(SIGTERM),
+    SIGNAL_INFO_NOCODES(SIGABRT),
+    SIGNAL_INFO(SIGBUS, g_sigBusCodes),
+    SIGNAL_INFO(SIGFPE, g_sigFPECodes),
+    SIGNAL_INFO(SIGILL, g_sigIllCodes),
+    SIGNAL_INFO_NOCODES(SIGPIPE),
+    SIGNAL_INFO(SIGSEGV, g_sigSegVCodes),
+    SIGNAL_INFO_NOCODES(SIGSYS),
+    SIGNAL_INFO(SIGTRAP, g_sigTrapCodes),
+    SIGNAL_INFO_NOCODES(SIGTERM),
+    // SIGKILL is not catchable; it is here only so reports built from kernel data (corpse
+    // captures, synthetic termination reports) can name it. It must NEVER be added to
+    // g_fatalSignals below: sigaction on it is pointless and a handler slot would be wasted.
+    SIGNAL_INFO_NOCODES(SIGKILL),
 };
-static const int g_fatalSignalsCount = sizeof(g_fatalSignalData) / sizeof(*g_fatalSignalData);
+// Two arrays, two counts, deliberately decoupled: the name data can describe signals
+// (like SIGKILL) that must never appear in the registration list below.
+static const int g_fatalSignalDataCount = sizeof(g_fatalSignalData) / sizeof(*g_fatalSignalData);
 
 // Note: Dereferencing a NULL pointer causes SIGILL, ILL_ILLOPC on i386
 //       but causes SIGTRAP, 0 on arm.
@@ -102,7 +114,7 @@ static const int g_fatalSignals[] = {
 
 const char *kssignal_signalName(const int sigNum)
 {
-    for (int i = 0; i < g_fatalSignalsCount; i++) {
+    for (int i = 0; i < g_fatalSignalDataCount; i++) {
         if (g_fatalSignalData[i].sigNum == sigNum) {
             return g_fatalSignalData[i].name;
         }
@@ -112,7 +124,7 @@ const char *kssignal_signalName(const int sigNum)
 
 const char *kssignal_signalCodeName(const int sigNum, const int code)
 {
-    for (int si = 0; si < g_fatalSignalsCount; si++) {
+    for (int si = 0; si < g_fatalSignalDataCount; si++) {
         if (g_fatalSignalData[si].sigNum == sigNum) {
             for (int ci = 0; ci < g_fatalSignalData[si].numCodes; ci++) {
                 if (g_fatalSignalData[si].codes[ci].code == code) {
@@ -126,4 +138,4 @@ const char *kssignal_signalCodeName(const int sigNum, const int code)
 
 const int *kssignal_fatalSignals(void) { return g_fatalSignals; }
 
-int kssignal_numFatalSignals(void) { return g_fatalSignalsCount; }
+int kssignal_numFatalSignals(void) { return sizeof(g_fatalSignals) / sizeof(*g_fatalSignals); }

@@ -104,6 +104,13 @@ bool kscm_addMonitor(const KSCrashMonitorAPI *api);
  */
 void kscm_removeMonitor(const KSCrashMonitorAPI *api);
 
+/** Copy every registered monitor api that implements createStitchedReport into `buffer`,
+ * by value, up to `capacity`. Drives the final stitch pass (KSCrashSidecarScopeFinal).
+ *
+ * @return The number of apis copied.
+ */
+size_t kscm_copyStitchableMonitors(KSCrashMonitorAPI *buffer, size_t capacity);
+
 /**
  * Sets the callback for event capture allowing to capture the result of capturing the event.
  *
@@ -190,6 +197,17 @@ void kscm_setRunSidecarPathForRunIDProvider(KSCrashSidecarRunPathForRunIDProvide
  * @param provider The callback function, or NULL to disable.
  */
 void kscm_setSummarySidecarPathProvider(KSCrashSummarySidecarPathProviderFunc provider);
+/** Test seam: whether this process has handled a locally fatal exception. The latch never
+ * clears in production (a crashed process does not keep running); tests sharing one process use
+ * it to detect a pipeline poisoned by an earlier simulated fatal crash.
+ */
+bool kscm_testcode_isHandlingFatalException(void);
+
+/** Test seam: clear that latch. A test that simulates a fatal event must undo it, or every
+ * later event in the process is refused. Use this rather than kscm_testcode_resetState, which
+ * also wipes the registered monitors and pipeline callbacks.
+ */
+void kscm_testcode_clearHandlingFatalException(void);
 
 #ifdef __cplusplus
 }

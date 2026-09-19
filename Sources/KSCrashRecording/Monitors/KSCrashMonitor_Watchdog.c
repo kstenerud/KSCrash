@@ -783,6 +783,10 @@ KSCrashMonitorAPI *kscm_watchdog_getAPI(void)
         api.isEnabled = isEnabled;
         api.addContextualInfoToEvent = addContextualInfoToEvent;
         api.createStitchedReport = kscm_watchdog_createStitchedReport;
+        // Watchdog is last among the sidecar layers so its fatality resolution on its own
+        // reports wins; only the corpse final-pass layer sits above, and it never touches
+        // watchdog reports.
+        api.priority = KSCrashStitchPriorityWatchdog;
     }
     return &api;
 }

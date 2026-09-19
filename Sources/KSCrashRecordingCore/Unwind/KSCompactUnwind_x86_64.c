@@ -40,20 +40,10 @@
 #define KSREG_X86_64_R15 4
 #define KSREG_X86_64_RBP 5
 
-// MARK: - Internal Functions
-
-/**
- * Read a pointer-sized value safely from memory.
- */
-static inline bool readPtr(uintptr_t addr, uintptr_t *outValue)
-{
-    return ksmem_copySafely((const void *)addr, outValue, sizeof(uintptr_t));
-}
-
 // MARK: - x86_64 Compact Unwind Decoder
 
 bool kscu_x86_64_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attribute__((unused)), uintptr_t sp,
-                        uintptr_t bp, KSCompactUnwindResult *result)
+                        uintptr_t bp, KSCompactUnwindResult *result, task_t task)
 {
     if (result == NULL) {
         return false;
@@ -87,14 +77,14 @@ bool kscu_x86_64_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attri
 
         // Read return address from [RBP+8]
         uintptr_t returnAddr;
-        if (!readPtr(bp + 8, &returnAddr)) {
+        if (!kscu_readTaskPointer(task, bp + 8, &returnAddr)) {
             KSLOG_TRACE("Failed to read return address from RBP+8 (0x%lx)", (unsigned long)(bp + 8));
             return false;
         }
 
         // Read previous frame pointer from [RBP]
         uintptr_t prevBP;
-        if (!readPtr(bp, &prevBP)) {
+        if (!kscu_readTaskPointer(task, bp, &prevBP)) {
             KSLOG_TRACE("Failed to read previous RBP from RBP (0x%lx)", (unsigned long)bp);
             return false;
         }
@@ -143,7 +133,7 @@ bool kscu_x86_64_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attri
         if (encodedSize == 0) {
             // No stack adjustment - leaf function, return address at [RSP]
             uintptr_t returnAddr;
-            if (!readPtr(sp, &returnAddr)) {
+            if (!kscu_readTaskPointer(task, sp, &returnAddr)) {
                 KSLOG_TRACE("Failed to read return address from RSP (0x%lx)", (unsigned long)sp);
                 return false;
             }
@@ -157,7 +147,7 @@ bool kscu_x86_64_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attri
 
         // Return address is at the top of the frame
         uintptr_t returnAddr;
-        if (!readPtr(sp + stackSize - 8, &returnAddr)) {
+        if (!kscu_readTaskPointer(task, sp + stackSize - 8, &returnAddr)) {
             KSLOG_TRACE("Failed to read return address from SP+stackSize-8 (0x%lx)",
                         (unsigned long)(sp + stackSize - 8));
             return false;
@@ -187,7 +177,7 @@ bool kscu_x86_64_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attri
         // No unwind info - likely a leaf function
         // On x86_64, return address is at [RSP]
         uintptr_t returnAddr;
-        if (!readPtr(sp, &returnAddr)) {
+        if (!kscu_readTaskPointer(task, sp, &returnAddr)) {
             KSLOG_TRACE("Failed to read return address from RSP (0x%lx)", (unsigned long)sp);
             return false;
         }
