@@ -103,11 +103,15 @@ let project = Project(
             product: .extensionKitExtension,
             bundleId: "\(corpseHostBundleID).Reporter",
             deploymentTargets: .iOS("27.0"),
-            infoPlist: .dictionary([
+            // extendingDefault, not dictionary: a bare dictionary replaces the
+            // whole plist, which drops CFBundleIdentifier, and an embedded
+            // binary with no identifier cannot be prefixed by its host's, so
+            // the build fails validation before anything ever runs.
+            infoPlist: InfoPlist.extendingDefault(with: [
                 "CFBundleDisplayName": "KSCrashCorpseReporter",
-                "EXAppExtensionAttributes": .dictionary([
-                    "EXExtensionPointIdentifier": .string("com.apple.crash-reporter.extension")
-                ]),
+                "EXAppExtensionAttributes": [
+                    "EXExtensionPointIdentifier": "com.apple.crash-reporter.extension"
+                ],
             ]),
             sources: ["Corpse/Reporter/**"],
             entitlements: .dictionary([
