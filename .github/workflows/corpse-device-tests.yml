@@ -77,6 +77,37 @@ jobs:
         working-directory: ./Samples
         run: mise exec -- tuist generate --verbose --no-open
 
+      # Signing, when the secrets are set. Without them the build stays unsigned
+      # and only the compile gate runs: an unsigned app carries no entitlements
+      # at all, so its App Group cannot survive to the device.
+      - name: Import Signing
+        if: ${{ secrets.CORPSE_SIGNING_CERT != '' }}
+        env:
+          CORPSE_SIGNING_CERT: ${{ secrets.CORPSE_SIGNING_CERT }}
+          CORPSE_SIGNING_CERT_PASSWORD: ${{ secrets.CORPSE_SIGNING_CERT_PASSWORD }}
+          CORPSE_PROVISIONING_PROFILES: ${{ secrets.CORPSE_PROVISIONING_PROFILES }}
+        run: |
+          KEYCHAIN=$RUNNER_TEMP/corpse.keychain-db
+          KEYCHAIN_PASSWORD=$(uuidgen)
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+
+          echo "$CORPSE_SIGNING_CERT" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -P "$CORPSE_SIGNING_CERT_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          rm -f "$RUNNER_TEMP/cert.p12"
+
+          # A gzipped tar of .mobileprovision files, so the host, the extension
+          # and the test runner can each have their own. Gzipped because the
+          # three uncompressed run past GitHub's 48 KB limit for a secret.
+          PROFILES=~/Library/MobileDevice/Provisioning\ Profiles
+          mkdir -p "$PROFILES"
+          echo "$CORPSE_PROVISIONING_PROFILES" | base64 --decode | tar -xzf - -C "$PROFILES"
+          ls "$PROFILES"
+
       # Builds host, extension and test runner. This alone is the compile gate:
       # if the corpse API or the extension's shape drifts, it fails here without
       # spending a device session.
@@ -90,8 +121,7 @@ jobs:
             -configuration Release \
             -derivedDataPath build/DerivedData \
             -only-testing:CorpseTests \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
+            ${{ secrets.CORPSE_SIGNING_CERT != '' && format('DEVELOPMENT_TEAM={0} CODE_SIGN_STYLE=Manual', secrets.CORPSE_TEAM) || 'CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO' }} \
             | xcbeautify
 
       # The extension being embedded is the thing most likely to go quietly
@@ -141,7 +171,8 @@ jobs:
         run: |
           RESPONSE=$(curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
             -X POST "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/app" \
-            -F "file=@CorpseHost.ipa")
+            -F "file=@CorpseHost.ipa" \
+            -F "ios_app_groups_support=true")
           echo "$RESPONSE"
           URL=$(echo "$RESPONSE" | jq -r '.app_url')
           [ -n "$URL" ] && [ "$URL" != "null" ] || { echo "::error::app upload failed"; exit 1; }
