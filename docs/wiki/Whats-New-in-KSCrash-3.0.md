@@ -257,13 +257,12 @@ In the extension target:
 import CrashReportExtension
 import KSCrashCrashReportExtension
 
-let area = CorpseReportingConfiguration(
-    namespace: "MyApp",
-    container: .appGroup("group.com.example.app"))
-
 @main
 struct MyCrashReporter: CrashReporterExtension {
     init() {
+        let area = CorpseReportingConfiguration(
+            namespace: "MyApp",
+            container: .appGroup("group.com.example.app"))
         try? KSCrash.shared.installForCorpseReporting(with: area)
     }
 
