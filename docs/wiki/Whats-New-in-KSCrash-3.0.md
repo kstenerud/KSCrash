@@ -119,12 +119,36 @@ config.plugins = [MyMonitor.plugin()]
 an event and returns the written report, and the per-event payload is delivered
 back to `writeReportSection` typed rather than as a void pointer.
 
-**None of this is async-signal-safe, and it is not meant to be.** A Swift
-monitor runs in a healthy process, never inside a crash handler: Swift protocol
-dispatch, ARC, allocation and locking are all off limits once a signal or Mach
-exception handler is running, and this layer uses all of them. It is for
-monitors that observe a live process and raise their own events, which is what
-MetricKit, the profiler and corpse capture do.
+### How a section gets written
+
+`writeReportSection` is called while a report is being written, so it is worth
+knowing exactly when that is.
+
+Your monitor calls `host.handle(payload:requirements:…)`. The payload is boxed
+onto the event, and the event goes through the C pipeline, which writes a
+report. While writing, the writer looks up **one** monitor, the one whose id is
+on the event, and calls its `writeInReportSection`. The bridge recovers itself
+from the C context, unboxes the payload back to your `EventPayload`, wraps the
+raw C writer in `ReportSectionWriter`, and calls you. What you write lands under
+`crash.error.monitor_data.<your id>`.
+
+Two consequences worth knowing:
+
+- A `nil` payload writes the report **without** your section, which is what
+  corpse capture uses for a snapshot-less capture.
+- If your type does not conform to `ReportSectionWriting`, the bridge leaves the
+  C hook `nil`, so you produce no key at all rather than an empty object.
+
+**None of this is async-signal-safe, and it does not need to be.** Because the
+writer only asks the monitor named on the event, your `writeReportSection` runs
+only for events your own monitor raised, and a Swift monitor raises those from
+a healthy process. A real crash arrives carrying `Signal` or `MachException`,
+so the C monitor is asked and yours is not. The layer is not unsafe-but-careful;
+it is unreachable from a handler.
+
+That is also why Swift is available here at all: protocol dispatch, ARC,
+allocation and locking are all off limits once a signal or Mach exception
+handler is running, and this layer uses every one of them.
 
 The crash-time monitors stay in C for that reason. If you are catching signals
 or Mach exceptions, you are writing a `KSCrashMonitorAPI` table under the
@@ -132,11 +156,11 @@ async-signal-safety rules and wrapping it with `CMonitorPlugin(api:)`; the Swift
 layer is not an option there, and choosing it would put a malloc in a signal
 handler.
 
-Section writing and stitching are separate protocols
-(`ReportSectionWriting`, `ReportStitching`) rather than methods with defaults,
-so a monitor that does neither leaves the corresponding C hooks null: it
-produces no key at all rather than an empty object, and drops out of the stitch
-pass entirely.
+Section writing and stitching are separate protocols (`ReportSectionWriting`,
+`ReportStitching`) rather than methods with defaults, which is what makes those
+hooks nullable. A default implementation cannot tell a monitor that meant to
+write a section and got the signature wrong from one that had nothing to say,
+and the first of those compiles clean and writes nothing forever.
 
 ## Hangs as a stream
 
