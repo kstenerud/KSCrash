@@ -29,6 +29,7 @@
 // #define KSLogger_LocalLevel TRACE
 #include <errno.h>
 #include <fcntl.h>
+#include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
@@ -94,6 +95,14 @@ struct KSKeyValueStore {
     uint16_t maxKeyLength;
     uint16_t maxStringLength;
 };
+
+// Spans mutation (write side) and the read-mode file load (read side), so a
+// reader's snapshot is never torn by a concurrent compact or append. Global
+// because a reader opens the file by path and shares no object with the
+// writer. This is NOT a thread-safety promise: concurrent writers to one
+// store remain the caller's responsibility. Deliberately not a file lock,
+// which iOS punishes with 0xdead10cc when held across suspension.
+static pthread_rwlock_t g_fileImageLock = PTHREAD_RWLOCK_INITIALIZER;
 
 // ============================================================================
 #pragma mark - Internal Helpers -
@@ -225,69 +234,44 @@ static bool growStorage(KSKeyValueStore *store, uint32_t minCapacity)
     return true;
 }
 
-/** Assumes buf[0..original_strlen) is valid UTF-8.
- *  Returns the largest prefix length <= len that does not end in a partial codepoint.
- */
-static uint16_t utf8SafeTruncate(const char *buf, uint16_t len)
-{
-    if (buf == NULL || len == 0) {
-        return 0;
-    }
-
-    uint16_t start = len - 1;
-    while (start > 0 && (((uint8_t)buf[start]) & 0xC0) == 0x80) {
-        start--;
-    }
-
-    uint8_t lead = (uint8_t)buf[start];
-    uint16_t width = 0;
-
-    if ((lead & 0x80) == 0x00) {
-        width = 1;
-    } else if ((lead & 0xE0) == 0xC0) {
-        width = 2;
-    } else if ((lead & 0xF0) == 0xE0) {
-        width = 3;
-    } else if ((lead & 0xF8) == 0xF0) {
-        width = 4;
-    } else {
-        return start;
-    }
-
-    return (uint16_t)(start + width <= len ? len : start);
-}
-
-/** Append a record to the log. NOT thread-safe. */
-static void appendRecord(KSKeyValueStore *store, const char *key, uint8_t type, const void *value, uint16_t valueLen)
+/** Append a record to the log; false when rejected or not persisted. NOT thread-safe. */
+static bool appendRecord(KSKeyValueStore *store, const char *key, uint8_t type, const void *value, uint16_t valueLen)
 {
     if (store == NULL || store->storage == NULL) {
         KSLOG_DEBUG("KVS appendRecord called with NULL store (not yet installed?)");
-        return;
+        return false;
+    }
+    // A read-mode store is a private heap snapshot; accepting the write would
+    // report persistence for bytes that die with the store.
+    if (store->fd < 0) {
+        KSLOG_ERROR("KVS write rejected: the store is read-only");
+        return false;
     }
     if (key == NULL) {
-        return;
+        return false;
     }
 
     // Reject records with a payload length but no payload pointer —
     // writing the header alone would leave garbage in the value region.
     if (valueLen > 0 && value == NULL) {
         KSLOG_DEBUG("KVS appendRecord called with NULL value but valueLen %u", valueLen);
-        return;
+        return false;
     }
 
-    uint16_t keyLen = (uint16_t)strlen(key);
-    if (keyLen == 0) {
-        return;
+    // Compare before narrowing: a length past UINT16_MAX must reject, not wrap.
+    size_t rawKeyLen = strlen(key);
+    if (rawKeyLen == 0) {
+        return false;
     }
-    if (keyLen > store->maxKeyLength) {
-        KSLOG_ERROR("KVS key too long (%u > %u), truncating", keyLen, store->maxKeyLength);
-        keyLen = utf8SafeTruncate(key, store->maxKeyLength);
-        if (keyLen == 0) {
-            return;
-        }
+    if (rawKeyLen > store->maxKeyLength) {
+        KSLOG_ERROR("KVS key too long (%zu > %u), rejecting the write", rawKeyLen, store->maxKeyLength);
+        return false;
     }
+    uint16_t keyLen = (uint16_t)rawKeyLen;
 
     uint32_t recordSize = KSKVS_RECORD_HEADER_SIZE + keyLen + valueLen;
+
+    pthread_rwlock_wrlock(&g_fileImageLock);
 
     KSKVSHeader *hdr = storeHeader(store);
 
@@ -297,7 +281,8 @@ static void appendRecord(KSKeyValueStore *store, const char *key, uint8_t type, 
 
         if (hdr->offset + recordSize > store->capacity) {
             if (!growStorage(store, hdr->offset + recordSize)) {
-                return;
+                pthread_rwlock_unlock(&g_fileImageLock);
+                return false;
             }
             hdr = storeHeader(store);
         }
@@ -314,6 +299,8 @@ static void appendRecord(KSKeyValueStore *store, const char *key, uint8_t type, 
     }
 
     hdr->offset += recordSize;
+    pthread_rwlock_unlock(&g_fileImageLock);
+    return true;
 }
 
 // ============================================================================
@@ -343,11 +330,16 @@ KSKeyValueStore *kskvs_create(const char *path, KSKVSMode mode, const KSKVSConfi
             goto done;
         }
 
+        // The size probe and the read form one snapshot: both under the read
+        // lock so a concurrent compact or append cannot tear the image.
+        pthread_rwlock_rdlock(&g_fileImageLock);
         off_t fileSize = lseek(fd, 0, SEEK_END);
         if (fileSize < 0) {
+            pthread_rwlock_unlock(&g_fileImageLock);
             goto read_fail;  // seek failure is environmental, not a verdict on the file
         }
         if (fileSize < (off_t)KSKVS_HEADER_SIZE) {
+            pthread_rwlock_unlock(&g_fileImageLock);
             status = KSKVSOpenCorrupt;
             goto read_fail;
         }
@@ -355,10 +347,12 @@ KSKeyValueStore *kskvs_create(const char *path, KSKVSMode mode, const KSKVSConfi
 
         buf = (uint8_t *)malloc((size_t)fileSize);
         if (buf == NULL) {
+            pthread_rwlock_unlock(&g_fileImageLock);
             goto read_fail;
         }
 
         ssize_t bytesRead = read(fd, buf, (size_t)fileSize);
+        pthread_rwlock_unlock(&g_fileImageLock);
         close(fd);
         fd = -1;
 
@@ -408,6 +402,10 @@ KSKeyValueStore *kskvs_create(const char *path, KSKVSMode mode, const KSKVSConfi
             goto done;
         }
 
+        // The truncate-and-init below is visible to a concurrent read-mode
+        // load of the same path. The write lock keeps such a reader from
+        // observing the zeroed image between O_TRUNC and initHeader.
+        pthread_rwlock_wrlock(&g_fileImageLock);
         int fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0644);
         if (fd < 0) {
             if (errno == ENOENT) {
@@ -415,6 +413,7 @@ KSKeyValueStore *kskvs_create(const char *path, KSKVSMode mode, const KSKVSConfi
             } else {
                 KSLOG_ERROR("Failed to create KVS file %s: %s", path, strerror(errno));
             }
+            pthread_rwlock_unlock(&g_fileImageLock);
             goto done;
         }
 
@@ -453,6 +452,7 @@ KSKeyValueStore *kskvs_create(const char *path, KSKVSMode mode, const KSKVSConfi
 
         result = store;
         status = KSKVSOpenSuccess;
+        pthread_rwlock_unlock(&g_fileImageLock);
         goto done;
 
     rw_fail:
@@ -460,6 +460,7 @@ KSKeyValueStore *kskvs_create(const char *path, KSKVSMode mode, const KSKVSConfi
             munmap(mapped, capacity);
         }
         close(fd);
+        pthread_rwlock_unlock(&g_fileImageLock);
         goto done;
     }
 
@@ -495,55 +496,121 @@ void kskvs_destroy(KSKeyValueStore *store)
 #pragma mark - Typed Setters -
 // ============================================================================
 
-void kskvs_setString(KSKeyValueStore *store, const char *key, const char *value)
+bool kskvs_setString(KSKeyValueStore *store, const char *key, const char *value)
 {
     if (store == NULL) {
         KSLOG_DEBUG("KVS setString called with NULL store (not yet installed?)");
-        return;
+        return false;
     }
     if (value == NULL) {
-        kskvs_removeValue(store, key);
-        return;
+        return kskvs_removeValue(store, key);
     }
-    uint16_t len = (uint16_t)strlen(value);
-    if (store->maxStringLength > 0 && len > store->maxStringLength) {
-        KSLOG_ERROR("KVS string value too long (%u > %u), truncating", len, store->maxStringLength);
-        len = utf8SafeTruncate(value, store->maxStringLength);
+    // Compare before narrowing: a length past UINT16_MAX must reject, not wrap.
+    size_t rawLen = strlen(value);
+    if (store->maxStringLength > 0 && rawLen > store->maxStringLength) {
+        KSLOG_ERROR("KVS string value too long (%zu > %u), rejecting the write", rawLen, store->maxStringLength);
+        return false;
     }
-    appendRecord(store, key, KSKVSTypeString, value, len);
+    if (rawLen > UINT16_MAX) {
+        KSLOG_ERROR("KVS string value too long (%zu), rejecting the write", rawLen);
+        return false;
+    }
+    return appendRecord(store, key, KSKVSTypeString, value, (uint16_t)rawLen);
 }
 
-void kskvs_setInt64(KSKeyValueStore *store, const char *key, int64_t value)
+bool kskvs_setInt64(KSKeyValueStore *store, const char *key, int64_t value)
 {
-    appendRecord(store, key, KSKVSTypeInt64, &value, sizeof(value));
+    return appendRecord(store, key, KSKVSTypeInt64, &value, sizeof(value));
 }
 
-void kskvs_setUInt64(KSKeyValueStore *store, const char *key, uint64_t value)
+bool kskvs_setUInt64(KSKeyValueStore *store, const char *key, uint64_t value)
 {
-    appendRecord(store, key, KSKVSTypeUInt64, &value, sizeof(value));
+    return appendRecord(store, key, KSKVSTypeUInt64, &value, sizeof(value));
 }
 
-void kskvs_setDouble(KSKeyValueStore *store, const char *key, double value)
+bool kskvs_setDouble(KSKeyValueStore *store, const char *key, double value)
 {
-    appendRecord(store, key, KSKVSTypeDouble, &value, sizeof(value));
+    return appendRecord(store, key, KSKVSTypeDouble, &value, sizeof(value));
 }
 
-void kskvs_setBool(KSKeyValueStore *store, const char *key, bool value)
+bool kskvs_setBool(KSKeyValueStore *store, const char *key, bool value)
 {
     uint8_t byte = value ? 1 : 0;
-    appendRecord(store, key, KSKVSTypeBool, &byte, sizeof(byte));
+    return appendRecord(store, key, KSKVSTypeBool, &byte, sizeof(byte));
 }
 
-void kskvs_setDate(KSKeyValueStore *store, const char *key, uint64_t nanosecondsSince1970)
+bool kskvs_setDate(KSKeyValueStore *store, const char *key, int64_t nanosecondsSince1970)
 {
-    appendRecord(store, key, KSKVSTypeDate, &nanosecondsSince1970, sizeof(nanosecondsSince1970));
+    return appendRecord(store, key, KSKVSTypeDate, &nanosecondsSince1970, sizeof(nanosecondsSince1970));
 }
 
-void kskvs_removeValue(KSKeyValueStore *store, const char *key) { appendRecord(store, key, KSKVSTypeRemoved, NULL, 0); }
+bool kskvs_removeValue(KSKeyValueStore *store, const char *key)
+{
+    return appendRecord(store, key, KSKVSTypeRemoved, NULL, 0);
+}
 
 // ============================================================================
 #pragma mark - Iteration -
 // ============================================================================
+
+/** Fire the one callback matching the record at `pos`. Bounds are the
+ *  caller's responsibility; iteration and lookup validate before remembering
+ *  a position. */
+static void dispatchRecord(const KSKeyValueStore *store, uint32_t pos, const KSKVSCallbacks *callbacks, void *context)
+{
+    const KSKVSRecordHeader *rec = (const KSKVSRecordHeader *)(store->storage + pos);
+    const char *key = (const char *)(store->storage + pos + KSKVS_RECORD_HEADER_SIZE);
+    uint16_t keyLen = rec->keyLen;
+    if (rec->type == KSKVSTypeRemoved) {
+        if (callbacks->onRemoved) {
+            callbacks->onRemoved(key, keyLen, context);
+        }
+        return;
+    }
+    const uint8_t *valueBytes = store->storage + pos + KSKVS_RECORD_HEADER_SIZE + keyLen;
+    switch (rec->type) {
+        case KSKVSTypeString:
+            if (callbacks->onString) {
+                callbacks->onString(key, keyLen, (const char *)valueBytes, rec->valueLen, context);
+            }
+            break;
+        case KSKVSTypeInt64:
+            if (callbacks->onInt64 && rec->valueLen == sizeof(int64_t)) {
+                int64_t val;
+                memcpy(&val, valueBytes, sizeof(val));
+                callbacks->onInt64(key, keyLen, val, context);
+            }
+            break;
+        case KSKVSTypeUInt64:
+            if (callbacks->onUInt64 && rec->valueLen == sizeof(uint64_t)) {
+                uint64_t val;
+                memcpy(&val, valueBytes, sizeof(val));
+                callbacks->onUInt64(key, keyLen, val, context);
+            }
+            break;
+        case KSKVSTypeDouble:
+            if (callbacks->onDouble && rec->valueLen == sizeof(double)) {
+                double val;
+                memcpy(&val, valueBytes, sizeof(val));
+                callbacks->onDouble(key, keyLen, val, context);
+            }
+            break;
+        case KSKVSTypeBool:
+            if (callbacks->onBool && rec->valueLen == sizeof(uint8_t)) {
+                callbacks->onBool(key, keyLen, valueBytes[0] != 0, context);
+            }
+            break;
+        case KSKVSTypeDate:
+            if (callbacks->onDate && rec->valueLen == sizeof(int64_t)) {
+                int64_t val;
+                memcpy(&val, valueBytes, sizeof(val));
+                callbacks->onDate(key, keyLen, val, context);
+            }
+            break;
+        default:
+            break;
+    }
+}
 
 void kskvs_iterate(const KSKeyValueStore *store, const KSKVSCallbacks *callbacks, void *context)
 {
@@ -598,59 +665,49 @@ void kskvs_iterate(const KSKeyValueStore *store, const KSKVSCallbacks *callbacks
         }
 
         if (!superseded) {
-            if (rec->type == KSKVSTypeRemoved) {
-                if (callbacks->onRemoved) {
-                    callbacks->onRemoved(key, keyLen, context);
-                }
-            } else {
-                const uint8_t *valueBytes = store->storage + pos + KSKVS_RECORD_HEADER_SIZE + keyLen;
-
-                switch (rec->type) {
-                    case KSKVSTypeString:
-                        if (callbacks->onString) {
-                            callbacks->onString(key, keyLen, (const char *)valueBytes, rec->valueLen, context);
-                        }
-                        break;
-                    case KSKVSTypeInt64:
-                        if (callbacks->onInt64 && rec->valueLen == sizeof(int64_t)) {
-                            int64_t val;
-                            memcpy(&val, valueBytes, sizeof(val));
-                            callbacks->onInt64(key, keyLen, val, context);
-                        }
-                        break;
-                    case KSKVSTypeUInt64:
-                        if (callbacks->onUInt64 && rec->valueLen == sizeof(uint64_t)) {
-                            uint64_t val;
-                            memcpy(&val, valueBytes, sizeof(val));
-                            callbacks->onUInt64(key, keyLen, val, context);
-                        }
-                        break;
-                    case KSKVSTypeDouble:
-                        if (callbacks->onDouble && rec->valueLen == sizeof(double)) {
-                            double val;
-                            memcpy(&val, valueBytes, sizeof(val));
-                            callbacks->onDouble(key, keyLen, val, context);
-                        }
-                        break;
-                    case KSKVSTypeBool:
-                        if (callbacks->onBool && rec->valueLen == sizeof(uint8_t)) {
-                            callbacks->onBool(key, keyLen, valueBytes[0] != 0, context);
-                        }
-                        break;
-                    case KSKVSTypeDate:
-                        if (callbacks->onDate && rec->valueLen == sizeof(uint64_t)) {
-                            uint64_t val;
-                            memcpy(&val, valueBytes, sizeof(val));
-                            callbacks->onDate(key, keyLen, val, context);
-                        }
-                        break;
-                    default:
-                        break;
-                }
-            }
+            dispatchRecord(store, pos, callbacks, context);
         }
 
         pos += recordSize;
+    }
+}
+
+void kskvs_lookup(const KSKeyValueStore *store, const char *key, const KSKVSCallbacks *callbacks, void *context)
+{
+    if (store == NULL || store->storage == NULL || key == NULL || callbacks == NULL) {
+        return;
+    }
+
+    const KSKVSHeader *hdr = storeHeaderConst(store);
+    if (hdr->magic != KSKVS_MAGIC) {
+        return;
+    }
+
+    uint32_t endPos = hdr->offset;
+    if (endPos > store->capacity) {
+        endPos = store->capacity;
+    }
+
+    size_t keyLen = strlen(key);
+
+    // One forward pass remembering the latest record for the key; whatever is
+    // held at the end is the last write, so exactly one callback fires.
+    uint32_t foundPos = UINT32_MAX;
+    uint32_t pos = KSKVS_HEADER_SIZE;
+    while (pos + KSKVS_RECORD_HEADER_SIZE <= endPos) {
+        const KSKVSRecordHeader *rec = (const KSKVSRecordHeader *)(store->storage + pos);
+        uint32_t recordSize = KSKVS_RECORD_HEADER_SIZE + rec->keyLen + rec->valueLen;
+        if (pos + recordSize > endPos) {
+            break;
+        }
+        if (rec->keyLen == keyLen && memcmp(store->storage + pos + KSKVS_RECORD_HEADER_SIZE, key, keyLen) == 0) {
+            foundPos = pos;
+        }
+        pos += recordSize;
+    }
+
+    if (foundPos != UINT32_MAX) {
+        dispatchRecord(store, foundPos, callbacks, context);
     }
 }
 

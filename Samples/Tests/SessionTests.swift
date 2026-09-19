@@ -55,12 +55,12 @@ final class SessionTests: IntegrationTestBase {
     }
 
     // A crashed run's summary is persisted on the next launch and records the
-    // crash outcome. Run summaries live in a Runs sibling of the Reports dir.
+    // crash outcome.
     func testRunSummaryPersistedForCrashedRun() throws {
         try launchAndCrash(.nsException_genericNSException)  // run A crashes
         try launchAndInstall()  // run B installs and persists run A's summary
 
-        let runsDir = installUrl.appendingPathComponent("Runs")
+        let runsDir = try runsDirectoryUrl()
         let runFiles = try FileManager.default.contentsOfDirectory(atPath: runsDir.path).filter {
             $0.hasSuffix(".run")
         }

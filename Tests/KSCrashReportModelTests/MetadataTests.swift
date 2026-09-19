@@ -172,3 +172,26 @@ final class MetadataTests: XCTestCase {
         XCTAssertTrue(json.contains("1700000000.25"), json)
     }
 }
+
+final class MetadataStoreConformanceTests: XCTestCase {
+    func test_subscript_setsReadsAndRemovesThroughTheProtocol() {
+        var store: any MetadataStore = Metadata()
+        store["count"] = 3
+        store["name"] = "kscrash"
+        XCTAssertEqual(store["count"] as Int?, 3)
+        XCTAssertEqual(store["name"] as String?, "kscrash")
+        XCTAssertNil(store["count"] as String?, "a key read as another type is nil")
+        store["count"] = nil as Int?
+        XCTAssertNil(store["count"] as Int?)
+        store.removeValue(forKey: "name")
+        XCTAssertEqual(store.keys, [])
+    }
+
+    func test_keys_areSorted() {
+        var metadata = Metadata()
+        metadata["b"] = 1
+        metadata["a"] = 2
+        metadata["c"] = Date(timeIntervalSince1970: 0)
+        XCTAssertEqual(metadata.keys, ["a", "b", "c"])
+    }
+}

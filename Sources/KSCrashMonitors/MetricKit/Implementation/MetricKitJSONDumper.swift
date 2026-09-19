@@ -36,7 +36,6 @@ import os.log
 
 #if KSCRASH_HAS_METRICKIT
 
-    @available(iOS 14.0, macOS 12.0, *)
     enum MetricKitJSONDumper {
 
         private static var runId: String {
@@ -45,11 +44,12 @@ import os.log
 
         /// Writes JSON data to Documents/<namespace>/MetricKit/<type>/<type>_<runId>_<uuid>.json
         static func dump(_ data: Data, type: String) {
-            guard let baseURL = KSCrash.documentsURL else {
+            guard let path = kscrash_documentsPath() else {
                 os_log(.error, log: metricKitLog, "[MONITORS] Could not resolve documents directory")
                 return
             }
 
+            let baseURL = URL(fileURLWithPath: String(cString: path), isDirectory: true)
             let dirURL = baseURL.appendingPathComponent("MetricKit/\(type)", isDirectory: true)
             do {
                 try FileManager.default.createDirectory(at: dirURL, withIntermediateDirectories: true)
@@ -124,7 +124,6 @@ import os.log
 
     // MARK: - MXDiagnosticPayload Extension
 
-    @available(iOS 14.0, macOS 12.0, *)
     extension MXDiagnosticPayload {
         /// Dumps the full payload JSON, each diagnostic, and all signposts.
         func dump() {
@@ -144,7 +143,6 @@ import os.log
 
             #if !os(macOS)
                 // appLaunchDiagnostics: iOS 17.0+, visionOS 1.0+
-                // On visionOS, 1.0 is already implied by the enclosing @available(iOS 14.0, macOS 12.0, *)
                 if #available(iOS 17.0, *) {
                     if let diagnostics = appLaunchDiagnostics {
                         for d in diagnostics { d.dump() }
@@ -159,7 +157,6 @@ import os.log
 
     // MXMetricPayload was API_UNAVAILABLE(macos) until the macOS 26 SDK (Xcode 26 / Swift 6.2).
     #if !os(macOS) || compiler(>=6.2)
-        @available(iOS 14.0, macOS 12.0, *)
         extension MXMetricPayload {
             func dump() {
                 MetricKitJSONDumper.dump(jsonRepresentation(), type: "Metric")
@@ -169,7 +166,6 @@ import os.log
 
     // MARK: - MXCrashDiagnostic Extension
 
-    @available(iOS 14.0, macOS 12.0, *)
     extension MXCrashDiagnostic {
         func dump() {
             MetricKitJSONDumper.dump(jsonRepresentation(), type: "Crash")
@@ -183,7 +179,6 @@ import os.log
 
     // MARK: - MXCPUExceptionDiagnostic Extension
 
-    @available(iOS 14.0, macOS 12.0, *)
     extension MXCPUExceptionDiagnostic {
         func dump() {
             MetricKitJSONDumper.dump(jsonRepresentation(), type: "CPUException")
@@ -197,7 +192,6 @@ import os.log
 
     // MARK: - MXDiskWriteExceptionDiagnostic Extension
 
-    @available(iOS 14.0, macOS 12.0, *)
     extension MXDiskWriteExceptionDiagnostic {
         func dump() {
             MetricKitJSONDumper.dump(jsonRepresentation(), type: "DiskWriteException")
@@ -211,7 +205,6 @@ import os.log
 
     // MARK: - MXHangDiagnostic Extension
 
-    @available(iOS 14.0, macOS 12.0, *)
     extension MXHangDiagnostic {
         func dump() {
             MetricKitJSONDumper.dump(jsonRepresentation(), type: "Hang")

@@ -92,7 +92,7 @@ CFDictionaryRef kscm_lifecycle_createStitchedReport(CFDictionaryRef reportDict, 
     id reportVal = dict[KSCrashField_Report];
     id storedRunID = [reportVal isKindOfClass:[NSDictionary class]] ? reportVal[KSCrashField_RunID] : nil;
     NSString *runID = [storedRunID isKindOfClass:[NSString class]] ? storedRunID : nil;
-    char sessionID[37] = "";
+    char sessionID[KSID_SIZE] = "";
     if (kslifecycle_copyLastSessionIDForRunID(runID.UTF8String, sessionID, sizeof(sessionID))) {
         NSMutableDictionary *reportSection =
             [reportVal isKindOfClass:[NSDictionary class]] ? [reportVal mutableCopy] : [NSMutableDictionary dictionary];

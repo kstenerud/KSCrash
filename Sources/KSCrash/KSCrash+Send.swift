@@ -39,7 +39,7 @@ extension KSCrash {
     /// `runSummaryPipeline` throws `SendError.emptyPipeline`.
     public func sendRunSummaries(with configuration: SendConfiguration) async throws -> SendResult<RunSummary> {
         try await RunSummarySend.send(
-            store: Self.store(reportStore: reportStore),
+            store: Self.makeStore(),
             pipeline: configuration.runSummaryPipeline
         )
     }
@@ -49,10 +49,10 @@ extension KSCrash {
     /// Unknown ids match nothing; an empty `ids` sends nothing.
     public func sendRunSummaries(
         with configuration: SendConfiguration,
-        only ids: [String]
+        only ids: [RunSummary.ID]
     ) async throws -> SendResult<RunSummary> {
         try await RunSummarySend.send(
-            store: Self.store(reportStore: reportStore),
+            store: Self.makeStore(),
             pipeline: configuration.runSummaryPipeline,
             only: Set(ids)
         )
@@ -72,7 +72,7 @@ extension KSCrash {
     /// `SendError.emptyPipeline`.
     public func sendReports(with configuration: SendConfiguration) async throws -> SendResult<Report> {
         try await ReportSend.send(
-            store: Self.store(reportStore: reportStore),
+            store: Self.makeStore(),
             pipeline: configuration.reportPipeline
         )
     }
@@ -84,10 +84,10 @@ extension KSCrash {
     /// Unknown ids match nothing; an empty `ids` sends nothing.
     public func sendReports(
         with configuration: SendConfiguration,
-        only ids: [ReportID]
+        only ids: [Report.ID]
     ) async throws -> SendResult<Report> {
         try await ReportSend.send(
-            store: Self.store(reportStore: reportStore),
+            store: Self.makeStore(),
             pipeline: configuration.reportPipeline,
             only: Set(ids)
         )
@@ -97,25 +97,22 @@ extension KSCrash {
     // of install-time configuration (paths resolve to NULL before install, so
     // early sends correctly see no store), and cross-send coordination lives
     // in SendClaims, not here. Nothing is gained by caching it.
-    private static func store(reportStore: CrashReportStore?) -> Store? {
-        // The resolved paths can be non-NULL while an install is still in
-        // flight or after one failed partway; a nonnil reportStore is what
-        // marks a completed install, and it also backs the report half and
-        // the reclaim. Without it there is no store, and the send stays
-        // empty as documented.
-        guard let reportStore,
-            let runsPath = kscrash_getRunSummariesPath(),
-            let sidecarsPath = kscrash_getRunSidecarsPath()
+    static func makeStore() -> Store? {
+        guard kscrash_isInstalled(),
+            let storeConfig = kscrash_getReportStoreConfiguration(),
+            let reportsPath = storeConfig.pointee.reportsPath,
+            let runsPath = storeConfig.pointee.runSummariesPath,
+            let sidecarsPath = storeConfig.pointee.runSidecarsPath
         else {
             return nil
         }
-        let liveRunID = String(cString: kscrash_getRunID())
         return Store(
             runsDirectory: URL(fileURLWithPath: String(cString: runsPath), isDirectory: true),
             runSidecarsDirectory: URL(fileURLWithPath: String(cString: sidecarsPath), isDirectory: true),
-            liveRunID: liveRunID.isEmpty ? nil : liveRunID,
-            maxRunCount: Int(kscrash_getMaxRunSummaryCount()),
-            reportStore: reportStore
+            reportsDirectory: URL(fileURLWithPath: String(cString: reportsPath), isDirectory: true),
+            liveRunID: RunSummary.ID(String(cString: kscrash_getRunID())),
+            maxRunCount: Int(storeConfig.pointee.maxRunSummaryCount),
+            storeConfig: storeConfig
         )
     }
 }

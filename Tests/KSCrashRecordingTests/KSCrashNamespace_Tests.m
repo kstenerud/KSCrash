@@ -26,7 +26,6 @@
 
 #import <XCTest/XCTest.h>
 
-#import "KSCrash+Namespace.h"
 #import "KSCrashC.h"
 
 #pragma mark - C API Tests
@@ -128,90 +127,6 @@
     XCTAssertTrue(strcmp(documents, appSupport) != 0, @"Documents and Application Support paths should differ");
     XCTAssertTrue(strcmp(documents, caches) != 0, @"Documents and Caches paths should differ");
     XCTAssertTrue(strcmp(appSupport, caches) != 0, @"Application Support and Caches paths should differ");
-}
-
-@end
-
-#pragma mark - ObjC Category Tests
-
-@interface KSCrashNamespaceObjC_Tests : XCTestCase
-@end
-
-@implementation KSCrashNamespaceObjC_Tests
-
-- (void)testNamespaceIdentifier
-{
-    NSString *identifier = KSCrash.namespaceIdentifier;
-    XCTAssertNotNil(identifier);
-    XCTAssertTrue([identifier hasPrefix:@"KSCrash"], @"Expected identifier to start with 'KSCrash', got '%@'",
-                  identifier);
-}
-
-- (void)testNamespaceIdentifierMatchesCFunction
-{
-    NSString *objcIdentifier = KSCrash.namespaceIdentifier;
-    NSString *cIdentifier = @(kscrash_namespaceIdentifier());
-    XCTAssertEqualObjects(objcIdentifier, cIdentifier);
-}
-
-- (void)testDocumentsURL
-{
-    NSURL *url = KSCrash.documentsURL;
-    XCTAssertNotNil(url);
-    XCTAssertTrue(url.isFileURL);
-    XCTAssertTrue([url.path containsString:KSCrash.namespaceIdentifier],
-                  @"Expected documents URL '%@' to contain namespace '%@'", url.path, KSCrash.namespaceIdentifier);
-}
-
-- (void)testDocumentsURLMatchesCFunction
-{
-    NSURL *url = KSCrash.documentsURL;
-    NSString *cPath = @(kscrash_documentsPath());
-    XCTAssertEqualObjects(url.path, cPath);
-}
-
-- (void)testApplicationSupportURL
-{
-    NSURL *url = KSCrash.applicationSupportURL;
-    XCTAssertNotNil(url);
-    XCTAssertTrue(url.isFileURL);
-    XCTAssertTrue([url.path containsString:KSCrash.namespaceIdentifier],
-                  @"Expected application support URL '%@' to contain namespace '%@'", url.path,
-                  KSCrash.namespaceIdentifier);
-}
-
-- (void)testApplicationSupportURLMatchesCFunction
-{
-    NSURL *url = KSCrash.applicationSupportURL;
-    NSString *cPath = @(kscrash_applicationSupportPath());
-    XCTAssertEqualObjects(url.path, cPath);
-}
-
-- (void)testCachesURL
-{
-    NSURL *url = KSCrash.cachesURL;
-    XCTAssertNotNil(url);
-    XCTAssertTrue(url.isFileURL);
-    XCTAssertTrue([url.path containsString:KSCrash.namespaceIdentifier],
-                  @"Expected caches URL '%@' to contain namespace '%@'", url.path, KSCrash.namespaceIdentifier);
-}
-
-- (void)testCachesURLMatchesCFunction
-{
-    NSURL *url = KSCrash.cachesURL;
-    NSString *cPath = @(kscrash_cachesPath());
-    XCTAssertEqualObjects(url.path, cPath);
-}
-
-- (void)testURLsAreDistinct
-{
-    NSURL *documents = KSCrash.documentsURL;
-    NSURL *appSupport = KSCrash.applicationSupportURL;
-    NSURL *caches = KSCrash.cachesURL;
-
-    XCTAssertNotEqualObjects(documents, appSupport);
-    XCTAssertNotEqualObjects(documents, caches);
-    XCTAssertNotEqualObjects(appSupport, caches);
 }
 
 @end

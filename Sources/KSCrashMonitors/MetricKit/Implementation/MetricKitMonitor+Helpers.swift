@@ -48,7 +48,9 @@ func makeMetricKitReportInfo(
         timestamp: timestamp,
         type: skeleton.report.type,
         version: skeleton.report.version,
-        runId: runId,
+        // A crumb that does not decode to a UUID names no run: the report
+        // still delivers, without the run stitch.
+        runId: runId.flatMap(RunSummary.ID.init),
         monitorId: skeleton.report.monitorId,
         finalized: finalized
     )

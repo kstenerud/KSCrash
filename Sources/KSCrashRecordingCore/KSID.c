@@ -31,7 +31,7 @@
 // <sys/random.h> is missing from some SDK configurations.
 extern int getentropy(void *buf, size_t buflen);
 
-static const char g_hexChars[] = "0123456789ABCDEF";
+static const char g_hexChars[] = "0123456789abcdef";
 
 void ksid_generate(char *destinationBuffer37Bytes)
 {
@@ -59,4 +59,25 @@ void ksid_generate(char *destinationBuffer37Bytes)
         }
     }
     destinationBuffer37Bytes[pos] = '\0';
+}
+
+bool ksid_isValid(const char *id)
+{
+    if (id == NULL) {
+        return false;
+    }
+    for (int i = 0; i < KSID_LENGTH; i++) {
+        char c = id[i];
+        if (c == '\0') {
+            return false;
+        }
+        if (i == 8 || i == 13 || i == 18 || i == 23) {
+            if (c != '-') {
+                return false;
+            }
+        } else if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))) {
+            return false;
+        }
+    }
+    return id[KSID_LENGTH] == '\0';
 }

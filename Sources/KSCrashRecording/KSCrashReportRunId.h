@@ -58,6 +58,14 @@ typedef enum {
  */
 KSCrashRunIdResult kscrs_extractRunIdFromReportFile(const char *reportPath, char *runIdOut, size_t runIdOutLen);
 
+/** Extract report.id from a report file, with the same contract as
+ * kscrs_extractRunIdFromReportFile: the id must be a valid UUID.
+ */
+KSCrashRunIdResult kscrs_extractReportIdFromReportFile(const char *reportPath, char *idOut, size_t idOutLen);
+
+/** kscrs_extractReportIdFromReportFile over an in-memory payload. */
+KSCrashRunIdResult kscrs_extractReportIdFromReportBytes(const char *report, int length, char *idOut, size_t idOutLen);
+
 #ifdef __cplusplus
 }
 #endif

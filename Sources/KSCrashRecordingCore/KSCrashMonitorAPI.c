@@ -38,3 +38,17 @@ bool kscma_initAPI(KSCrashMonitorAPI *api)
     }
     return false;
 }
+
+bool kscma_hasRequiredCallbacks(const KSCrashMonitorAPI *api)
+{
+    if (api == NULL) {
+        return false;
+    }
+#define KSCMA_CHECK_CALLBACK(name) \
+    if (api->name == NULL) {       \
+        return false;              \
+    }
+    KSCRASH_MONITOR_REQUIRED_CALLBACKS(KSCMA_CHECK_CALLBACK)
+#undef KSCMA_CHECK_CALLBACK
+    return true;
+}

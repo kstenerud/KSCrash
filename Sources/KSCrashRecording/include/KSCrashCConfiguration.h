@@ -43,17 +43,12 @@
 extern "C" {
 #endif
 
+/** The most plugin monitors an install accepts (more fail the install). */
+#define KSC_MAX_PLUGINS 64
+
 /** Configuration for managing crash reports through the report store API.
  */
 typedef struct {
-    /** The name of the application.
-     * This identifier is used to distinguish the application in crash reports.
-     * It is crucial for correlating crash data with the specific application version.
-     *
-     * @note This field must be set prior to using this configuration with any `kscrs_` functions.
-     */
-    const char *appName;
-
     /** The directory path for storing crash reports.
      * The specified directory must have write permissions. If it doesn't exist,
      * the system will attempt to create it automatically.
@@ -85,7 +80,7 @@ typedef struct {
      * Defines the upper limit of crash reports to keep in storage. When this threshold
      * is reached, the system will remove the oldest reports to accommodate new ones.
      *
-     * **Default**: 5
+     * **Default**: 50
      */
     int maxReportCount;
 
@@ -101,12 +96,11 @@ typedef struct {
 static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_Default(void)
 {
     return (KSCrashReportStoreCConfiguration) {
-        .appName = NULL,
         .reportsPath = NULL,
         .reportSidecarsPath = NULL,
         .runSidecarsPath = NULL,
         .runSummariesPath = NULL,
-        .maxReportCount = 5,
+        .maxReportCount = 50,
         .maxRunSummaryCount = 50,
     };
 }
@@ -115,7 +109,6 @@ static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_
     const KSCrashReportStoreCConfiguration *configuration)
 {
     return (KSCrashReportStoreCConfiguration) {
-        .appName = configuration->appName ? strdup(configuration->appName) : NULL,
         .reportsPath = configuration->reportsPath ? strdup(configuration->reportsPath) : NULL,
         .reportSidecarsPath = configuration->reportSidecarsPath ? strdup(configuration->reportSidecarsPath) : NULL,
         .runSidecarsPath = configuration->runSidecarsPath ? strdup(configuration->runSidecarsPath) : NULL,
@@ -127,7 +120,6 @@ static inline KSCrashReportStoreCConfiguration KSCrashReportStoreCConfiguration_
 
 static inline void KSCrashReportStoreCConfiguration_Release(KSCrashReportStoreCConfiguration *configuration)
 {
-    free((void *)configuration->appName);
     free((void *)configuration->reportsPath);
     free((void *)configuration->reportSidecarsPath);
     free((void *)configuration->runSidecarsPath);
@@ -137,41 +129,16 @@ static inline void KSCrashReportStoreCConfiguration_Release(KSCrashReportStoreCC
 /** Configuration for KSCrash settings.
  */
 typedef struct {
-    /** The report store configuration to be used for the corresponding installation.
-     */
-    KSCrashReportStoreCConfiguration reportStoreConfiguration;
+    /** How many unsent reports the store keeps; the oldest are dropped past it. */
+    int maxReportCount;
+
+    /** How many run summaries the store keeps; 0 or less disables them. */
+    int maxRunSummaryCount;
 
     /** The crash types that will be handled.
      * Some crash types may not be enabled depending on circumstances (e.g., running in a debugger).
      */
     KSCrashMonitorType monitors;
-
-    /** User-supplied data in JSON format. NULL to delete.
-     *
-     * This JSON string is written into the crash report's "user" section at install time.
-     * After install, use the per-key API (kscrash_setUserInfoString, etc.) to update values.
-     */
-    const char *userInfoJSON;
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    /** The maximum time to allow the main thread to run without returning.
-     *
-     * If the main thread is occupied by a task for longer than this interval, the
-     * watchdog will consider the queue deadlocked and shut down the app, writing a
-     * crash report. Set to 0 to disable this feature.
-     *
-     * **Warning**: Ensure that no tasks on the main thread take longer to complete than
-     * this value, including application startup. You may need to initialize your
-     * application on a different thread or set this to a higher value until initialization
-     * is complete.
-     *
-     * @note Deprecated. Use `KSCrashMonitorTypeWatchdog` in the `monitors` field instead.
-     * The watchdog monitor provides better hang detection with a fixed 250ms threshold.
-     */
-    double deadlockWatchdogInterval
-        KSCRASH_DEPRECATED("Use `KSCrashMonitorTypeWatchdog` in the `monitors` field instead");
-#pragma clang diagnostic pop
 
     /** If true, attempt to fetch dispatch queue names for each running thread.
      *
@@ -275,21 +242,13 @@ typedef struct {
      */
     bool enableSwapCxaThrow;
 
-    /** If true, enables monitoring for SIGTERM signals.
-     *
-     * @deprecated SIGTERM is now always caught to record a clean exit. No crash report is written. This field is
-     * ignored.
-     */
-    bool enableSigTermMonitoring
-        KSCRASH_DEPRECATED("SIGTERM is now always caught to record a clean exit. This field is ignored.");
-
     /** If true, resolved hangs are kept as non-fatal reports.
      *
      * When enabled, hangs that resolve on their own are preserved as reports
      * with duration and stack trace information. When disabled (default),
      * resolved hangs are discarded.
      *
-     * Only applies when `KSCrashMonitorTypeWatchdog` is included in `monitors`.
+     * Only applies when `KSCrashMonitorTypeHang` is included in `monitors`.
      *
      * **Default**: false
      */
@@ -322,6 +281,7 @@ typedef struct {
      *
      * An array of `KSCrashMonitorAPI` structs that will be copied into static
      * storage and registered via `kscm_addMonitor()` during installation.
+     * More than `KSC_MAX_PLUGINS` entries fail the install.
      *
      * If `release` is non-NULL, it will be called with `apis` during
      * `KSCrashCConfiguration_Release()`. Set it to `free` for heap-allocated
@@ -334,42 +294,6 @@ typedef struct {
         int length;
         void (*release)(void *apis);
     } plugins;
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    /** Callback to invoke upon a crash (DEPRECATED).
-     *
-     * @deprecated Use `isWritingReportCallback` for async-safety awareness (since v2.4.0).
-     * This callback does not receive plan information and may not handle crash
-     * scenarios safely.
-     *
-     * This function is called during the crash reporting process, providing an opportunity
-     * to add additional information to the crash report. Only async-safe functions should
-     * be called from this function. Avoid calling Objective-C methods.
-     *
-     * **Default**: NULL
-     */
-    KSReportWriteCallback crashNotifyCallback
-        __attribute__((deprecated("Use `isWritingReportCallback` for async-safety awareness (since v2.4.0).")));
-#pragma clang diagnostic pop
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    /** Callback to invoke upon finishing writing a crash report (DEPRECATED).
-     *
-     * @deprecated Use `didWriteReportCallback` for async-safety awareness (since v2.4.0).
-     * This callback does not receive plan information and may not handle crash
-     * scenarios safely.
-     *
-     * This function is called after a crash report has been written. It allows the caller
-     * to react to the completion of the report. Only async-safe functions should be called
-     * from this function. Avoid calling Objective-C methods.
-     *
-     * **Default**: NULL
-     */
-    KSReportWrittenCallback reportWrittenCallback
-        __attribute__((deprecated("Use `didWriteReportCallback` for async-safety awareness (since v2.4.0).")));
-#pragma clang diagnostic pop
 
     /** If true, use `backtrace_async()` for KSCrash's current-thread stack capture paths.
      *
@@ -386,44 +310,28 @@ typedef struct {
 static inline KSCrashCConfiguration KSCrashCConfiguration_Default(void)
 {
     return (KSCrashCConfiguration) {
-        .reportStoreConfiguration = KSCrashReportStoreCConfiguration_Default(),
-        .monitors = KSCrashMonitorTypeProductionSafeMinimal,
-        .userInfoJSON = NULL,
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-        .deadlockWatchdogInterval = 0.0,
-#pragma clang diagnostic pop
+        .maxReportCount = 50,
+        .maxRunSummaryCount = 50,
+        .monitors = KSCrashMonitorTypeDefault,
         .enableQueueNameSearch = false,
         .enableMemoryIntrospection = false,
         .doNotIntrospectClasses = { .strings = NULL, .length = 0 },
-    // TODO: Remove in 3.0 - Deprecated field initialization for backward compatibility
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-        .crashNotifyCallback = NULL,
         .willWriteReportCallback = NULL,
-        .reportWrittenCallback = NULL,
-#pragma clang diagnostic pop
         .isWritingReportCallback = NULL,
         .didWriteReportCallback = NULL,
         .addConsoleLogToReport = false,
         .printPreviousLogOnStartup = false,
         .enableSwapCxaThrow = true,
-        .enableSwiftAsyncStackTraces = false,
         .enableHangReporting = false,
         .enableCPUExceptionReporting = false,
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-        .enableSigTermMonitoring = false,
-#pragma clang diagnostic pop
         .enableCompactBinaryImages = false,
         .plugins = { .apis = NULL, .length = 0, .release = NULL },
+        .enableSwiftAsyncStackTraces = false,
     };
 }
 
 static inline void KSCrashCConfiguration_Release(KSCrashCConfiguration *configuration)
 {
-    KSCrashReportStoreCConfiguration_Release(&configuration->reportStoreConfiguration);
-    free((void *)configuration->userInfoJSON);
     for (int idx = 0; idx < configuration->doNotIntrospectClasses.length; ++idx) {
         free((void *)(configuration->doNotIntrospectClasses.strings[idx]));
     }

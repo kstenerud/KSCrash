@@ -2,8 +2,7 @@
 paths:
   - "Sources/KSCrashRecording/KSCrashReportStoreC.c"
   - "Sources/KSCrashRecording/KSCrashReportStoreC+Private.h"
-  - "Sources/KSCrashRecording/KSCrashReportStore.m"
-  - "Sources/KSCrashRecording/include/KSCrashReportStore*.h"
+  - "Sources/KSCrashRecording/include/KSCrashReportStoreC.h"
   - "Sources/KSCrashRecording/include/KSCrashCConfiguration.h"
   - "Sources/KSCrashRecordingCore/include/KSCrashMonitorContext.h"
   - "Sources/KSCrashRecordingCore/include/KSCrashMonitorAPI.h"
@@ -28,17 +27,19 @@ Sidecars allow monitors to store auxiliary data alongside crash reports without 
 ### Directory Layout
 
 ```
-<installPath>/
+<container>/KSCrash/<namespace>/<bundleID>/
 ├── Reports/
-│   └── myapp-report-00789abc00000001.json
+│   └── 01234567890123456789-A1B2C3D4-....json         (<startNs>-<UUID>.json)
 ├── Sidecars/                                          (per-report)
 │   ├── Watchdog/
-│   │   └── 00789abc00000001.ksscr
+│   │   └── A1B2C3D4-....ksscr                         (<reportID>.ksscr)
 │   └── AnotherMonitor/
-│       └── 00789abc00000001.ksscr
-└── RunSidecars/                                       (per-run)
-    └── a1b2c3d4-e5f6-7890-abcd-ef1234567890/
-        └── Watchdog.ksscr
+│       └── A1B2C3D4-....ksscr
+├── RunSidecars/                                       (per-run)
+│   └── a1b2c3d4-e5f6-7890-abcd-ef1234567890/
+│       └── Watchdog.ksscr
+├── Runs/                                              (.sessions / .run)
+└── Data/
 ```
 
 Per-report sidecars: `Sidecars/<monitorId>/<reportID>.ksscr` — one file per report per monitor. Per-run sidecars: `RunSidecars/<runID>/<monitorId>.ksscr` — one file per process run per monitor, shared across all reports from that run.
@@ -103,7 +104,7 @@ This runs at normal app startup time (not during crash handling), so ObjC and he
 
 ### Configuration
 
-The sidecars directories are configured via `KSCrashReportStoreCConfiguration.reportSidecarsPath` and `runSidecarsPath`. If left `NULL` (the default), they are automatically set to `Sidecars` and `RunSidecars` siblings of `reportsPath` during `kscrash_install` (matching the ObjC `KSCrashReportStoreConfiguration`). The report store creates these directories at initialization. Orphaned run sidecar directories are removed by `kscrs_reclaimOrphanedRunData`, which the send flows run automatically (see `sessions.md`).
+The sidecars directories are configured via `KSCrashReportStoreCConfiguration.reportSidecarsPath` and `runSidecarsPath`. If left `NULL` (the default), they are automatically set to `Sidecars` and `RunSidecars` siblings of `reportsPath` during `kscrash_install` (the folder names are the exported `KSCRS_DEFAULT_*_FOLDER` constants the Swift `InstallConfiguration.locations` mirrors). The report store creates these directories at initialization. Orphaned run sidecar directories are removed by `kscrs_reclaimOrphanedRunData`, which the send flows run automatically (see `sessions.md`).
 
 ### Key Files
 

@@ -31,13 +31,13 @@ import KSCrashReportModel
 /// pipeline, with per-run outcomes. The loop itself is `SendDriver`'s; this
 /// is what a run summary is to it.
 enum RunSummarySend {
-    static let claims = SendClaims<String>()
+    static let claims = SendClaims<RunSummary.ID>()
 
     static func send(
         store: Store?,
         pipeline: [AnyPipelineStage<RunSummary>],
-        only selection: Set<String>? = nil,
-        claims: SendClaims<String> = RunSummarySend.claims
+        only selection: Set<RunSummary.ID>? = nil,
+        claims: SendClaims<RunSummary.ID> = RunSummarySend.claims
     ) async throws -> SendResult<RunSummary> {
         try await SendDriver.send(
             store: store,

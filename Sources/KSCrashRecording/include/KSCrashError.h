@@ -55,8 +55,7 @@ typedef
   KSCrashInstallErrorCouldNotInitializeStore,
   KSCrashInstallErrorCouldNotInitializeMemory,
   KSCrashInstallErrorCouldNotInitializeCrashState,
-  KSCrashInstallErrorCouldNotSetLogFilename,
-  KSCrashInstallErrorNoActiveMonitors }
+  KSCrashInstallErrorCouldNotSetLogFilename }
 #ifndef __OBJC__
 KSCrashInstallErrorCode
 #endif

@@ -26,8 +26,7 @@
 
 #import <XCTest/XCTest.h>
 
-#import "KSCrash.h"
-#import "KSCrashInstallConfiguration.h"
+#import "KSCrashC.h"
 #import "KSCrashMonitor.h"
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitor_NSException.h"
@@ -35,11 +34,23 @@
 @interface KSCrashMonitor_NSException_Tests : XCTestCase
 @end
 
+struct KSCrashMonitorSavedState;
+extern struct KSCrashMonitorSavedState *kscm_testcode_saveState(void);
+extern void kscm_testcode_restoreState(struct KSCrashMonitorSavedState *saved);
+static struct KSCrashMonitorSavedState *g_savedMonitorState;
+
 @implementation KSCrashMonitor_NSException_Tests
+
+- (void)setUp
+{
+    [super setUp];
+    g_savedMonitorState = kscm_testcode_saveState();
+}
 
 - (void)tearDown
 {
     kscm_disableAllMonitors();
+    kscm_testcode_restoreState(g_savedMonitorState);
     [super tearDown];
 }
 
@@ -68,11 +79,43 @@
     XCTAssertFalse(api->isEnabled(NULL));
 }
 
+// The handler callbacks an install would provide: a context to fill and a
+// result to return, nothing written.
+static KSCrash_MonitorContext g_stubContext;
+
+static KSCrash_MonitorContext *stubNotify(__unused thread_t thread,
+                                          __unused KSCrash_ExceptionHandlingRequirements requirements)
+{
+    memset(&g_stubContext, 0, sizeof(g_stubContext));
+    return &g_stubContext;
+}
+
+static void stubHandle(__unused KSCrash_MonitorContext *context, KSCrash_ReportResult *result, __unused bool finalize)
+{
+    strlcpy(result->reportId, "4C1B2F3E-0000-4000-8000-000000000001", sizeof(result->reportId));
+    result->path[0] = '\0';
+}
+
+static void stubHandle_deprecated(KSCrash_MonitorContext *context)
+{
+    KSCrash_ReportResult ignored = { 0 };
+    stubHandle(context, &ignored, false);
+}
+
+/** Enabling the monitor hands kscrash_reportNSException its reporter, as an install would. */
+- (void)enableNSExceptionMonitor
+{
+    KSCrashMonitorAPI *api = kscm_nsexception_getAPI();
+    KSCrash_ExceptionHandlerCallbacks callbacks = { .notify = stubNotify,
+                                                    .handle = stubHandle_deprecated,
+                                                    .handleWithResult = stubHandle };
+    api->init(&callbacks, NULL);
+    api->setEnabled(true, NULL);
+}
+
 - (void)testReportUserNSException
 {
-    // Install KSCrash to enable the NSException monitor (ignore if already installed)
-    KSCrashInstallConfiguration *config = [[KSCrashInstallConfiguration alloc] init];
-    [[KSCrash sharedInstance] installWithConfiguration:config error:NULL];
+    [self enableNSExceptionMonitor];
 
     // Create an exception with a real call stack by throwing and catching
     NSException *exception = nil;
@@ -87,14 +130,12 @@
     XCTAssertGreaterThan(exception.callStackReturnAddresses.count, 0);
 
     // Report the exception - this exercises handleException and initStackCursor
-    [[KSCrash sharedInstance] reportNSException:exception logAllThreads:NO];
+    kscrash_reportNSException(exception, false, 0);
 }
 
 - (void)testReportUserNSExceptionWithEmptyCallStack
 {
-    // Install KSCrash to enable the NSException monitor (ignore if already installed)
-    KSCrashInstallConfiguration *config = [[KSCrashInstallConfiguration alloc] init];
-    [[KSCrash sharedInstance] installWithConfiguration:config error:NULL];
+    [self enableNSExceptionMonitor];
 
     // Create an exception without throwing (no call stack)
     NSException *exception = [NSException exceptionWithName:@"TestException"
@@ -105,7 +146,7 @@
     XCTAssertEqual(exception.callStackReturnAddresses.count, 0);
 
     // Report the exception - this exercises the else branch in initStackCursor
-    [[KSCrash sharedInstance] reportNSException:exception logAllThreads:NO];
+    kscrash_reportNSException(exception, false, 0);
 }
 
 @end
