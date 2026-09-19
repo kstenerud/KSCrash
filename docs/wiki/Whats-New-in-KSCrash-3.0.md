@@ -247,16 +247,55 @@ flowchart LR
   A --> D["delivered through<br/>your pipeline"]
 ```
 
-```swift
-// In the extension
-let area = CorpseReportingConfiguration(
-    namespace: "MyApp", container: .appGroup("group.com.example.app"))
-try KSCrash.shared.installForCorpseReporting(with: area)
-_ = try KSCrash.shared.captureCrashReport(from: process)
+Two targets are involved, and the only thing they share is the area: the same
+`CorpseReportingConfiguration` value, built independently on each side, which is
+how both derive the same directory inside the app group.
 
-// In the app
-config.plugins = [CrashReportExtensionMonitor.plugin()]   // stitches at read time
-send.corpseAreas = [area]                                  // same value, drained at send
+In the extension target:
+
+```swift
+import CrashReportExtension
+import KSCrashCrashReportExtension
+
+let area = CorpseReportingConfiguration(
+    namespace: "MyApp",
+    container: .appGroup("group.com.example.app"))
+
+@main
+struct MyCrashReporter: CrashReporterExtension {
+    init() {
+        try? KSCrash.shared.installForCorpseReporting(with: area)
+    }
+
+    // Called by the system after the app crashes.
+    func processCrashReport(process: CrashedProcess) {
+        _ = try? KSCrash.shared.captureCrashReport(from: process)
+    }
+}
+```
+
+In the app, at install, so the captured reports can be read back:
+
+```swift
+import KSCrash
+import KSCrashCrashReportExtension
+
+var config = InstallConfiguration(namespace: "MyApp")
+config.plugins = [CrashReportExtensionMonitor.plugin()]
+try KSCrash.shared.install(config)
+```
+
+and at send, so the extension's area is drained into the app's own store:
+
+```swift
+var send = SendConfiguration()
+send.reportPipeline = [.init(MyUploadStage())]
+send.corpseAreas = [
+    CorpseReportingConfiguration(
+        namespace: "MyApp",
+        container: .appGroup("group.com.example.app"))
+]
+let result = try await KSCrash.shared.sendReports(with: send)
 ```
 
 A corpse-reporting install is not a lighter app install. It arms no crash
