@@ -162,9 +162,7 @@
         NSMutableArray<NSThread *> *threadsThisRound = [NSMutableArray array];
         for (int i = 0; i < kThreadsPerRound; i++) {
             NSThread *thread = [[NSThread alloc] initWithBlock:^{
-                // Touch a queue so the thread has one attached, then exit straight away.
-                dispatch_sync(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^ {
-                              });
+                [NSThread sleepForTimeInterval:0.001];
             }];
             [thread start];
             [threadsThisRound addObject:thread];
