@@ -50,6 +50,8 @@ jobs:
     env:
       CORPSE_HAS_SIGNING: ${{ secrets.CORPSE_SIGNING_CERT != '' }}
       CORPSE_TEAM: ${{ secrets.CORPSE_TEAM }}
+      CORPSE_ASC_KEY_ID: ${{ secrets.CORPSE_ASC_KEY_ID }}
+      CORPSE_ASC_ISSUER_ID: ${{ secrets.CORPSE_ASC_ISSUER_ID }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v7
@@ -91,6 +93,7 @@ jobs:
           CORPSE_SIGNING_CERT: ${{ secrets.CORPSE_SIGNING_CERT }}
           CORPSE_SIGNING_CERT_PASSWORD: ${{ secrets.CORPSE_SIGNING_CERT_PASSWORD }}
           CORPSE_PROVISIONING_PROFILES: ${{ secrets.CORPSE_PROVISIONING_PROFILES }}
+          CORPSE_ASC_KEY: ${{ secrets.CORPSE_ASC_KEY }}
         run: |
           KEYCHAIN=$RUNNER_TEMP/corpse.keychain-db
           KEYCHAIN_PASSWORD=$(uuidgen)
@@ -104,6 +107,16 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
           security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
           rm -f "$RUNNER_TEMP/cert.p12"
+
+          # The App Store Connect key, which is what lets
+          # -allowProvisioningUpdates create and refresh profiles on a machine
+          # with no Xcode account signed in. xcodebuild finds it by key id in
+          # this directory.
+          if [ -n "$CORPSE_ASC_KEY" ]; then
+            mkdir -p ~/.appstoreconnect/private_keys
+            echo "$CORPSE_ASC_KEY" | base64 --decode \
+              > ~/.appstoreconnect/private_keys/AuthKey_$CORPSE_ASC_KEY_ID.p8
+          fi
 
           # A gzipped tar of .mobileprovision files, so the host, the extension
           # and the test runner can each have their own. Gzipped because the
@@ -119,8 +132,17 @@ jobs:
       - name: Build For Testing
         working-directory: ./Samples
         run: |
+          # Automatic, not manual: the profiles carrying the App Group are
+          # Xcode-managed, and manual signing refuses to name one. With the
+          # App Store Connect key present, -allowProvisioningUpdates maintains
+          # them itself without an Xcode account on the machine.
           if [ "$CORPSE_HAS_SIGNING" = "true" ]; then
-            SIGNING_FLAGS="DEVELOPMENT_TEAM=$CORPSE_TEAM CODE_SIGN_STYLE=Manual"
+            SIGNING_FLAGS="DEVELOPMENT_TEAM=$CORPSE_TEAM CODE_SIGN_STYLE=Automatic -allowProvisioningUpdates"
+            if [ -n "$CORPSE_ASC_KEY_ID" ]; then
+              SIGNING_FLAGS="$SIGNING_FLAGS -authenticationKeyID $CORPSE_ASC_KEY_ID"
+              SIGNING_FLAGS="$SIGNING_FLAGS -authenticationKeyIssuerID $CORPSE_ASC_ISSUER_ID"
+              SIGNING_FLAGS="$SIGNING_FLAGS -authenticationKeyPath $HOME/.appstoreconnect/private_keys/AuthKey_$CORPSE_ASC_KEY_ID.p8"
+            fi
           else
             SIGNING_FLAGS="CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO"
           fi
