@@ -169,7 +169,8 @@ let project = Project(
                 .package(product: "CrashReportExtension", type: .runtime),
             ],
             settings: .settings(
-                base: corpseSigning
+                base:
+                    corpseSigning
                     .merging(["SUPPORTED_PLATFORMS": "iphoneos"]) { _, new in new })
         ),
 
