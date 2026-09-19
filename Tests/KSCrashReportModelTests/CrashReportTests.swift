@@ -57,6 +57,7 @@ final class CrashReportTests: XCTestCase {
         XCTAssertEqual(TerminationReason.appUpgrade.rawValue, "app_upgrade")
         XCTAssertEqual(TerminationReason.reboot.rawValue, "reboot")
         XCTAssertEqual(TerminationReason.unexplained.rawValue, "unexplained")
+        XCTAssertEqual(TerminationReason.backgroundExit.rawValue, "background_exit")
     }
 
     func testTerminationReasonUnknown() {

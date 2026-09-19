@@ -57,6 +57,8 @@ const char *kstermination_reasonToString(KSTerminationReason reason)
             return "reboot";
         case KSTerminationReasonUnexplained:
             return "unexplained";
+        case KSTerminationReasonBackgroundExit:
+            return "background_exit";
         case KSTerminationReasonNone:
         default:
             return "none";
@@ -82,6 +84,7 @@ KSTerminationReason kstermination_reasonFromString(const char *string)
     if (strcmp(string, "app_upgrade") == 0) return KSTerminationReasonAppUpgrade;
     if (strcmp(string, "reboot") == 0) return KSTerminationReasonReboot;
     if (strcmp(string, "unexplained") == 0) return KSTerminationReasonUnexplained;
+    if (strcmp(string, "background_exit") == 0) return KSTerminationReasonBackgroundExit;
     return KSTerminationReasonNone;
 }
 

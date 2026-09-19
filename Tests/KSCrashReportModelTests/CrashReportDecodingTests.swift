@@ -1324,6 +1324,7 @@ final class CrashReportDecodingTests: XCTestCase {
             ("app_upgrade", .appUpgrade),
             ("reboot", .reboot),
             ("unexplained", .unexplained),
+            ("background_exit", .backgroundExit),
         ] {
             let json = """
                 {
