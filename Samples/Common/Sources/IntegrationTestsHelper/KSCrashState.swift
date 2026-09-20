@@ -36,6 +36,10 @@ public struct KSCrashState: Codable {
     public var rootPath: String?
     public var reportsPath: String?
     public var runsPath: String?
+    /// This run's id, so a test can tie a report back to the run that produced
+    /// it. Without it a leftover report from an earlier case satisfies every
+    /// other assertion and the test passes having checked nothing.
+    public var runID: RunSummary.ID?
 }
 
 extension KSCrashState {
@@ -51,7 +55,8 @@ extension KSCrashState {
             previousRunWasAbnormal: reason.isAbnormal,
             rootPath: locations?.root.path,
             reportsPath: locations?.reports.path,
-            runsPath: locations?.runs.path
+            runsPath: locations?.runs.path,
+            runID: KSCrash.shared.runID
         )
     }
 
