@@ -266,6 +266,10 @@ class IntegrationTestBase: XCTestCase {
 
         launchAppAndRunScript()
         waitForCrash()
+        // The run that just died. Everything read back afterwards is checked
+        // against it, so a report left over from an earlier case cannot pass
+        // for this one's.
+        crashedRunID = try? readState().runID
     }
 
     func launchAndRunTrigger(
@@ -316,10 +320,31 @@ class IntegrationTestBase: XCTestCase {
         }
     }
 
+    /// The id of the run killed by the last `launchAndCrash`, when the app got
+    /// far enough to record one.
+    private(set) var crashedRunID: RunSummary.ID?
+
     /// Relaunch the app, deliver the pending reports through the Swift send,
     /// and return the delivered report decoded from the dump directory.
     func launchAndReportCrash() throws -> Report {
-        try decodeCrashReport(reportData: launchAndReportCrashRaw())
+        let report = try decodeCrashReport(reportData: launchAndReportCrashRaw())
+        assertReportBelongsToCrashedRun(report)
+        return report
+    }
+
+    /// Ties a delivered report to the run that died.
+    ///
+    /// Every assertion a test makes about a report is worthless if the report
+    /// came from a different run: the content is plausible, the test is green,
+    /// and nothing was checked. Only skipped when the crashing launch never
+    /// recorded an id, which is the case for the tests that do not crash.
+    func assertReportBelongsToCrashedRun(
+        _ report: Report, file: StaticString = #filePath, line: UInt = #line
+    ) {
+        guard let crashedRunID else { return }
+        XCTAssertEqual(
+            report.report.runId, crashedRunID,
+            "the delivered report is not from the run that crashed", file: file, line: line)
     }
 
     func launchAndReportCrashRaw(

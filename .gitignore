@@ -49,3 +49,6 @@ infer-out/
 compile_commands.json
 compile_commands_c_only.json
 /Derived
+
+# Local signing for the corpse device tests
+Samples/Corpse/signing.env
