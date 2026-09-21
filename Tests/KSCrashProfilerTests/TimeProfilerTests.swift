@@ -30,6 +30,33 @@ import XCTest
 
 @testable import KSCrashProfiler
 
+// A sanitizer runtime exports a well-known init symbol once loaded, so a dlsym
+// against RTLD_DEFAULT detects it however the build was invoked.
+private func isRunningUnderSanitizer() -> Bool {
+    // RTLD_DEFAULT (search every loaded image) is not exported to Swift, so
+    // spell out its pseudo-handle value.
+    let rtldDefault = UnsafeMutableRawPointer(bitPattern: -2)
+    return ["__asan_init", "__tsan_init", "__ubsan_handle_add_overflow"].contains { symbol in
+        symbol.withCString { dlsym(rtldDefault, $0) != nil }
+    }
+}
+
+/// Waits long enough for the sampling timer to have ticked.
+///
+/// Sampling is a timer on another queue, so a test that wants samples has to
+/// leave the profiler real wall time. Under a sanitizer every tick costs far
+/// more than it does normally, since it suspends the target thread and unwinds
+/// through instrumented frames, so a window sized for a plain build can pass
+/// with zero ticks and the test sees an empty profile rather than a slow one.
+/// Raising the floor only under a sanitizer keeps ordinary runs at their
+/// original speed.
+///
+/// Only for waits that gate whether samples exist. A test that bounds how long
+/// a profile ran must keep its own timing.
+private func waitForSamples(_ seconds: TimeInterval) {
+    Thread.sleep(forTimeInterval: isRunningUnderSanitizer() ? max(seconds, 0.5) : seconds)
+}
+
 final class TimeProfilerTests: XCTestCase {
 
     // MARK: - TimeProfiler Initialization Tests
@@ -169,7 +196,7 @@ final class TimeProfilerTests: XCTestCase {
         let id = profiler.beginProfile(named: "test")
 
         // Do some work to generate samples
-        Thread.sleep(forTimeInterval: 0.05)
+        waitForSamples(0.05)
 
         let profile = profiler.endProfile(id: id)
 
@@ -195,7 +222,7 @@ final class TimeProfilerTests: XCTestCase {
         let id = profiler.beginProfile(named: "test")
 
         // Sleep to allow some samples to be captured
-        Thread.sleep(forTimeInterval: 0.1)
+        waitForSamples(0.1)
 
         let profile = profiler.endProfile(id: id)
 
@@ -219,7 +246,7 @@ final class TimeProfilerTests: XCTestCase {
         )
 
         let id = profiler.beginProfile(named: "test")
-        Thread.sleep(forTimeInterval: 0.05)
+        waitForSamples(0.05)
         let profile = profiler.endProfile(id: id)
 
         guard let profile = profile, !profile.samples.isEmpty else {
@@ -254,7 +281,7 @@ final class TimeProfilerTests: XCTestCase {
         )
 
         let id = profiler.beginProfile(named: "test")
-        Thread.sleep(forTimeInterval: 0.05)
+        waitForSamples(0.05)
         let profile = profiler.endProfile(id: id)
 
         guard let profile = profile, !profile.samples.isEmpty else {
@@ -283,7 +310,7 @@ final class TimeProfilerTests: XCTestCase {
         )
 
         let id = profiler.beginProfile(named: "test")
-        Thread.sleep(forTimeInterval: 0.05)
+        waitForSamples(0.05)
         let profile = profiler.endProfile(id: id)
 
         guard let profile = profile else {
@@ -535,7 +562,7 @@ final class TimeProfilerTests: XCTestCase {
         )
 
         let id = profiler.beginProfile(named: "test")
-        Thread.sleep(forTimeInterval: 0.1)
+        waitForSamples(0.1)
         let profile = profiler.endProfile(id: id)
 
         XCTAssertNotNil(profile)
@@ -635,15 +662,15 @@ final class TimeProfilerTests: XCTestCase {
 
         // Start first profile
         let id1 = profiler.beginProfile(named: "test")
-        Thread.sleep(forTimeInterval: 0.05)
+        waitForSamples(0.05)
 
         // Start second profile while first is still running
         let id2 = profiler.beginProfile(named: "test")
-        Thread.sleep(forTimeInterval: 0.05)
+        waitForSamples(0.05)
 
         // End first profile
         let profile1 = profiler.endProfile(id: id1)
-        Thread.sleep(forTimeInterval: 0.05)
+        waitForSamples(0.05)
 
         // End second profile
         let profile2 = profiler.endProfile(id: id2)
