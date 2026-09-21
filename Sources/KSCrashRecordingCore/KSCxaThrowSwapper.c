@@ -82,7 +82,6 @@ typedef struct {
     uintptr_t image;
     _Atomic(uintptr_t) function;  // Atomic: non-zero signals slot is ready (written last)
     void **binding;               // Pointer to the GOT entry, for restoring original
-    bool isConstSegment;          // True if binding is in __DATA_CONST (needs mprotect)
 } KSAddressPair;
 
 // Maximum number of dylibs we expect to handle. Modern iOS apps typically have
@@ -128,7 +127,7 @@ static bool reserveIndex(size_t *out_index)
     }
 }
 
-static bool addPair(uintptr_t image, uintptr_t function, void **binding, bool isConstSegment)
+static bool addPair(uintptr_t image, uintptr_t function, void **binding)
 {
     KSLOG_DEBUG("Adding address pair: image=%p, function=%p", (void *)image, (void *)function);
 
@@ -145,7 +144,6 @@ static bool addPair(uintptr_t image, uintptr_t function, void **binding, bool is
     // function is non-zero.
     g_cxa_originals[index].image = image;
     g_cxa_originals[index].binding = binding;
-    g_cxa_originals[index].isConstSegment = isConstSegment;
     atomic_store_explicit(&g_cxa_originals[index].function, function, memory_order_release);
 
     // Capture the first valid __cxa_throw as fallback (only once, never cleared)
@@ -179,16 +177,33 @@ static uintptr_t findAddress(void *address)
     return (uintptr_t)NULL;
 }
 
-static bool writeProtectedBinding(void **binding, void *value, bool isConstSegment)
+static int posixProtection(vm_prot_t protection)
 {
-    // __DATA_CONST segments are read-only and need mprotect to write.
-    // __DATA segments are writable, so we can write directly without syscalls.
-    // This avoids the vm_region syscall that ksmacho_getSectionProtection would use.
-    //
-    // Note: mprotect operates on page granularity. While multiple dylibs could
-    // theoretically share a page, Mach-O segments are typically page-aligned in
-    // memory, making it safe to toggle protection during serial image loading.
-    if (!isConstSegment) {
+    int result = PROT_NONE;
+    if (protection & VM_PROT_READ) {
+        result |= PROT_READ;
+    }
+    if (protection & VM_PROT_WRITE) {
+        result |= PROT_WRITE;
+    }
+    if (protection & VM_PROT_EXECUTE) {
+        result |= PROT_EXEC;
+    }
+    return result;
+}
+
+// Read the protection at write time rather than deriving it from the
+// segment: the segment does not determine it. dyld mprotects a segment only
+// when the linker flagged it SG_READ_ONLY, so a __DATA_CONST without that
+// flag stays writable for the life of the process, and dyld reopens the
+// flagged ones around the Objective-C map_images callback. Neither state is
+// visible from the segment name this rebinder walks, and handing a page
+// back read-only that dyld or the Objective-C runtime is about to write
+// faults the process.
+static bool writeProtectedBinding(void **binding, void *value)
+{
+    vm_prot_t currentProtection = ksmacho_getSectionProtection(binding);
+    if (currentProtection & VM_PROT_WRITE) {
         *binding = value;
         return true;
     }
@@ -206,10 +221,7 @@ static bool writeProtectedBinding(void **binding, void *value, bool isConstSegme
 
     *binding = value;
 
-    // Restore read-only protection. __DATA_CONST is always non-executable and read-only,
-    // so PROT_READ is the correct restoration. If this code were ever extended to other
-    // segments, we'd need to query/preserve the original protection flags.
-    if (mprotect((void *)pageStart, protectSize, PROT_READ) != 0) {
+    if (mprotect((void *)pageStart, protectSize, posixProtection(currentProtection)) != 0) {
         KSLOG_WARN("mprotect restore failed for binding at %p: %s", (void *)binding, strerror(errno));
         // Continue anyway - the write succeeded, protection restore is best-effort
     }
@@ -266,8 +278,8 @@ __attribute__((noreturn)) static void __cxa_throw_decorator(void *thrown_excepti
 
 // Returns true if __cxa_throw was found and rebound in this section
 static bool perform_rebinding_with_section(const section_t *dataSection, intptr_t slide, nlist_t *symtab, char *strtab,
-                                           uint32_t *indirect_symtab, uintptr_t imageBase, bool isConstSegment,
-                                           uint32_t nsyms, uint32_t strsize, uint32_t nindirectsyms)
+                                           uint32_t *indirect_symtab, uintptr_t imageBase, uint32_t nsyms,
+                                           uint32_t strsize, uint32_t nindirectsyms)
 {
     // Symbol names in Mach-O start with '_', so "__cxa_throw" is stored as "___cxa_throw"
     static const char kNeedle[] = "__cxa_throw";
@@ -320,10 +332,8 @@ static bool perform_rebinding_with_section(const section_t *dataSection, intptr_
 
             // Only rebind if we successfully store the original. This prevents
             // rebinding when the array is full, which would break exception flow.
-            if (addPair(imageBase, (uintptr_t)indirect_symbol_bindings[i], &indirect_symbol_bindings[i],
-                        isConstSegment)) {
-                if (!writeProtectedBinding(&indirect_symbol_bindings[i], (void *)__cxa_throw_decorator,
-                                           isConstSegment)) {
+            if (addPair(imageBase, (uintptr_t)indirect_symbol_bindings[i], &indirect_symbol_bindings[i])) {
+                if (!writeProtectedBinding(&indirect_symbol_bindings[i], (void *)__cxa_throw_decorator)) {
                     KSLOG_ERROR("Failed to rebind __cxa_throw at %p", (void *)&indirect_symbol_bindings[i]);
                     return false;
                 }
@@ -337,8 +347,8 @@ static bool perform_rebinding_with_section(const section_t *dataSection, intptr_
 
 // Returns true if __cxa_throw was found and rebound in this segment
 static bool process_segment_direct(const segment_command_t *segment, intptr_t slide, nlist_t *symtab, char *strtab,
-                                   uint32_t *indirect_symtab, uintptr_t imageBase, bool isConstSegment, uint32_t nsyms,
-                                   uint32_t strsize, uint32_t nindirectsyms)
+                                   uint32_t *indirect_symtab, uintptr_t imageBase, uint32_t nsyms, uint32_t strsize,
+                                   uint32_t nindirectsyms)
 {
     if (segment == NULL) {
         return false;
@@ -368,16 +378,16 @@ static bool process_segment_direct(const segment_command_t *segment, intptr_t sl
 
     // Check lazy symbol pointers first (more common location for __cxa_throw)
     if (lazy_sym_sect != NULL) {
-        if (perform_rebinding_with_section(lazy_sym_sect, slide, symtab, strtab, indirect_symtab, imageBase,
-                                           isConstSegment, nsyms, strsize, nindirectsyms)) {
+        if (perform_rebinding_with_section(lazy_sym_sect, slide, symtab, strtab, indirect_symtab, imageBase, nsyms,
+                                           strsize, nindirectsyms)) {
             return true;  // Found and rebound, no need to check non-lazy
         }
     }
 
     // Check non-lazy symbol pointers
     if (non_lazy_sym_sect != NULL) {
-        if (perform_rebinding_with_section(non_lazy_sym_sect, slide, symtab, strtab, indirect_symtab, imageBase,
-                                           isConstSegment, nsyms, strsize, nindirectsyms)) {
+        if (perform_rebinding_with_section(non_lazy_sym_sect, slide, symtab, strtab, indirect_symtab, imageBase, nsyms,
+                                           strsize, nindirectsyms)) {
             return true;
         }
     }
@@ -456,12 +466,12 @@ static void rebind_symbols_for_image(const struct mach_header *header, intptr_t 
 
     // Try SEG_DATA first (more common), then SEG_DATA_CONST
     // Early exit if found - each image has at most one __cxa_throw binding
-    if (process_segment_direct(data_segment, slide, symtab, strtab, indirect_symtab, imageBase, false,
-                               symtab_cmd->nsyms, symtab_cmd->strsize, dysymtab_cmd->nindirectsyms)) {
+    if (process_segment_direct(data_segment, slide, symtab, strtab, indirect_symtab, imageBase, symtab_cmd->nsyms,
+                               symtab_cmd->strsize, dysymtab_cmd->nindirectsyms)) {
         return;
     }
-    process_segment_direct(data_const_segment, slide, symtab, strtab, indirect_symtab, imageBase, true,
-                           symtab_cmd->nsyms, symtab_cmd->strsize, dysymtab_cmd->nindirectsyms);
+    process_segment_direct(data_const_segment, slide, symtab, strtab, indirect_symtab, imageBase, symtab_cmd->nsyms,
+                           symtab_cmd->strsize, dysymtab_cmd->nindirectsyms);
 }
 #endif  // KSCRASH_HAS_SANITIZER
 
@@ -525,8 +535,7 @@ void ksct_swapReset(void)
         uintptr_t function = atomic_load_explicit(&pair->function, memory_order_acquire);
         if (function != 0 && pair->binding != NULL) {
             KSLOG_TRACE("Restoring binding at %p to %p", (void *)pair->binding, (void *)function);
-            // Use stored isConstSegment to avoid vm_region syscall
-            bool success = writeProtectedBinding(pair->binding, (void *)function, pair->isConstSegment);
+            bool success = writeProtectedBinding(pair->binding, (void *)function);
             if (!success) {
                 KSLOG_ERROR("Failed to restore binding at %p", (void *)pair->binding);
             }
