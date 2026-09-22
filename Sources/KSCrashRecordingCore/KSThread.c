@@ -124,6 +124,72 @@ int ksthread_getThreadState(const KSThread thread)
     return info->run_state;
 }
 
+// A queue's label is read straight out of the queue object rather than through
+// dispatch_queue_get_label, which checks nothing but NULL before loading the label pointer from a
+// fixed offset. The pointer handed to it comes from a slot inside a thread that can exit mid-read,
+// so it can be a queue that has been released, or bytes that are no longer a queue at all, and
+// libdispatch would fault on them where nothing can catch it. That offset is private, so it is
+// derived from queues whose label this process already knows: a layout the derivation cannot make
+// sense of turns queue names off rather than reading whatever now sits at a remembered offset.
+
+// libdispatch asserts that both kinds probed below fit in 128 bytes, so the search stays inside
+// the probe rather than matching bytes that follow it.
+#define QUEUE_PROBE_SIZE 128
+#define QUEUE_LABEL_OFFSET_UNDERIVED (-1)
+#define QUEUE_LABEL_OFFSET_UNAVAILABLE (-2)
+
+static _Atomic int g_queueLabelOffset = QUEUE_LABEL_OFFSET_UNDERIVED;
+
+static const char *queueLabelAt(const void *const queue, const int offset)
+{
+    const char *label = NULL;
+    if (!ksmem_copySafely((const uint8_t *)queue + offset, &label, (int)sizeof(label))) {
+        return NULL;
+    }
+    return label;
+}
+
+/** Get the offset at which a dispatch queue holds the pointer to its label.
+ *
+ * @return The offset in bytes, or a negative value if it could not be established.
+ */
+static int queueLabelOffset(void)
+{
+    // Racing callers derive the same offset from the same two queues, so the only cost of a race
+    // is a repeated search.
+    int offset = atomic_load(&g_queueLabelOffset);
+    if (offset != QUEUE_LABEL_OFFSET_UNDERIVED) {
+        return offset;
+    }
+
+    // Two queues of different kinds, because an offset holding the label in both is the label
+    // rather than one kind's coincidence: the main queue is a static object and a global queue is
+    // a root queue, and both live as long as the process. An unlabelled probe would read back
+    // libdispatch's own empty string, which is stored nowhere in the object, so it finds nothing
+    // rather than agreeing on the wrong place.
+    dispatch_queue_t mainQueue = (dispatch_queue_t)dispatch_get_main_queue();
+    dispatch_queue_t globalQueue = (dispatch_queue_t)dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+    const char *const mainLabel = dispatch_queue_get_label(mainQueue);
+    const char *const globalLabel = dispatch_queue_get_label(globalQueue);
+
+    // The first agreement, not the only one: a second would mean a field mirrors the label in both
+    // probes, and mirrors either hold for every queue or produce bytes the label check rejects.
+    offset = QUEUE_LABEL_OFFSET_UNAVAILABLE;
+    for (int candidate = 0; candidate + (int)sizeof(mainLabel) <= QUEUE_PROBE_SIZE;
+         candidate += (int)sizeof(mainLabel)) {
+        if (queueLabelAt(mainQueue, candidate) == mainLabel && queueLabelAt(globalQueue, candidate) == globalLabel) {
+            offset = candidate;
+            break;
+        }
+    }
+    if (offset == QUEUE_LABEL_OFFSET_UNAVAILABLE) {
+        KSLOG_WARN("Could not find where a dispatch queue keeps its label. Queue names are off.");
+    }
+
+    atomic_store(&g_queueLabelOffset, offset);
+    return offset;
+}
+
 bool ksthread_getQueueName(const KSThread thread, char *const buffer, int bufLength)
 {
     // WARNING: This implementation is no longer async-safe!
@@ -155,40 +221,56 @@ bool ksthread_getQueueName(const KSThread thread, char *const buffer, int bufLen
         return false;
     }
     dispatch_queue_t *dispatch_queue_ptr = (dispatch_queue_t *)idInfo->dispatch_qaddr;
-    if (!ksmem_isMemoryReadable(dispatch_queue_ptr, sizeof(*dispatch_queue_ptr))) {
-        KSLOG_DEBUG("Thread %p has an invalid dispatch queue pointer %p", thread, dispatch_queue_ptr);
-        return false;
-    }
     // thread_handle shouldn't be 0 also, because
     // identifier_info->dispatch_qaddr =  identifier_info->thread_handle +
     // get_dispatchqueue_offset_from_proc(thread->task->bsd_info);
-    if (dispatch_queue_ptr == NULL || idInfo->thread_handle == 0 || *dispatch_queue_ptr == NULL) {
+    if (dispatch_queue_ptr == NULL || idInfo->thread_handle == 0) {
         KSLOG_TRACE("This thread doesn't have a dispatch queue attached : %p", thread);
         return false;
     }
 
-    dispatch_queue_t dispatch_queue = *dispatch_queue_ptr;
-    const char *queue_name = dispatch_queue_get_label(dispatch_queue);
+    // The slot belongs to `thread`, which can exit mid-read, and checking readability then
+    // dereferencing leaves a window between the two. copySafely returns an error where a
+    // dereference would fault.
+    dispatch_queue_t dispatch_queue = NULL;
+    if (!ksmem_copySafely(dispatch_queue_ptr, &dispatch_queue, (int)sizeof(dispatch_queue)) || dispatch_queue == NULL) {
+        KSLOG_TRACE("This thread doesn't have a dispatch queue attached : %p", thread);
+        return false;
+    }
+
+    // The queue gets the same treatment, and for a stronger reason: the slot is only known to have
+    // held eight readable bytes, and libdispatch would dereference whatever they are.
+    const int labelOffset = queueLabelOffset();
+    const char *queue_name = labelOffset < 0 ? NULL : queueLabelAt(dispatch_queue, labelOffset);
     if (queue_name == NULL) {
         KSLOG_TRACE("Error while getting dispatch queue name : %p", dispatch_queue);
         return false;
     }
-    KSLOG_TRACE("Dispatch queue name: %s", queue_name);
-    int length = (int)strlen(queue_name);
 
-    // Queue label must be a null terminated string.
-    int iLabel;
-    for (iLabel = 0; iLabel < length + 1; iLabel++) {
-        if (queue_name[iLabel] < ' ' || queue_name[iLabel] > '~') {
-            break;
-        }
-    }
-    if (queue_name[iLabel] != 0) {
-        // Found a non-null, invalid char.
-        KSLOG_TRACE("Queue label contains invalid chars");
+    // Same reason, and maxReadableBytes first because copying bufLength bytes outright
+    // fails when the label sits near the end of its mapping.
+    const int readable = ksmem_maxReadableBytes(queue_name, bufLength);
+    if (readable < 1 || !ksmem_copySafely(queue_name, buffer, readable)) {
+        KSLOG_TRACE("Could not read the queue label : %p", dispatch_queue);
         return false;
     }
-    strlcpy(buffer, queue_name, (size_t)bufLength);
+
+    // Queue label must be a printable, NUL terminated string.
+    int iLabel;
+    for (iLabel = 0; iLabel < readable; iLabel++) {
+        if (buffer[iLabel] == 0) {
+            break;
+        }
+        if (buffer[iLabel] < ' ' || buffer[iLabel] > '~') {
+            KSLOG_TRACE("Queue label contains invalid chars");
+            return false;
+        }
+    }
+    if (iLabel == readable) {
+        KSLOG_TRACE("Queue label is not NUL terminated within %d bytes", bufLength);
+        return false;
+    }
+
     KSLOG_TRACE("Queue label = %s", buffer);
     return true;
 }

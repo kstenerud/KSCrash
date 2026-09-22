@@ -118,7 +118,8 @@ int ksmem_maxReadableBytes(const void *const memory, const int tryByteCount)
         currentPosition += testBufferSize;
         bytesRemaining -= testBufferSize;
     }
-    bytesRemaining -= copyMaxPossible(task, currentPosition, g_memoryTestBuffer, testBufferSize);
+    // Only what is left to answer for: the result must never exceed tryByteCount.
+    bytesRemaining -= copyMaxPossible(task, currentPosition, g_memoryTestBuffer, bytesRemaining);
     return tryByteCount - bytesRemaining;
 }
 
