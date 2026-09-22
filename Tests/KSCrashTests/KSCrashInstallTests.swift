@@ -28,6 +28,7 @@ import Foundation
 import KSCrashMonitorPlugins
 import KSCrashRecording
 import KSCrashRecordingCore
+import KSCrashTestTools
 import XCTest
 
 @testable import KSCrash
@@ -43,7 +44,15 @@ final class KSCrashInstallTests: XCTestCase {
         let installed = try XCTUnwrap(KSCrash.shared.installConfiguration)
         XCTAssertEqual(installed.namespace, TestInstall.configuration.namespace)
         XCTAssertEqual(installed.container, .url(TestInstall.base))
-        XCTAssertEqual(installed.monitors, [.hangs])
+        XCTAssertEqual(installed.monitors, TestInstall.configuration.monitors)
+    }
+
+    /// The hang monitor is process-global and this install is the bundle's only
+    /// one, so arming it here leaves it watching for the rest of the run,
+    /// suspending every thread and writing a report for any main-thread stall
+    /// past its threshold in whatever test is running at the time.
+    func test_install_leavesTheHangMonitorUnarmed() {
+        XCTAssertFalse(hangtest_isArmed())
     }
 
     func test_install_createsTheStoresAtTheLocations() throws {
