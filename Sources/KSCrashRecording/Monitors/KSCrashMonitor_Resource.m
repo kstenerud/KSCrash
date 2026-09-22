@@ -194,7 +194,7 @@ static void reportCPUState(KSCrashCPU *cpu) KS_KEEP_FUNCTION_IN_STACKTRACE
                                                                                      .shouldWriteReport = true,
                                                                                      .yieldsToReportInFlight = true });
     if (ctx->requirements.refusedReportInFlight) {
-        KSLOG_DEBUG("A report is already being written; skipping this resource report");
+        KSLOG_DEBUG(@"A report is already being written; skipping this resource report");
         return;
     }
 
