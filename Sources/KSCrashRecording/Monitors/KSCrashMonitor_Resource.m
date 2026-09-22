@@ -95,19 +95,66 @@ static id g_protectedDataUnavailableObserver = nil;
 #pragma mark - Test Overrides -
 // ============================================================================
 
-// Re-apply env-var overrides after every resourceUpdate so polled values
-// don't clobber the faked ones. Only the integration tests set these; in
-// production each getenv() scans the environment and finds nothing.
+// The overrides an update re-applies, read from the environment once. A field is -1 when its
+// variable is unset, which is distinguishable because every field the tests fake is unsigned.
+typedef struct {
+    bool any;
+    int memoryPressure;
+    int thermalState;
+    int cpuUsageUser;
+    int cpuCoreCount;
+    int cpuState;
+    int batteryLevel;
+    int batteryState;
+} ResourceTestOverrides;
+
+static ResourceTestOverrides g_testOverrides;
+
+static int overrideValue(const char *name)
+{
+    const char *value = getenv(name);
+    return value != NULL ? atoi(value) : -1;
+}
+
+// The environment cannot change under a running process, so it is read once rather than on every
+// update. Reading it per update cost the host app seven locked scans of its whole environment to
+// find nothing, since only the integration tests set these and they set them before launch.
+// A #if DEBUG guard is not an option: those tests build release.
+static void loadResourceTestOverrides(void)
+{
+    g_testOverrides = (ResourceTestOverrides) {
+        .memoryPressure = overrideValue("KSCRASH_TEST_MEMORY_PRESSURE"),
+        .thermalState = overrideValue("KSCRASH_TEST_THERMAL_STATE"),
+        .cpuUsageUser = overrideValue("KSCRASH_TEST_CPU_USER"),
+        .cpuCoreCount = overrideValue("KSCRASH_TEST_CPU_CORES"),
+        .cpuState = overrideValue("KSCRASH_TEST_CPU_STATE"),
+        .batteryLevel = overrideValue("KSCRASH_TEST_BATTERY_LEVEL"),
+        .batteryState = overrideValue("KSCRASH_TEST_BATTERY_STATE"),
+    };
+    g_testOverrides.any = g_testOverrides.memoryPressure >= 0 || g_testOverrides.thermalState >= 0 ||
+                          g_testOverrides.cpuUsageUser >= 0 || g_testOverrides.cpuCoreCount >= 0 ||
+                          g_testOverrides.cpuState >= 0 || g_testOverrides.batteryLevel >= 0 ||
+                          g_testOverrides.batteryState >= 0;
+}
+
+// Re-apply the overrides after every resourceUpdate so polled values don't clobber the faked ones.
 static void applyResourceTestOverrides(KSCrash_ResourceData *res)
 {
-    const char *val;
-    if ((val = getenv("KSCRASH_TEST_MEMORY_PRESSURE")) != NULL) res->memoryPressure = (uint8_t)atoi(val);
-    if ((val = getenv("KSCRASH_TEST_THERMAL_STATE")) != NULL) res->thermalState = (uint8_t)atoi(val);
-    if ((val = getenv("KSCRASH_TEST_CPU_USER")) != NULL) res->cpuUsageUser = (uint16_t)atoi(val);
-    if ((val = getenv("KSCRASH_TEST_CPU_CORES")) != NULL) res->cpuCoreCount = (uint8_t)atoi(val);
-    if ((val = getenv("KSCRASH_TEST_CPU_STATE")) != NULL) res->cpuState = (uint8_t)atoi(val);
-    if ((val = getenv("KSCRASH_TEST_BATTERY_LEVEL")) != NULL) res->batteryLevel = (uint8_t)atoi(val);
-    if ((val = getenv("KSCRASH_TEST_BATTERY_STATE")) != NULL) res->batteryState = (uint8_t)atoi(val);
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        loadResourceTestOverrides();
+    });
+
+    if (!g_testOverrides.any) {
+        return;
+    }
+    if (g_testOverrides.memoryPressure >= 0) res->memoryPressure = (uint8_t)g_testOverrides.memoryPressure;
+    if (g_testOverrides.thermalState >= 0) res->thermalState = (uint8_t)g_testOverrides.thermalState;
+    if (g_testOverrides.cpuUsageUser >= 0) res->cpuUsageUser = (uint16_t)g_testOverrides.cpuUsageUser;
+    if (g_testOverrides.cpuCoreCount >= 0) res->cpuCoreCount = (uint8_t)g_testOverrides.cpuCoreCount;
+    if (g_testOverrides.cpuState >= 0) res->cpuState = (uint8_t)g_testOverrides.cpuState;
+    if (g_testOverrides.batteryLevel >= 0) res->batteryLevel = (uint8_t)g_testOverrides.batteryLevel;
+    if (g_testOverrides.batteryState >= 0) res->batteryState = (uint8_t)g_testOverrides.batteryState;
 }
 
 // ============================================================================
