@@ -36,6 +36,27 @@
 
 @implementation KSThread_Tests
 
+- (void)testGetQueueNameReadsTheQueuesOwnLabel
+{
+    // Pins the derived label offset. Reading the label from the wrong offset either finds nothing
+    // readable or finds some other field, and neither spells out the label this queue was given.
+    static const char *const kLabel = "com.kscrash.test.queue-label";
+    dispatch_queue_t queue = dispatch_queue_create(kLabel, DISPATCH_QUEUE_SERIAL);
+    XCTestExpectation *expectation = [self expectationWithDescription:@"read the queue label"];
+    __block NSString *queueName = nil;
+
+    dispatch_async(queue, ^{
+        char buffer[256] = { 0 };
+        if (ksthread_getQueueName(ksthread_self(), buffer, sizeof(buffer))) {
+            queueName = @(buffer);
+        }
+        [expectation fulfill];
+    });
+
+    [self waitForExpectationsWithTimeout:5 handler:nil];
+    XCTAssertEqualObjects(queueName, @(kLabel));
+}
+
 - (void)testGetQueueName
 {
     kern_return_t kr;

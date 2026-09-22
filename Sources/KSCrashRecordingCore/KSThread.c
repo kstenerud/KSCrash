@@ -124,6 +124,72 @@ int ksthread_getThreadState(const KSThread thread)
     return info->run_state;
 }
 
+// A queue's label is read straight out of the queue object rather than through
+// dispatch_queue_get_label, which checks nothing but NULL before loading the label pointer from a
+// fixed offset. The pointer handed to it comes from a slot inside a thread that can exit mid-read,
+// so it can be a queue that has been released, or bytes that are no longer a queue at all, and
+// libdispatch would fault on them where nothing can catch it. That offset is private, so it is
+// derived from queues whose label this process already knows: a layout the derivation cannot make
+// sense of turns queue names off rather than reading whatever now sits at a remembered offset.
+
+// libdispatch asserts that both kinds probed below fit in 128 bytes, so the search stays inside
+// the probe rather than matching bytes that follow it.
+#define QUEUE_PROBE_SIZE 128
+#define QUEUE_LABEL_OFFSET_UNDERIVED (-1)
+#define QUEUE_LABEL_OFFSET_UNAVAILABLE (-2)
+
+static _Atomic int g_queueLabelOffset = QUEUE_LABEL_OFFSET_UNDERIVED;
+
+static const char *queueLabelAt(const void *const queue, const int offset)
+{
+    const char *label = NULL;
+    if (!ksmem_copySafely((const uint8_t *)queue + offset, &label, (int)sizeof(label))) {
+        return NULL;
+    }
+    return label;
+}
+
+/** Get the offset at which a dispatch queue holds the pointer to its label.
+ *
+ * @return The offset in bytes, or a negative value if it could not be established.
+ */
+static int queueLabelOffset(void)
+{
+    // Racing callers derive the same offset from the same two queues, so the only cost of a race
+    // is a repeated search.
+    int offset = atomic_load(&g_queueLabelOffset);
+    if (offset != QUEUE_LABEL_OFFSET_UNDERIVED) {
+        return offset;
+    }
+
+    // Two queues of different kinds, because an offset holding the label in both is the label
+    // rather than one kind's coincidence: the main queue is a static object and a global queue is
+    // a root queue, and both live as long as the process. An unlabelled probe would read back
+    // libdispatch's own empty string, which is stored nowhere in the object, so it finds nothing
+    // rather than agreeing on the wrong place.
+    dispatch_queue_t mainQueue = (dispatch_queue_t)dispatch_get_main_queue();
+    dispatch_queue_t globalQueue = (dispatch_queue_t)dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+    const char *const mainLabel = dispatch_queue_get_label(mainQueue);
+    const char *const globalLabel = dispatch_queue_get_label(globalQueue);
+
+    // The first agreement, not the only one: a second would mean a field mirrors the label in both
+    // probes, and mirrors either hold for every queue or produce bytes the label check rejects.
+    offset = QUEUE_LABEL_OFFSET_UNAVAILABLE;
+    for (int candidate = 0; candidate + (int)sizeof(mainLabel) <= QUEUE_PROBE_SIZE;
+         candidate += (int)sizeof(mainLabel)) {
+        if (queueLabelAt(mainQueue, candidate) == mainLabel && queueLabelAt(globalQueue, candidate) == globalLabel) {
+            offset = candidate;
+            break;
+        }
+    }
+    if (offset == QUEUE_LABEL_OFFSET_UNAVAILABLE) {
+        KSLOG_WARN("Could not find where a dispatch queue keeps its label. Queue names are off.");
+    }
+
+    atomic_store(&g_queueLabelOffset, offset);
+    return offset;
+}
+
 bool ksthread_getQueueName(const KSThread thread, char *const buffer, int bufLength)
 {
     // WARNING: This implementation is no longer async-safe!
@@ -172,7 +238,10 @@ bool ksthread_getQueueName(const KSThread thread, char *const buffer, int bufLen
         return false;
     }
 
-    const char *queue_name = dispatch_queue_get_label(dispatch_queue);
+    // The queue gets the same treatment, and for a stronger reason: the slot is only known to have
+    // held eight readable bytes, and libdispatch would dereference whatever they are.
+    const int labelOffset = queueLabelOffset();
+    const char *queue_name = labelOffset < 0 ? NULL : queueLabelAt(dispatch_queue, labelOffset);
     if (queue_name == NULL) {
         KSLOG_TRACE("Error while getting dispatch queue name : %p", dispatch_queue);
         return false;
