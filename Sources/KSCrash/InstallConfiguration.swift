@@ -129,7 +129,7 @@ public struct InstallConfiguration: Sendable {
     public var maxReportCount: Int
     /// Default 50.
     public var maxRunSummaryCount: Int
-    /// Record each thread's dispatch queue name at crash time. Default false.
+    /// Record each thread's dispatch queue name, sampled while the app runs. Default false.
     public var searchesQueueNames: Bool
     /// Default `.disabled`.
     public var memoryIntrospection: MemoryIntrospection
