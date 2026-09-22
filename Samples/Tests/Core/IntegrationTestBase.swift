@@ -266,10 +266,7 @@ class IntegrationTestBase: XCTestCase {
 
         launchAppAndRunScript()
         waitForCrash()
-        // The run that just died. Everything read back afterwards is checked
-        // against it, so a report left over from an earlier case cannot pass
-        // for this one's.
-        crashedRunID = try? readState().runID
+        try recordExpectedRunID()
     }
 
     func launchAndRunTrigger(
@@ -304,6 +301,7 @@ class IntegrationTestBase: XCTestCase {
         )
 
         launchAppAndRunScript()
+        try recordExpectedRunID()
     }
 
     func launchAndSigkill(
@@ -320,31 +318,42 @@ class IntegrationTestBase: XCTestCase {
         }
     }
 
-    /// The id of the run killed by the last `launchAndCrash`, when the app got
-    /// far enough to record one.
-    private(set) var crashedRunID: RunSummary.ID?
+    /// The id of the run whose report the test is about to read back.
+    private(set) var expectedRunID: RunSummary.ID?
+
+    /// Records the id of the run just launched. Everything read back afterwards
+    /// is checked against it, so a report left over from an earlier case cannot
+    /// pass for this one's. The app writes its state at install, before the
+    /// crash or the user report it was launched to make.
+    private func recordExpectedRunID() throws {
+        try waitForFile(at: stateUrl, timeout: appLaunchTimeout)
+        expectedRunID = try readState().runID
+    }
 
     /// Relaunch the app, deliver the pending reports through the Swift send,
     /// and return the delivered report decoded from the dump directory.
     func launchAndReportCrash() throws -> Report {
         let report = try decodeCrashReport(reportData: launchAndReportCrashRaw())
-        assertReportBelongsToCrashedRun(report)
+        assertReportIsFromExpectedRun(report)
         return report
     }
 
-    /// Ties a delivered report to the run that died.
+    /// Ties a delivered report to the run that produced it.
     ///
     /// Every assertion a test makes about a report is worthless if the report
     /// came from a different run: the content is plausible, the test is green,
-    /// and nothing was checked. Only skipped when the crashing launch never
-    /// recorded an id, which is the case for the tests that do not crash.
-    func assertReportBelongsToCrashedRun(
+    /// and nothing was checked. A missing id is that same blind spot, so it
+    /// fails here rather than passing unchecked.
+    func assertReportIsFromExpectedRun(
         _ report: Report, file: StaticString = #filePath, line: UInt = #line
     ) {
-        guard let crashedRunID else { return }
+        guard let expectedRunID else {
+            XCTFail("no run id was recorded for the run under test", file: file, line: line)
+            return
+        }
         XCTAssertEqual(
-            report.report.runId, crashedRunID,
-            "the delivered report is not from the run that crashed", file: file, line: line)
+            report.report.runId, expectedRunID,
+            "the delivered report is not from the run under test", file: file, line: line)
     }
 
     func launchAndReportCrashRaw(
