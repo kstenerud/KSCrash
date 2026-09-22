@@ -53,7 +53,7 @@ void kscrash_reportNSException(NSException *exception, bool logAllThreads,
 {
     KSCrashCustomNSExceptionReporter *reporter = atomic_load_explicit(&g_reporter, memory_order_acquire);
     if (reporter == NULL) {
-        KSLOG_WARN("The NSException monitor is not enabled; the exception is not reported.");
+        KSLOG_WARN(@"The NSException monitor is not enabled; the exception is not reported.");
         return;
     }
     reporter(exception, logAllThreads, extraSkipFrames);
