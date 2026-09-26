@@ -33,13 +33,6 @@ jobs:
     # macOS version. macos-15 carries no Xcode 27 and therefore no iOS 27 SDK,
     # and without that SDK CrashReportExtension does not exist to link against.
     runs-on: xcode-27
-    # Secrets cannot be read from a step's `if`, so the one decision that gates
-    # signing is lifted to the job's environment, where it can be.
-    env:
-      CORPSE_HAS_SIGNING: ${{ secrets.CORPSE_SIGNING_CERT != '' }}
-      CORPSE_TEAM: ${{ secrets.CORPSE_TEAM }}
-      CORPSE_ASC_KEY_ID: ${{ secrets.CORPSE_ASC_KEY_ID }}
-      CORPSE_ASC_ISSUER_ID: ${{ secrets.CORPSE_ASC_ISSUER_ID }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v7
@@ -72,68 +65,24 @@ jobs:
         working-directory: ./Samples
         run: mise exec -- tuist generate --verbose --no-open
 
-      # Signing, when the secrets are set. Without them the build stays unsigned
-      # and only the compile gate runs: an unsigned app carries no entitlements
-      # at all, so its App Group cannot survive to the device.
-      - name: Import Signing
-        if: ${{ env.CORPSE_HAS_SIGNING == 'true' }}
-        env:
-          CORPSE_SIGNING_CERT: ${{ secrets.CORPSE_SIGNING_CERT }}
-          CORPSE_SIGNING_CERT_PASSWORD: ${{ secrets.CORPSE_SIGNING_CERT_PASSWORD }}
-          CORPSE_PROVISIONING_PROFILES: ${{ secrets.CORPSE_PROVISIONING_PROFILES }}
-          CORPSE_ASC_KEY: ${{ secrets.CORPSE_ASC_KEY }}
-        run: |
-          KEYCHAIN=$RUNNER_TEMP/corpse.keychain-db
-          KEYCHAIN_PASSWORD=$(uuidgen)
-          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN"
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
-
-          echo "$CORPSE_SIGNING_CERT" | base64 --decode > "$RUNNER_TEMP/cert.p12"
-          security import "$RUNNER_TEMP/cert.p12" -P "$CORPSE_SIGNING_CERT_PASSWORD" \
-            -A -t cert -f pkcs12 -k "$KEYCHAIN"
-          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
-          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
-          rm -f "$RUNNER_TEMP/cert.p12"
-
-          # The App Store Connect key, which is what lets
-          # -allowProvisioningUpdates create and refresh profiles on a machine
-          # with no Xcode account signed in. xcodebuild finds it by key id in
-          # this directory.
-          if [ -n "$CORPSE_ASC_KEY" ]; then
-            mkdir -p ~/.appstoreconnect/private_keys
-            echo "$CORPSE_ASC_KEY" | base64 --decode \
-              > ~/.appstoreconnect/private_keys/AuthKey_$CORPSE_ASC_KEY_ID.p8
-          fi
-
-          # A gzipped tar of .mobileprovision files, so the host, the extension
-          # and the test runner can each have their own. Gzipped because the
-          # three uncompressed run past GitHub's 48 KB limit for a secret.
-          PROFILES=~/Library/MobileDevice/Provisioning\ Profiles
-          mkdir -p "$PROFILES"
-          echo "$CORPSE_PROVISIONING_PROFILES" | base64 --decode | tar -xzf - -C "$PROFILES"
-          ls "$PROFILES"
-
       # Builds host, extension and test runner. This alone is the compile gate:
       # if the corpse API or the extension's shape drifts, it fails here without
       # spending a device session.
+      #
+      # Unsigned, on purpose. BrowserStack re-signs every upload with its own team
+      # and wildcard profile, and that re-signing decides the entitlements on the
+      # device, not ours: it strips the App Group from both the host and the
+      # extension (ios_app_groups_support then emulates the group for the host
+      # only, inside the host's own container) and gives both one shared keychain
+      # access group. So nothing our signing could grant survives, and the
+      # extension reaches the host through that keychain group instead (see
+      # relayArea in Samples/Corpse/Reporter/CorpseReporter.swift). Measured: the
+      # suite passes on BrowserStack from an unsigned build and from a signed one
+      # alike. The real App Group path, where the extension writes straight into
+      # the shared area, needs a device signed as built: Samples/Corpse/run-on-device.sh.
       - name: Build For Testing
         working-directory: ./Samples
         run: |
-          # Automatic, not manual: the profiles carrying the App Group are
-          # Xcode-managed, and manual signing refuses to name one. With the
-          # App Store Connect key present, -allowProvisioningUpdates maintains
-          # them itself without an Xcode account on the machine.
-          if [ "$CORPSE_HAS_SIGNING" = "true" ]; then
-            SIGNING_FLAGS="DEVELOPMENT_TEAM=$CORPSE_TEAM CODE_SIGN_STYLE=Automatic -allowProvisioningUpdates"
-            if [ -n "$CORPSE_ASC_KEY_ID" ]; then
-              SIGNING_FLAGS="$SIGNING_FLAGS -authenticationKeyID $CORPSE_ASC_KEY_ID"
-              SIGNING_FLAGS="$SIGNING_FLAGS -authenticationKeyIssuerID $CORPSE_ASC_ISSUER_ID"
-              SIGNING_FLAGS="$SIGNING_FLAGS -authenticationKeyPath $HOME/.appstoreconnect/private_keys/AuthKey_$CORPSE_ASC_KEY_ID.p8"
-            fi
-          else
-            SIGNING_FLAGS="CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO"
-          fi
           set -o pipefail && xcodebuild build-for-testing \
             -workspace KSCrashSamples.xcworkspace \
             -scheme CorpseBrowserStack \
@@ -141,7 +90,7 @@ jobs:
             -configuration Release \
             -derivedDataPath build/DerivedData \
             -only-testing:CorpseTests \
-            $SIGNING_FLAGS \
+            CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO \
             | xcbeautify
 
       # The extension being embedded is the thing most likely to go quietly
@@ -163,11 +112,7 @@ jobs:
           /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" \
             "$APP/Extensions/CorpseReporter.appex/Info.plist"
 
-      # Everything from here on needs the signed build: an unsigned app carries no
-      # App Group, so on a device it could only fail. Without the signing secrets
-      # the job ends at the compile gate above.
       - name: Package App And Test Runner
-        if: ${{ env.CORPSE_HAS_SIGNING == 'true' }}
         working-directory: ./Samples
         run: |
           PRODUCTS=build/DerivedData/Build/Products/Release-iphoneos
@@ -186,7 +131,6 @@ jobs:
         shell: bash
 
       - name: Upload App
-        if: ${{ env.CORPSE_HAS_SIGNING == 'true' }}
         id: upload_app
         env:
           BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
@@ -196,13 +140,15 @@ jobs:
             -X POST "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/app" \
             -F "file=@CorpseHost.ipa" \
             -F "ios_app_groups_support=true")
+          # With ios_app_groups_support, the host's App Group lookup resolves on
+          # BrowserStack (to a directory inside the host's own container), which
+          # is where its install and the relayed reports live.
           echo "$RESPONSE"
           URL=$(echo "$RESPONSE" | jq -r '.app_url')
           [ -n "$URL" ] && [ "$URL" != "null" ] || { echo "::error::app upload failed"; exit 1; }
           echo "app_url=$URL" >> $GITHUB_OUTPUT
 
       - name: Upload Test Suite
-        if: ${{ env.CORPSE_HAS_SIGNING == 'true' }}
         id: upload_tests
         env:
           BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
@@ -220,7 +166,6 @@ jobs:
       # the run with a message that does not say which strings are valid. Beta
       # OS versions are named differently from released ones.
       - name: Show Available iOS Devices
-        if: ${{ env.CORPSE_HAS_SIGNING == 'true' }}
         env:
           BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
           BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
@@ -256,7 +201,6 @@ jobs:
             | grep -Fx "$DEVICE" && echo "yes" || echo "NO: $DEVICE is not offered"
 
       - name: Run On Device
-        if: ${{ env.CORPSE_HAS_SIGNING == 'true' }}
         id: run
         env:
           BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
@@ -283,7 +227,6 @@ jobs:
           echo "build_id=$ID" >> $GITHUB_OUTPUT
 
       - name: Wait For Result
-        if: ${{ env.CORPSE_HAS_SIGNING == 'true' }}
         env:
           BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
           BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
