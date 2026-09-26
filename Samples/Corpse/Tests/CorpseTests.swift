@@ -36,7 +36,10 @@ import XCTest
 final class CorpseTests: XCTestCase {
 
     override func setUpWithError() throws {
-        continueAfterFailure = false
+        // Must stay true. The host's crash is recorded as an issue, expected but
+        // still an issue, and with this false it ends the test right there: the
+        // verifier never runs and every case passes having checked nothing.
+        continueAfterFailure = true
         #if targetEnvironment(simulator)
             throw XCTSkip("the crash extension ships in the device SDK only")
         #endif
