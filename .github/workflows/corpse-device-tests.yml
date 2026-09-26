@@ -1,0 +1,317 @@
+name: Corpse Device Tests
+
+# Runs on a real device, the way the benchmarks do: on any pull request that
+# touches the corpse path. Nothing here can run in a simulator, since
+# CrashReportExtension is absent from that SDK and the path under test begins
+# with the system handing over a process that really died.
+on:
+  pull_request:
+    paths:
+      - 'Samples/Corpse/**'
+      - 'Samples/Project.swift'
+      - 'Sources/KSCrashCrashReportExtension/**'
+      - '.github/workflows/corpse-device-tests.yml'
+  workflow_dispatch:
+    inputs:
+      device:
+        description: 'BrowserStack device. XCUITest supports fewer devices than the generic App Automate list: iPhone 18 Pro-27 appears there but is refused here.'
+        required: false
+        type: string
+        default: 'iPhone 15 Pro-27'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  corpse:
+    name: Corpse Device Tests
+    # The Xcode 27 preview image, published under a bare label rather than by
+    # macOS version. macos-15 carries no Xcode 27 and therefore no iOS 27 SDK,
+    # and without that SDK CrashReportExtension does not exist to link against.
+    runs-on: xcode-27
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      # Beta-only images must ask for 'latest', not 'latest-stable': setup-xcode
+      # treats any Xcode whose LicenseInfo.plist says "beta" as unstable, so
+      # 'latest-stable' resolves to an older Xcode on this image.
+      - name: Use Xcode 27
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest
+
+      - name: Show Toolchain
+        run: |
+          xcodebuild -version
+          # Fail loudly here rather than at the link step with a confusing
+          # "no such module CrashReportExtension".
+          xcodebuild -showsdks | grep -q "iphoneos27" \
+            || { echo "::error::no iOS 27 device SDK on this runner"; exit 1; }
+
+      - name: Install Tuist
+        uses: jdx/mise-action@v4
+        with:
+          install: true
+          cache: true
+        env:
+          MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}/.mise.toml
+
+      - name: Generate Project
+        working-directory: ./Samples
+        run: mise exec -- tuist generate --verbose --no-open
+
+      # Builds host, extension and test runner. This alone is the compile gate:
+      # if the corpse API or the extension's shape drifts, it fails here without
+      # spending a device session.
+      #
+      # Unsigned, on purpose. BrowserStack re-signs every upload with its own team
+      # and wildcard profile, and that re-signing decides the entitlements on the
+      # device, not ours: it strips the App Group from both the host and the
+      # extension (ios_app_groups_support then emulates the group for the host
+      # only, inside the host's own container) and gives both one shared keychain
+      # access group. So nothing our signing could grant survives, and the
+      # extension reaches the host through that keychain group instead (see
+      # relayArea in Samples/Corpse/Reporter/CorpseReporter.swift). Measured: the
+      # suite passes on BrowserStack from an unsigned build and from a signed one
+      # alike. The real App Group path, where the extension writes straight into
+      # the shared area, needs a device signed as built: Samples/Corpse/run-on-device.sh.
+      - name: Build For Testing
+        working-directory: ./Samples
+        run: |
+          set -o pipefail && xcodebuild build-for-testing \
+            -workspace KSCrashSamples.xcworkspace \
+            -scheme CorpseBrowserStack \
+            -sdk iphoneos \
+            -configuration Release \
+            -derivedDataPath build/DerivedData \
+            -only-testing:CorpseTests \
+            CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO \
+            | xcbeautify
+
+      # The extension being embedded is the thing most likely to go quietly
+      # wrong, and it looks identical to a capture bug once it reaches a device:
+      # the app runs, nothing ever writes a report. Checking here names it.
+      - name: Check The Extension Was Embedded
+        working-directory: ./Samples
+        run: |
+          APP=build/DerivedData/Build/Products/Release-iphoneos/CorpseHost.app
+          echo "--- app bundle ---"
+          find "$APP" -maxdepth 2 -name "*.appex" -o -maxdepth 1 -type d | sort
+          if [ ! -d "$APP/Extensions/CorpseReporter.appex" ]; then
+            echo "::error::CorpseReporter.appex is not in $APP/Extensions"
+            echo "--- anywhere in the bundle? ---"
+            find "$APP" -name "*.appex" -maxdepth 3 || true
+            exit 1
+          fi
+          echo "embedded, and its identifier is:"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" \
+            "$APP/Extensions/CorpseReporter.appex/Info.plist"
+
+      - name: Package App And Test Runner
+        working-directory: ./Samples
+        run: |
+          PRODUCTS=build/DerivedData/Build/Products/Release-iphoneos
+
+          # BrowserStack wants the app as an .ipa (Payload/ layout) and the test
+          # runner as a plain zipped .app.
+          mkdir -p Payload
+          cp -R "$PRODUCTS/CorpseHost.app" Payload/
+          zip --symlinks -qr "$GITHUB_WORKSPACE/CorpseHost.ipa" Payload
+
+          cd "$PRODUCTS"
+          zip --symlinks -qr "$GITHUB_WORKSPACE/CorpseTests.zip" "CorpseTests-Runner.app"
+
+          cd "$GITHUB_WORKSPACE"
+          ls -lh CorpseHost.ipa CorpseTests.zip
+        shell: bash
+
+      - name: Upload App
+        id: upload_app
+        env:
+          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+        run: |
+          RESPONSE=$(curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
+            -X POST "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/app" \
+            -F "file=@CorpseHost.ipa" \
+            -F "ios_app_groups_support=true")
+          # With ios_app_groups_support, the host's App Group lookup resolves on
+          # BrowserStack (to a directory inside the host's own container), which
+          # is where its install and the relayed reports live.
+          echo "$RESPONSE"
+          URL=$(echo "$RESPONSE" | jq -r '.app_url')
+          [ -n "$URL" ] && [ "$URL" != "null" ] || { echo "::error::app upload failed"; exit 1; }
+          echo "app_url=$URL" >> $GITHUB_OUTPUT
+
+      - name: Upload Test Suite
+        id: upload_tests
+        env:
+          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+        run: |
+          RESPONSE=$(curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
+            -X POST "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/test-suite" \
+            -F "file=@CorpseTests.zip")
+          echo "$RESPONSE"
+          URL=$(echo "$RESPONSE" | jq -r '.test_suite_url')
+          [ -n "$URL" ] && [ "$URL" != "null" ] || { echo "::error::test suite upload failed"; exit 1; }
+          echo "test_suite_url=$URL" >> $GITHUB_OUTPUT
+
+      # Listing devices costs nothing, and a wrong device string otherwise fails
+      # the run with a message that does not say which strings are valid. Beta
+      # OS versions are named differently from released ones.
+      - name: Show Available iOS Devices
+        env:
+          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+          DEVICE: ${{ inputs.device || 'iPhone 15 Pro-27' }}
+          WANTED_MAJOR: '27'
+        run: |
+          # The generic App Automate list is NOT the same as what XCUITest
+          # accepts: a device can appear there and still be rejected by the
+          # xcuitest build endpoint as BROWSERSTACK_INVALID_DEVICE. Ask the
+          # framework-specific list first and fall back to the generic one.
+          echo "=== xcuitest device list ==="
+          XC=$(curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
+            "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/devices.json")
+          if echo "$XC" | jq -e 'type == "array"' >/dev/null 2>&1; then
+            echo "$XC" | jq -r --arg major "$WANTED_MAJOR" \
+              '.[] | select((.os // "ios") == "ios") | select(.os_version | startswith($major))
+               | "\(.device)-\(.os_version)"' | sort -u
+          else
+            echo "(no xcuitest-specific list; response was: $(echo "$XC" | head -c 300))"
+          fi
+
+          DEVICES=$(curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
+            "https://api-cloud.browserstack.com/app-automate/devices.json")
+          echo "--- iOS ${WANTED_MAJOR}.x devices (generic list) ---"
+          echo "$DEVICES" | jq -r --arg major "$WANTED_MAJOR" \
+            '.[] | select(.os == "ios") | select(.os_version | startswith($major))
+             | "\(.device)-\(.os_version)"' | sort -u
+          echo "--- newest iOS versions offered ---"
+          echo "$DEVICES" | jq -r '.[] | select(.os == "ios") | .os_version' \
+            | sort -u -V | tail -8
+          echo "--- is the requested device present? ---"
+          echo "$DEVICES" | jq -r '.[] | select(.os == "ios") | "\(.device)-\(.os_version)"' \
+            | grep -Fx "$DEVICE" && echo "yes" || echo "NO: $DEVICE is not offered"
+
+      - name: Run On Device
+        id: run
+        env:
+          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+          # Through the environment and built with jq, never interpolated into
+          # the shell: DEVICE is dispatch input, so pasting it into a command
+          # line would let it run as shell.
+          DEVICE: ${{ inputs.device || 'iPhone 15 Pro-27' }}
+          APP_URL: ${{ steps.upload_app.outputs.app_url }}
+          TEST_SUITE_URL: ${{ steps.upload_tests.outputs.test_suite_url }}
+        run: |
+          PAYLOAD=$(jq -n \
+            --arg app "$APP_URL" \
+            --arg suite "$TEST_SUITE_URL" \
+            --arg device "$DEVICE" \
+            '{app: $app, testSuite: $suite, devices: [$device], deviceLogs: true, project: "KSCrash Corpse"}')
+          RESPONSE=$(curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
+            -X POST "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/build" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD")
+          echo "$RESPONSE"
+          ID=$(echo "$RESPONSE" | jq -r '.build_id')
+          [ -n "$ID" ] && [ "$ID" != "null" ] || { echo "::error::could not start build"; exit 1; }
+          echo "build_id=$ID" >> $GITHUB_OUTPUT
+
+      - name: Wait For Result
+        env:
+          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+          BUILD_ID: ${{ steps.run.outputs.build_id }}
+        run: |
+          ID="$BUILD_ID"
+          # Print each test's own failure before exiting. The build summary only
+          # gives counts, and the verdict this suite produces is a sentence in a
+          # label, which is the only explanation anyone gets: nothing can attach
+          # a debugger to a device in a rack.
+          # Per-test instrumentation logs are where XCTest's assertion text
+          # lives. The session JSON nests them under .testcases.data[].testcases[]
+          # and names a URL per test; the build-level devicelogs endpoint returns
+          # a web page, not logs.
+          report_failures() {
+            BUILD_JSON=$1
+            echo "$BUILD_JSON" | jq -r '.devices[]?.sessions[]?.id' | while read -r SESSION; do
+              [ -n "$SESSION" ] || continue
+              SESSION_JSON=$(curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
+                "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/builds/$ID/sessions/$SESSION")
+              echo "$SESSION_JSON" | jq -r '
+                .testcases.data[]?.testcases[]?
+                | select(.status != "passed")
+                | "\(.name)\t\(.duration)\t\(.instrumentation_log)"
+              ' | while IFS=$(printf '\t') read -r NAME DURATION LOGURL; do
+                echo "===== FAILED $NAME (${DURATION}s) ====="
+                [ -n "$LOGURL" ] || continue
+                LOG=$(curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" "$LOGURL")
+                # The assertion text is in the body, not the trailing summary.
+                echo "$LOG" | grep -aiE "error:|XCTAssert|XCTFail|Assertion Failure|failed -|XCTSkip|Restarting after unexpected exit|crash" \
+                  | head -20
+                echo "--- last lines before the summary ---"
+                echo "$LOG" | grep -av "^$" | grep -avE "IDETestOperationsObserver|privacy|Apple products|serial numbers|peripheral|IP addresses|consent|devicectl|Wrote file|Partial" \
+                  | tail -12
+              done
+
+              # The extension runs in its own process, so no test log can say
+              # whether it installed or captured; only the device log can. The
+              # session JSON's field names are not documented, so list the ones
+              # that look like logs, then search any device log URL among them.
+              echo "===== log fields in session $SESSION ====="
+              echo "$SESSION_JSON" | jq -r '[paths(scalars) | map(tostring) | join(".")
+                | select(test("log"; "i"))] | unique | .[]' | head -20
+              echo "$SESSION_JSON" | jq -r '.. | objects | to_entries[]
+                | select((.key | test("device.?log"; "i")) and (.value | type == "string")
+                  and (.value | startswith("http")))
+                | .value' | sort -u | while read -r DEVICELOG; do
+                echo "===== extension lines in $DEVICELOG ====="
+                curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" "$DEVICELOG" \
+                  | grep -aE "CorpseReporter|KSCrash.CorpseApp.Reporter|crash-reporter" | head -40
+              done
+            done
+          }
+
+          for _ in $(seq 1 60); do
+            STATUS_JSON=$(curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
+              "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/builds/$ID")
+            STATUS=$(echo "$STATUS_JSON" | jq -r '.status')
+            echo "status: $STATUS"
+            case "$STATUS" in
+              running|queued) sleep 30 ;;
+              # A fetch that failed returns no status at all, which is not a verdict.
+              ""|null) echo "status unavailable, polling again"; sleep 30 ;;
+              *)
+                echo "$STATUS_JSON" | jq '.'
+                if [ "$STATUS" = "passed" ]; then exit 0; fi
+                report_failures "$STATUS_JSON"
+                exit 1
+                ;;
+            esac
+          done
+          echo "::error::timed out waiting for the device run"
+          exit 1
+
+      # A superseded run is cancelled by the concurrency group, but that stops
+      # only this job: the device session keeps running and holds the device
+      # the next run queues for.
+      - name: Cancel BrowserStack Build
+        if: cancelled() && steps.run.outputs.build_id
+        env:
+          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+          BUILD_ID: ${{ steps.run.outputs.build_id }}
+        run: |
+          echo "CI cancelled, stopping BrowserStack build $BUILD_ID..."
+          RESPONSE=$(curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
+            -X POST "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/builds/$BUILD_ID/stop")
+          echo "Stop response: $RESPONSE"
