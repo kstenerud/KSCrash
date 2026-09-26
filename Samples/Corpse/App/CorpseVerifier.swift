@@ -27,6 +27,7 @@
 import Foundation
 import KSCrash
 import KSCrashReportModel
+import Security
 
 /// Captures every report the send pipeline carries, so the verdict is built from
 /// the payload a real backend would have received rather than from a file read
@@ -102,8 +103,10 @@ enum CorpseVerifier {
         // report has arrived or the window closes, rather than once: a single
         // send reads a slow extension as a missing report.
         var items: [SendResult<Report>.Item] = []
+        var relayed = 0
         let window = Date().addingTimeInterval(30)
         repeat {
+            relayed += restoreRelayedFiles()
             do {
                 items += try await KSCrash.shared.sendReports(with: send).items
             } catch {
@@ -125,7 +128,7 @@ enum CorpseVerifier {
                 detail: """
                     nothing arrived for run \(expectedRun ?? "any") / \(expectation.triggerID).
                     reports seen: \(reports.count), runs: \(reports.map { $0.report.runId?.description ?? "nil" })
-                    sent items: \(items.count)
+                    sent items: \(items.count), relayed files: \(relayed)
                     """)
         }
 
@@ -188,6 +191,51 @@ enum CorpseVerifier {
             summary: failures.isEmpty ? "pass" : "fail",
             detail: failures.isEmpty
                 ? "\(expectation.triggerID): \(reports.count) report(s), run \(report.report.runId?.description ?? "?")"
+                    + (relayed > 0 ? ", relayed through the keychain" : "")
                 : failures.joined(separator: " | "))
+    }
+
+    /// Moves files the extension relayed through the keychain into this app's
+    /// corpse area, at the paths they had below the extension's namespace
+    /// directory, and removes the items. The extension relays only when the app
+    /// group does not resolve for it (see `CorpseReporter.relayArea`); the drain
+    /// then reads them exactly as if the extension had written them in place.
+    /// Returns the number of files restored.
+    private static func restoreRelayedFiles() -> Int {
+        let service = "com.github.kstenerud.KSCrash.CorpseRelay"
+        guard let group = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: CorpseArea.appGroup)
+        else { return 0 }
+        let root = group.appendingPathComponent("KSCrash/\(CorpseArea.namespace)", isDirectory: true)
+        let list: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
+            kSecMatchLimit as String: kSecMatchLimitAll, kSecReturnAttributes as String: true,
+        ]
+        var found: CFTypeRef?
+        guard SecItemCopyMatching(list as CFDictionary, &found) == errSecSuccess,
+            let attributes = found as? [[String: Any]]
+        else { return 0 }
+        var restored = 0
+        for path in attributes.compactMap({ $0[kSecAttrAccount as String] as? String }) {
+            let item: [String: Any] = [
+                kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
+                kSecAttrAccount as String: path,
+            ]
+            var fetch = item
+            fetch[kSecReturnData as String] = true
+            var value: CFTypeRef?
+            guard SecItemCopyMatching(fetch as CFDictionary, &value) == errSecSuccess, let data = value as? Data
+            else { continue }
+            let url = root.appendingPathComponent(path)
+            do {
+                try FileManager.default.createDirectory(
+                    at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try data.write(to: url, options: .atomic)
+                SecItemDelete(item as CFDictionary)
+                restored += 1
+            } catch {
+                continue
+            }
+        }
+        return restored
     }
 }
