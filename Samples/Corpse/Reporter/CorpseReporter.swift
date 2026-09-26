@@ -51,7 +51,7 @@
 
         static let area = CorpseReportingConfiguration(
             namespace: "KSCrashCorpseTests",
-            container: .appGroup("group.com.github.kstenerud.KSCrash.CorpseTests"))
+            container: .appGroup("group.com.github.kstenerud.KSCrash.Corpse"))
 
         init() {
             do {

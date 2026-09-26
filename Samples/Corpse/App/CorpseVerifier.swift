@@ -121,8 +121,11 @@ enum CorpseVerifier {
         // The whole point of the path: the report describes the process that
         // died, produced by a process that did not.
         if !expectation.matches(report) {
+            let error = report.crash.error
             failures.append(
-                "classified as \(report.crash.error.type), expected \(expectation.errorType)")
+                "classified as \(error.type) \(error.mach?.exceptionName ?? "no mach exception")"
+                    + " \(error.signal?.name ?? "no signal"), expected mach exception"
+                    + " \(expectation.machException) signal \(expectation.signal)")
         }
         // The identity that had to cross a process boundary: the extension reads
         // it out of the corpse's __ks_runid section, so a mismatch means the
@@ -138,7 +141,14 @@ enum CorpseVerifier {
         if report.crash.threads?.isEmpty ?? true {
             failures.append("no threads: the corpse port produced no thread state")
         }
-        if report.crash.crashedThread == nil {
+        // A report marks its crashed thread inside `threads`; `crash.crashedThread`
+        // is written only for a recrash, so it is absent here by design.
+        if let crashed = report.crash.threads?.first(where: \.crashed) {
+            // Index 0 is the main thread, the first one the corpse's task lists.
+            if expectation.crashesOffMainThread && crashed.index == 0 {
+                failures.append("the main thread is named as crashed, but the trigger crashes a background thread")
+            }
+        } else {
             failures.append("no crashed thread named")
         }
         if report.binaryImages?.isEmpty ?? true {
