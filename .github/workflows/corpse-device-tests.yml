@@ -163,7 +163,11 @@ jobs:
           /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" \
             "$APP/Extensions/CorpseReporter.appex/Info.plist"
 
+      # Everything from here on needs the signed build: an unsigned app carries no
+      # App Group, so on a device it could only fail. Without the signing secrets
+      # the job ends at the compile gate above.
       - name: Package App And Test Runner
+        if: ${{ env.CORPSE_HAS_SIGNING == 'true' }}
         working-directory: ./Samples
         run: |
           PRODUCTS=build/DerivedData/Build/Products/Release-iphoneos
@@ -182,6 +186,7 @@ jobs:
         shell: bash
 
       - name: Upload App
+        if: ${{ env.CORPSE_HAS_SIGNING == 'true' }}
         id: upload_app
         env:
           BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
@@ -197,6 +202,7 @@ jobs:
           echo "app_url=$URL" >> $GITHUB_OUTPUT
 
       - name: Upload Test Suite
+        if: ${{ env.CORPSE_HAS_SIGNING == 'true' }}
         id: upload_tests
         env:
           BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
@@ -214,6 +220,7 @@ jobs:
       # the run with a message that does not say which strings are valid. Beta
       # OS versions are named differently from released ones.
       - name: Show Available iOS Devices
+        if: ${{ env.CORPSE_HAS_SIGNING == 'true' }}
         env:
           BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
           BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
@@ -249,6 +256,7 @@ jobs:
             | grep -Fx "$DEVICE" && echo "yes" || echo "NO: $DEVICE is not offered"
 
       - name: Run On Device
+        if: ${{ env.CORPSE_HAS_SIGNING == 'true' }}
         id: run
         env:
           BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
@@ -275,6 +283,7 @@ jobs:
           echo "build_id=$ID" >> $GITHUB_OUTPUT
 
       - name: Wait For Result
+        if: ${{ env.CORPSE_HAS_SIGNING == 'true' }}
         env:
           BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
           BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
@@ -310,6 +319,22 @@ jobs:
                 echo "$LOG" | grep -av "^$" | grep -avE "IDETestOperationsObserver|privacy|Apple products|serial numbers|peripheral|IP addresses|consent|devicectl|Wrote file|Partial" \
                   | tail -12
               done
+
+              # The extension runs in its own process, so no test log can say
+              # whether it installed or captured; only the device log can. The
+              # session JSON's field names are not documented, so list the ones
+              # that look like logs, then search any device log URL among them.
+              echo "===== log fields in session $SESSION ====="
+              echo "$SESSION_JSON" | jq -r '[paths(scalars) | map(tostring) | join(".")
+                | select(test("log"; "i"))] | unique | .[]' | head -20
+              echo "$SESSION_JSON" | jq -r '.. | objects | to_entries[]
+                | select((.key | test("device.?log"; "i")) and (.value | type == "string")
+                  and (.value | startswith("http")))
+                | .value' | sort -u | while read -r DEVICELOG; do
+                echo "===== extension lines in $DEVICELOG ====="
+                curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" "$DEVICELOG" \
+                  | grep -aE "CorpseReporter|KSCrash.CorpseApp.Reporter|crash-reporter" | head -40
+              done
             done
           }
 
@@ -320,6 +345,8 @@ jobs:
             echo "status: $STATUS"
             case "$STATUS" in
               running|queued) sleep 30 ;;
+              # A fetch that failed returns no status at all, which is not a verdict.
+              ""|null) echo "status unavailable, polling again"; sleep 30 ;;
               *)
                 echo "$STATUS_JSON" | jq '.'
                 if [ "$STATUS" = "passed" ]; then exit 0; fi
@@ -330,3 +357,18 @@ jobs:
           done
           echo "::error::timed out waiting for the device run"
           exit 1
+
+      # A superseded run is cancelled by the concurrency group, but that stops
+      # only this job: the device session keeps running and holds the device
+      # the next run queues for.
+      - name: Cancel BrowserStack Build
+        if: cancelled() && steps.run.outputs.build_id
+        env:
+          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+          BUILD_ID: ${{ steps.run.outputs.build_id }}
+        run: |
+          echo "CI cancelled, stopping BrowserStack build $BUILD_ID..."
+          RESPONSE=$(curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
+            -X POST "https://api-cloud.browserstack.com/app-automate/xcuitest/v2/builds/$BUILD_ID/stop")
+          echo "Stop response: $RESPONSE"

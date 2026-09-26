@@ -90,21 +90,34 @@ enum CorpseVerifier {
         send.reportPipeline = [AnyPipelineStage(CapturingStage(captured: captured))]
         send.corpseAreas = [CorpseArea.configuration]
 
-        let result: SendResult<Report>
-        do {
-            result = try await KSCrash.shared.sendReports(with: send)
-        } catch {
-            return CorpseVerdict(
-                passed: false, summary: "send-failed", detail: "sendReports threw: \(error)")
-        }
-
-        let reports = captured.reports
         // Identity first: pick the report belonging to the run the test killed,
         // never merely the first one that happens to be lying around.
-        let fromExpectedRun = reports.filter { report in
+        func isFromExpectedRun(_ report: Report) -> Bool {
             guard let expectedRun else { return true }
             return report.report.runId?.description == expectedRun
         }
+
+        // The extension runs on the system's schedule, in its own process, so its
+        // report can land after the app is back. Send until the expected run's
+        // report has arrived or the window closes, rather than once: a single
+        // send reads a slow extension as a missing report.
+        var items: [SendResult<Report>.Item] = []
+        let window = Date().addingTimeInterval(30)
+        repeat {
+            do {
+                items += try await KSCrash.shared.sendReports(with: send).items
+            } catch {
+                return CorpseVerdict(
+                    passed: false, summary: "send-failed", detail: "sendReports threw: \(error)")
+            }
+            if captured.reports.contains(where: isFromExpectedRun) {
+                break
+            }
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+        } while Date() < window
+
+        let reports = captured.reports
+        let fromExpectedRun = reports.filter(isFromExpectedRun)
         guard let report = fromExpectedRun.first(where: { expectation.matches($0) }) ?? fromExpectedRun.first
         else {
             return CorpseVerdict(
@@ -112,7 +125,7 @@ enum CorpseVerifier {
                 detail: """
                     nothing arrived for run \(expectedRun ?? "any") / \(expectation.triggerID).
                     reports seen: \(reports.count), runs: \(reports.map { $0.report.runId?.description ?? "nil" })
-                    sent items: \(result.items.count)
+                    sent items: \(items.count)
                     """)
         }
 
@@ -162,12 +175,12 @@ enum CorpseVerifier {
 
         // Delivered means the driver removed it. Anything else leaves the report
         // on disk to be retried forever.
-        let delivered = result.items.filter {
+        let delivered = items.filter {
             if case .delivered = $0.outcome { return true }
             return false
         }
         if delivered.isEmpty {
-            failures.append("nothing was delivered; outcomes: \(result.items.map { "\($0.outcome)" })")
+            failures.append("nothing was delivered; outcomes: \(items.map { "\($0.outcome)" })")
         }
 
         return CorpseVerdict(

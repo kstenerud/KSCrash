@@ -8,13 +8,12 @@
 # them against a device on your desk.
 #
 # Signing comes from Samples/Corpse/signing.env, which is not committed. Copy
-# signing.env.example and fill it in. Manual signing is deliberate: automatic
-# signing needs Xcode open to refresh profiles, and with the workspace closed a
-# terminal run fails with "Developer App Certificate is not trusted", which
-# reads like a device problem rather than a signing one.
+# signing.env.example and fill it in. Signing is automatic, and
+# -allowProvisioningUpdates lets xcodebuild refresh the Xcode-managed profiles
+# without Xcode open.
 #
 # Usage:
-#   ./run-on-device.sh                    # every test, memory included
+#   ./run-on-device.sh                    # every test
 #   ./run-on-device.sh testMachBadAccessIsCapturedFromTheCorpse
 set -euo pipefail
 
@@ -43,9 +42,6 @@ ONLY="CorpseTests"
 cd "$SAMPLES"
 mise exec -- tuist generate --no-open
 
-# Everything runs, memory included. It exhausts the device and evicts whatever
-# else is open, which is a reason to name a single test when you are on your own
-# phone, not a reason to drop it from a full run.
 xcodebuild test \
   -workspace KSCrashSamples.xcworkspace \
   -scheme CorpseBrowserStack \
