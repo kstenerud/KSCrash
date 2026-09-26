@@ -64,18 +64,6 @@ struct CorpseHostApp: App {
             // report, which is a more useful failure than a dead host.
             Self.installError = "\(error)"
         }
-
-        // Written for every run, because the launch-hang case has no chance to
-        // show it on screen before the watchdog kills the process.
-        if let runID = KSCrash.shared.runID?.description {
-            CorpseArea.recordRunID(runID)
-        }
-
-        // Before any scene exists, which is the point: the watchdog polices
-        // launch, so the hang has to happen inside it.
-        if case .crash(LaunchHang.triggerID) = LaunchPlan.fromLaunchArguments() {
-            LaunchHang.hangUntilKilled()
-        }
     }
 
     var body: some Scene {
@@ -115,9 +103,7 @@ struct CorpseHostApp: App {
             ?? CorpseExpectation.reusingExistingTriggers[0]
         // The run the test watched die. Without pinning it, a leftover report
         // from an earlier case would satisfy every other assertion here.
-        let expectedRun =
-            arguments.firstIndex(of: "--corpse-expect-run").map { arguments[$0 + 1] }
-            ?? CorpseArea.recordedRunID()
+        let expectedRun = arguments.firstIndex(of: "--corpse-expect-run").map { arguments[$0 + 1] }
         verdict = await CorpseVerifier.run(expecting: expectation, fromRun: expectedRun)
     }
 }

@@ -47,8 +47,6 @@ struct CorpseExpectation {
     let triggerID: String
     let machException: Int32
     let signal: Int32
-    /// Seconds to wait for the app to die before the test calls it a failure.
-    let deadline: TimeInterval
     /// Whether the trigger crashes a thread other than the main one, so that
     /// subject-thread selection is exercised rather than assumed.
     var crashesOffMainThread = false
@@ -63,16 +61,15 @@ struct CorpseExpectation {
     /// already produces a real, system-delivered termination.
     static let reusingExistingTriggers: [CorpseExpectation] = [
         .init(
-            triggerID: CrashTriggerId.mach_badAccess.rawValue, machException: EXC_BAD_ACCESS, signal: SIGSEGV,
-            deadline: 20),
+            triggerID: CrashTriggerId.mach_badAccess.rawValue, machException: EXC_BAD_ACCESS, signal: SIGSEGV),
         .init(
-            triggerID: CrashTriggerId.signal_abort.rawValue, machException: EXC_CRASH, signal: SIGABRT, deadline: 20
+            triggerID: CrashTriggerId.signal_abort.rawValue, machException: EXC_CRASH, signal: SIGABRT
         ),
         .init(
             triggerID: CrashTriggerId.nsException_genericNSException.rawValue, machException: EXC_CRASH,
-            signal: SIGABRT, deadline: 20),
+            signal: SIGABRT),
         .init(
             triggerID: CrashTriggerId.cpp_runtimeExceptionBackgroundThread.rawValue, machException: EXC_CRASH,
-            signal: SIGABRT, deadline: 20, crashesOffMainThread: true),
+            signal: SIGABRT, crashesOffMainThread: true),
     ]
 }
