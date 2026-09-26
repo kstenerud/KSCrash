@@ -101,9 +101,14 @@ final class CorpseTests: XCTestCase {
         verifier.launchArguments = ["--corpse-verify", trigger, "--corpse-expect-run", runID]
         verifier.launch()
 
+        // The label exists from launch reading "ready", so existence says nothing;
+        // the verdict is in only once the label changes.
         let status = verifier.staticTexts["corpse.status"]
-        XCTAssertTrue(
-            status.waitForExistence(timeout: 60), "\(trigger): the app published no verdict")
+        let published = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == true AND label != %@", "ready"), object: status)
+        XCTAssertEqual(
+            XCTWaiter().wait(for: [published], timeout: 60), .completed,
+            "\(trigger): the app published no verdict")
         return (status.label, verifier.staticTexts["corpse.detail"].label)
     }
 
