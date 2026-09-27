@@ -362,25 +362,52 @@ static void getCrashInfo(const struct mach_header *header, KSBinaryImage *buffer
     }
 }
 
-/** Copy one __crash_info string out of @c task, mirroring isValidCrashInfoMessage's contract:
- * the string must be non-empty and terminate within KSDL_MaxCrashInfoStringLength + 1 readable
- * bytes. Returns a heap copy, or NULL.
+// The task reader runs in a crash extension, never at crash time, so it is not held to the
+// in-process reader's cap. A message past that cap was dropped whole, and CoreFoundation's
+// uncaught-exception message carries the app's own reason plus the throw stack, so a long
+// reason cost the exception's name along with everything else. The bound stays only to stop
+// at a pointer that never meets a terminator.
+#define KSDL_MaxTaskCrashInfoStringLength (64 * 1024)
+
+/** Copy one __crash_info string out of @c task. The string must be non-empty and terminate within
+ * KSDL_MaxTaskCrashInfoStringLength readable bytes. Returns a heap copy, or NULL.
  */
 static char *copyCrashInfoStringFromTask(task_t task, const char *taskAddress)
 {
     if (taskAddress == NULL) {
         return NULL;
     }
-    char buffer[KSDL_MaxCrashInfoStringLength + 1];
-    int copied = ksmem_copyMaxPossibleFromTask(task, taskAddress, buffer, (int)sizeof(buffer));
-    if (copied <= 0 || buffer[0] == 0) {
-        return NULL;
+    const size_t chunkSize = 4096;
+    char *buffer = NULL;
+    size_t length = 0;
+    while (length < KSDL_MaxTaskCrashInfoStringLength) {
+        size_t want = KSDL_MaxTaskCrashInfoStringLength - length;
+        if (want > chunkSize) {
+            want = chunkSize;
+        }
+        char *grown = realloc(buffer, length + want);
+        if (grown == NULL) {
+            break;
+        }
+        buffer = grown;
+        int copied = ksmem_copyMaxPossibleFromTask(task, taskAddress + length, buffer + length, (int)want);
+        if (copied <= 0) {
+            break;
+        }
+        if (memchr(buffer + length, 0, (size_t)copied) != NULL) {
+            if (buffer[0] == 0) {
+                break;
+            }
+            return buffer;
+        }
+        length += (size_t)copied;
+        if ((size_t)copied < want) {
+            // The readable range ended before a terminator.
+            break;
+        }
     }
-    if (memchr(buffer, 0, (size_t)copied) == NULL) {
-        // Never terminated within the cap (or the readable range); not a valid message.
-        return NULL;
-    }
-    return strdup(buffer);
+    free(buffer);
+    return NULL;
 }
 
 bool ksdl_readCrashInfoFromTaskImage(task_t task, uintptr_t loadAddress, KSCrashInfoStrings *buffer)
