@@ -24,14 +24,14 @@
 // THE SOFTWARE.
 //
 
-// Exit tests spawn a child process, so they exist only where a process can be spawned, and
-// the API itself arrived in Swift Testing 6.2, so older toolchains must not see it.
-#if os(macOS) && compiler(>=6.2)
+// Exit tests spawn a child process, so they exist only where a process can be spawned.
+#if os(macOS)
 
     import KSCrashRecordingCore
     import Testing
 
-    private let duplicateID = strdup("DuplicateMonitorID")
+    // Written once by strdup and never mutated or freed.
+    nonisolated(unsafe) private let duplicateID = strdup("DuplicateMonitorID")
 
     private func monitorWithDuplicateID() -> UnsafeMutablePointer<KSCrashMonitorAPI> {
         let api = UnsafeMutablePointer<KSCrashMonitorAPI>.allocate(capacity: 1)

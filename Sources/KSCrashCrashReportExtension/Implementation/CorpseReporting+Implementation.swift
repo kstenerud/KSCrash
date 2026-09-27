@@ -37,7 +37,7 @@ extension CorpseReporting {
     /// `<kcdataDirectory>/<processName>-<pid>-<timestamp>.kcdata`, best effort. Returns nil
     /// when disabled so the gatherer skips the work entirely.
     static func kcdataSaver() -> ((Data, CorpseSnapshot.CrashInfo?) -> Void)? {
-        guard let active, active.savesKCData else { return nil }
+        guard let active = active.withLock({ $0 }), active.savesKCData else { return nil }
         let directory = active.kcdataDirectory
         return { data, crashInfo in
             let name = [

@@ -188,7 +188,8 @@ import XCTest
         func testNotificationPostedWhenDiagnosticReportRecorded() {
             let notificationExpectation = expectation(description: "Diagnostic report notification")
             notificationExpectation.assertForOverFulfill = false
-            var observedID: Report.ID?
+            // Written by the observer, read only after the expectation is fulfilled.
+            nonisolated(unsafe) var observedID: Report.ID?
 
             let observer = NotificationCenter.default.addObserver(
                 forName: MetricKitMonitor.diagnosticReportAddedNotification,
@@ -212,7 +213,8 @@ import XCTest
         func testNotificationPostedOnMainThread() {
             let notificationExpectation = expectation(description: "Notification received")
             notificationExpectation.assertForOverFulfill = false
-            var allOnMainThread = true
+            // Written by the observer, read only after the expectation is fulfilled.
+            nonisolated(unsafe) var allOnMainThread = true
 
             let observer = NotificationCenter.default.addObserver(
                 forName: MetricKitMonitor.diagnosticReportAddedNotification,
@@ -226,8 +228,9 @@ import XCTest
             }
             defer { NotificationCenter.default.removeObserver(observer) }
 
+            let monitor = self.monitor
             DispatchQueue.global().async {
-                self.monitor.recordDiagnosticReport(testReportID(1))
+                monitor.recordDiagnosticReport(testReportID(1))
             }
 
             wait(for: [notificationExpectation], timeout: 2.0)
@@ -237,14 +240,16 @@ import XCTest
         func testNotificationObjectIsPlugin() {
             let notificationExpectation = expectation(description: "Notification received")
             notificationExpectation.assertForOverFulfill = false
-            var objectIsPlugin = false
+            // Written by the observer, read only after the expectation is fulfilled.
+            nonisolated(unsafe) var objectIsPlugin = false
+            let monitor = self.monitor
 
             let observer = NotificationCenter.default.addObserver(
                 forName: MetricKitMonitor.diagnosticReportAddedNotification,
                 object: nil,
                 queue: nil
             ) { notification in
-                objectIsPlugin = (notification.object as AnyObject) === self.monitor
+                objectIsPlugin = (notification.object as AnyObject) === monitor
                 notificationExpectation.fulfill()
             }
             defer { NotificationCenter.default.removeObserver(observer) }
@@ -268,7 +273,8 @@ import XCTest
         }
 
         func testNotificationCarriesOnlyTheAddedID() {
-            var observedIDs: [Report.ID] = []
+            // Written by the observer, read only after the expectation is fulfilled.
+            nonisolated(unsafe) var observedIDs: [Report.ID] = []
             let notificationExpectation = expectation(description: "Two notifications")
             notificationExpectation.expectedFulfillmentCount = 2
             notificationExpectation.assertForOverFulfill = false
@@ -860,13 +866,14 @@ import XCTest
                 backtrace: Backtrace(contents: stackFrames, skipped: 0),
                 crashed: false, currentThread: false, index: 0)
             let callStackData = CallStackData(threads: [thread], crashedThreadIndex: 0, binaryImages: [])
-            let provider: MetricKitRunIdHandler.SidecarPathProvider = { name, ext in
+            let provider: @Sendable (String, String) -> URL? = { name, ext in
                 tempDir.appendingPathComponent("\(name).\(ext)")
             }
 
             let iterations = 8
             let resultsLock = NSLock()
-            var results: [String?] = []
+            // Guarded by resultsLock.
+            nonisolated(unsafe) var results: [String?] = []
             DispatchQueue.concurrentPerform(iterations: iterations) { _ in
                 let decoded = handler.decode(from: callStackData, pathProvider: provider)
                 resultsLock.lock()

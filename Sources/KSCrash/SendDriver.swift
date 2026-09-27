@@ -58,12 +58,9 @@ struct SendKind<Payload: SendPayload, Item: Sendable>: Sendable {
 /// Payloads exist one at a time, inside the loop, and are never accumulated.
 enum SendDriver {
 
-    // Pinned off the caller's actor wherever the attribute exists (Swift 6.2+);
-    // older toolchains run nonisolated async functions off-actor by default, so
-    // the guarantee holds under every supported compiler.
-    #if hasAttribute(concurrent)
-        @concurrent
-    #endif
+    // Pinned off the caller's actor, so a @MainActor caller never runs the
+    // send's disk work on the main thread.
+    @concurrent
     static func send<Payload: SendPayload, Item: Sendable>(
         store: Store?,
         kind: SendKind<Payload, Item>,

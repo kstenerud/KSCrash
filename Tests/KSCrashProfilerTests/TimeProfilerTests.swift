@@ -463,7 +463,8 @@ final class TimeProfilerTests: XCTestCase {
 
         let group = DispatchGroup()
         let iterations = 10
-        var profiles: [TimeProfile?] = Array(repeating: nil, count: iterations)
+        // Guarded by lock.
+        nonisolated(unsafe) var profiles: [TimeProfile?] = Array(repeating: nil, count: iterations)
         let lock = NSLock()
 
         for i in 0..<iterations {
@@ -527,7 +528,8 @@ final class TimeProfilerTests: XCTestCase {
             throw XCTSkip("watchOS does not support backtrace capture")
         #endif
 
-        var otherThread: pthread_t?
+        // Written before the semaphore signals, read after it waits.
+        nonisolated(unsafe) var otherThread: pthread_t?
         let group = DispatchGroup()
         let semaphore = DispatchSemaphore(value: 0)
 

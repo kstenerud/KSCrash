@@ -52,7 +52,10 @@ FOUNDATION_EXPORT NSInteger const KSCrashThreadcrumbMaximumMessageLength;
  *
  * The stack can later be decoded by symbolication - each frame's symbol name
  * contains the encoded character (e.g., `__kscrash__A__`, `__kscrash__B__`).
+ *
+ * Safe to use from any thread; concurrent `log:` calls take turns.
  */
+NS_SWIFT_SENDABLE
 @interface KSCrashThreadcrumb : NSObject
 
 /**

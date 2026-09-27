@@ -31,7 +31,7 @@ import KSCrashSwiftCore
 
 /// Encodes a run ID into a parked thread's call stack using KSCrashThreadcrumb,
 /// then writes a sidecar file mapping the stack hash to the run ID.
-public final class MetricKitRunIdHandler {
+public final class MetricKitRunIdHandler: Sendable {
 
     /// Expected number of data frames (UUID without hyphens = 32 hex characters).
     static let expectedDataFrameCount = 32
