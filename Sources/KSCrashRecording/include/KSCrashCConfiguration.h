@@ -98,11 +98,11 @@ typedef struct {
      * file) once nothing references it, in seconds, measured from its newest
      * write.
      *
-     * A crash caught by the app's crash extension sits in the App Group container until
-     * the user next opens the app. If this store deletes that run's data before the
-     * report is ingested, the report can never be enriched with it. Keeping
-     * unreferenced data for this window costs a few kilobytes per run, and the send
-     * applies it only when it pulls from an extension area.
+     * A report can reach this store after its run has ended, for example one a crash
+     * extension captured, which waits outside the store until the app next sends. If
+     * the run's data is deleted before then, the report can never be enriched with it.
+     * Every send keeps unreferenced data for this window, which costs a few kilobytes
+     * per run.
      *
      * Data referenced by a report on disk is always kept, whatever its age.
      * Zero or negative deletes unreferenced data immediately.

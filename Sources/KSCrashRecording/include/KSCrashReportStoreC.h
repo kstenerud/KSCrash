@@ -244,16 +244,42 @@ bool kscrs_getReportSidecarFilePath(const char *monitorId, const char *name, con
  */
 void kscrs_reclaimOrphanedRunData(const KSCrashReportStoreCConfiguration *const configuration);
 
-/** Move every report in sourceReportsPath into this store.
+/** What happened to a report offered to the store. */
+typedef enum {
+    /** The report is in the store. */
+    KSCrashReportTakeInResultTaken = 0,
+
+    /** The store already holds a report under this id and timestamp; nothing changed. */
+    KSCrashReportTakeInResultExists,
+
+    /** The report was not taken in, or was but could not be confirmed on disk. The caller
+     *  discards nothing it still holds and may offer the report again. */
+    KSCrashReportTakeInResultFailed,
+} KSCrashReportTakeInResult;
+
+/** Take one finished report into this store, never replacing an existing one.
  *
- * Files that cannot be moved are left in place and retried on the next call; an existing
- * destination is never replaced. No-op when sourceReportsPath is NULL.
+ * On KSCrashReportTakeInResultTaken the report is in the store, and if a file is still at
+ * sourcePath it is a copy the caller now removes.
  *
- * @param sourceReportsPath The directory to drain (a crash extension's Reports directory).
+ * @param sourcePath The report file to take in.
+ * @param reportID The report's id, the lowercase UUID inside the report.
+ * @param wallClockNs When the report was written, in nanoseconds since 1970; orders it
+ *                    among the store's reports.
+ * @param configuration The store configuration.
+ * @return What happened to the report.
+ */
+KSCrashReportTakeInResult kscrs_takeInReport(const char *sourcePath, const char *reportID, uint64_t wallClockNs,
+                                             const KSCrashReportStoreCConfiguration *const configuration);
+
+/** Delete the reports with these ids, and their report sidecars. Ids with no report are ignored.
+ *
+ * @param reportIDs The ids to delete.
+ * @param count The number of ids.
  * @param configuration The store configuration.
  */
-void kscrs_ingestExtensionReports(const char *sourceReportsPath,
-                                  const KSCrashReportStoreCConfiguration *const configuration);
+void kscrs_deleteReportsWithIDs(const char *const *reportIDs, int count,
+                                const KSCrashReportStoreCConfiguration *const configuration);
 
 #ifdef __cplusplus
 }

@@ -40,8 +40,7 @@ extension KSCrash {
     public func sendRunSummaries(with configuration: SendConfiguration) async throws -> SendResult<RunSummary> {
         try await RunSummarySend.send(
             store: Self.makeStore(),
-            pipeline: configuration.runSummaryPipeline,
-            corpseAreas: configuration.corpseAreas
+            pipeline: configuration.runSummaryPipeline
         )
     }
 
@@ -55,7 +54,6 @@ extension KSCrash {
         try await RunSummarySend.send(
             store: Self.makeStore(),
             pipeline: configuration.runSummaryPipeline,
-            corpseAreas: configuration.corpseAreas,
             only: Set(ids)
         )
     }
@@ -76,7 +74,7 @@ extension KSCrash {
         try await ReportSend.send(
             store: Self.makeStore(),
             pipeline: configuration.reportPipeline,
-            corpseAreas: configuration.corpseAreas
+            reportSources: configuration.reportSources
         )
     }
 
@@ -84,7 +82,8 @@ extension KSCrash {
     /// `ids` (the ids a previous result reported), and current-run reports
     /// are sent rather than skipped: naming an id is a deliberate choice.
     /// Every other pending report is untouched and absent from the result.
-    /// Unknown ids match nothing; an empty `ids` sends nothing.
+    /// Unknown ids match nothing; an empty `ids` sends nothing. Reports are not
+    /// taken in from `configuration.reportSources`; `sendReports(with:)` does that.
     public func sendReports(
         with configuration: SendConfiguration,
         only ids: [Report.ID]
@@ -92,7 +91,6 @@ extension KSCrash {
         try await ReportSend.send(
             store: Self.makeStore(),
             pipeline: configuration.reportPipeline,
-            corpseAreas: configuration.corpseAreas,
             only: Set(ids)
         )
     }
