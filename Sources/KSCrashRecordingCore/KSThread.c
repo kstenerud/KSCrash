@@ -194,8 +194,8 @@ bool ksthread_getQueueName(const KSThread thread, char *const buffer, int bufLen
 {
     // WARNING: This implementation is no longer async-safe!
 
-    // The copy below casts bufLength to size_t, so a non-positive length would turn into an
-    // enormous one.
+    // The readable-bytes probe and the copy below take bufLength as a byte count, and a label
+    // needs room for at least its NUL, so a non-positive length has nothing to answer with.
     if (bufLength < 1) {
         return false;
     }

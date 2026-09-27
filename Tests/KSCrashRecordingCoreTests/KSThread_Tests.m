@@ -29,8 +29,6 @@
 #import "KSThread.h"
 #import "TestThread.h"
 
-#include <stdatomic.h>
-
 @interface KSThread_Tests : XCTestCase
 @end
 
