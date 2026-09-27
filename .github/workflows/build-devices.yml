@@ -48,3 +48,23 @@ jobs:
           scheme: "KSCrash-Package"
           destination: generic/platform=${{ matrix.platform }}
           configuration: Release
+
+  trace-log-build:
+    # KSLogger compiles each log call out below its level, and the default level is Error, so
+    # the builds above never compile most of them. TRACE compiles every one in: a log argument
+    # of the wrong kind, or a parameter marked unused that a log reads, fails here rather than
+    # for whoever next raises the level. The default build already catches a value only a log
+    # reads, so this one level covers the rest.
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Use Latest Stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Build At TRACE Log Level
+        run: swift build --build-tests -Xcc -DKSLogger_Level=50
