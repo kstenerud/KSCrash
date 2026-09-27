@@ -91,7 +91,7 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
         // More than one file naming an id would mean the store minted a duplicate, which
         // would make every later assertion a coin toss over which one was read.
         XCTAssertLessThanOrEqual(matches.count, 1, "one id, one file: \(matches)")
-        let name = try XCTUnwrap(
+        _ = try XCTUnwrap(
             matches.first, "a report file named by the id should exist; store holds \(files.count) files")
         var config = KSCrashReportStoreCConfiguration_Default()
         let cReportsPath = strdup(dir.path)

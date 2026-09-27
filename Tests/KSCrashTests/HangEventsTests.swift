@@ -25,24 +25,38 @@
 //
 
 import Foundation
+import KSCrashTestTools
 import XCTest
 
 @testable import KSCrash
 
 final class HangEventsTests: XCTestCase {
+    // The hang monitor is armed here rather than by the install: it is
+    // process-global, and one left running suspends every thread and writes a
+    // report for any main-thread stall in the tests that follow.
     override func setUpWithError() throws {
         try TestInstall.ensure()
+        hangtest_arm()
+    }
+
+    override func tearDown() {
+        hangtest_disarm()
+        super.tearDown()
     }
 
     func test_hangEvents_reportAHangOfTheMainThread() async throws {
+        // Subscribing happens here, when the stream is made, not when it is
+        // iterated, so the blocker below cannot outrun it.
         let events = KSCrash.shared.hangEvents
-        var iterator = events.makeAsyncIterator()
         // Block the main thread past the hang threshold, then read what the monitor saw.
         let blocker = Task { @MainActor in
             let until = Date().addingTimeInterval(0.6)
             while Date() < until {}
         }
-        let first = await withTimeout(seconds: 5) { await iterator.next() }
+        let first = await withTimeout(seconds: 5) {
+            var iterator = events.makeAsyncIterator()
+            return await iterator.next()
+        }
         await blocker.value
         guard let first = try first.value() else {
             throw XCTSkip("hangs are not monitored in this environment, the stream finished")
@@ -56,14 +70,22 @@ final class HangEventsTests: XCTestCase {
     }
 
     func test_hangEvents_streamsAreIndependent() async throws {
-        var a = KSCrash.shared.hangEvents.makeAsyncIterator()
-        var b = KSCrash.shared.hangEvents.makeAsyncIterator()
+        // Both streams are made before the blocker runs, which is what
+        // subscribes them; iterating only reads what they have buffered.
+        let a = KSCrash.shared.hangEvents
+        let b = KSCrash.shared.hangEvents
         let blocker = Task { @MainActor in
             let until = Date().addingTimeInterval(0.6)
             while Date() < until {}
         }
-        async let firstA = withTimeout(seconds: 5) { await a.next() }
-        async let firstB = withTimeout(seconds: 5) { await b.next() }
+        async let firstA = withTimeout(seconds: 5) {
+            var iterator = a.makeAsyncIterator()
+            return await iterator.next()
+        }
+        async let firstB = withTimeout(seconds: 5) {
+            var iterator = b.makeAsyncIterator()
+            return await iterator.next()
+        }
         let (eventA, eventB) = await (firstA, firstB)
         await blocker.value
         guard let eventA = try eventA.value(), let eventB = try eventB.value() else {

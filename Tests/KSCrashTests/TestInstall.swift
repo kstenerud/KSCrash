@@ -98,7 +98,12 @@ enum TestInstall {
     static let configuration: InstallConfiguration = {
         var config = InstallConfiguration(namespace: "Tests")
         config.container = .url(base)
-        config.monitors = [.hangs]
+        // Explicitly empty, not left at its default, which includes hangs: the
+        // hang monitor is process-global, so an install that arms it freezes
+        // every thread and writes a report for any main-thread stall past its
+        // threshold, anywhere in the bundle. A test that wants one arms it
+        // itself (see hangtest_arm).
+        config.monitors = []
         config.plugins = [plugin, DiskMonitor.plugin(), BootMonitor.plugin()]
         var callbacks = UnsafeCrashTimeCallbacks()
         callbacks.didWriteReport = { _, reportID in

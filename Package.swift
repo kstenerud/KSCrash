@@ -387,10 +387,12 @@ let package = Package(
         .target(
             name: Targets.testTools,
             dependencies: [
-                .target(name: Targets.recordingCore)
+                .target(name: Targets.recording),
+                .target(name: Targets.recordingCore),
             ],
             cSettings: [
-                .unsafeFlags(warningFlags)
+                .headerSearchPath("../\(Targets.recording)/Monitors"),  // For the hang monitor's API
+                .unsafeFlags(warningFlags),
             ]
         ),
 
@@ -537,6 +539,7 @@ let package = Package(
             name: Targets.kscrash.tests,
             dependencies: [
                 .target(name: Targets.kscrash),
+                .target(name: Targets.testTools),
                 .target(name: Targets.recordingCore),
                 .target(name: Targets.swiftCore),
                 .target(name: Targets.monitorPlugins),
