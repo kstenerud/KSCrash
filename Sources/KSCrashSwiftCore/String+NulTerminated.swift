@@ -1,7 +1,7 @@
 //
-//  CrashTriggerConfig.swift
+//  String+NulTerminated.swift
 //
-//  Created by Nikolay Volosatov on 2024-08-11.
+//  Created by Alexander Cohen on 2026-09-27.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,22 +24,10 @@
 // THE SOFTWARE.
 //
 
-import CrashTriggers
-import Foundation
-
-public struct CrashTriggerConfig: Codable, Sendable {
-    public var triggerId: CrashTriggerId
-
-    public init(triggerId: CrashTriggerId) {
-        self.triggerId = triggerId
-    }
-}
-
-extension CrashTriggerId: @retroactive Codable {
-}
-
-extension CrashTriggerConfig {
-    func crash() {
-        CrashTriggersHelper.runTrigger(triggerId)
+extension String {
+    /// The text a C function wrote into `buffer`, up to its first NUL. Never reads past the
+    /// buffer, so a missing terminator yields the whole buffer. Invalid UTF-8 is repaired.
+    public init(nulTerminated buffer: [CChar]) {
+        self.init(decoding: buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
     }
 }

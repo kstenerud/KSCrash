@@ -29,13 +29,14 @@ import Foundation
 import KSCrashRecording
 import KSCrashRecordingCore
 import KSCrashReportModel
+import KSCrashSwiftCore
 
 /// A monitor's typed connection to the exception-handling pipeline, injected through
 /// `CrashMonitor.init(host:configuration:)`.
 ///
 /// The host goes live when the bridge installs; before then `handle` throws `.notInstalled` and
 /// the sidecar accessors return nil.
-public struct MonitorHost<Payload> {
+public struct MonitorHost<Payload>: Sendable {
     /// The bridge, which owns the callbacks, the enabled flag, and the api identity. Unowned
     /// to break the cycle: the bridge owns the monitor that holds this host, and a host lives
     /// exactly as long as its bridge.
@@ -165,7 +166,7 @@ public struct MonitorHost<Payload> {
         guard let provider = bridge.callbacks?.getReportSidecarPath else { return nil }
         var buffer = [CChar](repeating: 0, count: Int(KSCRS_MAX_PATH_LENGTH))
         guard provider(bridge.monitorIdC, reportID.description, &buffer, buffer.count) else { return nil }
-        return URL(fileURLWithPath: String(cString: buffer))
+        return URL(fileURLWithPath: String(nulTerminated: buffer))
     }
 
     /// This monitor's named per-report sidecar path (`Sidecars/<id>/<name>.<extension>`),
@@ -174,7 +175,7 @@ public struct MonitorHost<Payload> {
         guard let provider = bridge.callbacks?.getReportSidecarFilePath else { return nil }
         var buffer = [CChar](repeating: 0, count: Int(KSCRS_MAX_PATH_LENGTH))
         guard provider(bridge.monitorIdC, name, ext, &buffer, buffer.count) else { return nil }
-        return URL(fileURLWithPath: String(cString: buffer))
+        return URL(fileURLWithPath: String(nulTerminated: buffer))
     }
 
     /// This monitor's run-scoped sidecar path, or nil when sidecars are not configured.
@@ -182,7 +183,7 @@ public struct MonitorHost<Payload> {
         guard let provider = bridge.callbacks?.getRunSidecarPath else { return nil }
         var buffer = [CChar](repeating: 0, count: Int(KSCRS_MAX_PATH_LENGTH))
         guard provider(bridge.monitorIdC, &buffer, buffer.count) else { return nil }
-        return URL(fileURLWithPath: String(cString: buffer))
+        return URL(fileURLWithPath: String(nulTerminated: buffer))
     }
 }
 

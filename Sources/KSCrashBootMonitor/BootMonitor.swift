@@ -39,7 +39,9 @@ public enum BootMonitor {
 }
 
 final class BootMonitorPlugin: MonitorPlugin, @unchecked Sendable {
-    private static let monitorID: UnsafePointer<CChar> = UnsafePointer(strdup("BootTime")!)
+    // Written once by strdup and never mutated or freed, so sharing the
+    // pointer across threads is safe even though the type is not Sendable.
+    nonisolated(unsafe) private static let monitorID: UnsafePointer<CChar> = UnsafePointer(strdup("BootTime")!)
     let api: UnsafeMutablePointer<KSCrashMonitorAPI>
     private let enabled = AtomicFlag()
 

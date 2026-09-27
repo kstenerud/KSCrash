@@ -106,7 +106,8 @@ final class UnfairLockTests: XCTestCase {
 
     func testVoidConcurrentAccess() {
         let lock = UnfairLock()
-        var counter = 0
+        // Guarded by `lock` alone, which the compiler cannot see; that is what this test checks.
+        nonisolated(unsafe) var counter = 0
         let iterations = 1000
         let threadCount = 10
 

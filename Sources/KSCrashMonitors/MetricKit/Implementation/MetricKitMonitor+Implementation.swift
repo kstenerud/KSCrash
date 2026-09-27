@@ -117,5 +117,5 @@ func addMetricKitReport(_ data: Data) -> Report.ID? {
         return kscrash_addUserReport(ptr, Int32(buffer.count), &idBuffer)
     }
     guard stored else { return nil }
-    return Report.ID(String(cString: idBuffer))
+    return Report.ID(String(nulTerminated: idBuffer))
 }

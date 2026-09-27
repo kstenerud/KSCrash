@@ -89,7 +89,7 @@ public final class KSCrash: Sendable {
                 else {
                     throw InstallError.metadataStoreUnavailable("no run sidecar path for the metadata store")
                 }
-                try metadata.attach(path: String(cString: sidecarPath))
+                try metadata.attach(path: String(nulTerminated: sidecarPath))
             } catch let error as InstallError {
                 metadata.markUnavailable(error)
                 os_log(.error, "Live metadata is unavailable: %{public}@", String(describing: error))
@@ -100,7 +100,7 @@ public final class KSCrash: Sendable {
                 kscrash_getReportStoreConfiguration())
             {
                 // The path getter is pure; the writer's call site owns directory creation.
-                let path = String(cString: sessionsPath)
+                let path = String(nulTerminated: sessionsPath)
                 do {
                     try FileManager.default.createDirectory(
                         at: URL(fileURLWithPath: path).deletingLastPathComponent(), withIntermediateDirectories: true)

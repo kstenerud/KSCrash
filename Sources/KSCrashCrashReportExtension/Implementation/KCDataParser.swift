@@ -113,7 +113,7 @@ enum KCDataParser {
     private static let procPSAFlags: UInt32 = 0x848
     /// TASK_CRASHINFO_LEDGER_* item id → Ledgers field. 0x82B/0x82C sit inside this id range
     /// but are not ledgers; their cases match before the range case does.
-    private static let ledgerFields: [UInt32: WritableKeyPath<CorpseSnapshot.Ledgers, UInt64?>] = [
+    private static let ledgerFields: [UInt32: WritableKeyPath<CorpseSnapshot.Ledgers, UInt64?> & Sendable] = [
         0x81E: \.internalMemory, 0x81F: \.internalMemoryCompressed, 0x820: \.iokitMapped,
         0x821: \.alternateAccounting, 0x822: \.alternateAccountingCompressed,
         0x823: \.purgeableNonvolatile, 0x824: \.purgeableNonvolatileCompressed,
@@ -128,7 +128,7 @@ enum KCDataParser {
     /// struct rusage_info's u64 fields after the uuid, in on-wire order: position in this array
     /// IS the wire offset (index 36 = byte 16 + 36*8), so append-only, never reorder. New
     /// kernel versions extend the tail; decode stops at the item's actual size.
-    private static let rusageFields: [WritableKeyPath<CorpseSnapshot.Rusage, UInt64?>] = [
+    private static let rusageFields: [WritableKeyPath<CorpseSnapshot.Rusage, UInt64?> & Sendable] = [
         \.userTime, \.systemTime, \.pkgIdleWakeups, \.interruptWakeups, \.pageins,
         \.wiredSize, \.residentSize, \.physFootprint, \.procStartAbstime, \.procExitAbstime,
         \.childUserTime, \.childSystemTime, \.childPkgIdleWakeups, \.childInterruptWakeups,

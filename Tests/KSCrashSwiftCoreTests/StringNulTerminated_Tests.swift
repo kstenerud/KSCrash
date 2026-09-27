@@ -1,7 +1,7 @@
 //
-//  CrashTriggerConfig.swift
+//  StringNulTerminated_Tests.swift
 //
-//  Created by Nikolay Volosatov on 2024-08-11.
+//  Created by Alexander Cohen on 2026-09-27.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,22 +24,33 @@
 // THE SOFTWARE.
 //
 
-import CrashTriggers
-import Foundation
+import KSCrashSwiftCore
+import XCTest
 
-public struct CrashTriggerConfig: Codable, Sendable {
-    public var triggerId: CrashTriggerId
+final class StringNulTerminatedTests: XCTestCase {
 
-    public init(triggerId: CrashTriggerId) {
-        self.triggerId = triggerId
+    func testStopsAtTheFirstNul() {
+        let buffer: [CChar] = [0x61, 0x62, 0, 0x63, 0]
+        XCTAssertEqual(String(nulTerminated: buffer), "ab")
     }
-}
 
-extension CrashTriggerId: @retroactive Codable {
-}
+    func testWithoutANulTakesTheWholeBuffer() {
+        let buffer: [CChar] = [0x61, 0x62, 0x63]
+        XCTAssertEqual(String(nulTerminated: buffer), "abc")
+    }
 
-extension CrashTriggerConfig {
-    func crash() {
-        CrashTriggersHelper.runTrigger(triggerId)
+    func testEmptyAndLeadingNulAreEmpty() {
+        XCTAssertEqual(String(nulTerminated: []), "")
+        XCTAssertEqual(String(nulTerminated: [0, 0x61]), "")
+    }
+
+    func testMultibyteUTF8IsKept() {
+        let buffer = Array("héllo".utf8CString)
+        XCTAssertEqual(String(nulTerminated: buffer), "héllo")
+    }
+
+    func testInvalidUTF8IsRepaired() {
+        let buffer: [CChar] = [0x61, CChar(bitPattern: 0xFF), 0x62, 0]
+        XCTAssertEqual(String(nulTerminated: buffer), "a\u{FFFD}b")
     }
 }

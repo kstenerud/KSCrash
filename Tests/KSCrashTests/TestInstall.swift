@@ -71,7 +71,9 @@ nonisolated(unsafe) var enableTimeConfigurationWitness: InstallConfiguration??
 enum TestInstall {
     /// A plugin over a minimal C monitor table, to prove registration round-trips.
     final class Plugin: MonitorPlugin, @unchecked Sendable {
-        private static let monitorID: UnsafePointer<CChar> = UnsafePointer(strdup("KSCrashTestsPlugin")!)
+        // Written once by strdup and never mutated or freed.
+        nonisolated(unsafe) private static let monitorID: UnsafePointer<CChar> = UnsafePointer(
+            strdup("KSCrashTestsPlugin")!)
         let api: UnsafeMutablePointer<KSCrashMonitorAPI>
 
         init() {

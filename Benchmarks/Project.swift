@@ -6,7 +6,7 @@ let project = Project(
         .local(path: "..")
     ],
     settings: .settings(base: [
-        "SWIFT_VERSION": "5.9"
+        "SWIFT_VERSION": "6.0"
     ]),
     targets: [
         .target(

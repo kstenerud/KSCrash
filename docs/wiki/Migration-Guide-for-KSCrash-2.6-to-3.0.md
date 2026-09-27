@@ -245,6 +245,8 @@ and the backend is where that aggregation belongs.
 3.0 requires iOS 15, tvOS 15, watchOS 8, macOS 12, visionOS 1 (from iOS 13 /
 tvOS 13 / watchOS 6 / macOS 10.15).
 
+Building it takes Xcode 26 or later (Swift tools 6.2).
+
 ## If you were on the C API
 
 `kscrash_install(installPath, KSCrashCConfiguration)` still exists and is the

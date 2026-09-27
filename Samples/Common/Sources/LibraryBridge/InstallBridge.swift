@@ -45,6 +45,7 @@ public enum ContainerChoice: String, CaseIterable {
     }
 }
 
+@MainActor
 public class InstallBridge: ObservableObject {
     public enum InstallationError: Error, LocalizedError {
         case kscrashError(String)
@@ -137,12 +138,12 @@ public class InstallBridge: ObservableObject {
         }
     }
 
-    public func sendViaSamplePipeline(completion: @escaping (Error?) -> Void) {
+    public func sendViaSamplePipeline(completion: @escaping @MainActor (Error?) -> Void) {
         guard installed else {
             completion(InstallationError.unexpectedError("KSCrash is not installed"))
             return
         }
-        Task { @MainActor in
+        Task {
             do {
                 let configuration = SendConfiguration(reportPipeline: [
                     AnyPipelineStage(SampleLogStage()),
@@ -159,7 +160,7 @@ public class InstallBridge: ObservableObject {
 
 // An utility method to simplify binding of config fields
 extension InstallBridge {
-    public func configBinding<T>(for keyPath: WritableKeyPath<InstallConfiguration, T>) -> Binding<T> {
+    public func configBinding<T>(for keyPath: WritableKeyPath<InstallConfiguration, T> & Sendable) -> Binding<T> {
         // InstallConfiguration is a struct: a plain [config] capture would
         // freeze the getter on install-time values while the setter mutates
         // self.config, so every SwiftUI refresh would appear to revert.

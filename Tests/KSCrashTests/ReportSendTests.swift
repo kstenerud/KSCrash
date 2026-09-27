@@ -208,7 +208,12 @@ final class ReportSendTests: XCTestCase {
             return report
         }
 
-        let sendTask = Task { try await send(pipeline: [.init(stage)]) }
+        // The task gets only Sendable values, not the test case.
+        let store = makeStore()
+        let pipeline: [AnyPipelineStage<Report>] = [.init(stage)]
+        let sendTask = Task {
+            try await ReportSend.send(store: store, pipeline: pipeline, only: nil, claims: SendClaims())
+        }
         let result = try await sendTask.value
         // The first (newest) report processes, then the loop sees the
         // cancellation and returns what it has.
