@@ -129,6 +129,12 @@ typedef struct {
 #pragma pack()
 #define KSDL_SECT_CRASH_INFO "__crash_info"
 
+// The oldest crash_info_t layout read. Later versions grow the struct past the fields read here
+// and keep those at the same offsets: version 7, what iOS 27 and macOS 27 ship, is a 328-byte
+// section whose message, signature, backtrace and message2 sit where version 4's do. Accepting
+// only the versions known at the time silently dropped every message on newer systems.
+#define KSDL_MinCrashInfoVersion 4
+
 /** Perform the actual symbol lookup without caching.
  *  This scans the symbol table to find the closest symbol to the given address.
  */
@@ -329,8 +335,8 @@ static void getCrashInfo(const struct mach_header *header, KSBinaryImage *buffer
         KSLOG_TRACE("Skipped reading crash info: section memory is not readable");
         return;
     }
-    if (crashInfo->version != 4 && crashInfo->version != 5) {
-        KSLOG_TRACE("Skipped reading crash info: invalid version '%d'", crashInfo->version);
+    if (crashInfo->version < KSDL_MinCrashInfoVersion) {
+        KSLOG_TRACE("Skipped reading crash info: unsupported version '%u'", crashInfo->version);
         return;
     }
     if (crashInfo->message == NULL && crashInfo->message2 == NULL) {
@@ -396,7 +402,7 @@ bool ksdl_readCrashInfoFromTaskImage(task_t task, uintptr_t loadAddress, KSCrash
     if (!ksmem_copySafelyFromTask(task, (const void *)sectionAddress, &crashInfo, (int)readSize)) {
         return false;
     }
-    if (crashInfo.version != 4 && crashInfo.version != 5) {
+    if (crashInfo.version < KSDL_MinCrashInfoVersion) {
         return false;
     }
     buffer->message = copyCrashInfoStringFromTask(task, crashInfo.message);

@@ -226,6 +226,47 @@ __attribute__((section("__DATA,__crash_info"))) static TestCrashInfo g_testCrash
     XCTAssertEqual(strings.message2, NULL);
 }
 
+- (void)testBothReadersAcceptLaterCrashInfoVersions
+{
+    // Version 7 is what iOS 27 and macOS 27 ship. Later versions only grow the struct past the
+    // fields read, so every version from 4 up is read the same way.
+    Dl_info dlinfo = { 0 };
+    XCTAssertNotEqual(dladdr(&g_testCrashInfo, &dlinfo), 0);
+    unsigned original = g_testCrashInfo.version;
+    g_testCrashInfo.version = 7;
+
+    KSCrashInfoStrings strings = { 0 };
+    XCTAssertTrue(ksdl_readCrashInfoFromTaskImage(mach_task_self(), (uintptr_t)dlinfo.dli_fbase, &strings));
+    XCTAssertEqualObjects([NSString stringWithUTF8String:strings.message], @"test crash message");
+    ksdl_freeCrashInfoStrings(&strings);
+
+    KSBinaryImage image = { 0 };
+    XCTAssertTrue(ksdl_binaryImageForHeader(dlinfo.dli_fbase, dlinfo.dli_fname, &image));
+    XCTAssertTrue(image.crashInfoMessage != NULL);
+    if (image.crashInfoMessage != NULL) {
+        XCTAssertEqualObjects([NSString stringWithUTF8String:image.crashInfoMessage], @"test crash message");
+    }
+
+    g_testCrashInfo.version = original;
+}
+
+- (void)testBothReadersRejectCrashInfoVersionsBeforeFour
+{
+    Dl_info dlinfo = { 0 };
+    XCTAssertNotEqual(dladdr(&g_testCrashInfo, &dlinfo), 0);
+    unsigned original = g_testCrashInfo.version;
+    g_testCrashInfo.version = 3;
+
+    KSCrashInfoStrings strings = { 0 };
+    XCTAssertFalse(ksdl_readCrashInfoFromTaskImage(mach_task_self(), (uintptr_t)dlinfo.dli_fbase, &strings));
+
+    KSBinaryImage image = { 0 };
+    XCTAssertTrue(ksdl_binaryImageForHeader(dlinfo.dli_fbase, dlinfo.dli_fname, &image));
+    XCTAssertTrue(image.crashInfoMessage == NULL);
+
+    g_testCrashInfo.version = original;
+}
+
 - (void)testReadCrashInfoFromTaskImageWithoutSection
 {
     // Find an image with no __crash_info section (using the in-process reader as the oracle)
