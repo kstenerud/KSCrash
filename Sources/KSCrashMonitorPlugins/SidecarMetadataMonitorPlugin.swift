@@ -130,7 +130,7 @@ public final class SidecarMetadataMonitorPlugin: MonitorPlugin, @unchecked Senda
             let config = KSKVSConfig(initialCapacity: 512)
             let store: SidecarMetadata
             do {
-                store = try SidecarMetadata.creating(at: String(cString: path), config: config)
+                store = try SidecarMetadata.creating(at: String(nulTerminated: path), config: config)
             } catch {
                 os_log(
                     .error, "%{public}@ cannot enable: sidecar store failed to open: %{public}@",
