@@ -226,6 +226,48 @@ __attribute__((section("__DATA,__crash_info"))) static TestCrashInfo g_testCrash
     XCTAssertEqual(strings.message2, NULL);
 }
 
+/** Reads g_testCrashInfo's message through the task reader with the message swapped for a
+ *  string of @c length 'x's, and restores the original. Returns the length read, or -1 for none.
+ */
+static long taskReadMessageLength(size_t length)
+{
+    Dl_info dlinfo = { 0 };
+    if (dladdr(&g_testCrashInfo, &dlinfo) == 0) {
+        return -2;
+    }
+    char *longMessage = malloc(length + 1);
+    memset(longMessage, 'x', length);
+    longMessage[length] = 0;
+    const char *original = g_testCrashInfo.message;
+    g_testCrashInfo.message = longMessage;
+
+    KSCrashInfoStrings strings = { 0 };
+    ksdl_readCrashInfoFromTaskImage(mach_task_self(), (uintptr_t)dlinfo.dli_fbase, &strings);
+    long read = strings.message == NULL ? -1 : (long)strlen(strings.message);
+
+    ksdl_freeCrashInfoStrings(&strings);
+    g_testCrashInfo.message = original;
+    free(longMessage);
+    return read;
+}
+
+- (void)testTaskReaderReadsAMessageFarPastTheInProcessCap
+{
+    // CoreFoundation's uncaught-exception message carries the app's reason, which has no limit.
+    XCTAssertEqual(taskReadMessageLength(10000), 10000);
+}
+
+- (void)testTaskReaderKeepsAMessageThatFillsItsBoundExactly
+{
+    // 64 KiB including the terminator.
+    XCTAssertEqual(taskReadMessageLength(64 * 1024 - 1), 64 * 1024 - 1);
+}
+
+- (void)testTaskReaderDropsAMessageThatNeverTerminatesWithinItsBound
+{
+    XCTAssertEqual(taskReadMessageLength(64 * 1024), -1);
+}
+
 - (void)testBothReadersAcceptLaterCrashInfoVersions
 {
     // Version 7 is what iOS 27 and macOS 27 ship. Later versions only grow the struct past the
