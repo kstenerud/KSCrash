@@ -63,6 +63,8 @@ extension KSCrashState {
     func save(to path: String) throws {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted
-        try encoder.encode(self).write(to: URL(fileURLWithPath: path))
+        // Atomic: a test reads this file while the app may still be writing it, and must see
+        // either the previous state or the whole new one, never a partial file.
+        try encoder.encode(self).write(to: URL(fileURLWithPath: path), options: .atomic)
     }
 }
