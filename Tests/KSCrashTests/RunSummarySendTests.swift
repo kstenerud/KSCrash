@@ -34,8 +34,6 @@ final class RunSummarySendTests: XCTestCase {
     private var runsDirectory: URL!
     private var sidecarsDirectory: URL!
     private let reclaimCount = Counter()
-    /// What the last reclaim was told about retaining unreferenced runs.
-    private let reclaimRetained = UnfairLock<Bool?>(nil)
 
     override func setUpWithError() throws {
         let base = URL(fileURLWithPath: NSTemporaryDirectory())
@@ -56,7 +54,6 @@ final class RunSummarySendTests: XCTestCase {
     /// unreadable Reports directory.
     private func makeStore(listFails: Bool = false, maxRunCount: Int = 50) -> Store {
         let counter = reclaimCount
-        let retained = reclaimRetained
         return Store(
             runsDirectory: runsDirectory,
             runSidecarsDirectory: sidecarsDirectory,
@@ -71,10 +68,7 @@ final class RunSummarySendTests: XCTestCase {
                 runID: { _ in nil },
                 remove: { _ in }
             ),
-            reclaim: { retaining in
-                counter.increment()
-                retained.withLock { $0 = retaining }
-            }
+            reclaim: { counter.increment() }
         )
     }
 
@@ -110,23 +104,6 @@ final class RunSummarySendTests: XCTestCase {
         }
         XCTAssertEqual(summaryFileCount, 2)
         XCTAssertEqual(reclaimCount.value, 0)
-    }
-
-    func test_send_retainsUnreferencedRunsOnlyWhenExtensionAreasAreConfigured() async throws {
-        // A delivered summary stops referencing its run, but that run's crash
-        // report may still be waiting in an extension area; the summary send
-        // must keep the run data under the same window the report send does.
-        try writeSummary(runID: "FIRST", startNs: 100)
-        _ = try await send()
-        XCTAssertEqual(reclaimRetained.withLock { $0 }, false)
-
-        try writeSummary(runID: "SECOND", startNs: 200)
-        let area = CorpseReportingConfiguration(
-            namespace: "SendTests", container: .url(runsDirectory.appendingPathComponent("area")))
-        _ = try await RunSummarySend.send(
-            store: makeStore(), pipeline: [.init(ClosureStage { $0 })], corpseAreas: [area],
-            claims: SendClaims())
-        XCTAssertEqual(reclaimRetained.withLock { $0 }, true)
     }
 
     func test_emptyStore_returnsEmptyAndReclaims() async throws {
@@ -355,7 +332,7 @@ final class RunSummarySendTests: XCTestCase {
                 runsDirectory: runsDirectory,
                 runSidecarsDirectory: sidecarsDirectory,
                 liveRunID: nil
-            ) { _ in counter.increment() }
+            ) { counter.increment() }
             let inner = try await RunSummarySend.send(
                 store: store, pipeline: [passThrough()], claims: claims)
             XCTAssertTrue(inner.items.isEmpty)
