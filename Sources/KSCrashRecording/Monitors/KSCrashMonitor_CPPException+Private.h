@@ -29,14 +29,14 @@
 
 #ifdef __cplusplus
 
-#include <string.h>
-
 #include <typeinfo>
 
 #include "KSSystemCapabilities.h"
 
 #if KSCRASH_HAS_OBJC
 #include <objc/runtime.h>
+
+#include "KSNSExceptionClass.h"
 #if defined(__has_include)
 #if __has_include(<ptrauth.h>)
 #include <ptrauth.h>
@@ -116,14 +116,7 @@ static inline Class kscm_cppexception_objcClassFromTypeInfo(const std::type_info
 static inline bool kscm_cppexception_isNSException(const std::type_info *tinfo)
 {
 #if KSCRASH_HAS_OBJC
-    for (Class currentClass = kscm_cppexception_objcClassFromTypeInfo(tinfo); currentClass != Nil;
-         currentClass = class_getSuperclass(currentClass)) {
-        const char *className = class_getName(currentClass);
-        if (className != nullptr && strcmp(className, "NSException") == 0) {
-            return true;
-        }
-    }
-    return false;
+    return ksobjc_isNSExceptionClass(kscm_cppexception_objcClassFromTypeInfo(tinfo));
 #else
     (void)tinfo;
     return false;
