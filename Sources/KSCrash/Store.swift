@@ -27,6 +27,7 @@
 import Foundation
 import KSCrashRecording
 import KSCrashReportModel
+import KSCrashSwiftCore
 import os
 
 /// One past run's on-disk artifacts, captured at snapshot time. Pure data:
@@ -364,7 +365,7 @@ extension Store {
         static func reportID(in name: String) -> Report.ID? {
             var id = [CChar](repeating: 0, count: Int(KSID_SIZE))
             guard kscrs_parseReportFilename(name, &id) else { return nil }
-            return Report.ID(String(cString: id))
+            return Report.ID(String(nulTerminated: id))
         }
     }
 

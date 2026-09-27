@@ -29,6 +29,7 @@ import Foundation
 import KSCrashRecording
 import KSCrashRecordingCore
 import KSCrashReportModel
+import KSCrashSwiftCore
 
 /// A monitor's typed connection to the exception-handling pipeline, injected through
 /// `CrashMonitor.init(host:configuration:)`.
@@ -165,7 +166,7 @@ public struct MonitorHost<Payload>: Sendable {
         guard let provider = bridge.callbacks?.getReportSidecarPath else { return nil }
         var buffer = [CChar](repeating: 0, count: Int(KSCRS_MAX_PATH_LENGTH))
         guard provider(bridge.monitorIdC, reportID.description, &buffer, buffer.count) else { return nil }
-        return URL(fileURLWithPath: String(cString: buffer))
+        return URL(fileURLWithPath: String(nulTerminated: buffer))
     }
 
     /// This monitor's named per-report sidecar path (`Sidecars/<id>/<name>.<extension>`),
@@ -174,7 +175,7 @@ public struct MonitorHost<Payload>: Sendable {
         guard let provider = bridge.callbacks?.getReportSidecarFilePath else { return nil }
         var buffer = [CChar](repeating: 0, count: Int(KSCRS_MAX_PATH_LENGTH))
         guard provider(bridge.monitorIdC, name, ext, &buffer, buffer.count) else { return nil }
-        return URL(fileURLWithPath: String(cString: buffer))
+        return URL(fileURLWithPath: String(nulTerminated: buffer))
     }
 
     /// This monitor's run-scoped sidecar path, or nil when sidecars are not configured.
@@ -182,7 +183,7 @@ public struct MonitorHost<Payload>: Sendable {
         guard let provider = bridge.callbacks?.getRunSidecarPath else { return nil }
         var buffer = [CChar](repeating: 0, count: Int(KSCRS_MAX_PATH_LENGTH))
         guard provider(bridge.monitorIdC, &buffer, buffer.count) else { return nil }
-        return URL(fileURLWithPath: String(cString: buffer))
+        return URL(fileURLWithPath: String(nulTerminated: buffer))
     }
 }
 
