@@ -54,7 +54,8 @@ extension CrashReportExtensionMonitor {
         let ownedPaths = images.map { strdup($0.path) }
         let ownedProcessName = processName.flatMap { strdup($0) }
         // A corpse capture is a mach exception at heart; overriding the error type makes the
-        // report read like one the in-process Mach monitor wrote instead of a custom type.
+        // report read like one the in-process Mach monitor wrote instead of a custom type. The
+        // app-side final stitch retypes one that died of an uncaught language exception.
         let ownedErrorType = strdup(ExceptionType.mach.rawValue)
         defer {
             for path in ownedPaths { free(path) }
