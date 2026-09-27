@@ -116,9 +116,9 @@ static int overrideValue(const char *name)
     return value != NULL ? atoi(value) : -1;
 }
 
-// The environment cannot change under a running process, so it is read once rather than on every
-// update. Reading it per update cost the host app seven locked scans of its whole environment to
-// find nothing, since only the integration tests set these and they set them before launch.
+// Read once rather than on every update: only the integration tests set these, and they set them
+// before launch, so nothing changes them while the process runs. Reading them per update cost the
+// host app seven locked scans of its whole environment to find nothing.
 // A #if DEBUG guard is not an option: those tests build release.
 static void loadResourceTestOverrides(void)
 {
