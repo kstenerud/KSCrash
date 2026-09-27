@@ -125,7 +125,7 @@ let project = Project(
                 "UILaunchScreen": [:],
                 "CFBundleDisplayName": "KSCrashCorpse",
             ]),
-            sources: ["Corpse/App/**"],
+            sources: ["Corpse/App/**", "Corpse/Shared/**"],
             entitlements: .dictionary([
                 "com.apple.security.application-groups": .array([.string(corpseAppGroup)])
             ]),
@@ -160,7 +160,7 @@ let project = Project(
                     "EXExtensionPointIdentifier": "com.apple.crash-reporter.extension"
                 ],
             ]),
-            sources: ["Corpse/Reporter/**"],
+            sources: ["Corpse/Reporter/**", "Corpse/Shared/**"],
             entitlements: .dictionary([
                 "com.apple.security.application-groups": .array([.string(corpseAppGroup)])
             ]),

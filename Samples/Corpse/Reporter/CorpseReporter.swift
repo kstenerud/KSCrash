@@ -35,7 +35,6 @@
     import KSCrash
     import KSCrashCrashReportExtension
     import os
-    import Security
 
     /// The other half of the test: a real extension the system invokes after the
     /// app dies, in its own process, with a read-only port onto the corpse.
@@ -89,44 +88,23 @@
                 let id = try KSCrash.shared.captureCrashReport(from: process)
                 Self.logger.log("captured \(id.description) exception \(exception) codes \(codes)")
                 if Self.relays {
-                    Self.relayStore()
+                    Self.relayCapturedReports()
                 }
             } catch {
                 Self.logger.error("capture failed for exception \(exception): \(error)")
             }
         }
 
-        /// Copies every file of the relay area into the keychain, one item per
-        /// file, keyed by its path below the namespace directory, which is the
-        /// layout the host's corpse area expects. The host restores them and
-        /// removes the items.
-        private static func relayStore() {
-            guard
-                let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
+        /// Hands the reports captured into the relay area to the app through the keychain.
+        /// The directory is the extension's own store's Reports, which mirrors the layout a
+        /// `CorpseReportingConfiguration` resolves to: `<container>/KSCrash/<namespace>/<bundle id>/Reports`.
+        private static func relayCapturedReports() {
+            guard let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first,
+                let bundleID = Bundle.main.bundleIdentifier
             else { return }
-            let root = caches.appendingPathComponent("KSCrash/\(relayArea.namespace)", isDirectory: true)
-            guard let paths = FileManager.default.subpaths(atPath: root.path) else { return }
-            for path in paths {
-                var isDirectory: ObjCBool = false
-                let url = root.appendingPathComponent(path)
-                guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
-                    !isDirectory.boolValue,
-                    let data = try? Data(contentsOf: url)
-                else { continue }
-                let item: [String: Any] = [
-                    kSecClass as String: kSecClassGenericPassword,
-                    kSecAttrService as String: "com.github.kstenerud.KSCrash.CorpseRelay",
-                    kSecAttrAccount as String: path,
-                ]
-                SecItemDelete(item as CFDictionary)
-                var add = item
-                add[kSecValueData as String] = data
-                add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-                let status = SecItemAdd(add as CFDictionary, nil)
-                if status != errSecSuccess {
-                    logger.error("could not relay \(path): \(status)")
-                }
-            }
+            KeychainRelay.moveReports(
+                in: caches.appendingPathComponent(
+                    "KSCrash/\(relayArea.namespace)/\(bundleID)/\(KSCRS_DEFAULT_REPORTS_FOLDER)", isDirectory: true))
         }
     }
 
