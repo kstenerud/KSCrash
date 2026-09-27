@@ -266,6 +266,7 @@ class IntegrationTestBase: XCTestCase {
 
         launchAppAndRunScript()
         waitForCrash()
+        try recordExpectedRunID()
     }
 
     func launchAndRunTrigger(
@@ -300,6 +301,7 @@ class IntegrationTestBase: XCTestCase {
         )
 
         launchAppAndRunScript()
+        try recordExpectedRunID()
     }
 
     func launchAndSigkill(
@@ -316,10 +318,42 @@ class IntegrationTestBase: XCTestCase {
         }
     }
 
+    /// The id of the run whose report the test is about to read back.
+    private(set) var expectedRunID: RunSummary.ID?
+
+    /// Records the id of the run just launched. Everything read back afterwards
+    /// is checked against it, so a report left over from an earlier case cannot
+    /// pass for this one's. The app writes its state at install, before the
+    /// crash or the user report it was launched to make.
+    private func recordExpectedRunID() throws {
+        try waitForFile(at: stateUrl, timeout: appLaunchTimeout)
+        expectedRunID = try readState().runID
+    }
+
     /// Relaunch the app, deliver the pending reports through the Swift send,
     /// and return the delivered report decoded from the dump directory.
     func launchAndReportCrash() throws -> Report {
-        try decodeCrashReport(reportData: launchAndReportCrashRaw())
+        let report = try decodeCrashReport(reportData: launchAndReportCrashRaw())
+        assertReportIsFromExpectedRun(report)
+        return report
+    }
+
+    /// Ties a delivered report to the run that produced it.
+    ///
+    /// Every assertion a test makes about a report is worthless if the report
+    /// came from a different run: the content is plausible, the test is green,
+    /// and nothing was checked. A missing id is that same blind spot, so it
+    /// fails here rather than passing unchecked.
+    func assertReportIsFromExpectedRun(
+        _ report: Report, file: StaticString = #filePath, line: UInt = #line
+    ) {
+        guard let expectedRunID else {
+            XCTFail("no run id was recorded for the run under test", file: file, line: line)
+            return
+        }
+        XCTAssertEqual(
+            report.report.runId, expectedRunID,
+            "the delivered report is not from the run under test", file: file, line: line)
     }
 
     func launchAndReportCrashRaw(
