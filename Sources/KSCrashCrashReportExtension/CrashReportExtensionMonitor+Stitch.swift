@@ -33,7 +33,9 @@ extension CrashReportExtensionMonitor {
     /// The app-side half of corpse reporting: in the final stitch pass (no sidecar), replace
     /// the run-cached values the sidecar stitches wrote with the corpse's at-death data, read
     /// from the report's own embedded snapshot. Key by key, never wholesale; keys the corpse
-    /// has no equivalent for (memory_pressure, memory_level) stay as stitched.
+    /// has no equivalent for (memory_pressure, memory_level) stay as stitched. A corpse that died
+    /// of an uncaught Objective-C or C++ exception is typed the way an in-process report of the
+    /// same crash is.
     public func stitchedReport(_ report: [String: Any], sidecarURL: URL?, scope: SidecarScope) throws -> [String: Any] {
         guard scope == .final,
             let crash = report["crash"] as? [String: Any],
@@ -48,6 +50,7 @@ extension CrashReportExtensionMonitor {
             error[Self.id] = nil
             var result = report
             var mutableCrash = crash
+            Self.classifyLanguageException(in: report, error: &error, crash: &mutableCrash)
             mutableCrash["error"] = error
             result["crash"] = mutableCrash
             return result
@@ -114,9 +117,45 @@ extension CrashReportExtensionMonitor {
         result[Self.rootKey] = snapshot
 
         var mutableCrash = crash
+        Self.classifyLanguageException(in: report, error: &error, crash: &mutableCrash)
         mutableCrash["error"] = error
         result["crash"] = mutableCrash
 
         return result
+    }
+
+    /// Gives a corpse that died of an uncaught language exception the type an in-process report of
+    /// the same crash carries, with the fields the runtime's messages carry for it, so one crash
+    /// reads the same whichever path captured it. The Mach and signal sections stay: in-process
+    /// writes them for every type. Frames carry only their address, like the corpse's own thread
+    /// frames, since nothing here can symbolicate another process's addresses.
+    ///
+    /// Only a corpse that died of SIGABRT is read. An uncaught exception ends the process through
+    /// abort(), but CoreFoundation writes its message before calling the app's own handler, so a
+    /// handler that keeps the process alive leaves the message behind for whatever kills it later.
+    static func classifyLanguageException(
+        in report: [String: Any], error: inout [String: Any], crash: inout [String: Any]
+    ) {
+        guard ((error["signal"] as? [String: Any])?["signal"] as? Int) == Int(SIGABRT),
+            let images = report["binary_images"] as? [[String: Any]],
+            let exception = CorpseLanguageException.read(fromBinaryImages: images)
+        else { return }
+        switch exception {
+        case .objC(let name, let reason, let throwAddresses):
+            error["type"] = "nsexception"
+            error["nsexception"] = ["name": name]
+            error["reason"] = reason
+            if !throwAddresses.isEmpty {
+                crash["last_exception_backtrace"] = [
+                    "contents": throwAddresses.map { ["instruction_addr": $0] },
+                    "skipped": 0,
+                ]
+            }
+        case .cpp(let name, let reason):
+            error["type"] = "cpp_exception"
+            // An empty object for a bare std::terminate(), as in-process writes it.
+            error["cpp_exception"] = name.map { ["name": $0] } ?? [String: Any]()
+            error["reason"] = reason
+        }
     }
 }
