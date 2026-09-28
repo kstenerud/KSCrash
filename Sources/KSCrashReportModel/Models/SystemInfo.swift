@@ -84,160 +84,160 @@ public enum CPUState: String, Codable, Sendable, Equatable {
 /// System information at the time of crash.
 public struct SystemInfo: Codable, Sendable, Equatable {
     /// Bundle executable name.
-    public let cfBundleExecutable: String?
+    public var cfBundleExecutable: String?
 
     /// Full path to the bundle executable.
-    public let cfBundleExecutablePath: String?
+    public var cfBundleExecutablePath: String?
 
     /// Bundle identifier.
-    public let cfBundleIdentifier: String?
+    public var cfBundleIdentifier: String?
 
     /// Bundle display name.
-    public let cfBundleName: String?
+    public var cfBundleName: String?
 
     /// Short version string (marketing version).
-    public let cfBundleShortVersionString: String?
+    public var cfBundleShortVersionString: String?
 
     /// Bundle version (build number).
-    public let cfBundleVersion: String?
+    public var cfBundleVersion: String?
 
     /// Timestamp when the app was started.
-    public let appStartTime: Date?
+    public var appStartTime: Date?
 
     /// UUID of the app binary.
-    public let appUUID: String?
+    public var appUUID: String?
 
     /// Application usage statistics.
-    public let applicationStats: ApplicationStats?
+    public var applicationStats: ApplicationStats?
 
     /// System boot time.
-    public let bootTime: Date?
+    public var bootTime: Date?
 
     /// CPU architecture string (e.g., "arm64", "x86_64").
-    public let cpuArch: String?
+    public var cpuArch: String?
 
     /// CPU type code.
-    public let cpuType: Int?
+    public var cpuType: Int?
 
     /// CPU subtype code.
-    public let cpuSubtype: Int?
+    public var cpuSubtype: Int?
 
     /// Binary CPU architecture (may differ from runtime on Rosetta).
-    public let binaryArch: String?
+    public var binaryArch: String?
 
     /// Binary CPU type.
-    public let binaryCPUType: Int?
+    public var binaryCPUType: Int?
 
     /// Binary CPU subtype.
-    public let binaryCPUSubtype: Int?
+    public var binaryCPUSubtype: Int?
 
     /// Hash identifying the device and app combination.
-    public let deviceAppHash: String?
+    public var deviceAppHash: String?
 
     /// Whether the device is jailbroken.
-    public let jailbroken: Bool?
+    public var jailbroken: Bool?
 
     /// Whether the process is running under Rosetta translation.
-    public let procTranslated: Bool?
+    public var procTranslated: Bool?
 
     /// Whether a debugger was attached to the process.
-    public let isBeingDebugged: Bool?
+    public var isBeingDebugged: Bool?
 
     /// Darwin kernel version string.
-    public let kernelVersion: String?
+    public var kernelVersion: String?
 
     /// Machine identifier (e.g., "iPhone14,2").
-    public let machine: String?
+    public var machine: String?
 
     /// Memory information.
-    public let memory: MemoryInfo?
+    public var memory: MemoryInfo?
 
     /// Model identifier.
-    public let model: String?
+    public var model: String?
 
     /// OS build version.
-    public let osVersion: String?
+    public var osVersion: String?
 
     /// Parent process ID.
-    public let parentProcessID: Int?
+    public var parentProcessID: Int?
 
     /// Parent process name.
-    public let parentProcessName: String?
+    public var parentProcessName: String?
 
     /// Process ID.
-    public let processID: Int?
+    public var processID: Int?
 
     /// Process name.
-    public let processName: String?
+    public var processName: String?
 
     /// Process start time as wall-clock nanoseconds since the Unix epoch.
-    public let processStartWallClockNs: UInt64?
+    public var processStartWallClockNs: UInt64?
 
     /// Process start time on the monotonic clock, in nanoseconds.
-    public let processStartMonotonicNs: UInt64?
+    public var processStartMonotonicNs: UInt64?
 
     /// System name (e.g., "iOS", "macOS").
-    public let systemName: String?
+    public var systemName: String?
 
     /// System version (e.g., "17.0").
-    public let systemVersion: String?
+    public var systemVersion: String?
 
     /// Timezone identifier.
-    public let timeZone: String?
+    public var timeZone: String?
 
     /// Total storage in bytes.
-    public let storage: Int64?
+    public var storage: Int64?
 
     /// Free storage in bytes.
-    public let freeStorage: Int64?
+    public var freeStorage: Int64?
 
     /// Build type of the application.
-    public let buildType: BuildType?
+    public var buildType: BuildType?
 
     /// Clang version used to compile the app.
-    public let clangVersion: String?
+    public var clangVersion: String?
 
     /// App memory information.
-    public let appMemory: AppMemoryInfo?
+    public var appMemory: AppMemoryInfo?
 
     /// Whether Low Power Mode was enabled at the time of the event.
-    public let lowPowerModeEnabled: Bool?
+    public var lowPowerModeEnabled: Bool?
 
     /// Battery level (0–100), nil if unavailable.
-    public let batteryLevel: Int?
+    public var batteryLevel: Int?
 
     /// Battery charging state.
-    public let batteryState: BatteryState?
+    public var batteryState: BatteryState?
 
     /// Number of active CPU cores.
-    public let cpuCoreCount: Int?
+    public var cpuCoreCount: Int?
 
     /// App user-space CPU usage in permil of one core (e.g., 1500 = 1.5 cores worth of user time).
-    public let cpuUsageUser: Int?
+    public var cpuUsageUser: Int?
 
     /// App kernel-space CPU usage in permil of one core (e.g., 200 = 0.2 cores worth of kernel time).
-    public let cpuUsageSystem: Int?
+    public var cpuUsageSystem: Int?
 
     /// CPU state from sliding-window usage tracking.
-    public let cpuState: CPUState?
+    public var cpuState: CPUState?
 
     /// Sliding-window average CPU usage in permil of total capacity.
-    public let cpuAverageUsagePermil: Int?
+    public var cpuAverageUsagePermil: Int?
 
     /// CPU seconds accumulated in the active threshold window.
-    public let cpuTimeInWindow: TimeInterval?
+    public var cpuTimeInWindow: TimeInterval?
 
     /// Wall seconds of the active threshold window.
-    public let cpuWallTimeInWindow: TimeInterval?
+    public var cpuWallTimeInWindow: TimeInterval?
 
     /// Device thermal state.
-    public let thermalState: ThermalState?
+    public var thermalState: ThermalState?
 
     /// Process thread count.
-    public let threadCount: Int?
+    public var threadCount: Int?
 
     /// Whether protected data was available (device unlocked).
-    public let dataProtectionActive: Bool?
+    public var dataProtectionActive: Bool?
 
     public init(
         cfBundleExecutable: String? = nil,

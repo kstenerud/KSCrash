@@ -71,33 +71,33 @@ public enum MemoryState: RawRepresentable, Codable, Sendable, Equatable {
 /// App memory information at crash time.
 public struct AppMemoryInfo: Codable, Sendable, Equatable {
     /// Memory footprint of the app in bytes.
-    public let memoryFootprint: UInt64?
+    public var memoryFootprint: UInt64?
 
     /// Memory remaining before limit in bytes.
-    public let memoryRemaining: UInt64?
+    public var memoryRemaining: UInt64?
 
     /// Memory pressure the system was putting on the app.
-    public let memoryPressure: MemoryState?
+    public var memoryPressure: MemoryState?
 
     /// App memory level.
-    public let memoryLevel: MemoryState?
+    public var memoryLevel: MemoryState?
 
     /// Memory limit for the app in bytes.
-    public let memoryLimit: UInt64?
+    public var memoryLimit: UInt64?
 
     /// System-wide memory headroom: how close the device as a whole is to
     /// running out of reclaimable memory.
-    public let memoryHeadroom: MemoryState?
+    public var memoryHeadroom: MemoryState?
 
     /// Available memory device-wide in bytes: free pages plus the purgeable
     /// and file-backed pages the kernel can reclaim cheaply.
-    public let systemMemoryRemaining: UInt64?
+    public var systemMemoryRemaining: UInt64?
 
     /// Total physical memory on the device in bytes.
-    public let systemMemoryLimit: UInt64?
+    public var systemMemoryLimit: UInt64?
 
     /// App transition state at crash time.
-    public let appTransitionState: AppTransitionState?
+    public var appTransitionState: AppTransitionState?
 
     enum CodingKeys: String, CodingKey {
         case memoryFootprint = "memory_footprint"

@@ -29,40 +29,40 @@ import Foundation
 /// Application usage statistics.
 public struct ApplicationStats: Codable, Sendable, Equatable {
     /// Time the app was active since the last crash.
-    public let activeTimeSinceLastCrash: Double?
+    public var activeTimeSinceLastCrash: Double?
 
     /// Time the app was active since launch.
-    public let activeTimeSinceLaunch: Double?
+    public var activeTimeSinceLaunch: Double?
 
     /// Whether the app is currently active.
-    public let applicationActive: Bool?
+    public var applicationActive: Bool?
 
     /// Whether the app is in the foreground.
-    public let applicationInForeground: Bool?
+    public var applicationInForeground: Bool?
 
     /// Time the app was in the background since the last crash.
-    public let backgroundTimeSinceLastCrash: Double?
+    public var backgroundTimeSinceLastCrash: Double?
 
     /// Time the app was in the background since launch.
-    public let backgroundTimeSinceLaunch: Double?
+    public var backgroundTimeSinceLaunch: Double?
 
     /// Number of times the app was launched since the last crash.
-    public let launchesSinceLastCrash: Int?
+    public var launchesSinceLastCrash: Int?
 
     /// Number of sessions since the last crash.
-    public let sessionsSinceLastCrash: Int?
+    public var sessionsSinceLastCrash: Int?
 
     /// Number of sessions since launch.
-    public let sessionsSinceLaunch: Int?
+    public var sessionsSinceLaunch: Int?
 
     /// App transition state at the time of the event.
-    public let appTransitionState: AppTransitionState?
+    public var appTransitionState: AppTransitionState?
 
     /// Whether the user could perceive the app as part of their experience.
-    public let userPerceptible: Bool?
+    public var userPerceptible: Bool?
 
     /// The task role at the time of the event.
-    public let taskRole: TaskRole?
+    public var taskRole: TaskRole?
 
     enum CodingKeys: String, CodingKey {
         case activeTimeSinceLastCrash = "active_time_since_last_crash"

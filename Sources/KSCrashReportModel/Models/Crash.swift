@@ -30,20 +30,20 @@ extension Report {
     /// Information about the crash event.
     public struct Crash: Codable, Sendable, Equatable {
         /// Human-readable diagnosis of the crash.
-        public let diagnosis: String?
+        public var diagnosis: String?
 
         /// Details about the error that caused the crash.
-        public let error: CrashError
+        public var error: CrashError
 
         /// All threads at the time of crash.
-        public let threads: [Thread]?
+        public var threads: [Thread]?
 
         /// The crashed thread (in minimal reports).
-        public let crashedThread: Thread?
+        public var crashedThread: Thread?
 
         /// The exception backtrace (e.g., from NSException.callStackReturnAddresses or __cxa_throw).
         /// Present for NSException and C++ exception crashes; nil otherwise.
-        public let lastExceptionBacktrace: Backtrace?
+        public var lastExceptionBacktrace: Backtrace?
 
         public init(
             diagnosis: String? = nil,
