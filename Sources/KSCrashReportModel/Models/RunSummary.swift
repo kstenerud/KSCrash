@@ -65,10 +65,10 @@ public struct RunSummary: Codable, Sendable, Equatable {
     /// The classified outcome of the run.
     public struct Outcome: Codable, Sendable, Equatable {
         /// Why the run ended.
-        public let terminationReason: TerminationReason
+        public var terminationReason: TerminationReason
 
         /// Whether the run was user-perceptible (foreground) at termination.
-        public let userPerceptible: Bool
+        public var userPerceptible: Bool
 
         public init(terminationReason: TerminationReason, userPerceptible: Bool) {
             self.terminationReason = terminationReason
@@ -84,10 +84,10 @@ public struct RunSummary: Codable, Sendable, Equatable {
     /// Time the run spent active versus backgrounded.
     public struct Durations: Codable, Sendable, Equatable {
         /// Milliseconds spent active (foreground).
-        public let activeMs: Int64
+        public var activeMs: Int64
 
         /// Milliseconds spent backgrounded.
-        public let backgroundMs: Int64
+        public var backgroundMs: Int64
 
         public init(activeMs: Int64, backgroundMs: Int64) {
             self.activeMs = activeMs
@@ -103,19 +103,19 @@ public struct RunSummary: Codable, Sendable, Equatable {
     /// One contiguous segment of the run at a single (perceptibility, user) setting.
     public struct Session: Codable, Sendable, Equatable {
         /// This session's id.
-        public let sessionID: String
+        public var sessionID: String
 
         /// The user id active during the session, or nil when anonymous.
-        public let userID: String?
+        public var userID: String?
 
         /// Whether the session was user-perceptible (foreground).
-        public let perceptible: Bool
+        public var perceptible: Bool
 
         /// Unix epoch milliseconds (wall clock).
-        public let startedAtMs: Int64
+        public var startedAtMs: Int64
 
         /// Unix epoch milliseconds (wall clock).
-        public let endedAtMs: Int64
+        public var endedAtMs: Int64
 
         public init(
             sessionID: String,
@@ -143,7 +143,7 @@ public struct RunSummary: Codable, Sendable, Equatable {
     /// The individual sessions recorded this run.
     public struct Sessions: Codable, Sendable, Equatable {
         /// The individual sessions recorded this run, oldest first.
-        public let records: [Session]
+        public var records: [Session]
 
         public init(records: [Session]) {
             self.records = records
@@ -168,14 +168,14 @@ public struct RunSummary: Codable, Sendable, Equatable {
 
     /// Identity of the app that produced the run.
     public struct App: Codable, Sendable, Equatable {
-        public let bundleID: String
-        public let version: String
-        public let shortVersion: String
-        public let hostKind: HostKind
+        public var bundleID: String
+        public var version: String
+        public var shortVersion: String
+        public var hostKind: HostKind
 
         /// How the producing process was built and distributed (app store,
         /// debug, simulator, ...). nil when the run recorded none.
-        public let buildType: BuildType?
+        public var buildType: BuildType?
 
         public init(
             bundleID: String, version: String, shortVersion: String, hostKind: HostKind,
@@ -199,9 +199,9 @@ public struct RunSummary: Codable, Sendable, Equatable {
 
     /// Operating system that ran the process.
     public struct OS: Codable, Sendable, Equatable {
-        public let name: String
-        public let version: String
-        public let build: String
+        public var name: String
+        public var version: String
+        public var build: String
 
         public init(name: String, version: String, build: String) {
             self.name = name
@@ -218,12 +218,12 @@ public struct RunSummary: Codable, Sendable, Equatable {
 
     /// Device that ran the process.
     public struct Device: Codable, Sendable, Equatable {
-        public let model: String
-        public let modelFamily: String
-        public let architecture: String
-        public let binaryArchitecture: String
-        public let isTranslated: Bool
-        public let isJailbroken: Bool
+        public var model: String
+        public var modelFamily: String
+        public var architecture: String
+        public var binaryArchitecture: String
+        public var isTranslated: Bool
+        public var isJailbroken: Bool
 
         public init(
             model: String,
@@ -252,38 +252,38 @@ public struct RunSummary: Codable, Sendable, Equatable {
     }
 
     /// Schema version of this summary.
-    public let schemaVersion: Int
+    public var schemaVersion: Int
 
     /// Version of the SDK that produced the summary.
-    public let sdkVersion: String
+    public var sdkVersion: String
 
     /// The per-run UUID.
-    public let id: ID
+    public var id: ID
 
     /// Stable per-install device identifier.
-    public let deviceID: String
+    public var deviceID: String
 
     /// The user ID active at termination, or nil when no user was active.
-    public let userID: String?
+    public var userID: String?
 
     /// Unix epoch milliseconds (wall clock).
-    public let startedAtMs: Int64
+    public var startedAtMs: Int64
 
     /// Unix epoch milliseconds (wall clock).
-    public let endedAtMs: Int64
+    public var endedAtMs: Int64
 
     /// Whether a debugger was attached during the run.
-    public let isBeingDebugged: Bool
+    public var isBeingDebugged: Bool
 
-    public let outcome: Outcome
-    public let durations: Durations
-    public let sessions: Sessions
-    public let app: App
-    public let os: OS
-    public let device: Device
+    public var outcome: Outcome
+    public var durations: Durations
+    public var sessions: Sessions
+    public var app: App
+    public var os: OS
+    public var device: Device
 
     /// App-supplied metadata recorded for the run; nil when none was recorded.
-    public let metadata: Metadata?
+    public var metadata: Metadata?
 
     public init(
         schemaVersion: Int,

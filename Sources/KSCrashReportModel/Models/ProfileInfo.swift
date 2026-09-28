@@ -42,41 +42,41 @@ import Foundation
 ///   `duration` is set at the profile level.
 public struct ProfileInfo: Codable, Sendable, Equatable {
     /// Human-readable name for this profile session.
-    public let name: String
+    public var name: String
 
     /// Unique identifier for this profile session (UUID string).
-    public let id: String
+    public var id: String
 
     /// Wall-clock start time in nanoseconds since epoch. Nil when unknown (e.g. a hang
     /// reported from a previous process run).
-    public let timeStartEpoch: UInt64?
+    public var timeStartEpoch: UInt64?
 
     /// Monotonic start timestamp in nanoseconds. Nil for a hang: its monotonic clock comes
     /// from a previous process run and is not comparable here.
-    public let timeStartUptime: UInt64?
+    public var timeStartUptime: UInt64?
 
     /// Monotonic end timestamp in nanoseconds. Nil for a hang (see ``timeStartUptime``).
-    public let timeEndUptime: UInt64?
+    public var timeEndUptime: UInt64?
 
     /// Expected interval between samples in nanoseconds. Nil when the source does not
     /// report a configured interval (e.g. a hang).
-    public let expectedSampleInterval: UInt64?
+    public var expectedSampleInterval: UInt64?
 
     /// Profile duration in nanoseconds. Always set. Its meaning depends on the report's
     /// `error.subtype`: for a time profile it is how long we observed; for a hang
     /// (`subtype == .hang`) it is how long the hang lasted.
-    public let duration: UInt64
+    public var duration: UInt64
 
     /// Units for the time fields ("nanoseconds"). Applies to durations and timestamps only;
     /// per-sample ``ProfileSample/count`` values are unitless.
-    public let timeUnits: String
+    public var timeUnits: String
 
     /// Array of unique symbolicated frames referenced by samples.
-    public let frames: [StackFrame]
+    public var frames: [StackFrame]
 
     /// Per-thread samples; one entry per thread, one flagged primary. A single-thread time
     /// profile has exactly one element.
-    public let threads: [ProfileThread]
+    public var threads: [ProfileThread]
 
     public init(
         name: String,
@@ -119,17 +119,17 @@ public struct ProfileInfo: Codable, Sendable, Equatable {
 /// One thread's samples within a multi-thread profile.
 public struct ProfileThread: Codable, Sendable, Equatable {
     /// Thread index within the profile.
-    public let index: Int
+    public var index: Int
 
     /// Whether this is the primary thread of interest (e.g. the main thread for a hang).
-    public let primary: Bool
+    public var primary: Bool
 
     /// Thread name, if known.
-    public let name: String?
+    public var name: String?
 
     /// Samples captured for this thread, each referencing frames by index into the
     /// enclosing ``ProfileInfo/frames`` table.
-    public let samples: [ProfileSample]
+    public var samples: [ProfileSample]
 
     public init(index: Int, primary: Bool, name: String? = nil, samples: [ProfileSample]) {
         self.index = index
@@ -154,19 +154,19 @@ public struct ProfileThread: Codable, Sendable, Equatable {
 /// profile fills it with the backtrace capture window, a hang has none.
 public struct ProfileSample: Codable, Sendable, Equatable {
     /// Number of times this stack was observed.
-    public let count: Int
+    public var count: Int
 
     /// Monotonic timestamp when backtrace capture began. Nil for an aggregated hang sample.
-    public let timeStartUptime: UInt64?
+    public var timeStartUptime: UInt64?
 
     /// Monotonic timestamp when backtrace capture completed. Nil for an aggregated hang sample.
-    public let timeEndUptime: UInt64?
+    public var timeEndUptime: UInt64?
 
     /// Duration of the backtrace capture in nanoseconds. Nil for an aggregated hang sample.
-    public let duration: UInt64?
+    public var duration: UInt64?
 
     /// Indexes into the profile's frames array, deepest call first.
-    public let frames: [Int]
+    public var frames: [Int]
 
     public init(
         count: Int = 1,
