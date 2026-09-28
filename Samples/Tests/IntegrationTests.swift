@@ -206,7 +206,7 @@ final class CppTests: IntegrationTestBase {
         let exceptionBt = rawReport.crash.lastExceptionBacktrace
         XCTAssertNotNil(exceptionBt, "C++ exception crash should have last_exception_backtrace")
         let topSymbol = exceptionBt?.contents.compactMap(\.symbolName).first
-        XCTAssertEqual(topSymbol, cppCrashMangledSymbol)
+        XCTAssertTrue(isCppCrashSymbol(topSymbol), "top frame is \(topSymbol ?? "nil")")
 
         let delivered = try launchAndReportCrash()
         XCTAssertEqual(delivered.crash.error.type, .cppException)
@@ -258,7 +258,7 @@ final class CppTests: IntegrationTestBase {
             "last_exception_backtrace must reach the @throw site near the top, got: \(symbols.prefix(3))")
 
         XCTAssertFalse(
-            symbols.contains(cppCrashMangledSymbol),
+            symbols.contains(where: isCppCrashSymbol),
             "last_exception_backtrace must not reuse the earlier caught C++ exception")
     }
 
@@ -279,7 +279,7 @@ final class CppTests: IntegrationTestBase {
 
         let symbols = (exceptionBt?.contents ?? []).compactMap(\.symbolName)
         XCTAssertFalse(
-            symbols.contains(cppCrashMangledSymbol),
+            symbols.contains(where: isCppCrashSymbol),
             "last_exception_backtrace must not reuse the earlier caught C++ exception")
     }
 
@@ -298,7 +298,7 @@ final class CppTests: IntegrationTestBase {
         let exceptionBt = rawReport.crash.lastExceptionBacktrace
         XCTAssertNotNil(exceptionBt, "C++ exception crash should have last_exception_backtrace")
         let topSymbol = exceptionBt?.contents.compactMap(\.symbolName).first
-        XCTAssertEqual(topSymbol, cppCrashMangledSymbol)
+        XCTAssertTrue(isCppCrashSymbol(topSymbol), "top frame is \(topSymbol ?? "nil")")
 
         let delivered = try launchAndReportCrash()
         XCTAssertEqual(delivered.crash.error.type, .cppException)
@@ -558,6 +558,14 @@ extension KSCrashReportModel.Report {
 /// sample_namespace::Report::crash(). The demangler went away with the ObjC
 /// filter modules, so C++ symbols are compared in their mangled form.
 private let cppCrashMangledSymbol = "_ZN16sample_namespace6Report5crashEv"
+
+/// Whether `symbol` is sample_namespace::Report::crash(), whole or a part the optimizer
+/// split off it: clang outlines the throw into `<symbol>.cold.1`, and that frame is still
+/// the function's own code.
+private func isCppCrashSymbol(_ symbol: String?) -> Bool {
+    guard let symbol else { return false }
+    return symbol == cppCrashMangledSymbol || symbol.hasPrefix(cppCrashMangledSymbol + ".cold.")
+}
 
 /// Demangle a Swift symbol through the Swift runtime, standing in for the
 /// retired CrashReportFilterDemangle in these assertions.
