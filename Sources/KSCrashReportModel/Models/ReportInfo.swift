@@ -55,31 +55,31 @@ public enum ReportType: RawRepresentable, Codable, Sendable, Equatable {
 /// Metadata about the crash report itself.
 public struct ReportInfo: Codable, Sendable, Equatable {
     /// Unique identifier for this report.
-    public let id: Report.ID
+    public var id: Report.ID
 
     /// Name of the process that crashed.
-    public let processName: String?
+    public var processName: String?
 
     /// Timestamp when the crash occurred.
-    public let timestamp: Date?
+    public var timestamp: Date?
 
     /// Type of report.
-    public let type: ReportType?
+    public var type: ReportType?
 
     /// Report format version.
-    public let version: ReportVersion?
+    public var version: ReportVersion?
 
     /// The run ID of the process that generated this report.
-    public let runId: RunSummary.ID?
+    public var runId: RunSummary.ID?
 
     /// The id of the latest session recorded when this report was finalized.
-    public let sessionId: String?
+    public var sessionId: String?
 
     /// Identifier of the monitor that generated this report.
-    public let monitorId: String?
+    public var monitorId: String?
 
     /// Whether sidecar data was stitched in at runtime rather than at next launch.
-    public let finalized: Bool?
+    public var finalized: Bool?
 
     public init(
         id: Report.ID,
@@ -166,13 +166,13 @@ public struct ReportInfo: Codable, Sendable, Equatable {
 /// - Current (v3.x+): Semantic version string like "3.6.0"
 public struct ReportVersion: Codable, Sendable, Equatable {
     /// Major version number.
-    public let major: Int
+    public var major: Int
 
     /// Minor version number.
-    public let minor: Int
+    public var minor: Int
 
     /// Patch version number.
-    public let patch: Int
+    public var patch: Int
 
     /// The string representation of the version.
     public var versionString: String {
