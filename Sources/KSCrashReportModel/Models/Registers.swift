@@ -29,11 +29,11 @@ import Foundation
 /// CPU register values.
 public struct Registers: Codable, Sendable, Equatable {
     /// Basic CPU registers (general purpose, etc.).
-    public let basic: [String: UInt64]?
+    public var basic: [String: UInt64]?
 
     /// Exception-related registers by name. The names are architecture-specific
     /// (for example `esr` and `far` on arm64, `trapno`, `err`, and `faultvaddr` on x86).
-    public let exception: [String: UInt64]?
+    public var exception: [String: UInt64]?
 
     public init(basic: [String: UInt64]? = nil, exception: [String: UInt64]? = nil) {
         self.basic = basic
