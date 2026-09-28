@@ -29,16 +29,16 @@ import Foundation
 /// User-reported crash details.
 public struct UserReportedInfo: Codable, Sendable, Equatable {
     /// Name/title of the user-reported crash.
-    public let name: String?
+    public var name: String?
 
     /// Programming language of the exception.
-    public let language: String?
+    public var language: String?
 
     /// Line of code where the crash was reported.
-    public let lineOfCode: String?
+    public var lineOfCode: String?
 
     /// Custom backtrace provided by the user.
-    public let backtrace: [String]?
+    public var backtrace: [String]?
 
     enum CodingKeys: String, CodingKey {
         case name

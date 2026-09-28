@@ -30,22 +30,22 @@ import Foundation
 public struct StackFrame: Codable, Sendable, Equatable {
     /// Instruction pointer address. Optional so a frame that lacks one (e.g. a degenerate or
     /// older profile frame) does not fail decoding of the entire report.
-    public let instructionAddr: UInt64?
+    public var instructionAddr: UInt64?
 
     /// Base address of the containing binary image.
-    public let objectAddr: UInt64?
+    public var objectAddr: UInt64?
 
     /// Name of the containing binary image.
-    public let objectName: String?
+    public var objectName: String?
 
     /// UUID of the containing binary image.
-    public let objectUUID: String?
+    public var objectUUID: String?
 
     /// Address of the symbol.
-    public let symbolAddr: UInt64?
+    public var symbolAddr: UInt64?
 
     /// Name of the symbol (function/method name).
-    public let symbolName: String?
+    public var symbolName: String?
 
     public init(
         instructionAddr: UInt64? = nil,

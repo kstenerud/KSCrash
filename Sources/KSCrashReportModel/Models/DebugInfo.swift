@@ -29,7 +29,7 @@ import Foundation
 /// Debug information included in crash reports.
 public struct DebugInfo: Codable, Sendable, Equatable {
     /// Console log lines captured before the crash.
-    public let consoleLog: [String]?
+    public var consoleLog: [String]?
 
     enum CodingKeys: String, CodingKey {
         case consoleLog = "console_log"
