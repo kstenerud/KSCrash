@@ -25,6 +25,7 @@
 //
 
 #include <assert.h>
+#include <copyfile.h>
 #include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
@@ -59,6 +60,9 @@
 // The name carries order only (a string sort is oldest first); the UUID
 // inside the file is the identity.
 #define KSCRS_REPORT_FILENAME_SUFFIX "." KSCRS_REPORT_FILENAME_EXTENSION
+// A report copied in across volumes is staged under its destination name plus this suffix, which
+// is never a report name, then renamed into place.
+#define KSCRS_REPORT_STAGING_SUFFIX ".incoming"
 #define KSCRS_REPORT_NAME_LENGTH \
     (KSCRS_REPORT_NAME_DIGITS + 1 + KSCRS_REPORT_ID_LENGTH + (int)(sizeof(KSCRS_REPORT_FILENAME_SUFFIX) - 1))
 
@@ -845,6 +849,31 @@ static bool deleteReportWithID(const char *reportID, const KSCrashReportStoreCCo
     return false;
 }
 
+// Copies a crash interrupted mid take-in. Nothing takes reports in before the store is initialized,
+// so every staged file found here is abandoned.
+static void removeStagedReports(const KSCrashReportStoreCConfiguration *const config)
+{
+    DIR *dir = opendir(config->reportsPath);
+    if (dir == NULL) {
+        return;
+    }
+    const size_t suffixLength = sizeof(KSCRS_REPORT_STAGING_SUFFIX) - 1;
+    struct dirent *ent;
+    while ((ent = readdir(dir)) != NULL) {
+        size_t length = strnlen(ent->d_name, sizeof(ent->d_name));
+        if (length <= suffixLength ||
+            strncmp(ent->d_name + length - suffixLength, KSCRS_REPORT_STAGING_SUFFIX, suffixLength) != 0) {
+            continue;
+        }
+        char path[KSCRS_MAX_PATH_LENGTH];
+        if (snprintf(path, sizeof(path), "%s/%s", config->reportsPath, ent->d_name) < (int)sizeof(path) &&
+            unlink(path) != 0) {
+            KSLOG_ERROR(@"Could not remove abandoned staged report %s: %s", path, strerror(errno));
+        }
+    }
+    closedir(dir);
+}
+
 static void pruneReports(const KSCrashReportStoreCConfiguration *const config)
 {
     if (config->maxReportCount <= 0) {
@@ -889,6 +918,7 @@ KSCrashInstallErrorCode kscrs_initialize(const KSCrashReportStoreCConfiguration 
         if (configuration->runSidecarsPath != NULL) {
             ksfu_makePath(configuration->runSidecarsPath);
         }
+        removeStagedReports(configuration);
         pruneReports(configuration);
     }
     pthread_mutex_unlock(&g_mutex);
@@ -1393,47 +1423,137 @@ void kscrs_reclaimOrphanedRunData(const KSCrashReportStoreCConfiguration *const 
     pthread_mutex_unlock(&g_mutex);
 }
 
-static void ingestExtensionReports(const char *sourceReportsPath, const KSCrashReportStoreCConfiguration *const config)
+// Renames sourcePath to destinationPath, never replacing an existing report. Under g_mutex, so the
+// lister and the pruner never see a half-placed report.
+static KSCrashReportTakeInResult renameReportIn(const char *sourcePath, const char *destinationPath, int *errnoOut)
 {
-    if (sourceReportsPath == NULL) {
-        return;
+    pthread_mutex_lock(&g_mutex);
+    int rc = renamex_np(sourcePath, destinationPath, RENAME_EXCL);
+    *errnoOut = rc == 0 ? 0 : errno;
+    pthread_mutex_unlock(&g_mutex);
+    if (rc == 0) {
+        return KSCrashReportTakeInResultTaken;
     }
-    // The source is another store's Reports directory, so its own lister does the listing:
-    // collected before any rename, since removing entries from a directory while readdir is
-    // walking it is unspecified and could skip some.
-    KSCrashReportStoreCConfiguration source = *config;
-    source.reportsPath = sourceReportsPath;
-    ReportName *names = NULL;
-    int listed = listReportNames(&names, &source);
-    if (listed < 0) {
-        KSLOG_ERROR(@"Could not list extension reports at %s", sourceReportsPath);
-        return;
-    }
-    size_t nameCount = (size_t)listed;
+    return *errnoOut == EEXIST ? KSCrashReportTakeInResultExists : KSCrashReportTakeInResultFailed;
+}
 
-    for (size_t i = 0; i < nameCount; i++) {
-        char sourcePath[KSCRS_MAX_PATH_LENGTH];
-        char destinationPath[KSCRS_MAX_PATH_LENGTH];
-        if (snprintf(sourcePath, sizeof(sourcePath), "%s/%s", sourceReportsPath, names[i].name) >=
-                (int)sizeof(sourcePath) ||
-            snprintf(destinationPath, sizeof(destinationPath), "%s/%s", config->reportsPath, names[i].name) >=
-                (int)sizeof(destinationPath)) {
+// Copies sourcePath to stagingPath and flushes it. Not under g_mutex: the app's own threads
+// take that lock to write user reports and finalize hangs, and a whole report's copy and
+// flush must not hold them up.
+static bool copyToStaging(const char *sourcePath, const char *stagingPath)
+{
+    unlink(stagingPath);
+    if (copyfile(sourcePath, stagingPath, NULL, COPYFILE_DATA | COPYFILE_EXCL) != 0) {
+        KSLOG_ERROR(@"Could not copy report %s to %s: %s", sourcePath, stagingPath, strerror(errno));
+        return false;
+    }
+    int fd = open(stagingPath, O_RDONLY);
+    bool flushed = fd >= 0 && fsync(fd) == 0;
+    if (!flushed) {
+        KSLOG_ERROR(@"Could not flush staged report %s: %s", stagingPath, strerror(errno));
+    }
+    if (fd >= 0) {
+        close(fd);
+    }
+    return flushed;
+}
+
+KSCrashReportTakeInResult kscrs_takeInReport(const char *sourcePath, const char *reportID, uint64_t wallClockNs,
+                                             const KSCrashReportStoreCConfiguration *const configuration)
+{
+    // The same id rule the lister applies: a report named with anything else is never listed,
+    // pruned or deleted, and an id holding a path separator would name a file outside Reports.
+    if (sourcePath == NULL || configuration == NULL || configuration->reportsPath == NULL || !ksid_isValid(reportID)) {
+        return KSCrashReportTakeInResultFailed;
+    }
+    // Composed here rather than by the caller so the filename grammar has one home. Not a
+    // crash path, so snprintf is allowed, and it reports truncation where strlcat would not.
+    char destinationPath[KSCRS_MAX_PATH_LENGTH];
+    if (snprintf(destinationPath, sizeof(destinationPath), "%s/%0*" PRIu64 "-%s%s", configuration->reportsPath,
+                 KSCRS_REPORT_NAME_DIGITS, wallClockNs, reportID,
+                 KSCRS_REPORT_FILENAME_SUFFIX) >= (int)sizeof(destinationPath)) {
+        return KSCrashReportTakeInResultFailed;
+    }
+
+    int error = 0;
+    KSCrashReportTakeInResult result = renameReportIn(sourcePath, destinationPath, &error);
+    if (result == KSCrashReportTakeInResultFailed && error != EXDEV) {
+        // Not copied: a caller that cannot move its file is usually one that cannot remove it
+        // either, and a copy it can never remove would be taken in again after every delivery.
+        KSLOG_ERROR(@"Could not take in report %s: %s", sourcePath, strerror(error));
+        return result;
+    }
+    if (result == KSCrashReportTakeInResultFailed) {
+        // Across volumes a rename is impossible, so the file is copied next to its destination
+        // and renamed into place from there. The staging name is not a report name, so the lister
+        // never sees a partial copy, and kscrs_initialize removes one a crash leaves behind. The
+        // source stays where it is; its owner removes it once told the report was taken.
+        char stagingPath[KSCRS_MAX_PATH_LENGTH];
+        if (snprintf(stagingPath, sizeof(stagingPath), "%s%s", destinationPath, KSCRS_REPORT_STAGING_SUFFIX) >=
+            (int)sizeof(stagingPath)) {
+            // Never unlink a truncated staging path: at the length limit it is the destination.
+            KSLOG_ERROR(@"Could not take in report %s: its staging path is too long", sourcePath);
+            return KSCrashReportTakeInResultFailed;
+        }
+        if (!copyToStaging(sourcePath, stagingPath)) {
+            unlink(stagingPath);
+            return KSCrashReportTakeInResultFailed;
+        }
+        result = renameReportIn(stagingPath, destinationPath, &error);
+        if (result != KSCrashReportTakeInResultTaken) {
+            if (result == KSCrashReportTakeInResultFailed) {
+                KSLOG_ERROR(@"Could not take in staged report %s: %s", stagingPath, strerror(error));
+            }
+            unlink(stagingPath);
+            return result;
+        }
+    }
+    if (result == KSCrashReportTakeInResultTaken) {
+        // The caller may drop its copy once told the report was taken, so the rename that put the
+        // report in place must reach the disk first. Unconfirmed, the caller keeps its copy: the
+        // report is already here, and the next offer of it is answered by the id check.
+        int dirFD = open(configuration->reportsPath, O_RDONLY);
+        bool flushed = dirFD >= 0 && fsync(dirFD) == 0;
+        if (!flushed) {
+            KSLOG_ERROR(@"Could not flush %s after taking in a report: %s", configuration->reportsPath,
+                        strerror(errno));
+            result = KSCrashReportTakeInResultFailed;
+        }
+        if (dirFD >= 0) {
+            close(dirFD);
+        }
+    }
+    return result;
+}
+
+void kscrs_deleteReportsWithIDs(const char *const *reportIDs, int count,
+                                const KSCrashReportStoreCConfiguration *const configuration)
+{
+    if (reportIDs == NULL || count <= 0 || configuration == NULL) {
+        return;
+    }
+    pthread_mutex_lock(&g_mutex);
+    // One listing for the whole batch: each name is matched against the ids, and deleted by the
+    // path already listed rather than found again by a scan per id.
+    ReportName *names = NULL;
+    int listed = listReportNames(&names, configuration);
+    for (int i = 0; i < listed; i++) {
+        char reportID[KSID_SIZE];
+        if (!kscrs_parseReportFilename(names[i].name, reportID)) {
             continue;
         }
-        // RENAME_EXCL: never replace an existing report. The app and group containers
-        // share a volume on iOS, so no cross-device fallback is needed; if a macOS setup
-        // ever crosses volumes, the file stays put and the error is logged each send.
-        if (renamex_np(sourcePath, destinationPath, RENAME_EXCL) != 0) {
-            KSLOG_ERROR(@"Could not ingest extension report %s: %s", names[i].name, strerror(errno));
+        for (int j = 0; j < count; j++) {
+            if (reportIDs[j] != NULL && strncmp(reportIDs[j], reportID, KSID_SIZE) == 0) {
+                char path[KSCRS_MAX_PATH_LENGTH];
+                if (snprintf(path, sizeof(path), "%s/%s", configuration->reportsPath, names[i].name) <
+                    (int)sizeof(path)) {
+                    deleteReportAtPath(path, reportID, configuration);
+                }
+                break;
+            }
         }
     }
     free(names);
-}
-
-void kscrs_ingestExtensionReports(const char *sourceReportsPath,
-                                  const KSCrashReportStoreCConfiguration *const configuration)
-{
-    pthread_mutex_lock(&g_mutex);
-    ingestExtensionReports(sourceReportsPath, configuration);
     pthread_mutex_unlock(&g_mutex);
 }
+

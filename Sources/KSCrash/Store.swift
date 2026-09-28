@@ -58,11 +58,15 @@ struct Store: Sendable {
     /// through `pruneRunSummaries(keepingNewest:)`.
     let maxRunCount: Int
 
-    private let reports: ReportBridge
-    private let reclaim: @Sendable (_ retainingUnreferencedRuns: Bool) -> Void
-    /// The store's own Reports directory; area scans skip it. nil for the
-    /// bridge-backed test stores, which pull from nowhere.
-    private let reportsDirectory: URL?
+    /// The install-resolved report cap that a take-in prunes the store back
+    /// to. 0 or negative is no cap.
+    let maxReportCount: Int
+
+    let reports: ReportBridge
+    private let reclaim: @Sendable () -> Void
+    /// The store's own Reports directory, where incoming reports held in
+    /// memory are staged. nil for the bridge-backed test stores.
+    let reportsDirectory: URL?
 
     /// The production store: the report half and the reclaim go through
     /// the C-backed report store, the one owner of the Reports directory,
@@ -82,26 +86,20 @@ struct Store: Sendable {
             reportsDirectory: reportsDirectory,
             liveRunID: liveRunID,
             maxRunCount: maxRunCount,
+            maxReportCount: Int(storeConfig.pointee.maxReportCount),
             reports: ReportBridge(
                 list: { try Store.listReportIDs(in: reportsDirectory) },
-                ingest: { source in kscrs_ingestExtensionReports(source.path, config.pointer) },
+                takeIn: { file, id, ns in config.takeIn(file, id, ns) },
                 read: { id in try config.read(id) },
                 runID: { id in config.runID(of: id) },
-                remove: { id in try config.remove(id) }
+                remove: { id in try config.remove(id) },
+                removeBatch: { ids in config.removeAll(ids) }
             ),
-            reclaim: { retaining in
-                // The retention window exists for reports still sitting in a
-                // crash extension's store. A send that pulls from no
-                // extension area has none coming, so its unreferenced runs
-                // are orphans on sight, as they always were.
-                if retaining {
-                    kscrs_reclaimOrphanedRunData(config.pointer)
-                } else {
-                    var immediate = config.pointer.pointee
-                    immediate.runSidecarRetentionSeconds = 0
-                    kscrs_reclaimOrphanedRunData(&immediate)
-                }
-            }
+            // Unreferenced run data is kept for the configured window rather
+            // than deleted on sight: a report for that run can still arrive
+            // later from a report source, and it needs the run's data to be
+            // stitched. A run's data is a few kilobytes, bounded by the window.
+            reclaim: { kscrs_reclaimOrphanedRunData(config.pointer) }
         )
     }
 
@@ -111,13 +109,15 @@ struct Store: Sendable {
         reportsDirectory: URL? = nil,
         liveRunID: RunSummary.ID?,
         maxRunCount: Int = 0,
+        maxReportCount: Int = 0,
         reports: ReportBridge = .none,
-        reclaim: @escaping @Sendable (_ retainingUnreferencedRuns: Bool) -> Void = { _ in }
+        reclaim: @escaping @Sendable () -> Void = {}
     ) {
         self.runsDirectory = runsDirectory
         self.runSidecarsDirectory = runSidecarsDirectory
         self.liveRunID = liveRunID
         self.maxRunCount = maxRunCount
+        self.maxReportCount = maxReportCount
         self.reports = reports
         self.reclaim = reclaim
         self.reportsDirectory = reportsDirectory
@@ -125,25 +125,7 @@ struct Store: Sendable {
 
     /// Every pending crash report, newest first. Throws when the Reports
     /// directory cannot be enumerated; the runs half is not touched.
-    func snapshotReportIDs(pullingFrom corpseAreas: [CorpseReportingConfiguration] = []) throws -> [Report.ID] {
-        // A crash extension's reports are moved in before the listing, so the
-        // same send that finds them delivers them. An area resolves to its
-        // namespace directory, and every bundle-id subdirectory in it except
-        // our own contributes a Reports directory. An area that does not
-        // resolve (a bad app-group id, a missing entitlement) is logged and
-        // skipped: the app's own reports are not held hostage to it, and the
-        // extension's stay where they are until it is fixed.
-        for area in corpseAreas {
-            do {
-                for source in try area.reportsDirectories(excluding: reportsDirectory) {
-                    reports.ingest(source)
-                }
-            } catch {
-                os_log(
-                    .error, "Extension area %{public}@ could not be resolved; its reports are not pulled: %{public}@",
-                    area.namespace, String(describing: error))
-            }
-        }
+    func snapshotReportIDs() throws -> [Report.ID] {
         // The listing is oldest first (the filenames carry the write time),
         // so newest first is its reverse.
         return Array(try reports.list().reversed())
@@ -302,12 +284,10 @@ struct Store: Sendable {
             + artifactOnly.sorted { $0.runID.description < $1.runID.description }
     }
 
-    /// Remove shared run data nothing references any more. With
-    /// `retainingUnreferencedRuns`, run data nothing references yet is kept
-    /// for the configured window, for a report a crash extension has not
-    /// handed over yet.
-    func reclaimOrphans(retainingUnreferencedRuns: Bool = false) {
-        reclaim(retainingUnreferencedRuns)
+    /// Remove shared run data nothing references any more, once it is older
+    /// than the configured retention window.
+    func reclaimOrphans() {
+        reclaim()
     }
 
     /// Delete the oldest writer-named `.run` files beyond `max`; 0 or
@@ -366,6 +346,15 @@ extension Store {
             guard kscrs_parseReportFilename(name, &id) else { return nil }
             return Report.ID(String(cString: id))
         }
+
+        /// The write time in a report filename, in nanoseconds since 1970; nil
+        /// for any other name. The name holds twenty digits, one more than a
+        /// UInt64 always fits, so a larger value (only a foreign writer makes
+        /// one) saturates and orders newest rather than making the file vanish.
+        static func timestampNs(in name: String) -> UInt64? {
+            guard reportID(in: name) != nil else { return nil }
+            return UInt64(name.prefix(Int(KSCRS_REPORT_NAME_DIGITS))) ?? .max
+        }
     }
 
     /// The report ids in `directory`, oldest first, from the filenames alone:
@@ -409,6 +398,24 @@ private struct CStoreConfig: @unchecked Sendable {
         return RunSummary.ID(String(cString: raw))
     }
 
+    /// A report the store already holds under the same name is as good as taken.
+    func takeIn(_ file: URL, _ id: Report.ID, _ timestampNs: UInt64) -> IncomingReport.Disposition {
+        switch kscrs_takeInReport(file.path, id.description, timestampNs, pointer) {
+        case KSCrashReportTakeInResultTaken, KSCrashReportTakeInResultExists: return .taken
+        default: return .retryLater
+        }
+    }
+
+    func removeAll(_ ids: [Report.ID]) {
+        guard !ids.isEmpty else { return }
+        let strings = ids.map { strdup($0.description) }
+        defer { strings.forEach { free($0) } }
+        let pointers = strings.map { UnsafePointer($0) }
+        pointers.withUnsafeBufferPointer { buffer in
+            kscrs_deleteReportsWithIDs(buffer.baseAddress, Int32(buffer.count), pointer)
+        }
+    }
+
     func remove(_ id: Report.ID) throws {
         if !kscrs_deleteReportWithID(id.description, pointer) {
             throw CocoaError(
@@ -427,10 +434,13 @@ struct ReportBridge: Sendable {
     /// directory cannot be enumerated; an empty store is an empty array.
     let list: @Sendable () throws -> [Report.ID]
 
-    /// Moves every report in `source` into the store, never replacing an
-    /// existing one. Defaults to a no-op: only the production bridge is backed
-    /// by a real store directory.
-    var ingest: @Sendable (_ source: URL) -> Void = { _ in }
+    /// Takes one report file into the store under `id` and the write time,
+    /// never replacing an existing report. The file is moved in when it can
+    /// be and copied otherwise. Defaults to not taking it: only the production
+    /// bridge is backed by a real store directory.
+    var takeIn: @Sendable (_ file: URL, _ id: Report.ID, _ timestampNs: UInt64) -> IncomingReport.Disposition = {
+        _, _, _ in .retryLater
+    }
 
     /// One report's stitched JSON. nil when it cannot be read right now.
     /// Throws when the file was read but does not hold a JSON report; that is
@@ -444,6 +454,27 @@ struct ReportBridge: Sendable {
 
     /// Delete one report. Throws when the report file could not be removed.
     let remove: @Sendable (Report.ID) throws -> Void
+
+    /// Deletes several reports in one pass, skipping ids with no report. nil
+    /// deletes them one at a time through `remove`.
+    var removeBatch: (@Sendable ([Report.ID]) -> Void)?
+
+    /// Deletes `ids`, logging any that could not be removed.
+    func delete(_ ids: [Report.ID]) {
+        guard !ids.isEmpty else { return }
+        if let removeBatch {
+            removeBatch(ids)
+            return
+        }
+        for id in ids {
+            do {
+                try remove(id)
+            } catch {
+                os_log(
+                    .error, "Could not delete report %{public}@: %{public}@", id.description, String(describing: error))
+            }
+        }
+    }
 
     /// A store with no report half (run-only tests).
     static let none = ReportBridge(list: { [] }, read: { _ in nil }, runID: { _ in nil }, remove: { _ in })

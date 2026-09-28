@@ -62,7 +62,7 @@ extension KSCrash {
     /// else. No crash handlers, no app-lifecycle state, no console log. Call once, from the
     /// extension's init; each corpse is then reported with `captureCrashReport`.
     ///
-    /// `area` is the same value the app lists in `SendConfiguration.corpseAreas`; both
+    /// `area` is the same value the app lists in `SendConfiguration.reportSources`; both
     /// sides derive the report area's layout from it identically. Throws the area's own
     /// resolution errors: `InstallError.containerUnavailable` for an unresolvable app group,
     /// `InstallError.invalidConfiguration` when the area belongs to a normal install, and
