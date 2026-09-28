@@ -37,6 +37,7 @@ struct SampleApp: App {
     init() {
         runLeaksTestIfRequired()
         registerSwiftAsyncCrashTrigger()
+        IntegrationTestRunner.prepareIfNeeded()
         IntegrationTestRunner.runEarlyIfNeeded()
     }
 

@@ -31,15 +31,17 @@ let project = Project(
                 .package(product: "KSCrash", type: .runtime),
             ]
         ),
+        // The integration tests run on the Mac whatever platform they drive, and launch the
+        // Sample app themselves (see Tests/Core/TargetApp.swift). They must not depend on the
+        // Sample target: that would make the app their test host.
         .target(
             name: "SampleTests",
-            destinations: .allForSample.subtracting(.visionOS),
-            product: .uiTests,
+            destinations: .macOS,
+            product: .unitTests,
             bundleId: "com.github.kstenerud.KSCrash.Sample.Tests",
-            deploymentTargets: .allForSample.excludingVisionOS,
+            deploymentTargets: .macOS("13.0"),
             sources: ["Tests/**"],
             dependencies: [
-                .target(name: "Sample"),
                 .package(product: "SampleUI", type: .runtime),
                 .package(product: "CrashTriggers", type: .runtime),
                 .package(product: "CrashCallback", type: .runtime),
@@ -82,11 +84,5 @@ extension DeploymentTargets {
             tvOS: "15.0",
             visionOS: "1.0"
         )
-    }
-
-    var excludingVisionOS: Self {
-        var excluded = self
-        excluded.visionOS = nil
-        return excluded
     }
 }
