@@ -29,197 +29,206 @@ import KSCrashRecording
 import KSCrashReportModel
 import XCTest
 
-#if !os(watchOS)
+final class WatchdogTests: IntegrationTestBase {
+    override class var platforms: Set<TargetPlatform> { Set(TargetPlatform.allCases).subtracting([.watchOS]) }
 
-    final class WatchdogTests: IntegrationTestBase {
+    override func setUp() async throws {
+        try await super.setUp()
+        appCrashTimeout = 10.0
+    }
 
-        override func setUp() async throws {
-            try await super.setUp()
-            appCrashTimeout = 10.0
+    func testWatchdogTimeoutTermination() throws {
+        // Enable watchdog monitoring and trigger a simulated watchdog timeout
+        try launchAndCrash(.other_watchdogTimeoutTermination) { config in
+            config.isWatchdogEnabled = true
         }
 
-        func testWatchdogTimeoutTermination() throws {
-            // Enable watchdog monitoring and trigger a simulated watchdog timeout
-            try launchAndCrash(.other_watchdogTimeoutTermination) { config in
-                config.isWatchdogEnabled = true
-            }
+        // Re-launch and read through the report store so the sidecar stitch runs
+        let reportData = try launchAndReportCrashRaw { config in
+            config.isWatchdogEnabled = true
+        }
+        let rawReport = try JSONDecoder().decode(Report.self, from: reportData)
 
-            // Re-launch and read through the report store so the sidecar stitch runs
-            let reportData = try launchAndReportCrashRaw { config in
-                config.isWatchdogEnabled = true
-            }
-            let rawReport = try JSONDecoder().decode(Report.self, from: reportData)
+        // Verify hang info is present in the crash report
+        let hangInfo = rawReport.crash.error.hang
+        XCTAssertNotNil(hangInfo, "Hang info should be present in crash report")
+        XCTAssertNotNil(hangInfo?.hangStartNanos, "Hang start timestamp should be present")
+        XCTAssertNotNil(hangInfo?.hangEndNanos, "Hang end timestamp should be present")
 
-            // Verify hang info is present in the crash report
-            let hangInfo = rawReport.crash.error.hang
-            XCTAssertNotNil(hangInfo, "Hang info should be present in crash report")
-            XCTAssertNotNil(hangInfo?.hangStartNanos, "Hang start timestamp should be present")
-            XCTAssertNotNil(hangInfo?.hangEndNanos, "Hang end timestamp should be present")
+        // Verify the hang duration is reasonable (at least 1 second, since we sleep for 4s before SIGKILL)
+        if let hangInfo = hangInfo {
+            let durationSeconds = Double(hangInfo.hangEndNanos - hangInfo.hangStartNanos) / 1_000_000_000.0
+            XCTAssertGreaterThan(durationSeconds, 1.0, "Hang duration should be at least 1 second")
 
-            // Verify the hang duration is reasonable (at least 1 second, since we sleep for 4s before SIGKILL)
-            if let hangInfo = hangInfo {
-                let durationSeconds = Double(hangInfo.hangEndNanos - hangInfo.hangStartNanos) / 1_000_000_000.0
-                XCTAssertGreaterThan(durationSeconds, 1.0, "Hang duration should be at least 1 second")
-
-                // Transition states should be present
-                XCTAssertNotNil(hangInfo.hangStartTransitionState, "Start transition state should be present")
-                XCTAssertNotNil(hangInfo.hangEndTransitionState, "End transition state should be present")
-            }
-
-            // Verify we got a SIGKILL
-            XCTAssertEqual(rawReport.crash.error.signal?.signal, 9, "Should be SIGKILL (signal 9)")
-
-            let state = try readState()
-            XCTAssertTrue(state.previousRunWasAbnormal)
-            XCTAssertEqual(state.terminationReason, .hang)
+            // Transition states should be present
+            XCTAssertNotNil(hangInfo.hangStartTransitionState, "Start transition state should be present")
+            XCTAssertNotNil(hangInfo.hangEndTransitionState, "End transition state should be present")
         }
 
-        func testWatchdogTimeoutHasThreads() throws {
-            // Enable watchdog monitoring and trigger a simulated watchdog timeout
-            try launchAndCrash(.other_watchdogTimeoutTermination) { config in
-                config.isWatchdogEnabled = true
-            }
+        // Verify we got a SIGKILL
+        XCTAssertEqual(rawReport.crash.error.signal?.signal, 9, "Should be SIGKILL (signal 9)")
 
-            let rawReport = try readCrashReport()
+        let state = try readState()
+        XCTAssertTrue(state.previousRunWasAbnormal)
+        XCTAssertEqual(state.terminationReason, .hang)
+    }
 
-            // Verify threads are present in the crash report
-            let threads = rawReport.crash.threads
-            XCTAssertNotNil(threads, "Threads should be present in crash report")
-            XCTAssertGreaterThan(threads?.count ?? 0, 0, "Should have at least one thread")
-
-            // Find the crashed/main thread
-            let crashedThread = threads?.first(where: { $0.crashed })
-            XCTAssertNotNil(crashedThread, "Should have a crashed thread")
-
-            // Verify the crashed thread has a backtrace with frames
-            let backtrace = crashedThread?.backtrace
-            XCTAssertNotNil(backtrace, "Crashed thread should have a backtrace")
-            XCTAssertGreaterThan(
-                backtrace?.contents.count ?? 0, 0, "Backtrace should have at least one frame")
+    func testWatchdogTimeoutHasThreads() throws {
+        // Enable watchdog monitoring and trigger a simulated watchdog timeout
+        try launchAndCrash(.other_watchdogTimeoutTermination) { config in
+            config.isWatchdogEnabled = true
         }
 
-        func testAppHangFinalizedMidRun() throws {
-            // Trigger a temporary hang that recovers. The watchdog detects
-            // the hang, writes a report, and when the main thread resumes
-            // finalization stitches the report in-place during the same launch.
-            var installConfig = InstallConfig(namespace: "IntegrationTests", basePath: installUrl.path)
-            installConfig.isWatchdogEnabled = true
-            installConfig.isHangReportingEnabled = true
-            app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
-                crash: .init(triggerId: .other_appHang),
-                install: installConfig,
-                config: .init(delay: actionDelay, stateSavePath: stateUrl.path)
-            )
-            launchAppAndRunScript()
+        let rawReport = try readCrashReport()
 
-            // The report file appears as soon as the hang is detected (before
-            // recovery), so wait specifically for the finalized flag.
-            let reportsDirUrl = try reportsDirectoryUrl()
-            let finalizedExpectation = XCTNSPredicateExpectation(
-                predicate: NSPredicate { _, _ in
-                    guard let files = try? FileManager.default.contentsOfDirectory(atPath: reportsDirUrl.path),
-                        let fileName = files.first,
-                        let data = try? Data(contentsOf: reportsDirUrl.appendingPathComponent(fileName)),
-                        let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                        let report = json["report"] as? [String: Any]
-                    else { return false }
-                    return report["finalized"] as? Bool == true
-                },
-                object: nil
-            )
-            wait(for: [finalizedExpectation], timeout: actionDelay + 20.0)
+        // Verify threads are present in the crash report
+        let threads = rawReport.crash.threads
+        XCTAssertNotNil(threads, "Threads should be present in crash report")
+        XCTAssertGreaterThan(threads?.count ?? 0, 0, "Should have at least one thread")
 
-            let reportData = try readRawCrashReportData()
-            let report = try decodeCrashReport(reportData: reportData)
+        // Find the crashed/main thread
+        let crashedThread = threads?.first(where: { $0.crashed })
+        XCTAssertNotNil(crashedThread, "Should have a crashed thread")
 
-            XCTAssertEqual(report.crash.error.type, .hang)
-            XCTAssertEqual(report.crash.error.isFatal, false)
-            XCTAssertNil(report.crash.error.signal, "Recovered hang should not have signal info")
+        // Verify the crashed thread has a backtrace with frames
+        let backtrace = crashedThread?.backtrace
+        XCTAssertNotNil(backtrace, "Crashed thread should have a backtrace")
+        XCTAssertGreaterThan(
+            backtrace?.contents.count ?? 0, 0, "Backtrace should have at least one frame")
+    }
 
-            let hangInfo = report.crash.error.hang
-            XCTAssertNotNil(hangInfo)
-            XCTAssertEqual(hangInfo?.hangRecovered, true)
-            XCTAssertNotNil(hangInfo?.hangStartNanos)
-            XCTAssertNotNil(hangInfo?.hangEndNanos)
+    func testAppHangFinalizedMidRun() throws {
+        // Trigger a temporary hang that recovers. The watchdog detects
+        // the hang, writes a report, and when the main thread resumes
+        // finalization stitches the report in-place during the same launch.
+        var installConfig = InstallConfig(namespace: "IntegrationTests", basePath: installUrl.path)
+        installConfig.isWatchdogEnabled = true
+        installConfig.isHangReportingEnabled = true
+        app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
+            crash: .init(triggerId: .other_appHang),
+            install: installConfig,
+            config: .init(delay: actionDelay, stateSavePath: stateUrl.path)
+        )
+        launchAppAndRunScript()
 
-            if let hangInfo {
-                let durationSeconds =
-                    Double(hangInfo.hangEndNanos - hangInfo.hangStartNanos) / 1_000_000_000.0
-                XCTAssertGreaterThan(durationSeconds, 0.25, "Hang should exceed the watchdog threshold")
+        // The report file appears as soon as the hang is detected (before
+        // recovery), so wait specifically for the finalized flag.
+        let reportsDirUrl = try reportsDirectoryUrl()
+        let finalizedExpectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in
+                guard let files = try? FileManager.default.contentsOfDirectory(atPath: reportsDirUrl.path),
+                    let fileName = files.first,
+                    let data = try? Data(contentsOf: reportsDirUrl.appendingPathComponent(fileName)),
+                    let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                    let report = json["report"] as? [String: Any]
+                else { return false }
+                return report["finalized"] as? Bool == true
+            },
+            object: nil
+        )
+        wait(for: [finalizedExpectation], timeout: actionDelay + 20.0)
 
-                // Transition states should be present
-                XCTAssertNotNil(hangInfo.hangStartTransitionState, "Start transition state should be present")
-                XCTAssertNotNil(hangInfo.hangEndTransitionState, "End transition state should be present")
-            }
-        }
+        let reportData = try readRawCrashReportData()
+        let report = try decodeCrashReport(reportData: reportData)
 
-        // macOS sets Active during +load (before any observer registers), so
-        // there is no pre-Active startup phase for the suppression boundary to
-        // detect. This test is only meaningful on iOS/tvOS where the app
-        // transitions through Launching -> Active via UIKit notifications.
-        #if os(iOS) || os(tvOS)
-            func testStartupHangIsSuppressed() throws {
-                // Trigger a hang during app init (before UIApplicationDidBecomeActive).
-                // The watchdog detects and writes a report, but since the hang started
-                // before Active, the report should be deleted on recovery.
-                var installConfig = InstallConfig(namespace: "IntegrationTests", basePath: installUrl.path)
-                installConfig.isWatchdogEnabled = true
-                installConfig.isHangReportingEnabled = true
-                app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
-                    crash: .init(triggerId: .other_appHang),
-                    install: installConfig,
-                    config: .init(delay: 0, stateSavePath: stateUrl.path, runEarly: true)
-                )
-                launchAppAndRunScript()
+        XCTAssertEqual(report.crash.error.type, .hang)
+        XCTAssertEqual(report.crash.error.isFatal, false)
+        XCTAssertNil(report.crash.error.signal, "Recovered hang should not have signal info")
 
-                // Wait for the hang to resolve and any reports to be cleaned up.
-                // A startup hang report is created during detection but deleted on
-                // recovery, so the Reports directory should end up empty.
-                let reportsDirUrl = try reportsDirectoryUrl()
-                let emptyExpectation = XCTNSPredicateExpectation(
-                    predicate: NSPredicate { _, _ in
-                        guard let files = try? FileManager.default.contentsOfDirectory(atPath: reportsDirUrl.path)
-                        else { return true }
-                        return files.isEmpty
-                    },
-                    object: nil
-                )
-                wait(for: [emptyExpectation], timeout: 10.0)
+        let hangInfo = report.crash.error.hang
+        XCTAssertNotNil(hangInfo)
+        XCTAssertEqual(hangInfo?.hangRecovered, true)
+        XCTAssertNotNil(hangInfo?.hangStartNanos)
+        XCTAssertNotNil(hangInfo?.hangEndNanos)
 
-                let files = (try? FileManager.default.contentsOfDirectory(atPath: reportsDirUrl.path)) ?? []
-                XCTAssertTrue(files.isEmpty, "Startup hang should be suppressed, but found reports: \(files)")
-            }
-        #endif
+        if let hangInfo {
+            let durationSeconds =
+                Double(hangInfo.hangEndNanos - hangInfo.hangStartNanos) / 1_000_000_000.0
+            XCTAssertGreaterThan(durationSeconds, 0.25, "Hang should exceed the watchdog threshold")
 
-        func testExceptionDuringHangReportsExceptionNotHang() throws {
-            // Trigger a hang, then throw an exception while hung.
-            // The fatal exception should be reported, not the hang.
-            try launchAndCrash(.other_watchdogTimeoutWithException) { config in
-                config.isWatchdogEnabled = true
-            }
-
-            // Re-launch and read through the report store so the sidecar stitch runs
-            let reportData = try launchAndReportCrashRaw { config in
-                config.isWatchdogEnabled = true
-            }
-            let rawReport = try JSONDecoder().decode(Report.self, from: reportData)
-
-            // Verify we got an NSException, not a hang/signal
-            XCTAssertEqual(rawReport.crash.error.type, .nsexception, "Should be an NSException crash")
-            XCTAssertEqual(
-                rawReport.crash.error.reason, "Exception during hang",
-                "Should have the exception reason")
-
-            // Hang context is present from the run sidecar, providing diagnostic
-            // context that a hang was active when the exception fired.
-            let hangInfo = rawReport.crash.error.hang
-            XCTAssertNotNil(hangInfo, "Hang context should be present from the run sidecar")
-            XCTAssertNil(hangInfo?.hangRecovered, "Hang should not be marked as recovered")
-
-            let state = try readState()
-            XCTAssertTrue(state.previousRunWasAbnormal)
-            XCTAssertEqual(state.terminationReason, .crash)
+            // Transition states should be present
+            XCTAssertNotNil(hangInfo.hangStartTransitionState, "Start transition state should be present")
+            XCTAssertNotNil(hangInfo.hangEndTransitionState, "End transition state should be present")
         }
     }
 
-#endif
+    // macOS sets Active during +load (before any observer registers), so
+    // there is no pre-Active startup phase for the suppression boundary to
+    // detect. This test is only meaningful on iOS/tvOS where the app
+    // transitions through Launching -> Active via UIKit notifications.
+    func testStartupHangIsSuppressed() throws {
+        try XCTSkipUnless(
+            [.iOS, .tvOS].contains(TargetPlatform.current),
+            "Only iOS and tvOS have a pre-Active startup phase for the suppression boundary")
+        // Trigger a hang during app init (before UIApplicationDidBecomeActive).
+        // The watchdog detects and writes a report, but since the hang started
+        // before Active, the report should be deleted on recovery.
+        var installConfig = InstallConfig(namespace: "IntegrationTests", basePath: installUrl.path)
+        installConfig.isWatchdogEnabled = true
+        installConfig.isHangReportingEnabled = true
+        app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
+            crash: .init(triggerId: .other_appHang),
+            install: installConfig,
+            config: .init(delay: 0, stateSavePath: stateUrl.path, runEarly: true)
+        )
+        launchAppAndRunScript()
+
+        // The report must appear and then go: a watchdog that never noticed the hang would
+        // leave the directory empty too. It exists for most of the two-second hang, so a
+        // tight poll sees it.
+        let reportsDirUrl = try reportsDirectoryUrl()
+        let deadline = Date().addingTimeInterval(appLaunchTimeout)
+        var sawReport = false
+        while !sawReport, Date() < deadline {
+            let files = (try? FileManager.default.contentsOfDirectory(atPath: reportsDirUrl.path)) ?? []
+            sawReport = !files.isEmpty
+            if !sawReport { Thread.sleep(forTimeInterval: 0.02) }
+        }
+        XCTAssertTrue(sawReport, "The watchdog never reported the startup hang")
+
+        // A startup hang report is created during detection but deleted on
+        // recovery, so the Reports directory should end up empty.
+        let emptyExpectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in
+                guard let files = try? FileManager.default.contentsOfDirectory(atPath: reportsDirUrl.path)
+                else { return true }
+                return files.isEmpty
+            },
+            object: nil
+        )
+        wait(for: [emptyExpectation], timeout: 10.0)
+
+        let files = (try? FileManager.default.contentsOfDirectory(atPath: reportsDirUrl.path)) ?? []
+        XCTAssertTrue(files.isEmpty, "Startup hang should be suppressed, but found reports: \(files)")
+    }
+
+    func testExceptionDuringHangReportsExceptionNotHang() throws {
+        // Trigger a hang, then throw an exception while hung.
+        // The fatal exception should be reported, not the hang.
+        try launchAndCrash(.other_watchdogTimeoutWithException) { config in
+            config.isWatchdogEnabled = true
+        }
+
+        // Re-launch and read through the report store so the sidecar stitch runs
+        let reportData = try launchAndReportCrashRaw { config in
+            config.isWatchdogEnabled = true
+        }
+        let rawReport = try JSONDecoder().decode(Report.self, from: reportData)
+
+        // Verify we got an NSException, not a hang/signal
+        XCTAssertEqual(rawReport.crash.error.type, .nsexception, "Should be an NSException crash")
+        XCTAssertEqual(
+            rawReport.crash.error.reason, "Exception during hang",
+            "Should have the exception reason")
+
+        // Hang context is present from the run sidecar, providing diagnostic
+        // context that a hang was active when the exception fired.
+        let hangInfo = rawReport.crash.error.hang
+        XCTAssertNotNil(hangInfo, "Hang context should be present from the run sidecar")
+        XCTAssertNil(hangInfo?.hangRecovered, "Hang should not be marked as recovered")
+
+        let state = try readState()
+        XCTAssertTrue(state.previousRunWasAbnormal)
+        XCTAssertEqual(state.terminationReason, .crash)
+    }
+}

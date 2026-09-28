@@ -29,73 +29,70 @@ import IntegrationTestsHelper
 import KSCrashReportModel
 import XCTest
 
-#if !os(watchOS)
+final class SwiftAsyncStackTraceTests: IntegrationTestBase {
+    override class var platforms: Set<TargetPlatform> { Set(TargetPlatform.allCases).subtracting([.watchOS]) }
 
-    final class SwiftAsyncStackTraceTests: IntegrationTestBase {
+    /// With `enableSwiftAsyncStackTraces` on, the suspended async callers of the reporting
+    /// function must appear in the captured backtrace. Plain `backtrace()` cannot see them,
+    /// because a suspended async caller has no frame on the current stack.
+    func testAsyncCallersAppearInBacktrace() throws {
+        let backtrace = try captureAsyncBacktrace()
+        let symbolNames = backtrace.contents.compactMap(\.symbolName)
 
-        /// With `enableSwiftAsyncStackTraces` on, the suspended async callers of the reporting
-        /// function must appear in the captured backtrace. Plain `backtrace()` cannot see them,
-        /// because a suspended async caller has no frame on the current stack.
-        func testAsyncCallersAppearInBacktrace() throws {
-            let backtrace = try captureAsyncBacktrace()
-            let symbolNames = backtrace.contents.compactMap(\.symbolName)
-
-            for expected in [
-                swiftAsyncInnerFuncName,
-                swiftAsyncMiddleFuncName,
-                swiftAsyncOuterFuncName,
-            ] {
-                XCTAssertTrue(
-                    symbolNames.contains { $0.contains(expected) },
-                    "\(expected) missing from async backtrace. Symbols: \(symbolNames)")
-            }
-        }
-
-        /// Regression guard for the arm64 continuation off-by-one (see `KSSymbolicator.c`).
-        ///
-        /// A name-based assertion cannot catch this: the symbol landed on is usually a sibling
-        /// funclet of the same Swift function, whose mangled name still contains the source name.
-        func testAsyncContinuationFramesResolveToTheirOwnFunclet() throws {
-            let backtrace = try captureAsyncBacktrace()
-
-            let asyncCallerNames = [swiftAsyncMiddleFuncName, swiftAsyncOuterFuncName]
-            let continuationFrames = backtrace.contents.filter { frame in
-                asyncCallerNames.contains { frame.symbolName?.contains($0) ?? false }
-            }
-            XCTAssertFalse(continuationFrames.isEmpty, "no async caller frames to check")
-
-            for frame in continuationFrames {
-                guard let instructionAddr = frame.instructionAddr, let symbolAddr = frame.symbolAddr
-                else {
-                    XCTFail("async frame is missing addresses: \(frame)")
-                    continue
-                }
-                // The +1 bias puts the reported address one past the funclet start, so a correctly
-                // symbolicated continuation sits at offset 1 from its own symbol.
-                XCTAssertLessThanOrEqual(
-                    instructionAddr - symbolAddr, 1,
-                    """
-                    Continuation frame \(frame.symbolName ?? "?") resolved \
-                    \(instructionAddr - symbolAddr) bytes back — expected ≤1.
-                    """)
-            }
-        }
-
-        // MARK: - Helpers
-
-        private func captureAsyncBacktrace() throws -> Backtrace {
-            try launchAndCrash(
-                .user_swiftAsync,
-                installOverride: { (configuration: inout InstallConfig) in
-                    configuration.isSwiftAsyncStackTracesEnabled = true
-                })
-
-            let rawReport = try readCrashReport()
-            try rawReport.validate()
-
-            let crashedThread = try XCTUnwrap(rawReport.crashedThread)
-            return try XCTUnwrap(crashedThread.backtrace)
+        for expected in [
+            swiftAsyncInnerFuncName,
+            swiftAsyncMiddleFuncName,
+            swiftAsyncOuterFuncName,
+        ] {
+            XCTAssertTrue(
+                symbolNames.contains { $0.contains(expected) },
+                "\(expected) missing from async backtrace. Symbols: \(symbolNames)")
         }
     }
 
-#endif
+    /// Regression guard for the arm64 continuation off-by-one (see `KSSymbolicator.c`).
+    ///
+    /// A name-based assertion cannot catch this: the symbol landed on is usually a sibling
+    /// funclet of the same Swift function, whose mangled name still contains the source name.
+    func testAsyncContinuationFramesResolveToTheirOwnFunclet() throws {
+        let backtrace = try captureAsyncBacktrace()
+
+        let asyncCallerNames = [swiftAsyncMiddleFuncName, swiftAsyncOuterFuncName]
+        let continuationFrames = backtrace.contents.filter { frame in
+            asyncCallerNames.contains { frame.symbolName?.contains($0) ?? false }
+        }
+        XCTAssertFalse(continuationFrames.isEmpty, "no async caller frames to check")
+
+        for frame in continuationFrames {
+            guard let instructionAddr = frame.instructionAddr, let symbolAddr = frame.symbolAddr
+            else {
+                XCTFail("async frame is missing addresses: \(frame)")
+                continue
+            }
+            // The +1 bias puts the reported address one past the funclet start, so a correctly
+            // symbolicated continuation sits at offset 1 from its own symbol.
+            XCTAssertLessThanOrEqual(
+                instructionAddr - symbolAddr, 1,
+                """
+                Continuation frame \(frame.symbolName ?? "?") resolved \
+                \(instructionAddr - symbolAddr) bytes back — expected ≤1.
+                """)
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func captureAsyncBacktrace() throws -> Backtrace {
+        try launchAndCrash(
+            .user_swiftAsync,
+            installOverride: { (configuration: inout InstallConfig) in
+                configuration.isSwiftAsyncStackTracesEnabled = true
+            })
+
+        let rawReport = try readCrashReport()
+        try rawReport.validate()
+
+        let crashedThread = try XCTUnwrap(rawReport.crashedThread)
+        return try XCTUnwrap(crashedThread.backtrace)
+    }
+}

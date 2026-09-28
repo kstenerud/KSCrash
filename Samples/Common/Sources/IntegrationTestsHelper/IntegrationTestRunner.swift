@@ -26,6 +26,10 @@
 
 import Foundation
 
+#if canImport(UIKit) && !os(watchOS)
+    import UIKit
+#endif
+
 public final class IntegrationTestRunner {
 
     public struct RunConfig: Codable, Sendable {
@@ -61,6 +65,31 @@ public final class IntegrationTestRunner {
     public static var isTestRun: Bool {
         ProcessInfo.processInfo.environment[Self.envKey] != nil
     }
+
+    /// Call first thing at app launch. In a test run, sets up what the harness relies on.
+    public static func prepareIfNeeded() {
+        guard isTestRun else { return }
+        #if os(watchOS)
+            exitOnTermination()
+        #endif
+    }
+
+    #if os(watchOS)
+        /// Set once at launch, on the main thread, and kept for the life of the process.
+        nonisolated(unsafe) private static var terminationSource: DispatchSourceSignal?
+
+        /// The harness ends a running app with SIGTERM, which KSCrash records as a clean exit
+        /// through its signal monitor. watchOS has no signal monitor, so there the process just
+        /// dies and the next launch reports an unexplained termination. Exiting on SIGTERM
+        /// instead goes through KSCrash's exit hook, which records it as clean.
+        private static func exitOnTermination() {
+            signal(SIGTERM, SIG_IGN)
+            let source = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+            source.setEventHandler { exit(0) }
+            source.resume()
+            terminationSource = source
+        }
+    #endif
 
     /// Runs the script during app init, before the app becomes active.
     /// Only executes if `config.runEarly` is true.
@@ -98,7 +127,7 @@ public final class IntegrationTestRunner {
             try! KSCrashState.collect().save(to: statePath)
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + (script.config?.delay ?? 0)) {
+        let act: @Sendable () -> Void = {
             if let crashTrigger = script.crashTrigger {
                 crashTrigger.crash()
             }
@@ -116,7 +145,27 @@ public final class IntegrationTestRunner {
                 }
             }
         }
+
+        #if canImport(UIKit) && !os(watchOS)
+            if script.config?.runEarly == true {
+                // Act inside the launch pass itself, while the app is still Launching. An
+                // asyncAfter from app init can run after the app has begun foregrounding,
+                // which is a different case for anything that depends on launch state.
+                launchObserver = NotificationCenter.default.addObserver(
+                    forName: UIApplication.didFinishLaunchingNotification, object: nil, queue: nil
+                ) { _ in
+                    act()
+                }
+                return
+            }
+        #endif
+        DispatchQueue.main.asyncAfter(deadline: .now() + (script.config?.delay ?? 0), execute: act)
     }
+
+    #if canImport(UIKit) && !os(watchOS)
+        /// Kept so the observer outlives the call that registers it; set once at launch.
+        nonisolated(unsafe) private static var launchObserver: NSObjectProtocol?
+    #endif
 
 }
 
