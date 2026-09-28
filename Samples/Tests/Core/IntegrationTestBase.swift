@@ -35,7 +35,7 @@ import XCTest
 class IntegrationTestBase: XCTestCase {
 
     private(set) var log: Logger!
-    private(set) var app: XCUIApplication!
+    private(set) var app: TargetApp!
 
     private(set) var installUrl: URL!
     private(set) var deliveredReportsUrl: URL!
@@ -46,18 +46,19 @@ class IntegrationTestBase: XCTestCase {
     var appTerminateTimeout: TimeInterval = 5.0
     var appCrashTimeout: TimeInterval = 10.0
 
+    /// How long a report may take once the script's `actionDelay` has passed. Waits for a
+    /// report count from launch, so they add the delay: the launch returns long before the
+    /// script acts.
     var reportTimeout: TimeInterval = 5.0
 
     var expectSingleCrash: Bool = true
 
-    lazy var actionDelay: TimeInterval = Self.defaultActionDelay
-    private static var defaultActionDelay: TimeInterval {
-        #if os(iOS)
-            return 5.0
-        #else
-            return 2.0
-        #endif
-    }
+    lazy var actionDelay: TimeInterval = TargetPlatform.current == .iOS ? 5.0 : 2.0
+
+    /// The platforms this class's tests run on. The tests always run on the Mac, so a class
+    /// that only makes sense on some targets says so here instead of in `#if os(...)`, and the
+    /// rest are skipped with the reason visible in the results.
+    class var platforms: Set<TargetPlatform> { Set(TargetPlatform.allCases) }
 
     private var runConfig: IntegrationTestRunner.RunConfig {
         .init(
@@ -76,6 +77,10 @@ class IntegrationTestBase: XCTestCase {
 
     override func setUp() async throws {
         try await super.setUp()
+        guard TargetPlatform.configured != nil else { throw TargetAppError.noPlatform }
+        try XCTSkipUnless(
+            Self.platforms.contains(TargetPlatform.current),
+            "\(Self.self) runs on \(Self.platforms.map(\.rawValue).sorted()), not \(TargetPlatform.current)")
 
         continueAfterFailure = true
 
@@ -90,15 +95,16 @@ class IntegrationTestBase: XCTestCase {
         try FileManager.default.createDirectory(at: deliveredReportsUrl, withIntermediateDirectories: true)
         log.info("KSCrash install path: \(installUrl.path)")
 
-        app = XCUIApplication()
+        app = try TargetApp()
     }
 
     override func tearDown() async throws {
         try await super.tearDown()
 
-        app.terminate()
-        _ = app.wait(for: .notRunning, timeout: appTerminateTimeout)
+        app?.terminate()
 
+        // A test skipped in setUp never got an install directory.
+        guard let installUrl else { return }
         if let files = try? FileManager.default.subpathsOfDirectory(atPath: installUrl.path) {
             log.info("Remaining KSCrash files:")
             for file in files {
@@ -130,17 +136,21 @@ class IntegrationTestBase: XCTestCase {
     }
 
     func launchAppAndRunScript() {
+        // A launch returns before the app has run anything, and tests read the state file
+        // straight after it. The script writes that file right after installing KSCrash, so
+        // a fresh one is the sign the launch has got that far; the old one is removed first
+        // so it cannot be mistaken for it. A launch that dies before writing it just runs out
+        // the timeout.
+        try? FileManager.default.removeItem(at: stateUrl)
         app.launch()
-        _ = app.wait(for: .runningForeground, timeout: appLaunchTimeout)
+        let deadline = Date().addingTimeInterval(appLaunchTimeout)
+        while !FileManager.default.fileExists(atPath: stateUrl.path), Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.1)
+        }
     }
 
     func waitForCrash() {
-        #if os(macOS)
-            // This is a workaround. App actually crashes, but tests don't see it.
-            Thread.sleep(forTimeInterval: actionDelay + appCrashTimeout)
-        #else
-            XCTAssert(app.wait(for: .notRunning, timeout: actionDelay + appCrashTimeout), "App crash is expected")
-        #endif
+        XCTAssert(app.wait(for: .notRunning, timeout: actionDelay + appCrashTimeout), "App crash is expected")
         logFile(name: "Data/ConsoleLog.txt", path: installUrl.path.appending("/Data/ConsoleLog.txt"))
     }
 
@@ -204,7 +214,7 @@ class IntegrationTestBase: XCTestCase {
 
     func readRawCrashReportData() throws -> Data {
         let reportsDirUrl = try reportsDirectoryUrl()
-        let reportUrl = try waitForFile(in: reportsDirUrl, timeout: reportTimeout)
+        let reportUrl = try waitForFile(in: reportsDirUrl, timeout: actionDelay + reportTimeout)
         let reportData = try Data(contentsOf: reportUrl)
         return reportData
     }
@@ -239,7 +249,7 @@ class IntegrationTestBase: XCTestCase {
     }
 
     func readDeliveredReportData() throws -> Data {
-        let url = try waitForFile(in: deliveredReportsUrl, timeout: reportTimeout)
+        let url = try waitForFile(in: deliveredReportsUrl, timeout: actionDelay + reportTimeout)
         return try Data(contentsOf: url)
     }
 
@@ -294,13 +304,18 @@ class IntegrationTestBase: XCTestCase {
     ) throws {
         var installConfig = InstallConfig(namespace: "IntegrationTests", basePath: installUrl.path)
         try installOverride?(&installConfig)
+        try? FileManager.default.removeItem(at: actionCompletedUrl)
         app.launchEnvironment[IntegrationTestRunner.envKey] = try IntegrationTestRunner.script(
             userReport: .init(userException: userException, nsException: nsException),
             install: installConfig,
-            config: runConfig
+            config: runConfigWithCompletionMarker
         )
 
         launchAppAndRunScript()
+        // The app keeps running, so its report is still being written, then rewritten by
+        // finalization, when the file first appears. A user report writes and finalizes before
+        // returning, and the script marks completion after it returns.
+        try waitForFile(at: actionCompletedUrl, timeout: actionDelay + reportTimeout)
     }
 
     func launchAndSigkill(
