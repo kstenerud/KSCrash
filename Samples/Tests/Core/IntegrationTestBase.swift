@@ -110,13 +110,27 @@ class IntegrationTestBase: XCTestCase {
             for file in files {
                 log.info("\t\(file)")
             }
+            attach(files.sorted().joined(separator: "\n"), named: "Remaining KSCrash files")
+            // Every run's KSCrash console log, which says what the app did when a test fails.
+            for file in files.sorted() where file.hasSuffix("/Data/ConsoleLog.txt") {
+                logFile(name: file, path: installUrl.appendingPathComponent(file).path)
+            }
         }
 
         try? FileManager.default.removeItem(at: installUrl)
     }
 
+    /// Attachments are kept in the result bundle only when the test fails (their default
+    /// lifetime), which is what CI uploads; printed output is lost to xcodebuild's formatters.
+    func attach(_ text: String, named name: String) {
+        let attachment = XCTAttachment(string: text)
+        attachment.name = name
+        add(attachment)
+    }
+
     func logData(name: String, data: Data) {
         let str = String(data: data, encoding: .utf8) ?? "<no \(name)>"
+        attach(str, named: name)
         log.info(
             "\n\nvvvvvvvvvvvvvvvvvvvv \(name) vvvvvvvvvvvvvvvvvvvv\n\(str)\n^^^^^^^^^^^^^^^^^^^^ \(name) ^^^^^^^^^^^^^^^^^^^^"
         )
@@ -126,6 +140,7 @@ class IntegrationTestBase: XCTestCase {
         if FileManager.default.fileExists(atPath: path) {
             do {
                 let str = try String(contentsOfFile: path, encoding: .utf8)
+                attach(str, named: name)
                 log.info(
                     "\n\nvvvvvvvvvvvvvvvvvvvv \(name) vvvvvvvvvvvvvvvvvvvv\n\(str)\n^^^^^^^^^^^^^^^^^^^^ \(name) ^^^^^^^^^^^^^^^^^^^^"
                 )
