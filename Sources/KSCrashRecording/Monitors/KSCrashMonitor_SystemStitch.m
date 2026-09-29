@@ -66,7 +66,7 @@ CFDictionaryRef kscm_system_createStitchedReport(CFDictionaryRef reportDict, con
 
     // Read the binary struct from disk
     KSCrash_SystemData sc = {};
-    KSCrashSidecarReadResult readResult = kscm_system_readSystemData(sidecarPath, &sc);
+    KSCrashSidecarReadResult readResult = kssidecar_readSystem(sidecarPath, &sc);
     if (readResult == KSCrashSidecarReadFailure) {
         KSLOG_ERROR(@"Failed to read system sidecar at %s", sidecarPath);
         return NULL;
@@ -103,7 +103,7 @@ CFDictionaryRef kscm_system_createStitchedReport(CFDictionaryRef reportDict, con
     // Only emit for sidecars that actually recorded it (version >= 2). For an
     // older sidecar the field is zero-filled, and emitting `false` would read as
     // "definitely not debugged" rather than "unknown".
-    if (sc.version >= 2) {
+    if (sc.header.version >= 2) {
         systemDict[KSCrashField_IsBeingDebugged] = sc.isBeingDebugged ? @YES : @NO;
     }
     setTimestamp(systemDict, KSCrashField_AppStartTime, sc.appStartTimestamp);
