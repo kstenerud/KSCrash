@@ -496,6 +496,7 @@ let package = Package(
             name: Targets.monitorPlugins.tests,
             dependencies: [
                 .target(name: Targets.monitorPlugins),
+                .target(name: Targets.recordingCore),
                 .target(name: Targets.report),
             ]
         ),
