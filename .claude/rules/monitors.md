@@ -2,6 +2,7 @@
 paths:
   - "Sources/KSCrashRecording/Monitors/**"
   - "Sources/KSCrashRecordingCore/**/KSCrashMonitor*.{c,h}"
+  - "Sources/KSCrashRecordingCore/**/KS*Sidecar*"
   - "Sources/KSCrashBootMonitor/**"
   - "Sources/KSCrashDiskMonitor/**"
   - "Sources/KSCrashMonitorPlugins/**"
@@ -36,7 +37,7 @@ See `.claude/rules/swift-monitors.md` for the Swift monitor layer.
 | Termination | `"Termination"` | OS-level terminations that cannot be caught at runtime (OOM, thermal kill, CPU watchdog, reboot, upgrades) | — | — | Yes |
 | Lifecycle | `"Lifecycle"` | App state transitions, cleanExit flag | — | Run (`KSCrash_LifecycleData`) | Yes |
 | Zombie | `"Zombie"` | Messages sent to deallocated ObjC objects | — | — | No |
-| Watchdog | `"Watchdog"` | Main thread hangs (250ms threshold); also fatal when the OS kills the app during a hang | — | Run (`KSHangSidecar`) | No |
+| Watchdog | `"Watchdog"` | Main thread hangs (250ms threshold); also fatal when the OS kills the app during a hang | — | Run (`KSCrash_HangData`) | No |
 | UserInfo | `"UserInfo"` | User-supplied key-value info (survives crashes) | — | Run (`KSKeyValueStore`) | No |
 | Resource | `"Resource"` | Memory level/pressure/headroom, CPU, thermal, battery snapshots; optionally emits non-fatal EXC_RESOURCE reports on CPU warning/critical transitions (`enableCPUExceptionReporting`) | — | Run (`KSCrash_ResourceData`) | No |
 
@@ -103,7 +104,9 @@ Monitors that write sidecar data each have a corresponding `*Stitch.m` file that
 | Resource | Run | `KSCrash_ResourceData` (mmap'd struct) | `KSCrashMonitor_ResourceStitch.m` |
 | System | Run | `KSCrash_SystemData` (mmap'd struct) | `KSCrashMonitor_SystemStitch.m` |
 | UserInfo | Run | `KSKeyValueStore` (key-value file) | `KSCrashMonitor_UserInfoStitch.m` |
-| Watchdog | Run | `KSHangSidecar` (mmap'd struct, 24 bytes) | `KSCrashMonitor_WatchdogStitch.m` |
+| Watchdog | Run | `KSCrash_HangData` (mmap'd struct, 40 bytes) | `KSCrashMonitor_WatchdogStitch.m` |
+
+The four mmap'd structs share one format and one reader, in `KSCrashRecordingCore`: `KSSidecarFormat.h` holds the packed `KSSidecarHeader` (magic, version) every struct begins with, `kssidecar_read`, and the layout asserts, and each struct has its own `KS<Name>Sidecar.{h,c}` with its magic, a size per version, and a typed `kssidecar_read<Name>`. A file's size decides which version it holds, and the declared version has to match. A missing, short, or mismatched file is `Unrecoverable`; only an I/O failure is `Failure`. `KSSidecarFormat.h` lists the steps for adding a sidecar or a version.
 
 ### Monitor Lifecycle Callbacks
 

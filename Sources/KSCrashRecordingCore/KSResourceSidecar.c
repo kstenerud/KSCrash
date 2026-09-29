@@ -1,7 +1,7 @@
 //
-//  KSCrashMonitor_WatchdogSidecar.h
+//  KSResourceSidecar.c
 //
-//  Created by Alexander Cohen on 2026-02-01.
+//  Created by Alexander Cohen on 2026-09-28.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,32 +24,13 @@
 // THE SOFTWARE.
 //
 
-#ifndef KSCrashMonitor_WatchdogSidecar_h
-#define KSCrashMonitor_WatchdogSidecar_h
+#include "KSResourceSidecar.h"
 
-#include <stdbool.h>
-#include <stdint.h>
-
-#include "KSCrashMonitorAPI.h"
-#include "KSHangSidecar.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-/** Stitch watchdog sidecar data into a crash report.
- *
- * Called at report delivery time (next app launch) to merge the
- * sidecar data into the report dictionary. Runs at normal startup,
- * not during crash handling.
- *
- * See KSCrashMonitorAPI.h createStitchedReport for the full contract.
- */
-CFDictionaryRef kscm_watchdog_createStitchedReport(CFDictionaryRef reportDict, const char *sidecarPath,
-                                                   KSCrashSidecarScope scope, void *context);
-
-#ifdef __cplusplus
+KSCrashSidecarReadResult kssidecar_readResource(const char *path, KSCrash_ResourceData *out)
+{
+    static const size_t sizes[] = { KSCrash_Resource_V1Size, KSCrash_Resource_V2Size };
+    _Static_assert(sizeof(sizes) / sizeof(sizes[0]) == KSCrash_Resource_CurrentVersion,
+                   "one size per resource version");
+    static const KSSidecarFormat format = { KSRESOURCE_MAGIC, sizes, KSCrash_Resource_CurrentVersion };
+    return kssidecar_read(&format, path, out, sizeof(*out));
 }
-#endif
-
-#endif /* KSCrashMonitor_WatchdogSidecar_h */
