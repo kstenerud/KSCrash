@@ -60,8 +60,8 @@ static NSString *writeResourceSidecar(NSString *dir, KSCrash_ResourceData data)
 static KSCrash_ResourceData makeValidResourceData(void)
 {
     KSCrash_ResourceData data = {};
-    data.magic = KSRESOURCE_MAGIC;
-    data.version = KSCrash_Resource_CurrentVersion;
+    data.header.magic = KSRESOURCE_MAGIC;
+    data.header.version = KSCrash_Resource_CurrentVersion;
     data.memoryPressure = 0;  // normal
     data.memoryLevel = 1;     // warn
     data.memoryHeadroom = 2;  // urgent
@@ -137,7 +137,7 @@ static KSCrash_ResourceData makeValidResourceData(void)
 - (void)testBadMagicDeliversTheReportUnchanged
 {
     KSCrash_ResourceData data = makeValidResourceData();
-    data.magic = 0x12345678;
+    data.header.magic = 0x12345678;
     NSString *path = writeResourceSidecar(self.tempDir, data);
     NSDictionary *report = @{ @"report" : @ {} };
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_resource_createStitchedReport(
@@ -148,7 +148,7 @@ static KSCrash_ResourceData makeValidResourceData(void)
 - (void)testVersionZeroDeliversTheReportUnchanged
 {
     KSCrash_ResourceData data = makeValidResourceData();
-    data.version = 0;
+    data.header.version = 0;
     NSString *path = writeResourceSidecar(self.tempDir, data);
     NSDictionary *report = @{ @"report" : @ {} };
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_resource_createStitchedReport(
@@ -159,7 +159,7 @@ static KSCrash_ResourceData makeValidResourceData(void)
 - (void)testFutureVersionDeliversTheReportUnchanged
 {
     KSCrash_ResourceData data = makeValidResourceData();
-    data.version = KSCrash_Resource_CurrentVersion + 1;
+    data.header.version = KSCrash_Resource_CurrentVersion + 1;
     NSString *path = writeResourceSidecar(self.tempDir, data);
     NSDictionary *report = @{ @"report" : @ {} };
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_resource_createStitchedReport(
@@ -196,7 +196,7 @@ static KSCrash_ResourceData makeValidResourceData(void)
 - (void)testVersion1SidecarLoadsWithoutSystemFields
 {
     KSCrash_ResourceData data = makeValidResourceData();
-    data.version = 1;
+    data.header.version = 1;
     NSString *path = writeResourceSidecarBytes(self.tempDir, &data, KSCrash_Resource_V1Size);
     NSDictionary *report = @{};
 
@@ -229,7 +229,7 @@ static KSCrash_ResourceData makeValidResourceData(void)
     // changes on a later read, so the report is delivered without the section
     // rather than asking to be retried forever.
     KSCrash_ResourceData data = makeValidResourceData();
-    data.version = 1;
+    data.header.version = 1;
     NSString *path = writeResourceSidecarBytes(self.tempDir, &data, KSCrash_Resource_V2Size);
     NSDictionary *report = @{ @"report" : @ {} };
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_resource_createStitchedReport(

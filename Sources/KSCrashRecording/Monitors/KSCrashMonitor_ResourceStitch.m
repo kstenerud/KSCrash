@@ -50,7 +50,7 @@ CFDictionaryRef kscm_resource_createStitchedReport(CFDictionaryRef reportDict, c
     }
 
     KSCrash_ResourceData data = {};
-    KSCrashSidecarReadResult readResult = ksresource_readSnapshotFromPath(sidecarPath, &data);
+    KSCrashSidecarReadResult readResult = kssidecar_readResource(sidecarPath, &data);
     if (readResult == KSCrashSidecarReadFailure) {
         KSLOG_ERROR(@"Failed to read resource sidecar at %s", sidecarPath);
         return NULL;

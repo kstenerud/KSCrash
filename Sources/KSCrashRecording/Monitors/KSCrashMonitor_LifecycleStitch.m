@@ -32,8 +32,6 @@
 
 #import <Foundation/Foundation.h>
 
-#import "KSLogger.h"
-
 CFDictionaryRef kscm_lifecycle_createStitchedReport(CFDictionaryRef reportDict, const char *sidecarPath,
                                                     KSCrashSidecarScope scope, __unused void *context)
 {
@@ -49,15 +47,17 @@ CFDictionaryRef kscm_lifecycle_createStitchedReport(CFDictionaryRef reportDict, 
         return NULL;
     }
 
-    // The sidecar is not session_id's data source (that is the run's
-    // .sessions file), so an unreadable or corrupt sidecar must not cost the
-    // report its session_id; only application_stats is skipped, and its data
-    // is equally unrecoverable on any later read.
+    // A read the environment failed is worth retrying: NULL is the retry signal,
+    // which finalization honors by leaving the report, session_id included,
+    // for a later read. A sidecar that is gone or corrupt
+    // never reads better, and it is not session_id's data source (that is the
+    // run's .sessions file), so only application_stats is skipped.
     KSCrash_LifecycleData lc = {};
-    bool haveLifecycleData = kslifecycle_readData(sidecarPath, &lc);
-    if (!haveLifecycleData) {
-        KSLOG_ERROR(@"Failed to read lifecycle sidecar at %s", sidecarPath);
+    KSCrashSidecarReadResult readResult = kssidecar_readLifecycle(sidecarPath, &lc);
+    if (readResult == KSCrashSidecarReadFailure) {
+        return NULL;
     }
+    bool haveLifecycleData = readResult == KSCrashSidecarReadOK;
 
     NSMutableDictionary *dict = [(__bridge NSDictionary *)reportDict mutableCopy];
 
