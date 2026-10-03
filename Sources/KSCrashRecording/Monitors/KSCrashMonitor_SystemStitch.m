@@ -27,11 +27,10 @@
 #import "KSCrashMonitor_System.h"
 
 #import "KSCrashReportFields.h"
+#import "KSCrashStitch.h"
 #import "KSDate.h"
 
 #import <Foundation/Foundation.h>
-
-#import "KSLogger.h"
 
 static void setStringIfNonEmpty(NSMutableDictionary *dict, NSString *key, const char *value)
 {
@@ -52,115 +51,68 @@ static void setTimestamp(NSMutableDictionary *dict, NSString *key, int64_t times
 CFDictionaryRef kscm_system_createStitchedReport(CFDictionaryRef reportDict, const char *sidecarPath,
                                                  KSCrashSidecarScope scope, __unused void *context)
 {
-    if (reportDict == NULL) {
-        return NULL;
-    }
-    if (scope != KSCrashSidecarScopeRun) {
-        // Not this monitor's scope (e.g. the final pass, which has no sidecar file).
-        CFRetain(reportDict);
-        return reportDict;
-    }
-    if (sidecarPath == NULL) {
-        return NULL;
-    }
+    __block KSCrash_SystemData sc = {};
+    NSDictionary *stitched = ksstitch_stitchedReport(
+        (__bridge NSDictionary *)reportDict, sidecarPath, scope, KSCrashSidecarScopeRun,
+        ^(const char *path) {
+            return kssidecar_readSystem(path, &sc);
+        },
+        ^(NSMutableDictionary *report) {
+            NSMutableDictionary *system = ksstitch_object(report, KSCrashField_System);
+            setStringIfNonEmpty(system, KSCrashField_SystemName, sc.systemName);
+            setStringIfNonEmpty(system, KSCrashField_SystemVersion, sc.systemVersion);
+            setStringIfNonEmpty(system, KSCrashField_Machine, sc.machine);
+            setStringIfNonEmpty(system, KSCrashField_Model, sc.model);
+            setStringIfNonEmpty(system, KSCrashField_KernelVersion, sc.kernelVersion);
+            setStringIfNonEmpty(system, KSCrashField_OSVersion, sc.osVersion);
+            system[KSCrashField_Jailbroken] = sc.isJailbroken ? @YES : @NO;
+            system[KSCrashField_ProcTranslated] = sc.procTranslated ? @YES : @NO;
+            // Only emit for sidecars that actually recorded it (version >= 2). For an
+            // older sidecar the field is zero-filled, and emitting `false` would read as
+            // "definitely not debugged" rather than "unknown".
+            if (sc.header.version >= 2) {
+                system[KSCrashField_IsBeingDebugged] = sc.isBeingDebugged ? @YES : @NO;
+            }
+            setTimestamp(system, KSCrashField_AppStartTime, sc.appStartTimestamp);
+            system[KSCrashField_ProcessStartWallClockNs] = @(sc.processStartWallClockNs);
+            system[KSCrashField_ProcessStartMonotonicNs] = @(sc.processStartMonotonicNs);
+            setStringIfNonEmpty(system, KSCrashField_ExecutablePath, sc.executablePath);
+            setStringIfNonEmpty(system, KSCrashField_Executable, sc.executableName);
+            setStringIfNonEmpty(system, KSCrashField_BundleID, sc.bundleID);
+            setStringIfNonEmpty(system, KSCrashField_BundleName, sc.bundleName);
+            setStringIfNonEmpty(system, KSCrashField_BundleVersion, sc.bundleVersion);
+            setStringIfNonEmpty(system, KSCrashField_BundleShortVersion, sc.bundleShortVersion);
+            setStringIfNonEmpty(system, KSCrashField_AppUUID, sc.appID);
+            setStringIfNonEmpty(system, KSCrashField_CPUArch, sc.cpuArchitecture);
+            setStringIfNonEmpty(system, KSCrashField_BinaryArch, sc.binaryArchitecture);
+            setStringIfNonEmpty(system, KSCrashField_ClangVersion, sc.clangVersion);
+            system[KSCrashField_CPUType] = @(sc.cpuType);
+            system[KSCrashField_CPUSubType] = @(sc.cpuSubType);
+            system[KSCrashField_BinaryCPUType] = @(sc.binaryCPUType);
+            system[KSCrashField_BinaryCPUSubType] = @(sc.binaryCPUSubType);
+            setStringIfNonEmpty(system, KSCrashField_TimeZone, sc.timezone);
+            setStringIfNonEmpty(system, KSCrashField_ProcessName, sc.processName);
+            system[KSCrashField_ProcessID] = @(sc.processID);
+            system[KSCrashField_ParentProcessID] = @(sc.parentProcessID);
+            setStringIfNonEmpty(system, KSCrashField_DeviceAppHash, sc.deviceAppHash);
+            setStringIfNonEmpty(system, KSCrashField_BuildType, sc.buildType);
+            setTimestamp(system, KSCrashField_BootTime, sc.bootTimestamp);
+            if (sc.storageSize > 0) {
+                system[KSCrashField_Storage] = @(sc.storageSize);
+            }
+            if (sc.freeStorageSize > 0) {
+                system[KSCrashField_FreeStorage] = @(sc.freeStorageSize);
+            }
 
-    // Read the binary struct from disk
-    KSCrash_SystemData sc = {};
-    KSCrashSidecarReadResult readResult = kssidecar_readSystem(sidecarPath, &sc);
-    if (readResult == KSCrashSidecarReadFailure) {
-        KSLOG_ERROR(@"Failed to read system sidecar at %s", sidecarPath);
-        return NULL;
-    }
-    if (readResult != KSCrashSidecarReadOK) {
-        // NULL is the retry signal, and retrying this never gets further: it
-        // would stop the report being finalized for good. Deliver it without
-        // the system section.
-        KSLOG_ERROR(@"Unreadable system sidecar at %s; delivering without it", sidecarPath);
-        CFRetain(reportDict);
-        return reportDict;
-    }
+            NSMutableDictionary *memory = ksstitch_object(system, KSCrashField_Memory);
+            memory[KSCrashField_Size] = @(sc.memorySize);
+            memory[KSCrashField_Free] = @(sc.freeMemory);
+            memory[KSCrashField_Usable] = @(sc.usableMemory);
 
-    NSMutableDictionary *dict = [(__bridge NSDictionary *)reportDict mutableCopy];
-
-    // Navigate to or create report.system
-    NSMutableDictionary *systemDict;
-    id systemVal = dict[KSCrashField_System];
-    if ([systemVal isKindOfClass:[NSDictionary class]]) {
-        systemDict = [systemVal mutableCopy];
-    } else {
-        systemDict = [NSMutableDictionary dictionary];
-    }
-
-    // Populate system fields from the struct
-    setStringIfNonEmpty(systemDict, KSCrashField_SystemName, sc.systemName);
-    setStringIfNonEmpty(systemDict, KSCrashField_SystemVersion, sc.systemVersion);
-    setStringIfNonEmpty(systemDict, KSCrashField_Machine, sc.machine);
-    setStringIfNonEmpty(systemDict, KSCrashField_Model, sc.model);
-    setStringIfNonEmpty(systemDict, KSCrashField_KernelVersion, sc.kernelVersion);
-    setStringIfNonEmpty(systemDict, KSCrashField_OSVersion, sc.osVersion);
-    systemDict[KSCrashField_Jailbroken] = sc.isJailbroken ? @YES : @NO;
-    systemDict[KSCrashField_ProcTranslated] = sc.procTranslated ? @YES : @NO;
-    // Only emit for sidecars that actually recorded it (version >= 2). For an
-    // older sidecar the field is zero-filled, and emitting `false` would read as
-    // "definitely not debugged" rather than "unknown".
-    if (sc.header.version >= 2) {
-        systemDict[KSCrashField_IsBeingDebugged] = sc.isBeingDebugged ? @YES : @NO;
-    }
-    setTimestamp(systemDict, KSCrashField_AppStartTime, sc.appStartTimestamp);
-    systemDict[KSCrashField_ProcessStartWallClockNs] = @(sc.processStartWallClockNs);
-    systemDict[KSCrashField_ProcessStartMonotonicNs] = @(sc.processStartMonotonicNs);
-    setStringIfNonEmpty(systemDict, KSCrashField_ExecutablePath, sc.executablePath);
-    setStringIfNonEmpty(systemDict, KSCrashField_Executable, sc.executableName);
-    setStringIfNonEmpty(systemDict, KSCrashField_BundleID, sc.bundleID);
-    setStringIfNonEmpty(systemDict, KSCrashField_BundleName, sc.bundleName);
-    setStringIfNonEmpty(systemDict, KSCrashField_BundleVersion, sc.bundleVersion);
-    setStringIfNonEmpty(systemDict, KSCrashField_BundleShortVersion, sc.bundleShortVersion);
-    setStringIfNonEmpty(systemDict, KSCrashField_AppUUID, sc.appID);
-    setStringIfNonEmpty(systemDict, KSCrashField_CPUArch, sc.cpuArchitecture);
-    setStringIfNonEmpty(systemDict, KSCrashField_BinaryArch, sc.binaryArchitecture);
-    setStringIfNonEmpty(systemDict, KSCrashField_ClangVersion, sc.clangVersion);
-    systemDict[KSCrashField_CPUType] = @(sc.cpuType);
-    systemDict[KSCrashField_CPUSubType] = @(sc.cpuSubType);
-    systemDict[KSCrashField_BinaryCPUType] = @(sc.binaryCPUType);
-    systemDict[KSCrashField_BinaryCPUSubType] = @(sc.binaryCPUSubType);
-    setStringIfNonEmpty(systemDict, KSCrashField_TimeZone, sc.timezone);
-    setStringIfNonEmpty(systemDict, KSCrashField_ProcessName, sc.processName);
-    systemDict[KSCrashField_ProcessID] = @(sc.processID);
-    systemDict[KSCrashField_ParentProcessID] = @(sc.parentProcessID);
-    setStringIfNonEmpty(systemDict, KSCrashField_DeviceAppHash, sc.deviceAppHash);
-    setStringIfNonEmpty(systemDict, KSCrashField_BuildType, sc.buildType);
-
-    setTimestamp(systemDict, KSCrashField_BootTime, sc.bootTimestamp);
-
-    if (sc.storageSize > 0) {
-        systemDict[KSCrashField_Storage] = @(sc.storageSize);
-    }
-    if (sc.freeStorageSize > 0) {
-        systemDict[KSCrashField_FreeStorage] = @(sc.freeStorageSize);
-    }
-
-    // Memory sub-object
-    NSMutableDictionary *memoryDict;
-    id memVal = systemDict[KSCrashField_Memory];
-    if ([memVal isKindOfClass:[NSDictionary class]]) {
-        memoryDict = [memVal mutableCopy];
-    } else {
-        memoryDict = [NSMutableDictionary dictionary];
-    }
-    memoryDict[KSCrashField_Size] = @(sc.memorySize);
-    memoryDict[KSCrashField_Free] = @(sc.freeMemory);
-    memoryDict[KSCrashField_Usable] = @(sc.usableMemory);
-    systemDict[KSCrashField_Memory] = memoryDict;
-
-    // Also stitch processName into report.report.process_name if present
-    id reportInfoVal = dict[KSCrashField_Report];
-    if ([reportInfoVal isKindOfClass:[NSDictionary class]] && sc.processName[0] != '\0') {
-        NSMutableDictionary *reportInfo = [reportInfoVal mutableCopy];
-        reportInfo[KSCrashField_ProcessName] = @(sc.processName);
-        dict[KSCrashField_Report] = reportInfo;
-    }
-
-    dict[KSCrashField_System] = systemDict;
-
-    return (__bridge_retained CFDictionaryRef)dict;
+            // The process name also goes into an existing report section.
+            if ([report[KSCrashField_Report] isKindOfClass:[NSDictionary class]] && sc.processName[0] != '\0') {
+                ksstitch_object(report, KSCrashField_Report)[KSCrashField_ProcessName] = @(sc.processName);
+            }
+        });
+    return (__bridge_retained CFDictionaryRef)stitched;
 }
