@@ -433,7 +433,10 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 
 #pragma mark - Malformed Reports
 
-- (void)testMissingCrashKeyReturnsNull
+// A report with no crash.error has nowhere to take the hang, and no later read
+// adds one, so it delivers as it is rather than asking to be stitched again.
+
+- (void)testMissingCrashKeyDeliversTheReportUnchanged
 {
     KSCrash_HangData sc = {
         .header = { .magic = KSHANG_MAGIC, .version = KSCrash_Hang_CurrentVersion },
@@ -447,10 +450,10 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
         (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result == nil);
+    XCTAssertEqualObjects(result, report);
 }
 
-- (void)testCrashIsNSNullReturnsNull
+- (void)testCrashIsNSNullDeliversTheReportUnchanged
 {
     KSCrash_HangData sc = {
         .header = { .magic = KSHANG_MAGIC, .version = KSCrash_Hang_CurrentVersion },
@@ -464,10 +467,10 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
         (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result == nil);
+    XCTAssertEqualObjects(result, report);
 }
 
-- (void)testErrorIsNSNullReturnsNull
+- (void)testErrorIsNSNullDeliversTheReportUnchanged
 {
     KSCrash_HangData sc = {
         .header = { .magic = KSHANG_MAGIC, .version = KSCrash_Hang_CurrentVersion },
@@ -481,7 +484,7 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
         (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result == nil);
+    XCTAssertEqualObjects(result, report);
 }
 
 - (void)testHangIsNSNullCreatesHangFromSidecar
@@ -577,6 +580,17 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 }
 
 #pragma mark - Sidecar Scope
+
+- (void)testTheFinalPassLeavesTheReportAlone
+{
+    NSDictionary *report = makeMinimalHangReport(1000, TASK_FOREGROUND_APPLICATION);
+    CFDictionaryRef result =
+        kscm_watchdog_createStitchedReport((__bridge CFDictionaryRef)report, NULL, KSCrashSidecarScopeFinal, NULL);
+    XCTAssertTrue(result == (__bridge CFDictionaryRef)report);
+    if (result != NULL) {
+        CFRelease(result);
+    }
+}
 
 - (void)testReportScopeIsNoOp
 {
