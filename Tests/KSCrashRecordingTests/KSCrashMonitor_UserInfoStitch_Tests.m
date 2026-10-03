@@ -33,6 +33,8 @@
 #import "KSKeyValueStore.h"
 
 #include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #pragma mark - Helpers
 
@@ -666,8 +668,83 @@ static NSString *writeRawSidecar(NSString *dir, NSData *data)
     NSDictionary *report = makeMinimalReport();
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_userinfo_createStitchedReport(
         (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    // No records -> returns unchanged copy (NULL means failure)
-    XCTAssertTrue(result != nil);
+    // No records: an equal copy, not nil (the retry signal).
+    XCTAssertEqualObjects(result, report);
+}
+
+#pragma mark - The user section
+
+- (void)testASidecarThatAddsNothingAddsNoUserSection
+{
+    NSString *path = buildSidecarFile(self.tempDir, ^(KSKeyValueStore *store) {
+        kskvs_setString(store, "gone", "soon");
+        kskvs_removeValue(store, "gone");
+    });
+
+    NSDictionary *report = makeMinimalReport();
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_userinfo_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertEqualObjects(result, report);
+    XCTAssertNil(result[KSCrashField_User]);
+}
+
+- (void)testAUserValueThatIsNotAnObjectStaysWhenTheSidecarAddsNothing
+{
+    NSString *path = buildSidecarFile(self.tempDir, nil);
+
+    NSMutableDictionary *report = [makeMinimalReport() mutableCopy];
+    report[KSCrashField_User] = @"not an object";
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_userinfo_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertEqualObjects(result[KSCrashField_User], @"not an object");
+}
+
+- (void)testAUserValueThatIsNotAnObjectIsReplacedWhenTheSidecarAddsKeys
+{
+    NSString *path = buildSidecarFile(self.tempDir, ^(KSKeyValueStore *store) {
+        kskvs_setString(store, "user_id", "abc123");
+    });
+
+    NSMutableDictionary *report = [makeMinimalReport() mutableCopy];
+    report[KSCrashField_User] = @"not an object";
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_userinfo_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertEqualObjects(result[KSCrashField_User], @{ @"user_id" : @"abc123" });
+}
+
+#pragma mark - Scope and retry
+
+- (void)testTheFinalPassLeavesTheReportAlone
+{
+    NSDictionary *report = makeMinimalReport();
+    CFDictionaryRef result =
+        kscm_userinfo_createStitchedReport((__bridge CFDictionaryRef)report, NULL, KSCrashSidecarScopeFinal, NULL);
+    XCTAssertTrue(result == (__bridge CFDictionaryRef)report);
+    if (result != NULL) {
+        CFRelease(result);
+    }
+}
+
+// A sidecar that cannot be opened for a reason other than its absence may open
+// later, so the stitch asks to be retried rather than delivering without it.
+- (void)testAnUnreadableSidecarAsksForARetry
+{
+    if (geteuid() == 0) {
+        XCTSkip(@"Root reads a file with no permissions, so there is no failure to observe");
+    }
+    NSString *path = buildSidecarFile(self.tempDir, ^(KSKeyValueStore *store) {
+        kskvs_setString(store, "user_id", "abc123");
+    });
+    XCTAssertEqual(chmod(path.fileSystemRepresentation, 0), 0);
+
+    NSDictionary *report = makeMinimalReport();
+    CFDictionaryRef result = kscm_userinfo_createStitchedReport((__bridge CFDictionaryRef)report, path.UTF8String,
+                                                                KSCrashSidecarScopeRun, NULL);
+    chmod(path.fileSystemRepresentation, 0644);
+    XCTAssertTrue(result == NULL);
+    if (result != NULL) {
+        CFRelease(result);
+    }
 }
 
 #pragma mark - Dates

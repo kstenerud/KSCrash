@@ -29,6 +29,7 @@
 #import "KSKeyValueStore.h"
 
 #import "KSCrashReportFields.h"
+#import "KSCrashStitch.h"
 
 #import <Foundation/Foundation.h>
 #include <string.h>
@@ -271,75 +272,45 @@ static void onUnknown(const char *key, uint16_t keyLen, __unused uint8_t type, v
 CFDictionaryRef kscm_userinfo_createStitchedReport(CFDictionaryRef reportDict, const char *sidecarPath,
                                                    KSCrashSidecarScope scope, __unused void *context)
 {
-    if (reportDict == NULL) {
-        return NULL;
-    }
-    if (scope != KSCrashSidecarScopeRun) {
-        // Not this monitor's scope (e.g. the final pass, which has no sidecar file).
-        CFRetain(reportDict);
-        return reportDict;
-    }
-    if (sidecarPath == NULL) {
-        return NULL;
-    }
-
-    // Read sidecar via KSKeyValueStore (validates magic, version).
-    KSKVSOpenStatus status = KSKVSOpenSuccess;
-    KSKeyValueStore *store = kskvs_create(sidecarPath, KSKVSModeRead, NULL, &status);
-    if (store == NULL) {
-        // NULL is the retry signal, and a file no later read could recover is
-        // not worth retrying: returning it for a corrupt sidecar (or one that
-        // went away between the directory scan and this open) stops
-        // finalization for good, stranding every report of the run while the
-        // same run's summary delivers. Only an environmental failure waits.
-        // Delivering without the metadata is what the run summary does with
-        // the same file.
-        if (status == KSKVSOpenFailure) {
-            return NULL;
-        }
-        CFRetain(reportDict);
-        return reportDict;
-    }
-
-    NSMutableDictionary *dict = [(__bridge NSDictionary *)reportDict mutableCopy];
-
-    // Start from the existing user section (if any).
-    NSMutableDictionary *userSection;
-    id existing = dict[KSCrashField_User];
-    if ([existing isKindOfClass:[NSDictionary class]]) {
-        userSection = [existing mutableCopy];
-    } else {
-        userSection = [NSMutableDictionary dictionary];
-    }
-    // Iterate sidecar directly into userSection: live values overwrite, tombstones remove.
-    KSKVSCallbacks callbacks = {
-        .onString = onString,
-        .onInt64 = onInt64,
-        .onUInt64 = onUInt64,
-        .onDouble = onDouble,
-        .onBool = onBool,
-        .onDate = onDate,
-        .onJSON = onJSON,
-        .onRemoved = onRemoved,
-        .onUnknown = onUnknown,
-    };
-    kskvs_iterate(store, &callbacks, (__bridge void *)userSection);
-    kskvs_destroy(store);
-
-    // If nothing changed, CFRetain and return the input (CF Create Rule).
-    // NULL is reserved for errors per the createStitchedReport contract.
-    bool noChange;
-    if ([existing isKindOfClass:[NSDictionary class]]) {
-        noChange = [userSection isEqualToDictionary:existing];
-    } else {
-        noChange = ([userSection count] == 0);
-    }
-    if (noChange) {
-        CFRetain(reportDict);
-        return reportDict;
-    }
-
-    dict[KSCrashField_User] = userSection;
-
-    return (__bridge_retained CFDictionaryRef)dict;
+    __block KSKeyValueStore *store = NULL;
+    NSDictionary *stitched = ksstitch_stitchedReport(
+        (__bridge NSDictionary *)reportDict, sidecarPath, scope, KSCrashSidecarScopeRun,
+        ^(const char *path) {
+            // Validates magic and version. Only an environmental failure is worth
+            // a retry; a corrupt sidecar, or one that went away between the
+            // directory scan and this open, delivers without the metadata, which
+            // is what the run summary does with the same file.
+            KSKVSOpenStatus status = KSKVSOpenSuccess;
+            store = kskvs_create(path, KSKVSModeRead, NULL, &status);
+            if (store != NULL) {
+                return KSCrashSidecarReadOK;
+            }
+            return status == KSKVSOpenFailure ? KSCrashSidecarReadFailure : KSCrashSidecarReadUnrecoverable;
+        },
+        ^(NSMutableDictionary *report) {
+            // Starts from the user section the crash-time writer left, if any: live
+            // values overwrite, removals remove.
+            id existing = report[KSCrashField_User];
+            NSMutableDictionary *user = [existing isKindOfClass:[NSDictionary class]]
+                                            ? [existing mutableCopy]
+                                            : [NSMutableDictionary dictionary];
+            KSKVSCallbacks callbacks = {
+                .onString = onString,
+                .onInt64 = onInt64,
+                .onUInt64 = onUInt64,
+                .onDouble = onDouble,
+                .onBool = onBool,
+                .onDate = onDate,
+                .onJSON = onJSON,
+                .onRemoved = onRemoved,
+                .onUnknown = onUnknown,
+            };
+            kskvs_iterate(store, &callbacks, (__bridge void *)user);
+            kskvs_destroy(store);
+            // A report with no user section gets one only when the sidecar put something in it.
+            if ([existing isKindOfClass:[NSDictionary class]] || user.count > 0) {
+                report[KSCrashField_User] = user;
+            }
+        });
+    return (__bridge_retained CFDictionaryRef)stitched;
 }
