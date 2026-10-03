@@ -434,6 +434,8 @@
 #define kssr_lastError KSCRASH_NS(kssr_lastError)
 #define kssr_open KSCRASH_NS(kssr_open)
 #define kssr_sessionAt KSCRASH_NS(kssr_sessionAt)
+#define ksstitch_object KSCRASH_NS(ksstitch_object)
+#define ksstitch_stitchedReport KSCRASH_NS(ksstitch_stitchedReport)
 #define ksstring_doubleToString KSCRASH_NS(ksstring_doubleToString)
 #define ksstring_extractHexValue KSCRASH_NS(ksstring_extractHexValue)
 #define ksstring_floatToString KSCRASH_NS(ksstring_floatToString)

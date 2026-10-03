@@ -29,6 +29,7 @@
 
 #import "KSCrashAppTransitionState.h"
 #import "KSCrashReportFields.h"
+#import "KSCrashStitch.h"
 
 #import <Foundation/Foundation.h>
 
@@ -62,16 +63,6 @@ CFDictionaryRef kscm_lifecycle_createStitchedReport(CFDictionaryRef reportDict, 
     NSMutableDictionary *dict = [(__bridge NSDictionary *)reportDict mutableCopy];
 
     if (haveLifecycleData) {
-        // Navigate to or create report.system
-        NSMutableDictionary *systemDict;
-        id systemVal = dict[KSCrashField_System];
-        if ([systemVal isKindOfClass:[NSDictionary class]]) {
-            systemDict = [systemVal mutableCopy];
-        } else {
-            systemDict = [NSMutableDictionary dictionary];
-        }
-
-        // Build application_stats from the sidecar struct
         NSMutableDictionary *statsDict = [NSMutableDictionary dictionary];
         statsDict[KSCrashField_AppActive] = @((BOOL)lc.applicationIsActive);
         statsDict[KSCrashField_AppInFG] = @((BOOL)lc.applicationIsInForeground);
@@ -87,8 +78,7 @@ CFDictionaryRef kscm_lifecycle_createStitchedReport(CFDictionaryRef reportDict, 
         statsDict[KSCrashField_UserPerceptible] = @((BOOL)lc.userPerceptible);
         statsDict[KSCrashField_TaskRole] = @(kstaskrole_toString(lc.taskRole));
 
-        systemDict[KSCrashField_AppStats] = statsDict;
-        dict[KSCrashField_System] = systemDict;
+        ksstitch_object(dict, KSCrashField_System)[KSCrashField_AppStats] = statsDict;
     }
 
     // session_id is added at stitch time, never at crash time; absent when the
@@ -98,10 +88,7 @@ CFDictionaryRef kscm_lifecycle_createStitchedReport(CFDictionaryRef reportDict, 
     NSString *runID = [storedRunID isKindOfClass:[NSString class]] ? storedRunID : nil;
     char sessionID[KSID_SIZE] = "";
     if (kslifecycle_copyLastSessionIDForRunID(runID.UTF8String, sessionID, sizeof(sessionID))) {
-        NSMutableDictionary *reportSection =
-            [reportVal isKindOfClass:[NSDictionary class]] ? [reportVal mutableCopy] : [NSMutableDictionary dictionary];
-        reportSection[KSCrashField_SessionID] = @(sessionID);
-        dict[KSCrashField_Report] = reportSection;
+        ksstitch_object(dict, KSCrashField_Report)[KSCrashField_SessionID] = @(sessionID);
     }
 
     return (__bridge_retained CFDictionaryRef)dict;
