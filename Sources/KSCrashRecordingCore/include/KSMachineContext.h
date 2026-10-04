@@ -102,6 +102,16 @@ bool ksmc_getContextForThread(KSThread thread, struct KSMachineContext *destinat
 bool ksmc_getContextForTaskThread(task_t task, const struct KSBinaryImageSet *imageSet, uint64_t threadID,
                                   struct KSMachineContext *destinationContext);
 
+/** Find one thread of a task by its kernel thread id (the id an identity-protected Mach
+ * exception message carries in place of a thread port).
+ *
+ * @param task The task the thread belongs to.
+ * @param threadID The kernel thread id to look for.
+ * @return A send right to the thread, which the caller owns, or MACH_PORT_NULL if the task's
+ *         threads could not be enumerated or none has the given id.
+ */
+thread_t ksmc_threadForID(task_t task, uint64_t threadID);
+
 /** Fill in a machine context for a sibling thread of an existing context, inheriting the
  * source context's task and image set so the sibling is born reading the same target (a
  * remote sibling would otherwise be stamped with this process's task and silently unwind the
