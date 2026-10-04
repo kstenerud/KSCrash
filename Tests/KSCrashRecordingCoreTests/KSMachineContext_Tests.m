@@ -156,6 +156,21 @@ static uint64_t threadIDOfPort(thread_t port)
     XCTAssertFalse(ksmc_getContextForTaskThread(mach_task_self(), NULL, UINT64_MAX, &machineContext));
 }
 
+- (void)testThreadForIDFindsTheThread
+{
+    uint64_t currentThreadID = threadIDOfPort((thread_t)ksthread_self());
+    XCTAssertNotEqual(currentThreadID, 0);
+
+    thread_t thread = ksmc_threadForID(mach_task_self(), currentThreadID);
+    XCTAssertEqual(thread, (thread_t)ksthread_self());
+    mach_port_deallocate(mach_task_self(), thread);
+}
+
+- (void)testThreadForIDReturnsNullForAnUnknownID
+{
+    XCTAssertEqual(ksmc_threadForID(mach_task_self(), UINT64_MAX), (thread_t)MACH_PORT_NULL);
+}
+
 - (void)testGetContextForTaskThreadRefusesARemoteTaskWithoutAnImageSet
 {
     // Without an image set the unwinder would read this process's images for another

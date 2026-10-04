@@ -113,9 +113,22 @@ static const exception_mask_t kInterestingExceptions =
 #pragma mark - Types -
 // ============================================================================
 
-// Match the EXCEPTION_DEFAULT | MACH_EXCEPTION_CODES request layout even on
-// SDKs that don't expose the mach_exc MIG request typedefs.
+// The two request layouts the handler can be registered for (see startNewExceptionHandler), as
+// mach_exc.defs lays them out, even on SDKs that don't expose the mach_exc MIG request typedefs.
 #pragma pack(push, 4)
+// EXCEPTION_IDENTITY_PROTECTED | MACH_EXCEPTION_CODES: mach_exception_raise_identity_protected.
+typedef struct {
+    mach_msg_header_t Head;
+    mach_msg_body_t msgh_body;
+    mach_msg_port_descriptor_t taskIdentityToken;
+    NDR_record_t NDR;
+    uint64_t threadID;
+    exception_type_t exception;
+    mach_msg_type_number_t codeCnt;
+    mach_exception_data_type_t code[2];
+} IdentityProtectedRequest;
+
+// EXCEPTION_DEFAULT | MACH_EXCEPTION_CODES: mach_exception_raise.
 typedef struct {
     mach_msg_header_t Head;
     mach_msg_body_t msgh_body;
@@ -125,6 +138,12 @@ typedef struct {
     exception_type_t exception;
     mach_msg_type_number_t codeCnt;
     mach_exception_data_type_t code[2];
+} DefaultRequest;
+
+typedef union {
+    mach_msg_header_t Head;
+    IdentityProtectedRequest identityProtected;
+    DefaultRequest classic;
 } ExceptionRequest;
 
 typedef struct {
@@ -202,14 +221,70 @@ static exception_mask_t maskForException(exception_type_t exc)
     return 1 << exc;
 }
 
+// mach_exception_raise, the message a port registered with EXCEPTION_DEFAULT | MACH_EXCEPTION_CODES
+// receives. Every other message is the identity-protected one.
+static const mach_msg_id_t kClassicRequestID = 2405;
+
+static bool isClassicRequest(const ExceptionRequest *request) { return request->Head.msgh_id == kClassicRequestID; }
+
+static exception_type_t requestException(const ExceptionRequest *request)
+{
+    return isClassicRequest(request) ? request->classic.exception : request->identityProtected.exception;
+}
+
+static const mach_exception_data_type_t *requestCode(const ExceptionRequest *request)
+{
+    return isClassicRequest(request) ? request->classic.code : request->identityProtected.code;
+}
+
 static mach_exception_code_t machCodeFromRequest(const ExceptionRequest *request)
 {
-    return (mach_exception_code_t)(request->code[0] & (mach_exception_data_type_t)MACH_ERROR_CODE_MASK);
+    return (mach_exception_code_t)(requestCode(request)[0] & (mach_exception_data_type_t)MACH_ERROR_CODE_MASK);
 }
 
 static mach_exception_subcode_t machSubcodeFromRequest(const ExceptionRequest *request)
 {
-    return (mach_exception_subcode_t)(request->code[1] & (mach_exception_data_type_t)MACH_ERROR_CODE_MASK);
+    return (mach_exception_subcode_t)(requestCode(request)[1] & (mach_exception_data_type_t)MACH_ERROR_CODE_MASK);
+}
+
+/** The excepting thread. The identity-protected message names it by kernel id, so this looks the
+ * port up; the classic message carries the port itself. */
+static thread_t requestThread(const ExceptionRequest *request)
+{
+    if (isClassicRequest(request)) {
+        return request->classic.thread.name;
+    }
+    return ksmc_threadForID(mach_task_self(), request->identityProtected.threadID);
+}
+
+/** Whether the exception happened in this process. A child process inherits the task's exception
+ * ports, so a child that faults sends its exception here too, and it is not ours to report. */
+static bool isRequestFromThisTask(const ExceptionRequest *request)
+{
+    if (isClassicRequest(request)) {
+        return request->classic.task.name == mach_task_self();
+    }
+    // A task can always get its own control port from its token; failing to means another task's.
+    task_t task = TASK_NULL;
+    if (task_identity_token_get_task_port(request->identityProtected.taskIdentityToken.name, TASK_FLAVOR_CONTROL,
+                                          &task) != KERN_SUCCESS) {
+        return false;
+    }
+    const bool isThisTask = task == mach_task_self();
+    mach_port_deallocate(mach_task_self(), task);
+    return isThisTask;
+}
+
+/** Drop the port rights an exception message from another process brought in. */
+static void releaseRequestRights(const ExceptionRequest *request)
+{
+    const task_t thisTask = mach_task_self();
+    if (isClassicRequest(request)) {
+        mach_port_deallocate(thisTask, request->classic.thread.name);
+        mach_port_deallocate(thisTask, request->classic.task.name);
+    } else {
+        mach_port_deallocate(thisTask, request->identityProtected.taskIdentityToken.name);
+    }
 }
 
 static bool canCurrentPortsHandleException(exception_type_t exc)
@@ -238,6 +313,11 @@ static bool saveExceptionPortsRestorePoint(int contextIndex)
     return true;
 }
 
+// Each port goes back with the behavior it was saved with. In an Enhanced Security process that
+// inherited a port registered with a classic behavior (from a parent that set one, across spawn or
+// exec), that restore is itself a violation and the kernel kills the process, after the report is
+// written. Nothing cheap at crash time says whether this process is under the restrictions, so the
+// restore is left as it is.
 static bool restoreExceptionPorts(int restoreToIndex)
 {
     KSLOG_DEBUG("Restoring exception ports to index %d: %s", restoreToIndex,
@@ -326,7 +406,7 @@ static void deallocExceptionHandler(ExceptionContext *ctx)
 #pragma mark - Handler Primitives -
 // ============================================================================
 
-static exception_type_t waitForException(ExceptionContext *ctx)
+static kern_return_t waitForException(ExceptionContext *ctx)
 {
     KSLOG_DEBUG("Thread %s: Waiting for mach exception", ctx->threadName);
 
@@ -337,11 +417,11 @@ static exception_type_t waitForException(ExceptionContext *ctx)
                                 ctx->exceptionPort, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);
     if (kr == KERN_SUCCESS) {
         KSLOG_DEBUG("Thread %s: Trapped mach exception code 0x%llx, subcode 0x%llx", ctx->threadName,
-                    ctx->request->code[0], ctx->request->code[1]);
+                    requestCode(ctx->request)[0], requestCode(ctx->request)[1]);
     } else {
         MACH_ERROR(kr, "mach_msg");
     }
-    return ctx->request->exception;
+    return kr;
 }
 
 static void sendExceptionReply(ExceptionContext *ctx, bool exceptionPortsCanHandleThisException)
@@ -374,12 +454,13 @@ static void sendExceptionReply(ExceptionContext *ctx, bool exceptionPortsCanHand
 
 static void handleException(ExceptionContext *exceptionCtx)
 {
-    KSCrash_MonitorContext *monitorCtx = g_state.callbacks.notify(
-        exceptionCtx->request->thread.name, (KSCrash_ExceptionHandlingRequirements) { .asyncSafety = true,
-                                                                                      .isFatal = true,
-                                                                                      .isCleanExit = false,
-                                                                                      .shouldRecordAllThreads = true,
-                                                                                      .shouldWriteReport = true });
+    const thread_t thread = requestThread(exceptionCtx->request);
+    KSCrash_MonitorContext *monitorCtx =
+        g_state.callbacks.notify(thread, (KSCrash_ExceptionHandlingRequirements) { .asyncSafety = true,
+                                                                                   .isFatal = true,
+                                                                                   .isCleanExit = false,
+                                                                                   .shouldRecordAllThreads = true,
+                                                                                   .shouldWriteReport = true });
     if (monitorCtx->requirements.shouldExitImmediately) {
         KSLOG_DEBUG("Thread %s: Should exit immediately, so returning", exceptionCtx->threadName);
         return;
@@ -390,7 +471,7 @@ static void handleException(ExceptionContext *exceptionCtx)
     monitorCtx->offendingMachineContext = &machineContext;
     kssc_initCursor(&exceptionCtx->stackCursor, NULL, NULL);
     bool stackOverflow = false;
-    if (ksmc_getContextForThread(exceptionCtx->request->thread.name, &machineContext, true)) {
+    if (thread != MACH_PORT_NULL && ksmc_getContextForThread(thread, &machineContext, true)) {
         kssc_initWithUnwind(&exceptionCtx->stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
         // The mach code correction below needs to know whether the stack overflowed, and that is
         // only knowable by walking. Stop as soon as the threshold is reached so this costs no
@@ -405,7 +486,7 @@ static void handleException(ExceptionContext *exceptionCtx)
         // Fault-address rule (mirrored by the corpse capture in
         // CrashReportExtensionMonitor+Implementation.swift): EXC_BAD_ACCESS reports the
         // fault register, everything else the instruction pointer.
-        if (exceptionCtx->request->exception == EXC_BAD_ACCESS) {
+        if (requestException(exceptionCtx->request) == EXC_BAD_ACCESS) {
             monitorCtx->faultAddress = kscpu_faultAddress(&machineContext);
         } else {
             monitorCtx->faultAddress = kscpu_instructionAddress(&machineContext);
@@ -415,7 +496,7 @@ static void handleException(ExceptionContext *exceptionCtx)
     KSLOG_DEBUG("Thread %s: Filling out context.", exceptionCtx->threadName);
     kscm_fillMonitorContext(monitorCtx, kscm_machexception_getAPI());
     monitorCtx->registersAreValid = true;
-    monitorCtx->mach.type = exceptionCtx->request->exception;
+    monitorCtx->mach.type = requestException(exceptionCtx->request);
     monitorCtx->mach.code = machCodeFromRequest(exceptionCtx->request);
     monitorCtx->mach.subcode = machSubcodeFromRequest(exceptionCtx->request);
     if (monitorCtx->mach.code == KERN_PROTECTION_FAILURE && stackOverflow) {
@@ -430,12 +511,37 @@ static void handleException(ExceptionContext *exceptionCtx)
     g_state.callbacks.handle(monitorCtx);
 }
 
+/** Unblock, for the whole process, the signals the kernel turns these exceptions into once the
+ * handler declines them. abort() blocks every signal process-wide before raising SIGABRT (on Darwin,
+ * sigprocmask applies to every thread), and a thread that faults meanwhile is handed a signal it
+ * cannot take: it faults again and again and the process never exits. */
+static void unblockExceptionSignals(void)
+{
+    sigset_t signals;
+    sigemptyset(&signals);
+    sigaddset(&signals, SIGILL);   // EXC_BAD_INSTRUCTION
+    sigaddset(&signals, SIGTRAP);  // EXC_BREAKPOINT
+    sigaddset(&signals, SIGFPE);   // EXC_ARITHMETIC
+    sigaddset(&signals, SIGBUS);   // EXC_BAD_ACCESS
+    sigaddset(&signals, SIGSEGV);  // EXC_BAD_ACCESS
+    sigprocmask(SIG_UNBLOCK, &signals, NULL);
+}
+
 static void *exceptionHandlerThreadMain(void *data)
 {
     ExceptionContext *ctx = (ExceptionContext *)data;
     pthread_setname_np(ctx->threadName);
 
-    exception_type_t exc = waitForException(ctx);
+    for (;;) {
+        if (waitForException(ctx) != KERN_SUCCESS || isRequestFromThisTask(ctx->request)) {
+            break;
+        }
+        // Another process's exception: decline it and keep waiting for one of ours.
+        KSLOG_DEBUG("Thread %s: Declining an exception from another process", ctx->threadName);
+        releaseRequestRights(ctx->request);
+        sendExceptionReply(ctx, false);
+    }
+    const exception_type_t exc = requestException(ctx->request);
 
     // At this point, an exception has occurred and we need to deal with it.
     // We start by restoring the ports for the next level exception handler
@@ -459,6 +565,7 @@ static void *exceptionHandlerThreadMain(void *data)
     g_state.installedState = KSCM_Uninstalled;
     restoreOriginalExceptionPorts();
     KSLOG_DEBUG("Thread %s: Replying to exception message", ctx->threadName);
+    unblockExceptionSignals();
     sendExceptionReply(ctx, canCurrentPortsHandleException(exc));
     deallocExceptionHandler(ctx);
 
@@ -491,8 +598,22 @@ static bool startNewExceptionHandler(int contextIndex, const char *threadName)
         goto onFailure;
     }
 
+    // Identity-protected, because a process under Enhanced Security's runtime platform
+    // restrictions is killed (EXC_GUARD, SET_EXCEPTION_BEHAVIOR) for setting a behavior that
+    // sends the receiver a task or thread port. The kernel requires MACH_EXCEPTION_CODES with it.
+    // A handler installed after this one that forwards by building the message itself only
+    // reaches us if it knows this behavior's format; one that knows only the classic formats
+    // (PLCrashReporter's Mach mode) fails to forward, and the signal monitor reports the crash.
     kr = task_set_exception_ports(taskSelf, kInterestingExceptions, ctx->exceptionPort,
-                                  (exception_behavior_t)(EXCEPTION_DEFAULT | MACH_EXCEPTION_CODES), THREAD_STATE_NONE);
+                                  (exception_behavior_t)(EXCEPTION_IDENTITY_PROTECTED | MACH_EXCEPTION_CODES),
+                                  THREAD_STATE_NONE);
+    if (kr == KERN_INVALID_ARGUMENT) {
+        // Rosetta refuses the identity-protected behavior. xnu does not enforce the restriction on
+        // translated processes, so the classic one is allowed there; the handler reads both.
+        kr = task_set_exception_ports(taskSelf, kInterestingExceptions, ctx->exceptionPort,
+                                      (exception_behavior_t)(EXCEPTION_DEFAULT | MACH_EXCEPTION_CODES),
+                                      THREAD_STATE_NONE);
+    }
     if (kr != KERN_SUCCESS) {
         MACH_ERROR(kr, "task_set_exception_ports");
         goto onFailure;

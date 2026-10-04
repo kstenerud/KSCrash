@@ -148,6 +148,23 @@ final class MachTests: IntegrationTestBase {
     }
 }
 
+final class MachSignalsBlockedTests: IntegrationTestBase {
+    // The platforms with a Mach exception monitor (KSCRASH_HAS_MACH). Elsewhere nothing unblocks
+    // the signals, and the app is left faulting.
+    override class var platforms: Set<TargetPlatform> { [.iOS, .macOS, .visionOS] }
+
+    func testBadAccessWithSignalsBlockedStillTerminates() throws {
+        // With every signal blocked process-wide (as abort() leaves them), the SIGSEGV the kernel
+        // makes of a declined Mach exception cannot be delivered unless the handler unblocks it.
+        // waitForCrash fails if the app is still running at the deadline.
+        try launchAndCrash(.mach_badAccessWithSignalsBlocked)
+
+        let rawReport = try readCrashReport()
+        try rawReport.validate()
+        XCTAssertEqual(rawReport.crash.error.type, .mach)
+    }
+}
+
 final class MachSignalHandlerChainingTests: IntegrationTestBase {
     override class var platforms: Set<TargetPlatform> { [.iOS, .macOS, .visionOS] }
 
@@ -256,6 +273,23 @@ final class CppTests: IntegrationTestBase {
         XCTAssertFalse(
             symbols.contains(where: isCppCrashSymbol),
             "last_exception_backtrace must not reuse the earlier caught C++ exception")
+    }
+
+    func testTerminateInsideCatchReportsTheThrowSite() throws {
+        // By the time terminate runs the throw site has been unwound off the stack, so the backtrace the
+        // __cxa_throw hook captured at the throw is the only thing that can name it; the terminate-time
+        // fallback cursor sees the catch block instead. This is what shows the hook installed.
+        try XCTSkipIf(
+            ProcessInfo.processInfo.environment["KSCRASH_IT_ENHANCED_SECURITY"] != nil,
+            "Enhanced Security's dyld-ro keeps __DATA_CONST read-only, so the __cxa_throw hook cannot install there")
+        try launchAndCrash(.cpp_terminateInsideCatch)
+
+        let rawReport = try readCrashReport()
+        try rawReport.validate()
+        XCTAssertEqual(rawReport.crash.error.type, .cppException)
+
+        let topSymbol = rawReport.crash.lastExceptionBacktrace?.contents.compactMap(\.symbolName).first
+        XCTAssertTrue(isCppCrashSymbol(topSymbol), "top frame is \(topSymbol ?? "nil")")
     }
 
     func testTerminateWithoutActiveExceptionAfterCaughtCppUsesTerminateContext() throws {
