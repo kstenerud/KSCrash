@@ -129,6 +129,18 @@ typedef struct {
 #pragma pack()
 #define KSDL_SECT_CRASH_INFO "__crash_info"
 
+// The oldest crash_info_t layout read. Later versions grow the struct past the fields read here
+// and keep those at the same offsets: version 7 is a 328-byte section whose message, signature,
+// backtrace and message2 sit where version 4's do. Accepting only the versions known at the time
+// silently dropped every message on newer systems.
+#define KSDL_MinCrashInfoVersion 4
+
+// The segments an image can carry __crash_info in, in the order they are tried. Some system
+// images are linked with the section in __DATA_DIRTY instead of __DATA, and a reader that asks
+// for __DATA alone never sees their messages.
+static const char *const g_crashInfoSegments[] = { SEG_DATA, "__DATA_DIRTY" };
+static const size_t g_crashInfoSegmentCount = sizeof(g_crashInfoSegments) / sizeof(g_crashInfoSegments[0]);
+
 /** Perform the actual symbol lookup without caching.
  *  This scans the symbol table to find the closest symbol to the given address.
  */
@@ -310,10 +322,13 @@ static bool isValidCrashInfoMessage(const char *str)
 static void getCrashInfo(const struct mach_header *header, KSBinaryImage *buffer)
 {
     unsigned long size = 0;
+    crash_info_t *crashInfo = NULL;
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wcast-align"
-    crash_info_t *crashInfo =
-        (crash_info_t *)getsectiondata((mach_header_t *)header, SEG_DATA, KSDL_SECT_CRASH_INFO, &size);
+    for (size_t i = 0; i < g_crashInfoSegmentCount && crashInfo == NULL; i++) {
+        crashInfo = (crash_info_t *)getsectiondata((mach_header_t *)header, g_crashInfoSegments[i],
+                                                   KSDL_SECT_CRASH_INFO, &size);
+    }
 #pragma clang diagnostic pop
     if (crashInfo == NULL) {
         return;
@@ -329,8 +344,8 @@ static void getCrashInfo(const struct mach_header *header, KSBinaryImage *buffer
         KSLOG_TRACE("Skipped reading crash info: section memory is not readable");
         return;
     }
-    if (crashInfo->version != 4 && crashInfo->version != 5) {
-        KSLOG_TRACE("Skipped reading crash info: invalid version '%d'", crashInfo->version);
+    if (crashInfo->version < KSDL_MinCrashInfoVersion) {
+        KSLOG_TRACE("Skipped reading crash info: unsupported version '%u'", crashInfo->version);
         return;
     }
     if (crashInfo->message == NULL && crashInfo->message2 == NULL) {
@@ -356,25 +371,52 @@ static void getCrashInfo(const struct mach_header *header, KSBinaryImage *buffer
     }
 }
 
-/** Copy one __crash_info string out of @c task, mirroring isValidCrashInfoMessage's contract:
- * the string must be non-empty and terminate within KSDL_MaxCrashInfoStringLength + 1 readable
- * bytes. Returns a heap copy, or NULL.
+// The task reader runs in a crash extension, never at crash time, so it is not held to the
+// in-process reader's cap. A message past that cap was dropped whole, and CoreFoundation's
+// uncaught-exception message carries the app's own reason plus the throw stack, so a long
+// reason cost the exception's name along with everything else. The bound stays only to stop
+// at a pointer that never meets a terminator.
+#define KSDL_MaxTaskCrashInfoStringLength (64 * 1024)
+
+/** Copy one __crash_info string out of @c task. The string must be non-empty and terminate within
+ * KSDL_MaxTaskCrashInfoStringLength readable bytes. Returns a heap copy, or NULL.
  */
 static char *copyCrashInfoStringFromTask(task_t task, const char *taskAddress)
 {
     if (taskAddress == NULL) {
         return NULL;
     }
-    char buffer[KSDL_MaxCrashInfoStringLength + 1];
-    int copied = ksmem_copyMaxPossibleFromTask(task, taskAddress, buffer, (int)sizeof(buffer));
-    if (copied <= 0 || buffer[0] == 0) {
-        return NULL;
+    const size_t chunkSize = 4096;
+    char *buffer = NULL;
+    size_t length = 0;
+    while (length < KSDL_MaxTaskCrashInfoStringLength) {
+        size_t want = KSDL_MaxTaskCrashInfoStringLength - length;
+        if (want > chunkSize) {
+            want = chunkSize;
+        }
+        char *grown = realloc(buffer, length + want);
+        if (grown == NULL) {
+            break;
+        }
+        buffer = grown;
+        int copied = ksmem_copyMaxPossibleFromTask(task, taskAddress + length, buffer + length, (int)want);
+        if (copied <= 0) {
+            break;
+        }
+        if (memchr(buffer + length, 0, (size_t)copied) != NULL) {
+            if (buffer[0] == 0) {
+                break;
+            }
+            return buffer;
+        }
+        length += (size_t)copied;
+        if ((size_t)copied < want) {
+            // The readable range ended before a terminator.
+            break;
+        }
     }
-    if (memchr(buffer, 0, (size_t)copied) == NULL) {
-        // Never terminated within the cap (or the readable range); not a valid message.
-        return NULL;
-    }
-    return strdup(buffer);
+    free(buffer);
+    return NULL;
 }
 
 bool ksdl_readCrashInfoFromTaskImage(task_t task, uintptr_t loadAddress, KSCrashInfoStrings *buffer)
@@ -383,8 +425,12 @@ bool ksdl_readCrashInfoFromTaskImage(task_t task, uintptr_t loadAddress, KSCrash
 
     uintptr_t sectionAddress = 0;
     uintptr_t sectionSize = 0;
-    if (!ksbic_findSectionInTaskImage(task, loadAddress, SEG_DATA, KSDL_SECT_CRASH_INFO, &sectionAddress,
-                                      &sectionSize)) {
+    bool found = false;
+    for (size_t i = 0; i < g_crashInfoSegmentCount && !found; i++) {
+        found = ksbic_findSectionInTaskImage(task, loadAddress, g_crashInfoSegments[i], KSDL_SECT_CRASH_INFO,
+                                             &sectionAddress, &sectionSize);
+    }
+    if (!found) {
         return false;
     }
     // Include message and message2, the same floor as the in-process reader.
@@ -396,7 +442,7 @@ bool ksdl_readCrashInfoFromTaskImage(task_t task, uintptr_t loadAddress, KSCrash
     if (!ksmem_copySafelyFromTask(task, (const void *)sectionAddress, &crashInfo, (int)readSize)) {
         return false;
     }
-    if (crashInfo.version != 4 && crashInfo.version != 5) {
+    if (crashInfo.version < KSDL_MinCrashInfoVersion) {
         return false;
     }
     buffer->message = copyCrashInfoStringFromTask(task, crashInfo.message);
