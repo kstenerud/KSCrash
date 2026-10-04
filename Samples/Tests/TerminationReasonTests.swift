@@ -28,119 +28,115 @@ import IntegrationTestsHelper
 import KSCrashRecording
 import XCTest
 
-#if !os(watchOS)
+final class TerminationReasonTests: IntegrationTestBase {
+    override class var platforms: Set<TargetPlatform> { Set(TargetPlatform.allCases).subtracting([.watchOS]) }
 
-    final class TerminationReasonTests: IntegrationTestBase {
+    // MARK: - Lifecycle-based
 
-        // MARK: - Lifecycle-based
-
-        func testFirstLaunch() throws {
-            try launchAndInstall()
-            let state = try readState()
-            XCTAssertFalse(state.previousRunWasAbnormal)
-            XCTAssertEqual(state.terminationReason, .firstLaunch)
-        }
-
-        func testUnexplainedKill() throws {
-            try launchAndSigkill()
-
-            try launchAndInstall()
-            let state = try readState()
-            XCTAssertTrue(state.previousRunWasAbnormal)
-            XCTAssertEqual(state.terminationReason, .unexplained)
-        }
-
-        // MARK: - Resource-based
-
-        func testMemoryPressureKill() throws {
-            try launchAndSigkill(env: [
-                "KSCRASH_TEST_MEMORY_PRESSURE": "3"
-            ])
-
-            try launchAndInstall()
-            let state = try readState()
-            XCTAssertTrue(state.previousRunWasAbnormal)
-            XCTAssertEqual(state.terminationReason, .memoryPressure)
-        }
-
-        func testThermalKill() throws {
-            try launchAndSigkill(env: [
-                "KSCRASH_TEST_THERMAL_STATE": "3"
-            ])
-
-            try launchAndInstall()
-            let state = try readState()
-            XCTAssertTrue(state.previousRunWasAbnormal)
-            XCTAssertEqual(state.terminationReason, .thermal)
-        }
-
-        func testCPUKill() throws {
-            try launchAndSigkill(env: [
-                "KSCRASH_TEST_CPU_STATE": "2",
-                "KSCRASH_TEST_CPU_USER": "900",
-                "KSCRASH_TEST_CPU_CORES": "1",
-            ])
-
-            try launchAndInstall()
-            let state = try readState()
-            XCTAssertTrue(state.previousRunWasAbnormal)
-            XCTAssertEqual(state.terminationReason, .cpu)
-        }
-
-        #if os(iOS)
-            func testLowBatteryKill() throws {
-                try launchAndSigkill(env: [
-                    "KSCRASH_TEST_BATTERY_LEVEL": "1",
-                    "KSCRASH_TEST_BATTERY_STATE": "1",
-                ])
-
-                try launchAndInstall()
-                let state = try readState()
-                XCTAssertTrue(state.previousRunWasAbnormal)
-                XCTAssertEqual(state.terminationReason, .lowBattery)
-            }
-        #endif
-
-        // MARK: - System change
-
-        func testOSUpgrade() throws {
-            try launchAndSigkill(env: [
-                "KSCRASH_TEST_SYSTEM_VERSION": "0.0.0"
-            ])
-
-            try launchAndInstall()
-            let state = try readState()
-            XCTAssertFalse(state.previousRunWasAbnormal)
-            XCTAssertEqual(state.terminationReason, .osUpgrade)
-        }
-
-        func testAppUpgrade() throws {
-            try launchAndSigkill(env: [
-                "KSCRASH_TEST_BUNDLE_VERSION": "0.0.0"
-            ])
-
-            try launchAndInstall()
-            let state = try readState()
-            XCTAssertFalse(state.previousRunWasAbnormal)
-            XCTAssertEqual(state.terminationReason, .appUpgrade)
-        }
-
-        func testReboot() throws {
-            try launchAndSigkill(env: [
-                "KSCRASH_TEST_BOOT_TIMESTAMP": "1"
-            ])
-
-            // The current run also needs a boot timestamp for the comparison.
-            // BootTimeMonitor sets it via notifyPostSystemEnable, which runs
-            // after ksruncontext_init, so we override it here too with a value
-            // that differs by more than the 30s jitter threshold.
-            app.launchEnvironment["KSCRASH_TEST_BOOT_TIMESTAMP"] = "1000000"
-            try launchAndInstall()
-            app.launchEnvironment.removeValue(forKey: "KSCRASH_TEST_BOOT_TIMESTAMP")
-            let state = try readState()
-            XCTAssertFalse(state.previousRunWasAbnormal)
-            XCTAssertEqual(state.terminationReason, .reboot)
-        }
+    func testFirstLaunch() throws {
+        try launchAndInstall()
+        let state = try readState()
+        XCTAssertFalse(state.previousRunWasAbnormal)
+        XCTAssertEqual(state.terminationReason, .firstLaunch)
     }
 
-#endif
+    func testUnexplainedKill() throws {
+        try launchAndSigkill()
+
+        try launchAndInstall()
+        let state = try readState()
+        XCTAssertTrue(state.previousRunWasAbnormal)
+        XCTAssertEqual(state.terminationReason, .unexplained)
+    }
+
+    // MARK: - Resource-based
+
+    func testMemoryPressureKill() throws {
+        try launchAndSigkill(env: [
+            "KSCRASH_TEST_MEMORY_PRESSURE": "3"
+        ])
+
+        try launchAndInstall()
+        let state = try readState()
+        XCTAssertTrue(state.previousRunWasAbnormal)
+        XCTAssertEqual(state.terminationReason, .memoryPressure)
+    }
+
+    func testThermalKill() throws {
+        try launchAndSigkill(env: [
+            "KSCRASH_TEST_THERMAL_STATE": "3"
+        ])
+
+        try launchAndInstall()
+        let state = try readState()
+        XCTAssertTrue(state.previousRunWasAbnormal)
+        XCTAssertEqual(state.terminationReason, .thermal)
+    }
+
+    func testCPUKill() throws {
+        try launchAndSigkill(env: [
+            "KSCRASH_TEST_CPU_STATE": "2",
+            "KSCRASH_TEST_CPU_USER": "900",
+            "KSCRASH_TEST_CPU_CORES": "1",
+        ])
+
+        try launchAndInstall()
+        let state = try readState()
+        XCTAssertTrue(state.previousRunWasAbnormal)
+        XCTAssertEqual(state.terminationReason, .cpu)
+    }
+
+    func testLowBatteryKill() throws {
+        try XCTSkipUnless(TargetPlatform.current == .iOS, "Battery state is only simulated on iOS")
+        try launchAndSigkill(env: [
+            "KSCRASH_TEST_BATTERY_LEVEL": "1",
+            "KSCRASH_TEST_BATTERY_STATE": "1",
+        ])
+
+        try launchAndInstall()
+        let state = try readState()
+        XCTAssertTrue(state.previousRunWasAbnormal)
+        XCTAssertEqual(state.terminationReason, .lowBattery)
+    }
+
+    // MARK: - System change
+
+    func testOSUpgrade() throws {
+        try launchAndSigkill(env: [
+            "KSCRASH_TEST_SYSTEM_VERSION": "0.0.0"
+        ])
+
+        try launchAndInstall()
+        let state = try readState()
+        XCTAssertFalse(state.previousRunWasAbnormal)
+        XCTAssertEqual(state.terminationReason, .osUpgrade)
+    }
+
+    func testAppUpgrade() throws {
+        try launchAndSigkill(env: [
+            "KSCRASH_TEST_BUNDLE_VERSION": "0.0.0"
+        ])
+
+        try launchAndInstall()
+        let state = try readState()
+        XCTAssertFalse(state.previousRunWasAbnormal)
+        XCTAssertEqual(state.terminationReason, .appUpgrade)
+    }
+
+    func testReboot() throws {
+        try launchAndSigkill(env: [
+            "KSCRASH_TEST_BOOT_TIMESTAMP": "1"
+        ])
+
+        // The current run also needs a boot timestamp for the comparison.
+        // BootTimeMonitor sets it via notifyPostSystemEnable, which runs
+        // after ksruncontext_init, so we override it here too with a value
+        // that differs by more than the 30s jitter threshold.
+        app.launchEnvironment["KSCRASH_TEST_BOOT_TIMESTAMP"] = "1000000"
+        try launchAndInstall()
+        app.launchEnvironment.removeValue(forKey: "KSCRASH_TEST_BOOT_TIMESTAMP")
+        let state = try readState()
+        XCTAssertFalse(state.previousRunWasAbnormal)
+        XCTAssertEqual(state.terminationReason, .reboot)
+    }
+}

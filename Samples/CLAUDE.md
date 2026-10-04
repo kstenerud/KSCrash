@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with th
 
 ## Prerequisites
 - Mise installed: `curl https://mise.run | sh` or follow [mise installation guide](https://mise.jdx.dev/getting-started.html)
-- Xcode 15+ recommended
+- Xcode 26 or later
 
 ## Version Management
 This project uses Mise to pin the Tuist version for consistency across development and CI environments.
@@ -60,22 +60,32 @@ xcodebuild -scheme Sample -destination 'platform=iOS Simulator,name=iPhone 15'
 
 ## Integration Tests
 
+The integration tests run on the Mac whatever platform they test. They launch the Sample app
+themselves (a child process on macOS, `simctl` on a simulator), crash it on purpose, relaunch it
+to send the report, and check what arrives. XCTest never launches or watches the app. On a
+simulator platform they create a fresh simulator for the run and delete it afterwards.
+
 ### Running Integration Tests
-
-#### Using Tuist
+CI (`.github/workflows/integration-tests.yml`) is the reference. Locally, from `Samples/`:
 ```bash
-mise exec -- tuist test --platform ios
-```
+mise exec -- tuist generate --no-open
 
-#### Using xcodebuild
-```bash
-xcodebuild test -scheme Sample -testPlan Integration -destination 'platform=iOS Simulator,name=iPhone 15'
-```
+# Simulator platforms only: build the app for that simulator (tests look for it in the
+# same derived data). Use the tvOS, watchOS or visionOS Simulator destination to match.
+xcodebuild build -workspace KSCrashSamples.xcworkspace -scheme Sample -configuration Release \
+    -destination 'generic/platform=iOS Simulator'
 
-### Running Specific Test
-```bash
-xcodebuild test -scheme Sample -testPlan Integration -destination 'platform=iOS Simulator,name=iPhone 15' -only-testing SampleTests/NSExceptionTests/testGenericException
+# The tests always run on macOS; KSCRASH_IT_PLATFORM (required) names the platform they drive.
+TEST_RUNNER_KSCRASH_IT_PLATFORM=iOS xcodebuild test -workspace KSCrashSamples.xcworkspace \
+    -scheme Sample -destination 'platform=macOS'
 ```
+Add `-only-testing:SampleTests/NSExceptionTests/testGenericException` to run one test. On a
+simulator platform the tests create a simulator for the run and delete it afterwards;
+`KSCRASH_IT_DEVICE`, `KSCRASH_IT_RUNTIME` and `KSCRASH_IT_DEVICE_TYPE` (each passed with the
+`TEST_RUNNER_` prefix) choose one instead.
+
+A test class that only applies to some platforms lists them in `platforms`, and is skipped
+elsewhere with the reason in the results. Retries are off: a flaky test is a bug to fix.
 
 ### Available Test Types
 - NSException (generic exception)
