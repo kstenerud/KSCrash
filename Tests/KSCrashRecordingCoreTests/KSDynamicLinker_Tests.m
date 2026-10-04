@@ -25,6 +25,7 @@
 //
 
 #import <XCTest/XCTest.h>
+#import <mach-o/loader.h>
 #import <string.h>
 
 #import "KSBinaryImageCache.h"
@@ -270,8 +271,8 @@ static long taskReadMessageLength(size_t length)
 
 - (void)testBothReadersAcceptLaterCrashInfoVersions
 {
-    // Version 7 is what iOS 27 and macOS 27 ship. Later versions only grow the struct past the
-    // fields read, so every version from 4 up is read the same way.
+    // Later versions only grow the struct past the fields read, so every version from 4 up is
+    // read the same way.
     Dl_info dlinfo = { 0 };
     XCTAssertNotEqual(dladdr(&g_testCrashInfo, &dlinfo), 0);
     unsigned original = g_testCrashInfo.version;
@@ -307,6 +308,72 @@ static long taskReadMessageLength(size_t length)
     XCTAssertTrue(image.crashInfoMessage == NULL);
 
     g_testCrashInfo.version = original;
+}
+
+// A hand-built image whose only __crash_info sits in __DATA_DIRTY, which is where some system
+// images carry it. __TEXT's vmaddr is 0, so the slide is the address of the header and the
+// section's addr is its offset inside this struct. The test bundle itself cannot stand in: it
+// already has the section in __DATA, and that one is found first.
+typedef struct {
+    struct mach_header_64 header;
+    struct segment_command_64 text;
+    struct segment_command_64 dirty;
+    struct section_64 crashInfoSection;
+    TestCrashInfo crashInfo;
+} TestDirtyImage;
+
+static TestDirtyImage g_dirtyImage = {
+    .header = {
+        .magic = MH_MAGIC_64,
+        .filetype = MH_DYLIB,
+        .ncmds = 2,
+        .sizeofcmds = 2 * sizeof(struct segment_command_64) + sizeof(struct section_64),
+    },
+    .text = {
+        .cmd = LC_SEGMENT_64,
+        .cmdsize = sizeof(struct segment_command_64),
+        .segname = SEG_TEXT,
+        .vmsize = sizeof(TestDirtyImage),
+        .filesize = sizeof(TestDirtyImage),
+    },
+    .dirty = {
+        .cmd = LC_SEGMENT_64,
+        .cmdsize = sizeof(struct segment_command_64) + sizeof(struct section_64),
+        .segname = "__DATA_DIRTY",
+        .vmaddr = offsetof(TestDirtyImage, crashInfo),
+        .vmsize = sizeof(TestCrashInfo),
+        .fileoff = offsetof(TestDirtyImage, crashInfo),
+        .filesize = sizeof(TestCrashInfo),
+        .nsects = 1,
+    },
+    .crashInfoSection = {
+        .sectname = "__crash_info",
+        .segname = "__DATA_DIRTY",
+        .addr = offsetof(TestDirtyImage, crashInfo),
+        .size = sizeof(TestCrashInfo),
+    },
+    .crashInfo = {
+        .version = 7,
+        .message = "dirty crash message",
+    },
+};
+
+- (void)testBothReadersFindCrashInfoInDataDirty
+{
+    KSCrashInfoStrings strings = { 0 };
+    XCTAssertTrue(ksdl_readCrashInfoFromTaskImage(mach_task_self(), (uintptr_t)&g_dirtyImage, &strings));
+    XCTAssertTrue(strings.message != NULL);
+    if (strings.message != NULL) {
+        XCTAssertEqualObjects([NSString stringWithUTF8String:strings.message], @"dirty crash message");
+    }
+    ksdl_freeCrashInfoStrings(&strings);
+
+    KSBinaryImage image = { 0 };
+    XCTAssertTrue(ksdl_binaryImageForHeader(&g_dirtyImage, "dirty", &image));
+    XCTAssertTrue(image.crashInfoMessage != NULL);
+    if (image.crashInfoMessage != NULL) {
+        XCTAssertEqualObjects([NSString stringWithUTF8String:image.crashInfoMessage], @"dirty crash message");
+    }
 }
 
 - (void)testReadCrashInfoFromTaskImageWithoutSection
