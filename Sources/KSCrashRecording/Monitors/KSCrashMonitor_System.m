@@ -200,8 +200,11 @@ static void getAppUUIDInto(char *dst, size_t dstSize)
     }
 }
 
-static const char *getCPUArchForCPUType(cpu_type_t cpuType, cpu_subtype_t subType)
+static const char *getCPUArchForCPUType(cpu_type_t cpuType, cpu_subtype_t subTypeWithFeatures)
 {
+    // The high byte carries feature flags, which no case below names: an arm64e binary's
+    // subtype is CPU_SUBTYPE_ARM64E with the pointer authentication ABI bits set on top.
+    const cpu_subtype_t subType = (cpu_subtype_t)((uint32_t)subTypeWithFeatures & ~(uint32_t)CPU_SUBTYPE_MASK);
     switch (cpuType) {
         case CPU_TYPE_ARM: {
             switch (subType) {
