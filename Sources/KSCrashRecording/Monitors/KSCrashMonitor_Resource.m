@@ -531,6 +531,20 @@ static void monitorInit(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused v
     g_callbacks = *callbacks;
 }
 
+static void stopObservers(void)
+{
+    stopMemoryObserver();
+    stopCPUObserver();
+    stopPowerObserver();
+#if KSCRASH_HOST_IOS
+    stopBatteryObservers();
+#endif
+#if KSCRASH_HAS_UIAPPLICATION
+    stopThermalObserver();
+    stopDataProtectionObservers();
+#endif
+}
+
 static void setEnabled(bool isEnabled, __unused void *context)
 {
     bool expected = !isEnabled;
@@ -547,9 +561,23 @@ static void setEnabled(bool isEnabled, __unused void *context)
             return;
         }
 
-        void *ptr = ksfu_mmap(sidecarPath, sizeof(KSCrash_ResourceData));
+        // Built at "<path>.tmp" and renamed into place once every observer has
+        // seeded it, so a reader opening the sidecar path finds no file, the file
+        // from this monitor's previous enable, or the complete new one: never one
+        // ksfu_mmap has just truncated, or a valid header over fields still 0.
+        // The mapping follows the file to its new name. A .tmp that a crash leaves
+        // behind is not a name any stitch reads, and goes with the run's directory.
+        char tempPath[KSFU_MAX_PATH_LENGTH];
+        if (strlcpy(tempPath, sidecarPath, sizeof(tempPath)) >= sizeof(tempPath) ||
+            strlcat(tempPath, ".tmp", sizeof(tempPath)) >= sizeof(tempPath)) {
+            KSLOG_ERROR(@"Resource sidecar path too long: %s", sidecarPath);
+            atomic_store(&g_isEnabled, false);
+            return;
+        }
+
+        void *ptr = ksfu_mmap(tempPath, sizeof(KSCrash_ResourceData));
         if (!ptr) {
-            KSLOG_ERROR(@"Failed to mmap resource sidecar at %s", sidecarPath);
+            KSLOG_ERROR(@"Failed to mmap resource sidecar at %s", tempPath);
             atomic_store(&g_isEnabled, false);
             return;
         }
@@ -581,18 +609,17 @@ static void setEnabled(bool isEnabled, __unused void *context)
         startDataProtectionObservers();
 #endif
 
-    } else {
-        stopMemoryObserver();
-        stopCPUObserver();
-        stopPowerObserver();
-#if KSCRASH_HOST_IOS
-        stopBatteryObservers();
-#endif
-#if KSCRASH_HAS_UIAPPLICATION
-        stopThermalObserver();
-        stopDataProtectionObservers();
-#endif
+        if (rename(tempPath, sidecarPath) != 0) {
+            KSLOG_ERROR(@"Failed to publish resource sidecar at %s: %s", sidecarPath, strerror(errno));
+            stopObservers();
+            resourceSet(NULL);
+            unlink(tempPath);
+            atomic_store(&g_isEnabled, false);
+            return;
+        }
 
+    } else {
+        stopObservers();
         resourceSet(NULL);
     }
 }
