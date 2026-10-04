@@ -361,6 +361,7 @@
 #define ksmc_isReservedThread KSCRASH_NS(ksmc_isReservedThread)
 #define ksmc_resumeEnvironment KSCRASH_NS(ksmc_resumeEnvironment)
 #define ksmc_suspendEnvironment KSCRASH_NS(ksmc_suspendEnvironment)
+#define ksmc_threadForID KSCRASH_NS(ksmc_threadForID)
 #define ksmem_copyMaxPossible KSCRASH_NS(ksmem_copyMaxPossible)
 #define ksmem_copyMaxPossibleFromTask KSCRASH_NS(ksmem_copyMaxPossibleFromTask)
 #define ksmem_copySafely KSCRASH_NS(ksmem_copySafely)
