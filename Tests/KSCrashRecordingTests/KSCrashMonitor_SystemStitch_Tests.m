@@ -465,4 +465,38 @@ static KSCrash_SystemData makeValidSystemData(void)
     XCTAssertEqualObjects(result, report);
 }
 
+#pragma mark - Unterminated strings
+
+// A writer other than this library can leave a string field without a NUL;
+// the stitch must read no further than the field.
+- (void)testAStringFieldWithoutANulStaysWithinItsField
+{
+    KSCrash_SystemData sc = makeValidSystemData();
+    memset(sc.systemName, 'A', sizeof(sc.systemName));
+    NSString *path = writeSidecar(self.tempDir, sc);
+
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
+        (__bridge CFDictionaryRef) @{}, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    NSString *expected = [@"" stringByPaddingToLength:sizeof(sc.systemName) withString:@"A" startingAtIndex:0];
+    XCTAssertEqualObjects(result[KSCrashField_System][KSCrashField_SystemName], expected);
+    XCTAssertEqualObjects(result[KSCrashField_System][KSCrashField_SystemVersion], @"17.2");
+}
+
+#pragma mark - Invalid UTF-8
+
+- (void)testAStringFieldThatIsNotUTF8ClearsItsKey
+{
+    KSCrash_SystemData sc = makeValidSystemData();
+    memset(sc.machine, 0, sizeof(sc.machine));
+    sc.machine[0] = (char)0xFF;
+    sc.machine[1] = (char)0xFE;
+    NSString *path = writeSidecar(self.tempDir, sc);
+
+    NSDictionary *report = @{ KSCrashField_System : @ { KSCrashField_Machine : @"old" } };
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertNil(result[KSCrashField_System][KSCrashField_Machine]);
+    XCTAssertEqualObjects(result[KSCrashField_System][KSCrashField_SystemName], @"iOS");
+}
+
 @end
