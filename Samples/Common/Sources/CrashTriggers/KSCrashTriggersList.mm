@@ -192,6 +192,20 @@ static void trigger_user_swiftAsync(void) { integrationTestSwiftAsyncTrigger(); 
     funcPtr();  // This will cause an EXC_BAD_INSTRUCTION
 }
 
++ (void)trigger_mach_badAccessWithSignalsBlocked
+{
+    // Block every signal for the whole process, as abort() does on its way to SIGABRT (on Darwin,
+    // sigprocmask applies to every thread), then fault. The kernel turns the Mach exception into
+    // SIGSEGV once the handler declines it; while SIGSEGV is blocked that signal cannot be
+    // delivered, so unless the handler unblocks it the thread faults again forever and the app
+    // never exits.
+    sigset_t all;
+    sigfillset(&all);
+    sigprocmask(SIG_SETMASK, &all, NULL);
+    volatile int *ptr = (int *)0x42;
+    *ptr = 42;
+}
+
 + (void)trigger_signal_abort
 {
     abort();  // This will raise a SIGABRT signal

@@ -148,6 +148,23 @@ final class MachTests: IntegrationTestBase {
     }
 }
 
+final class MachSignalsBlockedTests: IntegrationTestBase {
+    // The platforms with a Mach exception monitor (KSCRASH_HAS_MACH). Elsewhere nothing unblocks
+    // the signals, and the app is left faulting.
+    override class var platforms: Set<TargetPlatform> { [.iOS, .macOS, .visionOS] }
+
+    func testBadAccessWithSignalsBlockedStillTerminates() throws {
+        // With every signal blocked process-wide (as abort() leaves them), the SIGSEGV the kernel
+        // makes of a declined Mach exception cannot be delivered unless the handler unblocks it.
+        // waitForCrash fails if the app is still running at the deadline.
+        try launchAndCrash(.mach_badAccessWithSignalsBlocked)
+
+        let rawReport = try readCrashReport()
+        try rawReport.validate()
+        XCTAssertEqual(rawReport.crash.error.type, .mach)
+    }
+}
+
 final class MachSignalHandlerChainingTests: IntegrationTestBase {
     override class var platforms: Set<TargetPlatform> { [.iOS, .macOS, .visionOS] }
 
