@@ -189,6 +189,27 @@ static void captureHangStart(KSHangChangeType change, uint64_t start, uint64_t e
     api->setEnabled(false, NULL);
 }
 
+extern bool kscm_watchdog_testcode_staleTickStartsHang(bool mainWokeAgain);
+
+- (void)testATimerCallbackThatRacesTheMainThreadGoingIdleStartsNoHang
+{
+    // A tick that saw the main thread busy, but took the lock after it went
+    // idle, would start a hang from that stale enterTime while the main thread
+    // may still be finalizing the previous one against the same run sidecar;
+    // after it also woke again, a hang the main thread is not in.
+    KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
+    KSCrash_ExceptionHandlerCallbacks callbacks = { .notify = stubNotify,
+                                                    .handle = stubHandle_deprecated,
+                                                    .handleWithResult = stubHandle };
+    api->init(&callbacks, NULL);
+    api->setEnabled(true, NULL);
+
+    XCTAssertFalse(kscm_watchdog_testcode_staleTickStartsHang(false), @"The main thread went idle");
+    XCTAssertFalse(kscm_watchdog_testcode_staleTickStartsHang(true), @"The main thread went idle and woke");
+
+    api->setEnabled(false, NULL);
+}
+
 - (void)testAHangThatYieldsStillReportsThatItStarted
 {
     // A yielded hang writes no report, but the hang happened. The lifecycle notifications

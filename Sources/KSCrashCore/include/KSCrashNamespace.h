@@ -145,6 +145,7 @@
 #define kscm_watchdog_createStitchedReport KSCRASH_NS(kscm_watchdog_createStitchedReport)
 #define kscm_watchdog_getAPI KSCRASH_NS(kscm_watchdog_getAPI)
 #define kscm_watchdog_setReportsHangs KSCRASH_NS(kscm_watchdog_setReportsHangs)
+#define kscm_watchdog_testcode_staleTickStartsHang KSCRASH_NS(kscm_watchdog_testcode_staleTickStartsHang)
 #define kscm_zombie_getAPI KSCRASH_NS(kscm_zombie_getAPI)
 #define kscma_hasRequiredCallbacks KSCRASH_NS(kscma_hasRequiredCallbacks)
 #define kscma_initAPI KSCRASH_NS(kscma_initAPI)

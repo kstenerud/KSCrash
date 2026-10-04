@@ -87,8 +87,12 @@
 // The two threads communicate through:
 //   - `enterTime` (_Atomic uint64_t): written by the main thread when the
 //     run loop wakes, read by the watchdog timer to measure elapsed time.
-//     Uses relaxed ordering because it is a standalone timing value with no
-//     dependencies on other memory operations.
+//   - `mainIsIdle` (_Atomic bool): set by the main thread when the run loop
+//     goes idle and cleared when it wakes, after the new enterTime is stored
+//     (release), so a timer that sees it cleared (acquire) also sees that
+//     enterTime.  Before starting or updating a hang, the timer checks under
+//     the lock that the main thread is not idle and that enterTime is still
+//     the value it measured; either one failing means its measurement is stale.
 //   - `lock` (os_unfair_lock): protects the mutable `hang` state and sidecar
 //     pointer.  Held only briefly for reads/writes of these fields; never
 //     held during I/O or hang event dispatch.
@@ -144,6 +148,15 @@ typedef struct KSHangMonitor {
     // dispatch, because the watchdog timer fires every 250ms and must not stall.
     os_unfair_lock lock;
     KSHangState hang;
+
+    // True from the main run loop's BeforeWaiting until its next AfterWaiting.
+    // A timer callback can pass its threshold check just before the main thread
+    // goes idle and take the lock just after; it must not then start a hang from
+    // that stale enterTime, since the main thread may still be finalizing the
+    // previous hang against the same run sidecar. Set inside the lock section
+    // BeforeWaiting already takes; cleared without the lock, so a run loop wake
+    // on the host's main thread takes no lock for it.
+    _Atomic bool mainIsIdle;
 
     // Written by main thread (mainRunLoopActivity), read by watchdog thread
     // (watchdogTimerFired).  Relaxed ordering is fine, as this is a standalone
@@ -449,6 +462,8 @@ static void finalizeResolvedHang(KSHangMonitor *monitor, KSHangState hang)
 //
 
 // Runs on the watchdog thread.
+static void watchdogTick(KSHangMonitor *monitor, uint64_t enter);
+
 static void watchdogTimerFired(CFRunLoopTimerRef timer, void *info)
 {
     (void)timer;
@@ -457,7 +472,12 @@ static void watchdogTimerFired(CFRunLoopTimerRef timer, void *info)
     // Load enterTime exactly once, since a second load could see a newer
     // value if the main thread briefly woke between the two reads, causing
     // us to initialize the hang with the wrong start timestamp.
-    uint64_t enter = atomic_load_explicit(&monitor->enterTime, memory_order_relaxed);
+    watchdogTick(monitor, atomic_load_explicit(&monitor->enterTime, memory_order_relaxed));
+}
+
+// `enter` is the enterTime the tick measured against.
+static void watchdogTick(KSHangMonitor *monitor, uint64_t enter)
+{
     uint64_t now = ksdate_uptimeNanoseconds();
     uint64_t hangTime = now - enter;
 
@@ -472,6 +492,13 @@ static void watchdogTimerFired(CFRunLoopTimerRef timer, void *info)
     bool shouldUpdateHang = false;
 
     os_unfair_lock_lock(&monitor->lock);
+    // The main thread went idle since `enter` was measured, or went idle and
+    // woke again: either way this tick's view of it is stale.
+    if (atomic_load_explicit(&monitor->mainIsIdle, memory_order_acquire) ||
+        atomic_load_explicit(&monitor->enterTime, memory_order_relaxed) != enter) {
+        os_unfair_lock_unlock(&monitor->lock);
+        return;
+    }
     if (!monitor->hang.active) {
         kshangstate_init(&monitor->hang, enter, currentRole, currentTransition);
         monitor->hang.endTimestamp = now;
@@ -496,6 +523,7 @@ static void watchdogTimerFired(CFRunLoopTimerRef timer, void *info)
 static void schedulePings(KSHangMonitor *monitor)
 {
     atomic_store_explicit(&monitor->enterTime, ksdate_uptimeNanoseconds(), memory_order_relaxed);
+    atomic_store_explicit(&monitor->mainIsIdle, false, memory_order_release);
 
     CFRunLoopTimerContext timerCtx = {
         .version = 0, .info = monitor, .retain = NULL, .release = NULL, .copyDescription = NULL
@@ -525,6 +553,7 @@ static void mainRunLoopActivity(CFRunLoopObserverRef obs, CFRunLoopActivity acti
         bool hadHang = false;
 
         os_unfair_lock_lock(&monitor->lock);
+        atomic_store_explicit(&monitor->mainIsIdle, true, memory_order_relaxed);
         if (monitor->hang.active) {
             hang = monitor->hang;
             kshangstate_clear(&monitor->hang);
@@ -784,6 +813,36 @@ static void addContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext
 }
 
 void kscm_watchdog_setReportsHangs(bool enabled) { atomic_store(&g_reportsHangs, enabled); }
+
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+// Replays a tick that measured the main thread as busy since long ago, then
+// took the lock only after the main thread went idle (and, with
+// `mainWokeAgain`, woke again). Returns whether that tick started a hang. Call
+// on the main thread while the monitor is enabled.
+bool kscm_watchdog_testcode_staleTickStartsHang(bool mainWokeAgain)
+{
+    KSHangMonitor *monitor = g_watchdog;
+    if (monitor == NULL) {
+        return false;
+    }
+    // Going idle first invalidates the real timer, so no real tick interleaves.
+    mainRunLoopActivity(NULL, kCFRunLoopBeforeWaiting, monitor);
+    atomic_store_explicit(&monitor->enterTime, 0, memory_order_relaxed);
+    uint64_t enter = atomic_load_explicit(&monitor->enterTime, memory_order_relaxed);
+    if (mainWokeAgain) {
+        mainRunLoopActivity(NULL, kCFRunLoopAfterWaiting, monitor);
+    }
+    watchdogTick(monitor, enter);
+
+    os_unfair_lock_lock(&monitor->lock);
+    bool started = monitor->hang.active;
+    os_unfair_lock_unlock(&monitor->lock);
+
+    if (!mainWokeAgain) {
+        mainRunLoopActivity(NULL, kCFRunLoopAfterWaiting, monitor);
+    }
+    return started;
+}
 
 KSCrashMonitorAPI *kscm_watchdog_getAPI(void)
 {
