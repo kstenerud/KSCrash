@@ -29,96 +29,57 @@
 #import "KSCrashAppMemory.h"
 #import "KSCrashCPUTracker.h"
 #import "KSCrashReportFields.h"
+#import "KSCrashStitch.h"
 
 #import <Foundation/Foundation.h>
-
-#import "KSLogger.h"
 
 CFDictionaryRef kscm_resource_createStitchedReport(CFDictionaryRef reportDict, const char *sidecarPath,
                                                    KSCrashSidecarScope scope, __unused void *context)
 {
-    if (reportDict == NULL) {
-        return NULL;
-    }
-    if (scope != KSCrashSidecarScopeRun) {
-        // Not this monitor's scope (e.g. the final pass, which has no sidecar file).
-        CFRetain(reportDict);
-        return reportDict;
-    }
-    if (sidecarPath == NULL) {
-        return NULL;
-    }
+    __block KSCrash_ResourceData data = {};
+    NSDictionary *stitched = ksstitch_stitchedReport(
+        (__bridge NSDictionary *)reportDict, sidecarPath, scope, KSCrashSidecarScopeRun,
+        ^(const char *path) {
+            return kssidecar_readResource(path, &data);
+        },
+        ^(NSMutableDictionary *report) {
+            NSMutableDictionary *system = ksstitch_object(report, KSCrashField_System);
 
-    KSCrash_ResourceData data = {};
-    KSCrashSidecarReadResult readResult = ksresource_readSnapshotFromPath(sidecarPath, &data);
-    if (readResult == KSCrashSidecarReadFailure) {
-        KSLOG_ERROR(@"Failed to read resource sidecar at %s", sidecarPath);
-        return NULL;
-    }
-    if (readResult != KSCrashSidecarReadOK) {
-        // NULL is the retry signal, and retrying this never gets further: it
-        // would stop the report being finalized for good. Deliver it without
-        // the resource section.
-        KSLOG_ERROR(@"Unreadable resource sidecar at %s; delivering without it", sidecarPath);
-        CFRetain(reportDict);
-        return reportDict;
-    }
+            // app_memory: the same format as KSCrashMonitor_Memory serialization,
+            // minus timestamp and transition state (those belong to Memory/Lifecycle).
+            NSMutableDictionary *appMemory = ksstitch_object(system, KSCrashField_AppMemory);
+            appMemory[KSCrashField_MemoryFootprint] = @(data.memoryFootprint);
+            appMemory[KSCrashField_MemoryRemaining] = @(data.memoryRemaining);
+            appMemory[KSCrashField_MemoryLimit] = @(data.memoryLimit);
+            appMemory[KSCrashField_MemoryPressure] =
+                @(KSCrashAppMemoryStateToString((KSCrashAppMemoryState)data.memoryPressure));
+            appMemory[KSCrashField_MemoryLevel] =
+                @(KSCrashAppMemoryStateToString((KSCrashAppMemoryState)data.memoryLevel));
+            // Omitted when no system-wide data was recorded (v1 sidecar, or stats unavailable).
+            if (data.systemMemoryLimit > 0) {
+                appMemory[KSCrashField_MemoryHeadroom] =
+                    @(KSCrashAppMemoryStateToString((KSCrashAppMemoryState)data.memoryHeadroom));
+                appMemory[KSCrashField_SystemMemoryRemaining] = @(data.systemMemoryRemaining);
+                appMemory[KSCrashField_SystemMemoryLimit] = @(data.systemMemoryLimit);
+            }
 
-    NSMutableDictionary *dict = [(__bridge NSDictionary *)reportDict mutableCopy];
-
-    // Navigate to or create report.system
-    NSMutableDictionary *systemDict;
-    id systemVal = dict[KSCrashField_System];
-    if ([systemVal isKindOfClass:[NSDictionary class]]) {
-        systemDict = [systemVal mutableCopy];
-    } else {
-        systemDict = [NSMutableDictionary dictionary];
-    }
-
-    // Stitch app_memory — same format as KSCrashMonitor_Memory serialization,
-    // minus timestamp and transition state (those belong to Memory/Lifecycle).
-    NSMutableDictionary *appMemoryDict;
-    id appMemoryVal = systemDict[KSCrashField_AppMemory];
-    if ([appMemoryVal isKindOfClass:[NSDictionary class]]) {
-        appMemoryDict = [appMemoryVal mutableCopy];
-    } else {
-        appMemoryDict = [NSMutableDictionary dictionary];
-    }
-    appMemoryDict[KSCrashField_MemoryFootprint] = @(data.memoryFootprint);
-    appMemoryDict[KSCrashField_MemoryRemaining] = @(data.memoryRemaining);
-    appMemoryDict[KSCrashField_MemoryLimit] = @(data.memoryLimit);
-    appMemoryDict[KSCrashField_MemoryPressure] =
-        @(KSCrashAppMemoryStateToString((KSCrashAppMemoryState)data.memoryPressure));
-    appMemoryDict[KSCrashField_MemoryLevel] = @(KSCrashAppMemoryStateToString((KSCrashAppMemoryState)data.memoryLevel));
-    // Omitted when no system-wide data was recorded (v1 sidecar, or stats unavailable).
-    if (data.systemMemoryLimit > 0) {
-        appMemoryDict[KSCrashField_MemoryHeadroom] =
-            @(KSCrashAppMemoryStateToString((KSCrashAppMemoryState)data.memoryHeadroom));
-        appMemoryDict[KSCrashField_SystemMemoryRemaining] = @(data.systemMemoryRemaining);
-        appMemoryDict[KSCrashField_SystemMemoryLimit] = @(data.systemMemoryLimit);
-    }
-    systemDict[KSCrashField_AppMemory] = appMemoryDict;
-
-    // Stitch resource fields
-    if (data.batteryLevel != 255) {
-        systemDict[KSCrashField_BatteryLevel] = @(data.batteryLevel);
-    }
-    systemDict[KSCrashField_BatteryState] = @(data.batteryState);
-    systemDict[KSCrashField_LowPowerModeEnabled] = @((BOOL)data.lowPowerMode);
-    systemDict[KSCrashField_CPUCoreCount] = @(data.cpuCoreCount);
-    systemDict[KSCrashField_CPUUsageUser] = @(data.cpuUsageUser);
-    systemDict[KSCrashField_CPUUsageSystem] = @(data.cpuUsageSystem);
-    systemDict[KSCrashField_CPUState] = @(KSCrashCPUStateToString((KSCrashCPUState)data.cpuState));
-    systemDict[KSCrashField_CPUAverageUsagePermil] = @(data.cpuAverageUsagePermil);
-    if (data.cpuWallTimeInWindowNs > 0) {
-        systemDict[KSCrashField_CPUTimeInWindow] = @((double)data.cpuTimeInWindowNs / 1e9);
-        systemDict[KSCrashField_CPUWallTimeInWindow] = @((double)data.cpuWallTimeInWindowNs / 1e9);
-    }
-    systemDict[KSCrashField_ThermalState] = @(data.thermalState);
-    systemDict[KSCrashField_ThreadCount] = @(data.threadCount);
-    systemDict[KSCrashField_DataProtectionActive] = @((BOOL)data.dataProtectionActive);
-
-    dict[KSCrashField_System] = systemDict;
-
-    return (__bridge_retained CFDictionaryRef)dict;
+            if (data.batteryLevel != 255) {
+                system[KSCrashField_BatteryLevel] = @(data.batteryLevel);
+            }
+            system[KSCrashField_BatteryState] = @(data.batteryState);
+            system[KSCrashField_LowPowerModeEnabled] = @((BOOL)data.lowPowerMode);
+            system[KSCrashField_CPUCoreCount] = @(data.cpuCoreCount);
+            system[KSCrashField_CPUUsageUser] = @(data.cpuUsageUser);
+            system[KSCrashField_CPUUsageSystem] = @(data.cpuUsageSystem);
+            system[KSCrashField_CPUState] = @(KSCrashCPUStateToString((KSCrashCPUState)data.cpuState));
+            system[KSCrashField_CPUAverageUsagePermil] = @(data.cpuAverageUsagePermil);
+            if (data.cpuWallTimeInWindowNs > 0) {
+                system[KSCrashField_CPUTimeInWindow] = @((double)data.cpuTimeInWindowNs / 1e9);
+                system[KSCrashField_CPUWallTimeInWindow] = @((double)data.cpuWallTimeInWindowNs / 1e9);
+            }
+            system[KSCrashField_ThermalState] = @(data.thermalState);
+            system[KSCrashField_ThreadCount] = @(data.threadCount);
+            system[KSCrashField_DataProtectionActive] = @((BOOL)data.dataProtectionActive);
+        });
+    return (__bridge_retained CFDictionaryRef)stitched;
 }

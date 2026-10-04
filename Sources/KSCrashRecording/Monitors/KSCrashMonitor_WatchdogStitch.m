@@ -30,134 +30,65 @@
 #import "KSCrashMonitor_Watchdog.h"
 #import "KSCrashReportFields.h"
 #import "KSCrashRunContext.h"
-#import "KSFileUtils.h"
+#import "KSCrashStitch.h"
 
 #import <Foundation/Foundation.h>
-#include <errno.h>
-#include <fcntl.h>
 
 #import "KSLogger.h"
-
-// Returns a +1 CFDictionaryRef per the CF Create Rule, as specified by the
-// createStitchedReport contract in KSCrashMonitorAPI.h. The early-return for
-// non-run scopes retains the input to satisfy this ownership requirement.
-/** Read the hang sidecar, saying whether reading again could go better.
- *  Cannot use ksfu_mmap, which truncates with O_TRUNC.
- */
-static KSCrashSidecarReadResult readHangSidecar(const char *path, KSHangSidecar *out)
-{
-    int fd = open(path, O_RDONLY);
-    if (fd == -1) {
-        // Before logging: the logger's own writes can replace errno.
-        int openError = errno;
-        KSLOG_ERROR(@"Failed to open sidecar at %s: %s", path, strerror(openError));
-        return openError == ENOENT ? KSCrashSidecarReadUnrecoverable : KSCrashSidecarReadFailure;
-    }
-    bool didRead = ksfu_readBytesFromFD(fd, (char *)out, (int)sizeof(*out));
-    close(fd);
-    if (!didRead) {
-        // Short of a whole sidecar: the run died part way through writing it,
-        // and the bytes that are missing are not coming.
-        KSLOG_ERROR(@"Failed to read sidecar at %s", path);
-        return KSCrashSidecarReadUnrecoverable;
-    }
-    if (out->magic != KSHANG_SIDECAR_MAGIC || out->version == 0 || out->version > KSHANG_SIDECAR_CURRENT_VERSION) {
-        KSLOG_ERROR(@"Invalid sidecar at %s (magic=0x%x version=%d)", path, out->magic, out->version);
-        return KSCrashSidecarReadUnrecoverable;
-    }
-    return KSCrashSidecarReadOK;
-}
 
 CFDictionaryRef kscm_watchdog_createStitchedReport(CFDictionaryRef reportDict, const char *sidecarPath,
                                                    KSCrashSidecarScope scope, __unused void *context)
 {
-    if (reportDict == NULL) {
-        return NULL;
-    }
-    if (scope != KSCrashSidecarScopeRun) {
-        // Not this monitor's scope (e.g. the final pass, which has no sidecar file).
-        CFRetain(reportDict);
-        return reportDict;
-    }
-    if (sidecarPath == NULL) {
-        return NULL;
-    }
+    __block KSCrash_HangData sc = {};
+    NSDictionary *stitched = ksstitch_stitchedReport(
+        (__bridge NSDictionary *)reportDict, sidecarPath, scope, KSCrashSidecarScopeRun,
+        ^(const char *path) {
+            return kssidecar_readHang(path, &sc);
+        },
+        ^(NSMutableDictionary *report) {
+            // The hang goes into crash.error. A report without one has nowhere to
+            // take it, and no later read adds one, so it delivers without the hang.
+            id crashValue = report[KSCrashField_Crash];
+            if (![crashValue isKindOfClass:[NSDictionary class]] ||
+                ![crashValue[KSCrashField_Error] isKindOfClass:[NSDictionary class]]) {
+                KSLOG_ERROR(@"Malformed report: no crash.error object to add the hang to");
+                return;
+            }
+            NSMutableDictionary *error =
+                ksstitch_object(ksstitch_object(report, KSCrashField_Crash), KSCrashField_Error);
 
-    KSHangSidecar sc = {};
-    KSCrashSidecarReadResult readResult = readHangSidecar(sidecarPath, &sc);
-    if (readResult == KSCrashSidecarReadFailure) {
-        return NULL;
-    }
-    if (readResult != KSCrashSidecarReadOK) {
-        // No later read gets further, and NULL here is not free: it stops this
-        // report being finalized for good, and on the hang-recovery path
-        // kscm_watchdog deletes the report outright. Deliver it without the
-        // hang section instead.
-        CFRetain(reportDict);
-        return reportDict;
-    }
+            // The hang section goes on every report from the run, as context (an
+            // exception that occurred during a hang, say). Only the Watchdog's own
+            // reports have their fatality and error type changed.
+            NSMutableDictionary *hang = [NSMutableDictionary dictionary];
+            hang[KSCrashField_HangStartNanoseconds] = @(sc.startTimestamp);
+            hang[KSCrashField_HangStartRole] = @(kstaskrole_toString(sc.startRole));
+            hang[KSCrashField_HangStartTransitionState] = @(ksapp_transitionStateToString(sc.startTransitionState));
+            hang[KSCrashField_HangEndNanoseconds] = @(sc.endTimestamp);
+            hang[KSCrashField_HangEndRole] = @(kstaskrole_toString(sc.endRole));
+            hang[KSCrashField_HangEndTransitionState] = @(ksapp_transitionStateToString(sc.endTransitionState));
+            error[KSCrashField_Hang] = hang;
 
-    bool recovered = sc.recovered;
+            id reportSection = report[KSCrashField_Report];
+            id monitorId =
+                [reportSection isKindOfClass:[NSDictionary class]] ? reportSection[KSCrashField_MonitorId] : nil;
+            bool isWatchdogReport =
+                [monitorId isKindOfClass:[NSString class]] && [monitorId isEqualToString:@"Watchdog"];
 
-    NSMutableDictionary *dict = [(__bridge NSDictionary *)reportDict mutableCopy];
-
-    // Check if this report was written by the Watchdog monitor.
-    // The hang section is added to all reports as context, but only
-    // Watchdog reports get their fatality and error type modified.
-    bool isWatchdogReport = false;
-    id reportSectionVal = dict[KSCrashField_Report];
-    if ([reportSectionVal isKindOfClass:[NSDictionary class]]) {
-        id monitorIdVal = ((NSDictionary *)reportSectionVal)[KSCrashField_MonitorId];
-        if ([monitorIdVal isKindOfClass:[NSString class]]) {
-            isWatchdogReport = [monitorIdVal isEqualToString:@"Watchdog"];
-        }
-    }
-
-    // Navigate to crash.error, create hang section from sidecar data.
-    id crashVal = dict[KSCrashField_Crash];
-    if (![crashVal isKindOfClass:[NSDictionary class]]) {
-        KSLOG_ERROR(@"Malformed report: 'crash' is missing or not a dictionary");
-        return NULL;
-    }
-    NSMutableDictionary *crash = [crashVal mutableCopy];
-
-    id errorVal = crash[KSCrashField_Error];
-    if (![errorVal isKindOfClass:[NSDictionary class]]) {
-        KSLOG_ERROR(@"Malformed report: 'error' is missing or not a dictionary");
-        return NULL;
-    }
-    NSMutableDictionary *errorDict = [errorVal mutableCopy];
-
-    // The hang section is added to all reports from the run as context
-    // (e.g., an exception that occurred during a hang).
-    NSMutableDictionary *hang = [NSMutableDictionary dictionary];
-    hang[KSCrashField_HangStartNanoseconds] = @(sc.startTimestamp);
-    hang[KSCrashField_HangStartRole] = @(kstaskrole_toString(sc.startRole));
-    hang[KSCrashField_HangStartTransitionState] = @(ksapp_transitionStateToString(sc.startTransitionState));
-    hang[KSCrashField_HangEndNanoseconds] = @(sc.endTimestamp);
-    hang[KSCrashField_HangEndRole] = @(kstaskrole_toString(sc.endRole));
-    hang[KSCrashField_HangEndTransitionState] = @(ksapp_transitionStateToString(sc.endTransitionState));
-
-    if (recovered) {
-        hang[KSCrashField_HangRecovered] = @YES;
-
-        if (isWatchdogReport) {
-            errorDict[KSCrashField_Type] = KSCrashExcType_Hang;
-            [errorDict removeObjectForKey:KSCrashField_Signal];
-            [errorDict removeObjectForKey:KSCrashField_Mach];
-            [errorDict removeObjectForKey:KSCrashField_ExitReason];
-            errorDict[KSCrashField_IsFatal] = @NO;
-            [errorDict removeObjectForKey:KSCrashField_IsCleanExit];
-        }
-    } else if (isWatchdogReport) {
-        errorDict[KSCrashField_IsFatal] = @YES;
-        errorDict[KSCrashField_IsCleanExit] = @NO;
-    }
-
-    // Write mutable copies back into their parents
-    errorDict[KSCrashField_Hang] = hang;
-    crash[KSCrashField_Error] = errorDict;
-    dict[KSCrashField_Crash] = crash;
-
-    return (__bridge_retained CFDictionaryRef)dict;
+            if (sc.recovered) {
+                hang[KSCrashField_HangRecovered] = @YES;
+                if (isWatchdogReport) {
+                    error[KSCrashField_Type] = KSCrashExcType_Hang;
+                    [error removeObjectForKey:KSCrashField_Signal];
+                    [error removeObjectForKey:KSCrashField_Mach];
+                    [error removeObjectForKey:KSCrashField_ExitReason];
+                    error[KSCrashField_IsFatal] = @NO;
+                    [error removeObjectForKey:KSCrashField_IsCleanExit];
+                }
+            } else if (isWatchdogReport) {
+                error[KSCrashField_IsFatal] = @YES;
+                error[KSCrashField_IsCleanExit] = @NO;
+            }
+        });
+    return (__bridge_retained CFDictionaryRef)stitched;
 }

@@ -1,7 +1,7 @@
 //
-//  SignalError.swift
+//  KSSystemSidecar.c
 //
-//  Created by Alexander Cohen on 2024-12-09.
+//  Created by Alexander Cohen on 2026-09-28.
 //
 //  Copyright (c) 2012 Karl Stenerud. All rights reserved.
 //
@@ -24,38 +24,12 @@
 // THE SOFTWARE.
 //
 
-import Foundation
+#include "KSSystemSidecar.h"
 
-/// Unix signal details.
-public struct SignalError: Codable, Sendable, Equatable {
-    /// Signal code providing additional context.
-    public var code: UInt64
-
-    /// Human-readable name for the signal code.
-    public var codeName: String?
-
-    /// Signal name (e.g., "SIGSEGV", "SIGABRT").
-    public var name: String?
-
-    /// Signal number.
-    public var signal: UInt64
-
-    public init(
-        code: UInt64,
-        codeName: String? = nil,
-        name: String? = nil,
-        signal: UInt64
-    ) {
-        self.code = code
-        self.codeName = codeName
-        self.name = name
-        self.signal = signal
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case code
-        case codeName = "code_name"
-        case name
-        case signal
-    }
+KSCrashSidecarReadResult kssidecar_readSystem(const char *path, KSCrash_SystemData *out)
+{
+    static const size_t sizes[] = { KSCrash_System_V1Size, KSCrash_System_V2Size };
+    _Static_assert(sizeof(sizes) / sizeof(sizes[0]) == KSCrash_System_CurrentVersion, "one size per system version");
+    static const KSSidecarFormat format = { KSSYS_MAGIC, sizes, KSCrash_System_CurrentVersion };
+    return kssidecar_read(&format, path, out, sizeof(*out));
 }

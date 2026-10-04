@@ -28,6 +28,8 @@ import Foundation
 
 /// A wrapper that provides indirection for recursive crash reports.
 public final class RecrashReport: Codable, Sendable {
+    /// Constant, unlike the rest of the model: copies of a `Report` share this instance, so a
+    /// change goes through a new `RecrashReport` on the enclosing report.
     public let report: Report
 
     public init(report: Report) {
@@ -52,35 +54,35 @@ extension RecrashReport: Equatable {
 /// The root structure representing a complete KSCrash report.
 public struct Report: Codable, Sendable, Equatable {
     /// List of binary images loaded in the process at crash time.
-    public let binaryImages: [BinaryImage]?
+    public var binaryImages: [BinaryImage]?
 
     /// Information about the crash itself.
-    public let crash: Crash
+    public var crash: Crash
 
     /// Debug information (console logs, etc.).
-    public let debug: DebugInfo?
+    public var debug: DebugInfo?
 
     /// Process-specific information (zombie exceptions, etc.).
-    public let process: ProcessState?
+    public var process: ProcessState?
 
     /// Metadata about this report.
-    public let report: ReportInfo
+    public var report: ReportInfo
 
     /// If a crash occurred while writing the crash report, the original report is embedded here.
-    public let recrashReport: RecrashReport?
+    public var recrashReport: RecrashReport?
 
     /// System information at the time of crash.
-    public let system: SystemInfo?
+    public var system: SystemInfo?
 
     /// A crashed process's snapshot, embedded by an out-of-process capture (an iOS 27
     /// CrashReportExtension) and lifted to the report root at delivery. nil for reports this
     /// process wrote about itself.
-    public let corpse: CorpseSnapshot?
+    public var corpse: CorpseSnapshot?
 
     /// App data attached via the userInfo API. The user section must be a
     /// JSON object; a report whose user section is any other shape does not
     /// decode.
-    public let metadata: Metadata?
+    public var metadata: Metadata?
 
     /// Data contributed by custom monitors at delivery time, keyed by monitor
     /// id. nil when no monitor contributed any. Use ``monitorData(_:for:)``
@@ -90,7 +92,7 @@ public struct Report: Codable, Sendable, Equatable {
     private let monitorSections: [String: FaithfulMetadata]?
 
     /// Whether this report is incomplete (crash during crash handling).
-    public let incomplete: Bool?
+    public var incomplete: Bool?
 
     public init(
         binaryImages: [BinaryImage]? = nil,
