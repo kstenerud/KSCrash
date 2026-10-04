@@ -33,8 +33,11 @@
 
 #if KSCRASH_HAS_MACH
 #import <mach/mach.h>
+#import <signal.h>
 #import <stdatomic.h>
 #import <sys/sysctl.h>
+#import <sys/wait.h>
+#import <unistd.h>
 
 typedef struct {
     exception_mask_t masks[EXC_TYPES_COUNT];
@@ -148,6 +151,33 @@ static KSCrash_MonitorContext *countingNotify(__unused thread_t offendingThread,
         XCTAssertTrue(behavior & MACH_EXCEPTION_CODES, @"mask 0x%x", installed.masks[i]);
     }
 }
+
+#if !TARGET_OS_TV && !TARGET_OS_WATCH
+// A child inherits the task's exception ports, so its exceptions arrive at this process's handler.
+// They are not this process's crashes: the handler must decline them and stay installed.
+- (void)testDeclinesExceptionsFromAChildProcess
+{
+    const int notifiesBefore = atomic_load(&g_notifyCount);
+    pid_t child = fork();
+    if (child == 0) {
+        // Default actions, so a sanitizer's handler in the child does not report the fault the test means.
+        signal(SIGSEGV, SIG_DFL);
+        signal(SIGBUS, SIG_DFL);
+        *(volatile int *)0x42 = 1;
+        _exit(0);
+    }
+    XCTAssertGreaterThan(child, 0);
+    int status = 0;
+    XCTAssertEqual(waitpid(child, &status, 0), child);
+
+    XCTAssertEqual(atomic_load(&g_notifyCount), notifiesBefore, @"The child's exception was handled as ours");
+    ExceptionPorts after;
+    XCTAssertEqual(getExceptionPorts(&after), KERN_SUCCESS);
+    for (mach_msg_type_number_t i = 0; i < after.count; i++) {
+        XCTAssertTrue(MACH_PORT_VALID(after.ports[i]), @"mask 0x%x lost its handler", after.masks[i]);
+    }
+}
+#endif
 
 #endif
 
