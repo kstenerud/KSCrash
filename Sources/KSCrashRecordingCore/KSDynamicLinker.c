@@ -130,10 +130,16 @@ typedef struct {
 #define KSDL_SECT_CRASH_INFO "__crash_info"
 
 // The oldest crash_info_t layout read. Later versions grow the struct past the fields read here
-// and keep those at the same offsets: version 7, what iOS 27 and macOS 27 ship, is a 328-byte
-// section whose message, signature, backtrace and message2 sit where version 4's do. Accepting
-// only the versions known at the time silently dropped every message on newer systems.
+// and keep those at the same offsets: version 7 is a 328-byte section whose message, signature,
+// backtrace and message2 sit where version 4's do. Accepting only the versions known at the time
+// silently dropped every message on newer systems.
 #define KSDL_MinCrashInfoVersion 4
+
+// The segments an image can carry __crash_info in, in the order they are tried. Some system
+// images are linked with the section in __DATA_DIRTY instead of __DATA, and a reader that asks
+// for __DATA alone never sees their messages.
+static const char *const g_crashInfoSegments[] = { SEG_DATA, "__DATA_DIRTY" };
+static const size_t g_crashInfoSegmentCount = sizeof(g_crashInfoSegments) / sizeof(g_crashInfoSegments[0]);
 
 /** Perform the actual symbol lookup without caching.
  *  This scans the symbol table to find the closest symbol to the given address.
@@ -316,10 +322,13 @@ static bool isValidCrashInfoMessage(const char *str)
 static void getCrashInfo(const struct mach_header *header, KSBinaryImage *buffer)
 {
     unsigned long size = 0;
+    crash_info_t *crashInfo = NULL;
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wcast-align"
-    crash_info_t *crashInfo =
-        (crash_info_t *)getsectiondata((mach_header_t *)header, SEG_DATA, KSDL_SECT_CRASH_INFO, &size);
+    for (size_t i = 0; i < g_crashInfoSegmentCount && crashInfo == NULL; i++) {
+        crashInfo = (crash_info_t *)getsectiondata((mach_header_t *)header, g_crashInfoSegments[i],
+                                                   KSDL_SECT_CRASH_INFO, &size);
+    }
 #pragma clang diagnostic pop
     if (crashInfo == NULL) {
         return;
@@ -416,8 +425,12 @@ bool ksdl_readCrashInfoFromTaskImage(task_t task, uintptr_t loadAddress, KSCrash
 
     uintptr_t sectionAddress = 0;
     uintptr_t sectionSize = 0;
-    if (!ksbic_findSectionInTaskImage(task, loadAddress, SEG_DATA, KSDL_SECT_CRASH_INFO, &sectionAddress,
-                                      &sectionSize)) {
+    bool found = false;
+    for (size_t i = 0; i < g_crashInfoSegmentCount && !found; i++) {
+        found = ksbic_findSectionInTaskImage(task, loadAddress, g_crashInfoSegments[i], KSDL_SECT_CRASH_INFO,
+                                             &sectionAddress, &sectionSize);
+    }
+    if (!found) {
         return false;
     }
     // Include message and message2, the same floor as the in-process reader.
