@@ -55,6 +55,7 @@ extern NSString *const KSCrashNSExceptionStacktraceFuncName;
     __PROCESS_TRIGGER(mach, badAccessDeadbeef, @"EXC_BAD_ACCESS (0xDEADBEEF)")                         \
     __PROCESS_TRIGGER(mach, busError, @"EXC_BAD_ACCESS (SIGBUS)")                                      \
     __PROCESS_TRIGGER(mach, illegalInstruction, @"EXC_BAD_INSTRUCTION")                                \
+    __PROCESS_TRIGGER(mach, forbiddenExceptionBehavior, @"Forbidden exception port")                   \
     __PROCESS_TRIGGER(signal, abort, @"Abort")                                                         \
     __PROCESS_TRIGGER(signal, sigpipe, @"SIGPIPE")                                                     \
     __PROCESS_TRIGGER(user, nonfatal, @"Nonfatal")                                                     \
