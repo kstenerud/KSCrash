@@ -25,6 +25,8 @@
 //
 
 #import <XCTest/XCTest.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #import "KSCrashAppMemory+Private.h"
 #import "KSCrashAppMemoryTracker.h"
@@ -113,6 +115,30 @@ static KSCrashAppMemory *memorySample(uint64_t footprint, uint64_t systemRemaini
     self.sample = memorySample(74000000, 51000000, KSCrashAppMemoryStateWarn);
     kscm_resource_getAPI()->setEnabled(true, NULL);
     [self assertSidecarMatchesSample:self.sample];
+}
+
+- (void)testReenablingPublishesANewSidecarWithoutTouchingTheOneBeingRead
+{
+    // The sidecar is built aside and renamed into place, so a reader holding the
+    // file from the previous enable keeps reading it whole, where a file
+    // re-created in place would be truncated under it.
+    KSCrashAppMemory *first = memorySample(74000000, 51000000, KSCrashAppMemoryStateNormal);
+    self.sample = first;
+    kscm_resource_getAPI()->setEnabled(true, NULL);
+    kscm_resource_getAPI()->setEnabled(false, NULL);
+    int previousFD = open(g_sidecarPath.fileSystemRepresentation, O_RDONLY);
+    XCTAssertNotEqual(previousFD, -1);
+
+    self.sample = memorySample(80000000, 30000000, KSCrashAppMemoryStateWarn);
+    kscm_resource_getAPI()->setEnabled(true, NULL);
+
+    KSCrash_ResourceData held = {};
+    XCTAssertEqual(pread(previousFD, &held, sizeof(held), 0), (ssize_t)sizeof(held));
+    close(previousFD);
+    XCTAssertEqual(held.memoryFootprint, first.footprint);
+    [self assertSidecarMatchesSample:self.sample];
+    XCTAssertFalse(
+        [[NSFileManager defaultManager] fileExistsAtPath:[g_sidecarPath stringByAppendingPathExtension:@"tmp"]]);
 }
 
 - (void)testMemoryUpdateRefreshesStatesWithoutStateChangeFlags
