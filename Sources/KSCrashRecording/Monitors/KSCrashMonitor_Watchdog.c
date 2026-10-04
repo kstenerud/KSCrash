@@ -367,19 +367,23 @@ static void populateReportForCurrentHang(KSHangMonitor *monitor)
     // Re-check: the main thread may have resolved the hang while we were
     // writing the report.  Compare timestamps to make sure it's still the
     // same hang before attaching the report path and sidecar.
+    bool keptReport = false;
     bool attachedSidecar = false;
     os_unfair_lock_lock(&monitor->lock);
     if (monitor->hang.active && monitor->hang.timestamp == hang.timestamp) {
         strlcpy(monitor->hang.reportId, result.reportId, sizeof(monitor->hang.reportId));
         if (strlcpy(monitor->hang.path, result.path, PATH_MAX) >= PATH_MAX) {
             KSLOG_ERROR("Report path too long, discarding hang report");
-        } else if (sidecar) {
-            monitor->sidecar = sidecar;
-            strlcpy(monitor->sidecarPath, sidecarPath, sizeof(monitor->sidecarPath));
-            // Ticks while the report was written updated only monitor->hang.
-            sidecar_update(sidecar, monitor->hang.endTimestamp, monitor->hang.endRole,
-                           monitor->hang.endTransitionState);
-            attachedSidecar = true;
+        } else {
+            keptReport = true;
+            if (sidecar) {
+                monitor->sidecar = sidecar;
+                strlcpy(monitor->sidecarPath, sidecarPath, sizeof(monitor->sidecarPath));
+                // Ticks while the report was written updated only monitor->hang.
+                sidecar_update(sidecar, monitor->hang.endTimestamp, monitor->hang.endRole,
+                               monitor->hang.endTransitionState);
+                attachedSidecar = true;
+            }
         }
     } else {
         KSLOG_DEBUG("hang changed during report population - discarding");
@@ -389,6 +393,11 @@ static void populateReportForCurrentHang(KSHangMonitor *monitor)
     if (sidecar && !attachedSidecar) {
         ksfu_munmap(sidecar, sizeof(KSCrash_HangData));
         unlink(sidecarPath);
+    }
+    // Nothing else knows about a report that was not kept: the hang that finalizes or
+    // deletes it is gone. Left on disk, its faked SIGKILL would deliver as a watchdog kill.
+    if (!keptReport && result.path[0] != '\0') {
+        unlink(result.path);
     }
 
     KSLOG_INFO("Hang started (reportID: %s)", result.reportId);

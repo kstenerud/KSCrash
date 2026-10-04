@@ -54,6 +54,10 @@ static _Atomic(int) g_stubHandleCount = 0;
  * thread going idle at that moment would. */
 static _Atomic(bool) g_stubEndsHangDuringReport = false;
 
+/** When set, the stub handler writes a report file here and returns its path, as the
+ * real handler does. Set only while a test runs, before the watchdog is enabled. */
+static char g_stubReportPath[PATH_MAX];
+
 extern void kscm_watchdog_testcode_endActiveHang(void);
 
 static KSCrash_MonitorContext *stubNotify(thread_t thread, __unused KSCrash_ExceptionHandlingRequirements requirements)
@@ -69,6 +73,14 @@ static void stubHandle(__unused KSCrash_MonitorContext *context, KSCrash_ReportR
     atomic_fetch_add(&g_stubHandleCount, 1);
     strlcpy(result->reportId, "4C1B2F3E-0000-4000-8000-000000000001", sizeof(result->reportId));
     result->path[0] = '\0';
+    if (g_stubReportPath[0] != '\0') {
+        int fd = open(g_stubReportPath, O_CREAT | O_WRONLY | O_TRUNC, 0644);
+        if (fd != -1) {
+            write(fd, "{}", 2);
+            close(fd);
+            strlcpy(result->path, g_stubReportPath, sizeof(result->path));
+        }
+    }
     if (atomic_load(&g_stubEndsHangDuringReport)) {
         kscm_watchdog_testcode_endActiveHang();
     }
@@ -165,6 +177,8 @@ typedef struct {
     const char *sidecarPath;
     bool sidecarExisted;
     bool tempSidecarExisted;
+    const char *reportPath;
+    bool reportExisted;
 } HangCapture;
 
 // The process-wide callback has no context; tests route it through this
@@ -183,6 +197,9 @@ static void captureHangStart(KSHangChangeType change, uint64_t start, uint64_t e
             snprintf(tempPath, sizeof(tempPath), "%s.tmp", capture->sidecarPath);
             capture->sidecarExisted = access(capture->sidecarPath, F_OK) == 0;
             capture->tempSidecarExisted = access(tempPath, F_OK) == 0;
+        }
+        if (capture->reportPath != NULL) {
+            capture->reportExisted = access(capture->reportPath, F_OK) == 0;
         }
         [capture->waiter signal];
     }
@@ -287,14 +304,18 @@ static bool stubRunSidecarPath(const char *monitorId, char *pathBuffer, size_t p
     [self disableAndRemoveRunSidecarDirectory:dir];
 }
 
-- (void)testAHangThatEndsWhileItsReportIsWrittenLeavesNoSidecar
+- (void)testAHangThatEndsWhileItsReportIsWrittenLeavesNeitherItsReportNorASidecar
 {
+    NSString *reportPath = [NSTemporaryDirectory() stringByAppendingPathComponent:[[NSUUID UUID] UUIDString]];
+    strlcpy(g_stubReportPath, reportPath.fileSystemRepresentation, sizeof(g_stubReportPath));
+    atomic_store(&g_stubEndsHangDuringReport, true);
     NSString *dir = [self enableWithRunSidecarDirectory];
     NSString *path = [dir stringByAppendingPathComponent:@"Watchdog.ksscr"];
-    atomic_store(&g_stubEndsHangDuringReport, true);
 
     KSSempahore *waiter = [KSSempahore withValue:0];
-    HangCapture capture = { .waiter = waiter, .sidecarPath = path.fileSystemRepresentation };
+    HangCapture capture = { .waiter = waiter,
+                            .sidecarPath = path.fileSystemRepresentation,
+                            .reportPath = reportPath.fileSystemRepresentation };
     g_hangCapture = &capture;
     KSHangEventCallback previous = kshang_setHangEventCallback(captureHangStart);
     XCTAssertTrue([waiter waitForTimeInterval:5]);
@@ -304,8 +325,11 @@ static bool stubRunSidecarPath(const char *monitorId, char *pathBuffer, size_t p
 
     XCTAssertFalse(capture.sidecarExisted, @"The sidecar of a hang that ended is not left behind");
     XCTAssertFalse(capture.tempSidecarExisted);
+    XCTAssertFalse(capture.reportExisted, @"The report of a hang that ended is not left behind");
 
     [self disableAndRemoveRunSidecarDirectory:dir];
+    g_stubReportPath[0] = '\0';
+    [[NSFileManager defaultManager] removeItemAtPath:reportPath error:nil];
 }
 
 extern bool kscm_watchdog_testcode_staleTickStartsHang(bool mainWokeAgain);
