@@ -511,6 +511,22 @@ static void handleException(ExceptionContext *exceptionCtx)
     g_state.callbacks.handle(monitorCtx);
 }
 
+/** Unblock, for the whole process, the signals the kernel turns these exceptions into once the
+ * handler declines them. abort() blocks every signal process-wide before raising SIGABRT (on Darwin,
+ * sigprocmask applies to every thread), and a thread that faults meanwhile is handed a signal it
+ * cannot take: it faults again and again and the process never exits. */
+static void unblockExceptionSignals(void)
+{
+    sigset_t signals;
+    sigemptyset(&signals);
+    sigaddset(&signals, SIGILL);   // EXC_BAD_INSTRUCTION
+    sigaddset(&signals, SIGTRAP);  // EXC_BREAKPOINT
+    sigaddset(&signals, SIGFPE);   // EXC_ARITHMETIC
+    sigaddset(&signals, SIGBUS);   // EXC_BAD_ACCESS
+    sigaddset(&signals, SIGSEGV);  // EXC_BAD_ACCESS
+    sigprocmask(SIG_UNBLOCK, &signals, NULL);
+}
+
 static void *exceptionHandlerThreadMain(void *data)
 {
     ExceptionContext *ctx = (ExceptionContext *)data;
@@ -549,6 +565,7 @@ static void *exceptionHandlerThreadMain(void *data)
     g_state.installedState = KSCM_Uninstalled;
     restoreOriginalExceptionPorts();
     KSLOG_DEBUG("Thread %s: Replying to exception message", ctx->threadName);
+    unblockExceptionSignals();
     sendExceptionReply(ctx, canCurrentPortsHandleException(exc));
     deallocExceptionHandler(ctx);
 
