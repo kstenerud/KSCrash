@@ -113,15 +113,16 @@ static const exception_mask_t kInterestingExceptions =
 #pragma mark - Types -
 // ============================================================================
 
-// Match the EXCEPTION_DEFAULT | MACH_EXCEPTION_CODES request layout even on
-// SDKs that don't expose the mach_exc MIG request typedefs.
+// Match the EXCEPTION_IDENTITY_PROTECTED | MACH_EXCEPTION_CODES request layout
+// (mach_exception_raise_identity_protected in mach_exc.defs) even on SDKs that
+// don't expose the mach_exc MIG request typedefs.
 #pragma pack(push, 4)
 typedef struct {
     mach_msg_header_t Head;
     mach_msg_body_t msgh_body;
-    mach_msg_port_descriptor_t thread;
-    mach_msg_port_descriptor_t task;
+    mach_msg_port_descriptor_t taskIdentityToken;
     NDR_record_t NDR;
+    uint64_t threadID;
     exception_type_t exception;
     mach_msg_type_number_t codeCnt;
     mach_exception_data_type_t code[2];
@@ -372,14 +373,43 @@ static void sendExceptionReply(ExceptionContext *ctx, bool exceptionPortsCanHand
     }
 }
 
+/** The identity-protected message names the excepting thread by its kernel id, not by a port. */
+static thread_t threadForID(uint64_t threadID)
+{
+    const task_t thisTask = mach_task_self();
+    thread_act_array_t threads = NULL;
+    mach_msg_type_number_t count = 0;
+    kern_return_t kr = task_threads(thisTask, &threads, &count);
+    if (kr != KERN_SUCCESS) {
+        MACH_ERROR(kr, "task_threads");
+        return MACH_PORT_NULL;
+    }
+    thread_t found = MACH_PORT_NULL;
+    for (mach_msg_type_number_t i = 0; i < count; i++) {
+        thread_identifier_info_data_t info;
+        mach_msg_type_number_t infoCount = THREAD_IDENTIFIER_INFO_COUNT;
+        if (found == MACH_PORT_NULL &&
+            thread_info(threads[i], THREAD_IDENTIFIER_INFO, (thread_info_t)&info, &infoCount) == KERN_SUCCESS &&
+            info.thread_id == threadID) {
+            // Keep this send right so the name stays valid while the report is written.
+            found = threads[i];
+            continue;
+        }
+        mach_port_deallocate(thisTask, threads[i]);
+    }
+    vm_deallocate(thisTask, (vm_address_t)threads, sizeof(thread_t) * count);
+    return found;
+}
+
 static void handleException(ExceptionContext *exceptionCtx)
 {
-    KSCrash_MonitorContext *monitorCtx = g_state.callbacks.notify(
-        exceptionCtx->request->thread.name, (KSCrash_ExceptionHandlingRequirements) { .asyncSafety = true,
-                                                                                      .isFatal = true,
-                                                                                      .isCleanExit = false,
-                                                                                      .shouldRecordAllThreads = true,
-                                                                                      .shouldWriteReport = true });
+    const thread_t thread = threadForID(exceptionCtx->request->threadID);
+    KSCrash_MonitorContext *monitorCtx =
+        g_state.callbacks.notify(thread, (KSCrash_ExceptionHandlingRequirements) { .asyncSafety = true,
+                                                                                   .isFatal = true,
+                                                                                   .isCleanExit = false,
+                                                                                   .shouldRecordAllThreads = true,
+                                                                                   .shouldWriteReport = true });
     if (monitorCtx->requirements.shouldExitImmediately) {
         KSLOG_DEBUG("Thread %s: Should exit immediately, so returning", exceptionCtx->threadName);
         return;
@@ -390,7 +420,7 @@ static void handleException(ExceptionContext *exceptionCtx)
     monitorCtx->offendingMachineContext = &machineContext;
     kssc_initCursor(&exceptionCtx->stackCursor, NULL, NULL);
     bool stackOverflow = false;
-    if (ksmc_getContextForThread(exceptionCtx->request->thread.name, &machineContext, true)) {
+    if (thread != MACH_PORT_NULL && ksmc_getContextForThread(thread, &machineContext, true)) {
         kssc_initWithUnwind(&exceptionCtx->stackCursor, KSSC_MAX_STACK_DEPTH, &machineContext);
         // The mach code correction below needs to know whether the stack overflowed, and that is
         // only knowable by walking. Stop as soon as the threshold is reached so this costs no
@@ -491,8 +521,12 @@ static bool startNewExceptionHandler(int contextIndex, const char *threadName)
         goto onFailure;
     }
 
+    // Identity-protected, because a process under Enhanced Security's runtime platform
+    // restrictions is killed (EXC_GUARD, SET_EXCEPTION_BEHAVIOR) for setting a behavior that
+    // sends the receiver a task or thread port. The kernel requires MACH_EXCEPTION_CODES with it.
     kr = task_set_exception_ports(taskSelf, kInterestingExceptions, ctx->exceptionPort,
-                                  (exception_behavior_t)(EXCEPTION_DEFAULT | MACH_EXCEPTION_CODES), THREAD_STATE_NONE);
+                                  (exception_behavior_t)(EXCEPTION_IDENTITY_PROTECTED | MACH_EXCEPTION_CODES),
+                                  THREAD_STATE_NONE);
     if (kr != KERN_SUCCESS) {
         MACH_ERROR(kr, "task_set_exception_ports");
         goto onFailure;
