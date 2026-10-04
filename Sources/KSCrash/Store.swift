@@ -390,13 +390,15 @@ extension Store {
 private struct CStoreConfig: @unchecked Sendable {
     let pointer: UnsafePointer<KSCrashReportStoreCConfiguration>
 
-    /// The stitched report bytes; nil when unreadable now, throws when the
-    /// file holds no JSON report (deterministic).
+    /// The stitched report bytes; nil when unreadable now. Throws when the
+    /// file holds no JSON report (deterministic), and
+    /// `ReportReadError.stitchFailed` when a stitch failed for a reason a
+    /// later read can get past.
     func read(_ id: Report.ID) throws -> Data? {
         var status = KSCrashReportReadStatusOK
         guard let raw = kscrs_readReport(id.description, pointer, &status) else {
-            if status == KSCrashReportReadStatusUndecodable {
-                throw CocoaError(.fileReadCorruptFile)
+            if let error = readFailure(status) {
+                throw error
             }
             return nil
         }
@@ -418,6 +420,19 @@ private struct CStoreConfig: @unchecked Sendable {
     }
 }
 
+/// The error a NULL `kscrs_readReport` is reported with, so the send keeps
+/// the item and says why; nil for a file that could not be read right now,
+/// which the send skips without an outcome.
+func readFailure(_ status: KSCrashReportReadStatus) -> (any Error)? {
+    if status == KSCrashReportReadStatusUndecodable {
+        return CocoaError(.fileReadCorruptFile)
+    }
+    if status == KSCrashReportReadStatusStitchFailed {
+        return ReportReadError.stitchFailed
+    }
+    return nil
+}
+
 /// The report half's backing calls. Internal plumbing: the production init
 /// derives it from the C-backed report store, and only the test-seam init
 /// takes one directly. Intermediary by design: it exists only while the
@@ -436,6 +451,8 @@ struct ReportBridge: Sendable {
     /// One report's stitched JSON. nil when it cannot be read right now.
     /// Throws when the file was read but does not hold a JSON report; that is
     /// deterministic, so the send surfaces it instead of retrying forever.
+    /// Throws `ReportReadError.stitchFailed` when a stitch failed for a reason
+    /// a later read can get past, so the send reports the report kept.
     let read: @Sendable (Report.ID) throws -> Data?
 
     /// The run a report belongs to, from the report file alone: nothing is
@@ -451,19 +468,21 @@ struct ReportBridge: Sendable {
 }
 
 extension Store {
-    /// The stitched report, decoded. nil when the item cannot be read right
-    /// now (missing file, stale listing entry, or a read failure): skipped,
-    /// kept on disk, retried by the next send. Throws when the report was
-    /// read but does not decode, whether the C store found no JSON report in
-    /// the file or the typed decode failed: the send surfaces that as a kept
-    /// item rather than passing a half-read report down the pipeline, and the
-    /// file stays on disk. It is deliberately not deleted. A report that does
-    /// not decode may be this model's bug rather than a bad file, and deleting
-    /// on a decode failure would turn one bad release into permanent loss of
-    /// the data this library exists to keep; a wasted read per send is the
-    /// cheaper side of that trade, and pruning is what eventually clears it.
-    /// Under a send's claim the stale check is race-free, because deletes only
-    /// happen under the claim.
+    /// The stitched report, decoded. nil when the item cannot be read right now
+    /// (missing file, stale listing entry, or a read failure): skipped, kept on
+    /// disk, retried by the next send. Throws `ReportReadError.stitchFailed`
+    /// when a stitch failed for a reason a later read can get past: the send
+    /// reports the item kept, the file stays unchanged, and the next send reads
+    /// it again. Throws when the report was read but does not decode, whether
+    /// the C store found no JSON report in the file or the typed decode failed:
+    /// the send surfaces that as a kept item rather than passing a half-read
+    /// report down the pipeline, and the file stays on disk. It is deliberately
+    /// not deleted. A report that does not decode may be this model's bug
+    /// rather than a bad file, and deleting on a decode failure would turn one
+    /// bad release into permanent loss of the data this library exists to keep;
+    /// a wasted read per send is the cheaper side of that trade, and pruning is
+    /// what eventually clears it. Under a send's claim the stale check is
+    /// race-free, because deletes only happen under the claim.
     func report(_ id: Report.ID) throws -> Report? {
         guard let data = try reports.read(id) else {
             return nil

@@ -173,8 +173,8 @@ public final class SidecarMetadataMonitorPlugin: MonitorPlugin, @unchecked Senda
         } catch let error as SidecarMetadata.OpenError where error.status == KSKVSOpenFailure {
             // nil is the retry signal, and only an environmental failure is
             // worth retrying: returning it for a sidecar that is absent or
-            // torn stops the report being finalized for good, and on the
-            // hang-recovery path the report is deleted outright.
+            // torn stops the report being finalized or delivered for good, and
+            // on the hang-recovery path the report is deleted outright.
             return nil
         } catch {
             // A missing or torn sidecar holds nothing recoverable; deliver as is.

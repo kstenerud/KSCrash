@@ -267,7 +267,8 @@ final class Monitor_Tests: XCTestCase {
         XCTAssertEqual(dict["sidecar"] as? String, "run.ksscr")
         XCTAssertEqual(dict["scope"] as? String, "run")
 
-        // A throwing stitch returns NULL: the store keeps the original (or aborts finalization).
+        // A throwing stitch returns NULL: the store keeps the report on disk for a later read (or
+        // aborts finalization).
         monitor.monitor.shouldThrow = true
         let failed = "run.ksscr".withCString { path in
             api.createStitchedReport(input, path, SidecarScope.report, api.context)

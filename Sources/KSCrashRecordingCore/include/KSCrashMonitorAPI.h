@@ -192,16 +192,16 @@ typedef struct KSCrashMonitorAPI {
      * @return A +1 CFDictionaryRef with the (possibly modified) report,
      *         or NULL on failure. NULL signals a stitch error: during
      *         finalization this aborts the write-back so the report can
-     *         be retried on next app launch; during normal reads the
-     *         error is silent and the original dict is kept.
+     *         be retried on next app launch; on a read the report is not
+     *         handed out, and stays on disk unchanged to be read again.
      *
      *         Reserve NULL for a failure a retry could get past. A sidecar
      *         that is absent, or holds bytes no later read could make sense
      *         of, is a verdict that will not change: return the report
      *         unchanged (retained) so it delivers without this section.
      *         Returning NULL for one of those stops that report being
-     *         finalized for good, and on the hang-recovery path the report is
-     *         deleted outright. See KSCrashSidecarReadResult.
+     *         finalized or delivered for good, and on the hang-recovery path
+     *         the report is deleted outright. See KSCrashSidecarReadResult.
      *
      *         In the final pass there is no sidecar a retry could reread, so
      *         a NULL there counts as "nothing to add" and the report is kept

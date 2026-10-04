@@ -49,10 +49,10 @@ CFDictionaryRef kscm_lifecycle_createStitchedReport(CFDictionaryRef reportDict, 
     }
 
     // A read the environment failed is worth retrying: NULL is the retry signal,
-    // which finalization honors by leaving the report, session_id included, for
-    // a later read. A sidecar that is gone or corrupt never reads better, and it
-    // is not session_id's data source (that is the run's .sessions file), so
-    // only application_stats is skipped.
+    // which finalization and the send honor by leaving the report, session_id
+    // included, for a later read. A sidecar that is gone or corrupt never reads
+    // better, and it is not session_id's data source (that is the run's .sessions
+    // file), so only application_stats is skipped.
     KSCrash_LifecycleData lc = {};
     KSCrashSidecarReadResult readResult = kssidecar_readLifecycle(sidecarPath, &lc);
     if (readResult == KSCrashSidecarReadFailure) {
