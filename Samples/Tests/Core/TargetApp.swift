@@ -259,6 +259,7 @@ final class SimulatorDevice {
         if let udid = environment["KSCRASH_IT_DEVICE"] {
             try xcrun(["simctl", "boot", udid], allowFailure: true)
             try xcrun(["simctl", "bootstatus", udid, "-b"])
+            try keepHomeScreenClosed(on: udid)
             return SimulatorDevice(udid: udid)
         }
         let (runtime, deviceType) = try pickRuntimeAndDeviceType(for: app)
@@ -270,7 +271,18 @@ final class SimulatorDevice {
         observer = cleanup
         try xcrun(["simctl", "boot", udid])
         try xcrun(["simctl", "bootstatus", udid, "-b"])
+        try keepHomeScreenClosed(on: udid)
         return device
+    }
+
+    /// tvOS opens its home screen when an app dies. On a loaded machine PineBoard learns of a
+    /// crashed app's exit late, as late as the next launch's own request to end it, and the
+    /// home screen then races that launch. Opening second, it covers the new app, which is
+    /// suspended before the test's script acts. With the home screen kept closed, a launch has
+    /// nothing to race.
+    private static func keepHomeScreenClosed(on udid: String) throws {
+        guard TargetPlatform.current == .tvOS else { return }
+        try xcrun(["simctl", "spawn", udid, "defaults", "write", "com.apple.PineBoard", "NoAutoLaunch", "-bool", "YES"])
     }
 
     /// `KSCRASH_IT_RUNTIME` and `KSCRASH_IT_DEVICE_TYPE` when set. Otherwise the runtime whose
