@@ -87,6 +87,26 @@ simulator platform the tests create a simulator for the run and delete it afterw
 A test class that only applies to some platforms lists them in `platforms`, and is skipped
 elsewhere with the reason in the results. Retries are off: a flaky test is a bug to fix.
 
+### Enhanced Security
+A second macOS lane runs the suite against the Sample built the way an app adopting Xcode's
+Enhanced Security capability is built: arm64e, signed with `EnhancedSecurity.entitlements`, which
+holds the capability's default entitlements. `EnhancedSecurityTests` runs only in this lane and fails
+it if the app is not arm64e or does not run under the restrictions. macOS enforces them from 26 on,
+and only with System Integrity Protection on; where it is off, the enforcement check is skipped
+with that reason. The `dyld-ro` entitlement keeps `__DATA_CONST`
+read-only, so the `__cxa_throw` hook cannot install in this lane, and the test that depends on it is
+skipped there. Locally, from `Samples/`:
+```bash
+xcodebuild build-for-testing -workspace KSCrashSamples.xcworkspace -scheme Sample -configuration Release \
+    -destination 'platform=macOS' -derivedDataPath /tmp/es ENABLE_POINTER_AUTHENTICATION=YES \
+    ARCHS="arm64 arm64e" KSCRASH_SAMPLE_ENTITLEMENTS=EnhancedSecurity.entitlements
+
+TEST_RUNNER_KSCRASH_IT_PLATFORM=macOS TEST_RUNNER_KSCRASH_IT_ENHANCED_SECURITY=1 \
+    TEST_RUNNER_KSCRASH_IT_APP=/tmp/es/Build/Products/Release/Sample.app \
+    xcodebuild test-without-building -workspace KSCrashSamples.xcworkspace -scheme Sample \
+    -configuration Release -destination 'platform=macOS' -derivedDataPath /tmp/es
+```
+
 ### Available Test Types
 - NSException (generic exception)
 - Mach exception (bad access)
