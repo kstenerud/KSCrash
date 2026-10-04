@@ -100,7 +100,7 @@ KSCrashSidecarReadResult kssidecar_read(const KSSidecarFormat *format, const cha
         }
     }
     if (sizedVersion == 0) {
-        // Shorter than any version: the run died part way through creating it.
+        // Shorter than any version: its writer died, or has not finished creating it.
         close(fd);
         KSLOG_ERROR("Sidecar at %s is %lld bytes, too short for any version", path, (long long)st.st_size);
         return KSCrashSidecarReadUnrecoverable;
@@ -112,12 +112,8 @@ KSCrashSidecarReadResult kssidecar_read(const KSSidecarFormat *format, const cha
     bool didRead = ksfu_readBytesFromFD(fd, (char *)out, (int)format->versionSizes[sizedVersion - 1]);
     close(fd);
     if (!didRead) {
-        // The size was checked above, so either the read itself failed, or the
-        // file was re-created under us between fstat and read (ksfu_mmap opens
-        // with O_TRUNC, and the watchdog re-creates its run sidecar on every
-        // hang). A later read can get past either. A re-created file caught
-        // after it reached full size but before its header was written reads
-        // as magic 0 and is Unrecoverable below instead.
+        // The size was checked above, so the read itself failed: an I/O error,
+        // or the file shrank under us. A later read can get past either.
         memset(out, 0, outSize);
         return KSCrashSidecarReadFailure;
     }

@@ -36,6 +36,7 @@
 #include <os/lock.h>
 #include <pthread.h>
 #include <stdatomic.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -117,12 +118,13 @@
 // Sidecar files
 // -------------
 // The sidecar is a small mmap'd run sidecar (KSCrash_HangData, 40 bytes), one
-// per run, re-created for each hang.  It stores the latest end-timestamp and task
-// role, and is updated in-place on each timer fire via direct memory writes
-// (the kernel flushes dirty pages to disk).  This avoids re-writing the
-// full JSON report on every update.  At next launch, the stitch logic
-// (KSCrashMonitor_WatchdogStitch.m) reads the sidecar and merges its data
-// into the JSON report before delivery.
+// per run, re-created for each hang by building it aside and renaming it into
+// place.  It stores the latest end-timestamp and task role, and is updated
+// in-place on each timer fire via direct memory writes (the kernel flushes
+// dirty pages to disk).  This avoids re-writing the full JSON report on every
+// update.  When a report from the run is finalized, during the run or at
+// delivery, the stitch logic (KSCrashMonitor_WatchdogStitch.m) reads the
+// sidecar and merges its data into the JSON report.
 //
 
 typedef struct KSHangMonitor {
@@ -183,26 +185,43 @@ static KSCrash_ExceptionHandlerCallbacks g_callbacks = { 0 };
 
 static const char *monitorId(__unused void *context);
 
-static KSCrash_HangData *sidecar_open(KSHangMonitor *monitor)
+// Creates the run sidecar for `hang` at `path` and returns its mapping, or NULL.
+// The file is built at "<path>.tmp" and renamed into place once every field is
+// written, so a reader opening `path` finds no file or the complete sidecar,
+// never one ksfu_mmap has just truncated or whose fields are not written yet.
+// The mapping follows the file to its new name. A .tmp that a crash leaves
+// behind is not a name any stitch reads, and goes with the run's directory.
+// This is file I/O, so it never runs with monitor->lock held.
+static KSCrash_HangData *sidecar_create(const char *path, const KSHangState *hang)
 {
-    if (!g_callbacks.getRunSidecarPath) {
+    char tempPath[PATH_MAX];
+    if (strlcpy(tempPath, path, sizeof(tempPath)) >= sizeof(tempPath) ||
+        strlcat(tempPath, ".tmp", sizeof(tempPath)) >= sizeof(tempPath)) {
+        KSLOG_ERROR("Sidecar path too long: %s", path);
         return NULL;
     }
 
-    if (!g_callbacks.getRunSidecarPath(monitorId(NULL), monitor->sidecarPath, sizeof(monitor->sidecarPath))) {
-        monitor->sidecarPath[0] = '\0';
-        return NULL;
-    }
-
-    KSCrash_HangData *sc = (KSCrash_HangData *)ksfu_mmap(monitor->sidecarPath, sizeof(KSCrash_HangData));
+    KSCrash_HangData *sc = (KSCrash_HangData *)ksfu_mmap(tempPath, sizeof(KSCrash_HangData));
     if (!sc) {
-        KSLOG_ERROR("Failed to mmap sidecar at %s", monitor->sidecarPath);
-        monitor->sidecarPath[0] = '\0';
+        KSLOG_ERROR("Failed to mmap sidecar at %s", tempPath);
         return NULL;
     }
 
     sc->header = (KSSidecarHeader) { .magic = KSHANG_MAGIC, .version = KSCrash_Hang_CurrentVersion };
     sc->recovered = false;
+    sc->startTimestamp = hang->timestamp;
+    sc->startRole = hang->role;
+    sc->startTransitionState = hang->transitionState;
+    sc->endTimestamp = hang->endTimestamp;
+    sc->endRole = hang->endRole;
+    sc->endTransitionState = hang->endTransitionState;
+
+    if (rename(tempPath, path) != 0) {
+        KSLOG_ERROR("Failed to publish sidecar at %s: %s", path, strerror(errno));
+        ksfu_munmap(sc, sizeof(KSCrash_HangData));
+        unlink(tempPath);
+        return NULL;
+    }
     return sc;
 }
 
@@ -333,30 +352,44 @@ static void populateReportForCurrentHang(KSHangMonitor *monitor)
 
     ksmc_resumeEnvironment(&suspendedThreads, &suspendedThreadsCount);
 
+    // The sidecar is created before the lock is taken, since creating it is
+    // file I/O, and attached under the lock only if this is still the same hang.
+    char sidecarPath[PATH_MAX] = { 0 };
+    KSCrash_HangData *sidecar = NULL;
+    if (g_callbacks.getRunSidecarPath &&
+        g_callbacks.getRunSidecarPath(monitorId(NULL), sidecarPath, sizeof(sidecarPath))) {
+        sidecar = sidecar_create(sidecarPath, &hang);
+        if (!sidecar) {
+            KSLOG_ERROR("Failed to create run sidecar for hang report");
+        }
+    }
+
     // Re-check: the main thread may have resolved the hang while we were
     // writing the report.  Compare timestamps to make sure it's still the
     // same hang before attaching the report path and sidecar.
+    bool attachedSidecar = false;
     os_unfair_lock_lock(&monitor->lock);
     if (monitor->hang.active && monitor->hang.timestamp == hang.timestamp) {
         strlcpy(monitor->hang.reportId, result.reportId, sizeof(monitor->hang.reportId));
         if (strlcpy(monitor->hang.path, result.path, PATH_MAX) >= PATH_MAX) {
             KSLOG_ERROR("Report path too long, discarding hang report");
-        } else {
-            monitor->sidecar = sidecar_open(monitor);
-            if (monitor->sidecar) {
-                monitor->sidecar->startTimestamp = monitor->hang.timestamp;
-                monitor->sidecar->startRole = monitor->hang.role;
-                monitor->sidecar->startTransitionState = monitor->hang.transitionState;
-                sidecar_update(monitor->sidecar, monitor->hang.endTimestamp, monitor->hang.endRole,
-                               monitor->hang.endTransitionState);
-            } else {
-                KSLOG_ERROR("Failed to open run sidecar for hang report");
-            }
+        } else if (sidecar) {
+            monitor->sidecar = sidecar;
+            strlcpy(monitor->sidecarPath, sidecarPath, sizeof(monitor->sidecarPath));
+            // Ticks while the report was written updated only monitor->hang.
+            sidecar_update(sidecar, monitor->hang.endTimestamp, monitor->hang.endRole,
+                           monitor->hang.endTransitionState);
+            attachedSidecar = true;
         }
     } else {
         KSLOG_DEBUG("hang changed during report population - discarding");
     }
     os_unfair_lock_unlock(&monitor->lock);
+
+    if (sidecar && !attachedSidecar) {
+        ksfu_munmap(sidecar, sizeof(KSCrash_HangData));
+        unlink(sidecarPath);
+    }
 
     KSLOG_INFO("Hang started (reportID: %s)", result.reportId);
 
@@ -813,6 +846,21 @@ static void addContextualInfoToEvent(struct KSCrash_MonitorContext *eventContext
 }
 
 void kscm_watchdog_setReportsHangs(bool enabled) { atomic_store(&g_reportsHangs, enabled); }
+
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+// Ends the active hang as the main thread going idle would, without finalizing
+// it. Called from a stub report handler, it ends the hang while its report is
+// being written.
+void kscm_watchdog_testcode_endActiveHang(void)
+{
+    KSHangMonitor *monitor = g_watchdog;
+    if (monitor == NULL) {
+        return;
+    }
+    os_unfair_lock_lock(&monitor->lock);
+    kshangstate_clear(&monitor->hang);
+    os_unfair_lock_unlock(&monitor->lock);
+}
 
 __attribute__((unused))  // For tests. Declared as extern in TestCase
 // Replays a tick that measured the main thread as busy since long ago, then

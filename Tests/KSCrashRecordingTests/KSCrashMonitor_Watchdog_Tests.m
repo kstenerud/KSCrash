@@ -25,12 +25,15 @@
 //
 
 #import <XCTest/XCTest.h>
+#include <fcntl.h>
 #import <mach/task_policy.h>
 #import <stdatomic.h>
+#include <unistd.h>
 
 #import "KSCrashHang.h"
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitor_Watchdog.h"
+#import "KSCrashMonitor_WatchdogSidecar.h"
 #import "KSHangEvent.h"
 
 // Stub callbacks for testing hang detection
@@ -47,6 +50,12 @@ static _Atomic(bool) g_stubRefusesReportInFlight = false;
 /** How many events reached the handler; a refused one never should. */
 static _Atomic(int) g_stubHandleCount = 0;
 
+/** Makes the stub handler end the hang while its report is being written, as the main
+ * thread going idle at that moment would. */
+static _Atomic(bool) g_stubEndsHangDuringReport = false;
+
+extern void kscm_watchdog_testcode_endActiveHang(void);
+
 static KSCrash_MonitorContext *stubNotify(thread_t thread, __unused KSCrash_ExceptionHandlingRequirements requirements)
 {
     g_stubNotifyThread = thread;
@@ -60,6 +69,9 @@ static void stubHandle(__unused KSCrash_MonitorContext *context, KSCrash_ReportR
     atomic_fetch_add(&g_stubHandleCount, 1);
     strlcpy(result->reportId, "4C1B2F3E-0000-4000-8000-000000000001", sizeof(result->reportId));
     result->path[0] = '\0';
+    if (atomic_load(&g_stubEndsHangDuringReport)) {
+        kscm_watchdog_testcode_endActiveHang();
+    }
 }
 
 static void stubHandle_deprecated(KSCrash_MonitorContext *context) { stubHandle(context, NULL, false); }
@@ -148,6 +160,11 @@ typedef struct {
     uint64_t start;
     uint64_t end;
     bool started;
+    // Checked when Started arrives, on the watchdog thread, before any later tick
+    // can begin another hang.
+    const char *sidecarPath;
+    bool sidecarExisted;
+    bool tempSidecarExisted;
 } HangCapture;
 
 // The process-wide callback has no context; tests route it through this
@@ -161,6 +178,12 @@ static void captureHangStart(KSHangChangeType change, uint64_t start, uint64_t e
         capture->started = true;
         capture->start = start;
         capture->end = end;
+        if (capture->sidecarPath != NULL) {
+            char tempPath[PATH_MAX];
+            snprintf(tempPath, sizeof(tempPath), "%s.tmp", capture->sidecarPath);
+            capture->sidecarExisted = access(capture->sidecarPath, F_OK) == 0;
+            capture->tempSidecarExisted = access(tempPath, F_OK) == 0;
+        }
         [capture->waiter signal];
     }
 }
@@ -187,6 +210,102 @@ static void captureHangStart(KSHangChangeType change, uint64_t start, uint64_t e
     XCTAssertGreaterThanOrEqual(capture.end, capture.start);
 
     api->setEnabled(false, NULL);
+}
+
+static char g_runSidecarDir[PATH_MAX];
+
+static bool stubRunSidecarPath(const char *monitorId, char *pathBuffer, size_t pathBufferLength)
+{
+    int written = snprintf(pathBuffer, pathBufferLength, "%s/%s.ksscr", g_runSidecarDir, monitorId);
+    return written > 0 && (size_t)written < pathBufferLength;
+}
+
+/** Points the watchdog's run sidecar at a fresh directory and enables it. */
+- (NSString *)enableWithRunSidecarDirectory
+{
+    NSString *dir = [NSTemporaryDirectory() stringByAppendingPathComponent:[[NSUUID UUID] UUIDString]];
+    XCTAssertTrue([[NSFileManager defaultManager] createDirectoryAtPath:dir
+                                            withIntermediateDirectories:YES
+                                                             attributes:nil
+                                                                  error:nil]);
+    strlcpy(g_runSidecarDir, dir.fileSystemRepresentation, sizeof(g_runSidecarDir));
+    KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
+    KSCrash_ExceptionHandlerCallbacks callbacks = { .notify = stubNotify,
+                                                    .handle = stubHandle_deprecated,
+                                                    .handleWithResult = stubHandle,
+                                                    .getRunSidecarPath = stubRunSidecarPath };
+    api->init(&callbacks, NULL);
+    api->setEnabled(true, NULL);
+    return dir;
+}
+
+/** Disables the watchdog and leaves it initialized with the plain stubs, so no later test
+ * builds a sidecar path from a directory that is gone. */
+- (void)disableAndRemoveRunSidecarDirectory:(NSString *)dir
+{
+    KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
+    api->setEnabled(false, NULL);
+    KSCrash_ExceptionHandlerCallbacks callbacks = { .notify = stubNotify,
+                                                    .handle = stubHandle_deprecated,
+                                                    .handleWithResult = stubHandle };
+    api->init(&callbacks, NULL);
+    g_runSidecarDir[0] = '\0';
+    [[NSFileManager defaultManager] removeItemAtPath:dir error:nil];
+}
+
+- (void)testAStartedHangPublishesAWholeSidecarThatKeepsUpdating
+{
+    NSString *dir = [self enableWithRunSidecarDirectory];
+    NSString *path = [dir stringByAppendingPathComponent:@"Watchdog.ksscr"];
+
+    KSSempahore *waiter = [KSSempahore withValue:0];
+    HangCapture capture = { .waiter = waiter, .sidecarPath = path.fileSystemRepresentation };
+    g_hangCapture = &capture;
+    KSHangEventCallback previous = kshang_setHangEventCallback(captureHangStart);
+    XCTAssertTrue([waiter waitForTimeInterval:5]);
+    kshang_setHangEventCallback(previous);
+    g_hangCapture = NULL;
+
+    XCTAssertTrue(capture.sidecarExisted, @"Started is published after the sidecar is in place");
+    XCTAssertFalse(capture.tempSidecarExisted);
+    KSCrash_HangData sc;
+    XCTAssertEqual(kssidecar_readHang(path.fileSystemRepresentation, &sc), KSCrashSidecarReadOK);
+    XCTAssertEqual(sc.startTimestamp, capture.start);
+    XCTAssertFalse(sc.recovered);
+
+    // This thread stays busy, so the hang goes on and each tick writes its end through
+    // the mapping, which followed the file to its published name.
+    uint64_t firstEnd = sc.endTimestamp;
+    bool advanced = false;
+    for (int i = 0; i < 40 && !advanced; i++) {
+        usleep(100000);
+        advanced = kssidecar_readHang(path.fileSystemRepresentation, &sc) == KSCrashSidecarReadOK &&
+                   sc.endTimestamp > firstEnd;
+    }
+    XCTAssertTrue(advanced, @"A tick's update reaches the published sidecar");
+
+    [self disableAndRemoveRunSidecarDirectory:dir];
+}
+
+- (void)testAHangThatEndsWhileItsReportIsWrittenLeavesNoSidecar
+{
+    NSString *dir = [self enableWithRunSidecarDirectory];
+    NSString *path = [dir stringByAppendingPathComponent:@"Watchdog.ksscr"];
+    atomic_store(&g_stubEndsHangDuringReport, true);
+
+    KSSempahore *waiter = [KSSempahore withValue:0];
+    HangCapture capture = { .waiter = waiter, .sidecarPath = path.fileSystemRepresentation };
+    g_hangCapture = &capture;
+    KSHangEventCallback previous = kshang_setHangEventCallback(captureHangStart);
+    XCTAssertTrue([waiter waitForTimeInterval:5]);
+    kshang_setHangEventCallback(previous);
+    g_hangCapture = NULL;
+    atomic_store(&g_stubEndsHangDuringReport, false);
+
+    XCTAssertFalse(capture.sidecarExisted, @"The sidecar of a hang that ended is not left behind");
+    XCTAssertFalse(capture.tempSidecarExisted);
+
+    [self disableAndRemoveRunSidecarDirectory:dir];
 }
 
 extern bool kscm_watchdog_testcode_staleTickStartsHang(bool mainWokeAgain);
