@@ -257,6 +257,36 @@ static thread_t requestThread(const ExceptionRequest *request)
     return ksmc_threadForID(mach_task_self(), request->identityProtected.threadID);
 }
 
+/** Whether the exception happened in this process. A child process inherits the task's exception
+ * ports, so a child that faults sends its exception here too, and it is not ours to report. */
+static bool isRequestFromThisTask(const ExceptionRequest *request)
+{
+    if (isClassicRequest(request)) {
+        return request->classic.task.name == mach_task_self();
+    }
+    // A task can always get its own control port from its token; failing to means another task's.
+    task_t task = TASK_NULL;
+    if (task_identity_token_get_task_port(request->identityProtected.taskIdentityToken.name, TASK_FLAVOR_CONTROL,
+                                          &task) != KERN_SUCCESS) {
+        return false;
+    }
+    const bool isThisTask = task == mach_task_self();
+    mach_port_deallocate(mach_task_self(), task);
+    return isThisTask;
+}
+
+/** Drop the port rights an exception message from another process brought in. */
+static void releaseRequestRights(const ExceptionRequest *request)
+{
+    const task_t thisTask = mach_task_self();
+    if (isClassicRequest(request)) {
+        mach_port_deallocate(thisTask, request->classic.thread.name);
+        mach_port_deallocate(thisTask, request->classic.task.name);
+    } else {
+        mach_port_deallocate(thisTask, request->identityProtected.taskIdentityToken.name);
+    }
+}
+
 static bool canCurrentPortsHandleException(exception_type_t exc)
 {
     const exception_mask_t matchingMask = maskForException(exc);
@@ -376,7 +406,7 @@ static void deallocExceptionHandler(ExceptionContext *ctx)
 #pragma mark - Handler Primitives -
 // ============================================================================
 
-static exception_type_t waitForException(ExceptionContext *ctx)
+static kern_return_t waitForException(ExceptionContext *ctx)
 {
     KSLOG_DEBUG("Thread %s: Waiting for mach exception", ctx->threadName);
 
@@ -391,7 +421,7 @@ static exception_type_t waitForException(ExceptionContext *ctx)
     } else {
         MACH_ERROR(kr, "mach_msg");
     }
-    return requestException(ctx->request);
+    return kr;
 }
 
 static void sendExceptionReply(ExceptionContext *ctx, bool exceptionPortsCanHandleThisException)
@@ -486,7 +516,16 @@ static void *exceptionHandlerThreadMain(void *data)
     ExceptionContext *ctx = (ExceptionContext *)data;
     pthread_setname_np(ctx->threadName);
 
-    exception_type_t exc = waitForException(ctx);
+    for (;;) {
+        if (waitForException(ctx) != KERN_SUCCESS || isRequestFromThisTask(ctx->request)) {
+            break;
+        }
+        // Another process's exception: decline it and keep waiting for one of ours.
+        KSLOG_DEBUG("Thread %s: Declining an exception from another process", ctx->threadName);
+        releaseRequestRights(ctx->request);
+        sendExceptionReply(ctx, false);
+    }
+    const exception_type_t exc = requestException(ctx->request);
 
     // At this point, an exception has occurred and we need to deal with it.
     // We start by restoring the ports for the next level exception handler
