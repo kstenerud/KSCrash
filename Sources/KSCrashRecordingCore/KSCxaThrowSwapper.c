@@ -57,6 +57,9 @@
 #include <mach-o/nlist.h>
 #include <mach/mach.h>
 #include <pthread.h>
+#if __has_feature(ptrauth_calls)
+#include <ptrauth.h>
+#endif
 #include <stdatomic.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -80,8 +83,9 @@
 // acquire semantics and only access other fields if `function != 0`.
 typedef struct {
     uintptr_t image;
-    _Atomic(uintptr_t) function;  // Atomic: non-zero signals slot is ready (written last)
+    _Atomic(uintptr_t) function;  // Atomic: non-zero signals slot is ready (written last). Callable from C.
     void **binding;               // Pointer to the GOT entry, for restoring original
+    void *original;               // The entry's value as found, which is what reset writes back
 } KSAddressPair;
 
 // Maximum number of dylibs we expect to handle. Modern iOS apps typically have
@@ -144,6 +148,7 @@ static bool addPair(uintptr_t image, uintptr_t function, void **binding)
     // function is non-zero.
     g_cxa_originals[index].image = image;
     g_cxa_originals[index].binding = binding;
+    g_cxa_originals[index].original = *binding;
     atomic_store_explicit(&g_cxa_originals[index].function, function, memory_order_release);
 
     // Capture the first valid __cxa_throw as fallback (only once, never cleared)
@@ -276,6 +281,39 @@ __attribute__((noreturn)) static void __cxa_throw_decorator(void *thrown_excepti
     __builtin_trap();
 }
 
+#if __has_feature(ptrauth_calls)
+// Under pointer authentication an import is called through __auth_got, whose entries hold the
+// target signed with the IA key and the entry's own address as discriminator: that is what the
+// stub calling through it authenticates (`braa x16, x17`, with x17 the entry's address). So a
+// value written there is signed that way, and one read out is re-signed as a plain function
+// pointer before C calls it. No call goes through the other symbol pointer sections, which hold
+// unsigned pointers, so they are left alone.
+static bool canRebindSection(const section_t *section)
+{
+    return strncmp(section->sectname, "__auth_got", sizeof(section->sectname)) == 0;
+}
+
+static void *bindingValueForFunction(void *function, void **binding)
+{
+    return ptrauth_auth_and_resign(function, ptrauth_key_function_pointer, 0, ptrauth_key_asia, binding);
+}
+
+static uintptr_t functionForBindingValue(void *value, void **binding)
+{
+    // An unbound entry holds an unsigned null, which authentication would reject.
+    if (value == NULL) {
+        return 0;
+    }
+    return (uintptr_t)ptrauth_auth_and_resign(value, ptrauth_key_asia, binding, ptrauth_key_function_pointer, 0);
+}
+#else
+static bool canRebindSection(__unused const section_t *section) { return true; }
+
+static void *bindingValueForFunction(void *function, __unused void **binding) { return function; }
+
+static uintptr_t functionForBindingValue(void *value, __unused void **binding) { return (uintptr_t)value; }
+#endif
+
 // Returns true if __cxa_throw was found and rebound in this section
 static bool perform_rebinding_with_section(const section_t *dataSection, intptr_t slide, nlist_t *symtab, char *strtab,
                                            uint32_t *indirect_symtab, uintptr_t imageBase, uint32_t nsyms,
@@ -300,7 +338,7 @@ static bool perform_rebinding_with_section(const section_t *dataSection, intptr_
     void **indirect_symbol_bindings = (void **)((uintptr_t)slide + dataSection->addr);
 
     // Scan for __cxa_throw. In standard Mach-O, each imported symbol appears at most once
-    // per section type (lazy or non-lazy). We check both section types in process_segment.
+    // per section. process_segment_direct checks every symbol pointer section in turn.
     for (uint32_t i = 0; i < numSymbols; i++) {
         uint32_t symtab_index = indirect_symbol_indices[i];
         if (symtab_index == INDIRECT_SYMBOL_ABS || symtab_index == INDIRECT_SYMBOL_LOCAL ||
@@ -325,15 +363,17 @@ static bool perform_rebinding_with_section(const section_t *dataSection, intptr_
         // 3. Verify null terminator to ensure exact match, not just prefix
         if (symbol_name[0] == '_' && memcmp(symbol_name + 1, kNeedle, kNeedleLen) == 0 &&
             symbol_name[1 + kNeedleLen] == '\0') {
+            void **binding = &indirect_symbol_bindings[i];
+            void *decorator = bindingValueForFunction((void *)__cxa_throw_decorator, binding);
             // Already rebound - skip (handles re-registration case)
-            if (indirect_symbol_bindings[i] == (void *)__cxa_throw_decorator) {
+            if (*binding == decorator) {
                 return true;
             }
 
             // Only rebind if we successfully store the original. This prevents
             // rebinding when the array is full, which would break exception flow.
-            if (addPair(imageBase, (uintptr_t)indirect_symbol_bindings[i], &indirect_symbol_bindings[i])) {
-                if (!writeProtectedBinding(&indirect_symbol_bindings[i], (void *)__cxa_throw_decorator)) {
+            if (addPair(imageBase, functionForBindingValue(*binding, binding), binding)) {
+                if (!writeProtectedBinding(binding, decorator)) {
                     KSLOG_ERROR("Failed to rebind __cxa_throw at %p", (void *)&indirect_symbol_bindings[i]);
                     return false;
                 }
@@ -356,39 +396,22 @@ static bool process_segment_direct(const segment_command_t *segment, intptr_t sl
 
     KSLOG_TRACE("Processing segment %s", segment->segname);
 
-    // Single pass through sections to find both lazy and non-lazy symbol pointer sections.
+    // Lazy symbol pointers first (more common location for __cxa_throw), then non-lazy. Every
+    // section of each type is checked: a segment can hold more than one (arm64e puts __auth_got
+    // and __got side by side in __DATA_CONST, and __cxa_throw is in the first).
     // Use the standard Mach-O iteration pattern: sections immediately follow the segment header,
     // so (segment + 1) points to the first section, and section++ advances correctly.
-    const section_t *lazy_sym_sect = NULL;
-    const section_t *non_lazy_sym_sect = NULL;
-
-    const section_t *section = (const section_t *)(segment + 1);
-    for (uint32_t i = 0; i < segment->nsects; i++, section++) {
-        uint32_t section_type = section->flags & SECTION_TYPE;
-        if (section_type == S_LAZY_SYMBOL_POINTERS) {
-            lazy_sym_sect = section;
-        } else if (section_type == S_NON_LAZY_SYMBOL_POINTERS) {
-            non_lazy_sym_sect = section;
-        }
-        // Early exit if we found both
-        if (lazy_sym_sect != NULL && non_lazy_sym_sect != NULL) {
-            break;
-        }
-    }
-
-    // Check lazy symbol pointers first (more common location for __cxa_throw)
-    if (lazy_sym_sect != NULL) {
-        if (perform_rebinding_with_section(lazy_sym_sect, slide, symtab, strtab, indirect_symtab, imageBase, nsyms,
-                                           strsize, nindirectsyms)) {
-            return true;  // Found and rebound, no need to check non-lazy
-        }
-    }
-
-    // Check non-lazy symbol pointers
-    if (non_lazy_sym_sect != NULL) {
-        if (perform_rebinding_with_section(non_lazy_sym_sect, slide, symtab, strtab, indirect_symtab, imageBase, nsyms,
-                                           strsize, nindirectsyms)) {
-            return true;
+    const uint32_t sectionTypes[] = { S_LAZY_SYMBOL_POINTERS, S_NON_LAZY_SYMBOL_POINTERS };
+    for (size_t t = 0; t < sizeof(sectionTypes) / sizeof(sectionTypes[0]); t++) {
+        const section_t *section = (const section_t *)(segment + 1);
+        for (uint32_t i = 0; i < segment->nsects; i++, section++) {
+            if ((section->flags & SECTION_TYPE) != sectionTypes[t] || !canRebindSection(section)) {
+                continue;
+            }
+            if (perform_rebinding_with_section(section, slide, symtab, strtab, indirect_symtab, imageBase, nsyms,
+                                               strsize, nindirectsyms)) {
+                return true;
+            }
         }
     }
 
@@ -534,8 +557,8 @@ void ksct_swapReset(void)
         // Read function atomically since it's the "ready" signal
         uintptr_t function = atomic_load_explicit(&pair->function, memory_order_acquire);
         if (function != 0 && pair->binding != NULL) {
-            KSLOG_TRACE("Restoring binding at %p to %p", (void *)pair->binding, (void *)function);
-            bool success = writeProtectedBinding(pair->binding, (void *)function);
+            KSLOG_TRACE("Restoring binding at %p to %p", (void *)pair->binding, pair->original);
+            bool success = writeProtectedBinding(pair->binding, pair->original);
             if (!success) {
                 KSLOG_ERROR("Failed to restore binding at %p", (void *)pair->binding);
             }

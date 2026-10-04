@@ -6,8 +6,11 @@ on:
     paths:
       - 'Sources/KSCrashRecording/Monitors/KSCrashMonitor_MachException.c'
       - 'Sources/KSCrashRecording/Monitors/KSCrashMonitor_Signal.c'
+      - 'Sources/KSCrashRecording/Monitors/KSCrashMonitor_System.m'
       - 'Sources/KSCrashRecordingCore/KSCrashMonitor.c'
       - 'Sources/KSCrashRecordingCore/KSCrashMonitorRegistry.c'
+      - 'Sources/KSCrashRecordingCore/KSCxaThrowSwapper.c'
+      - 'Samples/EnhancedSecurity.entitlements'
       - 'Samples/Tests/**'
       - 'Samples/Project.swift'
       - 'Samples/Common/Sources/CrashCallback/**'
@@ -80,6 +83,58 @@ jobs:
         uses: mxcl/xcodebuild@v3
         env:
           TEST_RUNNER_KSCRASH_IT_PLATFORM: ${{ matrix.platform }}
+        with:
+          action: test
+          workspace: "Samples/KSCrashSamples.xcworkspace"
+          scheme: "Sample"
+          platform: macOS
+
+  # The macOS suite against a Sample app built the way an app adopting Xcode's Enhanced Security
+  # capability is built: arm64e (pointer authentication) and signed with the hardened-process
+  # entitlements (runtime platform restrictions). macOS enforces those entitlements from 26 on.
+  integration-tests-enhanced-security:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Use Latest Stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Setup Mise
+        uses: jdx/mise-action@v4
+        with:
+          install: true
+          cache: true
+        env:
+          MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}/.mise.toml
+
+      - name: Generate Project
+        working-directory: ./Samples
+        run: mise exec -- tuist generate --verbose --no-open
+
+      - name: Build Sample with Enhanced Security
+        run: |
+          xcodebuild build \
+            -workspace Samples/KSCrashSamples.xcworkspace \
+            -scheme Sample \
+            -configuration Release \
+            -destination 'platform=macOS' \
+            -derivedDataPath "$RUNNER_TEMP/enhanced-security" \
+            ENABLE_POINTER_AUTHENTICATION=YES \
+            KSCRASH_SAMPLE_ENTITLEMENTS=EnhancedSecurity.entitlements
+
+      - name: Run Integration Tests
+        uses: mxcl/xcodebuild@v3
+        env:
+          TEST_RUNNER_KSCRASH_IT_PLATFORM: macOS
+          TEST_RUNNER_KSCRASH_IT_APP: ${{ runner.temp }}/enhanced-security/Build/Products/Release/Sample.app
+          # Runs EnhancedSecurityTests, which check the app really is arm64e and really runs
+          # under the restrictions, so this lane cannot pass against anything less.
+          TEST_RUNNER_KSCRASH_IT_ENHANCED_SECURITY: "1"
         with:
           action: test
           workspace: "Samples/KSCrashSamples.xcworkspace"

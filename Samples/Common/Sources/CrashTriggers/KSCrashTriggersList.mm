@@ -192,6 +192,22 @@ static void trigger_user_swiftAsync(void) { integrationTestSwiftAsyncTrigger(); 
     funcPtr();  // This will cause an EXC_BAD_INSTRUCTION
 }
 
++ (void)trigger_mach_forbiddenExceptionBehavior
+{
+    // An exception port whose behavior hands the receiver thread and task ports. Under Enhanced
+    // Security's runtime platform restrictions the kernel kills the process right here (SIGKILL,
+    // EXC_GUARD), before any handler runs. Anywhere else the call succeeds and nothing crashes,
+    // though it does take the bad-access exceptions away from KSCrash for the rest of the run.
+    // tvOS and watchOS prohibit task_set_exception_ports, so there it does nothing.
+#if !TARGET_OS_TV && !TARGET_OS_WATCH
+    mach_port_t port = MACH_PORT_NULL;
+    mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &port);
+    mach_port_insert_right(mach_task_self(), port, port, MACH_MSG_TYPE_MAKE_SEND);
+    task_set_exception_ports(mach_task_self(), EXC_MASK_BAD_ACCESS, port,
+                             (exception_behavior_t)(EXCEPTION_DEFAULT | MACH_EXCEPTION_CODES), THREAD_STATE_NONE);
+#endif
+}
+
 + (void)trigger_signal_abort
 {
     abort();  // This will raise a SIGABRT signal
