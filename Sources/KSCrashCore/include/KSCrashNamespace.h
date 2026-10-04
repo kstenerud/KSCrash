@@ -380,6 +380,7 @@
 #define ksobjc_isClassNamed KSCRASH_NS(ksobjc_isClassNamed)
 #define ksobjc_isKindOfClass KSCRASH_NS(ksobjc_isKindOfClass)
 #define ksobjc_isMetaClass KSCRASH_NS(ksobjc_isMetaClass)
+#define ksobjc_isNSExceptionClass KSCRASH_NS(ksobjc_isNSExceptionClass)
 #define ksobjc_isRootClass KSCRASH_NS(ksobjc_isRootClass)
 #define ksobjc_isTaggedPointer KSCRASH_NS(ksobjc_isTaggedPointer)
 #define ksobjc_isValidObject KSCRASH_NS(ksobjc_isValidObject)

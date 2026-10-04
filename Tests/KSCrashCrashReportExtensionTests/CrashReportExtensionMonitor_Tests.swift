@@ -716,6 +716,160 @@ extension CrashReportExtensionMonitor_Tests {
         let out = try Self.monitor.stitchedReport(report, sidecarURL: nil, scope: .final)
         XCTAssertEqual(out as NSDictionary, report as NSDictionary)
     }
+
+    /// A corpse report as the extension writes it: typed from the Mach exception, with the
+    /// crash_info messages on its images.
+    /// Died of abort() unless `signal` says otherwise; nil leaves the signal section out, as for
+    /// a corpse the kernel killed with no exception.
+    private func corpseReport(
+        images: [[String: Any]], withSnapshot: Bool = true, snapshot: CorpseSnapshot = CorpseSnapshot(images: []),
+        signal: [String: Any]? = ["signal": 6, "name": "SIGABRT", "code": 0]
+    ) throws -> [String: Any] {
+        let embedded = try JSONSerialization.jsonObject(with: JSONEncoder().encode(snapshot.forEmbedding()))
+        var error: [String: Any] = [
+            "type": "mach",
+            "mach": ["exception": 10, "exception_name": "EXC_CRASH", "code": 0],
+            "corpse": withSnapshot ? ["snapshot": embedded] : [String: Any](),
+        ]
+        error["signal"] = signal
+        return ["binary_images": images, "crash": ["error": error]]
+    }
+
+    private static let uncaughtNSExceptionImages = CorpseLanguageExceptionTests.images([
+        (CorpseLanguageExceptionTests.coreFoundationPath, CorpseLanguageExceptionTests.queueException),
+        (CorpseLanguageExceptionTests.libcPath, "abort() called"),
+        (CorpseLanguageExceptionTests.cxxABIPath, "terminating due to uncaught exception of type NSException"),
+    ])
+
+    func testFinalStitchTypesAnUncaughtNSExceptionTheWayAnInProcessReportIs() throws {
+        let report = try corpseReport(
+            images: CorpseLanguageExceptionTests.images([
+                (CorpseLanguageExceptionTests.coreFoundationPath, CorpseLanguageExceptionTests.queueException),
+                (CorpseLanguageExceptionTests.libcPath, "abort() called"),
+                (CorpseLanguageExceptionTests.cxxABIPath, "terminating due to uncaught exception of type NSException"),
+            ]))
+
+        let stitched = try Self.monitor.stitchedReport(report, sidecarURL: nil, scope: .final)
+
+        let crash = try XCTUnwrap(stitched["crash"] as? [String: Any])
+        let error = try XCTUnwrap(crash["error"] as? [String: Any])
+        XCTAssertEqual(error["type"] as? String, "nsexception")
+        XCTAssertEqual((error["nsexception"] as? [String: Any])?["name"] as? String, "GCDException")
+        XCTAssertEqual(error["reason"] as? String, "On a queue")
+        XCTAssertNotNil(error["mach"], "the Mach facts stay, as they do in process")
+        XCTAssertNotNil(error["signal"])
+
+        // Through the model, so the shape is the one consumers decode.
+        let decoded = try JSONDecoder().decode(
+            Report.Crash.self, from: JSONSerialization.data(withJSONObject: crash))
+        XCTAssertEqual(decoded.error.type, .nsexception)
+        XCTAssertEqual(decoded.error.nsexception?.name, "GCDException")
+        let frames = try XCTUnwrap(decoded.lastExceptionBacktrace?.contents)
+        XCTAssertEqual(frames.count, 11)
+        XCTAssertEqual(frames.first?.instructionAddr, 0x19a2_03190)
+        XCTAssertEqual(frames.last?.instructionAddr, 0x19a0_aa910)
+    }
+
+    func testFinalStitchTypesAnUncaughtCxxException() throws {
+        let report = try corpseReport(
+            images: CorpseLanguageExceptionTests.images([
+                (CorpseLanguageExceptionTests.libcPath, "abort() called"),
+                (
+                    CorpseLanguageExceptionTests.cxxABIPath,
+                    "terminating due to uncaught exception of type std::runtime_error: C++ exception"
+                ),
+            ]))
+
+        let stitched = try Self.monitor.stitchedReport(report, sidecarURL: nil, scope: .final)
+
+        let crash = try XCTUnwrap(stitched["crash"] as? [String: Any])
+        let error = try XCTUnwrap(crash["error"] as? [String: Any])
+        XCTAssertEqual(error["type"] as? String, "cpp_exception")
+        XCTAssertEqual((error["cpp_exception"] as? [String: Any])?["name"] as? String, "std::runtime_error")
+        XCTAssertEqual(error["reason"] as? String, "C++ exception")
+        XCTAssertNil(crash["last_exception_backtrace"], "libc++abi leaves no throw stack")
+    }
+
+    func testFinalStitchLeavesAPlainAbortAsMach() throws {
+        let report = try corpseReport(
+            images: CorpseLanguageExceptionTests.images([(CorpseLanguageExceptionTests.libcPath, "abort() called")]))
+
+        let stitched = try Self.monitor.stitchedReport(report, sidecarURL: nil, scope: .final)
+
+        let error = try XCTUnwrap((stitched["crash"] as? [String: Any])?["error"] as? [String: Any])
+        XCTAssertEqual(error["type"] as? String, "mach")
+        XCTAssertNil(error["reason"])
+        XCTAssertNil(error["nsexception"])
+        XCTAssertNil(error["cpp_exception"])
+    }
+
+    func testSnapshotlessFinalStitchStillTypesTheException() throws {
+        let report = try corpseReport(
+            images: CorpseLanguageExceptionTests.images([
+                (CorpseLanguageExceptionTests.cxxABIPath, "terminating due to uncaught exception of type int")
+            ]), withSnapshot: false)
+
+        let stitched = try Self.monitor.stitchedReport(report, sidecarURL: nil, scope: .final)
+
+        let error = try XCTUnwrap((stitched["crash"] as? [String: Any])?["error"] as? [String: Any])
+        XCTAssertEqual(error["type"] as? String, "cpp_exception")
+        XCTAssertEqual((error["cpp_exception"] as? [String: Any])?["name"] as? String, "int")
+        XCTAssertNil(error["corpse"], "the empty scratch section is still swept")
+    }
+
+    func testFinalStitchWritesAnEmptyCppExceptionForABareTerminate() throws {
+        let report = try corpseReport(
+            images: CorpseLanguageExceptionTests.images([(CorpseLanguageExceptionTests.cxxABIPath, "terminating")]))
+
+        let stitched = try Self.monitor.stitchedReport(report, sidecarURL: nil, scope: .final)
+
+        let error = try XCTUnwrap((stitched["crash"] as? [String: Any])?["error"] as? [String: Any])
+        XCTAssertEqual(error["type"] as? String, "cpp_exception")
+        XCTAssertEqual(error["cpp_exception"] as? NSDictionary, [:], "the object in-process writes, with no name")
+    }
+
+    func testFinalStitchLeavesAJetsamKillTypedAsWhatKilledIt() throws {
+        // A handler that kept the process alive after an uncaught exception left CoreFoundation's
+        // message behind; the kernel later killed the process for memory.
+        var snapshot = CorpseSnapshot(images: [])
+        snapshot.crashInfo = CorpseSnapshot.CrashInfo(exceptionCode: 0, exceptionSubcode: 0)
+        snapshot.crashInfo?.exitReason = CorpseSnapshot.CrashInfo.ExitReason(
+            namespace: .OS_REASON_JETSAM, code: ExitReasonCode(rawValue: 10))
+        let report = try corpseReport(images: Self.uncaughtNSExceptionImages, snapshot: snapshot, signal: nil)
+
+        let stitched = try Self.monitor.stitchedReport(report, sidecarURL: nil, scope: .final)
+
+        let crash = try XCTUnwrap(stitched["crash"] as? [String: Any])
+        let error = try XCTUnwrap(crash["error"] as? [String: Any])
+        XCTAssertEqual(error["type"] as? String, "mach")
+        XCTAssertEqual(error["termination_reason"] as? String, "memory_limit")
+        XCTAssertNil(error["nsexception"])
+        XCTAssertNil(error["reason"])
+        XCTAssertNil(crash["last_exception_backtrace"])
+    }
+
+    func testFinalStitchLeavesACrashOtherThanAbortTypedAsWhatKilledIt() throws {
+        let report = try corpseReport(
+            images: Self.uncaughtNSExceptionImages, signal: ["signal": 11, "name": "SIGSEGV", "code": 0])
+
+        let stitched = try Self.monitor.stitchedReport(report, sidecarURL: nil, scope: .final)
+
+        let error = try XCTUnwrap((stitched["crash"] as? [String: Any])?["error"] as? [String: Any])
+        XCTAssertEqual(error["type"] as? String, "mach")
+        XCTAssertNil(error["nsexception"])
+    }
+
+    func testFinalStitchLeavesAReportThatIsNotACorpseAlone() throws {
+        // An in-process report can carry the same messages; only a corpse is retyped.
+        let report: [String: Any] = [
+            "binary_images": Self.uncaughtNSExceptionImages,
+            "crash": ["error": ["type": "signal", "signal": ["signal": 6, "name": "SIGABRT", "code": 0]]],
+        ]
+
+        let stitched = try Self.monitor.stitchedReport(report, sidecarURL: nil, scope: .final)
+
+        XCTAssertEqual(stitched as NSDictionary, report as NSDictionary)
+    }
 }
 
 /// A worker thread parked in a semaphore wait, suspended so its stack is frozen while the
