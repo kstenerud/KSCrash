@@ -275,6 +275,23 @@ final class CppTests: IntegrationTestBase {
             "last_exception_backtrace must not reuse the earlier caught C++ exception")
     }
 
+    func testTerminateInsideCatchReportsTheThrowSite() throws {
+        // By the time terminate runs the throw site has been unwound off the stack, so the backtrace the
+        // __cxa_throw hook captured at the throw is the only thing that can name it; the terminate-time
+        // fallback cursor sees the catch block instead. This is what shows the hook installed.
+        try XCTSkipIf(
+            ProcessInfo.processInfo.environment["KSCRASH_IT_ENHANCED_SECURITY"] != nil,
+            "Enhanced Security's dyld-ro keeps __DATA_CONST read-only, so the __cxa_throw hook cannot install there")
+        try launchAndCrash(.cpp_terminateInsideCatch)
+
+        let rawReport = try readCrashReport()
+        try rawReport.validate()
+        XCTAssertEqual(rawReport.crash.error.type, .cppException)
+
+        let topSymbol = rawReport.crash.lastExceptionBacktrace?.contents.compactMap(\.symbolName).first
+        XCTAssertTrue(isCppCrashSymbol(topSymbol), "top frame is \(topSymbol ?? "nil")")
+    }
+
     func testTerminateWithoutActiveExceptionAfterCaughtCppUsesTerminateContext() throws {
         // Regression for the tinfo == nullptr branch in CPPExceptionTerminate: a caught C++ exception leaves a
         // throw-site cursor on this thread, then a bare std::terminate() fires with no active exception. The monitor

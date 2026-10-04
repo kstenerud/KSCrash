@@ -51,10 +51,12 @@ extern NSString *const KSCrashNSExceptionStacktraceFuncName;
     __PROCESS_TRIGGER(cpp, objcObjectException, @"Objective-C Object Exception")                       \
     __PROCESS_TRIGGER(cpp, objcObjectExceptionAfterCaughtCpp, @"ObjC Object (after caught C++)")       \
     __PROCESS_TRIGGER(cpp, terminateAfterCaughtCpp, @"Terminate (after caught C++)")                   \
+    __PROCESS_TRIGGER(cpp, terminateInsideCatch, @"Terminate (inside catch)")                          \
     __PROCESS_TRIGGER(mach, badAccess, @"EXC_BAD_ACCESS (SIGSEGV)")                                    \
     __PROCESS_TRIGGER(mach, badAccessDeadbeef, @"EXC_BAD_ACCESS (0xDEADBEEF)")                         \
     __PROCESS_TRIGGER(mach, busError, @"EXC_BAD_ACCESS (SIGBUS)")                                      \
     __PROCESS_TRIGGER(mach, illegalInstruction, @"EXC_BAD_INSTRUCTION")                                \
+    __PROCESS_TRIGGER(mach, forbiddenExceptionBehavior, @"Forbidden exception port")                   \
     __PROCESS_TRIGGER(mach, badAccessWithSignalsBlocked, @"EXC_BAD_ACCESS (signals blocked)")          \
     __PROCESS_TRIGGER(signal, abort, @"Abort")                                                         \
     __PROCESS_TRIGGER(signal, sigpipe, @"SIGPIPE")                                                     \
