@@ -112,6 +112,11 @@ typedef enum {
     /** The report file was read but does not hold a JSON report object, so it
      * cannot be stitched or delivered. Reading it again gives the same answer. */
     KSCrashReportReadStatusUndecodable,
+
+    /** A monitor's stitch failed for a reason a later read can get past, such as
+     * a sidecar that could not be read right now. The report on disk is
+     * unchanged, and reading it again may succeed. */
+    KSCrashReportReadStatusStitchFailed,
 } KSCrashReportReadStatus;
 
 /** Read a report.
@@ -122,7 +127,8 @@ typedef enum {
  * @param configuration The store configuretion (e.g. reports path, app name etc).
  * @param status Why a NULL was returned (may be NULL).
  *
- * @return The NULL terminated report, or NULL if it could not be read or is not a report.
+ * @return The NULL terminated report, or NULL if it could not be read, is not a
+ *         report, or a stitch failed for a reason a later read can get past.
  */
 char *kscrs_readReport(const char *reportID, const KSCrashReportStoreCConfiguration *const configuration,
                        KSCrashReportReadStatus *status);
@@ -134,7 +140,8 @@ char *kscrs_readReport(const char *reportID, const KSCrashReportStoreCConfigurat
  *
  * @param path The full path to the report.
  *
- * @return The NULL terminated report, or NULL if not found.
+ * @return The NULL terminated report, or NULL if not found, or if a stitch failed
+ *         for a reason a later read can get past.
  */
 char *kscrs_readReportAtPath(const char *path);
 

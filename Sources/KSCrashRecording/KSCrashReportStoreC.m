@@ -965,14 +965,23 @@ static char *readReportAtPath(const char *path, const char *reportID,
 
         // Finalized reports already went through stitching, so skip it.
         if (!isReportFinalized(report)) {
+            bool stitchFailed = false;
             if (config != NULL) {
                 // Run sidecars first so per-report data can override per-run data
-                report = stitchRunSidecarsIntoReport(report, config, NULL);
+                report = stitchRunSidecarsIntoReport(report, config, &stitchFailed);
                 if (reportID != NULL) {
-                    report = stitchReportSidecarsIntoReport(report, reportID, config, NULL);
+                    report = stitchReportSidecarsIntoReport(report, reportID, config, &stitchFailed);
                 }
             }
-            report = stitchFinalPassIntoReport(report, NULL);
+            report = stitchFinalPassIntoReport(report, &stitchFailed);
+            // A stitch that failed for a reason a later read can get past leaves the
+            // report on disk to be read again, rather than handing it out without that
+            // monitor's data for good.
+            if (stitchFailed) {
+                KSLOG_ERROR(@"A stitch failed for the report at %s; it is read again later", path);
+                setReadStatus(status, KSCrashReportReadStatusStitchFailed);
+                return NULL;
+            }
         }
 
         // Encode once at the bottom

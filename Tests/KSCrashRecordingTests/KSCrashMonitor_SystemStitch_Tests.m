@@ -55,8 +55,8 @@ static NSString *writeSidecar(NSString *dir, KSCrash_SystemData sc)
 static KSCrash_SystemData makeValidSystemData(void)
 {
     KSCrash_SystemData sc = {};
-    sc.magic = KSSYS_MAGIC;
-    sc.version = KSCrash_System_CurrentVersion;
+    sc.header.magic = KSSYS_MAGIC;
+    sc.header.version = KSCrash_System_CurrentVersion;
     strlcpy(sc.systemName, "iOS", sizeof(sc.systemName));
     strlcpy(sc.systemVersion, "17.2", sizeof(sc.systemVersion));
     strlcpy(sc.machine, "iPhone15,2", sizeof(sc.machine));
@@ -135,7 +135,7 @@ static KSCrash_SystemData makeValidSystemData(void)
     NSString *missingPath = [self.tempDir stringByAppendingPathComponent:[[NSUUID UUID] UUIDString]];
     NSDictionary *report = @{ @"report" : @ {} };
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
-        (__bridge CFDictionaryRef)report, missingPath.UTF8String, KSCrashSidecarScopeReport, NULL);
+        (__bridge CFDictionaryRef)report, missingPath.UTF8String, KSCrashSidecarScopeRun, NULL);
     XCTAssertEqualObjects(result, report);
 }
 
@@ -148,36 +148,36 @@ static KSCrash_SystemData makeValidSystemData(void)
 - (void)testBadMagicDeliversTheReportUnchanged
 {
     KSCrash_SystemData sc = makeValidSystemData();
-    sc.magic = (int32_t)0xDEADBEEF;
+    sc.header.magic = (int32_t)0xDEADBEEF;
     NSString *path = writeSidecar(self.tempDir, sc);
 
     NSDictionary *report = @{ @"report" : @ {} };
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
-        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
     XCTAssertEqualObjects(result, report);
 }
 
 - (void)testVersionZeroDeliversTheReportUnchanged
 {
     KSCrash_SystemData sc = makeValidSystemData();
-    sc.version = 0;
+    sc.header.version = 0;
     NSString *path = writeSidecar(self.tempDir, sc);
 
     NSDictionary *report = @{ @"report" : @ {} };
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
-        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
     XCTAssertEqualObjects(result, report);
 }
 
 - (void)testFutureVersionDeliversTheReportUnchanged
 {
     KSCrash_SystemData sc = makeValidSystemData();
-    sc.version = KSCrash_System_CurrentVersion + 1;
+    sc.header.version = KSCrash_System_CurrentVersion + 1;
     NSString *path = writeSidecar(self.tempDir, sc);
 
     NSDictionary *report = @{ @"report" : @ {} };
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
-        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
     XCTAssertEqualObjects(result, report);
 }
 
@@ -191,7 +191,7 @@ static KSCrash_SystemData makeValidSystemData(void)
 
     NSDictionary *report = @{ @"report" : @ {} };
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
-        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
     XCTAssertEqualObjects(result, report);
 }
 
@@ -380,8 +380,8 @@ static KSCrash_SystemData makeValidSystemData(void)
 - (void)testEmptyStringsSkipped
 {
     KSCrash_SystemData sc = {};
-    sc.magic = KSSYS_MAGIC;
-    sc.version = KSCrash_System_CurrentVersion;
+    sc.header.magic = KSSYS_MAGIC;
+    sc.header.version = KSCrash_System_CurrentVersion;
     // All string fields are zero-initialized (empty)
     NSString *path = writeSidecar(self.tempDir, sc);
 
@@ -463,6 +463,49 @@ static KSCrash_SystemData makeValidSystemData(void)
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
         (__bridge CFDictionaryRef)report, NULL, KSCrashSidecarScopeFinal, NULL);
     XCTAssertEqualObjects(result, report);
+}
+
+- (void)testReportScopeLeavesAValidSidecarUnread
+{
+    NSString *path = writeSidecar(self.tempDir, makeValidSystemData());
+    NSDictionary *report = @{ @"a" : @1 };
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
+    XCTAssertEqualObjects(result, report);
+}
+
+#pragma mark - Unterminated strings
+
+// A writer other than this library can leave a string field without a NUL;
+// the stitch must read no further than the field.
+- (void)testAStringFieldWithoutANulStaysWithinItsField
+{
+    KSCrash_SystemData sc = makeValidSystemData();
+    memset(sc.systemName, 'A', sizeof(sc.systemName));
+    NSString *path = writeSidecar(self.tempDir, sc);
+
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
+        (__bridge CFDictionaryRef) @{}, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    NSString *expected = [@"" stringByPaddingToLength:sizeof(sc.systemName) withString:@"A" startingAtIndex:0];
+    XCTAssertEqualObjects(result[KSCrashField_System][KSCrashField_SystemName], expected);
+    XCTAssertEqualObjects(result[KSCrashField_System][KSCrashField_SystemVersion], @"17.2");
+}
+
+#pragma mark - Invalid UTF-8
+
+- (void)testAStringFieldThatIsNotUTF8ClearsItsKey
+{
+    KSCrash_SystemData sc = makeValidSystemData();
+    memset(sc.machine, 0, sizeof(sc.machine));
+    sc.machine[0] = (char)0xFF;
+    sc.machine[1] = (char)0xFE;
+    NSString *path = writeSidecar(self.tempDir, sc);
+
+    NSDictionary *report = @{ KSCrashField_System : @ { KSCrashField_Machine : @"old" } };
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_system_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertNil(result[KSCrashField_System][KSCrashField_Machine]);
+    XCTAssertEqualObjects(result[KSCrashField_System][KSCrashField_SystemName], @"iOS");
 }
 
 @end

@@ -27,49 +27,15 @@
 #ifndef KSCrashMonitor_WatchdogSidecar_h
 #define KSCrashMonitor_WatchdogSidecar_h
 
-#include <mach/task_policy.h>
 #include <stdbool.h>
 #include <stdint.h>
 
 #include "KSCrashMonitorAPI.h"
+#include "KSHangSidecar.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#define KSHANG_SIDECAR_MAGIC 0x6b736873  // 'kshs'
-#define KSHANG_SIDECAR_VERSION_1_0 1
-#define KSHANG_SIDECAR_CURRENT_VERSION KSHANG_SIDECAR_VERSION_1_0
-
-/** Memory-mapped sidecar struct persisted alongside a hang report.
- *
- * Written by the watchdog monitor during hang detection (pure C, mmap'd).
- * Read by the stitch logic at next launch (ObjC, safe context).
- */
-typedef struct {
-    int32_t magic;
-    uint8_t version;
-    uint64_t startTimestamp;
-    task_role_t startRole;
-    uint8_t startTransitionState;  // KSCrashAppTransitionState at hang start
-    uint64_t endTimestamp;
-    task_role_t endRole;
-    uint8_t endTransitionState;  // KSCrashAppTransitionState at hang end/current
-    bool recovered;
-} KSHangSidecar;
-
-// Expected layout (same on 32-bit and 64-bit — no pointer-sized fields):
-//   offset  0: int32_t    magic                  (4 bytes)
-//   offset  4: uint8_t    version                (1 byte + 3 padding)
-//   offset  8: uint64_t   startTimestamp          (8 bytes)
-//   offset 16: task_role_t startRole              (4 bytes)
-//   offset 20: uint8_t    startTransitionState    (1 byte + 3 padding)
-//   offset 24: uint64_t   endTimestamp            (8 bytes)
-//   offset 32: task_role_t endRole                (4 bytes)
-//   offset 36: uint8_t    endTransitionState      (1 byte)
-//   offset 37: bool       recovered               (1 byte + 2 padding)
-//   total: 40 bytes
-_Static_assert(sizeof(KSHangSidecar) == 40, "KSHangSidecar size changed — update sidecar version");
 
 /** Stitch watchdog sidecar data into a crash report.
  *

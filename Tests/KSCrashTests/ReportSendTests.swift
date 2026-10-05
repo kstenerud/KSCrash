@@ -71,7 +71,7 @@ final class ReportSendTests: XCTestCase {
 
     private func makeStore(
         liveRunID: RunSummary.ID? = testRunID("LIVE"), listFails: Bool = false, undecodable: Set<Report.ID> = [],
-        peekBlind: Bool = false
+        stitchFailed: Set<Report.ID> = [], peekBlind: Bool = false
     ) -> Store {
         let directory = reportsDirectory!
         let counter = reclaimCount
@@ -91,6 +91,7 @@ final class ReportSendTests: XCTestCase {
                 },
                 read: {
                     if undecodable.contains($0) { throw CocoaError(.fileReadCorruptFile) }
+                    if stitchFailed.contains($0) { throw ReportReadError.stitchFailed }
                     return try? Data(contentsOf: directory.appendingPathComponent("\($0).json"))
                 },
                 runID: { id in
@@ -115,12 +116,14 @@ final class ReportSendTests: XCTestCase {
         liveRunID: RunSummary.ID? = testRunID("LIVE"),
         listFails: Bool = false,
         undecodable: Set<Report.ID> = [],
+        stitchFailed: Set<Report.ID> = [],
         peekBlind: Bool = false,
         claims: SendClaims<Report.ID> = SendClaims()
     ) async throws -> SendResult<Report> {
         try await ReportSend.send(
             store: makeStore(
-                liveRunID: liveRunID, listFails: listFails, undecodable: undecodable, peekBlind: peekBlind),
+                liveRunID: liveRunID, listFails: listFails, undecodable: undecodable, stitchFailed: stitchFailed,
+                peekBlind: peekBlind),
             pipeline: pipeline,
             only: selection,
             claims: claims)
@@ -249,6 +252,33 @@ final class ReportSendTests: XCTestCase {
         }
         XCTAssertEqual((error as? CocoaError)?.code, .fileReadCorruptFile, "\(error)")
         XCTAssertEqual(reportFileCount, 1)
+    }
+
+    /// A stitch that failed for a reason a later read can get past keeps the report, says why,
+    /// and leaves the file for the next send, which delivers it once the stitch succeeds.
+    func test_send_reportWhoseStitchFailed_isKeptWithTheReadError_andDeliveredNextSend() async throws {
+        try writeReport(id: testReportID(1))
+        try writeReport(id: testReportID(2))
+
+        let result = try await send(stitchFailed: [testReportID(2)])
+        assertOutcomes(result, delivered: [testReportID(1)], kept: [testReportID(2)])
+        let kept = try XCTUnwrap(result.items.first { $0.id == testReportID(2) })
+        guard case .kept(let error) = kept.outcome else {
+            return XCTFail("expected a kept outcome, got \(kept.outcome)")
+        }
+        XCTAssertEqual(error as? ReportReadError, .stitchFailed, "\(error)")
+        XCTAssertEqual(reportFileCount, 1)
+
+        let next = try await send()
+        assertOutcomes(next, delivered: [testReportID(2)])
+        XCTAssertEqual(reportFileCount, 0)
+    }
+
+    func test_readFailure_keepsAStitchFailureAndAnUndecodableReport_andSkipsAnUnreadableOne() {
+        XCTAssertEqual(readFailure(KSCrashReportReadStatusStitchFailed) as? ReportReadError, .stitchFailed)
+        XCTAssertEqual((readFailure(KSCrashReportReadStatusUndecodable) as? CocoaError)?.code, .fileReadCorruptFile)
+        XCTAssertNil(readFailure(KSCrashReportReadStatusUnreadable))
+        XCTAssertNil(readFailure(KSCrashReportReadStatusOK))
     }
 
     func test_send_reportGoneAfterListing_isNotAnItem() async throws {
