@@ -34,18 +34,22 @@ jobs:
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
 
       - name: Delete tag
+        env:
+          VERSION: ${{ github.event.inputs.version }}
         run: |
-          git push --delete origin "${{ github.event.inputs.version }}" \
+          git push --delete origin "$VERSION" \
             || echo "Tag not found on remote"
 
       - name: Revert version commit
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+          BRANCH: ${{ github.event.inputs.branch }}
         run: |
-          VERSION="${{ github.event.inputs.version }}"
           SHA=$(git log --format="%H" --grep="Update version to ${VERSION}$" -n 1)
           if [[ -n "$SHA" ]]; then
             echo "Reverting $SHA"
             git revert --no-edit "$SHA"
-            git push origin HEAD:${{ github.event.inputs.branch }}
+            git push origin "HEAD:$BRANCH"
           else
             echo "No version commit found for ${VERSION} — nothing to revert."
           fi
