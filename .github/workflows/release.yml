@@ -61,22 +61,27 @@ jobs:
 
       - name: Update version in podspec
         if: ${{ github.event.inputs.publish_only != 'true' }}
-        run: sed -i '' 's/s.version      = "[^"]*"/s.version      = "${{ github.event.inputs.version }}"/' KSCrash.podspec
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+        run: sed -i '' 's/s.version      = "[^"]*"/s.version      = "'"$VERSION"'"/' KSCrash.podspec
 
       - name: Update version in source code
         if: ${{ github.event.inputs.publish_only != 'true' }}
+        env:
+          VERSION: ${{ github.event.inputs.version }}
         run: |
-          formatted_version_number=$(echo "${{ github.event.inputs.version }}" | awk -F. '{printf("%d.%02d%02d\n", $1, $2, $3)}')
+          formatted_version_number=$(echo "$VERSION" | awk -F. '{printf("%d.%02d%02d\n", $1, $2, $3)}')
           sed -i '' 's/const double KSCrashFrameworkVersionNumber = [^;]*/const double KSCrashFrameworkVersionNumber = '"$formatted_version_number"'/' Sources/KSCrashRecording/KSCrash.m
-          sed -i '' 's/const unsigned char KSCrashFrameworkVersionString\[\] = "[^"]*"/const unsigned char KSCrashFrameworkVersionString[] = "${{ github.event.inputs.version }}"/' Sources/KSCrashRecording/KSCrash.m
+          sed -i '' 's/const unsigned char KSCrashFrameworkVersionString\[\] = "[^"]*"/const unsigned char KSCrashFrameworkVersionString[] = "'"$VERSION"'"/' Sources/KSCrashRecording/KSCrash.m
 
       - name: Update README
         # Skip README version bumps for prereleases (e.g. 2.6.1-beta.1) — we don't
         # want docs pointing users at a beta tag. Real releases still update README.
         if: ${{ github.event.inputs.publish_only != 'true' && !contains(github.event.inputs.version, '-') }}
+        env:
+          VERSION: ${{ github.event.inputs.version }}
         run: |
-          sed -i '' "s/\.package(url: \"https:\/\/github.com\/kstenerud\/KSCrash.git\", .upToNextMajor(from: \"[^\"]*\"))/\.package(url: \"https:\/\/github.com\/kstenerud\/KSCrash.git\", .upToNextMajor(from: \"${{ github.event.inputs.version }}\"))/" README.md
-          VERSION="${{ github.event.inputs.version }}"
+          sed -i '' "s/\.package(url: \"https:\/\/github.com\/kstenerud\/KSCrash.git\", .upToNextMajor(from: \"[^\"]*\"))/\.package(url: \"https:\/\/github.com\/kstenerud\/KSCrash.git\", .upToNextMajor(from: \"$VERSION\"))/" README.md
           if [[ "$VERSION" == *"-"* ]]; then
             sed -i '' "s/pod 'KSCrash'.*$/pod 'KSCrash', '~> $VERSION'/" README.md
           else
@@ -101,23 +106,28 @@ jobs:
       - name: Commit version update
         id: commit_version
         if: ${{ github.event.inputs.publish_only != 'true' && github.event.inputs.dry_run != 'true' }}
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+          BRANCH: ${{ steps.record_branch.outputs.branch }}
         run: |
           git add KSCrash.podspec Sources/KSCrashRecording/KSCrash.m README.md
-          git commit -m "Update version to ${{ github.event.inputs.version }}"
-          git push origin HEAD:${{ steps.record_branch.outputs.branch }}
+          git commit -m "Update version to $VERSION"
+          git push origin "HEAD:$BRANCH"
           echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
       - name: Tag release (flags-stripped, not on any branch)
         id: tag
         if: ${{ github.event.inputs.publish_only != 'true' && github.event.inputs.dry_run != 'true' }}
+        env:
+          VERSION: ${{ github.event.inputs.version }}
         run: |
           # Strip unsafe flags on a commit that's tagged and pushed, but never
           # merged into the branch. Branch history stays clean (no revert-of-revert
           # noise); SPM consumers resolve the tag and get a flag-stripped Package.swift.
           scripts/toggle-unsafe-flags.sh remove
           git add Package.swift
-          git commit -m "Strip unsafe flags for release ${{ github.event.inputs.version }}"
-          TAG_NAME="${{ github.event.inputs.version }}"
+          git commit -m "Strip unsafe flags for release $VERSION"
+          TAG_NAME="$VERSION"
           git tag "$TAG_NAME"
           git push origin "$TAG_NAME"
           # Record the tag as pushed *before* the reset so rollback sees it
@@ -151,20 +161,26 @@ jobs:
 
       - name: Rollback - delete tag
         if: failure() && steps.tag.outputs.name != ''
+        env:
+          TAG_NAME: ${{ steps.tag.outputs.name }}
         run: |
-          git push --delete origin "${{ steps.tag.outputs.name }}" || echo "Tag not on remote"
+          git push --delete origin "$TAG_NAME" || echo "Tag not on remote"
 
       - name: Rollback - revert version commit
         if: failure() && steps.commit_version.outputs.sha != ''
+        env:
+          BRANCH: ${{ steps.record_branch.outputs.branch }}
+          SHA: ${{ steps.commit_version.outputs.sha }}
         run: |
-          git pull origin ${{ steps.record_branch.outputs.branch }}
-          git revert --no-edit ${{ steps.commit_version.outputs.sha }}
-          git push origin HEAD:${{ steps.record_branch.outputs.branch }}
+          git pull origin "$BRANCH"
+          git revert --no-edit "$SHA"
+          git push origin "HEAD:$BRANCH"
 
       - name: Rollback - pod trunk delete
         if: failure() && steps.trunk_push.outputs.pushed == 'true'
         env:
           COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_PASSWORD }}
+          VERSION: ${{ github.event.inputs.version }}
         run: |
-          pod trunk delete KSCrash "${{ github.event.inputs.version }}" || \
+          pod trunk delete KSCrash "$VERSION" || \
             echo "Trunk delete failed — likely outside the 30-minute window. Manual action may be required."
