@@ -27,12 +27,29 @@
 #import "FileBasedTestCase.h"
 
 #import "KSCrashMonitor.h"
+#import "KSCrashMonitor_Lifecycle.h"
 #import "KSCrashReportFields.h"
 #import "KSCrashReportStoreC+Private.h"
 #import "KSCrashReportStoreC.h"
 #import "KSJSONCodecObjC.h"
+#import "KSSessionStore.h"
 
 #include <inttypes.h>
+
+// Isolate the registry and its path providers while exercising the real Lifecycle stitcher.
+struct KSCrashMonitorSavedState;
+extern struct KSCrashMonitorSavedState *kscm_testcode_saveState(void);
+extern void kscm_testcode_resetState(void);
+extern void kscm_testcode_restoreState(struct KSCrashMonitorSavedState *saved);
+
+static char g_lifecycleSessionsPath[KSCRS_MAX_PATH_LENGTH];
+
+// Use the production path builder, including its run-id validation.
+static bool lifecycleSummarySidecarPath(const char *runID, const char *extension, char *buffer, size_t length)
+{
+    KSCrashReportStoreCConfiguration config = { .runSummariesPath = g_lifecycleSessionsPath };
+    return kscrs_getSummarySidecarFilePath(runID, extension, buffer, length, &config);
+}
 
 #pragma mark - Test monitor stitch callback
 
@@ -839,6 +856,114 @@ static CFDictionaryRef throwingStitchReport(__unused CFDictionaryRef reportDict,
     XCTAssertEqualObjects(decoded[@"final_pass_sidecar_path"], @"null", @"the final pass has no sidecar file");
 
     kscm_removeMonitor(&api);
+}
+
+// The store must reach session stitching even when there is no Lifecycle file to enumerate.
+- (void)testSessionIDStitchedWithoutLifecycleSidecar
+{
+    struct KSCrashMonitorSavedState *saved = kscm_testcode_saveState();
+    kscm_testcode_resetState();
+    @try {
+        [self prepareStoreWithRunSidecars:@"testSessionWithoutLifecycle"];
+        strlcpy(g_lifecycleSessionsPath, _storeConfig.runSummariesPath, sizeof(g_lifecycleSessionsPath));
+        kscm_setSummarySidecarPathProvider(lifecycleSummarySidecarPath);
+        KSCrashMonitorAPI *api = kscm_lifecycle_getAPI();
+        XCTAssertTrue(kscm_addMonitor(api));
+        XCTAssertFalse(api->isEnabled(api->context), @"The fixture must not create a live Lifecycle sidecar");
+
+        XCTAssertTrue([[NSFileManager defaultManager] createDirectoryAtPath:@(_storeConfig.runSummariesPath)
+                                                withIntermediateDirectories:YES
+                                                                 attributes:nil
+                                                                      error:nil]);
+        NSString *runIDStr = [[NSUUID UUID] UUIDString];
+        char sessionsPath[KSCRS_MAX_PATH_LENGTH];
+        bool hasSessionsPath = kscrs_getSummarySidecarFilePath(runIDStr.UTF8String, "sessions", sessionsPath,
+                                                               sizeof(sessionsPath), &_storeConfig);
+        XCTAssertTrue(hasSessionsPath);
+        if (!hasSessionsPath) {
+            return;
+        }
+        KSSessionWriter *writer = kssw_open(sessionsPath);
+        XCTAssertTrue(writer != NULL);
+        if (writer == NULL) {
+            return;
+        }
+        const char *sessionID = kssw_update(writer, true, "alice");
+        NSString *expectedSessionIDStr = sessionID != NULL ? @(sessionID) : nil;
+        kssw_close(writer);
+        XCTAssertNotNil(expectedSessionIDStr);
+        if (expectedSessionIDStr == nil) {
+            return;
+        }
+        XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:@(sessionsPath)]);
+
+        char lifecyclePath[KSCRS_MAX_PATH_LENGTH];
+        bool hasLifecyclePath = kscrs_getRunSidecarFilePathForRunID("Lifecycle", runIDStr.UTF8String, lifecyclePath,
+                                                                    sizeof(lifecyclePath), &_storeConfig);
+        XCTAssertTrue(hasLifecyclePath);
+        if (!hasLifecyclePath) {
+            return;
+        }
+        XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:@(lifecyclePath)]);
+        NSString *reportIDStr = [self writeReportWithRunId:runIDStr];
+        KSCrashReportReadStatus status;
+        char *rawReport = kscrs_readReport(reportIDStr.UTF8String, &_storeConfig, &status);
+        XCTAssertEqual(status, KSCrashReportReadStatusOK);
+        XCTAssertTrue(rawReport != NULL);
+        if (rawReport == NULL) {
+            return;
+        }
+        NSData *data = [NSData dataWithBytesNoCopy:rawReport length:strlen(rawReport) freeWhenDone:YES];
+        NSDictionary *reportDict = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+        XCTAssertNotNil(reportDict);
+        XCTAssertEqualObjects(reportDict[KSCrashField_Report][KSCrashField_RunID], runIDStr);
+        XCTAssertEqualObjects(reportDict[KSCrashField_Report][KSCrashField_SessionID], expectedSessionIDStr);
+        XCTAssertNil(reportDict[KSCrashField_System][KSCrashField_AppStats]);
+        XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:@(lifecyclePath)],
+                       @"Reading the report must not create a Lifecycle sidecar");
+
+        // Finalization uses the same fallback and must freeze the session before a later one is recorded.
+        NSArray<NSString *> *reportFilesArr =
+            [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@(_storeConfig.reportsPath) error:nil];
+        XCTAssertEqual(reportFilesArr.count, 1u);
+        if (reportFilesArr.count != 1) {
+            return;
+        }
+        NSString *reportPathStr = [@(_storeConfig.reportsPath) stringByAppendingPathComponent:reportFilesArr[0]];
+        XCTAssertTrue(kscrs_finalizeReport(reportPathStr.UTF8String, reportIDStr.UTF8String));
+        writer = kssw_open(sessionsPath);
+        XCTAssertTrue(writer != NULL);
+        if (writer == NULL) {
+            return;
+        }
+        sessionID = kssw_update(writer, true, "bob");
+        NSString *nextSessionIDStr = sessionID != NULL ? @(sessionID) : nil;
+        kssw_close(writer);
+        XCTAssertNotNil(nextSessionIDStr);
+        if (nextSessionIDStr == nil) {
+            return;
+        }
+        XCTAssertNotEqualObjects(nextSessionIDStr, expectedSessionIDStr);
+
+        for (int i = 0; i < 2; i++) {
+            XCTAssertTrue(kscrs_finalizeReport(reportPathStr.UTF8String, reportIDStr.UTF8String));
+            rawReport = kscrs_readReport(reportIDStr.UTF8String, &_storeConfig, &status);
+            XCTAssertEqual(status, KSCrashReportReadStatusOK);
+            XCTAssertTrue(rawReport != NULL);
+            if (rawReport == NULL) {
+                return;
+            }
+            data = [NSData dataWithBytesNoCopy:rawReport length:strlen(rawReport) freeWhenDone:YES];
+            reportDict = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+            XCTAssertEqualObjects(reportDict[KSCrashField_Report][KSCrashField_Finalized], @YES);
+            XCTAssertEqualObjects(reportDict[KSCrashField_Report][KSCrashField_SessionID], expectedSessionIDStr);
+        }
+    } @finally {
+        // Restore paths and run identity before re-enabling any monitors from the saved installation.
+        kscrs_setStitchConfig(kscrash_isInstalled() ? kscrash_getReportStoreConfiguration() : NULL);
+        kscrash_testcode_setRunID(_savedRunID[0] != '\0' ? _savedRunID : NULL);
+        kscm_testcode_restoreState(saved);
+    }
 }
 
 - (void)testRunSidecarStitchAppliesInPriorityOrder

@@ -34,18 +34,25 @@
 
 #import "KSLogger.h"
 
+// Keep run-scope stitching intact; the final pass supplies sessions when no Lifecycle sidecar was found.
 CFDictionaryRef kscm_lifecycle_createStitchedReport(CFDictionaryRef reportDict, const char *sidecarPath,
                                                     KSCrashSidecarScope scope, __unused void *context)
 {
     if (reportDict == NULL) {
         return NULL;
     }
-    if (scope != KSCrashSidecarScopeRun) {
-        // Not this monitor's scope (e.g. the final pass, which has no sidecar file).
+
+    if (scope == KSCrashSidecarScopeFinal) {
+        id reportSection = ((__bridge NSDictionary *)reportDict)[KSCrashField_Report];
+        if ([reportSection isKindOfClass:[NSDictionary class]] && reportSection[KSCrashField_SessionID] != nil) {
+            // Preserve sessions already supplied by the run pass or another stitcher.
+            CFRetain(reportDict);
+            return reportDict;
+        }
+    } else if (scope != KSCrashSidecarScopeRun) {
         CFRetain(reportDict);
         return reportDict;
-    }
-    if (sidecarPath == NULL) {
+    } else if (sidecarPath == NULL) {
         return NULL;
     }
 
@@ -54,9 +61,12 @@ CFDictionaryRef kscm_lifecycle_createStitchedReport(CFDictionaryRef reportDict, 
     // report its session_id; only application_stats is skipped, and its data
     // is equally unrecoverable on any later read.
     KSCrash_LifecycleData lc = {};
-    bool haveLifecycleData = kslifecycle_readData(sidecarPath, &lc);
-    if (!haveLifecycleData) {
-        KSLOG_ERROR(@"Failed to read lifecycle sidecar at %s", sidecarPath);
+    bool haveLifecycleData = false;
+    if (scope == KSCrashSidecarScopeRun) {
+        haveLifecycleData = kslifecycle_readData(sidecarPath, &lc);
+        if (!haveLifecycleData) {
+            KSLOG_ERROR(@"Failed to read lifecycle sidecar at %s", sidecarPath);
+        }
     }
 
     NSMutableDictionary *dict = [(__bridge NSDictionary *)reportDict mutableCopy];

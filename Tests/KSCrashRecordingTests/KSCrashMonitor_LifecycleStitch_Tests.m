@@ -135,7 +135,7 @@ static void installSummaryProvider(NSString *dir)
 
     NSDictionary *report = @{};
 
-    // Lifecycle is run-scope only; report scope returns the input unchanged
+    // Report scope returns the input unchanged.
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_lifecycle_createStitchedReport(
         (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeReport, NULL);
     XCTAssertNotNil(result);
@@ -414,6 +414,61 @@ static void installSummaryProvider(NSString *dir)
     XCTAssertNotNil(result);
     XCTAssertNil(result[KSCrashField_Report][KSCrashField_SessionID],
                  @"session_id is omitted when the run recorded no session");
+}
+
+// A final pass must not replace the session chosen by an earlier stitcher.
+- (void)testFinalPassPreservesExistingSessionID
+{
+    installSummaryProvider(self.tempDir);
+    NSString *runIDStr = [[NSUUID UUID] UUIDString];
+    NSString *sessionsPathStr =
+        [self.tempDir stringByAppendingPathComponent:[runIDStr stringByAppendingPathExtension:@"sessions"]];
+    KSSessionWriter *writer = kssw_open(sessionsPathStr.fileSystemRepresentation);
+    XCTAssertTrue(writer != NULL);
+    if (writer == NULL) {
+        return;
+    }
+    const char *sessionID = kssw_update(writer, true, "alice");
+    XCTAssertTrue(sessionID != NULL);
+    kssw_close(writer);
+
+    NSDictionary *reportDict = @{
+        KSCrashField_Report : @ {
+            KSCrashField_RunID : runIDStr,
+            KSCrashField_SessionID : @"already-stitched-session",
+        }
+    };
+    NSDictionary *resultDict = (__bridge_transfer NSDictionary *)kscm_lifecycle_createStitchedReport(
+        (__bridge CFDictionaryRef)reportDict, NULL, KSCrashSidecarScopeFinal, NULL);
+    XCTAssertEqualObjects(resultDict, reportDict);
+}
+
+// Missing session data is an omission, not a stitching failure or a reason to create files.
+- (void)testFinalPassWithoutSessionsLeavesReportUnchanged
+{
+    installSummaryProvider(self.tempDir);
+    NSDictionary *reportDict = @{ KSCrashField_Report : @ { KSCrashField_RunID : [[NSUUID UUID] UUIDString] } };
+    NSDictionary *resultDict = (__bridge_transfer NSDictionary *)kscm_lifecycle_createStitchedReport(
+        (__bridge CFDictionaryRef)reportDict, NULL, KSCrashSidecarScopeFinal, NULL);
+    XCTAssertEqualObjects(resultDict, reportDict);
+    XCTAssertEqual([[NSFileManager defaultManager] contentsOfDirectoryAtPath:self.tempDir error:nil].count, 0u);
+}
+
+// The final pass also reaches reports that never had a usable run id.
+- (void)testFinalPassWithoutValidRunIDLeavesReportUnchanged
+{
+    installSummaryProvider(self.tempDir);
+    NSArray<NSDictionary *> *reportsArr = @[
+        @{},
+        @{ KSCrashField_Report : @"invalid" },
+        @{ KSCrashField_Report : @ {} },
+        @{ KSCrashField_Report : @ { KSCrashField_RunID : @42 } },
+    ];
+    for (NSDictionary *reportDict in reportsArr) {
+        NSDictionary *resultDict = (__bridge_transfer NSDictionary *)kscm_lifecycle_createStitchedReport(
+            (__bridge CFDictionaryRef)reportDict, NULL, KSCrashSidecarScopeFinal, NULL);
+        XCTAssertEqualObjects(resultDict, reportDict);
+    }
 }
 
 @end
