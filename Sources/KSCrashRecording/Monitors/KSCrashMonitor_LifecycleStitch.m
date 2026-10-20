@@ -34,7 +34,6 @@
 
 #import "KSLogger.h"
 
-// Keep run-scope stitching intact; the final pass supplies sessions when no Lifecycle sidecar was found.
 CFDictionaryRef kscm_lifecycle_createStitchedReport(CFDictionaryRef reportDict, const char *sidecarPath,
                                                     KSCrashSidecarScope scope, __unused void *context)
 {
@@ -42,36 +41,18 @@ CFDictionaryRef kscm_lifecycle_createStitchedReport(CFDictionaryRef reportDict, 
         return NULL;
     }
 
-    if (scope == KSCrashSidecarScopeFinal) {
-        id reportSection = ((__bridge NSDictionary *)reportDict)[KSCrashField_Report];
-        if ([reportSection isKindOfClass:[NSDictionary class]] && reportSection[KSCrashField_SessionID] != nil) {
-            // Preserve sessions already supplied by the run pass or another stitcher.
+    if (scope == KSCrashSidecarScopeRun) {
+        if (sidecarPath == NULL) {
+            return NULL;
+        }
+        KSCrash_LifecycleData lc = {};
+        if (!kslifecycle_readData(sidecarPath, &lc)) {
+            KSLOG_ERROR(@"Failed to read lifecycle sidecar at %s", sidecarPath);
             CFRetain(reportDict);
             return reportDict;
         }
-    } else if (scope != KSCrashSidecarScopeRun) {
-        CFRetain(reportDict);
-        return reportDict;
-    } else if (sidecarPath == NULL) {
-        return NULL;
-    }
+        NSMutableDictionary *dict = [(__bridge NSDictionary *)reportDict mutableCopy];
 
-    // The sidecar is not session_id's data source (that is the run's
-    // .sessions file), so an unreadable or corrupt sidecar must not cost the
-    // report its session_id; only application_stats is skipped, and its data
-    // is equally unrecoverable on any later read.
-    KSCrash_LifecycleData lc = {};
-    bool haveLifecycleData = false;
-    if (scope == KSCrashSidecarScopeRun) {
-        haveLifecycleData = kslifecycle_readData(sidecarPath, &lc);
-        if (!haveLifecycleData) {
-            KSLOG_ERROR(@"Failed to read lifecycle sidecar at %s", sidecarPath);
-        }
-    }
-
-    NSMutableDictionary *dict = [(__bridge NSDictionary *)reportDict mutableCopy];
-
-    if (haveLifecycleData) {
         // Navigate to or create report.system
         NSMutableDictionary *systemDict;
         id systemVal = dict[KSCrashField_System];
@@ -99,20 +80,25 @@ CFDictionaryRef kscm_lifecycle_createStitchedReport(CFDictionaryRef reportDict, 
 
         systemDict[KSCrashField_AppStats] = statsDict;
         dict[KSCrashField_System] = systemDict;
+        return (__bridge_retained CFDictionaryRef)dict;
     }
 
-    // session_id is added at stitch time, never at crash time; absent when the
-    // run recorded no session.
-    id reportVal = dict[KSCrashField_Report];
-    id storedRunID = [reportVal isKindOfClass:[NSDictionary class]] ? reportVal[KSCrashField_RunID] : nil;
-    NSString *runID = [storedRunID isKindOfClass:[NSString class]] ? storedRunID : nil;
-    char sessionID[KSID_SIZE] = "";
-    if (kslifecycle_copyLastSessionIDForRunID(runID.UTF8String, sessionID, sizeof(sessionID))) {
-        NSMutableDictionary *reportSection =
-            [reportVal isKindOfClass:[NSDictionary class]] ? [reportVal mutableCopy] : [NSMutableDictionary dictionary];
-        reportSection[KSCrashField_SessionID] = @(sessionID);
-        dict[KSCrashField_Report] = reportSection;
+    if (scope == KSCrashSidecarScopeFinal) {
+        // session_id is added at stitch time, never at crash time; absent when the
+        // run recorded no session.
+        id reportVal = ((__bridge NSDictionary *)reportDict)[KSCrashField_Report];
+        id storedRunID = [reportVal isKindOfClass:[NSDictionary class]] ? reportVal[KSCrashField_RunID] : nil;
+        NSString *runID = [storedRunID isKindOfClass:[NSString class]] ? storedRunID : nil;
+        char sessionID[KSID_SIZE] = "";
+        if (kslifecycle_copyLastSessionIDForRunID(runID.UTF8String, sessionID, sizeof(sessionID))) {
+            NSMutableDictionary *dict = [(__bridge NSDictionary *)reportDict mutableCopy];
+            NSMutableDictionary *reportSection = [reportVal mutableCopy];
+            reportSection[KSCrashField_SessionID] = @(sessionID);
+            dict[KSCrashField_Report] = reportSection;
+            return (__bridge_retained CFDictionaryRef)dict;
+        }
     }
 
-    return (__bridge_retained CFDictionaryRef)dict;
+    CFRetain(reportDict);
+    return reportDict;
 }

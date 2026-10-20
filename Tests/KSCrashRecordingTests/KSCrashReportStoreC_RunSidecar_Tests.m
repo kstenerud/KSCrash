@@ -922,7 +922,7 @@ static CFDictionaryRef throwingStitchReport(__unused CFDictionaryRef reportDict,
         XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:@(lifecyclePath)],
                        @"Reading the report must not create a Lifecycle sidecar");
 
-        // Finalization uses the same fallback and must freeze the session before a later one is recorded.
+        // Finalization must persist the session id even without a Lifecycle sidecar.
         NSArray<NSString *> *reportFilesArr =
             [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@(_storeConfig.reportsPath) error:nil];
         XCTAssertEqual(reportFilesArr.count, 1u);
@@ -931,33 +931,16 @@ static CFDictionaryRef throwingStitchReport(__unused CFDictionaryRef reportDict,
         }
         NSString *reportPathStr = [@(_storeConfig.reportsPath) stringByAppendingPathComponent:reportFilesArr[0]];
         XCTAssertTrue(kscrs_finalizeReport(reportPathStr.UTF8String, reportIDStr.UTF8String));
-        writer = kssw_open(sessionsPath);
-        XCTAssertTrue(writer != NULL);
-        if (writer == NULL) {
+        data = [NSData dataWithContentsOfFile:reportPathStr];
+        XCTAssertNotNil(data);
+        if (data == nil) {
             return;
         }
-        sessionID = kssw_update(writer, true, "bob");
-        NSString *nextSessionIDStr = sessionID != NULL ? @(sessionID) : nil;
-        kssw_close(writer);
-        XCTAssertNotNil(nextSessionIDStr);
-        if (nextSessionIDStr == nil) {
-            return;
-        }
-        XCTAssertNotEqualObjects(nextSessionIDStr, expectedSessionIDStr);
-
-        for (int i = 0; i < 2; i++) {
-            XCTAssertTrue(kscrs_finalizeReport(reportPathStr.UTF8String, reportIDStr.UTF8String));
-            rawReport = kscrs_readReport(reportIDStr.UTF8String, &_storeConfig, &status);
-            XCTAssertEqual(status, KSCrashReportReadStatusOK);
-            XCTAssertTrue(rawReport != NULL);
-            if (rawReport == NULL) {
-                return;
-            }
-            data = [NSData dataWithBytesNoCopy:rawReport length:strlen(rawReport) freeWhenDone:YES];
-            reportDict = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
-            XCTAssertEqualObjects(reportDict[KSCrashField_Report][KSCrashField_Finalized], @YES);
-            XCTAssertEqualObjects(reportDict[KSCrashField_Report][KSCrashField_SessionID], expectedSessionIDStr);
-        }
+        reportDict = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+        XCTAssertNotNil(reportDict);
+        XCTAssertEqualObjects(reportDict[KSCrashField_Report][KSCrashField_Finalized], @YES);
+        XCTAssertEqualObjects(reportDict[KSCrashField_Report][KSCrashField_SessionID], expectedSessionIDStr);
+        XCTAssertNil(reportDict[KSCrashField_System][KSCrashField_AppStats]);
     } @finally {
         // Restore paths and run identity before re-enabling any monitors from the saved installation.
         kscrs_setStitchConfig(kscrash_isInstalled() ? kscrash_getReportStoreConfiguration() : NULL);

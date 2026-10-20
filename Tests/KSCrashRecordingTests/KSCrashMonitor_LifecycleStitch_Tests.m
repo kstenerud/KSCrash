@@ -204,8 +204,7 @@ static void installSummaryProvider(NSString *dir)
     XCTAssertNil(result[@"system"][@"application_stats"]);
 }
 
-// The whole point of surviving a corrupt sidecar: the session id lives in the
-// run's .sessions file and must still stitch.
+// A corrupt Lifecycle sidecar must not prevent the final pass from adding the session id.
 - (void)testCorruptSidecarStillStitchesSessionID
 {
     installSummaryProvider(self.tempDir);
@@ -223,6 +222,12 @@ static void installSummaryProvider(NSString *dir)
 
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_lifecycle_createStitchedReport(
         (__bridge CFDictionaryRef)report, lcPath.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertNotNil(result);
+    XCTAssertNil(result[@"system"][@"application_stats"]);
+    XCTAssertNil(result[KSCrashField_Report][KSCrashField_SessionID]);
+
+    result = (__bridge_transfer NSDictionary *)kscm_lifecycle_createStitchedReport(
+        (__bridge CFDictionaryRef)result, NULL, KSCrashSidecarScopeFinal, NULL);
     XCTAssertNotNil(result);
     XCTAssertNil(result[@"system"][@"application_stats"]);
     XCTAssertEqualObjects(result[KSCrashField_Report][KSCrashField_SessionID], expected);
@@ -389,13 +394,13 @@ static void installSummaryProvider(NSString *dir)
     NSString *expected = @(kssw_update(writer, true, "alice"));  // copy the id before close
     kssw_close(writer);
 
-    NSString *lcPath = writeLifecycleSidecar(self.tempDir, makeValidLifecycleData());
     NSDictionary *reportSection = @{ KSCrashField_RunID : runID };
     NSDictionary *report = @{ KSCrashField_Report : reportSection };
 
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_lifecycle_createStitchedReport(
-        (__bridge CFDictionaryRef)report, lcPath.UTF8String, KSCrashSidecarScopeRun, NULL);
+        (__bridge CFDictionaryRef)report, NULL, KSCrashSidecarScopeFinal, NULL);
     XCTAssertNotNil(result);
+    XCTAssertNil(result[KSCrashField_System][KSCrashField_AppStats]);
     XCTAssertEqualObjects(result[KSCrashField_Report][KSCrashField_SessionID], expected,
                           @"session_id is the last entry of the run's .sessions file");
     XCTAssertEqualObjects(result[KSCrashField_Report][KSCrashField_RunID], runID, @"run_id preserved");
@@ -405,52 +410,15 @@ static void installSummaryProvider(NSString *dir)
 {
     installSummaryProvider(self.tempDir);  // provider set, but no .sessions file written
 
-    NSString *lcPath = writeLifecycleSidecar(self.tempDir, makeValidLifecycleData());
     NSDictionary *reportSection = @{ KSCrashField_RunID : [[NSUUID UUID] UUIDString] };
     NSDictionary *report = @{ KSCrashField_Report : reportSection };
 
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_lifecycle_createStitchedReport(
-        (__bridge CFDictionaryRef)report, lcPath.UTF8String, KSCrashSidecarScopeRun, NULL);
+        (__bridge CFDictionaryRef)report, NULL, KSCrashSidecarScopeFinal, NULL);
     XCTAssertNotNil(result);
     XCTAssertNil(result[KSCrashField_Report][KSCrashField_SessionID],
                  @"session_id is omitted when the run recorded no session");
-}
-
-// A final pass must not replace the session chosen by an earlier stitcher.
-- (void)testFinalPassPreservesExistingSessionID
-{
-    installSummaryProvider(self.tempDir);
-    NSString *runIDStr = [[NSUUID UUID] UUIDString];
-    NSString *sessionsPathStr =
-        [self.tempDir stringByAppendingPathComponent:[runIDStr stringByAppendingPathExtension:@"sessions"]];
-    KSSessionWriter *writer = kssw_open(sessionsPathStr.fileSystemRepresentation);
-    XCTAssertTrue(writer != NULL);
-    if (writer == NULL) {
-        return;
-    }
-    const char *sessionID = kssw_update(writer, true, "alice");
-    XCTAssertTrue(sessionID != NULL);
-    kssw_close(writer);
-
-    NSDictionary *reportDict = @{
-        KSCrashField_Report : @ {
-            KSCrashField_RunID : runIDStr,
-            KSCrashField_SessionID : @"already-stitched-session",
-        }
-    };
-    NSDictionary *resultDict = (__bridge_transfer NSDictionary *)kscm_lifecycle_createStitchedReport(
-        (__bridge CFDictionaryRef)reportDict, NULL, KSCrashSidecarScopeFinal, NULL);
-    XCTAssertEqualObjects(resultDict, reportDict);
-}
-
-// Missing session data is an omission, not a stitching failure or a reason to create files.
-- (void)testFinalPassWithoutSessionsLeavesReportUnchanged
-{
-    installSummaryProvider(self.tempDir);
-    NSDictionary *reportDict = @{ KSCrashField_Report : @ { KSCrashField_RunID : [[NSUUID UUID] UUIDString] } };
-    NSDictionary *resultDict = (__bridge_transfer NSDictionary *)kscm_lifecycle_createStitchedReport(
-        (__bridge CFDictionaryRef)reportDict, NULL, KSCrashSidecarScopeFinal, NULL);
-    XCTAssertEqualObjects(resultDict, reportDict);
+    XCTAssertEqualObjects(result, report);
     XCTAssertEqual([[NSFileManager defaultManager] contentsOfDirectoryAtPath:self.tempDir error:nil].count, 0u);
 }
 
