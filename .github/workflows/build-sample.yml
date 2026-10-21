@@ -44,10 +44,12 @@ jobs:
 
       - name: Ensure the Platform is Downloaded
         if: ${{ matrix.platform != 'macOS' }}
+        env:
+          PLATFORM: ${{ matrix.platform }}
         run: |
           xcodebuild -runFirstLaunch
           xcrun simctl list
-          xcodebuild -downloadPlatform ${{ matrix.platform }}
+          xcodebuild -downloadPlatform "$PLATFORM"
           xcodebuild -runFirstLaunch
 
       - name: Setup Mise

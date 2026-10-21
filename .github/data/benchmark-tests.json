@@ -106,6 +106,10 @@
     { "name": "EncodeArrays", "category": "json", "description": "Encode arrays (50 items)", "notes": "Backtrace addresses" },
     { "name": "EncodeHexData", "category": "json", "description": "Encode hex data (10x256B)", "notes": "Memory dumps" },
     { "name": "EncodeTypicalCrashReport", "category": "json", "description": "Full crash report", "notes": "10 threads, 30 frames each" },
+    { "name": "EmbedJSONElement", "category": "json", "description": "Embed JSON element (20 fields)", "notes": "Pre-formatted payload, decoded and re-encoded" },
+    { "name": "EmbedLargeJSONElement", "category": "json", "description": "Embed JSON element (500 fields)", "notes": "Larger pre-formatted payload" },
+    { "name": "CheckJSONElement", "category": "json", "description": "Check JSON element (100x)", "notes": "Validation only, no encoding" },
+    { "name": "EmbedJSONFromFile", "category": "json", "description": "Embed JSON from file (20 fields)", "notes": "Pre-formatted payload read from disk" },
 
     { "name": "ThreadSelf", "category": "thread", "description": "Get current thread", "iterations": 10000 },
     { "name": "GetThreadName", "category": "thread", "description": "Get thread name", "iterations": 1000 },
