@@ -44,8 +44,10 @@ jobs:
           xcode-version: latest-stable
 
       - name: Run Tests with ${{ matrix.name }}
+        env:
+          SANITIZER: ${{ matrix.sanitizer }}
         run: |
-          swift test --sanitize=${{ matrix.sanitizer }} 2>&1 | tee sanitizer-output.log
+          swift test --sanitize="$SANITIZER" 2>&1 | tee sanitizer-output.log
           exit ${PIPESTATUS[0]}
         timeout-minutes: 30
 

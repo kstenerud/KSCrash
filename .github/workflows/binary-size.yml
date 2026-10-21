@@ -71,7 +71,7 @@ jobs:
 
       - name: Measure Binary Sizes
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
             python3 pr/.github/scripts/binary_size.py \
               --build-dir pr/DerivedData \
               --base-build-dir base/DerivedData \
