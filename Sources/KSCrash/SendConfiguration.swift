@@ -38,19 +38,19 @@ public struct SendConfiguration: Sendable {
     /// `SendError.emptyPipeline` on an empty one.
     public var reportPipeline: [AnyPipelineStage<Report>]
 
-    /// Shared report areas to drain before listing: each is the value a crash extension
-    /// installed with, and every report found in it is moved into this app's own store at
-    /// the start of `sendReports`, so the same send delivers it. An existing report is
-    /// never replaced. Empty by default: apps without extensions pull from nowhere.
-    public var corpseAreas: [CorpseReportingConfiguration]
+    /// Places outside this install to take reports in from before listing, such as the
+    /// area a crash extension installed into. `sendReports` takes their reports into this
+    /// app's own store first, so the same send delivers them. An existing report is never
+    /// replaced. Empty by default.
+    public var reportSources: [any ReportSource]
 
     public init(
         runSummaryPipeline: [AnyPipelineStage<RunSummary>] = [],
         reportPipeline: [AnyPipelineStage<Report>] = [],
-        corpseAreas: [CorpseReportingConfiguration] = []
+        reportSources: [any ReportSource] = []
     ) {
         self.runSummaryPipeline = runSummaryPipeline
         self.reportPipeline = reportPipeline
-        self.corpseAreas = corpseAreas
+        self.reportSources = reportSources
     }
 }

@@ -459,7 +459,7 @@ final class StoreTests: XCTestCase {
             runsDirectory: runsDirectory,
             runSidecarsDirectory: sidecarsDirectory,
             liveRunID: nil
-        ) { _ in called.fulfill() }
+        ) { called.fulfill() }
         store.reclaimOrphans()
         wait(for: [called], timeout: 1)
     }
@@ -469,19 +469,27 @@ final class StoreTests: XCTestCase {
     private struct BridgeError: Error {}
 
     private func makeReportStore(
-        _ reports: FakeReports, listFails: Bool = false, removeFails: Bool = false
+        _ reports: FakeReports, listFails: Bool = false, removeFails: Bool = false, takeInFails: Bool = false,
+        maxReportCount: Int = 0, liveRunID: RunSummary.ID? = nil, runIDs: [Report.ID: RunSummary.ID] = [:]
     ) -> Store {
         Store(
             runsDirectory: runsDirectory,
             runSidecarsDirectory: sidecarsDirectory,
-            liveRunID: nil,
+            liveRunID: liveRunID,
+            maxReportCount: maxReportCount,
             reports: ReportBridge(
                 list: {
                     if listFails { throw BridgeError() }
                     return reports.ids
                 },
+                takeIn: { file, id, _ in
+                    guard !takeInFails, let data = try? Data(contentsOf: file) else { return .retryLater }
+                    // Already held is as good as taken, as in the C store.
+                    _ = reports.insert(id, data)
+                    return .taken
+                },
                 read: { reports.data(for: $0) },
-                runID: { _ in nil },
+                runID: { runIDs[$0] },
                 remove: {
                     if removeFails { throw BridgeError() }
                     reports.remove($0)
@@ -501,6 +509,49 @@ final class StoreTests: XCTestCase {
         var ids: [Report.ID] { storage.withLock { $0.keys.sorted { $0.description < $1.description } } }
         func data(for id: Report.ID) -> Data? { storage.withLock { $0[id] } }
         func remove(_ id: Report.ID) { storage.withLock { _ = $0.removeValue(forKey: id) } }
+        /// false when a report with `id` is already held.
+        func insert(_ id: Report.ID, _ data: Data) -> Bool {
+            storage.withLock { storage in
+                guard storage[id] == nil else { return false }
+                storage[id] = data
+                return true
+            }
+        }
+    }
+
+    private func incoming(_ value: Int, _ data: Data = Data("{}".utf8), timestamp: Date? = nil) -> IncomingReport {
+        IncomingReport(
+            content: .data(data), id: testReportID(value),
+            timestamp: timestamp ?? Date(timeIntervalSince1970: Double(value)))
+    }
+
+    /// A store over the real C report store in its own Reports directory. The
+    /// returned closure releases the configuration.
+    private func makeCStore(maxReportCount: Int32) throws -> (Store, URL, () -> Void) {
+        let reportsDirectory = runsDirectory.deletingLastPathComponent().appendingPathComponent(
+            "CStore-\(UUID().uuidString)/Reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reportsDirectory, withIntermediateDirectories: true)
+        let configuration = UnsafeMutablePointer<KSCrashReportStoreCConfiguration>.allocate(capacity: 1)
+        configuration.initialize(to: KSCrashReportStoreCConfiguration_Default())
+        configuration.pointee.reportsPath = UnsafePointer(strdup(reportsDirectory.path))
+        configuration.pointee.runSidecarsPath = UnsafePointer(strdup(sidecarsDirectory.path))
+        configuration.pointee.runSummariesPath = UnsafePointer(strdup(runsDirectory.path))
+        configuration.pointee.maxReportCount = maxReportCount
+        let store = Store(
+            runsDirectory: runsDirectory,
+            runSidecarsDirectory: sidecarsDirectory,
+            reportsDirectory: reportsDirectory,
+            liveRunID: nil,
+            maxRunCount: 50,
+            storeConfig: UnsafePointer(configuration)
+        )
+        return (
+            store, reportsDirectory,
+            {
+                KSCrashReportStoreCConfiguration_Release(configuration)
+                configuration.deallocate()
+            }
+        )
     }
 
     private func makeReportData(runID: String = "RUN") throws -> Data {
@@ -617,11 +668,11 @@ final class StoreTests: XCTestCase {
     /// of the area's namespace root contributes its Reports files, our own
     /// directory is skipped, an existing report is never replaced, and the
     /// pulled reports appear in the same listing.
-    func test_snapshotReportIDs_pullsExtensionAreaReportsIntoTheStore() throws {
+    func test_takeIn_movesExtensionAreaReportsIntoTheStore() async throws {
         let base = runsDirectory.deletingLastPathComponent()
         let area = CorpseReportingConfiguration(namespace: "AreaTests", container: .url(base))
-        // Our own store doubles as one bundle-id member of the area, proving
-        // the self-skip: nothing is pulled from ourselves.
+        // Our own store is one bundle-id member of the area. It declares no
+        // manifest, so it is not a source.
         let reportsDirectory = try area.processRoot.appendingPathComponent("Reports")
         try FileManager.default.createDirectory(at: reportsDirectory, withIntermediateDirectories: true)
         let extensionReports = try area.namespaceRoot
@@ -658,26 +709,31 @@ final class StoreTests: XCTestCase {
         }
         try makeReportData(runID: "OURS").write(to: reportsDirectory.appendingPathComponent(name(1, testReportID(1))))
         try makeReportData(runID: "EXT").write(to: extensionReports.appendingPathComponent(name(2, testReportID(2))))
-        // Occupied destination: the move must not clobber.
+        // Already held: the store keeps its own, and the area's copy is redundant.
         try makeReportData(runID: "OURS").write(to: reportsDirectory.appendingPathComponent(name(3, testReportID(3))))
         try makeReportData(runID: "EXT").write(to: extensionReports.appendingPathComponent(name(3, testReportID(3))))
         // Not report-shaped: stays put.
         try Data("x".utf8).write(to: extensionReports.appendingPathComponent("notes.txt"))
         try makeReportData(runID: "WIDGET").write(to: widgetReports.appendingPathComponent(name(4, testReportID(4))))
 
-        let ids = try store.snapshotReportIDs(pullingFrom: [area])
+        await store.takeIn(from: [area], claims: SendClaims())
+        let ids = try store.snapshotReportIDs()
         XCTAssertEqual(ids, [testReportID(3), testReportID(2), testReportID(1)])
+        XCTAssertTrue(
+            FileManager.default.fileExists(
+                atPath: reportsDirectory.appendingPathComponent(name(2, testReportID(2))).path),
+            "a taken report keeps the name the extension gave it")
         XCTAssertEqual(
             try FileManager.default.contentsOfDirectory(atPath: widgetReports.path), [name(4, testReportID(4))],
             "a sibling that declares no corpse store is left alone")
         XCTAssertEqual(try store.report(testReportID(2))?.report.runId, testRunID("EXT"))
         XCTAssertEqual(
             try store.report(testReportID(3))?.report.runId, testRunID("OURS"),
-            "an existing report is never replaced by an ingested one")
+            "an existing report is never replaced by an incoming one")
         let leftBehind = try FileManager.default.contentsOfDirectory(atPath: extensionReports.path).sorted()
         XCTAssertEqual(
-            leftBehind, [name(3, testReportID(3)), "notes.txt"],
-            "the clobber-refused report and the foreign file stay in the area")
+            leftBehind, ["notes.txt"],
+            "the already-held copy is removed from the area, and the foreign file stays")
     }
 
     func test_snapshotReportIDs_leavesAStoreThatReportsForItselfAlone() throws {
@@ -694,7 +750,7 @@ final class StoreTests: XCTestCase {
             at: siblingRoot.appendingPathComponent("Reports", isDirectory: true), withIntermediateDirectories: true)
         try StoreManifest.write(kind: StoreManifest.selfKind, atProcessRoot: siblingRoot)
 
-        XCTAssertEqual(try area.reportsDirectories(excluding: ownReports), [])
+        XCTAssertEqual(try area.drainableReportsDirectories(), [])
     }
 
     func test_storeManifest_writeFailureIsThrown() throws {
@@ -723,7 +779,7 @@ final class StoreTests: XCTestCase {
         let siblingRoot = try area.namespaceRoot.appendingPathComponent("com.example.bare", isDirectory: true)
         try StoreManifest.write(kind: StoreManifest.corpseKind, atProcessRoot: siblingRoot)
 
-        XCTAssertEqual(try area.reportsDirectories(excluding: ownReports), [])
+        XCTAssertEqual(try area.drainableReportsDirectories(), [])
     }
 
     func test_storeManifest_unreadableBytesAreNoDeclarationAtAll() throws {
@@ -754,10 +810,10 @@ final class StoreTests: XCTestCase {
             try JSONEncoder().encode(manifest).write(to: processRoot.appendingPathComponent(StoreManifest.filename))
         }
 
-        XCTAssertEqual(try area.reportsDirectories(excluding: reportsDirectory), [])
+        XCTAssertEqual(try area.drainableReportsDirectories(), [])
     }
 
-    func test_snapshotReportIDs_skipsAnAreaThatDoesNotResolve() throws {
+    func test_takeIn_skipsAnAreaThatDoesNotResolve() async throws {
         // An app group this process is not entitled to does not resolve. The
         // app's own reports must still be listed and sent; the area is logged
         // and skipped rather than turning every send into a throw.
@@ -768,7 +824,272 @@ final class StoreTests: XCTestCase {
         let unresolvable = CorpseReportingConfiguration(
             namespace: "AreaTests", container: .url(URL(string: "https://example.invalid/area")!))
         XCTAssertThrowsError(try unresolvable.namespaceRoot, "the area must really not resolve")
-        XCTAssertEqual(try store.snapshotReportIDs(pullingFrom: [unresolvable]), [testReportID(1)])
+        await store.takeIn(from: [unresolvable], claims: SendClaims())
+        XCTAssertEqual(try store.snapshotReportIDs(), [testReportID(1)])
+    }
+
+    func test_areaReader_throwsWhenTheAreaCannotBeRead() async throws {
+        // An area that is missing has nothing in it yet; one that is there but
+        // unreadable is a failure, never an empty area.
+        let base = runsDirectory.deletingLastPathComponent().appendingPathComponent("UnreadableArea")
+        let area = CorpseReportingConfiguration(namespace: "AreaTests", container: .url(base))
+        var reader = area.makeReader()
+        let missing = try await reader.next()
+        XCTAssertNil(missing, "an area nothing installed into yet is empty")
+
+        let root = try area.namespaceRoot
+        try FileManager.default.createDirectory(at: root.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try makeUnreadableDirectory(at: root)
+        var unreadable = area.makeReader()
+        do {
+            _ = try await unreadable.next()
+            XCTFail("an unreadable area must throw")
+        } catch {}
+    }
+
+    func test_reclaimOrphans_keepsUnreferencedRunDataForTheRetentionWindow() throws {
+        // Every send keeps run data nothing references yet, because a report
+        // for that run can still arrive from a report source later.
+        let (store, _, release) = try makeCStore(maxReportCount: 0)
+        defer { release() }
+        let runData = sidecarsDirectory.appendingPathComponent(testRunID("ORPHAN").description, isDirectory: true)
+        try FileManager.default.createDirectory(at: runData, withIntermediateDirectories: true)
+        try Data("sidecar".utf8).write(to: runData.appendingPathComponent("UserInfo.ksscr"))
+
+        store.reclaimOrphans()
+
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: runData.path), "run data younger than the window survives a send")
+    }
+
+    func test_takeIn_aCancelledSendStopsWaitingForTheGate() async throws {
+        let store = makeReportStore(FakeReports([:]))
+        let blocked = BlockingReportSource(incoming(1))
+        let first = Task { await store.takeIn(from: [blocked], claims: SendClaims()) }
+        await blocked.waitUntilReading()
+
+        let other = MemoryReportSource([incoming(2)])
+        let second = Task { await store.takeIn(from: [other], claims: SendClaims()) }
+        try await Task.sleep(nanoseconds: 100_000_000)
+        second.cancel()
+        let returned = await finishes(within: 2) { await second.value }
+        blocked.release()
+        await first.value
+
+        XCTAssertTrue(returned, "a cancelled send must stop waiting while another holds the gate")
+        XCTAssertEqual(other.offers, 0, "the cancelled send takes nothing in")
+    }
+
+    func test_takeIn_aSelectiveSendDoesNotTakeIn() async throws {
+        let source = MemoryReportSource([incoming(1)])
+        _ = try await ReportSend.send(
+            store: makeReportStore(FakeReports([:])), pipeline: [.init(ClosureStage { $0 })],
+            reportSources: [source], only: [testReportID(1)], claims: SendClaims())
+        XCTAssertEqual(source.offers, 0, "a selective send names reports already in the store and never prunes")
+    }
+
+    /// Whether `operation` finishes within `seconds`.
+    private func finishes(within seconds: Double, _ operation: @escaping @Sendable () async -> Void) async -> Bool {
+        await withTaskGroup(of: Bool.self) { group in
+            group.addTask {
+                await operation()
+                return true
+            }
+            group.addTask {
+                try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                return false
+            }
+            let first = await group.next() ?? false
+            group.cancelAll()
+            return first
+        }
+    }
+
+    func test_areaReader_skipsThisProcesssOwnDirectoryEvenWhenItIsDeclaredASource() throws {
+        // A process never takes reports in from itself, whatever its own
+        // directory in the area declares.
+        let base = runsDirectory.deletingLastPathComponent()
+        let area = CorpseReportingConfiguration(namespace: "SelfSkipTests", container: .url(base))
+        let ownRoot = try area.processRoot
+        try FileManager.default.createDirectory(
+            at: ownRoot.appendingPathComponent("Reports", isDirectory: true), withIntermediateDirectories: true)
+        try StoreManifest.write(kind: StoreManifest.corpseKind, atProcessRoot: ownRoot)
+
+        XCTAssertEqual(try area.drainableReportsDirectories(), [])
+    }
+
+    func test_takeIn_takesEachReportAndFinishesItTaken() async throws {
+        let reports = FakeReports([:])
+        let source = MemoryReportSource([incoming(1), incoming(2)])
+
+        await makeReportStore(reports).takeIn(from: [source], claims: SendClaims())
+
+        XCTAssertEqual(reports.ids, [testReportID(1), testReportID(2)])
+        XCTAssertEqual(source.finished, [testReportID(1): .taken, testReportID(2): .taken])
+        XCTAssertEqual(source.pendingIDs, [])
+    }
+
+    func test_takeIn_answersTakenForAReportTheStoreAlreadyHolds() async throws {
+        // What makes a crash between the store's write and the reader's finish
+        // harmless: the report is offered again, and the store already has it.
+        let reports = FakeReports([testReportID(1): Data("ours".utf8)])
+        let source = MemoryReportSource([incoming(1, Data("theirs".utf8))])
+
+        await makeReportStore(reports).takeIn(from: [source], claims: SendClaims())
+
+        XCTAssertEqual(reports.data(for: testReportID(1)), Data("ours".utf8), "never replaced")
+        XCTAssertEqual(source.finished, [testReportID(1): .taken])
+    }
+
+    func test_takeIn_finishesAReportItCouldNotTakeAsRetryLater() async throws {
+        let reports = FakeReports([:])
+        let source = MemoryReportSource([incoming(1), incoming(2)])
+
+        await makeReportStore(reports, takeInFails: true).takeIn(from: [source], claims: SendClaims())
+
+        XCTAssertEqual(reports.ids, [])
+        XCTAssertEqual(source.finished, [testReportID(1): .retryLater, testReportID(2): .retryLater])
+        XCTAssertEqual(source.offers, 2, "each report offered once per pass, not again after a retryLater")
+        XCTAssertEqual(source.pendingIDs, [testReportID(1), testReportID(2)], "the source keeps what was not taken")
+    }
+
+    func test_takeIn_takesEverythingInThenKeepsTheNewestUpToTheCap() async throws {
+        // The cap applies after the take-in, so the store keeps its newest
+        // reports whichever source they came from, and no source is left
+        // holding a backlog nothing prunes.
+        let (store, reportsDirectory, release) = try makeCStore(maxReportCount: 2)
+        defer { release() }
+        try Data("{}".utf8).write(
+            to: reportsDirectory.appendingPathComponent(
+                String(format: "%020d-%@.json", 1, testReportID(1).description)))
+        let source = MemoryReportSource([
+            incoming(3, timestamp: Date(timeIntervalSince1970: 3)),
+            incoming(2, timestamp: Date(timeIntervalSince1970: 2)),
+        ])
+
+        await store.takeIn(from: [source], claims: SendClaims())
+
+        XCTAssertEqual(try store.snapshotReportIDs(), [testReportID(3), testReportID(2)])
+        XCTAssertEqual(source.finished, [testReportID(3): .taken, testReportID(2): .taken])
+        XCTAssertEqual(source.pendingIDs, [])
+    }
+
+    func test_takeIn_prunesTheOldestOnlyAfterTakingSomethingNew() async throws {
+        let reports = FakeReports([testReportID(1): Data()])
+        let store = makeReportStore(reports, maxReportCount: 1)
+
+        await store.takeIn(from: [MemoryReportSource([incoming(1)])], claims: SendClaims())
+        XCTAssertEqual(reports.ids, [testReportID(1)], "a report the store already held adds nothing to prune")
+
+        await store.takeIn(from: [MemoryReportSource([incoming(2)])], claims: SendClaims())
+        XCTAssertEqual(reports.ids, [testReportID(2)], "the oldest report goes once a newer one comes in")
+    }
+
+    func test_takeIn_neverPrunesAReportFromTheCurrentRun() async throws {
+        // A current-run report may still be updated (an unresolved hang), so
+        // the bulk send leaves it alone and so does the prune.
+        let reports = FakeReports([testReportID(1): Data()])
+        let store = makeReportStore(
+            reports, maxReportCount: 1, liveRunID: testRunID("LIVE"), runIDs: [testReportID(1): testRunID("LIVE")])
+
+        await store.takeIn(from: [MemoryReportSource([incoming(2)])], claims: SendClaims())
+
+        XCTAssertEqual(reports.ids, [testReportID(1), testReportID(2)])
+    }
+
+    func test_takeIn_neverPrunesAReportAnotherSendHasClaimed() async throws {
+        // Another send may be delivering it, and if its pipeline keeps the
+        // report, the report must still be on disk.
+        let reports = FakeReports([testReportID(1): Data()])
+        let store = makeReportStore(reports, maxReportCount: 1)
+        let claims = SendClaims<Report.ID>()
+        XCTAssertTrue(claims.claim(testReportID(1)))
+
+        await store.takeIn(from: [MemoryReportSource([incoming(2)])], claims: claims)
+
+        XCTAssertEqual(
+            reports.ids, [testReportID(1), testReportID(2)],
+            "the claimed report stays, and no newer report is deleted in its place")
+        claims.release(testReportID(1))
+    }
+
+    func test_takeIn_aSendThatArrivesDuringAnotherTakesInItsOwnSources() async throws {
+        // Sources belong to each send, so a send that finds another taking in
+        // must wait its turn, not assume the other send has its reports.
+        let reports = FakeReports([:])
+        let store = makeReportStore(reports)
+        let blocked = BlockingReportSource(incoming(1))
+        let other = MemoryReportSource([incoming(2)])
+
+        let first = Task { await store.takeIn(from: [blocked], claims: SendClaims()) }
+        await blocked.waitUntilReading()
+        let second = Task { await store.takeIn(from: [other], claims: SendClaims()) }
+        // Give the second send time to reach the gate while the first holds it.
+        try await Task.sleep(nanoseconds: 100_000_000)
+        blocked.release()
+        _ = await (first.value, second.value)
+
+        XCTAssertEqual(reports.ids, [testReportID(1), testReportID(2)])
+        XCTAssertEqual(other.finished, [testReportID(2): .taken])
+    }
+
+    func test_areaReader_takesEveryReportOfALargeBacklog() async throws {
+        // Enough entries to span several directory read buffers: a reader that
+        // walked the directory while the store moved reports out of it would
+        // skip some and leave them behind.
+        let base = runsDirectory.deletingLastPathComponent()
+        let area = CorpseReportingConfiguration(namespace: "BacklogTests", container: .url(base))
+        let extensionRoot = try area.namespaceRoot.appendingPathComponent("com.example.extension", isDirectory: true)
+        let extensionReports = extensionRoot.appendingPathComponent("Reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: extensionReports, withIntermediateDirectories: true)
+        try StoreManifest.write(kind: StoreManifest.corpseKind, atProcessRoot: extensionRoot)
+        for value in 1...300 {
+            try Data("{}".utf8).write(
+                to: extensionReports.appendingPathComponent(
+                    String(format: "%020d-%@.json", value, testReportID(value).description)))
+        }
+        let (store, _, release) = try makeCStore(maxReportCount: 0)
+        defer { release() }
+
+        await store.takeIn(from: [area], claims: SendClaims())
+
+        XCTAssertEqual(try store.snapshotReportIDs().count, 300)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: extensionReports.path), [])
+    }
+
+    func test_takeIn_holdsOneIncomingReportAtATime() async throws {
+        let reports = FakeReports([:])
+        let source = MemoryReportSource((1...20).map { incoming($0) })
+
+        await makeReportStore(reports).takeIn(from: [source], claims: SendClaims())
+
+        XCTAssertEqual(reports.ids.count, 20)
+        XCTAssertEqual(source.maxOutstanding, 1)
+    }
+
+    func test_takeIn_skipsASourceThatThrowsAndTakesTheRest() async throws {
+        let reports = FakeReports([:])
+        let failing = MemoryReportSource([incoming(1)], failsOnNext: true)
+        let working = MemoryReportSource([incoming(2)])
+
+        await makeReportStore(reports).takeIn(from: [failing, working], claims: SendClaims())
+
+        XCTAssertEqual(reports.ids, [testReportID(2)])
+        XCTAssertEqual(working.finished, [testReportID(2): .taken])
+    }
+
+    func test_takeIn_concurrentSendsTakeEachReportOnce() async throws {
+        let reports = FakeReports([:])
+        let source = MemoryReportSource((1...50).map { incoming($0) })
+        let store = makeReportStore(reports)
+
+        async let first: Void = store.takeIn(from: [source], claims: SendClaims())
+        async let second: Void = store.takeIn(from: [source], claims: SendClaims())
+        _ = await (first, second)
+
+        XCTAssertEqual(reports.ids.count, 50)
+        XCTAssertEqual(source.offers, 50, "no report was offered to two take-ins")
+        XCTAssertEqual(source.maxOutstanding, 1)
     }
 
     func test_removeReport_removesAndPropagatesFailure() throws {
