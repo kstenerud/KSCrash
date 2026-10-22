@@ -494,9 +494,12 @@ intptr_t ksbic_getImageSlide(const struct mach_header *header)
 // async-signal-safe on Apple platforms (its only non-trivial call is strncmp,
 // which is async-signal-safe on Apple platforms).
 // Returns true if the entry has valid segments.
-static bool populateUnwindSections(const struct mach_header *header, const char *name __attribute__((unused)),
-                                   KSBinaryImageRange *entry)
+static bool populateUnwindSections(const struct mach_header *header, const char *name, KSBinaryImageRange *entry)
 {
+    // Only the trace log below reads name, and that compiles out below TRACE. Marking the
+    // parameter unused instead would then fail the verbose build, which does read it.
+    (void)name;
+
     entry->unwindInfo.header = header;
     entry->unwindInfo.slide = entry->slide;
 

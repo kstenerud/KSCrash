@@ -50,9 +50,13 @@
 
 // MARK: - ARM64 Compact Unwind Decoder
 
-bool kscu_arm64_decode(compact_unwind_encoding_t encoding, uintptr_t pc __attribute__((unused)), uintptr_t sp,
-                       uintptr_t fp, uintptr_t lr, KSCompactUnwindResult *result, task_t task)
+bool kscu_arm64_decode(compact_unwind_encoding_t encoding, uintptr_t pc, uintptr_t sp, uintptr_t fp, uintptr_t lr,
+                       KSCompactUnwindResult *result, task_t task)
 {
+    // Only the trace log below reads pc, and that compiles out below TRACE. Marking the parameter
+    // unused instead would then fail the verbose build, which does read it.
+    (void)pc;
+
     if (result == NULL) {
         return false;
     }
