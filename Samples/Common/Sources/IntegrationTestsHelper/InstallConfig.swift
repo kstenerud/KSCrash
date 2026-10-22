@@ -28,7 +28,7 @@ import CrashCallback
 import Foundation
 import KSCrash
 
-public struct InstallConfig: Codable {
+public struct InstallConfig: Codable, Sendable {
     public var namespace: String
     /// The custom container base the install uses (`Container.url`).
     public var basePath: String

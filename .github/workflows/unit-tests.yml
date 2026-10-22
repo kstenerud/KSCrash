@@ -39,37 +39,34 @@ jobs:
             xcode-version: "latest-stable"
             macos-version: "15"
           - platform: iOS
-            platform-version: ~18.2
-            macos-version: "14"
-            xcode-version: "16.2"
+            platform-version: ~18.5
+            macos-version: "15"
 
           - platform: watchOS
             macos-version: "15"
           - platform: watchOS
-            platform-version: ~11.1
-            macos-version: "14"
-            xcode-version: "16.2"
+            platform-version: ~11.5
+            macos-version: "15"
 
           - platform: tvOS
             macos-version: "15"
           - platform: tvOS
-            platform-version: ~18.2
-            macos-version: "14"
-            xcode-version: "16.2"
+            platform-version: ~18.5
+            macos-version: "15"
 
           - platform: visionOS
             macos-version: "15"
 
           - platform: macOS
           - platform: macOS
-            macos-version: "14"
+            macos-version: "15"
           - platform: macOS
             arch: x86_64
             macos-version: "15"
 
           - platform: mac-catalyst
           - platform: mac-catalyst
-            macos-version: "14"
+            macos-version: "15"
 
           # Xcode 27 preview (macOS 26 + Xcode 27.0 beta). Non-blocking early
           # warning on the 27.0 SDKs. See actions/runner-images#14404.

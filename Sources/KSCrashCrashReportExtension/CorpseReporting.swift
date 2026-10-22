@@ -29,6 +29,7 @@ import KSCrash
 import KSCrashMonitorPlugins
 import KSCrashRecording
 import KSCrashReportModel
+import KSCrashSwiftCore
 
 #if canImport(CrashReportExtension)
     import CrashReportExtension
@@ -42,7 +43,8 @@ enum CorpseReporting {
         let kcdataDirectory: URL
     }
 
-    static var active: Active?
+    /// Set once by the extension-reporting install, read by every capture.
+    static let active = UnfairLock<Active?>(nil)
 
     /// The monitor bridge the extension process installs and captures through. App-side, the
     /// developer registers `CrashReportExtensionMonitor` through `config.plugins` instead.
@@ -123,9 +125,10 @@ extension KSCrash {
             }
             throw InstallError(code: result)
         }
-        CorpseReporting.active = CorpseReporting.Active(
+        let active = CorpseReporting.Active(
             savesKCData: savesKCData,
             kcdataDirectory: kcdataDirectory ?? root.appendingPathComponent("KCData", isDirectory: true))
+        CorpseReporting.active.withLock { $0 = active }
     }
 }
 
