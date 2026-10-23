@@ -47,7 +47,8 @@ enum RunSummarySend {
                 list: { try $0.snapshotRuns() },
                 id: { $0.runID },
                 // nil covers artifact-only runs (nothing left to send) as
-                // well as stale entries and unreadable shared files.
+                // well as stale entries and unreadable summary/session files.
+                // A temporary UserInfo read failure throws and becomes kept.
                 read: { try $0.summary(of: $1) },
                 remove: { try $0.removeSummary(of: $1) },
                 // A delivered summary stops referencing its run, but a crash

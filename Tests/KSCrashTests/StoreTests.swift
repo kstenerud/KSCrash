@@ -410,7 +410,7 @@ final class StoreTests: XCTestCase {
         XCTAssertNil(try XCTUnwrap(summary()).metadata)
     }
 
-    func test_summary_unreadableUserInfoSidecar_skipsTheRunInsteadOfDroppingMetadata() throws {
+    func test_summary_unreadableUserInfoSidecar_throwsInsteadOfDroppingMetadata() throws {
         let runID = "LOCKEDMETA"
         try writeSummary(makeSummary(runID: runID), startNs: 100)
         try writeUserInfo(runID: runID) { kskvs_setString($0, "k", "v") }
@@ -418,10 +418,15 @@ final class StoreTests: XCTestCase {
         let path = sidecarsDirectory.appendingPathComponent(testRunID(runID).description)
             .appendingPathComponent(KSCRS_USERINFO_RUN_SIDECAR_FILENAME).path
         try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: path) }
 
         // Unreadable is unknown, not absent: delivering would ship the
         // summary without its metadata and then delete the intact `.run`.
-        XCTAssertNil(try summary())
+        XCTAssertThrowsError(try summary()) { error in
+            let readError = error as? CocoaError
+            XCTAssertEqual(readError?.code, .fileReadUnknown)
+            XCTAssertEqual(readError?.userInfo[NSFilePathErrorKey] as? String, path)
+        }
 
         try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: path)
         let metadata = try XCTUnwrap(summary()?.metadata)

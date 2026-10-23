@@ -37,14 +37,12 @@ import os
 extension Store {
     /// The run's summary in deliverable form: session records merged from
     /// `.sessions`, metadata stitched from the run's UserInfo sidecar. nil
-    /// when the run has no summary on disk, or when reading its `.run`,
-    /// `.sessions`, or UserInfo sidecar fails in a way a retry could succeed
-    /// at (the data is unknown, so the run waits for a later send). Throws
-    /// when the `.run` file was read but does not decode: that is
-    /// deterministic, so the send surfaces it as a kept item instead of
-    /// silently retrying forever. An absent `.sessions`
-    /// means empty records; an absent, empty, or unrecoverably corrupt
-    /// sidecar means nil metadata.
+    /// when the run has no summary on disk, or when reading its `.run` or
+    /// `.sessions` fails in a way a retry could succeed at. Throws when the
+    /// `.run` file does not decode or the UserInfo sidecar is temporarily
+    /// unreadable, so the send surfaces the held summary as a kept item.
+    /// An absent `.sessions` means empty records; an absent, empty, or
+    /// unrecoverably corrupt sidecar means nil metadata.
     ///
     /// A snapshot can go stale (a concurrent send may deliver and delete a
     /// run after it was captured); a stale or artifact-only run reads as nil
@@ -63,12 +61,12 @@ extension Store {
         // at delivery. Absence degrades gracefully (empty records, nil
         // metadata), but an UNREADABLE file means the data is unknown, not
         // absent: delivering would ship an incomplete summary and then delete
-        // the intact file, so the run is skipped this send and retried by the
-        // next one.
+        // the intact file, so the run is held back until a later send can
+        // read the missing data.
         guard let merged = mergingSessions(into: summary, for: run) else {
             return nil
         }
-        return stitchingMetadata(into: merged, for: run)
+        return try stitchingMetadata(into: merged, for: run)
     }
 
     /// Delete this run's own `.run` file.
@@ -156,10 +154,10 @@ extension Store {
 
     /// Attach the app data recorded for this run via the userInfo API, as a
     /// `Metadata` bag on a copy of `base`. Returns `base` untouched when the
-    /// run recorded none, and nil when reading the sidecar fails in a way a
-    /// retry could succeed at: the metadata is unknown, not absent, and the
-    /// caller must not deliver.
-    private func stitchingMetadata(into base: RunSummary, for run: Run) -> RunSummary? {
+    /// run recorded none, and throws when reading the sidecar fails in a way
+    /// a retry could succeed at: the metadata is unknown, not absent, and the
+    /// caller must keep the summary without delivering it.
+    private func stitchingMetadata(into base: RunSummary, for run: Run) throws -> RunSummary {
         // Metadata is stitched at delivery from the run's UserInfo sidecar,
         // never read live and never baked into the `.run`, exactly like
         // session_id from `.sessions` and userInfo on reports. The sidecar is
@@ -184,7 +182,10 @@ extension Store {
         // file. Read mode needs no config.
         var status = KSKVSOpenSuccess
         guard let store = kskvs_create(path, KSKVSModeRead, nil, &status) else {
-            return status == KSKVSOpenFailure ? nil : base
+            if status == KSKVSOpenFailure {
+                throw CocoaError(.fileReadUnknown, userInfo: [NSFilePathErrorKey: path])
+            }
+            return base
         }
         defer { kskvs_destroy(store) }
 
