@@ -1114,4 +1114,101 @@ static void rebuildListAfterCountLoad(int step)
     }
 }
 
+#pragma mark - Image removal
+
+extern void ksbic_testcode_notify(enum dyld_image_mode mode, uint32_t infoCount, const struct dyld_image_info *info);
+extern void ksbic_testcode_holdCache(void);
+extern void ksbic_testcode_releaseCache(void);
+extern uint32_t ksbic_testcode_cacheCount(void);
+
+// One page holding a minimal 64-bit Mach-O: a __TEXT segment covering the page and an LC_UUID.
+// Nothing in dyld's list refers to it, so once evicted no lookup can find it again.
+static void *makeSyntheticImage(void)
+{
+    vm_address_t page = 0;
+    kern_return_t kr = vm_allocate(mach_task_self(), &page, PAGE_SIZE, VM_FLAGS_ANYWHERE);
+    if (kr != KERN_SUCCESS) {
+        return NULL;
+    }
+    struct mach_header_64 *header = (struct mach_header_64 *)page;
+    header->magic = MH_MAGIC_64;
+    header->cputype = CPU_TYPE_ARM64;
+#if defined(__x86_64__)
+    header->cputype = CPU_TYPE_X86_64;
+#endif
+    header->filetype = MH_DYLIB;
+    header->ncmds = 2;
+    header->sizeofcmds = sizeof(struct segment_command_64) + sizeof(struct uuid_command);
+
+    // The page is 8-byte aligned and both commands are, so the uintptr_t hop only quiets -Wcast-align.
+    struct segment_command_64 *text = (struct segment_command_64 *)((uintptr_t)page + sizeof(*header));
+    text->cmd = LC_SEGMENT_64;
+    text->cmdsize = sizeof(struct segment_command_64);
+    strlcpy(text->segname, SEG_TEXT, sizeof(text->segname));
+    text->vmaddr = 0;
+    text->vmsize = PAGE_SIZE;
+    text->fileoff = 0;
+    text->filesize = PAGE_SIZE;
+
+    struct uuid_command *uuid = (struct uuid_command *)((uintptr_t)text + sizeof(*text));
+    uuid->cmd = LC_UUID;
+    uuid->cmdsize = sizeof(struct uuid_command);
+    memset(uuid->uuid, 0x42, sizeof(uuid->uuid));
+    return (void *)page;
+}
+
+- (void)testRemovalNotificationEvictsCachedImage
+{
+    void *page = makeSyntheticImage();
+    XCTAssertTrue(page != NULL);
+    @try {
+        XCTAssertTrue(ksbic_getUnwindInfoForHeader(page, NULL), @"the miss caches the synthetic image");
+        uint32_t before = ksbic_testcode_cacheCount();
+        XCTAssertEqual(ksbic_findImageForAddress((uintptr_t)page + 64, NULL, NULL), (const struct mach_header *)page);
+
+        struct dyld_image_info info = { page, "/fake/libfake.dylib", 0 };
+        ksbic_testcode_notify(dyld_image_removing, 1, &info);
+
+        XCTAssertEqual(ksbic_testcode_cacheCount(), before - 1);
+        XCTAssertEqual(ksbic_findImageForAddress((uintptr_t)page + 64, NULL, NULL), NULL,
+                       @"the page is still mapped, so only the cache could have answered");
+    } @finally {
+        vm_deallocate(mach_task_self(), (vm_address_t)page, PAGE_SIZE);
+    }
+}
+
+- (void)testRemovalWhileCacheBusyFlushesOnNextAcquire
+{
+    void *page = makeSyntheticImage();
+    XCTAssertTrue(page != NULL);
+    @try {
+        XCTAssertTrue(ksbic_getUnwindInfoForHeader(page, NULL));
+
+        ksbic_testcode_holdCache();
+        struct dyld_image_info info = { page, "/fake/libfake.dylib", 0 };
+        ksbic_testcode_notify(dyld_image_removing, 1, &info);
+        ksbic_testcode_releaseCache();
+
+        XCTAssertEqual(ksbic_findImageForAddress((uintptr_t)page + 64, NULL, NULL), NULL);
+        XCTAssertLessThanOrEqual(ksbic_testcode_cacheCount(), 1u,
+                                 @"a removal during a hold flushes the cache on the next acquire");
+    } @finally {
+        vm_deallocate(mach_task_self(), (vm_address_t)page, PAGE_SIZE);
+    }
+}
+
+- (void)testRemovalNotificationIgnoresUnknownHeader
+{
+    void *page = makeSyntheticImage();
+    XCTAssertTrue(page != NULL);
+    @try {
+        uint32_t before = ksbic_testcode_cacheCount();
+        struct dyld_image_info info = { page, "/fake/libnever.dylib", 0 };
+        ksbic_testcode_notify(dyld_image_removing, 1, &info);
+        XCTAssertEqual(ksbic_testcode_cacheCount(), before);
+    } @finally {
+        vm_deallocate(mach_task_self(), (vm_address_t)page, PAGE_SIZE);
+    }
+}
+
 @end

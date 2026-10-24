@@ -71,6 +71,27 @@ typedef void (*ksbic_imageCallback)(const struct mach_header *_Nonnull mh, intpt
  */
 void ksbic_registerForImageAdded(ksbic_imageCallback _Nullable callback);
 
+/**
+ * Callback type for image removal notifications.
+ *
+ * @param mh The mach_header of the image being removed. Still mapped when the callback runs.
+ */
+typedef void (*ksbic_imageRemovedCallback)(const struct mach_header *_Nonnull mh);
+
+/**
+ * Register a callback to be invoked when dyld removes an image.
+ *
+ * The callback runs on the thread unloading the image, after the image cache has dropped its
+ * own entry for that header and before dyld unmaps the image. Anything that caches pointers
+ * into an image (symbol names, paths) drops them here.
+ *
+ * Only one callback can be registered at a time. Registering a new callback replaces any
+ * previously registered callback.
+ *
+ * @param callback The callback function to invoke, or NULL to unregister.
+ */
+void ksbic_registerForImageRemoved(ksbic_imageRemovedCallback _Nullable callback);
+
 /** Initialize the binary image cache.
  * @deprecated Use ksdl_init() instead, which initializes both symbol and image caches.
  */

@@ -30,6 +30,9 @@
 #import "KSBinaryImageCache.h"
 #import "KSDynamicLinker.h"
 
+extern void ksbic_testcode_notify(enum dyld_image_mode mode, uint32_t infoCount, const struct dyld_image_info *info);
+extern uint32_t ksdl_testcode_symbolCacheCount(void);
+
 @interface KSDynamicLinker_Tests : XCTestCase
 @end
 
@@ -254,6 +257,26 @@ __attribute__((section("__DATA,__crash_info"))) static TestCrashInfo g_testCrash
     KSCrashInfoStrings strings = { 0 };
     XCTAssertFalse(ksdl_readCrashInfoFromTaskImage(mach_task_self(), 0x1000, &strings));
     XCTAssertEqual(strings.message, NULL);
+}
+
+- (void)testRemovalNotificationEvictsSymbolCacheEntries
+{
+    uintptr_t address = (uintptr_t)ksdl_init;
+    Dl_info real;
+    XCTAssertTrue(dladdr((void *)address, &real) != 0);
+
+    Dl_info info;
+    XCTAssertTrue(ksdl_dladdr(address, &info));
+    XCTAssertEqual(ksdl_testcode_symbolCacheCount(), 1u);
+
+    struct dyld_image_info removed = { real.dli_fbase, real.dli_fname, 0 };
+    ksbic_testcode_notify(dyld_image_removing, 1, &removed);
+
+    XCTAssertEqual(ksdl_testcode_symbolCacheCount(), 0u, @"entries for the removed image are gone");
+    // The image is really still loaded; the miss repopulates both caches.
+    XCTAssertTrue(ksdl_dladdr(address, &info));
+    XCTAssertEqual(info.dli_fbase, real.dli_fbase);
+    XCTAssertEqual(ksdl_testcode_symbolCacheCount(), 1u);
 }
 
 @end
