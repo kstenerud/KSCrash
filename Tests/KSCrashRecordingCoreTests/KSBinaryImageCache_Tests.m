@@ -661,17 +661,18 @@ static void testImageAddedCallback(const struct mach_header *mh, intptr_t vmaddr
     XCTAssertTrue(strstr(path, "dyld") != NULL, @"Path should contain 'dyld'");
 }
 
-#pragma mark - ksbic_getUUIDForHeader Tests
+#pragma mark - ksbic_copyUUIDForHeader Tests
 
-- (void)testGetUUIDForHeader_ReturnsValidUUID
+static void *makeSyntheticImage(void);
+
+- (void)testCopyUUIDForHeader_ReturnsValidUUID
 {
     const struct mach_header *appHeader = ksbic_getAppHeader();
     XCTAssertNotEqual(appHeader, NULL);
 
-    const uint8_t *uuid = ksbic_getUUIDForHeader(appHeader);
-    XCTAssertNotEqual(uuid, NULL, @"App should have a UUID");
+    uint8_t uuid[16] = { 0 };
+    XCTAssertTrue(ksbic_copyUUIDForHeader(appHeader, uuid), @"App should have a UUID");
 
-    // UUID should not be all zeros
     bool allZero = true;
     for (int i = 0; i < 16; i++) {
         if (uuid[i] != 0) {
@@ -682,7 +683,7 @@ static void testImageAddedCallback(const struct mach_header *mh, intptr_t vmaddr
     XCTAssertFalse(allZero, @"UUID should not be all zeros");
 }
 
-- (void)testGetUUIDForHeader_MatchesDynamicLinker
+- (void)testCopyUUIDForHeader_MatchesDynamicLinker
 {
     uint32_t count = 0;
     const ks_dyld_image_info *images = ksbic_getImages(&count);
@@ -690,45 +691,69 @@ static void testImageAddedCallback(const struct mach_header *mh, intptr_t vmaddr
 
     const struct mach_header *header = images[0].imageLoadAddress;
 
-    // Get UUID from our cache
-    const uint8_t *cachedUUID = ksbic_getUUIDForHeader(header);
-    XCTAssertNotEqual(cachedUUID, NULL);
+    uint8_t cachedUUID[16] = { 0 };
+    XCTAssertTrue(ksbic_copyUUIDForHeader(header, cachedUUID));
 
-    // Get UUID from ksdl_binaryImageForHeader
     KSBinaryImage image = { 0 };
     bool success = ksdl_binaryImageForHeader(header, images[0].imageFilePath, &image);
     XCTAssertTrue(success);
     XCTAssertNotEqual(image.uuid, NULL);
 
-    // They should match
     XCTAssertEqual(memcmp(cachedUUID, image.uuid, 16), 0, @"Cached UUID should match ksdl_binaryImageForHeader UUID");
 }
 
-- (void)testGetUUIDForHeader_DyldHasUUID
+- (void)testCopyUUIDForHeader_DyldHasUUID
 {
     const struct mach_header *dyldHeader = ksbic_getDyldHeader();
     XCTAssertNotEqual(dyldHeader, NULL);
 
-    const uint8_t *uuid = ksbic_getUUIDForHeader(dyldHeader);
-    XCTAssertNotEqual(uuid, NULL, @"dyld should have a UUID");
+    uint8_t uuid[16] = { 0 };
+    XCTAssertTrue(ksbic_copyUUIDForHeader(dyldHeader, uuid), @"dyld should have a UUID");
 }
 
-- (void)testGetUUIDForHeader_NullHeader
+- (void)testCopyUUIDForHeader_NullHeaderReturnsFalse
 {
-    const uint8_t *uuid = ksbic_getUUIDForHeader(NULL);
-    XCTAssertEqual(uuid, NULL, @"NULL header should return NULL UUID");
+    uint8_t uuid[16];
+    memset(uuid, 0xA5, sizeof(uuid));
+    XCTAssertFalse(ksbic_copyUUIDForHeader(NULL, uuid));
 }
 
-- (void)testGetUUIDForHeader_ConsistentAcrossCalls
+- (void)testCopyUUIDForHeader_ConsistentAcrossCalls
 {
     const struct mach_header *appHeader = ksbic_getAppHeader();
     XCTAssertNotEqual(appHeader, NULL);
 
-    const uint8_t *uuid1 = ksbic_getUUIDForHeader(appHeader);
-    const uint8_t *uuid2 = ksbic_getUUIDForHeader(appHeader);
+    uint8_t first[16] = { 0 };
+    uint8_t second[16] = { 0 };
+    XCTAssertTrue(ksbic_copyUUIDForHeader(appHeader, first));
+    XCTAssertTrue(ksbic_copyUUIDForHeader(appHeader, second));
+    XCTAssertEqual(memcmp(first, second, 16), 0, @"Repeated calls should copy the same bytes");
+}
 
-    XCTAssertNotEqual(uuid1, NULL);
-    XCTAssertEqual(uuid1, uuid2, @"Repeated calls should return the same pointer");
+- (void)testCopyUUIDForHeader_SurvivesEntryShift
+{
+    // Two synthetic images; caching the lower one after the higher one inserts ahead of it in
+    // the sorted array and shifts the higher entry. The bytes must move with the entry.
+    void *first = makeSyntheticImage();
+    void *second = makeSyntheticImage();
+    XCTAssertTrue(first != NULL && second != NULL);
+    void *high = (uintptr_t)first > (uintptr_t)second ? first : second;
+    void *low = high == first ? second : first;
+    @try {
+        uint8_t a[16] = { 0 };
+        XCTAssertTrue(ksbic_copyUUIDForHeader(high, a));
+        uint8_t ignored[16];
+        XCTAssertTrue(ksbic_copyUUIDForHeader(low, ignored));
+
+        uint8_t b[16] = { 0 };
+        XCTAssertTrue(ksbic_copyUUIDForHeader(high, b));
+        uint8_t expected[16];
+        memset(expected, 0x42, sizeof(expected));
+        XCTAssertEqual(memcmp(b, expected, 16), 0, @"the shifted entry must still carry its own UUID bytes");
+    } @finally {
+        vm_deallocate(mach_task_self(), (vm_address_t)first, PAGE_SIZE);
+        vm_deallocate(mach_task_self(), (vm_address_t)second, PAGE_SIZE);
+    }
 }
 
 - (void)testGetUnwindInfoForHeader_ConsistentWithAddressLookup

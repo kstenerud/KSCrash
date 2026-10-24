@@ -980,8 +980,8 @@ static void writeBacktrace(const KSCrashReportWriter *const writer, const char *
                         uintptr_t imageAddr = stackCursor->stackEntry.imageAddress;
                         writer->addUIntegerElement(writer, KSCrashField_ObjectAddr, imageAddr);
                         referencedImageSet_add(referencedImages, imageAddr);
-                        const uint8_t *uuid = ksbic_getUUIDForHeader((const struct mach_header *)imageAddr);
-                        if (uuid != NULL) {
+                        uint8_t uuid[16];
+                        if (ksbic_copyUUIDForHeader((const struct mach_header *)imageAddr, uuid)) {
                             writer->addUUIDElement(writer, KSCrashField_ObjectUUID, uuid);
                         }
                         if (stackCursor->stackEntry.symbolName != NULL) {

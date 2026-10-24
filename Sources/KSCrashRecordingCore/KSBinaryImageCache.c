@@ -79,9 +79,11 @@ typedef struct {
     KSSegmentRange segments[KSBIC_MAX_SEGMENTS_PER_IMAGE];  // Actual segment ranges
     uint8_t segmentCount;                                   // Number of valid segments
 
-    // Pointer to LC_UUID data in the Mach-O header (16 bytes, memory-mapped).
-    // Valid for the lifetime of the loaded image.
-    const uint8_t *_Nullable uuid;
+    // LC_UUID bytes copied out of the header at populate time. A pointer into the image would
+    // outlive the image once dyld unmaps it, and the report writer reads the UUID inside the
+    // handler; the entry owns its bytes instead.
+    uint8_t uuid[16];
+    bool hasUUID;
 
     // Cached unwind section data (populated at image load time for async-signal-safety)
     KSBinaryImageUnwindInfo unwindInfo;
@@ -569,8 +571,11 @@ static bool populateCacheEntry(const struct mach_header *header, const char *nam
     entry->endAddress = geometry.endAddress;
     entry->segmentCount = geometry.segmentCount;
     memcpy(entry->segments, geometry.segments, sizeof(entry->segments));
-    // The walked buffer is the live mapped header, so the LC_UUID pointer stays valid.
-    entry->uuid = geometry.uuid;
+    // The walked buffer is the live mapped header, so the LC_UUID bytes are readable here.
+    entry->hasUUID = geometry.uuid != NULL;
+    if (entry->hasUUID) {
+        memcpy(entry->uuid, geometry.uuid, sizeof(entry->uuid));
+    }
 
     // 32-bit images have no unwind sections to find (compact unwind and eh_frame are
     // 64-bit-only here); populateUnwindSections simply finds nothing for them.
@@ -1141,10 +1146,22 @@ bool ksbic_getUnwindInfoForAddress(uintptr_t address, KSBinaryImageUnwindInfo *o
     }
 }
 
-const uint8_t *ksbic_getUUIDForHeader(const struct mach_header *header)
+// Copies out of the entry rather than handing back a pointer into it: entries move when a lower
+// address is inserted into the sorted array, so a pointer into an entry is as unstable as one
+// into the image.
+static bool copyEntryUUID(const KSBinaryImageRange *entry, uint8_t *outUUID)
+{
+    if (!entry->hasUUID) {
+        return false;
+    }
+    memcpy(outUUID, entry->uuid, sizeof(entry->uuid));
+    return true;
+}
+
+bool ksbic_copyUUIDForHeader(const struct mach_header *header, uint8_t *outUUID)
 {
     if (header == NULL) {
-        return NULL;
+        return false;
     }
 
     KSBinaryImageRangeCache *cache = acquireCache();
@@ -1152,31 +1169,31 @@ const uint8_t *ksbic_getUUIDForHeader(const struct mach_header *header)
     if (cache != NULL) {
         int32_t idx = findByHeader(cache, header);
         if (idx >= 0) {
-            const uint8_t *uuid = cache->entries[idx].uuid;
+            bool found = copyEntryUUID(&cache->entries[idx], outUUID);
             atomic_store(&g_cache_ptr, cache);
-            return uuid;
+            return found;
         }
 
-        // Not in cache — populate and add maintaining sorted order
+        // Not in cache: populate and add maintaining sorted order
         KSBinaryImageRange newEntry;
         if (populateCacheEntry(header, NULL, &newEntry)) {
-            const uint8_t *uuid = newEntry.uuid;
             if (cache->count < maxCacheEntries()) {
                 insertSortedCacheEntry(cache, &newEntry);
             }
+            bool found = copyEntryUUID(&newEntry, outUUID);
             atomic_store(&g_cache_ptr, cache);
-            return uuid;
+            return found;
         }
 
         atomic_store(&g_cache_ptr, cache);
-        return NULL;
+        return false;
     } else {
-        // Cache busy — fall back to uncached population
+        // Cache busy: fall back to uncached population
         KSBinaryImageRange entry;
         if (populateCacheEntry(header, NULL, &entry)) {
-            return entry.uuid;
+            return copyEntryUUID(&entry, outUUID);
         }
-        return NULL;
+        return false;
     }
 }
 
