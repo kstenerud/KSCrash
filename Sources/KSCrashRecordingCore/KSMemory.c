@@ -118,8 +118,10 @@ int ksmem_maxReadableBytes(const void *const memory, const int tryByteCount)
         currentPosition += testBufferSize;
         bytesRemaining -= testBufferSize;
     }
-    // Only what is left to answer for: the result must never exceed tryByteCount.
-    bytesRemaining -= copyMaxPossible(task, currentPosition, g_memoryTestBuffer, bytesRemaining);
+    // Only what is left to answer for, so the result never exceeds tryByteCount, and never more
+    // than the scratch buffer holds: a loop that stopped early leaves more than that remaining.
+    const int probeSize = bytesRemaining < testBufferSize ? bytesRemaining : testBufferSize;
+    bytesRemaining -= copyMaxPossible(task, currentPosition, g_memoryTestBuffer, probeSize);
     return tryByteCount - bytesRemaining;
 }
 
