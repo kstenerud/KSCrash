@@ -123,4 +123,23 @@
     munmap(pages, 4 * pageSize);
 }
 
+- (void)testIsMemoryReadableChecksPastFirstChunk
+{
+    // Readable pages followed by an unreadable one, with the request reaching into it. The probe
+    // copies in chunks of its scratch buffer's size, so this needs more than one chunk before the
+    // unreadable page for a probe that re-reads its first chunk to answer true.
+    const size_t pageSize = (size_t)getpagesize();
+    const size_t readableSize = pageSize * ((32 * 1024 + pageSize - 1) / pageSize);
+    const size_t totalSize = readableSize + pageSize;
+    uint8_t *region = mmap(NULL, totalSize, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
+    XCTAssertNotEqual(region, MAP_FAILED);
+    XCTAssertEqual(mprotect(region + readableSize, pageSize, PROT_NONE), 0);
+
+    XCTAssertTrue(ksmem_isMemoryReadable(region, (int)readableSize));
+    XCTAssertFalse(ksmem_isMemoryReadable(region, (int)totalSize));
+    XCTAssertFalse(ksmem_isMemoryReadable(region, (int)readableSize + 1));
+
+    munmap(region, totalSize);
+}
+
 @end
