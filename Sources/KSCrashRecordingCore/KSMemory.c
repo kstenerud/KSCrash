@@ -92,13 +92,15 @@ static char g_memoryTestBuffer[10240];
 static inline bool isMemoryReadable(task_t task, const void *const memory, const int byteCount)
 {
     const int testBufferSize = sizeof(g_memoryTestBuffer);
+    const uint8_t *currentPosition = memory;
     int bytesRemaining = byteCount;
 
     while (bytesRemaining > 0) {
         int bytesToCopy = bytesRemaining > testBufferSize ? testBufferSize : bytesRemaining;
-        if (copySafely(task, memory, g_memoryTestBuffer, bytesToCopy) != bytesToCopy) {
+        if (copySafely(task, currentPosition, g_memoryTestBuffer, bytesToCopy) != bytesToCopy) {
             break;
         }
+        currentPosition += bytesToCopy;
         bytesRemaining -= bytesToCopy;
     }
     return bytesRemaining == 0;
