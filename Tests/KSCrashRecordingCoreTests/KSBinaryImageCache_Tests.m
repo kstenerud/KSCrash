@@ -27,7 +27,9 @@
 #import <XCTest/XCTest.h>
 #import <dlfcn.h>
 #import <mach-o/dyld.h>
+#import <mach-o/dyld_images.h>
 #import <mach-o/loader.h>
+#import <mach/mach.h>
 
 #import "KSBinaryImageCache.h"
 #import "KSDynamicLinker.h"
@@ -1005,6 +1007,111 @@ static void buildSynthetic32(Synthetic32Image *image)
     // Slides differ (different buffer addresses); the layout-derived values must agree.
     XCTAssertEqual(base32, base64v);
     XCTAssertEqual(count32, count64);
+}
+
+#pragma mark - Image list reads
+
+// Seams defined in KSBinaryImageCache.c for these tests.
+extern void ksbic_testcode_setAllImageInfos(struct dyld_all_image_infos *infos);
+extern void ksbic_testcode_setImageListLoadHook(void (*hook)(int step));
+
+static struct dyld_all_image_infos g_fakeAllImageInfos;
+static struct dyld_image_info *g_rebuiltImageList = NULL;
+static uint32_t g_rebuiltImageCount = 0;
+static int g_rebuildHookFired = 0;
+
+static struct dyld_all_image_infos *realAllImageInfos(void)
+{
+    struct task_dyld_info dyldInfo;
+    mach_msg_type_number_t infoCount = TASK_DYLD_INFO_COUNT;
+    if (task_info(mach_task_self(), TASK_DYLD_INFO, (task_info_t)&dyldInfo, &infoCount) != KERN_SUCCESS) {
+        return NULL;
+    }
+    return (struct dyld_all_image_infos *)dyldInfo.all_image_info_addr;
+}
+
+// Plays dyld's rebuild between two of ksbic_getImages' loads, in dyld's order:
+// NULL the pointer, write the count, the stamp, then the pointer.
+static void rebuildListAfterCountLoad(int step)
+{
+    if (step != 1 || g_rebuildHookFired > 0) {
+        return;
+    }
+    g_rebuildHookFired++;
+    g_fakeAllImageInfos.infoArray = NULL;
+    g_fakeAllImageInfos.infoArrayCount = g_rebuiltImageCount;
+    g_fakeAllImageInfos.infoArrayChangeTimestamp += 1;
+    g_fakeAllImageInfos.infoArray = g_rebuiltImageList;
+}
+
+- (void)testGetImagesReturnsNULLWhileDyldRebuilds
+{
+    extern void ksbic_resetCache(void);
+    // Reset first so the real struct carries dyld's own notifier before it is copied.
+    ksbic_resetCache();
+    struct dyld_all_image_infos *real = realAllImageInfos();
+    XCTAssertNotEqual(real, NULL);
+    g_fakeAllImageInfos = *real;
+    g_fakeAllImageInfos.infoArray = NULL;
+    ksbic_testcode_setAllImageInfos(&g_fakeAllImageInfos);
+    @try {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        ksbic_init();  // under the fake: caches dyld only, must not crash
+#pragma clang diagnostic pop
+        uint32_t count = 99;
+        XCTAssertEqual(ksbic_getImages(&count), NULL);
+        XCTAssertEqual(count, 0u);
+        XCTAssertEqual(ksbic_findImageForAddress((uintptr_t)&testImageAddedCallback, NULL, NULL), NULL);
+        XCTAssertEqual(ksbic_getAppHeader(), NULL);
+    } @finally {
+        ksbic_resetCache();
+        ksbic_testcode_setAllImageInfos(NULL);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        ksbic_init();
+#pragma clang diagnostic pop
+    }
+}
+
+- (void)testGetImagesRejectsListRebuiltBetweenLoads
+{
+    extern void ksbic_resetCache(void);
+    ksbic_resetCache();
+    struct dyld_all_image_infos *real = realAllImageInfos();
+    XCTAssertNotEqual(real, NULL);
+    g_fakeAllImageInfos = *real;
+    uint32_t count = g_fakeAllImageInfos.infoArrayCount;
+    XCTAssertGreaterThan(count, 0u);
+    g_rebuiltImageCount = count + 1;
+    g_rebuiltImageList = calloc(g_rebuiltImageCount, sizeof(struct dyld_image_info));
+    memcpy(g_rebuiltImageList, g_fakeAllImageInfos.infoArray, count * sizeof(struct dyld_image_info));
+    g_rebuiltImageList[count] = g_rebuiltImageList[0];
+    g_rebuildHookFired = 0;
+    ksbic_testcode_setAllImageInfos(&g_fakeAllImageInfos);
+    @try {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        ksbic_init();  // reads the list itself; the hook goes in only after, so the read under test sees the rebuild
+#pragma clang diagnostic pop
+        ksbic_testcode_setImageListLoadHook(rebuildListAfterCountLoad);
+        uint32_t got = 0;
+        const ks_dyld_image_info *images = ksbic_getImages(&got);
+        XCTAssertEqual(g_rebuildHookFired, 1, @"the rebuild must land between the loads");
+        XCTAssertEqual((const void *)images, (const void *)g_rebuiltImageList,
+                       @"the first attempt paired the old count with the new stamp and must be rejected");
+        XCTAssertEqual(got, count + 1);
+    } @finally {
+        ksbic_testcode_setImageListLoadHook(NULL);
+        ksbic_resetCache();
+        ksbic_testcode_setAllImageInfos(NULL);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        ksbic_init();
+#pragma clang diagnostic pop
+        free(g_rebuiltImageList);
+        g_rebuiltImageList = NULL;
+    }
 }
 
 @end

@@ -585,20 +585,41 @@ static const struct mach_header *linearScanForAddress(uintptr_t address, KSBinar
     return NULL;
 }
 
-/// As a general rule, access to _g_all_image_infos->infoArray_ is thread safe
-/// in a way that you can iterate all you want since items will never be removed
-/// and the _infoCount_ is only updated after an item is added to _infoArray_.
-/// Because of this, we can iterate during a signal handler, Mach exception handler
-/// or even at any point within the run of the process.
-///
-/// More info in this comment:
-/// https://github.com/kstenerud/KSCrash/pull/655#discussion_r2211271075
+// How dyld publishes its image list (dyld-1378, ExternallyViewableState::addImages / removeImages,
+// same on every load AND unload): it sets infoArray to NULL, rebuilds, then writes infoArrayCount,
+// then infoArrayChangeTimestamp, then infoArray. Entries ARE removed on unload (dlclose of a pure
+// C/C++ dylib the app loaded itself). So a reader that loads the pointer and the count separately
+// can pair an old array with a new count; ksbic_getImages brackets its loads with the stamp to
+// reject that. The struct itself lives in dyld's own image and is always mapped, so plain atomic
+// loads are enough: no syscall, safe in a handler. What stays open: dyld may free the OLD array
+// buffer after a reader accepted it and before the reader finishes walking it. That needs an
+// unload to land inside a handler's walk, a microsecond window, and is accepted.
 
 // Atomic so test-only `ksbic_resetCache` can NULL the pointer without racing
 // concurrent readers (getImages, getAppHeader, etc.). The pointer itself is
-// the only thing that races; the dyld struct it points to is managed by dyld
-// and its members have their own well-known thread-safety contract.
+// the only thing that races; the dyld struct it points to is managed by dyld.
 static _Atomic(struct dyld_all_image_infos *) g_all_image_infos = NULL;
+
+// The real struct from task_info, kept so a test can swap in a fake and then restore.
+static struct dyld_all_image_infos *g_realAllImageInfos = NULL;
+// Test seam: when non-NULL, ksbic_init uses this instead of task_info.
+static _Atomic(struct dyld_all_image_infos *) g_allImageInfosOverride = NULL;
+// Test seam: called after each of ksbic_getImages' four loads with the step index (0..3), so a
+// test can play a dyld rebuild between two loads. One NULL check per load otherwise.
+typedef void (*ksbic_imageListLoadHook)(int step);
+static _Atomic(ksbic_imageListLoadHook) g_imageListLoadHook = NULL;
+static inline void imageListLoadStep(int step)
+{
+    ksbic_imageListLoadHook hook = atomic_load_explicit(&g_imageListLoadHook, memory_order_relaxed);
+    if (hook != NULL) {
+        hook(step);
+    }
+}
+
+// Attempts before ksbic_getImages gives up on a list that keeps changing under it.
+#ifndef KSBIC_IMAGE_LIST_READ_ATTEMPTS
+#define KSBIC_IMAGE_LIST_READ_ATTEMPTS 3
+#endif
 
 // Original dyld notifier that we chain to after our processing
 static dyld_image_notifier g_original_notifier = NULL;
@@ -667,27 +688,30 @@ void ksbic_init(void)
 {
     KSLOG_DEBUG("Initializing binary image cache");
 
-    struct task_dyld_info dyld_info;
-    mach_msg_type_number_t count = TASK_DYLD_INFO_COUNT;
-    kern_return_t err = task_info(mach_task_self(), TASK_DYLD_INFO, (task_info_t)&dyld_info, &count);
-    if (err != KERN_SUCCESS) {
-        KSLOG_ERROR("Failed to acquire TASK_DYLD_INFO. We won't have access to binary images.");
-        return;
+    struct dyld_all_image_infos *allInfo = atomic_load_explicit(&g_allImageInfosOverride, memory_order_relaxed);
+    if (allInfo == NULL) {
+        struct task_dyld_info dyld_info;
+        mach_msg_type_number_t count = TASK_DYLD_INFO_COUNT;
+        kern_return_t err = task_info(mach_task_self(), TASK_DYLD_INFO, (task_info_t)&dyld_info, &count);
+        if (err != KERN_SUCCESS) {
+            KSLOG_ERROR("Failed to acquire TASK_DYLD_INFO. We won't have access to binary images.");
+            return;
+        }
+        allInfo = (struct dyld_all_image_infos *)dyld_info.all_image_info_addr;
+        g_realAllImageInfos = allInfo;
     }
-    struct dyld_all_image_infos *allInfo = (struct dyld_all_image_infos *)dyld_info.all_image_info_addr;
     atomic_store_explicit(&g_all_image_infos, allInfo, memory_order_relaxed);
 
     // Initialize the address range cache
     g_cache_storage.count = 0;
 
-    // Cache the main executable — always the first image, almost certainly in every backtrace
-    if (allInfo->infoArrayCount > 0 && allInfo->infoArray != NULL) {
-        const struct dyld_image_info *mainImage = &allInfo->infoArray[0];
-        if (mainImage->imageLoadAddress != NULL) {
-            KSBinaryImageRange mainEntry;
-            if (populateCacheEntry(mainImage->imageLoadAddress, mainImage->imageFilePath, &mainEntry)) {
-                insertSortedCacheEntry(&g_cache_storage, &mainEntry);
-            }
+    // Cache the main executable, always the first image, almost certainly in every backtrace
+    uint32_t imageCount = 0;
+    const ks_dyld_image_info *images = ksbic_getImages(&imageCount);
+    if (images != NULL && imageCount > 0 && images[0].imageLoadAddress != NULL) {
+        KSBinaryImageRange mainEntry;
+        if (populateCacheEntry(images[0].imageLoadAddress, images[0].imageFilePath, &mainEntry)) {
+            insertSortedCacheEntry(&g_cache_storage, &mainEntry);
         }
     }
 
@@ -721,24 +745,42 @@ const ks_dyld_image_info *ksbic_getImages(uint32_t *count)
         KSLOG_ERROR("Cannot access binary images");
         return NULL;
     }
-    const struct dyld_image_info *images = allInfo->infoArray;
-    if (images == NULL) {
-        KSLOG_ERROR("Unexpected state: dyld_all_image_infos->infoArray is NULL!");
-        return NULL;
+    // Order matters, see the comment at g_all_image_infos. dyld writes count, stamp, pointer; a
+    // non-NULL pointer between two equal stamps was published together with the count read here.
+    for (int attempt = 0; attempt < KSBIC_IMAGE_LIST_READ_ATTEMPTS; attempt++) {
+        uint64_t stampBefore = __atomic_load_n(&allInfo->infoArrayChangeTimestamp, __ATOMIC_ACQUIRE);
+        imageListLoadStep(0);
+        uint32_t imageCount = __atomic_load_n(&allInfo->infoArrayCount, __ATOMIC_ACQUIRE);
+        imageListLoadStep(1);
+        const struct dyld_image_info *images = __atomic_load_n(&allInfo->infoArray, __ATOMIC_ACQUIRE);
+        imageListLoadStep(2);
+        uint64_t stampAfter = __atomic_load_n(&allInfo->infoArrayChangeTimestamp, __ATOMIC_ACQUIRE);
+        imageListLoadStep(3);
+        if (images != NULL && stampBefore == stampAfter) {
+            if (count) {
+                *count = imageCount;
+            }
+            return (ks_dyld_image_info *)images;
+        }
     }
-    if (count) {
-        *count = allInfo->infoArrayCount;
-    }
-    return (ks_dyld_image_info *)images;
+    // NULL means dyld is mid-rebuild ("come back later" per dyld_images.h); a stamp mismatch on
+    // every attempt means it kept rebuilding. Either way the caller gets no list, as before.
+    KSLOG_ERROR("dyld_all_image_infos->infoArray is being modified; no image list available");
+    return NULL;
 }
 
 const struct mach_header *ksbic_getAppHeader(void)
 {
     struct dyld_all_image_infos *allInfo = atomic_load_explicit(&g_all_image_infos, memory_order_relaxed);
-    if (allInfo == NULL || allInfo->infoArray == NULL || allInfo->infoArrayCount == 0) {
+    if (allInfo == NULL) {
         return NULL;
     }
-    return allInfo->infoArray[0].imageLoadAddress;
+    uint32_t count = 0;
+    const ks_dyld_image_info *images = ksbic_getImages(&count);
+    if (images == NULL || count == 0) {
+        return NULL;
+    }
+    return images[0].imageLoadAddress;
 }
 
 const struct mach_header *ksbic_getDyldHeader(void)
@@ -787,6 +829,20 @@ void ksbic_testcode_setMaxCacheEntries(uint32_t maxEntries)
         }
         atomic_store(&g_cache_ptr, cache);
     }
+}
+
+// Test seam: point the cache at a fake dyld_all_image_infos. NULL clears the override and
+// restores the real struct; the test re-inits afterwards.
+void ksbic_testcode_setAllImageInfos(struct dyld_all_image_infos *infos)
+{
+    atomic_store_explicit(&g_allImageInfosOverride, infos, memory_order_relaxed);
+    atomic_store_explicit(&g_all_image_infos, infos != NULL ? infos : g_realAllImageInfos, memory_order_relaxed);
+}
+
+// Test seam: see g_imageListLoadHook.
+void ksbic_testcode_setImageListLoadHook(ksbic_imageListLoadHook hook)
+{
+    atomic_store_explicit(&g_imageListLoadHook, hook, memory_order_relaxed);
 }
 
 void ksbic_resetCache(void)
