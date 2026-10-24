@@ -23,9 +23,13 @@ records what it deliberately leaves alone and why.
 - `dyld_images.h` (SDK): "If infoArray is NULL, it means it is being modified,
   come back later."
 - dyld-1378 `ExternallyViewableState::addImages` and `removeImages` both do
-  `infoArray = nullptr`, rebuild, then write `infoArrayCount`,
-  `infoArrayChangeTimestamp`, `infoArray`, in that order, then call
-  `notification(mode, count, info)`.
+  `infoArray = nullptr`, write the new `infoArrayChangeTimestamp` (the last
+  line of `activateAtlas`), rebuild the vector in place (`clear`, `reserve`,
+  `insert`; the buffer is freed only when the list outgrows it), then write
+  `infoArrayCount`, the same stamp again, and `infoArray`, then call
+  `notification(mode, count, info)`. Inside dyld `infoArray` and
+  `infoArrayChangeTimestamp` are `std::atomic`, so those are release stores;
+  `infoArrayCount` is a plain store.
 - dyld-1378 `RuntimeState`: `notifyUnload` (which calls `removeImages` and so
   fires `dyld_image_removing`) runs before `removeLoaders`, which unmaps the
   image and frees its `Loader`. The `Loader`'s `path()` is what
@@ -93,13 +97,16 @@ every report, even though the race it is exposed to is rare.
 
 ### 1. A consistent read of dyld's list
 
-`ksbic_getImages` loads the stamp, the count, the pointer, then the stamp again,
+`ksbic_getImages` loads the stamp, the pointer, the count, then the stamp again,
 all with acquire loads from dyld's own struct (always mapped, so no syscall),
 and accepts only a non-NULL pointer bracketed by equal stamps, retrying three
-times before returning NULL. dyld writes NULL, then the count, then the stamp,
-then the pointer. A count read after the first stamp and a pointer read before
-the second, with both stamps equal, were therefore published together under
-that stamp. Three independent loads could pair an old pointer with a new count.
+times before returning NULL. The acquire loads pair with dyld's release stores
+of the stamp and the pointer. The pointer is read before the count because
+dyld's pointer store comes after its count store, so a non-NULL pointer seen
+carries at least the count published with it; a newer count would come with a
+newer stamp and fail the equality check. Reading the count first would accept
+the old count with the new pointer, because dyld publishes the new stamp once
+before the count and once after.
 
 The signature does not change; every caller, including some forty tests, keeps
 working. The comment above the atomics is rewritten to say what dyld does.
@@ -111,7 +118,12 @@ It acquires the cache by atomic exchange and removes each named header from the
 sorted array. If a handler holds the cache at that moment, it sets a flush flag
 instead, and the next successful acquire empties the cache; images are then
 repopulated by misses as today. A flush trades one cold cache for a race that
-needs a `dlclose` to coincide with a handler.
+needs a `dlclose` to coincide with a handler. Because dyld is not in its own
+`infoArray`, the miss path checks dyld's header after the list, or a flush
+would lose dyld for the rest of the run. An add announced for a header already
+in the cache replaces the entry: dyld only announces new mappings, so an
+existing entry is one a lookup by header re-added between the removal notice
+and the unmap, and it would otherwise answer for the new image at that address.
 
 The image cache then calls a registered removal callback per header, the mirror
 of `ksbic_registerForImageAdded`. `KSDynamicLinker.c` registers one that drops
@@ -132,8 +144,9 @@ stable either. The report writer and the system monitor copy out.
 - A handler that is already walking an image when dyld unmaps it. dyld
   notifies before it unmaps, and the notifier evicts first, so this needs the
   unmap to land in the microseconds between a hit and the writer's use of it.
-- A `dlopen` that frees the old `infoArray` buffer after `ksbic_getImages`
-  accepted it and before the caller finishes reading. Same window, same odds.
+- A rebuild that rewrites `infoArray` in place after `ksbic_getImages` accepted
+  it and before the caller finishes reading (dyld frees the buffer only when
+  the list outgrows it). Same window, same odds.
 - Both of those on a platform where unloads do not happen, and in a plugin host
   where the crash being reported is usually the use-after-`dlclose` itself.
 

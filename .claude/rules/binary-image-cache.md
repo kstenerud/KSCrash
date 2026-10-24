@@ -20,8 +20,12 @@ These are read from dyld's source, not from the header comments, and the code
 comments at the list read and in the notifier repeat them.
 
 - `dyld_all_image_infos.infoArray` is set to NULL while dyld rebuilds the list,
-  on every load and every unload. dyld then writes the count, the change stamp,
-  and the pointer, in that order. Items are removed on unload.
+  on every load and every unload. dyld then writes the new change stamp, the
+  count, the stamp again, and the pointer, in that order, rewriting the array
+  in place (it frees the buffer only when the list outgrows it). Inside dyld the
+  pointer and the stamp are `std::atomic`, so those are release stores; the
+  count is a plain store ordered only by the atomic stores around it. Items are
+  removed on unload.
 - dyld fires `dyld_image_removing` before it unmaps the image and frees the
   string behind `imageFilePath`. The notifier therefore sees a removal while the
   image is still mapped.
@@ -33,14 +37,21 @@ comments at the list read and in the notifier repeat them.
 ## What the cache defends against, and how
 
 - **A list rebuild racing a miss.** `ksbic_getImages` loads the stamp, the
-  count, the pointer, then the stamp again, and accepts only a non-NULL pointer
-  bracketed by equal stamps. Three retries, then NULL. Zero syscalls.
+  pointer, the count, then the stamp again, with acquire loads that pair with
+  dyld's release stores, and accepts only a non-NULL pointer bracketed by equal
+  stamps. Pointer before count matters: the pointer's release store comes after
+  the count store, so a pointer seen carries at least its own count, and a newer
+  count would come with a newer stamp. Three retries, then NULL. Zero syscalls.
 - **An image dyld has announced it will unmap.** The notifier evicts the entry
   by `memmove` on the `dlclose` thread, then calls the registered removal
   callback, which the symbol cache uses to drop entries whose image base is that
   header. The notifier runs under dyld's lock and must never wait: if a handler
   holds a cache, the notifier sets a flush flag and the next successful acquire
-  empties that cache. Entries come back through misses, as after install.
+  empties that cache. Entries come back through misses, as after install, and
+  the miss path checks dyld's own header after the list, because dyld is not in
+  its own list and a flush would otherwise lose it for the run. An add for a
+  header already cached replaces the entry: dyld only announces new mappings,
+  so an existing entry is stale.
 - **A pointer into an image surviving in an entry.** The entry owns its 16 UUID
   bytes. `ksbic_copyUUIDForHeader` copies out, because entries also move when
   the sorted array shifts.
@@ -68,10 +79,10 @@ does not occur on the platforms that matter or its cost lands on every hit.
 
 ## Still open, on purpose
 
-A handler already walking an image when dyld unmaps it, or a `dlopen` freeing
-the old `infoArray` after `ksbic_getImages` accepted it. Both need the unmap or
-the free to land in the microseconds between a check and its use, on a platform
-where unloads do not happen. In a plugin host the crash being reported is
+A handler already walking an image when dyld unmaps it, or a rebuild rewriting
+`infoArray` in place under a reader that `ksbic_getImages` already accepted.
+Both need the event to land in the microseconds between a check and its use,
+the first on a platform where unloads do not happen. In a plugin host the crash being reported is
 usually the use-after-`dlclose` itself. Closing these costs the hit path; a
 proposal to close them must say what new evidence changed the odds.
 

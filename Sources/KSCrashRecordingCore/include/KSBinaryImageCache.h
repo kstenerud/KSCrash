@@ -81,9 +81,9 @@ typedef void (*ksbic_imageRemovedCallback)(const struct mach_header *_Nonnull mh
 /**
  * Register a callback to be invoked when dyld removes an image.
  *
- * The callback runs on the thread unloading the image, after the image cache has dropped its
- * own entry for that header and before dyld unmaps the image. Anything that caches pointers
- * into an image (symbol names, paths) drops them here.
+ * The callback runs on the thread unloading the image, after the image cache has dropped, or
+ * scheduled the drop of, its own entry for that header and before dyld unmaps the image.
+ * Anything that caches pointers into an image (symbol names, paths) drops them here.
  *
  * Only one callback can be registered at a time. Registering a new callback replaces any
  * previously registered callback.

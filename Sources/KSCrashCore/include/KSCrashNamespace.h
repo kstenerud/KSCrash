@@ -265,6 +265,8 @@
 #define ksdl_init KSCRASH_NS(ksdl_init)
 #define ksdl_readCrashInfoFromTaskImage KSCRASH_NS(ksdl_readCrashInfoFromTaskImage)
 #define ksdl_resetCache KSCRASH_NS(ksdl_resetCache)
+#define ksdl_testcode_holdSymbolCache KSCRASH_NS(ksdl_testcode_holdSymbolCache)
+#define ksdl_testcode_releaseSymbolCache KSCRASH_NS(ksdl_testcode_releaseSymbolCache)
 #define ksdl_testcode_symbolCacheCount KSCRASH_NS(ksdl_testcode_symbolCacheCount)
 #define ksdwarf_buildCFIRow KSCRASH_NS(ksdwarf_buildCFIRow)
 #define ksdwarf_findFDE KSCRASH_NS(ksdwarf_findFDE)

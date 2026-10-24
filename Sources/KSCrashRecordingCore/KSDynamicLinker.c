@@ -118,6 +118,18 @@ void ksdl_init(void)
     ksbic_registerForImageRemoved(symbolCacheImageRemoved);
 }
 
+// Test seams: hold the symbol cache the way ksdl_dladdr does, so a test can land a removal
+// notification while it is busy.
+static KSSymbolCache *g_heldSymbolCache = NULL;
+void ksdl_testcode_holdSymbolCache(void) { g_heldSymbolCache = atomic_exchange(&g_symbol_cache_ptr, NULL); }
+void ksdl_testcode_releaseSymbolCache(void)
+{
+    if (g_heldSymbolCache != NULL) {
+        atomic_store(&g_symbol_cache_ptr, g_heldSymbolCache);
+        g_heldSymbolCache = NULL;
+    }
+}
+
 uint32_t ksdl_testcode_symbolCacheCount(void)
 {
     KSSymbolCache *cache = atomic_exchange(&g_symbol_cache_ptr, NULL);

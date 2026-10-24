@@ -663,7 +663,7 @@ static void testImageAddedCallback(const struct mach_header *mh, intptr_t vmaddr
 
 #pragma mark - ksbic_copyUUIDForHeader Tests
 
-static void *makeSyntheticImage(void);
+static void *makeSyntheticImage(uint8_t uuidFill);
 
 - (void)testCopyUUIDForHeader_ReturnsValidUUID
 {
@@ -716,6 +716,9 @@ static void *makeSyntheticImage(void);
     uint8_t uuid[16];
     memset(uuid, 0xA5, sizeof(uuid));
     XCTAssertFalse(ksbic_copyUUIDForHeader(NULL, uuid));
+    uint8_t untouched[16];
+    memset(untouched, 0xA5, sizeof(untouched));
+    XCTAssertEqual(memcmp(uuid, untouched, 16), 0, @"false leaves the output untouched");
 }
 
 - (void)testCopyUUIDForHeader_ConsistentAcrossCalls
@@ -734,22 +737,27 @@ static void *makeSyntheticImage(void);
 {
     // Two synthetic images; caching the lower one after the higher one inserts ahead of it in
     // the sorted array and shifts the higher entry. The bytes must move with the entry.
-    void *first = makeSyntheticImage();
-    void *second = makeSyntheticImage();
+    void *first = makeSyntheticImage(0x11);
+    void *second = makeSyntheticImage(0x22);
     XCTAssertTrue(first != NULL && second != NULL);
     void *high = (uintptr_t)first > (uintptr_t)second ? first : second;
     void *low = high == first ? second : first;
+    uint8_t highFill = high == first ? 0x11 : 0x22;
+    uint8_t lowFill = high == first ? 0x22 : 0x11;
     @try {
         uint8_t a[16] = { 0 };
         XCTAssertTrue(ksbic_copyUUIDForHeader(high, a));
         uint8_t ignored[16];
         XCTAssertTrue(ksbic_copyUUIDForHeader(low, ignored));
 
+        uint8_t expected[16];
         uint8_t b[16] = { 0 };
         XCTAssertTrue(ksbic_copyUUIDForHeader(high, b));
-        uint8_t expected[16];
-        memset(expected, 0x42, sizeof(expected));
+        memset(expected, highFill, sizeof(expected));
         XCTAssertEqual(memcmp(b, expected, 16), 0, @"the shifted entry must still carry its own UUID bytes");
+        XCTAssertTrue(ksbic_copyUUIDForHeader(low, b));
+        memset(expected, lowFill, sizeof(expected));
+        XCTAssertEqual(memcmp(b, expected, 16), 0, @"the inserted entry must carry its own, not its neighbour's");
     } @finally {
         vm_deallocate(mach_task_self(), (vm_address_t)first, PAGE_SIZE);
         vm_deallocate(mach_task_self(), (vm_address_t)second, PAGE_SIZE);
@@ -1057,6 +1065,19 @@ static struct dyld_all_image_infos *realAllImageInfos(void)
 
 // Plays dyld's rebuild between two of ksbic_getImages' loads, in dyld's order:
 // NULL the pointer, write the count, the stamp, then the pointer.
+// dyld's real publication order: it writes the new stamp once BEFORE the count (at the end of
+// activateAtlas) and once after. This hook models the tail of that sequence landing after the
+// reader's second load: the stamp is already new when the read starts, then count and pointer land.
+static void publishCountAndArrayAfterSecondLoad(int step)
+{
+    if (step != 1 || g_rebuildHookFired > 0) {
+        return;
+    }
+    g_rebuildHookFired++;
+    g_fakeAllImageInfos.infoArrayCount = g_rebuiltImageCount;
+    g_fakeAllImageInfos.infoArray = g_rebuiltImageList;
+}
+
 static void rebuildListAfterCountLoad(int step)
 {
     if (step != 1 || g_rebuildHookFired > 0) {
@@ -1096,6 +1117,48 @@ static void rebuildListAfterCountLoad(int step)
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
         ksbic_init();
 #pragma clang diagnostic pop
+    }
+}
+
+- (void)testGetImagesRejectsOldCountPublishedBeforeNewArray
+{
+    extern void ksbic_resetCache(void);
+    ksbic_resetCache();
+    struct dyld_all_image_infos *real = realAllImageInfos();
+    XCTAssertNotEqual(real, NULL);
+    g_fakeAllImageInfos = *real;
+    uint32_t count = g_fakeAllImageInfos.infoArrayCount;
+    XCTAssertGreaterThan(count, 0u);
+    g_rebuiltImageCount = count + 1;
+    g_rebuiltImageList = calloc(g_rebuiltImageCount, sizeof(struct dyld_image_info));
+    memcpy(g_rebuiltImageList, g_fakeAllImageInfos.infoArray, count * sizeof(struct dyld_image_info));
+    g_rebuiltImageList[count] = g_rebuiltImageList[0];
+    // dyld has NULLed the pointer and published the new stamp; the count is still the old one.
+    g_fakeAllImageInfos.infoArray = NULL;
+    g_fakeAllImageInfos.infoArrayChangeTimestamp += 1;
+    g_rebuildHookFired = 0;
+    ksbic_testcode_setAllImageInfos(&g_fakeAllImageInfos);
+    @try {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        ksbic_init();
+#pragma clang diagnostic pop
+        ksbic_testcode_setImageListLoadHook(publishCountAndArrayAfterSecondLoad);
+        uint32_t got = 0;
+        const ks_dyld_image_info *images = ksbic_getImages(&got);
+        XCTAssertEqual(g_rebuildHookFired, 1);
+        XCTAssertEqual((const void *)images, (const void *)g_rebuiltImageList);
+        XCTAssertEqual(got, count + 1, @"equal stamps around a new pointer must never come with the old count");
+    } @finally {
+        ksbic_testcode_setImageListLoadHook(NULL);
+        ksbic_resetCache();
+        ksbic_testcode_setAllImageInfos(NULL);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        ksbic_init();
+#pragma clang diagnostic pop
+        free(g_rebuiltImageList);
+        g_rebuiltImageList = NULL;
     }
 }
 
@@ -1146,9 +1209,9 @@ extern void ksbic_testcode_holdCache(void);
 extern void ksbic_testcode_releaseCache(void);
 extern uint32_t ksbic_testcode_cacheCount(void);
 
-// One page holding a minimal 64-bit Mach-O: a __TEXT segment covering the page and an LC_UUID.
-// Nothing in dyld's list refers to it, so once evicted no lookup can find it again.
-static void *makeSyntheticImage(void)
+// One page holding a minimal 64-bit Mach-O: a __TEXT segment covering the page and an LC_UUID
+// filled with uuidFill. Nothing in dyld's list refers to it, so once evicted no lookup can find it.
+static void *makeSyntheticImage(uint8_t uuidFill)
 {
     vm_address_t page = 0;
     kern_return_t kr = vm_allocate(mach_task_self(), &page, PAGE_SIZE, VM_FLAGS_ANYWHERE);
@@ -1178,13 +1241,13 @@ static void *makeSyntheticImage(void)
     struct uuid_command *uuid = (struct uuid_command *)((uintptr_t)text + sizeof(*text));
     uuid->cmd = LC_UUID;
     uuid->cmdsize = sizeof(struct uuid_command);
-    memset(uuid->uuid, 0x42, sizeof(uuid->uuid));
+    memset(uuid->uuid, uuidFill, sizeof(uuid->uuid));
     return (void *)page;
 }
 
 - (void)testRemovalNotificationEvictsCachedImage
 {
-    void *page = makeSyntheticImage();
+    void *page = makeSyntheticImage(0x42);
     XCTAssertTrue(page != NULL);
     @try {
         XCTAssertTrue(ksbic_getUnwindInfoForHeader(page, NULL), @"the miss caches the synthetic image");
@@ -1204,7 +1267,7 @@ static void *makeSyntheticImage(void)
 
 - (void)testRemovalWhileCacheBusyFlushesOnNextAcquire
 {
-    void *page = makeSyntheticImage();
+    void *page = makeSyntheticImage(0x42);
     XCTAssertTrue(page != NULL);
     @try {
         XCTAssertTrue(ksbic_getUnwindInfoForHeader(page, NULL));
@@ -1215,8 +1278,54 @@ static void *makeSyntheticImage(void)
         ksbic_testcode_releaseCache();
 
         XCTAssertEqual(ksbic_findImageForAddress((uintptr_t)page + 64, NULL, NULL), NULL);
-        XCTAssertLessThanOrEqual(ksbic_testcode_cacheCount(), 1u,
-                                 @"a removal during a hold flushes the cache on the next acquire");
+        XCTAssertEqual(ksbic_testcode_cacheCount(), 0u,
+                       @"a removal during a hold flushes the cache on the next acquire, and the miss adds nothing");
+    } @finally {
+        vm_deallocate(mach_task_self(), (vm_address_t)page, PAGE_SIZE);
+    }
+}
+
+- (void)testDyldAddressResolvesAfterFlush
+{
+    const struct mach_header *dyld = ksbic_getDyldHeader();
+    XCTAssertNotEqual(dyld, NULL);
+    XCTAssertEqual(ksbic_findImageForAddress((uintptr_t)dyld, NULL, NULL), dyld);
+
+    void *page = makeSyntheticImage(0x42);
+    XCTAssertTrue(page != NULL);
+    @try {
+        ksbic_testcode_holdCache();
+        struct dyld_image_info info = { page, "/fake/libfake.dylib", 0 };
+        ksbic_testcode_notify(dyld_image_removing, 1, &info);
+        ksbic_testcode_releaseCache();
+
+        // dyld is not in dyld's own image list, so after the flush only the miss path can bring it back.
+        XCTAssertEqual(ksbic_findImageForAddress((uintptr_t)dyld, NULL, NULL), dyld,
+                       @"a flush must not lose dyld for the rest of the run");
+    } @finally {
+        vm_deallocate(mach_task_self(), (vm_address_t)page, PAGE_SIZE);
+    }
+}
+
+- (void)testAddNotificationReplacesStaleEntryForSameHeader
+{
+    void *page = makeSyntheticImage(0x11);
+    XCTAssertTrue(page != NULL);
+    @try {
+        uint8_t uuid[16] = { 0 };
+        XCTAssertTrue(ksbic_copyUUIDForHeader(page, uuid));
+
+        // A new image mapped at the same address: rewrite the UUID in place and announce the add.
+        struct uuid_command *cmd = (struct uuid_command *)((uintptr_t)page + sizeof(struct mach_header_64) +
+                                                           sizeof(struct segment_command_64));
+        memset(cmd->uuid, 0x22, sizeof(cmd->uuid));
+        struct dyld_image_info info = { page, "/fake/libreplaced.dylib", 0 };
+        ksbic_testcode_notify(dyld_image_adding, 1, &info);
+
+        uint8_t expected[16];
+        memset(expected, 0x22, sizeof(expected));
+        XCTAssertTrue(ksbic_copyUUIDForHeader(page, uuid));
+        XCTAssertEqual(memcmp(uuid, expected, 16), 0, @"an add for a cached header replaces the stale entry");
     } @finally {
         vm_deallocate(mach_task_self(), (vm_address_t)page, PAGE_SIZE);
     }
@@ -1224,7 +1333,7 @@ static void *makeSyntheticImage(void)
 
 - (void)testRemovalNotificationIgnoresUnknownHeader
 {
-    void *page = makeSyntheticImage();
+    void *page = makeSyntheticImage(0x42);
     XCTAssertTrue(page != NULL);
     @try {
         uint32_t before = ksbic_testcode_cacheCount();

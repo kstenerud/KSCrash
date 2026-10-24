@@ -9,8 +9,7 @@ calls and no locks on that path, which is what lets it run with every other
 thread suspended.
 
 This page explains what that cache has to be careful about, what it does about
-it, and why it does so little. The choices here were made against the
-alternatives, not in ignorance of them.
+it, and why it does so little.
 
 ## What dyld does
 
@@ -18,9 +17,11 @@ The cache reads dyld's own `dyld_all_image_infos` struct and listens to dyld's
 image notifier. Two facts from dyld's source shape everything else.
 
 First, dyld publishes the image list as **NULL while it rebuilds it**, on every
-load and every unload, then writes the count, a change stamp, and the array
-pointer, in that order. A reader that loads the count and the pointer as two
-independent steps can pair an old array with a new count.
+load and every unload. It then writes a new change stamp, rebuilds the array in
+place, and writes the count, the same stamp again, and the array pointer. The
+pointer and the stamp are atomic release stores inside dyld; the count is a
+plain store. A reader that loads the count and the pointer as two independent
+steps can pair an array with a count from a different version of the list.
 
 Second, dyld fires its **removal notification before it unmaps** the image and
 frees the string behind its path. So when KSCrash hears that an image is going,
@@ -47,9 +48,12 @@ Three things, each at the moment the hazard is announced rather than on every
 lookup.
 
 **The list read is bracketed by dyld's change stamp.** Load the stamp, the
-count, the pointer, then the stamp again; accept only a non-NULL pointer with
-equal stamps on both sides; retry three times, then report no list. This costs
-four loads from a struct that is always mapped. No syscall.
+pointer, the count, then the stamp again, with acquire loads that pair with
+dyld's release stores; accept only a non-NULL pointer with equal stamps on both
+sides; retry three times, then report no list. The pointer comes before the
+count because dyld stores the pointer after the count, so a pointer seen
+carries at least its own count, and a newer count would arrive with a newer
+stamp. This costs four loads from a struct that is always mapped. No syscall.
 
 **Removal evicts.** When dyld announces an image's removal, the notifier removes
 that image's entry from the sorted array and then tells the symbol cache, which
@@ -57,8 +61,12 @@ drops every entry whose image base is that header. The notifier runs on the
 thread calling `dlclose`, under dyld's lock, and must never wait. If a crash
 handler happens to hold one of the caches at that instant, the notifier sets a
 flag instead, and the next successful acquire of that cache empties it. The
-entries come back through misses, exactly as they do after install. One cold
-cache is the price of never making `dlclose` wait on a suspended handler.
+entries come back through misses, exactly as they do after install, and the
+miss path checks dyld's own header after the list, since dyld is not in its own
+list and a flush would otherwise lose it for the rest of the run. One cold
+cache is the price of never making `dlclose` wait on a suspended handler. An
+add announced for a header that is already cached replaces the entry, because
+dyld only announces new mappings, so whatever was there is stale.
 
 **UUID bytes live in the entry.** Each entry copies its image's 16 UUID bytes
 when it is populated from the still-mapped header. Nothing in the cache points
@@ -90,13 +98,13 @@ Each of these was designed before it was dropped.
 
 ## What stays open
 
-A handler that is already walking an image when dyld unmaps it, and a `dlopen`
-that frees the old list after the stamp check accepted it but before the caller
-finished reading. Both need the unmap or the free to land in the microseconds
-between a check and its use, on a platform where unloads do not occur. In a
-plugin host that does unload, the crash being reported is usually the
-use-after-`dlclose` itself. Closing these would cost every hit of every report,
-and the code comment at the list read says so.
+A handler that is already walking an image when dyld unmaps it, and a rebuild
+that rewrites the list in place after the stamp check accepted it but before
+the caller finished reading. Both need the event to land in the microseconds
+between a check and its use, the first on a platform where unloads do not
+occur. In a plugin host that does unload, the crash being reported is usually
+the use-after-`dlclose` itself. Closing these would cost every lookup of every
+report, and the code comment at the list read says so.
 
 ## Why simple won
 

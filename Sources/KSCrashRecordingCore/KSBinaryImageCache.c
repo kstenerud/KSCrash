@@ -588,12 +588,9 @@ static const struct mach_header *linearScanForAddress(uintptr_t address, KSBinar
 {
     uint32_t count = 0;
     const ks_dyld_image_info *images = ksbic_getImages(&count);
-    if (images == NULL) {
-        return NULL;
-    }
 
     KSBinaryImageRange tempEntry = { 0 };
-    for (uint32_t i = 0; i < count; i++) {
+    for (uint32_t i = 0; images != NULL && i < count; i++) {
         const struct mach_header *header = images[i].imageLoadAddress;
         if (header == NULL) {
             continue;
@@ -614,18 +611,35 @@ static const struct mach_header *linearScanForAddress(uintptr_t address, KSBinar
         }
     }
 
+    // dyld is not in its own infoArray. ksbic_init caches it, but a flush empties the cache, so
+    // the miss path has to be able to find it again or dyld frames go unresolved for the run.
+    const struct mach_header *dyld = ksbic_getDyldHeader();
+    if (dyld != NULL && populateCacheEntry(dyld, ksbic_getDyldPath(), &tempEntry) &&
+        addressInCachedSegments(&tempEntry, address)) {
+        if (outEntry) {
+            *outEntry = tempEntry;
+        }
+        return dyld;
+    }
+
     return NULL;
 }
 
 // How dyld publishes its image list (dyld-1378, ExternallyViewableState::addImages / removeImages,
-// same on every load AND unload): it sets infoArray to NULL, rebuilds, then writes infoArrayCount,
-// then infoArrayChangeTimestamp, then infoArray. Entries ARE removed on unload (dlclose of a pure
-// C/C++ dylib the app loaded itself). So a reader that loads the pointer and the count separately
-// can pair an old array with a new count; ksbic_getImages brackets its loads with the stamp to
-// reject that. The struct itself lives in dyld's own image and is always mapped, so plain atomic
-// loads are enough: no syscall, safe in a handler. What stays open: dyld may free the OLD array
-// buffer after a reader accepted it and before the reader finishes walking it. That needs an
-// unload to land inside a handler's walk, a microsecond window, and is accepted.
+// same on every load AND unload): it sets infoArray to NULL, writes the NEW infoArrayChangeTimestamp
+// (at the end of activateAtlas), rebuilds the vector in place, then writes infoArrayCount, the same
+// stamp again, and infoArray. Inside dyld, infoArray and infoArrayChangeTimestamp are std::atomic,
+// so those stores are release stores; infoArrayCount is a plain store ordered only by the atomic
+// stores around it. That is what the acquire loads in ksbic_getImages pair with, and why they are
+// not optional. Entries ARE removed on unload (dlclose of a pure C/C++ dylib the app loaded itself),
+// so a reader that pairs a pointer with a count from a different version walks off the end or
+// misses entries. The struct lives in dyld's own image and is always mapped: no syscall, safe in a
+// handler.
+//
+// What stays open, both accepted: dyld rewrites the array in place (it frees the buffer only when
+// the list outgrows it), so a rebuild landing inside a handler's walk can shift or tear an entry
+// under it; and a handler already walking an image when dyld unmaps it. Each needs the event to
+// land in the microseconds between a check and its use.
 
 // Atomic so test-only `ksbic_resetCache` can NULL the pointer without racing
 // concurrent readers (getImages, getAppHeader, etc.). The pointer itself is
@@ -722,9 +736,12 @@ static void handleImageNotification(enum dyld_image_mode mode, uint32_t infoCoun
                 const struct mach_header *header = info[i].imageLoadAddress;
                 const char *name = info[i].imageFilePath;
 
-                // Check if already in cache
-                if (findByHeader(cache, header) >= 0) {
-                    continue;
+                // dyld only announces newly mapped images, so an entry already here for this header
+                // is stale: a lookup by header re-added the previous image in the window between
+                // its removal notice and its unmap. Replace it rather than let it answer for the new one.
+                int32_t existing = findByHeader(cache, header);
+                if (existing >= 0) {
+                    removeCacheEntry(cache, existing);
                 }
 
                 KSBinaryImageRange newEntry;
@@ -778,6 +795,7 @@ void ksbic_init(void)
 
     // Initialize the address range cache
     g_cache_storage.count = 0;
+    atomic_store(&g_flushPending, false);
 
     // Cache the main executable, always the first image, almost certainly in every backtrace
     uint32_t imageCount = 0;
@@ -819,14 +837,18 @@ const ks_dyld_image_info *ksbic_getImages(uint32_t *count)
         KSLOG_ERROR("Cannot access binary images");
         return NULL;
     }
-    // Order matters, see the comment at g_all_image_infos. dyld writes count, stamp, pointer; a
-    // non-NULL pointer between two equal stamps was published together with the count read here.
+    // Order matters, see the comment at g_all_image_infos. The pointer is loaded BEFORE the count:
+    // dyld's pointer store is a release store that comes after its count store, so a non-NULL
+    // pointer seen here carries at least the count published with it. The count cannot be newer
+    // without a newer stamp, which the equality check rejects. Count before pointer would accept
+    // the old count with the new pointer, because dyld publishes the new stamp once before the
+    // count and once after.
     for (int attempt = 0; attempt < KSBIC_IMAGE_LIST_READ_ATTEMPTS; attempt++) {
         uint64_t stampBefore = __atomic_load_n(&allInfo->infoArrayChangeTimestamp, __ATOMIC_ACQUIRE);
         imageListLoadStep(0);
-        uint32_t imageCount = __atomic_load_n(&allInfo->infoArrayCount, __ATOMIC_ACQUIRE);
-        imageListLoadStep(1);
         const struct dyld_image_info *images = __atomic_load_n(&allInfo->infoArray, __ATOMIC_ACQUIRE);
+        imageListLoadStep(1);
+        uint32_t imageCount = __atomic_load_n(&allInfo->infoArrayCount, __ATOMIC_ACQUIRE);
         imageListLoadStep(2);
         uint64_t stampAfter = __atomic_load_n(&allInfo->infoArrayChangeTimestamp, __ATOMIC_ACQUIRE);
         imageListLoadStep(3);
