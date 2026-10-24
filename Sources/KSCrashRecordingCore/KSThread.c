@@ -255,7 +255,7 @@ bool ksthread_getQueueName(const KSThread thread, char *const buffer, int bufLen
         return false;
     }
 
-    // Queue label must be a printable, NUL terminated string.
+    // Queue label must be printable up to its NUL or the end of the buffer.
     int iLabel;
     for (iLabel = 0; iLabel < readable; iLabel++) {
         if (buffer[iLabel] == 0) {
@@ -266,9 +266,15 @@ bool ksthread_getQueueName(const KSThread thread, char *const buffer, int bufLen
             return false;
         }
     }
+    // No NUL in what was read. With the whole buffer read, the label is longer than the buffer and
+    // is cut to fit. With less, the bytes ran into unreadable memory before ending, so they are not
+    // a string.
     if (iLabel == readable) {
-        KSLOG_TRACE("Queue label is not NUL terminated within %d bytes", bufLength);
-        return false;
+        if (readable < bufLength) {
+            KSLOG_TRACE("Queue label runs into unreadable memory : %p", dispatch_queue);
+            return false;
+        }
+        buffer[bufLength - 1] = 0;
     }
 
     KSLOG_TRACE("Queue label = %s", buffer);

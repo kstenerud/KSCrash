@@ -208,6 +208,37 @@
     }
 }
 
+- (void)testGetQueueNameTruncatesALabelLongerThanTheBuffer
+{
+    // A label longer than the buffer keeps what fits beside its NUL, and a buffer with exactly
+    // room for the NUL takes the label whole.
+    static const char *const kLabel = "com.kscrash.test.a-queue-label-longer-than-the-buffer";
+    dispatch_queue_t queue = dispatch_queue_create(kLabel, DISPATCH_QUEUE_SERIAL);
+    XCTestExpectation *expectation = [self expectationWithDescription:@"read the queue label"];
+    __block BOOL truncatedFound = NO;
+    __block BOOL exactFound = NO;
+    __block NSString *truncated = nil;
+    __block NSString *exact = nil;
+
+    dispatch_async(queue, ^{
+        char buffer[16];
+        memset(buffer, 'x', sizeof(buffer));
+        truncatedFound = ksthread_getQueueName(ksthread_self(), buffer, sizeof(buffer));
+        truncated = truncatedFound ? @(buffer) : nil;
+
+        char wide[128];
+        exactFound = ksthread_getQueueName(ksthread_self(), wide, (int)strlen(kLabel) + 1);
+        exact = exactFound ? @(wide) : nil;
+        [expectation fulfill];
+    });
+
+    [self waitForExpectationsWithTimeout:5 handler:nil];
+    XCTAssertTrue(truncatedFound);
+    XCTAssertEqualObjects(truncated, [@(kLabel) substringToIndex:15]);
+    XCTAssertTrue(exactFound);
+    XCTAssertEqualObjects(exact, @(kLabel));
+}
+
 - (void)testGetQueueNameRejectsNonPositiveBufferLengths
 {
     // bufLength is cast to size_t for the copy, so a non-positive length would become enormous
