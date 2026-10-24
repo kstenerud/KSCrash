@@ -277,7 +277,9 @@ bool ksdl_dladdr(const uintptr_t address, Dl_info *const info)
 
     if (cache != NULL) {
         // SUCCESS: We have exclusive access to the cache
-        if (atomic_exchange(&g_symbolFlushPending, false)) {
+        // Relaxed load first so a hit stays at one read-modify-write; see acquireCache in the image cache.
+        if (atomic_load_explicit(&g_symbolFlushPending, memory_order_relaxed) &&
+            atomic_exchange(&g_symbolFlushPending, false)) {
             cache->count = 0;
         }
 

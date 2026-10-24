@@ -112,7 +112,10 @@ static _Atomic bool g_flushPending = false;
 static KSBinaryImageRangeCache *acquireCache(void)
 {
     KSBinaryImageRangeCache *cache = atomic_exchange(&g_cache_ptr, NULL);
-    if (cache != NULL && atomic_exchange(&g_flushPending, false)) {
+    // A relaxed load keeps the hit path at one read-modify-write (the pointer exchange). A store the
+    // load misses is picked up on the next acquire, which is the flag's guarantee anyway.
+    if (cache != NULL && atomic_load_explicit(&g_flushPending, memory_order_relaxed) &&
+        atomic_exchange(&g_flushPending, false)) {
         cache->count = 0;
     }
     return cache;
@@ -625,21 +628,35 @@ static const struct mach_header *linearScanForAddress(uintptr_t address, KSBinar
     return NULL;
 }
 
-// How dyld publishes its image list (dyld-1378, ExternallyViewableState::addImages / removeImages,
-// same on every load AND unload): it sets infoArray to NULL, writes the NEW infoArrayChangeTimestamp
-// (at the end of activateAtlas), rebuilds the vector in place, then writes infoArrayCount, the same
-// stamp again, and infoArray. Inside dyld, infoArray and infoArrayChangeTimestamp are std::atomic,
-// so those stores are release stores; infoArrayCount is a plain store ordered only by the atomic
-// stores around it. That is what the acquire loads in ksbic_getImages pair with, and why they are
-// not optional. Entries ARE removed on unload (dlclose of a pure C/C++ dylib the app loaded itself),
-// so a reader that pairs a pointer with a count from a different version walks off the end or
-// misses entries. The struct lives in dyld's own image and is always mapped: no syscall, safe in a
-// handler.
+// How dyld publishes its image list. Two generations are in our support range and they differ in
+// where the change stamp lands:
 //
-// What stays open, both accepted: dyld rewrites the array in place (it frees the buffer only when
-// the list outgrows it), so a rebuild landing inside a handler's walk can shift or tear an entry
-// under it; and a handler already walking an image when dyld unmaps it. Each needs the event to
-// land in the microseconds between a check and its use.
+// dyld-1378 (macOS 15 era), ExternallyViewableState::addImages / removeImages, same on load and
+// unload: infoArray = NULL; the NEW infoArrayChangeTimestamp (last line of activateAtlas); rebuild
+// the vector in place; infoArrayCount; the same stamp again; infoArray. infoArray and the stamp are
+// std::atomic inside dyld (release stores); infoArrayCount is a plain store.
+//
+// dyld-941 (macOS 12 / iOS 15, the deployment floor), DebuggerSupport.cpp: on an add, infoArray =
+// NULL; push_back (which can reallocate and free the old buffer); infoArrayCount; the stamp;
+// infoArray. On a removal, infoArray = NULL; erase; infoArrayCount; infoArray; the UUID array; the
+// stamp LAST.
+//
+// So the stamp brackets the count and the pointer on neither generation, and no single order of
+// loads is right for both: count-before-pointer accepts the old count with dyld-1378's new
+// pointer, pointer-before-count accepts dyld-941's new count with the old (possibly freed) pointer.
+// ksbic_getImages therefore reads all three fields twice and accepts only an identical pair with a
+// non-NULL pointer. Entries ARE removed on unload (dlclose of a pure C/C++ dylib the app loaded
+// itself), so a reader that pairs a pointer with a count from a different version walks off the
+// end or misses entries. The struct lives in dyld's own image and is always mapped: no syscall,
+// safe in a handler.
+//
+// What stays open, all accepted: dyld-1378 rewrites the array in place (it frees the buffer only
+// when the list outgrows it), so a rebuild landing inside a handler's walk can shift or tear an
+// entry under it; a handler already walking an image when dyld unmaps it; and, on arm64, a plain
+// count store becoming visible before the release store that precedes it in dyld's sequence, so
+// that both snapshots see a count from the next version with this version's pointer. Each needs
+// the event to land in the nanoseconds between a check and its use, and no reader-side order
+// closes the last one.
 
 // Atomic so test-only `ksbic_resetCache` can NULL the pointer without racing
 // concurrent readers (getImages, getAppHeader, etc.). The pointer itself is
@@ -732,13 +749,15 @@ static void handleImageNotification(enum dyld_image_mode mode, uint32_t infoCoun
         // Pre-populate cache so data is available immediately during crash handling.
         KSBinaryImageRangeCache *cache = acquireCache();
         if (cache != NULL) {
-            for (uint32_t i = 0; i < infoCount && cache->count < maxCacheEntries(); i++) {
+            // No capacity guard on the loop: the replacement below must run even when the cache is
+            // full, and insertSortedCacheEntry already refuses to grow past the limit.
+            for (uint32_t i = 0; i < infoCount; i++) {
                 const struct mach_header *header = info[i].imageLoadAddress;
                 const char *name = info[i].imageFilePath;
 
-                // dyld only announces newly mapped images, so an entry already here for this header
-                // is stale: a lookup by header re-added the previous image in the window between
-                // its removal notice and its unmap. Replace it rather than let it answer for the new one.
+                // dyld only announces newly mapped images, so whatever is already here for this
+                // header is either a stale entry for the previous image at that address or an
+                // identical one a miss inserted after dyld published the new list. Replace it either way.
                 int32_t existing = findByHeader(cache, header);
                 if (existing >= 0) {
                     removeCacheEntry(cache, existing);
@@ -807,7 +826,7 @@ void ksbic_init(void)
         }
     }
 
-    // Cache dyld's own image — it's not in the infoArray.
+    // Cache dyld's own image: it is not in the infoArray.
     if (allInfo->dyldImageLoadAddress != NULL) {
         KSBinaryImageRange dyldEntry;
         if (populateCacheEntry(allInfo->dyldImageLoadAddress, ksbic_getDyldPath(), &dyldEntry)) {
@@ -837,30 +856,33 @@ const ks_dyld_image_info *ksbic_getImages(uint32_t *count)
         KSLOG_ERROR("Cannot access binary images");
         return NULL;
     }
-    // Order matters, see the comment at g_all_image_infos. The pointer is loaded BEFORE the count:
-    // dyld's pointer store is a release store that comes after its count store, so a non-NULL
-    // pointer seen here carries at least the count published with it. The count cannot be newer
-    // without a newer stamp, which the equality check rejects. Count before pointer would accept
-    // the old count with the new pointer, because dyld publishes the new stamp once before the
-    // count and once after.
+    // Read the three fields twice and accept only an identical pair with a non-NULL pointer. See the
+    // comment at g_all_image_infos: the stamp's position in dyld's write sequence differs between
+    // dyld generations, so no single load order brackets the count and the pointer on every
+    // supported OS. A rebuild landing inside either read NULLs the pointer or changes the count, and
+    // the two snapshots differ. Six loads, no syscall, safe in a handler.
     for (int attempt = 0; attempt < KSBIC_IMAGE_LIST_READ_ATTEMPTS; attempt++) {
-        uint64_t stampBefore = __atomic_load_n(&allInfo->infoArrayChangeTimestamp, __ATOMIC_ACQUIRE);
+        uint64_t stamp1 = __atomic_load_n(&allInfo->infoArrayChangeTimestamp, __ATOMIC_ACQUIRE);
         imageListLoadStep(0);
-        const struct dyld_image_info *images = __atomic_load_n(&allInfo->infoArray, __ATOMIC_ACQUIRE);
+        const struct dyld_image_info *images1 = __atomic_load_n(&allInfo->infoArray, __ATOMIC_ACQUIRE);
         imageListLoadStep(1);
-        uint32_t imageCount = __atomic_load_n(&allInfo->infoArrayCount, __ATOMIC_ACQUIRE);
+        uint32_t count1 = __atomic_load_n(&allInfo->infoArrayCount, __ATOMIC_ACQUIRE);
         imageListLoadStep(2);
-        uint64_t stampAfter = __atomic_load_n(&allInfo->infoArrayChangeTimestamp, __ATOMIC_ACQUIRE);
+        uint64_t stamp2 = __atomic_load_n(&allInfo->infoArrayChangeTimestamp, __ATOMIC_ACQUIRE);
         imageListLoadStep(3);
-        if (images != NULL && stampBefore == stampAfter) {
+        const struct dyld_image_info *images2 = __atomic_load_n(&allInfo->infoArray, __ATOMIC_ACQUIRE);
+        imageListLoadStep(4);
+        uint32_t count2 = __atomic_load_n(&allInfo->infoArrayCount, __ATOMIC_ACQUIRE);
+        imageListLoadStep(5);
+        if (images1 != NULL && images1 == images2 && count1 == count2 && stamp1 == stamp2) {
             if (count) {
-                *count = imageCount;
+                *count = count1;
             }
-            return (ks_dyld_image_info *)images;
+            return (ks_dyld_image_info *)images1;
         }
     }
-    // NULL means dyld is mid-rebuild ("come back later" per dyld_images.h); a stamp mismatch on
-    // every attempt means it kept rebuilding. Either way the caller gets no list, as before.
+    // NULL means dyld is mid-rebuild ("come back later" per dyld_images.h); differing snapshots on
+    // every attempt mean it kept rebuilding. Either way the caller gets no list, as before.
     KSLOG_ERROR("dyld_all_image_infos->infoArray is being modified; no image list available");
     return NULL;
 }
@@ -1094,32 +1116,20 @@ bool ksbic_getUnwindInfoForHeader(const struct mach_header *header, KSBinaryImag
             return true;
         }
 
-        // Not in cache - populate and add maintaining sorted order
-        KSBinaryImageRange newEntry;
-        if (populateCacheEntry(header, NULL, &newEntry)) {
-            if (cache->count < maxCacheEntries()) {
-                insertSortedCacheEntry(cache, &newEntry);
-            }
-            if (outInfo) {
-                *outInfo = newEntry.unwindInfo;
-            }
-            atomic_store(&g_cache_ptr, cache);
-            return true;
-        }
-
         atomic_store(&g_cache_ptr, cache);
-        return false;
-    } else {
-        // Cache busy — fall back to uncached population
-        KSBinaryImageRange entry;
-        if (populateCacheEntry(header, NULL, &entry)) {
-            if (outInfo) {
-                *outInfo = entry.unwindInfo;
-            }
-            return true;
-        }
-        return false;
     }
+
+    // A miss answers from the header but does not insert. Only dyld's list and dyld's notifier put
+    // images in the cache: a header the caller holds may be an image dyld has already announced
+    // as removed, and an entry inserted here would outlive its unmap with nothing left to evict it.
+    KSBinaryImageRange entry;
+    if (populateCacheEntry(header, NULL, &entry)) {
+        if (outInfo) {
+            *outInfo = entry.unwindInfo;
+        }
+        return true;
+    }
+    return false;
 }
 
 bool ksbic_getUnwindInfoForAddress(uintptr_t address, KSBinaryImageUnwindInfo *outInfo)
@@ -1136,7 +1146,7 @@ bool ksbic_getUnwindInfoForAddress(uintptr_t address, KSBinaryImageUnwindInfo *o
             return true;
         }
 
-        // Cache miss — populate and add
+        // Cache miss: populate and add
         // Answering the lookup and caching the answer are separate concerns, as in
         // ksbic_getImageDetailsForAddress above: a full cache must still fill *outInfo, because
         // callers key off the return value alone. tryCompactUnwindForPC reads an uninitialized
@@ -1156,7 +1166,7 @@ bool ksbic_getUnwindInfoForAddress(uintptr_t address, KSBinaryImageUnwindInfo *o
         atomic_store(&g_cache_ptr, cache);
         return header != NULL;
     } else {
-        // Cache busy — fall back to uncached population
+        // Cache busy: fall back to uncached population
         KSBinaryImageRange entry;
         if (linearScanForAddress(address, &entry) != NULL) {
             if (outInfo) {
@@ -1196,27 +1206,15 @@ bool ksbic_copyUUIDForHeader(const struct mach_header *header, uint8_t *outUUID)
             return found;
         }
 
-        // Not in cache: populate and add maintaining sorted order
-        KSBinaryImageRange newEntry;
-        if (populateCacheEntry(header, NULL, &newEntry)) {
-            if (cache->count < maxCacheEntries()) {
-                insertSortedCacheEntry(cache, &newEntry);
-            }
-            bool found = copyEntryUUID(&newEntry, outUUID);
-            atomic_store(&g_cache_ptr, cache);
-            return found;
-        }
-
         atomic_store(&g_cache_ptr, cache);
-        return false;
-    } else {
-        // Cache busy: fall back to uncached population
-        KSBinaryImageRange entry;
-        if (populateCacheEntry(header, NULL, &entry)) {
-            return copyEntryUUID(&entry, outUUID);
-        }
-        return false;
     }
+
+    // A miss answers from the header but does not insert; see ksbic_getUnwindInfoForHeader.
+    KSBinaryImageRange entry;
+    if (populateCacheEntry(header, NULL, &entry)) {
+        return copyEntryUUID(&entry, outUUID);
+    }
+    return false;
 }
 
 // MARK: - Image Sets (another task's images, or a snapshot of this one's)

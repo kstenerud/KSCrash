@@ -104,6 +104,14 @@ Expected: PASS.
 
 - [ ] **Step 5: Commit** `Read dyld's image list under its change stamp`
 
+**Superseded by the review-fix commits.** The stamp bracket above is wrong on both dyld generations
+in the support range: dyld-1378 publishes the new stamp before the count (so stamp, count, pointer,
+stamp accepted the old count with the new pointer) and dyld-941 publishes it after the count and
+last on a removal (so stamp, pointer, count, stamp accepted the new count with the old pointer).
+The code reads stamp, pointer and count twice and accepts only an identical pair with a non-NULL
+pointer; the design doc has the reasoning and the remaining arm64 gap. The hooks fire after the
+reader's second and third loads, and four tests model the two generations' sequences.
+
 ---
 
 ### Task 2: Evict both caches when dyld announces a removal

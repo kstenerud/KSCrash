@@ -30,6 +30,12 @@ records what it deliberately leaves alone and why.
   `notification(mode, count, info)`. Inside dyld `infoArray` and
   `infoArrayChangeTimestamp` are `std::atomic`, so those are release stores;
   `infoArrayCount` is a plain store.
+- dyld-941.5 (macOS 12.2; the floor is macOS 12 / iOS 15), `DebuggerSupport.cpp`:
+  `addImagesToAllImages` does `infoArray = NULL`, `push_back` (which can
+  reallocate and free the old buffer), `infoArrayCount`, the stamp, `infoArray`.
+  `removeImageFromAllImages` does `infoArray = NULL`, `erase`, `infoArrayCount`,
+  `infoArray`, the UUID array, then the stamp last. The atomic declarations are
+  the same as in dyld-1378.
 - dyld-1378 `RuntimeState`: `notifyUnload` (which calls `removeImages` and so
   fires `dyld_image_removing`) runs before `removeLoaders`, which unmaps the
   image and frees its `Loader`. The `Loader`'s `path()` is what
@@ -97,16 +103,21 @@ every report, even though the race it is exposed to is rare.
 
 ### 1. A consistent read of dyld's list
 
-`ksbic_getImages` loads the stamp, the pointer, the count, then the stamp again,
-all with acquire loads from dyld's own struct (always mapped, so no syscall),
-and accepts only a non-NULL pointer bracketed by equal stamps, retrying three
-times before returning NULL. The acquire loads pair with dyld's release stores
-of the stamp and the pointer. The pointer is read before the count because
-dyld's pointer store comes after its count store, so a non-NULL pointer seen
-carries at least the count published with it; a newer count would come with a
-newer stamp and fail the equality check. Reading the count first would accept
-the old count with the new pointer, because dyld publishes the new stamp once
-before the count and once after.
+`ksbic_getImages` loads the stamp, the pointer and the count, loads the three
+again, and accepts only an identical pair with a non-NULL pointer, retrying
+three times before returning NULL. All loads are acquire loads from dyld's own
+struct (always mapped, so no syscall) and pair with dyld's release stores.
+
+The stamp cannot serve as a bracket, because its position in the write sequence
+differs between the two dyld generations in the support range. Reading the
+count before the pointer accepts dyld-1378's old count with its new pointer
+(the new stamp is published before the count). Reading the pointer before the
+count accepts dyld-941's new count with its old pointer (the stamp is written
+after the count on an add and last on a removal), and on an add that grew the
+vector that old pointer is freed memory. Reading all three twice is indifferent
+to where the stamp is: a rebuild landing inside either read NULLs the pointer
+or changes the count, so the snapshots differ. The one way past it is in "What
+stays open".
 
 The signature does not change; every caller, including some forty tests, keeps
 working. The comment above the atomics is rewritten to say what dyld does.
@@ -121,9 +132,14 @@ repopulated by misses as today. A flush trades one cold cache for a race that
 needs a `dlclose` to coincide with a handler. Because dyld is not in its own
 `infoArray`, the miss path checks dyld's header after the list, or a flush
 would lose dyld for the rest of the run. An add announced for a header already
-in the cache replaces the entry: dyld only announces new mappings, so an
-existing entry is one a lookup by header re-added between the removal notice
-and the unmap, and it would otherwise answer for the new image at that address.
+in the cache replaces the entry: dyld only announces new mappings, so what is
+there is a stale entry for the previous image at that address or an identical
+one a miss inserted after dyld published the new list. A lookup by header that
+misses answers from the header and does not insert. Only dyld's list and dyld's
+notifier put images in the cache; a header the caller holds may belong to an
+image dyld has already announced as removed, and an entry inserted for it would
+outlive the unmap with nothing left to evict it. The production callers pass a
+header they just resolved by address, so they hit.
 
 The image cache then calls a registered removal callback per header, the mirror
 of `ksbic_registerForImageAdded`. `KSDynamicLinker.c` registers one that drops
@@ -147,6 +163,11 @@ stable either. The report writer and the system monitor copy out.
 - A rebuild that rewrites `infoArray` in place after `ksbic_getImages` accepted
   it and before the caller finishes reading (dyld frees the buffer only when
   the list outgrows it). Same window, same odds.
+- On arm64, dyld's plain count store becoming visible before the release
+  store that precedes it in dyld's sequence (a release store orders only what
+  came before it). Both snapshots can then see the next version's count with
+  this version's pointer. No reader-side load order closes this; it is the
+  same class and odds as the in-place rewrite above.
 - Both of those on a platform where unloads do not happen, and in a plugin host
   where the crash being reported is usually the use-after-`dlclose` itself.
 

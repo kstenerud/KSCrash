@@ -17,11 +17,15 @@ The cache reads dyld's own `dyld_all_image_infos` struct and listens to dyld's
 image notifier. Two facts from dyld's source shape everything else.
 
 First, dyld publishes the image list as **NULL while it rebuilds it**, on every
-load and every unload. It then writes a new change stamp, rebuilds the array in
-place, and writes the count, the same stamp again, and the array pointer. The
-pointer and the stamp are atomic release stores inside dyld; the count is a
-plain store. A reader that loads the count and the pointer as two independent
-steps can pair an array with a count from a different version of the list.
+load and every unload, then writes the count, the change stamp, and the array
+pointer back. Where the stamp lands in that sequence depends on the dyld
+generation: the dyld in macOS 15 writes it before the count and again after,
+while the dyld in macOS 12 and iOS 15, our deployment floor, writes it after
+the count on a load and dead last on an unload. The pointer and the stamp are
+atomic release stores inside dyld; the count is a plain store. A reader that
+loads the count and the pointer as two independent steps can pair an array
+with a count from a different version of the list, and on the older dyld a
+load that grew the list has already freed the old array.
 
 Second, dyld fires its **removal notification before it unmaps** the image and
 frees the string behind its path. So when KSCrash hears that an image is going,
@@ -47,13 +51,14 @@ rest through misses that read dyld's list.
 Three things, each at the moment the hazard is announced rather than on every
 lookup.
 
-**The list read is bracketed by dyld's change stamp.** Load the stamp, the
-pointer, the count, then the stamp again, with acquire loads that pair with
-dyld's release stores; accept only a non-NULL pointer with equal stamps on both
-sides; retry three times, then report no list. The pointer comes before the
-count because dyld stores the pointer after the count, so a pointer seen
-carries at least its own count, and a newer count would arrive with a newer
-stamp. This costs four loads from a struct that is always mapped. No syscall.
+**The list is read twice.** Load the stamp, the pointer and the count, load
+them again, and accept only if the pointer is non-NULL and all three match;
+retry three times, then report no list. Because the stamp sits in a different
+place in each dyld generation's write sequence, no single order of loads can
+use it as a bracket on every supported OS. Reading everything twice does not
+care where the stamp is: a rebuild landing inside either read NULLs the
+pointer or changes the count, and the two snapshots differ. This costs six
+loads from a struct that is always mapped. No syscall.
 
 **Removal evicts.** When dyld announces an image's removal, the notifier removes
 that image's entry from the sorted array and then tells the symbol cache, which
@@ -66,12 +71,18 @@ miss path checks dyld's own header after the list, since dyld is not in its own
 list and a flush would otherwise lose it for the rest of the run. One cold
 cache is the price of never making `dlclose` wait on a suspended handler. An
 add announced for a header that is already cached replaces the entry, because
-dyld only announces new mappings, so whatever was there is stale.
+dyld only announces new mappings, so whatever was there is either a stale entry
+for the previous image at that address or an identical one a miss inserted
+moments earlier. And a lookup by header that misses answers from the header
+without inserting: only dyld's list and dyld's notifier put images in the
+cache, so an image dyld has announced as removed cannot be re-added by a report
+that was already looking at one of its frames.
 
 **UUID bytes live in the entry.** Each entry copies its image's 16 UUID bytes
-when it is populated from the still-mapped header. Nothing in the cache points
-into an image any more, and the report writer copies the bytes out, because
-entries also move when a lower address is inserted into the sorted array.
+when it is populated from the still-mapped header. The UUID is no longer read
+through a pointer into the image at report time, and the report writer copies
+the bytes out, because entries also move when a lower address is inserted into
+the sorted array.
 
 ## What KSCrash deliberately does not do
 
@@ -100,9 +111,12 @@ Each of these was designed before it was dropped.
 
 A handler that is already walking an image when dyld unmaps it, and a rebuild
 that rewrites the list in place after the stamp check accepted it but before
-the caller finished reading. Both need the event to land in the microseconds
-between a check and its use, the first on a platform where unloads do not
-occur. In a plugin host that does unload, the crash being reported is usually
+the caller finished reading. On arm64 there is a third: dyld's plain count
+store can become visible before the release store that precedes it, so both
+snapshots can see the next version's count with this version's pointer. All
+three need the event to land in the nanoseconds between a check and its use,
+the first on a platform where unloads do not occur, and no order of loads on
+the reader's side closes the third. In a plugin host that does unload, the crash being reported is usually
 the use-after-`dlclose` itself. Closing these would cost every lookup of every
 report, and the code comment at the list read says so.
 
