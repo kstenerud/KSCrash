@@ -71,8 +71,8 @@ bool ksthread_getThreadName(const KSThread thread, char *const buffer, int bufLe
  */
 int ksthread_getThreadState(const KSThread thread);
 
-/** Get the name of a thread's dispatch queue. Internally, a queue name will
- * never be more than 64 characters long.
+/** Get the name of a thread's dispatch queue. A name longer than the buffer
+ * is truncated to fit, NUL terminated.
  *
  * @param thread The thread whose queue name to get.
  *

@@ -154,11 +154,10 @@ typedef struct {
         KSCRASH_DEPRECATED("Use `KSCrashMonitorTypeWatchdog` in the `monitors` field instead");
 #pragma clang diagnostic pop
 
-    /** If true, attempt to fetch dispatch queue names for each running thread.
+    /** If true, record the name of the dispatch queue each thread is running on.
      *
-     * This option enables the retrieval of dispatch queue names for each thread at the
-     * time of a crash. This can provide useful context, but there is a risk of crashing
-     * during the `ksthread_getQueueName()` call.
+     * Queue names are sampled periodically while the app runs, so a report carries the queue a
+     * thread was on as of the most recent sample rather than at the instant of the crash.
      *
      * **Default**: false
      */
