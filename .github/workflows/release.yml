@@ -141,13 +141,36 @@ jobs:
         if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.skip_trunk != 'true' }}
         env:
           COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_PASSWORD }}
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ github.event.inputs.version }}
         run: |
           # --allow-warnings: trunk's server-side validator rejects the
           # `subspec.visionos.pod_target_xcconfig` pattern as an unrecognized
           # key warning, even though cocoapods-core accepts it and pod lib
           # lint passes locally. See CocoaPods/CocoaPods#12291.
-          pod trunk push KSCrash.podspec --verbose --allow-warnings
-          echo "pushed=true" >> $GITHUB_OUTPUT
+          if pod trunk push KSCrash.podspec --verbose --allow-warnings; then
+            echo "pushed=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Trunk can commit the spec to CocoaPods/Specs, which is what publishes
+          # it, and still answer with an error: 2.6.1-beta.1 and 2.6.1-beta.2 both
+          # went out behind a 504 or a 500. The same 504 also comes back when
+          # nothing was published, so the error cannot tell the two apart. Ask
+          # Specs instead: rolling back a published version deletes the tag its
+          # spec points at, and every install of it then fails.
+          hash=$(printf %s KSCrash | md5)
+          spec="Specs/${hash:0:1}/${hash:1:1}/${hash:2:1}/KSCrash/$VERSION/KSCrash.podspec.json"
+          for attempt in $(seq 1 10); do
+            if gh api "repos/CocoaPods/Specs/contents/$spec" --silent 2>/dev/null; then
+              echo "Trunk reported an error, but CocoaPods/Specs has $VERSION; it is published."
+              echo "pushed=true" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+            sleep 30
+          done
+          echo "CocoaPods/Specs does not have $VERSION; the push failed."
+          exit 1
 
       # --- Inline rollback ---
       # Each step runs only if a previous step has failed (failure()) AND the
