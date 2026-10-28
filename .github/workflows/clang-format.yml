@@ -12,7 +12,8 @@ on:
 jobs:
   formatting-check:
     name: Formatting Check
-    runs-on: ubuntu-latest
+    # Pinned: apt.llvm.org has no LLVM 20 repo for Ubuntu 26.04, which ubuntu-latest now is.
+    runs-on: ubuntu-24.04
     env:
       DIRS: 'Sources Tests Samples/Common/Sources/CrashTriggers'
     steps:
