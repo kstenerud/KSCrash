@@ -42,8 +42,9 @@ struct SendKind<Payload: SendPayload, Item: Sendable>: Sendable {
 
     /// One item's payload. nil is "not this send's item": a stale listing
     /// entry, a read failure to retry next time, or an exclusion; the item
-    /// leaves no trace in the result. A throw is "read but undecodable" and
-    /// becomes a kept item carrying the error.
+    /// leaves no trace in the result. A throw (a read that does not decode,
+    /// or `ReportReadError.stitchFailed`) becomes a kept item carrying the
+    /// error.
     let read: @Sendable (Store, Item) throws -> Payload?
 
     let remove: @Sendable (Store, Item) throws -> Void

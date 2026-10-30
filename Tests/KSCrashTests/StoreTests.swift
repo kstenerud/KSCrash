@@ -613,6 +613,72 @@ final class StoreTests: XCTestCase {
         XCTAssertThrowsError(try store.removeReport(testReportID(1)), "already gone")
     }
 
+    /// A stitch that fails for a reason a later read can get past reaches the
+    /// send as `ReportReadError.stitchFailed` and leaves the file as it was,
+    /// and the report decodes once the stitch succeeds: the C read status, its
+    /// mapping and the production read, end to end.
+    func test_productionBridge_throwsStitchFailedAndKeepsTheReport_untilTheStitchSucceeds() throws {
+        let base = runsDirectory.deletingLastPathComponent()
+        let reportsDirectory = base.appendingPathComponent("Reports")
+        let reportSidecars = base.appendingPathComponent("ReportSidecars")
+        try FileManager.default.createDirectory(at: reportsDirectory, withIntermediateDirectories: true)
+        let configuration = UnsafeMutablePointer<KSCrashReportStoreCConfiguration>.allocate(capacity: 1)
+        configuration.initialize(to: KSCrashReportStoreCConfiguration_Default())
+        configuration.pointee.reportsPath = UnsafePointer(strdup(reportsDirectory.path))
+        configuration.pointee.reportSidecarsPath = UnsafePointer(strdup(reportSidecars.path))
+        defer {
+            KSCrashReportStoreCConfiguration_Release(configuration)
+            configuration.deallocate()
+        }
+
+        // A stitcher that fails in every scope. The final pass counts its NULL as nothing to
+        // add, so only the report sidecar below makes the read fail.
+        let monitorID = "StoreTestsStitch"
+        let monitorIDC = strdup(monitorID)!
+        let api = UnsafeMutablePointer<KSCrashMonitorAPI>.allocate(capacity: 1)
+        api.initialize(to: KSCrashMonitorAPI())
+        kscma_initAPI(api)
+        api.pointee.context = UnsafeMutableRawPointer(monitorIDC)
+        api.pointee.monitorId = { context in
+            context.map { UnsafePointer($0.assumingMemoryBound(to: CChar.self)) }
+        }
+        api.pointee.createStitchedReport = { _, _, _, _ in nil }
+        XCTAssertTrue(kscm_addMonitor(api))
+        defer {
+            kscm_removeMonitor(api)
+            api.deinitialize(count: 1)
+            api.deallocate()
+            free(monitorIDC)
+        }
+
+        let store = Store(
+            runsDirectory: runsDirectory,
+            runSidecarsDirectory: sidecarsDirectory,
+            reportsDirectory: reportsDirectory,
+            liveRunID: nil,
+            maxRunCount: 50,
+            storeConfig: UnsafePointer(configuration)
+        )
+        let id = testReportID(1)
+        let reportURL = reportsDirectory.appendingPathComponent(String(format: "%020d-%@.json", 1, id.description))
+        try makeReportData().write(to: reportURL)
+        let sidecar = reportSidecars.appendingPathComponent(monitorID)
+            .appendingPathComponent("\(id.description).ksscr")
+        try FileManager.default.createDirectory(
+            at: sidecar.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("sidecar".utf8).write(to: sidecar)
+        let before = try Data(contentsOf: reportURL)
+
+        XCTAssertThrowsError(try store.report(id)) { error in
+            XCTAssertEqual(error as? ReportReadError, .stitchFailed, "\(error)")
+        }
+        XCTAssertEqual(try Data(contentsOf: reportURL), before, "the report is left as it was")
+
+        // The registry reads the table it was given, so the stitch can now succeed in place.
+        api.pointee.createStitchedReport = { report, _, _, _ in report.map { Unmanaged.passRetained($0) } }
+        XCTAssertEqual(try store.report(id)?.report.id, id)
+    }
+
     /// The listing drains extension areas first: every bundle-id subdirectory
     /// of the area's namespace root contributes its Reports files, our own
     /// directory is skipped, an existing report is never replaced, and the
