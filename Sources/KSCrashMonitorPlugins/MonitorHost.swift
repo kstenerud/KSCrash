@@ -35,7 +35,7 @@ import KSCrashReportModel
 ///
 /// The host goes live when the bridge installs; before then `handle` throws `.notInstalled` and
 /// the sidecar accessors return nil.
-public struct MonitorHost<Payload> {
+public struct MonitorHost<Payload>: Sendable {
     /// The bridge, which owns the callbacks, the enabled flag, and the api identity. Unowned
     /// to break the cycle: the bridge owns the monitor that holds this host, and a host lives
     /// exactly as long as its bridge.

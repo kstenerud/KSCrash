@@ -378,8 +378,11 @@ final class RunSummarySendTests: XCTestCase {
             return summary
         }
 
-        async let first = send(pipeline: [.init(slow)], claims: claims)
-        async let second = send(pipeline: [.init(slow)], claims: claims)
+        // The child tasks get only Sendable values, not the test case.
+        let store = makeStore()
+        let pipeline: [AnyPipelineStage<RunSummary>] = [.init(slow)]
+        async let first = RunSummarySend.send(store: store, pipeline: pipeline, claims: claims)
+        async let second = RunSummarySend.send(store: store, pipeline: pipeline, claims: claims)
         let (a, b) = try await (first, second)
 
         // Between them every run is delivered exactly once.

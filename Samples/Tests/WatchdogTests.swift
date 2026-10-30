@@ -33,8 +33,8 @@ import XCTest
 
     final class WatchdogTests: IntegrationTestBase {
 
-        override func setUpWithError() throws {
-            try super.setUpWithError()
+        override func setUp() async throws {
+            try await super.setUp()
             appCrashTimeout = 10.0
         }
 

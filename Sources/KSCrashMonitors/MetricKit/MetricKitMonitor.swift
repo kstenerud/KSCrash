@@ -34,7 +34,7 @@ import KSCrashSwiftCore
 /// A monitor plugin that receives diagnostic and metric payloads from MetricKit.
 @available(tvOS, unavailable)
 @available(watchOS, unavailable)
-public final class MetricKitMonitor: NSObject, CrashMonitor {
+public final class MetricKitMonitor: NSObject, CrashMonitor, Sendable {
     public typealias EventPayload = Void
 
     public static let id = "MetricKit"
@@ -49,7 +49,7 @@ public final class MetricKitMonitor: NSObject, CrashMonitor {
     public static let diagnosticReportIDUserInfoKey = "diagnosticReportID"
 
     /// Frozen at install; the knobs' defaults match the previous mutable properties.
-    public struct Configuration {
+    public struct Configuration: Sendable {
         /// When true, writes each received MetricKit payload JSON to Documents (debugging).
         public var dumpsPayloadsToDocuments = false
         /// When true, encodes the KSCrash run ID into a threadcrumb for MetricKit report

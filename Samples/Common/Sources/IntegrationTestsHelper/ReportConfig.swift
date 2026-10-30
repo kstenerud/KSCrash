@@ -28,7 +28,7 @@ import Foundation
 import KSCrash
 import Logging
 
-public struct ReportConfig: Codable {
+public struct ReportConfig: Codable, Sendable {
     public var directoryPath: String
 
     public init(directoryPath: String) {

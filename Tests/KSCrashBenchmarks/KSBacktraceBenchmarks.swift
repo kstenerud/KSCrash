@@ -47,7 +47,8 @@ import XCTest
             let entries = 512
             var addresses: [UInt] = Array(repeating: 0, count: entries)
 
-            var targetThread: pthread_t?
+            // Written before the semaphore signals, read after it waits.
+            nonisolated(unsafe) var targetThread: pthread_t?
 
             let semaphore = DispatchSemaphore(value: 0)
             let endTestSemaphore = DispatchSemaphore(value: 0)

@@ -27,7 +27,7 @@
 import CrashTriggers
 import Foundation
 
-public struct CrashTriggerConfig: Codable {
+public struct CrashTriggerConfig: Codable, Sendable {
     public var triggerId: CrashTriggerId
 
     public init(triggerId: CrashTriggerId) {

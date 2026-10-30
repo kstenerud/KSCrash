@@ -410,7 +410,7 @@ import XCTest
             let done = DispatchSemaphore(value: 0)
             nonisolated(unsafe) var machThread: mach_port_t = 0
 
-            func deepBlock(_ depth: Int) {
+            @Sendable func deepBlock(_ depth: Int) {
                 if depth > 0 {
                     deepBlock(depth - 1)
                 } else {
