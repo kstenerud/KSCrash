@@ -1,6 +1,6 @@
 // swift-tools-version:6.2
 
-@preconcurrency import PackageDescription
+import PackageDescription
 
 let metricKitSwiftSettings: [SwiftSetting] = [
     .define("KSCRASH_HAS_METRICKIT", .when(platforms: [.iOS, .macOS, .visionOS]))

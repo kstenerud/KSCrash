@@ -26,8 +26,11 @@
 
 extension String {
     /// The text a C function wrote into `buffer`, up to its first NUL. Never reads past the
-    /// buffer, so a missing terminator yields the whole buffer. Invalid UTF-8 is repaired.
-    public init(nulTerminated buffer: [CChar]) {
+    /// buffer, so a missing terminator yields the whole buffer. Invalid UTF-8 is repaired to
+    /// U+FFFD rather than refused: every caller reads a path or id this library's C code just
+    /// built, where a repaired string beats none. A caller that must refuse malformed text wants
+    /// `String(validatingCString:)`, which returns nil for it.
+    package init(nulTerminated buffer: [CChar]) {
         self.init(decoding: buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
     }
 }
