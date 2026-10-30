@@ -30,44 +30,14 @@
 #import "KSCrashMonitor_Watchdog.h"
 #import "KSCrashReportFields.h"
 #import "KSCrashRunContext.h"
-#import "KSFileUtils.h"
 
 #import <Foundation/Foundation.h>
-#include <errno.h>
-#include <fcntl.h>
 
 #import "KSLogger.h"
 
 // Returns a +1 CFDictionaryRef per the CF Create Rule, as specified by the
 // createStitchedReport contract in KSCrashMonitorAPI.h. The early-return for
 // non-run scopes retains the input to satisfy this ownership requirement.
-/** Read the hang sidecar, saying whether reading again could go better.
- *  Cannot use ksfu_mmap, which truncates with O_TRUNC.
- */
-static KSCrashSidecarReadResult readHangSidecar(const char *path, KSHangSidecar *out)
-{
-    int fd = open(path, O_RDONLY);
-    if (fd == -1) {
-        // Before logging: the logger's own writes can replace errno.
-        int openError = errno;
-        KSLOG_ERROR(@"Failed to open sidecar at %s: %s", path, strerror(openError));
-        return openError == ENOENT ? KSCrashSidecarReadUnrecoverable : KSCrashSidecarReadFailure;
-    }
-    bool didRead = ksfu_readBytesFromFD(fd, (char *)out, (int)sizeof(*out));
-    close(fd);
-    if (!didRead) {
-        // Short of a whole sidecar: the run died part way through writing it,
-        // and the bytes that are missing are not coming.
-        KSLOG_ERROR(@"Failed to read sidecar at %s", path);
-        return KSCrashSidecarReadUnrecoverable;
-    }
-    if (out->magic != KSHANG_SIDECAR_MAGIC || out->version == 0 || out->version > KSHANG_SIDECAR_CURRENT_VERSION) {
-        KSLOG_ERROR(@"Invalid sidecar at %s (magic=0x%x version=%d)", path, out->magic, out->version);
-        return KSCrashSidecarReadUnrecoverable;
-    }
-    return KSCrashSidecarReadOK;
-}
-
 CFDictionaryRef kscm_watchdog_createStitchedReport(CFDictionaryRef reportDict, const char *sidecarPath,
                                                    KSCrashSidecarScope scope, __unused void *context)
 {
@@ -83,8 +53,8 @@ CFDictionaryRef kscm_watchdog_createStitchedReport(CFDictionaryRef reportDict, c
         return NULL;
     }
 
-    KSHangSidecar sc = {};
-    KSCrashSidecarReadResult readResult = readHangSidecar(sidecarPath, &sc);
+    KSCrash_HangData sc = {};
+    KSCrashSidecarReadResult readResult = kssidecar_readHang(sidecarPath, &sc);
     if (readResult == KSCrashSidecarReadFailure) {
         return NULL;
     }
