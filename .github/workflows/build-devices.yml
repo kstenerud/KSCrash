@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "Sources/**"
+      - "Tests/**"
       - "Package.swift"
       - ".github/workflows/build-devices.yml"
 
@@ -68,3 +69,6 @@ jobs:
 
       - name: Build At TRACE Log Level
         run: swift build --build-tests -Xcc -DKSLogger_Level=50
+
+      - name: Build At TRACE Log Level (x86_64)
+        run: swift build --build-tests --arch x86_64 -Xcc -DKSLogger_Level=50
