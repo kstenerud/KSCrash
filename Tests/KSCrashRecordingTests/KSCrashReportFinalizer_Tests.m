@@ -525,4 +525,59 @@ static CFDictionaryRef noopStitchReport(CFDictionaryRef reportDict, __unused con
     XCTAssertEqualObjects(report[@"report"][@"finalized"], @YES);
 }
 
+#pragma mark - Read Stitch Failure
+
+- (void)testReadKeepsAReportWhoseStitchFailsUntilTheStitchSucceeds
+{
+    [self prepareStore:@"testReadStitchFailure"];
+    kscma_initAPI(&_failingMonitorAPI);
+    _failingMonitorAPI.monitorId = failingMonitorId;
+    _failingMonitorAPI.createStitchedReport = failingStitchReport;
+    kscm_addMonitor(&_failingMonitorAPI);
+
+    NSString *reportID = [self writeReportWithRunId:[[NSUUID UUID] UUIDString]];
+    [self writeReportSidecar:@"FailingTestMonitor" reportID:reportID contents:@"data"];
+    NSString *path = [self reportPathForID:reportID];
+    NSData *before = [NSData dataWithContentsOfFile:path];
+
+    // The stitch fails for a reason a later read can get past: the report is not
+    // handed out, and the file is left exactly as it was.
+    KSCrashReportReadStatus status = KSCrashReportReadStatusOK;
+    char *raw = kscrs_readReport(reportID.UTF8String, &_storeConfig, &status);
+    XCTAssertTrue(raw == NULL);
+    free(raw);
+    XCTAssertEqual(status, KSCrashReportReadStatusStitchFailed);
+    XCTAssertEqualObjects([NSData dataWithContentsOfFile:path], before);
+
+    // Once the stitch succeeds, the same report reads.
+    kscm_removeMonitor(&_failingMonitorAPI);
+    kscma_initAPI(&_noopMonitorAPI);
+    _noopMonitorAPI.monitorId = failingMonitorId;
+    _noopMonitorAPI.createStitchedReport = noopStitchReport;
+    kscm_addMonitor(&_noopMonitorAPI);
+    status = KSCrashReportReadStatusStitchFailed;
+    raw = kscrs_readReport(reportID.UTF8String, &_storeConfig, &status);
+    XCTAssertTrue(raw != NULL);
+    free(raw);
+    XCTAssertEqual(status, KSCrashReportReadStatusOK);
+}
+
+- (void)testReadDeliversWhenAMonitorReturnsNullInTheFinalPass
+{
+    // With no sidecar of its own, the failing monitor is reached only by the
+    // final pass, where NULL is nothing to add: the report reads.
+    [self prepareStore:@"testReadFinalPassNull"];
+    kscma_initAPI(&_failingMonitorAPI);
+    _failingMonitorAPI.monitorId = failingMonitorId;
+    _failingMonitorAPI.createStitchedReport = failingStitchReport;
+    kscm_addMonitor(&_failingMonitorAPI);
+
+    NSString *reportID = [self writeReportWithRunId:[[NSUUID UUID] UUIDString]];
+    KSCrashReportReadStatus status = KSCrashReportReadStatusStitchFailed;
+    char *raw = kscrs_readReport(reportID.UTF8String, &_storeConfig, &status);
+    XCTAssertTrue(raw != NULL);
+    free(raw);
+    XCTAssertEqual(status, KSCrashReportReadStatusOK);
+}
+
 @end
