@@ -139,6 +139,60 @@ static const char *cpp_demangleSymbol(const char *mangledSymbol)
     return demangled != nullptr && status == 0 ? demangled : mangledSymbol;
 }
 
+/** Rethrows the active exception to describe it. Returns `buffer`, or NULL if the exception has no description.
+ *
+ * A rethrow unwinds, and so it may take dyld locks: never call it while other threads are suspended.
+ */
+static const char *cpp_discoverDescription(std::type_info *tinfo, char *buffer, size_t bufferLength)
+{
+    const char *description = buffer;
+
+    KSLOG_DEBUG("Discovering what kind of exception was thrown.");
+    g_captureNextStackTrace = false;
+
+    // Rethrow only when an exception is active; throw; with no active
+    // exception would recurse into std::terminate().
+    if (tinfo != nullptr) {
+        // We need to be very explicit about what type is thrown or it'll drop through.
+        try {
+            throw;
+        } catch (std::exception *exc) {
+            snprintf(buffer, bufferLength, "%s", exc->what());
+        } catch (std::exception &exc) {
+            snprintf(buffer, bufferLength, "%s", exc.what());
+        } catch (std::string *exc) {
+            snprintf(buffer, bufferLength, "%s", exc->c_str());
+        } catch (std::string &exc) {
+            snprintf(buffer, bufferLength, "%s", exc.c_str());
+        }
+#define CATCH_VALUE(TYPE, PRINTFTYPE) \
+    catch (TYPE value) { snprintf(buffer, bufferLength, "%" #PRINTFTYPE, value); }
+        CATCH_VALUE(char, d)
+        CATCH_VALUE(short, d)
+        CATCH_VALUE(int, d)
+        CATCH_VALUE(long, ld)
+        CATCH_VALUE(long long, lld)
+        CATCH_VALUE(unsigned char, u)
+        CATCH_VALUE(unsigned short, u)
+        CATCH_VALUE(unsigned int, u)
+        CATCH_VALUE(unsigned long, lu)
+        CATCH_VALUE(unsigned long long, llu)
+        CATCH_VALUE(float, f)
+        CATCH_VALUE(double, f)
+        CATCH_VALUE(long double, Lf)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wexceptions"
+        CATCH_VALUE(char *, s)
+        CATCH_VALUE(const char *, s)
+#pragma clang diagnostic pop
+        catch (...) { description = NULL; }
+    } else {
+        description = NULL;
+    }
+    g_captureNextStackTrace = isEnabled(NULL);
+    return description;
+}
+
 static void CPPExceptionTerminate(void)
 {
     KSLOG_DEBUG("Trapped c++ exception");
@@ -155,6 +209,17 @@ static void CPPExceptionTerminate(void)
     if (isEnabled(NULL)) {
         const char *name = tinfo != nullptr ? cpp_demangleSymbol(tinfo->name()) : NULL;
         thread_t thisThread = (thread_t)ksthread_self();
+
+        // Must run before notify() suspends the other threads. The rethrow unwinds, and the unwinder's
+        // unwind-section lookup (_dyld_find_unwind_sections) can take the dyld loaders lock: dyld only
+        // answers lock-free for addresses it finds in the shared cache or in a permanent image, and
+        // falls back to the locked image list otherwise (always on the simulator, where the shared-cache
+        // shortcut is compiled out). A suspended thread that holds that lock never releases it, so
+        // rethrowing after suspension can block the crash handler forever and no report is written.
+        // https://github.com/apple-oss-distributions/dyld/blob/fd8d0c4d52320ebf64db34f3cb280310d905c5ae/dyld/DyldAPIs.cpp#L902-L1026
+        char descriptionBuff[DESCRIPTION_BUFFER_LENGTH] = { 0 };
+        const char *description = cpp_discoverDescription(tinfo, descriptionBuff, sizeof(descriptionBuff));
+
         // This requires async-safety because the environment is suspended.
         KSCrash_MonitorContext *crashContext = g_state.callbacks.notify(
             thisThread, (KSCrash_ExceptionHandlingRequirements) { .shouldRecordAllThreads = true,
@@ -165,53 +230,6 @@ static void CPPExceptionTerminate(void)
         if (crashContext->requirements.shouldExitImmediately) {
             goto skip_handling;
         }
-
-        char descriptionBuff[DESCRIPTION_BUFFER_LENGTH] = { 0 };
-        const char *description = descriptionBuff;
-
-        KSLOG_DEBUG("Discovering what kind of exception was thrown.");
-        g_captureNextStackTrace = false;
-
-        // Rethrow only when an exception is active; throw; with no active
-        // exception would recurse into std::terminate().
-        if (tinfo != nullptr) {
-            // We need to be very explicit about what type is thrown or it'll drop through.
-            try {
-                throw;
-            } catch (std::exception *exc) {
-                snprintf(descriptionBuff, sizeof(descriptionBuff), "%s", exc->what());
-            } catch (std::exception &exc) {
-                snprintf(descriptionBuff, sizeof(descriptionBuff), "%s", exc.what());
-            } catch (std::string *exc) {
-                snprintf(descriptionBuff, sizeof(descriptionBuff), "%s", exc->c_str());
-            } catch (std::string &exc) {
-                snprintf(descriptionBuff, sizeof(descriptionBuff), "%s", exc.c_str());
-            }
-#define CATCH_VALUE(TYPE, PRINTFTYPE) \
-    catch (TYPE value) { snprintf(descriptionBuff, sizeof(descriptionBuff), "%" #PRINTFTYPE, value); }
-            CATCH_VALUE(char, d)
-            CATCH_VALUE(short, d)
-            CATCH_VALUE(int, d)
-            CATCH_VALUE(long, ld)
-            CATCH_VALUE(long long, lld)
-            CATCH_VALUE(unsigned char, u)
-            CATCH_VALUE(unsigned short, u)
-            CATCH_VALUE(unsigned int, u)
-            CATCH_VALUE(unsigned long, lu)
-            CATCH_VALUE(unsigned long long, llu)
-            CATCH_VALUE(float, f)
-            CATCH_VALUE(double, f)
-            CATCH_VALUE(long double, Lf)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wexceptions"
-            CATCH_VALUE(char *, s)
-            CATCH_VALUE(const char *, s)
-#pragma clang diagnostic pop
-            catch (...) { description = NULL; }
-        } else {
-            description = NULL;
-        }
-        g_captureNextStackTrace = isEnabled(NULL);
 
         if (tinfo == nullptr) {
             // No active exception — init fresh to avoid reusing a stale throw-site cursor
