@@ -48,9 +48,9 @@ struct SendKind<Payload: SendPayload, Item: Sendable>: Sendable {
 
     let remove: @Sendable (Store, Item) throws -> Void
 
-    /// Whether this send pulls reports from a crash extension's store, so run
-    /// data nothing references yet may still be waited for. Defaults to false.
-    var retainsUnreferencedRuns: Bool = false
+    /// Brings items from outside the store into it before the listing, so the
+    /// same send delivers them. Does nothing by default.
+    var takeIn: @Sendable (Store) async -> Void = { _ in }
 }
 
 /// The send loop shared by every payload kind: the pending items, newest
@@ -93,6 +93,12 @@ enum SendDriver {
             store.pruneRunSummaries(keepingNewest: store.maxRunCount)
         }
 
+        // A selective send touches only the items it names, which are already
+        // in the store, and never prunes; taking reports in ends in a prune, so
+        // it belongs to the bulk send alone.
+        if selection == nil {
+            await kind.takeIn(store)
+        }
         var items = try kind.list(store)
         if let selection {
             // Unselected items are not this send's: untouched on disk and
@@ -103,7 +109,7 @@ enum SendDriver {
         // However the send ends past this point (exhausted, cancelled, or a
         // crash of a stage's task), sweep once: the reclaim is reference-aware
         // and idempotent, so it is safe on every exit path.
-        defer { store.reclaimOrphans(retainingUnreferencedRuns: kind.retainsUnreferencedRuns) }
+        defer { store.reclaimOrphans() }
 
         var results: [SendResult<Payload>.Item] = []
         for item in items {

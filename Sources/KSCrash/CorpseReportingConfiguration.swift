@@ -30,7 +30,7 @@ import Foundation
 /// reports out of it.
 ///
 /// The extension passes a value to `installForCorpseReporting(with:)`; the app lists
-/// the same value in `SendConfiguration.corpseAreas`. Both sides derive the on-disk
+/// the same value in `SendConfiguration.reportSources`. Both sides derive the on-disk
 /// layout from it identically, so they cannot disagree about where reports live.
 public struct CorpseReportingConfiguration: Sendable, Equatable {
 
@@ -58,30 +58,99 @@ extension CorpseReportingConfiguration {
         get throws { try container.processRoot(for: namespace) }
     }
 
-    /// Every extension store's Reports directory in the area other than `excluded` (the
-    /// caller's own): one per bundle-id subdirectory. An area that does not exist yet
-    /// contributes nothing.
+    /// The Reports directory of every store in the area that hands its reports over, other
+    /// than this process's own: one per bundle-id subdirectory.
     ///
     /// A store is a source only when it says so, in the manifest its own install wrote. A
     /// corpse-reporting store publishes each report whole and keeps nothing beside it, so
     /// another process may take one. A normal install sharing the container (a widget, say)
     /// writes reports in place and keeps their sidecars and run data in its own store, so
-    /// moving its files would tear a write and strand the rest.
-    package func reportsDirectories(excluding excluded: URL?) throws -> [URL] {
+    /// taking its files would tear a write and strand the rest. An area that does not exist
+    /// yet has none.
+    func drainableReportsDirectories() throws -> [URL] {
         let root = try namespaceRoot
-        guard let entries = try? FileManager.default.contentsOfDirectory(atPath: root.path) else { return [] }
+        let own = try processRoot.standardizedFileURL.path
+        let entries: [String]
+        do {
+            entries = try FileManager.default.contentsOfDirectory(atPath: root.path)
+        } catch  where Store.isNoSuchFile(error) {
+            // Nothing has installed into the area yet.
+            return []
+        }
         return entries.sorted().compactMap { entry in
             let processRoot = root.appendingPathComponent(entry, isDirectory: true)
+            guard processRoot.standardizedFileURL.path != own,
+                StoreManifest.read(atProcessRoot: processRoot)?.isDrainable == true
+            else { return nil }
             let reports = processRoot.appendingPathComponent(KSCRS_DEFAULT_REPORTS_FOLDER, isDirectory: true)
-            if let excluded, reports.standardizedFileURL.path == excluded.standardizedFileURL.path {
-                return nil
-            }
-            guard StoreManifest.read(atProcessRoot: processRoot)?.isDrainable == true else { return nil }
             var isDirectory: ObjCBool = false
             guard FileManager.default.fileExists(atPath: reports.path, isDirectory: &isDirectory),
                 isDirectory.boolValue
             else { return nil }
             return reports
+        }
+    }
+}
+
+extension CorpseReportingConfiguration: ReportSource {
+    public func makeReader() -> Reader {
+        Reader(area: self)
+    }
+
+    /// One pass over the reports waiting in the area, one report file at a time.
+    public struct Reader: ReportReader {
+        private let area: CorpseReportingConfiguration
+        private var directories: [URL]?
+        /// The report names in the directory being taken, read before any of
+        /// them is handed out.
+        private var names: [String] = []
+        private var directory: URL?
+
+        init(area: CorpseReportingConfiguration) {
+            self.area = area
+        }
+
+        public mutating func next() async throws -> IncomingReport? {
+            if directories == nil {
+                // Throws when the area does not resolve (an app group this
+                // process is not entitled to), which ends the pass.
+                directories = try area.drainableReportsDirectories()
+            }
+            while true {
+                // Order does not matter: the store keeps the newest reports
+                // whatever order they arrive in.
+                while let directory, let name = names.popLast() {
+                    guard let id = Store.ReportFilename.reportID(in: name),
+                        let ns = Store.ReportFilename.timestampNs(in: name)
+                    else { continue }
+                    let url = directory.appendingPathComponent(name)
+                    return IncomingReport(
+                        content: .file(url), id: id,
+                        timestamp: Date(timeIntervalSince1970: Double(ns) / 1_000_000_000))
+                }
+                guard let next = directories?.first else { return nil }
+                directories?.removeFirst()
+                // Every name is read before any report leaves the directory:
+                // the store moves reports out of it, and removing entries while
+                // a directory is being read is unspecified and can skip some.
+                // Names only, never the reports, so a backlog costs little.
+                do {
+                    names = try FileManager.default.contentsOfDirectory(atPath: next.path)
+                    directory = next
+                } catch {
+                    // Its reports stay where they are for a later send.
+                    Store.log("Could not list a crash extension's reports", next, error)
+                    names = []
+                    directory = nil
+                }
+            }
+        }
+
+        public mutating func finish(_ report: IncomingReport, as disposition: IncomingReport.Disposition) async {
+            // A moved report is already gone. One the store copied, or already
+            // held, is still here and is now redundant.
+            guard disposition == .taken, case .file(let url) = report.content else { return }
+            Store.remove(url, reason: "a report the store already holds")
         }
     }
 }
