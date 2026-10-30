@@ -133,6 +133,9 @@
     const size_t totalSize = readableSize + pageSize;
     uint8_t *region = mmap(NULL, totalSize, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
     XCTAssertNotEqual(region, MAP_FAILED);
+    if (region == MAP_FAILED) {
+        return;
+    }
     XCTAssertEqual(mprotect(region + readableSize, pageSize, PROT_NONE), 0);
 
     XCTAssertTrue(ksmem_isMemoryReadable(region, (int)readableSize));
