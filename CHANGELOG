@@ -1,3 +1,25 @@
+2.6.1:
+
+New Features:
+
+- ksmc_isReservedThread reports whether a thread belongs to KSCrash, so code that suspends or unwinds threads can skip KSCrash's own.
+- ksjson_checkJSONElement and ksjson_checkJSONFile report whether a JSON payload can be embedded in a report before anything is written.
+
+Bug Fixes:
+
+- The __cxa_throw swapper restores the page protection it found after rewriting a binding instead of leaving the page read-only, which crashed the app in map_images_nolock when a framework such as Metal loaded later (seen in the iOS 26.5 simulator).
+- The __cxa_throw swapper skips images in the dyld shared cache, whose bindings it can no longer rewrite safely on iOS 26.5; doing so crashed the app in map_images on devices when a later dlopen loaded a framework such as VideoToolbox or Metal. Uncaught C++ exceptions thrown from system frameworks are still reported through the terminate handler.
+- enableQueueNameSearch takes effect; the thread cache reset it during initialization, so queue names were never recorded.
+- Reading a thread's queue name no longer crashes when the thread exits mid-read.
+- ksmem_maxReadableBytes no longer reports more readable bytes than it was asked about, which let a crash info message run past its length limit.
+- Turning file logging off no longer leaves KSLogger holding a closed file descriptor, which the next file the app opened would inherit and receive log output into.
+- The JSON encoder escapes control characters in strings instead of refusing the string.
+- The Objective-C JSON decoder returns an error for invalid UTF-8 instead of throwing or dropping the value.
+- KSFileUtils.h, KSJSONCodec.h and KSMemory.h compile when included from C++.
+- Embedded JSON that cannot be written is rejected before any of it is written, so a report no longer ends up with a truncated element followed by an error element under the same key.
+- Report IDs are seeded from wall-clock nanoseconds instead of seconds, so short-lived processes sharing a report store no longer mint the same ID and overwrite each other's reports.
+
+
 2.6.0:
 
 New Features:

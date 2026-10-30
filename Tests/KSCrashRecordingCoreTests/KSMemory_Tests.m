@@ -25,6 +25,8 @@
 //
 
 #import <XCTest/XCTest.h>
+#import <sys/mman.h>
+#import <unistd.h>
 
 #import "KSMemory.h"
 #import "TestThread.h"
@@ -99,6 +101,26 @@
 
     int copied = ksmem_copyMaxPossible(src, buff, 1000);
     XCTAssertTrue(copied == 0, @"");
+}
+
+- (void)testMaxReadableBytesNeverExceedsTheRequest
+{
+    char buff[256] = { 0 };
+    XCTAssertEqual(ksmem_maxReadableBytes(buff, (int)sizeof(buff)), (int)sizeof(buff));
+}
+
+- (void)testMaxReadableBytesStopsAtAnUnreadablePage
+{
+    // Far more than the probe's 10 KB scratch buffer, so the chunked walk stops early with
+    // more left to answer for than that buffer holds.
+    const size_t pageSize = (size_t)getpagesize();
+    uint8_t *pages = mmap(NULL, 4 * pageSize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+    XCTAssertNotEqual(pages, MAP_FAILED);
+    XCTAssertEqual(mprotect(pages + pageSize, pageSize, PROT_NONE), 0);
+
+    XCTAssertEqual(ksmem_maxReadableBytes(pages, (int)(4 * pageSize)), (int)pageSize);
+
+    munmap(pages, 4 * pageSize);
 }
 
 @end

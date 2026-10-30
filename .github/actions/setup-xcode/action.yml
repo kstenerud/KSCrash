@@ -14,11 +14,13 @@ runs:
   steps:
     - name: Select Xcode
       shell: bash
+      env:
+        XCODE_VERSION: ${{ inputs.xcode-version }}
       run: |
-        if [ "${{ inputs.xcode-version }}" = "latest-stable" ]; then
+        if [ "$XCODE_VERSION" = "latest-stable" ]; then
           XCODE_PATH=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
         else
-          XCODE_PATH="/Applications/Xcode_${{ inputs.xcode-version }}.app"
+          XCODE_PATH="/Applications/Xcode_${XCODE_VERSION}.app"
         fi
         if [ ! -d "$XCODE_PATH" ]; then
           echo "::error::Xcode not found at $XCODE_PATH"

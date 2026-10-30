@@ -35,7 +35,7 @@ For upgrades from 1.x, see the
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/kstenerud/KSCrash.git", .upToNextMajor(from: "2.6.0"))
+    .package(url: "https://github.com/kstenerud/KSCrash.git", .upToNextMajor(from: "2.6.1"))
 ]
 ```
 

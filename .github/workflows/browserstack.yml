@@ -166,13 +166,14 @@ jobs:
     steps:
       - name: Set Artifact Name
         id: artifact_name
+        env:
+          REF: ${{ inputs.ref || github.sha }}
         run: |
           # Include ref to differentiate PR vs base branch artifacts within the same workflow run
-          REF="${{ inputs.ref || github.sha }}"
           SHORT_REF="${REF:0:8}"
           # Sanitize: artifact names cannot contain " : < > | * ? \ / CR LF % #
           SHORT_REF=$(echo "$SHORT_REF" | tr '/:\"<>|*?\\%#' '-')
-          echo "name=browserstack-results-${{ github.run_id }}-${{ github.run_attempt }}-${SHORT_REF}" >> $GITHUB_OUTPUT
+          echo "name=browserstack-results-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${SHORT_REF}" >> $GITHUB_OUTPUT
 
       - name: Execute Tests on BrowserStack
         id: execute_tests
@@ -190,7 +191,7 @@ jobs:
               \"app\": \"$APP_URL\",
               \"testSuite\": \"$TEST_SUITE_URL\",
               \"project\": \"KSCrash Benchmarks\",
-              \"buildName\": \"Benchmarks - ${{ github.sha }}\",
+              \"buildName\": \"Benchmarks - $GITHUB_SHA\",
               \"networkLogs\": false,
               \"deviceLogs\": true,
               \"video\": false,

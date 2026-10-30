@@ -22,7 +22,7 @@ concurrency:
 jobs:
   lint:
     runs-on: macos-15
-    timeout-minutes: 15
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -63,18 +63,24 @@ jobs:
 
       - name: Ensure the Platform is Downloaded
         if: ${{ matrix.platform != 'macOS' }}
+        env:
+          PLATFORM: ${{ matrix.platform }}
         run: |
           xcodebuild -runFirstLaunch
           xcrun simctl list
-          xcodebuild -downloadPlatform ${{ matrix.platform }}
+          xcodebuild -downloadPlatform "$PLATFORM"
           xcodebuild -runFirstLaunch
 
       - name: Lint Podspec
         id: lint
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          CONFIG: ${{ matrix.config }}
         run: |
           validation_dir=$(mktemp -d)
           echo "validation_dir=${validation_dir}" >> $GITHUB_OUTPUT
-          pod lib lint --verbose --platforms=${{ matrix.platform }} ${{ matrix.config }} --no-clean --validation-dir="${validation_dir}"
+          read -r -a config_args <<< "$CONFIG"
+          pod lib lint --verbose --platforms="$PLATFORM" "${config_args[@]}" --no-clean --validation-dir="${validation_dir}"
         shell: bash
 
       - name: Upload Workspace Artifact

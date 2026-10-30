@@ -31,7 +31,7 @@
 
 #include "KSLogger.h"
 
-static inline int copySafely(const void *restrict const src, void *restrict const dst, const int byteCount)
+static inline int copySafely(const void *__restrict const src, void *__restrict const dst, const int byteCount)
 {
     vm_size_t bytesCopied = 0;
     kern_return_t result =
@@ -42,7 +42,7 @@ static inline int copySafely(const void *restrict const src, void *restrict cons
     return (int)bytesCopied;
 }
 
-static inline int copyMaxPossible(const void *restrict const src, void *restrict const dst, const int byteCount)
+static inline int copyMaxPossible(const void *__restrict const src, void *__restrict const dst, const int byteCount)
 {
     if (copySafely(src, dst, 1) != 1) {
         return 0;
@@ -111,7 +111,10 @@ int ksmem_maxReadableBytes(const void *const memory, const int tryByteCount)
         currentPosition += testBufferSize;
         bytesRemaining -= testBufferSize;
     }
-    bytesRemaining -= copyMaxPossible(currentPosition, g_memoryTestBuffer, testBufferSize);
+    // Only what is left to answer for, so the result never exceeds tryByteCount, and never more
+    // than the scratch buffer holds: a loop that stopped early leaves more than that remaining.
+    const int probeSize = bytesRemaining < testBufferSize ? bytesRemaining : testBufferSize;
+    bytesRemaining -= copyMaxPossible(currentPosition, g_memoryTestBuffer, probeSize);
     return tryByteCount - bytesRemaining;
 }
 
@@ -120,12 +123,12 @@ bool ksmem_isMemoryReadable(const void *const memory, const int byteCount)
     return isMemoryReadable(memory, byteCount);
 }
 
-int ksmem_copyMaxPossible(const void *restrict const src, void *restrict const dst, const int byteCount)
+int ksmem_copyMaxPossible(const void *__restrict const src, void *__restrict const dst, const int byteCount)
 {
     return copyMaxPossible(src, dst, byteCount);
 }
 
-bool ksmem_copySafely(const void *restrict const src, void *restrict const dst, const int byteCount)
+bool ksmem_copySafely(const void *__restrict const src, void *__restrict const dst, const int byteCount)
 {
     return copySafely(src, dst, byteCount);
 }
