@@ -38,15 +38,19 @@ jobs:
           - platform: iOS
             xcode-version: "latest-stable"
             macos-version: "15"
+          # The Xcode 16.2 entries test on whatever simulator runtime the
+          # "Ensure the Platform is Downloaded" step fetches for that Xcode,
+          # since macos-15 preinstalls none of them: iOS 18.3.1, watchOS 11.2,
+          # tvOS 18.2. A platform-version that does not match finds no device.
           - platform: iOS
-            platform-version: ~18.2
+            platform-version: ~18.3
             macos-version: "15"
             xcode-version: "16.2"
 
           - platform: watchOS
             macos-version: "15"
           - platform: watchOS
-            platform-version: ~11.1
+            platform-version: ~11.2
             macos-version: "15"
             xcode-version: "16.2"
 
