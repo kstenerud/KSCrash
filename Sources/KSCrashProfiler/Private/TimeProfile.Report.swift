@@ -25,12 +25,9 @@
 //
 
 import Foundation
-
-#if SWIFT_PACKAGE
-    import KSCrashRecording
-    import KSCrashRecordingCore
-    import KSCrashSwiftCore
-#endif
+import KSCrashRecording
+import KSCrashRecordingCore
+import KSCrashSwiftCore
 
 // MARK: - Time Profile Report Writing
 

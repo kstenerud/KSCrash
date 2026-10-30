@@ -25,14 +25,11 @@
 //
 
 import Foundation
+import KSCrashRecording
 import os.log
 
 #if KSCRASH_HAS_METRICKIT
     import MetricKit
-#endif
-
-#if SWIFT_PACKAGE
-    import KSCrashRecording
 #endif
 
 // MARK: - MetricKit JSON Dumper

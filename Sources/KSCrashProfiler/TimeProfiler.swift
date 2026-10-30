@@ -25,12 +25,9 @@
 //
 
 import Foundation
+import KSCrashRecordingCore
+import KSCrashSwiftCore
 import os
-
-#if SWIFT_PACKAGE
-    import KSCrashRecordingCore
-    import KSCrashSwiftCore
-#endif
 
 /// A sampling profiler that captures backtraces of a specific thread at regular intervals.
 ///

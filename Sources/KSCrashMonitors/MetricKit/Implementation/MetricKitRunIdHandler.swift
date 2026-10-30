@@ -25,11 +25,8 @@
 //
 
 import Foundation
-
-#if SWIFT_PACKAGE
-    import KSCrashRecording
-    import KSCrashReportModel
-#endif
+import KSCrashRecording
+import KSCrashReportModel
 
 /// Encodes a run ID into a parked thread's call stack using KSCrashThreadcrumb,
 /// then writes a sidecar file mapping the stack hash to the run ID.

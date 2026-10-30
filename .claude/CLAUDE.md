@@ -41,7 +41,6 @@ swift format format --in-place --configuration .swift-format <file>  # single Sw
 ## Project Structure
 
 - `Package.swift`: KSCrash framework with multiple library products
-- `KSCrash.podspec`: CocoaPods spec — must stay in sync with Package.swift
 - `Samples/`: Sample app (Tuist-based) and integration tests
 - `.mise.toml`: Tool version management (Tuist). Setup: `mise install && mise trust`
 - `Example-Reports/`: Reference crash reports
