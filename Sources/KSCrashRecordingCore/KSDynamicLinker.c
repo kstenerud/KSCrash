@@ -111,8 +111,13 @@ void ksdl_resetCache(void)
     atomic_store(&g_initialized, false);
 }
 
+// How far both readers look for a crash info string's terminator, in bytes with the terminator.
+// A string that does not end within it is dropped whole, so it sits far past any real message
+// and only stops a reader at a pointer that never meets a terminator. Real messages are long:
+// the ObjC runtime appends every warning it logs to its message and only sheds old ones past
+// 8000 bytes, and CoreFoundation's uncaught-exception message carries the app's own reason.
 #ifndef KSDL_MaxCrashInfoStringLength
-#define KSDL_MaxCrashInfoStringLength 4096
+#define KSDL_MaxCrashInfoStringLength (64 * 1024)
 #endif
 
 #pragma pack(8)
@@ -302,19 +307,31 @@ bool ksdl_dladdr(const uintptr_t address, Dl_info *const info)
     }
 }
 
+// Probes one chunk at a time and stops at the first terminator, so a short message costs one
+// small probe however large the bound is. Symbolication reaches this while the app runs, not only
+// at crash time. A chunk never crosses a 4 KiB boundary, and every page size is a multiple of
+// 4 KiB, so each chunk lies within one page: a string that ends just before an unreadable page is
+// still found.
 static bool isValidCrashInfoMessage(const char *str)
 {
     if (str == NULL) {
         return false;
     }
-    int maxReadableBytes = ksmem_maxReadableBytes(str, KSDL_MaxCrashInfoStringLength + 1);
-    if (maxReadableBytes == 0) {
-        return false;
-    }
-    for (int i = 0; i < maxReadableBytes; ++i) {
-        if (str[i] == 0) {
+    const uintptr_t chunkAlignment = 4096;
+    size_t scanned = 0;
+    while (scanned < KSDL_MaxCrashInfoStringLength) {
+        const char *chunk = str + scanned;
+        size_t chunkLength = chunkAlignment - ((uintptr_t)chunk % chunkAlignment);
+        if (chunkLength > KSDL_MaxCrashInfoStringLength - scanned) {
+            chunkLength = KSDL_MaxCrashInfoStringLength - scanned;
+        }
+        if (!ksmem_isMemoryReadable(chunk, (int)chunkLength)) {
+            return false;
+        }
+        if (memchr(chunk, 0, chunkLength) != NULL) {
             return true;
         }
+        scanned += chunkLength;
     }
     return false;
 }
@@ -371,15 +388,8 @@ static void getCrashInfo(const struct mach_header *header, KSBinaryImage *buffer
     }
 }
 
-// The task reader runs in a crash extension, never at crash time, so it is not held to the
-// in-process reader's cap. A message past that cap was dropped whole, and CoreFoundation's
-// uncaught-exception message carries the app's own reason plus the throw stack, so a long
-// reason cost the exception's name along with everything else. The bound stays only to stop
-// at a pointer that never meets a terminator.
-#define KSDL_MaxTaskCrashInfoStringLength (64 * 1024)
-
 /** Copy one __crash_info string out of @c task. The string must be non-empty and terminate within
- * KSDL_MaxTaskCrashInfoStringLength readable bytes. Returns a heap copy, or NULL.
+ * KSDL_MaxCrashInfoStringLength readable bytes. Returns a heap copy, or NULL.
  */
 static char *copyCrashInfoStringFromTask(task_t task, const char *taskAddress)
 {
@@ -389,8 +399,8 @@ static char *copyCrashInfoStringFromTask(task_t task, const char *taskAddress)
     const size_t chunkSize = 4096;
     char *buffer = NULL;
     size_t length = 0;
-    while (length < KSDL_MaxTaskCrashInfoStringLength) {
-        size_t want = KSDL_MaxTaskCrashInfoStringLength - length;
+    while (length < KSDL_MaxCrashInfoStringLength) {
+        size_t want = KSDL_MaxCrashInfoStringLength - length;
         if (want > chunkSize) {
             want = chunkSize;
         }

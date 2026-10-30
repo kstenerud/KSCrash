@@ -27,6 +27,8 @@
 #import <XCTest/XCTest.h>
 #import <mach-o/loader.h>
 #import <string.h>
+#import <sys/mman.h>
+#import <unistd.h>
 
 #import "KSBinaryImageCache.h"
 #import "KSDynamicLinker.h"
@@ -252,21 +254,77 @@ static long taskReadMessageLength(size_t length)
     return read;
 }
 
-- (void)testTaskReaderReadsAMessageFarPastTheInProcessCap
+/** Reads g_testCrashInfo's message through the in-process reader with the message swapped for
+ *  @c message, and restores the original. Returns the length read, or -1 for none.
+ */
+static long inProcessReadMessageLength(const char *message)
 {
-    // CoreFoundation's uncaught-exception message carries the app's reason, which has no limit.
-    XCTAssertEqual(taskReadMessageLength(10000), 10000);
+    Dl_info dlinfo = { 0 };
+    if (dladdr(&g_testCrashInfo, &dlinfo) == 0) {
+        return -2;
+    }
+    const char *original = g_testCrashInfo.message;
+    g_testCrashInfo.message = message;
+
+    KSBinaryImage image = { 0 };
+    bool found = ksdl_binaryImageForHeader(dlinfo.dli_fbase, dlinfo.dli_fname, &image);
+    g_testCrashInfo.message = original;
+    if (!found) {
+        return -2;
+    }
+    return image.crashInfoMessage == NULL ? -1 : (long)strlen(image.crashInfoMessage);
 }
 
-- (void)testTaskReaderKeepsAMessageThatFillsItsBoundExactly
+static long inProcessReadMessageOfLength(size_t length)
+{
+    char *message = malloc(length + 1);
+    memset(message, 'x', length);
+    message[length] = 0;
+    long read = inProcessReadMessageLength(message);
+    free(message);
+    return read;
+}
+
+- (void)testBothReadersReadAMessageFarPastTheObjCRuntimeLimit
+{
+    // The ObjC runtime's message passes 8000 bytes, and CoreFoundation's uncaught-exception
+    // message carries the app's reason, which has no limit.
+    XCTAssertEqual(taskReadMessageLength(20000), 20000);
+    XCTAssertEqual(inProcessReadMessageOfLength(20000), 20000);
+}
+
+- (void)testBothReadersKeepAMessageThatFillsTheBoundExactly
 {
     // 64 KiB including the terminator.
     XCTAssertEqual(taskReadMessageLength(64 * 1024 - 1), 64 * 1024 - 1);
+    XCTAssertEqual(inProcessReadMessageOfLength(64 * 1024 - 1), 64 * 1024 - 1);
 }
 
-- (void)testTaskReaderDropsAMessageThatNeverTerminatesWithinItsBound
+- (void)testBothReadersDropAMessageThatNeverTerminatesWithinTheBound
 {
     XCTAssertEqual(taskReadMessageLength(64 * 1024), -1);
+    XCTAssertEqual(inProcessReadMessageOfLength(64 * 1024), -1);
+}
+
+- (void)testInProcessReaderFindsAMessageEndingAtAnUnreadablePage
+{
+    // The message's terminator is the last byte before an unreadable page, so a probe that
+    // reaches past the terminator into that page would call the message unreadable.
+    const size_t pageSize = (size_t)getpagesize();
+    uint8_t *region = mmap(NULL, 2 * pageSize, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
+    XCTAssertNotEqual(region, MAP_FAILED);
+    if (region == MAP_FAILED) {
+        return;
+    }
+    XCTAssertEqual(mprotect(region + pageSize, pageSize, PROT_NONE), 0);
+
+    const size_t length = 100;
+    char *message = (char *)region + pageSize - length - 1;
+    memset(message, 'x', length);
+    message[length] = 0;
+    XCTAssertEqual(inProcessReadMessageLength(message), (long)length);
+
+    munmap(region, 2 * pageSize);
 }
 
 - (void)testBothReadersAcceptLaterCrashInfoVersions
