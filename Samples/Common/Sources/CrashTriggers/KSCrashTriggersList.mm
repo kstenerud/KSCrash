@@ -26,8 +26,10 @@
 
 #import "KSCrashTriggersList.h"
 
+#import <mach-o/dyld.h>
 #import <mach/mach.h>
 #import <signal.h>
+#import <atomic>
 #import <exception>
 #import <stdexcept>
 #import <thread>
@@ -61,6 +63,59 @@ static void trigger_cpp_backgroundThread(void)
 {
     std::thread t([]() { sample_namespace::Report::crash(); });
     t.join();
+}
+
+// Holds the dyld read lock while the C++ monitor's terminate handler runs. dyld calls an add-image callback with that
+// lock held, so a thread blocked inside the callback keeps it.
+//
+// Three gotchas (and their solutions):
+// 1. The initial throw also unwinds and, in turn, acquires that dyld lock (at least in the simulator). To only test
+//    that rethrow doesn't deadlock (and not the initial throw), we must let the other thread acquire the lock after the
+//    initial throw. For that reason the lock is taken from a terminate handler chained in front of the monitor's,
+//    running after(!) the initial throw has unwound.
+// 2. The lock inside the terminate handler can only be held for a bounded time, because otherwise the monitor would
+//    wait indefinitely. So the add-image callback sleeps for 3 seconds, allowing the monitor to continue after it
+//    returns (and releases the lock).
+// 3. Xcode's thread performance checker interposes semaphore waits and symbolicates through dladdr, which also acquires
+//    a dyld read lock. So, the terminate handler would sit out the hold before the monitor ever ran. For that reason,
+//    the handoff spins on atomics rather than waiting on a semaphore.
+static const unsigned kDyldLockHoldSeconds = 3;
+static std::atomic<bool> g_takeDyldLock;
+static std::atomic<bool> g_dyldLockHeld;
+static std::terminate_handler g_monitorTerminateHandler;
+
+static void holdDyldLock(const struct mach_header *, intptr_t)
+{
+    static bool held = false;
+    if (held) {
+        return;
+    }
+    held = true;
+    g_dyldLockHeld = true;
+    sleep(kDyldLockHoldSeconds);
+}
+
+static void terminateWhileDyldLockHeld()
+{
+    g_takeDyldLock = true;
+    while (!g_dyldLockHeld) {
+        usleep(1000);
+    }
+    g_monitorTerminateHandler();
+}
+
+static void trigger_cpp_whileDyldLockHeld(void)
+{
+    std::thread([]() {
+        while (!g_takeDyldLock) {
+            usleep(1000);
+        }
+        // Cannot be unregistered; harmless, the process is about to terminate.
+        _dyld_register_func_for_add_image(holdDyldLock);
+    }).detach();
+
+    g_monitorTerminateHandler = std::set_terminate(terminateWhileDyldLockHeld);
+    sample_namespace::Report::crash();
 }
 
 static void trigger_mach(void)
@@ -133,6 +188,11 @@ static void trigger_user_swiftAsync(void) { integrationTestSwiftAsyncTrigger(); 
 + (void)trigger_cpp_runtimeExceptionBackgroundThread
 {
     trigger_cpp_backgroundThread();
+}
+
++ (void)trigger_cpp_runtimeExceptionDyldLock
+{
+    trigger_cpp_whileDyldLockHeld();
 }
 
 + (void)trigger_cpp_objcObjectException

@@ -201,6 +201,7 @@ final class CppTests: IntegrationTestBase {
         let rawReport = try readCrashReport()
         try rawReport.validate()
         XCTAssertEqual(rawReport.crash.error.type, .cppException)
+        XCTAssertEqual(rawReport.crash.error.reason, "C++ exception")
 
         // Exception backtrace should be in last_exception_backtrace
         let exceptionBt = rawReport.crash.lastExceptionBacktrace
@@ -217,6 +218,20 @@ final class CppTests: IntegrationTestBase {
         let state = try readState()
         XCTAssertTrue(state.previousRunWasAbnormal)
         XCTAssertEqual(state.terminationReason, .crash)
+    }
+
+    func testRuntimeExceptionWhileDyldLockHeld() throws {
+        // Regression: the monitor unwinds to describe the exception, and the unwind can take the dyld read lock.
+        // Doing that after the other threads are suspended deadlocked whenever one of them held the lock: no report,
+        // and the process never exited. Only the simulator always takes the locked path, so only there is this test 
+        // guaranteed to catch the regression. On real devices, dyld usually answers lock-free, and this test
+        // could pass either way (or at least we have not yet found a stable repro on real devices).
+        try launchAndCrash(.cpp_runtimeExceptionDyldLock)
+
+        let rawReport = try readCrashReport()
+        try rawReport.validate()
+        XCTAssertEqual(rawReport.crash.error.type, .cppException)
+        XCTAssertEqual(rawReport.crash.error.reason, "C++ exception")
     }
 
     func testObjectiveCObjectExceptionFallsBackToCPPMonitor() throws {
