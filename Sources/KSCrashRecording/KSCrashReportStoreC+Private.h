@@ -105,7 +105,9 @@ void kscrs_setStitchConfig(const KSCrashReportStoreCConfiguration *configuration
  * @param path Full path to the report JSON file.
  * @param reportID The report's ID.
  *
- * @return A heap-allocated stitched JSON string, or NULL on failure. Caller must free().
+ * @return A heap-allocated stitched JSON string, or NULL on failure, including a
+ *         stitch that failed for a reason a later read can get past. Caller must
+ *         free().
  */
 char *kscrs_readReportByPathAndID(const char *path, const char *reportID);
 
