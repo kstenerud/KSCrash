@@ -1,9 +1,11 @@
 > [!NOTE]
 > **Branch layout (October 2026)**
 >
-> - [`master`](https://github.com/kstenerud/KSCrash): latest stable release, currently [`2.6.0`](https://github.com/kstenerud/KSCrash/releases/tag/2.6.0)
+> - [`master`](https://github.com/kstenerud/KSCrash): latest stable release, currently [`2.6.1`](https://github.com/kstenerud/KSCrash/releases/tag/2.6.1)
 > - [`develop`](https://github.com/kstenerud/KSCrash/tree/develop): next-release work, **target this for new PRs**
-> - [`release/2.6.1`](https://github.com/kstenerud/KSCrash/tree/release/2.6.1): bug-fix release in progress, target this for fixes to `2.6.0`
+> - [`release/2.6.2`](https://github.com/kstenerud/KSCrash/tree/release/2.6.2): target this for fixes to `2.6.1`
+>
+> **CocoaPods:** trunk is going read-only, so 2.6.1 is the last KSCrash version on CocoaPods. Later versions ship through Swift Package Manager only.
 
 ![Untitled](https://github.com/user-attachments/assets/9478bde6-78ae-4d59-b8ab-dc6db4137b9f)
 
