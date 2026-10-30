@@ -600,28 +600,41 @@ static std::vector<uintptr_t> pagesRewrittenBySwap(void)
 }
 
 /// Test that a read-only binding page stays read-only after swap and reset
+/// Whether any image outside the shared cache maps its bindings read-only
+/// differs per OS, so the test makes the pages read-only itself.
 - (void)testSwapKeepsAReadOnlyBindingPageReadOnly
 {
     XCTSkipIf(KSCRASH_HAS_SANITIZER, @"Sanitizers conflict with __cxa_throw swapper");
 
-    std::vector<uintptr_t> readOnlyPages;
-    for (uintptr_t page : pagesRewrittenBySwap()) {
+    std::vector<uintptr_t> pages = pagesRewrittenBySwap();
+    XCTAssertGreaterThan(pages.size(), 0UL, @"ksct_swap should rewrite at least one __DATA_CONST binding");
+
+    size_t pageSize = (size_t)getpagesize();
+    __block std::vector<std::pair<uintptr_t, vm_prot_t>> originalProtections;
+    for (uintptr_t page : pages) {
         vm_prot_t protection = VM_PROT_NONE;
         if (!protectionOfPage(page, &protection)) {
             XCTFail(@"vm_region failed for %p", (void *)page);
             continue;
         }
-        if ((protection & VM_PROT_WRITE) == 0) {
-            readOnlyPages.push_back(page);
-        }
+        originalProtections.emplace_back(page, protection);
     }
-    XCTAssertGreaterThan(readOnlyPages.size(), 0UL, @"Expected a read-only __DATA_CONST binding page");
+    [self addTeardownBlock:^{
+        for (const auto &pageAndProtection : originalProtections) {
+            mprotect((void *)pageAndProtection.first, pageSize, posixProtection(pageAndProtection.second));
+        }
+    }];
+    for (const auto &pageAndProtection : originalProtections) {
+        uintptr_t page = pageAndProtection.first;
+        XCTAssertEqual(mprotect((void *)page, pageSize, PROT_READ), 0, @"Precondition: could not make %p read-only: %s",
+                       (void *)page, strerror(errno));
+    }
 
     ksct_swap(testHandler);
-    [self assertPages:readOnlyPages writable:NO after:@"ksct_swap"];
+    [self assertPages:pages writable:NO after:@"ksct_swap"];
 
     ksct_swapReset();
-    [self assertPages:readOnlyPages writable:NO after:@"ksct_swapReset"];
+    [self assertPages:pages writable:NO after:@"ksct_swapReset"];
 }
 
 #pragma mark - Image Loading Tests
