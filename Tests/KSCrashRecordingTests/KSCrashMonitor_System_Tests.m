@@ -114,8 +114,8 @@ static struct KSCrashMonitorSavedState *g_savedMonitorState;
     XCTAssertTrue(ksfu_readBytesFromFD(fd, (char *)&sc, (int)sizeof(sc)));
     close(fd);
 
-    XCTAssertEqual(sc.magic, KSSYS_MAGIC);
-    XCTAssertEqual(sc.version, KSCrash_System_CurrentVersion);
+    XCTAssertEqual(sc.header.magic, KSSYS_MAGIC);
+    XCTAssertEqual(sc.header.version, KSCrash_System_CurrentVersion);
     XCTAssertTrue(sc.processName[0] != '\0', @"processName should be populated");
     XCTAssertGreaterThan(sc.memorySize, 0ULL, @"memorySize should be non-zero");
     XCTAssertTrue(sc.cpuArchitecture[0] != '\0', @"cpuArchitecture should be populated");
@@ -356,8 +356,8 @@ static struct KSCrashMonitorSavedState *g_savedMonitorState;
     // Write a sidecar with bad magic
     NSString *sidecarFile = [self.tempDir stringByAppendingPathComponent:@"System.ksscr"];
     KSCrash_SystemData sc = {};
-    sc.magic = (int32_t)0xDEADBEEF;
-    sc.version = KSCrash_System_CurrentVersion;
+    sc.header.magic = (int32_t)0xDEADBEEF;
+    sc.header.version = KSCrash_System_CurrentVersion;
     NSData *data = [NSData dataWithBytes:&sc length:sizeof(sc)];
     [data writeToFile:sidecarFile atomically:YES];
 
@@ -371,14 +371,14 @@ static struct KSCrashMonitorSavedState *g_savedMonitorState;
     XCTAssertEqualObjects(result, minimalReport);
 }
 
-- (void)testGetSystemDataForPath_v1Sidecar_toleratesShortReadAndZeroFills
+- (void)testReadSystem_v1Sidecar_zeroFillsNewFields
 {
     // A sidecar written by a v1 build ends before the appended isBeingDebugged
-    // field. The reader must tolerate the short file (not EOF-fail) and leave
-    // the new field zero-filled, rather than dropping the previous run's data.
+    // field. The reader reads it as v1 and leaves the new field zero-filled,
+    // rather than dropping the previous run's data.
     KSCrash_SystemData sc = {};
-    sc.magic = KSSYS_MAGIC;
-    sc.version = 1;  // pretend this is a v1 sidecar
+    sc.header.magic = KSSYS_MAGIC;
+    sc.header.version = 1;  // pretend this is a v1 sidecar
     strlcpy(sc.systemName, "iOS", sizeof(sc.systemName));
     sc.isBeingDebugged = 1;  // trailing byte we deliberately do NOT write
 
@@ -388,8 +388,8 @@ static struct KSCrashMonitorSavedState *g_savedMonitorState;
     XCTAssertTrue([v1 writeToFile:sidecarFile atomically:YES]);
 
     KSCrash_SystemData out = {};
-    XCTAssertTrue(kscm_system_getSystemDataForPath(sidecarFile.fileSystemRepresentation, &out));
-    XCTAssertEqual(out.version, 1);
+    XCTAssertEqual(kssidecar_readSystem(sidecarFile.fileSystemRepresentation, &out), KSCrashSidecarReadOK);
+    XCTAssertEqual(out.header.version, 1);
     XCTAssertEqualObjects(@(out.systemName), @"iOS");
     // isBeingDebugged wasn't in the v1 file → zero-filled, not the struct's garbage.
     XCTAssertEqual(out.isBeingDebugged, 0);

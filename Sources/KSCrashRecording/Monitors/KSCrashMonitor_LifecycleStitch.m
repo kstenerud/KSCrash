@@ -32,8 +32,6 @@
 
 #import <Foundation/Foundation.h>
 
-#import "KSLogger.h"
-
 CFDictionaryRef kscm_lifecycle_createStitchedReport(CFDictionaryRef reportDict, const char *sidecarPath,
                                                     KSCrashSidecarScope scope, __unused void *context)
 {
@@ -45,9 +43,16 @@ CFDictionaryRef kscm_lifecycle_createStitchedReport(CFDictionaryRef reportDict, 
         if (sidecarPath == NULL) {
             return NULL;
         }
+        // A read the environment failed is worth retrying: NULL is the retry signal,
+        // which finalization honors by leaving the report for a later read. A sidecar
+        // that is gone or corrupt never reads better, so the report goes without
+        // application_stats. session_id is the final pass's, and neither costs it.
         KSCrash_LifecycleData lc = {};
-        if (!kslifecycle_readData(sidecarPath, &lc)) {
-            KSLOG_ERROR(@"Failed to read lifecycle sidecar at %s", sidecarPath);
+        KSCrashSidecarReadResult readResult = kssidecar_readLifecycle(sidecarPath, &lc);
+        if (readResult == KSCrashSidecarReadFailure) {
+            return NULL;
+        }
+        if (readResult != KSCrashSidecarReadOK) {
             CFRetain(reportDict);
             return reportDict;
         }

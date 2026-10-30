@@ -112,8 +112,8 @@
 //
 // Sidecar files
 // -------------
-// A sidecar is a small mmap'd binary file (KSHangSidecar, 24 bytes) written
-// alongside the crash report.  It stores the latest end-timestamp and task
+// The sidecar is a small mmap'd run sidecar (KSCrash_HangData, 40 bytes), one
+// per run, re-created for each hang.  It stores the latest end-timestamp and task
 // role, and is updated in-place on each timer fire via direct memory writes
 // (the kernel flushes dirty pages to disk).  This avoids re-writing the
 // full JSON report on every update.  At next launch, the stitch logic
@@ -150,7 +150,7 @@ typedef struct KSHangMonitor {
     // timing value with no publish/consume relationship to other fields.
     _Atomic uint64_t enterTime;
 
-    KSHangSidecar *sidecar;  // mmap'd, or NULL
+    KSCrash_HangData *sidecar;  // mmap'd, or NULL
     char sidecarPath[PATH_MAX];
 
 } KSHangMonitor;
@@ -170,7 +170,7 @@ static KSCrash_ExceptionHandlerCallbacks g_callbacks = { 0 };
 
 static const char *monitorId(__unused void *context);
 
-static KSHangSidecar *sidecar_open(KSHangMonitor *monitor)
+static KSCrash_HangData *sidecar_open(KSHangMonitor *monitor)
 {
     if (!g_callbacks.getRunSidecarPath) {
         return NULL;
@@ -181,20 +181,19 @@ static KSHangSidecar *sidecar_open(KSHangMonitor *monitor)
         return NULL;
     }
 
-    KSHangSidecar *sc = (KSHangSidecar *)ksfu_mmap(monitor->sidecarPath, sizeof(KSHangSidecar));
+    KSCrash_HangData *sc = (KSCrash_HangData *)ksfu_mmap(monitor->sidecarPath, sizeof(KSCrash_HangData));
     if (!sc) {
         KSLOG_ERROR("Failed to mmap sidecar at %s", monitor->sidecarPath);
         monitor->sidecarPath[0] = '\0';
         return NULL;
     }
 
-    sc->magic = KSHANG_SIDECAR_MAGIC;
-    sc->version = KSHANG_SIDECAR_CURRENT_VERSION;
+    sc->header = (KSSidecarHeader) { .magic = KSHANG_MAGIC, .version = KSCrash_Hang_CurrentVersion };
     sc->recovered = false;
     return sc;
 }
 
-static void sidecar_update(KSHangSidecar *sc, uint64_t endTimestamp, task_role_t endRole, uint8_t endTransitionState)
+static void sidecar_update(KSCrash_HangData *sc, uint64_t endTimestamp, task_role_t endRole, uint8_t endTransitionState)
 {
     if (!sc) {
         return;
@@ -208,7 +207,7 @@ static void sidecar_finalize(KSHangMonitor *monitor, bool recovered)
 {
     if (monitor->sidecar) {
         monitor->sidecar->recovered = recovered;
-        ksfu_munmap(monitor->sidecar, sizeof(KSHangSidecar));
+        ksfu_munmap(monitor->sidecar, sizeof(KSCrash_HangData));
         monitor->sidecar = NULL;
     }
 }

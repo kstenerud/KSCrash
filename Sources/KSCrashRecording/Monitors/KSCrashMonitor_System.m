@@ -60,10 +60,8 @@
 #if KSCRASH_HAS_UIKIT
 #import <UIKit/UIKit.h>
 #endif
-#include <fcntl.h>
 #include <mach/mach.h>
 #include <stdatomic.h>
-#include <sys/stat.h>
 
 static KSCrash_SystemData *g_systemData = NULL;
 static KSSpinLock g_systemDataLock = KSSPINLOCK_INIT;
@@ -482,8 +480,7 @@ static void initialize(void)
 
     // Write magic/version last, then publish under the lock so readers
     // never see a partially-initialized struct.
-    sd->magic = KSSYS_MAGIC;
-    sd->version = KSCrash_System_CurrentVersion;
+    sd->header = (KSSidecarHeader) { .magic = KSSYS_MAGIC, .version = KSCrash_System_CurrentVersion };
 
     // Test overrides: env vars let integration tests fake sidecar values
     // so that the termination-reason logic fires on relaunch.
@@ -617,44 +614,6 @@ bool kscm_system_getSystemData(KSCrash_SystemData *dst)
     return ok;
 }
 
-bool kscm_system_getSystemDataForPath(const char *path, KSCrash_SystemData *outData)
-{
-    return kscm_system_readSystemData(path, outData) == KSCrashSidecarReadOK;
-}
-
-KSCrashSidecarReadResult kscm_system_readSystemData(const char *path, KSCrash_SystemData *outData)
-{
-    if (!path || !outData) return KSCrashSidecarReadFailure;
-
-    int fd = open(path, O_RDONLY);
-    if (fd == -1) return errno == ENOENT ? KSCrashSidecarReadUnrecoverable : KSCrashSidecarReadFailure;
-
-    KSCrash_SystemData data = { 0 };
-    // Tolerate short reads: a sidecar written by an older (version < current)
-    // build is smaller than the current struct. Read what's on disk and leave
-    // the trailing newer fields zero-filled — the version check below still
-    // gates the file, and stitch consumers gate newer fields per-version.
-    // Mirrors kslifecycle_readData(). Reading exactly sizeof(data) would
-    // EOF-fail on an older sidecar and drop the previous run's system data.
-    struct stat st;
-    if (fstat(fd, &st) != 0) {
-        close(fd);
-        return KSCrashSidecarReadFailure;
-    }
-    size_t bytesToRead = (size_t)st.st_size < sizeof(data) ? (size_t)st.st_size : sizeof(data);
-    bool readOK = (bytesToRead > 0) && ksfu_readBytesFromFD(fd, (char *)&data, (int)bytesToRead);
-    close(fd);
-
-    // An empty or short file is a write that never finished, and a wrong magic
-    // or version is a verdict about the bytes: no later read gets further.
-    if (!readOK || data.magic != KSSYS_MAGIC || data.version == 0 || data.version > KSCrash_System_CurrentVersion) {
-        return KSCrashSidecarReadUnrecoverable;
-    }
-
-    *outData = data;
-    return KSCrashSidecarReadOK;
-}
-
 bool kscm_system_getSystemDataForRunID(const char *runID, KSCrash_SystemData *outData)
 {
     if (!runID || !outData || runID[0] == '\0') return false;
@@ -665,7 +624,7 @@ bool kscm_system_getSystemDataForRunID(const char *runID, KSCrash_SystemData *ou
         return false;
     }
 
-    return kscm_system_getSystemDataForPath(sidecarPath, outData);
+    return kssidecar_readSystem(sidecarPath, outData) == KSCrashSidecarReadOK;
 }
 
 KSCrashMonitorAPI *kscm_system_getAPI(void)
