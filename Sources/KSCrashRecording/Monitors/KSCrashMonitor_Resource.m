@@ -41,15 +41,12 @@
 #import "Unwind/KSStackCursor_Unwind.h"
 
 #import <Foundation/Foundation.h>
-#import <errno.h>
-#import <fcntl.h>
 #import <mach/exception_types.h>
 
 #import <stdatomic.h>
 #import <unistd.h>
 #import "KSExcResource.h"
 
-#import <sys/stat.h>
 #import <sys/sysctl.h>
 #import <time.h>
 #import "KSSysCtl.h"
@@ -501,53 +498,13 @@ bool ksresource_getSnapshot(KSCrash_ResourceData *outData)
 
     bool ok = false;
     os_unfair_lock_lock(&g_resourceLock);
-    if (g_resource && g_resource->magic == KSRESOURCE_MAGIC && g_resource->version != 0 &&
-        g_resource->version <= KSCrash_Resource_CurrentVersion) {
+    if (g_resource && g_resource->header.magic == KSRESOURCE_MAGIC && g_resource->header.version != 0 &&
+        g_resource->header.version <= KSCrash_Resource_CurrentVersion) {
         *outData = *g_resource;
         ok = true;
     }
     os_unfair_lock_unlock(&g_resourceLock);
     return ok;
-}
-
-KSCrashSidecarReadResult ksresource_readSnapshotFromPath(const char *path, KSCrash_ResourceData *outData)
-{
-    if (!path || !outData) return KSCrashSidecarReadFailure;
-
-    int fd = open(path, O_RDONLY);
-    if (fd == -1) return errno == ENOENT ? KSCrashSidecarReadUnrecoverable : KSCrashSidecarReadFailure;
-
-    // Most files are current-version: read the full struct, or the v1 prefix
-    // for a smaller file from an older run. The file size decides which, so
-    // a v1 file never takes a doomed full-size read (whose EOF would log an
-    // error on a working path). The declared version must match the size
-    // that read, so a torn file never passes.
-    struct stat st;
-    if (fstat(fd, &st) != 0) {
-        close(fd);
-        return KSCrashSidecarReadFailure;
-    }
-    if (st.st_size < (off_t)KSCrash_Resource_V1Size) {
-        close(fd);
-        return KSCrashSidecarReadUnrecoverable;
-    }
-    memset(outData, 0, sizeof(*outData));
-    uint8_t expectedVersion = 2;
-    size_t readSize = KSCrash_Resource_V2Size;
-    if (st.st_size < (off_t)KSCrash_Resource_V2Size) {
-        expectedVersion = 1;
-        readSize = KSCrash_Resource_V1Size;
-    }
-    bool readOK = ksfu_readBytesFromFD(fd, (char *)outData, (int)readSize);
-    close(fd);
-
-    // A short read means the run died part way through writing this, and a
-    // wrong magic or version is a verdict about the bytes: neither changes on
-    // a later read.
-    if (!readOK || outData->magic != KSRESOURCE_MAGIC || outData->version != expectedVersion) {
-        return KSCrashSidecarReadUnrecoverable;
-    }
-    return KSCrashSidecarReadOK;
 }
 
 bool ksresource_getSnapshotForRunID(const char *runID, KSCrash_ResourceData *outData)
@@ -560,7 +517,7 @@ bool ksresource_getSnapshotForRunID(const char *runID, KSCrash_ResourceData *out
         return false;
     }
 
-    return ksresource_readSnapshotFromPath(sidecarPath, outData) == KSCrashSidecarReadOK;
+    return kssidecar_readResource(sidecarPath, outData) == KSCrashSidecarReadOK;
 }
 
 // ============================================================================
@@ -604,8 +561,7 @@ static void setEnabled(bool isEnabled, __unused void *context)
         uint8_t coreCount = (activecpu > 0) ? (uint8_t)(activecpu > 255 ? 255 : activecpu) : 1;
 
         resourceUpdate(^(KSCrash_ResourceData *res) {
-            res->magic = KSRESOURCE_MAGIC;
-            res->version = KSCrash_Resource_CurrentVersion;
+            res->header = (KSSidecarHeader) { .magic = KSRESOURCE_MAGIC, .version = KSCrash_Resource_CurrentVersion };
             res->cpuCoreCount = coreCount;
 
             // Defaults for platforms without battery / data protection

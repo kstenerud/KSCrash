@@ -46,108 +46,14 @@
 #include "KSCrashAppTransitionState.h"
 #include "KSCrashMonitorAPI.h"
 #include "KSCrashNamespace.h"
+#include "KSLifecycleSidecar.h"
 #include "KSSystemCapabilities.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-// ============================================================================
-#pragma mark - Sidecar Struct -
-// ============================================================================
-
-/** Kind of host process a run belongs to. Stored by value in the lifecycle
- *  sidecar and written to the run summary wire format as a string. */
-typedef enum {
-    KSCrashRunSummaryHostKindApp = 0,
-    KSCrashRunSummaryHostKindExtension,
-    KSCrashRunSummaryHostKindXCTest,
-    KSCrashRunSummaryHostKindOther,
-} KSCrashRunSummaryHostKind;
-
-#define KSLIFECYCLE_MAGIC ((int32_t)'kslc')
-
-static const uint8_t KSCrash_Lifecycle_CurrentVersion = 3;
-
 static inline double kslifecycle_nsToSeconds(uint64_t ns) { return (double)ns / 1000000000.0; }
-
-/** mmap'd struct written to a run sidecar per process.
- *  No pointers — all data is inline so it survives across launches.
- *  Fixed-width types only so the on-disk layout is stable.
- *
- *  Fields are ordered by alignment (8-byte, 4-byte, 1-byte) so there
- *  is no implicit compiler padding anywhere in the struct.
- */
-typedef struct {
-    int32_t magic;
-    uint8_t version;
-
-    uint8_t cleanExit;
-    uint8_t applicationIsActive;
-    uint8_t applicationIsInForeground;
-
-    // Durations in nanoseconds (monotonic). 8-byte aligned fields grouped together.
-    uint64_t activeDurationSinceLaunchNs;
-    uint64_t backgroundDurationSinceLaunchNs;
-    uint64_t appStateTransitionTimeNs;
-    uint64_t activeDurationSinceLastCrashNs;
-    uint64_t backgroundDurationSinceLastCrashNs;
-
-    // Reference pair captured once at sidecar creation, used to convert any
-    // CLOCK_MONOTONIC_RAW timestamp to a unix epoch value:
-    //   wallNs = wallClockAtStartNs + (monotonicNs - monotonicAtStartNs)
-    uint64_t wallClockAtStartNs;  // unix epoch nanoseconds at sidecar creation
-    uint64_t monotonicAtStartNs;  // CLOCK_MONOTONIC_RAW nanoseconds at sidecar creation
-
-    // 4-byte fields grouped together — no padding between them or before/after.
-    int32_t sessionsSinceLaunch;
-    int32_t launchesSinceLastCrash;
-    int32_t sessionsSinceLastCrash;
-    int32_t taskRole;  // task_role_t — updated by heartbeat and on lifecycle events
-
-    uint8_t crashedLastLaunch KSCRASH_DEPRECATED("Use ksruncontext_previousRunContext()->terminationReason");
-    uint8_t transitionState;    // KSCrashAppTransitionState at last update
-    uint8_t monitorHandlerRan;  // true if a crash handler ran (distinguishes crash from OS kill)
-    uint8_t userPerceptible;    // true if the user could perceive the app as part of their
-                                // experience (e.g. active, launching, or even tapping the icon
-                                // while still technically backgrounded)
-    uint8_t hangActive;         // true while the watchdog is tracking an active hang;
-                                // if still true on next launch, the app was killed during a hang
-
-    // --- v2 additions ---
-    //
-    // Added in KSCrash_Lifecycle_CurrentVersion=2. New fields must only be
-    // APPENDED (never reordered or inserted above) so that v1 sidecar files
-    // (shorter) can be read into this struct with the trailing fields left
-    // zero-filled. kslifecycle_readData tolerates short reads to enable this.
-    //
-    // Unused reserved slots. These once held per-run session and distinct-user
-    // counts that the RunSummary carried; the summary now derives everything
-    // from the per-run .sessions records, so nothing reads or writes these.
-    // Kept (not removed) so the slots can be reused for future per-run fields
-    // without shifting the layout.
-    uint32_t perceptibleSessionsSinceLaunch_UNUSED;
-    uint32_t imperceptibleSessionsSinceLaunch_UNUSED;
-    uint32_t distinctPerceptibleUserCount_UNUSED;
-    uint32_t distinctImperceptibleUserCount_UNUSED;
-
-    // --- v3 additions ---
-    //
-    // Kind of host (app / extension / xctest / other) captured at sidecar
-    // creation. Recorded per-run so the previous run's summary carries the
-    // *producer's* host kind when a different process type flushes it —
-    // important when app and extension share one KSCrash install dir.
-    // Values match `KSCrashRunSummaryHostKind` (0=app, 1=extension,
-    // 2=xctest, 3=other). v2 sidecars short-read to 0 = app.
-    uint8_t hostKind;
-
-    // Unused reserved slot. Once flagged an owed perceptible session for the
-    // retired per-run counters above; kept so it can be reused without shifting
-    // the layout.
-    uint8_t perceptibleSessionPending_UNUSED;
-} KSCrash_LifecycleData;
-
-_Static_assert(sizeof(KSCrash_LifecycleData) == 112, "KSCrash_LifecycleData size changed — bump version");
 
 // ============================================================================
 #pragma mark - Public State (computed from sidecar) -
@@ -205,11 +111,6 @@ KSCrash_AppState kscrashstate_lifecycleAppState(void);
 // ============================================================================
 #pragma mark - Monitor API -
 // ============================================================================
-
-/** Read and validate a KSCrash_LifecycleData struct from a file.
- *  Returns true if the struct was read and passed magic/version checks.
- */
-bool kslifecycle_readData(const char *path, KSCrash_LifecycleData *out);
 
 /** Read a lifecycle snapshot from a specific run's sidecar file.
  *  Returns false if the run ID has no valid sidecar or data fails validation.
