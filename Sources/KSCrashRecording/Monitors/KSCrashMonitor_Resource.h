@@ -43,116 +43,15 @@
 
 #include "KSCrashMonitorAPI.h"
 #include "KSCrashNamespace.h"
+#include "KSResourceSidecar.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-// ============================================================================
-#pragma mark - Sidecar Struct -
-// ============================================================================
-
-/** Battery charging state — mirrors UIDeviceBatteryState values. */
-typedef enum {
-    KSCrashBatteryStateUnknown = 0,
-    KSCrashBatteryStateUnplugged = 1,
-    KSCrashBatteryStateCharging = 2,
-    KSCrashBatteryStateFull = 3,
-} KSCrashBatteryState;
-
 /** Battery level at or below which an unplugged device is considered
  *  a low-battery termination candidate (percent, 0–100). */
 #define KSCRASH_BATTERY_LEVEL_CRITICAL 1
-
-#define KSRESOURCE_MAGIC ((int32_t)'ksrs')
-
-static const uint8_t KSCrash_Resource_CurrentVersion = 2;
-
-/** On-disk size of each KSCrash_ResourceData version. A file's declared
- *  version must match the size the reader picked from these constants
- *  (see ksresource_readSnapshotFromPath), so a torn or truncated file never
- *  passes validation; fields newer than the declared version read as zero. */
-#define KSCrash_Resource_V1Size ((size_t)112)
-#define KSCrash_Resource_V2Size ((size_t)136)
-
-/** Resource snapshot persisted via mmap to RunSidecars/<runID>/Resource.ksscr.
- *
- *  Natural alignment — no packed attribute, no explicit padding.
- *  All Apple targets (including legacy 32-bit) naturally align up to
- *  64-bit values, so the layout is stable across architectures.
- *  Fixed-width types only — no pointers.
- *
- *  Versioning: new fields are only ever appended at the end, so every older
- *  version's layout is a strict prefix of the current one. A version boundary
- *  comment below marks where each version's fields start.
- *
- *  Version history:
- *    1: original layout, KSCrash_Resource_V1Size bytes
- *       (through cpuWallTimeInWindowNs)
- *    2: adds system-wide memory (systemMemoryRemaining, systemMemoryLimit,
- *       memoryHeadroom), KSCrash_Resource_V2Size bytes
- */
-typedef struct {
-    int32_t magic;
-
-    uint8_t version;
-    uint8_t memoryPressure;  // KSCrashAppMemoryState
-    uint8_t memoryLevel;     // KSCrashAppMemoryState
-
-    // Memory (from KSCrashAppMemoryTracker)
-    uint64_t memoryFootprint;  // bytes used by app
-    uint64_t memoryRemaining;  // bytes until limit
-    uint64_t memoryLimit;      // footprint + remaining
-
-    // CPU (from KSCrashCPUTracker)
-    uint16_t cpuUsageUser;           // user-space permil of one core: 0–N*1000
-    uint16_t cpuUsageSystem;         // kernel-space permil of one core: 0–N*1000
-    uint16_t cpuAverageUsagePermil;  // sliding-window average permil of total capacity
-    uint8_t cpuCoreCount;            // active CPU cores (refreshed each tracker poll)
-    uint8_t cpuState;                // KSCrashCPUState: 0=normal, 1=warning, 2=critical
-
-    // Threads
-    uint16_t threadCount;  // process thread count
-
-    // Battery
-    uint8_t batteryLevel;  // 0–100, or 255 if unavailable
-    uint8_t batteryState;  // KSCrashBatteryState
-    uint8_t lowPowerMode;  // 0 or 1
-
-    // Thermal
-    uint8_t thermalState;  // 0=nominal, 1=fair, 2=serious, 3=critical
-
-    // Data Protection
-    uint8_t dataProtectionActive;  // 1 = protected data available (device unlocked)
-
-    // Last-update timestamps (monotonic uptime in nanoseconds).
-    // Used to determine which resource area changed most recently before a crash.
-    uint64_t memoryUpdatedAtNs;
-    uint64_t cpuUpdatedAtNs;
-    uint64_t batteryUpdatedAtNs;
-    uint64_t lowPowerUpdatedAtNs;
-    uint64_t thermalUpdatedAtNs;
-    uint64_t dataProtectionUpdatedAtNs;
-
-    // CPU time accumulated in the active threshold window (nanoseconds).
-    // Populated only when cpuState > Normal.
-    uint64_t cpuTimeInWindowNs;
-    uint64_t cpuWallTimeInWindowNs;
-
-    // ---- Version 2 fields start here ----
-
-    // System-wide memory (from KSCrashAppMemoryTracker)
-    uint64_t systemMemoryRemaining;  // available bytes device-wide (free + cached files)
-    uint64_t systemMemoryLimit;      // physical memory
-    uint8_t memoryHeadroom;          // KSCrashAppMemoryState
-} KSCrash_ResourceData;
-
-_Static_assert(sizeof(KSCrash_ResourceData) == KSCrash_Resource_V2Size,
-               "KSCrash_ResourceData size changed; bump version and add a size constant");
-// Guards the append-only rule: a field inserted into an earlier padding hole
-// would keep sizeof() unchanged while silently mis-parsing every older file.
-_Static_assert(offsetof(KSCrash_ResourceData, systemMemoryRemaining) == KSCrash_Resource_V1Size,
-               "v2 fields must start exactly at the v1 size boundary");
 
 // ============================================================================
 #pragma mark - Public Snapshot API -
@@ -169,15 +68,6 @@ bool ksresource_getSnapshot(KSCrash_ResourceData *outData);
  *  Returns false if the run ID has no valid sidecar or data fails validation.
  */
 bool ksresource_getSnapshotForRunID(const char *runID, KSCrash_ResourceData *outData);
-
-/** Reads a resource snapshot from a sidecar file at any supported version.
- *  Fields newer than the file's declared version read as zero.
- *
- *  Says whether reading again could go better: a caller that has to choose
- *  between delivering without this data and asking to be retried needs to
- *  tell those apart.
- */
-KSCrashSidecarReadResult ksresource_readSnapshotFromPath(const char *path, KSCrash_ResourceData *outData);
 
 // ============================================================================
 #pragma mark - Monitor API -

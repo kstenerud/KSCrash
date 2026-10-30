@@ -41,14 +41,11 @@
 
 // #define KSLogger_LocalLevel TRACE
 #import <dispatch/dispatch.h>
-#import <errno.h>
-#import <fcntl.h>
 #import <mach/mach.h>
 #import <mach/task_policy.h>
 #import <os/lock.h>
 #import <stdatomic.h>
 #import <string.h>
-#import <sys/stat.h>
 #import <time.h>
 #import <unistd.h>
 
@@ -187,39 +184,6 @@ bool kslifecycle_copyLastSessionIDForRunID(const char *runID, char *buf, size_t 
     return found;
 }
 
-bool kslifecycle_readData(const char *path, KSCrash_LifecycleData *out)
-{
-    if (!path || !out) {
-        return false;
-    }
-
-    int fd = open(path, O_RDONLY);
-    if (fd == -1) {
-        return false;
-    }
-
-    memset(out, 0, sizeof(*out));
-
-    // Tolerate short reads: older sidecars were smaller than the current
-    // struct. Fields beyond the file are left zero-filled, which is the
-    // correct default for any forward-compatible addition (see header:
-    // new fields must only be appended, never reordered).
-    struct stat st;
-    if (fstat(fd, &st) != 0) {
-        close(fd);
-        return false;
-    }
-    size_t bytesToRead = (size_t)st.st_size < sizeof(*out) ? (size_t)st.st_size : sizeof(*out);
-    bool ok = (bytesToRead > 0) && ksfu_readBytesFromFD(fd, (char *)out, (int)bytesToRead);
-    close(fd);
-
-    if (!ok || out->magic != KSLIFECYCLE_MAGIC || out->version == 0 ||
-        out->version > KSCrash_Lifecycle_CurrentVersion) {
-        return false;
-    }
-    return true;
-}
-
 bool kslifecycle_getSnapshotForRunID(const char *runID, KSCrash_LifecycleData *outData)
 {
     if (!runID || !outData || runID[0] == '\0') {
@@ -234,7 +198,7 @@ bool kslifecycle_getSnapshotForRunID(const char *runID, KSCrash_LifecycleData *o
         return false;
     }
 
-    return kslifecycle_readData(sidecarPath, outData);
+    return kssidecar_readLifecycle(sidecarPath, outData) == KSCrashSidecarReadOK;
 }
 
 // ============================================================================
@@ -441,8 +405,7 @@ static KSCrash_LifecycleData *createSidecar(void)
 
     sc->taskRole = (int32_t)kstaskrole_current();
     sc->hostKind = (uint8_t)hostKindForCurrentBundle();
-    sc->magic = KSLIFECYCLE_MAGIC;
-    sc->version = KSCrash_Lifecycle_CurrentVersion;
+    sc->header = (KSSidecarHeader) { .magic = KSLIFECYCLE_MAGIC, .version = KSCrash_Lifecycle_CurrentVersion };
     return sc;
 }
 
