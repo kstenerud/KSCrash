@@ -123,6 +123,15 @@ final class TargetApp {
         }
     }
 
+    /// The signal that ended the last launch, or nil while it runs or when it exited normally.
+    /// macOS only: a simulator app is not this process's child, so how it ended is not visible.
+    var terminatingSignal: Int32? {
+        guard TargetPlatform.current == .macOS, let process, !process.isRunning,
+            process.terminationReason == .uncaughtSignal
+        else { return nil }
+        return process.terminationStatus
+    }
+
     func launch() {
         terminate()
         do {

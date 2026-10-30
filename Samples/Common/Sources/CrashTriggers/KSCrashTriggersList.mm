@@ -165,6 +165,17 @@ static void trigger_user_swiftAsync(void) { integrationTestSwiftAsyncTrigger(); 
     std::terminate();
 }
 
++ (void)trigger_cpp_terminateInsideCatch
+{
+    // The exception is still active when terminate runs, but its throw site has already been unwound off the
+    // stack, so only the backtrace captured when it was thrown (the __cxa_throw hook) can name it.
+    try {
+        sample_namespace::Report::crash();
+    } catch (...) {
+        std::terminate();
+    }
+}
+
 + (void)trigger_mach_badAccess
 {
     volatile int *ptr = (int *)0x42;
@@ -190,6 +201,53 @@ static void trigger_user_swiftAsync(void) { integrationTestSwiftAsyncTrigger(); 
 {
     void (*funcPtr)() = (void (*)())0xDEADBEEF;
     funcPtr();  // This will cause an EXC_BAD_INSTRUCTION
+}
+
++ (void)trigger_mach_forbiddenExceptionBehavior
+{
+    // An exception port whose behavior hands the receiver thread and task ports. Under Enhanced
+    // Security's runtime platform restrictions the kernel kills the process right here (SIGKILL,
+    // EXC_GUARD), before any handler runs. Anywhere else the call succeeds and nothing crashes,
+    // and the ports it replaced are put straight back so later crashes still reach KSCrash.
+    // tvOS and watchOS prohibit task_set_exception_ports, so there it does nothing.
+#if !TARGET_OS_TV && !TARGET_OS_WATCH
+    exception_mask_t masks[EXC_TYPES_COUNT];
+    mach_port_t ports[EXC_TYPES_COUNT];
+    exception_behavior_t behaviors[EXC_TYPES_COUNT];
+    thread_state_flavor_t flavors[EXC_TYPES_COUNT];
+    mach_msg_type_number_t count = EXC_TYPES_COUNT;
+    if (task_get_exception_ports(mach_task_self(), EXC_MASK_BAD_ACCESS, masks, &count, ports, behaviors, flavors) !=
+        KERN_SUCCESS) {
+        count = 0;
+    }
+
+    mach_port_t port = MACH_PORT_NULL;
+    mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &port);
+    mach_port_insert_right(mach_task_self(), port, port, MACH_MSG_TYPE_MAKE_SEND);
+    task_set_exception_ports(mach_task_self(), EXC_MASK_BAD_ACCESS, port,
+                             (exception_behavior_t)(EXCEPTION_DEFAULT | MACH_EXCEPTION_CODES), THREAD_STATE_NONE);
+
+    task_set_exception_ports(mach_task_self(), EXC_MASK_BAD_ACCESS, MACH_PORT_NULL, EXCEPTION_DEFAULT,
+                             THREAD_STATE_NONE);
+    for (mach_msg_type_number_t i = 0; i < count; i++) {
+        task_set_exception_ports(mach_task_self(), masks[i], ports[i], behaviors[i], flavors[i]);
+    }
+    mach_port_mod_refs(mach_task_self(), port, MACH_PORT_RIGHT_RECEIVE, -1);
+#endif
+}
+
++ (void)trigger_mach_badAccessWithSignalsBlocked
+{
+    // Block every signal for the whole process, as abort() does on its way to SIGABRT (on Darwin,
+    // sigprocmask applies to every thread), then fault. The kernel turns the Mach exception into
+    // SIGSEGV once the handler declines it; while SIGSEGV is blocked that signal cannot be
+    // delivered, so unless the handler unblocks it the thread faults again forever and the app
+    // never exits.
+    sigset_t all;
+    sigfillset(&all);
+    sigprocmask(SIG_SETMASK, &all, NULL);
+    volatile int *ptr = (int *)0x42;
+    *ptr = 42;
 }
 
 + (void)trigger_signal_abort
