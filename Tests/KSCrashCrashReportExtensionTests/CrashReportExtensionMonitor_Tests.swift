@@ -54,7 +54,9 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
     /// one-per-process race this is our own root; when another suite's normal install won, the
     /// bridge is attached to that live pipeline instead (the tolerated shared-install pattern)
     /// and reports land in that install's Reports directory, a sibling of its Runs directory.
-    private static var reportsDirectory = installRoot.appendingPathComponent("Reports")
+    /// Written only inside `install`'s one-time initializer, which `setUpWithError` runs
+    /// before any test reads this.
+    nonisolated(unsafe) private static var reportsDirectory = installRoot.appendingPathComponent("Reports")
 
     /// A report a previous extension process never finished, planted before the install.
     private static let staleStagedReport = installRoot.appendingPathComponent("Reports")
@@ -538,9 +540,9 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
     func testKCDataSaverWritesBlobWhenEnabled() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let kcdataArea = CorpseReportingConfiguration(namespace: "KCDataTests", container: .url(root))
-        let previous = CorpseReporting.active
+        let previous = CorpseReporting.active.withLock { $0 }
         defer {
-            CorpseReporting.active = previous
+            CorpseReporting.active.withLock { $0 = previous }
             try? FileManager.default.removeItem(at: root)
         }
 
@@ -549,17 +551,19 @@ final class CrashReportExtensionMonitor_Tests: XCTestCase {
                 savesKCData: savesKCData,
                 kcdataDirectory: try kcdataArea.processRoot.appendingPathComponent("KCData", isDirectory: true))
         }
-        CorpseReporting.active = try active(savesKCData: false)
+        let off = try active(savesKCData: false)
+        CorpseReporting.active.withLock { $0 = off }
         XCTAssertNil(CorpseReporting.kcdataSaver(), "off by default")
 
-        CorpseReporting.active = try active(savesKCData: true)
+        let on = try active(savesKCData: true)
+        CorpseReporting.active.withLock { $0 = on }
         let saver = try XCTUnwrap(CorpseReporting.kcdataSaver())
 
         let blob = Data([0xAB, 0xCD, 0xEF])
         let crashInfo = CorpseSnapshot.CrashInfo(exceptionCode: 0, exceptionSubcode: 0, processName: "Dead", pid: 7)
         saver(blob, crashInfo)
 
-        let directory = try XCTUnwrap(CorpseReporting.active?.kcdataDirectory)
+        let directory = on.kcdataDirectory
         let files = try FileManager.default.contentsOfDirectory(atPath: directory.path)
         let file = try XCTUnwrap(files.first { $0.hasPrefix("Dead-7-") && $0.hasSuffix(".kcdata") })
         XCTAssertEqual(try Data(contentsOf: directory.appendingPathComponent(file)), blob)
@@ -727,8 +731,9 @@ private final class ParkedThread {
 
     init() {
         let parked = DispatchSemaphore(value: 0)
-        var port: thread_t = 0
-        var threadID: UInt64 = 0
+        // Written before the semaphore signals, read after it waits.
+        nonisolated(unsafe) var port: thread_t = 0
+        nonisolated(unsafe) var threadID: UInt64 = 0
         let waiter = unpark
         Thread.detachNewThread {
             port = mach_thread_self()

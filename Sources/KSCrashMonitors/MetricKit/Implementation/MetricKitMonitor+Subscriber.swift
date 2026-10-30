@@ -74,19 +74,15 @@ import os.log
             }
         }
 
-        // MXMetricPayload was API_UNAVAILABLE(macos) until the macOS 26 SDK (Xcode 26 / Swift 6.2).
-        // On iOS it has been available since iOS 13.
-        #if !os(macOS) || compiler(>=6.2)
-            public func didReceive(_ payloads: [MXMetricPayload]) {
-                os_log(.default, log: metricKitLog, "[MONITORS] Received %d metric payload(s)", payloads.count)
+        public func didReceive(_ payloads: [MXMetricPayload]) {
+            os_log(.default, log: metricKitLog, "[MONITORS] Received %d metric payload(s)", payloads.count)
 
-                for payload in payloads {
-                    if configuration.dumpsPayloadsToDocuments {
-                        payload.dump()
-                    }
+            for payload in payloads {
+                if configuration.dumpsPayloadsToDocuments {
+                    payload.dump()
                 }
             }
-        #endif
+        }
 
         // MARK: - Shared Report Machinery
 
@@ -147,15 +143,12 @@ import os.log
                 }
                 lowPowerMode = meta.lowPowerModeEnabled
             }
-            // MXMetaData.bundleIdentifier was added in the macOS 26 / iOS 26 SDK (Xcode 26 / Swift 6.2).
-            #if compiler(>=6.2)
-                if #available(iOS 26.0, macOS 26.0, visionOS 26.0, *) {
-                    let metaBundleId = meta.bundleIdentifier
-                    if !metaBundleId.isEmpty {
-                        bundleIdentifier = metaBundleId
-                    }
+            if #available(iOS 26.0, macOS 26.0, visionOS 26.0, *) {
+                let metaBundleId = meta.bundleIdentifier
+                if !metaBundleId.isEmpty {
+                    bundleIdentifier = metaBundleId
                 }
-            #endif
+            }
             let osInfo = parseOSVersion(meta.osVersion)
             return SystemInfo(
                 cfBundleIdentifier: bundleIdentifier,

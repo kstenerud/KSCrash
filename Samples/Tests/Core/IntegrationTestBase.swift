@@ -31,6 +31,7 @@ import Logging
 import SampleUI
 import XCTest
 
+@MainActor
 class IntegrationTestBase: XCTestCase {
 
     private(set) var log: Logger!
@@ -73,8 +74,8 @@ class IntegrationTestBase: XCTestCase {
         )
     }
 
-    override func setUpWithError() throws {
-        try super.setUpWithError()
+    override func setUp() async throws {
+        try await super.setUp()
 
         continueAfterFailure = true
 
@@ -92,13 +93,13 @@ class IntegrationTestBase: XCTestCase {
         app = XCUIApplication()
     }
 
-    override func tearDownWithError() throws {
-        try super.tearDownWithError()
+    override func tearDown() async throws {
+        try await super.tearDown()
 
         app.terminate()
         _ = app.wait(for: .notRunning, timeout: appTerminateTimeout)
 
-        if let files = FileManager.default.enumerator(atPath: installUrl.path) {
+        if let files = try? FileManager.default.subpathsOfDirectory(atPath: installUrl.path) {
             log.info("Remaining KSCrash files:")
             for file in files {
                 log.info("\t\(file)")

@@ -72,7 +72,7 @@ import XCTest
         /// if a platform has unreliable dispatch timing we'd rather fix the
         /// test than mask it.
         private func measurePerSampleLatency(
-            file: StaticString = #file,
+            file: StaticString = #filePath,
             line: UInt = #line,
             body: @escaping () -> TimeProfileMetrics?
         ) {
@@ -132,7 +132,8 @@ import XCTest
 
         /// Benchmark profiling another thread
         func testBenchmarkCrossThreadProfiling() {
-            var targetThread: pthread_t?
+            // Written before the semaphore signals, read after it waits.
+            nonisolated(unsafe) var targetThread: pthread_t?
             let semaphore = DispatchSemaphore(value: 0)
             let endSemaphore = DispatchSemaphore(value: 0)
 
@@ -229,17 +230,18 @@ import XCTest
         private func profileThreadWithStackDepth(
             depth: Int,
             maxFrames: Int,
-            file: StaticString = #file,
+            file: StaticString = #filePath,
             line: UInt = #line
         ) {
-            var targetThread: pthread_t?
+            // Written before the semaphore signals, read after it waits.
+            nonisolated(unsafe) var targetThread: pthread_t?
             let readySemaphore = DispatchSemaphore(value: 0)
             let doneSemaphore = DispatchSemaphore(value: 0)
 
             // Create thread that recurses to desired depth then waits
             DispatchQueue.global().async {
                 targetThread = pthread_self()
-                self.recurseAndWait(depth: depth, ready: readySemaphore, done: doneSemaphore)
+                Self.recurseAndWait(depth: depth, ready: readySemaphore, done: doneSemaphore)
             }
 
             // Wait for thread to reach desired depth
@@ -271,7 +273,7 @@ import XCTest
 
         /// Recursive function to build stack depth
         @inline(never)
-        private func recurseAndWait(depth: Int, ready: DispatchSemaphore, done: DispatchSemaphore) {
+        private static func recurseAndWait(depth: Int, ready: DispatchSemaphore, done: DispatchSemaphore) {
             if depth > 0 {
                 recurseAndWait(depth: depth - 1, ready: ready, done: done)
             } else {
@@ -311,14 +313,15 @@ import XCTest
         /// emitted via `ProfilerSampleMetric` so the run shows up as a real
         /// row in the PR benchmark report.
         func testBenchmarkPerSampleCaptureLatency() {
-            var targetThread: pthread_t?
+            // Written before the semaphore signals, read after it waits.
+            nonisolated(unsafe) var targetThread: pthread_t?
             let readySemaphore = DispatchSemaphore(value: 0)
             let doneSemaphore = DispatchSemaphore(value: 0)
 
             // Create thread with moderate stack depth (64 frames)
             DispatchQueue.global().async {
                 targetThread = pthread_self()
-                self.recurseAndWait(depth: 64, ready: readySemaphore, done: doneSemaphore)
+                Self.recurseAndWait(depth: 64, ready: readySemaphore, done: doneSemaphore)
             }
 
             readySemaphore.wait()
@@ -352,13 +355,14 @@ import XCTest
         /// thresholds in `benchmark-tests.json` are looser than the
         /// 64-frame variant.
         func testBenchmarkPerSampleCaptureLatencyDeepStack() {
-            var targetThread: pthread_t?
+            // Written before the semaphore signals, read after it waits.
+            nonisolated(unsafe) var targetThread: pthread_t?
             let readySemaphore = DispatchSemaphore(value: 0)
             let doneSemaphore = DispatchSemaphore(value: 0)
 
             DispatchQueue.global().async {
                 targetThread = pthread_self()
-                self.recurseAndWait(depth: 256, ready: readySemaphore, done: doneSemaphore)
+                Self.recurseAndWait(depth: 256, ready: readySemaphore, done: doneSemaphore)
             }
 
             readySemaphore.wait()
@@ -398,13 +402,14 @@ import XCTest
         /// queue behind any in-flight `endProfile` — both directions show up as inflated
         /// gap percentiles and a lower captured-sample count.
         func testBenchmarkCaptureUnderEndProfileContention() {
-            var targetThread: pthread_t?
+            // Written before the semaphore signals, read after it waits.
+            nonisolated(unsafe) var targetThread: pthread_t?
             let readySemaphore = DispatchSemaphore(value: 0)
             let doneSemaphore = DispatchSemaphore(value: 0)
 
             DispatchQueue.global().async {
                 targetThread = pthread_self()
-                self.recurseAndWait(depth: 32, ready: readySemaphore, done: doneSemaphore)
+                Self.recurseAndWait(depth: 32, ready: readySemaphore, done: doneSemaphore)
             }
             readySemaphore.wait()
 
@@ -492,13 +497,14 @@ import XCTest
         /// as a regression catcher: `endProfile()` should not get slower as we evolve
         /// the cold path.
         func testBenchmarkLargeProfileEndProfile() {
-            var targetThread: pthread_t?
+            // Written before the semaphore signals, read after it waits.
+            nonisolated(unsafe) var targetThread: pthread_t?
             let readySemaphore = DispatchSemaphore(value: 0)
             let doneSemaphore = DispatchSemaphore(value: 0)
 
             DispatchQueue.global().async {
                 targetThread = pthread_self()
-                self.recurseAndWait(depth: 32, ready: readySemaphore, done: doneSemaphore)
+                Self.recurseAndWait(depth: 32, ready: readySemaphore, done: doneSemaphore)
             }
             readySemaphore.wait()
 
