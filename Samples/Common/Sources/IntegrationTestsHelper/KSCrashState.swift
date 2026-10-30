@@ -58,6 +58,7 @@ extension KSCrashState {
     func save(to path: String) throws {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted
-        try encoder.encode(self).write(to: URL(fileURLWithPath: path))
+        // Atomic: the tests wait for this file to appear and read it at once.
+        try encoder.encode(self).write(to: URL(fileURLWithPath: path), options: .atomic)
     }
 }

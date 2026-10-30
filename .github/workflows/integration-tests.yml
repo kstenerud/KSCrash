@@ -9,6 +9,7 @@ on:
       - 'Sources/KSCrashRecordingCore/KSCrashMonitor.c'
       - 'Sources/KSCrashRecordingCore/KSCrashMonitorRegistry.c'
       - 'Samples/Tests/**'
+      - 'Samples/Project.swift'
       - 'Samples/Common/Sources/CrashCallback/**'
       - 'Samples/Common/Sources/CrashTriggers/**'
       - 'Samples/Common/Sources/IntegrationTestsHelper/**'
@@ -26,18 +27,11 @@ concurrency:
 jobs:
   integration-tests:
     runs-on: macos-15
-    timeout-minutes: 30
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        include:
-          # iOS integration tests are too flaky and are temporary excluded
-          # - platform: iOS
-          - platform: macOS
-          # tvOS integration tests became flaky after Xcode 16.2
-          # - platform: tvOS
-          # watchOS integration tests became flaky after Xcode 16.2
-          # - platform: watchOS
+        platform: [macOS, iOS, tvOS, watchOS]
     steps:
       - name: Checkout Code
         uses: actions/checkout@v7
@@ -69,10 +63,25 @@ jobs:
         working-directory: ./Samples
         run: mise exec -- tuist generate --verbose --no-open
 
-      - name: Run Build
+      # The tests run on the Mac and drive the Sample app themselves (see
+      # Samples/Tests/Core/TargetApp.swift), so a simulator lane first builds the app for
+      # that simulator; the tests find it in the same derived data.
+      - name: Build Sample for ${{ matrix.platform }}
+        if: ${{ matrix.platform != 'macOS' }}
         uses: mxcl/xcodebuild@v3
+        with:
+          action: build
+          configuration: Release
+          workspace: "Samples/KSCrashSamples.xcworkspace"
+          scheme: "Sample"
+          platform: ${{ matrix.platform }}
+
+      - name: Run Integration Tests
+        uses: mxcl/xcodebuild@v3
+        env:
+          TEST_RUNNER_KSCRASH_IT_PLATFORM: ${{ matrix.platform }}
         with:
           action: test
           workspace: "Samples/KSCrashSamples.xcworkspace"
           scheme: "Sample"
-          platform: ${{ matrix.platform }}
+          platform: macOS

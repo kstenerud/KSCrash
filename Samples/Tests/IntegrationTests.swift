@@ -106,93 +106,89 @@ final class NSExceptionTests: IntegrationTestBase {
     }
 }
 
-#if os(iOS)
+final class MachTests: IntegrationTestBase {
+    override class var platforms: Set<TargetPlatform> { [.iOS] }
 
-    final class MachTests: IntegrationTestBase {
-        func testBadAccess() throws {
-            try launchAndCrash(.mach_badAccess)
+    func testBadAccess() throws {
+        try launchAndCrash(.mach_badAccess)
 
-            let rawReport = try readCrashReport()
-            try rawReport.validate()
-            XCTAssertEqual(rawReport.crash.error.type, .mach)
-            XCTAssertNil(
-                rawReport.crash.lastExceptionBacktrace,
-                "Mach crash should not have last_exception_backtrace")
+        let rawReport = try readCrashReport()
+        try rawReport.validate()
+        XCTAssertEqual(rawReport.crash.error.type, .mach)
+        XCTAssertNil(
+            rawReport.crash.lastExceptionBacktrace,
+            "Mach crash should not have last_exception_backtrace")
 
-            let delivered = try launchAndReportCrash()
-            XCTAssertEqual(delivered.crash.error.signal?.name, "SIGSEGV")
-            XCTAssertNil(
-                delivered.crash.lastExceptionBacktrace,
-                "Mach crash should not have last_exception_backtrace")
+        let delivered = try launchAndReportCrash()
+        XCTAssertEqual(delivered.crash.error.signal?.name, "SIGSEGV")
+        XCTAssertNil(
+            delivered.crash.lastExceptionBacktrace,
+            "Mach crash should not have last_exception_backtrace")
 
-            let state = try readState()
-            XCTAssertTrue(state.previousRunWasAbnormal)
-            XCTAssertEqual(state.terminationReason, .crash)
-        }
-
-        /// Regression test for https://github.com/kstenerud/KSCrash/issues/810
-        /// mach.subcode was always 0 due to a 32-bit/64-bit struct mismatch in the
-        /// Mach exception handler. Verify the fault address survives into the report.
-        func testBadAccessSubcodePreserved() throws {
-            try launchAndCrash(.mach_badAccessDeadbeef)
-
-            let rawReport = try readCrashReport()
-            try rawReport.validate()
-            XCTAssertEqual(rawReport.crash.error.type, .mach)
-
-            let mach = rawReport.crash.error.mach
-            XCTAssertNotNil(mach)
-            XCTAssertEqual(
-                mach?.subcode, 0xDEAD_BEEF,
-                "mach.subcode should contain the fault address (0xDEADBEEF)")
-        }
+        let state = try readState()
+        XCTAssertTrue(state.previousRunWasAbnormal)
+        XCTAssertEqual(state.terminationReason, .crash)
     }
 
-#endif
+    /// Regression test for https://github.com/kstenerud/KSCrash/issues/810
+    /// mach.subcode was always 0 due to a 32-bit/64-bit struct mismatch in the
+    /// Mach exception handler. Verify the fault address survives into the report.
+    func testBadAccessSubcodePreserved() throws {
+        try launchAndCrash(.mach_badAccessDeadbeef)
 
-#if os(iOS) || os(macOS) || os(visionOS)
+        let rawReport = try readCrashReport()
+        try rawReport.validate()
+        XCTAssertEqual(rawReport.crash.error.type, .mach)
 
-    final class MachSignalHandlerChainingTests: IntegrationTestBase {
-        func testBadAccessReachesSignalHandlerInstalledAfterKSCrash() throws {
-            let signalMarkerURL = installUrl.appendingPathComponent("__post_kscrash_signal__")
-
-            try launchAndCrash(.mach_badAccess) { configuration in
-                // Test infrastructure installs this handler after KSCrash.shared.install returns.
-                configuration.postInstallSIGSEGVHandlerMarkerPath = signalMarkerURL.path
-            }
-
-            // A complete Mach report proves that the Mach exception handler ran before
-            // the exception was allowed to continue through XNU's signal path.
-            let rawReport = try readCrashReport()
-            try rawReport.validate()
-            XCTAssertEqual(rawReport.crash.error.type, .mach)
-            XCTAssertEqual(rawReport.crash.error.signal?.signal, UInt64(SIGSEGV))
-
-            // The later handler records the original signal context using write(2),
-            // then restores and re-raises into the handler it displaced.
-            let markerData = try Data(contentsOf: signalMarkerURL)
-            XCTAssertEqual(markerData.count, MemoryLayout<IntegrationTestSignalMarker>.size)
-            guard markerData.count == MemoryLayout<IntegrationTestSignalMarker>.size else {
-                return
-            }
-            let marker = markerData.withUnsafeBytes {
-                $0.loadUnaligned(as: IntegrationTestSignalMarker.self)
-            }
-
-            XCTAssertEqual(marker.signalNumber, SIGSEGV)
-            // The trigger writes to 0x42, inside the no-access Mach-O __PAGEZERO segment.
-            XCTAssertEqual(marker.signalCode, SEGV_ACCERR)
-            XCTAssertEqual(
-                marker.faultAddress, rawReport.crash.error.address,
-                "The signal handler must receive the original Mach fault address")
-            XCTAssertEqual(
-                marker.instructionAddress,
-                rawReport.crashedThread?.backtrace?.contents.first?.instructionAddr,
-                "The signal context and Mach report must point to the same faulting instruction")
-        }
+        let mach = rawReport.crash.error.mach
+        XCTAssertNotNil(mach)
+        XCTAssertEqual(
+            mach?.subcode, 0xDEAD_BEEF,
+            "mach.subcode should contain the fault address (0xDEADBEEF)")
     }
+}
 
-#endif
+final class MachSignalHandlerChainingTests: IntegrationTestBase {
+    override class var platforms: Set<TargetPlatform> { [.iOS, .macOS, .visionOS] }
+
+    func testBadAccessReachesSignalHandlerInstalledAfterKSCrash() throws {
+        let signalMarkerURL = installUrl.appendingPathComponent("__post_kscrash_signal__")
+
+        try launchAndCrash(.mach_badAccess) { configuration in
+            // Test infrastructure installs this handler after KSCrash.shared.install returns.
+            configuration.postInstallSIGSEGVHandlerMarkerPath = signalMarkerURL.path
+        }
+
+        // A complete Mach report proves that the Mach exception handler ran before
+        // the exception was allowed to continue through XNU's signal path.
+        let rawReport = try readCrashReport()
+        try rawReport.validate()
+        XCTAssertEqual(rawReport.crash.error.type, .mach)
+        XCTAssertEqual(rawReport.crash.error.signal?.signal, UInt64(SIGSEGV))
+
+        // The later handler records the original signal context using write(2),
+        // then restores and re-raises into the handler it displaced.
+        let markerData = try Data(contentsOf: signalMarkerURL)
+        XCTAssertEqual(markerData.count, MemoryLayout<IntegrationTestSignalMarker>.size)
+        guard markerData.count == MemoryLayout<IntegrationTestSignalMarker>.size else {
+            return
+        }
+        let marker = markerData.withUnsafeBytes {
+            $0.loadUnaligned(as: IntegrationTestSignalMarker.self)
+        }
+
+        XCTAssertEqual(marker.signalNumber, SIGSEGV)
+        // The trigger writes to 0x42, inside the no-access Mach-O __PAGEZERO segment.
+        XCTAssertEqual(marker.signalCode, SEGV_ACCERR)
+        XCTAssertEqual(
+            marker.faultAddress, rawReport.crash.error.address,
+            "The signal handler must receive the original Mach fault address")
+        XCTAssertEqual(
+            marker.instructionAddress,
+            rawReport.crashedThread?.backtrace?.contents.first?.instructionAddr,
+            "The signal context and Mach report must point to the same faulting instruction")
+    }
+}
 
 final class CppTests: IntegrationTestBase {
     func testRuntimeException() throws {
@@ -206,7 +202,7 @@ final class CppTests: IntegrationTestBase {
         let exceptionBt = rawReport.crash.lastExceptionBacktrace
         XCTAssertNotNil(exceptionBt, "C++ exception crash should have last_exception_backtrace")
         let topSymbol = exceptionBt?.contents.compactMap(\.symbolName).first
-        XCTAssertEqual(topSymbol, cppCrashMangledSymbol)
+        XCTAssertTrue(isCppCrashSymbol(topSymbol), "top frame is \(topSymbol ?? "nil")")
 
         let delivered = try launchAndReportCrash()
         XCTAssertEqual(delivered.crash.error.type, .cppException)
@@ -258,7 +254,7 @@ final class CppTests: IntegrationTestBase {
             "last_exception_backtrace must reach the @throw site near the top, got: \(symbols.prefix(3))")
 
         XCTAssertFalse(
-            symbols.contains(cppCrashMangledSymbol),
+            symbols.contains(where: isCppCrashSymbol),
             "last_exception_backtrace must not reuse the earlier caught C++ exception")
     }
 
@@ -279,7 +275,7 @@ final class CppTests: IntegrationTestBase {
 
         let symbols = (exceptionBt?.contents ?? []).compactMap(\.symbolName)
         XCTAssertFalse(
-            symbols.contains(cppCrashMangledSymbol),
+            symbols.contains(where: isCppCrashSymbol),
             "last_exception_backtrace must not reuse the earlier caught C++ exception")
     }
 
@@ -298,7 +294,7 @@ final class CppTests: IntegrationTestBase {
         let exceptionBt = rawReport.crash.lastExceptionBacktrace
         XCTAssertNotNil(exceptionBt, "C++ exception crash should have last_exception_backtrace")
         let topSymbol = exceptionBt?.contents.compactMap(\.symbolName).first
-        XCTAssertEqual(topSymbol, cppCrashMangledSymbol)
+        XCTAssertTrue(isCppCrashSymbol(topSymbol), "top frame is \(topSymbol ?? "nil")")
 
         let delivered = try launchAndReportCrash()
         XCTAssertEqual(delivered.crash.error.type, .cppException)
@@ -312,105 +308,101 @@ final class CppTests: IntegrationTestBase {
     }
 }
 
-#if !os(watchOS)
+final class SignalTests: IntegrationTestBase {
+    override class var platforms: Set<TargetPlatform> { Set(TargetPlatform.allCases).subtracting([.watchOS]) }
 
-    final class SignalTests: IntegrationTestBase {
-        func testAbort() throws {
-            try launchAndCrash(.signal_abort)
+    func testAbort() throws {
+        try launchAndCrash(.signal_abort)
 
-            let rawReport = try readCrashReport()
-            try rawReport.validate()
-            XCTAssertEqual(rawReport.crash.error.type, .signal)
-            XCTAssertEqual(rawReport.crash.error.signal?.name, "SIGABRT")
-            XCTAssertNil(
-                rawReport.crash.lastExceptionBacktrace,
-                "Signal crash should not have last_exception_backtrace")
+        let rawReport = try readCrashReport()
+        try rawReport.validate()
+        XCTAssertEqual(rawReport.crash.error.type, .signal)
+        XCTAssertEqual(rawReport.crash.error.signal?.name, "SIGABRT")
+        XCTAssertNil(
+            rawReport.crash.lastExceptionBacktrace,
+            "Signal crash should not have last_exception_backtrace")
 
-            let delivered = try launchAndReportCrash()
-            XCTAssertEqual(delivered.crash.error.signal?.name, "SIGABRT")
+        let delivered = try launchAndReportCrash()
+        XCTAssertEqual(delivered.crash.error.signal?.name, "SIGABRT")
 
-            let state = try readState()
-            XCTAssertTrue(state.previousRunWasAbnormal)
-            XCTAssertEqual(state.terminationReason, .crash)
-        }
-
-        func testIgnoredSIGPIPEDoesNotProduceCrashReport() throws {
-            // KSCrash must not turn an application/runtime-ignored signal into a reported crash.
-            try launchAndRunTrigger(.signal_sigpipe) { configuration in
-                configuration.ignoreSIGPIPEBeforeInstall = true
-            }
-
-            XCTAssertNotEqual(app.state, .notRunning)
-            XCTAssertFalse(try hasCrashReport())
-        }
-
-        func testTermination() throws {
-            // SIGTERM is caught to record a clean exit but no crash report is written
-            try launchAndInstall()
-            try terminate()
-
-            XCTAssertFalse(try hasCrashReport())
-
-            // Relaunch to check state — previous run should be classified as clean
-            try launchAndInstall()
-            let state = try readState()
-            XCTAssertFalse(state.previousRunWasAbnormal)
-            XCTAssertEqual(state.terminationReason, .clean)
-        }
+        let state = try readState()
+        XCTAssertTrue(state.previousRunWasAbnormal)
+        XCTAssertEqual(state.terminationReason, .crash)
     }
 
-#endif
-
-#if !os(watchOS)
-    final class OtherTests: IntegrationTestBase {
-        func testManyThreads() throws {
-            try launchAndCrash(.other_manyThreads)
-
-            let rawReport = try readCrashReport()
-            let crashedThread = rawReport.crashedThread
-            XCTAssertNotNil(crashedThread)
-            let expectedFrame = crashedThread?.backtrace?.contents.first(where: {
-                $0.symbolName?.contains(KSCrashStacktraceCheckFuncName) ?? false
-            })
-            XCTAssertNotNil(expectedFrame)
-
-            let threadStates = [
-                "TH_STATE_RUNNING", "TH_STATE_STOPPED", "TH_STATE_WAITING",
-                "TH_STATE_UNINTERRUPTIBLE", "TH_STATE_HALTED",
-            ]
-            for thread in rawReport.crash.threads ?? [] {
-                let threadState = thread.state ?? ""
-                XCTAssertTrue(threadStates.contains(threadState))
-            }
-
-            let delivered = try launchAndReportCrash()
-            let deliveredFrame = delivered.crashedThread?.backtrace?.contents.first(where: {
-                $0.symbolName?.contains(KSCrashStacktraceCheckFuncName) ?? false
-            })
-            XCTAssertNotNil(deliveredFrame)
-
-            let state = try readState()
-            XCTAssertTrue(state.previousRunWasAbnormal)
-            XCTAssertEqual(state.terminationReason, .crash)
+    func testIgnoredSIGPIPEDoesNotProduceCrashReport() throws {
+        // KSCrash must not turn an application/runtime-ignored signal into a reported crash.
+        try launchAndRunTrigger(.signal_sigpipe) { configuration in
+            configuration.ignoreSIGPIPEBeforeInstall = true
         }
-    }
-#endif
 
-#if targetEnvironment(simulator)
-
-    final class MemoryTests: IntegrationTestBase {
-        func testOOM() throws {
-            app.launchEnvironment["KSCRASH_SIM_MEMORY_TERMINATION_ENABLED"] = "1"
-            try launchAndCrash(.memory_oom)
-
-            _ = try launchAndReportCrash()
-            let state = try readState()
-            XCTAssertTrue(state.previousRunWasAbnormal)
-            XCTAssertEqual(state.terminationReason, .memoryLimit)
-        }
+        XCTAssertNotEqual(app.state, .notRunning)
+        XCTAssertFalse(try hasCrashReport())
     }
 
-#endif
+    func testTermination() throws {
+        // SIGTERM is caught to record a clean exit but no crash report is written
+        try launchAndInstall()
+        try terminate()
+
+        XCTAssertFalse(try hasCrashReport())
+
+        // Relaunch to check state — previous run should be classified as clean
+        try launchAndInstall()
+        let state = try readState()
+        XCTAssertFalse(state.previousRunWasAbnormal)
+        XCTAssertEqual(state.terminationReason, .clean)
+    }
+}
+
+final class OtherTests: IntegrationTestBase {
+    override class var platforms: Set<TargetPlatform> { Set(TargetPlatform.allCases).subtracting([.watchOS]) }
+
+    func testManyThreads() throws {
+        try launchAndCrash(.other_manyThreads)
+
+        let rawReport = try readCrashReport()
+        let crashedThread = rawReport.crashedThread
+        XCTAssertNotNil(crashedThread)
+        let expectedFrame = crashedThread?.backtrace?.contents.first(where: {
+            $0.symbolName?.contains(KSCrashStacktraceCheckFuncName) ?? false
+        })
+        XCTAssertNotNil(expectedFrame)
+
+        let threadStates = [
+            "TH_STATE_RUNNING", "TH_STATE_STOPPED", "TH_STATE_WAITING",
+            "TH_STATE_UNINTERRUPTIBLE", "TH_STATE_HALTED",
+        ]
+        for thread in rawReport.crash.threads ?? [] {
+            let threadState = thread.state ?? ""
+            XCTAssertTrue(threadStates.contains(threadState))
+        }
+
+        let delivered = try launchAndReportCrash()
+        let deliveredFrame = delivered.crashedThread?.backtrace?.contents.first(where: {
+            $0.symbolName?.contains(KSCrashStacktraceCheckFuncName) ?? false
+        })
+        XCTAssertNotNil(deliveredFrame)
+
+        let state = try readState()
+        XCTAssertTrue(state.previousRunWasAbnormal)
+        XCTAssertEqual(state.terminationReason, .crash)
+    }
+}
+
+final class MemoryTests: IntegrationTestBase {
+    override class var platforms: Set<TargetPlatform> { TargetPlatform.simulators }
+
+    func testOOM() throws {
+        app.launchEnvironment["KSCRASH_SIM_MEMORY_TERMINATION_ENABLED"] = "1"
+        try launchAndCrash(.memory_oom)
+
+        _ = try launchAndReportCrash()
+        let state = try readState()
+        XCTAssertTrue(state.previousRunWasAbnormal)
+        XCTAssertEqual(state.terminationReason, .memoryLimit)
+    }
+}
 
 final class UserReportedTests: IntegrationTestBase {
 
@@ -558,6 +550,14 @@ extension KSCrashReportModel.Report {
 /// sample_namespace::Report::crash(). The demangler went away with the ObjC
 /// filter modules, so C++ symbols are compared in their mangled form.
 private let cppCrashMangledSymbol = "_ZN16sample_namespace6Report5crashEv"
+
+/// Whether `symbol` is sample_namespace::Report::crash(), whole or a part the optimizer
+/// split off it: clang outlines the throw into `<symbol>.cold.1`, and that frame is still
+/// the function's own code.
+private func isCppCrashSymbol(_ symbol: String?) -> Bool {
+    guard let symbol else { return false }
+    return symbol == cppCrashMangledSymbol || symbol.hasPrefix(cppCrashMangledSymbol + ".cold.")
+}
 
 /// Demangle a Swift symbol through the Swift runtime, standing in for the
 /// retired CrashReportFilterDemangle in these assertions.
