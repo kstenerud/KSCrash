@@ -166,9 +166,10 @@ jobs:
     steps:
       - name: Set Artifact Name
         id: artifact_name
+        env:
+          REF: ${{ inputs.ref || github.sha }}
         run: |
           # Include ref to differentiate PR vs base branch artifacts within the same workflow run
-          REF="${{ inputs.ref || github.sha }}"
           SHORT_REF="${REF:0:8}"
           # Sanitize: artifact names cannot contain " : < > | * ? \ / CR LF % #
           SHORT_REF=$(echo "$SHORT_REF" | tr '/:\"<>|*?\\%#' '-')
