@@ -62,6 +62,7 @@ KSCrash is a layered crash reporting framework:
 - **Recording**: Core crash detection and reporting (C, driven by the Swift install)
 - **Send**: The Swift async send in the `KSCrash` module (`sendReports`, `sendRunSummaries`): pending items walk a `PipelineStage` pipeline one at a time
 - **Monitors**: Crash detection mechanisms (see `.claude/rules/monitors.md` for the full reference)
+- **Binary image cache**: lock-free, syscall-free image and symbol lookup inside the handler; what it defends against and what it deliberately does not (see `.claude/rules/binary-image-cache.md`)
 - **Report JSON**: a report holds no nulls; absence is its only "no value" (see `.claude/rules/report-nulls.md`)
 - **RunContext**: Cross-monitor shared state and previous-run analysis (see `.claude/rules/run-context.md`)
 - **Sessions & Run Summaries**: Per-run `.sessions` log, `.run` telemetry, session_id stitching, and orphan reclaim (see `.claude/rules/sessions.md`)

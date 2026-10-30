@@ -71,6 +71,27 @@ typedef void (*ksbic_imageCallback)(const struct mach_header *_Nonnull mh, intpt
  */
 void ksbic_registerForImageAdded(ksbic_imageCallback _Nullable callback);
 
+/**
+ * Callback type for image removal notifications.
+ *
+ * @param mh The mach_header of the image being removed. Still mapped when the callback runs.
+ */
+typedef void (*ksbic_imageRemovedCallback)(const struct mach_header *_Nonnull mh);
+
+/**
+ * Register a callback to be invoked when dyld removes an image.
+ *
+ * The callback runs on the thread unloading the image, after the image cache has dropped, or
+ * scheduled the drop of, its own entry for that header and before dyld unmaps the image.
+ * Anything that caches pointers into an image (symbol names, paths) drops them here.
+ *
+ * Only one callback can be registered at a time. Registering a new callback replaces any
+ * previously registered callback.
+ *
+ * @param callback The callback function to invoke, or NULL to unregister.
+ */
+void ksbic_registerForImageRemoved(ksbic_imageRemovedCallback _Nullable callback);
+
 /** Initialize the binary image cache.
  * @deprecated Use ksdl_init() instead, which initializes both symbol and image caches.
  */
@@ -176,19 +197,16 @@ const struct mach_header *_Nullable ksbic_getDyldHeader(void);
 const char *_Nonnull ksbic_getDyldPath(void);
 
 /**
- * Get the LC_UUID for a binary image.
+ * Copy the LC_UUID of a binary image.
  *
- * Returns a pointer to the 16-byte UUID in the Mach-O header, or NULL if not found.
- * The pointer is valid for the lifetime of the loaded image.
- *
- * This function is async-signal-safe. On a cache miss the fallback path
- * includes KSLOG_DEBUG calls, but these are compiled out at the default
- * log level (ERROR) so this is not an issue in production builds.
+ * This function is async-signal-safe.
  *
  * @param header The mach_header of the image.
- * @return Pointer to 16-byte UUID data, or NULL if not found.
+ * @param outUUID Receives the 16 UUID bytes when the function returns true. Untouched otherwise.
+ * @return true if the image has an LC_UUID, false for a NULL header, an image without one, or a
+ *         header that cannot be parsed.
  */
-const uint8_t *_Nullable ksbic_getUUIDForHeader(const struct mach_header *_Nullable header);
+bool ksbic_copyUUIDForHeader(const struct mach_header *_Nullable header, uint8_t *_Nonnull outUUID);
 
 /**
  * Get cached unwind information for a binary image.

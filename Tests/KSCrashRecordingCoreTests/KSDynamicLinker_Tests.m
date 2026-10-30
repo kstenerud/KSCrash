@@ -30,6 +30,11 @@
 #import "KSBinaryImageCache.h"
 #import "KSDynamicLinker.h"
 
+extern void ksbic_testcode_notify(enum dyld_image_mode mode, uint32_t infoCount, const struct dyld_image_info *info);
+extern uint32_t ksdl_testcode_symbolCacheCount(void);
+extern void ksdl_testcode_holdSymbolCache(void);
+extern void ksdl_testcode_releaseSymbolCache(void);
+
 @interface KSDynamicLinker_Tests : XCTestCase
 @end
 
@@ -254,6 +259,50 @@ __attribute__((section("__DATA,__crash_info"))) static TestCrashInfo g_testCrash
     KSCrashInfoStrings strings = { 0 };
     XCTAssertFalse(ksdl_readCrashInfoFromTaskImage(mach_task_self(), 0x1000, &strings));
     XCTAssertEqual(strings.message, NULL);
+}
+
+- (void)testRemovalNotificationEvictsSymbolCacheEntries
+{
+    uintptr_t address = (uintptr_t)ksdl_init;
+    Dl_info real;
+    XCTAssertTrue(dladdr((void *)address, &real) != 0);
+
+    Dl_info info;
+    XCTAssertTrue(ksdl_dladdr(address, &info));
+    XCTAssertEqual(ksdl_testcode_symbolCacheCount(), 1u);
+
+    struct dyld_image_info removed = { real.dli_fbase, real.dli_fname, 0 };
+    ksbic_testcode_notify(dyld_image_removing, 1, &removed);
+
+    XCTAssertEqual(ksdl_testcode_symbolCacheCount(), 0u, @"entries for the removed image are gone");
+    // The image is really still loaded; the miss repopulates both caches.
+    XCTAssertTrue(ksdl_dladdr(address, &info));
+    XCTAssertEqual(info.dli_fbase, real.dli_fbase);
+    XCTAssertEqual(ksdl_testcode_symbolCacheCount(), 1u);
+}
+
+- (void)testRemovalWhileSymbolCacheBusyFlushesOnNextLookup
+{
+    uintptr_t inThisImage = (uintptr_t)ksdl_init;
+    uintptr_t inLibSystem = (uintptr_t)strlen;
+    Dl_info real;
+    XCTAssertTrue(dladdr((void *)inThisImage, &real) != 0);
+
+    Dl_info info;
+    XCTAssertTrue(ksdl_dladdr(inThisImage, &info));
+    XCTAssertTrue(ksdl_dladdr(inLibSystem, &info));
+    XCTAssertNotEqual(info.dli_fbase, real.dli_fbase, @"the two addresses must be in different images");
+    XCTAssertEqual(ksdl_testcode_symbolCacheCount(), 2u);
+
+    ksdl_testcode_holdSymbolCache();
+    struct dyld_image_info removed = { real.dli_fbase, real.dli_fname, 0 };
+    ksbic_testcode_notify(dyld_image_removing, 1, &removed);
+    ksdl_testcode_releaseSymbolCache();
+
+    // The flush empties the cache on this acquire; the miss then re-adds only this entry.
+    XCTAssertTrue(ksdl_dladdr(inLibSystem, &info));
+    XCTAssertEqual(ksdl_testcode_symbolCacheCount(), 1u,
+                   @"a removal during a hold flushes the symbol cache on the next lookup");
 }
 
 @end

@@ -69,6 +69,32 @@ static KSSymbolCache g_symbol_cache_storage = { .count = 0 };
 static _Atomic(KSSymbolCache *) g_symbol_cache_ptr = NULL;
 static _Atomic(bool) g_initialized = false;
 
+// Set when dyld removes an image while a caller holds the symbol cache. Entries hold symbolName
+// and imageName pointers into that image, so the next acquire empties the cache rather than
+// let one of them be read after the unmap. See g_flushPending in KSBinaryImageCache.c.
+static _Atomic bool g_symbolFlushPending = false;
+
+// Registered with the image cache; runs on the dlclose thread before dyld unmaps the image.
+static void symbolCacheImageRemoved(const struct mach_header *mh)
+{
+    KSSymbolCache *cache = atomic_exchange(&g_symbol_cache_ptr, NULL);
+    if (cache == NULL) {
+        atomic_store(&g_symbolFlushPending, true);
+        return;
+    }
+    uint32_t kept = 0;
+    for (uint32_t i = 0; i < cache->count; i++) {
+        if (cache->entries[i].imageBase != mh) {
+            if (kept != i) {
+                cache->entries[kept] = cache->entries[i];
+            }
+            kept++;
+        }
+    }
+    cache->count = kept;
+    atomic_store(&g_symbol_cache_ptr, cache);
+}
+
 // Declared in KSBinaryImageCache.c (not in public header)
 extern void ksbic_resetCache(void);
 
@@ -87,7 +113,32 @@ void ksdl_init(void)
 
     // Initialize the symbol cache
     g_symbol_cache_storage.count = 0;
+    atomic_store(&g_symbolFlushPending, false);
     atomic_store(&g_symbol_cache_ptr, &g_symbol_cache_storage);
+    ksbic_registerForImageRemoved(symbolCacheImageRemoved);
+}
+
+// Test seams: hold the symbol cache the way ksdl_dladdr does, so a test can land a removal
+// notification while it is busy.
+static KSSymbolCache *g_heldSymbolCache = NULL;
+void ksdl_testcode_holdSymbolCache(void) { g_heldSymbolCache = atomic_exchange(&g_symbol_cache_ptr, NULL); }
+void ksdl_testcode_releaseSymbolCache(void)
+{
+    if (g_heldSymbolCache != NULL) {
+        atomic_store(&g_symbol_cache_ptr, g_heldSymbolCache);
+        g_heldSymbolCache = NULL;
+    }
+}
+
+uint32_t ksdl_testcode_symbolCacheCount(void)
+{
+    KSSymbolCache *cache = atomic_exchange(&g_symbol_cache_ptr, NULL);
+    if (cache == NULL) {
+        return 0;
+    }
+    uint32_t count = cache->count;
+    atomic_store(&g_symbol_cache_ptr, cache);
+    return count;
 }
 
 void ksdl_resetCache(void)
@@ -226,6 +277,11 @@ bool ksdl_dladdr(const uintptr_t address, Dl_info *const info)
 
     if (cache != NULL) {
         // SUCCESS: We have exclusive access to the cache
+        // Relaxed load first so a hit stays at one read-modify-write; see acquireCache in the image cache.
+        if (atomic_load_explicit(&g_symbolFlushPending, memory_order_relaxed) &&
+            atomic_exchange(&g_symbolFlushPending, false)) {
+            cache->count = 0;
+        }
 
         // Single pass: search for hit AND track min-hits for potential eviction
         uint32_t minHitsIdx = 0;
