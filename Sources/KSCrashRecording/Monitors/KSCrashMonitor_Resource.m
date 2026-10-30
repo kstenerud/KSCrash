@@ -96,7 +96,8 @@ static id g_protectedDataUnavailableObserver = nil;
 // ============================================================================
 
 // The overrides an update re-applies, read from the environment once. A field is -1 when its
-// variable is unset, which is distinguishable because every field the tests fake is unsigned.
+// variable is unset, and also when it is set to -1, which no test does: every field the tests fake
+// is unsigned.
 typedef struct {
     bool any;
     int memoryPressure;
@@ -140,11 +141,6 @@ static void loadResourceTestOverrides(void)
 // Re-apply the overrides after every resourceUpdate so polled values don't clobber the faked ones.
 static void applyResourceTestOverrides(KSCrash_ResourceData *res)
 {
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        loadResourceTestOverrides();
-    });
-
     if (!g_testOverrides.any) {
         return;
     }
@@ -619,6 +615,14 @@ static const char *monitorId(__unused void *context) { return "Resource"; }
 static void monitorInit(KSCrash_ExceptionHandlerCallbacks *callbacks, __unused void *context)
 {
     g_callbacks = *callbacks;
+
+    // Every update follows the first setEnabled, which follows init, so the overrides are loaded
+    // before anything applies them, and the environment is never read under g_resourceLock. Once,
+    // because init runs again on re-registration while an update may be reading them.
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        loadResourceTestOverrides();
+    });
 }
 
 static void setEnabled(bool isEnabled, __unused void *context)
