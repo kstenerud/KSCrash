@@ -26,6 +26,9 @@ If you are upgrading from 2.x, see the migration list below. For upgrades from 1
 
 ### Install
 
+Building KSCrash takes Xcode 26 or later (Swift tools 6.2). It runs on iOS 15, tvOS 15, watchOS 8,
+macOS 12 and visionOS 1 or later.
+
 **SPM:** Add `https://github.com/kstenerud/KSCrash.git` in Xcode (File > Add Packages), or in
 `Package.swift`:
 

@@ -4,7 +4,7 @@ This file provides guidance when working with the Benchmarks app in this directo
 
 ## Prerequisites
 - Mise installed: `curl https://mise.run | sh` or follow [mise installation guide](https://mise.jdx.dev/getting-started.html)
-- Xcode 16+ recommended
+- Xcode 26 or later
 - For device testing: Apple Developer account and connected iOS device
 
 ## Version Management

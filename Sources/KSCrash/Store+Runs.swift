@@ -280,7 +280,7 @@ private final class MetadataBox {
 /// termination); nil when not valid UTF-8.
 private func cArrayString<T>(_ array: inout T) -> String? {
     withUnsafePointer(to: &array) {
-        String(validatingUTF8: UnsafeRawPointer($0).assumingMemoryBound(to: CChar.self))
+        String(validatingCString: UnsafeRawPointer($0).assumingMemoryBound(to: CChar.self))
     }
 }
 

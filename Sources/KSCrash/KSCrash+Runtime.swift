@@ -28,6 +28,7 @@ import Foundation
 import KSCrashRecording
 import KSCrashRecordingCore
 import KSCrashReportModel
+import KSCrashSwiftCore
 
 extension KSCrash {
     /// This run's id; nil before install.
@@ -80,7 +81,7 @@ extension KSCrash {
         guard userID.utf8.count >= Int(KSSESSION_MAX_USER_LENGTH) else { return userID }
         var buffer = [CChar](repeating: 0, count: Int(KSSESSION_MAX_USER_LENGTH))
         userID.withCString { kssession_copyUtf8Truncated(&buffer, $0, buffer.count) }
-        return String(cString: buffer)
+        return String(nulTerminated: buffer)
     }
 
     /// Report a custom exception, as user-reported crash reports do.

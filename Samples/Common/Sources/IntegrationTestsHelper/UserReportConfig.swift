@@ -28,8 +28,8 @@ import CrashTriggers
 import Foundation
 import KSCrash
 
-public struct UserReportConfig: Codable {
-    public struct UserException: Codable {
+public struct UserReportConfig: Codable, Sendable {
+    public struct UserException: Codable, Sendable {
         public var name: String
         public var reason: String?
         public var language: String?
@@ -57,7 +57,7 @@ public struct UserReportConfig: Codable {
         }
     }
 
-    public struct NSExceptionReport: Codable {
+    public struct NSExceptionReport: Codable, Sendable {
         public var name: String
         public var reason: String?
         public var userInfo: [String: String]?

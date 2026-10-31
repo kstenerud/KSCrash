@@ -28,7 +28,7 @@ import Foundation
 
 public final class IntegrationTestRunner {
 
-    public struct RunConfig: Codable {
+    public struct RunConfig: Codable, Sendable {
         var delay: TimeInterval?
         var stateSavePath: String?
         var runEarly: Bool?
