@@ -29,10 +29,9 @@
 
 #import "KSCrashAppTransitionState.h"
 #import "KSCrashReportFields.h"
+#import "KSCrashStitch.h"
 
 #import <Foundation/Foundation.h>
-
-#import "KSLogger.h"
 
 CFDictionaryRef kscm_lifecycle_createStitchedReport(CFDictionaryRef reportDict, const char *sidecarPath,
                                                     KSCrashSidecarScope scope, __unused void *context)
@@ -45,24 +44,22 @@ CFDictionaryRef kscm_lifecycle_createStitchedReport(CFDictionaryRef reportDict, 
         if (sidecarPath == NULL) {
             return NULL;
         }
+        // A read the environment failed is worth retrying: NULL is the retry signal,
+        // which finalization and the send honor by leaving the report for a later
+        // read. A sidecar that is gone or corrupt never reads better, so the report
+        // goes without application_stats. session_id is the final pass's, and neither
+        // costs it.
         KSCrash_LifecycleData lc = {};
-        if (!kslifecycle_readData(sidecarPath, &lc)) {
-            KSLOG_ERROR(@"Failed to read lifecycle sidecar at %s", sidecarPath);
+        KSCrashSidecarReadResult readResult = kssidecar_readLifecycle(sidecarPath, &lc);
+        if (readResult == KSCrashSidecarReadFailure) {
+            return NULL;
+        }
+        if (readResult != KSCrashSidecarReadOK) {
             CFRetain(reportDict);
             return reportDict;
         }
         NSMutableDictionary *dict = [(__bridge NSDictionary *)reportDict mutableCopy];
 
-        // Navigate to or create report.system
-        NSMutableDictionary *systemDict;
-        id systemVal = dict[KSCrashField_System];
-        if ([systemVal isKindOfClass:[NSDictionary class]]) {
-            systemDict = [systemVal mutableCopy];
-        } else {
-            systemDict = [NSMutableDictionary dictionary];
-        }
-
-        // Build application_stats from the sidecar struct
         NSMutableDictionary *statsDict = [NSMutableDictionary dictionary];
         statsDict[KSCrashField_AppActive] = @((BOOL)lc.applicationIsActive);
         statsDict[KSCrashField_AppInFG] = @((BOOL)lc.applicationIsInForeground);
@@ -78,8 +75,7 @@ CFDictionaryRef kscm_lifecycle_createStitchedReport(CFDictionaryRef reportDict, 
         statsDict[KSCrashField_UserPerceptible] = @((BOOL)lc.userPerceptible);
         statsDict[KSCrashField_TaskRole] = @(kstaskrole_toString(lc.taskRole));
 
-        systemDict[KSCrashField_AppStats] = statsDict;
-        dict[KSCrashField_System] = systemDict;
+        ksstitch_object(dict, KSCrashField_System)[KSCrashField_AppStats] = statsDict;
         return (__bridge_retained CFDictionaryRef)dict;
     }
 
@@ -92,9 +88,7 @@ CFDictionaryRef kscm_lifecycle_createStitchedReport(CFDictionaryRef reportDict, 
         char sessionID[KSID_SIZE] = "";
         if (kslifecycle_copyLastSessionIDForRunID(runID.UTF8String, sessionID, sizeof(sessionID))) {
             NSMutableDictionary *dict = [(__bridge NSDictionary *)reportDict mutableCopy];
-            NSMutableDictionary *reportSection = [reportVal mutableCopy];
-            reportSection[KSCrashField_SessionID] = @(sessionID);
-            dict[KSCrashField_Report] = reportSection;
+            ksstitch_object(dict, KSCrashField_Report)[KSCrashField_SessionID] = @(sessionID);
             return (__bridge_retained CFDictionaryRef)dict;
         }
     }

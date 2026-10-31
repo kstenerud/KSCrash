@@ -102,8 +102,16 @@ public protocol ReportSectionWriting: CrashMonitor {
 public protocol ReportStitching: CrashMonitor {
     /// Stitches this monitor's sidecar data into a report at delivery time. Runs at normal app
     /// startup, not during crash handling. Return the (possibly modified) report; throw to
-    /// signal a stitch error (finalization aborts the write-back so the report is retried on
-    /// the next read; normal reads keep the original silently).
+    /// signal a stitch error: the report is not handed out or finalized, and stays on disk to
+    /// be read again later. The exception is a recovered hang's report, which is deleted when
+    /// its finalization fails.
+    ///
+    /// Throw only for a failure a later read can get past, such as a sidecar that cannot be
+    /// read right now. A sidecar that is absent, or holds bytes no later read could make sense
+    /// of, will not change: return the report unchanged so it delivers without this monitor's
+    /// data. A throw there holds back, until pruning removes them, every report the sidecar
+    /// belongs to: one report for a `.report` sidecar, every report from the run for a `.run`
+    /// sidecar.
     ///
     /// For `.final` there is no sidecar (`sidecarURL` is nil): after all sidecar stitching,
     /// every stitching monitor gets one last chance to modify the report, drawing on the

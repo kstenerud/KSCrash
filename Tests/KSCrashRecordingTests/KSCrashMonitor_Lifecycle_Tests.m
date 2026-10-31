@@ -207,8 +207,8 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
                            backgroundDurationSinceLastCrashNs:(uint64_t)bgNs
 {
     KSCrash_LifecycleData prev = { 0 };
-    prev.magic = KSLIFECYCLE_MAGIC;
-    prev.version = KSCrash_Lifecycle_CurrentVersion;
+    prev.header.magic = KSLIFECYCLE_MAGIC;
+    prev.header.version = KSCrash_Lifecycle_CurrentVersion;
     prev.cleanExit = clean;
     prev.launchesSinceLastCrash = launches;
     prev.sessionsSinceLastCrash = sessions;
@@ -330,7 +330,7 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     XCTAssertEqual(bytesRead, (ssize_t)sizeof(current));
 
     // Verify it was a valid sidecar
-    XCTAssertEqual(current.magic, KSLIFECYCLE_MAGIC);
+    XCTAssertEqual(current.header.magic, KSLIFECYCLE_MAGIC);
 
     // Mark it as clean shutdown
     current.cleanExit = true;
@@ -494,28 +494,28 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     XCTAssertEqual(data.sessionsSinceLaunch, 6);  // 1 launch + 5 resumes
 }
 
-- (void)testReadData_v1Sidecar_zeroFillsNewFields
+- (void)testReadLifecycle_v1Sidecar_zeroFillsNewFields
 {
-    // Construct a v1-sized (88-byte) sidecar on disk. The readData function
-    // must tolerate the short file and leave the new v2 fields zero-filled.
-    KSCrash_LifecycleData v2 = { 0 };
-    v2.magic = KSLIFECYCLE_MAGIC;
-    v2.version = 1;  // pretend this is a v1 sidecar
-    v2.sessionsSinceLaunch = 7;
-    v2.launchesSinceLastCrash = 3;
-    v2.perceptibleSessionsSinceLaunch_UNUSED = 999;  // "garbage" trailing bytes we won't write
-    v2.imperceptibleSessionsSinceLaunch_UNUSED = 999;
+    // Construct a v1-sized (88-byte) sidecar on disk. The reader reads it as
+    // v1 and leaves the newer fields zero-filled.
+    KSCrash_LifecycleData v1 = { 0 };
+    v1.header.magic = KSLIFECYCLE_MAGIC;
+    v1.header.version = 1;  // pretend this is a v1 sidecar
+    v1.sessionsSinceLaunch = 7;
+    v1.launchesSinceLastCrash = 3;
+    v1.perceptibleSessionsSinceLaunch_UNUSED = 999;  // "garbage" trailing bytes we won't write
+    v1.imperceptibleSessionsSinceLaunch_UNUSED = 999;
 
     NSString *path = [self.tempPath stringByAppendingPathComponent:@"v1.ksscr"];
     int fd = open(path.fileSystemRepresentation, O_WRONLY | O_CREAT | O_TRUNC, 0644);
     XCTAssertNotEqual(fd, -1);
     const size_t v1Size = 88;  // historical v1 struct size
-    ssize_t written = write(fd, &v2, v1Size);
+    ssize_t written = write(fd, &v1, v1Size);
     close(fd);
     XCTAssertEqual(written, (ssize_t)v1Size);
 
     KSCrash_LifecycleData out = { 0 };
-    XCTAssertTrue(kslifecycle_readData(path.fileSystemRepresentation, &out));
+    XCTAssertEqual(kssidecar_readLifecycle(path.fileSystemRepresentation, &out), KSCrashSidecarReadOK);
     XCTAssertEqual(out.sessionsSinceLaunch, 7);
     XCTAssertEqual(out.launchesSinceLastCrash, 3);
     // New v2 fields weren't in the file → zero-filled, not garbage.
