@@ -29,11 +29,11 @@ import Foundation
 /// System memory information.
 public struct MemoryInfo: Codable, Sendable, Equatable {
     /// Free memory in bytes.
-    public let free: UInt64?
+    public var free: UInt64?
 
     /// Total memory size in bytes.
-    public let size: UInt64?
+    public var size: UInt64?
 
     /// Usable memory in bytes.
-    public let usable: UInt64?
+    public var usable: UInt64?
 }

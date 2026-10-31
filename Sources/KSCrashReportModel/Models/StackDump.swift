@@ -29,25 +29,25 @@ import Foundation
 /// Raw stack memory dump.
 public struct StackDump: Codable, Sendable, Equatable {
     /// Hexadecimal string of stack contents.
-    public let contents: String?
+    public var contents: String?
 
     /// End address of the dump.
-    public let dumpEnd: UInt64?
+    public var dumpEnd: UInt64?
 
     /// Start address of the dump.
-    public let dumpStart: UInt64?
+    public var dumpStart: UInt64?
 
     /// Stack growth direction ("-" for downward, "+" for upward).
-    public let growDirection: String?
+    public var growDirection: String?
 
     /// Whether stack overflow was detected.
-    public let overflow: Bool?
+    public var overflow: Bool?
 
     /// Current stack pointer value.
-    public let stackPointer: UInt64?
+    public var stackPointer: UInt64?
 
     /// Error message if stack contents couldn't be read.
-    public let error: String?
+    public var error: String?
 
     enum CodingKeys: String, CodingKey {
         case contents
