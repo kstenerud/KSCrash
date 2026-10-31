@@ -162,6 +162,26 @@ static inline bool getThreadList(KSMachineContext *context, uint64_t findThreadI
     return true;
 }
 
+thread_t ksmc_threadForID(task_t task, uint64_t threadID)
+{
+    const task_t thisTask = mach_task_self();
+    thread_act_array_t threads = NULL;
+    mach_msg_type_number_t count = 0;
+    kern_return_t kr = task_threads(task, &threads, &count);
+    if (kr != KERN_SUCCESS) {
+        KSLOG_ERROR("task_threads: %s", mach_error_string(kr));
+        return MACH_PORT_NULL;
+    }
+    const thread_t found = findThreadWithID(threads, count, threadID);
+    for (mach_msg_type_number_t i = 0; i < count; i++) {
+        if (threads[i] != found) {
+            mach_port_deallocate(thisTask, threads[i]);
+        }
+    }
+    vm_deallocate(thisTask, (vm_address_t)threads, sizeof(thread_t) * count);
+    return found;
+}
+
 int ksmc_contextSize(void) { return sizeof(KSMachineContext); }
 
 KSThread ksmc_getThreadFromContext(const KSMachineContext *const context) { return context->thisThread; }

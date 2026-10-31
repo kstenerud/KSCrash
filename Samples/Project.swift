@@ -29,7 +29,15 @@ let project = Project(
             dependencies: [
                 .package(product: "SampleUI", type: .runtime),
                 .package(product: "KSCrash", type: .runtime),
-            ]
+            ],
+            // Empty unless a build names one. The Enhanced Security integration lane passes
+            // KSCRASH_SAMPLE_ENTITLEMENTS=EnhancedSecurity.entitlements (with
+            // ENABLE_POINTER_AUTHENTICATION=YES) to build the app the way an app adopting that
+            // capability is built. Scoped to this target: set on the command line instead, it
+            // would reach every package target too.
+            settings: .settings(base: [
+                "CODE_SIGN_ENTITLEMENTS": "$(KSCRASH_SAMPLE_ENTITLEMENTS)"
+            ])
         ),
         // The integration tests run on the Mac whatever platform they drive, and launch the
         // Sample app themselves (see Tests/Core/TargetApp.swift). They must not depend on the
