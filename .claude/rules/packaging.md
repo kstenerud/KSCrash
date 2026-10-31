@@ -1,12 +1,7 @@
 ---
 paths:
   - "Package.swift"
-  - "KSCrash.podspec"
 ---
-
-## Package.swift / Podspec Sync
-
-`KSCrash.podspec` must stay in sync with `Package.swift`. When adding a new target or dependency in Package.swift, always add the corresponding subspec and dependency in the podspec. CI lint jobs will fail otherwise.
 
 ## Public Modules
 

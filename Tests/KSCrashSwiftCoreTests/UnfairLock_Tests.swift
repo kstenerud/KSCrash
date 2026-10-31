@@ -24,11 +24,8 @@
 // THE SOFTWARE.
 //
 
+import KSCrashSwiftCore
 import XCTest
-
-#if SWIFT_PACKAGE
-    import KSCrashSwiftCore
-#endif
 
 final class UnfairLockTests: XCTestCase {
 

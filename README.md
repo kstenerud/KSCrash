@@ -8,7 +8,6 @@
 ![Untitled](https://github.com/user-attachments/assets/9478bde6-78ae-4d59-b8ab-dc6db4137b9f)
 
 [![Run Unit Tests](https://github.com/kstenerud/KSCrash/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/kstenerud/KSCrash/actions/workflows/unit-tests.yml)
-[![CocoaPods Lint](https://github.com/kstenerud/KSCrash/actions/workflows/cocoapods-lint.yml/badge.svg)](https://github.com/kstenerud/KSCrash/actions/workflows/cocoapods-lint.yml)
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fkstenerud%2FKSCrash%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/kstenerud/KSCrash)
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fkstenerud%2FKSCrash%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/kstenerud/KSCrash)
 
@@ -30,8 +29,7 @@ For upgrades from 1.x, see the
 
 ### Install
 
-**SPM:** Add `https://github.com/kstenerud/KSCrash.git` in Xcode (File > Add Packages), or in
-`Package.swift`:
+Add `https://github.com/kstenerud/KSCrash.git` in Xcode (File > Add Packages), or in `Package.swift`:
 
 ```swift
 dependencies: [
@@ -39,16 +37,10 @@ dependencies: [
 ]
 ```
 
-**CocoaPods:**
-
-```ruby
-pod 'KSCrash', '~> 2.6'
-```
-
 ### Setup
 
 ```swift
-import KSCrashRecording // KSCrash for CocoaPods
+import KSCrashRecording
 
 let config = KSCrashConfiguration()
 try KSCrash.shared.install(with: config)
