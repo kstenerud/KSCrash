@@ -48,6 +48,7 @@ extern NSString *const KSCrashNSExceptionStacktraceFuncName;
     __PROCESS_TRIGGER(nsException, user, @"User reported NSException")                                 \
     __PROCESS_TRIGGER(cpp, runtimeException, @"Runtime Exception")                                     \
     __PROCESS_TRIGGER(cpp, runtimeExceptionBackgroundThread, @"Runtime Exception (Background Thread)") \
+    __PROCESS_TRIGGER(cpp, runtimeExceptionDyldLock, @"Runtime Exception (dyld Lock Held)")            \
     __PROCESS_TRIGGER(cpp, objcObjectException, @"Objective-C Object Exception")                       \
     __PROCESS_TRIGGER(cpp, objcObjectExceptionAfterCaughtCpp, @"ObjC Object (after caught C++)")       \
     __PROCESS_TRIGGER(cpp, terminateAfterCaughtCpp, @"Terminate (after caught C++)")                   \
