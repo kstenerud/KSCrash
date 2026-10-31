@@ -27,7 +27,9 @@
 #import <XCTest/XCTest.h>
 #import <dlfcn.h>
 #import <mach-o/dyld.h>
+#import <mach-o/dyld_images.h>
 #import <mach-o/loader.h>
+#import <mach/mach.h>
 
 #import "KSBinaryImageCache.h"
 #import "KSDynamicLinker.h"
@@ -659,17 +661,20 @@ static void testImageAddedCallback(const struct mach_header *mh, intptr_t vmaddr
     XCTAssertTrue(strstr(path, "dyld") != NULL, @"Path should contain 'dyld'");
 }
 
-#pragma mark - ksbic_getUUIDForHeader Tests
+#pragma mark - ksbic_copyUUIDForHeader Tests
 
-- (void)testGetUUIDForHeader_ReturnsValidUUID
+static void *makeSyntheticImage(uint8_t uuidFill);
+static void cacheSyntheticImage(void *page);
+static void releaseSyntheticImage(void *page);
+
+- (void)testCopyUUIDForHeader_ReturnsValidUUID
 {
     const struct mach_header *appHeader = ksbic_getAppHeader();
     XCTAssertNotEqual(appHeader, NULL);
 
-    const uint8_t *uuid = ksbic_getUUIDForHeader(appHeader);
-    XCTAssertNotEqual(uuid, NULL, @"App should have a UUID");
+    uint8_t uuid[16] = { 0 };
+    XCTAssertTrue(ksbic_copyUUIDForHeader(appHeader, uuid), @"App should have a UUID");
 
-    // UUID should not be all zeros
     bool allZero = true;
     for (int i = 0; i < 16; i++) {
         if (uuid[i] != 0) {
@@ -680,7 +685,7 @@ static void testImageAddedCallback(const struct mach_header *mh, intptr_t vmaddr
     XCTAssertFalse(allZero, @"UUID should not be all zeros");
 }
 
-- (void)testGetUUIDForHeader_MatchesDynamicLinker
+- (void)testCopyUUIDForHeader_MatchesDynamicLinker
 {
     uint32_t count = 0;
     const ks_dyld_image_info *images = ksbic_getImages(&count);
@@ -688,45 +693,75 @@ static void testImageAddedCallback(const struct mach_header *mh, intptr_t vmaddr
 
     const struct mach_header *header = images[0].imageLoadAddress;
 
-    // Get UUID from our cache
-    const uint8_t *cachedUUID = ksbic_getUUIDForHeader(header);
-    XCTAssertNotEqual(cachedUUID, NULL);
+    uint8_t cachedUUID[16] = { 0 };
+    XCTAssertTrue(ksbic_copyUUIDForHeader(header, cachedUUID));
 
-    // Get UUID from ksdl_binaryImageForHeader
     KSBinaryImage image = { 0 };
     bool success = ksdl_binaryImageForHeader(header, images[0].imageFilePath, &image);
     XCTAssertTrue(success);
     XCTAssertNotEqual(image.uuid, NULL);
 
-    // They should match
     XCTAssertEqual(memcmp(cachedUUID, image.uuid, 16), 0, @"Cached UUID should match ksdl_binaryImageForHeader UUID");
 }
 
-- (void)testGetUUIDForHeader_DyldHasUUID
+- (void)testCopyUUIDForHeader_DyldHasUUID
 {
     const struct mach_header *dyldHeader = ksbic_getDyldHeader();
     XCTAssertNotEqual(dyldHeader, NULL);
 
-    const uint8_t *uuid = ksbic_getUUIDForHeader(dyldHeader);
-    XCTAssertNotEqual(uuid, NULL, @"dyld should have a UUID");
+    uint8_t uuid[16] = { 0 };
+    XCTAssertTrue(ksbic_copyUUIDForHeader(dyldHeader, uuid), @"dyld should have a UUID");
 }
 
-- (void)testGetUUIDForHeader_NullHeader
+- (void)testCopyUUIDForHeader_NullHeaderReturnsFalse
 {
-    const uint8_t *uuid = ksbic_getUUIDForHeader(NULL);
-    XCTAssertEqual(uuid, NULL, @"NULL header should return NULL UUID");
+    uint8_t uuid[16];
+    memset(uuid, 0xA5, sizeof(uuid));
+    XCTAssertFalse(ksbic_copyUUIDForHeader(NULL, uuid));
+    uint8_t untouched[16];
+    memset(untouched, 0xA5, sizeof(untouched));
+    XCTAssertEqual(memcmp(uuid, untouched, 16), 0, @"false leaves the output untouched");
 }
 
-- (void)testGetUUIDForHeader_ConsistentAcrossCalls
+- (void)testCopyUUIDForHeader_ConsistentAcrossCalls
 {
     const struct mach_header *appHeader = ksbic_getAppHeader();
     XCTAssertNotEqual(appHeader, NULL);
 
-    const uint8_t *uuid1 = ksbic_getUUIDForHeader(appHeader);
-    const uint8_t *uuid2 = ksbic_getUUIDForHeader(appHeader);
+    uint8_t first[16] = { 0 };
+    uint8_t second[16] = { 0 };
+    XCTAssertTrue(ksbic_copyUUIDForHeader(appHeader, first));
+    XCTAssertTrue(ksbic_copyUUIDForHeader(appHeader, second));
+    XCTAssertEqual(memcmp(first, second, 16), 0, @"Repeated calls should copy the same bytes");
+}
 
-    XCTAssertNotEqual(uuid1, NULL);
-    XCTAssertEqual(uuid1, uuid2, @"Repeated calls should return the same pointer");
+- (void)testCopyUUIDForHeader_SurvivesEntryShift
+{
+    // Two synthetic images; caching the lower one after the higher one inserts ahead of it in
+    // the sorted array and shifts the higher entry. The bytes must move with the entry.
+    void *first = makeSyntheticImage(0x11);
+    void *second = makeSyntheticImage(0x22);
+    XCTAssertTrue(first != NULL && second != NULL);
+    void *high = (uintptr_t)first > (uintptr_t)second ? first : second;
+    void *low = high == first ? second : first;
+    uint8_t highFill = high == first ? 0x11 : 0x22;
+    uint8_t lowFill = high == first ? 0x22 : 0x11;
+    @try {
+        cacheSyntheticImage(high);
+        cacheSyntheticImage(low);
+
+        uint8_t expected[16];
+        uint8_t b[16] = { 0 };
+        XCTAssertTrue(ksbic_copyUUIDForHeader(high, b));
+        memset(expected, highFill, sizeof(expected));
+        XCTAssertEqual(memcmp(b, expected, 16), 0, @"the shifted entry must still carry its own UUID bytes");
+        XCTAssertTrue(ksbic_copyUUIDForHeader(low, b));
+        memset(expected, lowFill, sizeof(expected));
+        XCTAssertEqual(memcmp(b, expected, 16), 0, @"the inserted entry must carry its own, not its neighbour's");
+    } @finally {
+        releaseSyntheticImage(first);
+        releaseSyntheticImage(second);
+    }
 }
 
 - (void)testGetUnwindInfoForHeader_ConsistentWithAddressLookup
@@ -1005,6 +1040,473 @@ static void buildSynthetic32(Synthetic32Image *image)
     // Slides differ (different buffer addresses); the layout-derived values must agree.
     XCTAssertEqual(base32, base64v);
     XCTAssertEqual(count32, count64);
+}
+
+#pragma mark - Image list reads
+
+// Seams defined in KSBinaryImageCache.c for these tests.
+extern void ksbic_testcode_setAllImageInfos(struct dyld_all_image_infos *infos);
+extern void ksbic_testcode_setImageListLoadHook(void (*hook)(int step));
+
+static struct dyld_all_image_infos g_fakeAllImageInfos;
+static struct dyld_image_info *g_rebuiltImageList = NULL;
+static uint32_t g_rebuiltImageCount = 0;
+static int g_rebuildHookFired = 0;
+
+static struct dyld_all_image_infos *realAllImageInfos(void)
+{
+    struct task_dyld_info dyldInfo;
+    mach_msg_type_number_t infoCount = TASK_DYLD_INFO_COUNT;
+    if (task_info(mach_task_self(), TASK_DYLD_INFO, (task_info_t)&dyldInfo, &infoCount) != KERN_SUCCESS) {
+        return NULL;
+    }
+    return (struct dyld_all_image_infos *)dyldInfo.all_image_info_addr;
+}
+
+// Plays dyld's rebuild between two of ksbic_getImages' loads, in dyld's order:
+// NULL the pointer, write the count, the stamp, then the pointer.
+// dyld writes the new stamp once BEFORE the count (at the end of activateAtlas) and once after.
+// This hook models the tail of that sequence landing after the reader's second load: the pointer
+// is NULL and the stamp already new when the read starts, then count and pointer land.
+static void publishCountAndArrayAfterSecondLoad(int step)
+{
+    if (step != 1 || g_rebuildHookFired > 0) {
+        return;
+    }
+    g_rebuildHookFired++;
+    g_fakeAllImageInfos.infoArrayCount = g_rebuiltImageCount;
+    g_fakeAllImageInfos.infoArray = g_rebuiltImageList;
+}
+
+// dyld-941 (macOS 12 / iOS 15, the deployment floor) writes NULL, then the count, then the stamp,
+// then the pointer on an add. This hook models the writer paused after the count: the stamp has
+// not moved, so only a reader that notices the NULLed pointer or the changed count can reject it.
+static void oldDyldAddPausedAfterCount(int step)
+{
+    if (step != 1 || g_rebuildHookFired > 0) {
+        return;
+    }
+    g_rebuildHookFired++;
+    g_fakeAllImageInfos.infoArray = NULL;
+    g_fakeAllImageInfos.infoArrayCount = g_rebuiltImageCount;
+}
+
+// dyld-941 writes the stamp LAST on a removal, after the count and the pointer. This hook models a
+// whole removal (same buffer, one entry fewer) completing after the reader's third load, with the
+// stamp still untouched.
+static void oldDyldRemovalCompletedBeforeItsStamp(int step)
+{
+    if (step != 2 || g_rebuildHookFired > 0) {
+        return;
+    }
+    g_rebuildHookFired++;
+    const struct dyld_image_info *same = g_fakeAllImageInfos.infoArray;
+    g_fakeAllImageInfos.infoArray = NULL;
+    g_fakeAllImageInfos.infoArrayCount -= 1;
+    g_fakeAllImageInfos.infoArray = same;
+}
+
+// A whole rebuild (NULL, count, stamp, pointer) landing after the reader's second load, so the
+// first attempt pairs the old pointer with the new count and the stamp change must reject it.
+static void rebuildListAfterPointerLoad(int step)
+{
+    if (step != 1 || g_rebuildHookFired > 0) {
+        return;
+    }
+    g_rebuildHookFired++;
+    g_fakeAllImageInfos.infoArray = NULL;
+    g_fakeAllImageInfos.infoArrayCount = g_rebuiltImageCount;
+    g_fakeAllImageInfos.infoArrayChangeTimestamp += 1;
+    g_fakeAllImageInfos.infoArray = g_rebuiltImageList;
+}
+
+- (void)testGetImagesReturnsNULLWhileDyldRebuilds
+{
+    extern void ksbic_resetCache(void);
+    // Reset first so the real struct carries dyld's own notifier before it is copied.
+    ksbic_resetCache();
+    struct dyld_all_image_infos *real = realAllImageInfos();
+    XCTAssertNotEqual(real, NULL);
+    g_fakeAllImageInfos = *real;
+    g_fakeAllImageInfos.infoArray = NULL;
+    ksbic_testcode_setAllImageInfos(&g_fakeAllImageInfos);
+    @try {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        ksbic_init();  // under the fake: caches dyld only, must not crash
+#pragma clang diagnostic pop
+        uint32_t count = 99;
+        XCTAssertEqual(ksbic_getImages(&count), NULL);
+        XCTAssertEqual(count, 0u);
+        XCTAssertEqual(ksbic_findImageForAddress((uintptr_t)&testImageAddedCallback, NULL, NULL), NULL);
+        XCTAssertEqual(ksbic_getAppHeader(), NULL);
+    } @finally {
+        ksbic_resetCache();
+        ksbic_testcode_setAllImageInfos(NULL);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        ksbic_init();
+#pragma clang diagnostic pop
+    }
+}
+
+- (void)testGetImagesRejectsOldCountPublishedBeforeNewArray
+{
+    extern void ksbic_resetCache(void);
+    ksbic_resetCache();
+    struct dyld_all_image_infos *real = realAllImageInfos();
+    XCTAssertNotEqual(real, NULL);
+    g_fakeAllImageInfos = *real;
+    uint32_t count = g_fakeAllImageInfos.infoArrayCount;
+    XCTAssertGreaterThan(count, 0u);
+    g_rebuiltImageCount = count + 1;
+    g_rebuiltImageList = calloc(g_rebuiltImageCount, sizeof(struct dyld_image_info));
+    memcpy(g_rebuiltImageList, g_fakeAllImageInfos.infoArray, count * sizeof(struct dyld_image_info));
+    g_rebuiltImageList[count] = g_rebuiltImageList[0];
+    // dyld has NULLed the pointer and published the new stamp; the count is still the old one.
+    g_fakeAllImageInfos.infoArray = NULL;
+    g_fakeAllImageInfos.infoArrayChangeTimestamp += 1;
+    g_rebuildHookFired = 0;
+    ksbic_testcode_setAllImageInfos(&g_fakeAllImageInfos);
+    @try {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        ksbic_init();
+#pragma clang diagnostic pop
+        ksbic_testcode_setImageListLoadHook(publishCountAndArrayAfterSecondLoad);
+        uint32_t got = 0;
+        const ks_dyld_image_info *images = ksbic_getImages(&got);
+        XCTAssertEqual(g_rebuildHookFired, 1);
+        XCTAssertEqual((const void *)images, (const void *)g_rebuiltImageList);
+        XCTAssertEqual(got, count + 1, @"equal stamps around a new pointer must never come with the old count");
+    } @finally {
+        ksbic_testcode_setImageListLoadHook(NULL);
+        ksbic_resetCache();
+        ksbic_testcode_setAllImageInfos(NULL);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        ksbic_init();
+#pragma clang diagnostic pop
+        free(g_rebuiltImageList);
+        g_rebuiltImageList = NULL;
+    }
+}
+
+- (void)testGetImagesRejectsOldDyldAddPausedAfterCount
+{
+    extern void ksbic_resetCache(void);
+    ksbic_resetCache();
+    struct dyld_all_image_infos *real = realAllImageInfos();
+    XCTAssertNotEqual(real, NULL);
+    g_fakeAllImageInfos = *real;
+    uint32_t count = g_fakeAllImageInfos.infoArrayCount;
+    XCTAssertGreaterThan(count, 0u);
+    g_rebuiltImageCount = count + 1;
+    g_rebuiltImageList = NULL;
+    g_rebuildHookFired = 0;
+    ksbic_testcode_setAllImageInfos(&g_fakeAllImageInfos);
+    @try {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        ksbic_init();
+#pragma clang diagnostic pop
+        ksbic_testcode_setImageListLoadHook(oldDyldAddPausedAfterCount);
+        uint32_t got = 0;
+        const ks_dyld_image_info *images = ksbic_getImages(&got);
+        XCTAssertEqual(g_rebuildHookFired, 1);
+        XCTAssertEqual(images, NULL, @"the old pointer with the new count must not be accepted; dyld is mid-rebuild");
+        XCTAssertEqual(got, 0u, @"real count was %u", count);
+    } @finally {
+        ksbic_testcode_setImageListLoadHook(NULL);
+        ksbic_resetCache();
+        ksbic_testcode_setAllImageInfos(NULL);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        ksbic_init();
+#pragma clang diagnostic pop
+    }
+}
+
+- (void)testGetImagesRejectsOldDyldRemovalCompletedBeforeItsStamp
+{
+    extern void ksbic_resetCache(void);
+    ksbic_resetCache();
+    struct dyld_all_image_infos *real = realAllImageInfos();
+    XCTAssertNotEqual(real, NULL);
+    g_fakeAllImageInfos = *real;
+    uint32_t count = g_fakeAllImageInfos.infoArrayCount;
+    XCTAssertGreaterThan(count, 1u);
+    g_rebuildHookFired = 0;
+    ksbic_testcode_setAllImageInfos(&g_fakeAllImageInfos);
+    @try {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        ksbic_init();
+#pragma clang diagnostic pop
+        ksbic_testcode_setImageListLoadHook(oldDyldRemovalCompletedBeforeItsStamp);
+        uint32_t got = 0;
+        const ks_dyld_image_info *images = ksbic_getImages(&got);
+        XCTAssertEqual(g_rebuildHookFired, 1);
+        XCTAssertEqual((const void *)images, (const void *)real->infoArray);
+        XCTAssertEqual(got, count - 1, @"the count must be the one that goes with the list as it is now");
+    } @finally {
+        ksbic_testcode_setImageListLoadHook(NULL);
+        ksbic_resetCache();
+        ksbic_testcode_setAllImageInfos(NULL);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        ksbic_init();
+#pragma clang diagnostic pop
+    }
+}
+
+- (void)testGetImagesRejectsListRebuiltBetweenLoads
+{
+    extern void ksbic_resetCache(void);
+    ksbic_resetCache();
+    struct dyld_all_image_infos *real = realAllImageInfos();
+    XCTAssertNotEqual(real, NULL);
+    g_fakeAllImageInfos = *real;
+    uint32_t count = g_fakeAllImageInfos.infoArrayCount;
+    XCTAssertGreaterThan(count, 0u);
+    g_rebuiltImageCount = count + 1;
+    g_rebuiltImageList = calloc(g_rebuiltImageCount, sizeof(struct dyld_image_info));
+    memcpy(g_rebuiltImageList, g_fakeAllImageInfos.infoArray, count * sizeof(struct dyld_image_info));
+    g_rebuiltImageList[count] = g_rebuiltImageList[0];
+    g_rebuildHookFired = 0;
+    ksbic_testcode_setAllImageInfos(&g_fakeAllImageInfos);
+    @try {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        ksbic_init();  // reads the list itself; the hook goes in only after, so the read under test sees the rebuild
+#pragma clang diagnostic pop
+        ksbic_testcode_setImageListLoadHook(rebuildListAfterPointerLoad);
+        uint32_t got = 0;
+        const ks_dyld_image_info *images = ksbic_getImages(&got);
+        XCTAssertEqual(g_rebuildHookFired, 1, @"the rebuild must land between the loads");
+        XCTAssertEqual((const void *)images, (const void *)g_rebuiltImageList,
+                       @"the first attempt paired the old pointer with the new count and the stamp change rejects it");
+        XCTAssertEqual(got, count + 1);
+    } @finally {
+        ksbic_testcode_setImageListLoadHook(NULL);
+        ksbic_resetCache();
+        ksbic_testcode_setAllImageInfos(NULL);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        ksbic_init();
+#pragma clang diagnostic pop
+        free(g_rebuiltImageList);
+        g_rebuiltImageList = NULL;
+    }
+}
+
+#pragma mark - Image removal
+
+extern void ksbic_testcode_notify(enum dyld_image_mode mode, uint32_t infoCount, const struct dyld_image_info *info);
+extern void ksbic_testcode_holdCache(void);
+extern void ksbic_testcode_releaseCache(void);
+extern uint32_t ksbic_testcode_cacheCount(void);
+
+// One page holding a minimal 64-bit Mach-O: a __TEXT segment covering the page and an LC_UUID
+// filled with uuidFill. Nothing in dyld's list refers to it, so once evicted no lookup can find it.
+static void *makeSyntheticImage(uint8_t uuidFill)
+{
+    vm_address_t page = 0;
+    kern_return_t kr = vm_allocate(mach_task_self(), &page, PAGE_SIZE, VM_FLAGS_ANYWHERE);
+    if (kr != KERN_SUCCESS) {
+        return NULL;
+    }
+    struct mach_header_64 *header = (struct mach_header_64 *)page;
+    header->magic = MH_MAGIC_64;
+    header->cputype = CPU_TYPE_ARM64;
+#if defined(__x86_64__)
+    header->cputype = CPU_TYPE_X86_64;
+#endif
+    header->filetype = MH_DYLIB;
+    header->ncmds = 2;
+    header->sizeofcmds = sizeof(struct segment_command_64) + sizeof(struct uuid_command);
+
+    // The page is 8-byte aligned and both commands are, so the uintptr_t hop only quiets -Wcast-align.
+    struct segment_command_64 *text = (struct segment_command_64 *)((uintptr_t)page + sizeof(*header));
+    text->cmd = LC_SEGMENT_64;
+    text->cmdsize = sizeof(struct segment_command_64);
+    strlcpy(text->segname, SEG_TEXT, sizeof(text->segname));
+    text->vmaddr = 0;
+    text->vmsize = PAGE_SIZE;
+    text->fileoff = 0;
+    text->filesize = PAGE_SIZE;
+
+    struct uuid_command *uuid = (struct uuid_command *)((uintptr_t)text + sizeof(*text));
+    uuid->cmd = LC_UUID;
+    uuid->cmdsize = sizeof(struct uuid_command);
+    memset(uuid->uuid, uuidFill, sizeof(uuid->uuid));
+    return (void *)page;
+}
+
+// Puts a synthetic image in the cache the way dyld would: through the add notification. Lookups by
+// header no longer insert on a miss, so this is the only way in for an image dyld does not list.
+static void cacheSyntheticImage(void *page)
+{
+    struct dyld_image_info info = { page, "/fake/libfake.dylib", 0 };
+    ksbic_testcode_notify(dyld_image_adding, 1, &info);
+}
+
+// Mirrors dyld's own order: announce the removal, then unmap. Leaving an entry for a freed page in
+// the cache until the next setUp would be a use-after-free waiting for a lookup of a reused address.
+static void releaseSyntheticImage(void *page)
+{
+    if (page == NULL) {
+        return;
+    }
+    struct dyld_image_info info = { page, "/fake/libfake.dylib", 0 };
+    ksbic_testcode_notify(dyld_image_removing, 1, &info);
+    vm_deallocate(mach_task_self(), (vm_address_t)page, PAGE_SIZE);
+}
+
+static const struct uuid_command *syntheticUUIDCommand(void *page)
+{
+    return (const struct uuid_command *)((uintptr_t)page + sizeof(struct mach_header_64) +
+                                         sizeof(struct segment_command_64));
+}
+
+- (void)testRemovalNotificationEvictsCachedImage
+{
+    void *page = makeSyntheticImage(0x42);
+    XCTAssertTrue(page != NULL);
+    @try {
+        cacheSyntheticImage(page);
+        uint32_t before = ksbic_testcode_cacheCount();
+        XCTAssertEqual(ksbic_findImageForAddress((uintptr_t)page + 64, NULL, NULL), (const struct mach_header *)page);
+
+        struct dyld_image_info info = { page, "/fake/libfake.dylib", 0 };
+        ksbic_testcode_notify(dyld_image_removing, 1, &info);
+
+        XCTAssertEqual(ksbic_testcode_cacheCount(), before - 1);
+        XCTAssertEqual(ksbic_findImageForAddress((uintptr_t)page + 64, NULL, NULL), NULL,
+                       @"the page is still mapped, so only the cache could have answered");
+    } @finally {
+        releaseSyntheticImage(page);
+    }
+}
+
+- (void)testRemovalWhileCacheBusyFlushesOnNextAcquire
+{
+    void *page = makeSyntheticImage(0x42);
+    XCTAssertTrue(page != NULL);
+    @try {
+        cacheSyntheticImage(page);
+
+        ksbic_testcode_holdCache();
+        struct dyld_image_info info = { page, "/fake/libfake.dylib", 0 };
+        ksbic_testcode_notify(dyld_image_removing, 1, &info);
+        ksbic_testcode_releaseCache();
+
+        XCTAssertEqual(ksbic_findImageForAddress((uintptr_t)page + 64, NULL, NULL), NULL);
+        XCTAssertEqual(ksbic_testcode_cacheCount(), 0u,
+                       @"a removal during a hold flushes the cache on the next acquire, and the miss adds nothing");
+    } @finally {
+        releaseSyntheticImage(page);
+    }
+}
+
+- (void)testDyldAddressResolvesAfterFlush
+{
+    const struct mach_header *dyld = ksbic_getDyldHeader();
+    XCTAssertNotEqual(dyld, NULL);
+    XCTAssertEqual(ksbic_findImageForAddress((uintptr_t)dyld, NULL, NULL), dyld);
+
+    void *page = makeSyntheticImage(0x42);
+    XCTAssertTrue(page != NULL);
+    @try {
+        ksbic_testcode_holdCache();
+        struct dyld_image_info info = { page, "/fake/libfake.dylib", 0 };
+        ksbic_testcode_notify(dyld_image_removing, 1, &info);
+        ksbic_testcode_releaseCache();
+
+        // dyld is not in dyld's own image list, so after the flush only the miss path can bring it back.
+        XCTAssertEqual(ksbic_findImageForAddress((uintptr_t)dyld, NULL, NULL), dyld,
+                       @"a flush must not lose dyld for the rest of the run");
+    } @finally {
+        releaseSyntheticImage(page);
+    }
+}
+
+- (void)testHeaderLookupMissDoesNotInsert
+{
+    // Between dyld's removal notice and the unmap, a report that already resolved a frame by address
+    // may ask for that header's UUID. Answering is fine; re-inserting the evicted image is not,
+    // because nothing would evict it a second time.
+    void *page = makeSyntheticImage(0x42);
+    XCTAssertTrue(page != NULL);
+    @try {
+        uint32_t before = ksbic_testcode_cacheCount();
+        uint8_t uuid[16] = { 0 };
+        XCTAssertTrue(ksbic_copyUUIDForHeader(page, uuid), @"a header-keyed miss still answers from the header");
+        XCTAssertTrue(ksbic_getUnwindInfoForHeader(page, NULL));
+        XCTAssertEqual(ksbic_testcode_cacheCount(), before, @"a header-keyed miss must not insert");
+        XCTAssertEqual(ksbic_findImageForAddress((uintptr_t)page + 64, NULL, NULL), NULL);
+    } @finally {
+        releaseSyntheticImage(page);
+    }
+}
+
+- (void)testAddNotificationReplacesStaleEntryForSameHeader
+{
+    void *page = makeSyntheticImage(0x11);
+    XCTAssertTrue(page != NULL);
+    @try {
+        cacheSyntheticImage(page);
+        uint8_t uuid[16] = { 0 };
+        XCTAssertTrue(ksbic_copyUUIDForHeader(page, uuid));
+
+        // A new image mapped at the same address: rewrite the UUID in place and announce the add.
+        memset((void *)syntheticUUIDCommand(page)->uuid, 0x22, 16);
+        cacheSyntheticImage(page);
+
+        uint8_t expected[16];
+        memset(expected, 0x22, sizeof(expected));
+        XCTAssertTrue(ksbic_copyUUIDForHeader(page, uuid));
+        XCTAssertEqual(memcmp(uuid, expected, 16), 0, @"an add for a cached header replaces the stale entry");
+    } @finally {
+        releaseSyntheticImage(page);
+    }
+}
+
+- (void)testAddNotificationReplacesStaleEntryWhenCacheIsFull
+{
+    void *page = makeSyntheticImage(0x11);
+    XCTAssertTrue(page != NULL);
+    @try {
+        cacheSyntheticImage(page);
+        // Cap the cache at exactly its current size: full, with the synthetic entry still in it.
+        ksbic_testcode_setMaxCacheEntries(ksbic_testcode_cacheCount());
+
+        memset((void *)syntheticUUIDCommand(page)->uuid, 0x22, 16);
+        cacheSyntheticImage(page);
+
+        uint8_t uuid[16] = { 0 };
+        uint8_t expected[16];
+        memset(expected, 0x22, sizeof(expected));
+        XCTAssertTrue(ksbic_copyUUIDForHeader(page, uuid));
+        XCTAssertEqual(memcmp(uuid, expected, 16), 0, @"a full cache must still replace the stale entry");
+    } @finally {
+        ksbic_testcode_setMaxCacheEntries(0);
+        releaseSyntheticImage(page);
+    }
+}
+
+- (void)testRemovalNotificationIgnoresUnknownHeader
+{
+    void *page = makeSyntheticImage(0x42);
+    XCTAssertTrue(page != NULL);
+    @try {
+        uint32_t before = ksbic_testcode_cacheCount();
+        struct dyld_image_info info = { page, "/fake/libnever.dylib", 0 };
+        ksbic_testcode_notify(dyld_image_removing, 1, &info);
+        XCTAssertEqual(ksbic_testcode_cacheCount(), before);
+    } @finally {
+        vm_deallocate(mach_task_self(), (vm_address_t)page, PAGE_SIZE);
+    }
 }
 
 @end
