@@ -24,6 +24,8 @@
 // THE SOFTWARE.
 //
 
+import KSCrashRecording
+import KSCrashRecordingCore
 import KSCrashSwiftCore
 import XCTest
 
@@ -143,6 +145,99 @@ final class RunSummarySendTests: XCTestCase {
         let result = try await send(listFails: true)
         assertOutcomes(result, delivered: [testRunID("RUN")])
         XCTAssertEqual(summaryFileCount, 0)
+    }
+
+    func test_unreadableUserInfoSidecar_isKeptAndCanBeRetried() async throws {
+        let runID = testRunID("LOCKEDMETA")
+        let summaryFile = try KSCrashTests.writeSummary(
+            makeSummary(runID: "LOCKEDMETA"), startNs: 200, in: runsDirectory)
+        try writeSummary(runID: "OK", startNs: 100)
+
+        let directory = sidecarsDirectory.appendingPathComponent(runID.description)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let path = directory.appendingPathComponent(KSCRS_USERINFO_RUN_SIDECAR_FILENAME).path
+        var config = KSKVSConfig(initialCapacity: 4096)
+        let metadataStore = try XCTUnwrap(kskvs_create(path, KSKVSModeReadWriteCreate, &config, nil))
+        XCTAssertTrue(kskvs_setString(metadataStore, "k", "v"))
+        kskvs_destroy(metadataStore)
+        try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: path) }
+
+        let received = UnfairLock<[RunSummary.ID]>([])
+        let stage = ClosureStage<RunSummary> { summary in
+            received.withLock { $0.append(summary.id) }
+            if summary.id == runID {
+                XCTAssertEqual(summary.metadata?.value(forKey: "k", as: String.self), "v")
+            }
+            return summary
+        }
+        let claims = SendClaims<RunSummary.ID>()
+        let first = try await send(pipeline: [.init(stage)], claims: claims)
+
+        assertOutcomes(first, delivered: [testRunID("OK")], kept: [runID])
+        XCTAssertEqual(received.withLock { $0 }, [testRunID("OK")])
+        XCTAssertEqual(summaryFileCount, 1)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: summaryFile.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: path))
+        let kept = try XCTUnwrap(first.items.first { $0.id == runID })
+        guard case .kept(let error) = kept.outcome else {
+            return XCTFail("expected a kept outcome, got \(kept.outcome)")
+        }
+        XCTAssertEqual(error as? RunSummaryReadError, .stitchFailed)
+
+        // Reuse the claims and retry only the held item after access recovers.
+        // A newly pending run must not be included in that selective retry.
+        try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: path)
+        let otherFile = try KSCrashTests.writeSummary(
+            makeSummary(runID: "OTHER"), startNs: 300, in: runsDirectory)
+        let retry = try await RunSummarySend.send(
+            store: makeStore(), pipeline: [.init(stage)], only: Set(first.kept), claims: claims)
+
+        assertOutcomes(retry, delivered: [runID])
+        XCTAssertEqual(received.withLock { $0 }, [testRunID("OK"), runID])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: summaryFile.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: otherFile.path))
+        XCTAssertEqual(summaryFileCount, 1)
+        XCTAssertEqual(reclaimCount.value, 2)
+    }
+
+    func test_unreadableSessionsFile_isKeptAndCanBeRetried() async throws {
+        let runID = testRunID("LOCKEDSESSIONS")
+        let summaryFile = try KSCrashTests.writeSummary(
+            makeSummary(runID: "LOCKEDSESSIONS"), startNs: 200, in: runsDirectory)
+        try writeSummary(runID: "OK", startNs: 100)
+
+        let sessionsPath = runsDirectory.appendingPathComponent("\(runID).sessions").path
+        let writer = kssw_open(sessionsPath)
+        kssw_update(writer, true, "alice")
+        kssw_close(writer)
+        try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: sessionsPath)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: sessionsPath) }
+
+        let received = UnfairLock<[RunSummary.ID]>([])
+        let stage = ClosureStage<RunSummary> { summary in
+            received.withLock { $0.append(summary.id) }
+            return summary
+        }
+        let claims = SendClaims<RunSummary.ID>()
+        let first = try await send(pipeline: [.init(stage)], claims: claims)
+
+        assertOutcomes(first, delivered: [testRunID("OK")], kept: [runID])
+        XCTAssertEqual(received.withLock { $0 }, [testRunID("OK")])
+        XCTAssertTrue(FileManager.default.fileExists(atPath: summaryFile.path))
+        let kept = try XCTUnwrap(first.items.first { $0.id == runID })
+        guard case .kept(let error) = kept.outcome else {
+            return XCTFail("expected a kept outcome, got \(kept.outcome)")
+        }
+        XCTAssertEqual(error as? RunSummaryReadError, .stitchFailed)
+
+        try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: sessionsPath)
+        let retry = try await RunSummarySend.send(
+            store: makeStore(), pipeline: [.init(stage)], only: Set(first.kept), claims: claims)
+
+        assertOutcomes(retry, delivered: [runID])
+        XCTAssertEqual(received.withLock { $0 }, [testRunID("OK"), runID])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: summaryFile.path))
     }
 
     /// A `.run` that still yields its identity but no longer decodes as the

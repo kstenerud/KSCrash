@@ -37,14 +37,12 @@ import os
 extension Store {
     /// The run's summary in deliverable form: session records merged from
     /// `.sessions`, metadata stitched from the run's UserInfo sidecar. nil
-    /// when the run has no summary on disk, or when reading its `.run`,
-    /// `.sessions`, or UserInfo sidecar fails in a way a retry could succeed
-    /// at (the data is unknown, so the run waits for a later send). Throws
-    /// when the `.run` file was read but does not decode: that is
-    /// deterministic, so the send surfaces it as a kept item instead of
-    /// silently retrying forever. An absent `.sessions`
-    /// means empty records; an absent, empty, or unrecoverably corrupt
-    /// sidecar means nil metadata.
+    /// when the run has no `.run` summary on disk, including stale and
+    /// artifact-only entries. Throws when the `.run` file does not decode, or
+    /// when an existing `.run`, `.sessions`, or UserInfo sidecar is temporarily
+    /// unreadable, so the send surfaces the held summary as a kept item.
+    /// An absent `.sessions` means empty records; an absent, empty, or
+    /// unrecoverably corrupt sidecar means nil metadata.
     ///
     /// A snapshot can go stale (a concurrent send may deliver and delete a
     /// run after it was captured); a stale or artifact-only run reads as nil
@@ -63,12 +61,10 @@ extension Store {
         // at delivery. Absence degrades gracefully (empty records, nil
         // metadata), but an UNREADABLE file means the data is unknown, not
         // absent: delivering would ship an incomplete summary and then delete
-        // the intact file, so the run is skipped this send and retried by the
-        // next one.
-        guard let merged = mergingSessions(into: summary, for: run) else {
-            return nil
-        }
-        return stitchingMetadata(into: merged, for: run)
+        // the intact file, so the run is held back until a later send can
+        // read the missing data.
+        let merged = try mergingSessions(into: summary, for: run)
+        return try stitchingMetadata(into: merged, for: run)
     }
 
     /// Delete this run's own `.run` file.
@@ -80,9 +76,18 @@ extension Store {
     }
 
     private func decodedBaseSummary(of run: Run) throws -> RunSummary? {
-        guard let file = run.summaryFile, let data = try? Data(contentsOf: file) else {
-            // Artifact-only run, stale entry, or unreadable right now.
+        guard let file = run.summaryFile else {
+            // Artifact-only run or stale entry.
             return nil
+        }
+        let data: Data
+        do {
+            data = try Data(contentsOf: file)
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            // The snapshot went stale after the directory was listed.
+            return nil
+        } catch {
+            throw RunSummaryReadError.stitchFailed
         }
         do {
             return try JSONDecoder().decode(RunSummary.self, from: data)
@@ -97,21 +102,21 @@ extension Store {
     // MARK: - Sessions
 
     /// Replace `base`'s (empty) session records with the run's recorded
-    /// sessions, read through the C `.sessions` reader. nil when the file
+    /// sessions, read through the C `.sessions` reader. Throws when the file
     /// exists but cannot be read: the records are unknown, not absent, and
     /// the caller must not deliver.
-    private func mergingSessions(into base: RunSummary, for run: Run) -> RunSummary? {
+    private func mergingSessions(into base: RunSummary, for run: Run) throws -> RunSummary {
         // No file means the run cut no sessions (the writer creates the file
         // lazily on the first cut).
         guard let sessionsFile = run.sessionsFile else {
             return base
         }
         guard let reader = kssr_open(sessionsFile.path) else {
-            return nil  // allocation failure: unknown, do not deliver
+            throw RunSummaryReadError.stitchFailed
         }
         defer { kssr_close(reader) }
         guard kssr_lastError(reader) == 0 else {
-            return nil
+            throw RunSummaryReadError.stitchFailed
         }
         let count = kssr_count(reader)
         guard count > 0 else {
@@ -156,10 +161,10 @@ extension Store {
 
     /// Attach the app data recorded for this run via the userInfo API, as a
     /// `Metadata` bag on a copy of `base`. Returns `base` untouched when the
-    /// run recorded none, and nil when reading the sidecar fails in a way a
-    /// retry could succeed at: the metadata is unknown, not absent, and the
-    /// caller must not deliver.
-    private func stitchingMetadata(into base: RunSummary, for run: Run) -> RunSummary? {
+    /// run recorded none, and throws when reading the sidecar fails in a way
+    /// a retry could succeed at: the metadata is unknown, not absent, and the
+    /// caller must keep the summary without delivering it.
+    private func stitchingMetadata(into base: RunSummary, for run: Run) throws -> RunSummary {
         // Metadata is stitched at delivery from the run's UserInfo sidecar,
         // never read live and never baked into the `.run`, exactly like
         // session_id from `.sessions` and userInfo on reports. The sidecar is
@@ -184,7 +189,10 @@ extension Store {
         // file. Read mode needs no config.
         var status = KSKVSOpenSuccess
         guard let store = kskvs_create(path, KSKVSModeRead, nil, &status) else {
-            return status == KSKVSOpenFailure ? nil : base
+            if status == KSKVSOpenFailure {
+                throw RunSummaryReadError.stitchFailed
+            }
+            return base
         }
         defer { kskvs_destroy(store) }
 
