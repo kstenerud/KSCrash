@@ -303,21 +303,36 @@ final class StoreTests: XCTestCase {
         XCTAssertEqual(records[1].userID, String(repeating: "A", count: 127))
     }
 
-    func test_summary_unreadableSessionsFile_skipsTheRunInsteadOfShippingEmpty() throws {
+    func test_summary_unreadableSessionsFile_throwsInsteadOfShippingEmpty() throws {
         let runID = "UNREADABLE"
         try writeSummary(makeSummary(runID: runID), startNs: 100)
         writeSessions(runID: runID, cuts: [(true, "alice")])
 
         let sessionsPath = runsDirectory.appendingPathComponent("\(testRunID(runID)).sessions").path
         try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: sessionsPath)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: sessionsPath) }
 
         // Unreadable is unknown, not absent: delivering would ship empty
         // records and then destroy the intact file.
-        XCTAssertNil(try summary())
+        XCTAssertThrowsError(try summary()) { error in
+            XCTAssertEqual(error as? RunSummaryReadError, .stitchFailed)
+        }
 
         try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: sessionsPath)
         let records = try XCTUnwrap(summary()).sessions.records
         XCTAssertEqual(records.map(\.userID), ["alice"])
+    }
+
+    func test_summary_unreadableRunFile_throwsInsteadOfReturningNil() throws {
+        let runID = testRunID("UNREADABLE-RUN")
+        let summaryFile = try writeSummary(makeSummary(runID: "UNREADABLE-RUN"), startNs: 100)
+        try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: summaryFile.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: summaryFile.path) }
+
+        let run = Run(runID: runID, summaryFile: summaryFile, sessionsFile: nil, sidecarDirectory: nil)
+        XCTAssertThrowsError(try makeStore().summary(of: run)) { error in
+            XCTAssertEqual(error as? RunSummaryReadError, .stitchFailed)
+        }
     }
 
     func test_summary_withoutSessionsFile_keepsEmptyRecords() throws {
@@ -410,7 +425,7 @@ final class StoreTests: XCTestCase {
         XCTAssertNil(try XCTUnwrap(summary()).metadata)
     }
 
-    func test_summary_unreadableUserInfoSidecar_skipsTheRunInsteadOfDroppingMetadata() throws {
+    func test_summary_unreadableUserInfoSidecar_throwsInsteadOfDroppingMetadata() throws {
         let runID = "LOCKEDMETA"
         try writeSummary(makeSummary(runID: runID), startNs: 100)
         try writeUserInfo(runID: runID) { kskvs_setString($0, "k", "v") }
@@ -418,10 +433,13 @@ final class StoreTests: XCTestCase {
         let path = sidecarsDirectory.appendingPathComponent(testRunID(runID).description)
             .appendingPathComponent(KSCRS_USERINFO_RUN_SIDECAR_FILENAME).path
         try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: path) }
 
         // Unreadable is unknown, not absent: delivering would ship the
         // summary without its metadata and then delete the intact `.run`.
-        XCTAssertNil(try summary())
+        XCTAssertThrowsError(try summary()) { error in
+            XCTAssertEqual(error as? RunSummaryReadError, .stitchFailed)
+        }
 
         try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: path)
         let metadata = try XCTUnwrap(summary()?.metadata)
