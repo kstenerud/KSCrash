@@ -22,13 +22,10 @@ concurrency:
 
 jobs:
   unit-tests:
-    # Most entries pick a runner by macOS version. The Xcode 27 preview image is
-    # published under a bare "xcode-27" label instead, so entries may override the
-    # whole label via matrix.runner.
+    # Most entries pick a runner by macOS version. The Xcode 27 image is published
+    # under a bare "xcode-27" label instead, so entries may override the whole label
+    # via matrix.runner.
     runs-on: ${{ matrix.runner || format('macos-{0}', matrix.macos-version || 'latest') }}
-    # The Xcode 27 image is a preview: unstable software and capacity queuing are
-    # expected, so it reports signal without gating merges.
-    continue-on-error: ${{ matrix.experimental || false }}
     strategy:
       fail-fast: false
       matrix:
@@ -68,16 +65,21 @@ jobs:
           - platform: mac-catalyst
             macos-version: "15"
 
-          # Xcode 27 preview (macOS 26 + Xcode 27.0 beta). Non-blocking early
-          # warning on the 27.0 SDKs. See actions/runner-images#14404.
+          # Xcode 27 on macOS 27. These build and run the code behind the 27 SDKs
+          # (the MetricKit 27 streams among it), so they gate like any other job.
+          # See actions/runner-images#14404.
           - platform: iOS
             runner: xcode-27
             xcode-version: latest
-            experimental: true
           - platform: macOS
             runner: xcode-27
             xcode-version: latest
-            experimental: true
+          - platform: mac-catalyst
+            runner: xcode-27
+            xcode-version: latest
+          - platform: visionOS
+            runner: xcode-27
+            xcode-version: latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v7
