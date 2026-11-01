@@ -200,15 +200,14 @@ import os.log
     extension CallStackTree {
         var callStackRepresentation: CallStackTreeRepresentation {
             func convert(_ frame: CallStackFrame) -> CallStackTreeRepresentation.Frame {
-                // `address` is optional in the new API. When it is absent there is no base to
-                // subtract the offset from, so drop the offset too; otherwise the shared
-                // extraction would compute `0 - offset` and trap on UInt64 underflow.
-                let address = frame.address
-                return CallStackTreeRepresentation.Frame(
-                    address: address ?? 0,
+                // `address` is optional in the new API. A frame without one becomes address 0
+                // and keeps its binary UUID and offset, which is all that tells it apart from
+                // other address-less frames (see `buildProfileData`).
+                CallStackTreeRepresentation.Frame(
+                    address: frame.address ?? 0,
                     binaryUUID: frame.binaryUUID?.uuidString,
                     binaryName: frame.binaryName(from: self),
-                    offsetIntoBinaryTextSegment: address == nil ? nil : frame.offsetIntoBinaryTextSegment,
+                    offsetIntoBinaryTextSegment: frame.offsetIntoBinaryTextSegment,
                     sampleCount: frame.sampleCount,
                     subFrames: frame.subFrames.isEmpty ? nil : frame.subFrames.map(convert)
                 )

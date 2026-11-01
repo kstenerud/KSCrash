@@ -185,6 +185,23 @@ final class MetricKitCrashErrorTests: XCTestCase {
                     ["Sample.debug.dylib", "SwiftUI", "libsystem_kernel.dylib", "libdispatch.dylib"])
             }
 
+            func testFramesWithoutAddressesKeepTheirIdentity() throws {
+                try requireStreamRuntime()
+                guard #available(iOS 27.0, macOS 27.0, visionOS 27.0, *) else { return }
+                // The same crash with every frame's address removed, which the 27 API allows.
+                let json = Self.sigsegvJSON.replacingOccurrences(
+                    of: #""address":\d+,"#, with: "", options: .regularExpression)
+                XCTAssertFalse(json.contains("\"address\""))
+                let tree = try crashDiagnostic(json).callStackTree.callStackRepresentation
+                let frame = try XCTUnwrap(tree.callStacks.first?.callStackRootFrames?.first)
+                XCTAssertEqual(frame.address, 0)
+                XCTAssertEqual(frame.offsetIntoBinaryTextSegment, 2_444_944)
+                XCTAssertEqual(frame.binaryName, "Sample.debug.dylib")
+
+                // Ten frames across both threads, each with its own binary and offset.
+                XCTAssertEqual(buildProfileData(from: tree).frames.count, 10)
+            }
+
             func testSystemInfoComesFromTheEnvironment() throws {
                 try requireStreamRuntime()
                 guard #available(iOS 27.0, macOS 27.0, visionOS 27.0, *) else { return }
