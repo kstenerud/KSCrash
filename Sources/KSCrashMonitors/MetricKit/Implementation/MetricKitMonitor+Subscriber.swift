@@ -67,6 +67,13 @@ import os.log
                         }
                     }
                 }
+                if let diagnostics = payload.diskWriteExceptionDiagnostics {
+                    for diagnostic in diagnostics {
+                        if let reportID = processDiskWriteDiagnostic(diagnostic, timestamp: timestamp) {
+                            recordDiagnosticReport(reportID)
+                        }
+                    }
+                }
                 if configuration.dumpsPayloadsToDocuments {
                     payload.dump()
                 }
@@ -123,8 +130,10 @@ import os.log
 
         /// Builds system info from MetricKit metadata. The skeleton report's system info
         /// reflects the current session, not the session the diagnostic describes, so it is
-        /// discarded except for the process name and bundle identifier fallbacks. Used by the
-        /// legacy crash and hang paths; the 27 streams build it from the typed environment.
+        /// discarded except for the process name and bundle identifier fallbacks. The device hash,
+        /// the one value every run of the app shares, comes from this run (see deviceAppHash).
+        /// Used by the legacy crash, hang and disk write paths; the 27 streams build it from the
+        /// typed environment.
         func buildSystemInfo(
             metaData meta: MXMetaData, applicationVersion: String, skeleton report: Report
         )
@@ -154,6 +163,7 @@ import os.log
                 cfBundleShortVersionString: applicationVersion,
                 cfBundleVersion: meta.applicationBuildVersion,
                 cpuArch: meta.platformArchitecture,
+                deviceAppHash: deviceAppHash(forDiagnosticBundleID: bundleIdentifier),
                 machine: meta.deviceType,
                 osVersion: osInfo.build,
                 processID: processID,

@@ -25,6 +25,7 @@
 //
 
 import Foundation
+import KSCrashRecording
 import KSCrashReportModel
 import os.log
 
@@ -137,4 +138,47 @@ func parseExitCode(from terminationReason: String) -> UInt64? {
     }
 
     return nil
+}
+
+// MARK: - Profile Time
+
+/// Converts a nanosecond count to `UInt64`, returning nil for non-finite, negative, or
+/// out-of-range values rather than trapping on the cast.
+func nanosToUInt64(_ ns: Double) -> UInt64? {
+    guard ns.isFinite, ns >= 0, ns < Double(UInt64.max) else { return nil }
+    return UInt64(ns.rounded())
+}
+
+/// Wall-clock start of a profile window: its end timestamp minus its duration. Returns nil if
+/// the timestamp is out of range or the subtraction would underflow.
+func epochNanos(for timestamp: Date, minus durationNs: UInt64) -> UInt64? {
+    guard let end = nanosToUInt64(timestamp.timeIntervalSince1970 * 1_000_000_000) else { return nil }
+    return end >= durationNs ? end - durationNs : nil
+}
+
+// MARK: - Device
+
+/// The device hash for a report about a diagnostic MetricKit delivered to this app, or nil when
+/// there is none to give.
+///
+/// The hash identifies the app on this device and is the same in every run, so this run's value
+/// is the one the diagnostic's own run recorded. MetricKit can deliver an app extension's
+/// diagnostic to its app, and the hash covers the bundle ID, so a diagnostic from any other bundle
+/// gets nil rather than the app's hash. A diagnostic that names no bundle (a legacy payload before
+/// iOS 26) is taken to be the app's own.
+///
+/// - Parameters:
+///   - diagnosticBundleID: The bundle ID the diagnostic names, when it names one.
+///   - appBundleID: This app's bundle ID.
+///   - hash: This app's device hash, empty when the System monitor has not run.
+func deviceAppHash(
+    forDiagnosticBundleID diagnosticBundleID: String?,
+    appBundleID: String? = Bundle.main.bundleIdentifier,
+    hash: String = String(cString: kscm_system_getDeviceAppHash())
+) -> String? {
+    guard !hash.isEmpty else { return nil }
+    if let diagnosticBundleID, !diagnosticBundleID.isEmpty, diagnosticBundleID != appBundleID {
+        return nil
+    }
+    return hash
 }
