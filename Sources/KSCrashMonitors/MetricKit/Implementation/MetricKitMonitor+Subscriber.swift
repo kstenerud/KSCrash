@@ -31,7 +31,7 @@ import KSCrashRecordingCore
 import KSCrashReportModel
 import os.log
 
-#if KSCRASH_HAS_METRICKIT
+#if KSCRASH_HAS_METRICKIT_LEGACY
     import MetricKit
 #endif
 
@@ -43,7 +43,7 @@ import os.log
 // lives in its own MetricKitMonitor+<Kind>Diagnostic.swift; this file only delivers payloads
 // and dispatches into those handlers, plus the report machinery shared across kinds.
 
-#if KSCRASH_HAS_METRICKIT
+#if KSCRASH_HAS_METRICKIT_LEGACY
 
     @available(tvOS, unavailable)
     @available(watchOS, unavailable)
@@ -179,10 +179,10 @@ import os.log
     // `27+/` for this stream.
     //
     // The `.memoryException` case is iOS-only (unavailable on macOS, Mac Catalyst, visionOS) and
-    // the API needs the iOS 27 SDK, so this compiles only with Xcode 27+ (Swift 6.4) targeting
-    // iOS device/simulator. Under Xcode 26 the package builds exactly as before.
+    // the API needs the iOS 27 SDK, so this compiles only under KSCRASH_HAS_METRICKIT_27_PLUS
+    // targeting iOS device/simulator. Under Xcode 26 the package builds exactly as before.
 
-    #if compiler(>=6.4) && os(iOS) && !targetEnvironment(macCatalyst)
+    #if KSCRASH_HAS_METRICKIT_27_PLUS && os(iOS) && !targetEnvironment(macCatalyst)
 
         @available(iOS 27.0, *)
         extension MetricKitMonitor {

@@ -122,7 +122,7 @@ final class MetricKitMemoryParsingTests: XCTestCase {
 // its Codable JSON form (the shape MetricKit vends) and assert the mapping into the shared
 // representation, including binary-name resolution from the separate binaryInfo table and the
 // nil-address safety rule.
-#if compiler(>=6.4) && os(iOS) && !targetEnvironment(macCatalyst)
+#if KSCRASH_HAS_METRICKIT_27_PLUS && os(iOS) && !targetEnvironment(macCatalyst)
 
     import MetricKit
 

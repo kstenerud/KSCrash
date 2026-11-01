@@ -29,13 +29,13 @@ import KSCrashRecording
 import KSCrashReportModel
 import os.log
 
-#if KSCRASH_HAS_METRICKIT
+#if KSCRASH_HAS_METRICKIT_LEGACY
     import MetricKit
 #endif
 
 // MARK: - Hang Diagnostic Handling
 
-#if KSCRASH_HAS_METRICKIT
+#if KSCRASH_HAS_METRICKIT_LEGACY
 
     @available(tvOS, unavailable)
     @available(watchOS, unavailable)
