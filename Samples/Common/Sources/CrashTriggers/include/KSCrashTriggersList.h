@@ -39,7 +39,8 @@ extern NSString *const KSCrashNSExceptionStacktraceFuncName;
     __PROCESS_GROUP(user, @"User")               \
     __PROCESS_GROUP(memory, @"Memory")           \
     __PROCESS_GROUP(multiple, @"Multiple")       \
-    __PROCESS_GROUP(other, @"Other")
+    __PROCESS_GROUP(other, @"Other")             \
+    __PROCESS_GROUP(metricKit, @"MetricKit")
 
 #define __ALL_TRIGGERS                                                                                 \
     __PROCESS_TRIGGER(nsException, genericNSException, @"Generic NSException")                         \
@@ -92,7 +93,18 @@ extern NSString *const KSCrashNSExceptionStacktraceFuncName;
     __PROCESS_TRIGGER(other, watchdogTimeoutTermination, @"Watchdog Timeout")                          \
     __PROCESS_TRIGGER(other, watchdogTimeoutWithException, @"Watchdog Timeout + Exception")            \
     __PROCESS_TRIGGER(other, appHang, @"App Hang (Recovery)")                                          \
-    __PROCESS_TRIGGER(other, sigkill, @"SIGKILL")
+    __PROCESS_TRIGGER(other, sigkill, @"SIGKILL")                                                      \
+    __PROCESS_TRIGGER(metricKit, cpuSpin, @"CPU Exception (spin all cores 90s)")                       \
+    __PROCESS_TRIGGER(metricKit, diskWrites, @"Disk Write Exception (5 GB)")                           \
+    __PROCESS_TRIGGER(metricKit, slowNextLaunch, @"Slow Next Launch (exits)")
+
+/// UserDefaults key the "Slow Next Launch" trigger sets; the app blocks its next launch while it is set.
+extern NSString *const KSCrashSlowNextLaunchKey;
+
+/// Posted on the main queue while a long-running trigger works and once it is done, so the UI can
+/// say when it is safe to continue. The message is in `userInfo` under `KSCrashTriggerStatusMessageKey`.
+extern NSNotificationName const KSCrashTriggerStatusNotification;
+extern NSString *const KSCrashTriggerStatusMessageKey;
 
 NS_SWIFT_NAME(CrashTriggersList)
 @interface KSCrashTriggersList : NSObject
