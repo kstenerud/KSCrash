@@ -36,7 +36,6 @@ enum RunSummarySend {
     static func send(
         store: Store?,
         pipeline: [AnyPipelineStage<RunSummary>],
-        corpseAreas: [CorpseReportingConfiguration] = [],
         only selection: Set<RunSummary.ID>? = nil,
         claims: SendClaims<RunSummary.ID> = RunSummarySend.claims
     ) async throws -> SendResult<RunSummary> {
@@ -50,12 +49,7 @@ enum RunSummarySend {
                 // stale entries. Retryable read failures in the summary,
                 // sessions, or UserInfo sidecar throw and become kept.
                 read: { try $0.summary(of: $1) },
-                remove: { try $0.removeSummary(of: $1) },
-                // A delivered summary stops referencing its run, but a crash
-                // extension's report for that run may still be waiting in an
-                // area the report send has not pulled from yet; the same
-                // window the report send keeps applies here.
-                retainsUnreferencedRuns: !corpseAreas.isEmpty
+                remove: { try $0.removeSummary(of: $1) }
             ),
             pipeline: pipeline,
             only: selection,

@@ -83,104 +83,190 @@
     return [[NSFileManager defaultManager] contentsOfDirectoryAtPath:path error:nil].count;
 }
 
-#pragma mark - kscrs_ingestExtensionReports
-
-- (void)testIngestMovesExtensionReportsIntoStore
+/** The only file in the extension store's Reports directory. */
+- (NSString *)onlyExtensionReportName
 {
-    [self prepareStores];
-    NSString *firstID = [self writeExtensionReport];
-    NSString *secondID = [self writeExtensionReport];
-
-    kscrs_ingestExtensionReports(self.extensionReportsPath.UTF8String, &_appConfig);
-
-    XCTAssertEqual(kscrs_getReportCount(&_appConfig), 2);
-    XCTAssertEqual([self fileCountAt:self.extensionReportsPath], 0u, @"The source directory must drain");
-
-    for (NSString *reportID in @[ firstID, secondID ]) {
-        char *report = kscrs_readReport(reportID.UTF8String, &_appConfig, NULL);
-        XCTAssertTrue(report != NULL, @"Ingested report %@ must read from the app store", reportID);
-        if (report != NULL) {
-            NSData *data = [NSData dataWithBytes:report length:strlen(report)];
-            XCTAssertNotNil([NSJSONSerialization JSONObjectWithData:data options:0 error:nil]);
-            free(report);
-        }
-    }
+    NSArray<NSString *> *names = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:self.extensionReportsPath
+                                                                                     error:nil];
+    XCTAssertEqual(names.count, 1u);
+    return names.firstObject;
 }
 
-- (void)testIngestDrainsADirectoryLargerThanOneReadBuffer
+- (uint64_t)nanosecondsInName:(NSString *)name
 {
-    // Two files fit in a single getdirentries refill, so they cannot catch a walk that mutates
-    // the directory it is reading. Enough entries to span several refills can: removing entries
-    // mid-readdir invalidates the offsets the next refill resumes from, and the skipped ones
-    // would silently stay behind until some later send.
-    [self prepareStores];
-    NSMutableArray<NSString *> *ids = [NSMutableArray array];
-    for (int i = 0; i < 300; i++) {
-        [ids addObject:[self writeExtensionReport]];
-    }
-
-    kscrs_ingestExtensionReports(self.extensionReportsPath.UTF8String, &_appConfig);
-
-    XCTAssertEqual([self fileCountAt:self.extensionReportsPath], 0u, @"The source directory must drain in one pass");
-    XCTAssertEqual(kscrs_getReportCount(&_appConfig), (int)ids.count);
-    for (NSString *reportID in ids) {
-        char *report = kscrs_readReport(reportID.UTF8String, &_appConfig, NULL);
-        XCTAssertTrue(report != NULL, @"Ingested report %@ must read from the app store", reportID);
-        free(report);
-    }
+    return strtoull([name substringToIndex:KSCRS_REPORT_NAME_DIGITS].UTF8String, NULL, 10);
 }
 
-- (void)testIngestSkipsExistingDestination
+#pragma mark - kscrs_takeInReport
+
+- (void)testTakeInMovesAReportInUnderItsOwnName
 {
     [self prepareStores];
-    [self writeExtensionReport];
+    NSString *reportID = [self writeExtensionReport];
+    NSString *name = [self onlyExtensionReportName];
+    NSString *source = [self.extensionReportsPath stringByAppendingPathComponent:name];
 
-    // Occupy the destination: the move must refuse to clobber and leave the source alone.
-    NSString *fileName =
-        [[NSFileManager defaultManager] contentsOfDirectoryAtPath:self.extensionReportsPath error:nil].firstObject;
-    NSString *destination = [self.appReportsPath stringByAppendingPathComponent:fileName];
+    KSCrashReportTakeInResult result =
+        kscrs_takeInReport(source.UTF8String, reportID.UTF8String, [self nanosecondsInName:name], &_appConfig);
+
+    XCTAssertEqual(result, KSCrashReportTakeInResultTaken);
+    XCTAssertEqual([self fileCountAt:self.extensionReportsPath], 0u, @"a move leaves nothing behind");
+    XCTAssertTrue(
+        [[NSFileManager defaultManager] fileExistsAtPath:[self.appReportsPath stringByAppendingPathComponent:name]]);
+    char *report = kscrs_readReport(reportID.UTF8String, &_appConfig, NULL);
+    XCTAssertTrue(report != NULL, @"the report must read from the app store");
+    free(report);
+}
+
+- (void)testTakeInNamesTheReportFromItsIDAndTimestamp
+{
+    [self prepareStores];
+    NSString *reportID = @"0e9a9c8e-5b6a-4c1e-9f5e-2f7b8f7c4d21";
+    NSString *source = [self.tempPath stringByAppendingPathComponent:@"anything.json"];
+    [@"{}" writeToFile:source atomically:YES encoding:NSUTF8StringEncoding error:nil];
+
+    XCTAssertEqual(kscrs_takeInReport(source.UTF8String, reportID.UTF8String, 42, &_appConfig),
+                   KSCrashReportTakeInResultTaken);
+
+    NSString *expected = [NSString stringWithFormat:@"00000000000000000042-%@.json", reportID];
+    XCTAssertEqualObjects([[NSFileManager defaultManager] contentsOfDirectoryAtPath:self.appReportsPath error:nil],
+                          @[ expected ]);
+}
+
+- (void)testTakeInNeverReplacesAnExistingReport
+{
+    [self prepareStores];
+    NSString *reportID = [self writeExtensionReport];
+    NSString *name = [self onlyExtensionReportName];
+    NSString *source = [self.extensionReportsPath stringByAppendingPathComponent:name];
+    NSString *destination = [self.appReportsPath stringByAppendingPathComponent:name];
     [@"{\"existing\":true}" writeToFile:destination atomically:YES encoding:NSUTF8StringEncoding error:nil];
 
-    kscrs_ingestExtensionReports(self.extensionReportsPath.UTF8String, &_appConfig);
+    XCTAssertEqual(
+        kscrs_takeInReport(source.UTF8String, reportID.UTF8String, [self nanosecondsInName:name], &_appConfig),
+        KSCrashReportTakeInResultExists);
 
-    XCTAssertEqual([self fileCountAt:self.extensionReportsPath], 1u, @"The source file must stay put");
+    XCTAssertEqual([self fileCountAt:self.extensionReportsPath], 1u, @"the source stays put");
     NSString *kept = [NSString stringWithContentsOfFile:destination encoding:NSUTF8StringEncoding error:nil];
-    XCTAssertEqualObjects(kept, @"{\"existing\":true}", @"The existing report must be untouched");
+    XCTAssertEqualObjects(kept, @"{\"existing\":true}", @"the existing report is untouched");
 }
 
-- (void)testIngestLeavesForeignFilesAlone
-{
-    [self prepareStores];
-    NSString *notes = [self.extensionReportsPath stringByAppendingPathComponent:@"other.txt"];
-    NSString *otherApp =
-        [self.extensionReportsPath stringByAppendingPathComponent:@"OtherApp-report-0000000000000001.json"];
-    [@"notes" writeToFile:notes atomically:YES encoding:NSUTF8StringEncoding error:nil];
-    [@"{}" writeToFile:otherApp atomically:YES encoding:NSUTF8StringEncoding error:nil];
-
-    kscrs_ingestExtensionReports(self.extensionReportsPath.UTF8String, &_appConfig);
-
-    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:notes]);
-    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:otherApp]);
-    XCTAssertEqual(kscrs_getReportCount(&_appConfig), 0);
-}
-
-- (void)testIngestNoOpWithoutPath
+- (void)testTakeInRefusesAnIDThatIsNotAReportID
 {
     [self prepareStores];
     [self writeExtensionReport];
+    NSString *source = [self.extensionReportsPath stringByAppendingPathComponent:[self onlyExtensionReportName]];
 
-    kscrs_ingestExtensionReports(NULL, &_appConfig);
-
-    XCTAssertEqual(kscrs_getReportCount(&_appConfig), 0);
+    XCTAssertEqual(kscrs_takeInReport(source.UTF8String, "ext", 1, &_appConfig), KSCrashReportTakeInResultFailed);
     XCTAssertEqual([self fileCountAt:self.extensionReportsPath], 1u);
+    XCTAssertEqual(kscrs_getReportCount(&_appConfig), 0);
 }
 
-- (void)testIngestNoOpWithMissingDirectory
+- (void)testTakeInRefusesAnIDThatWouldNameAFileOutsideReports
 {
     [self prepareStores];
-    kscrs_ingestExtensionReports("/nonexistent/definitely/not/here", &_appConfig);
+    [self writeExtensionReport];
+    NSString *source = [self.extensionReportsPath stringByAppendingPathComponent:[self onlyExtensionReportName]];
 
+    // 36 characters, the length of an id, holding a path separator.
+    XCTAssertEqual(kscrs_takeInReport(source.UTF8String, "../../../../../../../../../../..x/aa", 1, &_appConfig),
+                   KSCrashReportTakeInResultFailed);
+    XCTAssertEqual([self fileCountAt:self.extensionReportsPath], 1u, @"the source stays put");
+}
+
+- (void)testTakeInRefusesAnUppercaseID
+{
+    // The lister reads lowercase ids only, so an uppercase one would be taken in and then
+    // never listed, pruned or sent.
+    [self prepareStores];
+    [self writeExtensionReport];
+    NSString *source = [self.extensionReportsPath stringByAppendingPathComponent:[self onlyExtensionReportName]];
+
+    XCTAssertEqual(kscrs_takeInReport(source.UTF8String, "0E9A9C8E-5B6A-4C1E-9F5E-2F7B8F7C4D21", 1, &_appConfig),
+                   KSCrashReportTakeInResultFailed);
     XCTAssertEqual(kscrs_getReportCount(&_appConfig), 0);
+}
+
+- (void)testTakeInLeavesAReportItCannotMove
+{
+    // A source whose directory cannot be written cannot give its file up, so a copy would be
+    // taken in again after every delivery. It is refused instead and left where it is.
+    [self prepareStores];
+    NSString *lockedDirectory = [self.tempPath stringByAppendingPathComponent:@"locked"];
+    [[NSFileManager defaultManager] createDirectoryAtPath:lockedDirectory
+                              withIntermediateDirectories:YES
+                                               attributes:nil
+                                                    error:nil];
+    NSString *source = [lockedDirectory stringByAppendingPathComponent:@"report.json"];
+    [@"{}" writeToFile:source atomically:YES encoding:NSUTF8StringEncoding error:nil];
+    [[NSFileManager defaultManager] setAttributes:@{ NSFilePosixPermissions : @0555 }
+                                     ofItemAtPath:lockedDirectory
+                                            error:nil];
+
+    KSCrashReportTakeInResult result =
+        kscrs_takeInReport(source.UTF8String, "0e9a9c8e-5b6a-4c1e-9f5e-2f7b8f7c4d21", 7, &_appConfig);
+    [[NSFileManager defaultManager] setAttributes:@{ NSFilePosixPermissions : @0755 }
+                                     ofItemAtPath:lockedDirectory
+                                            error:nil];
+
+    XCTAssertEqual(result, KSCrashReportTakeInResultFailed);
+    XCTAssertEqual(kscrs_getReportCount(&_appConfig), 0);
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:source]);
+    XCTAssertEqual([self fileCountAt:self.appReportsPath], 0u, @"nothing is left behind in the store");
+}
+
+- (void)testInitializeRemovesAStagedCopyACrashLeftBehind
+{
+    [[NSFileManager defaultManager] createDirectoryAtPath:self.appReportsPath
+                              withIntermediateDirectories:YES
+                                               attributes:nil
+                                                    error:nil];
+    NSString *staged = [self.appReportsPath
+        stringByAppendingPathComponent:@"00000000000000000001-0e9a9c8e-5b6a-4c1e-9f5e-2f7b8f7c4d21.json.incoming"];
+    [@"half a report" writeToFile:staged atomically:YES encoding:NSUTF8StringEncoding error:nil];
+
+    [self prepareStores];
+
+    XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:staged]);
+}
+
+- (void)testDeleteReportsWithIDsDeletesOnlyThoseReports
+{
+    [self prepareStores];
+    NSArray<NSString *> *ids = @[
+        @"0e9a9c8e-5b6a-4c1e-9f5e-2f7b8f7c4d21", @"0e9a9c8e-5b6a-4c1e-9f5e-2f7b8f7c4d22",
+        @"0e9a9c8e-5b6a-4c1e-9f5e-2f7b8f7c4d23"
+    ];
+    for (NSUInteger i = 0; i < ids.count; i++) {
+        NSString *source = [self.tempPath stringByAppendingPathComponent:ids[i]];
+        [@"{}" writeToFile:source atomically:YES encoding:NSUTF8StringEncoding error:nil];
+        XCTAssertEqual(kscrs_takeInReport(source.UTF8String, ids[i].UTF8String, i + 1, &_appConfig),
+                       KSCrashReportTakeInResultTaken);
+    }
+    const char *victims[] = { ids[0].UTF8String, ids[2].UTF8String, "0e9a9c8e-5b6a-4c1e-9f5e-2f7b8f7c4d99" };
+
+    kscrs_deleteReportsWithIDs(victims, 3, &_appConfig);
+
+    NSArray<NSString *> *left = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:self.appReportsPath
+                                                                                    error:nil];
+    XCTAssertEqual(left.count, 1u);
+    XCTAssertTrue([left.firstObject containsString:ids[1]]);
+}
+
+- (void)testTakeInFailsForAMissingSource
+{
+    [self prepareStores];
+    XCTAssertEqual(kscrs_takeInReport("/nonexistent/definitely/not/here.json", "0e9a9c8e-5b6a-4c1e-9f5e-2f7b8f7c4d21",
+                                      1, &_appConfig),
+                   KSCrashReportTakeInResultFailed);
+    XCTAssertEqual(kscrs_getReportCount(&_appConfig), 0);
+}
+
+- (void)testTakeInFailsWithoutAPath
+{
+    [self prepareStores];
+    XCTAssertEqual(kscrs_takeInReport(NULL, "0e9a9c8e-5b6a-4c1e-9f5e-2f7b8f7c4d21", 1, &_appConfig),
+                   KSCrashReportTakeInResultFailed);
 }
 
 @end

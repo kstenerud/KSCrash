@@ -289,13 +289,19 @@ and at send, so the extension's area is drained into the app's own store:
 ```swift
 var send = SendConfiguration()
 send.reportPipeline = [.init(MyUploadStage())]
-send.corpseAreas = [
+send.reportSources = [
     CorpseReportingConfiguration(
         namespace: "MyApp",
         container: .appGroup("group.com.example.app"))
 ]
 let result = try await KSCrash.shared.sendReports(with: send)
 ```
+
+The area is one kind of `ReportSource`. Anything that holds finished reports
+outside the app's store can be one: conform to `ReportSource`, whose
+`ReportReader` hands the send one `IncomingReport` at a time, as a file or as
+bytes, and is told whether the store took it. The send takes every source's
+reports into the store before listing, so they are delivered like any other.
 
 A corpse-reporting install is not a lighter app install. It arms no crash
 detection, owns no run of its own, and keeps no metadata, sessions or run
