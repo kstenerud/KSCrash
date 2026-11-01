@@ -136,7 +136,8 @@ final class MetricKitCrashErrorTests: XCTestCase {
             @available(iOS 27.0, macOS 27.0, visionOS 27.0, *)
             private func crashDiagnostic(_ json: String) throws -> CrashDiagnostic {
                 guard case .crash(let diagnostic) = try decode(json).result else {
-                    throw XCTSkip("fixture is not a crash")
+                    struct FixtureIsNotACrash: Error {}
+                    throw FixtureIsNotACrash()
                 }
                 return diagnostic
             }
