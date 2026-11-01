@@ -32,7 +32,7 @@ import KSCrashReportModel
 import KSCrashSwiftCore
 import os.log
 
-#if KSCRASH_HAS_METRICKIT
+#if KSCRASH_HAS_METRICKIT_LEGACY
     import MetricKit
 #endif
 
@@ -46,35 +46,52 @@ extension MetricKitMonitor {
     /// repeated enable or disable never reaches here. Enabling and disabling concurrently is not
     /// supported: the calls can then arrive in the opposite order to the flag.
     public func enabledDidChange(_ isEnabled: Bool) {
-        #if KSCRASH_HAS_METRICKIT
+        #if KSCRASH_HAS_METRICKIT_LEGACY
+            // Exactly one API per process: the 27 `MetricManager` streams where the OS and the
+            // build have them, the legacy subscriber everywhere else. Never both (see
+            // MetricKitMonitor+DiagnosticStream).
             if isEnabled {
-                MXMetricManager.shared.add(self)
-                os_log(.default, log: metricKitLog, "[MONITORS] Subscribed to MXMetricManager")
-
-                // iOS 27+ vends memory exception diagnostics only through the new
-                // MetricManager async API; subscribe to it in addition to the legacy path.
-                #if compiler(>=6.4) && os(iOS) && !targetEnvironment(macCatalyst)
-                    if #available(iOS 27.0, *) {
-                        startMemoryDiagnosticReporting()
-                    }
-                #endif
+                if usesDiagnosticStreams {
+                    #if KSCRASH_HAS_METRICKIT_27_PLUS
+                        if #available(iOS 27.0, macOS 27.0, visionOS 27.0, *) {
+                            startDiagnosticReporting()
+                        }
+                    #endif
+                } else {
+                    MXMetricManager.shared.add(self)
+                    os_log(.default, log: metricKitLog, "[MONITORS] Subscribed to MXMetricManager")
+                }
 
                 if configuration.threadcrumbEnabled {
                     encodeRunIdThreadcrumb()
                 }
             } else {
-                MXMetricManager.shared.remove(self)
-
-                #if compiler(>=6.4) && os(iOS) && !targetEnvironment(macCatalyst)
-                    if #available(iOS 27.0, *) {
-                        stopMemoryDiagnosticReporting()
-                    }
-                #endif
-
-                os_log(.default, log: metricKitLog, "[MONITORS] Unsubscribed from MXMetricManager")
+                if usesDiagnosticStreams {
+                    #if KSCRASH_HAS_METRICKIT_27_PLUS
+                        if #available(iOS 27.0, macOS 27.0, visionOS 27.0, *) {
+                            stopDiagnosticReporting()
+                        }
+                    #endif
+                } else {
+                    MXMetricManager.shared.remove(self)
+                    os_log(.default, log: metricKitLog, "[MONITORS] Unsubscribed from MXMetricManager")
+                }
             }
         #endif
     }
+
+    #if KSCRASH_HAS_METRICKIT_LEGACY
+        /// Whether this process takes MetricKit data from the 27 streams rather than the legacy
+        /// subscriber.
+        var usesDiagnosticStreams: Bool {
+            #if KSCRASH_HAS_METRICKIT_27_PLUS
+                if #available(iOS 27.0, macOS 27.0, visionOS 27.0, *) {
+                    return true
+                }
+            #endif
+            return false
+        }
+    #endif
 
     /// Records a diagnostic report as it is added: appends its id to ``diagnosticReportIDs`` and
     /// posts ``diagnosticReportAddedNotification`` carrying just that id in `userInfo`.

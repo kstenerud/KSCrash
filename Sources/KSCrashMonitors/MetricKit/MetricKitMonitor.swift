@@ -69,23 +69,22 @@ public final class MetricKitMonitor: NSObject, CrashMonitor, Sendable {
 
     struct MonitorState {
         var diagnosticReportIDs: [Report.ID] = []
-        // Gated to match the only code that uses it (the iOS 27 memory stream in
-        // MetricKitMonitor+Subscriber). `Task` requires watchOS 6.0+, and this type is compiled
-        // — though unavailable — on watchOS, so an ungated field breaks the watchOS build under
-        // the package's lower deployment target.
-        #if compiler(>=6.4) && os(iOS) && !targetEnvironment(macCatalyst)
-            /// Long-lived task consuming the iOS 27+ `MetricManager.diagnosticReports` stream.
-            var memoryDiagnosticsTask: Task<Void, Never>? = nil
+        // Gated to match the only code that uses them (MetricKitMonitor+DiagnosticStream).
+        // `Task` requires watchOS 6.0+, and this type is compiled, though unavailable, on
+        // watchOS, so ungated fields break the watchOS build under the package's lower
+        // deployment target.
+        #if KSCRASH_HAS_METRICKIT_27_PLUS
+            /// Long-lived tasks consuming the 27 `MetricManager` streams.
+            var diagnosticsTask: Task<Void, Never>? = nil
+            var metricsTask: Task<Void, Never>? = nil
         #endif
     }
 
     let lock = UnfairLock(MonitorState())
 
     /// Serializes skeleton-report production. The shared exception-handling state in
-    /// KSCrashMonitor.c (`notify`/`handle`) is not safe to enter concurrently, and on iOS 27
-    /// two MetricKit delivery mechanisms run on different threads — the legacy
-    /// `MXMetricManagerSubscriber` (crash/hang) and the `MetricManager` async stream (memory).
-    /// This lock keeps `writeSkeletonReport` calls from overlapping across them.
+    /// KSCrashMonitor.c (`notify`/`handle`) is not safe to enter concurrently, and MetricKit
+    /// promises nothing about the threads its deliveries arrive on.
     let skeletonLock = UnfairLock()
 
     let host: MonitorHost<Void>
