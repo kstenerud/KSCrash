@@ -73,7 +73,7 @@ public final class MetricKitMonitor: NSObject, CrashMonitor, Sendable {
         // MetricKitMonitor+Subscriber). `Task` requires watchOS 6.0+, and this type is compiled
         // — though unavailable — on watchOS, so an ungated field breaks the watchOS build under
         // the package's lower deployment target.
-        #if compiler(>=6.4) && os(iOS) && !targetEnvironment(macCatalyst)
+        #if KSCRASH_HAS_METRICKIT_27_PLUS && os(iOS) && !targetEnvironment(macCatalyst)
             /// Long-lived task consuming the iOS 27+ `MetricManager.diagnosticReports` stream.
             var memoryDiagnosticsTask: Task<Void, Never>? = nil
         #endif

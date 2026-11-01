@@ -34,7 +34,7 @@ import XCTest
 @testable import KSCrashCrashReportExtension
 @testable import KSCrashMonitors
 
-#if KSCRASH_HAS_METRICKIT
+#if KSCRASH_HAS_METRICKIT_LEGACY
 
     final class MetricKitMonitorTests: XCTestCase {
 

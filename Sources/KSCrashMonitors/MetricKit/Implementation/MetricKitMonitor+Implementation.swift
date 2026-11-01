@@ -32,7 +32,7 @@ import KSCrashReportModel
 import KSCrashSwiftCore
 import os.log
 
-#if KSCRASH_HAS_METRICKIT
+#if KSCRASH_HAS_METRICKIT_LEGACY
     import MetricKit
 #endif
 
@@ -46,14 +46,14 @@ extension MetricKitMonitor {
     /// repeated enable or disable never reaches here. Enabling and disabling concurrently is not
     /// supported: the calls can then arrive in the opposite order to the flag.
     public func enabledDidChange(_ isEnabled: Bool) {
-        #if KSCRASH_HAS_METRICKIT
+        #if KSCRASH_HAS_METRICKIT_LEGACY
             if isEnabled {
                 MXMetricManager.shared.add(self)
                 os_log(.default, log: metricKitLog, "[MONITORS] Subscribed to MXMetricManager")
 
                 // iOS 27+ vends memory exception diagnostics only through the new
                 // MetricManager async API; subscribe to it in addition to the legacy path.
-                #if compiler(>=6.4) && os(iOS) && !targetEnvironment(macCatalyst)
+                #if KSCRASH_HAS_METRICKIT_27_PLUS && os(iOS) && !targetEnvironment(macCatalyst)
                     if #available(iOS 27.0, *) {
                         startMemoryDiagnosticReporting()
                     }
@@ -65,7 +65,7 @@ extension MetricKitMonitor {
             } else {
                 MXMetricManager.shared.remove(self)
 
-                #if compiler(>=6.4) && os(iOS) && !targetEnvironment(macCatalyst)
+                #if KSCRASH_HAS_METRICKIT_27_PLUS && os(iOS) && !targetEnvironment(macCatalyst)
                     if #available(iOS 27.0, *) {
                         stopMemoryDiagnosticReporting()
                     }

@@ -235,7 +235,7 @@ func buildProfileData(from tree: CallStackTreeRepresentation, primaryThreadIndex
     return ProfileData(frames: frames, threads: threads)
 }
 
-#if KSCRASH_HAS_METRICKIT
+#if KSCRASH_HAS_METRICKIT_LEGACY
     import MetricKit
 
     // MARK: - MXCallStackTree Parsing

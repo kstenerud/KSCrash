@@ -30,7 +30,7 @@ import XCTest
 @testable import KSCrashMonitors
 
 // These exercise the pure trie -> weighted-sample conversion, which is independent of
-// MetricKit, so they run on every platform (no KSCRASH_HAS_METRICKIT guard).
+// MetricKit, so they run on every platform (no KSCRASH_HAS_METRICKIT_LEGACY guard).
 final class MetricKitHangParsingTests: XCTestCase {
 
     // A two-thread sampled trie. Thread 0 has two branches summing to its root; thread 1

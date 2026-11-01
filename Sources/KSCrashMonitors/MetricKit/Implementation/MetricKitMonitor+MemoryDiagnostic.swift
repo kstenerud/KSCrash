@@ -29,7 +29,7 @@ import KSCrashRecording
 import KSCrashReportModel
 import os.log
 
-#if KSCRASH_HAS_METRICKIT
+#if KSCRASH_HAS_METRICKIT_LEGACY
     import MetricKit
 #endif
 
@@ -46,11 +46,11 @@ import os.log
 // `DiagnosticReport.Environment`, `OSVersion`); the JSON dump is only a debugging aid.
 //
 // The `.memoryException` enum case is iOS-only (unavailable on macOS, Mac Catalyst and
-// visionOS), and the whole API requires the iOS 27 SDK, so this file compiles only with
-// Xcode 27+ (Swift 6.4) when targeting iOS device or simulator. Under Xcode 26 the package
-// builds exactly as before with no memory support.
+// visionOS), and the whole API requires the iOS 27 SDK, so this file compiles only under
+// KSCRASH_HAS_METRICKIT_27_PLUS when targeting iOS device or simulator. Under Xcode 26 the
+// package builds exactly as before with no memory support.
 
-#if KSCRASH_HAS_METRICKIT && compiler(>=6.4) && os(iOS) && !targetEnvironment(macCatalyst)
+#if KSCRASH_HAS_METRICKIT_27_PLUS && os(iOS) && !targetEnvironment(macCatalyst)
 
     @available(iOS 27.0, *)
     extension MetricKitMonitor {
