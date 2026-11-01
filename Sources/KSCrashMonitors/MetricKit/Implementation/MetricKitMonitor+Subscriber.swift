@@ -173,7 +173,10 @@ import os.log
     // which is also where the legacy `MXDiagnosticPayload` path is headed. We consume it
     // additively: the subscriber above keeps handling crash/hang on every OS version, and this
     // stream adds memory exceptions on iOS 27+. There is no overlap, since the old payload never
-    // vends memory exceptions and this stream ignores every other `DiagnosticResult` case.
+    // vends memory exceptions and this stream turns no other `DiagnosticResult` case into a report.
+    //
+    // Dumps go to separate base folders per API: `Legacy/` for the `MXMetricManager` payloads,
+    // `27+/` for this stream.
     //
     // The `.memoryException` case is iOS-only (unavailable on macOS, Mac Catalyst, visionOS) and
     // the API needs the iOS 27 SDK, so this compiles only with Xcode 27+ (Swift 6.4) targeting
@@ -201,11 +204,30 @@ import os.log
                             "[MONITORS] Observing MetricManager.diagnosticReports for memory exceptions")
                         for await report in manager.diagnosticReports {
                             if Task.isCancelled { break }
+                            self?.dumpDiagnosticReport(report)
                             guard case .memoryException(let diagnostic) = report.result else { continue }
                             self?.handleMemoryException(diagnostic, in: report)
                         }
                     }
                 }
+            }
+
+            /// Dumps every stream result, handled or not, as the legacy payload dump does. Crash
+            /// and hang arrive through the legacy payload too, but the stream's copy carries the
+            /// iOS 27 environment and an absolute time range, which the legacy dump lacks.
+            private func dumpDiagnosticReport(_ report: DiagnosticReport) {
+                guard configuration.dumpsPayloadsToDocuments else { return }
+                let kind: String
+                switch report.result {
+                case .crash: kind = "Crash"
+                case .hang: kind = "Hang"
+                case .cpuException: kind = "CPUException"
+                case .diskWriteException: kind = "DiskWriteException"
+                case .appLaunch: kind = "AppLaunch"
+                case .memoryException: kind = "MemoryException"
+                @unknown default: kind = "Unknown"
+                }
+                MetricKitJSONDumper.dump(encodable: report, type: "27+/\(kind)")
             }
 
             /// Cancels the diagnostic reports observer, if running.

@@ -36,6 +36,19 @@
 #import "CrashCallback.h"
 #import "KSCrashC.h"
 
+NSString *const KSCrashSlowNextLaunchKey = @"KSCrashSampleSlowNextLaunch";
+NSNotificationName const KSCrashTriggerStatusNotification = @"KSCrashTriggerStatusNotification";
+NSString *const KSCrashTriggerStatusMessageKey = @"message";
+
+static void postTriggerStatus(NSString *message)
+{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [[NSNotificationCenter defaultCenter] postNotificationName:KSCrashTriggerStatusNotification
+                                                            object:nil
+                                                          userInfo:@ { KSCrashTriggerStatusMessageKey : message }];
+    });
+}
+
 namespace sample_namespace
 {
 class Report
@@ -491,6 +504,73 @@ static void trigger_user_swiftAsync(void) { integrationTestSwiftAsyncTrigger(); 
 + (void)trigger_multiple_user_user
 {
     TRIGGER_MULTIPLE(user_fatal, user_nonfatal);
+}
+
+#pragma mark - MetricKit diagnostics
+
+// These do not crash. Each pushes the process past a limit the OS enforces, so MetricKit
+// delivers the matching diagnostic on a later launch.
+
++ (void)trigger_metricKit_cpuSpin
+{
+    // Every core busy on background queues, far beyond the CPU monitor's limit, with the
+    // main thread left free so the watchdog does not see a hang.
+    NSUInteger cores = [NSProcessInfo processInfo].activeProcessorCount;
+    CFAbsoluteTime deadline = CFAbsoluteTimeGetCurrent() + 90.0;
+    dispatch_group_t group = dispatch_group_create();
+    postTriggerStatus(@"CPU spin running for 90 s, keep the app in the foreground");
+    for (NSUInteger i = 0; i < cores; i++) {
+        dispatch_group_async(group, dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+            volatile uint64_t sink = 0;
+            while (CFAbsoluteTimeGetCurrent() < deadline) {
+                for (int j = 0; j < 100000; j++) {
+                    sink += (uint64_t)j * 2654435761u;
+                }
+            }
+        });
+    }
+    dispatch_group_notify(group, dispatch_get_main_queue(), ^{
+        postTriggerStatus(@"CPU spin finished, safe to continue");
+    });
+}
+
++ (void)trigger_metricKit_diskWrites
+{
+    // Rewrites one 64 MiB file 80 times, syncing each pass, so 5 GiB of file pages are dirtied
+    // without the file growing past 64 MiB. The limit is 1 GiB a day, and the OS raises it to
+    // 4 GiB after a violation, so 5 GiB still trips it on a second run the same day.
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+        const size_t chunkSize = 64 * 1024 * 1024;
+        const int passes = 80;
+        NSString *path = [NSTemporaryDirectory() stringByAppendingPathComponent:@"metrickit-disk-writes.bin"];
+        int fd = open(path.fileSystemRepresentation, O_CREAT | O_RDWR | O_TRUNC, 0600);
+        if (fd < 0) {
+            postTriggerStatus(@"Disk writes could not open the temp file");
+            return;
+        }
+        uint8_t *buffer = (uint8_t *)malloc(chunkSize);
+        int pass = 0;
+        for (; pass < passes && buffer != NULL; pass++) {
+            memset(buffer, pass, chunkSize);
+            if (pwrite(fd, buffer, chunkSize, 0) != (ssize_t)chunkSize) {
+                break;
+            }
+            fsync(fd);
+            postTriggerStatus([NSString stringWithFormat:@"Disk writes: pass %d of %d", pass + 1, passes]);
+        }
+        free(buffer);
+        close(fd);
+        unlink(path.fileSystemRepresentation);
+        postTriggerStatus(pass == passes ? @"Disk writes finished, safe to continue"
+                                         : [NSString stringWithFormat:@"Disk writes stopped after %d passes", pass]);
+    });
+}
+
++ (void)trigger_metricKit_slowNextLaunch
+{
+    [[NSUserDefaults standardUserDefaults] setBool:YES forKey:KSCrashSlowNextLaunchKey];
+    [[NSUserDefaults standardUserDefaults] synchronize];
+    exit(0);
 }
 
 @end

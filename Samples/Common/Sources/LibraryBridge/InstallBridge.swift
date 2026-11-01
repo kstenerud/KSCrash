@@ -28,6 +28,7 @@ import Combine
 import CrashCallback
 import Foundation
 import KSCrash
+import KSCrashMonitors
 import Logging
 import SwiftUI
 
@@ -77,6 +78,14 @@ public class InstallBridge: ObservableObject {
 
     public init() {
         config = InstallConfiguration(namespace: "Sample")
+
+        // MetricKit with every delivered payload dumped to Documents/KSCrash/MetricKit, which
+        // the Files app shows, so the raw diagnostics can be read straight off a device.
+        #if !os(tvOS) && !os(watchOS)
+            var metricKit = MetricKitMonitor.Configuration()
+            metricKit.dumpsPayloadsToDocuments = true
+            config.plugins = [MetricKitMonitor.plugin(metricKit)]
+        #endif
 
         // Example of adding custom fields at crash time from Swift. The tests
         // use integrationTestIsWritingReportCallback instead (set below).

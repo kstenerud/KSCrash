@@ -24,6 +24,7 @@
 // THE SOFTWARE.
 //
 
+import CrashTriggers
 import IntegrationTestsHelper
 import SampleUI
 import SwiftUI
@@ -35,9 +36,19 @@ struct SampleApp: App {
     #endif
 
     init() {
+        blockLaunchIfRequested()
         runLeaksTestIfRequired()
         registerSwiftAsyncCrashTrigger()
         IntegrationTestRunner.runEarlyIfNeeded()
+    }
+
+    /// Set by the "Slow Next Launch" trigger: holds launch long enough for MetricKit to record
+    /// an app launch diagnostic, well short of the launch watchdog.
+    private func blockLaunchIfRequested() {
+        let defaults = UserDefaults.standard
+        guard defaults.bool(forKey: KSCrashSlowNextLaunchKey) else { return }
+        defaults.removeObject(forKey: KSCrashSlowNextLaunchKey)
+        Thread.sleep(forTimeInterval: 8)
     }
 
     var body: some Scene {
