@@ -37,11 +37,10 @@ import os.log
 
 // MARK: - Subscription
 //
-// Everything about *receiving* MetricKit data lives here, for both delivery mechanisms: the
-// legacy `MXMetricManagerSubscriber` (crash, hang, metrics; all OS versions) and the iOS 27+
-// `MetricManager.diagnosticReports` async stream (memory exceptions). Each kind's handling
-// lives in its own MetricKitMonitor+<Kind>Diagnostic.swift; this file only delivers payloads
-// and dispatches into those handlers, plus the report machinery shared across kinds.
+// The legacy `MXMetricManagerSubscriber`, used before 27 and in builds without the 27 SDKs (the
+// 27 streams live in MetricKitMonitor+DiagnosticStream). Each kind's handling lives in its own
+// MetricKitMonitor+<Kind>Diagnostic.swift; this file only delivers payloads and dispatches into
+// those handlers, plus the report machinery shared across kinds.
 
 #if KSCRASH_HAS_METRICKIT_LEGACY
 
@@ -102,8 +101,8 @@ import os.log
             let skeletonRequirements = EventRequirements.nonFatal
 
             // notify()/handle() mutate shared exception-handling state in KSCrashMonitor.c that
-            // is not safe to enter concurrently. The legacy subscriber and the iOS 27 memory
-            // stream deliver on different threads, so serialize the whole sequence.
+            // is not safe to enter concurrently, and MetricKit promises nothing about which
+            // thread, or how many at once, its deliveries arrive on. Serialize the whole sequence.
             return skeletonLock.withLock {
                 // withCString's pointer is only valid inside its own closure, so the whole
                 // host.handle call (which reads context.pointee.reportPath from inside
@@ -124,8 +123,8 @@ import os.log
 
         /// Builds system info from MetricKit metadata. The skeleton report's system info
         /// reflects the current session, not the session the diagnostic describes, so it is
-        /// discarded except for the process name and bundle identifier fallbacks. Shared by the
-        /// crash and hang handlers (the memory handler builds its own from the typed environment).
+        /// discarded except for the process name and bundle identifier fallbacks. Used by the
+        /// legacy crash and hang paths; the 27 streams build it from the typed environment.
         func buildSystemInfo(
             metaData meta: MXMetaData, applicationVersion: String, skeleton report: Report
         )
@@ -166,79 +165,5 @@ import os.log
             )
         }
     }
-
-    // MARK: - Memory Exception Subscription (iOS 27+)
-    //
-    // iOS 27 vends memory exception diagnostics only through the new `MetricManager` async API,
-    // which is also where the legacy `MXDiagnosticPayload` path is headed. We consume it
-    // additively: the subscriber above keeps handling crash/hang on every OS version, and this
-    // stream adds memory exceptions on iOS 27+. There is no overlap, since the old payload never
-    // vends memory exceptions and this stream turns no other `DiagnosticResult` case into a report.
-    //
-    // Dumps go to separate base folders per API: `Legacy/` for the `MXMetricManager` payloads,
-    // `27+/` for this stream.
-    //
-    // The `.memoryException` case is iOS-only (unavailable on macOS, Mac Catalyst, visionOS) and
-    // the API needs the iOS 27 SDK, so this compiles only under KSCRASH_HAS_METRICKIT_27_PLUS
-    // targeting iOS device/simulator. Under Xcode 26 the package builds exactly as before.
-
-    #if KSCRASH_HAS_METRICKIT_27_PLUS && os(iOS) && !targetEnvironment(macCatalyst)
-
-        @available(iOS 27.0, *)
-        extension MetricKitMonitor {
-
-            /// Starts consuming `MetricManager.diagnosticReports` so memory exceptions are turned
-            /// into reports (see MetricKitMonitor+MemoryDiagnostic). Safe to call repeatedly: an
-            /// existing observer task is left running.
-            func startMemoryDiagnosticReporting() {
-                // Check-and-set under a single lock acquisition so concurrent callers can't both
-                // start a stream. The manager is captured by the task so it stays alive for the
-                // stream's lifetime; `self` is captured weakly so the long-lived task never keeps
-                // the monitor alive.
-                lock.withLock { state in
-                    guard state.memoryDiagnosticsTask == nil else { return }
-                    let manager = MetricManager()
-                    state.memoryDiagnosticsTask = Task { [weak self] in
-                        os_log(
-                            .default, log: metricKitLog,
-                            "[MONITORS] Observing MetricManager.diagnosticReports for memory exceptions")
-                        for await report in manager.diagnosticReports {
-                            if Task.isCancelled { break }
-                            self?.dumpDiagnosticReport(report)
-                            guard case .memoryException(let diagnostic) = report.result else { continue }
-                            self?.handleMemoryException(diagnostic, in: report)
-                        }
-                    }
-                }
-            }
-
-            /// Dumps every stream result, handled or not, as the legacy payload dump does. Crash
-            /// and hang arrive through the legacy payload too, but the stream's copy carries the
-            /// iOS 27 environment and an absolute time range, which the legacy dump lacks.
-            private func dumpDiagnosticReport(_ report: DiagnosticReport) {
-                guard configuration.dumpsPayloadsToDocuments else { return }
-                let kind: String
-                switch report.result {
-                case .crash: kind = "Crash"
-                case .hang: kind = "Hang"
-                case .cpuException: kind = "CPUException"
-                case .diskWriteException: kind = "DiskWriteException"
-                case .appLaunch: kind = "AppLaunch"
-                case .memoryException: kind = "MemoryException"
-                @unknown default: kind = "Unknown"
-                }
-                MetricKitJSONDumper.dump(encodable: report, type: "27+/\(kind)")
-            }
-
-            /// Cancels the diagnostic reports observer, if running.
-            func stopMemoryDiagnosticReporting() {
-                lock.withLock { state in
-                    state.memoryDiagnosticsTask?.cancel()
-                    state.memoryDiagnosticsTask = nil
-                }
-            }
-        }
-
-    #endif
 
 #endif

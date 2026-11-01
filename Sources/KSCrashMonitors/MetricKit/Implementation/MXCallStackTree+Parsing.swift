@@ -242,21 +242,8 @@ func buildProfileData(from tree: CallStackTreeRepresentation, primaryThreadIndex
 
     extension MXCallStackTree {
 
-        func extractCallStackData() -> CallStackData {
-            guard let tree = decodeTree() else {
-                return CallStackData(threads: [], crashedThreadIndex: nil, binaryImages: [])
-            }
-            return buildCallStackData(from: tree)
-        }
-
-        func extractProfileData(primaryThreadIndex: Int? = nil) -> ProfileData {
-            guard let tree = decodeTree() else {
-                return ProfileData(frames: [], threads: [])
-            }
-            return buildProfileData(from: tree, primaryThreadIndex: primaryThreadIndex)
-        }
-
-        private func decodeTree() -> CallStackTreeRepresentation? {
+        /// The tree decoded from its JSON representation, or nil when that does not decode.
+        var representation: CallStackTreeRepresentation? {
             let jsonData = jsonRepresentation()
             guard let tree = try? JSONDecoder().decode(CallStackTreeRepresentation.self, from: jsonData)
             else {
