@@ -90,12 +90,17 @@ public enum CrashErrorSubtype: RawRepresentable, Codable, Sendable, Equatable {
     /// diagnostic (iOS 27+). Carried on a `.termination` report so consumers can tell a
     /// memory kill apart from other terminations, while still treating it as an OOM.
     case memoryException
+    /// The report describes an app that wrote more to disk than the OS allows in a day,
+    /// captured from a MetricKit disk write exception diagnostic as a profile of where the
+    /// writes happened.
+    case diskWrites
     case unknown(String)
 
     public init(rawValue: String) {
         switch rawValue {
         case "hang": self = .hang
         case "memory_exception": self = .memoryException
+        case "disk_writes": self = .diskWrites
         default: self = .unknown(rawValue)
         }
     }
@@ -104,6 +109,7 @@ public enum CrashErrorSubtype: RawRepresentable, Codable, Sendable, Equatable {
         switch self {
         case .hang: return "hang"
         case .memoryException: return "memory_exception"
+        case .diskWrites: return "disk_writes"
         case .unknown(let value): return value
         }
     }

@@ -58,6 +58,35 @@ app, OS and device it was, and the sessions it contained. One arrives for a
 clean exit as well as a crash, which is what makes it the denominator: a
 backend can compute a crash-free rate rather than counting only the failures.
 
+### Matching a report to its run
+
+Most reports carry `report.run_id`, the run they describe. Some MetricKit
+reports arrive without one, today the disk write exceptions
+(`error.subtype == "disk_writes"`): MetricKit sends no run ID, and their call
+stack has nothing KSCrash can recover one from. They do carry the device
+(`system.device_app_hash`), the process ID (`system.process_id`) and when
+MetricKit says the event happened (`report.timestamp`, in microseconds), and
+every run summary carries its `device_id`, `process_id`, `started_at_ms` and
+`ended_at_ms`. A backend can match on those:
+
+1. Take the run summaries whose `device_id` equals the report's
+   `system.device_app_hash`.
+2. Keep the ones whose `process_id` equals the report's `system.process_id`.
+3. Pick the one whose window, `started_at_ms` to `ended_at_ms`, contains the
+   report's timestamp, allowing a few seconds either side.
+
+Allow that slack: the timestamp is MetricKit's, not KSCrash's. A disk write
+exception has been stamped 1.3 seconds before its run's recorded start, and a
+memory exception 5 seconds after its run's recorded end. Process IDs get
+reused, but not within seconds on the same device, so the window settles it.
+These timings are from iOS 27, where the timestamps are to the millisecond.
+Before iOS 27 they are to the second, and no disk write exception has been
+checked there, so it may be stamped differently.
+
+The report can arrive first. A run summary is only written on the next launch,
+and a disk write exception can be delivered while its run is still going, so
+hold an unmatched report until its summary comes in.
+
 ## Sessions
 
 A session is one contiguous stretch of a run at a single user id and

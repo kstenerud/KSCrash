@@ -53,6 +53,15 @@ void kscm_system_setBootTime(int64_t bootTimestamp);
  */
 void kscm_system_setDiscSpace(uint64_t storageSize, uint64_t freeStorageSize);
 
+/** The hash that identifies this app on this device: the same value as a report's
+ *  `system.device_app_hash` and a run summary's `device_id`. It describes the calling process,
+ *  so a report about another process gets its own from that process's run, never from here.
+ *
+ *  @return A null-terminated string, valid for the life of the process. Empty until the System
+ *          monitor has enabled once, which it never does in an extension-reporting install.
+ */
+const char *kscm_system_getDeviceAppHash(void);
+
 struct KSCrash_MonitorContext;
 
 /** Monitor-table event hook: refreshes the run's free storage so a report

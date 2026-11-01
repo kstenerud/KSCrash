@@ -165,23 +165,6 @@ import os.log
                     skeleton: skeleton)
             }
         }
-
-        // MARK: - Hang Helpers
-
-        /// Converts a nanosecond count to `UInt64`, returning nil for non-finite, negative, or
-        /// out-of-range values rather than trapping on the cast.
-        private func nanosToUInt64(_ ns: Double) -> UInt64? {
-            guard ns.isFinite, ns >= 0, ns < Double(UInt64.max) else { return nil }
-            return UInt64(ns.rounded())
-        }
-
-        /// Wall-clock start estimate for a hang window: the payload end timestamp minus the
-        /// hang duration. Returns nil if the timestamp is out of range or the subtraction
-        /// would underflow.
-        private func epochNanos(for timestamp: Date, minus durationNs: UInt64) -> UInt64? {
-            guard let end = nanosToUInt64(timestamp.timeIntervalSince1970 * 1_000_000_000) else { return nil }
-            return end >= durationNs ? end - durationNs : nil
-        }
     }
 
 #endif

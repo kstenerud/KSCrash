@@ -76,6 +76,8 @@ final class CrashReportTests: XCTestCase {
         XCTAssertEqual(CrashErrorSubtype(rawValue: "hang"), .hang)
         XCTAssertEqual(CrashErrorSubtype.memoryException.rawValue, "memory_exception")
         XCTAssertEqual(CrashErrorSubtype(rawValue: "memory_exception"), .memoryException)
+        XCTAssertEqual(CrashErrorSubtype.diskWrites.rawValue, "disk_writes")
+        XCTAssertEqual(CrashErrorSubtype(rawValue: "disk_writes"), .diskWrites)
     }
 
     // The MetricKit memory exception (iOS 27) is modelled like an OOM: a fatal .termination with
@@ -97,6 +99,15 @@ final class CrashReportTests: XCTestCase {
         XCTAssertEqual(decoded.isFatal, true)
         XCTAssertEqual(decoded.isCleanExit, false)
         XCTAssertFalse(decoded.subtype?.isUnknown ?? true)
+    }
+
+    // A disk write profile has no length to give, so its duration is absent, not 0.
+    func testProfileWithoutDurationLeavesTheKeyOut() throws {
+        let profile = ProfileInfo(name: "p", id: "1", duration: nil, frames: [], threads: [])
+        let data = try JSONEncoder().encode(profile)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertNil(json["duration"])
+        XCTAssertNil(try JSONDecoder().decode(ProfileInfo.self, from: data).duration)
     }
 
     func testCrashErrorSubtypeUnknown() {
