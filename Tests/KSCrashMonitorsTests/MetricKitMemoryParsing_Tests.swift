@@ -179,15 +179,16 @@ final class MetricKitMemoryParsingTests: XCTestCase {
             XCTAssertEqual(root.binaryName, "App")
             XCTAssertEqual(root.binaryUUID, "BBBBBBBB-0000-0000-0000-000000000000")
 
-            // The child frame had no address: it maps to 0 and, crucially, drops its offset so
-            // the shared extraction never computes `0 - offset`.
+            // The child frame had no address: it maps to 0 and keeps its offset, which with its
+            // binary is what tells it apart from other address-less frames.
             let child = try XCTUnwrap(root.subFrames?.first)
             XCTAssertEqual(child.address, 0)
-            XCTAssertNil(child.offsetIntoBinaryTextSegment)
+            XCTAssertEqual(child.offsetIntoBinaryTextSegment, 256)
 
-            // End to end, extraction stays underflow-safe.
+            // End to end, extraction never computes `0 - offset`: the child gets no image base.
             let data = buildCallStackData(from: rep)
             XCTAssertEqual(data.crashedThreadIndex, 0)
+            XCTAssertNil(objectBaseAddress(of: child))
         }
     }
 

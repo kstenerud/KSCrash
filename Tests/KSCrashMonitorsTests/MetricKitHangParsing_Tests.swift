@@ -204,4 +204,25 @@ final class MetricKitHangParsingTests: XCTestCase {
         XCTAssertFalse(profile.threads[0].primary)
         XCTAssertTrue(profile.threads[1].primary)
     }
+
+    func testFramesWithoutAddressesKeepTheirBinaries() {
+        // The 27 API may omit a frame's address; the adapter then passes address 0. Two such
+        // frames from different binaries must stay two frames, not merge into the first.
+        let leaf = CallStackTreeRepresentation.Frame(
+            address: 0, binaryUUID: "BBBBBBBB-0000-0000-0000-000000000000", binaryName: "App",
+            offsetIntoBinaryTextSegment: 512, sampleCount: 2)
+        let root = CallStackTreeRepresentation.Frame(
+            address: 0, binaryUUID: "AAAAAAAA-0000-0000-0000-000000000000", binaryName: "dyld",
+            offsetIntoBinaryTextSegment: 256, sampleCount: 2, subFrames: [leaf])
+        let tree = CallStackTreeRepresentation(callStacks: [
+            .init(threadAttributed: true, callStackRootFrames: [root])
+        ])
+
+        let profile = buildProfileData(from: tree)
+        XCTAssertEqual(profile.frames.count, 2)
+        XCTAssertEqual(profile.frames.map(\.objectName), ["dyld", "App"])
+        XCTAssertEqual(profile.frames.map(\.instructionAddr), [0, 0])
+        XCTAssertEqual(profile.frames.map(\.objectAddr), [nil, nil])
+        XCTAssertEqual(profile.threads.first?.samples.first?.frames, [1, 0])
+    }
 }

@@ -150,11 +150,11 @@ func buildCallStackData(from tree: CallStackTreeRepresentation) -> CallStackData
 }
 
 /// The image base address for a frame: its instruction address minus the offset into the
-/// binary's text segment. Returns nil when there is no offset, and guards against underflow
-/// if the offset ever exceeds the address (e.g. a frame with a missing/zero address), so the
-/// crash reporter never traps while parsing a stack.
+/// binary's text segment. Returns nil when there is no offset or no address (0), and guards
+/// against underflow if the offset ever exceeds the address, so the crash reporter never traps
+/// while parsing a stack.
 func objectBaseAddress(of frame: CallStackTreeRepresentation.Frame) -> UInt64? {
-    guard let offset = frame.offsetIntoBinaryTextSegment else { return nil }
+    guard frame.address != 0, let offset = frame.offsetIntoBinaryTextSegment else { return nil }
     return frame.address >= offset ? frame.address - offset : nil
 }
 
@@ -182,11 +182,25 @@ func flattenFrames(_ frames: [CallStackTreeRepresentation.Frame]) -> [CallStackT
 // "Main Runloop Hang" (the main thread); when nil we fall back to the attributed thread, then
 // to 0 — `threadAttributed` alone is unreliable (often unset, or a low-sample worker).
 func buildProfileData(from tree: CallStackTreeRepresentation, primaryThreadIndex: Int? = nil) -> ProfileData {
-    var frameIndexByAddr: [UInt64: Int] = [:]
+    // Frames are shared across threads by identity: the address, or for a frame without one
+    // (address 0, which the 27 API allows) its binary UUID and offset. Keying address-less
+    // frames on the address alone would merge every one of them into the first, taking its
+    // binary with it. Two address-less frames in the same binary with no offset still merge,
+    // since nothing in them differs.
+    struct FrameKey: Hashable {
+        let address: UInt64
+        let binaryUUID: String?
+        let offset: UInt64?
+    }
+    var frameIndexByKey: [FrameKey: Int] = [:]
     var frames: [StackFrame] = []
 
     func indexFor(_ f: CallStackTreeRepresentation.Frame) -> Int {
-        if let i = frameIndexByAddr[f.address] { return i }
+        let key =
+            f.address != 0
+            ? FrameKey(address: f.address, binaryUUID: nil, offset: nil)
+            : FrameKey(address: 0, binaryUUID: f.binaryUUID, offset: f.offsetIntoBinaryTextSegment)
+        if let i = frameIndexByKey[key] { return i }
         let objectAddr = objectBaseAddress(of: f)
         let i = frames.count
         frames.append(
@@ -196,7 +210,7 @@ func buildProfileData(from tree: CallStackTreeRepresentation, primaryThreadIndex
                 objectName: f.binaryName,
                 objectUUID: f.binaryUUID
             ))
-        frameIndexByAddr[f.address] = i
+        frameIndexByKey[key] = i
         return i
     }
 
