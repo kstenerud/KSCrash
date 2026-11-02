@@ -179,6 +179,94 @@ import XCTest
             XCTAssertNotNil((stored as? [String: Any])?["report"], "the stored report should parse as JSON")
         }
 
+        /// Drives `store` through the real pipeline and reads the stored report back.
+        private func storedReport(_ store: () -> Report.ID?) throws -> Report {
+            let reportsDirectory = try XCTUnwrap(
+                Self.pipelineReportsDirectory, "a report-writing pipeline should be available")
+            guard let reportID = store() else {
+                try XCTSkipIf(
+                    kscm_testcode_isHandlingFatalException(),
+                    "an earlier suite simulated a fatal crash in this process")
+                XCTFail("the diagnostic should be stored once the pipeline is installed")
+                throw XCTSkip("no report")
+            }
+
+            var config = KSCrashReportStoreCConfiguration_Default()
+            let cReportsPath = strdup(reportsDirectory.path)
+            config.reportsPath = UnsafePointer(cReportsPath)
+            defer { free(cReportsPath) }
+            let raw = try XCTUnwrap(kscrs_readReport(reportID.description, &config, nil))
+            defer { free(raw) }
+            return try JSONDecoder().decode(Report.self, from: Data(bytes: raw, count: strlen(raw)))
+        }
+
+        private let runlessTree = CallStackTreeRepresentation(callStacks: [
+            .init(
+                threadAttributed: nil,
+                callStackRootFrames: [
+                    .init(
+                        address: 6_587_906_320, binaryUUID: "32E28303-2AAD-3166-9D11-70E8BCF8E076",
+                        binaryName: "libsystem_pthread.dylib", offsetIntoBinaryTextSegment: 2319, sampleCount: 12,
+                        subFrames: nil)
+                ])
+        ])
+
+        // A CPU exception's range from iOS 27.2: it ends 37 s after its run did.
+        private let runlessRange = MetricKitTimeRange(
+            begin: Date(timeIntervalSinceReferenceDate: 815_281_485.484),
+            end: Date(timeIntervalSinceReferenceDate: 815_281_599.725))
+
+        private func runlessSystemInfo(_ skeleton: Report) -> SystemInfo {
+            SystemInfo(
+                cfBundleIdentifier: "com.example.app", deviceAppHash: "abc", processID: 2191)
+        }
+
+        private func assertStoredRunlessProfile(_ report: Report, subtype: CrashErrorSubtype) throws {
+            XCTAssertNil(report.report.runId)
+            XCTAssertEqual(report.report.finalized, true)
+            XCTAssertEqual(report.report.monitorId, MetricKitMonitor.id)
+            XCTAssertEqual(
+                try XCTUnwrap(report.report.timestamp).timeIntervalSince1970,
+                runlessRange.end.timeIntervalSince1970, accuracy: 0.001)
+            XCTAssertEqual(report.system?.processID, 2191)
+            XCTAssertEqual(report.system?.deviceAppHash, "abc")
+            let error = report.crash.error
+            XCTAssertEqual(error.type, .profile)
+            XCTAssertEqual(error.subtype, subtype)
+            XCTAssertEqual(error.isFatal, false)
+            XCTAssertEqual(error.profile?.threads.first?.samples.first?.count, 12)
+        }
+
+        func testWriteDiskWriteReportEndToEnd() throws {
+            let report = try storedReport {
+                monitor.processDiskWrite(
+                    callStackTree: runlessTree, totalBytesWritten: Measurement(value: 1074.716672, unit: .megabytes),
+                    timeRange: runlessRange, applicationVersion: "1.0", systemInfo: runlessSystemInfo)
+            }
+            try assertStoredRunlessProfile(report, subtype: .diskWrites)
+            let data = try XCTUnwrap(
+                try report.crash.error.monitorData(DiskWriteMonitorData.self, for: MetricKitMonitor.id))
+            XCTAssertEqual(data.totalBytesWritten, 1_074_716_672)
+            XCTAssertEqual(
+                data.timeRange.begin.timeIntervalSince1970, runlessRange.begin.timeIntervalSince1970, accuracy: 0.001)
+        }
+
+        func testWriteCPUExceptionReportEndToEnd() throws {
+            let report = try storedReport {
+                monitor.processCPUException(
+                    callStackTree: runlessTree, totalCPUTime: Measurement(value: 90.002322208, unit: .seconds),
+                    totalSampledTime: Measurement(value: 97.388729833, unit: .seconds), timeRange: runlessRange,
+                    applicationVersion: "1.0", systemInfo: runlessSystemInfo)
+            }
+            try assertStoredRunlessProfile(report, subtype: .cpuUsage)
+            XCTAssertEqual(report.crash.error.profile?.duration, 97_388_729_833)
+            let data = try XCTUnwrap(
+                try report.crash.error.monitorData(CPUExceptionMonitorData.self, for: MetricKitMonitor.id))
+            XCTAssertEqual(data.totalCPUTimeNs, 90_002_322_208)
+            XCTAssertEqual(
+                data.timeRange.begin.timeIntervalSince1970, runlessRange.begin.timeIntervalSince1970, accuracy: 0.001)
+        }
+
         // MARK: - Diagnostic Report Notifications
 
         // Posts arrive asynchronously on the main queue, so a straggler from an

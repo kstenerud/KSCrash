@@ -195,20 +195,17 @@ import os.log
             }
         }
 
-        /// Builds system info from MetricKit metadata. The skeleton report's system info
-        /// reflects the current session, not the session the diagnostic describes, so it is
-        /// discarded except for the process name and bundle identifier fallbacks. The device hash,
+        /// Builds system info from MetricKit metadata, never from the skeleton report, which
+        /// describes this session. The bundle ID comes from the diagnostic (its JSON before 26, or
+        /// this app when it names none). The device hash,
         /// the one value every run of the app shares, comes from this run (see deviceAppHash).
         /// Used by the legacy crash, hang, CPU and disk write paths; the 27 streams build it from the
         /// typed environment.
-        func buildSystemInfo(
-            metaData meta: MXMetaData, applicationVersion: String, skeleton report: Report
-        )
-            -> SystemInfo
-        {
+        func buildSystemInfo(for diagnostic: MXDiagnostic) -> SystemInfo {
+            let meta = diagnostic.metaData
+            let applicationVersion = diagnostic.applicationVersion
             var processID: Int?
             var buildType: BuildType = .appStore
-            var bundleIdentifier: String? = report.system?.cfBundleIdentifier
             var lowPowerMode: Bool?
             if #available(iOS 17.0, macOS 14.0, *) {
                 let pid = meta.pid
@@ -218,12 +215,15 @@ import os.log
                 }
                 lowPowerMode = meta.lowPowerModeEnabled
             }
-            if #available(iOS 26.0, macOS 26.0, visionOS 26.0, *) {
-                let metaBundleId = meta.bundleIdentifier
-                if !metaBundleId.isEmpty {
-                    bundleIdentifier = metaBundleId
-                }
+            var bundleIdentifier: String?
+            if #available(iOS 26.0, macOS 26.0, visionOS 26.0, *), !meta.bundleIdentifier.isEmpty {
+                bundleIdentifier = meta.bundleIdentifier
             }
+            // Before 26 MXMetaData has no bundleIdentifier property, but the diagnostic's JSON
+            // carries it (seen in an iOS 18.3.1 payload).
+            bundleIdentifier =
+                bundleIdentifier ?? diagnosticBundleIdentifier(fromJSON: diagnostic.jsonRepresentation())
+                ?? Bundle.main.bundleIdentifier
             let osInfo = parseOSVersion(meta.osVersion)
             return SystemInfo(
                 cfBundleIdentifier: bundleIdentifier,
@@ -234,7 +234,6 @@ import os.log
                 machine: meta.deviceType,
                 osVersion: osInfo.build,
                 processID: processID,
-                processName: report.system?.processName,
                 systemName: osInfo.name,
                 systemVersion: osInfo.version,
                 buildType: buildType,

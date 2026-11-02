@@ -156,10 +156,8 @@ import os.log
                 totalSampledTime: diagnostic.totalSampledTime,
                 timeRange: timeRange,
                 applicationVersion: diagnostic.applicationVersion
-            ) { skeleton in
-                self.buildSystemInfo(
-                    metaData: diagnostic.metaData, applicationVersion: diagnostic.applicationVersion,
-                    skeleton: skeleton)
+            ) { _ in
+                self.buildSystemInfo(for: diagnostic)
             }
         }
     }

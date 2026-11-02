@@ -126,6 +126,25 @@ import XCTest
     }
 
     // Which MetricKit reports carry this app's device hash.
+    final class MetricKitBundleIdentifierTests: XCTestCase {
+
+        // The shape of a legacy diagnostic's JSON on iOS 18, where MXMetaData has no
+        // bundleIdentifier property but the JSON does.
+        func testReadsTheBundleIDFromALegacyDiagnosticsJSON() {
+            let json = Data(
+                #"{"diagnosticMetaData":{"bundleIdentifier":"com.example.app","osVersion":"iPhone OS 18.3.1 (22D72)"}}"#
+                    .utf8)
+            XCTAssertEqual(diagnosticBundleIdentifier(fromJSON: json), "com.example.app")
+        }
+
+        func testNoBundleIDWhenTheJSONHasNone() {
+            XCTAssertNil(diagnosticBundleIdentifier(fromJSON: Data(#"{"diagnosticMetaData":{}}"#.utf8)))
+            XCTAssertNil(
+                diagnosticBundleIdentifier(fromJSON: Data(#"{"diagnosticMetaData":{"bundleIdentifier":""}}"#.utf8)))
+            XCTAssertNil(diagnosticBundleIdentifier(fromJSON: Data("not json".utf8)))
+        }
+    }
+
     final class MetricKitDeviceHashTests: XCTestCase {
 
         private let appHash = "da39a3ee5e6b4b0d3255bfef95601890afd80709"

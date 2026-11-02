@@ -26,9 +26,18 @@ When a decision changes or a new one is made, it is recorded here.
   `monitor_data.MetricKit.time_range` (`begin_ms`, `end_ms`, the unit of a run
   summary's `started_at_ms`), for a backend to match the run whose window it
   overlaps.
-- **A diagnostic that names no bundle is the app's own.** `MXMetaData.bundleIdentifier`
-  exists only on iOS 26+, so a legacy payload before 26 is taken to be the app's,
-  and gets the app's bundle ID and device hash.
+- **A legacy diagnostic's bundle ID comes from its JSON before iOS 26.**
+  `MXMetaData.bundleIdentifier` exists only on 26+, but the diagnostic's
+  `jsonRepresentation()` carries `diagnosticMetaData.bundleIdentifier` (seen in
+  an iOS 18.3.1 payload). Only a diagnostic that names no bundle at all is
+  taken to be the app's own, with the app's bundle ID and device hash.
+- **A finalized MetricKit report has no `system.process_name`.** MetricKit
+  gives none, and the skeleton report has none either: its `system` section is
+  filled only by the System stitch at delivery, which a finalized report (hang,
+  disk write, CPU) never gets, and `report.process_name` comes from the event
+  context, which only the corpse monitor sets. It is not filled from this
+  process: the field stays absent rather than take a value MetricKit did not
+  give.
 - **A disk write profile has no start time and no duration.** MetricKit gives
   neither when the writes it counted began nor how long they took, so
   `time_start_epoch` and `duration` are absent. The time MetricKit does give is

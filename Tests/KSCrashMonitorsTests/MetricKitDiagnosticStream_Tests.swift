@@ -273,9 +273,9 @@ final class MetricKitCrashErrorTests: XCTestCase {
                 try requireStreamRuntime()
                 guard #available(iOS 27.0, macOS 27.0, visionOS 27.0, *) else { return }
                 let report = try decode(Self.sigsegvJSON)
-                let system = makeSystemInfo(from: report.environment, processName: "Sample")
+                let system = makeSystemInfo(from: report.environment)
                 XCTAssertEqual(system.processID, 51804)
-                XCTAssertEqual(system.processName, "Sample")
+                XCTAssertNil(system.processName)
                 XCTAssertEqual(system.cfBundleIdentifier, "com.github.kstenerud.KSCrash.Sample")
                 XCTAssertEqual(system.systemName, "iPhone OS")
                 XCTAssertEqual(system.systemVersion, "27.0.1")
