@@ -159,7 +159,7 @@ func epochNanos(for timestamp: Date, minus durationNs: UInt64) -> UInt64? {
 // MARK: - Device
 
 /// The device hash for a report about a diagnostic MetricKit delivered to this app, or nil when
-/// there is none to give.
+/// the diagnostic is another bundle's.
 ///
 /// The hash identifies the app on this device and is the same in every run, so this run's value
 /// is the one the diagnostic's own run recorded. MetricKit can deliver an app extension's
@@ -170,13 +170,12 @@ func epochNanos(for timestamp: Date, minus durationNs: UInt64) -> UInt64? {
 /// - Parameters:
 ///   - diagnosticBundleID: The bundle ID the diagnostic names, when it names one.
 ///   - appBundleID: This app's bundle ID.
-///   - hash: This app's device hash, empty when the System monitor has not run.
+///   - hash: This app's device hash.
 func deviceAppHash(
     forDiagnosticBundleID diagnosticBundleID: String?,
     appBundleID: String? = Bundle.main.bundleIdentifier,
     hash: String = String(cString: kscm_system_getDeviceAppHash())
 ) -> String? {
-    guard !hash.isEmpty else { return nil }
     if let diagnosticBundleID, !diagnosticBundleID.isEmpty, diagnosticBundleID != appBundleID {
         return nil
     }

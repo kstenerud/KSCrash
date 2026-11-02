@@ -138,11 +138,6 @@ import XCTest
             XCTAssertEqual(
                 deviceAppHash(forDiagnosticBundleID: "", appBundleID: "com.example.app", hash: appHash), appHash)
         }
-
-        func testNoDeviceHashBeforeTheSystemMonitorRuns() {
-            XCTAssertNil(
-                deviceAppHash(forDiagnosticBundleID: "com.example.app", appBundleID: "com.example.app", hash: ""))
-        }
     }
 
 #endif
