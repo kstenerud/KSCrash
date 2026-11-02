@@ -60,11 +60,17 @@ import XCTest
             )
         }
 
+        // The delivered diagnostic's range: one instant, 1.3 s before its run's recorded start.
+        private let timeRange = MetricKitTimeRange(
+            begin: Date(timeIntervalSinceReferenceDate: 815_258_038.718),
+            end: Date(timeIntervalSinceReferenceDate: 815_258_038.718))
+
         func testDiskWriteBecomesADiskWritesProfile() throws {
             let error = try XCTUnwrap(
                 MetricKitMonitor.makeDiskWriteError(
                     callStackTree: deliveredTree(),
-                    totalBytesWritten: Measurement(value: 1074.716672, unit: .megabytes)))
+                    totalBytesWritten: Measurement(value: 1074.716672, unit: .megabytes),
+                    timeRange: timeRange))
 
             XCTAssertEqual(error.type, .profile)
             XCTAssertEqual(error.subtype, .diskWrites)
@@ -85,29 +91,34 @@ import XCTest
             XCTAssertEqual(thread.samples.first?.count, 12)
             XCTAssertEqual(thread.samples.first?.frames, [6, 5, 4, 3, 2, 1, 0])
 
-            XCTAssertEqual(
-                try error.monitorData(DiskWriteMonitorData.self, for: MetricKitMonitor.id),
-                DiskWriteMonitorData(kind: "disk_write_exception", totalBytesWritten: 1_074_716_672))
+            let data = try XCTUnwrap(try error.monitorData(DiskWriteMonitorData.self, for: MetricKitMonitor.id))
+            XCTAssertEqual(data.kind, "disk_write_exception")
+            XCTAssertEqual(data.totalBytesWritten, 1_074_716_672)
         }
 
         func testDiskWriteErrorRoundTrips() throws {
             let error = try XCTUnwrap(
                 MetricKitMonitor.makeDiskWriteError(
                     callStackTree: deliveredTree(),
-                    totalBytesWritten: Measurement(value: 1074.716672, unit: .megabytes)))
+                    totalBytesWritten: Measurement(value: 1074.716672, unit: .megabytes),
+                    timeRange: timeRange))
             let decoded = try JSONDecoder().decode(CrashError.self, from: JSONEncoder().encode(error))
 
             XCTAssertEqual(decoded.subtype, .diskWrites)
             XCTAssertEqual(decoded.profile, error.profile)
+            let data = try XCTUnwrap(try decoded.monitorData(DiskWriteMonitorData.self, for: MetricKitMonitor.id))
+            XCTAssertEqual(data.totalBytesWritten, 1_074_716_672)
             XCTAssertEqual(
-                try decoded.monitorData(DiskWriteMonitorData.self, for: MetricKitMonitor.id)?.totalBytesWritten,
-                1_074_716_672)
+                data.timeRange.begin.timeIntervalSince1970, timeRange.begin.timeIntervalSince1970, accuracy: 0.001)
+            XCTAssertEqual(
+                data.timeRange.end.timeIntervalSince1970, timeRange.end.timeIntervalSince1970, accuracy: 0.001)
         }
 
         func testUnmeasurableBytesLeaveTheTotalOut() throws {
             let error = try XCTUnwrap(
                 MetricKitMonitor.makeDiskWriteError(
-                    callStackTree: deliveredTree(), totalBytesWritten: Measurement(value: .nan, unit: .bytes)))
+                    callStackTree: deliveredTree(), totalBytesWritten: Measurement(value: .nan, unit: .bytes),
+                    timeRange: timeRange))
             let data = try XCTUnwrap(try error.monitorData(DiskWriteMonitorData.self, for: MetricKitMonitor.id))
             XCTAssertEqual(data.kind, "disk_write_exception")
             XCTAssertNil(data.totalBytesWritten)

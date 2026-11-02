@@ -63,8 +63,9 @@ public struct ProfileInfo: Codable, Sendable, Equatable {
     public let expectedSampleInterval: UInt64?
 
     /// Profile duration in nanoseconds. For a time profile, how long we observed; for a hang
-    /// (`subtype == .hang`), how long the hang lasted. Absent for disk writes
-    /// (`subtype == .diskWrites`): MetricKit gives no length for the writes it counted.
+    /// (`subtype == .hang`), how long the hang lasted; for CPU usage (`subtype == .cpuUsage`), how
+    /// long MetricKit sampled the app. Absent for disk writes (`subtype == .diskWrites`): MetricKit
+    /// gives no length for the writes it counted.
     public let duration: UInt64?
 
     /// Units for the time fields ("nanoseconds"). Applies to durations and timestamps only;

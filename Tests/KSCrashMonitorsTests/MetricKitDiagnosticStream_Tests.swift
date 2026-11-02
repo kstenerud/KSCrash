@@ -126,6 +126,11 @@ final class MetricKitCrashErrorTests: XCTestCase {
             private static let diskWriteJSON =
                 #"{"diskWriteExceptionDiagnostic":{"callStackTree":{"binaryInfo":[{"name":"libsystem_kernel.dylib","uuid":"26FFA906-5ACA-39BF-8F7C-94FE9AB8C657"},{"name":"libsystem_pthread.dylib","uuid":"32E28303-2AAD-3166-9D11-70E8BCF8E076"},{"name":"libdispatch.dylib","uuid":"84B7E81D-B830-384F-A103-96323C6F5189"}],"callStackPerThread":false,"callStackThreads":[{"rootFrames":[{"address":6587906320,"binaryUUID":"32E28303-2AAD-3166-9D11-70E8BCF8E076","offsetIntoBinaryTextSegment":2319,"sampleCount":12,"subFrames":[{"address":6587908604,"binaryUUID":"32E28303-2AAD-3166-9D11-70E8BCF8E076","offsetIntoBinaryTextSegment":4603,"sampleCount":12,"subFrames":[{"address":7370445028,"binaryUUID":"84B7E81D-B830-384F-A103-96323C6F5189","offsetIntoBinaryTextSegment":86243,"sampleCount":12,"subFrames":[{"address":7370443104,"binaryUUID":"84B7E81D-B830-384F-A103-96323C6F5189","offsetIntoBinaryTextSegment":84319,"sampleCount":12,"subFrames":[{"address":7370473396,"binaryUUID":"84B7E81D-B830-384F-A103-96323C6F5189","offsetIntoBinaryTextSegment":114611,"sampleCount":12,"subFrames":[{"address":7370366156,"binaryUUID":"84B7E81D-B830-384F-A103-96323C6F5189","offsetIntoBinaryTextSegment":7371,"sampleCount":12,"subFrames":[{"address":9742097760,"binaryUUID":"26FFA906-5ACA-39BF-8F7C-94FE9AB8C657","offsetIntoBinaryTextSegment":28000,"sampleCount":12,"subFrames":[]}]}]}]}]}]}]}]}]},"totalBytesWritten":{"unit":"MB","value":1074.716672}},"environment":{"applicationBuildVersion":"1","applicationVersion":"1.0","bundleIdentifier":"com.github.kstenerud.KSCrash.Sample","deviceType":"iPhone18,1","isTestFlightApp":false,"lowPowerModeEnabled":false,"osVersion":{"buildNumber":"24B119","number":"27.2","platform":"iPhone OS"},"pid":1312,"platformArchitecture":"arm64e","regionFormat":"US","signpostData":[],"states":[]},"timeRange":{"begin":815258038.718,"end":815258038.718},"version":"2.0.0"}"#
 
+            // A CPU exception iOS 27.2 delivered on an iPhone 17 Pro, untrimmed. A watchdog crash
+            // for the same process came in the same delivery with the same timeRange.
+            private static let cpuExceptionJSON =
+                #"{"cpuExceptionDiagnostic":{"callStackTree":{"binaryInfo":[{"name":"libsystem_pthread.dylib","uuid":"32E28303-2AAD-3166-9D11-70E8BCF8E076"},{"name":"libdispatch.dylib","uuid":"84B7E81D-B830-384F-A103-96323C6F5189"}],"callStackPerThread":false,"callStackThreads":[{"rootFrames":[{"address":6587906320,"binaryUUID":"32E28303-2AAD-3166-9D11-70E8BCF8E076","offsetIntoBinaryTextSegment":2319,"sampleCount":143,"subFrames":[{"address":6587908604,"binaryUUID":"32E28303-2AAD-3166-9D11-70E8BCF8E076","offsetIntoBinaryTextSegment":4603,"sampleCount":143,"subFrames":[{"address":7370445028,"binaryUUID":"84B7E81D-B830-384F-A103-96323C6F5189","offsetIntoBinaryTextSegment":86243,"sampleCount":143,"subFrames":[{"address":7370443520,"binaryUUID":"84B7E81D-B830-384F-A103-96323C6F5189","offsetIntoBinaryTextSegment":84735,"sampleCount":143,"subFrames":[{"address":7370473396,"binaryUUID":"84B7E81D-B830-384F-A103-96323C6F5189","offsetIntoBinaryTextSegment":114611,"sampleCount":143,"subFrames":[{"address":7370366156,"binaryUUID":"84B7E81D-B830-384F-A103-96323C6F5189","offsetIntoBinaryTextSegment":7371,"sampleCount":143,"subFrames":[{"address":4369502320,"binaryUUID":"0BCBEA7D-D37A-3F51-807F-510C6B7DA69B","offsetIntoBinaryTextSegment":2461808,"sampleCount":80,"subFrames":[]},{"address":4369502340,"binaryUUID":"0BCBEA7D-D37A-3F51-807F-510C6B7DA69B","offsetIntoBinaryTextSegment":2461828,"sampleCount":31,"subFrames":[]},{"address":4369502384,"binaryUUID":"0BCBEA7D-D37A-3F51-807F-510C6B7DA69B","offsetIntoBinaryTextSegment":2461872,"sampleCount":12,"subFrames":[]},{"address":4369502376,"binaryUUID":"0BCBEA7D-D37A-3F51-807F-510C6B7DA69B","offsetIntoBinaryTextSegment":2461864,"sampleCount":12,"subFrames":[]},{"address":4369502360,"binaryUUID":"0BCBEA7D-D37A-3F51-807F-510C6B7DA69B","offsetIntoBinaryTextSegment":2461848,"sampleCount":4,"subFrames":[]},{"address":4369502368,"binaryUUID":"0BCBEA7D-D37A-3F51-807F-510C6B7DA69B","offsetIntoBinaryTextSegment":2461856,"sampleCount":3,"subFrames":[]},{"address":4369502392,"binaryUUID":"0BCBEA7D-D37A-3F51-807F-510C6B7DA69B","offsetIntoBinaryTextSegment":2461880,"sampleCount":1,"subFrames":[]}]}]}]}]}]}]}]}]},"totalCPUTime":{"unit":"s","value":90.002322208},"totalSampledTime":{"unit":"s","value":97.388729833}},"environment":{"applicationBuildVersion":"1","applicationVersion":"1.0","bundleIdentifier":"com.github.kstenerud.KSCrash.Sample","deviceType":"iPhone18,1","isTestFlightApp":false,"lowPowerModeEnabled":false,"osVersion":{"buildNumber":"24B119","number":"27.2","platform":"iPhone OS"},"pid":2191,"platformArchitecture":"arm64e","regionFormat":"US","signpostData":[],"states":[]},"timeRange":{"begin":815281485.484,"end":815281599.725},"version":"2.0.0"}"#
+
             private func requireStreamRuntime() throws {
                 guard #available(iOS 27.0, macOS 27.0, visionOS 27.0, *) else {
                     throw XCTSkip("the MetricKit 27 types need a 27 runtime")
@@ -218,7 +223,8 @@ final class MetricKitCrashErrorTests: XCTestCase {
                 let error = try XCTUnwrap(
                     MetricKitMonitor.makeDiskWriteError(
                         callStackTree: diagnostic.callStackTree.callStackRepresentation,
-                        totalBytesWritten: diagnostic.totalBytesWritten))
+                        totalBytesWritten: diagnostic.totalBytesWritten,
+                        timeRange: MetricKitTimeRange(begin: report.timeRange.start, end: report.timeRange.end)))
                 XCTAssertEqual(error.subtype, .diskWrites)
                 XCTAssertEqual(
                     try error.monitorData(DiskWriteMonitorData.self, for: MetricKitMonitor.id)?.totalBytesWritten,
@@ -228,6 +234,39 @@ final class MetricKitCrashErrorTests: XCTestCase {
                 XCTAssertEqual(profile.frames.count, 7)
                 XCTAssertEqual(profile.frames.first?.objectName, "libsystem_pthread.dylib")
                 XCTAssertEqual(profile.threads.first?.samples.first?.count, 12)
+            }
+
+            func testCPUExceptionBecomesACPUUsageProfile() throws {
+                try requireStreamRuntime()
+                guard #available(iOS 27.0, macOS 27.0, visionOS 27.0, *) else { return }
+                let report = try decode(Self.cpuExceptionJSON)
+                guard case .cpuException(let diagnostic) = report.result else {
+                    return XCTFail("fixture should decode as a CPU exception")
+                }
+                XCTAssertEqual(report.environment.pid, 2191)
+
+                let timeRange = MetricKitTimeRange(begin: report.timeRange.start, end: report.timeRange.end)
+                let error = try XCTUnwrap(
+                    MetricKitMonitor.makeCPUExceptionError(
+                        callStackTree: diagnostic.callStackTree.callStackRepresentation,
+                        totalCPUTime: diagnostic.totalCPUTime,
+                        totalSampledTime: diagnostic.totalSampledTime,
+                        timeRange: timeRange))
+                XCTAssertEqual(error.subtype, .cpuUsage)
+
+                let profile = try XCTUnwrap(error.profile)
+                XCTAssertEqual(profile.duration, 97_388_729_833)
+                XCTAssertEqual(profile.frames.count, 13)
+                let samples = try XCTUnwrap(profile.threads.first).samples
+                XCTAssertEqual(samples.count, 7)
+                XCTAssertEqual(samples.reduce(0) { $0 + $1.count }, 143)
+
+                // Its run ran from 1_793_588_667_295 to 1_793_588_762_653 (ms): the range starts
+                // inside it and ends after it.
+                let object = try XCTUnwrap(
+                    try JSONSerialization.jsonObject(with: JSONEncoder().encode(timeRange)) as? [String: Any])
+                XCTAssertEqual(object["begin_ms"] as? Int64, 1_793_588_685_484)
+                XCTAssertEqual(object["end_ms"] as? Int64, 1_793_588_799_725)
             }
 
             func testSystemInfoComesFromTheEnvironment() throws {

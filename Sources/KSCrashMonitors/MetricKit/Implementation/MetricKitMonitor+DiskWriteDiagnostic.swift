@@ -41,7 +41,7 @@ import os.log
 // monitor_data under the monitor's id.
 //
 // The tree carries no threadcrumb, so the report has no run ID. It carries the process ID and
-// timestamp, which a server can match against the run summaries it receives.
+// MetricKit's time range, which a server can match against the run summaries it receives.
 
 #if KSCRASH_HAS_METRICKIT_LEGACY
 
@@ -53,10 +53,12 @@ import os.log
         /// Total bytes the app wrote, as MetricKit measured them. Absent when the measurement is not
         /// a finite, non-negative number of bytes.
         let totalBytesWritten: UInt64?
+        let timeRange: MetricKitTimeRange
 
         enum CodingKeys: String, CodingKey {
             case kind
             case totalBytesWritten = "total_bytes_written"
+            case timeRange = "time_range"
         }
     }
 
@@ -69,17 +71,19 @@ import os.log
         /// - Parameters:
         ///   - callStackTree: The diagnostic's sampled call stack tree.
         ///   - totalBytesWritten: The bytes MetricKit says the app wrote.
+        ///   - timeRange: The period MetricKit gives for the diagnostic.
         /// - Returns: The report's error, or nil when the monitor data cannot be encoded.
         static func makeDiskWriteError(
             callStackTree: CallStackTreeRepresentation,
-            totalBytesWritten: Measurement<UnitInformationStorage>
+            totalBytesWritten: Measurement<UnitInformationStorage>,
+            timeRange: MetricKitTimeRange
         ) -> CrashError? {
             let profileData = buildProfileData(from: callStackTree)
             let profile = ProfileInfo(
                 name: "com.kscrash.profile.disk_writes",
                 id: UUID().uuidString,
                 // MetricKit gives neither when the writes it counted began nor how long they
-                // took; the diagnostic's own time is the report's timestamp.
+                // took; the period it does give is in the monitor data.
                 timeStartEpoch: nil,
                 duration: nil,
                 frames: profileData.frames,
@@ -90,7 +94,8 @@ import os.log
             let monitorData = DiskWriteMonitorData(
                 kind: DiskWriteMonitorData.kind,
                 totalBytesWritten: bytes.isFinite && bytes >= 0 && bytes < Double(UInt64.max)
-                    ? UInt64(bytes.rounded()) : nil
+                    ? UInt64(bytes.rounded()) : nil,
+                timeRange: timeRange
             )
             guard let encoded = try? JSONEncoder().encode(monitorData),
                 let section = try? JSONDecoder().decode(Metadata.self, from: encoded)
@@ -107,13 +112,10 @@ import os.log
 
         /// Turns a disk write exception diagnostic from either MetricKit API into a stored report.
         ///
-        /// The report is non-fatal and describes a moment in a run that kept going, so it is
-        /// stored finalized and touches no current-run state.
-        ///
         /// - Parameters:
         ///   - callStackTree: The diagnostic's sampled call stack tree.
         ///   - totalBytesWritten: The bytes MetricKit says the app wrote.
-        ///   - timestamp: When MetricKit says it happened, as the delivering API reports it.
+        ///   - timeRange: The period MetricKit gives for the diagnostic.
         ///   - applicationVersion: The app's version, for logging.
         ///   - systemInfo: Builds the report's system info from the skeleton report.
         /// - Returns: The stored report's id, or nil when it could not be written.
@@ -121,65 +123,31 @@ import os.log
         func processDiskWrite(
             callStackTree: CallStackTreeRepresentation,
             totalBytesWritten: Measurement<UnitInformationStorage>,
-            timestamp: Date,
+            timeRange: MetricKitTimeRange,
             applicationVersion: String,
             systemInfo: (Report) -> SystemInfo
         ) -> Report.ID? {
-            guard let tempURL = writeSkeletonReport() else { return nil }
-            defer { try? FileManager.default.removeItem(at: tempURL) }
-
-            guard let data = try? Data(contentsOf: tempURL),
-                let skeleton = try? JSONDecoder().decode(Report.self, from: data)
-            else {
-                os_log(
-                    .error, log: metricKitLog, "[MONITORS] Failed to read or decode skeleton report at %{public}@",
-                    tempURL.path
-                )
-                return nil
-            }
-
             guard
-                let error = Self.makeDiskWriteError(callStackTree: callStackTree, totalBytesWritten: totalBytesWritten)
+                let error = Self.makeDiskWriteError(
+                    callStackTree: callStackTree, totalBytesWritten: totalBytesWritten, timeRange: timeRange)
             else {
                 os_log(.error, log: metricKitLog, "[MONITORS] Failed to build MetricKit disk write report")
                 return nil
             }
-
-            let newReport = Report(
-                binaryImages: [],
-                crash: Report.Crash(diagnosis: nil, error: error),
-                debug: nil,
-                process: nil,
-                report: makeMetricKitReportInfo(skeleton: skeleton, timestamp: timestamp, runId: nil, finalized: true),
-                system: systemInfo(skeleton)
-            )
-
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.sortedKeys]
-            guard let newData = try? encoder.encode(newReport) else {
-                os_log(.error, log: metricKitLog, "[MONITORS] Failed to encode MetricKit disk write report")
-                return nil
-            }
-
-            guard let reportID = addMetricKitReport(newData) else {
-                os_log(.error, log: metricKitLog, "[MONITORS] Failed to store MetricKit report")
-                return nil
-            }
-            os_log(
-                .default, log: metricKitLog,
-                "[MONITORS] Added MetricKit disk write report (id=%{public}@, %d bytes, app %{public}@)",
-                reportID.description, newData.count, applicationVersion)
-            return reportID
+            return storeRunlessProfileReport(
+                error, kind: "disk write", timestamp: timeRange.end, applicationVersion: applicationVersion,
+                systemInfo: systemInfo)
         }
 
-        /// The legacy `MXDiskWriteExceptionDiagnostic` path. `timestamp` is the payload's
-        /// `timeStampEnd`.
+        /// The legacy `MXDiskWriteExceptionDiagnostic` path. `timeRange` is the payload's.
         @discardableResult
-        func processDiskWriteDiagnostic(_ diagnostic: MXDiskWriteExceptionDiagnostic, timestamp: Date) -> Report.ID? {
+        func processDiskWriteDiagnostic(
+            _ diagnostic: MXDiskWriteExceptionDiagnostic, timeRange: MetricKitTimeRange
+        ) -> Report.ID? {
             processDiskWrite(
                 callStackTree: diagnostic.callStackTree.representation ?? CallStackTreeRepresentation(callStacks: []),
                 totalBytesWritten: diagnostic.totalWritesCaused,
-                timestamp: timestamp,
+                timeRange: timeRange,
                 applicationVersion: diagnostic.applicationVersion
             ) { skeleton in
                 self.buildSystemInfo(
