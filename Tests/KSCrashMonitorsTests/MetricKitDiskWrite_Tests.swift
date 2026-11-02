@@ -60,14 +60,11 @@ import XCTest
             )
         }
 
-        private let timestamp = Date(timeIntervalSinceReferenceDate: 815_258_038.718)
-
         func testDiskWriteBecomesADiskWritesProfile() throws {
             let error = try XCTUnwrap(
                 MetricKitMonitor.makeDiskWriteError(
                     callStackTree: deliveredTree(),
-                    totalBytesWritten: Measurement(value: 1074.716672, unit: .megabytes),
-                    timestamp: timestamp))
+                    totalBytesWritten: Measurement(value: 1074.716672, unit: .megabytes)))
 
             XCTAssertEqual(error.type, .profile)
             XCTAssertEqual(error.subtype, .diskWrites)
@@ -76,7 +73,7 @@ import XCTest
             let profile = try XCTUnwrap(error.profile)
             XCTAssertEqual(profile.name, "com.kscrash.profile.disk_writes")
             XCTAssertNil(profile.duration)
-            XCTAssertEqual(profile.timeStartEpoch, nanosToUInt64(timestamp.timeIntervalSince1970 * 1_000_000_000))
+            XCTAssertNil(profile.timeStartEpoch)
             XCTAssertEqual(profile.frames.count, 7)
             XCTAssertEqual(profile.frames.first?.objectName, "libsystem_pthread.dylib")
             XCTAssertEqual(profile.frames.last?.objectName, "libsystem_kernel.dylib")
@@ -97,8 +94,7 @@ import XCTest
             let error = try XCTUnwrap(
                 MetricKitMonitor.makeDiskWriteError(
                     callStackTree: deliveredTree(),
-                    totalBytesWritten: Measurement(value: 1074.716672, unit: .megabytes),
-                    timestamp: timestamp))
+                    totalBytesWritten: Measurement(value: 1074.716672, unit: .megabytes)))
             let decoded = try JSONDecoder().decode(CrashError.self, from: JSONEncoder().encode(error))
 
             XCTAssertEqual(decoded.subtype, .diskWrites)
@@ -111,8 +107,7 @@ import XCTest
         func testUnmeasurableBytesLeaveTheTotalOut() throws {
             let error = try XCTUnwrap(
                 MetricKitMonitor.makeDiskWriteError(
-                    callStackTree: deliveredTree(), totalBytesWritten: Measurement(value: .nan, unit: .bytes),
-                    timestamp: timestamp))
+                    callStackTree: deliveredTree(), totalBytesWritten: Measurement(value: .nan, unit: .bytes)))
             let data = try XCTUnwrap(try error.monitorData(DiskWriteMonitorData.self, for: MetricKitMonitor.id))
             XCTAssertEqual(data.kind, "disk_write_exception")
             XCTAssertNil(data.totalBytesWritten)
