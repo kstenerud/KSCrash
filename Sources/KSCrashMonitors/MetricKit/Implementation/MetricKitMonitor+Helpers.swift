@@ -198,6 +198,18 @@ func epochNanos(for timestamp: Date, minus durationNs: UInt64) -> UInt64? {
     return end >= durationNs ? end - durationNs : nil
 }
 
+// MARK: - Bundle
+
+/// The bundle ID in a legacy diagnostic's JSON (`diagnosticMetaData.bundleIdentifier`), or nil
+/// when the JSON has none.
+func diagnosticBundleIdentifier(fromJSON json: Data) -> String? {
+    guard let object = try? JSONSerialization.jsonObject(with: json) as? [String: Any],
+        let meta = object["diagnosticMetaData"] as? [String: Any],
+        let bundleID = meta["bundleIdentifier"] as? String, !bundleID.isEmpty
+    else { return nil }
+    return bundleID
+}
+
 // MARK: - Device
 
 /// The device hash for a report about a diagnostic MetricKit delivered to this app, or nil when
@@ -206,8 +218,8 @@ func epochNanos(for timestamp: Date, minus durationNs: UInt64) -> UInt64? {
 /// The hash identifies the app on this device and is the same in every run, so this run's value
 /// is the one the diagnostic's own run recorded. MetricKit can deliver an app extension's
 /// diagnostic to its app, and the hash covers the bundle ID, so a diagnostic from any other bundle
-/// gets nil rather than the app's hash. A diagnostic that names no bundle (a legacy payload before
-/// iOS 26) is taken to be the app's own.
+/// gets nil rather than the app's hash. A diagnostic that names no bundle is taken to be the app's
+/// own.
 ///
 /// - Parameters:
 ///   - diagnosticBundleID: The bundle ID the diagnostic names, when it names one.

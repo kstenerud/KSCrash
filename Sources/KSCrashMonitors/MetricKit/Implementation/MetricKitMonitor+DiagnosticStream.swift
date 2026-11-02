@@ -101,12 +101,10 @@ import os.log
             // also carry the whole range (see MetricKitTimeRange).
             let timestamp = report.timeRange.end
             let timeRange = MetricKitTimeRange(begin: report.timeRange.start, end: report.timeRange.end)
-            // The skeleton report's system info reflects the current session, not the one the
-            // diagnostic describes, so only its process name survives. The device hash, the one
-            // value every run of the app shares, comes from this run (see deviceAppHash).
-            let systemInfo: (Report) -> SystemInfo = { skeleton in
-                makeSystemInfo(from: environment, processName: skeleton.system?.processName)
-            }
+            // System info comes from the diagnostic, never the skeleton report, which describes
+            // this session. The device hash, the one value every run of the app shares, comes from
+            // this run (see deviceAppHash).
+            let systemInfo: (Report) -> SystemInfo = { _ in makeSystemInfo(from: environment) }
 
             let reportID: Report.ID?
             switch report.result {
@@ -174,7 +172,7 @@ import os.log
 
     /// Builds a report's system info from the typed `DiagnosticReport.Environment`.
     @available(iOS 27.0, macOS 27.0, visionOS 27.0, *)
-    func makeSystemInfo(from environment: DiagnosticReport.Environment, processName: String?) -> SystemInfo {
+    func makeSystemInfo(from environment: DiagnosticReport.Environment) -> SystemInfo {
         let os = environment.osVersion
         return SystemInfo(
             cfBundleIdentifier: environment.bundleIdentifier,
@@ -185,7 +183,6 @@ import os.log
             machine: environment.deviceType,
             osVersion: os.buildNumber,
             processID: environment.pid.map { Int($0) },
-            processName: processName,
             systemName: os.platform,
             systemVersion: os.number,
             buildType: environment.isTestFlightApp ? .test : .appStore,
