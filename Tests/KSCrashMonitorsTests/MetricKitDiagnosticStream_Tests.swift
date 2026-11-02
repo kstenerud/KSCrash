@@ -122,6 +122,10 @@ final class MetricKitCrashErrorTests: XCTestCase {
             private static let memoryExceptionJSON =
                 #"{"environment":{"applicationBuildVersion":"1","applicationVersion":"1.0","bundleIdentifier":"com.github.kstenerud.KSCrash.Sample","deviceType":"iPhone18,1","isTestFlightApp":false,"lowPowerModeEnabled":false,"osVersion":{"buildNumber":"24A446","number":"27.0.1","platform":"iPhone OS"},"pid":51807,"platformArchitecture":"arm64e","regionFormat":"US","signpostData":[],"states":[]},"memoryExceptionDiagnostic":{"callStackTree":{"binaryInfo":[{"name":"libsystem_platform.dylib","uuid":"39AE6F2B-B6BA-3116-9D5B-F97A6D41FF20"},{"name":"libsystem_kernel.dylib","uuid":"5A7DC6BE-551B-3B29-A928-A4079A90D4D2"},{"name":"libdispatch.dylib","uuid":"8CDF4610-F6A5-39CB-94BF-687FE349A4BE"},{"name":"CoreFoundation","uuid":"9426FC9A-B36C-3096-B836-D17D6744A75B"},{"name":"Sample.debug.dylib","uuid":"CFEF15B8-240B-36F9-9D5A-D13DBEF22B36"}],"callStackPerThread":true,"callStackThreads":[{"rootFrames":[{"address":10049178836,"binaryUUID":"5A7DC6BE-551B-3B29-A928-A4079A90D4D2","offsetIntoBinaryTextSegment":3284,"sampleCount":1,"subFrames":[{"address":10049192712,"binaryUUID":"5A7DC6BE-551B-3B29-A928-A4079A90D4D2","offsetIntoBinaryTextSegment":17160,"sampleCount":1,"subFrames":[{"address":10049192488,"binaryUUID":"5A7DC6BE-551B-3B29-A928-A4079A90D4D2","offsetIntoBinaryTextSegment":16936,"sampleCount":1,"subFrames":[{"address":10049192052,"binaryUUID":"5A7DC6BE-551B-3B29-A928-A4079A90D4D2","offsetIntoBinaryTextSegment":16500,"sampleCount":1,"subFrames":[{"address":6969762924,"binaryUUID":"9426FC9A-B36C-3096-B836-D17D6744A75B","offsetIntoBinaryTextSegment":242796,"sampleCount":1,"subFrames":[]}]}]}]}]}],"threadAttributed":false},{"rootFrames":[{"address":7168211336,"binaryUUID":"39AE6F2B-B6BA-3116-9D5B-F97A6D41FF20","offsetIntoBinaryTextSegment":2440,"sampleCount":1,"subFrames":[{"address":4307849872,"binaryUUID":"CFEF15B8-240B-36F9-9D5A-D13DBEF22B36","offsetIntoBinaryTextSegment":2445968,"sampleCount":1,"subFrames":[{"address":7746481356,"binaryUUID":"8CDF4610-F6A5-39CB-94BF-687FE349A4BE","offsetIntoBinaryTextSegment":7372,"sampleCount":1,"subFrames":[{"address":7746588596,"binaryUUID":"8CDF4610-F6A5-39CB-94BF-687FE349A4BE","offsetIntoBinaryTextSegment":114612,"sampleCount":1,"subFrames":[{"address":7746558304,"binaryUUID":"8CDF4610-F6A5-39CB-94BF-687FE349A4BE","offsetIntoBinaryTextSegment":84320,"sampleCount":1,"subFrames":[]}]}]}]}]}],"threadAttributed":true}]}},"timeRange":{"begin":815241296.956,"end":815241296.956},"version":"2.0.0"}"#
 
+            // A disk write exception iOS 27.2 delivered on an iPhone 17 Pro, untrimmed.
+            private static let diskWriteJSON =
+                #"{"diskWriteExceptionDiagnostic":{"callStackTree":{"binaryInfo":[{"name":"libsystem_kernel.dylib","uuid":"26FFA906-5ACA-39BF-8F7C-94FE9AB8C657"},{"name":"libsystem_pthread.dylib","uuid":"32E28303-2AAD-3166-9D11-70E8BCF8E076"},{"name":"libdispatch.dylib","uuid":"84B7E81D-B830-384F-A103-96323C6F5189"}],"callStackPerThread":false,"callStackThreads":[{"rootFrames":[{"address":6587906320,"binaryUUID":"32E28303-2AAD-3166-9D11-70E8BCF8E076","offsetIntoBinaryTextSegment":2319,"sampleCount":12,"subFrames":[{"address":6587908604,"binaryUUID":"32E28303-2AAD-3166-9D11-70E8BCF8E076","offsetIntoBinaryTextSegment":4603,"sampleCount":12,"subFrames":[{"address":7370445028,"binaryUUID":"84B7E81D-B830-384F-A103-96323C6F5189","offsetIntoBinaryTextSegment":86243,"sampleCount":12,"subFrames":[{"address":7370443104,"binaryUUID":"84B7E81D-B830-384F-A103-96323C6F5189","offsetIntoBinaryTextSegment":84319,"sampleCount":12,"subFrames":[{"address":7370473396,"binaryUUID":"84B7E81D-B830-384F-A103-96323C6F5189","offsetIntoBinaryTextSegment":114611,"sampleCount":12,"subFrames":[{"address":7370366156,"binaryUUID":"84B7E81D-B830-384F-A103-96323C6F5189","offsetIntoBinaryTextSegment":7371,"sampleCount":12,"subFrames":[{"address":9742097760,"binaryUUID":"26FFA906-5ACA-39BF-8F7C-94FE9AB8C657","offsetIntoBinaryTextSegment":28000,"sampleCount":12,"subFrames":[]}]}]}]}]}]}]}]}]},"totalBytesWritten":{"unit":"MB","value":1074.716672}},"environment":{"applicationBuildVersion":"1","applicationVersion":"1.0","bundleIdentifier":"com.github.kstenerud.KSCrash.Sample","deviceType":"iPhone18,1","isTestFlightApp":false,"lowPowerModeEnabled":false,"osVersion":{"buildNumber":"24B119","number":"27.2","platform":"iPhone OS"},"pid":1312,"platformArchitecture":"arm64e","regionFormat":"US","signpostData":[],"states":[]},"timeRange":{"begin":815258038.718,"end":815258038.718},"version":"2.0.0"}"#
+
             private func requireStreamRuntime() throws {
                 guard #available(iOS 27.0, macOS 27.0, visionOS 27.0, *) else {
                     throw XCTSkip("the MetricKit 27 types need a 27 runtime")
@@ -200,6 +204,30 @@ final class MetricKitCrashErrorTests: XCTestCase {
 
                 // Ten frames across both threads, each with its own binary and offset.
                 XCTAssertEqual(buildProfileData(from: tree).frames.count, 10)
+            }
+
+            func testDiskWriteExceptionBecomesADiskWritesProfile() throws {
+                try requireStreamRuntime()
+                guard #available(iOS 27.0, macOS 27.0, visionOS 27.0, *) else { return }
+                let report = try decode(Self.diskWriteJSON)
+                guard case .diskWriteException(let diagnostic) = report.result else {
+                    return XCTFail("fixture should decode as a disk write exception")
+                }
+                XCTAssertEqual(report.environment.pid, 1312)
+
+                let error = try XCTUnwrap(
+                    MetricKitMonitor.makeDiskWriteError(
+                        callStackTree: diagnostic.callStackTree.callStackRepresentation,
+                        totalBytesWritten: diagnostic.totalBytesWritten))
+                XCTAssertEqual(error.subtype, .diskWrites)
+                XCTAssertEqual(
+                    try error.monitorData(DiskWriteMonitorData.self, for: MetricKitMonitor.id)?.totalBytesWritten,
+                    1_074_716_672)
+
+                let profile = try XCTUnwrap(error.profile)
+                XCTAssertEqual(profile.frames.count, 7)
+                XCTAssertEqual(profile.frames.first?.objectName, "libsystem_pthread.dylib")
+                XCTAssertEqual(profile.threads.first?.samples.first?.count, 12)
             }
 
             func testSystemInfoComesFromTheEnvironment() throws {

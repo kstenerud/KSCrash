@@ -128,6 +128,7 @@
 #define kscm_signal_getAPI KSCRASH_NS(kscm_signal_getAPI)
 #define kscm_system_createStitchedReport KSCRASH_NS(kscm_system_createStitchedReport)
 #define kscm_system_getAPI KSCRASH_NS(kscm_system_getAPI)
+#define kscm_system_getDeviceAppHash KSCRASH_NS(kscm_system_getDeviceAppHash)
 #define kscm_system_getSystemData KSCRASH_NS(kscm_system_getSystemData)
 #define kscm_system_getSystemDataForPath KSCRASH_NS(kscm_system_getSystemDataForPath)
 #define kscm_system_getSystemDataForRunID KSCRASH_NS(kscm_system_getSystemDataForRunID)

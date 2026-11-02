@@ -67,6 +67,9 @@
 
 static KSCrash_SystemData *g_systemData = NULL;
 static KSSpinLock g_systemDataLock = KSSPINLOCK_INIT;
+// Written once, by getDeviceAppHash's dispatch_once, and read-only after that. It lives outside
+// g_systemData because disabling unmaps that, and kscm_system_getDeviceAppHash hands out a pointer.
+static char g_deviceAppHash[KSSYS_MAX_SHORT] = { 0 };
 static KSCrash_ExceptionHandlerCallbacks g_callbacks = { 0 };
 
 static atomic_bool g_isEnabled = false;
@@ -338,6 +341,15 @@ static void getDeviceAndAppHashInto(char *dst, size_t dstSize)
     safeNSStringCopy(dst, hash, dstSize);
 }
 
+static const char *getDeviceAppHash(void)
+{
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        getDeviceAndAppHashInto(g_deviceAppHash, sizeof(g_deviceAppHash));
+    });
+    return g_deviceAppHash;
+}
+
 static bool isTestBuild(void) { return [getReceiptUrlPath().lastPathComponent isEqualToString:@"sandboxReceipt"]; }
 
 static bool hasAppStoreReceipt(void)
@@ -464,7 +476,7 @@ static void initialize(void)
     safeNSStringCopy(sd->processName, [NSProcessInfo processInfo].processName, sizeof(sd->processName));
     sd->processID = [NSProcessInfo processInfo].processIdentifier;
     sd->parentProcessID = getppid();
-    getDeviceAndAppHashInto(sd->deviceAppHash, sizeof(sd->deviceAppHash));
+    safeStrlcpy(sd->deviceAppHash, getDeviceAppHash(), sizeof(sd->deviceAppHash));
     safeStrlcpy(sd->buildType, getBuildType(), sizeof(sd->buildType));
     sd->memorySize = kssysctl_uint64ForName("hw.memsize");
 
@@ -601,6 +613,8 @@ static void addContextualInfoToEvent(__unused KSCrash_MonitorContext *eventConte
     }
     ks_spinlock_unlock(&g_systemDataLock);
 }
+
+const char *kscm_system_getDeviceAppHash(void) { return getDeviceAppHash(); }
 
 bool kscm_system_getSystemData(KSCrash_SystemData *dst)
 {

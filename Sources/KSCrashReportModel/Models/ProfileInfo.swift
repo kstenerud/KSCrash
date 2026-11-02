@@ -62,10 +62,10 @@ public struct ProfileInfo: Codable, Sendable, Equatable {
     /// report a configured interval (e.g. a hang).
     public let expectedSampleInterval: UInt64?
 
-    /// Profile duration in nanoseconds. Always set. Its meaning depends on the report's
-    /// `error.subtype`: for a time profile it is how long we observed; for a hang
-    /// (`subtype == .hang`) it is how long the hang lasted.
-    public let duration: UInt64
+    /// Profile duration in nanoseconds. For a time profile, how long we observed; for a hang
+    /// (`subtype == .hang`), how long the hang lasted. Absent for disk writes
+    /// (`subtype == .diskWrites`): MetricKit gives no length for the writes it counted.
+    public let duration: UInt64?
 
     /// Units for the time fields ("nanoseconds"). Applies to durations and timestamps only;
     /// per-sample ``ProfileSample/count`` values are unitless.
@@ -85,7 +85,7 @@ public struct ProfileInfo: Codable, Sendable, Equatable {
         timeStartUptime: UInt64? = nil,
         timeEndUptime: UInt64? = nil,
         expectedSampleInterval: UInt64? = nil,
-        duration: UInt64,
+        duration: UInt64?,
         timeUnits: String = "nanoseconds",
         frames: [StackFrame],
         threads: [ProfileThread]
