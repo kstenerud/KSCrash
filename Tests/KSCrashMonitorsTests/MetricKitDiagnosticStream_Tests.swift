@@ -218,8 +218,7 @@ final class MetricKitCrashErrorTests: XCTestCase {
                 let error = try XCTUnwrap(
                     MetricKitMonitor.makeDiskWriteError(
                         callStackTree: diagnostic.callStackTree.callStackRepresentation,
-                        totalBytesWritten: diagnostic.totalBytesWritten,
-                        timestamp: report.timeRange.end))
+                        totalBytesWritten: diagnostic.totalBytesWritten))
                 XCTAssertEqual(error.subtype, .diskWrites)
                 XCTAssertEqual(
                     try error.monitorData(DiskWriteMonitorData.self, for: MetricKitMonitor.id)?.totalBytesWritten,

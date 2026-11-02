@@ -69,19 +69,18 @@ import os.log
         /// - Parameters:
         ///   - callStackTree: The diagnostic's sampled call stack tree.
         ///   - totalBytesWritten: The bytes MetricKit says the app wrote.
-        ///   - timestamp: When MetricKit says it happened.
         /// - Returns: The report's error, or nil when the monitor data cannot be encoded.
         static func makeDiskWriteError(
             callStackTree: CallStackTreeRepresentation,
-            totalBytesWritten: Measurement<UnitInformationStorage>,
-            timestamp: Date
+            totalBytesWritten: Measurement<UnitInformationStorage>
         ) -> CrashError? {
             let profileData = buildProfileData(from: callStackTree)
             let profile = ProfileInfo(
                 name: "com.kscrash.profile.disk_writes",
                 id: UUID().uuidString,
-                timeStartEpoch: epochNanos(for: timestamp, minus: 0),
-                // MetricKit gives no length for the writes it counted.
+                // MetricKit gives neither when the writes it counted began nor how long they
+                // took; the diagnostic's own time is the report's timestamp.
+                timeStartEpoch: nil,
                 duration: nil,
                 frames: profileData.frames,
                 threads: profileData.threads
@@ -140,8 +139,7 @@ import os.log
             }
 
             guard
-                let error = Self.makeDiskWriteError(
-                    callStackTree: callStackTree, totalBytesWritten: totalBytesWritten, timestamp: timestamp)
+                let error = Self.makeDiskWriteError(callStackTree: callStackTree, totalBytesWritten: totalBytesWritten)
             else {
                 os_log(.error, log: metricKitLog, "[MONITORS] Failed to build MetricKit disk write report")
                 return nil

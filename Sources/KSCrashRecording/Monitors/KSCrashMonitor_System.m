@@ -69,7 +69,11 @@ static KSCrash_SystemData *g_systemData = NULL;
 static KSSpinLock g_systemDataLock = KSSPINLOCK_INIT;
 // Computed once, the first time the monitor enables, and read-only after that. It lives outside
 // g_systemData because disabling unmaps that, and kscm_system_getDeviceAppHash hands out a pointer.
+// The flag publishes it: a reader on another thread (MetricKit's) can call the getter while the
+// first enable is still writing, so the bytes are only handed out once the release store says
+// they are complete. Only the enable that wins g_isEnabled writes them.
 static char g_deviceAppHash[KSSYS_MAX_SHORT] = { 0 };
+static atomic_bool g_deviceAppHashPublished = false;
 static KSCrash_ExceptionHandlerCallbacks g_callbacks = { 0 };
 
 static atomic_bool g_isEnabled = false;
@@ -467,8 +471,9 @@ static void initialize(void)
     safeNSStringCopy(sd->processName, [NSProcessInfo processInfo].processName, sizeof(sd->processName));
     sd->processID = [NSProcessInfo processInfo].processIdentifier;
     sd->parentProcessID = getppid();
-    if (g_deviceAppHash[0] == '\0') {
+    if (!atomic_load_explicit(&g_deviceAppHashPublished, memory_order_acquire)) {
         getDeviceAndAppHashInto(g_deviceAppHash, sizeof(g_deviceAppHash));
+        atomic_store_explicit(&g_deviceAppHashPublished, true, memory_order_release);
     }
     safeStrlcpy(sd->deviceAppHash, g_deviceAppHash, sizeof(sd->deviceAppHash));
     safeStrlcpy(sd->buildType, getBuildType(), sizeof(sd->buildType));
@@ -608,7 +613,10 @@ static void addContextualInfoToEvent(__unused KSCrash_MonitorContext *eventConte
     ks_spinlock_unlock(&g_systemDataLock);
 }
 
-const char *kscm_system_getDeviceAppHash(void) { return g_deviceAppHash; }
+const char *kscm_system_getDeviceAppHash(void)
+{
+    return atomic_load_explicit(&g_deviceAppHashPublished, memory_order_acquire) ? g_deviceAppHash : "";
+}
 
 bool kscm_system_getSystemData(KSCrash_SystemData *dst)
 {
