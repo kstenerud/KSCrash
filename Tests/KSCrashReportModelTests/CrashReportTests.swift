@@ -78,6 +78,8 @@ final class CrashReportTests: XCTestCase {
         XCTAssertEqual(CrashErrorSubtype(rawValue: "memory_exception"), .memoryException)
         XCTAssertEqual(CrashErrorSubtype.diskWrites.rawValue, "disk_writes")
         XCTAssertEqual(CrashErrorSubtype(rawValue: "disk_writes"), .diskWrites)
+        XCTAssertEqual(CrashErrorSubtype.cpuUsage.rawValue, "cpu_usage")
+        XCTAssertEqual(CrashErrorSubtype(rawValue: "cpu_usage"), .cpuUsage)
     }
 
     // The MetricKit memory exception (iOS 27) is modelled like an OOM: a fatal .termination with

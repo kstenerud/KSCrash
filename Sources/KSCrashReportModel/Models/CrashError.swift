@@ -94,6 +94,9 @@ public enum CrashErrorSubtype: RawRepresentable, Codable, Sendable, Equatable {
     /// captured from a MetricKit disk write exception diagnostic as a profile of where the
     /// writes happened.
     case diskWrites
+    /// The report describes an app that used more CPU than the OS allows, captured from a
+    /// MetricKit CPU exception diagnostic as a profile of where that CPU time went.
+    case cpuUsage
     case unknown(String)
 
     public init(rawValue: String) {
@@ -101,6 +104,7 @@ public enum CrashErrorSubtype: RawRepresentable, Codable, Sendable, Equatable {
         case "hang": self = .hang
         case "memory_exception": self = .memoryException
         case "disk_writes": self = .diskWrites
+        case "cpu_usage": self = .cpuUsage
         default: self = .unknown(rawValue)
         }
     }
@@ -110,6 +114,7 @@ public enum CrashErrorSubtype: RawRepresentable, Codable, Sendable, Equatable {
         case .hang: return "hang"
         case .memoryException: return "memory_exception"
         case .diskWrites: return "disk_writes"
+        case .cpuUsage: return "cpu_usage"
         case .unknown(let value): return value
         }
     }

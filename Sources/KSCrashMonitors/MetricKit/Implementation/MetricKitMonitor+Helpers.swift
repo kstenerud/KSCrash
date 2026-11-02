@@ -140,6 +140,48 @@ func parseExitCode(from terminationReason: String) -> UInt64? {
     return nil
 }
 
+// MARK: - Time Range
+
+/// The period MetricKit gives for a diagnostic: `timeRange` on 27+, the payload's
+/// `timeStampBegin` and `timeStampEnd` before. Diagnostics delivered together share one range,
+/// and the run the diagnostic describes need not contain either end of it, so a report with no run
+/// ID carries both ends: a backend matches it to the run whose window the range overlaps.
+///
+/// Encoded as milliseconds since 1970, the unit of a run summary's `started_at_ms` and
+/// `ended_at_ms`. An end that cannot be represented is left out.
+struct MetricKitTimeRange: Codable, Equatable {
+    let begin: Date
+    let end: Date
+
+    init(begin: Date, end: Date) {
+        self.begin = begin
+        self.end = end
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case begin = "begin_ms"
+        case end = "end_ms"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        begin = Date(timeIntervalSince1970: Double(try c.decode(Int64.self, forKey: .begin)) / 1000)
+        end = Date(timeIntervalSince1970: Double(try c.decode(Int64.self, forKey: .end)) / 1000)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(Self.epochMillis(begin), forKey: .begin)
+        try c.encodeIfPresent(Self.epochMillis(end), forKey: .end)
+    }
+
+    private static func epochMillis(_ date: Date) -> Int64? {
+        let ms = (date.timeIntervalSince1970 * 1000).rounded()
+        guard ms.isFinite, ms >= Double(Int64.min), ms < Double(Int64.max) else { return nil }
+        return Int64(ms)
+    }
+}
+
 // MARK: - Profile Time
 
 /// Converts a nanosecond count to `UInt64`, returning nil for non-finite, negative, or
