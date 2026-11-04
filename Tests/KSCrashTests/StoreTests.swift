@@ -734,7 +734,7 @@ final class StoreTests: XCTestCase {
         try Data("x".utf8).write(to: extensionReports.appendingPathComponent("notes.txt"))
         try makeReportData(runID: "WIDGET").write(to: widgetReports.appendingPathComponent(name(4, testReportID(4))))
 
-        await store.takeIn(from: [area], claims: SendClaims())
+        await store.takeIn(from: [area], claims: ClaimSet())
         let ids = try store.snapshotReportIDs()
         XCTAssertEqual(ids, [testReportID(3), testReportID(2), testReportID(1)])
         XCTAssertTrue(
@@ -842,7 +842,7 @@ final class StoreTests: XCTestCase {
         let unresolvable = CorpseReportingConfiguration(
             namespace: "AreaTests", container: .url(URL(string: "https://example.invalid/area")!))
         XCTAssertThrowsError(try unresolvable.namespaceRoot, "the area must really not resolve")
-        await store.takeIn(from: [unresolvable], claims: SendClaims())
+        await store.takeIn(from: [unresolvable], claims: ClaimSet())
         XCTAssertEqual(try store.snapshotReportIDs(), [testReportID(1)])
     }
 
@@ -880,47 +880,12 @@ final class StoreTests: XCTestCase {
             FileManager.default.fileExists(atPath: runData.path), "run data younger than the window survives a send")
     }
 
-    func test_takeIn_aCancelledSendStopsWaitingForTheGate() async throws {
-        let store = makeReportStore(FakeReports([:]))
-        let blocked = BlockingReportSource(incoming(1))
-        let first = Task { await store.takeIn(from: [blocked], claims: SendClaims()) }
-        await blocked.waitUntilReading()
-
-        let other = MemoryReportSource([incoming(2)])
-        let second = Task { await store.takeIn(from: [other], claims: SendClaims()) }
-        try await Task.sleep(nanoseconds: 100_000_000)
-        second.cancel()
-        let returned = await finishes(within: 2) { await second.value }
-        blocked.release()
-        await first.value
-
-        XCTAssertTrue(returned, "a cancelled send must stop waiting while another holds the gate")
-        XCTAssertEqual(other.offers, 0, "the cancelled send takes nothing in")
-    }
-
     func test_takeIn_aSelectiveSendDoesNotTakeIn() async throws {
         let source = MemoryReportSource([incoming(1)])
         _ = try await ReportSend.send(
             store: makeReportStore(FakeReports([:])), pipeline: [.init(ClosureStage { $0 })],
-            reportSources: [source], only: [testReportID(1)], claims: SendClaims())
+            reportSources: [source], only: [testReportID(1)], claims: ClaimSet())
         XCTAssertEqual(source.offers, 0, "a selective send names reports already in the store and never prunes")
-    }
-
-    /// Whether `operation` finishes within `seconds`.
-    private func finishes(within seconds: Double, _ operation: @escaping @Sendable () async -> Void) async -> Bool {
-        await withTaskGroup(of: Bool.self) { group in
-            group.addTask {
-                await operation()
-                return true
-            }
-            group.addTask {
-                try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
-                return false
-            }
-            let first = await group.next() ?? false
-            group.cancelAll()
-            return first
-        }
     }
 
     func test_areaReader_skipsThisProcesssOwnDirectoryEvenWhenItIsDeclaredASource() throws {
@@ -940,7 +905,7 @@ final class StoreTests: XCTestCase {
         let reports = FakeReports([:])
         let source = MemoryReportSource([incoming(1), incoming(2)])
 
-        await makeReportStore(reports).takeIn(from: [source], claims: SendClaims())
+        await makeReportStore(reports).takeIn(from: [source], claims: ClaimSet())
 
         XCTAssertEqual(reports.ids, [testReportID(1), testReportID(2)])
         XCTAssertEqual(source.finished, [testReportID(1): .taken, testReportID(2): .taken])
@@ -953,7 +918,7 @@ final class StoreTests: XCTestCase {
         let reports = FakeReports([testReportID(1): Data("ours".utf8)])
         let source = MemoryReportSource([incoming(1, Data("theirs".utf8))])
 
-        await makeReportStore(reports).takeIn(from: [source], claims: SendClaims())
+        await makeReportStore(reports).takeIn(from: [source], claims: ClaimSet())
 
         XCTAssertEqual(reports.data(for: testReportID(1)), Data("ours".utf8), "never replaced")
         XCTAssertEqual(source.finished, [testReportID(1): .taken])
@@ -963,7 +928,7 @@ final class StoreTests: XCTestCase {
         let reports = FakeReports([:])
         let source = MemoryReportSource([incoming(1), incoming(2)])
 
-        await makeReportStore(reports, takeInFails: true).takeIn(from: [source], claims: SendClaims())
+        await makeReportStore(reports, takeInFails: true).takeIn(from: [source], claims: ClaimSet())
 
         XCTAssertEqual(reports.ids, [])
         XCTAssertEqual(source.finished, [testReportID(1): .retryLater, testReportID(2): .retryLater])
@@ -985,7 +950,7 @@ final class StoreTests: XCTestCase {
             incoming(2, timestamp: Date(timeIntervalSince1970: 2)),
         ])
 
-        await store.takeIn(from: [source], claims: SendClaims())
+        await store.takeIn(from: [source], claims: ClaimSet())
 
         XCTAssertEqual(try store.snapshotReportIDs(), [testReportID(3), testReportID(2)])
         XCTAssertEqual(source.finished, [testReportID(3): .taken, testReportID(2): .taken])
@@ -996,10 +961,10 @@ final class StoreTests: XCTestCase {
         let reports = FakeReports([testReportID(1): Data()])
         let store = makeReportStore(reports, maxReportCount: 1)
 
-        await store.takeIn(from: [MemoryReportSource([incoming(1)])], claims: SendClaims())
+        await store.takeIn(from: [MemoryReportSource([incoming(1)])], claims: ClaimSet())
         XCTAssertEqual(reports.ids, [testReportID(1)], "a report the store already held adds nothing to prune")
 
-        await store.takeIn(from: [MemoryReportSource([incoming(2)])], claims: SendClaims())
+        await store.takeIn(from: [MemoryReportSource([incoming(2)])], claims: ClaimSet())
         XCTAssertEqual(reports.ids, [testReportID(2)], "the oldest report goes once a newer one comes in")
     }
 
@@ -1010,7 +975,7 @@ final class StoreTests: XCTestCase {
         let store = makeReportStore(
             reports, maxReportCount: 1, liveRunID: testRunID("LIVE"), runIDs: [testReportID(1): testRunID("LIVE")])
 
-        await store.takeIn(from: [MemoryReportSource([incoming(2)])], claims: SendClaims())
+        await store.takeIn(from: [MemoryReportSource([incoming(2)])], claims: ClaimSet())
 
         XCTAssertEqual(reports.ids, [testReportID(1), testReportID(2)])
     }
@@ -1020,7 +985,7 @@ final class StoreTests: XCTestCase {
         // report, the report must still be on disk.
         let reports = FakeReports([testReportID(1): Data()])
         let store = makeReportStore(reports, maxReportCount: 1)
-        let claims = SendClaims<Report.ID>()
+        let claims = ClaimSet<Report.ID>()
         XCTAssertTrue(claims.claim(testReportID(1)))
 
         await store.takeIn(from: [MemoryReportSource([incoming(2)])], claims: claims)
@@ -1031,24 +996,25 @@ final class StoreTests: XCTestCase {
         claims.release(testReportID(1))
     }
 
-    func test_takeIn_aSendThatArrivesDuringAnotherTakesInItsOwnSources() async throws {
-        // Sources belong to each send, so a send that finds another taking in
-        // must wait its turn, not assume the other send has its reports.
+    func test_takeIn_aSendThatArrivesDuringAnotherSkipsTakingIn() async throws {
+        // First wins: the arriving send does not wait for the other's take-in,
+        // and its own sources keep their reports for a later send.
         let reports = FakeReports([:])
         let store = makeReportStore(reports)
         let blocked = BlockingReportSource(incoming(1))
         let other = MemoryReportSource([incoming(2)])
 
-        let first = Task { await store.takeIn(from: [blocked], claims: SendClaims()) }
+        let first = Task { await store.takeIn(from: [blocked], claims: ClaimSet()) }
         await blocked.waitUntilReading()
-        let second = Task { await store.takeIn(from: [other], claims: SendClaims()) }
-        // Give the second send time to reach the gate while the first holds it.
-        try await Task.sleep(nanoseconds: 100_000_000)
+        await store.takeIn(from: [other], claims: ClaimSet())
+        XCTAssertEqual(other.offers, 0, "the arriving send skips taking in")
+        XCTAssertEqual(other.pendingIDs, [testReportID(2)])
         blocked.release()
-        _ = await (first.value, second.value)
+        await first.value
 
+        await store.takeIn(from: [other], claims: ClaimSet())
         XCTAssertEqual(reports.ids, [testReportID(1), testReportID(2)])
-        XCTAssertEqual(other.finished, [testReportID(2): .taken])
+        XCTAssertEqual(other.finished, [testReportID(2): .taken], "a later send takes it in")
     }
 
     func test_areaReader_takesEveryReportOfALargeBacklog() async throws {
@@ -1069,7 +1035,7 @@ final class StoreTests: XCTestCase {
         let (store, _, release) = try makeCStore(maxReportCount: 0)
         defer { release() }
 
-        await store.takeIn(from: [area], claims: SendClaims())
+        await store.takeIn(from: [area], claims: ClaimSet())
 
         XCTAssertEqual(try store.snapshotReportIDs().count, 300)
         XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: extensionReports.path), [])
@@ -1079,7 +1045,7 @@ final class StoreTests: XCTestCase {
         let reports = FakeReports([:])
         let source = MemoryReportSource((1...20).map { incoming($0) })
 
-        await makeReportStore(reports).takeIn(from: [source], claims: SendClaims())
+        await makeReportStore(reports).takeIn(from: [source], claims: ClaimSet())
 
         XCTAssertEqual(reports.ids.count, 20)
         XCTAssertEqual(source.maxOutstanding, 1)
@@ -1090,7 +1056,7 @@ final class StoreTests: XCTestCase {
         let failing = MemoryReportSource([incoming(1)], failsOnNext: true)
         let working = MemoryReportSource([incoming(2)])
 
-        await makeReportStore(reports).takeIn(from: [failing, working], claims: SendClaims())
+        await makeReportStore(reports).takeIn(from: [failing, working], claims: ClaimSet())
 
         XCTAssertEqual(reports.ids, [testReportID(2)])
         XCTAssertEqual(working.finished, [testReportID(2): .taken])
@@ -1101,8 +1067,8 @@ final class StoreTests: XCTestCase {
         let source = MemoryReportSource((1...50).map { incoming($0) })
         let store = makeReportStore(reports)
 
-        async let first: Void = store.takeIn(from: [source], claims: SendClaims())
-        async let second: Void = store.takeIn(from: [source], claims: SendClaims())
+        async let first: Void = store.takeIn(from: [source], claims: ClaimSet())
+        async let second: Void = store.takeIn(from: [source], claims: ClaimSet())
         _ = await (first, second)
 
         XCTAssertEqual(reports.ids.count, 50)

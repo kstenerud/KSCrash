@@ -115,7 +115,7 @@ final class ReportSendTests: XCTestCase {
         listFails: Bool = false,
         undecodable: Set<Report.ID> = [],
         peekBlind: Bool = false,
-        claims: SendClaims<Report.ID> = SendClaims()
+        claims: ClaimSet<Report.ID> = ClaimSet()
     ) async throws -> SendResult<Report> {
         try await ReportSend.send(
             store: makeStore(
@@ -140,7 +140,7 @@ final class ReportSendTests: XCTestCase {
 
         let result = try await ReportSend.send(
             store: makeStore(), pipeline: [.init(ClosureStage { $0 })], reportSources: [source],
-            claims: SendClaims())
+            claims: ClaimSet())
 
         assertOutcomes(result, delivered: [testReportID(7)])
         XCTAssertEqual(source.finished, [testReportID(7): .taken])
@@ -195,7 +195,7 @@ final class ReportSendTests: XCTestCase {
         try writeReport(id: testReportID(1))
         try writeReport(id: testReportID(2))
 
-        let claims = SendClaims<Report.ID>()
+        let claims = ClaimSet<Report.ID>()
         XCTAssertTrue(claims.claim(testReportID(1)))
         let result = try await send(claims: claims)
         assertOutcomes(result, delivered: [testReportID(2)])
@@ -216,7 +216,7 @@ final class ReportSendTests: XCTestCase {
         let store = makeStore()
         let pipeline: [AnyPipelineStage<Report>] = [.init(stage)]
         let sendTask = Task {
-            try await ReportSend.send(store: store, pipeline: pipeline, only: nil, claims: SendClaims())
+            try await ReportSend.send(store: store, pipeline: pipeline, only: nil, claims: ClaimSet())
         }
         let result = try await sendTask.value
         // The first (newest) report processes, then the loop sees the
@@ -319,7 +319,7 @@ final class ReportSendTests: XCTestCase {
         }
         let result = try await ReportSend.send(
             store: store, pipeline: [.init(ClosureStage<Report> { $0 }), .init(stage)],
-            claims: SendClaims())
+            claims: ClaimSet())
         assertOutcomes(result, delivered: [testReportID(1)])
     }
 
@@ -343,7 +343,7 @@ final class ReportSendTests: XCTestCase {
 
     func test_send_noStore_emptyResult() async throws {
         let result = try await ReportSend.send(
-            store: nil, pipeline: [passThrough()], claims: SendClaims())
+            store: nil, pipeline: [passThrough()], claims: ClaimSet())
         XCTAssertTrue(result.items.isEmpty)
     }
 }

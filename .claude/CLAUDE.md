@@ -8,6 +8,16 @@ efficiency or performance. Any path the host app drives while running
 Defer interpretation, normalization, and cleanup to read/send time, which
 happens later, off the hot path.
 
+## Concurrency Primitives
+
+No Swift `actor`s or global actors in KSCrash. This is low-level code running
+inside someone else's app; an actor adds executor hops, hidden suspension
+points and scheduling we neither see nor control. Guard shared state with
+`UnfairLock` and keep critical sections synchronous. When two callers
+contend for the same work, let the first one own it and have the other skip
+(the `ClaimSet` pattern) rather than queue it to wait. `async` functions
+and `@concurrent` are fine; actor types are not.
+
 ## Build and Test Commands
 
 - Build (debug): `swift build`

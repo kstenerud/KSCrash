@@ -27,64 +27,8 @@
 import Foundation
 import KSCrashRecording
 import KSCrashReportModel
+import KSCrashSwiftCore
 import os
-
-/// Serializes take-ins per store directory. Every send builds its own `Store`,
-/// so the gate is keyed by the directory rather than held by the value. A send
-/// that arrives while another is taking in waits its turn and then takes in its
-/// own sources, which may differ from the other send's.
-actor TakeInGate {
-    static let shared = TakeInGate()
-
-    private struct Waiter {
-        let id: UUID
-        let continuation: CheckedContinuation<Bool, Never>
-    }
-
-    private var busy: Set<String> = []
-    private var waiting: [String: [Waiter]] = [:]
-
-    /// Returns once the caller holds `key`, or false when its task was
-    /// cancelled while waiting, in which case it does not hold the key.
-    func enter(_ key: String) async -> Bool {
-        guard busy.contains(key) else {
-            busy.insert(key)
-            return true
-        }
-        let id = UUID()
-        return await withTaskCancellationHandler {
-            await withCheckedContinuation { continuation in
-                // Already cancelled: the handler below ran before this was
-                // queued and found nothing to remove.
-                if Task.isCancelled {
-                    continuation.resume(returning: false)
-                } else {
-                    waiting[key, default: []].append(Waiter(id: id, continuation: continuation))
-                }
-            }
-        } onCancel: {
-            Task { await self.withdraw(id, from: key) }
-        }
-    }
-
-    /// Hands the key to the next waiter, which then holds it, or frees it.
-    func leave(_ key: String) {
-        guard var queue = waiting[key], !queue.isEmpty else {
-            busy.remove(key)
-            return
-        }
-        let next = queue.removeFirst()
-        waiting[key] = queue.isEmpty ? nil : queue
-        next.continuation.resume(returning: true)
-    }
-
-    private func withdraw(_ id: UUID, from key: String) {
-        guard var queue = waiting[key], let index = queue.firstIndex(where: { $0.id == id }) else { return }
-        let waiter = queue.remove(at: index)
-        waiting[key] = queue.isEmpty ? nil : queue
-        waiter.continuation.resume(returning: false)
-    }
-}
 
 extension Store {
     /// Takes the reports waiting in `sources` into the store, one at a time,
@@ -92,18 +36,27 @@ extension Store {
     /// is finished `.taken` only once the store holds it durably, so a crash in
     /// between leaves the reader's copy, and the next send's id check answers
     /// `.taken` rather than storing a second copy while the store holds it.
-    func takeIn(from sources: [any ReportSource], claims: SendClaims<Report.ID>) async {
+    ///
+    /// One take-in runs per store directory at a time, and the first send to
+    /// claim it wins. A send that finds the directory claimed skips its take-in
+    /// rather than waiting, and its listing sends what the store already holds;
+    /// its own sources, which may differ from the other send's, keep their
+    /// reports for a later send. Every send builds its own `Store`, so the claim
+    /// is keyed by the directory rather than held by the value.
+    func takeIn(from sources: [any ReportSource], claims: ClaimSet<Report.ID>) async {
         guard !sources.isEmpty else { return }
-        let gateKey = reportsDirectory?.standardizedFileURL.path ?? "store:\(runsDirectory.path)"
-        guard await TakeInGate.shared.enter(gateKey) else {
-            os_log(.info, "The send was cancelled while waiting to take reports in")
+        let directoryKey = reportsDirectory?.standardizedFileURL.path ?? "store:\(runsDirectory.path)"
+        guard Self.takeInClaims.claim(directoryKey) else {
+            os_log(.info, "Another send is taking reports in; this send skips taking them in")
             return
         }
-        await takeInHoldingGate(from: sources, claims: claims)
-        await TakeInGate.shared.leave(gateKey)
+        defer { Self.takeInClaims.release(directoryKey) }
+        await takeInHoldingClaim(from: sources, claims: claims)
     }
 
-    private func takeInHoldingGate(from sources: [any ReportSource], claims: SendClaims<Report.ID>) async {
+    private static let takeInClaims = ClaimSet<String>()
+
+    private func takeInHoldingClaim(from sources: [any ReportSource], claims: ClaimSet<Report.ID>) async {
         // Reports held in memory are staged in a directory of this take-in's
         // own, outside the store, so the store's directory only ever holds whole
         // reports. One a crash leaves here is in the temporary directory, which
@@ -149,7 +102,7 @@ extension Store {
     /// is not made up for by deleting a newer one, which would trade fresher
     /// crash data for a cap the next prune reaches anyway; the store sits over
     /// its cap until then.
-    private func prune(claims: SendClaims<Report.ID>) {
+    private func prune(claims: ClaimSet<Report.ID>) {
         guard maxReportCount > 0 else { return }
         let oldestFirst: [Report.ID]
         do {

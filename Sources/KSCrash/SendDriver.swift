@@ -66,7 +66,7 @@ enum SendDriver {
         kind: SendKind<Payload, Item>,
         pipeline: [AnyPipelineStage<Payload>],
         only selection: Set<Payload.ID>?,
-        claims: SendClaims<Payload.ID>
+        claims: ClaimSet<Payload.ID>
     ) async throws -> SendResult<Payload> {
         // A send with no stages can only mean a misconfigured caller, so it
         // throws regardless of install state instead of quietly purging.
@@ -165,20 +165,5 @@ enum SendDriver {
         } catch {
             os_log(.error, "Failed to delete %{public}@ %{public}@", kind.label, String(describing: id))
         }
-    }
-}
-
-/// The items currently being processed by any send of one kind, so concurrent
-/// sends partition the pending work: claiming is first-wins, and a claim is
-/// held only while its item is being processed.
-final class SendClaims<ID: Hashable & Sendable>: Sendable {
-    private let claimed = UnfairLock(Set<ID>())
-
-    func claim(_ id: ID) -> Bool {
-        claimed.withLock { $0.insert(id).inserted }
-    }
-
-    func release(_ id: ID) {
-        claimed.withLock { _ = $0.remove(id) }
     }
 }

@@ -44,8 +44,9 @@ public protocol ReportSource: Sendable {
 public protocol ReportReader {
     /// The next report, or nil when this pass has none left. Called again only after the
     /// previous report was finished. A throw ends the pass for this send; the store's own
-    /// reports and other sources are unaffected. Sends take turns taking reports in, so
-    /// return promptly: a slow reader holds up every send waiting behind it.
+    /// reports and other sources are unaffected. One send takes reports in at a time, and
+    /// a send that starts meanwhile skips taking them in, so return promptly: a slow
+    /// reader delays the reports of every send that skipped.
     mutating func next() async throws -> IncomingReport?
 
     /// Called once for each report `next()` returned, before `next()` is called again.

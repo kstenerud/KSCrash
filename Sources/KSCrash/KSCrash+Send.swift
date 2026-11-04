@@ -98,7 +98,7 @@ extension KSCrash {
     // Built fresh per send on purpose: the store is a stateless value snapshot
     // of install-time configuration (paths resolve to NULL before install, so
     // early sends correctly see no store), and cross-send coordination lives
-    // in SendClaims, not here. Nothing is gained by caching it.
+    // in ClaimSet, not here. Nothing is gained by caching it.
     static func makeStore() -> Store? {
         guard kscrash_isInstalled(),
             let storeConfig = kscrash_getReportStoreConfiguration(),
