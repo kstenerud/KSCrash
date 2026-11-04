@@ -44,6 +44,9 @@ public final class IntegrationTestRunner {
             runEarly: Bool? = nil,
             completionMarkerPath: String? = nil
         ) {
+            // An early script acts inside the launch pass on UIKit platforms, and a delay would
+            // push it past that pass, so the two cannot be combined.
+            precondition(runEarly != true || (delay ?? 0) == 0, "runEarly cannot be combined with a delay")
             self.delay = delay
             self.stateSavePath = stateSavePath
             self.runEarly = runEarly
