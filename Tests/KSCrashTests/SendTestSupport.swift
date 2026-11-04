@@ -137,3 +137,144 @@ func writeSummary(_ summary: RunSummary, startNs: UInt64, in directory: URL) thr
 func makeUnreadableDirectory(at url: URL) throws {
     try Data().write(to: url)
 }
+
+/// A report source over a fixed list of reports. Each pass offers every
+/// report not yet taken, once; `.taken` removes one, `.retryLater` keeps it
+/// for the next pass. Records how each report was finished and the most
+/// reports that were ever out at once (offered but not yet finished).
+final class MemoryReportSource: ReportSource, Sendable {
+    struct Failure: Error {}
+
+    private struct State {
+        var pending: [IncomingReport]
+        var finished: [Report.ID: IncomingReport.Disposition] = [:]
+        var outstanding = 0
+        var maxOutstanding = 0
+        var offers = 0
+    }
+
+    private let state: UnfairLock<State>
+    private let failsOnNext: Bool
+
+    init(_ reports: [IncomingReport], failsOnNext: Bool = false) {
+        state = UnfairLock(State(pending: reports))
+        self.failsOnNext = failsOnNext
+    }
+
+    /// The last disposition each report got, by id.
+    var finished: [Report.ID: IncomingReport.Disposition] { state.withLock { $0.finished } }
+    var pendingIDs: [Report.ID] { state.withLock { $0.pending.map(\.id) } }
+    var maxOutstanding: Int { state.withLock { $0.maxOutstanding } }
+    var offers: Int { state.withLock { $0.offers } }
+
+    func makeReader() -> Reader { Reader(source: self) }
+
+    struct Reader: ReportReader {
+        let source: MemoryReportSource
+        private var offeredThisPass: Set<Report.ID> = []
+
+        init(source: MemoryReportSource) {
+            self.source = source
+        }
+
+        mutating func next() async throws -> IncomingReport? {
+            if source.failsOnNext { throw Failure() }
+            let alreadyOffered = offeredThisPass
+            let report: IncomingReport? = source.state.withLock { state in
+                guard let report = state.pending.first(where: { !alreadyOffered.contains($0.id) }) else {
+                    return nil
+                }
+                state.outstanding += 1
+                state.maxOutstanding = max(state.maxOutstanding, state.outstanding)
+                state.offers += 1
+                return report
+            }
+            if let report {
+                offeredThisPass.insert(report.id)
+            }
+            return report
+        }
+
+        mutating func finish(_ report: IncomingReport, as disposition: IncomingReport.Disposition) async {
+            source.state.withLock { state in
+                state.outstanding -= 1
+                state.finished[report.id] = disposition
+                if disposition == .taken {
+                    state.pending.removeAll { $0.id == report.id }
+                }
+            }
+        }
+    }
+}
+
+/// A report source offering one report, whose reader stops inside `next()`
+/// until the test releases it, so a test can hold a take-in open.
+final class BlockingReportSource: ReportSource, Sendable {
+    private struct State {
+        var isReading = false
+        var readingWaiter: CheckedContinuation<Void, Never>?
+        var isReleased = false
+        var releaseWaiter: CheckedContinuation<Void, Never>?
+    }
+
+    private let state = UnfairLock(State())
+    private let report: IncomingReport
+
+    init(_ report: IncomingReport) {
+        self.report = report
+    }
+
+    /// Returns once a reader is inside `next()`.
+    func waitUntilReading() async {
+        await withCheckedContinuation { continuation in
+            let isReading = state.withLock { state -> Bool in
+                if state.isReading { return true }
+                state.readingWaiter = continuation
+                return false
+            }
+            if isReading { continuation.resume() }
+        }
+    }
+
+    func release() {
+        let waiter = state.withLock { state -> CheckedContinuation<Void, Never>? in
+            state.isReleased = true
+            defer { state.releaseWaiter = nil }
+            return state.releaseWaiter
+        }
+        waiter?.resume()
+    }
+
+    func makeReader() -> Reader { Reader(source: self) }
+
+    struct Reader: ReportReader {
+        let source: BlockingReportSource
+        private var offered = false
+
+        init(source: BlockingReportSource) {
+            self.source = source
+        }
+
+        mutating func next() async throws -> IncomingReport? {
+            guard !offered else { return nil }
+            offered = true
+            let readingWaiter = source.state.withLock { state -> CheckedContinuation<Void, Never>? in
+                state.isReading = true
+                defer { state.readingWaiter = nil }
+                return state.readingWaiter
+            }
+            readingWaiter?.resume()
+            await withCheckedContinuation { continuation in
+                let isReleased = source.state.withLock { state -> Bool in
+                    if state.isReleased { return true }
+                    state.releaseWaiter = continuation
+                    return false
+                }
+                if isReleased { continuation.resume() }
+            }
+            return source.report
+        }
+
+        mutating func finish(_ report: IncomingReport, as disposition: IncomingReport.Disposition) async {}
+    }
+}

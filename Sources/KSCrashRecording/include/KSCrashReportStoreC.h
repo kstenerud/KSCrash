@@ -244,16 +244,52 @@ bool kscrs_getReportSidecarFilePath(const char *monitorId, const char *name, con
  */
 void kscrs_reclaimOrphanedRunData(const KSCrashReportStoreCConfiguration *const configuration);
 
-/** Move every report in sourceReportsPath into this store.
+/** What happened to a report offered to the store. */
+typedef enum {
+    /** The report is in the store. */
+    KSCrashReportTakeInResultTaken = 0,
+
+    /** The store already holds a report under this id; nothing changed. */
+    KSCrashReportTakeInResultExists,
+
+    /** The report was not taken in, or was but could not be confirmed on disk. The caller
+     *  discards nothing it still holds and may offer the report again. */
+    KSCrashReportTakeInResultFailed,
+} KSCrashReportTakeInResult;
+
+/** Remove partial copies that a crash left in the store during a take-in.
  *
- * Files that cannot be moved are left in place and retried on the next call; an existing
- * destination is never replaced. No-op when sourceReportsPath is NULL.
+ * Call only while no take-in into this store is running.
  *
- * @param sourceReportsPath The directory to drain (a crash extension's Reports directory).
  * @param configuration The store configuration.
  */
-void kscrs_ingestExtensionReports(const char *sourceReportsPath,
-                                  const KSCrashReportStoreCConfiguration *const configuration);
+void kscrs_removeAbandonedTakeIns(const KSCrashReportStoreCConfiguration *const configuration);
+
+/** Take one finished report into this store, never replacing an existing one.
+ *
+ * On KSCrashReportTakeInResultTaken the report is in the store, and if a file is still at
+ * sourcePath it is a copy the caller now removes.
+ *
+ * @param sourcePath The report file to take in. Anything other than a regular file is refused.
+ * @param reportID The report's id, the lowercase UUID inside the report.
+ * @param wallClockNs When the report was written, in nanoseconds since 1970; orders it
+ *                    among the store's reports.
+ * @param configuration The store configuration.
+ * @return What happened to the report.
+ */
+KSCrashReportTakeInResult kscrs_takeInReport(const char *sourcePath, const char *reportID, uint64_t wallClockNs,
+                                             const KSCrashReportStoreCConfiguration *const configuration);
+
+/** Delete the reports with these ids, and their report sidecars. Ids with no report are ignored.
+ *
+ * The caller keeps every other deleter away from these reports until this returns.
+ *
+ * @param reportIDs The ids to delete.
+ * @param count The number of ids.
+ * @param configuration The store configuration.
+ */
+void kscrs_deleteReportsWithIDs(const char *const *reportIDs, int count,
+                                const KSCrashReportStoreCConfiguration *const configuration);
 
 #ifdef __cplusplus
 }

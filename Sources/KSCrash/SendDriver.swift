@@ -48,9 +48,9 @@ struct SendKind<Payload: SendPayload, Item: Sendable>: Sendable {
 
     let remove: @Sendable (Store, Item) throws -> Void
 
-    /// Whether this send pulls reports from a crash extension's store, so run
-    /// data nothing references yet may still be waited for. Defaults to false.
-    var retainsUnreferencedRuns: Bool = false
+    /// Brings items from outside the store into it before the listing, so the
+    /// same send delivers them. Does nothing by default.
+    var takeIn: @Sendable (Store) async -> Void = { _ in }
 }
 
 /// The send loop shared by every payload kind: the pending items, newest
@@ -66,7 +66,7 @@ enum SendDriver {
         kind: SendKind<Payload, Item>,
         pipeline: [AnyPipelineStage<Payload>],
         only selection: Set<Payload.ID>?,
-        claims: SendClaims<Payload.ID>
+        claims: ClaimSet<Payload.ID>
     ) async throws -> SendResult<Payload> {
         // A send with no stages can only mean a misconfigured caller, so it
         // throws regardless of install state instead of quietly purging.
@@ -90,6 +90,12 @@ enum SendDriver {
             store.pruneRunSummaries(keepingNewest: store.maxRunCount)
         }
 
+        // A selective send touches only the items it names, which are already
+        // in the store, and never prunes; taking reports in ends in a prune, so
+        // it belongs to the bulk send alone.
+        if selection == nil {
+            await kind.takeIn(store)
+        }
         var items = try kind.list(store)
         if let selection {
             // Unselected items are not this send's: untouched on disk and
@@ -100,7 +106,7 @@ enum SendDriver {
         // However the send ends past this point (exhausted, cancelled, or a
         // crash of a stage's task), sweep once: the reclaim is reference-aware
         // and idempotent, so it is safe on every exit path.
-        defer { store.reclaimOrphans(retainingUnreferencedRuns: kind.retainsUnreferencedRuns) }
+        defer { store.reclaimOrphans() }
 
         var results: [SendResult<Payload>.Item] = []
         for item in items {
@@ -159,20 +165,5 @@ enum SendDriver {
         } catch {
             os_log(.error, "Failed to delete %{public}@ %{public}@", kind.label, String(describing: id))
         }
-    }
-}
-
-/// The items currently being processed by any send of one kind, so concurrent
-/// sends partition the pending work: claiming is first-wins, and a claim is
-/// held only while its item is being processed.
-final class SendClaims<ID: Hashable & Sendable>: Sendable {
-    private let claimed = UnfairLock(Set<ID>())
-
-    func claim(_ id: ID) -> Bool {
-        claimed.withLock { $0.insert(id).inserted }
-    }
-
-    func release(_ id: ID) {
-        claimed.withLock { _ = $0.remove(id) }
     }
 }

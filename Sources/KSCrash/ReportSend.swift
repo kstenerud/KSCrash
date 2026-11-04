@@ -26,25 +26,26 @@
 
 import Foundation
 import KSCrashReportModel
+import KSCrashSwiftCore
 
 /// The report send: the pending reports, newest first, through the pipeline,
 /// with per-report outcomes. The loop itself is `SendDriver`'s; this is what
 /// a report is to it.
 enum ReportSend {
-    static let claims = SendClaims<Report.ID>()
+    static let claims = ClaimSet<Report.ID>()
 
     static func send(
         store: Store?,
         pipeline: [AnyPipelineStage<Report>],
-        corpseAreas: [CorpseReportingConfiguration] = [],
+        reportSources: [any ReportSource] = [],
         only selection: Set<Report.ID>? = nil,
-        claims: SendClaims<Report.ID> = ReportSend.claims
+        claims: ClaimSet<Report.ID> = ReportSend.claims
     ) async throws -> SendResult<Report> {
         try await SendDriver.send(
             store: store,
             kind: SendKind(
                 label: "report",
-                list: { try $0.snapshotReportIDs(pullingFrom: corpseAreas) },
+                list: { try $0.snapshotReportIDs() },
                 id: { $0 },
                 read: { store, id in
                     // A current-run report may still be updated (an
@@ -68,7 +69,7 @@ enum ReportSend {
                     return report
                 },
                 remove: { try $0.removeReport($1) },
-                retainsUnreferencedRuns: !corpseAreas.isEmpty
+                takeIn: { await $0.takeIn(from: reportSources, claims: claims) }
             ),
             pipeline: pipeline,
             only: selection,

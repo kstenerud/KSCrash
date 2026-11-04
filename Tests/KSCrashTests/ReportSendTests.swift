@@ -33,8 +33,6 @@ final class ReportSendTests: XCTestCase {
 
     private var reportsDirectory: URL!
     private let reclaimCount = Counter()
-    /// What the last reclaim was told about retaining unreferenced runs.
-    private let reclaimRetained = UnfairLock<Bool?>(nil)
 
     override func setUpWithError() throws {
         reportsDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
@@ -75,7 +73,6 @@ final class ReportSendTests: XCTestCase {
     ) -> Store {
         let directory = reportsDirectory!
         let counter = reclaimCount
-        let retained = reclaimRetained
         return Store(
             runsDirectory: runsDirectory,
             runSidecarsDirectory: directory.appendingPathComponent("RunSidecars"),
@@ -88,6 +85,11 @@ final class ReportSendTests: XCTestCase {
                         .compactMap { Report.ID(($0 as NSString).deletingPathExtension) }
                         // Oldest first, as the C store lists them.
                         .sorted { $0.description < $1.description }
+                },
+                takeIn: { file, id, _ in
+                    let destination = directory.appendingPathComponent("\(id).json")
+                    guard !FileManager.default.fileExists(atPath: destination.path) else { return .taken }
+                    return (try? FileManager.default.moveItem(at: file, to: destination)) != nil ? .taken : .retryLater
                 },
                 read: {
                     if undecodable.contains($0) { throw CocoaError(.fileReadCorruptFile) }
@@ -102,10 +104,7 @@ final class ReportSendTests: XCTestCase {
                 },
                 remove: { try FileManager.default.removeItem(at: directory.appendingPathComponent("\($0).json")) }
             ),
-            reclaim: { retaining in
-                counter.increment()
-                retained.withLock { $0 = retaining }
-            }
+            reclaim: { counter.increment() }
         )
     }
 
@@ -116,7 +115,7 @@ final class ReportSendTests: XCTestCase {
         listFails: Bool = false,
         undecodable: Set<Report.ID> = [],
         peekBlind: Bool = false,
-        claims: SendClaims<Report.ID> = SendClaims()
+        claims: ClaimSet<Report.ID> = ClaimSet()
     ) async throws -> SendResult<Report> {
         try await ReportSend.send(
             store: makeStore(
@@ -128,19 +127,24 @@ final class ReportSendTests: XCTestCase {
 
     // MARK: - Tests
 
-    func test_send_retainsUnreferencedRunsOnlyWhenPullingFromExtensionAreas() async throws {
-        // The retention window is for reports still sitting in a crash
-        // extension's store. A send with no extension area has none coming,
-        // so its reclaim deletes unreferenced run data on sight, as before.
-        _ = try await send()
-        XCTAssertEqual(reclaimRetained.withLock { $0 }, false)
+    func test_send_deliversAReportTakenInFromASourceInTheSameSend() async throws {
+        let report = Report(
+            crash: .init(error: CrashError(type: .signal)),
+            report: .init(id: testReportID(7), runId: testRunID("DEAD"))
+        )
+        let source = MemoryReportSource([
+            IncomingReport(
+                content: .data(try JSONEncoder().encode(report)), id: testReportID(7),
+                timestamp: Date(timeIntervalSince1970: 1_700_000_000))
+        ])
 
-        let area = CorpseReportingConfiguration(
-            namespace: "SendTests", container: .url(reportsDirectory.appendingPathComponent("area")))
-        _ = try await ReportSend.send(
-            store: makeStore(), pipeline: [.init(ClosureStage { $0 })], corpseAreas: [area],
-            claims: SendClaims())
-        XCTAssertEqual(reclaimRetained.withLock { $0 }, true)
+        let result = try await ReportSend.send(
+            store: makeStore(), pipeline: [.init(ClosureStage { $0 })], reportSources: [source],
+            claims: ClaimSet())
+
+        assertOutcomes(result, delivered: [testReportID(7)])
+        XCTAssertEqual(source.finished, [testReportID(7): .taken])
+        XCTAssertEqual(reportFileCount, 0)
     }
 
     func test_send_deliversNewestFirst_andDeletes() async throws {
@@ -191,7 +195,7 @@ final class ReportSendTests: XCTestCase {
         try writeReport(id: testReportID(1))
         try writeReport(id: testReportID(2))
 
-        let claims = SendClaims<Report.ID>()
+        let claims = ClaimSet<Report.ID>()
         XCTAssertTrue(claims.claim(testReportID(1)))
         let result = try await send(claims: claims)
         assertOutcomes(result, delivered: [testReportID(2)])
@@ -212,7 +216,7 @@ final class ReportSendTests: XCTestCase {
         let store = makeStore()
         let pipeline: [AnyPipelineStage<Report>] = [.init(stage)]
         let sendTask = Task {
-            try await ReportSend.send(store: store, pipeline: pipeline, only: nil, claims: SendClaims())
+            try await ReportSend.send(store: store, pipeline: pipeline, only: nil, claims: ClaimSet())
         }
         let result = try await sendTask.value
         // The first (newest) report processes, then the loop sees the
@@ -315,7 +319,7 @@ final class ReportSendTests: XCTestCase {
         }
         let result = try await ReportSend.send(
             store: store, pipeline: [.init(ClosureStage<Report> { $0 }), .init(stage)],
-            claims: SendClaims())
+            claims: ClaimSet())
         assertOutcomes(result, delivered: [testReportID(1)])
     }
 
@@ -339,7 +343,7 @@ final class ReportSendTests: XCTestCase {
 
     func test_send_noStore_emptyResult() async throws {
         let result = try await ReportSend.send(
-            store: nil, pipeline: [passThrough()], claims: SendClaims())
+            store: nil, pipeline: [passThrough()], claims: ClaimSet())
         XCTAssertTrue(result.items.isEmpty)
     }
 }
