@@ -1423,11 +1423,32 @@ void kscrs_reclaimOrphanedRunData(const KSCrashReportStoreCConfiguration *const 
     pthread_mutex_unlock(&g_mutex);
 }
 
-// Renames sourcePath to destinationPath, never replacing an existing report. Under g_mutex, so the
-// lister and the pruner never see a half-placed report.
-static KSCrashReportTakeInResult renameReportIn(const char *sourcePath, const char *destinationPath, int *errnoOut)
+// Renames sourcePath to destinationPath, never filing a second report under reportID. Under
+// g_mutex, so the lister and the pruner never see a half-placed report. The id is looked up under
+// the same lock as the rename: kscrs_addUserReport files a report under its own id while holding
+// it, and RENAME_EXCL protects only the full name, so a report added under the same id with
+// another timestamp would otherwise leave two files for one id, each listed and sent. The lookup
+// is a directory scan because the other file's timestamp, and so its name, is not known here.
+static KSCrashReportTakeInResult renameReportIn(const char *sourcePath, const char *destinationPath,
+                                                const char *reportID,
+                                                const KSCrashReportStoreCConfiguration *const configuration,
+                                                int *errnoOut)
 {
     pthread_mutex_lock(&g_mutex);
+    char existingPath[KSCRS_MAX_PATH_LENGTH];
+    bool scanComplete = false;
+    if (findReportPath(reportID, existingPath, configuration, &scanComplete)) {
+        pthread_mutex_unlock(&g_mutex);
+        *errnoOut = EEXIST;
+        return KSCrashReportTakeInResultExists;
+    }
+    if (!scanComplete) {
+        // Only a complete scan proves the id is absent, so placing on a failed one could file a
+        // second report under an id already stored.
+        pthread_mutex_unlock(&g_mutex);
+        *errnoOut = EIO;
+        return KSCrashReportTakeInResultFailed;
+    }
     int rc = renamex_np(sourcePath, destinationPath, RENAME_EXCL);
     *errnoOut = rc == 0 ? 0 : errno;
     pthread_mutex_unlock(&g_mutex);
@@ -1476,7 +1497,7 @@ KSCrashReportTakeInResult kscrs_takeInReport(const char *sourcePath, const char 
     }
 
     int error = 0;
-    KSCrashReportTakeInResult result = renameReportIn(sourcePath, destinationPath, &error);
+    KSCrashReportTakeInResult result = renameReportIn(sourcePath, destinationPath, reportID, configuration, &error);
     if (result == KSCrashReportTakeInResultFailed && error != EXDEV) {
         // Not copied: a caller that cannot move its file is usually one that cannot remove it
         // either, and a copy it can never remove would be taken in again after every delivery.
@@ -1499,7 +1520,7 @@ KSCrashReportTakeInResult kscrs_takeInReport(const char *sourcePath, const char 
             unlink(stagingPath);
             return KSCrashReportTakeInResultFailed;
         }
-        result = renameReportIn(stagingPath, destinationPath, &error);
+        result = renameReportIn(stagingPath, destinationPath, reportID, configuration, &error);
         if (result != KSCrashReportTakeInResultTaken) {
             if (result == KSCrashReportTakeInResultFailed) {
                 KSLOG_ERROR(@"Could not take in staged report %s: %s", stagingPath, strerror(error));

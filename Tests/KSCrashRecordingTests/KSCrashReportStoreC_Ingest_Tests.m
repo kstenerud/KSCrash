@@ -151,6 +151,31 @@
     XCTAssertEqualObjects(kept, @"{\"existing\":true}", @"the existing report is untouched");
 }
 
+- (void)testTakeInNeverFilesASecondReportUnderAnIDTheStoreHolds
+{
+    // A user report added under its own id lands with its own timestamp, so a take-in of the same
+    // id under another timestamp would pass RENAME_EXCL. The store must still hold one file for it.
+    [self prepareStores];
+    NSString *reportID = @"0e9a9c8e-5b6a-4c1e-9f5e-2f7b8f7c4d21";
+    NSString *json = [NSString stringWithFormat:@"{\"report\":{\"id\":\"%@\"},\"added\":true}", reportID];
+    NSData *data = [json dataUsingEncoding:NSUTF8StringEncoding];
+    char addedID[KSID_SIZE];
+    XCTAssertTrue(kscrs_addUserReport(data.bytes, (int)data.length, &_appConfig, addedID));
+    XCTAssertEqualObjects(@(addedID), reportID);
+    NSArray<NSString *> *before = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:self.appReportsPath
+                                                                                      error:nil];
+    XCTAssertEqual(before.count, 1u);
+    NSString *source = [self.tempPath stringByAppendingPathComponent:@"incoming.json"];
+    [@"{\"incoming\":true}" writeToFile:source atomically:YES encoding:NSUTF8StringEncoding error:nil];
+
+    XCTAssertEqual(kscrs_takeInReport(source.UTF8String, reportID.UTF8String, 42, &_appConfig),
+                   KSCrashReportTakeInResultExists);
+
+    XCTAssertEqualObjects([[NSFileManager defaultManager] contentsOfDirectoryAtPath:self.appReportsPath error:nil],
+                          before, @"one file for the id, the one already stored");
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:source], @"the source stays put");
+}
+
 - (void)testTakeInRefusesAnIDThatIsNotAReportID
 {
     [self prepareStores];

@@ -249,7 +249,7 @@ typedef enum {
     /** The report is in the store. */
     KSCrashReportTakeInResultTaken = 0,
 
-    /** The store already holds a report under this id and timestamp; nothing changed. */
+    /** The store already holds a report under this id; nothing changed. */
     KSCrashReportTakeInResultExists,
 
     /** The report was not taken in, or was but could not be confirmed on disk. The caller
