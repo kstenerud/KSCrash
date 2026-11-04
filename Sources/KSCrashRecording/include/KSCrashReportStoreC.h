@@ -282,6 +282,8 @@ KSCrashReportTakeInResult kscrs_takeInReport(const char *sourcePath, const char 
 
 /** Delete the reports with these ids, and their report sidecars. Ids with no report are ignored.
  *
+ * The caller keeps every other deleter away from these reports until this returns.
+ *
  * @param reportIDs The ids to delete.
  * @param count The number of ids.
  * @param configuration The store configuration.

@@ -1563,11 +1563,13 @@ void kscrs_deleteReportsWithIDs(const char *const *reportIDs, int count,
     if (reportIDs == NULL || count <= 0 || configuration == NULL) {
         return;
     }
-    pthread_mutex_lock(&g_mutex);
     // One listing for the whole batch: each name is matched against the ids, and deleted by the
-    // path already listed rather than found again by a scan per id.
+    // name already listed rather than found again by a scan per id. The victims are kept at the
+    // front of the listing.
+    pthread_mutex_lock(&g_mutex);
     ReportName *names = NULL;
     int listed = listReportNames(&names, configuration);
+    int victims = 0;
     for (int i = 0; i < listed; i++) {
         char reportID[KSID_SIZE];
         if (!kscrs_parseReportFilename(names[i].name, reportID)) {
@@ -1575,16 +1577,29 @@ void kscrs_deleteReportsWithIDs(const char *const *reportIDs, int count,
         }
         for (int j = 0; j < count; j++) {
             if (reportIDs[j] != NULL && strncmp(reportIDs[j], reportID, KSID_SIZE) == 0) {
-                char path[KSCRS_MAX_PATH_LENGTH];
-                if (snprintf(path, sizeof(path), "%s/%s", configuration->reportsPath, names[i].name) <
-                    (int)sizeof(path)) {
-                    deleteReportAtPath(path, reportID, configuration);
-                }
+                names[victims++] = names[i];
                 break;
             }
         }
     }
-    free(names);
     pthread_mutex_unlock(&g_mutex);
+
+    // Each deletion takes the lock on its own: the app's threads take g_mutex to add a report, and
+    // a batch after a large backlog is hundreds of file and sidecar removals, so holding it for
+    // all of them would stall those threads for the whole prune. A victim cannot change in
+    // between in a way that matters: the caller has claimed it, so no send deletes it, and a
+    // report re-added under its id keeps this name.
+    for (int i = 0; i < victims; i++) {
+        char reportID[KSID_SIZE];
+        char path[KSCRS_MAX_PATH_LENGTH];
+        if (!kscrs_parseReportFilename(names[i].name, reportID) ||
+            snprintf(path, sizeof(path), "%s/%s", configuration->reportsPath, names[i].name) >= (int)sizeof(path)) {
+            continue;
+        }
+        pthread_mutex_lock(&g_mutex);
+        deleteReportAtPath(path, reportID, configuration);
+        pthread_mutex_unlock(&g_mutex);
+    }
+    free(names);
 }
 
