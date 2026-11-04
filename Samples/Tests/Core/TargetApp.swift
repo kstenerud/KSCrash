@@ -104,6 +104,7 @@ final class TargetApp {
     private let appURL: URL
     private var process: Process?
     private var simulatorPID: pid_t?
+    private let createdAt = Date()
 
     init() throws {
         appURL = try Self.locateApp()
@@ -178,6 +179,39 @@ final class TargetApp {
             }
         }
         wait(for: .notRunning, timeout: 5)
+    }
+
+    /// What the app was doing when a test gave up waiting on it: its threads, while it is still
+    /// running, and its system log since this test began. Taken before teardown ends the app,
+    /// because a stuck app killed by teardown leaves no trace of where it was stuck.
+    func diagnostics() -> [(name: String, text: String)] {
+        var result: [(name: String, text: String)] = []
+
+        let pid = TargetPlatform.current == .macOS ? process?.processIdentifier : simulatorPID
+        if state == .runningForeground, let pid {
+            let file = FileManager.default.temporaryDirectory.appendingPathComponent("Sample-\(pid).sample.txt")
+            _ = try? SimulatorDevice.xcrun(["sample", String(pid), "2", "-file", file.path], allowFailure: true)
+            let text = (try? String(contentsOf: file, encoding: .utf8)) ?? "sample \(pid) wrote nothing"
+            try? FileManager.default.removeItem(at: file)
+            result.append(("App threads", text))
+        } else {
+            result.append(("App threads", "The app was not running."))
+        }
+
+        let start = DateFormatter()
+        start.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        let logShow = [
+            "log", "show", "--info", "--style", "compact", "--start", start.string(from: createdAt),
+            "--predicate", "process == \"Sample\"",
+        ]
+        let arguments =
+            TargetPlatform.current == .macOS
+            ? logShow
+            : ["simctl", "spawn", (try? SimulatorDevice.shared(installing: appURL).udid) ?? "booted"] + logShow
+        let log = (try? SimulatorDevice.xcrun(arguments, allowFailure: true)) ?? "log show failed"
+        result.append(("App system log", log))
+
+        return result
     }
 
     /// The test process's own environment is not handed down: it carries XCTest's injection

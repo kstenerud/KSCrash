@@ -36,6 +36,7 @@ class IntegrationTestBase: XCTestCase {
 
     private(set) var log: Logger!
     private(set) var app: TargetApp!
+    private var attachedAppDiagnostics = false
 
     private(set) var installUrl: URL!
     private(set) var deliveredReportsUrl: URL!
@@ -165,7 +166,11 @@ class IntegrationTestBase: XCTestCase {
     }
 
     func waitForCrash() {
-        XCTAssert(app.wait(for: .notRunning, timeout: actionDelay + appCrashTimeout), "App crash is expected")
+        let exited = app.wait(for: .notRunning, timeout: actionDelay + appCrashTimeout)
+        XCTAssert(exited, "App crash is expected")
+        if !exited {
+            attachAppDiagnostics()
+        }
         logFile(name: "Data/ConsoleLog.txt", path: installUrl.path.appending("/Data/ConsoleLog.txt"))
     }
 
@@ -180,6 +185,7 @@ class IntegrationTestBase: XCTestCase {
         )
         wait(for: [fileExpectation], timeout: timeout)
         guard FileManager.default.fileExists(atPath: url.path) else {
+            attachAppDiagnostics()
             throw Error.fileNotFound
         }
     }
@@ -210,7 +216,24 @@ class IntegrationTestBase: XCTestCase {
             )
             wait(for: [fileExpectation], timeout: timeout)
         }
-        return try getFileUrl()
+        do {
+            return try getFileUrl()
+        } catch {
+            if timeout != nil {
+                attachAppDiagnostics()
+            }
+            throw error
+        }
+    }
+
+    /// A wait that runs out says only that the file never came. Records what the app was doing
+    /// instead, once per test, while teardown has not yet ended it.
+    private func attachAppDiagnostics() {
+        guard !attachedAppDiagnostics, let app else { return }
+        attachedAppDiagnostics = true
+        for (name, text) in app.diagnostics() {
+            attach(text, named: name)
+        }
     }
 
     private func findRawCrashReportUrl() throws -> URL {
