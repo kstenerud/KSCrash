@@ -298,7 +298,8 @@ let result = try await KSCrash.shared.sendReports(with: send)
 ```
 
 List the area in one process's sends only, normally the app's. Sends in
-different processes do not coordinate, so two taking from the same area can
+different processes do not coordinate: two taking from the same area log errors
+for each other's reports, and where the stores are on different volumes, can
 send the same report twice.
 
 The area is one kind of `ReportSource`. Anything that holds finished reports
