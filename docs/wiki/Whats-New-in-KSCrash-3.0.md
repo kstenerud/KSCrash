@@ -297,6 +297,10 @@ send.reportSources = [
 let result = try await KSCrash.shared.sendReports(with: send)
 ```
 
+List the area in one process's sends only, normally the app's. Sends in
+different processes do not coordinate, so two taking from the same area can
+send the same report twice.
+
 The area is one kind of `ReportSource`. Anything that holds finished reports
 outside the app's store can be one: conform to `ReportSource`, whose
 `ReportReader` hands the send one `IncomingReport` at a time, as a file or as

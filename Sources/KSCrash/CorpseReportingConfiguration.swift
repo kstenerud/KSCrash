@@ -32,6 +32,11 @@ import Foundation
 /// The extension passes a value to `installForCorpseReporting(with:)`; the app lists
 /// the same value in `SendConfiguration.reportSources`. Both sides derive the on-disk
 /// layout from it identically, so they cannot disagree about where reports live.
+///
+/// List an area in one process's sends only, normally the app's. Sends in different
+/// processes do not coordinate: two taking from the same area at once log errors for the
+/// reports the other took, and where the stores are on different volumes, both can take
+/// in and send the same report.
 public struct CorpseReportingConfiguration: Sendable, Equatable {
 
     /// The install namespace shared with the app.
