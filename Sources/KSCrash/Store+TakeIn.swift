@@ -57,19 +57,12 @@ extension Store {
     private static let takeInClaims = ClaimSet<String>()
 
     private func takeInHoldingClaim(from sources: [any ReportSource], claims: ClaimSet<Report.ID>) async {
-        // Reports held in memory are staged in a directory of this take-in's
-        // own, outside the store, so the store's directory only ever holds whole
-        // reports. One a crash leaves here is in the temporary directory, which
-        // the system clears.
-        let staging = FileManager.default.temporaryDirectory.appendingPathComponent(
-            "KSCrashTakeIn-\(UUID().uuidString)", isDirectory: true)
-        do {
-            try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
-        } catch {
-            // Reports held in memory cannot be staged; each is retried later.
-            Self.log("Could not create the staging directory", staging, error)
+        var staging = Staging()
+        defer {
+            if staging.isCreated {
+                Self.remove(staging.url, reason: "the staging directory")
+            }
         }
-        defer { Self.remove(staging, reason: "the staging directory") }
 
         var held: Set<Report.ID>
         do {
@@ -85,7 +78,7 @@ extension Store {
         let heldBefore = held.count
         for source in sources {
             if Task.isCancelled { break }
-            await takeIn(from: source, into: &held, staging: staging)
+            await takeIn(from: source, into: &held, staging: &staging)
         }
         // Everything is taken in first and the cap applied after, so the store
         // keeps its newest reports whichever source they came from, and no
@@ -127,8 +120,9 @@ extension Store {
         reports.delete(victims)
     }
 
-    private func takeIn<Source: ReportSource>(from source: Source, into held: inout Set<Report.ID>, staging: URL) async
-    {
+    private func takeIn<Source: ReportSource>(
+        from source: Source, into held: inout Set<Report.ID>, staging: inout Staging
+    ) async {
         var reader = source.makeReader()
         while !Task.isCancelled {
             let incoming: IncomingReport?
@@ -141,7 +135,7 @@ extension Store {
                 return
             }
             guard let incoming else { return }
-            let disposition = place(incoming, held: held, staging: staging)
+            let disposition = place(incoming, held: held, staging: &staging)
             if disposition == .taken {
                 held.insert(incoming.id)
             } else {
@@ -157,7 +151,9 @@ extension Store {
         }
     }
 
-    private func place(_ incoming: IncomingReport, held: Set<Report.ID>, staging: URL) -> IncomingReport.Disposition {
+    private func place(
+        _ incoming: IncomingReport, held: Set<Report.ID>, staging: inout Staging
+    ) -> IncomingReport.Disposition {
         // The store already has it: the reader's copy is redundant.
         if held.contains(incoming.id) {
             return .taken
@@ -177,7 +173,14 @@ extension Store {
         case .data(let data):
             // Written whole outside the store, then moved in, so no listing
             // ever sees half a report.
-            let stagedFile = staging.appendingPathComponent(UUID().uuidString)
+            let directory: URL
+            do {
+                directory = try staging.directory()
+            } catch {
+                Self.log("Could not create the staging directory", staging.url, error)
+                return .retryLater
+            }
+            let stagedFile = directory.appendingPathComponent(UUID().uuidString)
             // Taken, the staged file was moved and is gone; otherwise it is
             // removed here so a failed attempt leaves nothing behind.
             defer { Self.remove(stagedFile, reason: "a staged report") }
@@ -188,6 +191,25 @@ extension Store {
                 return .retryLater
             }
             return reports.takeIn(stagedFile, incoming.id, timestampNs)
+        }
+    }
+
+    /// A directory of one take-in's own for the reports it is handed in memory,
+    /// outside the store, so the store's directory only ever holds whole
+    /// reports. Created when the first such report arrives: a source that only
+    /// hands over files never needs it. One a crash leaves behind is in the
+    /// temporary directory, which the system clears.
+    struct Staging {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "KSCrashTakeIn-\(UUID().uuidString)", isDirectory: true)
+        private(set) var isCreated = false
+
+        mutating func directory() throws -> URL {
+            if !isCreated {
+                try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+                isCreated = true
+            }
+            return url
         }
     }
 
