@@ -260,6 +260,9 @@ public struct RunSummary: Codable, Sendable, Equatable {
     /// The per-run UUID.
     public let id: ID
 
+    /// The run's process identifier, or nil when it was not recorded.
+    public let processID: Int?
+
     /// Stable per-install device identifier.
     public let deviceID: String
 
@@ -289,6 +292,7 @@ public struct RunSummary: Codable, Sendable, Equatable {
         schemaVersion: Int,
         sdkVersion: String,
         id: ID,
+        processID: Int? = nil,
         deviceID: String,
         userID: String? = nil,
         startedAtMs: Int64,
@@ -305,6 +309,7 @@ public struct RunSummary: Codable, Sendable, Equatable {
         self.schemaVersion = schemaVersion
         self.sdkVersion = sdkVersion
         self.id = id
+        self.processID = processID
         self.deviceID = deviceID
         self.userID = userID
         self.startedAtMs = startedAtMs
@@ -323,6 +328,7 @@ public struct RunSummary: Codable, Sendable, Equatable {
         case schemaVersion = "schema_version"
         case sdkVersion = "sdk_version"
         case id = "run_id"
+        case processID = "process_id"
         case deviceID = "device_id"
         case userID = "user_id"
         case startedAtMs = "started_at_ms"
@@ -342,6 +348,7 @@ public struct RunSummary: Codable, Sendable, Equatable {
         schemaVersion = try container.decode(Int.self, forKey: .schemaVersion)
         sdkVersion = try container.decode(String.self, forKey: .sdkVersion)
         id = try container.decode(ID.self, forKey: .id)
+        processID = try container.decodeIfPresent(Int.self, forKey: .processID)
         deviceID = try container.decode(String.self, forKey: .deviceID)
         userID = try container.decodeIfPresent(String.self, forKey: .userID)
         startedAtMs = try container.decode(Int64.self, forKey: .startedAtMs)
@@ -361,6 +368,7 @@ public struct RunSummary: Codable, Sendable, Equatable {
         try container.encode(schemaVersion, forKey: .schemaVersion)
         try container.encode(sdkVersion, forKey: .sdkVersion)
         try container.encode(id, forKey: .id)
+        try container.encodeIfPresent(processID, forKey: .processID)
         try container.encode(deviceID, forKey: .deviceID)
         try container.encodeIfPresent(userID, forKey: .userID)
         try container.encode(startedAtMs, forKey: .startedAtMs)

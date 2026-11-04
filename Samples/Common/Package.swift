@@ -41,6 +41,7 @@ let package = Package(
             name: "LibraryBridge",
             dependencies: [
                 .product(name: "KSCrash", package: "KSCrash"),
+                .product(name: "Monitors", package: "KSCrash"),
                 .product(name: "Logging", package: "swift-log"),
                 .target(name: "CrashCallback"),
             ]

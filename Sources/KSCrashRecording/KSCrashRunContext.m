@@ -430,10 +430,14 @@ static NSDictionary *buildSummary(const KSCrashRunContext *ctx, const char *user
     NSString *deviceID = safeString(sys->deviceAppHash);
     NSString *userID = readUserIDFromSidecar(userInfoSidecarPath);
 
-    NSMutableDictionary *dict = [NSMutableDictionary dictionaryWithCapacity:14];
+    NSMutableDictionary *dict = [NSMutableDictionary dictionaryWithCapacity:15];
     dict[KSCrashRunSummaryField_SchemaVersion] = @1;
     dict[KSCrashRunSummaryField_SDKVersion] = sdkVersion;
     dict[KSCrashRunSummaryField_RunID] = runID;
+    // A zeroed sidecar reads as pid 0, which no app process has; leave the key out.
+    if (sys->processID > 0) {
+        dict[KSCrashRunSummaryField_ProcessID] = @(sys->processID);
+    }
     dict[KSCrashRunSummaryField_DeviceID] = deviceID;
     if (userID != nil) {
         dict[KSCrashRunSummaryField_UserID] = userID;

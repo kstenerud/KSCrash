@@ -75,6 +75,8 @@ let project = Project(
                 ],
                 "UISupportedInterfaceOrientations": ["UIInterfaceOrientationPortrait"],
                 "CFBundleDisplayName": "KSCrashSample",
+                "UIFileSharingEnabled": true,
+                "LSSupportsOpeningDocumentsInPlace": true,
                 "WKApplication": true,
                 "WKWatchOnly": true,
             ]),

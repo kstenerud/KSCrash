@@ -118,7 +118,7 @@ import os.log
         static func dumpSignposts(_ records: [MXSignpostRecord]?, type: String) {
             guard let records = records, !records.isEmpty else { return }
             let signposts = records.map { $0.dictionaryRepresentation() }
-            dump(signposts, type: "Signposts/\(type)")
+            dump(signposts, type: "Legacy/Signposts/\(type)")
         }
     }
 
@@ -127,7 +127,7 @@ import os.log
     extension MXDiagnosticPayload {
         /// Dumps the full payload JSON, each diagnostic, and all signposts.
         func dump() {
-            MetricKitJSONDumper.dump(jsonRepresentation(), type: "DiagnosticPayload")
+            MetricKitJSONDumper.dump(jsonRepresentation(), type: "Legacy/DiagnosticPayload")
 
             if let diagnostics = crashDiagnostics { for d in diagnostics { d.dump() } }
             if let diagnostics = cpuExceptionDiagnostics { for d in diagnostics { d.dump() } }
@@ -157,7 +157,7 @@ import os.log
 
     extension MXMetricPayload {
         func dump() {
-            MetricKitJSONDumper.dump(jsonRepresentation(), type: "Metric")
+            MetricKitJSONDumper.dump(jsonRepresentation(), type: "Legacy/Metric")
         }
     }
 
@@ -165,7 +165,7 @@ import os.log
 
     extension MXCrashDiagnostic {
         func dump() {
-            MetricKitJSONDumper.dump(jsonRepresentation(), type: "Crash")
+            MetricKitJSONDumper.dump(jsonRepresentation(), type: "Legacy/Crash")
         }
 
         @available(iOS 17.0, macOS 14.0, *)
@@ -178,7 +178,7 @@ import os.log
 
     extension MXCPUExceptionDiagnostic {
         func dump() {
-            MetricKitJSONDumper.dump(jsonRepresentation(), type: "CPUException")
+            MetricKitJSONDumper.dump(jsonRepresentation(), type: "Legacy/CPUException")
         }
 
         @available(iOS 17.0, macOS 14.0, *)
@@ -191,7 +191,7 @@ import os.log
 
     extension MXDiskWriteExceptionDiagnostic {
         func dump() {
-            MetricKitJSONDumper.dump(jsonRepresentation(), type: "DiskWriteException")
+            MetricKitJSONDumper.dump(jsonRepresentation(), type: "Legacy/DiskWriteException")
         }
 
         @available(iOS 17.0, macOS 14.0, *)
@@ -204,7 +204,7 @@ import os.log
 
     extension MXHangDiagnostic {
         func dump() {
-            MetricKitJSONDumper.dump(jsonRepresentation(), type: "Hang")
+            MetricKitJSONDumper.dump(jsonRepresentation(), type: "Legacy/Hang")
         }
 
         @available(iOS 17.0, macOS 14.0, *)
@@ -219,7 +219,7 @@ import os.log
         @available(iOS 17.0, visionOS 1.0, *)
         extension MXAppLaunchDiagnostic {
             func dump() {
-                MetricKitJSONDumper.dump(jsonRepresentation(), type: "AppLaunch")
+                MetricKitJSONDumper.dump(jsonRepresentation(), type: "Legacy/AppLaunch")
             }
 
             func dumpSignposts() {

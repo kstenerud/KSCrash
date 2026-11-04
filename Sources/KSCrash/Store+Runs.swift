@@ -295,7 +295,8 @@ private func cArrayString<T>(_ array: inout T) -> String? {
 extension RunSummary {
     fileprivate func with(sessions: Sessions) -> RunSummary {
         RunSummary(
-            schemaVersion: schemaVersion, sdkVersion: sdkVersion, id: id, deviceID: deviceID,
+            schemaVersion: schemaVersion, sdkVersion: sdkVersion, id: id, processID: processID,
+            deviceID: deviceID,
             userID: userID, startedAtMs: startedAtMs, endedAtMs: endedAtMs, isBeingDebugged: isBeingDebugged,
             outcome: outcome, durations: durations, sessions: sessions, app: app, os: os, device: device,
             metadata: metadata)
@@ -303,7 +304,8 @@ extension RunSummary {
 
     fileprivate func with(metadata: Metadata) -> RunSummary {
         RunSummary(
-            schemaVersion: schemaVersion, sdkVersion: sdkVersion, id: id, deviceID: deviceID,
+            schemaVersion: schemaVersion, sdkVersion: sdkVersion, id: id, processID: processID,
+            deviceID: deviceID,
             userID: userID, startedAtMs: startedAtMs, endedAtMs: endedAtMs, isBeingDebugged: isBeingDebugged,
             outcome: outcome, durations: durations, sessions: sessions, app: app, os: os, device: device,
             metadata: metadata)

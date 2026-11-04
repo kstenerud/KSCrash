@@ -37,9 +37,10 @@ import os.log
 //
 // Handling for the iOS 27 `MemoryExceptionDiagnostic` — the OOM-style termination that finally
 // carries a call stack. Delivery lives in MetricKitMonitor+Subscriber (the `MetricManager`
-// async stream); this file turns each delivered diagnostic into a report and optionally dumps
-// it. A memory exception is modelled like the heuristic OOMs: a fatal `.termination` with
-// `terminationReason == .memoryLimit` and `subtype == .memoryException`.
+// async stream); this file turns each delivered diagnostic into a report. The stream loop dumps
+// it, along with every other stream result. A memory exception is modelled like the heuristic
+// OOMs: a fatal `.termination` with `terminationReason == .memoryLimit` and
+// `subtype == .memoryException`.
 //
 // All parsing goes through the typed iOS 27 API (`CallStackTree`, `CallStackFrame`,
 // `DiagnosticReport.Environment`, `OSVersion`); the JSON dump is only a debugging aid.
@@ -66,13 +67,6 @@ import os.log
                 "[MONITORS] Received memory exception diagnostic (app %{public}@, %d thread(s))",
                 report.environment.applicationVersion,
                 diagnostic.callStackTree.callStackThreads.count)
-
-            // Optional raw dump for debugging/exploration. The whole report carries the
-            // environment metadata and time range, so dump it alongside the diagnostic.
-            if configuration.dumpsPayloadsToDocuments {
-                MetricKitJSONDumper.dump(encodable: report, type: "MemoryException/Report")
-                MetricKitJSONDumper.dump(encodable: diagnostic, type: "MemoryException/Diagnostic")
-            }
 
             if let reportID = processMemoryDiagnostic(diagnostic, report: report) {
                 recordDiagnosticReport(reportID)

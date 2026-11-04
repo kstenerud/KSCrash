@@ -44,6 +44,7 @@ final class RunSummaryModelTests: XCTestCase {
             schemaVersion: 1,
             sdkVersion: "2.6.0-beta.1",
             id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+            processID: 4321,
             deviceID: "0123456789abcdef",
             userID: userID,
             startedAtMs: 1_744_000_000_000,
@@ -113,6 +114,7 @@ final class RunSummaryModelTests: XCTestCase {
         XCTAssertNotNil(json["schema_version"])
         XCTAssertNotNil(json["sdk_version"])
         XCTAssertNotNil(json["run_id"])
+        XCTAssertEqual(json["process_id"] as? Int, 4321)
         XCTAssertNotNil(json["device_id"])
         XCTAssertNotNil(json["started_at_ms"])
         XCTAssertNotNil(json["ended_at_ms"])
@@ -177,6 +179,19 @@ final class RunSummaryModelTests: XCTestCase {
     func test_decode_recordsAbsentDefaultsEmpty() throws {
         let decoded = try decode(minimalJSON)
         XCTAssertTrue(decoded.sessions.records.isEmpty)
+    }
+
+    func test_decode_missingProcessIDIsNil() throws {
+        let decoded = try decode(minimalJSON)
+        XCTAssertNil(decoded.processID)
+    }
+
+    func test_decode_processID() throws {
+        let json = minimalJSON.replacingOccurrences(
+            of: "\"device_id\": \"d\",",
+            with: "\"device_id\": \"d\", \"process_id\": 35559,")
+        let decoded = try decode(json)
+        XCTAssertEqual(decoded.processID, 35559)
     }
 
     func test_decode_missingUserIDIsNil() throws {

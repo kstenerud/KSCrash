@@ -58,8 +58,15 @@ struct CrashView: View {
         }
     }()
 
+    @State private var triggerStatus: String?
+
     var body: some View {
         List {
+            if let triggerStatus {
+                Section(header: Text("Trigger status")) {
+                    Text(triggerStatus)
+                }
+            }
             ForEach(Self.groups) { group in
                 Section(header: Text(group.name)) {
                     ForEach(group.triggers) { trigger in
@@ -69,5 +76,8 @@ struct CrashView: View {
             }
         }
         .navigationTitle("Crash")
+        .onReceive(NotificationCenter.default.publisher(for: .KSCrashTriggerStatus)) { notification in
+            triggerStatus = notification.userInfo?[KSCrashTriggerStatusMessageKey] as? String
+        }
     }
 }

@@ -80,6 +80,7 @@ static void populateContext(KSCrashRunContext *ctx)
     ctx->system.procTranslated = 0;
     ctx->system.isJailbroken = 0;
     ctx->system.isBeingDebugged = 0;
+    ctx->system.processID = 4321;
 }
 
 @interface KSCrashRunContext_Summary_Tests : XCTestCase
@@ -117,6 +118,7 @@ static void populateContext(KSCrashRunContext *ctx)
     XCTAssertEqualObjects(summary[@"schema_version"], @1);
     XCTAssertTrue([summary[@"sdk_version"] length] > 0);
     XCTAssertEqualObjects(summary[@"run_id"], @"a1b2c3d4-e5f6-7890-abcd-ef1234567890");
+    XCTAssertEqualObjects(summary[@"process_id"], @4321);
     XCTAssertEqualObjects(summary[@"device_id"], @"0123456789abcdef0123456789abcdef");
     XCTAssertNil(summary[@"user_id"]);
 
@@ -199,6 +201,18 @@ static void populateContext(KSCrashRunContext *ctx)
     NSDictionary *summary = ksruncontext_testcode_buildSummary(&ctx, NULL);
 
     XCTAssertEqualObjects(summary[@"is_being_debugged"], @YES);
+}
+
+- (void)test_buildSummary_omitsZeroProcessID
+{
+    KSCrashRunContext ctx;
+    populateContext(&ctx);
+    ctx.system.processID = 0;
+
+    NSDictionary *summary = ksruncontext_testcode_buildSummary(&ctx, NULL);
+
+    XCTAssertNotNil(summary);
+    XCTAssertNil(summary[@"process_id"]);
 }
 
 - (void)test_buildSummary_extendsActiveWithOpenTailSlice

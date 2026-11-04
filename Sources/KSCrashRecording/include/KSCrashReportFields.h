@@ -307,6 +307,7 @@ typedef KSCrashReportField KSCrashRunSummaryField NS_TYPED_ENUM NS_SWIFT_NAME(Ru
 KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, SchemaVersion, schemaVersion, "schema_version")
 KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, SDKVersion, sdkVersion, "sdk_version")
 KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, RunID, runID, "run_id")
+KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, ProcessID, processID, "process_id")
 KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, DeviceID, deviceID, "device_id")
 KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, UserID, userID, "user_id")
 KSCRF_DEFINE_CONSTANT(KSCrashRunSummaryField, StartedAtMs, startedAtMs, "started_at_ms")
