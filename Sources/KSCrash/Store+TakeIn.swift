@@ -127,6 +127,9 @@ extension Store {
         from source: Source, into held: inout Set<Report.ID>, staging: inout Staging
     ) async {
         var reader = source.makeReader()
+        // The type only: a source's description prints whatever it stores, and
+        // a third party's may hold a token or a user's path.
+        let sourceName = String(describing: type(of: source))
         while !Task.isCancelled {
             let incoming: IncomingReport?
             do {
@@ -134,7 +137,7 @@ extension Store {
             } catch {
                 os_log(
                     .error, "Report source %{public}@ could not be read; its reports are not taken in: %{public}@",
-                    String(describing: source), String(describing: error))
+                    sourceName, String(describing: error))
                 return
             }
             guard let incoming else { return }
@@ -148,7 +151,7 @@ extension Store {
                 os_log(
                     .error,
                     "Report %{public}@ from %{public}@ was not taken in, or could not be confirmed on disk; the source keeps any copy it still holds",
-                    incoming.id.description, String(describing: source))
+                    incoming.id.description, sourceName)
             }
             await reader.finish(incoming, as: disposition)
         }
