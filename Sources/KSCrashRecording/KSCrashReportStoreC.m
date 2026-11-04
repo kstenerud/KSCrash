@@ -1492,6 +1492,14 @@ KSCrashReportTakeInResult kscrs_takeInReport(const char *sourcePath, const char 
     if (sourcePath == NULL || configuration == NULL || configuration->reportsPath == NULL || !ksid_isValid(reportID)) {
         return KSCrashReportTakeInResultFailed;
     }
+    // Only a regular file becomes a report. Filed under a report name, a symlink would have the
+    // store read whatever it points to, and a directory could never be read or removed, so it
+    // would hold a place under the cap for good. lstat, so a link is judged as a link.
+    struct stat sourceStat;
+    if (lstat(sourcePath, &sourceStat) != 0 || !S_ISREG(sourceStat.st_mode)) {
+        KSLOG_ERROR(@"Not taking in %s: it is not a regular file", sourcePath);
+        return KSCrashReportTakeInResultFailed;
+    }
     // Composed here rather than by the caller so the filename grammar has one home. Not a
     // crash path, so snprintf is allowed, and it reports truncation where strlcat would not.
     char destinationPath[KSCRS_MAX_PATH_LENGTH];

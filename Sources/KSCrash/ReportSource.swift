@@ -56,9 +56,10 @@ public protocol ReportReader {
 /// A report offered to the store by a `ReportReader`.
 public struct IncomingReport: Sendable {
     public enum Content: Sendable {
-        /// A report file, which the store moves in. One on another volume is copied instead,
-        /// and stays where it is for the reader to remove on `.taken`. A report the reader
-        /// cannot give up as a file goes as `.data`.
+        /// A report file, which the store moves in. Only a regular file is taken; a symlink or
+        /// a directory is refused. One on another volume is copied instead, and stays where it
+        /// is for the reader to remove on `.taken`. A report the reader cannot give up as a
+        /// file goes as `.data`.
         case file(URL)
         /// A report held in memory.
         case data(Data)

@@ -270,7 +270,7 @@ void kscrs_removeAbandonedTakeIns(const KSCrashReportStoreCConfiguration *const 
  * On KSCrashReportTakeInResultTaken the report is in the store, and if a file is still at
  * sourcePath it is a copy the caller now removes.
  *
- * @param sourcePath The report file to take in.
+ * @param sourcePath The report file to take in. Anything other than a regular file is refused.
  * @param reportID The report's id, the lowercase UUID inside the report.
  * @param wallClockNs When the report was written, in nanoseconds since 1970; orders it
  *                    among the store's reports.

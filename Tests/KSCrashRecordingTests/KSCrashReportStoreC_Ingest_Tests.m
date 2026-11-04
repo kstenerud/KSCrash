@@ -304,6 +304,44 @@
     XCTAssertEqual(kscrs_getReportCount(&_appConfig), 0);
 }
 
+- (void)testTakeInRefusesASymlink
+{
+    [self prepareStores];
+    NSString *target = [self.tempPath stringByAppendingPathComponent:@"target.json"];
+    [@"{}" writeToFile:target atomically:YES encoding:NSUTF8StringEncoding error:nil];
+    NSString *link = [self.tempPath stringByAppendingPathComponent:@"link.json"];
+    XCTAssertTrue([[NSFileManager defaultManager] createSymbolicLinkAtPath:link withDestinationPath:target error:nil]);
+
+    XCTAssertEqual(kscrs_takeInReport(link.UTF8String, "0e9a9c8e-5b6a-4c1e-9f5e-2f7b8f7c4d21", 1, &_appConfig),
+                   KSCrashReportTakeInResultFailed);
+
+    XCTAssertEqual([self fileCountAt:self.appReportsPath], 0u);
+    XCTAssertNotNil([[NSFileManager defaultManager] destinationOfSymbolicLinkAtPath:link error:nil],
+                    @"the link stays put");
+}
+
+- (void)testTakeInRefusesADirectory
+{
+    [self prepareStores];
+    NSString *directory = [self.tempPath stringByAppendingPathComponent:@"not-a-report"];
+    [[NSFileManager defaultManager] createDirectoryAtPath:directory
+                              withIntermediateDirectories:YES
+                                               attributes:nil
+                                                    error:nil];
+    [@"{}" writeToFile:[directory stringByAppendingPathComponent:@"inside.json"]
+            atomically:YES
+              encoding:NSUTF8StringEncoding
+                 error:nil];
+
+    XCTAssertEqual(kscrs_takeInReport(directory.UTF8String, "0e9a9c8e-5b6a-4c1e-9f5e-2f7b8f7c4d21", 1, &_appConfig),
+                   KSCrashReportTakeInResultFailed);
+
+    XCTAssertEqual([self fileCountAt:self.appReportsPath], 0u);
+    BOOL isDirectory = NO;
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:directory isDirectory:&isDirectory] && isDirectory,
+                  @"the directory stays put");
+}
+
 - (void)testTakeInFailsWithoutAPath
 {
     [self prepareStores];
