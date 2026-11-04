@@ -98,6 +98,11 @@ extension Store {
     /// is not made up for by deleting a newer one, which would trade fresher
     /// crash data for a cap the next prune reaches anyway; the store sits over
     /// its cap until then.
+    ///
+    /// The same cap is enforced at launch by `pruneReports` in
+    /// KSCrashReportStoreC.m, which needs neither skip: no send is running then,
+    /// and the new run has no reports yet. A change to the cap policy belongs in
+    /// both.
     private func prune(claims: ClaimSet<Report.ID>) {
         guard maxReportCount > 0 else { return }
         let oldestFirst: [Report.ID]

@@ -880,6 +880,11 @@ void kscrs_removeAbandonedTakeIns(const KSCrashReportStoreCConfiguration *const 
     closedir(dir);
 }
 
+// The same cap is enforced at take-in by Store.prune(claims:) in Store+TakeIn.swift, which also
+// skips reports another send has claimed and reports from the current run. At launch neither
+// exists, so both pick the same victims. A change to the cap policy belongs in both. This one
+// stays even though take-in prunes too: it is the only bound for an app without report sources,
+// and for one that crash-loops before it ever sends.
 static void pruneReports(const KSCrashReportStoreCConfiguration *const config)
 {
     if (config->maxReportCount <= 0) {
