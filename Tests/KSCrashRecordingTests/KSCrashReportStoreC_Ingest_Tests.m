@@ -256,6 +256,25 @@
     XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:report], @"reports are left alone");
 }
 
+- (void)testRemoveAbandonedTakeInsRemovesEveryStagedCopy
+{
+    [self prepareStores];
+    NSMutableArray<NSString *> *staged = [NSMutableArray array];
+    for (int i = 0; i < 200; i++) {
+        NSString *name =
+            [NSString stringWithFormat:@"%020d-%@.json.incoming", i + 1, [NSUUID UUID].UUIDString.lowercaseString];
+        NSString *path = [self.appReportsPath stringByAppendingPathComponent:name];
+        [@"half a report" writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
+        [staged addObject:path];
+    }
+
+    kscrs_removeAbandonedTakeIns(&_appConfig);
+
+    for (NSString *path in staged) {
+        XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:path], @"%@", path);
+    }
+}
+
 - (void)testInitializeLeavesAStagedCopyForTheNextTakeIn
 {
     // Initialize is on the startup path, so the sweep waits for a take-in.

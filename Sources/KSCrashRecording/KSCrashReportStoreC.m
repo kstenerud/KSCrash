@@ -863,7 +863,10 @@ void kscrs_removeAbandonedTakeIns(const KSCrashReportStoreCConfiguration *const 
     if (dir == NULL) {
         return;
     }
+    // Every name is read before any is removed: removing entries while a directory is being read
+    // is unspecified and can skip some.
     const size_t suffixLength = sizeof(KSCRS_REPORT_STAGING_SUFFIX) - 1;
+    NSMutableArray<NSString *> *abandoned = [NSMutableArray array];
     struct dirent *ent;
     while ((ent = readdir(dir)) != NULL) {
         size_t length = strnlen(ent->d_name, sizeof(ent->d_name));
@@ -872,12 +875,17 @@ void kscrs_removeAbandonedTakeIns(const KSCrashReportStoreCConfiguration *const 
             continue;
         }
         char path[KSCRS_MAX_PATH_LENGTH];
-        if (snprintf(path, sizeof(path), "%s/%s", config->reportsPath, ent->d_name) < (int)sizeof(path) &&
-            unlink(path) != 0) {
-            KSLOG_ERROR(@"Could not remove abandoned staged report %s: %s", path, strerror(errno));
+        if (snprintf(path, sizeof(path), "%s/%s", config->reportsPath, ent->d_name) < (int)sizeof(path)) {
+            [abandoned addObject:@(path)];
         }
     }
     closedir(dir);
+    for (NSString *path in abandoned) {
+        if (unlink(path.fileSystemRepresentation) != 0) {
+            KSLOG_ERROR(@"Could not remove abandoned staged report %s: %s", path.fileSystemRepresentation,
+                        strerror(errno));
+        }
+    }
 }
 
 // The same cap is enforced at take-in by Store.prune(claims:) in Store+TakeIn.swift, which also
