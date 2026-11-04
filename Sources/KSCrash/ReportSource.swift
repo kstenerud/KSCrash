@@ -65,7 +65,9 @@ public struct IncomingReport: Sendable {
     }
 
     public enum Disposition: Sendable, Equatable {
-        /// The store holds the report. The reader may delete its copy.
+        /// The store holds the report, and from now on sends and deletes it like its own.
+        /// The reader drops its copy. A copy it keeps is offered again on a later send, and
+        /// once the store has sent and deleted the report, it is taken in and sent again.
         case taken
         /// The store did not take the report this time. The reader keeps it and offers it
         /// on a later send, not again during this one.
