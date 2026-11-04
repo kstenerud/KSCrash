@@ -65,8 +65,9 @@ struct Store: Sendable {
 
     let reports: ReportBridge
     private let reclaim: @Sendable () -> Void
-    /// The store's own Reports directory, where incoming reports held in
-    /// memory are staged. nil for the bridge-backed test stores.
+    /// The store's own Reports directory. Take-ins key their claim on it, so
+    /// one send at a time takes reports in to the store. nil for the
+    /// bridge-backed test stores.
     let reportsDirectory: URL?
 
     /// The production store: the report half and the reclaim go through
