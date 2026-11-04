@@ -236,6 +236,7 @@
 #define kscrs_readReportAtPath KSCRASH_NS(kscrs_readReportAtPath)
 #define kscrs_readReportByPathAndID KSCRASH_NS(kscrs_readReportByPathAndID)
 #define kscrs_reclaimOrphanedRunData KSCRASH_NS(kscrs_reclaimOrphanedRunData)
+#define kscrs_removeAbandonedTakeIns KSCRASH_NS(kscrs_removeAbandonedTakeIns)
 #define kscrs_setStitchConfig KSCRASH_NS(kscrs_setStitchConfig)
 #define kscrs_takeInReport KSCRASH_NS(kscrs_takeInReport)
 #define ksct_swap KSCRASH_NS(ksct_swap)

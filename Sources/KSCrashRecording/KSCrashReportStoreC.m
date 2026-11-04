@@ -849,10 +849,16 @@ static bool deleteReportWithID(const char *reportID, const KSCrashReportStoreCCo
     return false;
 }
 
-// Copies a crash interrupted mid take-in. Nothing takes reports in before the store is initialized,
-// so every staged file found here is abandoned.
-static void removeStagedReports(const KSCrashReportStoreCConfiguration *const config)
+// Removes copies a crash interrupted mid take-in. Run at the start of a take-in rather than at
+// initialize, which is on the app's startup path: a leftover is not a report name, so nothing reads
+// it while it waits, and only an app that takes reports in can leave one. The caller guarantees no
+// take-in into this store is running, so every staged file found here is abandoned. Not under
+// g_mutex: the copies it removes are written outside the lock too, and nothing else touches them.
+void kscrs_removeAbandonedTakeIns(const KSCrashReportStoreCConfiguration *const config)
 {
+    if (config == NULL || config->reportsPath == NULL) {
+        return;
+    }
     DIR *dir = opendir(config->reportsPath);
     if (dir == NULL) {
         return;
@@ -918,7 +924,6 @@ KSCrashInstallErrorCode kscrs_initialize(const KSCrashReportStoreCConfiguration 
         if (configuration->runSidecarsPath != NULL) {
             ksfu_makePath(configuration->runSidecarsPath);
         }
-        removeStagedReports(configuration);
         pruneReports(configuration);
     }
     pthread_mutex_unlock(&g_mutex);
@@ -1507,7 +1512,7 @@ KSCrashReportTakeInResult kscrs_takeInReport(const char *sourcePath, const char 
     if (result == KSCrashReportTakeInResultFailed) {
         // Across volumes a rename is impossible, so the file is copied next to its destination
         // and renamed into place from there. The staging name is not a report name, so the lister
-        // never sees a partial copy, and kscrs_initialize removes one a crash leaves behind. The
+        // never sees a partial copy, and kscrs_removeAbandonedTakeIns removes one a crash leaves behind. The
         // source stays where it is; its owner removes it once told the report was taken.
         char stagingPath[KSCRS_MAX_PATH_LENGTH];
         if (snprintf(stagingPath, sizeof(stagingPath), "%s%s", destinationPath, KSCRS_REPORT_STAGING_SUFFIX) >=

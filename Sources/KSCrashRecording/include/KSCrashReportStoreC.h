@@ -257,6 +257,14 @@ typedef enum {
     KSCrashReportTakeInResultFailed,
 } KSCrashReportTakeInResult;
 
+/** Remove partial copies that a crash left in the store during a take-in.
+ *
+ * Call only while no take-in into this store is running.
+ *
+ * @param configuration The store configuration.
+ */
+void kscrs_removeAbandonedTakeIns(const KSCrashReportStoreCConfiguration *const configuration);
+
 /** Take one finished report into this store, never replacing an existing one.
  *
  * On KSCrashReportTakeInResultTaken the report is in the store, and if a file is still at

@@ -95,7 +95,8 @@ struct Store: Sendable {
                 read: { id in try config.read(id) },
                 runID: { id in config.runID(of: id) },
                 remove: { id in try config.remove(id) },
-                removeBatch: { ids in config.removeAll(ids) }
+                removeBatch: { ids in config.removeAll(ids) },
+                removeAbandonedTakeIns: { kscrs_removeAbandonedTakeIns(config.pointer) }
             ),
             // Unreferenced run data is kept for the configured window rather
             // than deleted on sight: a report for that run can still arrive
@@ -460,6 +461,10 @@ struct ReportBridge: Sendable {
     /// Deletes several reports in one pass, skipping ids with no report. nil
     /// deletes them one at a time through `remove`.
     var removeBatch: (@Sendable ([Report.ID]) -> Void)?
+
+    /// Removes partial copies a crash left in the store mid take-in. Called
+    /// only while no take-in into the store is running.
+    var removeAbandonedTakeIns: @Sendable () -> Void = {}
 
     /// Deletes `ids`, logging any that could not be removed.
     func delete(_ ids: [Report.ID]) {

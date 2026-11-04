@@ -240,8 +240,25 @@
     XCTAssertEqual([self fileCountAt:self.appReportsPath], 0u, @"nothing is left behind in the store");
 }
 
-- (void)testInitializeRemovesAStagedCopyACrashLeftBehind
+- (void)testRemoveAbandonedTakeInsRemovesAStagedCopyACrashLeftBehind
 {
+    [self prepareStores];
+    NSString *staged = [self.appReportsPath
+        stringByAppendingPathComponent:@"00000000000000000001-0e9a9c8e-5b6a-4c1e-9f5e-2f7b8f7c4d21.json.incoming"];
+    [@"half a report" writeToFile:staged atomically:YES encoding:NSUTF8StringEncoding error:nil];
+    NSString *report = [self.appReportsPath
+        stringByAppendingPathComponent:@"00000000000000000002-0e9a9c8e-5b6a-4c1e-9f5e-2f7b8f7c4d22.json"];
+    [@"{}" writeToFile:report atomically:YES encoding:NSUTF8StringEncoding error:nil];
+
+    kscrs_removeAbandonedTakeIns(&_appConfig);
+
+    XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:staged]);
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:report], @"reports are left alone");
+}
+
+- (void)testInitializeLeavesAStagedCopyForTheNextTakeIn
+{
+    // Initialize is on the startup path, so the sweep waits for a take-in.
     [[NSFileManager defaultManager] createDirectoryAtPath:self.appReportsPath
                               withIntermediateDirectories:YES
                                                attributes:nil
@@ -252,7 +269,7 @@
 
     [self prepareStores];
 
-    XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:staged]);
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:staged]);
 }
 
 - (void)testDeleteReportsWithIDsDeletesOnlyThoseReports

@@ -880,6 +880,18 @@ final class StoreTests: XCTestCase {
             FileManager.default.fileExists(atPath: runData.path), "run data younger than the window survives a send")
     }
 
+    func test_takeIn_removesACopyACrashLeftBehind() async throws {
+        let (store, reportsDirectory, release) = try makeCStore(maxReportCount: 0)
+        defer { release() }
+        let staged = reportsDirectory.appendingPathComponent(
+            String(format: "%020d-%@.json.incoming", 1, testReportID(1).description))
+        try Data("half a report".utf8).write(to: staged)
+
+        await store.takeIn(from: [MemoryReportSource([])], claims: ClaimSet())
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: staged.path))
+    }
+
     func test_takeIn_aSelectiveSendDoesNotTakeIn() async throws {
         let source = MemoryReportSource([incoming(1)])
         _ = try await ReportSend.send(

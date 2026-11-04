@@ -57,6 +57,9 @@ extension Store {
     private static let takeInClaims = ClaimSet<String>()
 
     private func takeInHoldingClaim(from sources: [any ReportSource], claims: ClaimSet<Report.ID>) async {
+        // Under the claim no other take-in into this store is running, so any
+        // partial copy in it was left by a crash.
+        reports.removeAbandonedTakeIns()
         var staging = Staging()
         defer {
             if staging.isCreated {
