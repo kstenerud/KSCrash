@@ -1531,8 +1531,13 @@ KSCrashReportTakeInResult kscrs_takeInReport(const char *sourcePath, const char 
     }
     if (result == KSCrashReportTakeInResultTaken) {
         // The caller may drop its copy once told the report was taken, so the rename that put the
-        // report in place must reach the disk first. Unconfirmed, the caller keeps its copy: the
-        // report is already here, and the next offer of it is answered by the id check.
+        // report in place must reach the disk first. Unconfirmed, the caller keeps any copy it
+        // still has. A moved file has none, so nothing changes for it. A copied file or a report
+        // handed over in memory does: if this send delivers and deletes the report before the
+        // caller offers it again, the next take-in stores and sends it a second time. That is
+        // chosen over the alternative, telling the caller it was taken, where a power loss before
+        // the directory reaches disk could undo the rename after the caller dropped its copy and
+        // lose the report. The duplicate carries the same report.id, so a receiver can drop it.
         int dirFD = open(configuration->reportsPath, O_RDONLY);
         bool flushed = dirFD >= 0 && fsync(dirFD) == 0;
         if (!flushed) {
