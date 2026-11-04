@@ -145,8 +145,12 @@ extension Store {
             if disposition == .taken {
                 held.insert(incoming.id)
             } else {
+                // .retryLater covers both of the C store's meanings of a failed take-in: not
+                // placed, or placed but not confirmed on disk. A moved file is already in the
+                // store in the second case, so the message does not claim it will come again.
                 os_log(
-                    .error, "Report %{public}@ from %{public}@ was not taken in; it is offered again on a later send",
+                    .error,
+                    "Report %{public}@ from %{public}@ was not taken in, or could not be confirmed on disk; the source keeps any copy it still holds",
                     incoming.id.description, String(describing: source))
             }
             await reader.finish(incoming, as: disposition)
