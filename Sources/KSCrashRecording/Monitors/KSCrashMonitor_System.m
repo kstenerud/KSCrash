@@ -192,8 +192,8 @@ static NSString *getExecutablePath(void)
 
 static void getAppUUIDInto(char *dst, size_t dstSize)
 {
-    const uint8_t *uuid = ksbic_getUUIDForHeader(ksbic_getAppHeader());
-    if (uuid != NULL) {
+    uint8_t uuid[16];
+    if (ksbic_copyUUIDForHeader(ksbic_getAppHeader(), uuid)) {
         uuidBytesToStringInto(uuid, dst, dstSize);
     } else {
         dst[0] = '\0';
