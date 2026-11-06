@@ -63,6 +63,9 @@
 // A report copied in across volumes is staged under its destination name plus this suffix, which
 // is never a report name, then renamed into place.
 #define KSCRS_REPORT_STAGING_SUFFIX ".incoming"
+// A report written in this process goes to its name plus this suffix and is renamed into place. The
+// writer holds g_mutex from opening that file until it is renamed or removed.
+#define KSCRS_REPORT_WRITE_SUFFIX ".tmp"
 #define KSCRS_REPORT_NAME_LENGTH \
     (KSCRS_REPORT_NAME_DIGITS + 1 + KSCRS_REPORT_ID_LENGTH + (int)(sizeof(KSCRS_REPORT_FILENAME_SUFFIX) - 1))
 
@@ -1140,7 +1143,7 @@ bool kscrs_finalizeReport(const char *reportPath, const char *reportID)
 
         // Atomic write: write to .tmp then rename
         char tmpPath[KSCRS_MAX_PATH_LENGTH];
-        int written = snprintf(tmpPath, sizeof(tmpPath), "%s.tmp", reportPath);
+        int written = snprintf(tmpPath, sizeof(tmpPath), "%s" KSCRS_REPORT_WRITE_SUFFIX, reportPath);
         if (written < 0 || written >= (int)sizeof(tmpPath)) {
             KSLOG_ERROR(@"Report path too long for temp file: %s", reportPath);
             pthread_mutex_unlock(&g_mutex);
@@ -1318,7 +1321,7 @@ bool kscrs_addUserReport(const char *report, int reportLength,
     // Write beside the target and rename over it, so a failed write on a
     // re-add cannot truncate the report already stored under that id.
     char tmpPath[KSCRS_MAX_PATH_LENGTH];
-    int tmpLength = snprintf(tmpPath, sizeof(tmpPath), "%s.tmp", crashReportPath);
+    int tmpLength = snprintf(tmpPath, sizeof(tmpPath), "%s" KSCRS_REPORT_WRITE_SUFFIX, crashReportPath);
     if (tmpLength < 0 || tmpLength >= (int)sizeof(tmpPath)) {
         KSLOG_ERROR(@"Report path too long for temp file: %s", crashReportPath);
         pthread_mutex_unlock(&g_mutex);
@@ -1434,9 +1437,59 @@ bool kscrs_getSummarySidecarFilePath(const char *runID, const char *extension, c
     return true;
 }
 
+// Removes the temporary file of a report write that a crash interrupted. Must be called under
+// g_mutex: every writer holds it for the temporary file's whole life, so with it held no write in
+// this process is in flight and any such file is abandoned. Only a report name plus the suffix is
+// one; any other file in the directory is not the store's to remove.
+static void removeAbandonedReportWrites(const KSCrashReportStoreCConfiguration *const config)
+{
+    if (config->reportsPath == NULL) {
+        return;
+    }
+    DIR *dir = opendir(config->reportsPath);
+    if (dir == NULL) {
+        return;
+    }
+    @autoreleasepool {
+        // Every name is read before any is removed: removing entries while a directory is being
+        // read is unspecified and can skip some.
+        const size_t suffixLength = sizeof(KSCRS_REPORT_WRITE_SUFFIX) - 1;
+        NSMutableArray<NSString *> *abandoned = [NSMutableArray array];
+        struct dirent *ent;
+        while ((ent = readdir(dir)) != NULL) {
+            size_t length = strnlen(ent->d_name, sizeof(ent->d_name));
+            if (length != (size_t)KSCRS_REPORT_NAME_LENGTH + suffixLength ||
+                strncmp(ent->d_name + KSCRS_REPORT_NAME_LENGTH, KSCRS_REPORT_WRITE_SUFFIX, suffixLength) != 0) {
+                continue;
+            }
+            char reportName[KSCRS_REPORT_NAME_LENGTH + 1];
+            memcpy(reportName, ent->d_name, KSCRS_REPORT_NAME_LENGTH);
+            reportName[KSCRS_REPORT_NAME_LENGTH] = '\0';
+            char reportID[KSID_SIZE];
+            if (!kscrs_parseReportFilename(reportName, reportID)) {
+                continue;
+            }
+            char path[KSCRS_MAX_PATH_LENGTH];
+            if (snprintf(path, sizeof(path), "%s/%s", config->reportsPath, ent->d_name) < (int)sizeof(path)) {
+                [abandoned addObject:@(path)];
+            }
+        }
+        closedir(dir);
+        for (NSString *path in abandoned) {
+            if (unlink(path.fileSystemRepresentation) != 0 && errno != ENOENT) {
+                KSLOG_ERROR(@"Could not remove abandoned report write %s: %s", path.fileSystemRepresentation,
+                            strerror(errno));
+            }
+        }
+    }
+}
+
 void kscrs_reclaimOrphanedRunData(const KSCrashReportStoreCConfiguration *const configuration)
 {
     pthread_mutex_lock(&g_mutex);
+    // Apart from the run data reclaim, which skips when it has no run id or cannot list the
+    // reports: an abandoned write needs neither to be judged.
+    removeAbandonedReportWrites(configuration);
     reclaimOrphanedRunData(configuration);
     pthread_mutex_unlock(&g_mutex);
 }

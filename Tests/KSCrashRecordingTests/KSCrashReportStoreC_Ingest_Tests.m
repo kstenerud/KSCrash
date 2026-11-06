@@ -275,6 +275,49 @@
     }
 }
 
+- (void)testReclaimRemovesAnAbandonedReportWriteAndNothingElse
+{
+    [self prepareStores];
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSString *report = [self.appReportsPath
+        stringByAppendingPathComponent:@"00000000000000000002-0e9a9c8e-5b6a-4c1e-9f5e-2f7b8f7c4d22.json"];
+    NSString *abandoned = [report stringByAppendingString:@".tmp"];
+    NSString *notAReportWrite = [self.appReportsPath stringByAppendingPathComponent:@"notes.json.tmp"];
+    // The length of a report write, but its id is uppercase, which no report name has.
+    NSString *sameLengthNotAReport = [self.appReportsPath
+        stringByAppendingPathComponent:@"00000000000000000003-0E9A9C8E-5B6A-4C1E-9F5E-2F7B8F7C4D23.json.tmp"];
+    [@"{}" writeToFile:report atomically:YES encoding:NSUTF8StringEncoding error:nil];
+    [@"half a report" writeToFile:abandoned atomically:YES encoding:NSUTF8StringEncoding error:nil];
+    [@"someone else's" writeToFile:notAReportWrite atomically:YES encoding:NSUTF8StringEncoding error:nil];
+    [@"someone else's" writeToFile:sameLengthNotAReport atomically:YES encoding:NSUTF8StringEncoding error:nil];
+
+    // No run id is set in these tests, which makes the run data reclaim skip. The sweep of
+    // abandoned writes does not depend on one.
+    kscrs_reclaimOrphanedRunData(&_appConfig);
+
+    XCTAssertFalse([fm fileExistsAtPath:abandoned]);
+    XCTAssertTrue([fm fileExistsAtPath:report], @"reports are left alone");
+    XCTAssertTrue([fm fileExistsAtPath:notAReportWrite], @"only a report name plus the suffix is the store's");
+    XCTAssertTrue([fm fileExistsAtPath:sameLengthNotAReport], @"only a report name plus the suffix is the store's");
+    XCTAssertEqual(kscrs_getReportCount(&_appConfig), 1);
+}
+
+- (void)testInitializeLeavesAnAbandonedReportWriteForTheReclaim
+{
+    // Initialize is on the startup path, so the sweep waits for a send's reclaim.
+    [[NSFileManager defaultManager] createDirectoryAtPath:self.appReportsPath
+                              withIntermediateDirectories:YES
+                                               attributes:nil
+                                                    error:nil];
+    NSString *abandoned = [self.appReportsPath
+        stringByAppendingPathComponent:@"00000000000000000001-0e9a9c8e-5b6a-4c1e-9f5e-2f7b8f7c4d21.json.tmp"];
+    [@"half a report" writeToFile:abandoned atomically:YES encoding:NSUTF8StringEncoding error:nil];
+
+    [self prepareStores];
+
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:abandoned]);
+}
+
 - (void)testInitializeLeavesAStagedCopyForTheNextTakeIn
 {
     // Initialize is on the startup path, so the sweep waits for a take-in.
