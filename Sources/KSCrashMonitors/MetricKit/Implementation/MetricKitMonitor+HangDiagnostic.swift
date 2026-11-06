@@ -29,13 +29,13 @@ import KSCrashRecording
 import KSCrashReportModel
 import os.log
 
-#if KSCRASH_HAS_METRICKIT
+#if KSCRASH_HAS_METRICKIT_LEGACY
     import MetricKit
 #endif
 
 // MARK: - Hang Diagnostic Handling
 
-#if KSCRASH_HAS_METRICKIT
+#if KSCRASH_HAS_METRICKIT_LEGACY
 
     @available(tvOS, unavailable)
     @available(watchOS, unavailable)
@@ -45,47 +45,54 @@ import os.log
         // which MetricKit always reports as call stack index 0.
         private static let mainRunloopHangThreadIndex = 0
 
+        /// Turns a hang diagnostic from either MetricKit API into a stored report.
+        ///
+        /// A hang diagnostic is a sampling profile of the hang window. The report stays in the
+        /// profile lane (error.type == .profile) tagged with the generic error.subtype == .hang,
+        /// rather than inventing a fatal error type. It is non-fatal and describes a previous
+        /// window, so it must not touch current-run state.
+        ///
+        /// - Parameters:
+        ///   - callStackTree: The diagnostic's call stack tree, a sample-merged trie across all threads.
+        ///   - hangDuration: How long the hang lasted.
+        ///   - timestamp: The end of the hang window, as the delivering API reports it.
+        ///   - applicationVersion: The hung app's version, for logging.
+        ///   - systemInfo: Builds the report's system info from the skeleton report.
+        /// - Returns: The stored report's id, or nil when it could not be written.
         @discardableResult
-        func processHangDiagnostic(_ diagnostic: MXHangDiagnostic, timestamp: Date) -> Report.ID? {
+        func processHang(
+            callStackTree: CallStackTreeRepresentation,
+            hangDuration: Measurement<UnitDuration>,
+            timestamp: Date,
+            applicationVersion: String,
+            systemInfo: (Report) -> SystemInfo
+        ) -> Report.ID? {
             guard let tempURL = writeSkeletonReport() else { return nil }
             defer { try? FileManager.default.removeItem(at: tempURL) }
 
-            return postProcessHangReport(atPath: tempURL.path, diagnostic: diagnostic, timestamp: timestamp)
-        }
-
-        // A hang diagnostic is a sampling profile of the hang window. We keep the report in
-        // the profile lane (error.type == .profile) and tag it with the generic
-        // error.subtype == .hang, rather than inventing a fatal error type. The report is
-        // non-fatal and describes a previous window, so it must not touch current-run state.
-        private func postProcessHangReport(atPath path: String, diagnostic: MXHangDiagnostic, timestamp: Date)
-            -> Report.ID?
-        {
-            let url = URL(fileURLWithPath: path)
-
-            guard let data = try? Data(contentsOf: url),
-                let report = try? JSONDecoder().decode(Report.self, from: data)
+            guard let data = try? Data(contentsOf: tempURL),
+                let skeleton = try? JSONDecoder().decode(Report.self, from: data)
             else {
                 os_log(
                     .error, log: metricKitLog, "[MONITORS] Failed to read or decode skeleton report at %{public}@",
-                    path
+                    tempURL.path
                 )
                 return nil
             }
 
-            // The hang's call stack tree is a sample-merged trie across all threads. Convert
-            // it to weighted per-thread samples for the profile body. The main thread is the
-            // subject of a Main Runloop Hang.
-            let profileData = diagnostic.callStackTree.extractProfileData(
-                primaryThreadIndex: Self.mainRunloopHangThreadIndex)
+            // Converted to weighted per-thread samples for the profile body. The main thread is
+            // the subject of a Main Runloop Hang.
+            let profileData = buildProfileData(
+                from: callStackTree, primaryThreadIndex: Self.mainRunloopHangThreadIndex)
             // The threadcrumb run ID lives in a flat per-thread backtrace, so decode it from
             // the crash-style extraction (cheap second pass over the same tree).
-            let callStackData = diagnostic.callStackTree.extractCallStackData()
+            let callStackData = buildCallStackData(from: callStackTree)
 
-            let hangNs = diagnostic.hangDuration.converted(to: .seconds).value * 1_000_000_000
+            let hangNs = hangDuration.converted(to: .seconds).value * 1_000_000_000
             guard let durationNs = nanosToUInt64(hangNs) else {
                 os_log(
                     .error, log: metricKitLog, "[MONITORS] Skipping hang report with invalid duration at %{public}@",
-                    path
+                    tempURL.path
                 )
                 return nil
             }
@@ -108,12 +115,6 @@ import os.log
 
             let newCrash = Report.Crash(diagnosis: nil, error: newError)
 
-            let newSystem = buildSystemInfo(
-                metaData: diagnostic.metaData,
-                applicationVersion: diagnostic.applicationVersion,
-                skeleton: report
-            )
-
             let crashedRunId = runIdHandler.decode(from: callStackData) { name, ext in
                 self.sidecarPathProvider(name: name, extension: ext)
             }
@@ -121,14 +122,14 @@ import os.log
             // A hang is a moment within a run that kept going, so its last-moment run sidecar
             // does not align: finalized, so the store leaves it alone (see makeMetricKitReportInfo).
             let reportInfo = makeMetricKitReportInfo(
-                skeleton: report, timestamp: timestamp, runId: crashedRunId, finalized: true)
+                skeleton: skeleton, timestamp: timestamp, runId: crashedRunId, finalized: true)
             let newReport = Report(
                 binaryImages: [],
                 crash: newCrash,
                 debug: nil,
                 process: nil,
                 report: reportInfo,
-                system: newSystem
+                system: systemInfo(skeleton)
             )
 
             let encoder = JSONEncoder()
@@ -145,9 +146,24 @@ import os.log
             os_log(
                 .default, log: metricKitLog,
                 "[MONITORS] Added MetricKit hang report (id=%{public}@, %d bytes, %d threads, app %{public}@, runId=%{public}@)",
-                reportID.description, newData.count, profileData.threads.count, diagnostic.applicationVersion,
+                reportID.description, newData.count, profileData.threads.count, applicationVersion,
                 crashedRunId ?? "none")
             return reportID
+        }
+
+        /// The legacy `MXHangDiagnostic` path. `timestamp` is the payload's `timeStampEnd`.
+        @discardableResult
+        func processHangDiagnostic(_ diagnostic: MXHangDiagnostic, timestamp: Date) -> Report.ID? {
+            processHang(
+                callStackTree: diagnostic.callStackTree.representation ?? CallStackTreeRepresentation(callStacks: []),
+                hangDuration: diagnostic.hangDuration,
+                timestamp: timestamp,
+                applicationVersion: diagnostic.applicationVersion
+            ) { skeleton in
+                self.buildSystemInfo(
+                    metaData: diagnostic.metaData, applicationVersion: diagnostic.applicationVersion,
+                    skeleton: skeleton)
+            }
         }
 
         // MARK: - Hang Helpers

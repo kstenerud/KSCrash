@@ -122,7 +122,7 @@ final class MetricKitMemoryParsingTests: XCTestCase {
 // its Codable JSON form (the shape MetricKit vends) and assert the mapping into the shared
 // representation, including binary-name resolution from the separate binaryInfo table and the
 // nil-address safety rule.
-#if compiler(>=6.4) && os(iOS) && !targetEnvironment(macCatalyst)
+#if KSCRASH_HAS_METRICKIT_27_PLUS && os(iOS) && !targetEnvironment(macCatalyst)
 
     import MetricKit
 
@@ -179,15 +179,16 @@ final class MetricKitMemoryParsingTests: XCTestCase {
             XCTAssertEqual(root.binaryName, "App")
             XCTAssertEqual(root.binaryUUID, "BBBBBBBB-0000-0000-0000-000000000000")
 
-            // The child frame had no address: it maps to 0 and, crucially, drops its offset so
-            // the shared extraction never computes `0 - offset`.
+            // The child frame had no address: it maps to 0 and keeps its offset, which with its
+            // binary is what tells it apart from other address-less frames.
             let child = try XCTUnwrap(root.subFrames?.first)
             XCTAssertEqual(child.address, 0)
-            XCTAssertNil(child.offsetIntoBinaryTextSegment)
+            XCTAssertEqual(child.offsetIntoBinaryTextSegment, 256)
 
-            // End to end, extraction stays underflow-safe.
+            // End to end, extraction never computes `0 - offset`: the child gets no image base.
             let data = buildCallStackData(from: rep)
             XCTAssertEqual(data.crashedThreadIndex, 0)
+            XCTAssertNil(objectBaseAddress(of: child))
         }
     }
 
