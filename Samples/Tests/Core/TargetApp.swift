@@ -305,8 +305,44 @@ final class SimulatorDevice {
         observer = cleanup
         try xcrun(["simctl", "boot", udid])
         try xcrun(["simctl", "bootstatus", udid, "-b"])
+        try quiet(udid)
         try keepHomeScreenClosed(on: udid)
         return device
+    }
+
+    /// Jobs a fresh simulator runs that keep the Mac's cores busy for minutes after a boot.
+    /// On iOS 26.5 they held a new device at 300 to 400% CPU (mediaanalysisd alone at over
+    /// 350%), and on a CI runner that load stretched the first app launch past a test's
+    /// time allowance. A label the runtime does not have is harmless to disable.
+    private static let busyJobs = [
+        "PosterBoard", "chronod", "remindd", "siriinferenced", "dataaccess.dataaccessd", "healthd",
+        "healthappd", "siriactionsd", "sirittsd", "email.maild", "homed", "calaccessd",
+        "icloudmailagent", "amsengagementd", "intelligenceplatformd", "intelligenceflowd", "triald",
+        "assistantd", "telephonyutilities.callservicesd", "mediaanalysisd", "mediaanalysisd.service",
+        "photoanalysisd",
+    ]
+
+    /// Disables `busyJobs` and boots the device again. The simulator's own launchd keeps its
+    /// disabled list across a reboot, so the second boot comes up without them. Some of these
+    /// run per user rather than system-wide, so each is disabled in both domains. The calls
+    /// run together because each one is a separate spawn into the simulator.
+    private static func quiet(_ udid: String) throws {
+        let domains = ["system", "user/\(getuid())"]
+        let processes = try busyJobs.flatMap { job in
+            try domains.map { domain in
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")
+                process.arguments = ["simctl", "spawn", udid, "launchctl", "disable", "\(domain)/com.apple.\(job)"]
+                process.standardOutput = FileHandle.nullDevice
+                process.standardError = FileHandle.nullDevice
+                try process.run()
+                return process
+            }
+        }
+        processes.forEach { $0.waitUntilExit() }
+        try xcrun(["simctl", "shutdown", udid])
+        try xcrun(["simctl", "boot", udid])
+        try xcrun(["simctl", "bootstatus", udid, "-b"])
     }
 
     /// tvOS opens its home screen when an app dies. On a loaded machine PineBoard learns of a
