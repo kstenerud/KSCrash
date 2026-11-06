@@ -200,8 +200,16 @@ static void getAppUUIDInto(char *dst, size_t dstSize)
     }
 }
 
-static const char *getCPUArchForCPUType(cpu_type_t cpuType, cpu_subtype_t subType)
+// The arm64e slice with hardware-checked pointer arithmetic, which older SDKs do not define.
+#ifndef CPU_SUBTYPE_ARM64E_X1
+#define CPU_SUBTYPE_ARM64E_X1 ((cpu_subtype_t)12)
+#endif
+
+static const char *getCPUArchForCPUType(cpu_type_t cpuType, cpu_subtype_t subTypeWithFeatures)
 {
+    // The high byte carries feature flags, which no case below names: an arm64e binary's
+    // subtype is CPU_SUBTYPE_ARM64E with the pointer authentication ABI bits set on top.
+    const cpu_subtype_t subType = (cpu_subtype_t)((uint32_t)subTypeWithFeatures & ~(uint32_t)CPU_SUBTYPE_MASK);
     switch (cpuType) {
         case CPU_TYPE_ARM: {
             switch (subType) {
@@ -225,6 +233,8 @@ static const char *getCPUArchForCPUType(cpu_type_t cpuType, cpu_subtype_t subTyp
             switch (subType) {
                 case CPU_SUBTYPE_ARM64E:
                     return "arm64e";
+                case CPU_SUBTYPE_ARM64E_X1:
+                    return "arm64e.x1";
                 default:
                     return "arm64";
             }
