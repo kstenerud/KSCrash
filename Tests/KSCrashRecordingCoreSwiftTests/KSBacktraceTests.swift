@@ -121,17 +121,31 @@ import XCTest
             }
         }
 
-        func testOtherThreadSymbolicate() async {
-            nonisolated(unsafe) let thread = pthread_self()
-            let entries = 10
-
-            let (addresses, count): ([UInt], Int32) = await withCheckedContinuation { cont in
-                DispatchQueue.global(qos: .default).async {
-                    var localAddresses = [UInt](repeating: 0, count: entries)
-                    let localCount = captureBacktrace(thread: thread, addresses: &localAddresses, count: Int32(entries))
-                    cont.resume(returning: (localAddresses, localCount))
-                }
+        func testOtherThreadSymbolicate() {
+            // A thread of the test's own, parked on a semaphore. Capturing a thread the test does
+            // not own (such as its own after an await) lets the scheduler decide whether the
+            // capture runs on that same thread, which turns the test into a self-capture.
+            let ready = DispatchSemaphore(value: 0)
+            let release = DispatchSemaphore(value: 0)
+            nonisolated(unsafe) var target: pthread_t?
+            let parked = Thread {
+                target = pthread_self()
+                ready.signal()
+                release.wait()
             }
+            parked.start()
+            ready.wait()
+            defer { release.signal() }
+            guard let target else {
+                XCTFail("The parked thread never reported itself")
+                return
+            }
+            XCTAssertEqual(pthread_equal(target, pthread_self()), 0, "The capture must not target its own thread")
+            waitUntilBlocked(pthread_mach_thread_np(target))
+
+            let entries = 10
+            var addresses = [UInt](repeating: 0, count: entries)
+            let count = captureBacktrace(thread: target, addresses: &addresses, count: Int32(entries))
 
             XCTAssert(count > 0)
             XCTAssert(count <= entries)
@@ -141,15 +155,60 @@ import XCTest
 
             var result = SymbolInformation()
             let success = symbolicate(address: addresses[0], result: &result)
-            XCTAssertTrue(success)
-            XCTAssertEqual(result.returnAddress, addresses[0])
-            XCTAssertNotNil(result.imageName)
-            XCTAssertNotNil(result.imageUUID)
-            XCTAssertNotNil(result.symbolName)
-            XCTAssert(result.imageAddress > 0)
-            XCTAssert(result.imageSize > 0)
-            XCTAssert(result.symbolAddress > 0)
-            XCTAssertNotEqual(result.imageCpuType, 0)
+            // Name every frame on failure, so a frame that resolves to an image without a symbol
+            // says which image and offset it was.
+            let frames = Self.describe(addresses[0..<Int(max(count, 0))])
+            XCTAssertTrue(success, frames)
+            XCTAssertEqual(result.returnAddress, addresses[0], frames)
+            XCTAssertNotNil(result.imageName, frames)
+            XCTAssertNotNil(result.imageUUID, frames)
+            XCTAssertNotNil(result.symbolName, frames)
+            XCTAssert(result.imageAddress > 0, frames)
+            XCTAssert(result.imageSize > 0, frames)
+            XCTAssert(result.symbolAddress > 0, frames)
+            XCTAssertNotEqual(result.imageCpuType, 0, frames)
+        }
+
+        private static func describe(_ addresses: ArraySlice<UInt>) -> String {
+            let lines = addresses.enumerated().map { index, address -> String in
+                var info = SymbolInformation()
+                let hex = "0x" + String(address, radix: 16)
+                guard address != 0, symbolicate(address: address, result: &info) else {
+                    return "#\(index) \(hex) unresolved"
+                }
+                let image = info.imageName.map { String(cString: $0) } ?? "(no image)"
+                let imageOffset = "0x" + String(address &- info.imageAddress, radix: 16)
+                let symbol = info.symbolName.map { String(cString: $0) } ?? "(no symbol)"
+                let symbolOffset =
+                    info.symbolAddress == 0 ? "" : " + \(Int(bitPattern: address &- info.symbolAddress))"
+                return "#\(index) \(hex) \(image) + \(imageOffset) \(symbol)\(symbolOffset)"
+            }
+            return "frames:\n" + lines.joined(separator: "\n")
+        }
+
+        /// Waits until the thread is blocked in the kernel, so its frames are the semaphore wait
+        /// rather than whatever it ran between signalling and waiting.
+        private func waitUntilBlocked(_ machThread: mach_port_t, timeout: TimeInterval = 5) {
+            let deadline = Date().addingTimeInterval(timeout)
+            while Date() < deadline {
+                var info = thread_basic_info()
+                var infoCount = mach_msg_type_number_t(
+                    MemoryLayout<thread_basic_info>.size / MemoryLayout<natural_t>.size)
+                let kr = withUnsafeMutablePointer(to: &info) {
+                    $0.withMemoryRebound(to: integer_t.self, capacity: Int(infoCount)) {
+                        thread_info(machThread, thread_flavor_t(THREAD_BASIC_INFO), $0, &infoCount)
+                    }
+                }
+                guard kr == KERN_SUCCESS else {
+                    XCTFail("thread_info failed: \(kr)")
+                    return
+                }
+                if info.run_state == TH_STATE_WAITING {
+                    return
+                }
+                usleep(1000)
+            }
+            XCTFail("The parked thread never blocked")
         }
 
         func testSameThreadSymbolicate() {
