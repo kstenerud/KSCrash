@@ -2061,6 +2061,40 @@ static int addJSONData(const char *data, int length, void *userData)
     }
 }
 
+// The same boundary for a payload read from a file, which decodes through its own entry point.
+- (void)testCheckFileAgreesWithAddFromFileAtTheDepthBoundary
+{
+    NSString *path = [self.tempPath stringByAppendingPathComponent:@"nested.json"];
+    for (int destinationDepth = 0; destinationDepth <= 20; destinationDepth += 10) {
+        // ksjson_beginObject for the element itself takes one of the remaining levels.
+        const int justFits = KSJSON_MAX_CONTAINER_DEPTH - destinationDepth - 2;
+
+        for (int payloadDepth = justFits - 1; payloadDepth <= justFits + 2; payloadDepth++) {
+            NSData *bytes = [[self nestedPayloadOfDepth:payloadDepth] dataUsingEncoding:NSUTF8StringEncoding];
+            XCTAssertTrue([bytes writeToFile:path atomically:YES]);
+
+            NSMutableData *encodedData = [NSMutableData data];
+            KSJSONEncodeContext context = { 0 };
+            ksjson_beginEncode(&context, false, addJSONData, (__bridge void *)(encodedData));
+            [self nestEncoder:&context toDepth:destinationDepth];
+
+            int checkResult = ksjson_checkJSONFile(&context, path.UTF8String);
+            int addResult = ksjson_addJSONFromFile(&context, NULL, path.UTF8String, true);
+            XCTAssertEqual(checkResult, addResult, @"payload %d deep into a destination %d deep", payloadDepth,
+                           destinationDepth);
+        }
+
+        NSData *fits = [[self nestedPayloadOfDepth:justFits] dataUsingEncoding:NSUTF8StringEncoding];
+        XCTAssertTrue([fits writeToFile:path atomically:YES]);
+        XCTAssertEqual([self checkFile:path atDepth:destinationDepth], KSJSON_OK,
+                       @"a payload that fits must be accepted at depth %d", destinationDepth);
+        NSData *tooDeep = [[self nestedPayloadOfDepth:justFits + 2] dataUsingEncoding:NSUTF8StringEncoding];
+        XCTAssertTrue([tooDeep writeToFile:path atomically:YES]);
+        XCTAssertEqual([self checkFile:path atDepth:destinationDepth], KSJSON_ERROR_DATA_TOO_LONG,
+                       @"a payload that does not fit must be refused at depth %d", destinationDepth);
+    }
+}
+
 #pragma mark - String limits
 
 /** A JSON payload whose single key or value decodes to `decodedLength` bytes, written
