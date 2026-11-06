@@ -46,6 +46,21 @@ final class StoreTests: XCTestCase {
         XCTAssertNil(Store.ReportFilename.reportID(in: digits + "-4c1b2f3e-0000-4000-8000-000000000001.jso"))
     }
 
+    func test_listReportIDs_missingDirectory_isEmpty() throws {
+        let missing = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("StoreTests-NoReports-\(UUID().uuidString)")
+        XCTAssertEqual(try Store.listReportIDs(in: missing), [])
+    }
+
+    // Every API's way of saying a file is not there is one answer for the store.
+    func test_isNoSuchFile_coversEachWayAMissingFileIsReported() {
+        XCTAssertTrue(Store.isNoSuchFile(CocoaError(.fileNoSuchFile)))
+        XCTAssertTrue(Store.isNoSuchFile(CocoaError(.fileReadNoSuchFile)))
+        XCTAssertTrue(Store.isNoSuchFile(POSIXError(.ENOENT)))
+        XCTAssertFalse(Store.isNoSuchFile(CocoaError(.fileReadNoPermission)))
+        XCTAssertFalse(Store.isNoSuchFile(POSIXError(.EACCES)))
+    }
+
     private var runsDirectory: URL!
     private var sidecarsDirectory: URL!
 
@@ -333,6 +348,15 @@ final class StoreTests: XCTestCase {
         XCTAssertThrowsError(try makeStore().summary(of: run)) { error in
             XCTAssertEqual(error as? RunSummaryReadError, .stitchFailed)
         }
+    }
+
+    func test_summary_runFileGoneSinceTheSnapshot_isNilNotAnError() throws {
+        let runID = testRunID("GONE-RUN")
+        let summaryFile = try writeSummary(makeSummary(runID: "GONE-RUN"), startNs: 100)
+        try FileManager.default.removeItem(at: summaryFile)
+
+        let run = Run(runID: runID, summaryFile: summaryFile, sessionsFile: nil, sidecarDirectory: nil)
+        XCTAssertNil(try makeStore().summary(of: run))
     }
 
     func test_summary_withoutSessionsFile_keepsEmptyRecords() throws {
