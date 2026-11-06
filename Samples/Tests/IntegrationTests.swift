@@ -107,7 +107,8 @@ final class NSExceptionTests: IntegrationTestBase {
 }
 
 final class MachTests: IntegrationTestBase {
-    override class var platforms: Set<TargetPlatform> { [.iOS] }
+    // Where KSCrash handles Mach exceptions (KSCRASH_HAS_MACH).
+    override class var platforms: Set<TargetPlatform> { [.iOS, .macOS, .visionOS] }
 
     func testBadAccess() throws {
         try launchAndCrash(.mach_badAccess)
