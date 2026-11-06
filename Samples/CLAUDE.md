@@ -63,9 +63,10 @@ xcodebuild -scheme Sample -destination 'platform=iOS Simulator,name=iPhone 15'
 The integration tests run on the Mac whatever platform they test. They launch the Sample app
 themselves (a child process on macOS, `simctl` on a simulator), crash it on purpose, relaunch it
 to send the report, and check what arrives. XCTest never launches or watches the app. On a
-simulator platform they create a fresh simulator for the run and delete it afterwards. Before its
-first app launch, that simulator has the background jobs that load a new device (media analysis,
-Siri, Health and others, listed in `SimulatorDevice.busyJobs`) disabled and is booted again.
+simulator platform they create a fresh simulator for the run and delete it afterwards. It is set
+up before the first test starts (`IntegrationTestsSetup`, the bundle's principal class), and has
+the background jobs that load a new device (media analysis, Siri, Health and others, listed in
+`SimulatorDevice.busyJobs`) disabled and is booted again.
 
 ### Running Integration Tests
 CI (`.github/workflows/integration-tests.yml`) is the reference. Locally, from `Samples/`:

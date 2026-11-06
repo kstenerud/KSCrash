@@ -109,7 +109,23 @@ final class TargetApp {
     init() throws {
         appURL = try Self.locateApp()
         if TargetPlatform.current != .macOS {
+            if let error = Self.deviceSetupError { throw error }
             try SimulatorDevice.shared(installing: appURL)
+        }
+    }
+
+    /// Why `prepareDevice` failed, when it did. Every test throws it rather than try the
+    /// setup again inside its own time allowance.
+    private static var deviceSetupError: Error?
+
+    /// Creates the run's simulator and installs the app before the first test, so the minutes
+    /// that takes are charged to no test. Called by `IntegrationTestsSetup`.
+    static func prepareDevice() {
+        guard let platform = TargetPlatform.configured, platform != .macOS else { return }
+        do {
+            try SimulatorDevice.shared(installing: locateApp())
+        } catch {
+            deviceSetupError = error
         }
     }
 
@@ -241,6 +257,22 @@ final class TargetApp {
                     + "or set KSCRASH_IT_APP.")
         }
         return app
+    }
+}
+
+/// The test bundle's principal class (`NSPrincipalClass` in Samples/Project.swift). XCTest makes
+/// one when the bundle loads, so it sets up the simulator before any test starts. Charged to the
+/// first test instead, that setup used most of the test's five minute allowance on CI.
+@objc(KSCrashIntegrationTestsSetup)
+final class IntegrationTestsSetup: NSObject, XCTestObservation {
+    override init() {
+        super.init()
+        XCTestObservationCenter.shared.addTestObserver(self)
+    }
+
+    func testBundleWillStart(_ testBundle: Bundle) {
+        // XCTest calls its observers on the main thread.
+        MainActor.assumeIsolated { TargetApp.prepareDevice() }
     }
 }
 
