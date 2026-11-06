@@ -95,6 +95,7 @@ let project = Project(
             product: .unitTests,
             bundleId: "com.github.kstenerud.KSCrash.Sample.Tests",
             deploymentTargets: .macOS("13.0"),
+            infoPlist: .extendingDefault(with: ["NSPrincipalClass": "KSCrashIntegrationTestsSetup"]),
             sources: ["Tests/**"],
             dependencies: [
                 .package(product: "SampleUI", type: .runtime),

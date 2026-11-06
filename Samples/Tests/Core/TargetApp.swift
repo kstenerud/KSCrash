@@ -109,7 +109,23 @@ final class TargetApp {
     init() throws {
         appURL = try Self.locateApp()
         if TargetPlatform.current != .macOS {
+            if let error = Self.deviceSetupError { throw error }
             try SimulatorDevice.shared(installing: appURL)
+        }
+    }
+
+    /// Why `prepareDevice` failed, when it did. Every test throws it rather than try the
+    /// setup again inside its own time allowance.
+    private static var deviceSetupError: Error?
+
+    /// Creates the run's simulator and installs the app before the first test, so the minutes
+    /// that takes are charged to no test. Called by `IntegrationTestsSetup`.
+    static func prepareDevice() {
+        guard let platform = TargetPlatform.configured, platform != .macOS else { return }
+        do {
+            try SimulatorDevice.shared(installing: locateApp())
+        } catch {
+            deviceSetupError = error
         }
     }
 
@@ -244,6 +260,22 @@ final class TargetApp {
     }
 }
 
+/// The test bundle's principal class (`NSPrincipalClass` in Samples/Project.swift). XCTest makes
+/// one when the bundle loads, so it sets up the simulator before any test starts. Charged to the
+/// first test instead, that setup used most of the test's five minute allowance on CI.
+@objc(KSCrashIntegrationTestsSetup)
+final class IntegrationTestsSetup: NSObject, XCTestObservation {
+    override init() {
+        super.init()
+        XCTestObservationCenter.shared.addTestObserver(self)
+    }
+
+    func testBundleWillStart(_ testBundle: Bundle) {
+        // XCTest calls its observers on the main thread.
+        MainActor.assumeIsolated { TargetApp.prepareDevice() }
+    }
+}
+
 /// The one simulator this test run uses. Created fresh for the run and deleted when the bundle
 /// finishes, unless `KSCRASH_IT_DEVICE` names an existing one to use as is.
 @MainActor
@@ -305,8 +337,44 @@ final class SimulatorDevice {
         observer = cleanup
         try xcrun(["simctl", "boot", udid])
         try xcrun(["simctl", "bootstatus", udid, "-b"])
+        try quiet(udid)
         try keepHomeScreenClosed(on: udid)
         return device
+    }
+
+    /// Jobs a fresh simulator runs that keep the Mac's cores busy for minutes after a boot.
+    /// On iOS 26.5 they held a new device at 300 to 400% CPU (mediaanalysisd alone at over
+    /// 350%), and on a CI runner that load stretched the first app launch past a test's
+    /// time allowance. A label the runtime does not have is harmless to disable.
+    private static let busyJobs = [
+        "PosterBoard", "chronod", "remindd", "siriinferenced", "dataaccess.dataaccessd", "healthd",
+        "healthappd", "siriactionsd", "sirittsd", "email.maild", "homed", "calaccessd",
+        "icloudmailagent", "amsengagementd", "intelligenceplatformd", "intelligenceflowd", "triald",
+        "assistantd", "telephonyutilities.callservicesd", "mediaanalysisd", "mediaanalysisd.service",
+        "photoanalysisd",
+    ]
+
+    /// Disables `busyJobs` and boots the device again. The simulator's own launchd keeps its
+    /// disabled list across a reboot, so the second boot comes up without them. Some of these
+    /// run per user rather than system-wide, so each is disabled in both domains. The calls
+    /// run together because each one is a separate spawn into the simulator.
+    private static func quiet(_ udid: String) throws {
+        let domains = ["system", "user/\(getuid())"]
+        let processes = try busyJobs.flatMap { job in
+            try domains.map { domain in
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")
+                process.arguments = ["simctl", "spawn", udid, "launchctl", "disable", "\(domain)/com.apple.\(job)"]
+                process.standardOutput = FileHandle.nullDevice
+                process.standardError = FileHandle.nullDevice
+                try process.run()
+                return process
+            }
+        }
+        processes.forEach { $0.waitUntilExit() }
+        try xcrun(["simctl", "shutdown", udid])
+        try xcrun(["simctl", "boot", udid])
+        try xcrun(["simctl", "bootstatus", udid, "-b"])
     }
 
     /// tvOS opens its home screen when an app dies. On a loaded machine PineBoard learns of a

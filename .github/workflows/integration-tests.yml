@@ -71,7 +71,9 @@ jobs:
           scheme: "Sample"
           platform: ${{ matrix.platform }}
 
+      # Under the job's limit, so a run that stalls fails this step and the job keeps its log.
       - name: Run Integration Tests
+        timeout-minutes: 35
         uses: mxcl/xcodebuild@v3
         env:
           TEST_RUNNER_KSCRASH_IT_PLATFORM: ${{ matrix.platform }}
