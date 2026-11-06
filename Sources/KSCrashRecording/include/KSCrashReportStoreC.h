@@ -234,7 +234,8 @@ bool kscrs_getReportSidecarFilePath(const char *monitorId, const char *name, con
                                     const KSCrashReportStoreCConfiguration *const configuration);
 
 /** Remove on-disk run data (run sidecar directories and session sidecars) for
- * runs no longer referenced by any report or run summary.
+ * runs no longer referenced by any report or run summary, and the partial
+ * files of report writes that a crash interrupted.
  *
  * Called automatically within the send flows. If you handle delivery yourself,
  * call this periodically or after sending. May block, so prefer a background
