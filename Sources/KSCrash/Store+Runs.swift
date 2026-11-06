@@ -83,7 +83,7 @@ extension Store {
         let data: Data
         do {
             data = try Data(contentsOf: file)
-        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+        } catch  where Self.isNoSuchFile(error) {
             // The snapshot went stale after the directory was listed.
             return nil
         } catch {
