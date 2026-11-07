@@ -113,8 +113,8 @@ extension KSCrash {
         let previousDeclaration = try? Data(contentsOf: manifestURL)
         // The declaration is the first file this install creates, and a file created under the
         // container's default class cannot be written before the first unlock after a reboot. A
-        // failed declaration fails the install, so the root drops its protection first, rather
-        // than in the C install below, which would never run.
+        // failed declaration fails the install, so the root is set to class D (no protection)
+        // first, rather than in the C install below, which would never run.
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         ksfu_removeDataProtection(root.path)
         try StoreManifest.write(kind: StoreManifest.corpseKind, atProcessRoot: root)

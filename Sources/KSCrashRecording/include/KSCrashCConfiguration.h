@@ -49,11 +49,6 @@ extern "C" {
 #define KSCRS_DEFAULT_RUN_SIDECAR_RETENTION_SECONDS (30.0 * 24.0 * 60.0 * 60.0)
 
 /** Configuration for managing crash reports through the report store API.
- *
- * Install takes data protection off each of these directories (class D,
- * `NSFileProtectionNone`), including ones configured outside the install path, so reports
- * can be written and read before the first unlock after a reboot. Point them at
- * directories that hold nothing else.
  */
 typedef struct {
     /** The directory path for storing crash reports.

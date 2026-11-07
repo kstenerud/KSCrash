@@ -36,7 +36,7 @@ public enum Container: Sendable, Equatable {
     /// The container of an app group; sharing between processes is always explicit.
     case appGroup(String)
     /// A directory of the caller's choosing; the install's layout still applies under it.
-    /// The install takes data protection off its directories there, as everywhere.
+    /// The install sets its directories there to `FileProtectionType.none`, as everywhere.
     case url(URL)
 
     /// Application Support, except on tvOS where only Caches is writable.
@@ -169,8 +169,8 @@ public struct InstallConfiguration: Sendable {
 
 extension InstallConfiguration {
     /// The directories an install uses: `<container>/KSCrash/<namespace>/<bundle id>/`
-    /// and the stores inside it. The install takes data protection off them
-    /// (`FileProtectionType.none`), so a crash in a launch before the first unlock after a
+    /// and the stores inside it. The install sets their data protection to
+    /// `FileProtectionType.none`, so a crash in a launch before the first unlock after a
     /// reboot can still be recorded, and everything later created in them takes that class.
     public struct Locations: Sendable, Equatable {
         public let root: URL

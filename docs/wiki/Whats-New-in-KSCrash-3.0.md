@@ -253,14 +253,14 @@ the first time after a reboot, by a VoIP push, background location or a
 default protection class, whose key does not exist until that first unlock, so
 the report could not be created.
 
-KSCrash now takes data protection off every directory it writes to (class D,
-`NSFileProtectionNone`), and everything it creates there takes that class. The
+Every directory KSCrash writes to now has data protection class D
+(`NSFileProtectionNone`), and everything it creates there takes that class. The
 metadata store and the monitor sidecars were already unprotected for the same
 reason. A class D file is encrypted only with the device's own key, not one
 derived from the passcode, so it can be read while the device is locked. Reports
 can hold user data: keep anything that must stay protected while the device is
 locked out of the report and its metadata. Give KSCrash directories of its own,
-since a custom container or store path loses its protection too.
+since a custom container is set to class D too.
 
 ## Out-of-process reporting with CrashReportExtension
 

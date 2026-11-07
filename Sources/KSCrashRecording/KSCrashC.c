@@ -475,13 +475,13 @@ static bool getSummarySidecarPathCallback(const char *runID, const char *extensi
     return kscrs_getSummarySidecarFilePath(runID, extension, pathBuffer, pathBufferLength, &g_reportStoreConfig);
 }
 
-/** Removes the data protection of the store's folders, so reports can be written and read before
- *  the first unlock after a reboot. They may be configured outside the install path, so its class
- *  does not reach them, and an install from an earlier version created them under the default
- *  class. Runs is created later, with the first run summary; a folder that does not exist yet is
- *  skipped quietly. The per-monitor folders under Sidecars last across launches too, and a
- *  plugin's report sidecar is an ordinary file that takes its folder's class, so they are set as
- *  well. A run's sidecar folder is new every run and takes RunSidecars' class.
+/** Sets the store's folders to class D (no protection), so reports can be written and read before
+ *  the first unlock after a reboot. An install from an earlier version created them under the
+ *  default class, which they keep although the install path is now class D. Runs is created
+ *  later, with the first run summary; a folder that does not exist yet is skipped quietly. The
+ *  per-monitor folders under Sidecars last across launches too, and a plugin's report sidecar is
+ *  an ordinary file that takes its folder's class, so they are set as well. A run's sidecar
+ *  folder is new every run and takes RunSidecars' class.
  */
 static void removeStoreDataProtection(void)
 {
