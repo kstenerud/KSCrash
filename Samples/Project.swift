@@ -239,7 +239,7 @@ extension DeploymentTargets {
         .multiplatform(
             iOS: "15.0",
             macOS: "13.0",
-            watchOS: "8.0",
+            watchOS: "9.0",
             tvOS: "15.0",
             visionOS: "1.0"
         )
