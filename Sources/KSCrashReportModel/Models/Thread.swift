@@ -30,34 +30,34 @@ extension Report {
     /// Information about a thread at the time of crash.
     public struct Thread: Codable, Sendable, Equatable {
         /// Stack backtrace for this thread.
-        public let backtrace: Backtrace?
+        public var backtrace: Backtrace?
 
         /// Whether this thread crashed.
-        public let crashed: Bool
+        public var crashed: Bool
 
         /// Whether this is the current thread being executed.
-        public let currentThread: Bool
+        public var currentThread: Bool
 
         /// Dispatch queue this thread was executing on (if any).
-        public let dispatchQueue: String?
+        public var dispatchQueue: String?
 
         /// Thread index.
-        public let index: Int
+        public var index: Int
 
         /// Thread name (if set).
-        public let name: String?
+        public var name: String?
 
         /// Notable memory addresses and their contents.
-        public let notableAddresses: [String: MemoryContents]?
+        public var notableAddresses: [String: MemoryContents]?
 
         /// CPU register values.
-        public let registers: Registers?
+        public var registers: Registers?
 
         /// Stack memory dump.
-        public let stack: StackDump?
+        public var stack: StackDump?
 
         /// Thread state (e.g., "TH_STATE_RUNNING", "TH_STATE_WAITING").
-        public let state: String?
+        public var state: String?
 
         public init(
             backtrace: Backtrace? = nil,

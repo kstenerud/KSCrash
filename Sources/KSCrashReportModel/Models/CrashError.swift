@@ -118,50 +118,50 @@ public enum CrashErrorSubtype: RawRepresentable, Codable, Sendable, Equatable {
 /// The error that caused the crash.
 public struct CrashError: Codable, Sendable, Equatable {
     /// Memory address involved in the crash (if applicable).
-    public let address: UInt64?
+    public var address: UInt64?
 
     /// Mach exception information.
-    public let mach: MachError?
+    public var mach: MachError?
 
     /// NSException information (for Objective-C/Swift exceptions).
-    public let nsexception: ExceptionInfo?
+    public var nsexception: ExceptionInfo?
 
     /// Unix signal information.
-    public let signal: SignalError?
+    public var signal: SignalError?
 
     /// The type of error that caused the crash.
-    public let type: CrashErrorType
+    public var type: CrashErrorType
 
     /// An optional subtype refining ``type`` (e.g. `.hang` for a hang-sourced profile report).
-    public let subtype: CrashErrorSubtype?
+    public var subtype: CrashErrorSubtype?
 
     /// C++ exception information.
-    public let cppException: CppExceptionInfo?
+    public var cppException: CppExceptionInfo?
 
     /// User-reported crash information.
-    public let userReported: UserReportedInfo?
+    public var userReported: UserReportedInfo?
 
     /// Hang information (watchdog timeouts).
-    public let hang: HangInfo?
+    public var hang: HangInfo?
 
     /// Exit reason information from the OS.
-    public let exitReason: ExitReasonInfo?
+    public var exitReason: ExitReasonInfo?
 
     /// Reason for the crash (often from abort message or exception reason).
-    public let reason: String?
+    public var reason: String?
 
     /// Profile information (for profiling reports).
-    public let profile: ProfileInfo?
+    public var profile: ProfileInfo?
 
     /// Whether this error was fatal to the process.
-    public let isFatal: Bool?
+    public var isFatal: Bool?
 
     /// Whether the exit was expected and not a crash (e.g., SIGTERM).
     /// Only meaningful when `isFatal` is true.
-    public let isCleanExit: Bool?
+    public var isCleanExit: Bool?
 
     /// Termination reason for resource termination reports.
-    public let terminationReason: TerminationReason?
+    public var terminationReason: TerminationReason?
 
     /// Memory state at the time of a memory termination.
     public var memoryTermination: Metadata? { memoryTerminationSection?.metadata }

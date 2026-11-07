@@ -52,8 +52,10 @@ public struct SendResult<Payload: SendPayload>: Sendable {
         /// processes the item again.
         case discarded
 
-        /// Loading or decoding the item, or a stage, threw this error:
-        /// the item stays on disk and is retried by the next send.
+        /// Loading or decoding the item, or a stage, threw this error, or a
+        /// monitor's stitch failed for a reason a later read can get past
+        /// (`ReportReadError.stitchFailed`): the item stays on disk and is
+        /// retried by the next send.
         ///
         /// Retries are unbounded. Nothing counts attempts or backs off, so an
         /// item that can never succeed is re-read and re-run on every send
