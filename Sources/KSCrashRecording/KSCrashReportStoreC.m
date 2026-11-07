@@ -1447,8 +1447,12 @@ static void removeAbandonedWrites(const KSCrashReportStoreCConfiguration *const 
         }
         closedir(dir);
         for (NSString *path in abandoned) {
-            if (unlink(path.fileSystemRepresentation) != 0 && errno != ENOENT) {
-                KSLOG_ERROR(@"Could not remove abandoned write %s: %s", path.fileSystemRepresentation, strerror(errno));
+            const char *cPath = path.fileSystemRepresentation;
+            if (unlink(cPath) != 0) {
+                int error = errno;
+                if (error != ENOENT) {
+                    KSLOG_ERROR(@"Could not remove abandoned write %s: %s", cPath, strerror(error));
+                }
             }
         }
     }
