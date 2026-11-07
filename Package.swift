@@ -201,7 +201,7 @@ let package = Package(
     platforms: [
         .iOS(.v15),
         .tvOS(.v15),
-        .watchOS(.v8),
+        .watchOS(.v9),
         .macOS(.v12),
         .visionOS(.v1),
     ],
@@ -268,7 +268,11 @@ let package = Package(
                 .headerSearchPath("Monitors"),
                 .headerSearchPath("../KSCrashRecordingCore/include"),  // For internal Unwind/ headers
                 .unsafeFlags(warningFlags),
-            ]
+            ],
+            // The C++ exception monitor needs the C++ runtime. SwiftPM links it for a target
+            // with C++ sources, but an integration that turns the package into Xcode targets
+            // (Tuist's) links only what the target declares.
+            linkerSettings: [.linkedLibrary("c++")]
         ),
         .testTarget(
             name: Targets.recording.tests,
