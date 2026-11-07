@@ -27,6 +27,7 @@
 #include "KSFileUtils.h"
 
 // #define KSLogger_LocalLevel TRACE
+#include <TargetConditionals.h>
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -38,6 +39,10 @@
 #include <unistd.h>
 
 #include "KSLogger.h"
+
+// Data protection class D, no protection. Apple's platform security guide documents the
+// classes as A to D; the SDK declares F_SETPROTECTIONCLASS but not their numbers.
+#define KSFU_PROTECTION_CLASS_D 4
 
 /** Buffer size to use in the "writeFmt" functions.
  * If the formatted output length would exceed this value, it is truncated.
@@ -364,6 +369,28 @@ bool ksfu_makePath(const char *absolutePath)
 done:
     free(pathCopy);
     return isSuccessful;
+}
+
+bool ksfu_removeDataProtection(const char *path)
+{
+#if TARGET_OS_IPHONE
+    int fd = open(path, O_RDONLY);
+    if (fd < 0) {
+        if (errno != ENOENT) {
+            KSLOG_ERROR("Could not open %s to remove its data protection: %s", path, strerror(errno));
+        }
+        return false;
+    }
+    bool isSet = fcntl(fd, F_SETPROTECTIONCLASS, KSFU_PROTECTION_CLASS_D) == 0;
+    if (!isSet) {
+        KSLOG_ERROR("Could not remove the data protection of %s: %s", path, strerror(errno));
+    }
+    close(fd);
+    return isSet;
+#else
+    (void)path;
+    return true;
+#endif
 }
 
 bool ksfu_removeFile(const char *path, bool mustExist, int *errnoOut)

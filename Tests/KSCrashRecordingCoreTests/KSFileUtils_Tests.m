@@ -719,4 +719,44 @@
     XCTAssertFalse(ksfu_removeFile(path.UTF8String, false, NULL));
 }
 
+- (void)testRemoveDataProtectionOfAMissingPath
+{
+    NSString *path = [self.tempPath stringByAppendingPathComponent:@"missing"];
+#if TARGET_OS_IPHONE
+    XCTAssertFalse(ksfu_removeDataProtection(path.UTF8String));
+#else
+    // No data protection to remove.
+    XCTAssertTrue(ksfu_removeDataProtection(path.UTF8String));
+#endif
+}
+
+// Only a device keeps protection classes: the simulator and macOS accept the call and report the
+// default class afterwards.
+- (void)testRemoveDataProtectionReachesWhatIsCreatedInTheFolder
+{
+#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR && !TARGET_OS_MACCATALYST
+    NSString *folder = [self.tempPath stringByAppendingPathComponent:@"unprotected"];
+    XCTAssertTrue(ksfu_makePath(folder.UTF8String));
+    XCTAssertTrue(ksfu_removeDataProtection(folder.UTF8String));
+
+    int folderFD = open(folder.UTF8String, O_RDONLY);
+    XCTAssertEqual(fcntl(folderFD, F_GETPROTECTIONCLASS), 4, @"class D");
+    close(folderFD);
+
+    NSString *file = [folder stringByAppendingPathComponent:@"report.json"];
+    int fileFD = open(file.UTF8String, O_RDWR | O_CREAT | O_EXCL, 0644);
+    XCTAssertGreaterThanOrEqual(fileFD, 0);
+    XCTAssertEqual(fcntl(fileFD, F_GETPROTECTIONCLASS), 4, @"a new file takes its folder's class");
+    close(fileFD);
+
+    NSString *subfolder = [folder stringByAppendingPathComponent:@"Sidecars"];
+    XCTAssertTrue(ksfu_makePath(subfolder.UTF8String));
+    int subfolderFD = open(subfolder.UTF8String, O_RDONLY);
+    XCTAssertEqual(fcntl(subfolderFD, F_GETPROTECTIONCLASS), 4, @"a new folder takes its folder's class");
+    close(subfolderFD);
+#else
+    XCTSkip(@"Only a device keeps data protection classes");
+#endif
+}
+
 @end

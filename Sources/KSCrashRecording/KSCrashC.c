@@ -60,6 +60,7 @@
 #include "KSThreadCache.h"
 
 // #define KSLogger_LocalLevel TRACE
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
@@ -168,6 +169,9 @@ static void rotateRunID(const char *installPath)
         KSLOG_ERROR("Could not open %s: %s", path, strerror(errno));
         return;
     }
+    // Rewritten in place on every launch, so a file an earlier version created keeps the
+    // class it was created with unless it is changed here.
+    ksfu_removeDataProtection(path);
 
     ssize_t n = read(fd, g_lastRunID, KSC_UUID_STRING_LENGTH);
     if (n == KSC_UUID_STRING_LENGTH) {
@@ -471,6 +475,50 @@ static bool getSummarySidecarPathCallback(const char *runID, const char *extensi
     return kscrs_getSummarySidecarFilePath(runID, extension, pathBuffer, pathBufferLength, &g_reportStoreConfig);
 }
 
+/** Removes the data protection of the store's folders, so reports can be written and read before
+ *  the first unlock after a reboot. They may be configured outside the install path, so its class
+ *  does not reach them, and an install from an earlier version created them under the default
+ *  class. Runs is created later, with the first run summary; a folder that does not exist yet is
+ *  skipped quietly. The per-monitor folders under Sidecars last across launches too, and a
+ *  plugin's report sidecar is an ordinary file that takes its folder's class, so they are set as
+ *  well. A run's sidecar folder is new every run and takes RunSidecars' class.
+ */
+static void removeStoreDataProtection(void)
+{
+    const char *const directories[] = {
+        g_reportStoreConfig.reportsPath,
+        g_reportStoreConfig.reportSidecarsPath,
+        g_reportStoreConfig.runSidecarsPath,
+        g_reportStoreConfig.runSummariesPath,
+        g_publishedReportsPath,
+    };
+    for (size_t i = 0; i < sizeof(directories) / sizeof(directories[0]); i++) {
+        if (directories[i] != NULL) {
+            ksfu_removeDataProtection(directories[i]);
+        }
+    }
+
+    if (g_reportStoreConfig.reportSidecarsPath == NULL) {
+        return;
+    }
+    DIR *dir = opendir(g_reportStoreConfig.reportSidecarsPath);
+    if (dir == NULL) {
+        return;
+    }
+    struct dirent *ent;
+    while ((ent = readdir(dir)) != NULL) {
+        if (ent->d_type != DT_DIR || ent->d_name[0] == '.') {
+            continue;
+        }
+        char path[KSFU_MAX_PATH_LENGTH];
+        if (snprintf(path, sizeof(path), "%s/%s", g_reportStoreConfig.reportSidecarsPath, ent->d_name) <
+            (int)sizeof(path)) {
+            ksfu_removeDataProtection(path);
+        }
+    }
+    closedir(dir);
+}
+
 /** Fill any unset report store paths with their defaults under installPath.
  *  Shared by both install entry points so a store configured either way scans the same layout.
  */
@@ -534,6 +582,13 @@ KSCrashInstallErrorCode kscrash_install(const char *const installPath, KSCrashCC
         KSLOG_ERROR("Could not create path: %s", path);
         return KSCrashInstallErrorCouldNotCreatePath;
     }
+    // Everything under the install path is read and written before the first unlock after a
+    // reboot when the app launches in the background then, and a crash in that launch is one
+    // this library exists to record. New files and folders take their folder's class, so the
+    // base folder covers what is created from here on. Folders an earlier version created keep
+    // their class, so Data is set here and the store's in removeStoreDataProtection.
+    ksfu_removeDataProtection(installPath);
+    ksfu_removeDataProtection(path);
     rotateRunID(installPath);
 
     KSCrashInstallErrorCode pathResult = resolveStoreConfigDefaults(installPath);
@@ -545,6 +600,7 @@ KSCrashInstallErrorCode kscrash_install(const char *const installPath, KSCrashCC
     if (storeInitResult != KSCrashInstallErrorNone) {
         return storeInitResult;
     }
+    removeStoreDataProtection();
     // Register the install's config as the source of paths for the no-config
     // readers (readReportAtPath, readReportByPathAndID, finalizeReport). Only
     // the install does this.
@@ -640,6 +696,10 @@ KSCrashInstallErrorCode
     // (a subject's frames must resolve against its provided images, never this process's).
     resetStoreConfig();
     g_reportStoreConfig.maxReportCount = 0;  // Never prune from here.
+    // The crashed app may have been launched before the first unlock after a reboot; its report
+    // is written then too. Folders created below take the base folder's class.
+    ksfu_makePath(installPath);
+    ksfu_removeDataProtection(installPath);
     KSCrashInstallErrorCode pathResult = resolveStoreConfigDefaults(installPath);
     if (pathResult != KSCrashInstallErrorNone) {
         return pathResult;
@@ -665,6 +725,7 @@ KSCrashInstallErrorCode
     if (storeInitResult != KSCrashInstallErrorNone) {
         return storeInitResult;
     }
+    removeStoreDataProtection();
     // Whatever a previous extension process left in staging is a report it never finished
     // (killed at its budget) or never published; nothing else ever looks in here.
     ksfu_deleteContentsOfPath(g_reportStoreConfig.reportsPath);
