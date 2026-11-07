@@ -57,7 +57,11 @@ extern "C" {
  *
  * @param installPath The directory where the crash reports and related data will be stored.
  *                    The specified directory must be writable, as it will contain log files,
- *                    crash data, and other diagnostic information.
+ *                    crash data, and other diagnostic information. Install takes data
+ *                    protection off it and off the report store's directories (class D,
+ *                    `NSFileProtectionNone`), so a crash in a launch before the first unlock
+ *                    after a reboot can still be recorded, and everything later created in
+ *                    them takes that class. Give KSCrash directories of its own.
  *
  * @param configuration A `KSCrashCConfiguration` struct containing various settings and options
  *                      for the crash reporter. This struct allows you to specify which types of crashes
@@ -237,7 +241,8 @@ void kscrash_clearRunID(void);
  *
  * @param installPath The extension's report directory (e.g. <app group container>/KSCrash).
  *        The app's store scans this area by the same layout when it ingests, so a
- *        mismatched path writes reports the app never finds.
+ *        mismatched path writes reports the app never finds. Its data protection is
+ *        removed, as for kscrash_install.
  * @param pluginAPIs Plugin monitors to register (e.g. the crash-report-extension monitor).
  *        May be NULL.
  * @param pluginCount The number of entries in @c pluginAPIs.
