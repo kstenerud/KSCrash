@@ -240,7 +240,7 @@
     XCTAssertEqual([self fileCountAt:self.appReportsPath], 0u, @"nothing is left behind in the store");
 }
 
-- (void)testRemoveAbandonedTakeInsRemovesAStagedCopyACrashLeftBehind
+- (void)testReclaimRemovesAStagedCopyACrashLeftBehind
 {
     [self prepareStores];
     NSString *staged = [self.appReportsPath
@@ -250,13 +250,13 @@
         stringByAppendingPathComponent:@"00000000000000000002-0e9a9c8e-5b6a-4c1e-9f5e-2f7b8f7c4d22.json"];
     [@"{}" writeToFile:report atomically:YES encoding:NSUTF8StringEncoding error:nil];
 
-    kscrs_removeAbandonedTakeIns(&_appConfig);
+    kscrs_reclaimAbandonedFiles(&_appConfig, true);
 
     XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:staged]);
     XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:report], @"reports are left alone");
 }
 
-- (void)testRemoveAbandonedTakeInsRemovesEveryStagedCopy
+- (void)testReclaimRemovesEveryStagedCopy
 {
     [self prepareStores];
     NSMutableArray<NSString *> *staged = [NSMutableArray array];
@@ -268,11 +268,27 @@
         [staged addObject:path];
     }
 
-    kscrs_removeAbandonedTakeIns(&_appConfig);
+    kscrs_reclaimAbandonedFiles(&_appConfig, true);
 
     for (NSString *path in staged) {
         XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:path], @"%@", path);
     }
+}
+
+- (void)testReclaimKeepsStagedCopiesWhileATakeInMayBeRunning
+{
+    [self prepareStores];
+    NSString *staged = [self.appReportsPath
+        stringByAppendingPathComponent:@"00000000000000000001-0e9a9c8e-5b6a-4c1e-9f5e-2f7b8f7c4d21.json.incoming"];
+    [@"half a report" writeToFile:staged atomically:YES encoding:NSUTF8StringEncoding error:nil];
+    NSString *abandoned = [self.appReportsPath
+        stringByAppendingPathComponent:@"00000000000000000002-0e9a9c8e-5b6a-4c1e-9f5e-2f7b8f7c4d22.json.tmp"];
+    [@"half a report" writeToFile:abandoned atomically:YES encoding:NSUTF8StringEncoding error:nil];
+
+    kscrs_reclaimAbandonedFiles(&_appConfig, false);
+
+    XCTAssertTrue([[NSFileManager defaultManager] fileExistsAtPath:staged], @"a take-in copies outside the lock");
+    XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:abandoned], @"a report write is judged under it");
 }
 
 - (void)testReclaimRemovesAnAbandonedReportWriteAndNothingElse
@@ -293,7 +309,7 @@
 
     // No run id is set in these tests, which makes the run data reclaim skip. The sweep of
     // abandoned writes does not depend on one.
-    kscrs_reclaimOrphanedRunData(&_appConfig);
+    kscrs_reclaimAbandonedFiles(&_appConfig, true);
 
     XCTAssertFalse([fm fileExistsAtPath:abandoned]);
     XCTAssertTrue([fm fileExistsAtPath:report], @"reports are left alone");

@@ -233,17 +233,20 @@ bool kscrs_getReportSidecarFilePath(const char *monitorId, const char *name, con
                                     size_t pathBufferLength,
                                     const KSCrashReportStoreCConfiguration *const configuration);
 
-/** Remove on-disk run data (run sidecar directories and session sidecars) for
- * runs no longer referenced by any report or run summary, and the partial
- * files of report writes that a crash interrupted.
+/** Remove what nothing will read again: on-disk run data (run sidecar
+ * directories and session sidecars) for runs no longer referenced by any
+ * report or run summary, and the partial files of report writes and take-ins
+ * that a crash interrupted.
  *
  * Called automatically within the send flows. If you handle delivery yourself,
  * call this periodically or after sending. May block, so prefer a background
  * thread.
  *
  * @param configuration The store configuration.
+ * @param noTakeInRunning true only while no take-in into this store is
+ *        running; partial take-in files are kept otherwise.
  */
-void kscrs_reclaimOrphanedRunData(const KSCrashReportStoreCConfiguration *const configuration);
+void kscrs_reclaimAbandonedFiles(const KSCrashReportStoreCConfiguration *const configuration, bool noTakeInRunning);
 
 /** What happened to a report offered to the store. */
 typedef enum {
@@ -257,14 +260,6 @@ typedef enum {
      *  discards nothing it still holds and may offer the report again. */
     KSCrashReportTakeInResultFailed,
 } KSCrashReportTakeInResult;
-
-/** Remove partial copies that a crash left in the store during a take-in.
- *
- * Call only while no take-in into this store is running.
- *
- * @param configuration The store configuration.
- */
-void kscrs_removeAbandonedTakeIns(const KSCrashReportStoreCConfiguration *const configuration);
 
 /** Take one finished report into this store, never replacing an existing one.
  *

@@ -64,7 +64,7 @@ struct Store: Sendable {
     let maxReportCount: Int
 
     let reports: ReportBridge
-    private let reclaim: @Sendable () -> Void
+    private let reclaim: @Sendable (_ noTakeInRunning: Bool) -> Void
     /// The store's own Reports directory. Take-ins key their claim on it, so
     /// one send at a time takes reports in to the store. nil for the
     /// bridge-backed test stores.
@@ -95,14 +95,13 @@ struct Store: Sendable {
                 read: { id in try config.read(id) },
                 runID: { id in config.runID(of: id) },
                 remove: { id in try config.remove(id) },
-                removeBatch: { ids in config.removeAll(ids) },
-                removeAbandonedTakeIns: { kscrs_removeAbandonedTakeIns(config.pointer) }
+                removeBatch: { ids in config.removeAll(ids) }
             ),
             // Unreferenced run data is kept for the configured window rather
             // than deleted on sight: a report for that run can still arrive
             // later from a report source, and it needs the run's data to be
             // stitched. A run's data is a few kilobytes, bounded by the window.
-            reclaim: { kscrs_reclaimOrphanedRunData(config.pointer) }
+            reclaim: { kscrs_reclaimAbandonedFiles(config.pointer, $0) }
         )
     }
 
@@ -114,7 +113,7 @@ struct Store: Sendable {
         maxRunCount: Int = 0,
         maxReportCount: Int = 0,
         reports: ReportBridge = .none,
-        reclaim: @escaping @Sendable () -> Void = {}
+        reclaim: @escaping @Sendable (_ noTakeInRunning: Bool) -> Void = { _ in }
     ) {
         self.runsDirectory = runsDirectory
         self.runSidecarsDirectory = runSidecarsDirectory
@@ -287,10 +286,21 @@ struct Store: Sendable {
             + artifactOnly.sorted { $0.runID.description < $1.runID.description }
     }
 
-    /// Remove shared run data nothing references any more, once it is older
-    /// than the configured retention window.
+    /// Remove what nothing will read again: writes and take-ins a crash
+    /// interrupted, and shared run data nothing references any more, once it
+    /// is older than the configured retention window.
     func reclaimOrphans() {
-        reclaim()
+        // A take-in copies outside the store's lock, so its leftovers are
+        // removed only while this send holds the take-in claim. When a take-in
+        // holds it, they wait for a later send rather than this one waiting.
+        let key = takeInClaimKey
+        let noTakeInRunning = Self.takeInClaims.claim(key)
+        defer {
+            if noTakeInRunning {
+                Self.takeInClaims.release(key)
+            }
+        }
+        reclaim(noTakeInRunning)
     }
 
     /// Delete the oldest writer-named `.run` files beyond `max`; 0 or
@@ -461,10 +471,6 @@ struct ReportBridge: Sendable {
     /// Deletes several reports in one pass, skipping ids with no report. nil
     /// deletes them one at a time through `remove`.
     var removeBatch: (@Sendable ([Report.ID]) -> Void)?
-
-    /// Removes partial copies a crash left in the store mid take-in. Called
-    /// only while no take-in into the store is running.
-    var removeAbandonedTakeIns: @Sendable () -> Void = {}
 
     /// Deletes `ids`, logging any that could not be removed.
     func delete(_ ids: [Report.ID]) {
