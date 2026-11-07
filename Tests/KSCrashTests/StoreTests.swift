@@ -477,7 +477,10 @@ final class StoreTests: XCTestCase {
             runsDirectory: runsDirectory,
             runSidecarsDirectory: sidecarsDirectory,
             liveRunID: nil
-        ) { called.fulfill() }
+        ) { noTakeInRunning in
+            XCTAssertTrue(noTakeInRunning, "with no take-in holding the claim, the reclaim holds it")
+            called.fulfill()
+        }
         store.reclaimOrphans()
         wait(for: [called], timeout: 1)
     }
@@ -880,16 +883,36 @@ final class StoreTests: XCTestCase {
             FileManager.default.fileExists(atPath: runData.path), "run data younger than the window survives a send")
     }
 
-    func test_takeIn_removesACopyACrashLeftBehind() async throws {
+    func test_reclaimOrphans_removesATakeInCopyACrashLeftBehind() throws {
         let (store, reportsDirectory, release) = try makeCStore(maxReportCount: 0)
         defer { release() }
         let staged = reportsDirectory.appendingPathComponent(
             String(format: "%020d-%@.json.incoming", 1, testReportID(1).description))
         try Data("half a report".utf8).write(to: staged)
 
-        await store.takeIn(from: [MemoryReportSource([])], claims: ClaimSet())
+        store.reclaimOrphans()
 
         XCTAssertFalse(FileManager.default.fileExists(atPath: staged.path))
+    }
+
+    func test_reclaimOrphans_keepsTakeInCopiesWhileATakeInHoldsTheClaim() throws {
+        let (store, reportsDirectory, release) = try makeCStore(maxReportCount: 0)
+        defer { release() }
+        let staged = reportsDirectory.appendingPathComponent(
+            String(format: "%020d-%@.json.incoming", 1, testReportID(1).description))
+        try Data("half a report".utf8).write(to: staged)
+        let abandonedWrite = reportsDirectory.appendingPathComponent(
+            String(format: "%020d-%@.json.tmp", 2, testReportID(2).description))
+        try Data("half a report".utf8).write(to: abandonedWrite)
+
+        XCTAssertTrue(Store.takeInClaims.claim(store.takeInClaimKey))
+        store.reclaimOrphans()
+        Store.takeInClaims.release(store.takeInClaimKey)
+
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: staged.path), "a running take-in may still be writing the copy")
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: abandonedWrite.path), "a report write is judged under the lock")
     }
 
     func test_takeIn_aSelectiveSendDoesNotTakeIn() async throws {
