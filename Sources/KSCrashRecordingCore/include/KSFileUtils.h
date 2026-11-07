@@ -148,6 +148,18 @@ int ksfu_readLineFromFD(const int fd, char *buffer, int maxLength);
  */
 bool ksfu_makePath(const char *absolutePath);
 
+/** Give a file or directory data protection class D, no protection, so it can be read and
+ *  written before the first unlock after a reboot. Files and directories created in a
+ *  directory afterwards take its class; items already in it keep their own. Does nothing
+ *  where there is no data protection.
+ *
+ * @param path The file or directory.
+ *
+ * @return true if the class was set, or the platform has no data protection. false if the
+ *         path does not exist or the class could not be set.
+ */
+bool ksfu_removeDataProtection(const char *path);
+
 /** Remove a file or directory.
  *
  * @param path Path to the file to remove.
