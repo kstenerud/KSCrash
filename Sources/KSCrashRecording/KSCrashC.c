@@ -616,6 +616,9 @@ KSCrashInstallErrorCode kscrash_install(const char *const installPath, KSCrashCC
         KSLOG_ERROR("Console log path is too long.");
         return KSCrashInstallErrorPathTooLong;
     }
+    // Truncated and rewritten every launch rather than replaced, so a log an earlier version
+    // created keeps its class unless it is changed here.
+    ksfu_removeDataProtection(g_consoleLogPath);
     if (g_shouldPrintPreviousLog) {
         printPreviousLog(g_consoleLogPath);
     }
