@@ -25,6 +25,7 @@
 //
 
 import Foundation
+import KSCrashRecording
 import KSCrashReportModel
 import os.log
 
@@ -137,4 +138,100 @@ func parseExitCode(from terminationReason: String) -> UInt64? {
     }
 
     return nil
+}
+
+// MARK: - Time Range
+
+/// The period MetricKit gives for a diagnostic: `timeRange` on 27+, the payload's
+/// `timeStampBegin` and `timeStampEnd` before. Diagnostics delivered together share one range,
+/// and the run the diagnostic describes need not contain either end of it, so a report with no run
+/// ID carries both ends: a backend matches it to the run whose window the range overlaps.
+///
+/// Encoded as milliseconds since 1970, the unit of a run summary's `started_at_ms` and
+/// `ended_at_ms`. An end that cannot be represented is left out.
+struct MetricKitTimeRange: Codable, Equatable {
+    let begin: Date
+    let end: Date
+
+    init(begin: Date, end: Date) {
+        self.begin = begin
+        self.end = end
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case begin = "begin_ms"
+        case end = "end_ms"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        begin = Date(timeIntervalSince1970: Double(try c.decode(Int64.self, forKey: .begin)) / 1000)
+        end = Date(timeIntervalSince1970: Double(try c.decode(Int64.self, forKey: .end)) / 1000)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(Self.epochMillis(begin), forKey: .begin)
+        try c.encodeIfPresent(Self.epochMillis(end), forKey: .end)
+    }
+
+    private static func epochMillis(_ date: Date) -> Int64? {
+        let ms = (date.timeIntervalSince1970 * 1000).rounded()
+        guard ms.isFinite, ms >= Double(Int64.min), ms < Double(Int64.max) else { return nil }
+        return Int64(ms)
+    }
+}
+
+// MARK: - Profile Time
+
+/// Converts a nanosecond count to `UInt64`, returning nil for non-finite, negative, or
+/// out-of-range values rather than trapping on the cast.
+func nanosToUInt64(_ ns: Double) -> UInt64? {
+    guard ns.isFinite, ns >= 0, ns < Double(UInt64.max) else { return nil }
+    return UInt64(ns.rounded())
+}
+
+/// Wall-clock start of a profile window: its end timestamp minus its duration. Returns nil if
+/// the timestamp is out of range or the subtraction would underflow.
+func epochNanos(for timestamp: Date, minus durationNs: UInt64) -> UInt64? {
+    guard let end = nanosToUInt64(timestamp.timeIntervalSince1970 * 1_000_000_000) else { return nil }
+    return end >= durationNs ? end - durationNs : nil
+}
+
+// MARK: - Bundle
+
+/// The bundle ID in a legacy diagnostic's JSON (`diagnosticMetaData.bundleIdentifier`), or nil
+/// when the JSON has none.
+func diagnosticBundleIdentifier(fromJSON json: Data) -> String? {
+    guard let object = try? JSONSerialization.jsonObject(with: json) as? [String: Any],
+        let meta = object["diagnosticMetaData"] as? [String: Any],
+        let bundleID = meta["bundleIdentifier"] as? String, !bundleID.isEmpty
+    else { return nil }
+    return bundleID
+}
+
+// MARK: - Device
+
+/// The device hash for a report about a diagnostic MetricKit delivered to this app, or nil when
+/// the diagnostic is another bundle's.
+///
+/// The hash identifies the app on this device and is the same in every run, so this run's value
+/// is the one the diagnostic's own run recorded. MetricKit can deliver an app extension's
+/// diagnostic to its app, and the hash covers the bundle ID, so a diagnostic from any other bundle
+/// gets nil rather than the app's hash. A diagnostic that names no bundle is taken to be the app's
+/// own.
+///
+/// - Parameters:
+///   - diagnosticBundleID: The bundle ID the diagnostic names, when it names one.
+///   - appBundleID: This app's bundle ID.
+///   - hash: This app's device hash.
+func deviceAppHash(
+    forDiagnosticBundleID diagnosticBundleID: String?,
+    appBundleID: String? = Bundle.main.bundleIdentifier,
+    hash: String = String(cString: kscm_system_getDeviceAppHash())
+) -> String? {
+    if let diagnosticBundleID, !diagnosticBundleID.isEmpty, diagnosticBundleID != appBundleID {
+        return nil
+    }
+    return hash
 }

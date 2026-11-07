@@ -30,6 +30,7 @@
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitor_System.h"
 #import "KSCrashReportFields.h"
+#import "KSCrashSystem.h"
 #import "KSDynamicLinker.h"
 #import "KSFileUtils.h"
 #import "KSJSONCodecObjC.h"
@@ -122,6 +123,32 @@ static struct KSCrashMonitorSavedState *g_savedMonitorState;
     XCTAssertGreaterThan(sc.processID, 0, @"processID should be non-zero");
 
     api->setEnabled(false, NULL);
+}
+
+- (void)testDeviceAppHashMatchesTheSidecarAndOutlivesDisable
+{
+    KSCrashMonitorAPI *api = kscm_system_getAPI();
+    KSCrash_ExceptionHandlerCallbacks callbacks = { .getRunSidecarPath = stubRunSidecarPath };
+    api->init(&callbacks, NULL);
+    api->setEnabled(true, NULL);
+
+    NSString *sidecarFile = [self.tempDir stringByAppendingPathComponent:@"System.ksscr"];
+    KSCrash_SystemData sc = {};
+    int fd = open(sidecarFile.fileSystemRepresentation, O_RDONLY);
+    XCTAssertNotEqual(fd, -1, @"Failed to open sidecar: %s", strerror(errno));
+    XCTAssertTrue(ksfu_readBytesFromFD(fd, (char *)&sc, (int)sizeof(sc)));
+    close(fd);
+
+    // The getter hands out the value the run's sidecar (and so the run summary's device_id) holds.
+    NSString *hash = @(kscm_system_getDeviceAppHash());
+    XCTAssertEqual(hash.length, 40U, @"a SHA1 in hex");
+    XCTAssertEqualObjects(hash, @(sc.deviceAppHash));
+
+    // Disabling unmaps the system data; the pointer the getter returned must stay valid.
+    const char *before = kscm_system_getDeviceAppHash();
+    api->setEnabled(false, NULL);
+    XCTAssertEqualObjects(@(before), hash);
+    XCTAssertEqual(kscm_system_getDeviceAppHash(), before);
 }
 
 - (void)testSetBootTimeLandsInTheSidecarForClassification
