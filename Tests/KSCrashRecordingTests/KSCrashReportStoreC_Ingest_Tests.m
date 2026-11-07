@@ -27,8 +27,11 @@
 #import <XCTest/XCTest.h>
 
 #import "FileBasedTestCase.h"
+#import "KSCrashC.h"
 #import "KSCrashReportStoreC+Private.h"
 #import "KSCrashReportStoreC.h"
+
+extern void kscrash_testcode_setRunID(const char *runID);
 
 /** The send path refuses to run with no filters, so pass reports through unchanged. */
 @interface KSCrashReportStoreC_Ingest_Tests : FileBasedTestCase
@@ -307,9 +310,16 @@
     [@"someone else's" writeToFile:notAReportWrite atomically:YES encoding:NSUTF8StringEncoding error:nil];
     [@"someone else's" writeToFile:sameLengthNotAReport atomically:YES encoding:NSUTF8StringEncoding error:nil];
 
-    // No run id is set in these tests, which makes the run data reclaim skip. The sweep of
-    // abandoned writes does not depend on one.
-    kscrs_reclaimAbandonedFiles(&_appConfig, true);
+    // Without a run id the run data reclaim skips, so only the sweep of abandoned writes runs.
+    // The run id is process-global, and another suite may have set one.
+    const char *current = kscrash_getRunID();
+    NSString *saved = current != NULL ? @(current) : nil;
+    kscrash_clearRunID();
+    @try {
+        kscrs_reclaimAbandonedFiles(&_appConfig, true);
+    } @finally {
+        kscrash_testcode_setRunID(saved.length > 0 ? saved.UTF8String : NULL);
+    }
 
     XCTAssertFalse([fm fileExistsAtPath:abandoned]);
     XCTAssertTrue([fm fileExistsAtPath:report], @"reports are left alone");
