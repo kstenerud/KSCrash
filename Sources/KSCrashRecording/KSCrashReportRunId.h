@@ -30,6 +30,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#include "KSCrashNamespace.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
