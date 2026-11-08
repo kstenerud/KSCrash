@@ -1720,8 +1720,8 @@ int ksjson_addJSONFromFile(KSJSONEncodeContext *const encodeContext, const char 
         {
             int containerLevel = encodeContext->containerLevel;
             callbacks = embedCallbacks();
-            result = decodeJSONFile(fd, filename, name, &callbacks, encodeContext, closeLastContainer, 0, nameBuffer,
-                                    stringBuffer, fileBuffer);
+            result = decodeJSONFile(fd, filename, name, &callbacks, encodeContext, closeLastContainer, containerLevel,
+                                    nameBuffer, stringBuffer, fileBuffer);
             // The file passed the check, so a failure here is the encoder refusing to take
             // data, meaning the destination is already lost. Rebalance anyway so whatever
             // the caller does next is at least not nested inside this element.
@@ -1750,8 +1750,8 @@ int ksjson_addJSONElement(KSJSONEncodeContext *const encodeContext, const char *
 
     int containerLevel = encodeContext->containerLevel;
     callbacks = embedCallbacks();
-    result = decodeJSONElement(jsonData, jsonDataLength, name, &callbacks, encodeContext, closeLastContainer, 0,
-                               nameBuffer, stringBuffer);
+    result = decodeJSONElement(jsonData, jsonDataLength, name, &callbacks, encodeContext, closeLastContainer,
+                               containerLevel, nameBuffer, stringBuffer);
     while ((closeLastContainer || result != KSJSON_OK) && encodeContext->containerLevel > containerLevel) {
         ksjson_endContainer(encodeContext);
     }
