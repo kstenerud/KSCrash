@@ -375,12 +375,10 @@ static void writeUpdatedReport(KSHangMonitor *monitor)
 
 static void finalizeResolvedHang(KSHangMonitor *monitor, KSHangState hang)
 {
-    // Suppress non-fatal hangs that started during launch, before the app was
-    // first active: Startup, StartupPrewarm, Launching, and the Foregrounding a
-    // cold launch passes through on UIKit platforms. The report still existed
-    // on disk while active, so WatchdogStitch can detect fatal hangs during
-    // startup.
-    bool startedDuringStartup = hang.startedBeforeFirstActive;
+    // Drop the report of a hang the app recovered from during startup. The
+    // report existed on disk while the hang lasted, so WatchdogStitch still
+    // sees a fatal hang during startup.
+    bool startedDuringStartup = hang.startedDuringStartup;
 
     if (hang.path[0] != '\0') {
         if (monitor->reportsHangs && !startedDuringStartup) {
@@ -474,7 +472,7 @@ static void watchdogTimerFired(CFRunLoopTimerRef timer, void *info)
 
     task_role_t currentRole = kstaskrole_current();
     uint8_t currentTransition = kslifecycle_currentTransitionState();
-    bool beforeFirstActive = !kslifecycle_hasBeenActive();
+    bool duringStartup = kslifecycle_isStartingUp();
 
     bool shouldStartNewHang = false;
     bool shouldUpdateHang = false;
@@ -482,7 +480,7 @@ static void watchdogTimerFired(CFRunLoopTimerRef timer, void *info)
     os_unfair_lock_lock(&monitor->lock);
     if (!monitor->hang.active) {
         kshangstate_init(&monitor->hang, enter, currentRole, currentTransition);
-        monitor->hang.startedBeforeFirstActive = beforeFirstActive;
+        monitor->hang.startedDuringStartup = duringStartup;
         monitor->hang.endTimestamp = now;
         monitor->hang.endRole = currentRole;
         monitor->hang.endTransitionState = currentTransition;

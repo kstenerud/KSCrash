@@ -66,7 +66,7 @@ static dispatch_source_t g_taskRoleHeartbeatTimer = NULL;
 
 static atomic_bool g_isEnabled = false;
 static _Atomic KSCrashAppTransitionState g_transitionState = KSCrashAppTransitionStateStartup;
-static _Atomic bool g_hasBeenActive = false;
+static _Atomic bool g_isStartingUp = true;
 
 // Maps the currently-running bundle to the matching host kind enum. Called
 // once at sidecar creation — the bundle doesn't change during a run, so we
@@ -246,7 +246,7 @@ static void onTransitionState(KSCrashAppTransitionState transitionState)
 {
     atomic_store_explicit(&g_transitionState, transitionState, memory_order_relaxed);
     if (transitionState == KSCrashAppTransitionStateActive) {
-        atomic_store_explicit(&g_hasBeenActive, true, memory_order_relaxed);
+        atomic_store_explicit(&g_isStartingUp, false, memory_order_relaxed);
     }
 
     ks_spinlock_lock(&g_sidecarLock);
@@ -363,7 +363,7 @@ KSCrashAppTransitionState kslifecycle_currentTransitionState(void)
     return atomic_load_explicit(&g_transitionState, memory_order_relaxed);
 }
 
-bool kslifecycle_hasBeenActive(void) { return atomic_load_explicit(&g_hasBeenActive, memory_order_relaxed); }
+bool kslifecycle_isStartingUp(void) { return atomic_load_explicit(&g_isStartingUp, memory_order_relaxed); }
 
 // ============================================================================
 #pragma mark - Monitor API -
@@ -542,9 +542,9 @@ void kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionState state)
 }
 
 __attribute__((unused))  // For tests. Declared as extern in TestCase
-void kscm_lifecycle_testcode_clearHasBeenActive(void)
+void kscm_lifecycle_testcode_restartStartup(void)
 {
-    atomic_store_explicit(&g_hasBeenActive, false, memory_order_relaxed);
+    atomic_store_explicit(&g_isStartingUp, true, memory_order_relaxed);
 }
 
 __attribute__((unused))  // For tests. Declared as extern in TestCase

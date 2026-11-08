@@ -55,7 +55,7 @@ extern void kscm_testcode_restoreState(struct KSCrashMonitorSavedState *saved);
 static struct KSCrashMonitorSavedState *g_savedMonitorState;
 extern void kscrash_testcode_setLastRunID(const char *runID);
 extern void kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionState state);
-extern void kscm_lifecycle_testcode_clearHasBeenActive(void);
+extern void kscm_lifecycle_testcode_restartStartup(void);
 extern void kscm_lifecycle_testcode_setTaskRole(int32_t role);
 extern void ksruncontext_testcode_setReason(KSTerminationReason reason);
 extern void ksruncontext_testcode_setLifecycleData(const KSCrash_LifecycleData *data);
@@ -409,23 +409,21 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     XCTAssertTrue(state.applicationIsInForeground);
 }
 
-- (void)testHasBeenActiveFromTheFirstActiveOn
+- (void)testStartupLastsUntilTheFirstActive
 {
-    // A cold launch passes through Foregrounding before its first Active, so only the first
-    // Active ends launch; foregrounding again after that is not launch.
     [self enableMonitor];
-    kscm_lifecycle_testcode_clearHasBeenActive();
+    kscm_lifecycle_testcode_restartStartup();
 
     kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateLaunching);
     kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateForegrounding);
-    XCTAssertFalse(kslifecycle_hasBeenActive());
+    XCTAssertTrue(kslifecycle_isStartingUp());
 
     kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
-    XCTAssertTrue(kslifecycle_hasBeenActive());
+    XCTAssertFalse(kslifecycle_isStartingUp());
 
     kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateBackground);
     kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateForegrounding);
-    XCTAssertTrue(kslifecycle_hasBeenActive());
+    XCTAssertFalse(kslifecycle_isStartingUp());
 }
 
 - (void)testDeactivatingTransitionClearsActiveFlag
