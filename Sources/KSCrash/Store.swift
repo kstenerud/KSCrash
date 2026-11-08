@@ -182,9 +182,18 @@ struct Store: Sendable {
                 // artifacts, so it is skipped here, and the send-end reclaim
                 // deletes it as garbage (an unreadable file aborts that pass
                 // and is retried instead).
-                guard let data = try? Data(contentsOf: url),
-                    let identity = try? decoder.decode(RunIdentity.self, from: data)
-                else {
+                let data: Data
+                do {
+                    data = try Data(contentsOf: url)
+                } catch  where Self.isNoSuchFile(error) {
+                    continue
+                } catch {
+                    os_log(
+                        .error, "Skipping unreadable run summary %{public}@: %{public}@", name,
+                        String(describing: error))
+                    continue
+                }
+                guard let identity = try? decoder.decode(RunIdentity.self, from: data) else {
                     os_log(.error, "Skipping unidentifiable run summary: %{public}@", name)
                     continue
                 }
