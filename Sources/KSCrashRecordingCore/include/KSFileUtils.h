@@ -198,7 +198,8 @@ bool ksfu_setDataProtectionAtPath(const char *path, KSFUDataProtection protectio
  * @return Its protection. KSFUDataProtectionNone where there is no data protection, since
  *         everything there is always readable. KSFUDataProtectionUnknown if it could not be
  *         read, or for a directory with no class of its own, whose new files take the default.
- *         A simulator accepts a protection but keeps none, so there it reads as the default.
+ *         A simulator, or a Mac running a Mac Catalyst or iOS app, accepts a protection but
+ *         keeps none, so there it reads as the default.
  */
 KSFUDataProtection ksfu_getDataProtection(int fd);
 

@@ -476,6 +476,20 @@ static bool setDataProtectionNone(const char *path)
     return ksfu_setDataProtectionAtPath(path, KSFUDataProtectionNone) || access(path, F_OK) != 0;
 }
 
+/** Whether `path` reads back as class D. A file system that keeps no classes, like a Mac running
+ *  a Mac Catalyst or an iOS app, accepts a class and then reads back its default.
+ */
+static bool readsBackDataProtectionNone(const char *path)
+{
+    int fd = open(path, O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
+    if (fd < 0) {
+        return false;
+    }
+    bool isNone = ksfu_getDataProtection(fd) == KSFUDataProtectionNone;
+    close(fd);
+    return isNone;
+}
+
 /** Sets the store's folders to class D (no protection), so reports can be written and read before
  *  the first unlock after a reboot. An install from an earlier version created them under the
  *  default class, which they keep although the install path is now class D. Runs is created
@@ -607,7 +621,12 @@ KSCrashInstallErrorCode kscrash_install(const char *const installPath, KSCrashCC
     if (!isProtectionSet) {
         // The folders first: a fresh install creates last_run_id below, and it takes Data's class.
         isProtectionComplete = setDataProtectionNone(installPath);
-        if (!setDataProtectionNone(path)) {
+        if (isProtectionComplete && !readsBackDataProtectionNone(installPath)) {
+            // The class was accepted but not kept, so this file system keeps none and there is
+            // nothing to set. last_run_id never reads back as class D here either, so without
+            // this every launch would repeat the whole pass.
+            isProtectionSet = true;
+        } else if (!setDataProtectionNone(path)) {
             isProtectionComplete = false;
         }
     }
