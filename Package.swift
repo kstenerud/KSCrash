@@ -2,9 +2,17 @@
 
 import PackageDescription
 
-let metricKitSwiftSettings: [SwiftSetting] = [
-    .define("KSCRASH_HAS_METRICKIT", .when(platforms: [.iOS, .macOS, .visionOS]))
-]
+// KSCRASH_HAS_METRICKIT_LEGACY: the MXMetricManager API. KSCRASH_HAS_METRICKIT_27_PLUS: the 27
+// MetricManager API, which only the Xcode 27 SDKs have. Mac Catalyst is its own platform here;
+// `.iOS` does not cover it.
+let metricKitPlatforms: [Platform] = [.iOS, .macCatalyst, .macOS, .visionOS]
+let metricKitSwiftSettings: [SwiftSetting] = {
+    var settings: [SwiftSetting] = [.define("KSCRASH_HAS_METRICKIT_LEGACY", .when(platforms: metricKitPlatforms))]
+    #if compiler(>=6.4)
+        settings.append(.define("KSCRASH_HAS_METRICKIT_27_PLUS", .when(platforms: metricKitPlatforms)))
+    #endif
+    return settings
+}()
 
 let warningFlags = [
     // The main ones

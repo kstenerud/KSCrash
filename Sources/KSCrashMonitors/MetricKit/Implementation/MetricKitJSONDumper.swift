@@ -28,13 +28,13 @@ import Foundation
 import KSCrashRecording
 import os.log
 
-#if KSCRASH_HAS_METRICKIT
+#if KSCRASH_HAS_METRICKIT_LEGACY
     import MetricKit
 #endif
 
 // MARK: - MetricKit JSON Dumper
 
-#if KSCRASH_HAS_METRICKIT
+#if KSCRASH_HAS_METRICKIT_LEGACY
 
     enum MetricKitJSONDumper {
 
