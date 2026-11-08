@@ -148,17 +148,59 @@ int ksfu_readLineFromFD(const int fd, char *buffer, int maxLength);
  */
 bool ksfu_makePath(const char *absolutePath);
 
-/** Give a file or directory data protection class D, no protection, so it can be read and
- *  written before the first unlock after a reboot. Files and directories created in a
- *  directory afterwards take its class; items already in it keep their own. Does nothing
- *  where there is no data protection.
+/** A file's or directory's data protection: when its contents can be read and written.
+ *  Files and directories created in a directory take its protection; items already in it
+ *  keep their own, and so does an item renamed into it.
+ *
+ *  The values are the kernel's protection class numbers, which F_SETPROTECTIONCLASS takes.
+ */
+typedef enum {
+    /** Not a class: it could not be read, a directory has none of its own (class 0), or the
+     *  kernel named a class this type does not. */
+    KSFUDataProtectionUnknown = 0,
+    /** Class A. Readable only while the device is unlocked. */
+    KSFUDataProtectionComplete = 1,
+    /** Class B. A file open when the device locks stays usable, and new files can be created
+     *  while locked, but a closed file cannot be opened again until an unlock. */
+    KSFUDataProtectionCompleteUnlessOpen = 2,
+    /** Class C. Readable once the device has been unlocked after a reboot. The default for an
+     *  app's files. */
+    KSFUDataProtectionCompleteUntilFirstUserAuthentication = 3,
+    /** Class D. Always readable, including before the first unlock after a reboot. */
+    KSFUDataProtectionNone = 4,
+} KSFUDataProtection;
+
+/** Set the data protection of an open file or directory. Does nothing where there is no data
+ *  protection.
+ *
+ * @param fd An open descriptor for the file or directory.
+ * @param protection The protection to set.
+ *
+ * @return true if it was set, or the platform has no data protection.
+ */
+bool ksfu_setDataProtection(int fd, KSFUDataProtection protection);
+
+/** Set the data protection of a file or directory. A symbolic link is not followed. Does
+ *  nothing where there is no data protection.
  *
  * @param path The file or directory.
+ * @param protection The protection to set.
  *
- * @return true if the class was set, or the platform has no data protection. false if the
- *         path does not exist or the class could not be set.
+ * @return true if it was set, or the platform has no data protection. false if the path does
+ *         not exist, is a symbolic link, or its protection could not be set.
  */
-bool ksfu_removeDataProtection(const char *path);
+bool ksfu_setDataProtectionAtPath(const char *path, KSFUDataProtection protection);
+
+/** The data protection of an open file or directory.
+ *
+ * @param fd An open descriptor for the file or directory.
+ *
+ * @return Its protection. KSFUDataProtectionNone where there is no data protection, since
+ *         everything there is always readable. KSFUDataProtectionUnknown if it could not be
+ *         read, or for a directory with no class of its own, whose new files take the default.
+ *         A simulator accepts a protection but keeps none, so there it reads as the default.
+ */
+KSFUDataProtection ksfu_getDataProtection(int fd);
 
 /** Remove a file or directory.
  *
@@ -299,14 +341,6 @@ bool ksfu_readBufferedReaderUntilChar(KSBufferedReader *reader, int ch, char *ds
  * the system will unmap on termination if required.
  */
 void *ksfu_mmap(const char *path, size_t size);
-
-/** Apply NSFileProtectionNone to a file so it remains accessible
- *  before first unlock and while protected data is unavailable.
- *  No-op on platforms without data protection (macOS).
- *
- * @param path The path to the file.
- */
-void ksfu_applyNoFileProtection(const char *path);
 
 /** Unmaps a memory-mapped region previously created by ksfu_mmap.
  *

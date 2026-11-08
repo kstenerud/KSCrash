@@ -116,7 +116,7 @@ extension KSCrash {
         // failed declaration fails the install, so the root is set to class D (no protection)
         // first, rather than in the C install below, which would never run.
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        ksfu_removeDataProtection(root.path)
+        ksfu_setDataProtectionAtPath(root.path, KSFUDataProtectionNone)
         try StoreManifest.write(kind: StoreManifest.corpseKind, atProcessRoot: root)
         let result = kscrash_installForCorpseReporting(root.path, CorpseReporting.bridge.api, 1)
         guard result == KSCrashInstallError.Code.none else {

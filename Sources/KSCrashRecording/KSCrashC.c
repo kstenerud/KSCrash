@@ -148,30 +148,21 @@ static char g_lastRunID[KSC_UUID_STRING_LENGTH + 1];
 
 /** Generate a new run ID, read the previous run's ID from disk, and persist the new one.
  *  After this call both g_runIDSection.runID and g_lastRunID are available.
- *  Must be called after the Data directory exists.
+ *
+ *  @param fd last_run_id, open for reading and writing, or -1 if it could not be opened. Closed
+ *         here.
+ *  @param path last_run_id's path, for the log.
  */
-static void rotateRunID(const char *installPath)
+static void rotateRunID(int fd, const char *path)
 {
     uuid_t uuid;
     uuid_generate(uuid);
     uuid_unparse_lower(uuid, g_runIDSection.runID);
 
-    char path[KSFU_MAX_PATH_LENGTH];
-    if (snprintf(path, sizeof(path), "%s/" KSCRS_DEFAULT_DATA_FOLDER "/last_run_id", installPath) >=
-        (int)sizeof(path)) {
-        KSLOG_ERROR("last_run_id path too long");
-        return;
-    }
-
     g_lastRunID[0] = '\0';
-    int fd = open(path, O_RDWR | O_CREAT, KSC_RUN_ID_FILE_MODE);
     if (fd < 0) {
-        KSLOG_ERROR("Could not open %s: %s", path, strerror(errno));
         return;
     }
-    // Rewritten in place on every launch, so a file an earlier version created keeps the
-    // class it was created with unless it is changed here.
-    ksfu_removeDataProtection(path);
 
     ssize_t n = read(fd, g_lastRunID, KSC_UUID_STRING_LENGTH);
     if (n == KSC_UUID_STRING_LENGTH) {
@@ -475,6 +466,16 @@ static bool getSummarySidecarPathCallback(const char *runID, const char *extensi
     return kscrs_getSummarySidecarFilePath(runID, extension, pathBuffer, pathBufferLength, &g_reportStoreConfig);
 }
 
+/** Sets a path to class D (no protection).
+ *
+ * @return false if the path exists and its protection could not be set. A path that does not
+ *         exist yet is created later, inside a folder that is already class D.
+ */
+static bool setDataProtectionNone(const char *path)
+{
+    return ksfu_setDataProtectionAtPath(path, KSFUDataProtectionNone) || access(path, F_OK) != 0;
+}
+
 /** Sets the store's folders to class D (no protection), so reports can be written and read before
  *  the first unlock after a reboot. An install from an earlier version created them under the
  *  default class, which they keep although the install path is now class D. Runs is created
@@ -482,9 +483,12 @@ static bool getSummarySidecarPathCallback(const char *runID, const char *extensi
  *  per-monitor folders under Sidecars last across launches too, and a plugin's report sidecar is
  *  an ordinary file that takes its folder's class, so they are set as well. A run's sidecar
  *  folder is new every run and takes RunSidecars' class.
+ *
+ * @return false if a folder that exists could not be set.
  */
-static void removeStoreDataProtection(void)
+static bool setStoreDataProtectionNone(void)
 {
+    bool isComplete = true;
     const char *const directories[] = {
         g_reportStoreConfig.reportsPath,
         g_reportStoreConfig.reportSidecarsPath,
@@ -493,17 +497,17 @@ static void removeStoreDataProtection(void)
         g_publishedReportsPath,
     };
     for (size_t i = 0; i < sizeof(directories) / sizeof(directories[0]); i++) {
-        if (directories[i] != NULL) {
-            ksfu_removeDataProtection(directories[i]);
+        if (directories[i] != NULL && !setDataProtectionNone(directories[i])) {
+            isComplete = false;
         }
     }
 
     if (g_reportStoreConfig.reportSidecarsPath == NULL) {
-        return;
+        return isComplete;
     }
     DIR *dir = opendir(g_reportStoreConfig.reportSidecarsPath);
     if (dir == NULL) {
-        return;
+        return isComplete && errno == ENOENT;
     }
     struct dirent *ent;
     while ((ent = readdir(dir)) != NULL) {
@@ -512,11 +516,13 @@ static void removeStoreDataProtection(void)
         }
         char path[KSFU_MAX_PATH_LENGTH];
         if (snprintf(path, sizeof(path), "%s/%s", g_reportStoreConfig.reportSidecarsPath, ent->d_name) <
-            (int)sizeof(path)) {
-            ksfu_removeDataProtection(path);
+                (int)sizeof(path) &&
+            !setDataProtectionNone(path)) {
+            isComplete = false;
         }
     }
     closedir(dir);
+    return isComplete;
 }
 
 /** Fill any unset report store paths with their defaults under installPath.
@@ -584,12 +590,34 @@ KSCrashInstallErrorCode kscrash_install(const char *const installPath, KSCrashCC
     }
     // Everything under the install path is read and written before the first unlock after a
     // reboot when the app launches in the background then, and a crash in that launch is one
-    // this library exists to record. New files and folders take their folder's class, so the
-    // base folder covers what is created from here on. Folders an earlier version created keep
-    // their class, so Data is set here and the store's in removeStoreDataProtection.
-    ksfu_removeDataProtection(installPath);
-    ksfu_removeDataProtection(path);
-    rotateRunID(installPath);
+    // this library exists to record, so all of it is class D (no protection). New files and
+    // folders take their folder's class, so the base folder covers what is created from here
+    // on. What an earlier version created keeps its class, so that is set here too, once:
+    // last_run_id is set last, so the next launch's check of it alone says the rest is done.
+    // A pass that stops part way, by a crash or because a file cannot be opened before the
+    // first unlock, leaves it unset and runs again.
+    char lastRunIDPath[KSFU_MAX_PATH_LENGTH];
+    if (snprintf(lastRunIDPath, sizeof(lastRunIDPath), "%s/last_run_id", path) >= (int)sizeof(lastRunIDPath)) {
+        KSLOG_ERROR("last_run_id path is too long.");
+        return KSCrashInstallErrorPathTooLong;
+    }
+    int lastRunIDFD = open(lastRunIDPath, O_RDWR | O_CLOEXEC);
+    bool isProtectionSet = lastRunIDFD >= 0 && ksfu_getDataProtection(lastRunIDFD) == KSFUDataProtectionNone;
+    bool isProtectionComplete = true;
+    if (!isProtectionSet) {
+        // The folders first: a fresh install creates last_run_id below, and it takes Data's class.
+        isProtectionComplete = setDataProtectionNone(installPath);
+        if (!setDataProtectionNone(path)) {
+            isProtectionComplete = false;
+        }
+    }
+    if (lastRunIDFD < 0) {
+        lastRunIDFD = open(lastRunIDPath, O_RDWR | O_CREAT | O_CLOEXEC, KSC_RUN_ID_FILE_MODE);
+        if (lastRunIDFD < 0) {
+            KSLOG_ERROR("Could not open %s: %s", lastRunIDPath, strerror(errno));
+        }
+    }
+    rotateRunID(lastRunIDFD, lastRunIDPath);
 
     KSCrashInstallErrorCode pathResult = resolveStoreConfigDefaults(installPath);
     if (pathResult != KSCrashInstallErrorNone) {
@@ -600,7 +628,9 @@ KSCrashInstallErrorCode kscrash_install(const char *const installPath, KSCrashCC
     if (storeInitResult != KSCrashInstallErrorNone) {
         return storeInitResult;
     }
-    removeStoreDataProtection();
+    if (!isProtectionSet && !setStoreDataProtectionNone()) {
+        isProtectionComplete = false;
+    }
     // Register the install's config as the source of paths for the no-config
     // readers (readReportAtPath, readReportByPathAndID, finalizeReport). Only
     // the install does this.
@@ -616,9 +646,14 @@ KSCrashInstallErrorCode kscrash_install(const char *const installPath, KSCrashCC
         KSLOG_ERROR("Console log path is too long.");
         return KSCrashInstallErrorPathTooLong;
     }
-    // Truncated and rewritten every launch rather than replaced, so a log an earlier version
-    // created keeps its class unless it is changed here.
-    ksfu_removeDataProtection(g_consoleLogPath);
+    if (!isProtectionSet) {
+        // Truncated and rewritten every launch rather than replaced, so a log an earlier version
+        // created keeps its class unless it is changed here. last_run_id is rewritten in place
+        // the same way.
+        if (isProtectionComplete && setDataProtectionNone(g_consoleLogPath)) {
+            setDataProtectionNone(lastRunIDPath);
+        }
+    }
     if (g_shouldPrintPreviousLog) {
         printPreviousLog(g_consoleLogPath);
     }
@@ -702,7 +737,7 @@ KSCrashInstallErrorCode
     // The crashed app may have been launched before the first unlock after a reboot; its report
     // is written then too. Folders created below take the base folder's class.
     ksfu_makePath(installPath);
-    ksfu_removeDataProtection(installPath);
+    setDataProtectionNone(installPath);
     KSCrashInstallErrorCode pathResult = resolveStoreConfigDefaults(installPath);
     if (pathResult != KSCrashInstallErrorNone) {
         return pathResult;
@@ -728,7 +763,7 @@ KSCrashInstallErrorCode
     if (storeInitResult != KSCrashInstallErrorNone) {
         return storeInitResult;
     }
-    removeStoreDataProtection();
+    setStoreDataProtectionNone();
     // Whatever a previous extension process left in staging is a report it never finished
     // (killed at its budget) or never published; nothing else ever looks in here.
     ksfu_deleteContentsOfPath(g_reportStoreConfig.reportsPath);

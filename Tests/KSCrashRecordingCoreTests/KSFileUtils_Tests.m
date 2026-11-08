@@ -27,6 +27,8 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #import "FileBasedTestCase.h"
 
 #import "KSFileUtils.h"
@@ -788,40 +790,76 @@
     XCTAssertFalse(ksfu_removeFile(path.UTF8String, false, NULL));
 }
 
-- (void)testRemoveDataProtectionOfAMissingPath
+- (void)testSetDataProtectionOfAMissingPath
 {
     NSString *path = [self.tempPath stringByAppendingPathComponent:@"missing"];
 #if TARGET_OS_IPHONE
-    XCTAssertFalse(ksfu_removeDataProtection(path.UTF8String));
+    XCTAssertFalse(ksfu_setDataProtectionAtPath(path.UTF8String, KSFUDataProtectionNone));
 #else
-    // No data protection to remove.
-    XCTAssertTrue(ksfu_removeDataProtection(path.UTF8String));
+    // No data protection to set.
+    XCTAssertTrue(ksfu_setDataProtectionAtPath(path.UTF8String, KSFUDataProtectionNone));
 #endif
+}
+
+- (void)testGetDataProtectionOfABadDescriptor
+{
+#if TARGET_OS_IPHONE
+    XCTAssertEqual(ksfu_getDataProtection(-1), KSFUDataProtectionUnknown);
+#else
+    // Always readable where there is no data protection.
+    XCTAssertEqual(ksfu_getDataProtection(-1), KSFUDataProtectionNone);
+#endif
+}
+
+- (void)testSetDataProtectionDoesNotFollowALink
+{
+    NSString *target = [self.tempPath stringByAppendingPathComponent:@"target"];
+    XCTAssertTrue([@"x" writeToFile:target atomically:NO encoding:NSUTF8StringEncoding error:nil]);
+    NSString *link = [self.tempPath stringByAppendingPathComponent:@"link"];
+    XCTAssertEqual(symlink(target.UTF8String, link.UTF8String), 0);
+#if TARGET_OS_IPHONE
+    XCTAssertFalse(ksfu_setDataProtectionAtPath(link.UTF8String, KSFUDataProtectionNone),
+                   @"the link's target is not this call's to change");
+#else
+    XCTAssertTrue(ksfu_setDataProtectionAtPath(link.UTF8String, KSFUDataProtectionNone));
+#endif
+}
+
+- (void)testSetDataProtectionOfAFIFOReturns
+{
+    NSString *fifo = [self.tempPath stringByAppendingPathComponent:@"fifo"];
+    XCTAssertEqual(mkfifo(fifo.UTF8String, 0600), 0);
+    // Opening a FIFO for reading blocks until a writer opens it, unless the open does not block.
+    // Reaching the next line is the test.
+    ksfu_setDataProtectionAtPath(fifo.UTF8String, KSFUDataProtectionNone);
 }
 
 // Only a device keeps protection classes: the simulator and macOS accept the call and report the
 // default class afterwards.
-- (void)testRemoveDataProtectionReachesWhatIsCreatedInTheFolder
+- (void)testSetDataProtectionReachesWhatIsCreatedInTheFolder
 {
 #if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR && !TARGET_OS_MACCATALYST
     NSString *folder = [self.tempPath stringByAppendingPathComponent:@"unprotected"];
     XCTAssertTrue(ksfu_makePath(folder.UTF8String));
-    XCTAssertTrue(ksfu_removeDataProtection(folder.UTF8String));
+    XCTAssertTrue(ksfu_setDataProtectionAtPath(folder.UTF8String, KSFUDataProtectionNone));
 
     int folderFD = open(folder.UTF8String, O_RDONLY);
-    XCTAssertEqual(fcntl(folderFD, F_GETPROTECTIONCLASS), 4, @"class D");
+    XCTAssertEqual(ksfu_getDataProtection(folderFD), KSFUDataProtectionNone);
     close(folderFD);
 
     NSString *file = [folder stringByAppendingPathComponent:@"report.json"];
     int fileFD = open(file.UTF8String, O_RDWR | O_CREAT | O_EXCL, 0644);
     XCTAssertGreaterThanOrEqual(fileFD, 0);
-    XCTAssertEqual(fcntl(fileFD, F_GETPROTECTIONCLASS), 4, @"a new file takes its folder's class");
+    XCTAssertEqual(ksfu_getDataProtection(fileFD), KSFUDataProtectionNone, @"a new file takes its folder's class");
+    XCTAssertTrue(ksfu_setDataProtection(fileFD, KSFUDataProtectionCompleteUntilFirstUserAuthentication));
+    XCTAssertEqual(ksfu_getDataProtection(fileFD), KSFUDataProtectionCompleteUntilFirstUserAuthentication);
     close(fileFD);
 
     NSString *subfolder = [folder stringByAppendingPathComponent:@"Sidecars"];
     XCTAssertTrue(ksfu_makePath(subfolder.UTF8String));
     int subfolderFD = open(subfolder.UTF8String, O_RDONLY);
-    XCTAssertEqual(fcntl(subfolderFD, F_GETPROTECTIONCLASS), 4, @"a new folder takes its folder's class");
+    XCTAssertEqual(ksfu_getDataProtection(subfolderFD), KSFUDataProtectionNone,
+                   @"a new folder takes its folder's class");
     close(subfolderFD);
 #else
     XCTSkip(@"Only a device keeps data protection classes");

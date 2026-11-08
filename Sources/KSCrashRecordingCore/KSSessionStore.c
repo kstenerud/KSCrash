@@ -135,9 +135,9 @@ static bool appendSessionLocked(KSSessionWriter *writer, const char *guid, uint6
             KSLOG_ERROR("Failed to open session file %s", writer->filePath);
             return false;  // may be transient (missing dir, perms); retried next time
         }
-        // Keep the file writable while the device is locked (iOS data protection);
+        // Keep the file writable while the device is locked (no data protection);
         // otherwise a locked-device append would fail and permanently break the writer.
-        ksfu_applyNoFileProtection(writer->filePath);
+        ksfu_setDataProtection(writer->fd, KSFUDataProtectionNone);
         // Write the header only into a freshly created (empty) file; a unique
         // per-run id means this is normally always the case.
         struct stat st;
