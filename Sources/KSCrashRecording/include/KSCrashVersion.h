@@ -27,6 +27,8 @@
 #ifndef KSCrashVersion_h
 #define KSCrashVersion_h
 
+#include "KSCrashNamespace.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif

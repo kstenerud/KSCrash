@@ -30,6 +30,8 @@
 
 #import <Foundation/Foundation.h>
 
+#include "KSCrashNamespace.h"
+
 NS_ASSUME_NONNULL_BEGIN
 
 /// Maximum message length (characters) before truncation.
