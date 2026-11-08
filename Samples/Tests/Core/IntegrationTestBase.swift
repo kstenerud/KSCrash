@@ -117,6 +117,14 @@ class IntegrationTestBase: XCTestCase {
                 logFile(name: file, path: installUrl.appendingPathComponent(file).path)
             }
         }
+        // The whole folder the app left, reports and sidecars included, since a failure's cause is
+        // often in what was written rather than in what the test read. Zipped only for a failed
+        // test, after the app is terminated so nothing is still writing.
+        if testRun?.hasSucceeded == false {
+            let folder = XCTAttachment(compressedContentsOfDirectory: installUrl)
+            folder.name = "KSCrash folder"
+            add(folder)
+        }
 
         try? FileManager.default.removeItem(at: installUrl)
     }
