@@ -157,8 +157,6 @@
             }
         }];
 
-    // The nested waiting tick runs on the tracker's queue. Without the on-queue check it would
-    // dispatch_sync onto a queue its own thread holds, which libdispatch traps, ending the run.
     [tracker tickWaitingUntilDone:YES];
 
     XCTAssertTrue(nestedTickReturned);
