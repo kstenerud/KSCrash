@@ -130,6 +130,17 @@ final class MachTests: IntegrationTestBase {
         XCTAssertEqual(state.terminationReason, .crash)
     }
 
+    func testBusError() throws {
+        try launchAndCrash(.mach_busError)
+
+        let rawReport = try readCrashReport()
+        try rawReport.validate()
+        XCTAssertEqual(rawReport.crash.error.type, .mach)
+
+        let delivered = try launchAndReportCrash()
+        XCTAssertEqual(delivered.crash.error.signal?.name, "SIGBUS")
+    }
+
     /// Regression test for https://github.com/kstenerud/KSCrash/issues/810
     /// mach.subcode was always 0 due to a 32-bit/64-bit struct mismatch in the
     /// Mach exception handler. Verify the fault address survives into the report.
