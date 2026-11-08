@@ -605,36 +605,30 @@ KSCrashInstallErrorCode kscrash_install(const char *const installPath, KSCrashCC
     // Everything under the install path is read and written before the first unlock after a
     // reboot when the app launches in the background then, and a crash in that launch is one
     // this library exists to record, so all of it is class D (no protection). New files and
-    // folders take their folder's class, so the base folder covers what is created from here
-    // on. What an earlier version created keeps its class, so that is set here too, once:
-    // last_run_id is set last, so the next launch's check of it alone says the rest is done.
-    // A pass that stops part way, by a crash or because a file cannot be opened before the
-    // first unlock, leaves it unset and runs again.
+    // folders take their folder's class. What an earlier version created keeps its class, so
+    // that is set here, once: the install folder is set last, so the next launch's check of it
+    // alone says the rest is done. A pass that stops part way, by a crash or because a file
+    // cannot be opened before the first unlock, leaves it unset and runs again.
     char lastRunIDPath[KSFU_MAX_PATH_LENGTH];
     if (snprintf(lastRunIDPath, sizeof(lastRunIDPath), "%s/last_run_id", path) >= (int)sizeof(lastRunIDPath)) {
         KSLOG_ERROR("last_run_id path is too long.");
         return KSCrashInstallErrorPathTooLong;
     }
-    int lastRunIDFD = open(lastRunIDPath, O_RDWR | O_CLOEXEC);
-    bool isProtectionSet = lastRunIDFD >= 0 && ksfu_getDataProtection(lastRunIDFD) == KSFUDataProtectionNone;
+    bool isProtectionSet = readsBackDataProtectionNone(installPath);
     bool isProtectionComplete = true;
     if (!isProtectionSet) {
-        // The folders first: a fresh install creates last_run_id below, and it takes Data's class.
-        isProtectionComplete = setDataProtectionNone(installPath);
-        if (isProtectionComplete && !readsBackDataProtectionNone(installPath)) {
+        // Data first: a fresh install creates last_run_id below, and it takes Data's class.
+        isProtectionComplete = setDataProtectionNone(path);
+        if (isProtectionComplete && !readsBackDataProtectionNone(path)) {
             // The class was accepted but not kept, so this file system keeps none and there is
-            // nothing to set. last_run_id never reads back as class D here either, so without
-            // this every launch would repeat the whole pass.
+            // nothing to set. The install folder never reads back as class D here either, so
+            // without this every launch would repeat the whole pass.
             isProtectionSet = true;
-        } else if (!setDataProtectionNone(path)) {
-            isProtectionComplete = false;
         }
     }
+    int lastRunIDFD = open(lastRunIDPath, O_RDWR | O_CREAT | O_CLOEXEC, KSC_RUN_ID_FILE_MODE);
     if (lastRunIDFD < 0) {
-        lastRunIDFD = open(lastRunIDPath, O_RDWR | O_CREAT | O_CLOEXEC, KSC_RUN_ID_FILE_MODE);
-        if (lastRunIDFD < 0) {
-            KSLOG_ERROR("Could not open %s: %s", lastRunIDPath, strerror(errno));
-        }
+        KSLOG_ERROR("Could not open %s: %s", lastRunIDPath, strerror(errno));
     }
     rotateRunID(lastRunIDFD, lastRunIDPath);
 
@@ -668,9 +662,9 @@ KSCrashInstallErrorCode kscrash_install(const char *const installPath, KSCrashCC
     if (!isProtectionSet) {
         // Truncated and rewritten every launch rather than replaced, so a log an earlier version
         // created keeps its class unless it is changed here. last_run_id is rewritten in place
-        // the same way.
-        if (isProtectionComplete && setDataProtectionNone(g_consoleLogPath)) {
-            setDataProtectionNone(lastRunIDPath);
+        // the same way. The install folder last: everything created from here on takes its class.
+        if (isProtectionComplete && setDataProtectionNone(g_consoleLogPath) && setDataProtectionNone(lastRunIDPath)) {
+            setDataProtectionNone(installPath);
         }
     }
     if (g_shouldPrintPreviousLog) {
