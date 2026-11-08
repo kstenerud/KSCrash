@@ -96,7 +96,6 @@ const char *KSCrashCPUStateToString(KSCrashCPUState state)
 
 static const NSTimeInterval kPollingInterval = 5.0;
 
-// Tags _queue with its tracker, so a waiting tick can tell it is already running there.
 static const void *const kTrackerQueueKey = &kTrackerQueueKey;
 
 const double KSCrashCPUWarningThreshold = 0.50;
@@ -359,12 +358,8 @@ const NSTimeInterval KSCrashCPUCriticalWindow = 60.0;
             [self _tick];
         });
     } else if (dispatch_get_specific(kTrackerQueueKey) == (__bridge void *)self) {
-        // Already on _queue (an observer asked for a tick): dispatch_sync here waits on itself,
-        // which libdispatch traps. Running inline is already serialized.
         [self _tick];
     } else {
-        // dispatch_sync rather than an async tick plus a group or semaphore wait: only
-        // dispatch_sync lends the caller's priority to the utility queue while it waits.
         dispatch_sync(_queue, ^{
             [self _tick];
         });
