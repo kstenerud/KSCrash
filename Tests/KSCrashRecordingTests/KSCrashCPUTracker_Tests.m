@@ -26,7 +26,7 @@
 
 #import <XCTest/XCTest.h>
 
-#import "KSCrashCPUTracker.h"
+#import "KSCrashCPUTracker+Private.h"
 
 #pragma mark - KSCrashCPUStateToString Tests
 
@@ -137,6 +137,7 @@
             XCTAssertTrue(changes & KSCrashCPUTrackerChangeTypeUsage);
             [expectation fulfill];
         }];
+    [KSCrashCPUTracker.sharedInstance testcode_tick];
 
     [self waitForExpectations:@[ expectation ] timeout:10.0];
     (void)observer;

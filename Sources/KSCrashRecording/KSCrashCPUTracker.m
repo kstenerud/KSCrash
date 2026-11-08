@@ -24,7 +24,7 @@
 // THE SOFTWARE.
 //
 
-#import "KSCrashCPUTracker.h"
+#import "KSCrashCPUTracker+Private.h"
 
 #import <mach/mach_time.h>
 #import <os/lock.h>
@@ -346,6 +346,13 @@ const NSTimeInterval KSCrashCPUCriticalWindow = 60.0;
                              cpuTimeInWindow:cpuTimeInWindow
                             wallTimeInWindow:wallTimeInWindow
                                  timestampNs:nowNs];
+}
+
+- (void)testcode_tick
+{
+    dispatch_async(_queue, ^{
+        [self _tick];
+    });
 }
 
 /** Timer callback — poll, update state, notify observers. */
