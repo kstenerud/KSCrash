@@ -1483,9 +1483,9 @@ static int addJSONFromFile_onEndData(__unused void *const userData) { return KSJ
 
 // The checking callbacks below run the same decoder the embedding callbacks do, but reach
 // no encoder, so a payload that fails leaves nothing written anywhere. They still pump the
-// buffer refill, because decodeElement only advances the file window from its callbacks,
-// and they count containers, because the decoder has no depth limit of its own while the
-// encoder's isObject[] does.
+// buffer refill, because decodeElement only advances the file window from its callbacks.
+// Depth needs nothing from them: the decoder judges it, starting from the depth already
+// open at the destination.
 
 static int check_onScalarElement(void *const userData)
 {
