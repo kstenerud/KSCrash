@@ -64,11 +64,12 @@ session/user counts on the summary; a consumer derives whatever it needs from
 
 ### Reclaim
 
-`kscrs_reclaimAbandonedFiles` (in `KSCrashReportStoreC.m`) runs under `g_mutex` at the
-end of both send flows. It first removes the temporary files of report writes a crash
-interrupted, and of take-ins too when the send holds the take-in claim (a take-in copies
-outside `g_mutex`, so only its claim says none is in flight); a take-in that holds the
-claim leaves its copies for a later send rather than making the reclaim wait. Then it
+The reclaim (in `KSCrashReportStoreC.m`, run at the end of both send flows, each half under
+`g_mutex`) first removes the temporary files of report writes a crash interrupted, and of
+take-ins too when the send holds the take-in claim (a take-in copies outside `g_mutex`, so
+only its claim says none is in flight); a take-in that holds the claim leaves its copies for
+a later send rather than making the reclaim wait. The send holds the claim for that sweep
+alone, since a take-in that finds it taken skips its sources. Then the reclaim
 computes the referenced run IDs once and removes run data nothing points at any more: run sidecars **and** `.sessions` are both kept while a
 report or a `.run` summary references the run (a pending summary needs its `.sessions`
 for the record merge and its UserInfo run sidecar for the metadata stitch), and the
@@ -92,5 +93,5 @@ pending summaries keep their artifacts. See `monitor-sidecars.md` for the run-si
 - `KSCrashRunContext.m`: `buildSummary`, `ksruncontext_persistPreviousRunSummary`
 - `Sources/KSCrash/Store.swift` / `Store+Runs.swift`: the store, its run listing (`snapshotRuns()`), send-time merge and metadata stitch
 - `Sources/KSCrash/SendDriver.swift` / `RunSummarySend.swift`: the shared send loop and the run-summary send built on it
-- `KSCrashReportStoreC.m`: `kscrs_reclaimAbandonedFiles`
+- `KSCrashReportStoreC.m`: `kscrs_removeAbandonedWrites` and `kscrs_reclaimOrphanedRunData` (both together: `kscrs_reclaimAbandonedFiles`)
 - `KSCrashReportFields.h`: `KSCrashRunSummaryField_*` wire keys, `KSCrashField_SessionID`
