@@ -39,37 +39,79 @@ import KSCrashReportModel
 /// does to itself, a self-sent SIGKILL above all, never reaches the extension,
 /// because the extension exists only because the OS decided to kill us.
 ///
-/// A corpse report is always typed `mach`: the extension sees the process the
-/// way the kernel delivered its death. An uncaught Objective-C or C++ exception
-/// ends in abort(), so it arrives as EXC_CRASH with SIGABRT, like abort() itself.
-/// The Mach exception and the signal are what tell the kinds apart.
+/// The extension sees the process the way the kernel delivered its death, so
+/// every corpse report carries a Mach exception and a signal. An uncaught
+/// Objective-C or C++ exception ends in abort(), so it arrives as EXC_CRASH with
+/// SIGABRT, like abort() itself; the report is then typed by the exception the
+/// runtime libraries left in their `__crash_info` messages, as an in-process
+/// report of that crash would be.
 struct CorpseExpectation {
     let triggerID: String
+    let errorType: CrashErrorType
     let machException: Int32
     let signal: Int32
     /// Whether the trigger crashes a thread other than the main one, so that
     /// subject-thread selection is exercised rather than assumed.
     var crashesOffMainThread = false
+    /// The exception's name and reason, for a trigger that dies of one.
+    var exceptionName: String? = nil
+    var reason: String? = nil
+    /// Whether the report must carry the exception's throw stack.
+    var expectsThrowStack = false
+    /// An image whose `__crash_info` message the report must carry: the image's
+    /// path suffix and text the message contains.
+    var crashInfo: (imageSuffix: String, contains: String)? = nil
 
     func matches(_ report: Report) -> Bool {
-        report.crash.error.type == .mach
+        report.crash.error.type == errorType
             && report.crash.error.mach?.exception == UInt64(machException)
             && report.crash.error.signal?.signal == UInt64(signal)
+    }
+
+    /// What the report is missing of the exception and crash info this
+    /// trigger leaves behind; empty when it carries all of it.
+    func contentFailures(_ report: Report) -> [String] {
+        var failures: [String] = []
+        let error = report.crash.error
+        if let exceptionName {
+            let actual = errorType == .cppException ? error.cppException?.name : error.nsexception?.name
+            if actual != exceptionName {
+                failures.append("exception name \(actual ?? "nil"), expected \(exceptionName)")
+            }
+        }
+        if let reason, error.reason != reason {
+            failures.append("reason \(error.reason ?? "nil"), expected \(reason)")
+        }
+        if expectsThrowStack && (report.crash.lastExceptionBacktrace?.contents.isEmpty ?? true) {
+            failures.append("no last_exception_backtrace")
+        }
+        if let crashInfo {
+            let message = report.binaryImages?.first { $0.name.hasSuffix(crashInfo.imageSuffix) }?.crashInfoMessage
+            if message?.contains(crashInfo.contains) != true {
+                failures.append(
+                    "\(crashInfo.imageSuffix) crash_info_message is \(message.map { "\"\($0)\"" } ?? "nil"),"
+                        + " expected it to contain \"\(crashInfo.contains)\"")
+            }
+        }
+        return failures
     }
 
     /// Reused from the sample's trigger library wherever the existing trigger
     /// already produces a real, system-delivered termination.
     static let reusingExistingTriggers: [CorpseExpectation] = [
         .init(
-            triggerID: CrashTriggerId.mach_badAccess.rawValue, machException: EXC_BAD_ACCESS, signal: SIGSEGV),
+            triggerID: CrashTriggerId.mach_badAccess.rawValue, errorType: .mach, machException: EXC_BAD_ACCESS,
+            signal: SIGSEGV),
         .init(
-            triggerID: CrashTriggerId.signal_abort.rawValue, machException: EXC_CRASH, signal: SIGABRT
-        ),
+            triggerID: CrashTriggerId.signal_abort.rawValue, errorType: .mach, machException: EXC_CRASH,
+            signal: SIGABRT, crashInfo: (imageSuffix: "/libsystem_c.dylib", contains: "abort() called")),
         .init(
-            triggerID: CrashTriggerId.nsException_genericNSException.rawValue, machException: EXC_CRASH,
-            signal: SIGABRT),
+            triggerID: CrashTriggerId.nsException_genericNSException.rawValue, errorType: .nsexception,
+            machException: EXC_CRASH, signal: SIGABRT, exceptionName: "NSGenericException", reason: "Test",
+            expectsThrowStack: true),
         .init(
-            triggerID: CrashTriggerId.cpp_runtimeExceptionBackgroundThread.rawValue, machException: EXC_CRASH,
-            signal: SIGABRT, crashesOffMainThread: true),
+            triggerID: CrashTriggerId.cpp_runtimeExceptionBackgroundThread.rawValue, errorType: .cppException,
+            machException: EXC_CRASH, signal: SIGABRT, crashesOffMainThread: true,
+            exceptionName: "std::runtime_error", reason: "C++ exception"),
     ]
 }
