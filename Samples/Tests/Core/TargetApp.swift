@@ -361,24 +361,42 @@ final class SimulatorDevice {
     /// Disables `busyJobs` and boots the device again. The simulator's own launchd keeps its
     /// disabled list across a reboot, so the second boot comes up without them. Some of these
     /// run per user rather than system-wide, so each is disabled in both domains. The calls
-    /// run together because each one is a separate spawn into the simulator.
+    /// run a few at a time because each one is a separate spawn into the simulator.
     private static func quiet(_ udid: String) throws {
         let domains = ["system", "user/\(getuid())"]
-        let processes = try busyJobs.flatMap { job in
-            try domains.map { domain in
-                let process = Process()
-                process.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")
-                process.arguments = ["simctl", "spawn", udid, "launchctl", "disable", "\(domain)/com.apple.\(job)"]
-                process.standardOutput = FileHandle.nullDevice
-                process.standardError = FileHandle.nullDevice
-                try process.run()
-                return process
+        let failures = Failures()
+        let queue = OperationQueue()
+        queue.maxConcurrentOperationCount = 4
+        for domain in domains {
+            for job in busyJobs {
+                let label = "\(domain)/com.apple.\(job)"
+                queue.addOperation {
+                    if (try? xcrun(["simctl", "spawn", udid, "launchctl", "disable", label])) == nil {
+                        failures.append(label)
+                    }
+                }
             }
         }
-        processes.forEach { $0.waitUntilExit() }
+        queue.waitUntilAllOperationsAreFinished()
+        guard failures.all.isEmpty else {
+            throw TargetAppError.commandFailed("launchctl disable failed for \(failures.all)")
+        }
         try xcrun(["simctl", "shutdown", udid])
         try xcrun(["simctl", "boot", udid], timeout: bootTimeout)
         try xcrun(["simctl", "bootstatus", udid, "-b"], timeout: bootTimeout)
+    }
+
+    private final class Failures: @unchecked Sendable {
+        private let lock = NSLock()
+        private var labels: [String] = []
+
+        func append(_ label: String) {
+            lock.withLock { labels.append(label) }
+        }
+
+        var all: [String] {
+            lock.withLock { labels }
+        }
     }
 
     /// tvOS opens its home screen when an app dies. On a loaded machine PineBoard learns of a
