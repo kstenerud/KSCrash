@@ -472,6 +472,15 @@ final class StoreTests: XCTestCase {
 
     // MARK: - Ownership
 
+    func test_removeSummary_runFileAlreadyGone_isNotAnError() throws {
+        try writeSummary(makeSummary(runID: "GONE"), startNs: 100)
+        let store = makeStore()
+        let run = try store.snapshotRuns()[0]
+        try FileManager.default.removeItem(at: try XCTUnwrap(run.summaryFile))
+
+        XCTAssertNoThrow(try store.removeSummary(of: run))
+    }
+
     func test_removeSummary_leavesSharedFilesAlone() throws {
         let runID = "OWNED"
         try writeSummary(makeSummary(runID: runID), startNs: 100)

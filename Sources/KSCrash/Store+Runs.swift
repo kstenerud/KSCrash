@@ -67,12 +67,14 @@ extension Store {
         return try stitchingMetadata(into: merged, for: run)
     }
 
-    /// Delete this run's own `.run` file.
+    /// Delete this run's own `.run` file. One already gone counts as deleted.
     func removeSummary(of run: Run) throws {
         guard let file = run.summaryFile else {
             return
         }
-        try FileManager.default.removeItem(at: file)
+        do {
+            try FileManager.default.removeItem(at: file)
+        } catch  where Self.isNoSuchFile(error) {}
     }
 
     private func decodedBaseSummary(of run: Run) throws -> RunSummary? {
