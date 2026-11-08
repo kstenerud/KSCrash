@@ -193,10 +193,8 @@ func makeCrashError(from fields: CrashDiagnosticFields, fallbackType: CrashError
                 callStackTree: diagnostic.callStackTree.representation ?? CallStackTreeRepresentation(callStacks: []),
                 timestamp: timestamp,
                 applicationVersion: diagnostic.applicationVersion
-            ) { skeleton in
-                self.buildSystemInfo(
-                    metaData: diagnostic.metaData, applicationVersion: diagnostic.applicationVersion,
-                    skeleton: skeleton)
+            ) { _ in
+                self.buildSystemInfo(for: diagnostic)
             }
         }
     }

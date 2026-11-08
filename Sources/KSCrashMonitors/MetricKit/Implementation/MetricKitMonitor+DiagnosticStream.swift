@@ -40,9 +40,9 @@ import os.log
 // `MetricManager(enabledStateReportingDomains:)` receives no diagnostics at all while the legacy
 // subscriber is registered, and the two would deliver every crash and hang twice.
 //
-// Crash and hang go through the same handlers as the legacy path, and memory exceptions (iOS
-// only) through their own. CPU exception, disk write exception and app launch diagnostics are
-// only dumped, as they are on the legacy path.
+// Crash, hang, CPU exception and disk write exception diagnostics go through the same handlers
+// as the legacy path, and memory exceptions (iOS only) through their own. App launch diagnostics
+// are only dumped, as they are on the legacy path.
 //
 // The API needs the 27 SDKs, so this compiles only under KSCRASH_HAS_METRICKIT_27_PLUS. An app
 // built with an older Xcode uses the legacy subscriber on every OS version.
@@ -95,15 +95,16 @@ import os.log
             dump(report)
 
             let environment = report.environment
-            // A crash or memory kill spans an instant (begin == end); for a hang the end is when
-            // the hang finished. Either way the end is the timestamp, as the legacy payload's
-            // timeStampEnd is.
+            // The range is shared by the diagnostics MetricKit delivers together, as the legacy
+            // payload's is, so its end can fall after the run the diagnostic describes ended. The
+            // end is the report's timestamp, as the legacy timeStampEnd is; reports with no run ID
+            // also carry the whole range (see MetricKitTimeRange).
             let timestamp = report.timeRange.end
-            // The skeleton report's system info reflects the current session, not the one the
-            // diagnostic describes, so only its process name survives.
-            let systemInfo: (Report) -> SystemInfo = { skeleton in
-                makeSystemInfo(from: environment, processName: skeleton.system?.processName)
-            }
+            let timeRange = MetricKitTimeRange(begin: report.timeRange.start, end: report.timeRange.end)
+            // System info comes from the diagnostic, never the skeleton report, which describes
+            // this session. The device hash, the one value every run of the app shares, comes from
+            // this run (see deviceAppHash).
+            let systemInfo: (Report) -> SystemInfo = { _ in makeSystemInfo(from: environment) }
 
             let reportID: Report.ID?
             switch report.result {
@@ -119,6 +120,21 @@ import os.log
                     callStackTree: diagnostic.callStackTree.callStackRepresentation,
                     hangDuration: diagnostic.hangDuration,
                     timestamp: timestamp,
+                    applicationVersion: environment.applicationVersion,
+                    systemInfo: systemInfo)
+            case .cpuException(let diagnostic):
+                reportID = processCPUException(
+                    callStackTree: diagnostic.callStackTree.callStackRepresentation,
+                    totalCPUTime: diagnostic.totalCPUTime,
+                    totalSampledTime: diagnostic.totalSampledTime,
+                    timeRange: timeRange,
+                    applicationVersion: environment.applicationVersion,
+                    systemInfo: systemInfo)
+            case .diskWriteException(let diagnostic):
+                reportID = processDiskWrite(
+                    callStackTree: diagnostic.callStackTree.callStackRepresentation,
+                    totalBytesWritten: diagnostic.totalBytesWritten,
+                    timeRange: timeRange,
                     applicationVersion: environment.applicationVersion,
                     systemInfo: systemInfo)
             #if os(iOS) && !targetEnvironment(macCatalyst)
@@ -156,17 +172,17 @@ import os.log
 
     /// Builds a report's system info from the typed `DiagnosticReport.Environment`.
     @available(iOS 27.0, macOS 27.0, visionOS 27.0, *)
-    func makeSystemInfo(from environment: DiagnosticReport.Environment, processName: String?) -> SystemInfo {
+    func makeSystemInfo(from environment: DiagnosticReport.Environment) -> SystemInfo {
         let os = environment.osVersion
         return SystemInfo(
             cfBundleIdentifier: environment.bundleIdentifier,
             cfBundleShortVersionString: environment.applicationVersion,
             cfBundleVersion: environment.applicationBuildVersion,
             cpuArch: environment.platformArchitecture,
+            deviceAppHash: deviceAppHash(forDiagnosticBundleID: environment.bundleIdentifier),
             machine: environment.deviceType,
             osVersion: os.buildNumber,
             processID: environment.pid.map { Int($0) },
-            processName: processName,
             systemName: os.platform,
             systemVersion: os.number,
             buildType: environment.isTestFlightApp ? .test : .appStore,
