@@ -96,6 +96,9 @@ const char *KSCrashCPUStateToString(KSCrashCPUState state)
 
 static const NSTimeInterval kPollingInterval = 5.0;
 
+// Tags _queue with its tracker, so a waiting tick can tell it is already running there.
+static const void *const kTrackerQueueKey = &kTrackerQueueKey;
+
 const double KSCrashCPUWarningThreshold = 0.50;
 const double KSCrashCPUCriticalThreshold = 0.80;
 const NSTimeInterval KSCrashCPUWarningWindow = 180.0;
@@ -194,6 +197,7 @@ const NSTimeInterval KSCrashCPUCriticalWindow = 60.0;
         _lock = OS_UNFAIR_LOCK_INIT;
         _queue = dispatch_queue_create_with_target("com.kscrash.cpu.heartbeat", DISPATCH_QUEUE_SERIAL,
                                                    dispatch_get_global_queue(QOS_CLASS_UTILITY, 0));
+        dispatch_queue_set_specific(_queue, kTrackerQueueKey, (__bridge void *)self, NULL);
         _state = KSCrashCPUStateNormal;
         _observers = [NSPointerArray weakObjectsPointerArray];
         kscpuring_init(&_ring);
@@ -348,11 +352,23 @@ const NSTimeInterval KSCrashCPUCriticalWindow = 60.0;
                                  timestampNs:nowNs];
 }
 
-- (void)scheduleTick
+- (void)tickWaitingUntilDone:(BOOL)wait
 {
-    dispatch_async(_queue, ^{
+    if (!wait) {
+        dispatch_async(_queue, ^{
+            [self _tick];
+        });
+    } else if (dispatch_get_specific(kTrackerQueueKey) == (__bridge void *)self) {
+        // Already on _queue (an observer asked for a tick): dispatch_sync here waits on itself,
+        // which libdispatch traps. Running inline is already serialized.
         [self _tick];
-    });
+    } else {
+        // dispatch_sync rather than an async tick plus a group or semaphore wait: only
+        // dispatch_sync lends the caller's priority to the utility queue while it waits.
+        dispatch_sync(_queue, ^{
+            [self _tick];
+        });
+    }
 }
 
 /** Timer callback — poll, update state, notify observers. */

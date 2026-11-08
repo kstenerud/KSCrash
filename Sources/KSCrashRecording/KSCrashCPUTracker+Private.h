@@ -30,10 +30,14 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface KSCrashCPUTracker ()
 
-/** For tests. Schedules one poll on the tracker's queue, exactly as the timer does, and returns
- *  without waiting for it. The timer fires every few seconds at utility QoS, so a test that waits
- *  for it waits on the scheduler as well. */
-- (void)scheduleTick;
+/** For tests. Runs one tick on the tracker's queue, the same poll and observer notification the
+ *  timer runs. The timer fires every few seconds at utility QoS, so a test that waits for it waits
+ *  on the scheduler as well.
+ *
+ *  @param wait YES to return only after the observers have been called, NO to queue the tick and
+ *              return at once. Waiting is safe from an observer, which already runs on the queue.
+ */
+- (void)tickWaitingUntilDone:(BOOL)wait;
 
 @end
 
