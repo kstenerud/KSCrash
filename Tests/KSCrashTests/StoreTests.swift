@@ -471,18 +471,24 @@ final class StoreTests: XCTestCase {
         XCTAssertNil(try store.summary(of: after[0]))
     }
 
-    func test_reclaimOrphans_invokesInjectedReclaim() {
+    func test_reclaimOrphans_sweepsThenInvokesInjectedReclaim() {
+        let swept = expectation(description: "sweep")
         let called = expectation(description: "reclaim")
+        var bridge = ReportBridge.none
+        bridge.removeAbandonedWrites = { includingTakeIns in
+            XCTAssertTrue(includingTakeIns, "with no take-in holding the claim, the sweep holds it")
+            swept.fulfill()
+        }
         let store = Store(
             runsDirectory: runsDirectory,
             runSidecarsDirectory: sidecarsDirectory,
-            liveRunID: nil
-        ) { noTakeInRunning in
-            XCTAssertTrue(noTakeInRunning, "with no take-in holding the claim, the reclaim holds it")
+            liveRunID: nil,
+            reports: bridge
+        ) {
             called.fulfill()
         }
         store.reclaimOrphans()
-        wait(for: [called], timeout: 1)
+        wait(for: [swept, called], timeout: 1, enforceOrder: true)
     }
 
     // MARK: - Reports
@@ -946,6 +952,41 @@ final class StoreTests: XCTestCase {
         XCTAssertEqual(source.finished, [testReportID(1): .taken, testReportID(2): .taken])
         XCTAssertEqual(source.pendingIDs, [])
     }
+
+    func test_takeIn_runsWhileAnotherSendReclaimsRunData() async throws {
+        // The reclaim holds the take-in claim only for its sweep of crashed
+        // copies, not through the run data pass, so a take-in in that pass
+        // still takes its sources.
+        let reports = FakeReports([:])
+        let entered = DispatchSemaphore(value: 0)
+        let proceed = DispatchSemaphore(value: 0)
+        let store = Store(
+            runsDirectory: runsDirectory, runSidecarsDirectory: sidecarsDirectory, liveRunID: nil,
+            reports: ReportBridge(
+                list: { reports.ids },
+                takeIn: { file, id, _ in
+                    guard let data = try? Data(contentsOf: file) else { return .retryLater }
+                    _ = reports.insert(id, data)
+                    return .taken
+                },
+                read: { reports.data(for: $0) }, runID: { _ in nil }, remove: { reports.remove($0) }),
+            reclaim: {
+                entered.signal()
+                proceed.wait()
+            })
+        Thread { store.reclaimOrphans() }.start()
+        Self.wait(entered)
+        let source = MemoryReportSource([incoming(1)])
+
+        await store.takeIn(from: [source], claims: ClaimSet())
+        proceed.signal()
+
+        XCTAssertEqual(reports.ids, [testReportID(1)])
+        XCTAssertEqual(source.finished, [testReportID(1): .taken])
+    }
+
+    /// Blocks outside the async context, where a semaphore wait is not allowed.
+    private static func wait(_ semaphore: DispatchSemaphore) { semaphore.wait() }
 
     func test_takeIn_answersTakenForAReportTheStoreAlreadyHolds() async throws {
         // What makes a crash between the store's write and the reader's finish

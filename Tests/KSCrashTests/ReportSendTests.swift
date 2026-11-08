@@ -104,7 +104,7 @@ final class ReportSendTests: XCTestCase {
                 },
                 remove: { try FileManager.default.removeItem(at: directory.appendingPathComponent("\($0).json")) }
             ),
-            reclaim: { _ in counter.increment() }
+            reclaim: { counter.increment() }
         )
     }
 

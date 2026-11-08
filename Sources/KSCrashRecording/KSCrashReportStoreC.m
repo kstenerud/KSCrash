@@ -1458,6 +1458,20 @@ static void removeAbandonedWrites(const KSCrashReportStoreCConfiguration *const 
     }
 }
 
+void kscrs_removeAbandonedWrites(const KSCrashReportStoreCConfiguration *const configuration, bool includingTakeIns)
+{
+    pthread_mutex_lock(&g_mutex);
+    removeAbandonedWrites(configuration, includingTakeIns);
+    pthread_mutex_unlock(&g_mutex);
+}
+
+void kscrs_reclaimOrphanedRunData(const KSCrashReportStoreCConfiguration *const configuration)
+{
+    pthread_mutex_lock(&g_mutex);
+    reclaimOrphanedRunData(configuration);
+    pthread_mutex_unlock(&g_mutex);
+}
+
 void kscrs_reclaimAbandonedFiles(const KSCrashReportStoreCConfiguration *const configuration, bool noTakeInRunning)
 {
     pthread_mutex_lock(&g_mutex);

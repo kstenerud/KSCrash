@@ -70,7 +70,7 @@ final class RunSummarySendTests: XCTestCase {
                 runID: { _ in nil },
                 remove: { _ in }
             ),
-            reclaim: { _ in counter.increment() }
+            reclaim: { counter.increment() }
         )
     }
 
@@ -427,7 +427,7 @@ final class RunSummarySendTests: XCTestCase {
                 runsDirectory: runsDirectory,
                 runSidecarsDirectory: sidecarsDirectory,
                 liveRunID: nil
-            ) { _ in counter.increment() }
+            ) { counter.increment() }
             let inner = try await RunSummarySend.send(
                 store: store, pipeline: [passThrough()], claims: claims)
             XCTAssertTrue(inner.items.isEmpty)

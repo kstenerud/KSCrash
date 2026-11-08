@@ -248,6 +248,21 @@ bool kscrs_getReportSidecarFilePath(const char *monitorId, const char *name, con
  */
 void kscrs_reclaimAbandonedFiles(const KSCrashReportStoreCConfiguration *const configuration, bool noTakeInRunning);
 
+/** The first half of kscrs_reclaimAbandonedFiles: remove the partial files of report writes,
+ * and of take-ins when includingTakeIns is true, that a crash interrupted.
+ *
+ * @param configuration The store configuration.
+ * @param includingTakeIns true only while no take-in into this store is running.
+ */
+void kscrs_removeAbandonedWrites(const KSCrashReportStoreCConfiguration *const configuration, bool includingTakeIns);
+
+/** The second half of kscrs_reclaimAbandonedFiles: remove run data no report or run summary
+ * references any more, once it is older than the retention window.
+ *
+ * @param configuration The store configuration.
+ */
+void kscrs_reclaimOrphanedRunData(const KSCrashReportStoreCConfiguration *const configuration);
+
 /** What happened to a report offered to the store. */
 typedef enum {
     /** The report is in the store. */
