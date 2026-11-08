@@ -107,8 +107,7 @@ final class NSExceptionTests: IntegrationTestBase {
 }
 
 final class MachTests: IntegrationTestBase {
-    // Where KSCrash handles Mach exceptions (KSCRASH_HAS_MACH).
-    override class var platforms: Set<TargetPlatform> { [.iOS, .macOS, .visionOS] }
+    override class var platforms: Set<TargetPlatform> { TargetPlatform.machExceptionHosts }
 
     func testBadAccess() throws {
         try launchAndCrash(.mach_badAccess)
@@ -150,7 +149,7 @@ final class MachTests: IntegrationTestBase {
 }
 
 final class MachSignalHandlerChainingTests: IntegrationTestBase {
-    override class var platforms: Set<TargetPlatform> { [.iOS, .macOS, .visionOS] }
+    override class var platforms: Set<TargetPlatform> { TargetPlatform.machExceptionHosts }
 
     func testBadAccessReachesSignalHandlerInstalledAfterKSCrash() throws {
         let signalMarkerURL = installUrl.appendingPathComponent("__post_kscrash_signal__")
