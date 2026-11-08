@@ -358,10 +358,11 @@ final class SimulatorDevice {
         "photoanalysisd",
     ]
 
-    /// Disables `busyJobs` and boots the device again. The simulator's own launchd keeps its
-    /// disabled list across a reboot, so the second boot comes up without them. Some of these
-    /// run per user rather than system-wide, so each is disabled in both domains. The calls
-    /// run a few at a time because each one is a separate spawn into the simulator.
+    /// Disables `busyJobs` and stops the ones already running. A disabled job is not started
+    /// again, so the device stays quiet without a reboot. Some of these run per user rather
+    /// than system-wide, so each is disabled in both domains. A job that is not running fails
+    /// to stop, which is harmless once it is disabled. The calls run a few at a time because
+    /// each one is a separate spawn into the simulator.
     private static func quiet(_ udid: String) throws {
         let domains = ["system", "user/\(getuid())"]
         let failures = Failures()
@@ -371,9 +372,11 @@ final class SimulatorDevice {
             for job in busyJobs {
                 let label = "\(domain)/com.apple.\(job)"
                 queue.addOperation {
-                    if (try? xcrun(["simctl", "spawn", udid, "launchctl", "disable", label])) == nil {
+                    guard (try? xcrun(["simctl", "spawn", udid, "launchctl", "disable", label])) != nil else {
                         failures.append(label)
+                        return
                     }
+                    _ = try? xcrun(["simctl", "spawn", udid, "launchctl", "bootout", label], allowFailure: true)
                 }
             }
         }
@@ -381,9 +384,6 @@ final class SimulatorDevice {
         guard failures.all.isEmpty else {
             throw TargetAppError.commandFailed("launchctl disable failed for \(failures.all)")
         }
-        try xcrun(["simctl", "shutdown", udid])
-        try xcrun(["simctl", "boot", udid], timeout: bootTimeout)
-        try xcrun(["simctl", "bootstatus", udid, "-b"], timeout: bootTimeout)
     }
 
     private final class Failures: @unchecked Sendable {
