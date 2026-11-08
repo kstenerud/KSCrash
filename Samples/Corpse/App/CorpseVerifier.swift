@@ -139,9 +139,10 @@ enum CorpseVerifier {
             let error = report.crash.error
             failures.append(
                 "classified as \(error.type) \(error.mach?.exceptionName ?? "no mach exception")"
-                    + " \(error.signal?.name ?? "no signal"), expected mach exception"
+                    + " \(error.signal?.name ?? "no signal"), expected \(expectation.errorType) mach exception"
                     + " \(expectation.machException) signal \(expectation.signal)")
         }
+        failures += expectation.contentFailures(report)
         // The identity that had to cross a process boundary: the extension reads
         // it out of the corpse's __ks_runid section, so a mismatch means the
         // report is not the crashed run's.
