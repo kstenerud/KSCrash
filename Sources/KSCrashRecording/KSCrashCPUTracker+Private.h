@@ -33,7 +33,7 @@ NS_ASSUME_NONNULL_BEGIN
 /** For tests. Schedules one poll on the tracker's queue, exactly as the timer does, and returns
  *  without waiting for it. The timer fires every few seconds at utility QoS, so a test that waits
  *  for it waits on the scheduler as well. */
-- (void)testcode_tick;
+- (void)scheduleTick;
 
 @end
 

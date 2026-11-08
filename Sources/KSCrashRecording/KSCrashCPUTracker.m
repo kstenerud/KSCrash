@@ -348,7 +348,7 @@ const NSTimeInterval KSCrashCPUCriticalWindow = 60.0;
                                  timestampNs:nowNs];
 }
 
-- (void)testcode_tick
+- (void)scheduleTick
 {
     dispatch_async(_queue, ^{
         [self _tick];

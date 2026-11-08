@@ -137,7 +137,7 @@
             XCTAssertTrue(changes & KSCrashCPUTrackerChangeTypeUsage);
             [expectation fulfill];
         }];
-    [KSCrashCPUTracker.sharedInstance testcode_tick];
+    [KSCrashCPUTracker.sharedInstance scheduleTick];
 
     [self waitForExpectations:@[ expectation ] timeout:10.0];
     (void)observer;
