@@ -246,7 +246,7 @@ static void trigger_user_swiftAsync(void) { integrationTestSwiftAsyncTrigger(); 
 
 + (void)trigger_mach_badAccessDeadbeef
 {
-    // A plain load: on x86_64, objc takes an odd pointer for a tagged one, so messaging it does not fault.
+    // A plain load: on x86_64 macOS, objc takes an odd pointer for a tagged one, so messaging it does not fault.
     (void)*(volatile char *)0xDEADBEEF;
 }
 
