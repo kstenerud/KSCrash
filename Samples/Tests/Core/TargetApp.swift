@@ -360,9 +360,11 @@ final class SimulatorDevice {
 
     /// Disables `busyJobs` and stops the ones already running. A disabled job is not started
     /// again, so the device stays quiet without a reboot. Some of these run per user rather
-    /// than system-wide, so each is disabled in both domains. A job that is not running fails
-    /// to stop, which is harmless once it is disabled. The calls run a few at a time because
-    /// each one is a separate spawn into the simulator.
+    /// than system-wide, so each is disabled in both domains. Every system disable must succeed;
+    /// the user domain is best effort, since tvOS and watchOS have none and some runtimes
+    /// (tvOS 26.2) refuse every disable there. A job that is not running fails to stop, which
+    /// is harmless once it is disabled. The calls run a few at a time because each one is a
+    /// separate spawn into the simulator.
     private static func quiet(_ udid: String) throws {
         let domains = ["system", "user/\(getuid())"]
         let failures = Failures()
@@ -373,7 +375,9 @@ final class SimulatorDevice {
                 let label = "\(domain)/com.apple.\(job)"
                 queue.addOperation {
                     guard (try? xcrun(["simctl", "spawn", udid, "launchctl", "disable", label])) != nil else {
-                        failures.append(label)
+                        if domain == "system" {
+                            failures.append(label)
+                        }
                         return
                     }
                     _ = try? xcrun(["simctl", "spawn", udid, "launchctl", "bootout", label], allowFailure: true)
