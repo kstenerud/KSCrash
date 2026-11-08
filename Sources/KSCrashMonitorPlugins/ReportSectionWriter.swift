@@ -148,7 +148,7 @@ public struct ReportSectionWriter {
         guard let json = String(data: data, encoding: .utf8) else { return }
         name.withCString { cName in
             json.withCString { cJSON in
-                ptr.pointee.addJSONElement(ptr, cName, cJSON, false)
+                ptr.pointee.addJSONElement(ptr, cName, cJSON, true)
             }
         }
     }
