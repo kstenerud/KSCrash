@@ -55,6 +55,9 @@ typedef struct KSHangState {
     /** App transition state (KSCrashAppTransitionState) when the hang started. */
     uint8_t transitionState;
 
+    /** Whether the hang started before the app was first active this run, during launch. */
+    bool startedBeforeFirstActive;
+
     /** Monotonic timestamp (in nanoseconds) of the current/end state. */
     uint64_t endTimestamp;
 
