@@ -214,7 +214,7 @@ bool ksfu_writeBufferedWriter(KSBufferedWriter *writer, const char *__restrict c
  *
  * @param writer The writer to flush.
  *
- * @return True if the buffer was successfully flushed.
+ * @return True if the buffer was successfully flushed. False if data is pending and the writer has no open file.
  */
 bool ksfu_flushBufferedWriter(KSBufferedWriter *writer);
 
