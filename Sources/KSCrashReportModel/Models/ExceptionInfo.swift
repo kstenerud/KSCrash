@@ -29,16 +29,16 @@ import Foundation
 /// NSException details (Objective-C/Swift exceptions).
 public struct ExceptionInfo: Codable, Sendable, Equatable {
     /// Exception name (e.g., "NSInvalidArgumentException").
-    public let name: String
+    public var name: String
 
     /// Exception reason string (note: reason is often at the error level, not here).
-    public let reason: String?
+    public var reason: String?
 
     /// User info dictionary from the exception.
-    public let userInfo: String?
+    public var userInfo: String?
 
     /// Referenced object that was involved in the exception.
-    public let referencedObject: MemoryContents?
+    public var referencedObject: MemoryContents?
 
     public init(
         name: String,

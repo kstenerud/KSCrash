@@ -140,11 +140,14 @@ public struct ReportSectionWriter {
     // MARK: - Encodable
 
     /// JSON-encodes `value` and adds it under `name` via the writer's JSON-element support.
+    /// Dates are seconds since 1970, as metadata and monitor sections hold them.
     ///
     /// The writer re-parses the JSON with a fixed per-string buffer (5000 bytes), so no single
     /// string inside `value` may exceed it; oversized elements are rejected by the writer.
     public func encode(_ name: String, _ value: some Encodable) throws {
-        let data = try JSONEncoder().encode(value)
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .secondsSince1970
+        let data = try encoder.encode(value)
         guard let json = String(data: data, encoding: .utf8) else { return }
         name.withCString { cName in
             json.withCString { cJSON in

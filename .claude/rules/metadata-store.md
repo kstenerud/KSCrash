@@ -82,9 +82,9 @@ every stitcher splits it the same way (`KSCrashSidecarReadResult`): an
 unrecoverable file (corrupt, or gone) delivers without that section, and only
 an environmental failure that a retry could get past holds delivery back.
 Returning the retry signal for an unrecoverable file strands every report of
-that run forever, since finalization never gets past it, while the same run's
-summary delivers. On the hang-recovery path it is worse: the watchdog monitor
-deletes the report outright when finalization fails.
+that run forever, since neither finalization nor the send gets past it, while
+the same run's summary delivers. On the hang-recovery path it is worse: the
+watchdog monitor deletes the report outright when finalization fails.
 
 ## One representation per type
 

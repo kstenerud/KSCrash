@@ -43,7 +43,7 @@ static NSString *createTempDir(void)
     return dir;
 }
 
-static NSString *writeSidecar(NSString *dir, KSHangSidecar sc)
+static NSString *writeSidecar(NSString *dir, KSCrash_HangData sc)
 {
     NSString *path = [dir stringByAppendingPathComponent:@"test.ksscr"];
     int fd = open(path.UTF8String, O_WRONLY | O_CREAT | O_TRUNC, 0644);
@@ -113,7 +113,8 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 - (void)testMissingSidecarFileDeliversTheReportUnchanged
 {
     NSString *missingPath = [self.tempDir stringByAppendingPathComponent:[[NSUUID UUID] UUIDString]];
-    NSDictionary *report = @{ @"report" : @ {} };
+    // A hang report, which a sidecar that read would change.
+    NSDictionary *report = makeMinimalHangReport(500, TASK_FOREGROUND_APPLICATION);
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
         (__bridge CFDictionaryRef)report, missingPath.UTF8String, KSCrashSidecarScopeRun, NULL);
     XCTAssertEqualObjects(result, report);
@@ -127,9 +128,8 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 
 - (void)testBadMagicDeliversTheReportUnchanged
 {
-    KSHangSidecar sc = {
-        .magic = (int32_t)0xDEADBEEF,
-        .version = KSHANG_SIDECAR_VERSION_1_0,
+    KSCrash_HangData sc = {
+        .header = { .magic = (int32_t)0xDEADBEEF, .version = KSCrash_Hang_CurrentVersion },
         .endTimestamp = 1000,
         .endRole = TASK_DEFAULT_APPLICATION,
         .recovered = false,
@@ -145,9 +145,8 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 
 - (void)testVersionZeroDeliversTheReportUnchanged
 {
-    KSHangSidecar sc = {
-        .magic = KSHANG_SIDECAR_MAGIC,
-        .version = 0,
+    KSCrash_HangData sc = {
+        .header = { .magic = KSHANG_MAGIC, .version = 0 },
         .endTimestamp = 1000,
         .endRole = TASK_DEFAULT_APPLICATION,
         .recovered = false,
@@ -163,9 +162,8 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 
 - (void)testFutureVersionDeliversTheReportUnchanged
 {
-    KSHangSidecar sc = {
-        .magic = KSHANG_SIDECAR_MAGIC,
-        .version = KSHANG_SIDECAR_CURRENT_VERSION + 1,
+    KSCrash_HangData sc = {
+        .header = { .magic = KSHANG_MAGIC, .version = KSCrash_Hang_CurrentVersion + 1 },
         .endTimestamp = 1000,
         .endRole = TASK_DEFAULT_APPLICATION,
         .recovered = false,
@@ -183,9 +181,8 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 
 - (void)testReportWithoutHangCreatesHangFromSidecar
 {
-    KSHangSidecar sc = {
-        .magic = KSHANG_SIDECAR_MAGIC,
-        .version = KSHANG_SIDECAR_VERSION_1_0,
+    KSCrash_HangData sc = {
+        .header = { .magic = KSHANG_MAGIC, .version = KSCrash_Hang_CurrentVersion },
         .endTimestamp = 1000,
         .endRole = TASK_DEFAULT_APPLICATION,
         .recovered = false,
@@ -206,9 +203,8 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 - (void)testFatalHangUpdatesEndTimestamp
 {
     uint64_t endTs = 999000000;
-    KSHangSidecar sc = {
-        .magic = KSHANG_SIDECAR_MAGIC,
-        .version = KSHANG_SIDECAR_VERSION_1_0,
+    KSCrash_HangData sc = {
+        .header = { .magic = KSHANG_MAGIC, .version = KSCrash_Hang_CurrentVersion },
         .endTimestamp = endTs,
         .endRole = TASK_DEFAULT_APPLICATION,
         .recovered = false,
@@ -227,9 +223,8 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 
 - (void)testFatalHangKeepsSignalAndMach
 {
-    KSHangSidecar sc = {
-        .magic = KSHANG_SIDECAR_MAGIC,
-        .version = KSHANG_SIDECAR_VERSION_1_0,
+    KSCrash_HangData sc = {
+        .header = { .magic = KSHANG_MAGIC, .version = KSCrash_Hang_CurrentVersion },
         .endTimestamp = 2000,
         .endRole = TASK_DEFAULT_APPLICATION,
         .recovered = false,
@@ -251,9 +246,8 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 
 - (void)testFatalHangSetsIsFatalAndIsCleanExit
 {
-    KSHangSidecar sc = {
-        .magic = KSHANG_SIDECAR_MAGIC,
-        .version = KSHANG_SIDECAR_VERSION_1_0,
+    KSCrash_HangData sc = {
+        .header = { .magic = KSHANG_MAGIC, .version = KSCrash_Hang_CurrentVersion },
         .endTimestamp = 2000,
         .endRole = TASK_DEFAULT_APPLICATION,
         .recovered = false,
@@ -273,9 +267,8 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 
 - (void)testFatalHangDoesNotSetRecovered
 {
-    KSHangSidecar sc = {
-        .magic = KSHANG_SIDECAR_MAGIC,
-        .version = KSHANG_SIDECAR_VERSION_1_0,
+    KSCrash_HangData sc = {
+        .header = { .magic = KSHANG_MAGIC, .version = KSCrash_Hang_CurrentVersion },
         .endTimestamp = 2000,
         .endRole = TASK_DEFAULT_APPLICATION,
         .recovered = false,
@@ -296,9 +289,8 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 
 - (void)testRecoveredHangSetsRecoveredFlag
 {
-    KSHangSidecar sc = {
-        .magic = KSHANG_SIDECAR_MAGIC,
-        .version = KSHANG_SIDECAR_VERSION_1_0,
+    KSCrash_HangData sc = {
+        .header = { .magic = KSHANG_MAGIC, .version = KSCrash_Hang_CurrentVersion },
         .endTimestamp = 5000,
         .endRole = TASK_DEFAULT_APPLICATION,
         .recovered = true,
@@ -317,9 +309,8 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 
 - (void)testRecoveredHangIsNonFatal
 {
-    KSHangSidecar sc = {
-        .magic = KSHANG_SIDECAR_MAGIC,
-        .version = KSHANG_SIDECAR_VERSION_1_0,
+    KSCrash_HangData sc = {
+        .header = { .magic = KSHANG_MAGIC, .version = KSCrash_Hang_CurrentVersion },
         .endTimestamp = 5000,
         .endRole = TASK_DEFAULT_APPLICATION,
         .recovered = true,
@@ -339,9 +330,8 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 
 - (void)testRecoveredHangChangesTypeToHang
 {
-    KSHangSidecar sc = {
-        .magic = KSHANG_SIDECAR_MAGIC,
-        .version = KSHANG_SIDECAR_VERSION_1_0,
+    KSCrash_HangData sc = {
+        .header = { .magic = KSHANG_MAGIC, .version = KSCrash_Hang_CurrentVersion },
         .endTimestamp = 5000,
         .endRole = TASK_DEFAULT_APPLICATION,
         .recovered = true,
@@ -360,9 +350,8 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 
 - (void)testRecoveredHangRemovesSignalMachAndExitReason
 {
-    KSHangSidecar sc = {
-        .magic = KSHANG_SIDECAR_MAGIC,
-        .version = KSHANG_SIDECAR_VERSION_1_0,
+    KSCrash_HangData sc = {
+        .header = { .magic = KSHANG_MAGIC, .version = KSCrash_Hang_CurrentVersion },
         .endTimestamp = 5000,
         .endRole = TASK_DEFAULT_APPLICATION,
         .recovered = true,
@@ -384,9 +373,8 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 - (void)testRecoveredHangUpdatesEndTimestamp
 {
     uint64_t endTs = 7777777;
-    KSHangSidecar sc = {
-        .magic = KSHANG_SIDECAR_MAGIC,
-        .version = KSHANG_SIDECAR_VERSION_1_0,
+    KSCrash_HangData sc = {
+        .header = { .magic = KSHANG_MAGIC, .version = KSCrash_Hang_CurrentVersion },
         .endTimestamp = endTs,
         .endRole = TASK_DEFAULT_APPLICATION,
         .recovered = true,
@@ -406,9 +394,8 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 - (void)testRecoveredHangPreservesStartFields
 {
     uint64_t startNanos = 42000000;
-    KSHangSidecar sc = {
-        .magic = KSHANG_SIDECAR_MAGIC,
-        .version = KSHANG_SIDECAR_VERSION_1_0,
+    KSCrash_HangData sc = {
+        .header = { .magic = KSHANG_MAGIC, .version = KSCrash_Hang_CurrentVersion },
         .startTimestamp = startNanos,
         .startRole = TASK_FOREGROUND_APPLICATION,
         .endTimestamp = 99000000,
@@ -447,11 +434,13 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 
 #pragma mark - Malformed Reports
 
-- (void)testMissingCrashKeyReturnsNull
+// A report with no crash.error has nowhere to take the hang, and no later read
+// adds one, so it delivers as it is rather than asking to be stitched again.
+
+- (void)testMissingCrashKeyDeliversTheReportUnchanged
 {
-    KSHangSidecar sc = {
-        .magic = KSHANG_SIDECAR_MAGIC,
-        .version = KSHANG_SIDECAR_VERSION_1_0,
+    KSCrash_HangData sc = {
+        .header = { .magic = KSHANG_MAGIC, .version = KSCrash_Hang_CurrentVersion },
         .endTimestamp = 1000,
         .endRole = TASK_DEFAULT_APPLICATION,
         .recovered = false,
@@ -462,14 +451,13 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
         (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result == nil);
+    XCTAssertEqualObjects(result, report);
 }
 
-- (void)testCrashIsNSNullReturnsNull
+- (void)testCrashIsNSNullDeliversTheReportUnchanged
 {
-    KSHangSidecar sc = {
-        .magic = KSHANG_SIDECAR_MAGIC,
-        .version = KSHANG_SIDECAR_VERSION_1_0,
+    KSCrash_HangData sc = {
+        .header = { .magic = KSHANG_MAGIC, .version = KSCrash_Hang_CurrentVersion },
         .endTimestamp = 1000,
         .endRole = TASK_DEFAULT_APPLICATION,
         .recovered = false,
@@ -480,14 +468,13 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
         (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result == nil);
+    XCTAssertEqualObjects(result, report);
 }
 
-- (void)testErrorIsNSNullReturnsNull
+- (void)testErrorIsNSNullDeliversTheReportUnchanged
 {
-    KSHangSidecar sc = {
-        .magic = KSHANG_SIDECAR_MAGIC,
-        .version = KSHANG_SIDECAR_VERSION_1_0,
+    KSCrash_HangData sc = {
+        .header = { .magic = KSHANG_MAGIC, .version = KSCrash_Hang_CurrentVersion },
         .endTimestamp = 1000,
         .endRole = TASK_DEFAULT_APPLICATION,
         .recovered = false,
@@ -498,14 +485,13 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 
     NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
         (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
-    XCTAssertTrue(result == nil);
+    XCTAssertEqualObjects(result, report);
 }
 
 - (void)testHangIsNSNullCreatesHangFromSidecar
 {
-    KSHangSidecar sc = {
-        .magic = KSHANG_SIDECAR_MAGIC,
-        .version = KSHANG_SIDECAR_VERSION_1_0,
+    KSCrash_HangData sc = {
+        .header = { .magic = KSHANG_MAGIC, .version = KSCrash_Hang_CurrentVersion },
         .endTimestamp = 1000,
         .endRole = TASK_DEFAULT_APPLICATION,
         .recovered = false,
@@ -524,9 +510,8 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 
 - (void)testStitchUpdatesHangEndRole
 {
-    KSHangSidecar sc = {
-        .magic = KSHANG_SIDECAR_MAGIC,
-        .version = KSHANG_SIDECAR_VERSION_1_0,
+    KSCrash_HangData sc = {
+        .header = { .magic = KSHANG_MAGIC, .version = KSCrash_Hang_CurrentVersion },
         .endTimestamp = 5000,
         .endRole = TASK_DEFAULT_APPLICATION,
         .recovered = false,
@@ -547,9 +532,8 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 
 - (void)testStitchWritesTransitionStatesFromSidecar
 {
-    KSHangSidecar sc = {
-        .magic = KSHANG_SIDECAR_MAGIC,
-        .version = KSHANG_SIDECAR_VERSION_1_0,
+    KSCrash_HangData sc = {
+        .header = { .magic = KSHANG_MAGIC, .version = KSCrash_Hang_CurrentVersion },
         .startTimestamp = 1000,
         .startRole = TASK_FOREGROUND_APPLICATION,
         .startTransitionState = KSCrashAppTransitionStateLaunching,
@@ -573,9 +557,8 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 
 - (void)testFatalHangIncludesTransitionStates
 {
-    KSHangSidecar sc = {
-        .magic = KSHANG_SIDECAR_MAGIC,
-        .version = KSHANG_SIDECAR_VERSION_1_0,
+    KSCrash_HangData sc = {
+        .header = { .magic = KSHANG_MAGIC, .version = KSCrash_Hang_CurrentVersion },
         .startTimestamp = 1000,
         .startRole = TASK_FOREGROUND_APPLICATION,
         .startTransitionState = KSCrashAppTransitionStateActive,
@@ -599,11 +582,21 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 
 #pragma mark - Sidecar Scope
 
+- (void)testTheFinalPassLeavesTheReportAlone
+{
+    NSDictionary *report = makeMinimalHangReport(1000, TASK_FOREGROUND_APPLICATION);
+    CFDictionaryRef result =
+        kscm_watchdog_createStitchedReport((__bridge CFDictionaryRef)report, NULL, KSCrashSidecarScopeFinal, NULL);
+    XCTAssertTrue(result == (__bridge CFDictionaryRef)report);
+    if (result != NULL) {
+        CFRelease(result);
+    }
+}
+
 - (void)testReportScopeIsNoOp
 {
-    KSHangSidecar sc = {
-        .magic = KSHANG_SIDECAR_MAGIC,
-        .version = KSHANG_SIDECAR_VERSION_1_0,
+    KSCrash_HangData sc = {
+        .header = { .magic = KSHANG_MAGIC, .version = KSCrash_Hang_CurrentVersion },
         .endTimestamp = 5000,
         .endRole = TASK_DEFAULT_APPLICATION,
         .recovered = true,
@@ -626,9 +619,8 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 
 - (void)testNonWatchdogReportKeepsOriginalFatality
 {
-    KSHangSidecar sc = {
-        .magic = KSHANG_SIDECAR_MAGIC,
-        .version = KSHANG_SIDECAR_VERSION_1_0,
+    KSCrash_HangData sc = {
+        .header = { .magic = KSHANG_MAGIC, .version = KSCrash_Hang_CurrentVersion },
         .startTimestamp = 1000,
         .startRole = TASK_FOREGROUND_APPLICATION,
         .endTimestamp = 5000,
@@ -660,9 +652,8 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 
 - (void)testNonWatchdogRecoveredHangKeepsOriginalFields
 {
-    KSHangSidecar sc = {
-        .magic = KSHANG_SIDECAR_MAGIC,
-        .version = KSHANG_SIDECAR_VERSION_1_0,
+    KSCrash_HangData sc = {
+        .header = { .magic = KSHANG_MAGIC, .version = KSCrash_Hang_CurrentVersion },
         .startTimestamp = 1000,
         .startRole = TASK_FOREGROUND_APPLICATION,
         .endTimestamp = 5000,
@@ -701,9 +692,8 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 
 - (void)testStartValuesOverwriteJsonValues
 {
-    KSHangSidecar sc = {
-        .magic = KSHANG_SIDECAR_MAGIC,
-        .version = KSHANG_SIDECAR_VERSION_1_0,
+    KSCrash_HangData sc = {
+        .header = { .magic = KSHANG_MAGIC, .version = KSCrash_Hang_CurrentVersion },
         .startTimestamp = 9999,
         .startRole = TASK_DEFAULT_APPLICATION,
         .startTransitionState = KSCrashAppTransitionStateBackground,

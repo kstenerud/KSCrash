@@ -44,8 +44,8 @@ extern KSTerminationReason ksruncontext_testcode_determineReason(const KSCrash_L
 static KSCrash_LifecycleData makeLifecycle(bool cleanExit, bool monitorHandlerRan)
 {
     KSCrash_LifecycleData lc = { 0 };
-    lc.magic = KSLIFECYCLE_MAGIC;
-    lc.version = KSCrash_Lifecycle_CurrentVersion;
+    lc.header.magic = KSLIFECYCLE_MAGIC;
+    lc.header.version = KSCrash_Lifecycle_CurrentVersion;
     lc.cleanExit = cleanExit;
     lc.monitorHandlerRan = monitorHandlerRan;
     return lc;
@@ -54,8 +54,8 @@ static KSCrash_LifecycleData makeLifecycle(bool cleanExit, bool monitorHandlerRa
 static KSCrash_ResourceData makeResource(void)
 {
     KSCrash_ResourceData res = { 0 };
-    res.magic = KSRESOURCE_MAGIC;
-    res.version = KSCrash_Resource_CurrentVersion;
+    res.header.magic = KSRESOURCE_MAGIC;
+    res.header.version = KSCrash_Resource_CurrentVersion;
     res.cpuCoreCount = 4;
     return res;
 }
@@ -64,8 +64,8 @@ static KSCrash_SystemData makeSystem(const char *systemVersion, const char *osVe
                                      const char *bundleVersion, int64_t bootTimestamp)
 {
     KSCrash_SystemData sys = { 0 };
-    sys.magic = KSSYS_MAGIC;
-    sys.version = KSCrash_System_CurrentVersion;
+    sys.header.magic = KSSYS_MAGIC;
+    sys.header.version = KSCrash_System_CurrentVersion;
     strlcpy(sys.systemVersion, systemVersion, sizeof(sys.systemVersion));
     strlcpy(sys.osVersion, osVersion, sizeof(sys.osVersion));
     strlcpy(sys.bundleShortVersion, bundleShortVersion, sizeof(sys.bundleShortVersion));

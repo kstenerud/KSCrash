@@ -29,7 +29,7 @@ import Foundation
 /// Process state information including zombie exception data.
 public struct ProcessState: Codable, Sendable, Equatable {
     /// Information about the last deallocated NSException (for zombie detection).
-    public let lastDeallocedNSException: LastDeallocedNSException?
+    public var lastDeallocedNSException: LastDeallocedNSException?
 
     enum CodingKeys: String, CodingKey {
         case lastDeallocedNSException = "last_dealloced_nsexception"
@@ -39,16 +39,16 @@ public struct ProcessState: Codable, Sendable, Equatable {
 /// Information about a deallocated NSException (zombie).
 public struct LastDeallocedNSException: Codable, Sendable, Equatable {
     /// Memory address of the exception.
-    public let address: UInt64?
+    public var address: UInt64?
 
     /// Exception name.
-    public let name: String?
+    public var name: String?
 
     /// Exception reason.
-    public let reason: String?
+    public var reason: String?
 
     /// Object referenced in the exception reason.
-    public let referencedObject: MemoryContents?
+    public var referencedObject: MemoryContents?
 
     enum CodingKeys: String, CodingKey {
         case address

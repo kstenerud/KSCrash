@@ -181,10 +181,16 @@ more with `scope == .final` and no `sidecarURL`, after all sidecars have been
 stitched, so you can adjust the report using what is now in it.
 
 Throwing means the stitch failed: during finalization the write-back is
-abandoned so the report is retried on the next read, and on a normal read the
-original is kept silently. Throwing on the final pass is the same as returning
-the report unchanged, since with no sidecar to reread a retry cannot go
-differently.
+abandoned, and on a send the report is not handed out; either way it stays on
+disk and is read again later, and the send reports it kept with
+`ReportReadError.stitchFailed`. The exception is a recovered hang's report,
+which is deleted when its finalization fails. Throw only for a failure a later
+read can get past: for a sidecar that is absent, or holds bytes no later read
+could make sense of, return the report unchanged, since a throw there holds
+back every report the sidecar belongs to (one report for a `.report` sidecar,
+every report from the run for a `.run` sidecar). Throwing on the final pass is
+the same as returning the report unchanged, since with no sidecar to reread a
+retry cannot go differently.
 
 Like section writing, this is a conformance rather than a defaulted method, and
 that is deliberate. A default cannot tell a monitor that meant to implement the

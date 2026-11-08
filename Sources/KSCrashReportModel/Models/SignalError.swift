@@ -29,16 +29,16 @@ import Foundation
 /// Unix signal details.
 public struct SignalError: Codable, Sendable, Equatable {
     /// Signal code providing additional context.
-    public let code: UInt64
+    public var code: UInt64
 
     /// Human-readable name for the signal code.
-    public let codeName: String?
+    public var codeName: String?
 
     /// Signal name (e.g., "SIGSEGV", "SIGABRT").
-    public let name: String?
+    public var name: String?
 
     /// Signal number.
-    public let signal: UInt64
+    public var signal: UInt64
 
     public init(
         code: UInt64,

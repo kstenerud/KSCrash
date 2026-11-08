@@ -29,46 +29,46 @@ import Foundation
 /// Information about a loaded binary image (executable, framework, or dylib).
 public struct BinaryImage: Codable, Sendable, Equatable {
     /// CPU subtype of the binary.
-    public let cpuSubtype: Int
+    public var cpuSubtype: Int
 
     /// CPU type of the binary.
-    public let cpuType: Int
+    public var cpuType: Int
 
     /// Load address of the image in memory.
-    public let imageAddr: UInt64
+    public var imageAddr: UInt64
 
     /// Virtual memory address of the image.
-    public let imageVmAddr: UInt64?
+    public var imageVmAddr: UInt64?
 
     /// Size of the image in bytes.
-    public let imageSize: UInt64
+    public var imageSize: UInt64
 
     /// Path to the binary image.
-    public let name: String
+    public var name: String
 
     /// UUID of the binary image for symbolication.
-    public let uuid: String?
+    public var uuid: String?
 
     /// Major version of the image.
-    public let majorVersion: UInt64?
+    public var majorVersion: UInt64?
 
     /// Minor version of the image.
-    public let minorVersion: UInt64?
+    public var minorVersion: UInt64?
 
     /// Revision version of the image.
-    public let revisionVersion: UInt64?
+    public var revisionVersion: UInt64?
 
     /// Crash info message from __crash_info section.
-    public let crashInfoMessage: String?
+    public var crashInfoMessage: String?
 
     /// Secondary crash info message.
-    public let crashInfoMessage2: String?
+    public var crashInfoMessage2: String?
 
     /// Crash info backtrace.
-    public let crashInfoBacktrace: String?
+    public var crashInfoBacktrace: String?
 
     /// Crash info signature.
-    public let crashInfoSignature: String?
+    public var crashInfoSignature: String?
 
     public init(
         cpuSubtype: Int = 0,

@@ -67,17 +67,17 @@ public enum MemoryType: RawRepresentable, Codable, Sendable, Equatable {
 /// and the object an exception reason refers to.
 public struct MemoryContents: Codable, Sendable, Equatable {
     /// The inspected address.
-    public let address: UInt64
+    public var address: UInt64
 
     /// What the memory held.
-    public let type: MemoryType
+    public var type: MemoryType
 
     /// Objective-C class name, for class, object, and block contents.
-    public let `class`: String?
+    public var `class`: String?
 
     /// The value, when the contents have a printable one: a string for strings
     /// and URLs, a number for dates and numbers.
-    public let value: MetadataValue?
+    public var value: MetadataValue?
 
     /// The first element, when the contents are a collection.
     public var firstObject: MemoryContents? { firstObjectStorage.first }
@@ -85,11 +85,11 @@ public struct MemoryContents: Codable, Sendable, Equatable {
     /// Instance variables by name, when the contents are an object of a class
     /// the writer does not special-case. Pointer-typed variables nest another
     /// memory-contents object.
-    public let ivars: [String: MetadataValue]?
+    public var ivars: [String: MetadataValue]?
 
     /// Class name of the object that was last deallocated at this address, when
     /// zombie tracking knows one.
-    public let lastDeallocatedObject: String?
+    public var lastDeallocatedObject: String?
 
     private let firstObjectStorage: [MemoryContents]
 

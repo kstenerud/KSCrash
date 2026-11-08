@@ -8,6 +8,7 @@ paths:
   - "Sources/KSCrashRecordingCore/include/KSCrashMonitorAPI.h"
   - "Sources/KSCrashRecording/Monitors/*Sidecar*"
   - "Sources/KSCrashRecording/Monitors/*Stitch*"
+  - "Sources/KSCrashRecordingCore/**/KS*Sidecar*"
   - "Sources/KSCrashRecording/KSCrashC.c"
   - "Sources/KSCrashRecording/include/KSCrashC.h"
 ---
@@ -94,7 +95,9 @@ Follows the CF Create Rule:
 - `context`: The monitor's opaque context pointer (same as `api->context`).
 - Returns: A +1 `CFDictionaryRef` with the (possibly modified) report, or `NULL` on failure. The caller takes ownership via `__bridge_transfer` to ARC. For no-op returns (e.g. wrong scope), `CFRetain` the input and return it.
 
-`NULL` signals a stitch error. During finalization this aborts the write-back so the report can be retried on next app launch. During normal reads the error is silent and the original dict is kept.
+`NULL` signals a stitch error. During finalization this aborts the write-back so the report can be retried on next app launch, except on the hang-recovery path: there `finalizeResolvedHang` deletes the hang report when `kscrs_finalizeReport` returns false, because its on-disk form carries a faked `SIGKILL` that only the recovered rewrite removes. On a read the report is not handed out: it stays on disk unchanged, and the Swift send reports it kept (`ReportReadError.stitchFailed`) and reads it again next send.
+
+The built-in stitchers that read one sidecar keep this contract through `ksstitch_stitchedReport` (`KSCrashStitch.{h,m}`): it holds the scope guard and the read verdicts in one place and hands the stitcher a mutable copy of the report to edit, and `ksstitch_object` finds or creates a section. The helper works in ARC `NSDictionary`, so each stitcher converts to the slot's CF ownership once, where it returns. A new built-in stitcher uses it rather than restating the contract. Lifecycle is the exception: it still adds `session_id` when its sidecar is corrupt, torn, or gone by the time it is opened, so it keeps its own prologue and uses only `ksstitch_object`. (A run with no `Lifecycle.ksscr` at all never reaches the stitcher, since the run-scope walk calls only monitors it finds a file for; see #964.)
 
 **Placement contract**: a custom monitor puts its data in a framework-owned namespace, `monitor_data.<monitorID>` at the report root for delivery-time data, or `crash.error.monitor_data.<monitorID>` for the crashing monitor's own section (the crash-time writer fences `writeInReportSection` output there). Two built-ins bypass the namespace at their own keys: `profile` is a typed section at its schema home `crash.error.profile`, and `corpse` is a private scratch dump at `crash.error.corpse`, consumed and deleted by the corpse monitor's final-pass stitch. A section must be a JSON object; anything else fails typed delivery of the whole report. Both namespaces are preserved by the typed `Report` model (`report.monitorData` / `error.monitorData`, decoded on demand via `monitorData(_:for:)`). Mutating standard report fields is reserved for built-in monitors whose fields exist in the typed model; additions to arbitrary unmodeled fields are not preserved in delivered payloads.
 
@@ -115,7 +118,8 @@ The sidecars directories are configured via `KSCrashReportStoreCConfiguration.re
 - `KSCrashMonitorContext.h`: `KSCrashReportSidecarPathProviderFunc`, `KSCrashSidecarRunPathProviderFunc` typedefs and `getReportSidecarPath`, `getRunSidecarPath` callback fields
 - `KSCrashMonitorAPI.h`: `createStitchedReport` callback field on `KSCrashMonitorAPI`
 - `KSCrashMonitor.h/.c`: `kscm_setReportSidecarPathProvider()` and `kscm_setRunSidecarPathProvider()` to register path providers
-- `KSCrashReportStoreC.c`: Internal sidecar path generation, cleanup, stitching, and orphan cleanup logic
+- `KSCrashReportStoreC.m`: Internal sidecar path generation, cleanup, stitching, and orphan cleanup logic
+- `KSCrashStitch.{h,m}`: The stitch contract the built-in stitchers share
 - `KSCrashReportStoreC+Private.h`: `kscrs_getReportSidecarFilePathForReport()` and `kscrs_getRunSidecarFilePath()` exported for use by path providers
 - `KSCrashCConfiguration.h`: `reportSidecarsPath` and `runSidecarsPath` fields on `KSCrashReportStoreCConfiguration`
 - `KSCrashC.c`: Wires up the sidecar path provider callbacks during install
