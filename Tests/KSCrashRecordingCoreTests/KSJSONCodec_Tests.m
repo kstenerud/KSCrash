@@ -1660,6 +1660,67 @@ static int addJSONData(const char *data, int length, void *userData)
     [self expectEquivalentJSON:encodedData.bytes toJSON:expectedJson];
 }
 
+- (void)testDontCloseLastContainerAtTheTopLevel
+{
+    // Only the element's outermost container stays open; the nested one still closes.
+    char *jsonData = "{\"a\":{\"b\":1},\"c\":2}";
+    char *expectedJson = "{\"a\":{\"b\":1},\"c\":2,\"testing\":\"this\"}";
+
+    NSMutableData *encodedData = [NSMutableData data];
+    KSJSONEncodeContext context = { 0 };
+    ksjson_beginEncode(&context, false, addJSONData, (__bridge void *)(encodedData));
+    XCTAssertEqual(ksjson_addJSONElement(&context, NULL, jsonData, (int)strlen(jsonData), false), KSJSON_OK);
+    ksjson_addStringElement(&context, "testing", "this", KSJSON_SIZE_AUTOMATIC);
+    ksjson_endContainer(&context);
+    ksjson_endEncode(&context);
+    [encodedData appendBytes:"\0" length:1];
+
+    [self expectEquivalentJSON:encodedData.bytes toJSON:expectedJson];
+}
+
+- (void)testDontCloseLastContainerInsideNestedContainers
+{
+    char *jsonData = "{\"a\":{\"b\":1}}";
+    char *expectedJson = "{\"outer\":{\"a_container\":{\"a\":{\"b\":1},\"testing\":\"this\"}}}";
+
+    NSMutableData *encodedData = [NSMutableData data];
+    KSJSONEncodeContext context = { 0 };
+    ksjson_beginEncode(&context, false, addJSONData, (__bridge void *)(encodedData));
+    ksjson_beginObject(&context, NULL);
+    ksjson_beginObject(&context, "outer");
+    XCTAssertEqual(ksjson_addJSONElement(&context, "a_container", jsonData, (int)strlen(jsonData), false), KSJSON_OK);
+    ksjson_addStringElement(&context, "testing", "this", KSJSON_SIZE_AUTOMATIC);
+    ksjson_endContainer(&context);
+    ksjson_endContainer(&context);
+    ksjson_endContainer(&context);
+    ksjson_endEncode(&context);
+    [encodedData appendBytes:"\0" length:1];
+
+    [self expectEquivalentJSON:encodedData.bytes toJSON:expectedJson];
+}
+
+- (void)testDontCloseLastContainerFromFileInsideNestedContainers
+{
+    NSString *savedFilename = [self.tempPath stringByAppendingPathComponent:@"open.json"];
+    [self serializeObject:@{ @"a" : @ { @"b" : @1 } } toFile:savedFilename];
+    char *expectedJson = "{\"outer\":{\"a_container\":{\"a\":{\"b\":1},\"testing\":\"this\"}}}";
+
+    NSMutableData *encodedData = [NSMutableData data];
+    KSJSONEncodeContext context = { 0 };
+    ksjson_beginEncode(&context, false, addJSONData, (__bridge void *)(encodedData));
+    ksjson_beginObject(&context, NULL);
+    ksjson_beginObject(&context, "outer");
+    XCTAssertEqual(ksjson_addJSONFromFile(&context, "a_container", savedFilename.UTF8String, false), KSJSON_OK);
+    ksjson_addStringElement(&context, "testing", "this", KSJSON_SIZE_AUTOMATIC);
+    ksjson_endContainer(&context);
+    ksjson_endContainer(&context);
+    ksjson_endContainer(&context);
+    ksjson_endEncode(&context);
+    [encodedData appendBytes:"\0" length:1];
+
+    [self expectEquivalentJSON:encodedData.bytes toJSON:expectedJson];
+}
+
 /** Valid JSON whose string value is past KSJSON_MAX_EMBEDDED_STRING_LENGTH, so the decoder
  * refuses it even though the payload itself is well-formed.
  */
