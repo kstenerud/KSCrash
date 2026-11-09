@@ -358,6 +358,75 @@
     XCTAssertEqualObjects(actualFileContents, fileContents);
 }
 
+// open() hands out descriptor 0 when stdin is closed. Stdin is swapped for the file with dup2 rather than closed,
+// so 0 is unassigned only between the writer's close and the restore; while it is, another thread's open() could
+// take it.
+- (void)testWriteBuffered_DescriptorZero
+{
+    NSString *path = [self generateTempFilePath];
+    int fileFD = open(path.UTF8String, O_RDWR | O_CREAT | O_EXCL, 0644);
+    XCTAssertGreaterThan(fileFD, 0);
+    int savedStdin = dup(STDIN_FILENO);
+    XCTAssertGreaterThanOrEqual(savedStdin, 0);
+    XCTAssertEqual(dup2(fileFD, STDIN_FILENO), STDIN_FILENO);
+    close(fileFD);
+
+    // Guard bytes past the buffer catch an append that copies beyond it.
+    char storage[16];
+    memset(storage, 'G', sizeof(storage));
+    KSBufferedWriter writer = { .buffer = storage, .bufferLength = 4, .position = 0, .fd = STDIN_FILENO };
+    XCTAssertTrue(ksfu_writeBufferedWriter(&writer, "1234", 4));
+    XCTAssertTrue(ksfu_writeBufferedWriter(&writer, "5678", 4));
+    XCTAssertTrue(ksfu_writeBufferedWriter(&writer, "90", 2));
+    XCTAssertEqual(memcmp(storage + 4, "GGGGGGGGGGGG", 12), 0);
+    ksfu_closeBufferedWriter(&writer);
+    XCTAssertEqual(writer.fd, -1);
+    XCTAssertEqual(fcntl(STDIN_FILENO, F_GETFD), -1, @"close should have closed descriptor 0");
+
+    XCTAssertEqual(dup2(savedStdin, STDIN_FILENO), STDIN_FILENO);
+    close(savedStdin);
+
+    NSError *error = nil;
+    NSString *actualFileContents = [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:&error];
+    XCTAssertNil(error);
+    XCTAssertEqualObjects(actualFileContents, @"1234567890");
+}
+
+- (void)testWriteBuffered_FlushWithoutFileFails
+{
+    char storage[16];
+    memset(storage, 'G', sizeof(storage));
+    KSBufferedWriter writer = { .buffer = storage, .bufferLength = 4, .position = 0, .fd = -1 };
+    XCTAssertTrue(ksfu_flushBufferedWriter(&writer));
+    XCTAssertTrue(ksfu_writeBufferedWriter(&writer, "12", 2));
+    XCTAssertFalse(ksfu_flushBufferedWriter(&writer));
+    XCTAssertFalse(ksfu_writeBufferedWriter(&writer, "345", 3));
+    XCTAssertEqual(writer.position, 2);
+    XCTAssertEqual(memcmp(storage + 4, "GGGGGGGGGGGG", 12), 0);
+}
+
+- (void)testReadBuffered_CloseDescriptorZero
+{
+    NSString *path = [self generateTempFilePath];
+    int fileFD = open(path.UTF8String, O_RDWR | O_CREAT | O_EXCL, 0644);
+    XCTAssertGreaterThan(fileFD, 0);
+    int savedStdin = dup(STDIN_FILENO);
+    XCTAssertGreaterThanOrEqual(savedStdin, 0);
+    XCTAssertEqual(dup2(fileFD, STDIN_FILENO), STDIN_FILENO);
+    close(fileFD);
+
+    char readBuffer[4];
+    KSBufferedReader reader = {
+        .buffer = readBuffer, .bufferLength = 3, .dataStartPos = 0, .dataEndPos = 0, .fd = STDIN_FILENO
+    };
+    ksfu_closeBufferedReader(&reader);
+    XCTAssertEqual(reader.fd, -1);
+    XCTAssertEqual(fcntl(STDIN_FILENO, F_GETFD), -1, @"close should have closed descriptor 0");
+
+    XCTAssertEqual(dup2(savedStdin, STDIN_FILENO), STDIN_FILENO);
+    close(savedStdin);
+}
+
 - (void)testLastPathEntry
 {
     NSString *path = @"some/kind/of/path";
