@@ -48,7 +48,7 @@ extension Store {
         guard !sources.isEmpty else { return }
         let key = takeInClaimKey
         guard Self.takeInClaims.claim(key) else {
-            os_log(.info, "Another send is taking reports in; this send skips taking them in")
+            os_log(.info, "Another send holds the store's take-in claim; this send skips taking reports in")
             return
         }
         defer { Self.takeInClaims.release(key) }
