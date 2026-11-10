@@ -32,6 +32,7 @@
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitor_Watchdog.h"
 #import "KSHangEvent.h"
+#import "KSThread.h"
 
 // Stub callbacks for testing hang detection
 static KSCrash_MonitorContext g_stubContext;
@@ -47,8 +48,16 @@ static _Atomic(bool) g_stubRefusesReportInFlight = false;
 /** How many events reached the handler; a refused one never should. */
 static _Atomic(int) g_stubHandleCount = 0;
 
+/** The main thread's suspend count when the watchdog last called notify, or -1 before it has. */
+static _Atomic(int) g_mainSuspendCountAtNotify = -1;
+
 static KSCrash_MonitorContext *stubNotify(thread_t thread, __unused KSCrash_ExceptionHandlingRequirements requirements)
 {
+    struct thread_basic_info info;
+    mach_msg_type_number_t count = THREAD_BASIC_INFO_COUNT;
+    if (thread_info((thread_t)ksthread_main(), THREAD_BASIC_INFO, (thread_info_t)&info, &count) == KERN_SUCCESS) {
+        atomic_store(&g_mainSuspendCountAtNotify, info.suspend_count);
+    }
     g_stubNotifyThread = thread;
     memset(&g_stubContext, 0, sizeof(g_stubContext));
     g_stubContext.requirements.refusedReportInFlight = atomic_load(&g_stubRefusesReportInFlight);
@@ -187,6 +196,83 @@ static void captureHangStart(KSHangChangeType change, uint64_t start, uint64_t e
     XCTAssertGreaterThanOrEqual(capture.end, capture.start);
 
     api->setEnabled(false, NULL);
+}
+
+- (void)testNotifyIsCalledWithTheThreadsRunning
+{
+    // notify() allocates before it suspends the threads, and the main thread may hold a
+    // malloc lock.
+    KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
+    KSCrash_ExceptionHandlerCallbacks callbacks = { .notify = stubNotify,
+                                                    .handle = stubHandle_deprecated,
+                                                    .handleWithResult = stubHandle };
+    atomic_store(&g_mainSuspendCountAtNotify, -1);
+    api->init(&callbacks, NULL);
+    api->setEnabled(true, NULL);
+
+    KSSempahore *waiter = [KSSempahore withValue:0];
+    HangCapture capture = { .waiter = waiter };
+    g_hangCapture = &capture;
+    KSHangEventCallback previous = kshang_setHangEventCallback(captureHangStart);
+
+    XCTAssertTrue([waiter waitForTimeInterval:5]);
+    kshang_setHangEventCallback(previous);
+    g_hangCapture = NULL;
+
+    XCTAssertEqual(atomic_load(&g_mainSuspendCountAtNotify), 0);
+
+    api->setEnabled(false, NULL);
+}
+
+static KSSempahore *g_reportBeingWritten;
+static KSSempahore *g_hangEnded;
+static NSString *g_reportPath;
+static _Atomic(int) g_hangsStarted;
+
+static void captureHangChanges(KSHangChangeType change, __unused uint64_t start, __unused uint64_t end)
+{
+    if (change == KSHangChangeTypeStarted) {
+        atomic_fetch_add(&g_hangsStarted, 1);
+    } else if (change == KSHangChangeTypeEnded) {
+        [g_hangEnded signal];
+    }
+}
+
+static void stubHandleUntilTheHangEnds(__unused KSCrash_MonitorContext *context, KSCrash_ReportResult *result,
+                                       __unused bool finalize)
+{
+    [[NSFileManager defaultManager] createFileAtPath:g_reportPath contents:[NSData data] attributes:nil];
+    [g_reportBeingWritten signal];
+    [g_hangEnded waitForTimeInterval:5];
+    strlcpy(result->reportId, "4C1B2F3E-0000-4000-8000-000000000002", sizeof(result->reportId));
+    strlcpy(result->path, g_reportPath.fileSystemRepresentation, sizeof(result->path));
+}
+
+- (void)testAHangThatEndsWhileItsReportIsWrittenLeavesNoReport
+{
+    KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
+    KSCrash_ExceptionHandlerCallbacks callbacks = { .notify = stubNotify,
+                                                    .handle = stubHandle_deprecated,
+                                                    .handleWithResult = stubHandleUntilTheHangEnds };
+    g_reportBeingWritten = [KSSempahore withValue:0];
+    g_hangEnded = [KSSempahore withValue:0];
+    g_reportPath = [NSTemporaryDirectory() stringByAppendingPathComponent:[NSUUID UUID].UUIDString];
+    atomic_store(&g_hangsStarted, 0);
+    KSHangEventCallback previous = kshang_setHangEventCallback(captureHangChanges);
+    api->init(&callbacks, NULL);
+    api->setEnabled(true, NULL);
+
+    XCTAssertTrue([g_reportBeingWritten waitForTimeInterval:5]);
+    NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:5];
+    while ([[NSFileManager defaultManager] fileExistsAtPath:g_reportPath] && deadline.timeIntervalSinceNow > 0) {
+        [[NSRunLoop currentRunLoop] runMode:NSDefaultRunLoopMode beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.05]];
+    }
+
+    api->setEnabled(false, NULL);
+    kshang_setHangEventCallback(previous);
+    XCTAssertFalse([[NSFileManager defaultManager] fileExistsAtPath:g_reportPath]);
+    XCTAssertEqual(atomic_load(&g_hangsStarted), 0);
+    [[NSFileManager defaultManager] removeItemAtPath:g_reportPath error:nil];
 }
 
 - (void)testAHangThatYieldsStillReportsThatItStarted
