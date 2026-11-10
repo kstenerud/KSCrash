@@ -194,22 +194,12 @@ let warningFlags = [
     //"-Wnullable-to-nonnull-conversion",
 ]
 
-// Test targets that pull in the C++ standard library (via .mm/.cpp using std:: and
-// throw) must link the C++ runtime explicitly. Xcode 27's SwiftPM stopped auto-linking
-// it into test bundles, so std:: and __cxa_* symbols would otherwise be undefined at
-// link time. Harmless on toolchains that already link it (duplicate libraries are
-// allowed via -no_warn_duplicate_libraries).
-let cxxTestLinkerSettings: [LinkerSetting] = [
-    .linkedLibrary("c++"),
-    .linkedLibrary("c++abi"),
-]
-
 let package = Package(
     name: "KSCrash",
     platforms: [
         .iOS(.v15),
         .tvOS(.v15),
-        .watchOS(.v8),
+        .watchOS(.v9),
         .macOS(.v12),
         .visionOS(.v1),
     ],
@@ -276,7 +266,10 @@ let package = Package(
                 .headerSearchPath("Monitors"),
                 .headerSearchPath("../KSCrashRecordingCore/include"),  // For internal Unwind/ headers
                 .unsafeFlags(warningFlags),
-            ]
+            ],
+            // The C++ exception monitor needs the C++ runtime. SwiftPM links it on its own, but
+            // Xcode targets generated from this package (Tuist's) link only what a target declares.
+            linkerSettings: [.linkedLibrary("c++")]
         ),
         .testTarget(
             name: Targets.recording.tests,
@@ -293,8 +286,7 @@ let package = Package(
                 .headerSearchPath("../../Sources/\(Targets.recording)/Monitors"),
                 .headerSearchPath("../../Sources/\(Targets.recordingCore)/include"),  // For internal Unwind/ headers
                 .unsafeFlags(warningFlags),
-            ],
-            linkerSettings: cxxTestLinkerSettings
+            ]
         ),
 
         .target(
@@ -318,8 +310,7 @@ let package = Package(
             ],
             cSettings: [
                 .unsafeFlags(warningFlags)
-            ],
-            linkerSettings: cxxTestLinkerSettings
+            ]
         ),
         .testTarget(
             name: Targets.recordingCoreSwift.tests,
@@ -423,8 +414,7 @@ let package = Package(
             cSettings: [
                 .headerSearchPath("../../Sources/\(Targets.recording)"),
                 .headerSearchPath("../../Sources/\(Targets.recording)/Monitors"),
-            ],
-            linkerSettings: cxxTestLinkerSettings
+            ]
         ),
 
         .testTarget(

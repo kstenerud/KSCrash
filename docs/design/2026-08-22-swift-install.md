@@ -476,9 +476,10 @@ stop self-registering.
 
 ## Deployment floor
 
-iOS 15 / tvOS 15 / watchOS 8 / macOS 12, visionOS 1 unchanged. Nothing in the
+iOS 15 / tvOS 15 / watchOS 9 / macOS 12, visionOS 1 unchanged. Nothing in the
 API forces it (concurrency back-deploys); it is the 3.0 decision and it lets
-the `@available` noise go.
+the `@available` noise go. watchOS is 9 because Xcode 27 builds no older
+watchOS deployment target.
 
 ## Install errors
 
