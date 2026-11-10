@@ -246,9 +246,8 @@ static void trigger_user_swiftAsync(void) { integrationTestSwiftAsyncTrigger(); 
 
 + (void)trigger_mach_badAccessDeadbeef
 {
-    // Reproducer from https://github.com/kstenerud/KSCrash/issues/810
-    NSObject *a = (__bridge NSObject *)(void *)0xDEADBEEF;
-    [a class];
+    // A plain load: on x86_64 macOS, objc takes an odd pointer for a tagged one, so messaging it does not fault.
+    (void)*(volatile char *)0xDEADBEEF;
 }
 
 + (void)trigger_mach_busError

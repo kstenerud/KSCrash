@@ -47,6 +47,8 @@ enum TargetPlatform: String, CaseIterable, Sendable {
     static var current: TargetPlatform { configured! }
 
     static let simulators: Set<TargetPlatform> = [.iOS, .tvOS, .watchOS, .visionOS]
+    /// Where KSCrash handles Mach exceptions (`KSCRASH_HAS_MACH`).
+    static let machExceptionHosts: Set<TargetPlatform> = [.iOS, .macOS, .visionOS]
 
     /// The build products directory suffix for this platform's simulator build.
     fileprivate var simulatorSDK: String {
