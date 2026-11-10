@@ -24,7 +24,7 @@
 // THE SOFTWARE.
 //
 
-#import "KSCrashCPUTracker.h"
+#import "KSCrashCPUTracker+Private.h"
 
 #import <mach/mach_time.h>
 #import <os/lock.h>
@@ -95,6 +95,8 @@ const char *KSCrashCPUStateToString(KSCrashCPUState state)
 // ============================================================================
 
 static const NSTimeInterval kPollingInterval = 5.0;
+
+static const void *const kTrackerQueueKey = &kTrackerQueueKey;
 
 const double KSCrashCPUWarningThreshold = 0.50;
 const double KSCrashCPUCriticalThreshold = 0.80;
@@ -194,6 +196,7 @@ const NSTimeInterval KSCrashCPUCriticalWindow = 60.0;
         _lock = OS_UNFAIR_LOCK_INIT;
         _queue = dispatch_queue_create_with_target("com.kscrash.cpu.heartbeat", DISPATCH_QUEUE_SERIAL,
                                                    dispatch_get_global_queue(QOS_CLASS_UTILITY, 0));
+        dispatch_queue_set_specific(_queue, kTrackerQueueKey, (__bridge void *)self, NULL);
         _state = KSCrashCPUStateNormal;
         _observers = [NSPointerArray weakObjectsPointerArray];
         kscpuring_init(&_ring);
@@ -346,6 +349,21 @@ const NSTimeInterval KSCrashCPUCriticalWindow = 60.0;
                              cpuTimeInWindow:cpuTimeInWindow
                             wallTimeInWindow:wallTimeInWindow
                                  timestampNs:nowNs];
+}
+
+- (void)tickWaitingUntilDone:(BOOL)wait
+{
+    if (!wait) {
+        dispatch_async(_queue, ^{
+            [self _tick];
+        });
+    } else if (dispatch_get_specific(kTrackerQueueKey) == (__bridge void *)self) {
+        [self _tick];
+    } else {
+        dispatch_sync(_queue, ^{
+            [self _tick];
+        });
+    }
 }
 
 /** Timer callback — poll, update state, notify observers. */

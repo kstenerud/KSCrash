@@ -26,7 +26,7 @@
 
 #import <XCTest/XCTest.h>
 
-#import "KSCrashCPUTracker.h"
+#import "KSCrashCPUTracker+Private.h"
 
 #pragma mark - KSCrashCPUStateToString Tests
 
@@ -127,18 +127,40 @@
 
 - (void)testObserverReceivesCallback
 {
-    XCTestExpectation *expectation = [self expectationWithDescription:@"Observer called"];
-    expectation.assertForOverFulfill = NO;
-
+    __block BOOL called = NO;
     id observer =
         [KSCrashCPUTracker.sharedInstance addObserverWithBlock:^(KSCrashCPU *cpu, KSCrashCPUTrackerChangeType changes,
                                                                  __unused KSCrashCPUState previousState) {
             XCTAssertNotNil(cpu);
             XCTAssertTrue(changes & KSCrashCPUTrackerChangeTypeUsage);
-            [expectation fulfill];
+            called = YES;
         }];
 
-    [self waitForExpectations:@[ expectation ] timeout:10.0];
+    [KSCrashCPUTracker.sharedInstance tickWaitingUntilDone:YES];
+
+    XCTAssertTrue(called);
+    (void)observer;
+}
+
+- (void)testWaitingTickFromAnObserverDoesNotDeadlock
+{
+    KSCrashCPUTracker *tracker = KSCrashCPUTracker.sharedInstance;
+    __block NSUInteger calls = 0;
+    __block BOOL nestedTickReturned = NO;
+    id observer =
+        [tracker addObserverWithBlock:^(__unused KSCrashCPU *cpu, __unused KSCrashCPUTrackerChangeType changes,
+                                        __unused KSCrashCPUState previousState) {
+            calls++;
+            if (calls == 1) {
+                [KSCrashCPUTracker.sharedInstance tickWaitingUntilDone:YES];
+                nestedTickReturned = YES;
+            }
+        }];
+
+    [tracker tickWaitingUntilDone:YES];
+
+    XCTAssertTrue(nestedTickReturned);
+    XCTAssertGreaterThanOrEqual(calls, 2u);
     (void)observer;
 }
 
