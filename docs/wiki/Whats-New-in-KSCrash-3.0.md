@@ -245,6 +245,23 @@ correctness. Events that must be recorded leave the flag clear and are never
 refused or delayed: a report write is far longer than any wait a crash path can
 afford, so waiting would buy delay and no exclusion.
 
+## Reports are recorded before the first unlock
+
+An app can be launched in the background before the user unlocks the device for
+the first time after a reboot, by a VoIP push, background location or a
+`BGTask`. A crash in that launch used to be lost: reports took the container's
+default protection class, whose key does not exist until that first unlock, so
+the report could not be created.
+
+Every directory KSCrash writes to now has data protection class D
+(`NSFileProtectionNone`), and everything it creates there takes that class. The
+metadata store and the monitor sidecars were already unprotected for the same
+reason. A class D file is encrypted only with the device's own key, not one
+derived from the passcode, so it can be read while the device is locked. Reports
+can hold user data: keep anything that must stay protected while the device is
+locked out of the report and its metadata. Give KSCrash directories of its own,
+since a custom container is set to class D too.
+
 ## Out-of-process reporting with CrashReportExtension
 
 Everywhere else, KSCrash writes the report from inside the dying process, in a

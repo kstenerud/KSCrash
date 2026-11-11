@@ -1556,6 +1556,10 @@ KSCrashReportTakeInResult kscrs_takeInReport(const char *sourcePath, const char 
         }
     }
     if (result == KSCrashReportTakeInResultTaken) {
+        // A renamed file keeps its own protection rather than taking Reports' class D, so a report
+        // written elsewhere could not be read before the first unlock after a reboot. Not under
+        // g_mutex: a report deleted in between only makes this a no-op.
+        ksfu_setDataProtectionAtPath(destinationPath, KSFUDataProtectionNone);
         // The caller may drop its copy once told the report was taken, so the rename that put the
         // report in place must reach the disk first. Unconfirmed, the caller keeps any copy it
         // still has. A moved file has none, so nothing changes for it. A copied file or a report
