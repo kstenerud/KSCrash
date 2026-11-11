@@ -227,6 +227,12 @@ bool kslifecycle_copyLastSessionIDForRunID(const char *runID, char *buf, size_t 
  */
 KSCrashAppTransitionState kslifecycle_currentTransitionState(void);
 
+/** Whether the app is still starting up: true until it is first active. Startup can pass
+ *  through Foregrounding, which also happens on every return from the background, so the
+ *  transition state alone cannot say this. Lock-free (atomic load). Safe from any thread.
+ */
+bool kslifecycle_isStartingUp(void);
+
 /** Records whether the main thread is currently hanging. Called by the hang
  * monitor on hang start and end; safe to call while the monitor is disabled.
  */
