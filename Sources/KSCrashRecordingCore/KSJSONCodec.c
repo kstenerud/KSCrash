@@ -1343,6 +1343,9 @@ typedef struct JSONFromFileContext {
     int fd;
     bool isEOF;
     bool closeLastContainer;
+    /** The encoder's level inside the element's outermost container: the one closeLastContainer
+     * false leaves open. Fixed when the embedding starts, so it holds at any destination depth. */
+    int lastContainerLevel;
     /** Containers open right now. Only the checking callbacks maintain this; the embedding
      * callbacks let the encoder track depth for them. */
     int containerDepth;
@@ -1473,7 +1476,7 @@ static int addJSONFromFile_onEndContainer(void *const userData)
 {
     JSONFromFileContext *context = (JSONFromFileContext *)userData;
     int result = KSJSON_OK;
-    if (context->closeLastContainer || context->encodeContext->containerLevel > 2) {
+    if (context->closeLastContainer || context->encodeContext->containerLevel > context->lastContainerLevel) {
         result = ksjson_endContainer(context->encodeContext);
     }
     context->updateDecoderCallback(context);
@@ -1622,6 +1625,7 @@ static int decodeJSONElement(const char *const jsonData, const int jsonDataLengt
         .sourceFilename = NULL,
         .fd = -1,
         .closeLastContainer = closeLastContainer,
+        .lastContainerLevel = encodeContext != NULL ? encodeContext->containerLevel + 1 : 0,
         .containerDepth = startDepth,
         .isEOF = false,
         .updateDecoderCallback = updateDecoder_doNothing,
@@ -1659,6 +1663,7 @@ static int decodeJSONFile(const int fd, const char *const filename, const char *
         .sourceFilename = filename,
         .fd = fd,
         .closeLastContainer = closeLastContainer,
+        .lastContainerLevel = encodeContext != NULL ? encodeContext->containerLevel + 1 : 0,
         .containerDepth = startDepth,
         .isEOF = false,
         .updateDecoderCallback = updateDecoder_readFile,
