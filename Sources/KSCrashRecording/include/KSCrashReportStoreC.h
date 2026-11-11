@@ -233,12 +233,31 @@ bool kscrs_getReportSidecarFilePath(const char *monitorId, const char *name, con
                                     size_t pathBufferLength,
                                     const KSCrashReportStoreCConfiguration *const configuration);
 
-/** Remove on-disk run data (run sidecar directories and session sidecars) for
- * runs no longer referenced by any report or run summary.
+/** Remove what nothing will read again: on-disk run data (run sidecar
+ * directories and session sidecars) for runs no longer referenced by any
+ * report or run summary, and the partial files of report writes and take-ins
+ * that a crash interrupted.
  *
  * Called automatically within the send flows. If you handle delivery yourself,
  * call this periodically or after sending. May block, so prefer a background
  * thread.
+ *
+ * @param configuration The store configuration.
+ * @param noTakeInRunning true only while no take-in into this store is
+ *        running; partial take-in files are kept otherwise.
+ */
+void kscrs_reclaimAbandonedFiles(const KSCrashReportStoreCConfiguration *const configuration, bool noTakeInRunning);
+
+/** The first half of kscrs_reclaimAbandonedFiles: remove the partial files of report writes,
+ * and of take-ins when includingTakeIns is true, that a crash interrupted.
+ *
+ * @param configuration The store configuration.
+ * @param includingTakeIns true only while no take-in into this store is running.
+ */
+void kscrs_removeAbandonedWrites(const KSCrashReportStoreCConfiguration *const configuration, bool includingTakeIns);
+
+/** The second half of kscrs_reclaimAbandonedFiles: remove run data no report or run summary
+ * references any more, once it is older than the retention window.
  *
  * @param configuration The store configuration.
  */
@@ -256,14 +275,6 @@ typedef enum {
      *  discards nothing it still holds and may offer the report again. */
     KSCrashReportTakeInResultFailed,
 } KSCrashReportTakeInResult;
-
-/** Remove partial copies that a crash left in the store during a take-in.
- *
- * Call only while no take-in into this store is running.
- *
- * @param configuration The store configuration.
- */
-void kscrs_removeAbandonedTakeIns(const KSCrashReportStoreCConfiguration *const configuration);
 
 /** Take one finished report into this store, never replacing an existing one.
  *

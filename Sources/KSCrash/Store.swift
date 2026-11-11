@@ -96,7 +96,7 @@ struct Store: Sendable {
                 runID: { id in config.runID(of: id) },
                 remove: { id in try config.remove(id) },
                 removeBatch: { ids in config.removeAll(ids) },
-                removeAbandonedTakeIns: { kscrs_removeAbandonedTakeIns(config.pointer) }
+                removeAbandonedWrites: { kscrs_removeAbandonedWrites(config.pointer, $0) }
             ),
             // Unreferenced run data is kept for the configured window rather
             // than deleted on sight: a report for that run can still arrive
@@ -296,9 +296,21 @@ struct Store: Sendable {
             + artifactOnly.sorted { $0.runID.description < $1.runID.description }
     }
 
-    /// Remove shared run data nothing references any more, once it is older
-    /// than the configured retention window.
+    /// Remove what nothing will read again: writes and take-ins a crash
+    /// interrupted, and shared run data nothing references any more, once it
+    /// is older than the configured retention window.
     func reclaimOrphans() {
+        // A take-in copies outside the store's lock, so its leftovers are
+        // removed only while this send holds the take-in claim. When a take-in
+        // holds it, they wait for a later send rather than this one waiting.
+        // The claim covers the sweep alone: a take-in that finds it taken
+        // skips its sources, so it is not held through the run data pass.
+        let key = takeInClaimKey
+        let noTakeInRunning = Self.takeInClaims.claim(key)
+        reports.removeAbandonedWrites(noTakeInRunning)
+        if noTakeInRunning {
+            Self.takeInClaims.release(key)
+        }
         reclaim()
     }
 
@@ -480,9 +492,9 @@ struct ReportBridge: Sendable {
     /// deletes them one at a time through `remove`.
     var removeBatch: (@Sendable ([Report.ID]) -> Void)?
 
-    /// Removes partial copies a crash left in the store mid take-in. Called
-    /// only while no take-in into the store is running.
-    var removeAbandonedTakeIns: @Sendable () -> Void = {}
+    /// Removes the partial files a crash left: report writes always, take-in
+    /// copies only when the caller holds the take-in claim.
+    var removeAbandonedWrites: @Sendable (_ includingTakeIns: Bool) -> Void = { _ in }
 
     /// Deletes `ids`, logging any that could not be removed.
     func delete(_ ids: [Report.ID]) {
