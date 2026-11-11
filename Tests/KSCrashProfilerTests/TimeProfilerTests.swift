@@ -69,8 +69,17 @@ final class TimeProfilerTests: XCTestCase {
         ksdl_resetCache()
     }
 
+    /// Ends the test with no sample in flight: the next test's setUp re-initializes the
+    /// image cache, which a sample still running would be reading.
+    private func drainSamplesAfterTest(_ profiler: TimeProfiler) {
+        addTeardownBlock { [weak profiler] in
+            profiler?.samplingQueue.sync {}
+        }
+    }
+
     func testProfilerInitialization() {
         let profiler = TimeProfiler(thread: pthread_self())
+        drainSamplesAfterTest(profiler)
 
         XCTAssertFalse(profiler.isRunning, "Profiler should not be running initially")
         XCTAssertEqual(profiler.intervalNs, 10_000_000, "Default interval should be 10ms (10,000,000 ns)")
@@ -82,6 +91,7 @@ final class TimeProfilerTests: XCTestCase {
             interval: 0.005,  // 5ms
             retentionSeconds: 10
         )
+        drainSamplesAfterTest(profiler)
 
         XCTAssertFalse(profiler.isRunning)
         XCTAssertEqual(profiler.intervalNs, 5_000_000, "Interval should be 5ms (5,000,000 ns)")
@@ -93,6 +103,7 @@ final class TimeProfilerTests: XCTestCase {
             thread: pthread_self(),
             interval: 0.0001  // 0.1ms - too small
         )
+        drainSamplesAfterTest(profiler)
 
         XCTAssertEqual(profiler.intervalNs, 1_000_000, "Minimum interval should be clamped to 1ms")
     }
@@ -130,6 +141,7 @@ final class TimeProfilerTests: XCTestCase {
 
     func testBeginProfileStartsSampling() {
         let profiler = TimeProfiler(thread: pthread_self())
+        drainSamplesAfterTest(profiler)
 
         XCTAssertFalse(profiler.isRunning)
 
@@ -144,6 +156,7 @@ final class TimeProfilerTests: XCTestCase {
 
     func testEndProfileWithInvalidIdReturnsNil() {
         let profiler = TimeProfiler(thread: pthread_self())
+        drainSamplesAfterTest(profiler)
 
         let invalidId = UUID()
         let profile = profiler.endProfile(id: invalidId)
@@ -153,6 +166,7 @@ final class TimeProfilerTests: XCTestCase {
 
     func testEndProfileCannotBeCalledTwice() {
         let profiler = TimeProfiler(thread: pthread_self())
+        drainSamplesAfterTest(profiler)
 
         let id = profiler.beginProfile(named: "test")
         let profile1 = profiler.endProfile(id: id)
@@ -166,6 +180,7 @@ final class TimeProfilerTests: XCTestCase {
 
     func testMultipleConcurrentProfiles() {
         let profiler = TimeProfiler(thread: pthread_self())
+        drainSamplesAfterTest(profiler)
 
         let id1 = profiler.beginProfile(named: "test")
         XCTAssertTrue(profiler.isRunning)
@@ -192,6 +207,7 @@ final class TimeProfilerTests: XCTestCase {
             interval: 0.005,
             retentionSeconds: 5
         )
+        drainSamplesAfterTest(profiler)
 
         let id = profiler.beginProfile(named: "test")
 
@@ -218,6 +234,7 @@ final class TimeProfilerTests: XCTestCase {
             interval: 0.005,  // 5ms
             retentionSeconds: 5
         )
+        drainSamplesAfterTest(profiler)
 
         let id = profiler.beginProfile(named: "test")
 
@@ -244,6 +261,7 @@ final class TimeProfilerTests: XCTestCase {
             interval: 0.01,
             retentionSeconds: 5
         )
+        drainSamplesAfterTest(profiler)
 
         let id = profiler.beginProfile(named: "test")
         waitForSamples(0.05)
@@ -279,6 +297,7 @@ final class TimeProfilerTests: XCTestCase {
             interval: 0.01,
             retentionSeconds: 5
         )
+        drainSamplesAfterTest(profiler)
 
         let id = profiler.beginProfile(named: "test")
         waitForSamples(0.05)
@@ -308,6 +327,7 @@ final class TimeProfilerTests: XCTestCase {
             interval: 0.005,
             retentionSeconds: 5
         )
+        drainSamplesAfterTest(profiler)
 
         let id = profiler.beginProfile(named: "test")
         waitForSamples(0.05)
@@ -340,6 +360,7 @@ final class TimeProfilerTests: XCTestCase {
             maxFrames: 4,
             retentionSeconds: 1
         )
+        drainSamplesAfterTest(profiler)
 
         let result: (samples: [Sample], truncatedCount: Int) = profiler.lock.withLock {
             // Slot 0: begins before the range (10) but ends inside it (20). Under the old
@@ -385,6 +406,7 @@ final class TimeProfilerTests: XCTestCase {
             maxFrames: 4,
             retentionSeconds: 1
         )
+        drainSamplesAfterTest(profiler)
 
         let result: (samples: [Sample], truncatedCount: Int) = profiler.lock.withLock {
             // Slot 0: in range, captured normally.
@@ -436,6 +458,7 @@ final class TimeProfilerTests: XCTestCase {
             interval: 0.01,
             retentionSeconds: 5
         )
+        drainSamplesAfterTest(profiler)
 
         let id = profiler.beginProfile(named: "test")
         Thread.sleep(forTimeInterval: 0.02)
@@ -460,6 +483,7 @@ final class TimeProfilerTests: XCTestCase {
             interval: 0.01,
             retentionSeconds: 10
         )
+        drainSamplesAfterTest(profiler)
 
         let group = DispatchGroup()
         let iterations = 10
@@ -505,6 +529,7 @@ final class TimeProfilerTests: XCTestCase {
             interval: 0.1,  // 100ms
             retentionSeconds: 1  // Small retention to test ring buffer
         )
+        drainSamplesAfterTest(profiler)
 
         let id = profiler.beginProfile(named: "test")
 
@@ -562,6 +587,7 @@ final class TimeProfilerTests: XCTestCase {
             interval: 0.005,
             retentionSeconds: 5
         )
+        drainSamplesAfterTest(profiler)
 
         let id = profiler.beginProfile(named: "test")
         waitForSamples(0.1)
@@ -584,6 +610,7 @@ final class TimeProfilerTests: XCTestCase {
             interval: 0.02,  // 20ms
             retentionSeconds: 5
         )
+        drainSamplesAfterTest(profiler)
 
         let id = profiler.beginProfile(named: "test")
         Thread.sleep(forTimeInterval: 0.05)
@@ -603,6 +630,7 @@ final class TimeProfilerTests: XCTestCase {
             interval: 0.01,
             retentionSeconds: 5
         )
+        drainSamplesAfterTest(profiler)
 
         for _ in 0..<3 {
             XCTAssertFalse(profiler.isRunning)
@@ -626,6 +654,7 @@ final class TimeProfilerTests: XCTestCase {
             interval: 0.01,
             retentionSeconds: 5
         )
+        drainSamplesAfterTest(profiler)
 
         // First profile
         let id1 = profiler.beginProfile(named: "test")
@@ -661,6 +690,7 @@ final class TimeProfilerTests: XCTestCase {
             interval: 0.005,
             retentionSeconds: 10
         )
+        drainSamplesAfterTest(profiler)
 
         // Start first profile
         let id1 = profiler.beginProfile(named: "test")
@@ -698,6 +728,7 @@ final class TimeProfilerTests: XCTestCase {
 
     func testProfileNameIsCaptured() {
         let profiler = TimeProfiler(thread: pthread_self())
+        drainSamplesAfterTest(profiler)
 
         let id = profiler.beginProfile(named: "MyOperation")
         let profile = profiler.endProfile(id: id)
@@ -708,6 +739,7 @@ final class TimeProfilerTests: XCTestCase {
 
     func testProfileNameWithEmptyString() {
         let profiler = TimeProfiler(thread: pthread_self())
+        drainSamplesAfterTest(profiler)
 
         let id = profiler.beginProfile(named: "")
         let profile = profiler.endProfile(id: id)
@@ -718,6 +750,7 @@ final class TimeProfilerTests: XCTestCase {
 
     func testProfileNameWithSpecialCharacters() {
         let profiler = TimeProfiler(thread: pthread_self())
+        drainSamplesAfterTest(profiler)
         let specialName = "Test/Profile:With-Special_Characters.123"
 
         let id = profiler.beginProfile(named: specialName)
@@ -731,6 +764,7 @@ final class TimeProfilerTests: XCTestCase {
 
     func testProfileThreadIsCaptured() {
         let profiler = TimeProfiler(thread: pthread_self())
+        drainSamplesAfterTest(profiler)
 
         let id = profiler.beginProfile(named: "test")
         let profile = profiler.endProfile(id: id)
@@ -743,6 +777,7 @@ final class TimeProfilerTests: XCTestCase {
         let currentThread = pthread_self()
         let expectedMachThread = pthread_mach_thread_np(currentThread)
         let profiler = TimeProfiler(thread: currentThread)
+        drainSamplesAfterTest(profiler)
 
         let id = profiler.beginProfile(named: "test")
         let profile = profiler.endProfile(id: id)
@@ -770,6 +805,7 @@ final class TimeProfilerTests: XCTestCase {
 
     func testWriteReportCanBeCalled() {
         let profiler = TimeProfiler(thread: pthread_self())
+        drainSamplesAfterTest(profiler)
 
         let id = profiler.beginProfile(named: "test")
         Thread.sleep(forTimeInterval: 0.02)
@@ -788,6 +824,7 @@ final class TimeProfilerTests: XCTestCase {
             interval: 0.005,
             retentionSeconds: 5
         )
+        drainSamplesAfterTest(profiler)
 
         // Start and end multiple profiles quickly
         let id1 = profiler.beginProfile(named: "profile1")
