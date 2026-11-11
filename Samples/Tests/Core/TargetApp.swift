@@ -325,8 +325,8 @@ final class SimulatorDevice {
     private static func make(for app: URL) throws -> SimulatorDevice {
         let environment = ProcessInfo.processInfo.environment
         if let udid = environment["KSCRASH_IT_DEVICE"] {
-            try xcrun(["simctl", "boot", udid], allowFailure: true)
-            try xcrun(["simctl", "bootstatus", udid, "-b"])
+            try xcrun(["simctl", "boot", udid], allowFailure: true, timeout: bootTimeout)
+            try xcrun(["simctl", "bootstatus", udid, "-b"], timeout: bootTimeout)
             try keepHomeScreenClosed(on: udid)
             return SimulatorDevice(udid: udid)
         }
@@ -337,12 +337,14 @@ final class SimulatorDevice {
         let cleanup = Cleanup(udid: udid)
         XCTestObservationCenter.shared.addTestObserver(cleanup)
         observer = cleanup
-        try xcrun(["simctl", "boot", udid])
-        try xcrun(["simctl", "bootstatus", udid, "-b"])
+        try xcrun(["simctl", "boot", udid], timeout: bootTimeout)
+        try xcrun(["simctl", "bootstatus", udid, "-b"], timeout: bootTimeout)
         try quiet(udid)
         try keepHomeScreenClosed(on: udid)
         return device
     }
+
+    private static let bootTimeout: TimeInterval = 600
 
     /// Jobs a fresh simulator runs that keep the Mac's cores busy for minutes after a boot.
     /// On iOS 26.5 they held a new device at 300 to 400% CPU (mediaanalysisd alone at over
@@ -356,27 +358,52 @@ final class SimulatorDevice {
         "photoanalysisd",
     ]
 
-    /// Disables `busyJobs` and boots the device again. The simulator's own launchd keeps its
-    /// disabled list across a reboot, so the second boot comes up without them. Some of these
-    /// run per user rather than system-wide, so each is disabled in both domains. The calls
-    /// run together because each one is a separate spawn into the simulator.
+    /// Disables `busyJobs` and stops the ones already running. A disabled job is not started
+    /// again, so the device stays quiet without a reboot. Some of these run per user rather
+    /// than system-wide, so each is disabled in both domains. Every system disable must succeed;
+    /// the user domain is best effort, since tvOS and watchOS have none and some runtimes
+    /// (tvOS 26.2) refuse every disable there. Stopping a job fails when it is not loaded in
+    /// that domain, which is harmless once it is disabled. The calls run a few at a time
+    /// because each one is a separate spawn into the simulator.
     private static func quiet(_ udid: String) throws {
         let domains = ["system", "user/\(getuid())"]
-        let processes = try busyJobs.flatMap { job in
-            try domains.map { domain in
-                let process = Process()
-                process.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")
-                process.arguments = ["simctl", "spawn", udid, "launchctl", "disable", "\(domain)/com.apple.\(job)"]
-                process.standardOutput = FileHandle.nullDevice
-                process.standardError = FileHandle.nullDevice
-                try process.run()
-                return process
+        let failures = Failures()
+        let queue = OperationQueue()
+        queue.maxConcurrentOperationCount = 4
+        for domain in domains {
+            for job in busyJobs {
+                let label = "\(domain)/com.apple.\(job)"
+                queue.addOperation {
+                    do {
+                        try xcrun(["simctl", "spawn", udid, "launchctl", "disable", label])
+                    } catch {
+                        if domain == "system" {
+                            failures.append(String(describing: error))
+                        }
+                        return
+                    }
+                    _ = try? xcrun(["simctl", "spawn", udid, "launchctl", "bootout", label], allowFailure: true)
+                }
             }
         }
-        processes.forEach { $0.waitUntilExit() }
-        try xcrun(["simctl", "shutdown", udid])
-        try xcrun(["simctl", "boot", udid])
-        try xcrun(["simctl", "bootstatus", udid, "-b"])
+        queue.waitUntilAllOperationsAreFinished()
+        guard failures.all.isEmpty else {
+            throw TargetAppError.commandFailed(
+                "launchctl disable failed:\n" + failures.all.joined(separator: "\n"))
+        }
+    }
+
+    private final class Failures: @unchecked Sendable {
+        private let lock = NSLock()
+        private var messages: [String] = []
+
+        func append(_ message: String) {
+            lock.withLock { messages.append(message) }
+        }
+
+        var all: [String] {
+            lock.withLock { messages }
+        }
     }
 
     /// tvOS opens its home screen when an app dies. On a loaded machine PineBoard learns of a
@@ -449,10 +476,13 @@ final class SimulatorDevice {
     }
 
     /// Runs `xcrun` and returns its standard output. Standard error is kept apart so a
-    /// warning never lands in output that gets parsed (a device id, a pid).
+    /// warning never lands in output that gets parsed (a device id, a pid). A command still
+    /// running after `timeout` seconds is terminated and throws, naming the command, rather
+    /// than holding the run until the CI job's own limit ends it without a word.
     @discardableResult
     nonisolated fileprivate static func xcrun(
-        _ arguments: [String], environment extra: [String: String] = [:], allowFailure: Bool = false
+        _ arguments: [String], environment extra: [String: String] = [:], allowFailure: Bool = false,
+        timeout: TimeInterval = 120
     ) throws -> String {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")
@@ -462,15 +492,36 @@ final class SimulatorDevice {
         let errors = Pipe()
         process.standardOutput = output
         process.standardError = errors
+        let exited = DispatchSemaphore(value: 0)
+        process.terminationHandler = { _ in exited.signal() }
         try process.run()
-        let data = output.fileHandleForReading.readDataToEndOfFile()
-        let errorData = errors.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
+        let drained = DispatchGroup()
+        let data = PipeContents(output, in: drained)
+        let errorData = PipeContents(errors, in: drained)
+        let deadline = DispatchTime.now() + timeout
+        guard exited.wait(timeout: deadline) == .success, drained.wait(timeout: deadline) == .success else {
+            process.terminate()
+            throw TargetAppError.commandFailed(
+                "xcrun \(arguments.joined(separator: " ")) did not finish within \(Int(timeout)) s")
+        }
         if process.terminationStatus != 0 && !allowFailure {
             throw TargetAppError.commandFailed(
-                "xcrun \(arguments.joined(separator: " ")): \(String(decoding: errorData, as: UTF8.self))")
+                "xcrun \(arguments.joined(separator: " ")): \(String(decoding: errorData.data, as: UTF8.self))")
         }
-        return String(decoding: data, as: UTF8.self)
+        return String(decoding: data.data, as: UTF8.self)
+    }
+
+    /// `data` is read only after `group` has been waited on.
+    private final class PipeContents: @unchecked Sendable {
+        private(set) var data = Data()
+
+        init(_ pipe: Pipe, in group: DispatchGroup) {
+            group.enter()
+            DispatchQueue.global().async {
+                self.data = pipe.fileHandleForReading.readDataToEndOfFile()
+                group.leave()
+            }
+        }
     }
 
     /// Deletes the device this run created once the bundle finishes.
