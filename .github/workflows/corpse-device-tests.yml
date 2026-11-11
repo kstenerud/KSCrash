@@ -54,7 +54,7 @@ jobs:
             || { echo "::error::no iOS 27 device SDK on this runner"; exit 1; }
 
       - name: Install Tuist
-        uses: jdx/mise-action@v4
+        uses: jdx/mise-action@v5
         with:
           install: true
           cache: true
