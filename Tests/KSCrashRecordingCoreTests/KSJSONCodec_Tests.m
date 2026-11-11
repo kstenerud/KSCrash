@@ -2031,34 +2031,76 @@ static int addJSONData(const char *data, int length, void *userData)
 
 #pragma mark - Nesting
 
-// How much nesting is left depends on how deep the destination already is, so the check
-// has to be asked about a destination. One that just fits, and one that does not.
-- (void)testCheckAgreesWithAddAtTheDepthBoundary
+typedef int (^KSJSONDepthCall)(KSJSONEncodeContext *destination, NSString *payload);
+
+/** Asserts where the depth limit falls for a payload embedded into destinations of several depths.
+ *
+ *  Only the payload's own containers count, on top of those already open at the destination: nothing
+ *  wraps the embedded element. The encoder refuses a container at KSJSON_MAX_CONTAINER_DEPTH, so the
+ *  deepest payload that fits is one level below what is left.
+ *
+ *  @param check Asks whether the payload may be embedded at the destination.
+ *  @param add Embeds the payload at the destination.
+ */
+- (void)assertDepthBoundaryWithCheck:(KSJSONDepthCall)check add:(KSJSONDepthCall)add
 {
     for (int destinationDepth = 0; destinationDepth <= 20; destinationDepth += 10) {
-        // ksjson_beginObject for the element itself takes one of the remaining levels.
-        const int justFits = KSJSON_MAX_CONTAINER_DEPTH - destinationDepth - 2;
+        const int fits = KSJSON_MAX_CONTAINER_DEPTH - destinationDepth - 1;
 
-        for (int payloadDepth = justFits - 1; payloadDepth <= justFits + 2; payloadDepth++) {
-            const char *bytes = [self nestedPayloadOfDepth:payloadDepth].UTF8String;
-
+        // Add checks first with the same decode, so the two can only disagree when the check
+        // accepts a payload the embedding then refuses.
+        for (int payloadDepth = fits - 1; payloadDepth <= fits + 1; payloadDepth++) {
+            NSString *payload = [self nestedPayloadOfDepth:payloadDepth];
             NSMutableData *encodedData = [NSMutableData data];
             KSJSONEncodeContext context = { 0 };
             ksjson_beginEncode(&context, false, addJSONData, (__bridge void *)(encodedData));
             [self nestEncoder:&context toDepth:destinationDepth];
 
-            int checkResult = ksjson_checkJSONElement(&context, bytes, (int)strlen(bytes));
-            int addResult = ksjson_addJSONElement(&context, NULL, bytes, (int)strlen(bytes), true);
+            int checkResult = check(&context, payload);
+            int addResult = add(&context, payload);
             XCTAssertEqual(checkResult, addResult, @"payload %d deep into a destination %d deep", payloadDepth,
                            destinationDepth);
         }
 
-        XCTAssertEqual([self checkElement:[self nestedPayloadOfDepth:justFits].UTF8String atDepth:destinationDepth],
-                       KSJSON_OK, @"a payload that fits must be accepted at depth %d", destinationDepth);
-        XCTAssertEqual([self checkElement:[self nestedPayloadOfDepth:justFits + 2].UTF8String atDepth:destinationDepth],
-                       KSJSON_ERROR_DATA_TOO_LONG, @"a payload that does not fit must be refused at depth %d",
-                       destinationDepth);
+        NSMutableData *scratch = [NSMutableData data];
+        KSJSONEncodeContext destination = { 0 };
+        ksjson_beginEncode(&destination, false, addJSONData, (__bridge void *)(scratch));
+        [self nestEncoder:&destination toDepth:destinationDepth];
+        XCTAssertEqual(check(&destination, [self nestedPayloadOfDepth:fits]), KSJSON_OK,
+                       @"the deepest payload that fits must be accepted at depth %d", destinationDepth);
+        XCTAssertEqual(check(&destination, [self nestedPayloadOfDepth:fits + 1]), KSJSON_ERROR_DATA_TOO_LONG,
+                       @"one level deeper must be refused at depth %d", destinationDepth);
     }
+}
+
+// How much nesting is left depends on how deep the destination already is, so the check
+// has to be asked about a destination.
+- (void)testCheckAgreesWithAddAtTheDepthBoundary
+{
+    [self
+        assertDepthBoundaryWithCheck:^int(KSJSONEncodeContext *destination, NSString *payload) {
+            const char *bytes = payload.UTF8String;
+            return ksjson_checkJSONElement(destination, bytes, (int)strlen(bytes));
+        }
+        add:^int(KSJSONEncodeContext *destination, NSString *payload) {
+            const char *bytes = payload.UTF8String;
+            return ksjson_addJSONElement(destination, NULL, bytes, (int)strlen(bytes), true);
+        }];
+}
+
+// The same boundary for a payload read from a file, which decodes through its own entry point.
+- (void)testCheckFileAgreesWithAddFromFileAtTheDepthBoundary
+{
+    NSString *path = [self.tempPath stringByAppendingPathComponent:@"nested.json"];
+    [self
+        assertDepthBoundaryWithCheck:^int(KSJSONEncodeContext *destination, NSString *payload) {
+            XCTAssertTrue([payload writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil]);
+            return ksjson_checkJSONFile(destination, path.UTF8String);
+        }
+        add:^int(KSJSONEncodeContext *destination, NSString *payload) {
+            XCTAssertTrue([payload writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil]);
+            return ksjson_addJSONFromFile(destination, NULL, path.UTF8String, true);
+        }];
 }
 
 #pragma mark - String limits

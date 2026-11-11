@@ -604,7 +604,9 @@ typedef struct KSJSONDecodeContext {
     /** Containers currently open. decodeElement recurses per level, so this
      *  is what keeps a deeply nested document from overflowing the stack; it
      *  also keeps the decoder from accepting documents the encoder could not
-     *  write back out. */
+     *  write back out. A payload checked for embedding starts at the depth
+     *  already open at its destination, so it is judged against the depth
+     *  left to it there. */
     int containerDepth;
 } KSJSONDecodeContext;
 
@@ -1343,9 +1345,6 @@ typedef struct JSONFromFileContext {
     int fd;
     bool isEOF;
     bool closeLastContainer;
-    /** Containers open right now. Only the checking callbacks maintain this; the embedding
-     * callbacks let the encoder track depth for them. */
-    int containerDepth;
     UpdateDecoderCallback updateDecoderCallback;
 } JSONFromFileContext;
 
@@ -1484,9 +1483,9 @@ static int addJSONFromFile_onEndData(__unused void *const userData) { return KSJ
 
 // The checking callbacks below run the same decoder the embedding callbacks do, but reach
 // no encoder, so a payload that fails leaves nothing written anywhere. They still pump the
-// buffer refill, because decodeElement only advances the file window from its callbacks,
-// and they count containers, because the decoder has no depth limit of its own while the
-// encoder's isObject[] does.
+// buffer refill, because decodeElement only advances the file window from its callbacks.
+// Depth needs nothing from them: the decoder judges it, starting from the depth already
+// open at the destination.
 
 static int check_onScalarElement(void *const userData)
 {
@@ -1531,8 +1530,6 @@ static int check_onStringElement(__unused const char *const name, __unused const
 static int check_onBeginContainer(void *const userData)
 {
     JSONFromFileContext *context = (JSONFromFileContext *)userData;
-    unlikely_if(context->containerDepth + 1 >= KSJSON_MAX_CONTAINER_DEPTH) { return KSJSON_ERROR_DATA_TOO_LONG; }
-    context->containerDepth++;
     context->updateDecoderCallback(context);
     return KSJSON_OK;
 }
@@ -1550,7 +1547,6 @@ static int check_onBeginArray(__unused const char *const name, void *const userD
 static int check_onEndContainer(void *const userData)
 {
     JSONFromFileContext *context = (JSONFromFileContext *)userData;
-    context->containerDepth--;
     context->updateDecoderCallback(context);
     return KSJSON_OK;
 }
@@ -1614,6 +1610,7 @@ static int decodeJSONElement(const char *const jsonData, const int jsonDataLengt
         .stringBufferLength = KSJSON_MAX_EMBEDDED_STRING_LENGTH + 1,
         .callbacks = callbacks,
         .userData = NULL,
+        .containerDepth = startDepth,
     };
     JSONFromFileContext jsonContext = {
         .encodeContext = encodeContext,
@@ -1622,7 +1619,6 @@ static int decodeJSONElement(const char *const jsonData, const int jsonDataLengt
         .sourceFilename = NULL,
         .fd = -1,
         .closeLastContainer = closeLastContainer,
-        .containerDepth = startDepth,
         .isEOF = false,
         .updateDecoderCallback = updateDecoder_doNothing,
     };
@@ -1650,6 +1646,7 @@ static int decodeJSONFile(const int fd, const char *const filename, const char *
         .stringBufferLength = KSJSON_MAX_EMBEDDED_STRING_LENGTH + 1,
         .callbacks = callbacks,
         .userData = NULL,
+        .containerDepth = startDepth,
     };
     JSONFromFileContext jsonContext = {
         .encodeContext = encodeContext,
@@ -1659,7 +1656,6 @@ static int decodeJSONFile(const int fd, const char *const filename, const char *
         .sourceFilename = filename,
         .fd = fd,
         .closeLastContainer = closeLastContainer,
-        .containerDepth = startDepth,
         .isEOF = false,
         .updateDecoderCallback = updateDecoder_readFile,
     };
@@ -1724,8 +1720,8 @@ int ksjson_addJSONFromFile(KSJSONEncodeContext *const encodeContext, const char 
         {
             int containerLevel = encodeContext->containerLevel;
             callbacks = embedCallbacks();
-            result = decodeJSONFile(fd, filename, name, &callbacks, encodeContext, closeLastContainer, 0, nameBuffer,
-                                    stringBuffer, fileBuffer);
+            result = decodeJSONFile(fd, filename, name, &callbacks, encodeContext, closeLastContainer, containerLevel,
+                                    nameBuffer, stringBuffer, fileBuffer);
             // The file passed the check, so a failure here is the encoder refusing to take
             // data, meaning the destination is already lost. Rebalance anyway so whatever
             // the caller does next is at least not nested inside this element.
@@ -1754,8 +1750,8 @@ int ksjson_addJSONElement(KSJSONEncodeContext *const encodeContext, const char *
 
     int containerLevel = encodeContext->containerLevel;
     callbacks = embedCallbacks();
-    result = decodeJSONElement(jsonData, jsonDataLength, name, &callbacks, encodeContext, closeLastContainer, 0,
-                               nameBuffer, stringBuffer);
+    result = decodeJSONElement(jsonData, jsonDataLength, name, &callbacks, encodeContext, closeLastContainer,
+                               containerLevel, nameBuffer, stringBuffer);
     while ((closeLastContainer || result != KSJSON_OK) && encodeContext->containerLevel > containerLevel) {
         ksjson_endContainer(encodeContext);
     }

@@ -422,6 +422,9 @@ int ksjson_endContainer(KSJSONEncodeContext *context);
  * Same contract as ksjson_addJSONElement(): the file's contents must be valid JSON within
  * the embedding limits, and a file that isn't is rejected whole, writing nothing.
  *
+ * The file must not change while it is being added: it is read twice, once to check it and
+ * once to add it, and a file that changes in between can be added in part.
+ *
  * @param context The encoding context.
  *
  * @param name The name to give the top element from the file.

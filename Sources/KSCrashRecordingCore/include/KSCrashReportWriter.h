@@ -153,6 +153,9 @@ typedef struct KSCrashReportWriter {
 
     /** Add a JSON element from a text file to the report.
      *
+     * The file must not change while it is being added: it is read twice, once to check it and
+     * once to add it, and a file that changes in between can be added in part.
+     *
      * @param writer This writer.
      *
      * @param name The name to give this element.
