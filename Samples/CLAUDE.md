@@ -66,7 +66,7 @@ to send the report, and check what arrives. XCTest never launches or watches the
 simulator platform they create a fresh simulator for the run and delete it afterwards. It is set
 up before the first test starts (`IntegrationTestsSetup`, the bundle's principal class), and has
 the background jobs that load a new device (media analysis, Siri, Health and others, listed in
-`SimulatorDevice.busyJobs`) disabled and is booted again.
+`SimulatorDevice.busyJobs`) disabled and stopped.
 
 ### Running Integration Tests
 CI (`.github/workflows/integration-tests.yml`) is the reference. Locally, from `Samples/`:
