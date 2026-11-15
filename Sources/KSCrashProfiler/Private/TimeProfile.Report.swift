@@ -63,8 +63,10 @@ extension TimeProfile {
     internal func _writeReport() -> URL? {
         let bridge = ProfileMonitor.shared
         guard bridge.isInstalled else { return nil }
+        // The sampled thread may be writing its own report; naming it as the exception
+        // subject would mistake this independent profile for that handler recrashing.
         let written = try? bridge.monitor.host.handle(
-            payload: self, requirements: .nonFatal, subjectThread: thread, finalize: true
+            payload: self, requirements: .nonFatal, finalize: true
         ) { context in
             // Profile frames already include object_uuid, so binary_images is redundant.
             context.pointee.omitBinaryImages = true

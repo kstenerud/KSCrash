@@ -28,6 +28,7 @@ import Darwin
 import KSCrashRecordingCore
 import XCTest
 
+@testable import KSCrashMonitorPlugins
 @testable import KSCrashProfiler
 
 // A sanitizer runtime exports a well-known init symbol once loaded, so a dlsym
@@ -850,6 +851,56 @@ final class TimeProfilerTests: XCTestCase {
 // MARK: - Monitor conformance
 
 final class ProfileMonitorConformanceTests: XCTestCase {
+    func testWriteReportDoesNotUseProfiledThreadAsExceptionSubject() {
+        let bridge = ProfileMonitor.shared
+        let savedCallbacks = bridge.callbacks
+        defer {
+            if var callbacks = savedCallbacks {
+                withUnsafeMutablePointer(to: &callbacks) {
+                    bridge.api.pointee.`init`($0, bridge.api.pointee.context)
+                }
+            } else {
+                bridge.api.pointee.`init`(nil, bridge.api.pointee.context)
+            }
+        }
+
+        var callbacks = KSCrash_ExceptionHandlerCallbacks()
+        callbacks.notify = { subjectThread, requirements in
+            // A sampled thread may be handling another report. Naming it here would
+            // make the profiler's independent report look like that handler recrashed.
+            XCTAssertEqual(subjectThread, thread_t(MACH_PORT_NULL))
+            XCTAssertEqual(requirements.isFatal, 0)
+            let context = UnsafeMutablePointer<KSCrash_MonitorContext>.allocate(capacity: 1)
+            context.initialize(to: KSCrash_MonitorContext())
+            return context
+        }
+        callbacks.handleWithResult = { context, result, finalize in
+            defer {
+                context?.deinitialize(count: 1)
+                context?.deallocate()
+            }
+            XCTAssertTrue(finalize)
+            XCTAssertEqual(context?.pointee.omitBinaryImages, true)
+            guard let result else { return }
+            withUnsafeMutableBytes(of: &result.pointee.path) { bytes in
+                let path = bytes.bindMemory(to: CChar.self)
+                _ = strlcpy(path.baseAddress!, "/tmp/kscrash-profile-report.json", path.count)
+            }
+        }
+        withUnsafeMutablePointer(to: &callbacks) {
+            bridge.api.pointee.`init`($0, bridge.api.pointee.context)
+        }
+
+        let profile = TimeProfile(
+            id: UUID(), name: "report-subject", thread: pthread_mach_thread_np(pthread_self()),
+            startTime: Date(), startTimestampNs: 0, endTimestampNs: 1,
+            expectedSampleIntervalNs: 1, samples: []
+        )
+        XCTAssertNotEqual(profile.thread, thread_t(MACH_PORT_NULL))
+        // A URL proves the write reached both callbacks instead of silently returning nil.
+        XCTAssertEqual(profile.writeReport(), URL(fileURLWithPath: "/tmp/kscrash-profile-report.json"))
+    }
+
     func testTheProfilerDeclaresItWritesAReportSection() {
         // ProfileMonitor's whole job on the monitor layer is its report section, and that
         // callback only runs because the type conforms to ReportSectionWriting. Dropping the
