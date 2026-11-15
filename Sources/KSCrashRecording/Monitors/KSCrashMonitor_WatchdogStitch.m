@@ -211,6 +211,10 @@ CFDictionaryRef kscm_watchdog_createStitchedReport(CFDictionaryRef reportDict, c
     hang[KSCrashField_HangStartNanoseconds] = @(sc.startTimestamp);
     hang[KSCrashField_HangStartRole] = @(kstaskrole_toString(sc.startRole));
     hang[KSCrashField_HangStartTransitionState] = @(ksapp_transitionStateToString(sc.startTransitionState));
+    if (sc.version >= KSHANG_SIDECAR_VERSION_2_0) {
+        // Older sidecars never recorded it.
+        hang[KSCrashField_DuringStartup] = sc.duringStartup ? @YES : @NO;
+    }
     hang[KSCrashField_HangEndNanoseconds] = @(sc.endTimestamp);
     hang[KSCrashField_HangEndRole] = @(kstaskrole_toString(sc.endRole));
     hang[KSCrashField_HangEndTransitionState] = @(ksapp_transitionStateToString(sc.endTransitionState));

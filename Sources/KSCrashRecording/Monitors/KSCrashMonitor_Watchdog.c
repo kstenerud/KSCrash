@@ -268,6 +268,7 @@ static KSHangSidecar *sidecar_create(const char *path, const KSHangState *hang)
     sc->startTimestamp = hang->timestamp;
     sc->startRole = hang->role;
     sc->startTransitionState = hang->transitionState;
+    sc->duringStartup = hang->duringStartup;
     sc->endTimestamp = hang->endTimestamp;
     sc->endRole = hang->endRole;
     sc->endTransitionState = hang->endTransitionState;
@@ -513,11 +514,6 @@ static void writeUpdatedReport(KSHangMonitor *monitor)
 // sidecar goes either way.
 static void closeHangRecord(KSHangMonitor *monitor, const KSHangState *hang, bool reportsHangs)
 {
-    // Suppress non-fatal hangs that started during launch (Startup,
-    // StartupPrewarm, Launching). The report still existed on disk while
-    // active, so WatchdogStitch can detect fatal hangs during startup.
-    bool startedDuringStartup = hang->transitionState <= KSCrashAppTransitionStateLaunching;
-
     // Mark the hang ended before anything removes its record, and before the
     // finalize below: the hang is over, and whatever reads the record meanwhile
     // (the next launch after a SIGTERM now, a report written now) should see a
@@ -536,7 +532,7 @@ static void closeHangRecord(KSHangMonitor *monitor, const KSHangState *hang, boo
         return;
     }
 
-    if (!reportsHangs || startedDuringStartup) {
+    if (!reportsHangs) {
         // The report goes first: a process ending in between leaves a sidecar no
         // report points at, which the next send reclaims, rather than a report
         // with no sidecar to say its hang recovered.
@@ -662,6 +658,7 @@ static void watchdogTick(KSHangMonitor *monitor, uint64_t enter)
 
     task_role_t currentRole = kstaskrole_current();
     uint8_t currentTransition = kslifecycle_currentTransitionState();
+    bool isStartingUp = kslifecycle_isStartingUp();
 
     bool shouldStartNewHang = false;
     bool shouldUpdateHang = false;
@@ -684,6 +681,7 @@ static void watchdogTick(KSHangMonitor *monitor, uint64_t enter)
         monitor->hangReportsHangs = atomic_load(&g_reportsHangs);
         monitor->hangFailed = false;
         monitor->hangEndPublished = false;
+        monitor->hang.duringStartup = isStartingUp;
         monitor->hang.endTimestamp = now;
         monitor->hang.endRole = currentRole;
         monitor->hang.endTransitionState = currentTransition;

@@ -39,7 +39,8 @@ extern "C" {
 
 #define KSHANG_SIDECAR_MAGIC 0x6b736873  // 'kshs'
 #define KSHANG_SIDECAR_VERSION_1_0 1
-#define KSHANG_SIDECAR_CURRENT_VERSION KSHANG_SIDECAR_VERSION_1_0
+#define KSHANG_SIDECAR_VERSION_2_0 2  // adds duringStartup
+#define KSHANG_SIDECAR_CURRENT_VERSION KSHANG_SIDECAR_VERSION_2_0
 
 /** Memory-mapped sidecar struct persisted alongside a hang report.
  *
@@ -56,6 +57,8 @@ typedef struct {
     task_role_t endRole;
     uint8_t endTransitionState;  // KSCrashAppTransitionState at hang end/current
     bool recovered;
+    // Version 2.0 and later; padding in older sidecars.
+    bool duringStartup;
 } KSHangSidecar;
 
 // Expected layout (same on 32-bit and 64-bit — no pointer-sized fields):
@@ -67,7 +70,8 @@ typedef struct {
 //   offset 24: uint64_t   endTimestamp            (8 bytes)
 //   offset 32: task_role_t endRole                (4 bytes)
 //   offset 36: uint8_t    endTransitionState      (1 byte)
-//   offset 37: bool       recovered               (1 byte + 2 padding)
+//   offset 37: bool       recovered               (1 byte)
+//   offset 38: bool       duringStartup           (1 byte + 1 padding, v2.0+)
 //   total: 40 bytes
 _Static_assert(sizeof(KSHangSidecar) == 40, "KSHangSidecar size changed — update sidecar version");
 
