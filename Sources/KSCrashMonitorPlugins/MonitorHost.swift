@@ -155,8 +155,7 @@ public struct MonitorHost<Payload>: Sendable {
             return WrittenReport(id: nil, url: URL(fileURLWithPath: path))
         }
         // Neither an ID nor a path: the pipeline accepted the event but wrote nothing (vetoed
-        // by a callback, rerouted while the process handles a fatal exception, or the report
-        // file could not be created).
+        // by a callback, or the report file could not be created).
         throw EventError.notWritten
     }
 
