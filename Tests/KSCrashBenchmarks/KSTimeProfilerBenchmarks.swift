@@ -89,7 +89,9 @@ import XCTest
                 XCTAssertGreaterThan(
                     metrics?.count ?? 0,
                     0,
-                    "Expected at least one sample to be captured",
+                    "Expected at least one sample to be captured ("
+                        + (metrics.map { "\($0.truncatedSampleCount) truncated" } ?? "endProfile returned nil")
+                        + ")",
                     file: file,
                     line: line
                 )
