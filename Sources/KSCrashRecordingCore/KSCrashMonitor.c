@@ -135,7 +135,7 @@ static int handlerSlotAlreadyHandlingAnException(int maxCount, thread_t offendin
         thread_t handlerThread = atomic_load(&g_state.threadsHandlingExceptions[i]);
         if (handlerThread == MACH_PORT_NULL) {
             // Freed slot. Skipping it also keeps a MACH_PORT_NULL offendingThread (an event
-            // with no local subject thread, e.g. a corpse report) from matching it.
+            // where no thread of this process faulted) from matching it.
             continue;
         }
         if (handlerThread == handlingThread || handlerThread == offendingThread) {
