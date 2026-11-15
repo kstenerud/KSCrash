@@ -25,6 +25,7 @@
 //
 
 import Darwin
+import KSCrashRecording
 import KSCrashRecordingCore
 import XCTest
 
@@ -814,9 +815,9 @@ final class TimeProfilerTests: XCTestCase {
         let profile = profiler.endProfile(id: id)
         XCTAssertNotNil(profile)
 
-        // writeReport() may return nil in tests when KSCrash is not installed,
+        // writeReport() throws in tests when KSCrash is not installed,
         // but it should be callable without crashing
-        _ = profile?.writeReport()
+        _ = try? profile?.writeReport()
     }
 
     func testMultipleProfilesCanCallWriteReport() {
@@ -840,18 +841,22 @@ final class TimeProfilerTests: XCTestCase {
         Thread.sleep(forTimeInterval: 0.01)
         let profile3 = profiler.endProfile(id: id3)
 
-        // writeReport() may return nil in tests when KSCrash is not installed,
+        // writeReport() throws in tests when KSCrash is not installed,
         // but it should be callable without crashing
-        _ = profile1?.writeReport()
-        _ = profile2?.writeReport()
-        _ = profile3?.writeReport()
+        _ = try? profile1?.writeReport()
+        _ = try? profile2?.writeReport()
+        _ = try? profile3?.writeReport()
     }
 }
 
 // MARK: - Monitor conformance
 
 final class ProfileMonitorConformanceTests: XCTestCase {
-    func testWriteReportDoesNotUseProfiledThreadAsExceptionSubject() {
+    /// Runs `body` with `callbacks` standing in for the pipeline on the shared bridge, then
+    /// puts back whatever the bridge had before.
+    private func withStubPipeline(
+        _ callbacks: KSCrash_ExceptionHandlerCallbacks, _ body: (Monitor<ProfileMonitor>) throws -> Void
+    ) rethrows {
         let bridge = ProfileMonitor.shared
         let savedCallbacks = bridge.callbacks
         defer {
@@ -863,7 +868,22 @@ final class ProfileMonitorConformanceTests: XCTestCase {
                 bridge.api.pointee.`init`(nil, bridge.api.pointee.context)
             }
         }
+        var callbacks = callbacks
+        withUnsafeMutablePointer(to: &callbacks) {
+            bridge.api.pointee.`init`($0, bridge.api.pointee.context)
+        }
+        try body(bridge)
+    }
 
+    private func makeProfile(named name: String) -> TimeProfile {
+        TimeProfile(
+            id: UUID(), name: name, thread: pthread_mach_thread_np(pthread_self()),
+            startTime: Date(), startTimestampNs: 0, endTimestampNs: 1,
+            expectedSampleIntervalNs: 1, samples: []
+        )
+    }
+
+    func testWriteReportDoesNotUseProfiledThreadAsExceptionSubject() throws {
         var callbacks = KSCrash_ExceptionHandlerCallbacks()
         callbacks.notify = { subjectThread, requirements in
             // A sampled thread may be handling another report. Naming it here would
@@ -887,18 +907,54 @@ final class ProfileMonitorConformanceTests: XCTestCase {
                 _ = strlcpy(path.baseAddress!, "/tmp/kscrash-profile-report.json", path.count)
             }
         }
-        withUnsafeMutablePointer(to: &callbacks) {
-            bridge.api.pointee.`init`($0, bridge.api.pointee.context)
-        }
 
-        let profile = TimeProfile(
-            id: UUID(), name: "report-subject", thread: pthread_mach_thread_np(pthread_self()),
-            startTime: Date(), startTimestampNs: 0, endTimestampNs: 1,
-            expectedSampleIntervalNs: 1, samples: []
-        )
+        let profile = makeProfile(named: "report-subject")
         XCTAssertNotEqual(profile.thread, thread_t(MACH_PORT_NULL))
-        // A URL proves the write reached both callbacks instead of silently returning nil.
-        XCTAssertEqual(profile.writeReport(), URL(fileURLWithPath: "/tmp/kscrash-profile-report.json"))
+        try withStubPipeline(callbacks) { bridge in
+            // A URL proves the write reached both callbacks. Written through the bridge
+            // directly: the stub callbacks stand in for an install this test does not
+            // perform, and writeReport() throws without one.
+            XCTAssertEqual(
+                try profile._writeReport(through: bridge), URL(fileURLWithPath: "/tmp/kscrash-profile-report.json"))
+        }
+    }
+
+    func testWriteReportThrowsNotInstalledBeforeInstall() throws {
+        try XCTSkipIf(
+            kscrash_isInstalled(),
+            "Another suite in this process installed KSCrash first; only a run without an install reaches this path.")
+        XCTAssertThrowsError(try makeProfile(named: "before-install").writeReport()) {
+            XCTAssertEqual($0 as? ProfileReportError, .notInstalled)
+        }
+    }
+
+    func testWriteReportThrowsRefusedWhenThePipelineRefuses() throws {
+        var callbacks = KSCrash_ExceptionHandlerCallbacks()
+        callbacks.notify = { _, _ in nil }
+        try withStubPipeline(callbacks) { bridge in
+            XCTAssertThrowsError(try makeProfile(named: "refused")._writeReport(through: bridge)) {
+                XCTAssertEqual($0 as? ProfileReportError, .refused)
+            }
+        }
+    }
+
+    func testWriteReportThrowsNotWrittenWhenThePipelineWritesNothing() throws {
+        var callbacks = KSCrash_ExceptionHandlerCallbacks()
+        callbacks.notify = { _, _ in
+            let context = UnsafeMutablePointer<KSCrash_MonitorContext>.allocate(capacity: 1)
+            context.initialize(to: KSCrash_MonitorContext())
+            return context
+        }
+        // Leaves the result empty: no report ID and no path.
+        callbacks.handleWithResult = { context, _, _ in
+            context?.deinitialize(count: 1)
+            context?.deallocate()
+        }
+        try withStubPipeline(callbacks) { bridge in
+            XCTAssertThrowsError(try makeProfile(named: "not-written")._writeReport(through: bridge)) {
+                XCTAssertEqual($0 as? ProfileReportError, .notWritten)
+            }
+        }
     }
 
     func testTheProfilerDeclaresItWritesAReportSection() {

@@ -45,8 +45,11 @@ import Foundation
 /// print("Duration: \(Double(profile.durationNs) / 1_000_000)ms")
 ///
 /// DispatchQueue.global().async {
-///     if let url = profile.writeReport() {
+///     do {
+///         let url = try profile.writeReport()
 ///         print("Report written to: \(url.path)")
+///     } catch {
+///         print("No report written: \(error)")
 ///     }
 /// }
 /// ```
@@ -99,12 +102,13 @@ public struct TimeProfile: Profile, Sendable {
     /// containing the profile data. The report is written synchronously to the KSCrash
     /// reports directory.
     ///
-    /// - Returns: The URL of the written report file, or `nil` if the report could not be written.
+    /// - Returns: The URL of the written report file.
+    /// - Throws: ``ProfileReportError`` when no report was written.
     ///
     /// - Note: This method performs synchronous disk I/O and should be called from a background
     ///   queue or task to avoid blocking the main thread.
-    public func writeReport() -> URL? {
-        _writeReport()
+    public func writeReport() throws -> URL {
+        try _writeReport()
     }
 
     /// The Mach thread port of the thread that was profiled.
