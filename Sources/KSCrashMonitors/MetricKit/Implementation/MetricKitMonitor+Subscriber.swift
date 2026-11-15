@@ -184,9 +184,7 @@ import os.log
                 // reportPath from within configure's own (narrower) closure would leave it
                 // dangling by the time the write actually happens.
                 let written = tempURL.path.withCString { cPath in
-                    try? host.handle(
-                        requirements: skeletonRequirements, subjectThread: thread_t(ksthread_self())
-                    ) { context in
+                    try? host.handle(requirements: skeletonRequirements) { context in
                         context.pointee.omitBinaryImages = true
                         context.pointee.reportPath = cPath
                     }

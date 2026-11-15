@@ -89,16 +89,22 @@ public struct MonitorHost<Payload>: Sendable {
     /// it the same stitch runs when the report is next read. It applies only to reports the
     /// store minted an ID for, so an event whose `configure` sets a custom `reportPath` never
     /// finalizes, and neither does a locally fatal event, where the process is terminating.
+    ///
+    /// `offendingThread` is the thread of this process that faulted, or nil when none did,
+    /// which is the case for an event about a healthy process. It decides whether the event
+    /// is handled as a crash of a report handler already running, so never pass a thread the
+    /// event only observes (one being sampled or watched): if that thread is writing a report
+    /// of its own, the event is mistaken for that handler crashing.
     public func handle(
         payload: Payload?,
         requirements: EventRequirements,
-        subjectThread: thread_t = thread_t(MACH_PORT_NULL),
+        offendingThread: thread_t? = nil,
         finalize: Bool = false,
         configure: (UnsafeMutablePointer<KSCrash_MonitorContext>) -> Void
     ) throws -> WrittenReport {
         guard let payload else {
             return try handle(
-                boxedPayload: nil, requirements: requirements, subjectThread: subjectThread,
+                boxedPayload: nil, requirements: requirements, offendingThread: offendingThread,
                 finalize: finalize, configure: configure)
         }
         // Retained across the write, released after; the bridge unboxes it for
@@ -106,19 +112,19 @@ public struct MonitorHost<Payload>: Sendable {
         let box = Unmanaged.passRetained(PayloadBox(payload)).toOpaque()
         defer { Unmanaged<PayloadBox>.fromOpaque(box).release() }
         return try handle(
-            boxedPayload: box, requirements: requirements, subjectThread: subjectThread,
+            boxedPayload: box, requirements: requirements, offendingThread: offendingThread,
             finalize: finalize, configure: configure)
     }
 
     private func handle(
         boxedPayload: UnsafeMutableRawPointer?,
         requirements: EventRequirements,
-        subjectThread: thread_t,
+        offendingThread: thread_t?,
         finalize: Bool,
         configure: (UnsafeMutablePointer<KSCrash_MonitorContext>) -> Void
     ) throws -> WrittenReport {
         guard let callbacks = bridge.callbacks else { throw EventError.notInstalled }
-        guard let context = callbacks.notify(subjectThread, requirements) else {
+        guard let context = callbacks.notify(offendingThread ?? thread_t(MACH_PORT_NULL), requirements) else {
             throw EventError.refused
         }
         // Both bail-out contexts are shared slots with the same contract: do nothing, touch
@@ -188,15 +194,16 @@ public struct MonitorHost<Payload>: Sendable {
 
 extension MonitorHost where Payload == Void {
     /// The payload-less variant for monitors with no per-event payload; their
-    /// `writeReportSection(payload:)` still runs for the event.
+    /// `writeReportSection(payload:)` still runs for the event. The parameters mean what they
+    /// mean on ``handle(payload:requirements:offendingThread:finalize:configure:)``.
     public func handle(
         requirements: EventRequirements,
-        subjectThread: thread_t = thread_t(MACH_PORT_NULL),
+        offendingThread: thread_t? = nil,
         finalize: Bool = false,
         configure: (UnsafeMutablePointer<KSCrash_MonitorContext>) -> Void
     ) throws -> WrittenReport {
         try handle(
-            payload: nil, requirements: requirements, subjectThread: subjectThread,
+            payload: nil, requirements: requirements, offendingThread: offendingThread,
             finalize: finalize, configure: configure)
     }
 }
