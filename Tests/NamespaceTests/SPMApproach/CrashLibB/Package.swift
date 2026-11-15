@@ -31,10 +31,12 @@ let package = Package(
             ],
             cSettings: [
                 .define("KSCRASH_NAMESPACE", to: "CrashLibB"),
+                .headerSearchPath("."),
                 .headerSearchPath("Monitors"),
             ],
             cxxSettings: [
                 .define("KSCRASH_NAMESPACE", to: "CrashLibB"),
+                .headerSearchPath("."),
                 .headerSearchPath("Monitors"),
             ]
         ),

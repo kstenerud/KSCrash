@@ -49,6 +49,14 @@ ALWAYS_ADDED_SYMBOLS = [
                         "KSCrashAppMemory",
                         "KSCrashAppMemoryTrackerDelegate",
                         "KSCrashReportID",
+                        "kscrash_testcode_clearPluginMonitors",
+                        "kscrash_testcode_onExceptionEvent",
+                        "kscrash_testcode_restorePluginMonitors",
+                        "kscrash_testcode_savePluginMonitors",
+                        "kscrash_testcode_setLastRunID",
+                        "kscrash_testcode_setMonitors",
+                        "kscrash_testcode_setPluginMonitors",
+                        "kscrash_testcode_setRunID",
                        ]
 
 # Ignore function names that match any of these:
