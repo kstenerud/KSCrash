@@ -138,7 +138,7 @@ notify → fillMonitorContext → field setup → payload boxing → handleWithR
 public struct MonitorHost<Payload> {
     public var isEnabled: Bool { get }
     public func handle(payload: Payload?, requirements: EventRequirements,
-                subjectThread: thread_t = MACH_PORT_NULL, finalize: Bool = false,
+                offendingThread: thread_t? = nil, finalize: Bool = false,
                 configure: (UnsafeMutablePointer<KSCrash_MonitorContext>) -> Void) throws -> WrittenReport
     public func handle(requirements: EventRequirements, ...) throws -> WrittenReport   // Payload == Void only
     public func reportSidecarURL(reportID: Int64) -> URL?
