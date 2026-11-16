@@ -153,7 +153,7 @@ struct Store: Sendable {
         let entries: [String]
         do {
             entries = try FileManager.default.contentsOfDirectory(atPath: runsDirectory.path)
-        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+        } catch  where Self.isNoSuchFile(error) {
             return []
         }
 
@@ -182,9 +182,18 @@ struct Store: Sendable {
                 // artifacts, so it is skipped here, and the send-end reclaim
                 // deletes it as garbage (an unreadable file aborts that pass
                 // and is retried instead).
-                guard let data = try? Data(contentsOf: url),
-                    let identity = try? decoder.decode(RunIdentity.self, from: data)
-                else {
+                let data: Data
+                do {
+                    data = try Data(contentsOf: url)
+                } catch  where Self.isNoSuchFile(error) {
+                    continue
+                } catch {
+                    os_log(
+                        .error, "Skipping unreadable run summary %{public}@: %{public}@", name,
+                        String(describing: error))
+                    continue
+                }
+                guard let identity = try? decoder.decode(RunIdentity.self, from: data) else {
                     os_log(.error, "Skipping unidentifiable run summary: %{public}@", name)
                     continue
                 }
@@ -236,7 +245,7 @@ struct Store: Sendable {
         let sidecarNames: [String]
         do {
             sidecarNames = try FileManager.default.contentsOfDirectory(atPath: runSidecarsDirectory.path)
-        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+        } catch  where Self.isNoSuchFile(error) {
             // No run ever wrote a sidecar: a normal empty result. Any other
             // failure propagates, exactly like the Runs enumeration above;
             // mistaking it for absence would deliver pending summaries without
@@ -368,10 +377,19 @@ extension Store {
         let names: [String]
         do {
             names = try FileManager.default.contentsOfDirectory(atPath: directory.path)
-        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+        } catch  where isNoSuchFile(error) {
             return []
         }
         return names.sorted().compactMap(ReportFilename.reportID(in:))
+    }
+
+    /// Whether `error` says the file or directory is not there. The store treats a missing
+    /// file the same way everywhere, whichever API reported it and however it phrased it.
+    static func isNoSuchFile(_ error: Error) -> Bool {
+        if let cocoa = error as? CocoaError {
+            return cocoa.code == .fileNoSuchFile || cocoa.code == .fileReadNoSuchFile
+        }
+        return (error as? POSIXError)?.code == .ENOENT
     }
 }
 

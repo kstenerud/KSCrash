@@ -259,13 +259,6 @@ extension Store {
         } catch {}
     }
 
-    static func isNoSuchFile(_ error: Error) -> Bool {
-        if let cocoa = error as? CocoaError {
-            return cocoa.code == .fileNoSuchFile || cocoa.code == .fileReadNoSuchFile
-        }
-        return (error as? POSIXError)?.code == .ENOENT
-    }
-
     static func log(_ what: String, _ url: URL, _ error: Error) {
         os_log(.error, "%{public}@ at %{public}@: %{public}@", what, url.path, String(describing: error))
     }

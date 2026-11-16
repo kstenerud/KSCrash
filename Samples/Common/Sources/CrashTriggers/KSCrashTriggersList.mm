@@ -29,6 +29,8 @@
 #import <mach-o/dyld.h>
 #import <mach/mach.h>
 #import <signal.h>
+#import <sys/mman.h>
+#import <unistd.h>
 #import <atomic>
 #import <exception>
 #import <stdexcept>
@@ -252,10 +254,17 @@ static void trigger_user_swiftAsync(void) { integrationTestSwiftAsyncTrigger(); 
 
 + (void)trigger_mach_busError
 {
-    char *ptr = (char *)malloc(sizeof(int));
-    int *intPtr = (int *)(ptr + 1);  // Misaligned pointer
-    *intPtr = 42;                    // This will cause an EXC_BAD_ACCESS (SIGBUS)
-    free(ptr);
+    // Reading a file mapping past the end of its file. A misaligned store, the usual example,
+    // does not fault on arm64 or x86_64.
+    char path[PATH_MAX];
+    strlcpy(path,
+            [NSTemporaryDirectory() stringByAppendingPathComponent:@"KSCrashBusError.XXXXXX"].fileSystemRepresentation,
+            sizeof(path));
+    int fd = mkstemp(path);
+    unlink(path);
+    volatile char *map = (volatile char *)mmap(NULL, (size_t)getpagesize(), PROT_READ, MAP_SHARED, fd, 0);
+    close(fd);
+    (void)map[0];
 }
 
 + (void)trigger_mach_illegalInstruction

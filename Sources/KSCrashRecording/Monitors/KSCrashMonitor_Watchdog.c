@@ -248,25 +248,20 @@ static void populateReportForCurrentHang(KSHangMonitor *monitor)
         return;
     }
 
-    // Snapshot the hang state and freeze all threads while holding the lock.
-    // Taking the lock first guarantees the main thread is not holding it when
-    // suspended: if it's in mainRunLoopActivity, we block until it releases.
-    // notify() will call ksmc_suspendEnvironment again (incrementing each
-    // thread's suspend count to 2) and its matching ksmc_resumeEnvironment
-    // drops it back to 1.  Our resume below drops it to 0.
-    thread_act_array_t suspendedThreads = NULL;
-    mach_msg_type_number_t suspendedThreadsCount = 0;
-
     os_unfair_lock_lock(&monitor->lock);
     KSHangState hang = monitor->hang;
-    ksmc_suspendEnvironment(&suspendedThreads, &suspendedThreadsCount);
     os_unfair_lock_unlock(&monitor->lock);
 
     if (!hang.active) {
-        ksmc_resumeEnvironment(&suspendedThreads, &suspendedThreadsCount);
         KSLOG_DEBUG("hang ended before report could be populated");
         return;
     }
+
+    // notify() suspends the threads, after allocating this event's context. Suspending them
+    // here first would make that allocation wait forever on a malloc lock the main thread
+    // holds, and keep them frozen after the writer tells its callbacks they run again.
+    // Nothing the report write calls takes this monitor's lock, so the main thread may be
+    // suspended holding it.
 
     // No offending thread: the main thread is this report's subject, but it did not
     // fault, it was observed. Naming it here makes the recrash check read it as
@@ -288,7 +283,6 @@ static void populateReportForCurrentHang(KSHangMonitor *monitor)
         // rather than the report, so Started is published exactly as it would have been.
         // Skipping it would leave observers with an Updated before any Started, and an
         // Ended clearing a hang they were never told about.
-        ksmc_resumeEnvironment(&suspendedThreads, &suspendedThreadsCount);
         KSLOG_DEBUG("A report is already being written; this hang is reported without one");
         notifyHangChange(KSHangChangeTypeStarted, hang.timestamp, hang.endTimestamp);
         return;
@@ -319,11 +313,10 @@ static void populateReportForCurrentHang(KSHangMonitor *monitor)
     KSCrash_ReportResult result = { 0 };
     g_callbacks.handleWithResult(crashContext, &result, false);
 
-    ksmc_resumeEnvironment(&suspendedThreads, &suspendedThreadsCount);
-
     // Re-check: the main thread may have resolved the hang while we were
     // writing the report.  Compare timestamps to make sure it's still the
     // same hang before attaching the report path and sidecar.
+    bool hangEnded = false;
     os_unfair_lock_lock(&monitor->lock);
     if (monitor->hang.active && monitor->hang.timestamp == hang.timestamp) {
         strlcpy(monitor->hang.reportId, result.reportId, sizeof(monitor->hang.reportId));
@@ -342,9 +335,20 @@ static void populateReportForCurrentHang(KSHangMonitor *monitor)
             }
         }
     } else {
-        KSLOG_DEBUG("hang changed during report population - discarding");
+        hangEnded = true;
     }
     os_unfair_lock_unlock(&monitor->lock);
+
+    if (hangEnded) {
+        // The main thread ended the hang, and sent Ended, before this report existed.
+        // A Started now would mark an over hang as running, and the report would be
+        // delivered as a watchdog kill.
+        if (result.path[0] != '\0') {
+            unlink(result.path);
+        }
+        KSLOG_DEBUG("hang ended while its report was written");
+        return;
+    }
 
     KSLOG_INFO("Hang started (reportID: %s)", result.reportId);
 

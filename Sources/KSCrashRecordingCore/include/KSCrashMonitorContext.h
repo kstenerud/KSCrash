@@ -328,12 +328,12 @@ typedef struct {
      * After calling this function, you should fill out any pertinent information in the returned context, and then call
      * handleWithResult().
      *
-     * @param offendingThread The thread of THIS process that the event is about: the crashed thread for an
-     *        in-process crash, the hung main thread for a watchdog report, and so on. It is checked against
-     *        the threads currently inside exception handlers to detect a crashed handler and dual delivery
-     *        of the same crash (e.g. Mach and signal). Pass MACH_PORT_NULL when the event has no local
-     *        subject thread (a remote-subject event such as a corpse report, or a synthesized report about
-     *        a previous run); the calling thread is registered for recrash protection either way.
+     * @param offendingThread The thread of THIS process that faulted, or MACH_PORT_NULL when none did. It is
+     *        checked against the threads currently inside exception handlers, to recognize a handler that
+     *        crashed and a fault delivered twice. Never pass a thread the event only observes (one being
+     *        sampled or watched): if that thread is writing a report of its own at the time, the event is
+     *        handled as a crash of that thread's handler. The calling thread is registered for recrash
+     *        protection either way.
      * @param requirements Requirements and information about how this exception should be handled.
      * @return a monitor context to be filled out and passed to `handleWithResult()`.
      */
@@ -352,8 +352,9 @@ typedef struct {
      * @param result Contains the result of handling the exception.
      * @param finalize If true, finalize the report immediately by stitching
      *        in sidecar data. Use this for non-fatal reports where the app
-     *        continues running. Not async-signal-safe. Ignored when isFatal
-     *        is true or when context->reportPath is set.
+     *        continues running. Not async-signal-safe. Ignored when the
+     *        event is locally fatal (isFatal set without isRemoteSubject)
+     *        or when context->reportPath is set.
      */
     void (*handleWithResult)(KSCrash_MonitorContext *context, KSCrash_ReportResult *result, bool finalize);
 
