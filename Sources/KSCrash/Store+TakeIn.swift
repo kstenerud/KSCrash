@@ -42,24 +42,28 @@ extension Store {
     /// rather than waiting, and its listing sends what the store already holds;
     /// its own sources, which may differ from the other send's, keep their
     /// reports for a later send. Every send builds its own `Store`, so the claim
-    /// is keyed by the directory rather than held by the value.
+    /// is keyed by the directory rather than held by the value. A send's
+    /// reclaim also holds it, briefly, to remove the copies a crash left.
     func takeIn(from sources: [any ReportSource], claims: ClaimSet<Report.ID>) async {
         guard !sources.isEmpty else { return }
-        let directoryKey = reportsDirectory?.standardizedFileURL.path ?? "store:\(runsDirectory.path)"
-        guard Self.takeInClaims.claim(directoryKey) else {
-            os_log(.info, "Another send is taking reports in; this send skips taking them in")
+        let key = takeInClaimKey
+        guard Self.takeInClaims.claim(key) else {
+            os_log(.info, "Another send holds the store's take-in claim; this send skips taking reports in")
             return
         }
-        defer { Self.takeInClaims.release(directoryKey) }
+        defer { Self.takeInClaims.release(key) }
         await takeInHoldingClaim(from: sources, claims: claims)
     }
 
-    private static let takeInClaims = ClaimSet<String>()
+    /// Held by whoever is writing take-in copies into a store directory, or
+    /// removing the ones a crash left there.
+    static let takeInClaims = ClaimSet<String>()
+
+    var takeInClaimKey: String {
+        reportsDirectory?.standardizedFileURL.path ?? "store:\(runsDirectory.path)"
+    }
 
     private func takeInHoldingClaim(from sources: [any ReportSource], claims: ClaimSet<Report.ID>) async {
-        // Under the claim no other take-in into this store is running, so any
-        // partial copy in it was left by a crash.
-        reports.removeAbandonedTakeIns()
         var staging = Staging()
         defer {
             if staging.isCreated {
