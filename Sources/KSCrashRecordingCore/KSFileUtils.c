@@ -404,7 +404,7 @@ bool ksfu_openBufferedWriter(KSBufferedWriter *writer, const char *const path, c
 
 void ksfu_closeBufferedWriter(KSBufferedWriter *writer)
 {
-    if (writer->fd > 0) {
+    if (writer->fd >= 0) {
         ksfu_flushBufferedWriter(writer);
         close(writer->fd);
         writer->fd = -1;
@@ -428,12 +428,15 @@ bool ksfu_writeBufferedWriter(KSBufferedWriter *writer, const char *__restrict c
 
 bool ksfu_flushBufferedWriter(KSBufferedWriter *writer)
 {
-    if (writer->fd > 0 && writer->position > 0) {
-        if (!ksfu_writeBytesToFD(writer->fd, writer->buffer, writer->position)) {
-            return false;
-        }
-        writer->position = 0;
+    if (writer->position == 0) {
+        return true;
     }
+    // Pending bytes with no file to take them is a failure, not a no-op: the append that asked for this flush
+    // copies into the space it expects the flush to have freed, so success here overruns the buffer.
+    if (writer->fd < 0 || !ksfu_writeBytesToFD(writer->fd, writer->buffer, writer->position)) {
+        return false;
+    }
+    writer->position = 0;
     return true;
 }
 
@@ -548,7 +551,7 @@ bool ksfu_openBufferedReader(KSBufferedReader *reader, const char *const path, c
 
 void ksfu_closeBufferedReader(KSBufferedReader *reader)
 {
-    if (reader->fd > 0) {
+    if (reader->fd >= 0) {
         close(reader->fd);
         reader->fd = -1;
     }
