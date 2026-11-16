@@ -112,26 +112,15 @@ final class WatchdogTests: IntegrationTestBase {
         launchAppAndRunScript()
 
         // The report file appears as soon as the hang is detected (before
-        // recovery), so wait specifically for the finalized flag.
-        let reportsDirUrl = try reportsDirectoryUrl()
-        let finalizedExpectation = XCTNSPredicateExpectation(
-            predicate: NSPredicate { _, _ in
-                guard let files = try? FileManager.default.contentsOfDirectory(atPath: reportsDirUrl.path),
-                    let fileName = files.first,
-                    let data = try? Data(contentsOf: reportsDirUrl.appendingPathComponent(fileName)),
-                    let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                    let report = json["report"] as? [String: Any]
-                else { return false }
-                return report["finalized"] as? Bool == true
-            },
-            object: nil
-        )
-        wait(for: [finalizedExpectation], timeout: actionDelay + 20.0)
-
-        let reportData = try readRawCrashReportData()
+        // recovery), so wait for the finalized report of this hang.
+        let reportData = try readRawCrashReportData(timeout: actionDelay + 20.0) {
+            Self.isTriggeredHang($0, duringStartup: false)
+        }
         let report = try decodeCrashReport(reportData: reportData)
 
         XCTAssertEqual(report.crash.error.type, .hang)
+        XCTAssertEqual(report.crash.error.hang?.duringStartup, false)
+        XCTAssertEqual(report.crash.error.hang?.hangStartTransitionState, .active)
         XCTAssertEqual(report.crash.error.isFatal, false)
         XCTAssertNil(report.crash.error.signal, "Recovered hang should not have signal info")
 
@@ -153,16 +142,15 @@ final class WatchdogTests: IntegrationTestBase {
     }
 
     // macOS sets Active during +load (before any observer registers), so
-    // there is no pre-Active startup phase for the suppression boundary to
-    // detect. This test is only meaningful on iOS/tvOS where the app
+    // there is no pre-Active startup phase to hang in. On iOS/tvOS the app
     // transitions through Launching -> Active via UIKit notifications.
-    func testStartupHangIsSuppressed() throws {
+    func testStartupHangIsReported() throws {
         try XCTSkipUnless(
             [.iOS, .tvOS].contains(TargetPlatform.current),
-            "Only iOS and tvOS have a pre-Active startup phase for the suppression boundary")
+            "Only iOS and tvOS have a pre-Active startup phase")
         // Trigger a hang during app init (before UIApplicationDidBecomeActive).
-        // The watchdog detects and writes a report, but since the hang started
-        // before Active, the report should be deleted on recovery.
+        // A hang there is reported like any other, and says it started during
+        // startup.
         var installConfig = InstallConfig(namespace: "IntegrationTests", basePath: installUrl.path)
         installConfig.isWatchdogEnabled = true
         installConfig.isHangReportingEnabled = true
@@ -173,33 +161,29 @@ final class WatchdogTests: IntegrationTestBase {
         )
         launchAppAndRunScript()
 
-        // The report must appear and then go: a watchdog that never noticed the hang would
-        // leave the directory empty too. It exists for most of the two-second hang, so a
-        // tight poll sees it.
-        let reportsDirUrl = try reportsDirectoryUrl()
-        let deadline = Date().addingTimeInterval(appLaunchTimeout)
-        var sawReport = false
-        while !sawReport, Date() < deadline {
-            let files = (try? FileManager.default.contentsOfDirectory(atPath: reportsDirUrl.path)) ?? []
-            sawReport = !files.isEmpty
-            if !sawReport { Thread.sleep(forTimeInterval: 0.02) }
+        let reportData = try readRawCrashReportData(timeout: appLaunchTimeout + 20.0) {
+            Self.isTriggeredHang($0, duringStartup: true)
         }
-        XCTAssertTrue(sawReport, "The watchdog never reported the startup hang")
+        let report = try decodeCrashReport(reportData: reportData)
 
-        // A startup hang report is created during detection but deleted on
-        // recovery, so the Reports directory should end up empty.
-        let emptyExpectation = XCTNSPredicateExpectation(
-            predicate: NSPredicate { _, _ in
-                guard let files = try? FileManager.default.contentsOfDirectory(atPath: reportsDirUrl.path)
-                else { return true }
-                return files.isEmpty
-            },
-            object: nil
-        )
-        wait(for: [emptyExpectation], timeout: 10.0)
+        XCTAssertEqual(report.crash.error.type, .hang)
+        XCTAssertEqual(report.crash.error.hang?.hangRecovered, true)
+        XCTAssertEqual(report.crash.error.hang?.duringStartup, true)
+    }
 
-        let files = (try? FileManager.default.contentsOfDirectory(atPath: reportsDirUrl.path)) ?? []
-        XCTAssertTrue(files.isEmpty, "Startup hang should be suppressed, but found reports: \(files)")
+    /// Whether `report` is the finalized report of the hang the test triggered. A loaded
+    /// simulator can also hang at launch, and that report is real, so the test tells its own
+    /// apart by length as well: the trigger blocks the main thread for two seconds, a launch
+    /// hang for well under one.
+    nonisolated private static func isTriggeredHang(_ report: [String: Any], duringStartup: Bool) -> Bool {
+        guard (report["report"] as? [String: Any])?["finalized"] as? Bool == true,
+            let hang = ((report["crash"] as? [String: Any])?["error"] as? [String: Any])?["hang"]
+                as? [String: Any],
+            hang["during_startup"] as? Bool == duringStartup,
+            let start = (hang["hang_start_nanos"] as? NSNumber)?.uint64Value,
+            let end = (hang["hang_end_nanos"] as? NSNumber)?.uint64Value
+        else { return false }
+        return end > start && end - start > 1_500_000_000
     }
 
     func testExceptionDuringHangReportsExceptionNotHang() throws {

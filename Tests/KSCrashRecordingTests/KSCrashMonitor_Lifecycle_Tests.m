@@ -55,6 +55,7 @@ extern void kscm_testcode_restoreState(struct KSCrashMonitorSavedState *saved);
 static struct KSCrashMonitorSavedState *g_savedMonitorState;
 extern void kscrash_testcode_setLastRunID(const char *runID);
 extern void kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionState state);
+extern void kscm_lifecycle_testcode_restartStartup(void);
 extern void kscm_lifecycle_testcode_setTaskRole(int32_t role);
 extern void ksruncontext_testcode_setReason(KSTerminationReason reason);
 extern void ksruncontext_testcode_setLifecycleData(const KSCrash_LifecycleData *data);
@@ -406,6 +407,23 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     KSCrash_AppState state = kscrashstate_lifecycleAppState();
     XCTAssertTrue(state.applicationIsActive);
     XCTAssertTrue(state.applicationIsInForeground);
+}
+
+- (void)testStartupLastsUntilTheFirstActive
+{
+    [self enableMonitor];
+    kscm_lifecycle_testcode_restartStartup();
+
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateLaunching);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateForegrounding);
+    XCTAssertTrue(kslifecycle_isStartingUp());
+
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+    XCTAssertFalse(kslifecycle_isStartingUp());
+
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateBackground);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateForegrounding);
+    XCTAssertFalse(kslifecycle_isStartingUp());
 }
 
 - (void)testDeactivatingTransitionClearsActiveFlag

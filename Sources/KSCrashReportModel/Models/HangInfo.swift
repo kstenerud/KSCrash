@@ -37,6 +37,9 @@ public struct HangInfo: Codable, Sendable, Equatable {
     /// The app's transition state when the hang started.
     public let hangStartTransitionState: AppTransitionState?
 
+    /// Whether the hang started while the app was starting up, before it was first active.
+    public let duringStartup: Bool?
+
     /// Timestamp when the hang ended/was detected (in nanoseconds).
     public let hangEndNanos: UInt64
 
@@ -53,6 +56,7 @@ public struct HangInfo: Codable, Sendable, Equatable {
         case hangStartNanos = "hang_start_nanos"
         case hangStartRole = "hang_start_role"
         case hangStartTransitionState = "hang_start_transition_state"
+        case duringStartup = "during_startup"
         case hangEndNanos = "hang_end_nanos"
         case hangEndRole = "hang_end_role"
         case hangEndTransitionState = "hang_end_transition_state"

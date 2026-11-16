@@ -292,6 +292,45 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
     XCTAssertNil(hang[@"hang_recovered"]);
 }
 
+#pragma mark - Started During Startup
+
+static NSDictionary *stitchStartupHang(NSString *dir, uint8_t version, bool duringStartup)
+{
+    KSHangSidecar sc = {
+        .magic = KSHANG_SIDECAR_MAGIC,
+        .version = version,
+        .endTimestamp = 2000,
+        .endRole = TASK_DEFAULT_APPLICATION,
+        .recovered = true,
+        .duringStartup = duringStartup,
+    };
+    NSString *path = writeSidecar(dir, sc);
+    NSDictionary *report = makeMinimalHangReport(1000, TASK_FOREGROUND_APPLICATION);
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    return result[@"crash"][@"error"][@"hang"];
+}
+
+- (void)testStartupHangSaysSo
+{
+    NSDictionary *hang = stitchStartupHang(self.tempDir, KSHANG_SIDECAR_VERSION_2_0, true);
+    XCTAssertEqualObjects(hang[@"during_startup"], @YES);
+}
+
+- (void)testHangAfterStartupSaysItIsNotAStartupHang
+{
+    NSDictionary *hang = stitchStartupHang(self.tempDir, KSHANG_SIDECAR_VERSION_2_0, false);
+    XCTAssertEqualObjects(hang[@"during_startup"], @NO);
+}
+
+- (void)testVersion1SidecarLeavesStartupHangAbsent
+{
+    // The byte is padding in a 1.0 sidecar, whatever it holds.
+    NSDictionary *hang = stitchStartupHang(self.tempDir, KSHANG_SIDECAR_VERSION_1_0, true);
+    XCTAssertNotNil(hang);
+    XCTAssertNil(hang[@"during_startup"]);
+}
+
 #pragma mark - Recovered Hang
 
 - (void)testRecoveredHangSetsRecoveredFlag

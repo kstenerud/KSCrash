@@ -328,6 +328,7 @@ static void populateReportForCurrentHang(KSHangMonitor *monitor)
                 monitor->sidecar->startTimestamp = monitor->hang.timestamp;
                 monitor->sidecar->startRole = monitor->hang.role;
                 monitor->sidecar->startTransitionState = monitor->hang.transitionState;
+                monitor->sidecar->duringStartup = monitor->hang.duringStartup;
                 sidecar_update(monitor->sidecar, monitor->hang.endTimestamp, monitor->hang.endRole,
                                monitor->hang.endTransitionState);
             } else {
@@ -375,13 +376,8 @@ static void writeUpdatedReport(KSHangMonitor *monitor)
 
 static void finalizeResolvedHang(KSHangMonitor *monitor, KSHangState hang)
 {
-    // Suppress non-fatal hangs that started during launch (Startup,
-    // StartupPrewarm, Launching). The report still existed on disk while
-    // active, so WatchdogStitch can detect fatal hangs during startup.
-    bool startedDuringStartup = hang.transitionState <= KSCrashAppTransitionStateLaunching;
-
     if (hang.path[0] != '\0') {
-        if (monitor->reportsHangs && !startedDuringStartup) {
+        if (monitor->reportsHangs) {
             sidecar_finalize(monitor, true);
 
             // Finalize the report synchronously so the stitched metadata
@@ -472,6 +468,7 @@ static void watchdogTimerFired(CFRunLoopTimerRef timer, void *info)
 
     task_role_t currentRole = kstaskrole_current();
     uint8_t currentTransition = kslifecycle_currentTransitionState();
+    bool isStartingUp = kslifecycle_isStartingUp();
 
     bool shouldStartNewHang = false;
     bool shouldUpdateHang = false;
@@ -479,6 +476,7 @@ static void watchdogTimerFired(CFRunLoopTimerRef timer, void *info)
     os_unfair_lock_lock(&monitor->lock);
     if (!monitor->hang.active) {
         kshangstate_init(&monitor->hang, enter, currentRole, currentTransition);
+        monitor->hang.duringStartup = isStartingUp;
         monitor->hang.endTimestamp = now;
         monitor->hang.endRole = currentRole;
         monitor->hang.endTransitionState = currentTransition;
