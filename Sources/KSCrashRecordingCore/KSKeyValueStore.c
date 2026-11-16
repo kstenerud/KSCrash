@@ -577,8 +577,8 @@ KSKeyValueStore *kskvs_create(const char *path, KSKVSMode mode, const KSKVSConfi
         // cause false positives (same rationale as ksfu_mmap).
         memset(mapped, 0, capacity);
 
-        // Ensure the file is readable before first unlock (iOS data protection).
-        ksfu_applyNoFileProtection(path);
+        // Readable before the first unlock after a reboot.
+        ksfu_setDataProtection(fd, KSFUDataProtectionNone);
 
         KSKeyValueStore *store = (KSKeyValueStore *)calloc(1, sizeof(KSKeyValueStore));
         if (store == NULL) {
