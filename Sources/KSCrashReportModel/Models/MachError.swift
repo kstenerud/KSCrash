@@ -29,19 +29,19 @@ import Foundation
 /// Mach exception details.
 public struct MachError: Codable, Sendable, Equatable {
     /// Mach exception code.
-    public let code: UInt64
+    public var code: UInt64
 
     /// Human-readable name for the code.
-    public let codeName: String?
+    public var codeName: String?
 
     /// Mach exception type.
-    public let exception: UInt64
+    public var exception: UInt64
 
     /// Human-readable name for the exception.
-    public let exceptionName: String?
+    public var exceptionName: String?
 
     /// Mach exception subcode.
-    public let subcode: UInt64?
+    public var subcode: UInt64?
 
     public init(
         code: UInt64,
