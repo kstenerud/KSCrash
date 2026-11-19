@@ -52,6 +52,10 @@ extern NSString *const KSCrashNSExceptionStacktraceFuncName;
     __PROCESS_TRIGGER(cpp, runtimeExceptionDyldLock, @"Runtime Exception (dyld Lock Held)")            \
     __PROCESS_TRIGGER(cpp, objcObjectException, @"Objective-C Object Exception")                       \
     __PROCESS_TRIGGER(cpp, objcObjectExceptionAfterCaughtCpp, @"ObjC Object (after caught C++)")       \
+    __PROCESS_TRIGGER(cpp, rethrowOnWorker, @"Rethrow a C++ exception on another thread")              \
+    __PROCESS_TRIGGER(cpp, releaseOnWorker, @"Release the last exception_ptr on another thread")       \
+    __PROCESS_TRIGGER(cpp, rethrowCaughtCpp, @"Rethrow the same C++ exception")                        \
+    __PROCESS_TRIGGER(cpp, unhookedAfterCaughtCpp, @"Unhooked throw (after caught C++)")               \
     __PROCESS_TRIGGER(cpp, terminateAfterCaughtCpp, @"Terminate (after caught C++)")                   \
     __PROCESS_TRIGGER(mach, badAccess, @"EXC_BAD_ACCESS (SIGSEGV)")                                    \
     __PROCESS_TRIGGER(mach, badAccessDeadbeef, @"EXC_BAD_ACCESS (0xDEADBEEF)")                         \

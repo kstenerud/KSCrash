@@ -257,6 +257,7 @@
 #define kscrs_takeInReport KSCRASH_NS(kscrs_takeInReport)
 #define ksct_swap KSCRASH_NS(ksct_swap)
 #define ksct_swapReset KSCRASH_NS(ksct_swapReset)
+#define ksct_swapWithFilter KSCRASH_NS(ksct_swapWithFilter)
 #define kscu_arm64_decode KSCRASH_NS(kscu_arm64_decode)
 #define kscu_encodingRequiresDwarf KSCRASH_NS(kscu_encodingRequiresDwarf)
 #define kscu_findEntry KSCRASH_NS(kscu_findEntry)
