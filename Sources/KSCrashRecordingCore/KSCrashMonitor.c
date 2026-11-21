@@ -265,7 +265,12 @@ static KSCrash_MonitorContext *notifyException(const mach_port_t offendingThread
     const int thisThreadHandlerIndex = beginHandlingException(thisThread);
 
     // Our state from before this exception
-    const bool wasHandlingFatalException = g_state.isHandlingFatalException;
+    // A fatal exception checks and claims the flag in one step: two threads raising fatal exceptions at the
+    // same moment must not both see "no fatal exception in progress", or both go on to suspend the
+    // environment, each suspends the other, and no thread is left to resume them.
+    const bool wasHandlingFatalException = initialRequirements.isFatal
+                                               ? atomic_exchange(&g_state.isHandlingFatalException, true)
+                                               : atomic_load(&g_state.isHandlingFatalException);
     const bool wasCrashedDuringExceptionHandling = g_state.crashedDuringExceptionHandling;
 
     // Our state now
@@ -303,7 +308,10 @@ static KSCrash_MonitorContext *notifyException(const mach_port_t offendingThread
     }
 
     g_state.crashedDuringExceptionHandling |= isCrashedDuringExceptionHandling;
-    g_state.isHandlingFatalException |= requirements.isFatal;
+    if (requirements.isFatal) {
+        // Also covers a recrash, which is made fatal above.
+        atomic_store(&g_state.isHandlingFatalException, true);
+    }
 
     KSCrash_MonitorContext *ctx = getNextMonitorContext(requirements);
     ctx->threadHandlerIndex = thisThreadHandlerIndex;
