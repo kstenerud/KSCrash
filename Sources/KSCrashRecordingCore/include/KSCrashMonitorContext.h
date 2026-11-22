@@ -231,6 +231,9 @@ typedef struct KSCrash_ReportResult {
 
     /** the path on disk of this report */
     char path[PATH_MAX];
+
+    /** No report was written because the app chose not to write one. */
+    bool skipped;
 } KSCrash_ReportResult;
 
 /**

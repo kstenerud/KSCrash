@@ -79,6 +79,7 @@ Rules: when `isFatal=true`, `isCleanExit` must be explicitly set. When `isFatal=
 | Deadlock | Deadlock | true | false | false |
 | Watchdog (standalone hang) | Watchdog | false | — | unchanged |
 | Watchdog (unrecovered, OS kills app) | WatchdogStitch | true | false | false (never set) |
+| Watchdog (unrecovered, a crash or clean exit ended the run) | WatchdogStitch | false | n/a | unchanged |
 | Watchdog (recovered, stitched) | WatchdogStitch | false | — | unchanged |
 | User report (terminate) | User | true | false | false |
 | User report (non-fatal) | User | false | — | unchanged |
@@ -105,7 +106,7 @@ Monitors that write sidecar data each have a corresponding `*Stitch.m` file that
 | Resource | Run | `KSCrash_ResourceData` (mmap'd struct) | `KSCrashMonitor_ResourceStitch.m` |
 | System | Run | `KSCrash_SystemData` (mmap'd struct) | `KSCrashMonitor_SystemStitch.m` |
 | UserInfo | Run | `KSKeyValueStore` (key-value file) | `KSCrashMonitor_UserInfoStitch.m` |
-| Watchdog | Run | `KSHangSidecar` (mmap'd struct, 24 bytes) | `KSCrashMonitor_WatchdogStitch.m` |
+| Watchdog | Run | `KSHangSidecar` (mmap'd struct, 40 bytes) | `KSCrashMonitor_WatchdogStitch.m` |
 
 ### Monitor Lifecycle Callbacks
 
@@ -117,7 +118,7 @@ Monitors implement three enable-time callbacks:
 
 ### Watchdog Monitor
 
-The watchdog monitor uses a fixed 250ms threshold to detect hangs on the main thread. This threshold is intentionally not configurable — it aligns with Apple's definition of a "hang" (250ms+) and should not be changed. See `KSCrashMonitor_Watchdog.h` for the rationale. The legacy Deadlock monitor (`KSCrashMonitorTypeMainThreadDeadlock`) is deprecated — use Watchdog instead.
+The watchdog monitor uses a fixed 250ms threshold to detect hangs on the main thread. This threshold is intentionally not configurable: it aligns with Apple's definition of a "hang" (250ms+) and should not be changed. See `KSCrashMonitor_Watchdog.h` for the rationale. The settled decisions on how a hang is recorded, announced, finished and stitched are in `.github/instructions/watchdog.instructions.md`. The legacy Deadlock monitor (`KSCrashMonitorTypeMainThreadDeadlock`) is deprecated; use Watchdog instead.
 
 ### MetricKit Monitor
 

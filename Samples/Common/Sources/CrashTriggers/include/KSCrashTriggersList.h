@@ -97,6 +97,7 @@ extern NSString *const KSCrashNSExceptionStacktraceFuncName;
     __PROCESS_TRIGGER(other, watchdogTimeoutTermination, @"Watchdog Timeout")                          \
     __PROCESS_TRIGGER(other, watchdogTimeoutWithException, @"Watchdog Timeout + Exception")            \
     __PROCESS_TRIGGER(other, appHang, @"App Hang (Recovery)")                                          \
+    __PROCESS_TRIGGER(other, hangThenExit, @"App Hang, then a normal exit")                            \
     __PROCESS_TRIGGER(other, sigkill, @"SIGKILL")                                                      \
     __PROCESS_TRIGGER(metricKit, cpuSpin, @"CPU Exception (spin all cores 90s)")                       \
     __PROCESS_TRIGGER(metricKit, diskWrites, @"Disk Write Exception (5 GB)")                           \

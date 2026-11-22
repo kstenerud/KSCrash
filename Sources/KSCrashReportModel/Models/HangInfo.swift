@@ -46,7 +46,7 @@ public struct HangInfo: Codable, Sendable, Equatable {
     /// The app's transition state when the hang ended.
     public let hangEndTransitionState: AppTransitionState?
 
-    /// Whether this hang resolved on its own (true) or led to a termination (false/nil).
+    /// Whether the hang had ended at the time of this report.
     public let hangRecovered: Bool?
 
     enum CodingKeys: String, CodingKey {

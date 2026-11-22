@@ -119,6 +119,46 @@ static KSCrash_SystemData sameSystem(void) { return makeSystem("17.4", "21E258",
     XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonHang);
 }
 
+- (void)testSIGTERMReturnsClean
+{
+    // SIGTERM runs the fatal handler and records a clean exit.
+    KSCrash_LifecycleData lc = makeLifecycle(true, true);
+    KSCrash_SystemData sys = sameSystem();
+    KSCrash_ResourceData res = makeResource();
+
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonClean);
+}
+
+- (void)testSIGTERMDuringHangReturnsHang
+{
+    KSCrash_LifecycleData lc = makeLifecycle(true, true);
+    lc.hangActive = true;
+    KSCrash_SystemData sys = sameSystem();
+    KSCrash_ResourceData res = makeResource();
+
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonHang);
+}
+
+- (void)testCleanShutdownDuringHangReturnsHang
+{
+    KSCrash_LifecycleData lc = makeLifecycle(true, false);
+    lc.hangActive = true;
+    KSCrash_SystemData sys = sameSystem();
+    KSCrash_ResourceData res = makeResource();
+
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonHang);
+}
+
+- (void)testCrashDuringHangReturnsCrash
+{
+    KSCrash_LifecycleData lc = makeLifecycle(false, true);
+    lc.hangActive = true;
+    KSCrash_SystemData sys = sameSystem();
+    KSCrash_ResourceData res = makeResource();
+
+    XCTAssertEqual(ksruncontext_testcode_determineReason(&lc, &res, &sys, &sys), KSTerminationReasonCrash);
+}
+
 // MARK: - First launch
 
 - (void)testNoPrevSystemWithLifecycleReturnsUnexplained

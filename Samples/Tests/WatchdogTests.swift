@@ -188,6 +188,35 @@ final class WatchdogTests: IntegrationTestBase {
         XCTAssertFalse(try hasReport(where: isStartupHangReport), "Startup hang should be suppressed")
     }
 
+    func testANormalExitDuringAHangLeavesNoReportWhenHangReportingIsOff() throws {
+        // A slow quit: the app exits normally while the main thread is still hung. With
+        // hang reporting off the hang did not end the app, so it has no report of its own,
+        // but the run still ended with a hang in progress.
+        try launchAndCrash(.other_hangThenExit) { config in
+            config.isWatchdogEnabled = true
+            config.isHangReportingEnabled = false
+        }
+        XCTAssertFalse(try hasReport { $0.report.monitorId == "Watchdog" }, "The hang should have no report")
+
+        try launchAndInstall { config in
+            config.isWatchdogEnabled = true
+        }
+        let state = try readState()
+        XCTAssertEqual(state.terminationReason, .hang)
+        XCTAssertTrue(state.previousRunWasAbnormal)
+    }
+
+    func testAHangThatRecoversLeavesNoReportWhenHangReportingIsOff() throws {
+        // With hang reporting off, a hang that recovers has no report of its own: the report
+        // written while it was in progress is deleted when it ends, not finalized. The trigger
+        // returns after the hang has ended, and the run loop has turned since.
+        try launchAndRunTrigger(.other_appHang) { config in
+            config.isWatchdogEnabled = true
+            config.isHangReportingEnabled = false
+        }
+        XCTAssertFalse(try hasReport { Self.isTriggeredHang($0) }, "The recovered hang should have no report")
+    }
+
     /// Whether `report` is the finalized report of the hang the test triggered. A loaded
     /// simulator can also hang at launch, and that report is real, so the test tells its own
     /// apart by length as well: the trigger blocks the main thread for two seconds, a launch
@@ -197,12 +226,14 @@ final class WatchdogTests: IntegrationTestBase {
         return hang.hangEndNanos > hang.hangStartNanos && hang.hangEndNanos - hang.hangStartNanos > 1_500_000_000
     }
 
-    func testExceptionDuringHangReportsExceptionNotHang() throws {
-        // Trigger a hang, then throw an exception while hung.
-        // The fatal exception should be reported, not the hang.
+    func testExceptionDuringHangReportsTheException() throws {
+        // Trigger a hang, then throw an exception while hung. The exception is what ended
+        // the run. With hang reporting off, the hang is not reported on its own, since it
+        // did not end the app; the exception's report carries it.
         try launchAndCrash(.other_watchdogTimeoutWithException) { config in
             config.isWatchdogEnabled = true
         }
+        XCTAssertFalse(try hasReport { $0.report.monitorId == "Watchdog" }, "The hang's own report should be gone")
 
         // Re-launch and read through the report store so the sidecar stitch runs
         let reportData = try launchAndReportCrashRaw(where: { $0.crash.error.type == .nsexception }) { config in
@@ -210,20 +241,45 @@ final class WatchdogTests: IntegrationTestBase {
         }
         let rawReport = try JSONDecoder().decode(Report.self, from: reportData)
 
-        // Verify we got an NSException, not a hang/signal
         XCTAssertEqual(rawReport.crash.error.type, .nsexception, "Should be an NSException crash")
         XCTAssertEqual(
             rawReport.crash.error.reason, "Exception during hang",
             "Should have the exception reason")
 
-        // Hang context is present from the run sidecar, providing diagnostic
-        // context that a hang was active when the exception fired.
+        // Hang context is present from the run sidecar: a hang was in progress when the
+        // exception fired.
         let hangInfo = rawReport.crash.error.hang
         XCTAssertNotNil(hangInfo, "Hang context should be present from the run sidecar")
-        XCTAssertNil(hangInfo?.hangRecovered, "Hang should not be marked as recovered")
+        XCTAssertEqual(hangInfo?.hangRecovered, false, "The hang was still in progress")
 
         let state = try readState()
         XCTAssertTrue(state.previousRunWasAbnormal)
+        XCTAssertEqual(state.terminationReason, .crash)
+    }
+
+    func testExceptionDuringHangAlsoReportsTheHangWhenHangReportingIsOn() throws {
+        // With hang reporting on, the hang the exception cut short is reported too: as a hang
+        // still in progress, not as what ended the app.
+        try launchAndCrash(.other_watchdogTimeoutWithException) { config in
+            config.isWatchdogEnabled = true
+            config.isHangReportingEnabled = true
+        }
+
+        let hangData = try launchAndReportCrashRaw(where: {
+            $0.report.monitorId == "Watchdog" && $0.crash.error.hang?.hangRecovered == false
+        }) { config in
+            config.isWatchdogEnabled = true
+            config.isHangReportingEnabled = true
+        }
+        let hangReport = try decodeCrashReport(reportData: hangData)
+        XCTAssertEqual(hangReport.crash.error.type, .hang)
+        XCTAssertEqual(hangReport.crash.error.isFatal, false, "The exception ended the run, not the hang")
+        XCTAssertNil(hangReport.crash.error.signal)
+
+        let exceptionData = try readDeliveredReportData { $0.crash.error.type == .nsexception }
+        XCTAssertEqual(try decodeCrashReport(reportData: exceptionData).crash.error.hang?.hangRecovered, false)
+
+        let state = try readState()
         XCTAssertEqual(state.terminationReason, .crash)
     }
 }

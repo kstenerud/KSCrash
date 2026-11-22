@@ -42,12 +42,14 @@ extern "C" {
 typedef CF_ENUM(uint8_t, KSHangChangeType) {
     /** No change (placeholder value). */
     KSHangChangeTypeNone = 0,
-    /** A new hang has been detected and a report is being generated. */
+    /** A new hang has been detected and recorded. */
     KSHangChangeTypeStarted = 1,
     /** An ongoing hang's duration has been updated. */
     KSHangChangeTypeUpdated = 2,
     /** The hang has ended (main thread became responsive). */
     KSHangChangeTypeEnded = 3,
+    /** A hang that could not be recorded. Nothing follows it. */
+    KSHangChangeTypeFailed = 4,
 } CF_SWIFT_NAME(HangChangeType);
 
 /**

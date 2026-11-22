@@ -82,6 +82,13 @@ _Static_assert(sizeof(KSHangSidecar) == 40, "KSHangSidecar size changed — upda
 CFDictionaryRef kscm_watchdog_createStitchedReport(CFDictionaryRef reportDict, const char *sidecarPath,
                                                    KSCrashSidecarScope scope, void *context);
 
+/** The run sidecar path provider the watchdog monitor was initialized with, which
+ *  resolves another run's sidecars. NULL before the monitor is initialized.
+ *
+ * @return The provider, or NULL.
+ */
+KSCrashSidecarRunPathForRunIDProviderFunc kscm_watchdog_runSidecarPathForRunIDProvider(void);
+
 #ifdef __cplusplus
 }
 #endif

@@ -233,6 +233,21 @@ report unchanged.
 `AsyncStream<HangEvent>`, so watching the main thread is a `for await` loop and
 cancellation is structured rather than an observer you must remember to remove.
 
+A hang arrives as `started`, any number of `updated`, then `ended`, all from
+the hang monitor's own thread and in that order. `started` comes once the hang
+is recorded, with its report when one is written. A hang that is detected but
+cannot be recorded arrives as `failed` in place of `started`, and nothing more
+follows for it.
+
+A hang that is still going when the app ends is a hang, whatever ended the
+app. Unless a crash ended the run, the run summary's `terminationReason` is
+`.hang`, SIGTERM and a normal exit included, since the app was stuck when it
+stopped. A crash during a hang keeps the hang in its own report, under
+`crash.error.hang`, and with `reportsResolvedHangs` on, the hang keeps a
+non-fatal report of its own as well. Each report's `hangRecovered` says whether
+the hang had ended at that report's moment, so two reports of the same hang
+can differ.
+
 ## Reports are written one at a time
 
 An event can now declare that it would rather be dropped than have its report

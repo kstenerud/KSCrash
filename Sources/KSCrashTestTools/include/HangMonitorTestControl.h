@@ -34,8 +34,8 @@ extern "C" {
 #endif
 
 /** Arms the hang monitor for the duration of one test, with handler callbacks
- *  that record nothing: hang events publish as they always do, but no report is
- *  written and no store is touched.
+ *  that record each hang in a scratch folder of their own: hang events publish
+ *  as they always do, and no store is touched.
  *
  *  A test that wants a hang arms one itself rather than relying on an install,
  *  because the monitor is process-global. Left armed, it freezes every thread
@@ -47,7 +47,7 @@ extern "C" {
  */
 void hangtest_arm(void);
 
-/** Disables the monitor and waits for its thread to exit. */
+/** Disables the monitor and waits for it to stop, letting a hang in progress finish. */
 void hangtest_disarm(void);
 
 /** Whether the monitor is currently watching the main thread. */

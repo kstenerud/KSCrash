@@ -262,11 +262,8 @@ typedef struct {
      */
     bool enableSwapCxaThrow;
 
-    /** If true, resolved hangs are kept as non-fatal reports.
-     *
-     * When enabled, hangs that resolve on their own are preserved as reports
-     * with duration and stack trace information. When disabled (default),
-     * resolved hangs are discarded.
+    /** If true, hangs that don't end the app are kept as non-fatal reports.
+     * Hangs that end the app are always reported.
      *
      * Only applies when `KSCrashMonitorTypeHang` is included in `monitors`.
      *

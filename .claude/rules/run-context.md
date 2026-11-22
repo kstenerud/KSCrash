@@ -10,7 +10,7 @@ paths:
 
 ## RunContext
 
-RunContext is the shared layer for cross-monitor state. Monitors never import each other's headers — all cross-cutting reads go through RunContext.
+RunContext is the shared layer for cross-monitor state. Reads of another monitor's data from a past run go through RunContext (`ksruncontext_contextForRunID`, `ksruncontext_previousRunContext`), never that monitor's own readers. RunContext reads what a run's sidecars hold on disk, which is the whole record only once that run is over. So a live read or a write (the watchdog's `kslifecycle_currentTransitionState` and `kslifecycle_noteHangChange`) calls the other monitor directly.
 
 ### What It Does
 
@@ -31,13 +31,15 @@ This order is load-bearing: monitors must be enabled before RunContext reads the
 
 `KSTerminationReason` classifies why the previous run ended. The `determineReason()` function in `KSCrashRunContext.m` evaluates them in priority order — lifecycle guards first, then system changes, then resource limits, then fallbacks.
 
-**Definitive** (checked first — a crash or hang recorded in the Lifecycle sidecar must not be overridden by missing data):
+**Definitive** (checked first, in this order: a crash or hang recorded in the Lifecycle sidecar must not be overridden by missing data):
 
 | Reason | Meaning | Produces report? |
 |---|---|---|
-| `Clean` | `cleanExit` flag was set — normal app termination | No |
-| `Crash` | `monitorHandlerRan` flag was set — a crash handler already wrote a report | Yes |
-| `Hang` | `hangActive` flag was set — app was hanging when killed | Yes |
+| `Crash` | `monitorHandlerRan` was set without `cleanExit`: a crash handler already wrote a report | Yes |
+| `Hang` | `hangActive` was set: a hang was still in progress when the run ended, whatever ended it (a watchdog kill, SIGTERM, a normal exit) | Yes |
+| `Clean` | `cleanExit` was set: normal app termination or SIGTERM | No |
+
+A crash outranks a hang: it ends the run whatever else was going on. A hang outranks a clean exit: the app was stuck when it stopped. SIGTERM runs the fatal handler too, which is why `Crash` needs the handler without a clean exit.
 
 **System changes** (explain an unclean exit without it being a crash):
 

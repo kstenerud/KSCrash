@@ -35,6 +35,8 @@ public struct HangEvent: Sendable, Equatable {
         case started
         case updated
         case ended
+        /// A hang that could not be recorded. Nothing follows it.
+        case failed
     }
 
     public let change: Change
@@ -116,6 +118,7 @@ extension HangEvent.Change {
         case .started: self = .started
         case .updated: self = .updated
         case .ended: self = .ended
+        case .failed: self = .failed
         default: return nil
         }
     }

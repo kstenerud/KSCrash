@@ -142,7 +142,7 @@ public struct InstallConfiguration: Sendable {
     public var swapsCxaThrow: Bool
     /// Use `backtrace_async` for self-thread captures. Default false.
     public var usesSwiftAsyncStackTraces: Bool
-    /// Keep hangs that resolve as non-fatal reports; needs `.hangs`. Default false.
+    /// Also keep hangs that don't end the app, as non-fatal reports; needs `.hangs`. Default false.
     public var reportsResolvedHangs: Bool
     /// Report sustained CPU usage reaching the warning and critical thresholds. Default false.
     public var reportsCPUExceptions: Bool
