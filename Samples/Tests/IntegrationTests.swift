@@ -230,7 +230,7 @@ final class CppTests: IntegrationTestBase {
     func testRuntimeExceptionWhileDyldLockHeld() throws {
         // Regression: the monitor unwinds to describe the exception, and the unwind can take the dyld read lock.
         // Doing that after the other threads are suspended deadlocked whenever one of them held the lock: no report,
-        // and the process never exited. Only the simulator always takes the locked path, so only there is this test 
+        // and the process never exited. Only the simulator always takes the locked path, so only there is this test
         // guaranteed to catch the regression. On real devices, dyld usually answers lock-free, and this test
         // could pass either way (or at least we have not yet found a stable repro on real devices).
         try launchAndCrash(.cpp_runtimeExceptionDyldLock)
@@ -255,9 +255,7 @@ final class CppTests: IntegrationTestBase {
     }
 
     func testObjectiveCObjectExceptionAfterCaughtCppUsesCurrentThrowSite() throws {
-        // Regression: a caught C++ exception captures a throw-site backtrace cursor on this
-        // thread. The later fatal Objective-C object throw is reported by the C++ monitor and
-        // must reflect its own throw site, not reuse the earlier (already-handled) C++ one.
+        // The C++ monitor must report the fatal Objective-C object's throw site, not the earlier C++ throw.
         try launchAndCrash(.cpp_objcObjectExceptionAfterCaughtCpp)
 
         let rawReport = try readCrashReport()
@@ -293,12 +291,14 @@ final class CppTests: IntegrationTestBase {
         XCTAssertEqual(raw.crash.error.reason, "C++ exception")
 
         let threadSymbols = (try XCTUnwrap(raw.crashedThread?.backtrace)).contents.compactMap(\.symbolName)
-        XCTAssertTrue(threadSymbols.contains("+[KSCrashTriggersList trigger_cpp_rethrowCaughtCpp]"),
-                      "Expected the crashed-thread backtrace to include the fatal rethrow site: \(threadSymbols)")
+        XCTAssertTrue(
+            threadSymbols.contains("+[KSCrashTriggersList trigger_cpp_rethrowCaughtCpp]"),
+            "Expected the crashed-thread backtrace to include the fatal rethrow site: \(threadSymbols)")
 
         let saved = (try XCTUnwrap(raw.crash.lastExceptionBacktrace)).contents.compactMap(\.symbolName)
-        XCTAssertTrue(saved.contains(where: isCppCrashSymbol),
-                      "Expected the saved exception backtrace to include the original throw site: \(saved)")
+        XCTAssertTrue(
+            saved.contains(where: isCppCrashSymbol),
+            "Expected the saved exception backtrace to include the original throw site: \(saved)")
     }
 
     func testRethrowOnWorkerPreservesThrowingThreadsOriginalSite() throws {
@@ -310,10 +310,12 @@ final class CppTests: IntegrationTestBase {
         XCTAssertEqual(raw.crash.error.reason, "C++ exception")
 
         let saved = (try XCTUnwrap(raw.crash.lastExceptionBacktrace)).contents.compactMap(\.symbolName)
-        XCTAssertTrue(saved.contains(where: isCppCrashSymbol), "Missing original throw on the launching thread: \(saved)")
+        XCTAssertTrue(
+            saved.contains(where: isCppCrashSymbol), "Missing original throw on the launching thread: \(saved)")
 
         let crashed = (try XCTUnwrap(raw.crashedThread?.backtrace)).contents.compactMap(\.symbolName)
-        XCTAssertTrue(crashed.contains("sampleRethrowOnWorker"), "Missing rethrow site on the crashed worker: \(crashed)")
+        XCTAssertTrue(
+            crashed.contains("sampleRethrowOnWorker"), "Missing rethrow site on the crashed worker: \(crashed)")
     }
 
     func testFinalExceptionPtrReleaseCallsDestructorOnWorker() throws {
@@ -329,18 +331,18 @@ final class CppTests: IntegrationTestBase {
         XCTAssertEqual(raw.crash.error.type, .cppException)
         XCTAssertEqual(raw.crash.error.reason, "fatal unhooked throw")
 
-        let symbols = (raw.crash.lastExceptionBacktrace?.contents ?? []).compactMap(\.symbolName)
+        let symbols = (try XCTUnwrap(raw.crash.lastExceptionBacktrace)).contents.compactMap(\.symbolName)
         let thread = (try XCTUnwrap(raw.crashedThread?.backtrace)).contents.compactMap(\.symbolName)
-        XCTAssertTrue(thread.contains("+[KSCrashTriggersList trigger_cpp_unhookedAfterCaughtCpp]"),
-                      "Expected the crashed-thread backtrace to include the fatal unhooked throw site: \(thread)")
-        XCTAssertFalse(symbols.contains(where: isCppCrashSymbol),
-                       "Expected the saved exception backtrace to exclude the earlier caught exception’s throw site: \(symbols)")
+        XCTAssertTrue(
+            thread.contains("+[KSCrashTriggersList trigger_cpp_unhookedAfterCaughtCpp]"),
+            "Expected the crashed-thread backtrace to include the fatal unhooked throw site: \(thread)")
+        XCTAssertFalse(
+            symbols.contains(where: isCppCrashSymbol),
+            "Expected the saved exception backtrace to exclude the earlier caught exception’s throw site: \(symbols)")
     }
 
     func testTerminateWithoutActiveExceptionAfterCaughtCppUsesTerminateContext() throws {
-        // Regression for the tinfo == nullptr branch in CPPExceptionTerminate: a caught C++ exception leaves a
-        // throw-site cursor on this thread, then a bare std::terminate() fires with no active exception. The monitor
-        // must recompute a fresh cursor from the terminate context, not reuse the earlier (already-handled) throw site.
+        // A bare std::terminate() has no active exception. Report the terminate context, not the earlier throw.
         try launchAndCrash(.cpp_terminateAfterCaughtCpp)
 
         let rawReport = try readCrashReport()

@@ -89,7 +89,7 @@ typedef struct {
 // realloc races during dyld callbacks. Memory impact: 4096 * 32 bytes = 128KB.
 #define MAX_CXA_ORIGINALS 4096
 
-static _Atomic(cxa_throw_type) g_cxa_throw_handler = NULL;
+typedef void (*cxa_throw_type)(void *, ksct_type_info *, ksct_destructor);
 static _Atomic(ksct_filter) g_filter = NULL;
 
 // Pre-allocated array to avoid realloc during concurrent dyld callbacks
@@ -234,12 +234,9 @@ __attribute__((noreturn)) static void __cxa_throw_decorator(void *thrown_excepti
 {
     KSLOG_TRACE("Decorating __cxa_throw");
 
-    cxa_throw_type handler = atomic_load_explicit(&g_cxa_throw_handler, memory_order_acquire);
     ksct_filter filter = atomic_load_explicit(&g_filter, memory_order_acquire);
     if (filter != NULL) {
         dest = filter(thrown_exception, tinfo, dest);
-    } else if (handler != NULL) {
-        handler(thrown_exception, tinfo, dest);
     }
 
     uintptr_t function = 0;
@@ -407,9 +404,7 @@ static bool process_segment_direct(const segment_command_t *segment, intptr_t sl
 
 static void rebind_symbols_for_image(const struct mach_header *header, intptr_t slide)
 {
-    // Either the handler or the filter enables rebinding. After reset, neither is installed.
-    if (atomic_load_explicit(&g_cxa_throw_handler, memory_order_acquire) == NULL &&
-        atomic_load_explicit(&g_filter, memory_order_acquire) == NULL) {
+    if (atomic_load_explicit(&g_filter, memory_order_acquire) == NULL) {
         return;
     }
 
@@ -480,7 +475,7 @@ static void rebind_symbols_for_image(const struct mach_header *header, intptr_t 
 }
 #endif  // KSCRASH_HAS_SANITIZER
 
-static int installSwap(cxa_throw_type handler, ksct_filter filter)
+int ksct_swap(ksct_filter filter)
 {
     KSLOG_DEBUG("Swapping __cxa_throw handler");
 
@@ -488,7 +483,6 @@ static int installSwap(cxa_throw_type handler, ksct_filter filter)
     // Sanitizers (ASan, TSan, etc.) also intercept __cxa_throw and conflict
     // with our decorator, causing hangs during exception handling.
     KSLOG_DEBUG("Sanitizer detected, skipping __cxa_throw swap");
-    (void)handler;
     (void)filter;
     return 0;
 #else
@@ -498,9 +492,7 @@ static int installSwap(cxa_throw_type handler, ksct_filter filter)
     // Reset any existing swap first to restore original bindings
     ksct_swapReset();
 
-    // Store the handler before registering callback or scanning images
-    // This ensures the handler is visible when rebind_symbols_for_image runs
-    atomic_store_explicit(&g_cxa_throw_handler, handler, memory_order_release);
+    // Publish the filter before scanning images or registering the callback.
     atomic_store_explicit(&g_filter, filter, memory_order_release);
 
     // Initialize and scan all currently loaded images.
@@ -523,9 +515,6 @@ static int installSwap(cxa_throw_type handler, ksct_filter filter)
 #endif
 }
 
-int ksct_swap(cxa_throw_type handler) { return installSwap(handler, NULL); }
-int ksct_swapWithFilter(ksct_filter filter) { return installSwap(NULL, filter); }
-
 void ksct_swapReset(void)
 {
     KSLOG_DEBUG("Resetting __cxa_throw bindings");
@@ -535,7 +524,6 @@ void ksct_swapReset(void)
 #else
     // Unregister dyld callback and prevent rebinding while reset is in progress.
     ksbic_registerForImageAdded(NULL);
-    atomic_store_explicit(&g_cxa_throw_handler, NULL, memory_order_release);
     atomic_store_explicit(&g_filter, NULL, memory_order_release);
 
     size_t count = atomic_load_explicit(&g_cxa_originals_count, memory_order_acquire);

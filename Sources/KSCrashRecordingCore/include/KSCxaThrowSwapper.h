@@ -34,16 +34,16 @@
 extern "C" {
 
 typedef std::type_info ksct_type_info;
-typedef void (*cxa_throw_type)(void *, std::type_info *, void (*)(void *));
 #else
 typedef void ksct_type_info;
-typedef void (*cxa_throw_type)(void *, void *, void (*)(void *));
 #endif
 
 typedef void (*ksct_destructor)(void *);
 typedef ksct_destructor (*ksct_filter)(void *, ksct_type_info *, ksct_destructor);
-int ksct_swapWithFilter(ksct_filter filter);
-int ksct_swap(const cxa_throw_type handler);
+/** Install a throw filter. Its return value becomes the exception's destructor. Return the original
+ * unchanged, or a replacement that calls the original exactly once if it was non-NULL.
+ */
+int ksct_swap(ksct_filter filter);
 void ksct_swapReset(void);
 
 #ifdef __cplusplus

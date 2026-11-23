@@ -29,7 +29,7 @@ import KSCrashRecordingCore
 import XCTest
 
 // Dummy handler for benchmarking - does nothing
-private let dummyHandler: cxa_throw_type = { _, _, _ in }
+private let dummyFilter: ksct_filter = { _, _, destructor in destructor }
 
 // True when the process is running under a sanitizer (ASan/TSan/UBSan), used to
 // skip this benchmark (it conflicts with a sanitizer and SEGVs under TSan).
@@ -67,7 +67,7 @@ class KSCxaThrowColdBenchmarks: XCTestCase {
         measure(options: options) {
             if iteration == 1 {
                 // Second call (measured): run the actual cold installation
-                let result = ksct_swap(dummyHandler)
+                let result = ksct_swap(dummyFilter)
                 XCTAssertEqual(result, 0, "ksct_swap should succeed")
             }
             // First call (warmup): do nothing, leaving state cold for measured iteration

@@ -26,14 +26,14 @@
 
 #import "KSCrashTriggersList.h"
 
+#import <cxxabi.h>
+#import <dlfcn.h>
 #import <mach-o/dyld.h>
 #import <mach/mach.h>
 #import <signal.h>
 #import <sys/mman.h>
 #import <unistd.h>
 #import <atomic>
-#import <cxxabi.h>
-#import <dlfcn.h>
 #import <exception>
 #import <stdexcept>
 #import <thread>
@@ -224,9 +224,7 @@ static void trigger_user_swiftAsync(void) { integrationTestSwiftAsyncTrigger(); 
 
 + (void)trigger_cpp_objcObjectExceptionAfterCaughtCpp
 {
-    // A caught C++ exception leaves a throw-site backtrace cursor behind on this thread. The subsequent fatal
-    // Objective-C object throw is reported by the C++ monitor and must capture its own throw site, not reuse the
-    // earlier (already-handled) one.
+    // The C++ monitor must report the Objective-C object's throw site, not the earlier C++ throw.
     try {
         sample_namespace::Report::crash();
     } catch (...) {
@@ -274,7 +272,7 @@ static void trigger_user_swiftAsync(void) { integrationTestSwiftAsyncTrigger(); 
     std::exception_ptr saved;
 
     try {
-        throw Witness{calls, destroyer};
+        throw Witness { calls, destroyer };
     } catch (const Witness &) {
         saved = std::current_exception();
     }
@@ -323,9 +321,7 @@ static void trigger_user_swiftAsync(void) { integrationTestSwiftAsyncTrigger(); 
 
 + (void)trigger_cpp_terminateAfterCaughtCpp
 {
-    // A caught C++ exception leaves a throw-site backtrace cursor behind on this thread. A subsequent bare
-    // std::terminate() has no active exception, so the C++ monitor must recompute a fresh cursor from the terminate
-    // context rather than reusing the earlier (already-handled) throw site.
+    // After the caught exception's lifetime ends, bare terminate must report the terminate context.
     try {
         sample_namespace::Report::crash();
     } catch (...) {

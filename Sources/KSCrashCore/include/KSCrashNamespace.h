@@ -257,7 +257,6 @@
 #define kscrs_takeInReport KSCRASH_NS(kscrs_takeInReport)
 #define ksct_swap KSCRASH_NS(ksct_swap)
 #define ksct_swapReset KSCRASH_NS(ksct_swapReset)
-#define ksct_swapWithFilter KSCRASH_NS(ksct_swapWithFilter)
 #define kscu_arm64_decode KSCRASH_NS(kscu_arm64_decode)
 #define kscu_encodingRequiresDwarf KSCRASH_NS(kscu_encodingRequiresDwarf)
 #define kscu_findEntry KSCRASH_NS(kscu_findEntry)
@@ -508,6 +507,10 @@
 #define ksthread_self KSCRASH_NS(ksthread_self)
 #define ksthread_state_name KSCRASH_NS(ksthread_state_name)
 #define ksthread_storeMainThreadValue KSCRASH_NS(ksthread_storeMainThreadValue)
+#define kstr_find KSCRASH_NS(kstr_find)
+#define kstr_publish KSCRASH_NS(kstr_publish)
+#define kstr_release KSCRASH_NS(kstr_release)
+#define kstr_reserve KSCRASH_NS(kstr_reserve)
 #define kszombie_className KSCRASH_NS(kszombie_className)
 #define testsupport_KSCrashAppMemorySetProvider KSCRASH_NS(testsupport_KSCrashAppMemorySetProvider)
 
