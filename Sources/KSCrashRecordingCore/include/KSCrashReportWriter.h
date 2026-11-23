@@ -159,7 +159,8 @@ typedef struct KSCrashReportWriter {
      *
      * @param filePath The path to the file containing the value to add.
      *
-     * @param closeLastContainer If false, do not close the last container.
+     * @param closeLastContainer If false, the element's outermost container is left open, for the
+     *        caller to add to and then close.
      */
     void (*addJSONFileElement)(const struct KSCrashReportWriter *writer, const char *name, const char *filePath,
                                const bool closeLastContainer);
@@ -219,7 +220,8 @@ typedef struct KSCrashReportWriter {
      *
      * @param jsonElement A pointer to the JSON data.
      *
-     * @param closeLastContainer If false, do not close the last container.
+     * @param closeLastContainer If false, the element's outermost container is left open, for the
+     *        caller to add to and then close.
      */
     void (*addJSONElement)(const struct KSCrashReportWriter *writer, const char *name, const char *jsonElement,
                            bool closeLastContainer);
