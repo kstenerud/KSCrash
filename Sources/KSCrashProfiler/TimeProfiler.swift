@@ -59,8 +59,11 @@ import os
 /// ```swift
 /// let profile = profiler.endProfile(id: id)!
 /// DispatchQueue.global().async {
-///     if let url = profile.writeReport() {
+///     do {
+///         let url = try profile.writeReport()
 ///         print("Report written to: \(url.path)")
+///     } catch {
+///         print("No report written: \(error)")
 ///     }
 /// }
 /// ```
