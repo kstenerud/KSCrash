@@ -164,9 +164,14 @@ jobs:
 
           for i in $(seq 2 "$INFER_RUNS"); do
             echo "=== PR analysis run $i/$INFER_RUNS ==="
-            infer analyze \
-              --keep-going \
-              --results-dir infer-out-pr
+            # An Infer worker can crash (SIGSEGV) on input it analyzed cleanly
+            # the run before, so a crashed run is retried rather than failing
+            # the job.
+            for attempt in 1 2 3; do
+              infer analyze --keep-going --results-dir infer-out-pr && break
+              [ "$attempt" = 3 ] && exit 1
+              echo "Infer crashed on PR run $i (attempt $attempt), retrying"
+            done
             cp infer-out-pr/report.json "infer-out-pr/report-$i.json"
           done
 
@@ -195,9 +200,14 @@ jobs:
 
           for i in $(seq 2 "$INFER_RUNS"); do
             echo "=== Base analysis run $i/$INFER_RUNS ==="
-            infer analyze \
-              --keep-going \
-              --results-dir infer-out-base
+            # An Infer worker can crash (SIGSEGV) on input it analyzed cleanly
+            # the run before, so a crashed run is retried rather than failing
+            # the job.
+            for attempt in 1 2 3; do
+              infer analyze --keep-going --results-dir infer-out-base && break
+              [ "$attempt" = 3 ] && exit 1
+              echo "Infer crashed on base run $i (attempt $attempt), retrying"
+            done
             cp infer-out-base/report.json "infer-out-base/report-$i.json"
           done
 

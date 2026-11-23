@@ -35,7 +35,7 @@ final class CompactBinaryImageTests: IntegrationTestBase {
     func testCompactModeProducesSmallerReport() throws {
         // First crash without compact mode to get baseline image count
         try launchAndCrash(.nsException_genericNSException)
-        let fullReport = try readCrashReport()
+        let fullReport = try readCrashReport { $0.crash.error.type == .nsexception }
         try fullReport.validate()
         let fullImageCount = fullReport.binaryImages?.count ?? 0
         XCTAssertGreaterThan(fullImageCount, 0, "Full report should have binary images")
@@ -64,7 +64,7 @@ final class CompactBinaryImageTests: IntegrationTestBase {
                 config.isCompactBinaryImagesEnabled = true
             })
 
-        let report = try readCrashReport()
+        let report = try readCrashReport { $0.crash.error.type == .nsexception }
         try report.validate()
 
         let images = report.binaryImages ?? []
@@ -103,7 +103,7 @@ final class CompactBinaryImageTests: IntegrationTestBase {
     func testFramesHaveObjectUUID() throws {
         try launchAndCrash(.nsException_genericNSException)
 
-        let report = try readCrashReport()
+        let report = try readCrashReport { $0.crash.error.type == .nsexception }
         try report.validate()
 
         // The crashed thread's frames should have object_uuid
@@ -131,7 +131,7 @@ final class CompactBinaryImageTests: IntegrationTestBase {
     func testObjectUUIDMatchesBinaryImage() throws {
         try launchAndCrash(.nsException_genericNSException)
 
-        let report = try readCrashReport()
+        let report = try readCrashReport { $0.crash.error.type == .nsexception }
         try report.validate()
 
         guard let images = report.binaryImages else {

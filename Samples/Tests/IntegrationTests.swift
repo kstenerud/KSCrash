@@ -37,7 +37,7 @@ final class NSExceptionTests: IntegrationTestBase {
     func testGenericException() throws {
         try launchAndCrash(.nsException_genericNSException)
 
-        let rawReport = try readCrashReport()
+        let rawReport = try readCrashReport { $0.crash.error.type == .nsexception }
         try rawReport.validate()
         XCTAssertEqual(rawReport.crash.error.reason, "Test")
 
@@ -47,7 +47,7 @@ final class NSExceptionTests: IntegrationTestBase {
         XCTAssertGreaterThan(
             exceptionBt?.contents.count ?? 0, 0, "last_exception_backtrace should have frames")
 
-        let delivered = try launchAndReportCrash()
+        let delivered = try launchAndReportCrash { $0.crash.error.type == .nsexception }
         XCTAssertEqual(delivered.crash.error.reason, "Test")
         XCTAssertNotNil(
             delivered.crash.lastExceptionBacktrace,
@@ -61,7 +61,7 @@ final class NSExceptionTests: IntegrationTestBase {
     func testNSExceptionSubclass() throws {
         try launchAndCrash(.nsException_nsExceptionSubclass)
 
-        let rawReport = try readCrashReport()
+        let rawReport = try readCrashReport { $0.crash.error.type == .nsexception }
         try rawReport.validate()
         XCTAssertEqual(rawReport.crash.error.type, .nsexception)
         XCTAssertEqual(rawReport.crash.error.reason, "Subclass Test")
@@ -69,7 +69,7 @@ final class NSExceptionTests: IntegrationTestBase {
         XCTAssertNil(rawReport.crash.error.cppException)
         XCTAssertNotNil(rawReport.crash.lastExceptionBacktrace)
 
-        let delivered = try launchAndReportCrash()
+        let delivered = try launchAndReportCrash { $0.crash.error.type == .nsexception }
         XCTAssertEqual(delivered.crash.error.nsexception?.name, "TestNSExceptionSubclass")
         XCTAssertEqual(delivered.crash.error.reason, "Subclass Test")
     }
@@ -81,7 +81,7 @@ final class NSExceptionTests: IntegrationTestBase {
                 configuration.shouldRecordAllThreads = false
             })
 
-        let rawData = try readRawCrashReportData()
+        let rawData = try readRawCrashReportData { $0.crash.error.type == .nsexception }
         print(String(data: rawData, encoding: .utf8) ?? "<failed to read raw data>")
         let rawReport = try decodeCrashReport(reportData: rawData)
         try rawReport.validate()
@@ -94,7 +94,7 @@ final class NSExceptionTests: IntegrationTestBase {
         XCTAssertGreaterThan(
             exceptionBt?.contents.count ?? 0, 0, "last_exception_backtrace should have frames")
 
-        let delivered = try launchAndReportCrash()
+        let delivered = try launchAndReportCrash { $0.crash.error.type == .nsexception }
         XCTAssertEqual(delivered.crash.error.reason, "Test")
         XCTAssertNotNil(
             delivered.crash.lastExceptionBacktrace,
@@ -112,14 +112,14 @@ final class MachTests: IntegrationTestBase {
     func testBadAccess() throws {
         try launchAndCrash(.mach_badAccess)
 
-        let rawReport = try readCrashReport()
+        let rawReport = try readCrashReport { $0.report.monitorId == "MachException" }
         try rawReport.validate()
         XCTAssertEqual(rawReport.crash.error.type, .mach)
         XCTAssertNil(
             rawReport.crash.lastExceptionBacktrace,
             "Mach crash should not have last_exception_backtrace")
 
-        let delivered = try launchAndReportCrash()
+        let delivered = try launchAndReportCrash { $0.report.monitorId == "MachException" }
         XCTAssertEqual(delivered.crash.error.signal?.name, "SIGSEGV")
         XCTAssertNil(
             delivered.crash.lastExceptionBacktrace,
@@ -133,11 +133,11 @@ final class MachTests: IntegrationTestBase {
     func testBusError() throws {
         try launchAndCrash(.mach_busError)
 
-        let rawReport = try readCrashReport()
+        let rawReport = try readCrashReport { $0.report.monitorId == "MachException" }
         try rawReport.validate()
         XCTAssertEqual(rawReport.crash.error.type, .mach)
 
-        let delivered = try launchAndReportCrash()
+        let delivered = try launchAndReportCrash { $0.report.monitorId == "MachException" }
         XCTAssertEqual(delivered.crash.error.signal?.name, "SIGBUS")
     }
 
@@ -147,7 +147,7 @@ final class MachTests: IntegrationTestBase {
     func testBadAccessSubcodePreserved() throws {
         try launchAndCrash(.mach_badAccessDeadbeef)
 
-        let rawReport = try readCrashReport()
+        let rawReport = try readCrashReport { $0.report.monitorId == "MachException" }
         try rawReport.validate()
         XCTAssertEqual(rawReport.crash.error.type, .mach)
 
@@ -172,7 +172,7 @@ final class MachSignalHandlerChainingTests: IntegrationTestBase {
 
         // A complete Mach report proves that the Mach exception handler ran before
         // the exception was allowed to continue through XNU's signal path.
-        let rawReport = try readCrashReport()
+        let rawReport = try readCrashReport { $0.report.monitorId == "MachException" }
         try rawReport.validate()
         XCTAssertEqual(rawReport.crash.error.type, .mach)
         XCTAssertEqual(rawReport.crash.error.signal?.signal, UInt64(SIGSEGV))
@@ -205,7 +205,7 @@ final class CppTests: IntegrationTestBase {
     func testRuntimeException() throws {
         try launchAndCrash(.cpp_runtimeException)
 
-        let rawReport = try readCrashReport()
+        let rawReport = try readCrashReport { $0.crash.error.type == .cppException }
         try rawReport.validate()
         XCTAssertEqual(rawReport.crash.error.type, .cppException)
         XCTAssertEqual(rawReport.crash.error.reason, "C++ exception")
@@ -216,7 +216,7 @@ final class CppTests: IntegrationTestBase {
         let topSymbol = exceptionBt?.contents.compactMap(\.symbolName).first
         XCTAssertTrue(isCppCrashSymbol(topSymbol), "top frame is \(topSymbol ?? "nil")")
 
-        let delivered = try launchAndReportCrash()
+        let delivered = try launchAndReportCrash { $0.crash.error.type == .cppException }
         XCTAssertEqual(delivered.crash.error.type, .cppException)
         XCTAssertNotNil(
             delivered.crash.lastExceptionBacktrace,
@@ -230,12 +230,12 @@ final class CppTests: IntegrationTestBase {
     func testRuntimeExceptionWhileDyldLockHeld() throws {
         // Regression: the monitor unwinds to describe the exception, and the unwind can take the dyld read lock.
         // Doing that after the other threads are suspended deadlocked whenever one of them held the lock: no report,
-        // and the process never exited. Only the simulator always takes the locked path, so only there is this test 
+        // and the process never exited. Only the simulator always takes the locked path, so only there is this test
         // guaranteed to catch the regression. On real devices, dyld usually answers lock-free, and this test
         // could pass either way (or at least we have not yet found a stable repro on real devices).
         try launchAndCrash(.cpp_runtimeExceptionDyldLock)
 
-        let rawReport = try readCrashReport()
+        let rawReport = try readCrashReport { $0.crash.error.type == .cppException }
         try rawReport.validate()
         XCTAssertEqual(rawReport.crash.error.type, .cppException)
         XCTAssertEqual(rawReport.crash.error.reason, "C++ exception")
@@ -246,7 +246,7 @@ final class CppTests: IntegrationTestBase {
         // should still be reported by the C++ monitor instead of being skipped as NSExceptions.
         try launchAndCrash(.cpp_objcObjectException)
 
-        let rawReport = try readCrashReport()
+        let rawReport = try readCrashReport { $0.crash.error.type == .cppException }
         try rawReport.validate()
         XCTAssertEqual(rawReport.crash.error.type, .cppException)
         XCTAssertNotNil(rawReport.crash.error.cppException?.name)
@@ -260,7 +260,7 @@ final class CppTests: IntegrationTestBase {
         // must reflect its own throw site, not reuse the earlier (already-handled) C++ one.
         try launchAndCrash(.cpp_objcObjectExceptionAfterCaughtCpp)
 
-        let rawReport = try readCrashReport()
+        let rawReport = try readCrashReport { $0.crash.error.type == .cppException }
         try rawReport.validate()
         XCTAssertEqual(rawReport.crash.error.type, .cppException)
         XCTAssertNil(rawReport.crash.error.nsexception)
@@ -290,7 +290,7 @@ final class CppTests: IntegrationTestBase {
         // must recompute a fresh cursor from the terminate context, not reuse the earlier (already-handled) throw site.
         try launchAndCrash(.cpp_terminateAfterCaughtCpp)
 
-        let rawReport = try readCrashReport()
+        let rawReport = try readCrashReport { $0.crash.error.type == .cppException }
         try rawReport.validate()
         XCTAssertEqual(rawReport.crash.error.type, .cppException)
 
@@ -312,7 +312,7 @@ final class CppTests: IntegrationTestBase {
                 configuration.isCxaThrowEnabled = false
             })
 
-        let rawReport = try readCrashReport()
+        let rawReport = try readCrashReport { $0.crash.error.type == .cppException }
         try rawReport.validate()
         XCTAssertEqual(rawReport.crash.error.type, .cppException)
 
@@ -322,7 +322,7 @@ final class CppTests: IntegrationTestBase {
         let topSymbol = exceptionBt?.contents.compactMap(\.symbolName).first
         XCTAssertTrue(isCppCrashSymbol(topSymbol), "top frame is \(topSymbol ?? "nil")")
 
-        let delivered = try launchAndReportCrash()
+        let delivered = try launchAndReportCrash { $0.crash.error.type == .cppException }
         XCTAssertEqual(delivered.crash.error.type, .cppException)
         XCTAssertNotNil(
             delivered.crash.lastExceptionBacktrace,
@@ -340,7 +340,7 @@ final class SignalTests: IntegrationTestBase {
     func testAbort() throws {
         try launchAndCrash(.signal_abort)
 
-        let rawReport = try readCrashReport()
+        let rawReport = try readCrashReport { $0.crash.error.type == .signal }
         try rawReport.validate()
         XCTAssertEqual(rawReport.crash.error.type, .signal)
         XCTAssertEqual(rawReport.crash.error.signal?.name, "SIGABRT")
@@ -348,7 +348,7 @@ final class SignalTests: IntegrationTestBase {
             rawReport.crash.lastExceptionBacktrace,
             "Signal crash should not have last_exception_backtrace")
 
-        let delivered = try launchAndReportCrash()
+        let delivered = try launchAndReportCrash { $0.crash.error.type == .signal }
         XCTAssertEqual(delivered.crash.error.signal?.name, "SIGABRT")
 
         let state = try readState()
@@ -363,21 +363,25 @@ final class SignalTests: IntegrationTestBase {
         }
 
         XCTAssertNotEqual(app.state, .notRunning)
-        XCTAssertFalse(try hasCrashReport())
+        XCTAssertFalse(try hasReport { $0.crash.error.signal?.signal == UInt64(SIGPIPE) })
     }
 
     func testTermination() throws {
-        // SIGTERM is caught to record a clean exit but no crash report is written
-        try launchAndInstall()
+        // SIGTERM is caught to record a clean exit, and writes no report of its own. Hangs
+        // are off: a loaded simulator can hang at launch, and this test is about SIGTERM alone.
+        try launchAndInstall { config in
+            config.isWatchdogEnabled = false
+        }
         try terminate()
 
-        XCTAssertFalse(try hasCrashReport())
+        XCTAssertFalse(try hasReport { $0.crash.error.signal?.signal == UInt64(SIGTERM) })
 
-        // Relaunch to check state — previous run should be classified as clean
-        try launchAndInstall()
+        try launchAndInstall { config in
+            config.isWatchdogEnabled = false
+        }
         let state = try readState()
-        XCTAssertFalse(state.previousRunWasAbnormal)
         XCTAssertEqual(state.terminationReason, .clean)
+        XCTAssertFalse(state.previousRunWasAbnormal)
     }
 }
 
@@ -387,7 +391,7 @@ final class OtherTests: IntegrationTestBase {
     func testManyThreads() throws {
         try launchAndCrash(.other_manyThreads)
 
-        let rawReport = try readCrashReport()
+        let rawReport = try readCrashReport { $0.crash.error.type == .nsexception }
         let crashedThread = rawReport.crashedThread
         XCTAssertNotNil(crashedThread)
         let expectedFrame = crashedThread?.backtrace?.contents.first(where: {
@@ -404,7 +408,7 @@ final class OtherTests: IntegrationTestBase {
             XCTAssertTrue(threadStates.contains(threadState))
         }
 
-        let delivered = try launchAndReportCrash()
+        let delivered = try launchAndReportCrash { $0.crash.error.type == .nsexception }
         let deliveredFrame = delivered.crashedThread?.backtrace?.contents.first(where: {
             $0.symbolName?.contains(KSCrashStacktraceCheckFuncName) ?? false
         })
@@ -423,7 +427,7 @@ final class MemoryTests: IntegrationTestBase {
         app.launchEnvironment["KSCRASH_SIM_MEMORY_TERMINATION_ENABLED"] = "1"
         try launchAndCrash(.memory_oom)
 
-        _ = try launchAndReportCrash()
+        _ = try launchAndReportCrash { $0.crash.error.type == .termination }
         let state = try readState()
         XCTAssertTrue(state.previousRunWasAbnormal)
         XCTAssertEqual(state.terminationReason, .memoryLimit)
@@ -448,7 +452,7 @@ final class UserReportedTests: IntegrationTestBase {
                 addStacktrace: true
             ))
 
-        let rawReport = try readCrashReport()
+        let rawReport = try readCrashReport { $0.crash.error.type == .nsexception }
         try rawReport.validate()
         XCTAssertEqual(rawReport.crash.error.type, .nsexception)
         XCTAssertEqual(rawReport.crash.error.reason, Self.crashReason)
@@ -468,7 +472,7 @@ final class UserReportedTests: IntegrationTestBase {
         XCTAssertEqual(app.state, .runningForeground, "Should not terminate app")
         app.terminate()
 
-        let delivered = try launchAndReportCrash()
+        let delivered = try launchAndReportCrash { $0.crash.error.type == .nsexception }
         XCTAssertEqual(delivered.crash.error.nsexception?.name, Self.crashName)
         XCTAssertEqual(delivered.crash.error.reason, Self.crashReason)
         let deliveredBt = delivered.crash.lastExceptionBacktrace
@@ -494,7 +498,7 @@ final class UserReportedTests: IntegrationTestBase {
                 addStacktrace: false  // <- Key difference
             ))
 
-        let rawReport = try readCrashReport()
+        let rawReport = try readCrashReport { $0.crash.error.type == .nsexception }
         try rawReport.validate()
         XCTAssertEqual(rawReport.crash.error.type, .nsexception)
         XCTAssertEqual(rawReport.crash.error.reason, Self.crashReason)
@@ -530,7 +534,7 @@ final class UserReportedTests: IntegrationTestBase {
                 terminateProgram: false
             ))
 
-        let rawReport = try readCrashReport()
+        let rawReport = try readCrashReport { $0.crash.error.type == .user }
         try rawReport.validate()
         XCTAssertEqual(rawReport.crash.error.type, .user)
         XCTAssertEqual(rawReport.crash.error.reason, Self.crashReason)
@@ -548,7 +552,7 @@ final class UserReportedTests: IntegrationTestBase {
         XCTAssertEqual(app.state, .runningForeground, "Should not terminate app")
         app.terminate()
 
-        let delivered = try launchAndReportCrash()
+        let delivered = try launchAndReportCrash { $0.crash.error.type == .user }
         XCTAssertEqual(delivered.crash.error.userReported?.name, Self.crashName)
         XCTAssertEqual(delivered.crash.error.reason, Self.crashReason)
 

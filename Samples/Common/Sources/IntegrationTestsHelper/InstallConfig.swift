@@ -62,8 +62,10 @@ extension InstallConfig {
         if let isCxaThrowEnabled {
             config.swapsCxaThrow = isCxaThrowEnabled
         }
-        if isWatchdogEnabled == true {
-            config.monitors.insert(.hangs)
+        switch isWatchdogEnabled {
+        case true?: config.monitors.insert(.hangs)
+        case false?: config.monitors.remove(.hangs)
+        case nil: break
         }
         if let isHangReportingEnabled {
             config.reportsResolvedHangs = isHangReportingEnabled

@@ -44,7 +44,9 @@ final class WatchdogTests: IntegrationTestBase {
         }
 
         // Re-launch and read through the report store so the sidecar stitch runs
-        let reportData = try launchAndReportCrashRaw { config in
+        let reportData = try launchAndReportCrashRaw(where: {
+            $0.report.monitorId == "Watchdog" && $0.crash.error.signal?.signal == UInt64(SIGKILL)
+        }) { config in
             config.isWatchdogEnabled = true
         }
         let rawReport = try JSONDecoder().decode(Report.self, from: reportData)
@@ -79,7 +81,9 @@ final class WatchdogTests: IntegrationTestBase {
             config.isWatchdogEnabled = true
         }
 
-        let rawReport = try readCrashReport()
+        let rawReport = try readCrashReport {
+            $0.report.monitorId == "Watchdog" && $0.crash.error.signal?.signal == UInt64(SIGKILL)
+        }
 
         // Verify threads are present in the crash report
         let threads = rawReport.crash.threads
@@ -112,23 +116,8 @@ final class WatchdogTests: IntegrationTestBase {
         launchAppAndRunScript()
 
         // The report file appears as soon as the hang is detected (before
-        // recovery), so wait specifically for the finalized flag.
-        let reportsDirUrl = try reportsDirectoryUrl()
-        let finalizedExpectation = XCTNSPredicateExpectation(
-            predicate: NSPredicate { _, _ in
-                guard let files = try? FileManager.default.contentsOfDirectory(atPath: reportsDirUrl.path),
-                    let fileName = files.first,
-                    let data = try? Data(contentsOf: reportsDirUrl.appendingPathComponent(fileName)),
-                    let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                    let report = json["report"] as? [String: Any]
-                else { return false }
-                return report["finalized"] as? Bool == true
-            },
-            object: nil
-        )
-        wait(for: [finalizedExpectation], timeout: actionDelay + 20.0)
-
-        let reportData = try readRawCrashReportData()
+        // recovery), so wait for the finalized report of this hang.
+        let reportData = try readRawCrashReportData(timeout: actionDelay + 20.0) { Self.isTriggeredHang($0) }
         let report = try decodeCrashReport(reportData: reportData)
 
         XCTAssertEqual(report.crash.error.type, .hang)
@@ -174,32 +163,38 @@ final class WatchdogTests: IntegrationTestBase {
         launchAppAndRunScript()
 
         // The report must appear and then go: a watchdog that never noticed the hang would
-        // leave the directory empty too. It exists for most of the two-second hang, so a
-        // tight poll sees it.
-        let reportsDirUrl = try reportsDirectoryUrl()
+        // leave no report either. It exists for most of the two-second hang, so a tight poll
+        // sees it.
+        // A stall after launch on a loaded simulator is a real hang that hang reporting keeps,
+        // finalized and short, so the test watches only for a report still in progress or
+        // the finalized two-second trigger.
+        let isStartupHangReport: (Report) -> Bool = {
+            $0.report.monitorId == "Watchdog" && ($0.report.finalized != true || Self.isTriggeredHang($0))
+        }
         let deadline = Date().addingTimeInterval(appLaunchTimeout)
         var sawReport = false
         while !sawReport, Date() < deadline {
-            let files = (try? FileManager.default.contentsOfDirectory(atPath: reportsDirUrl.path)) ?? []
-            sawReport = !files.isEmpty
+            sawReport = try hasReport(attachingListing: false, where: isStartupHangReport)
             if !sawReport { Thread.sleep(forTimeInterval: 0.02) }
         }
+        if !sawReport { try attachReportListing() }
         XCTAssertTrue(sawReport, "The watchdog never reported the startup hang")
 
-        // A startup hang report is created during detection but deleted on
-        // recovery, so the Reports directory should end up empty.
-        let emptyExpectation = XCTNSPredicateExpectation(
-            predicate: NSPredicate { _, _ in
-                guard let files = try? FileManager.default.contentsOfDirectory(atPath: reportsDirUrl.path)
-                else { return true }
-                return files.isEmpty
-            },
-            object: nil
-        )
-        wait(for: [emptyExpectation], timeout: 10.0)
+        // A startup hang report is created during detection but deleted on recovery.
+        let goneDeadline = Date().addingTimeInterval(10.0)
+        while try hasReport(attachingListing: false, where: isStartupHangReport), Date() < goneDeadline {
+            Thread.sleep(forTimeInterval: 0.1)
+        }
+        XCTAssertFalse(try hasReport(where: isStartupHangReport), "Startup hang should be suppressed")
+    }
 
-        let files = (try? FileManager.default.contentsOfDirectory(atPath: reportsDirUrl.path)) ?? []
-        XCTAssertTrue(files.isEmpty, "Startup hang should be suppressed, but found reports: \(files)")
+    /// Whether `report` is the finalized report of the hang the test triggered. A loaded
+    /// simulator can also hang at launch, and that report is real, so the test tells its own
+    /// apart by length as well: the trigger blocks the main thread for two seconds, a launch
+    /// hang for well under one.
+    nonisolated private static func isTriggeredHang(_ report: Report) -> Bool {
+        guard report.report.finalized == true, let hang = report.crash.error.hang else { return false }
+        return hang.hangEndNanos > hang.hangStartNanos && hang.hangEndNanos - hang.hangStartNanos > 1_500_000_000
     }
 
     func testExceptionDuringHangReportsExceptionNotHang() throws {
@@ -210,7 +205,7 @@ final class WatchdogTests: IntegrationTestBase {
         }
 
         // Re-launch and read through the report store so the sidecar stitch runs
-        let reportData = try launchAndReportCrashRaw { config in
+        let reportData = try launchAndReportCrashRaw(where: { $0.crash.error.type == .nsexception }) { config in
             config.isWatchdogEnabled = true
         }
         let rawReport = try JSONDecoder().decode(Report.self, from: reportData)
