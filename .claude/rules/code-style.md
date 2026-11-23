@@ -44,6 +44,11 @@ list assumed.
 
 Never put implementation details in these files: how a value is produced or persisted, on-disk/wire formats, which subsystem writes it, version history ("added after…", "predates the field"), or migration/compatibility reasoning. Those belong in the implementation (`.m`/`.c`/private files) or the commit message, never on the consumer-facing surface. The "why" and "invariant" comments described above are for internal and crash-time code, not the public API.
 
+Keep it simple, concise and effective: the fewest words that state the contract,
+usually one line. When the behavior changes, rewrite the doc to the new meaning in
+as few words as before. Do not grow it to explain the change, and do not keep or
+restore wording that is no longer true.
+
 ## C String Functions
 
 Always use the bounded variants of the C string functions: `strncmp` over

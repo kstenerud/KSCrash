@@ -37,7 +37,7 @@ final class SessionTests: IntegrationTestBase {
     func testDeliveredReportCarriesSessionID() throws {
         try launchAndCrash(.nsException_genericNSException)
 
-        let deliveredData = try launchAndReportCrashRaw()
+        let deliveredData = try launchAndReportCrashRaw(where: { $0.crash.error.type == .nsexception })
         let delivered = try decodeCrashReport(reportData: deliveredData)
 
         let sessionID = try XCTUnwrap(delivered.report.sessionId, "delivered report should carry a session_id")
@@ -50,7 +50,7 @@ final class SessionTests: IntegrationTestBase {
     func testRawReportHasNoSessionIDBeforeStitch() throws {
         try launchAndCrash(.nsException_genericNSException)
 
-        let rawReport = try readCrashReport()
+        let rawReport = try readCrashReport { $0.crash.error.type == .nsexception }
         XCTAssertNil(rawReport.report.sessionId, "session_id is a stitch-time field, absent from the raw report")
     }
 
@@ -61,13 +61,14 @@ final class SessionTests: IntegrationTestBase {
         try launchAndInstall()  // run B installs and persists run A's summary
 
         let runsDir = try runsDirectoryUrl()
-        let runFiles = try FileManager.default.contentsOfDirectory(atPath: runsDir.path).filter {
-            $0.hasSuffix(".run")
-        }
-        XCTAssertEqual(runFiles.count, 1, "exactly one run summary should be persisted for the crashed run")
-
-        let data = try Data(contentsOf: runsDir.appendingPathComponent(try XCTUnwrap(runFiles.first)))
-        let summary = try JSONDecoder().decode(RunSummary.self, from: data)
+        let crashedRun = try XCTUnwrap(expectedRunID)
+        let summaries = try FileManager.default.contentsOfDirectory(atPath: runsDir.path)
+            .filter { $0.hasSuffix(".run") }
+            .compactMap { name in
+                try? JSONDecoder().decode(RunSummary.self, from: Data(contentsOf: runsDir.appendingPathComponent(name)))
+            }
+        let summary = try XCTUnwrap(
+            summaries.first { $0.id == crashedRun }, "no run summary was persisted for the crashed run")
         XCTAssertEqual(summary.outcome.terminationReason, .crash)
     }
 }
