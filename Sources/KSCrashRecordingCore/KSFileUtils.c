@@ -27,6 +27,7 @@
 #include "KSFileUtils.h"
 
 // #define KSLogger_LocalLevel TRACE
+#include <TargetConditionals.h>
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -366,6 +367,58 @@ done:
     return isSuccessful;
 }
 
+bool ksfu_setDataProtection(int fd, KSFUDataProtection protection)
+{
+#if TARGET_OS_IPHONE
+    if (fcntl(fd, F_SETPROTECTIONCLASS, (int)protection) != 0) {
+        KSLOG_ERROR("Could not set data protection class %d: %s", (int)protection, strerror(errno));
+        return false;
+    }
+    return true;
+#else
+    (void)fd;
+    (void)protection;
+    return true;
+#endif
+}
+
+bool ksfu_setDataProtectionAtPath(const char *path, KSFUDataProtection protection)
+{
+#if TARGET_OS_IPHONE
+    // O_NOFOLLOW so a link at one of these paths cannot move the protection of a file outside
+    // them. O_NONBLOCK so a FIFO there cannot block the caller, which at install is the app's
+    // launch.
+    int fd = open(path, O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
+    if (fd < 0) {
+        if (errno != ENOENT) {
+            KSLOG_ERROR("Could not open %s to set its data protection: %s", path, strerror(errno));
+        }
+        return false;
+    }
+    bool isSet = ksfu_setDataProtection(fd, protection);
+    close(fd);
+    return isSet;
+#else
+    (void)path;
+    (void)protection;
+    return true;
+#endif
+}
+
+KSFUDataProtection ksfu_getDataProtection(int fd)
+{
+#if TARGET_OS_IPHONE
+    int protectionClass = fcntl(fd, F_GETPROTECTIONCLASS);
+    if (protectionClass < KSFUDataProtectionComplete || protectionClass > KSFUDataProtectionNone) {
+        return KSFUDataProtectionUnknown;
+    }
+    return (KSFUDataProtection)protectionClass;
+#else
+    (void)fd;
+    return KSFUDataProtectionNone;
+#endif
+}
+
 bool ksfu_removeFile(const char *path, bool mustExist, int *errnoOut)
 {
     if (remove(path) < 0) {
@@ -605,8 +658,8 @@ void *ksfu_mmap(const char *path, size_t size)
     // prior reader and the new mmap'd sidecar writer.
     memset(ptr, 0, size);
 
-    // Ensure the file is readable before first unlock (iOS data protection).
-    ksfu_applyNoFileProtection(path);
+    // Readable before the first unlock after a reboot.
+    ksfu_setDataProtection(fd, KSFUDataProtectionNone);
 
     close(fd);
     return ptr;
