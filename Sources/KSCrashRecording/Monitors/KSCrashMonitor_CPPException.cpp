@@ -70,6 +70,8 @@ static struct {
     std::atomic<bool> cxaSwapEnabled { false };
 
     std::terminate_handler originalTerminateHandler;
+    decltype(&__cxxabiv1::__cxa_current_primary_exception) currentPrimaryException;
+    decltype(&__cxxabiv1::__cxa_decrement_exception_refcount) releasePrimaryException;
 
     KSCrash_ExceptionHandlerCallbacks callbacks;
 } g_state;
@@ -85,7 +87,10 @@ static thread_local bool g_captureNextStackTrace = false;
 
 static bool copyCurrentThrowCursor()
 {
-    void *object = __cxxabiv1::__cxa_current_primary_exception();
+    if (g_state.currentPrimaryException == nullptr || g_state.releasePrimaryException == nullptr) {
+        return false;
+    }
+    void *object = g_state.currentPrimaryException();
     if (object == nullptr) {
         return false;
     }
@@ -106,7 +111,7 @@ static bool copyCurrentThrowCursor()
         }
     }
 
-    __cxxabiv1::__cxa_decrement_exception_refcount(object);
+    g_state.releasePrimaryException(object);
 
     return found;
 }
@@ -318,6 +323,12 @@ static void install()
 
     kssc_initCursor(&g_exceptionStackCursor, NULL, NULL);
     kssc_initCursor(&g_handlerStackCursor, NULL, NULL);
+    // Older Apple runtimes export these from libc++abi, not libc++. Resolve both at install time so
+    // loading the client doesn't depend on which dylib the build SDK assigns them to.
+    g_state.currentPrimaryException = reinterpret_cast<decltype(g_state.currentPrimaryException)>(
+        dlsym(RTLD_DEFAULT, "__cxa_current_primary_exception"));
+    g_state.releasePrimaryException = reinterpret_cast<decltype(g_state.releasePrimaryException)>(
+        dlsym(RTLD_DEFAULT, "__cxa_decrement_exception_refcount"));
     g_state.originalTerminateHandler = std::set_terminate(CPPExceptionTerminate);
 }
 
