@@ -28,8 +28,10 @@
 #include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorHelper.h"
 #include "KSCrashMonitor_CPPException+Private.h"
+#include "KSCrashMonitor_CPPException+ThrowRecord.h"
 #include "KSID.h"
 #include "KSMachineContext.h"
+#include "KSStackCursor_Backtrace.h"
 #include "KSStackCursor_SelfThread.h"
 #include "KSThread.h"
 
@@ -68,11 +70,13 @@ static struct {
     std::atomic<bool> cxaSwapEnabled { false };
 
     std::terminate_handler originalTerminateHandler;
+    decltype(&__cxxabiv1::__cxa_current_primary_exception) currentPrimaryException;
+    decltype(&__cxxabiv1::__cxa_decrement_exception_refcount) releasePrimaryException;
 
     KSCrash_ExceptionHandlerCallbacks callbacks;
 } g_state;
 
-/** Exception backtrace captured at __cxa_throw time (the throw site). */
+/** Exception backtrace prepared for the report in the terminate handler. */
 static thread_local KSStackCursor g_exceptionStackCursor;
 
 /** Handler backtrace captured in the terminate handler. */
@@ -81,11 +85,36 @@ static thread_local KSStackCursor g_handlerStackCursor;
 /** True if the handler should capture the next stack trace (thread-local). */
 static thread_local bool g_captureNextStackTrace = false;
 
-/** True if g_exceptionStackCursor was set by captureStackTrace for the current throw.
- *  Without this, the advanceCursor != NULL guard would permanently pass after the
- *  first exception on a thread, causing stale throw-site backtraces to be reused
- *  if captureStackTrace wasn't called for the current exception. */
-static thread_local bool g_exceptionCursorValid = false;
+static bool copyCurrentThrowCursor()
+{
+    if (g_state.currentPrimaryException == nullptr || g_state.releasePrimaryException == nullptr) {
+        return false;
+    }
+    void *object = g_state.currentPrimaryException();
+    if (object == nullptr) {
+        return false;
+    }
+
+    const KSStackCursor *saved = kstr_find(object);
+    bool found = false;
+    if (saved != nullptr) {
+        const auto *bt = reinterpret_cast<const KSStackCursor_Backtrace_Context *>(saved->context);
+        // Keep the frames after the backtrace header, just as kssc_initSelfThread does.
+        auto *context = reinterpret_cast<KSStackCursor_Backtrace_Context *>(g_exceptionStackCursor.context);
+        auto *reportFrames = reinterpret_cast<uintptr_t *>(context + 1);
+        const size_t capacity = (sizeof(g_exceptionStackCursor.context) - sizeof(*context)) / sizeof(*reportFrames);
+        const size_t length = static_cast<size_t>(bt->backtraceLength);
+        found = length <= capacity;
+        if (found) {
+            memcpy(reportFrames, bt->backtrace, length * sizeof(reportFrames[0]));
+            kssc_initWithBacktrace(&g_exceptionStackCursor, reportFrames, bt->backtraceLength, bt->skippedEntries);
+        }
+    }
+
+    g_state.releasePrimaryException(object);
+
+    return found;
+}
 
 static bool isEnabled(__unused void *context) { return g_state.isEnabled && g_state.installedState == KSCM_Installed; }
 
@@ -93,17 +122,22 @@ static bool isEnabled(__unused void *context) { return g_state.isEnabled && g_st
 #pragma mark - Callbacks -
 // ============================================================================
 
-static KS_NOINLINE void captureStackTrace(void *, std::type_info *tinfo,
-                                          void (*)(void *)) KS_KEEP_FUNCTION_IN_STACKTRACE
+static KS_NOINLINE ksct_destructor captureStackTrace(void *object, std::type_info *tinfo,
+                                                     ksct_destructor destroy) KS_KEEP_FUNCTION_IN_STACKTRACE
 {
-    if (kscm_cppexception_isObjCExceptionType(tinfo)) {
-        return;
+    if (!g_captureNextStackTrace || kscm_cppexception_isObjCExceptionType(tinfo)) {
+        return destroy;
     }
-    if (g_captureNextStackTrace) {
-        kssc_initSelfThread(&g_exceptionStackCursor, 2);
-        g_exceptionCursorValid = true;
+
+    KSStackCursor *cursor = kstr_reserve(object);
+    if (cursor == nullptr) {
+        return destroy;
     }
-    KS_THWART_TAIL_CALL_OPTIMISATION
+
+    kssc_initSelfThread(cursor, 2);
+    kstr_publish(cursor, object, destroy);
+
+    return kstr_release;
 }
 
 typedef void (*cxa_throw_type)(void *, std::type_info *, void (*)(void *));
@@ -115,7 +149,7 @@ void __cxa_throw(void *thrown_exception, std::type_info *tinfo, void (*dest)(voi
 {
     static std::atomic<cxa_throw_type> orig_cxa_throw { nullptr };
     if (!g_state.cxaSwapEnabled.load(std::memory_order_acquire)) {
-        captureStackTrace(thrown_exception, tinfo, dest);
+        dest = captureStackTrace(thrown_exception, tinfo, dest);
     }
     cxa_throw_type orig = orig_cxa_throw.load(std::memory_order_acquire);
     unlikely_if(orig == nullptr)
@@ -218,6 +252,8 @@ static void CPPExceptionTerminate(void)
         // rethrowing after suspension can block the crash handler forever and no report is written.
         // https://github.com/apple-oss-distributions/dyld/blob/fd8d0c4d52320ebf64db34f3cb280310d905c5ae/dyld/DyldAPIs.cpp#L902-L1026
         char descriptionBuff[DESCRIPTION_BUFFER_LENGTH] = { 0 };
+        const bool hasCapturedCursor =
+            tinfo != nullptr && !kscm_cppexception_isObjCExceptionType(tinfo) && copyCurrentThrowCursor();
         const char *description = cpp_discoverDescription(tinfo, descriptionBuff, sizeof(descriptionBuff));
 
         // This requires async-safety because the environment is suspended.
@@ -232,29 +268,23 @@ static void CPPExceptionTerminate(void)
         }
 
         if (tinfo == nullptr) {
-            // No active exception — init fresh to avoid reusing a stale throw-site cursor
-            // from a prior throw on this thread. Skip 1 frame (this function) to show
-            // the terminate() context, same as the handler cursor.
+            // No active exception to look up. Report the terminate context, skipping this function.
             kssc_initSelfThread(&g_exceptionStackCursor, 1);
         } else if (kscm_cppexception_isObjCExceptionType(tinfo)) {
             // Arbitrary Objective-C object throw (for example @throw @"..."). It reaches terminate through
             // objc_exception_throw inside libobjc, a path our __cxa_throw interception does not see, so
-            // g_exceptionStackCursor was never captured for this exception (and may be stale from an earlier C++ throw
-            // on this thread). Recompute from here. This path carries one extra machinery frame (objc_exception_throw)
-            // above the throw site versus a foreign C++ throw, so skip 5 (vs 4 below). The exact frame this lands on is
-            // platform-dependent: on macOS/devices it is the throw site itself; on the simulator objc_exception_throw
-            // may remain just above it (libobjc is not prebound there). We deliberately under-skip rather than risk
-            // overshooting and dropping the throw site. Covered by
+            // there is no saved throw record. Capture the current stack instead. This path carries one extra frame
+            // (objc_exception_throw) above the throw site versus a foreign C++ throw, so skip 5 (vs 4 below). The exact
+            // frame this lands on is platform-dependent: on macOS/devices it is the throw site itself; on the simulator
+            // objc_exception_throw may remain just above it (libobjc is not prebound there). We deliberately under-skip
+            // rather than risk overshooting and dropping the throw site. Covered by
             // CppTests.testObjectiveCObjectExceptionAfterCaughtCppUsesCurrentThrowSite.
             kssc_initSelfThread(&g_exceptionStackCursor, 5);
-        } else if (!g_exceptionCursorValid) {
-            // captureStackTrace didn't fire (foreign throw whose __cxa_throw we didn't intercept). Recompute from here
-            // rather than reusing a stale cursor. Skip 4 frames to step over the terminate internals and __cxa_throw
-            // and reach the throw location.
+        } else if (!hasCapturedCursor) {
+            // No saved stack for this exception (e.g. the hook was missed or all candidate slots were occupied).
+            // Fall back to the current stack, skipping the terminate internals and __cxa_throw.
             kssc_initSelfThread(&g_exceptionStackCursor, 4);
         }
-        // else: throw-site cursor was captured by captureStackTrace — use it as-is.
-        g_exceptionCursorValid = false;
 
         // Capture the handler's actual call stack (the terminate handler context).
         // Skip 1 frame: CPPExceptionTerminate itself.
@@ -293,6 +323,12 @@ static void install()
 
     kssc_initCursor(&g_exceptionStackCursor, NULL, NULL);
     kssc_initCursor(&g_handlerStackCursor, NULL, NULL);
+    // Older Apple runtimes export these from libc++abi, not libc++. Resolve both at install time so
+    // loading the client doesn't depend on which dylib the build SDK assigns them to.
+    g_state.currentPrimaryException = reinterpret_cast<decltype(g_state.currentPrimaryException)>(
+        dlsym(RTLD_DEFAULT, "__cxa_current_primary_exception"));
+    g_state.releasePrimaryException = reinterpret_cast<decltype(g_state.releasePrimaryException)>(
+        dlsym(RTLD_DEFAULT, "__cxa_decrement_exception_refcount"));
     g_state.originalTerminateHandler = std::set_terminate(CPPExceptionTerminate);
 }
 
