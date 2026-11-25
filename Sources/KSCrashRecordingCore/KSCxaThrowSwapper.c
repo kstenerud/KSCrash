@@ -51,7 +51,6 @@
 #include "KSCxaThrowSwapper.h"
 
 #include <assert.h>
-#include <dlfcn.h>
 #include <errno.h>
 #include <mach-o/dyld.h>
 #include <mach-o/nlist.h>
@@ -243,18 +242,24 @@ __attribute__((noreturn)) static void __cxa_throw_decorator(void *thrown_excepti
 
     // Get the return address to identify which image threw the exception.
     // __builtin_return_address(0) returns the address our caller will return to,
-    // which is in the code that executed `throw`. We use dladdr() to find which
-    // image contains that address, then look up the original __cxa_throw for
-    // that image. This is faster than backtrace() since it's a single register
-    // read rather than a full stack walk.
+    // which is in the code that executed `throw`. We find the image containing
+    // that address, then look up the original __cxa_throw for that image.
+    //
+    // This runs on every throw, caught or not, so the lookup must not scale with
+    // the image's size. dladdr() also resolves the nearest symbol, a scan of the
+    // image's whole symbol table, which made each throw cost time proportional to
+    // the throwing binary's symbol count. The image cache answers from address
+    // ranges alone.
     //
     // __builtin_extract_return_addr strips pointer authentication bits on ARM64e
     // and is a no-op on other architectures. We check for NULL in case the
     // builtin fails under unusual optimization/unwind settings.
     void *return_addr = __builtin_extract_return_addr(__builtin_return_address(0));
-    Dl_info info;
-    if (return_addr != NULL && dladdr(return_addr, &info) != 0) {
-        function = findAddress(info.dli_fbase);
+    if (return_addr != NULL) {
+        const struct mach_header *header = ksbic_findImageForAddress((uintptr_t)return_addr, NULL, NULL);
+        if (header != NULL) {
+            function = findAddress((void *)header);
+        }
     }
 
     // If we couldn't find the image-specific original, use the fallback.
@@ -417,7 +422,8 @@ static void rebind_symbols_for_image(const struct mach_header *header, intptr_t 
         return;
     }
 
-    // The header pointer IS the image base address (dli_fbase in Dl_info)
+    // The header pointer IS the image base address, the same value the image
+    // cache returns for an address inside this image.
     uintptr_t imageBase = (uintptr_t)header;
 
     // Single pass through load commands to collect all needed structures.
