@@ -46,9 +46,11 @@ class BenchmarkException : public std::exception
 
 #pragma mark - Helper Functions
 
-// Dummy handler for benchmarking - does nothing
-static void dummyHandler(void *thrown_exception __unused, std::type_info *tinfo __unused, void (*dest)(void *) __unused)
+// Pass the destructor through unchanged when benchmarking the swapper.
+static ksct_destructor dummyHandler(void *thrown_exception __unused, std::type_info *tinfo __unused,
+                                    ksct_destructor dest)
 {
+    return dest;
 }
 
 #pragma mark - Benchmark Test Class

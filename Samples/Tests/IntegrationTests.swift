@@ -255,9 +255,7 @@ final class CppTests: IntegrationTestBase {
     }
 
     func testObjectiveCObjectExceptionAfterCaughtCppUsesCurrentThrowSite() throws {
-        // Regression: a caught C++ exception captures a throw-site backtrace cursor on this
-        // thread. The later fatal Objective-C object throw is reported by the C++ monitor and
-        // must reflect its own throw site, not reuse the earlier (already-handled) C++ one.
+        // The C++ monitor must report the fatal Objective-C object's throw site, not the earlier C++ throw.
         try launchAndCrash(.cpp_objcObjectExceptionAfterCaughtCpp)
 
         let rawReport = try readCrashReport { $0.crash.error.type == .cppException }
@@ -284,10 +282,67 @@ final class CppTests: IntegrationTestBase {
             "last_exception_backtrace must not reuse the earlier caught C++ exception")
     }
 
+    func testRethrowPreservesOriginalThrowSite() throws {
+        try launchAndCrash(.cpp_rethrowCaughtCpp)
+
+        let raw = try readCrashReport { $0.crash.error.type == .cppException }
+        try raw.validate()
+        XCTAssertEqual(raw.crash.error.type, .cppException)
+        XCTAssertEqual(raw.crash.error.reason, "C++ exception")
+
+        let threadSymbols = (try XCTUnwrap(raw.crashedThread?.backtrace)).contents.compactMap(\.symbolName)
+        XCTAssertTrue(
+            threadSymbols.contains("+[KSCrashTriggersList trigger_cpp_rethrowCaughtCpp]"),
+            "Expected the crashed-thread backtrace to include the fatal rethrow site: \(threadSymbols)")
+
+        let saved = (try XCTUnwrap(raw.crash.lastExceptionBacktrace)).contents.compactMap(\.symbolName)
+        XCTAssertTrue(
+            saved.contains(where: isCppCrashSymbol),
+            "Expected the saved exception backtrace to include the original throw site: \(saved)")
+    }
+
+    func testRethrowOnWorkerPreservesThrowingThreadsOriginalSite() throws {
+        try launchAndCrash(.cpp_rethrowOnWorker)
+
+        let raw = try readCrashReport { $0.crash.error.type == .cppException }
+        try raw.validate()
+        XCTAssertEqual(raw.crash.error.type, .cppException)
+        XCTAssertEqual(raw.crash.error.reason, "C++ exception")
+
+        let saved = (try XCTUnwrap(raw.crash.lastExceptionBacktrace)).contents.compactMap(\.symbolName)
+        XCTAssertTrue(
+            saved.contains(where: isCppCrashSymbol), "Missing original throw on the launching thread: \(saved)")
+
+        let crashed = (try XCTUnwrap(raw.crashedThread?.backtrace)).contents.compactMap(\.symbolName)
+        XCTAssertTrue(
+            crashed.contains("sampleRethrowOnWorker"), "Missing rethrow site on the crashed worker: \(crashed)")
+    }
+
+    func testFinalExceptionPtrReleaseCallsDestructorOnWorker() throws {
+        // The trigger only returns if the destructor ran once, on the worker, at final release.
+        try launchAndRunTrigger(.cpp_releaseOnWorker)
+    }
+
+    func testUnhookedThrowAfterCaughtCppDoesNotReuseCaughtTrace() throws {
+        try launchAndCrash(.cpp_unhookedAfterCaughtCpp)
+
+        let raw = try readCrashReport { $0.crash.error.type == .cppException }
+        try raw.validate()
+        XCTAssertEqual(raw.crash.error.type, .cppException)
+        XCTAssertEqual(raw.crash.error.reason, "fatal unhooked throw")
+
+        let symbols = (try XCTUnwrap(raw.crash.lastExceptionBacktrace)).contents.compactMap(\.symbolName)
+        let thread = (try XCTUnwrap(raw.crashedThread?.backtrace)).contents.compactMap(\.symbolName)
+        XCTAssertTrue(
+            thread.contains("+[KSCrashTriggersList trigger_cpp_unhookedAfterCaughtCpp]"),
+            "Expected the crashed-thread backtrace to include the fatal unhooked throw site: \(thread)")
+        XCTAssertFalse(
+            symbols.contains(where: isCppCrashSymbol),
+            "Expected the saved exception backtrace to exclude the earlier caught exception’s throw site: \(symbols)")
+    }
+
     func testTerminateWithoutActiveExceptionAfterCaughtCppUsesTerminateContext() throws {
-        // Regression for the tinfo == nullptr branch in CPPExceptionTerminate: a caught C++ exception leaves a
-        // throw-site cursor on this thread, then a bare std::terminate() fires with no active exception. The monitor
-        // must recompute a fresh cursor from the terminate context, not reuse the earlier (already-handled) throw site.
+        // A bare std::terminate() has no active exception. Report the terminate context, not the earlier throw.
         try launchAndCrash(.cpp_terminateAfterCaughtCpp)
 
         let rawReport = try readCrashReport { $0.crash.error.type == .cppException }

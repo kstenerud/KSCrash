@@ -26,6 +26,8 @@
 
 #import "KSCrashTriggersList.h"
 
+#import <cxxabi.h>
+#import <dlfcn.h>
 #import <mach-o/dyld.h>
 #import <mach/mach.h>
 #import <signal.h>
@@ -73,6 +75,11 @@ static void trigger_ns(void)
 }
 
 static void trigger_cpp(void) { sample_namespace::Report::crash(); }
+
+extern "C" __attribute__((noinline, disable_tail_calls)) void sampleRethrowOnWorker(const std::exception_ptr &exception)
+{
+    std::rethrow_exception(exception);
+}
 
 static void trigger_cpp_backgroundThread(void)
 {
@@ -217,9 +224,7 @@ static void trigger_user_swiftAsync(void) { integrationTestSwiftAsyncTrigger(); 
 
 + (void)trigger_cpp_objcObjectExceptionAfterCaughtCpp
 {
-    // A caught C++ exception leaves a throw-site backtrace cursor behind on this thread. The subsequent fatal
-    // Objective-C object throw is reported by the C++ monitor and must capture its own throw site, not reuse the
-    // earlier (already-handled) one.
+    // The C++ monitor must report the Objective-C object's throw site, not the earlier C++ throw.
     try {
         sample_namespace::Report::crash();
     } catch (...) {
@@ -228,11 +233,95 @@ static void trigger_user_swiftAsync(void) { integrationTestSwiftAsyncTrigger(); 
     @throw exception;
 }
 
++ (void)trigger_cpp_rethrowCaughtCpp
+{
+    try {
+        sample_namespace::Report::crash();
+    } catch (const std::runtime_error &) {
+        throw;
+    }
+}
+
++ (void)trigger_cpp_rethrowOnWorker
+{
+    std::exception_ptr saved;
+
+    try {
+        sample_namespace::Report::crash();
+    } catch (const std::runtime_error &) {
+        saved = std::current_exception();
+    }
+
+    std::thread worker([&saved] { sampleRethrowOnWorker(saved); });
+    worker.join();  // The rethrow on the worker is fatal.
+}
+
++ (void)trigger_cpp_releaseOnWorker
+{
+    struct Witness {
+        int &calls;
+        std::thread::id &destroyer;
+        ~Witness()
+        {
+            ++calls;
+            destroyer = std::this_thread::get_id();
+        }
+    };
+    int calls = 0;
+    std::thread::id destroyer;
+    std::exception_ptr saved;
+
+    try {
+        throw Witness { calls, destroyer };
+    } catch (const Witness &) {
+        saved = std::current_exception();
+    }
+    if (calls != 0) {
+        throw std::logic_error("exception destroyed while exception_ptr still owns it");
+    }
+
+    // Only the worker releases the last reference. Passing by reference avoids an extra exception_ptr copy.
+    std::thread worker([&saved] { saved = nullptr; });
+    auto expected = worker.get_id();
+    worker.join();
+    if (calls != 1 || destroyer != expected) {
+        throw std::logic_error("expected one destructor call on releasing thread");
+    }
+}
+
++ (void)trigger_cpp_unhookedAfterCaughtCpp
+{
+    try {
+        sample_namespace::Report::crash();
+    } catch (...) {
+        // The throw hook captured this stack. The app catches the exception here, so its stack must not
+        // be attributed to the next throw.
+    }
+
+    // A library in the dyld shared cache can call __cxa_throw through a binding we can't replace.
+    // Calling libc++abi directly simulates that path without relying on a particular system library to throw.
+    void *abi = dlopen("/usr/lib/libc++abi.dylib", RTLD_NOW | RTLD_FIRST);
+    using Throw = void (*)(void *, void *, void (*)(void *));
+    auto runtimeThrow = abi ? reinterpret_cast<Throw>(dlsym(abi, "__cxa_throw")) : nullptr;
+    if (!runtimeThrow) {
+        abort();
+    }
+
+    // The app leaves this new exception uncaught on the same thread. The terminate handler sees it,
+    // but the throw hook never did.
+    void *storage = __cxxabiv1::__cxa_allocate_exception(sizeof(std::runtime_error));
+    new (storage) std::runtime_error("fatal unhooked throw");
+    runtimeThrow(storage, const_cast<std::type_info *>(&typeid(std::runtime_error)),
+                 [](void *p) { static_cast<std::runtime_error *>(p)->~runtime_error(); });
+
+    // __cxa_throw never returns, but keeping abort() after runtimeThrow() prevents a tail call
+    // that would remove this trigger's frame from the crashed-thread backtrace.
+    abort();
+}
+
 + (void)trigger_cpp_terminateAfterCaughtCpp
 {
-    // A caught C++ exception leaves a throw-site backtrace cursor behind on this thread. A subsequent bare
-    // std::terminate() has no active exception, so the C++ monitor must recompute a fresh cursor from the terminate
-    // context rather than reusing the earlier (already-handled) throw site.
+    // After the caught exception's lifetime ends, bare terminate must report the terminate context.
     try {
         sample_namespace::Report::crash();
     } catch (...) {

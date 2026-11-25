@@ -509,6 +509,10 @@
 #define ksthread_self KSCRASH_NS(ksthread_self)
 #define ksthread_state_name KSCRASH_NS(ksthread_state_name)
 #define ksthread_storeMainThreadValue KSCRASH_NS(ksthread_storeMainThreadValue)
+#define kstr_find KSCRASH_NS(kstr_find)
+#define kstr_publish KSCRASH_NS(kstr_publish)
+#define kstr_release KSCRASH_NS(kstr_release)
+#define kstr_reserve KSCRASH_NS(kstr_reserve)
 #define kszombie_className KSCRASH_NS(kszombie_className)
 #define testsupport_KSCrashAppMemorySetProvider KSCRASH_NS(testsupport_KSCrashAppMemorySetProvider)
 
