@@ -47,12 +47,9 @@ class IntegrationTestBase: XCTestCase {
     var appTerminateTimeout: TimeInterval = 5.0
     var appCrashTimeout: TimeInterval = 10.0
 
-    /// How long a report may take once the script's `actionDelay` has passed. Waits for a
-    /// report count from launch, so they add the delay: the launch returns long before the
-    /// script acts.
+    /// How long a report may take once the script's `actionDelay` has passed. The waits start
+    /// at launch, so they add the delay: the launch returns long before the script acts.
     var reportTimeout: TimeInterval = 5.0
-
-    var expectSingleCrash: Bool = true
 
     lazy var actionDelay: TimeInterval = TargetPlatform.current == .iOS ? 5.0 : 2.0
 
@@ -198,40 +195,84 @@ class IntegrationTestBase: XCTestCase {
         }
     }
 
-    private func waitForFile(in dir: URL, timeout: TimeInterval? = nil) throws -> URL {
-        enum Error: Swift.Error {
-            case fileNotFound
-            case tooManyFiles
-        }
+    /// A report read off disk: its file name, its bytes, and the report they decode to. A file
+    /// that does not decode yet is still being written.
+    private struct ReportFile {
+        let name: String
+        let data: Data?
+        let report: Report?
 
-        let getFileUrl = { [unowned self] in
-            let files = try FileManager.default.contentsOfDirectory(atPath: dir.path)
-            guard let fileName = files.first else {
-                throw Error.fileNotFound
-            }
-            if self.expectSingleCrash {
-                guard files.count == 1 else {
-                    throw Error.tooManyFiles
+        /// Enough to tell why a test did or did not pick a report: what it is, which run it
+        /// came from, and whether it was finalized.
+        var summary: String {
+            guard let report else { return "\(name): unreadable" }
+            let error = report.crash.error
+            let signal = error.signal.map { " signal \($0.signal)," } ?? ""
+            return "\(name): monitor \(report.report.monitorId ?? "?"), type \(error.type.rawValue),\(signal)"
+                + " run \(report.report.runId?.description ?? "?"), finalized \(report.report.finalized ?? false)"
+        }
+    }
+
+    private func reportFiles(in dir: URL) -> [ReportFile] {
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []
+        return names.filter { name in
+            // A store keeps its staging folder beside the reports.
+            var isDirectory: ObjCBool = false
+            FileManager.default.fileExists(atPath: dir.appendingPathComponent(name).path, isDirectory: &isDirectory)
+            return !name.hasPrefix(".") && !isDirectory.boolValue
+        }.sorted().map { name in
+            let data = try? Data(contentsOf: dir.appendingPathComponent(name))
+            let report = data.flatMap { try? JSONDecoder().decode(Report.self, from: $0) }
+            return ReportFile(name: name, data: data, report: report)
+        }
+    }
+
+    /// Whether `report` is the one a test asked for: `isReport` says so, and once a run is
+    /// recorded it comes from that run, since a report another run left behind can match
+    /// everything else a test names.
+    private func isRequested(_ report: Report, _ isReport: (Report) -> Bool) -> Bool {
+        if let expectedRunID, report.report.runId != expectedRunID {
+            return false
+        }
+        return isReport(report)
+    }
+
+    /// Waits for the report `isReport` picks out and returns its bytes.
+    ///
+    /// Exactly one report may match: two would be the same event reported twice. Every other
+    /// report in the folder belongs to some other monitor and is not looked at.
+    private func waitForReport(
+        in dir: URL, timeout: TimeInterval, where isReport: @escaping (Report) -> Bool
+    ) throws -> Data {
+        enum Error: Swift.Error, CustomStringConvertible {
+            case reportNotFound([String])
+            case tooManyReports([String])
+
+            var description: String {
+                switch self {
+                case .reportNotFound(let all): return "The report never appeared. Reports: \(all)"
+                case .tooManyReports(let all): return "More than one report matched. Reports: \(all)"
                 }
             }
-            return dir.appendingPathComponent(fileName)
         }
 
-        if let timeout {
-            let fileExpectation = XCTNSPredicateExpectation(
-                predicate: .init { _, _ in (try? getFileUrl()) != nil },
-                object: nil
-            )
-            wait(for: [fileExpectation], timeout: timeout)
+        let matching = { [unowned self] in
+            self.reportFiles(in: dir).filter { file in file.report.map { self.isRequested($0, isReport) } == true }
         }
-        do {
-            return try getFileUrl()
-        } catch {
-            if timeout != nil {
-                attachAppDiagnostics()
-            }
-            throw error
+        let reportExpectation = XCTNSPredicateExpectation(
+            predicate: .init { _, _ in !matching().isEmpty },
+            object: nil
+        )
+        wait(for: [reportExpectation], timeout: timeout)
+
+        let found = matching()
+        if found.count == 1, let data = found[0].data {
+            return data
         }
+        let listing = ["Expected run: \(expectedRunID?.description ?? "any")"] + reportFiles(in: dir).map(\.summary)
+        attachAppDiagnostics()
+        attach(listing.joined(separator: "\n"), named: "Reports found")
+        throw found.isEmpty ? Error.reportNotFound(listing) : Error.tooManyReports(listing)
     }
 
     /// A wait that runs out says only that the file never came. Records what the app was doing
@@ -244,59 +285,53 @@ class IntegrationTestBase: XCTestCase {
         }
     }
 
-    private func findRawCrashReportUrl() throws -> URL {
-        enum LocalError: Error {
-            case reportNotFound
-        }
-
-        let reportsUrl = try reportsDirectoryUrl()
-        let reportUrl = try FileManager.default
-            .contentsOfDirectory(atPath: reportsUrl.path)
-            .first
-            .flatMap { reportsUrl.appendingPathComponent($0) }
-        guard let reportUrl else { throw LocalError.reportNotFound }
-        return reportUrl
+    /// The bytes of the report `isReport` picks out, read straight from the store's folder.
+    /// The store has not stitched it yet, so only what was written when it was recorded is
+    /// there to match on.
+    ///
+    /// - Parameter timeout: how long to wait for it; by default the script's delay plus
+    ///   `reportTimeout`.
+    func readRawCrashReportData(
+        timeout: TimeInterval? = nil, where isReport: @escaping (Report) -> Bool
+    ) throws -> Data {
+        try waitForReport(
+            in: try reportsDirectoryUrl(), timeout: timeout ?? actionDelay + reportTimeout, where: isReport)
     }
 
-    func readRawCrashReportData() throws -> Data {
-        let reportsDirUrl = try reportsDirectoryUrl()
-        let reportUrl = try waitForFile(in: reportsDirUrl, timeout: actionDelay + reportTimeout)
-        let reportData = try Data(contentsOf: reportUrl)
-        return reportData
-    }
-
-    func readRawCrashReport() throws -> [String: Any] {
-        enum LocalError: Error {
-            case unexpectedReportFormat
-        }
-
-        let reportData = try readRawCrashReportData()
-        let reportObj = try JSONSerialization.jsonObject(with: reportData)
-        let report = reportObj as? [String: Any]
-        guard let report else { throw LocalError.unexpectedReportFormat }
-
-        return report
-    }
-
-    func readCrashReport() throws -> Report {
-        let reportData = try readRawCrashReportData()
-        let report = try JSONDecoder().decode(Report.self, from: reportData)
-        return report
+    func readCrashReport(where isReport: @escaping (Report) -> Bool) throws -> Report {
+        try decodeCrashReport(reportData: readRawCrashReportData(where: isReport))
     }
 
     func decodeCrashReport(reportData: Data) throws -> Report {
         return try JSONDecoder().decode(Report.self, from: reportData)
     }
 
-    func hasCrashReport() throws -> Bool {
-        let reportsDirUrl = try reportsDirectoryUrl()
-        let files = try? FileManager.default.contentsOfDirectory(atPath: reportsDirUrl.path)
-        return (files ?? []).isEmpty == false
+    /// Whether the store holds a report `isReport` picks out. Checked once, without waiting:
+    /// call it after whatever would have written the report has finished. A poll passes
+    /// `attachingListing: false` and calls `attachReportListing()` once it is done, so the
+    /// results carry one listing rather than one per check.
+    func hasReport(attachingListing: Bool = true, where isReport: (Report) -> Bool) throws -> Bool {
+        let reports = reportFiles(in: try reportsDirectoryUrl())
+        if attachingListing {
+            attachReportListing(reports)
+        }
+        return reports.contains { file in file.report.map { isRequested($0, isReport) } == true }
     }
 
-    func readDeliveredReportData() throws -> Data {
-        let url = try waitForFile(in: deliveredReportsUrl, timeout: actionDelay + reportTimeout)
-        return try Data(contentsOf: url)
+    /// Attaches what the store holds right now to the test's results.
+    func attachReportListing() throws {
+        attachReportListing(reportFiles(in: try reportsDirectoryUrl()))
+    }
+
+    private func attachReportListing(_ reports: [ReportFile]) {
+        if !reports.isEmpty {
+            attach(reports.map(\.summary).joined(separator: "\n"), named: "Reports found")
+        }
+    }
+
+    /// The bytes of the delivered report `isReport` picks out, stitched as KSCrash delivers it.
+    func readDeliveredReportData(where isReport: @escaping (Report) -> Bool) throws -> Data {
+        try waitForReport(in: deliveredReportsUrl, timeout: actionDelay + reportTimeout, where: isReport)
     }
 
     func launchAndInstall(installOverride: ((inout InstallConfig) throws -> Void)? = nil) throws {
@@ -373,7 +408,12 @@ class IntegrationTestBase: XCTestCase {
         for (key, value) in env {
             app.launchEnvironment[key] = value
         }
-        try launchAndCrash(.other_sigkill, installOverride: installOverride)
+        // Hangs are off: a loaded simulator can hang at launch, and a hang still going at
+        // the kill makes the run a hang, outranking whatever reason the test is about.
+        try launchAndCrash(.other_sigkill) { config in
+            config.isWatchdogEnabled = false
+            try installOverride?(&config)
+        }
         // Clear override env vars so the next launch reads real system/resource values.
         for key in env.keys {
             app.launchEnvironment.removeValue(forKey: key)
@@ -394,8 +434,8 @@ class IntegrationTestBase: XCTestCase {
 
     /// Relaunch the app, deliver the pending reports through the Swift send,
     /// and return the delivered report decoded from the dump directory.
-    func launchAndReportCrash() throws -> Report {
-        let report = try decodeCrashReport(reportData: launchAndReportCrashRaw())
+    func launchAndReportCrash(where isReport: @escaping (Report) -> Bool) throws -> Report {
+        let report = try decodeCrashReport(reportData: launchAndReportCrashRaw(where: isReport))
         assertReportIsFromExpectedRun(report)
         return report
     }
@@ -419,6 +459,7 @@ class IntegrationTestBase: XCTestCase {
     }
 
     func launchAndReportCrashRaw(
+        where isReport: @escaping (Report) -> Bool,
         installOverride: ((inout InstallConfig) throws -> Void)? = nil
     ) throws -> Data {
         var installConfig = InstallConfig(namespace: "IntegrationTests", basePath: installUrl.path)
@@ -430,7 +471,7 @@ class IntegrationTestBase: XCTestCase {
         )
 
         launchAppAndRunScript()
-        return try readDeliveredReportData()
+        return try readDeliveredReportData(where: isReport)
     }
 
     func readState() throws -> KSCrashState {

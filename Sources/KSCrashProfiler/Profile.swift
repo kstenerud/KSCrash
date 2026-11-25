@@ -61,8 +61,20 @@ public protocol Profile: Sendable {
     /// Performs synchronous disk I/O via the KSCrash report writing machinery. Call from
     /// a background queue or task to avoid blocking the main thread.
     ///
-    /// - Returns: The URL of the written report file, or `nil` if the report could not be written.
-    func writeReport() -> URL?
+    /// - Returns: The URL of the written report file.
+    /// - Throws: ``ProfileReportError`` when no report was written.
+    func writeReport() throws -> URL
+}
+
+/// Why a profile's report was not written.
+public enum ProfileReportError: Error, Sendable {
+    /// KSCrash is not installed in this process. Install it before writing reports.
+    case notInstalled
+    /// The report pipeline is not accepting reports: the process is shutting down, or is
+    /// already handling more crashes than it can report.
+    case refused
+    /// The report pipeline accepted the profile but produced no report.
+    case notWritten
 }
 
 extension Profile {

@@ -89,7 +89,7 @@ final class SwiftAsyncStackTraceTests: IntegrationTestBase {
                 configuration.isSwiftAsyncStackTracesEnabled = true
             })
 
-        let rawReport = try readCrashReport()
+        let rawReport = try readCrashReport { $0.crash.error.type == .user }
         try rawReport.validate()
 
         let crashedThread = try XCTUnwrap(rawReport.crashedThread)

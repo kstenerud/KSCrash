@@ -1,5 +1,26 @@
 # CLAUDE.md
 
+## Know the Repo Before Building or Asking
+
+Know this repo's settled decisions before you propose, build or ask anything. A question
+the repo already answers wastes the maintainer's time, and a design that ignores a
+settled decision is work that gets thrown away.
+
+Before designing in an area, read what is already decided about it, on `origin/develop`
+(a local checkout can be behind):
+
+- `docs/wiki/`: what 3.0 does and why. Start with `Whats-New-in-KSCrash-3.0.md` and
+  `Install-Modes-and-Report-Areas.md`.
+- `docs/design/` and `docs/plans/`: designs and their rulings.
+- `.claude/rules/`: these load only when you touch a matching file, so a design
+  discussion never sees them. Read the ones for the area you are designing in.
+- Open PRs and issues in the area (`gh pr list`, `gh issue list`): work in flight
+  changes what is missing.
+
+Ask only what none of these answer, and say what you read. When something you read
+seems to answer the question but you are not sure it applies, confirming is fine: say
+what you found and ask whether it holds here.
+
 ## Hot-Path Principle
 
 KSCrash runs inside someone else's app and must never change that app's

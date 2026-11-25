@@ -59,19 +59,38 @@ extension TimeProfile {
     /// `ProfileMonitor.shared`, which produces a JSON report containing the profile data.
     /// The report is written synchronously to the KSCrash reports directory.
     ///
-    /// - Returns: The URL of the written report file, or `nil` if the report could not be written.
-    internal func _writeReport() -> URL? {
-        let bridge = ProfileMonitor.shared
-        guard bridge.isInstalled else { return nil }
-        // The sampled thread may be writing its own report; naming it as the exception
-        // subject would mistake this independent profile for that handler recrashing.
-        let written = try? bridge.monitor.host.handle(
-            payload: self, requirements: .nonFatal, finalize: true
-        ) { context in
-            // Profile frames already include object_uuid, so binary_images is redundant.
-            context.pointee.omitBinaryImages = true
+    /// - Returns: The URL of the written report file.
+    /// - Throws: ``ProfileReportError`` when no report was written.
+    internal func _writeReport() throws -> URL {
+        // Checked before touching the shared bridge: its first use registers and enables the
+        // profiler's monitor process-wide, and without an install every write would then run
+        // the whole pipeline only to write nothing.
+        guard kscrash_isInstalled() else { throw ProfileReportError.notInstalled }
+        return try _writeReport(through: ProfileMonitor.shared)
+    }
+
+    internal func _writeReport(through bridge: Monitor<ProfileMonitor>) throws -> URL {
+        let written: MonitorHost<TimeProfile>.WrittenReport
+        do {
+            // The sampled thread may be writing its own report; naming it as the exception
+            // subject would mistake this independent profile for that handler recrashing.
+            written = try bridge.monitor.host.handle(
+                payload: self, requirements: .nonFatal, finalize: true
+            ) { context in
+                // Profile frames already include object_uuid, so binary_images is redundant.
+                context.pointee.omitBinaryImages = true
+            }
+        } catch MonitorHost<TimeProfile>.EventError.notInstalled {
+            throw ProfileReportError.notInstalled
+        } catch MonitorHost<TimeProfile>.EventError.refused {
+            throw ProfileReportError.refused
+        } catch {
+            // .yielded cannot happen (the profile does not yield to a report in flight), and
+            // .notWritten is exactly that.
+            throw ProfileReportError.notWritten
         }
-        return written?.url
+        guard let url = written.url else { throw ProfileReportError.notWritten }
+        return url
     }
 
     /// Writes this profile's data to the report using the given writer.

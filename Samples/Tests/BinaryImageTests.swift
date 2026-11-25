@@ -33,7 +33,7 @@ final class BinaryImageTests: IntegrationTestBase {
     func testBinaryImagesPresent() throws {
         try launchAndCrash(.nsException_genericNSException)
 
-        let rawReport = try readCrashReport()
+        let rawReport = try readCrashReport { $0.crash.error.type == .nsexception }
         try rawReport.validate()
 
         let binaryImages = rawReport.binaryImages
@@ -53,7 +53,7 @@ final class BinaryImageTests: IntegrationTestBase {
     func testBinaryImagesContent() throws {
         try launchAndCrash(.nsException_genericNSException)
 
-        let rawReport = try readCrashReport()
+        let rawReport = try readCrashReport { $0.crash.error.type == .nsexception }
         try rawReport.validate()
 
         guard let images = rawReport.binaryImages else {

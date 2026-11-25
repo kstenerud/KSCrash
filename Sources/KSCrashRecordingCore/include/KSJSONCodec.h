@@ -339,7 +339,8 @@ int ksjson_endDataElement(KSJSONEncodeContext *const context);
  *
  * @param jsonDataLength The length of the element.
  *
- * @param closeLastContainer If false, do not close the last container.
+ * @param closeLastContainer If false, the element's outermost container is left open, for the caller
+ *        to add to and then close.
  *
  * @return KSJSON_OK if the process was successful.
  */
@@ -428,7 +429,8 @@ int ksjson_endContainer(KSJSONEncodeContext *context);
  *
  * @param filename The file to read from.
  *
- * @param closeLastContainer If false, do not close the last container.
+ * @param closeLastContainer If false, the element's outermost container is left open, for the caller
+ *        to add to and then close.
  */
 int ksjson_addJSONFromFile(KSJSONEncodeContext *const context, const char *__restrict const name,
                            const char *__restrict const filename, const bool closeLastContainer);
