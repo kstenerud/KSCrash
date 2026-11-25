@@ -285,7 +285,7 @@ final class CppTests: IntegrationTestBase {
     func testRethrowPreservesOriginalThrowSite() throws {
         try launchAndCrash(.cpp_rethrowCaughtCpp)
 
-        let raw = try readCrashReport()
+        let raw = try readCrashReport { $0.crash.error.type == .cppException }
         try raw.validate()
         XCTAssertEqual(raw.crash.error.type, .cppException)
         XCTAssertEqual(raw.crash.error.reason, "C++ exception")
@@ -304,7 +304,7 @@ final class CppTests: IntegrationTestBase {
     func testRethrowOnWorkerPreservesThrowingThreadsOriginalSite() throws {
         try launchAndCrash(.cpp_rethrowOnWorker)
 
-        let raw = try readCrashReport()
+        let raw = try readCrashReport { $0.crash.error.type == .cppException }
         try raw.validate()
         XCTAssertEqual(raw.crash.error.type, .cppException)
         XCTAssertEqual(raw.crash.error.reason, "C++ exception")
@@ -326,7 +326,7 @@ final class CppTests: IntegrationTestBase {
     func testUnhookedThrowAfterCaughtCppDoesNotReuseCaughtTrace() throws {
         try launchAndCrash(.cpp_unhookedAfterCaughtCpp)
 
-        let raw = try readCrashReport()
+        let raw = try readCrashReport { $0.crash.error.type == .cppException }
         try raw.validate()
         XCTAssertEqual(raw.crash.error.type, .cppException)
         XCTAssertEqual(raw.crash.error.reason, "fatal unhooked throw")
