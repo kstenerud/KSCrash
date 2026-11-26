@@ -45,25 +45,10 @@ static const int g_printableControlChars[0x20] =
     0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
-
-static const int g_continuationByteCount[0x40] =
-{
-    /*
-     --0xxxxx = 1 (00-1f)
-     --10xxxx = 2 (20-2f)
-     --110xxx = 3 (30-37)
-     --1110xx = 4 (38-3b)
-     --11110x = 5 (3c-3d)
-     */
-    // 1  2  3  4  5  6  7  8  9  a  b  c  d  e  f
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-    3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 0, 0,
-};
 // clang-format on
 
-bool ksstring_isNullTerminatedUTF8String(const void *memory, int minLength, int maxLength)
+static bool isNullTerminatedUTF8String(const void *memory, int minLength, int maxLength,
+                                       bool requirePrintableControlChars)
 {
     const unsigned char *ptr = memory;
     const unsigned char *const end = ptr + maxLength;
@@ -73,20 +58,86 @@ bool ksstring_isNullTerminatedUTF8String(const void *memory, int minLength, int 
         unlikely_if(ch == 0) { return (ptr - (const unsigned char *)memory) >= minLength; }
         unlikely_if(ch & 0x80)
         {
-            unlikely_if((ch & 0xc0) != 0xc0) { return false; }
-            int continuationBytes = g_continuationByteCount[ch & 0x3f];
-            unlikely_if(continuationBytes == 0 || ptr + continuationBytes >= end) { return false; }
-            for (int i = 0; i < continuationBytes; i++) {
+            // Enforce RFC 3629 UTF-8: reject overlong encodings, UTF-16 surrogates
+            // (U+D800..U+DFFF), and code points above U+10FFFF.
+            int continuationBytes;
+            unsigned char firstContMin = 0x80;
+            unsigned char firstContMax = 0xbf;
+            if (ch >= 0xc2 && ch <= 0xdf) {
+                continuationBytes = 1;
+            } else if (ch >= 0xe0 && ch <= 0xef) {
+                continuationBytes = 2;
+                if (ch == 0xe0) {
+                    firstContMin = 0xa0;
+                } else if (ch == 0xed) {
+                    firstContMax = 0x9f;
+                }
+            } else if (ch >= 0xf0 && ch <= 0xf4) {
+                continuationBytes = 3;
+                if (ch == 0xf0) {
+                    firstContMin = 0x90;
+                } else if (ch == 0xf4) {
+                    firstContMax = 0x8f;
+                }
+            } else {
+                return false;
+            }
+
+            unlikely_if(ptr + continuationBytes >= end) { return false; }
+            ptr++;
+            unlikely_if(*ptr < firstContMin || *ptr > firstContMax) { return false; }
+            for (int i = 1; i < continuationBytes; i++) {
                 ptr++;
                 unlikely_if((*ptr & 0xc0) != 0x80) { return false; }
             }
         }
-        else unlikely_if(ch < 0x20 && !g_printableControlChars[ch])
+        else unlikely_if(requirePrintableControlChars && ch < 0x20 && !g_printableControlChars[ch])
         {
             return false;
         }
     }
     return false;
+}
+
+bool ksstring_isNullTerminatedUTF8String(const void *memory, int minLength, int maxLength)
+{
+    return isNullTerminatedUTF8String(memory, minLength, maxLength, true);
+}
+
+bool ksstring_isValidUTF8String(const void *memory, int maxLength)
+{
+    return isNullTerminatedUTF8String(memory, 0, maxLength, false);
+}
+
+void ksstring_trimTrailingIncompleteUTF8(char *buffer, int length)
+{
+    if (buffer == NULL || length <= 0) {
+        return;
+    }
+
+    // Walk back over any trailing UTF-8 continuation bytes (10xxxxxx).
+    int i = length - 1;
+    while (i > 0 && ((unsigned char)buffer[i] & 0xc0) == 0x80) {
+        i--;
+    }
+
+    unsigned char lead = (unsigned char)buffer[i];
+    if ((lead & 0x80) == 0) {
+        return;
+    }
+
+    int expectedLength = 0;
+    if (lead >= 0xc2 && lead <= 0xdf) {
+        expectedLength = 2;
+    } else if (lead >= 0xe0 && lead <= 0xef) {
+        expectedLength = 3;
+    } else if (lead >= 0xf0 && lead <= 0xf4) {
+        expectedLength = 4;
+    }
+
+    if (expectedLength == 0 || (length - i) < expectedLength) {
+        buffer[i] = '\0';
+    }
 }
 
 #define INV 0xff
