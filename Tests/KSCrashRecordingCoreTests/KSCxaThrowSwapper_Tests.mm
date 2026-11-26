@@ -83,12 +83,38 @@ static std::atomic<int> g_handlerCallCount { 0 };
 static std::atomic<void *> g_lastThrownException { nullptr };
 static std::atomic<std::type_info *> g_lastTypeInfo { nullptr };
 
-static void testHandler(void *thrown_exception, std::type_info *tinfo, void (*dest)(void *) __unused)
+static ksct_destructor testHandler(void *thrown_exception, std::type_info *tinfo, ksct_destructor dest)
 {
     g_handlerCallCount.fetch_add(1, std::memory_order_relaxed);
     g_lastThrownException.store(thrown_exception, std::memory_order_relaxed);
     g_lastTypeInfo.store(tinfo, std::memory_order_relaxed);
+    return dest;
 }
+
+namespace
+{
+
+struct FilterProbe {
+    explicit FilterProbe(int *count) : destructions(count) {}
+    FilterProbe(const FilterProbe &) = default;
+    int *destructions;
+    ~FilterProbe() { ++*destructions; }
+};
+
+static ksct_destructor originalProbeDestructor;
+static int wrapperCalls;
+
+static ksct_destructor wrapProbe(void *, std::type_info *type, ksct_destructor destroy)
+{
+    if (type == nullptr || *type != typeid(FilterProbe)) return destroy;
+    originalProbeDestructor = destroy;
+    return [](void *object) {
+        ++wrapperCalls;
+        originalProbeDestructor(object);
+    };
+}
+
+}  // namespace
 
 static void resetHandlerState()
 {
@@ -237,6 +263,23 @@ static std::vector<uintptr_t> pagesRewrittenBySwap(void)
     }
 
     XCTAssertEqual(g_handlerCallCount.load(), 1, @"Handler should be called once after throw");
+}
+
+- (void)testFilterReturnValueIsUsedAsTheDestructor
+{
+    XCTSkipIf(KSCRASH_HAS_SANITIZER, @"Sanitizers conflict with __cxa_throw swapper");
+
+    wrapperCalls = 0;
+    int destructions = 0;
+    ksct_swap(wrapProbe);
+
+    try {
+        throw FilterProbe { &destructions };
+    } catch (const FilterProbe &) {
+        XCTAssertEqual(wrapperCalls, 0);
+    }
+    XCTAssertEqual(wrapperCalls, 1);
+    XCTAssertEqual(destructions, 1);
 }
 
 /// Test that handler receives correct type info
