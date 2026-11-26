@@ -8,10 +8,6 @@
 #import <os/lock.h>
 #import <stdatomic.h>
 
-#if KSCRASH_HAS_UIAPPLICATION
-#import <UIKit/UIKit.h>
-#endif
-
 /**
  The memory tracker takes care of centralizing the knowledge around memory.
  It does the following:
@@ -162,14 +158,6 @@ static KSCrashAppMemoryState StateFromPressureFlags(dispatch_source_memorypressu
     dispatch_source_set_timer(_limitSource, dispatch_time(DISPATCH_TIME_NOW, 0), NSEC_PER_SEC, NSEC_PER_SEC / 10);
     dispatch_activate(_limitSource);
 
-#if KSCRASH_HAS_UIAPPLICATION
-    // We won't always hit this depending on how the system is setup in the app,
-    // but at least we can try.
-    [[NSNotificationCenter defaultCenter] addObserver:self
-                                             selector:@selector(_appDidFinishLaunching)
-                                                 name:UIApplicationDidFinishLaunchingNotification
-                                               object:nil];
-#endif
     NSArray<KSCrashAppMemoryTrackerObserverBlock> *observers = nil;
     {
         os_unfair_lock_lock(&_lock);
@@ -191,20 +179,6 @@ static KSCrashAppMemoryState StateFromPressureFlags(dispatch_source_memorypressu
     }
     [self _handleMemoryChange:[self currentAppMemory] type:KSCrashAppMemoryTrackerChangeTypeNone observers:observers];
 }
-
-#if KSCRASH_HAS_UIAPPLICATION
-- (void)_appDidFinishLaunching
-{
-    NSArray<KSCrashAppMemoryTrackerObserverBlock> *observers = nil;
-    {
-        os_unfair_lock_lock(&_lock);
-        [_observers compact];
-        observers = [_observers allObjects];
-        os_unfair_lock_unlock(&_lock);
-    }
-    [self _handleMemoryChange:[self currentAppMemory] type:KSCrashAppMemoryTrackerChangeTypeNone observers:observers];
-}
-#endif
 
 - (void)stop
 {

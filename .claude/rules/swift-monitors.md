@@ -208,6 +208,7 @@ into another's.
 | Monitor | Status |
 |---|---|
 | Corpse (CrashReportExtension) | Born on this layer |
+| UI (`UIMonitor`) | Born on this layer; reads UIKit on the main thread |
 | MetricKit | Ported: `MetricKitMonitor: CrashMonitor` (writes no section and does not stitch, so both its C hooks stay NULL), registered via `MetricKitMonitor.plugin(.init())` (it has a real `Configuration`) |
 | Profiler | Ported: internal `ProfileMonitor: ReportSectionWriting` (id "profile", the report wire format), self-registering `shared` bridge |
 

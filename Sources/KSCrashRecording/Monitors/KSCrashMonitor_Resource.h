@@ -43,6 +43,7 @@
 
 #include "KSCrashMonitorAPI.h"
 #include "KSCrashNamespace.h"
+#include "KSCrashResource.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -51,14 +52,6 @@ extern "C" {
 // ============================================================================
 #pragma mark - Sidecar Struct -
 // ============================================================================
-
-/** Battery charging state — mirrors UIDeviceBatteryState values. */
-typedef enum {
-    KSCrashBatteryStateUnknown = 0,
-    KSCrashBatteryStateUnplugged = 1,
-    KSCrashBatteryStateCharging = 2,
-    KSCrashBatteryStateFull = 3,
-} KSCrashBatteryState;
 
 /** Battery level at or below which an unplugged device is considered
  *  a low-battery termination candidate (percent, 0–100). */

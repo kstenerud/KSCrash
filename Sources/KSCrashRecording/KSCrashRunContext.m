@@ -374,13 +374,13 @@ static NSString *safeString(const char *cstr)
 static NSString *hostKindWireString(uint8_t hostKind)
 {
     switch (hostKind) {
-        case KSCrashRunSummaryHostKindApp:
+        case KSCrashHostKindApp:
             return @"app";
-        case KSCrashRunSummaryHostKindExtension:
+        case KSCrashHostKindExtension:
             return @"extension";
-        case KSCrashRunSummaryHostKindXCTest:
+        case KSCrashHostKindXCTest:
             return @"xctest";
-        case KSCrashRunSummaryHostKindOther:
+        case KSCrashHostKindOther:
         default:
             return @"other";
     }

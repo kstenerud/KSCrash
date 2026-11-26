@@ -141,4 +141,60 @@ static KSCrashAppMemory *memorySample(uint64_t footprint, uint64_t systemRemaini
     XCTAssertNotNil(observer);
 }
 
+- (KSCrash_ResourceData)readSidecar
+{
+    KSCrash_ResourceData data = {};
+    XCTAssertEqual(ksresource_readSnapshotFromPath(g_sidecarPath.fileSystemRepresentation, &data),
+                   KSCrashSidecarReadOK);
+    return data;
+}
+
+- (void)testBatteryIsUnknownUntilSomethingFeedsIt
+{
+    self.sample = memorySample(74000000, 51000000, KSCrashAppMemoryStateNormal);
+    kscm_resource_getAPI()->setEnabled(true, NULL);
+    KSCrash_ResourceData data = [self readSidecar];
+    XCTAssertEqual(data.batteryLevel, 255);
+    XCTAssertEqual(data.batteryState, KSCrashBatteryStateUnknown);
+}
+
+- (void)testBatterySetterIsRecorded
+{
+    self.sample = memorySample(74000000, 51000000, KSCrashAppMemoryStateNormal);
+    kscm_resource_getAPI()->setEnabled(true, NULL);
+    kscm_resource_setBattery(42, KSCrashBatteryStateCharging);
+    KSCrash_ResourceData data = [self readSidecar];
+    XCTAssertEqual(data.batteryLevel, 42);
+    XCTAssertEqual(data.batteryState, KSCrashBatteryStateCharging);
+    XCTAssertGreaterThan(data.batteryUpdatedAtNs, 0ULL);
+}
+
+- (void)testProtectedDataIsUnreadUntilSomethingFeedsIt
+{
+    self.sample = memorySample(74000000, 51000000, KSCrashAppMemoryStateNormal);
+    kscm_resource_getAPI()->setEnabled(true, NULL);
+    XCTAssertEqual([self readSidecar].dataProtectionUpdatedAtNs, 0ULL);
+}
+
+- (void)testProtectedDataSetterIsRecorded
+{
+    self.sample = memorySample(74000000, 51000000, KSCrashAppMemoryStateNormal);
+    kscm_resource_getAPI()->setEnabled(true, NULL);
+    kscm_resource_setProtectedDataAvailable(false);
+    KSCrash_ResourceData data = [self readSidecar];
+    XCTAssertEqual(data.dataProtectionActive, 0);
+    XCTAssertGreaterThan(data.dataProtectionUpdatedAtNs, 0ULL);
+}
+
+- (void)testSettersWhileDisabledAreIgnored
+{
+    kscm_resource_setBattery(42, KSCrashBatteryStateCharging);
+    kscm_resource_setProtectedDataAvailable(false);
+    self.sample = memorySample(74000000, 51000000, KSCrashAppMemoryStateNormal);
+    kscm_resource_getAPI()->setEnabled(true, NULL);
+    KSCrash_ResourceData data = [self readSidecar];
+    XCTAssertEqual(data.batteryLevel, 255);
+    XCTAssertEqual(data.dataProtectionUpdatedAtNs, 0ULL);
+}
+
 @end

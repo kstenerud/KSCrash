@@ -27,18 +27,30 @@
 #import <XCTest/XCTest.h>
 
 #import "KSBinaryImageCache.h"
+#import "KSCrashC.h"
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitor_System.h"
 #import "KSCrashReportFields.h"
 #import "KSCrashSystem.h"
 #import "KSDynamicLinker.h"
 #import "KSFileUtils.h"
+#import "KSID.h"
 #import "KSJSONCodecObjC.h"
 #import "KSSysCtl.h"
 #import "KSSystemCapabilities.h"
 
 #include <errno.h>
 #include <fcntl.h>
+
+// Only to compare the rebuilt system name with UIKit's own.
+#if TARGET_OS_IOS || TARGET_OS_TV || TARGET_OS_VISION
+#define KSCRASH_TEST_HAS_UIDEVICE 1
+#import <UIKit/UIKit.h>
+#endif
+
+extern bool kscrash_testcode_readOrCreateDeviceID(const char *path, char outDeviceID[KSID_SIZE]);
+extern bool kscrash_testcode_readOrCreateDeviceIDInFile(int fd, const char *path, char outDeviceID[KSID_SIZE]);
+extern const char *kscrash_testcode_exchangeDeviceID(const char *deviceID);
 
 static char g_sidecarPath[512];
 
@@ -125,8 +137,11 @@ static struct KSCrashMonitorSavedState *g_savedMonitorState;
     api->setEnabled(false, NULL);
 }
 
-- (void)testDeviceAppHashMatchesTheSidecarAndOutlivesDisable
+- (void)testSidecarCarriesThePublishedDeviceID
 {
+    static const char *const deviceID = "0e5b6f3a-8c1d-4f2e-9a7b-3c4d5e6f7a8b";
+    const char *previous = kscrash_testcode_exchangeDeviceID(deviceID);
+
     KSCrashMonitorAPI *api = kscm_system_getAPI();
     KSCrash_ExceptionHandlerCallbacks callbacks = { .getRunSidecarPath = stubRunSidecarPath };
     api->init(&callbacks, NULL);
@@ -139,16 +154,19 @@ static struct KSCrashMonitorSavedState *g_savedMonitorState;
     XCTAssertTrue(ksfu_readBytesFromFD(fd, (char *)&sc, (int)sizeof(sc)));
     close(fd);
 
-    // The getter hands out the value the run's sidecar (and so the run summary's device_id) holds.
-    NSString *hash = @(kscm_system_getDeviceAppHash());
-    XCTAssertEqual(hash.length, 40U, @"a SHA1 in hex");
-    XCTAssertEqualObjects(hash, @(sc.deviceAppHash));
+    // The run's sidecar, and so the run summary's device_id, holds what the getter hands out.
+    XCTAssertEqualObjects(@(sc.deviceAppHash), @(deviceID));
+    XCTAssertEqual(kscrash_getDeviceID(), deviceID);
 
-    // Disabling unmaps the system data; the pointer the getter returned must stay valid.
-    const char *before = kscm_system_getDeviceAppHash();
     api->setEnabled(false, NULL);
-    XCTAssertEqualObjects(@(before), hash);
-    XCTAssertEqual(kscm_system_getDeviceAppHash(), before);
+    kscrash_testcode_exchangeDeviceID(previous);
+}
+
+- (void)testDeviceIDIsEmptyUntilPublished
+{
+    const char *previous = kscrash_testcode_exchangeDeviceID(NULL);
+    XCTAssertEqualObjects(@(kscrash_getDeviceID()), @"");
+    kscrash_testcode_exchangeDeviceID(previous);
 }
 
 - (void)testSetBootTimeLandsInTheSidecarForClassification
@@ -304,6 +322,98 @@ static struct KSCrashMonitorSavedState *g_savedMonitorState;
 #endif
 
     api->setEnabled(false, NULL);
+}
+
+- (void)testSystemNameMatchesUIKit
+{
+    KSCrashMonitorAPI *api = kscm_system_getAPI();
+    KSCrash_ExceptionHandlerCallbacks callbacks = { .getRunSidecarPath = stubRunSidecarPath };
+    api->init(&callbacks, NULL);
+    api->setEnabled(true, NULL);
+
+    NSString *sidecarFile = [self.tempDir stringByAppendingPathComponent:@"System.ksscr"];
+    KSCrash_SystemData sc = {};
+    int fd = open(sidecarFile.fileSystemRepresentation, O_RDONLY);
+    XCTAssertNotEqual(fd, -1);
+    XCTAssertTrue(ksfu_readBytesFromFD(fd, (char *)&sc, (int)sizeof(sc)));
+    close(fd);
+
+#if KSCRASH_TEST_HAS_UIDEVICE
+    XCTAssertEqualObjects(@(sc.systemName), UIDevice.currentDevice.systemName);
+#elif TARGET_OS_OSX
+    XCTAssertEqualObjects(@(sc.systemName), @"macOS");
+#endif
+
+    api->setEnabled(false, NULL);
+}
+
+- (void)testDeviceIDFileIsCreatedThenKept
+{
+    NSString *path = [self.tempDir stringByAppendingPathComponent:@"device_id"];
+    char first[KSID_SIZE];
+    XCTAssertTrue(kscrash_testcode_readOrCreateDeviceID(path.fileSystemRepresentation, first));
+    XCTAssertTrue(ksid_isValid(first));
+
+    NSString *stored = [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:nil];
+    XCTAssertEqualObjects(stored, @(first));
+
+    char second[KSID_SIZE];
+    XCTAssertTrue(kscrash_testcode_readOrCreateDeviceID(path.fileSystemRepresentation, second));
+    XCTAssertEqualObjects(@(second), @(first));
+}
+
+- (void)testCreatedDeviceIDFileIsExcludedFromBackup
+{
+    NSString *path = [self.tempDir stringByAppendingPathComponent:@"device_id"];
+    char deviceID[KSID_SIZE];
+    XCTAssertTrue(kscrash_testcode_readOrCreateDeviceID(path.fileSystemRepresentation, deviceID));
+
+    NSNumber *isExcluded = nil;
+    XCTAssertTrue([[NSURL fileURLWithPath:path] getResourceValue:&isExcluded
+                                                          forKey:NSURLIsExcludedFromBackupKey
+                                                           error:nil]);
+    XCTAssertEqualObjects(isExcluded, @YES);
+}
+
+- (void)testMalformedDeviceIDFileIsReplaced
+{
+    NSString *path = [self.tempDir stringByAppendingPathComponent:@"device_id"];
+    [@"not-a-uuid-not-a-uuid-not-a-uuid-xxxx" writeToFile:path atomically:NO encoding:NSUTF8StringEncoding error:nil];
+
+    char deviceID[KSID_SIZE];
+    XCTAssertTrue(kscrash_testcode_readOrCreateDeviceID(path.fileSystemRepresentation, deviceID));
+    XCTAssertTrue(ksid_isValid(deviceID));
+
+    NSString *stored = [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:nil];
+    XCTAssertEqualObjects(stored, @(deviceID));
+}
+
+// A file that cannot be read may still hold a good ID, so it keeps it. A descriptor open only for
+// writing makes the read fail where a write would still succeed.
+- (void)testUnreadableDeviceIDFileIsKept
+{
+    NSString *path = [self.tempDir stringByAppendingPathComponent:@"device_id"];
+    char stored[KSID_SIZE];
+    XCTAssertTrue(kscrash_testcode_readOrCreateDeviceID(path.fileSystemRepresentation, stored));
+
+    int fd = open(path.fileSystemRepresentation, O_WRONLY | O_CLOEXEC);
+    XCTAssertGreaterThanOrEqual(fd, 0);
+    char deviceID[KSID_SIZE];
+    XCTAssertFalse(kscrash_testcode_readOrCreateDeviceIDInFile(fd, path.fileSystemRepresentation, deviceID));
+    close(fd);
+    XCTAssertTrue(ksid_isValid(deviceID));
+    XCTAssertNotEqualObjects(@(deviceID), @(stored));
+
+    NSString *contents = [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:nil];
+    XCTAssertEqualObjects(contents, @(stored));
+}
+
+- (void)testUnwritableDeviceIDPathStillGivesThisRunAnID
+{
+    NSString *path = [self.tempDir stringByAppendingPathComponent:@"missing-folder/device_id"];
+    char deviceID[KSID_SIZE];
+    XCTAssertFalse(kscrash_testcode_readOrCreateDeviceID(path.fileSystemRepresentation, deviceID));
+    XCTAssertTrue(ksid_isValid(deviceID));
 }
 
 - (void)testDynamicFieldsUpdated

@@ -44,6 +44,7 @@
 #include <stdint.h>
 
 #include "KSCrashAppTransitionState.h"
+#include "KSCrashHostKind.h"
 #include "KSCrashMonitorAPI.h"
 #include "KSCrashNamespace.h"
 #include "KSSystemCapabilities.h"
@@ -55,15 +56,6 @@ extern "C" {
 // ============================================================================
 #pragma mark - Sidecar Struct -
 // ============================================================================
-
-/** Kind of host process a run belongs to. Stored by value in the lifecycle
- *  sidecar and written to the run summary wire format as a string. */
-typedef enum {
-    KSCrashRunSummaryHostKindApp = 0,
-    KSCrashRunSummaryHostKindExtension,
-    KSCrashRunSummaryHostKindXCTest,
-    KSCrashRunSummaryHostKindOther,
-} KSCrashRunSummaryHostKind;
 
 #define KSLIFECYCLE_MAGIC ((int32_t)'kslc')
 
@@ -137,7 +129,7 @@ typedef struct {
     // creation. Recorded per-run so the previous run's summary carries the
     // *producer's* host kind when a different process type flushes it —
     // important when app and extension share one KSCrash install dir.
-    // Values match `KSCrashRunSummaryHostKind` (0=app, 1=extension,
+    // Values match `KSCrashHostKind` (0=app, 1=extension,
     // 2=xctest, 3=other). v2 sidecars short-read to 0 = app.
     uint8_t hostKind;
 

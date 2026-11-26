@@ -44,6 +44,10 @@ NS_ASSUME_NONNULL_BEGIN
  * and handle areas of the app that are very important to users but rarely handled
  * by apps.
  *
+ * The state is the app's, or in an app extension, its extension host's: the process presenting
+ * the extension, which is what the user sees. An extension that nothing presents is active for
+ * its whole run.
+ *
  * We'll keep it private for now until it is integrated with `KSCrashMonitor_Lifecycle`.
  */
 
@@ -58,6 +62,8 @@ NS_SWIFT_NAME(AppStateTracker)
 /**
  * The shared tracker. Use this unless you absolutely need your own tracker,
  * at which point you can simply allocate your own.
+ *
+ * It starts tracking on first access, from the state the app is in at that moment.
  */
 @property(class, atomic, readonly) KSCrashAppStateTracker *sharedInstance NS_SWIFT_NAME(shared);
 

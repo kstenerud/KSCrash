@@ -27,6 +27,7 @@
 #include "KSFileUtils.h"
 
 // #define KSLogger_LocalLevel TRACE
+#include <CoreFoundation/CoreFoundation.h>
 #include <TargetConditionals.h>
 #include <dirent.h>
 #include <errno.h>
@@ -403,6 +404,25 @@ bool ksfu_setDataProtectionAtPath(const char *path, KSFUDataProtection protectio
     (void)protection;
     return true;
 #endif
+}
+
+bool ksfu_excludeFromBackupAtPath(const char *path)
+{
+    CFURLRef url = CFURLCreateFromFileSystemRepresentation(NULL, (const UInt8 *)path,
+                                                           (CFIndex)strnlen(path, KSFU_MAX_PATH_LENGTH), false);
+    if (url == NULL) {
+        return false;
+    }
+    CFErrorRef error = NULL;
+    bool isExcluded = CFURLSetResourcePropertyForKey(url, kCFURLIsExcludedFromBackupKey, kCFBooleanTrue, &error);
+    if (!isExcluded) {
+        KSLOG_ERROR("Could not exclude %s from backup", path);
+        if (error != NULL) {
+            CFRelease(error);
+        }
+    }
+    CFRelease(url);
+    return isExcluded;
 }
 
 KSFUDataProtection ksfu_getDataProtection(int fd)

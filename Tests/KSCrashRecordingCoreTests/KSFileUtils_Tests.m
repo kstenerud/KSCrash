@@ -790,6 +790,25 @@
     XCTAssertFalse(ksfu_removeFile(path.UTF8String, false, NULL));
 }
 
+- (void)testExcludeFromBackup
+{
+    NSString *path = [self.tempPath stringByAppendingPathComponent:@"device_id"];
+    XCTAssertTrue([@"x" writeToFile:path atomically:NO encoding:NSUTF8StringEncoding error:nil]);
+    XCTAssertTrue(ksfu_excludeFromBackupAtPath(path.fileSystemRepresentation));
+
+    NSNumber *isExcluded = nil;
+    XCTAssertTrue([[NSURL fileURLWithPath:path] getResourceValue:&isExcluded
+                                                          forKey:NSURLIsExcludedFromBackupKey
+                                                           error:nil]);
+    XCTAssertEqualObjects(isExcluded, @YES);
+}
+
+- (void)testExcludeFromBackupOfAMissingPath
+{
+    NSString *path = [self.tempPath stringByAppendingPathComponent:@"missing"];
+    XCTAssertFalse(ksfu_excludeFromBackupAtPath(path.fileSystemRepresentation));
+}
+
 - (void)testSetDataProtectionOfAMissingPath
 {
     NSString *path = [self.tempPath stringByAppendingPathComponent:@"missing"];

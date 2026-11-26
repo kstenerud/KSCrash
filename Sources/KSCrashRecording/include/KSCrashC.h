@@ -263,6 +263,17 @@ KSCrashInstallErrorCode kscrash_installForCorpseReporting(const char *const inst
  */
 const char *kscrash_getLastRunID(void);
 
+/** Get the ID that identifies this app on this device.
+ *
+ * The same value as a report's `system.device_app_hash` and a run summary's
+ * `device_id`. It describes the calling process, so a report about another
+ * process gets its own from that process's run, never from here.
+ *
+ * @return A null-terminated string, or an empty string before kscrash_install().
+ *         The returned pointer is valid for the lifetime of the process.
+ */
+const char *kscrash_getDeviceID(void);
+
 /** Get the namespaced KSCrash name.
  *
  * Returns "KSCrash" by default, or "KSCrash<namespace>" when

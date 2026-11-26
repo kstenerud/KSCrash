@@ -221,6 +221,10 @@ let package = Package(
             targets: [Targets.bootMonitor]
         ),
         .library(
+            name: "UIMonitor",
+            targets: [Targets.uiMonitor]
+        ),
+        .library(
             name: "Profiler",
             targets: [Targets.profiler]
         ),
@@ -363,6 +367,41 @@ let package = Package(
             ],
             resources: [
                 .copy("Resources/PrivacyInfo.xcprivacy")
+            ]
+        ),
+
+        .target(
+            name: Targets.uiMonitorCore,
+            dependencies: [
+                .target(name: Targets.recording),
+                .target(name: Targets.recordingCore),
+                .target(name: Targets.core),
+            ],
+            resources: [
+                .copy("Resources/PrivacyInfo.xcprivacy")
+            ],
+            // Only the +load; nothing to import.
+            publicHeadersPath: ".",
+            cSettings: [
+                .unsafeFlags(warningFlags)
+            ]
+        ),
+        .target(
+            name: Targets.uiMonitor,
+            dependencies: [
+                .target(name: Targets.monitorPlugins),
+                .target(name: Targets.recording),
+                .target(name: Targets.uiMonitorCore),
+            ]
+        ),
+        .testTarget(
+            name: Targets.uiMonitor.tests,
+            dependencies: [
+                .target(name: Targets.uiMonitor),
+                .target(name: Targets.monitorPlugins),
+                .target(name: Targets.recording),
+                .target(name: Targets.recordingCore),
+                .target(name: Targets.testTools),
             ]
         ),
 
@@ -556,6 +595,8 @@ enum Targets {
     static let core = "KSCrashCore"
     static let diskMonitor = "KSCrashDiskMonitor"
     static let bootMonitor = "KSCrashBootMonitor"
+    static let uiMonitor = "KSCrashUIMonitor"
+    static let uiMonitorCore = "KSCrashUIMonitorCore"
     static let report = "KSCrashReportModel"
     static let kscrash = "KSCrash"
     static let testTools = "KSCrashTestTools"

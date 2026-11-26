@@ -57,6 +57,20 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
+               BlueprintIdentifier = "UIMonitor"
+               BuildableName = "UIMonitor"
+               BlueprintName = "UIMonitor"
+               ReferencedContainer = "container:">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
                BlueprintIdentifier = "Profiler"
                BuildableName = "Profiler"
                BlueprintName = "Profiler"
@@ -302,6 +316,16 @@
                BlueprintIdentifier = "KSCrashMonitorPluginsTests"
                BuildableName = "KSCrashMonitorPluginsTests"
                BlueprintName = "KSCrashMonitorPluginsTests"
+               ReferencedContainer = "container:">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "KSCrashUIMonitorTests"
+               BuildableName = "KSCrashUIMonitorTests"
+               BlueprintName = "KSCrashUIMonitorTests"
                ReferencedContainer = "container:">
             </BuildableReference>
          </TestableReference>

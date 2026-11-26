@@ -52,6 +52,7 @@
 #include "KSCrashRunContext.h"
 #include "KSDynamicLinker.h"
 #include "KSFileUtils.h"
+#include "KSID.h"
 #include "KSMemory.h"
 #include "KSObjC.h"
 #include "KSStackCursor_SelfThread.h"
@@ -196,6 +197,91 @@ static void rotateRunID(int fd, const char *path)
         KSLOG_ERROR("Failed to write new run ID to %s", path);
     }
     close(fd);
+}
+
+// Published once by install, and NULL before that. The string is never freed, so a pointer a reader
+// took stays valid for the life of the process.
+static _Atomic(const char *) g_deviceID = NULL;
+
+/** readOrCreateDeviceID on a file already open for reading and writing.
+ *
+ *  @param fd The open device ID file, positioned at its start. The caller closes it.
+ *  @param path The file's path, for logging and for keeping it out of backups.
+ *  @param outDeviceID Receives the ID, as readOrCreateDeviceID fills it.
+ *  @return true if the ID is the one the file holds.
+ */
+static bool readOrCreateDeviceIDInFile(int fd, const char *path, char outDeviceID[KSID_SIZE])
+{
+    bool isStored = false;
+    ssize_t bytesRead = read(fd, outDeviceID, KSID_LENGTH);
+    if (bytesRead < 0) {
+        // The file may hold a good ID this read could not get at, so it is left alone.
+        KSLOG_ERROR("Could not read %s: %s", path, strerror(errno));
+        ksid_generate(outDeviceID);
+        return false;
+    }
+    if (bytesRead == KSID_LENGTH) {
+        outDeviceID[KSID_LENGTH] = '\0';
+        isStored = ksid_isValid(outDeviceID);
+    }
+    if (!isStored) {
+        ksid_generate(outDeviceID);
+        if (ftruncate(fd, 0) == 0 && lseek(fd, 0, SEEK_SET) != (off_t)-1 &&
+            ksfu_writeBytesToFD(fd, outDeviceID, KSID_LENGTH)) {
+            isStored = true;
+            // A backup restored onto another device would give both devices this ID.
+            (void)ksfu_excludeFromBackupAtPath(path);
+        } else {
+            KSLOG_ERROR("Failed to write %s", path);
+        }
+    }
+    return isStored;
+}
+
+/** Reads the device ID from the file at path, or stores a new one there when it holds no valid ID.
+ *
+ *  @param path The device ID file.
+ *  @param outDeviceID Receives the ID. It is filled even when the file cannot be read or written,
+ *                     with an ID for this run only: unmatched, but not shared by every device of the
+ *                     same model.
+ *  @return true if the ID is the one the file holds.
+ */
+static bool readOrCreateDeviceID(const char *path, char outDeviceID[KSID_SIZE])
+{
+    int fd = open(path, O_RDWR | O_CREAT | O_CLOEXEC, KSC_RUN_ID_FILE_MODE);
+    if (fd < 0) {
+        KSLOG_ERROR("Could not open %s: %s", path, strerror(errno));
+        ksid_generate(outDeviceID);
+        return false;
+    }
+    bool isStored = readOrCreateDeviceIDInFile(fd, path, outDeviceID);
+    close(fd);
+    return isStored;
+}
+
+/** Publishes the device ID kept in Data/device_id, which stays for as long as the app is installed.
+ *  Must be called after the Data directory exists, and before the monitors are enabled.
+ */
+static void loadDeviceID(const char *installPath)
+{
+    char deviceID[KSID_SIZE];
+    char path[KSFU_MAX_PATH_LENGTH];
+    if (snprintf(path, sizeof(path), "%s/" KSCRS_DEFAULT_DATA_FOLDER "/device_id", installPath) >= (int)sizeof(path)) {
+        KSLOG_ERROR("device_id path too long");
+        ksid_generate(deviceID);
+    } else {
+        (void)readOrCreateDeviceID(path, deviceID);
+    }
+    const char *published = strdup(deviceID);
+    if (published != NULL) {
+        atomic_store_explicit(&g_deviceID, published, memory_order_release);
+    }
+}
+
+const char *kscrash_getDeviceID(void)
+{
+    const char *deviceID = atomic_load_explicit(&g_deviceID, memory_order_acquire);
+    return deviceID != NULL ? deviceID : "";
 }
 
 static void printPreviousLog(const char *filePath)
@@ -631,6 +717,7 @@ KSCrashInstallErrorCode kscrash_install(const char *const installPath, KSCrashCC
         KSLOG_ERROR("Could not open %s: %s", lastRunIDPath, strerror(errno));
     }
     rotateRunID(lastRunIDFD, lastRunIDPath);
+    loadDeviceID(installPath);
 
     KSCrashInstallErrorCode pathResult = resolveStoreConfigDefaults(installPath);
     if (pathResult != KSCrashInstallErrorNone) {
@@ -844,6 +931,24 @@ void kscrash_testcode_setRunID(const char *runID)
         return;
     }
     strlcpy(g_runIDSection.runID, runID, sizeof(g_runIDSection.runID));
+}
+
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+bool kscrash_testcode_readOrCreateDeviceID(const char *path, char outDeviceID[KSID_SIZE])
+{
+    return readOrCreateDeviceID(path, outDeviceID);
+}
+
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+bool kscrash_testcode_readOrCreateDeviceIDInFile(int fd, const char *path, char outDeviceID[KSID_SIZE])
+{
+    return readOrCreateDeviceIDInFile(fd, path, outDeviceID);
+}
+
+/** Replaces the published device ID and returns the one it replaces, so a test can restore it. */
+__attribute__((unused)) const char *kscrash_testcode_exchangeDeviceID(const char *deviceID)
+{
+    return atomic_exchange_explicit(&g_deviceID, deviceID, memory_order_acq_rel);
 }
 
 __attribute__((unused))  // For tests. Declared as extern in TestCase

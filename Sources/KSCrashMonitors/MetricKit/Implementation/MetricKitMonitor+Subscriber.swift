@@ -195,8 +195,8 @@ import os.log
 
         /// Builds system info from MetricKit metadata, never from the skeleton report, which
         /// describes this session. The bundle ID comes from the diagnostic (its JSON before 26, or
-        /// this app when it names none). The device hash,
-        /// the one value every run of the app shares, comes from this run (see deviceAppHash).
+        /// this app when it names none). The device ID,
+        /// the one value every run of the app shares, comes from this run (see deviceID).
         /// Used by the legacy crash, hang, CPU and disk write paths; the 27 streams build it from the
         /// typed environment.
         func buildSystemInfo(for diagnostic: MXDiagnostic) -> SystemInfo {
@@ -228,7 +228,7 @@ import os.log
                 cfBundleShortVersionString: applicationVersion,
                 cfBundleVersion: meta.applicationBuildVersion,
                 cpuArch: meta.platformArchitecture,
-                deviceAppHash: deviceAppHash(forDiagnosticBundleID: bundleIdentifier),
+                deviceAppHash: deviceID(forDiagnosticBundleID: bundleIdentifier),
                 machine: meta.deviceType,
                 osVersion: osInfo.build,
                 processID: processID,
