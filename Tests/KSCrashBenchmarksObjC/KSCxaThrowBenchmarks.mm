@@ -113,7 +113,7 @@ static ksct_destructor dummyHandler(void *thrown_exception __unused, std::type_i
 #pragma mark - Overhead Comparison Benchmarks
 
 /// Baseline: Throw without swap installed (native C++ exception performance).
-- (void)testBenchmarkThrowWithoutSwap
+- (void)testBenchmarkThrowBatchWithoutSwap
 {
 #if KSCRASH_HAS_SANITIZER
     NSLog(@"Skipping benchmark - sanitizers are enabled");
@@ -135,7 +135,7 @@ static ksct_destructor dummyHandler(void *thrown_exception __unused, std::type_i
 /// With swap: Throw with decorator installed (measures our overhead).
 /// This bundle carries a large symbol table (KSCxaThrowBenchmarkSymbols.c), so a
 /// per-throw lookup that scales with the throwing image's symbols shows up here.
-- (void)testBenchmarkThrowWithSwap
+- (void)testBenchmarkThrowBatchWithSwap
 {
 #if KSCRASH_HAS_SANITIZER
     NSLog(@"Skipping benchmark - sanitizers are enabled");

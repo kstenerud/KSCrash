@@ -217,6 +217,74 @@ static std::vector<uintptr_t> pagesRewrittenBySwap(void)
     return pages;
 }
 
+#pragma mark - Original Forwarding Helpers
+
+typedef void (*CxaThrowFunction)(void *, std::type_info *, void (*)(void *));
+
+static CxaThrowFunction g_probeForwardTo;
+static std::atomic<int> g_probeCallCount { 0 };
+
+// Stands in for this image's original __cxa_throw, so a throw that reaches it
+// proves the decorator picked this image's entry and not the shared fallback.
+[[noreturn]] static void cxaThrowProbe(void *thrown_exception, std::type_info *tinfo, void (*dest)(void *))
+{
+    g_probeCallCount.fetch_add(1, std::memory_order_relaxed);
+    g_probeForwardTo(thrown_exception, tinfo, dest);
+    __builtin_unreachable();
+}
+
+static bool writeSlot(void **slot, void *value)
+{
+    uintptr_t page = (uintptr_t)slot & ~(uintptr_t)(getpagesize() - 1);
+    vm_prot_t protection = VM_PROT_NONE;
+    if (!protectionOfPage(page, &protection)) {
+        return false;
+    }
+    if (mprotect((void *)page, (size_t)getpagesize(), PROT_READ | PROT_WRITE) != 0) {
+        return false;
+    }
+    *slot = value;
+    mprotect((void *)page, (size_t)getpagesize(), posixProtection(protection));
+    return true;
+}
+
+// The binding slot through which this file's code calls __cxa_throw, found by
+// swapping once and seeing which of this image's slots the swapper rewrote.
+static bool cxaThrowSlotInThisImage(GotSlot *outSlot)
+{
+    Dl_info info;
+    if (dladdr((const void *)&cxaThrowSlotInThisImage, &info) == 0 || info.dli_fbase == NULL) {
+        return false;
+    }
+    const mach_header_t *header = (const mach_header_t *)info.dli_fbase;
+
+    static const char *const kSegments[] = { SEG_DATA_CONST, SEG_DATA };
+    static const char *const kSections[] = { "__got", "__auth_got", "__la_symbol_ptr" };
+    std::vector<GotSlot> before;
+    for (const char *segment : kSegments) {
+        for (const char *section : kSections) {
+            unsigned long size = 0;
+            void **entries = (void **)(void *)getsectiondata(header, segment, section, &size);
+            for (unsigned long e = 0; entries != NULL && e < size / sizeof(void *); e++) {
+                before.push_back({ &entries[e], entries[e] });
+            }
+        }
+    }
+
+    ksct_swap(testHandler);
+    bool found = false;
+    for (const GotSlot &slot : before) {
+        if (*slot.address != slot.value) {
+            *outSlot = slot;
+            found = true;
+            break;
+        }
+    }
+    ksct_swapReset();
+    resetHandlerState();
+    return found;
+}
+
 #pragma mark - Test Class
 
 @interface KSCxaThrowSwapper_Tests : XCTestCase
@@ -678,6 +746,40 @@ static std::vector<uintptr_t> pagesRewrittenBySwap(void)
 
     ksct_swapReset();
     [self assertPages:pages writable:NO after:@"ksct_swapReset"];
+}
+
+#pragma mark - Original Forwarding Tests
+
+/// Test that a throw goes on to the throwing image's own original __cxa_throw
+/// Another library may have rebound an image's __cxa_throw before KSCrash did, and
+/// that image's throws must keep reaching it.
+- (void)testThrowForwardsToTheThrowingImagesOriginal
+{
+    XCTSkipIf(KSCRASH_HAS_SANITIZER, @"Sanitizers conflict with __cxa_throw swapper");
+
+    GotSlot slot = {};
+    XCTAssertTrue(cxaThrowSlotInThisImage(&slot), @"Precondition: ksct_swap should rebind this image's __cxa_throw");
+    if (slot.address == NULL) {
+        return;
+    }
+
+    g_probeForwardTo = (CxaThrowFunction)slot.value;
+    g_probeCallCount.store(0, std::memory_order_relaxed);
+    XCTAssertTrue(writeSlot(slot.address, (void *)cxaThrowProbe), @"Precondition: could not install the probe");
+    [self addTeardownBlock:^{
+        ksct_swapReset();
+        writeSlot(slot.address, slot.value);
+    }];
+
+    ksct_swap(testHandler);
+    try {
+        throw TestException();
+    } catch (const TestException &e) {
+        (void)e;
+    }
+
+    XCTAssertEqual(g_handlerCallCount.load(), 1, @"The decorator should run for this image's throw");
+    XCTAssertEqual(g_probeCallCount.load(), 1, @"The throw should reach this image's original, not the fallback");
 }
 
 #pragma mark - Image Loading Tests
