@@ -58,6 +58,15 @@
 
 static BOOL gIsSharedInstanceCreated = NO;
 
+// References the link anchor of every KSCrash category so that a static linker
+// loads the category object files along with this one. See KSCrash+Private.h.
+__attribute__((used)) static void (*const gCategoryLinkAnchors[])(void) = {
+    kscrash_linkBacktraceCategory,
+    kscrash_linkHangCategory,
+    kscrash_linkNamespaceCategory,
+    kscrash_linkUserInfoCategory,
+};
+
 NSString *kscrash_getBundleName(void)
 {
     NSString *bundleName = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleName"];

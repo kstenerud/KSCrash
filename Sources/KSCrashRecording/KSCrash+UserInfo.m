@@ -24,9 +24,13 @@
 // THE SOFTWARE.
 //
 
+#import "KSCrash+Private.h"
 #import "KSCrash+UserInfo.h"
 
 #import "KSCrashMonitor_UserInfo.h"
+
+// Link anchor, see KSCrash+Private.h.
+void kscrash_linkUserInfoCategory(void) {}
 
 @implementation KSCrash (UserInfo)
 

@@ -25,8 +25,12 @@
 //
 
 #import "KSCrash+Namespace.h"
+#import "KSCrash+Private.h"
 
 #import "KSCrashC.h"
+
+// Link anchor, see KSCrash+Private.h.
+void kscrash_linkNamespaceCategory(void) {}
 
 @implementation KSCrash (Namespace)
 
