@@ -301,6 +301,26 @@ final class CppTests: IntegrationTestBase {
             "Expected the saved exception backtrace to include the original throw site: \(saved)")
     }
 
+    func testRethrowOnBackgroundThreadPreservesOriginalThrowSite() throws {
+        // The monitor is enabled on the main thread, so this checks that other threads record their throw sites.
+        try launchAndCrash(.cpp_rethrowCaughtCppBackgroundThread)
+
+        let raw = try readCrashReport { $0.crash.error.type == .cppException }
+        try raw.validate()
+        XCTAssertEqual(raw.crash.error.type, .cppException)
+        XCTAssertEqual(raw.crash.error.reason, "C++ exception")
+
+        let crashed = (try XCTUnwrap(raw.crashedThread?.backtrace)).contents.compactMap(\.symbolName)
+        XCTAssertTrue(
+            crashed.contains("sampleRethrowOnBackgroundThread"),
+            "Expected the crashed-thread backtrace to include the rethrow site: \(crashed)")
+
+        let saved = (try XCTUnwrap(raw.crash.lastExceptionBacktrace)).contents.compactMap(\.symbolName)
+        XCTAssertTrue(
+            saved.contains(where: isCppCrashSymbol),
+            "Expected the saved exception backtrace to include the original throw site: \(saved)")
+    }
+
     func testRethrowOnWorkerPreservesThrowingThreadsOriginalSite() throws {
         try launchAndCrash(.cpp_rethrowOnWorker)
 

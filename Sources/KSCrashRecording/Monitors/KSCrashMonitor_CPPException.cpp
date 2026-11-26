@@ -82,9 +82,6 @@ static thread_local KSStackCursor g_exceptionStackCursor;
 /** Handler backtrace captured in the terminate handler. */
 static thread_local KSStackCursor g_handlerStackCursor;
 
-/** True if the handler should capture the next stack trace (thread-local). */
-static thread_local bool g_captureNextStackTrace = false;
-
 static bool copyCurrentThrowCursor()
 {
     if (g_state.currentPrimaryException == nullptr || g_state.releasePrimaryException == nullptr) {
@@ -125,7 +122,8 @@ static bool isEnabled(__unused void *context) { return g_state.isEnabled && g_st
 static KS_NOINLINE ksct_destructor captureStackTrace(void *object, std::type_info *tinfo,
                                                      ksct_destructor destroy) KS_KEEP_FUNCTION_IN_STACKTRACE
 {
-    if (!g_captureNextStackTrace || kscm_cppexception_isObjCExceptionType(tinfo)) {
+    // Process-wide state, not per thread: a throw on any thread must record its site.
+    if (!isEnabled(NULL) || kscm_cppexception_isObjCExceptionType(tinfo)) {
         return destroy;
     }
 
@@ -182,7 +180,6 @@ static const char *cpp_discoverDescription(std::type_info *tinfo, char *buffer, 
     const char *description = buffer;
 
     KSLOG_DEBUG("Discovering what kind of exception was thrown.");
-    g_captureNextStackTrace = false;
 
     // Rethrow only when an exception is active; throw; with no active
     // exception would recurse into std::terminate().
@@ -223,7 +220,6 @@ static const char *cpp_discoverDescription(std::type_info *tinfo, char *buffer, 
     } else {
         description = NULL;
     }
-    g_captureNextStackTrace = isEnabled(NULL);
     return description;
 }
 
@@ -351,7 +347,6 @@ static void setEnabled(bool enabled, __unused void *context)
     if (enabled) {
         install();
     }
-    g_captureNextStackTrace = isEnabled(NULL);
 }
 
 extern "C" void kscm_enableSwapCxaThrow(void)
