@@ -46,6 +46,23 @@ class BenchmarkException : public std::exception
 
 #pragma mark - Helper Functions
 
+// Throws per measured sample in the swap comparison. A single throw costs a few
+// microseconds, well under XCTest's per-sample overhead, so one throw per sample
+// measures the harness rather than the throw. Keep in sync with "iterations" in
+// benchmark-tests.json.
+static const int kThrowsPerSample = 1000;
+
+static void throwAndCatch(int count)
+{
+    for (int i = 0; i < count; i++) {
+        try {
+            throw BenchmarkException();
+        } catch (const BenchmarkException &e) {
+            (void)e;
+        }
+    }
+}
+
 // Pass the destructor through unchanged when benchmarking the swapper.
 static ksct_destructor dummyHandler(void *thrown_exception __unused, std::type_info *tinfo __unused,
                                     ksct_destructor dest)
@@ -96,7 +113,7 @@ static ksct_destructor dummyHandler(void *thrown_exception __unused, std::type_i
 #pragma mark - Overhead Comparison Benchmarks
 
 /// Baseline: Throw without swap installed (native C++ exception performance).
-- (void)testBenchmarkThrowWithoutSwap
+- (void)testBenchmarkThrowBatchWithoutSwap
 {
 #if KSCRASH_HAS_SANITIZER
     NSLog(@"Skipping benchmark - sanitizers are enabled");
@@ -106,17 +123,19 @@ static ksct_destructor dummyHandler(void *thrown_exception __unused, std::type_i
     // Ensure swap is not installed
     ksct_swapReset();
 
+    // The first throw pays one-time costs (unwind info, image lookups) that
+    // would otherwise land in the first sample.
+    throwAndCatch(1);
+
     [self measureBlock:^{
-        try {
-            throw BenchmarkException();
-        } catch (const BenchmarkException &e) {
-            (void)e;
-        }
+        throwAndCatch(kThrowsPerSample);
     }];
 }
 
 /// With swap: Throw with decorator installed (measures our overhead).
-- (void)testBenchmarkThrowWithSwap
+/// This bundle carries a large symbol table (KSCxaThrowBenchmarkSymbols.c), so a
+/// per-throw lookup that scales with the throwing image's symbols shows up here.
+- (void)testBenchmarkThrowBatchWithSwap
 {
 #if KSCRASH_HAS_SANITIZER
     NSLog(@"Skipping benchmark - sanitizers are enabled");
@@ -126,12 +145,10 @@ static ksct_destructor dummyHandler(void *thrown_exception __unused, std::type_i
     // Ensure swap is installed
     ksct_swap(dummyHandler);
 
+    throwAndCatch(1);
+
     [self measureBlock:^{
-        try {
-            throw BenchmarkException();
-        } catch (const BenchmarkException &e) {
-            (void)e;
-        }
+        throwAndCatch(kThrowsPerSample);
     }];
 }
 

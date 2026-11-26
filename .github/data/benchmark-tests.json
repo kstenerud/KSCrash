@@ -6,6 +6,12 @@
       "thresholds": { "excellent": 0.0001, "good": 0.001, "ok": 0.005 }
     },
     {
+      "id": "cxa_throw_per_throw",
+      "name": "C++ Throw Overhead (KSCxaThrowSwapper)",
+      "thresholds": { "excellent": 0.00002, "good": 0.00005, "ok": 0.0001 },
+      "perCall": true
+    },
+    {
       "id": "backtrace",
       "name": "Stack Capture (KSBacktrace)",
       "thresholds": { "excellent": 0.0001, "good": 0.001, "ok": 0.005 }
@@ -53,8 +59,8 @@
     { "name": "SwapInstallationWarm", "category": "cxa_throw", "description": "Swap installation (warm)", "notes": "Hook __cxa_throw across all dylibs" },
     { "name": "SwapInstallationCold", "category": "cxa_throw", "description": "Swap installation (cold)", "notes": "First-time installation, cold caches" },
     { "name": "SwapReset", "category": "cxa_throw", "description": "Swap reset", "notes": "Restore original bindings" },
-    { "name": "ThrowWithoutSwap", "category": "cxa_throw", "description": "Throw (no swap)", "notes": "Baseline native performance" },
-    { "name": "ThrowWithSwap", "category": "cxa_throw", "description": "Throw (with swap)", "notes": "With decorator overhead" },
+    { "name": "ThrowBatchWithoutSwap", "category": "cxa_throw_per_throw", "description": "Throw (no swap)", "notes": "Baseline native performance", "iterations": 1000 },
+    { "name": "ThrowBatchWithSwap", "category": "cxa_throw_per_throw", "description": "Throw (with swap)", "notes": "Decorator overhead, throwing from a 20k-symbol image", "iterations": 1000 },
     { "name": "ThrowCatch", "category": "cxa_throw", "description": "Throw/catch", "notes": "Basic exception cycle" },
     { "name": "ThrowRuntimeError", "category": "cxa_throw", "description": "runtime_error", "notes": "Standard exception type" },
     { "name": "ThrowString", "category": "cxa_throw", "description": "string exception", "notes": "String exception type" },
