@@ -51,7 +51,6 @@
 #include "KSCxaThrowSwapper.h"
 
 #include <assert.h>
-#include <dlfcn.h>
 #include <errno.h>
 #include <mach-o/dyld.h>
 #include <mach-o/nlist.h>
@@ -78,8 +77,13 @@
 // Thread-safety: `function` is the synchronization point. Writers store all other fields
 // before storing `function` with release semantics. Readers must load `function` with
 // acquire semantics and only access other fields if `function != 0`.
+//
+// [textStart, textEnd) is the image's loaded __TEXT segment. The decorator matches a
+// throw site against it, so finding the throwing image touches nothing but this array:
+// no dyld image list, no image cache, nothing another thread can hold.
 typedef struct {
-    uintptr_t image;
+    uintptr_t textStart;
+    uintptr_t textEnd;
     _Atomic(uintptr_t) function;  // Atomic: non-zero signals slot is ready (written last)
     void **binding;               // Pointer to the GOT entry, for restoring original
 } KSAddressPair;
@@ -128,9 +132,9 @@ static bool reserveIndex(size_t *out_index)
     }
 }
 
-static bool addPair(uintptr_t image, uintptr_t function, void **binding)
+static bool addPair(uintptr_t textStart, uintptr_t textEnd, uintptr_t function, void **binding)
 {
-    KSLOG_DEBUG("Adding address pair: image=%p, function=%p", (void *)image, (void *)function);
+    KSLOG_DEBUG("Adding address pair: text=%p-%p, function=%p", (void *)textStart, (void *)textEnd, (void *)function);
 
     // Atomically reserve a slot in the array without exceeding MAX_CXA_ORIGINALS
     size_t index = 0;
@@ -141,9 +145,10 @@ static bool addPair(uintptr_t image, uintptr_t function, void **binding)
 
     // Write to the reserved slot. Write function LAST with release semantics
     // to signal the slot is ready. findAddress uses acquire to read function
-    // and skips zero entries, so this ensures image/binding are visible when
-    // function is non-zero.
-    g_cxa_originals[index].image = image;
+    // and skips zero entries, so this ensures the range and binding are visible
+    // when function is non-zero.
+    g_cxa_originals[index].textStart = textStart;
+    g_cxa_originals[index].textEnd = textEnd;
     g_cxa_originals[index].binding = binding;
     atomic_store_explicit(&g_cxa_originals[index].function, function, memory_order_release);
 
@@ -155,26 +160,26 @@ static bool addPair(uintptr_t image, uintptr_t function, void **binding)
     return true;
 }
 
-static uintptr_t findAddress(void *address)
+static uintptr_t findAddress(uintptr_t address)
 {
-    KSLOG_TRACE("Finding address for %p", address);
+    KSLOG_TRACE("Finding address for %p", (void *)address);
 
     // Read the count atomically to know how many slots have been reserved
     size_t count = atomic_load_explicit(&g_cxa_originals_count, memory_order_acquire);
     for (size_t i = 0; i < count; i++) {
         // Read function with acquire semantics. A non-zero value means the slot
         // is fully written (addPair writes function last with release semantics).
-        // This acquire-release pairing ensures image/binding are visible.
+        // This acquire-release pairing ensures the range and binding are visible.
         uintptr_t function = atomic_load_explicit(&g_cxa_originals[i].function, memory_order_acquire);
         if (function == 0) {
             // Slot reserved but not yet written, skip it
             continue;
         }
-        if (g_cxa_originals[i].image == (uintptr_t)address) {
+        if (address >= g_cxa_originals[i].textStart && address < g_cxa_originals[i].textEnd) {
             return function;
         }
     }
-    KSLOG_WARN("Address %p not found", address);
+    KSLOG_WARN("Address %p not found", (void *)address);
     return (uintptr_t)NULL;
 }
 
@@ -243,18 +248,23 @@ __attribute__((noreturn)) static void __cxa_throw_decorator(void *thrown_excepti
 
     // Get the return address to identify which image threw the exception.
     // __builtin_return_address(0) returns the address our caller will return to,
-    // which is in the code that executed `throw`. We use dladdr() to find which
-    // image contains that address, then look up the original __cxa_throw for
-    // that image. This is faster than backtrace() since it's a single register
-    // read rather than a full stack walk.
+    // which is in the code that executed `throw`. Only a rebound image's code
+    // calls this decorator, so the address lies in one of the __TEXT ranges
+    // recorded at rebind time, and that entry holds the image's original.
+    //
+    // This runs on every throw, caught or not, and on many threads at once, so
+    // the lookup must not scale with the image's size and must not share state
+    // a thread can hold. dladdr() also resolves the nearest symbol, a scan of the
+    // image's whole symbol table, which made each throw cost time proportional to
+    // the throwing binary's symbol count. The image cache admits one thread at a
+    // time and walks dyld's image list on a miss.
     //
     // __builtin_extract_return_addr strips pointer authentication bits on ARM64e
     // and is a no-op on other architectures. We check for NULL in case the
     // builtin fails under unusual optimization/unwind settings.
     void *return_addr = __builtin_extract_return_addr(__builtin_return_address(0));
-    Dl_info info;
-    if (return_addr != NULL && dladdr(return_addr, &info) != 0) {
-        function = findAddress(info.dli_fbase);
+    if (return_addr != NULL) {
+        function = findAddress((uintptr_t)return_addr);
     }
 
     // If we couldn't find the image-specific original, use the fallback.
@@ -279,8 +289,8 @@ __attribute__((noreturn)) static void __cxa_throw_decorator(void *thrown_excepti
 
 // Returns true if __cxa_throw was found and rebound in this section
 static bool perform_rebinding_with_section(const section_t *dataSection, intptr_t slide, nlist_t *symtab, char *strtab,
-                                           uint32_t *indirect_symtab, uintptr_t imageBase, uint32_t nsyms,
-                                           uint32_t strsize, uint32_t nindirectsyms)
+                                           uint32_t *indirect_symtab, uintptr_t textStart, uintptr_t textEnd,
+                                           uint32_t nsyms, uint32_t strsize, uint32_t nindirectsyms)
 {
     // Symbol names in Mach-O start with '_', so "__cxa_throw" is stored as "___cxa_throw"
     static const char kNeedle[] = "__cxa_throw";
@@ -333,7 +343,7 @@ static bool perform_rebinding_with_section(const section_t *dataSection, intptr_
 
             // Only rebind if we successfully store the original. This prevents
             // rebinding when the array is full, which would break exception flow.
-            if (addPair(imageBase, (uintptr_t)indirect_symbol_bindings[i], &indirect_symbol_bindings[i])) {
+            if (addPair(textStart, textEnd, (uintptr_t)indirect_symbol_bindings[i], &indirect_symbol_bindings[i])) {
                 if (!writeProtectedBinding(&indirect_symbol_bindings[i], (void *)__cxa_throw_decorator)) {
                     KSLOG_ERROR("Failed to rebind __cxa_throw at %p", (void *)&indirect_symbol_bindings[i]);
                     return false;
@@ -348,8 +358,8 @@ static bool perform_rebinding_with_section(const section_t *dataSection, intptr_
 
 // Returns true if __cxa_throw was found and rebound in this segment
 static bool process_segment_direct(const segment_command_t *segment, intptr_t slide, nlist_t *symtab, char *strtab,
-                                   uint32_t *indirect_symtab, uintptr_t imageBase, uint32_t nsyms, uint32_t strsize,
-                                   uint32_t nindirectsyms)
+                                   uint32_t *indirect_symtab, uintptr_t textStart, uintptr_t textEnd, uint32_t nsyms,
+                                   uint32_t strsize, uint32_t nindirectsyms)
 {
     if (segment == NULL) {
         return false;
@@ -379,16 +389,16 @@ static bool process_segment_direct(const segment_command_t *segment, intptr_t sl
 
     // Check lazy symbol pointers first (more common location for __cxa_throw)
     if (lazy_sym_sect != NULL) {
-        if (perform_rebinding_with_section(lazy_sym_sect, slide, symtab, strtab, indirect_symtab, imageBase, nsyms,
-                                           strsize, nindirectsyms)) {
+        if (perform_rebinding_with_section(lazy_sym_sect, slide, symtab, strtab, indirect_symtab, textStart, textEnd,
+                                           nsyms, strsize, nindirectsyms)) {
             return true;  // Found and rebound, no need to check non-lazy
         }
     }
 
     // Check non-lazy symbol pointers
     if (non_lazy_sym_sect != NULL) {
-        if (perform_rebinding_with_section(non_lazy_sym_sect, slide, symtab, strtab, indirect_symtab, imageBase, nsyms,
-                                           strsize, nindirectsyms)) {
+        if (perform_rebinding_with_section(non_lazy_sym_sect, slide, symtab, strtab, indirect_symtab, textStart,
+                                           textEnd, nsyms, strsize, nindirectsyms)) {
             return true;
         }
     }
@@ -417,13 +427,11 @@ static void rebind_symbols_for_image(const struct mach_header *header, intptr_t 
         return;
     }
 
-    // The header pointer IS the image base address (dli_fbase in Dl_info)
-    uintptr_t imageBase = (uintptr_t)header;
-
     // Single pass through load commands to collect all needed structures.
     // This avoids multiple passes that helper functions like ksmacho_getSegmentByNameFromHeader would require.
     const struct symtab_command *symtab_cmd = NULL;
     const struct dysymtab_command *dysymtab_cmd = NULL;
+    const segment_command_t *text_segment = NULL;
     const segment_command_t *linkedit_segment = NULL;
     const segment_command_t *data_segment = NULL;
     const segment_command_t *data_const_segment = NULL;
@@ -438,11 +446,13 @@ static void rebind_symbols_for_image(const struct mach_header *header, intptr_t 
         } else if (cmd->cmd == LC_SEGMENT_ARCH_DEPENDENT) {
             // Cast via void* to avoid alignment warnings - load commands are properly aligned in Mach-O
             const segment_command_t *seg = (const segment_command_t *)(const void *)cmd;
-            // Fast rejection: all segments we care about start with '_' (__LINKEDIT, __DATA, __DATA_CONST).
-            // This avoids strcmp calls for unrelated segments like __TEXT, __PAGEZERO, etc.
+            // Fast rejection: all segments we care about start with '_' (__TEXT, __LINKEDIT, __DATA,
+            // __DATA_CONST), so a segment with any other name costs no strcmp.
             const char first = seg->segname[0];
             if (first == '_') {
-                if (strcmp(seg->segname, SEG_LINKEDIT) == 0) {
+                if (strcmp(seg->segname, SEG_TEXT) == 0) {
+                    text_segment = seg;
+                } else if (strcmp(seg->segname, SEG_LINKEDIT) == 0) {
                     linkedit_segment = seg;
                 } else if (strcmp(seg->segname, SEG_DATA) == 0) {
                     data_segment = seg;
@@ -454,9 +464,14 @@ static void rebind_symbols_for_image(const struct mach_header *header, intptr_t 
         current += cmd->cmdsize;
     }
 
-    if (symtab_cmd == NULL || dysymtab_cmd == NULL || linkedit_segment == NULL) {
+    if (symtab_cmd == NULL || dysymtab_cmd == NULL || linkedit_segment == NULL || text_segment == NULL) {
         return;
     }
+
+    // Every call into the decorator from this image comes from its code, which is
+    // in __TEXT, so this range identifies the image to the decorator.
+    uintptr_t textStart = (uintptr_t)slide + (uintptr_t)text_segment->vmaddr;
+    uintptr_t textEnd = textStart + (uintptr_t)text_segment->vmsize;
 
     // Compute base addresses for symbol/string tables
     uintptr_t linkedit_base = (uintptr_t)slide + linkedit_segment->vmaddr - linkedit_segment->fileoff;
@@ -466,12 +481,12 @@ static void rebind_symbols_for_image(const struct mach_header *header, intptr_t 
 
     // Try SEG_DATA first (more common), then SEG_DATA_CONST
     // Early exit if found - each image has at most one __cxa_throw binding
-    if (process_segment_direct(data_segment, slide, symtab, strtab, indirect_symtab, imageBase, symtab_cmd->nsyms,
-                               symtab_cmd->strsize, dysymtab_cmd->nindirectsyms)) {
+    if (process_segment_direct(data_segment, slide, symtab, strtab, indirect_symtab, textStart, textEnd,
+                               symtab_cmd->nsyms, symtab_cmd->strsize, dysymtab_cmd->nindirectsyms)) {
         return;
     }
-    process_segment_direct(data_const_segment, slide, symtab, strtab, indirect_symtab, imageBase, symtab_cmd->nsyms,
-                           symtab_cmd->strsize, dysymtab_cmd->nindirectsyms);
+    process_segment_direct(data_const_segment, slide, symtab, strtab, indirect_symtab, textStart, textEnd,
+                           symtab_cmd->nsyms, symtab_cmd->strsize, dysymtab_cmd->nindirectsyms);
 }
 #endif  // KSCRASH_HAS_SANITIZER
 
