@@ -106,6 +106,7 @@ final class TargetApp {
     private let appURL: URL
     private var process: Process?
     private var simulatorPID: pid_t?
+    private var launchFailed = false
     private let createdAt = Date()
 
     init() throws {
@@ -162,6 +163,7 @@ final class TargetApp {
                 simulatorPID = try device.launch(Self.bundleID, environment: launchEnvironment)
             }
         } catch {
+            launchFailed = true
             XCTFail("Could not launch the Sample app: \(error)")
         }
     }
@@ -201,7 +203,9 @@ final class TargetApp {
 
     /// What the app was doing when a test gave up waiting on it: its threads, while it is still
     /// running, and its system log since this test began. Taken before teardown ends the app,
-    /// because a stuck app killed by teardown leaves no trace of where it was stuck.
+    /// because a stuck app killed by teardown leaves no trace of where it was stuck. After a
+    /// launch that failed, also the simulator's launch-side log and the Mac's load: a launch that
+    /// never reached the app leaves nothing under its name.
     func diagnostics() -> [(name: String, text: String)] {
         var result: [(name: String, text: String)] = []
 
@@ -218,16 +222,33 @@ final class TargetApp {
 
         let start = DateFormatter()
         start.dateFormat = "yyyy-MM-dd HH:mm:ss"
-        let logShow = [
-            "log", "show", "--info", "--style", "compact", "--start", start.string(from: createdAt),
-            "--predicate", "process == \"Sample\"",
-        ]
-        let arguments =
+        let logShow = ["log", "show", "--info", "--style", "compact", "--start", start.string(from: createdAt)]
+        let onDevice =
             TargetPlatform.current == .macOS
-            ? logShow
-            : ["simctl", "spawn", (try? SimulatorDevice.shared(installing: appURL).udid) ?? "booted"] + logShow
-        let log = (try? SimulatorDevice.xcrun(arguments, allowFailure: true)) ?? "log show failed"
+            ? []
+            : ["simctl", "spawn", (try? SimulatorDevice.shared(installing: appURL).udid) ?? "booted"]
+        let log =
+            (try? SimulatorDevice.xcrun(
+                onDevice + logShow + ["--predicate", "process == \"Sample\""], allowFailure: true)) ?? "log show failed"
         result.append(("App system log", log))
+
+        if launchFailed {
+            if !onDevice.isEmpty {
+                // CoreSimulatorBridge carries out `simctl launch` and logs each attempt; FrontBoard
+                // runs inside SpringBoard. The whole device's log runs to megabytes a minute.
+                let launchSide = "process IN {\"CoreSimulatorBridge\", \"SpringBoard\", \"runningboardd\"}"
+                let launchLog =
+                    (try? SimulatorDevice.xcrun(onDevice + logShow + ["--predicate", launchSide], allowFailure: true))
+                    ?? "log show failed"
+                result.append(("Simulator launch log", launchLog))
+            }
+            // Two samples: the first one shows every process at 0% CPU.
+            let load =
+                (try? SimulatorDevice.xcrun(
+                    ["top", "-l", "2", "-s", "1", "-o", "cpu", "-n", "15", "-stats", "pid,command,cpu,mem"],
+                    allowFailure: true)) ?? "top failed"
+            result.append(("Mac load", load))
+        }
 
         return result
     }
