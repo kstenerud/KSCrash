@@ -8,7 +8,8 @@ app integrating that way ships, down to the symbol. Only KSCrash's own modules a
 counted: the app's own code, the system libraries and the Swift runtime are not KSCrash's.
 
 Usage:
-    python3 binary_size.py --build-dir DerivedData [--base-build-dir DerivedData] [--output binary_size.md]
+    python3 binary_size.py --build-dir DerivedData --repo-root CHECKOUT
+        [--base-build-dir DerivedData --base-repo-root BASE_CHECKOUT] [--output binary_size.md]
 """
 
 import argparse
@@ -323,10 +324,13 @@ def main():
     parser.add_argument("--repo-root", default=os.path.join(os.path.dirname(__file__), "..", ".."),
                         help="The checkout whose Sources/ lists the modules to measure")
     parser.add_argument("--base-repo-root", default=None,
-                        help="The base checkout, whose Sources/ lists the modules it is measured by "
-                             "(the current checkout's when omitted)")
+                        help="The base checkout, whose Sources/ lists the modules it is measured by. "
+                             "Required with --base-build-dir: the current list would drop a module "
+                             "the change removed from both sides.")
     parser.add_argument("--output", default="binary_size.md", help="Output markdown file")
     args = parser.parse_args()
+    if args.base_build_dir and not args.base_repo_root:
+        parser.error("--base-build-dir needs --base-repo-root")
 
     modules = kscrash_modules(args.repo_root)
     current = measure(args.build_dir, modules)
@@ -335,8 +339,7 @@ def main():
         sys.exit(1)
     base = None
     if args.base_build_dir:
-        base_modules = kscrash_modules(args.base_repo_root) if args.base_repo_root else modules
-        base = measure(args.base_build_dir, base_modules) or None
+        base = measure(args.base_build_dir, kscrash_modules(args.base_repo_root)) or None
         if base is None:
             print("Warning: no BinarySize link maps in the base build, skipping changes")
 
