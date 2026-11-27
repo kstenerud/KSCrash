@@ -81,6 +81,15 @@ extern "C" __attribute__((noinline, disable_tail_calls)) void sampleRethrowOnWor
     std::rethrow_exception(exception);
 }
 
+extern "C" __attribute__((noinline, disable_tail_calls)) void sampleRethrowOnBackgroundThread(void)
+{
+    try {
+        sample_namespace::Report::crash();
+    } catch (const std::runtime_error &) {
+        throw;
+    }
+}
+
 static void trigger_cpp_backgroundThread(void)
 {
     std::thread t([]() { sample_namespace::Report::crash(); });
@@ -240,6 +249,13 @@ static void trigger_user_swiftAsync(void) { integrationTestSwiftAsyncTrigger(); 
     } catch (const std::runtime_error &) {
         throw;
     }
+}
+
++ (void)trigger_cpp_rethrowCaughtCppBackgroundThread
+{
+    // The monitor is enabled on the main thread; the throw it must record happens on another one.
+    std::thread t([] { sampleRethrowOnBackgroundThread(); });
+    t.join();
 }
 
 + (void)trigger_cpp_rethrowOnWorker
