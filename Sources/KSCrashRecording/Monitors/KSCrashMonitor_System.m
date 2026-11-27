@@ -290,6 +290,13 @@ static NSString *getReceiptUrlPath(void)
  */
 static const char *systemNameForApp(const struct mach_header *header, const char *machine)
 {
+#if TARGET_OS_MACCATALYST
+    // A Catalyst build only ever runs beside Catalyst UIKit, which says iPadOS whatever the main
+    // executable was built for. The test runner that hosts Catalyst test bundles is a macOS binary.
+    (void)header;
+    (void)machine;
+    return "iPadOS";
+#else
     const struct build_version_command *build =
         header == NULL ? NULL
                        : (const struct build_version_command *)ksmacho_getCommandByTypeFromHeader(
@@ -317,6 +324,7 @@ static const char *systemNameForApp(const struct mach_header *header, const char
         default:
             return "";
     }
+#endif
 }
 
 static bool isTestBuild(void) { return [getReceiptUrlPath().lastPathComponent isEqualToString:@"sandboxReceipt"]; }
