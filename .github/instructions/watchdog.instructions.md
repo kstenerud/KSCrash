@@ -1,5 +1,5 @@
 ---
-applyTo: "Sources/KSCrashRecording/Monitors/KSCrashMonitor_Watchdog*,Sources/KSCrashRecording/Monitors/KSCrashMonitor_Lifecycle.m,Sources/KSCrashRecording/KSCrashRunContext.m,Tests/KSCrashRecordingTests/KSCrashMonitor_Watchdog*,Tests/KSCrashRecordingTests/KSCrashMonitor_Lifecycle_Tests.m,Tests/KSCrashRecordingTests/KSCrashMonitor_Termination_Tests.m,Samples/Tests/WatchdogTests.swift"
+applyTo: "Sources/KSCrashRecording/Monitors/KSCrashMonitor_Watchdog*,Sources/KSCrashRecording/Monitors/KSCrashMonitor_Lifecycle.m,Sources/KSCrashRecording/KSCrashRunContext.m,Sources/KSCrashRecording/KSCrashAppState*,Sources/KSCrashRecording/KSCrashAppStateTracker.m,Tests/KSCrashRecordingTests/KSCrashMonitor_Watchdog*,Tests/KSCrashRecordingTests/KSCrashMonitor_Lifecycle_Tests.m,Tests/KSCrashRecordingTests/KSCrashMonitor_Termination_Tests.m,Samples/Tests/WatchdogTests.swift"
 ---
 
 # Watchdog decisions
@@ -25,6 +25,24 @@ made, it is recorded here.
   the exit handler would lose the watchdog kill that a hang in that handler can
   still end in. Deciding at delivery (a reporting-off hang in a run that exited
   cleanly is not delivered) would need the store to drop a report from a stitch.
+- **A hang is during startup when it started before the app was first active.**
+  Startup lasts until the first Active, whatever launched the app, so a launch
+  into the background counts as startup for its whole stay there. Startup ending
+  when the user first uses the app, or when a system launch has done what it was
+  launched for, is not observable. Ending it at didFinishLaunching when the app
+  stays in the background was rejected: prewarm can reportedly run
+  didFinishLaunching long before first use.
+- **A hang carries the app state it started in.** The main thread takes the
+  transition state and whether the app has been active from the app-state
+  tracker as it wakes, beside the hang's start time, and the tick that detects
+  the hang uses those. Read on the detection tick, 250 ms later, a hang that made
+  the app active reads as one that started after startup. They come from the
+  tracker itself, which publishes its state for C in the same step that sets it
+  (`KSCrashAppState.h`). No monitor keeps a copy, because a copy fed by an
+  observer lags behind it. A wrong value is fixed where it is recorded, never by
+  checking it against another value such as a first-active timestamp. The start
+  task role is still read on the detection tick: reading it at every wake would
+  be a kernel call on the main thread.
 - **The delivery stitch decides the cause of death.** An unrecovered watchdog
   report is a watchdog kill only when the run's lifecycle shows neither a crash
   handler nor a clean exit. Otherwise it is a non-fatal `hang`: the hang was in
