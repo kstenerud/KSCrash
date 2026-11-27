@@ -1,419 +1,351 @@
 #!/usr/bin/env python3
 """
-Measure per-module binary sizes from an iOS Release build and generate a markdown report.
+Measure what KSCrash adds to an iOS app, from the link maps of the BinarySize apps in
+Samples/Project.swift, and write a markdown report.
+
+Each app is linked with dead stripping, so its link map says which of KSCrash's bytes an
+app integrating that way ships, down to the symbol. Only KSCrash's own modules are
+counted: the app's own code, the system libraries and the Swift runtime are not KSCrash's.
 
 Usage:
-    python3 binary_size.py --build-dir DerivedData [--base-build-dir DerivedData] [--output binary_size.md]
+    python3 binary_size.py --build-dir DerivedData --repo-root CHECKOUT
+        [--base-build-dir DerivedData --base-repo-root BASE_CHECKOUT] [--output binary_size.md]
 """
 
 import argparse
-import csv
-import io
+import bisect
+import glob
 import os
+import re
 import subprocess
 import sys
 
-# Modules that make up each user-facing product
-PRODUCTS = {
-    "Recording": ["KSCrashCore", "KSCrashRecordingCore", "KSCrashRecording"],
-    "KSCrash": [
-        "KSCrashCore",
-        "KSCrashRecordingCore",
-        "KSCrashRecording",
-        "KSCrashSwiftCore",
-        "KSCrashMonitorPlugins",
-        "KSCrashReportModel",
-        "KSCrash",
-    ],
-}
+# (target, label), in report order. The first is the one broken down by module.
+APPS = [
+    ("SizeApp", "App"),
+    ("CorpseReporter", "Crash report extension"),
+]
 
-# Add-on sizes count only modules NOT already in Recording
-ADDONS = {
-    "DiskMonitor": ["KSCrashDiskMonitor", "KSCrashMonitorPlugins", "KSCrashSwiftCore", "KSCrashReportModel"],
-    "BootMonitor": ["KSCrashBootMonitor", "KSCrashMonitorPlugins", "KSCrashSwiftCore", "KSCrashReportModel"],
-    "MonitorPlugins": ["KSCrashMonitorPlugins", "KSCrashSwiftCore", "KSCrashReportModel"],
-    "Profiler": ["KSCrashProfiler", "KSCrashSwiftCore"],
-    "Monitors": ["KSCrashMonitors", "KSCrashReportModel", "KSCrashSwiftCore"],
-}
+# Sections the loader reserves and zero-fills: memory, but nothing in the download.
+STATIC_BUFFER_SECTIONS = {"__bss", "__common", "__thread_bss"}
 
-# Artifacts to skip (test targets, benchmarks, internal-only helpers)
-SKIP_PREFIXES = ("KSCrashBenchmarks", "KSCrashTests", "Tests")
-SKIP_SUFFIXES = ("Tests",)
-SKIP_EXACT = {"KSCrashTestTools", "KSCrashRecordingCoreSwift"}
+TOP_SYMBOLS = 15
+
+LEGEND = """\
+---
+**Download size**: what KSCrash adds to the app's binary (code, constants and strings), measured after the linker removes unused code.
+**Static buffers**: the zero-filled memory KSCrash reserves for fixed-size buffers, as linked. A page counts toward the app's memory footprint only once KSCrash writes to it, so most of it may never be used. Thread-local buffers are counted once, though each thread that uses one gets its own copy. It adds nothing to the download.
+**Change**: compared with the base branch. "=" means no change, "new" means it isn't in the base.
+**App**: a normal install with every product an app would use (`Samples/BinarySize/SizeApp`). **Crash report extension**: the extension's own install (`Samples/Corpse/Reporter`).
+"""
 
 
-def find_modules(build_dir):
-    """Find *.o files in Build/Products/Release-iphoneos/, return {name: path}."""
-    products_dir = os.path.join(build_dir, "Build", "Products", "Release-iphoneos")
-    if not os.path.isdir(products_dir):
-        print(f"Error: products directory not found: {products_dir}", file=sys.stderr)
-        sys.exit(1)
+def kscrash_modules(repo_root):
+    """Every module under Sources/, which is what the measurement should cover."""
+    sources = os.path.join(repo_root, "Sources")
+    return sorted(
+        name for name in os.listdir(sources)
+        if os.path.isdir(os.path.join(sources, name)) and name != "KSCrashTestTools"
+    )
 
-    modules = {}
-    for entry in sorted(os.listdir(products_dir)):
-        if not entry.endswith(".o"):
+
+def find_link_maps(build_dir):
+    """{target: path} for every BinarySize app's Release device link map in a DerivedData
+    directory. Only Release-iphoneos counts, since that is what the report says it measures,
+    and a second map for one app is an error rather than a guess at which one is current."""
+    found = {}
+    for name, _ in APPS:
+        pattern = os.path.join(build_dir, "Build", "Intermediates.noindex", "*", "Release-iphoneos",
+                               f"{name}.build", f"{name}-LinkMap-normal-arm64.txt")
+        paths = glob.glob(pattern)
+        if len(paths) > 1:
+            print(f"Error: more than one Release-iphoneos link map for {name}: {', '.join(paths)}",
+                  file=sys.stderr)
+            sys.exit(1)
+        if paths:
+            found[name] = paths[0]
+    return found
+
+
+def symbol_group(name, section):
+    """A stable key for a symbol. Compiler-local labels and literals are renumbered from
+    one build to the next, so they are pooled per section instead of named."""
+    if name.startswith("literal string:"):
+        return "(C strings)"
+    if re.match(r"^(l_|L|ltmp|lCPI|l\.|___unnamed|_?GCC_except_table|_*block_literal_global|_?anon$)", name) \
+            or name.startswith("<"):
+        return f"({section})"
+    # Blocks and outlined copies carry a counter that moves when an unrelated one is added.
+    return re.sub(r"\.\d+$", "", name)
+
+
+def parse_link_map(path, modules):
+    """{(module, symbol, is_static_buffer): bytes} for the KSCrash modules in one link map.
+    The build's products also hold the samples' own dependencies, so an object counts only
+    when it is one of `modules`, the revision's own."""
+    objects = {}
+    sections = []  # (start, end, name)
+    starts = []
+    sizes = {}
+    mode = None
+    with open(path, "rb") as f:
+        for raw in f:
+            line = raw.decode("utf-8", "replace").rstrip("\n")
+            if line.startswith("# Object files:"):
+                mode = "objects"
+                continue
+            if line.startswith("# Sections:"):
+                mode = "sections"
+                continue
+            if line.startswith("# Symbols:"):
+                mode = "symbols"
+                sections.sort()
+                starts = [s[0] for s in sections]
+                continue
+            if line.startswith("# Dead Stripped Symbols:"):
+                break
+            if line.startswith("#") or not line:
+                continue
+            if mode == "objects":
+                m = re.match(r"^\[\s*(\d+)\]\s+(.*)$", line)
+                # Each KSCrash module is one prelinked object in the build's products.
+                if m and "/Build/Products/" in m.group(2) and m.group(2).endswith(".o"):
+                    module = os.path.basename(m.group(2))[:-2]
+                    if module in modules:
+                        objects[int(m.group(1))] = module
+            elif mode == "sections":
+                parts = line.split("\t")
+                if len(parts) >= 4:
+                    start, size = int(parts[0], 16), int(parts[1], 16)
+                    sections.append((start, start + size, parts[3]))
+            elif mode == "symbols":
+                m = re.match(r"^0x([0-9A-Fa-f]+)\t0x([0-9A-Fa-f]+)\t\[\s*(\d+)\]\s(.*)$", line)
+                if not m:
+                    continue
+                module = objects.get(int(m.group(3)))
+                if module is None:
+                    continue
+                addr, size = int(m.group(1), 16), int(m.group(2), 16)
+                i = bisect.bisect_right(starts, addr) - 1
+                section = sections[i][2] if i >= 0 and addr < sections[i][1] else "?"
+                key = (module, symbol_group(m.group(4), section), section in STATIC_BUFFER_SECTIONS)
+                sizes[key] = sizes.get(key, 0) + size
+    return sizes
+
+
+def measure(build_dir, modules):
+    """{target: {(module, symbol, is_static_buffer): bytes}} for every app found in a build."""
+    return {name: parse_link_map(path, set(modules)) for name, path in find_link_maps(build_dir).items()}
+
+
+def totals(symbols):
+    """(download bytes, static buffer bytes) of one app's KSCrash symbols."""
+    download = sum(n for (_, _, static), n in symbols.items() if not static)
+    static = sum(n for (_, _, is_static), n in symbols.items() if is_static)
+    return download, static
+
+
+def modules_of(symbols):
+    out = {}
+    for (module, _, static), n in symbols.items():
+        if not static:
+            out[module] = out.get(module, 0) + n
+    return out
+
+
+def symbol_changes(current, base):
+    """[(change, key, is_new, is_removed, apps)]: each app compared with its own base. Pooled
+    rows such as C strings differ from app to app, and the same row can grow in one and
+    shrink in the other, so every app's change is its own row. The same change in both
+    apps, which is what a symbol they share shows, is one row naming both."""
+    by_change = {}
+    for name, label in APPS:
+        now, before = current.get(name), base.get(name)
+        if now is None or before is None:
             continue
-        name = entry[:-2]  # strip .o
-        if _should_skip(name):
-            continue
-        modules[name] = os.path.join(products_dir, entry)
-    return modules
+        for key in set(now) | set(before):
+            d = now.get(key, 0) - before.get(key, 0)
+            if d:
+                row = (d, key, key not in before, key not in now)
+                by_change.setdefault(row, []).append(label)
+    return [row + (apps,) for row, apps in by_change.items()]
 
 
-def _should_skip(name):
-    """Check if a module name should be excluded from measurement."""
-    if name in SKIP_EXACT:
-        return True
-    if any(name.startswith(p) for p in SKIP_PREFIXES):
-        return True
-    if any(name.endswith(s) for s in SKIP_SUFFIXES):
-        return True
-    return False
-
-
-def _reported_modules():
-    """All modules referenced by PRODUCTS and ADDONS — the set we actually report on."""
-    modules = set()
-    for mods in PRODUCTS.values():
-        modules.update(mods)
-    for mods in ADDONS.values():
-        modules.update(mods)
-    return modules
-
-
-def check_completeness(found_modules):
-    """Check if all reported modules were built. Returns list of missing module names."""
-    return sorted(_reported_modules() - set(found_modules))
-
-
-def measure_module(path):
-    """Run bloaty on a .o file and return section sizes.
-
-    Uses sections (not segments) because .o files don't have segment load commands.
-    Reports vmsize for sections that map to __TEXT or __DATA in the linked binary.
-    Zero-fill sections (__bss, __common, __thread_bss) are excluded — they cost
-    runtime memory but no file/download size.
-    """
-    result = {"vm_total": 0, "file_total": 0, "text": 0, "data": 0}
-
-    # Sections that land in __TEXT segment in the linked binary
-    TEXT_SECTIONS = {
-        "__text", "__stubs", "__stub_helper", "__cstring", "__const",
-        "__constg_swiftt", "__literal8", "__literal16",
-        "__gcc_except_tab", "__unwind_info", "__compact_unwind", "__eh_frame",
-        "__swift5_typeref", "__swift5_reflstr", "__swift5_fieldmd",
-        "__swift5_assocty", "__swift5_proto", "__swift5_protos",
-        "__swift5_types", "__swift5_builtin", "__swift5_capture",
-        "__swift_modhash",
-    }
-    # Sections that land in __DATA segment (initialized data only, not zero-fill)
-    DATA_SECTIONS = {
-        "__data", "__cfstring", "__mod_init_func",
-        "__objc_const", "__objc_data", "__objc_classlist", "__objc_nlclslist",
-        "__objc_classrefs", "__objc_superrefs", "__objc_protolist",
-        "__objc_protorefs", "__objc_catlist", "__objc_clsrolist",
-        "__objc_selrefs", "__objc_ivar",
-        "__objc_methname", "__objc_methtype", "__objc_classname",
-        "__objc_imageinfo",
-        "__thread_vars",
-    }
-
+def demangle(names):
+    """Readable names for C, ObjC and Swift symbols, in the same order."""
     try:
         proc = subprocess.run(
-            ["bloaty", "--csv", "-n", "0", "-d", "sections", path],
-            capture_output=True,
-            text=True,
-            timeout=30,
+            ["xcrun", "swift-demangle", "--simplified"],
+            input="\n".join(names), capture_output=True, text=True, timeout=60,
         )
-        if proc.returncode != 0:
-            size = os.path.getsize(path)
-            result["vm_total"] = size
-            result["file_total"] = size
-            return result
-
-        reader = csv.DictReader(io.StringIO(proc.stdout))
-        for row in reader:
-            vm = int(row.get("vmsize", 0))
-            file_sz = int(row.get("filesize", 0))
-            section = row.get("sections", "").strip().strip(",").strip('"').strip()
-            result["vm_total"] += vm
-            result["file_total"] += file_sz
-            if section in TEXT_SECTIONS:
-                result["text"] += vm
-            elif section in DATA_SECTIONS:
-                result["data"] += vm
-    except FileNotFoundError:
-        size = os.path.getsize(path)
-        result["vm_total"] = size
-        result["file_total"] = size
-    except Exception:
-        size = os.path.getsize(path)
-        result["vm_total"] = size
-        result["file_total"] = size
-    return result
+        out = proc.stdout.split("\n")
+        if proc.returncode == 0 and len(out) >= len(names):
+            names = out[: len(names)]
+    except (OSError, subprocess.SubprocessError):
+        pass
+    # C and ObjC names carry the linker's leading underscore.
+    return [n[1:] if n.startswith("_") and not n.startswith("_$") else n for n in names]
 
 
-def fmt_size(size_bytes):
-    """Format bytes as human-readable KB."""
-    if size_bytes == 0:
-        return "0"
-    kb = size_bytes / 1024
-    if kb >= 100:
-        return f"{kb:.0f} KB"
-    return f"{kb:.1f} KB"
+def fmt_size(n):
+    if abs(n) < 1024:
+        return f"{n} B"
+    if abs(n) < 1024 * 1024:
+        return f"{n / 1024:.1f} KB"
+    return f"{n / (1024 * 1024):.2f} MB"
 
 
 def fmt_delta(current, base):
-    """Format a delta value with sign and percentage."""
     if base is None:
-        return ""
-    diff = current - base
-    if abs(diff) < 100:
+        return "new"
+    d = current - base
+    if d == 0:
         return "="
-    if base == 0:
-        return "*new*"
-    pct = diff / base * 100
-    sign = "+" if diff > 0 else ""
-    return f"{sign}{fmt_size(diff)} ({sign}{pct:.1f}%)"
+    sign = "+" if d > 0 else "−"
+    pct = f" ({sign}{abs(d) / base * 100:.1f}%)" if base else ""
+    return f"{sign}{fmt_size(abs(d))}{pct}"
 
 
-def generate_report(current_modules, current_sizes, base_sizes=None,
-                    missing_current=None, missing_base=None):
-    """Generate the markdown report."""
-    has_base = base_sizes is not None
+def md_name(name):
+    return "`" + name.replace("`", "'").replace("|", "\\|") + "`"
+
+
+def generate_report(current, base, expected_modules):
+    has_base = base is not None
     lines = []
+    main_app, main_label = APPS[0]
 
-    # Compute totals upfront for the summary
-    total_current = sum(current_sizes[m]["file_total"] for m in current_modules)
-    total_base = 0
-    if has_base:
-        total_base = sum(base_sizes[m]["file_total"] for m in base_sizes)
+    indicator = "&#x2139;&#xFE0F;"
+    if has_base and main_app in current and main_app in base:
+        now, before = totals(current[main_app])[0], totals(base[main_app])[0]
+        if before:
+            pct = (now - before) / before * 100
+            indicator = "&#x1F534;" if pct > 5 else "&#x1F7E1;" if pct > 1 else "&#x1F7E2;"
 
-    # Detect coverage changes (modules added/removed between base and PR)
-    added_modules = []
-    removed_modules = []
-    if has_base:
-        added_modules = sorted(set(current_sizes) - set(base_sizes))
-        removed_modules = sorted(set(base_sizes) - set(current_sizes))
-
-    # Status indicator
-    if has_base and total_base > 0:
-        pct = (total_current - total_base) / total_base * 100
-        if pct > 5:
-            indicator = "&#x1F534;"  # red circle
-        elif pct > 1:
-            indicator = "&#x1F7E1;"  # yellow circle
-        else:
-            indicator = "&#x1F7E2;"  # green circle
-    else:
-        indicator = "&#x2139;&#xFE0F;"  # info icon
-
-    # Summary line
     lines.append(f"# {indicator} Binary Size Report")
     lines.append("")
-    summary = f"**Total: {fmt_size(total_current)}**"
-    if has_base:
-        summary += f" ({fmt_delta(total_current, total_base)})"
-    summary += " — iOS arm64 Release, per-module object sizes (upper bound before linker dead-code stripping)"
-    lines.append(summary)
+    lines.append("KSCrash's own code and data in each app, iOS arm64 Release, linked with dead stripping.")
 
-    # Coverage change note
-    if added_modules or removed_modules:
+    measured = set()
+    for symbols in current.values():
+        measured.update(modules_of(symbols))
+    unmeasured = [m for m in expected_modules if m not in measured]
+    missing = [label for name, label in APPS if name not in current]
+    if missing:
         lines.append("")
-        parts = []
-        if added_modules:
-            parts.append(f"+{len(added_modules)} module(s): {', '.join(added_modules)}")
-        if removed_modules:
-            parts.append(f"-{len(removed_modules)} module(s): {', '.join(removed_modules)}")
-        lines.append(f"> **Coverage change:** {'; '.join(parts)}. "
-                      "Delta includes these modules — not purely a source-size change.")
-
-    # Completeness warnings
-    if missing_current:
+        lines.append(f"> **Warning:** no link map for: {', '.join(missing)}.")
+    if unmeasured:
         lines.append("")
-        lines.append(f"> **Warning:** measurement incomplete — missing module(s): "
-                      f"{', '.join(missing_current)}")
-    if missing_base:
+        lines.append(f"> **Not measured:** neither app links {', '.join(unmeasured)}. "
+                     "Add it to `Samples/BinarySize/SizeApp`.")
+    if not has_base:
         lines.append("")
-        lines.append(f"> **Warning:** base measurement incomplete — missing module(s): "
-                      f"{', '.join(missing_base)}. "
-                      "Deltas may overstate the actual size change.")
-
+        lines.append("> No changes shown: the base branch has no BinarySize apps.")
     lines.append("")
 
-    # Column labels: __TEXT = code + read-only data (download cost),
-    # __DATA = initialized writable data (download cost)
-    text_col = "Code (`__TEXT`)"
-    data_col = "Data (`__DATA`)"
-
-    # Per-module table (collapsible), sorted by absolute delta when base exists
-    lines.append("<details>")
-    lines.append("<summary>Per-Module Breakdown</summary>")
-    lines.append("")
     if has_base:
-        lines.append(f"| Module | {text_col} | {data_col} | File Total | Delta |")
-        lines.append("|--------|---------|---------|-------|-------|")
+        lines.append("| App | Download size | Change | Static buffers | Change |")
+        lines.append("|---|---|---|---|---|")
     else:
-        lines.append(f"| Module | {text_col} | {data_col} | File Total |")
-        lines.append("|--------|---------|---------|-------|")
-
-    # Sort by absolute delta (biggest movers first) when base exists, else by name
-    module_names = sorted(current_modules)
-    if has_base:
-        def sort_key(name):
-            cur = current_sizes[name]["file_total"]
-            base = base_sizes.get(name, {}).get("file_total", 0)
-            return -abs(cur - base)
-        module_names = sorted(current_modules, key=sort_key)
-
-    for name in module_names:
-        cur = current_sizes[name]
-        row = f"| {name} | {fmt_size(cur['text'])} | {fmt_size(cur['data'])} | {fmt_size(cur['file_total'])}"
+        lines.append("| App | Download size | Static buffers |")
+        lines.append("|---|---|---|")
+    for name, label in APPS:
+        if name not in current:
+            continue
+        download, static = totals(current[name])
         if has_base:
-            base = base_sizes.get(name)
-            if base:
-                row += f" | {fmt_delta(cur['file_total'], base['file_total'])}"
+            before = totals(base[name]) if name in base else (None, None)
+            lines.append(f"| {label} | {fmt_size(download)} | {fmt_delta(download, before[0])} | "
+                         f"{fmt_size(static)} | {fmt_delta(static, before[1])} |")
+        else:
+            lines.append(f"| {label} | {fmt_size(download)} | {fmt_size(static)} |")
+    lines.append("")
+
+    if main_app in current:
+        mods = modules_of(current[main_app])
+        base_mods = modules_of(base[main_app]) if has_base and main_app in base else {}
+        lines.append("<details open>")
+        lines.append(f"<summary>By module, in the {main_label}</summary>")
+        lines.append("")
+        if has_base:
+            lines.append("| Module | Download size | Change |")
+            lines.append("|---|---|---|")
+        else:
+            lines.append("| Module | Download size |")
+            lines.append("|---|---|")
+        for module in sorted(set(mods) | set(base_mods), key=lambda m: -mods.get(m, 0)):
+            size = mods.get(module, 0)
+            if has_base:
+                lines.append(f"| {module} | {fmt_size(size)} | {fmt_delta(size, base_mods.get(module))} |")
             else:
-                row += " | *new* "
-        row += " |"
-        lines.append(row)
+                lines.append(f"| {module} | {fmt_size(size)} |")
+        lines.append("")
+        lines.append("</details>")
+        lines.append("")
 
-    # Modules removed in PR (present in base but not current)
     if has_base:
-        for name in sorted(base_sizes):
-            if name not in current_sizes:
-                lines.append(
-                    f"| ~~{name}~~ | - | - | - | *removed* |"
-                )
+        changes = symbol_changes(current, base)
+        grew = sorted([c for c in changes if c[0] > 0], key=lambda c: -c[0])[:TOP_SYMBOLS]
+        shrank = sorted([c for c in changes if c[0] < 0], key=lambda c: c[0])[:TOP_SYMBOLS]
+        shown = grew + shrank
+        keys = list({c[1]: None for c in shown})
+        readable = dict(zip(keys, demangle([k[1] for k in keys]))) if keys else {}
+        for title, rows in (("Largest symbol growth", grew), ("Largest symbol shrinkage", shrank)):
+            if not rows:
+                continue
+            lines.append("<details open>")
+            lines.append(f"<summary>{title}</summary>")
+            lines.append("")
+            lines.append("| Symbol | Module | App | Change |")
+            lines.append("|---|---|---|---|")
+            for d, key, is_new, is_removed, apps in rows:
+                module, _, static = key
+                change = ("+" if d > 0 else "−") + fmt_size(abs(d))
+                if static:
+                    change += " static buffers"
+                if is_new:
+                    change += " (new)"
+                elif is_removed:
+                    change += " (removed)"
+                app = "Both" if len(apps) == len(APPS) else ", ".join(apps)
+                lines.append(f"| {md_name(readable[key])} | {module} | {app} | {change} |")
+            lines.append("")
+            lines.append("</details>")
+            lines.append("")
 
-    # Total row
-    if has_base:
-        lines.append(
-            f"| **Total** | | | **{fmt_size(total_current)}** | **{fmt_delta(total_current, total_base)}** |"
-        )
-    else:
-        lines.append(f"| **Total** | | | **{fmt_size(total_current)}** |")
-
-    lines.append("")
-    lines.append("</details>")
-    lines.append("")
-
-    # User cost by product (collapsible)
-    lines.append("<details>")
-    lines.append("<summary>User Cost by Product</summary>")
-    lines.append("")
-    if has_base:
-        lines.append("| Product | Size | Delta |")
-        lines.append("|---------|------|-------|")
-    else:
-        lines.append("| Product | Size |")
-        lines.append("|---------|------|")
-
-    for product_name, modules in PRODUCTS.items():
-        cur_total = sum(
-            current_sizes[m]["file_total"] for m in modules if m in current_sizes
-        )
-        row = f"| **{product_name}** | {fmt_size(cur_total)}"
-        if has_base:
-            base_total = sum(
-                base_sizes[m]["file_total"] for m in modules if m in base_sizes
-            )
-            row += f" | {fmt_delta(cur_total, base_total)}"
-        row += " |"
-        lines.append(row)
-
-    lines.append("")
-
-    # Add-ons
-    recording_modules = set(PRODUCTS["Recording"])
-    lines.append("**Optional Add-ons** (additional cost on top of Recording)")
-    lines.append("")
-    if has_base:
-        lines.append("| Add-on | Size | Delta |")
-        lines.append("|--------|------|-------|")
-    else:
-        lines.append("| Add-on | Size |")
-        lines.append("|--------|------|")
-
-    for addon_name, modules in ADDONS.items():
-        extra = [m for m in modules if m not in recording_modules]
-        cur_total = sum(
-            current_sizes[m]["file_total"] for m in extra if m in current_sizes
-        )
-        row = f"| {addon_name} | {fmt_size(cur_total)}"
-        if has_base:
-            base_total = sum(
-                base_sizes[m]["file_total"] for m in extra if m in base_sizes
-            )
-            row += f" | {fmt_delta(cur_total, base_total)}"
-        row += " |"
-        lines.append(row)
-
-    lines.append("")
-    lines.append("</details>")
-    lines.append("")
+    lines.append(LEGEND)
     return "\n".join(lines)
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Measure KSCrash module binary sizes")
-    parser.add_argument(
-        "--build-dir", required=True, help="Path to DerivedData for the current build"
-    )
-    parser.add_argument(
-        "--base-build-dir",
-        default=None,
-        help="Path to DerivedData for the base build (for delta comparison)",
-    )
-    parser.add_argument(
-        "--output", default="binary_size.md", help="Output markdown file"
-    )
-    parser.add_argument(
-        "--linked-binary",
-        default=None,
-        help="(Future) Path to a linked binary for actual size measurement",
-    )
+    parser = argparse.ArgumentParser(description="Measure what KSCrash adds to an iOS app")
+    parser.add_argument("--build-dir", required=True, help="DerivedData of the BinarySize build")
+    parser.add_argument("--base-build-dir", default=None, help="DerivedData of the base branch's build")
+    parser.add_argument("--repo-root", default=os.path.join(os.path.dirname(__file__), "..", ".."),
+                        help="The checkout whose Sources/ lists the modules to measure")
+    parser.add_argument("--base-repo-root", default=None,
+                        help="The base checkout, whose Sources/ lists the modules it is measured by. "
+                             "Required with --base-build-dir: the current list would drop a module "
+                             "the change removed from both sides.")
+    parser.add_argument("--output", default="binary_size.md", help="Output markdown file")
     args = parser.parse_args()
+    if args.base_build_dir and not args.base_repo_root:
+        parser.error("--base-build-dir needs --base-repo-root")
 
-    # Measure current build
-    current_modules = find_modules(args.build_dir)
-    if not current_modules:
-        print("Error: no .o modules found", file=sys.stderr)
+    modules = kscrash_modules(args.repo_root)
+    current = measure(args.build_dir, modules)
+    if not current:
+        print("Error: no BinarySize link maps found", file=sys.stderr)
         sys.exit(1)
-
-    missing_current = check_completeness(current_modules)
-    if missing_current:
-        print(f"Warning: missing reported module(s): {', '.join(missing_current)}")
-
-    print(f"Found {len(current_modules)} modules:")
-    for name in sorted(current_modules):
-        print(f"  {name}")
-
-    current_sizes = {}
-    for name, path in current_modules.items():
-        current_sizes[name] = measure_module(path)
-
-    # Measure base build if provided
-    base_sizes = None
-    missing_base = None
+    base = None
     if args.base_build_dir:
-        base_modules = find_modules(args.base_build_dir)
-        if base_modules:
-            missing_base = check_completeness(base_modules)
-            base_sizes = {}
-            for name, path in base_modules.items():
-                base_sizes[name] = measure_module(path)
-            print(f"\nBase has {len(base_modules)} modules")
-        else:
-            print("Warning: no .o modules found in base build, skipping delta")
+        base = measure(args.base_build_dir, kscrash_modules(args.base_repo_root)) or None
+        if base is None:
+            print("Warning: no BinarySize link maps in the base build, skipping changes")
 
-    report = generate_report(current_modules, current_sizes, base_sizes,
-                             missing_current, missing_base)
-
+    report = generate_report(current, base, modules)
     with open(args.output, "w") as f:
         f.write(report)
-
-    print(f"\nReport written to {args.output}")
     print(report)
 
 

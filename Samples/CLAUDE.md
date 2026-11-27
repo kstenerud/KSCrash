@@ -113,3 +113,19 @@ The sample app demonstrates various crash types that KSCrash can detect:
 2. Select a crash type to trigger
 3. After relaunching the app, navigate to the Reports tab to view crash reports
 4. Use the UI to export or send reports for further analysis
+
+## Binary Size Apps
+
+`SizeApp` (`BinarySize/SizeApp`) is a normal install with every product an app would use. It is
+never run. The `BinarySize` scheme builds it together with `CorpseReporter`, the extension, and
+`.github/workflows/binary-size.yml` links both with dead stripping and reads their link maps to
+report what KSCrash adds to each, by module and by symbol. A new product belongs in `SizeApp`, or
+the report lists its module as not measured. Locally, from `Samples/` (in a checkout whose
+directory is named `KSCrash`):
+```bash
+mise exec -- tuist generate --no-open
+xcodebuild build -workspace KSCrashSamples.xcworkspace -scheme BinarySize -configuration Release \
+    -destination 'generic/platform=iOS' -derivedDataPath /tmp/size CODE_SIGNING_ALLOWED=NO \
+    LD_GENERATE_MAP_FILE=YES
+python3 ../.github/scripts/binary_size.py --build-dir /tmp/size --repo-root ..
+```

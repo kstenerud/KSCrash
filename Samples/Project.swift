@@ -196,6 +196,27 @@ let project = Project(
                     "OTHER_SWIFT_FLAGS": ["-Xfrontend", "-enable-testing"]
                 ]) { _, new in new })
         ),
+
+        // A normal install with every product an app would use. Built by the
+        // binary size job and never run: its link map is what KSCrash adds to
+        // an app. CorpseReporter is measured the same way, as the extension.
+        .target(
+            name: "SizeApp",
+            destinations: .iOS,
+            product: .app,
+            bundleId: "com.github.kstenerud.KSCrash.SizeApp",
+            deploymentTargets: .iOS("15.0"),
+            infoPlist: .default,
+            sources: ["BinarySize/SizeApp/**"],
+            dependencies: [
+                .package(product: "KSCrash", type: .runtime),
+                .package(product: "DiskMonitor", type: .runtime),
+                .package(product: "BootMonitor", type: .runtime),
+                .package(product: "Monitors", type: .runtime),
+                .package(product: "Profiler", type: .runtime),
+                .package(product: "CrashReportExtension", type: .runtime),
+            ]
+        ),
     ],
     schemes: [
         .scheme(
@@ -217,6 +238,12 @@ let project = Project(
             // happens. Sample's own test action turns it off for the same reason.
             testAction: .targets(["CorpseTests"], configuration: .release, attachDebugger: false),
             runAction: .runAction(executable: "CorpseHost")
+        ),
+        // Built by the binary size job, never run.
+        .scheme(
+            name: "BinarySize",
+            shared: true,
+            buildAction: .buildAction(targets: ["SizeApp", "CorpseReporter"])
         ),
     ]
 )
