@@ -196,7 +196,7 @@ let project = Project(
                     "OTHER_SWIFT_FLAGS": ["-Xfrontend", "-enable-testing"]
                 ]) { _, new in new })
         ),
-    ],
+    ] + binarySizeTargets,
     schemes: [
         .scheme(
             name: "Sample",
@@ -218,8 +218,43 @@ let project = Project(
             testAction: .targets(["CorpseTests"], configuration: .release, attachDebugger: false),
             runAction: .runAction(executable: "CorpseHost")
         ),
+        // Built by the binary size job, never run. CorpseReporter is the corpse
+        // integration as it ships, so it is measured as it is.
+        .scheme(
+            name: "BinarySize",
+            shared: true,
+            buildAction: .buildAction(
+                targets: binarySizeTargets.map { .init(stringLiteral: $0.name) } + ["CorpseReporter"])
+        ),
     ]
 )
+
+/// One app per way of integrating KSCrash, each making the calls that integration makes.
+/// The binary size job links them for iOS with dead stripping and reads their link maps,
+/// so a size is what an app integrating that way ships. An add-on's app is SizeKSCrash
+/// plus that add-on, so the difference between the two is the add-on's cost.
+var binarySizeTargets: [Target] {
+    let apps: [(name: String, products: [String])] = [
+        ("SizeRecording", ["Recording"]),
+        ("SizeKSCrash", ["KSCrash"]),
+        ("SizeDiskMonitor", ["KSCrash", "DiskMonitor"]),
+        ("SizeBootMonitor", ["KSCrash", "BootMonitor"]),
+        ("SizeMetricKit", ["KSCrash", "Monitors"]),
+        ("SizeProfiler", ["KSCrash", "Profiler"]),
+    ]
+    return apps.map { app in
+        .target(
+            name: app.name,
+            destinations: .iOS,
+            product: .app,
+            bundleId: "com.github.kstenerud.KSCrash.\(app.name)",
+            deploymentTargets: .iOS("15.0"),
+            infoPlist: .default,
+            sources: ["BinarySize/\(app.name)/**"],
+            dependencies: app.products.map { .package(product: $0, type: .runtime) }
+        )
+    }
+}
 
 extension Set where Element == ProjectDescription.Destination {
     static var allForSample: Self {
