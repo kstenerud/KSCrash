@@ -16,6 +16,15 @@ made, it is recorded here.
   summary still says a hang was in progress. A normal exit is caught by the
   monitor's own exit handler, since it is no fatal event and the main thread
   does not go idle again to end the hang.
+- **The exit handler covers a hang in progress when it runs, not one that starts
+  after it.** `atexit` handlers run in reverse order, so one the app registered
+  before installing KSCrash runs after the watchdog's. A hang that handler causes
+  with hang reporting off keeps its report, which is delivered as a non-fatal
+  hang. This is left on purpose: it takes a slow handler registered first, and the
+  result is a report the app turned off, not a wrong one. Starting no hang after
+  the exit handler would lose the watchdog kill that a hang in that handler can
+  still end in. Deciding at delivery (a reporting-off hang in a run that exited
+  cleanly is not delivered) would need the store to drop a report from a stitch.
 - **The delivery stitch decides the cause of death.** An unrecovered watchdog
   report is a watchdog kill only when the run's lifecycle shows neither a crash
   handler nor a clean exit. Otherwise it is a non-fatal `hang`: the hang was in
