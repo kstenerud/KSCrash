@@ -42,7 +42,7 @@
 #include <errno.h>
 #include <fcntl.h>
 
-// Only to compare the rebuilt system name with UIKit's own.
+// Only to compare the recorded system name and version with UIKit's own.
 #if TARGET_OS_IOS || TARGET_OS_TV || TARGET_OS_VISION
 #define KSCRASH_TEST_HAS_UIDEVICE 1
 #import <UIKit/UIKit.h>
@@ -346,6 +346,29 @@ static struct KSCrashMonitorSavedState *g_savedMonitorState;
 
     api->setEnabled(false, NULL);
 }
+
+#if KSCRASH_TEST_HAS_UIDEVICE
+// On Mac Catalyst UIKit gives the iOS version the Mac's release corresponds to, which is not the
+// macOS version wherever the two numberings differ (macOS 15 is iOS 18).
+- (void)testSystemVersionMatchesUIKit
+{
+    KSCrashMonitorAPI *api = kscm_system_getAPI();
+    KSCrash_ExceptionHandlerCallbacks callbacks = { .getRunSidecarPath = stubRunSidecarPath };
+    api->init(&callbacks, NULL);
+    api->setEnabled(true, NULL);
+
+    NSString *sidecarFile = [self.tempDir stringByAppendingPathComponent:@"System.ksscr"];
+    KSCrash_SystemData sc = {};
+    int fd = open(sidecarFile.fileSystemRepresentation, O_RDONLY);
+    XCTAssertNotEqual(fd, -1);
+    XCTAssertTrue(ksfu_readBytesFromFD(fd, (char *)&sc, (int)sizeof(sc)));
+    close(fd);
+
+    XCTAssertEqualObjects(@(sc.systemVersion), UIDevice.currentDevice.systemVersion);
+
+    api->setEnabled(false, NULL);
+}
+#endif
 
 - (void)testDeviceIDFileIsCreatedThenKept
 {
