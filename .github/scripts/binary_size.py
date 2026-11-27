@@ -44,11 +44,15 @@ POOLED_SECTION_LABELS = {
 }
 
 LEGEND = """\
----
-**Download size**: what KSCrash adds to the app's binary (code, constants and strings), measured after the linker removes unused code.
-**Static buffers**: the zero-filled memory KSCrash reserves for fixed-size buffers, as linked. A page counts toward the app's memory footprint only once KSCrash writes to it, so most of it may never be used. Thread-local buffers are counted once, though each thread that uses one gets its own copy. It adds nothing to the download.
-**Change**: compared with the base branch. "=" means no change, "new" means it isn't in the base.
-**App**: a normal install with every product an app would use (`Samples/BinarySize/SizeApp`). **Crash report extension**: the extension's own install (`Samples/Corpse/Reporter`).
+<details>
+<summary>Legend</summary>
+
+**Download size**: KSCrash's code, constants and strings in the app, after unused code is stripped.
+**Static buffers**: zero-filled memory KSCrash reserves. It counts toward memory only once written, and adds nothing to the download.
+**App**: a normal install with every product. **Crash report extension**: the extension's own install.
+"=" is no change, "new" is not in the base.
+
+</details>
 """
 
 
@@ -309,7 +313,7 @@ def generate_report(current, base, expected_modules):
     if main_app in current:
         mods = modules_of(current[main_app])
         base_mods = modules_of(base[main_app]) if has_base and main_app in base else {}
-        lines.append("<details open>")
+        lines.append("<details>")
         lines.append(f"<summary>By module, in the {main_label}</summary>")
         lines.append("")
         if has_base:
@@ -335,7 +339,7 @@ def generate_report(current, base, expected_modules):
         for title, rows in (("Largest symbol growth", grew), ("Largest symbol shrinkage", shrank)):
             if not rows:
                 continue
-            lines.append("<details open>")
+            lines.append("<details>")
             lines.append(f"<summary>{title}</summary>")
             lines.append("")
             lines.append("| Symbol | Module | Change |")
