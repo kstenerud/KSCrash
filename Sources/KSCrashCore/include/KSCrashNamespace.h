@@ -464,7 +464,6 @@
 #define ksstring_isNullTerminatedUTF8String KSCRASH_NS(ksstring_isNullTerminatedUTF8String)
 #define ksstring_isValidUTF8String KSCRASH_NS(ksstring_isValidUTF8String)
 #define ksstring_safeStrcmp KSCRASH_NS(ksstring_safeStrcmp)
-#define ksstring_trimTrailingIncompleteUTF8 KSCRASH_NS(ksstring_trimTrailingIncompleteUTF8)
 #define ksstring_uint64ToDecimal KSCRASH_NS(ksstring_uint64ToDecimal)
 #define ksstring_uint64ToHex KSCRASH_NS(ksstring_uint64ToHex)
 #define kssw_close KSCRASH_NS(kssw_close)

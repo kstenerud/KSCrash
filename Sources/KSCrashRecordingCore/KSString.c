@@ -109,37 +109,6 @@ bool ksstring_isValidUTF8String(const void *memory, int maxLength)
     return isNullTerminatedUTF8String(memory, 0, maxLength, false);
 }
 
-void ksstring_trimTrailingIncompleteUTF8(char *buffer, int length)
-{
-    if (buffer == NULL || length <= 0) {
-        return;
-    }
-
-    // Walk back over any trailing UTF-8 continuation bytes (10xxxxxx).
-    int i = length - 1;
-    while (i > 0 && ((unsigned char)buffer[i] & 0xc0) == 0x80) {
-        i--;
-    }
-
-    unsigned char lead = (unsigned char)buffer[i];
-    if ((lead & 0x80) == 0) {
-        return;
-    }
-
-    int expectedLength = 0;
-    if (lead >= 0xc2 && lead <= 0xdf) {
-        expectedLength = 2;
-    } else if (lead >= 0xe0 && lead <= 0xef) {
-        expectedLength = 3;
-    } else if (lead >= 0xf0 && lead <= 0xf4) {
-        expectedLength = 4;
-    }
-
-    if (expectedLength == 0 || (length - i) < expectedLength) {
-        buffer[i] = '\0';
-    }
-}
-
 #define INV 0xff
 
 /** Lookup table for converting hex values to integers.
