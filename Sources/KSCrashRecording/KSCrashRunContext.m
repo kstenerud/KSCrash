@@ -71,7 +71,7 @@ static NSDictionary *buildSummary(const KSCrashRunContext *ctx, const char *user
 
 /** Determine why the previous run was terminated.
  *
- *  Priority: lifecycle guards (clean/crash/hang) > system changes
+ *  Priority: lifecycle guards (crash > hang > clean) > system changes
  *  (OS upgrade > app upgrade > reboot) > resource checks (memory >
  *  CPU > thermal > battery) > unexplained.
  */
@@ -87,14 +87,18 @@ static KSTerminationReason determineReason(const KSCrash_LifecycleData *prevLife
     // records a crash or hang, a missing resource/system sidecar must not
     // erase that evidence.
 
-    if (prevLifecycle->cleanExit) {
-        return KSTerminationReasonClean;
-    }
-    if (prevLifecycle->monitorHandlerRan) {
+    // A crash ends the run whatever else was going on. A hang still in progress
+    // outranks a clean exit: the app was stuck when it stopped, whatever stopped it.
+    // SIGTERM runs the fatal handler too, so a crash is a handler that ran without
+    // a clean exit.
+    if (prevLifecycle->monitorHandlerRan && !prevLifecycle->cleanExit) {
         return KSTerminationReasonCrash;
     }
     if (prevLifecycle->hangActive) {
         return KSTerminationReasonHang;
+    }
+    if (prevLifecycle->cleanExit) {
+        return KSTerminationReasonClean;
     }
 
     // A prior run existed but resource or system data is missing — can't

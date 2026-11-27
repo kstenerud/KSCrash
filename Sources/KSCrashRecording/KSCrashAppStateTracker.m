@@ -282,6 +282,9 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
 #else
     // on other platforms that don't have UIApplication
     // we simply state that the app is active in order to report OOMs.
+    // Nothing to observe, but the tracker is started: the exit callback above
+    // reads nil registrations as stopped and would drop a normal exit.
+    _registrations = @[];
     [self _setTransitionState:KSCrashAppTransitionStateActive];
 #endif
 }

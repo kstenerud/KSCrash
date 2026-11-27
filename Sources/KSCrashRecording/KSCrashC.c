@@ -234,6 +234,9 @@ static void onExceptionEvent(struct KSCrash_MonitorContext *monitorContext, KSCr
 
     // If we shouldn't write a report, then there's nothing left to do here.
     if (!monitorContext->requirements.shouldWriteReport) {
+        if (result) {
+            result->skipped = true;
+        }
         return;
     }
 

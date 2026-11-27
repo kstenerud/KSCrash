@@ -27,10 +27,12 @@
 #import "KSCrashMonitor_WatchdogSidecar.h"
 
 #import "KSCrashAppTransitionState.h"
+#import "KSCrashC.h"
 #import "KSCrashMonitor_Watchdog.h"
 #import "KSCrashReportFields.h"
 #import "KSCrashRunContext.h"
 #import "KSFileUtils.h"
+#import "KSID.h"
 
 #import <Foundation/Foundation.h>
 #include <errno.h>
@@ -68,14 +70,100 @@ static KSCrashSidecarReadResult readHangSidecar(const char *path, KSHangSidecar 
     return KSCrashSidecarReadOK;
 }
 
+static NSString *runIDOfReport(NSDictionary *report)
+{
+    id reportVal = report[KSCrashField_Report];
+    id storedRunID = [reportVal isKindOfClass:[NSDictionary class]] ? reportVal[KSCrashField_RunID] : nil;
+    return [storedRunID isKindOfClass:[NSString class]] ? storedRunID : nil;
+}
+
+/** Whether something other than the hang ended the report's run: a crash handler
+ *  ran, or the run exited cleanly (SIGTERM, a normal termination), as that run's
+ *  lifecycle recorded it. A run whose lifecycle cannot be read says no: nothing
+ *  then shows that the hang was not what ended it.
+ */
+static bool runEndedByAnotherEvent(NSDictionary *report)
+{
+    KSCrashRunContext run = {};
+    ksruncontext_contextForRunID(runIDOfReport(report).UTF8String, kscm_watchdog_runSidecarPathForRunIDProvider(),
+                                 &run);
+    if (!run.lifecycleValid) {
+        return false;
+    }
+    return run.lifecycle.monitorHandlerRan || run.lifecycle.cleanExit;
+}
+
+/** A watchdog report is written as the kill the OS makes of a hang. Whether the
+ *  hang is what ended the process is only known at delivery, from the run: the
+ *  hang did when it had not recovered and nothing else ended the run. Otherwise
+ *  the report is the hang, not a death.
+ */
+static void resolveWatchdogError(NSMutableDictionary *errorDict, bool recovered, NSDictionary *report)
+{
+    bool killedInHang = !recovered && !runEndedByAnotherEvent(report);
+    if (killedInHang) {
+        errorDict[KSCrashField_IsFatal] = @YES;
+        errorDict[KSCrashField_IsCleanExit] = @NO;
+        return;
+    }
+    errorDict[KSCrashField_Type] = KSCrashExcType_Hang;
+    [errorDict removeObjectForKey:KSCrashField_Signal];
+    [errorDict removeObjectForKey:KSCrashField_Mach];
+    [errorDict removeObjectForKey:KSCrashField_ExitReason];
+    errorDict[KSCrashField_IsFatal] = @NO;
+    [errorDict removeObjectForKey:KSCrashField_IsCleanExit];
+}
+
+static bool isWatchdogReport(NSDictionary *report)
+{
+    id reportSectionVal = report[KSCrashField_Report];
+    if (![reportSectionVal isKindOfClass:[NSDictionary class]]) {
+        return false;
+    }
+    id monitorIdVal = ((NSDictionary *)reportSectionVal)[KSCrashField_MonitorId];
+    return [monitorIdVal isKindOfClass:[NSString class]] && [monitorIdVal isEqualToString:@"Watchdog"];
+}
+
+/** The final pass. A watchdog report the run pass gave no hang section had no
+ *  readable sidecar, and it still says what the cause of death was. An
+ *  unfinalized watchdog report is from a run that ended during its hang (a
+ *  recovered hang's report is finalized or deleted), so it did not recover. A
+ *  report of the live run is left as it is: that run has not ended.
+ */
+static CFDictionaryRef stitchWithoutSidecar(CFDictionaryRef reportDict)
+{
+    NSDictionary *report = (__bridge NSDictionary *)reportDict;
+    id crashVal = report[KSCrashField_Crash];
+    id errorVal = [crashVal isKindOfClass:[NSDictionary class]] ? crashVal[KSCrashField_Error] : nil;
+    id hangVal = [errorVal isKindOfClass:[NSDictionary class]] ? errorVal[KSCrashField_Hang] : nil;
+    bool hasHangSection = [hangVal isKindOfClass:[NSDictionary class]] && hangVal[KSCrashField_HangRecovered] != nil;
+    NSString *runID = runIDOfReport(report);
+    const char *liveRunID = kscrash_getRunID();
+    bool isLiveRun = runID != nil && liveRunID != NULL && strncmp(runID.UTF8String, liveRunID, KSID_SIZE) == 0;
+    if (!isWatchdogReport(report) || ![errorVal isKindOfClass:[NSDictionary class]] || hasHangSection || isLiveRun) {
+        CFRetain(reportDict);
+        return reportDict;
+    }
+
+    NSMutableDictionary *dict = [report mutableCopy];
+    NSMutableDictionary *crash = [crashVal mutableCopy];
+    NSMutableDictionary *errorDict = [errorVal mutableCopy];
+    resolveWatchdogError(errorDict, false, report);
+    crash[KSCrashField_Error] = errorDict;
+    dict[KSCrashField_Crash] = crash;
+    return (__bridge_retained CFDictionaryRef)dict;
+}
+
 CFDictionaryRef kscm_watchdog_createStitchedReport(CFDictionaryRef reportDict, const char *sidecarPath,
                                                    KSCrashSidecarScope scope, __unused void *context)
 {
     if (reportDict == NULL) {
         return NULL;
     }
+    if (scope == KSCrashSidecarScopeFinal) {
+        return stitchWithoutSidecar(reportDict);
+    }
     if (scope != KSCrashSidecarScopeRun) {
-        // Not this monitor's scope (e.g. the final pass, which has no sidecar file).
         CFRetain(reportDict);
         return reportDict;
     }
@@ -92,7 +180,8 @@ CFDictionaryRef kscm_watchdog_createStitchedReport(CFDictionaryRef reportDict, c
         // No later read gets further, and NULL here is not free: it stops this
         // report being finalized for good, and on the hang-recovery path
         // kscm_watchdog deletes the report outright. Deliver it without the
-        // hang section instead.
+        // hang section instead; the final pass still resolves a watchdog
+        // report's cause of death (stitchWithoutSidecar).
         CFRetain(reportDict);
         return reportDict;
     }
@@ -100,18 +189,6 @@ CFDictionaryRef kscm_watchdog_createStitchedReport(CFDictionaryRef reportDict, c
     bool recovered = sc.recovered;
 
     NSMutableDictionary *dict = [(__bridge NSDictionary *)reportDict mutableCopy];
-
-    // Check if this report was written by the Watchdog monitor.
-    // The hang section is added to all reports as context, but only
-    // Watchdog reports get their fatality and error type modified.
-    bool isWatchdogReport = false;
-    id reportSectionVal = dict[KSCrashField_Report];
-    if ([reportSectionVal isKindOfClass:[NSDictionary class]]) {
-        id monitorIdVal = ((NSDictionary *)reportSectionVal)[KSCrashField_MonitorId];
-        if ([monitorIdVal isKindOfClass:[NSString class]]) {
-            isWatchdogReport = [monitorIdVal isEqualToString:@"Watchdog"];
-        }
-    }
 
     // Navigate to crash.error, create hang section from sidecar data.
     id crashVal = dict[KSCrashField_Crash];
@@ -138,20 +215,13 @@ CFDictionaryRef kscm_watchdog_createStitchedReport(CFDictionaryRef reportDict, c
     hang[KSCrashField_HangEndRole] = @(kstaskrole_toString(sc.endRole));
     hang[KSCrashField_HangEndTransitionState] = @(ksapp_transitionStateToString(sc.endTransitionState));
 
-    if (recovered) {
-        hang[KSCrashField_HangRecovered] = @YES;
+    // A report records its own moment: whether the hang had ended by the time
+    // the report was taken. Two reports of the same hang taken at different
+    // moments can differ, and both are right.
+    hang[KSCrashField_HangRecovered] = recovered ? @YES : @NO;
 
-        if (isWatchdogReport) {
-            errorDict[KSCrashField_Type] = KSCrashExcType_Hang;
-            [errorDict removeObjectForKey:KSCrashField_Signal];
-            [errorDict removeObjectForKey:KSCrashField_Mach];
-            [errorDict removeObjectForKey:KSCrashField_ExitReason];
-            errorDict[KSCrashField_IsFatal] = @NO;
-            [errorDict removeObjectForKey:KSCrashField_IsCleanExit];
-        }
-    } else if (isWatchdogReport) {
-        errorDict[KSCrashField_IsFatal] = @YES;
-        errorDict[KSCrashField_IsCleanExit] = @NO;
+    if (isWatchdogReport(dict)) {
+        resolveWatchdogError(errorDict, recovered, dict);
     }
 
     // Write mutable copies back into their parents

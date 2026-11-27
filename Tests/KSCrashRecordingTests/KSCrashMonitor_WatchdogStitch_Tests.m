@@ -27,6 +27,9 @@
 #import <XCTest/XCTest.h>
 
 #import "KSCrashAppTransitionState.h"
+#import "KSCrashC.h"
+#import "KSCrashMonitor_Lifecycle.h"
+#import "KSCrashMonitor_Watchdog.h"
 #import "KSCrashMonitor_WatchdogSidecar.h"
 #import "KSCrashReportFields.h"
 #import "KSTaskRole.h"
@@ -77,10 +80,54 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
     };
 }
 
+// The stitch reads the report's run through RunContext, with the run sidecar paths the
+// Watchdog monitor was initialized with. The tests point it at their own directory.
+extern struct KSCrashMonitorSavedState *kscm_testcode_saveState(void);
+extern void kscm_testcode_restoreState(struct KSCrashMonitorSavedState *saved);
+static NSString *g_runSidecarsDir;
+
+static bool testRunSidecarPathForRunID(const char *monitorId, const char *runID, char *pathBuffer,
+                                       size_t pathBufferLength)
+{
+    NSString *path = [[g_runSidecarsDir stringByAppendingPathComponent:@(runID)]
+        stringByAppendingPathComponent:[NSString stringWithFormat:@"%s.ksscr", monitorId]];
+    return strlcpy(pathBuffer, path.fileSystemRepresentation, pathBufferLength) < pathBufferLength;
+}
+
+static NSString *const kTestRunID = @"5b1f0c3e-2d4a-4e6b-9c8d-7a6f5e4d3c2b";
+
+/** Writes the lifecycle run sidecar of kTestRunID, recording how that run ended. */
+static void writeLifecycle(bool cleanExit, bool monitorHandlerRan)
+{
+    KSCrash_LifecycleData lifecycle = {
+        .magic = KSLIFECYCLE_MAGIC,
+        .version = KSCrash_Lifecycle_CurrentVersion,
+        .cleanExit = cleanExit,
+        .monitorHandlerRan = monitorHandlerRan,
+        .hangActive = true,
+    };
+    char path[PATH_MAX];
+    NSCAssert(testRunSidecarPathForRunID("Lifecycle", kTestRunID.UTF8String, path, sizeof(path)), @"path too long");
+    NSString *dir = [@(path) stringByDeletingLastPathComponent];
+    [[NSFileManager defaultManager] createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:nil];
+    [[NSData dataWithBytes:&lifecycle length:sizeof(lifecycle)] writeToFile:@(path) atomically:YES];
+}
+
+/** `report`, with kTestRunID as its run. */
+static NSDictionary *inTestRun(NSDictionary *report)
+{
+    NSMutableDictionary *withRun = [report mutableCopy];
+    NSMutableDictionary *info = [report[@"report"] mutableCopy] ?: [NSMutableDictionary dictionary];
+    info[@"run_id"] = kTestRunID;
+    withRun[@"report"] = info;
+    return withRun;
+}
+
 #pragma mark - Tests
 
 @interface KSCrashMonitor_WatchdogStitch_Tests : XCTestCase
 @property(nonatomic, strong) NSString *tempDir;
+@property(nonatomic, assign) struct KSCrashMonitorSavedState *savedMonitorState;
 @end
 
 @implementation KSCrashMonitor_WatchdogStitch_Tests
@@ -89,10 +136,17 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
 {
     [super setUp];
     self.tempDir = createTempDir();
+    g_runSidecarsDir = [self.tempDir stringByAppendingPathComponent:@"RunSidecars"];
+    self.savedMonitorState = kscm_testcode_saveState();
+    KSCrash_ExceptionHandlerCallbacks callbacks = { .getRunSidecarPathForRunID = testRunSidecarPathForRunID };
+    KSCrashMonitorAPI *watchdog = kscm_watchdog_getAPI();
+    watchdog->init(&callbacks, watchdog->context);
 }
 
 - (void)tearDown
 {
+    kscm_testcode_restoreState(self.savedMonitorState);
+    g_runSidecarsDir = nil;
     [[NSFileManager defaultManager] removeItemAtPath:self.tempDir error:nil];
     [super tearDown];
 }
@@ -271,7 +325,7 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
     XCTAssertEqualObjects(error[@"is_clean_exit"], @NO);
 }
 
-- (void)testFatalHangDoesNotSetRecovered
+- (void)testFatalHangSaysItDidNotRecover
 {
     KSHangSidecar sc = {
         .magic = KSHANG_SIDECAR_MAGIC,
@@ -289,7 +343,160 @@ static NSDictionary *makeMinimalHangReport(uint64_t startNanos, task_role_t star
     XCTAssertTrue(result != nil);
 
     NSDictionary *hang = result[@"crash"][@"error"][@"hang"];
-    XCTAssertNil(hang[@"hang_recovered"]);
+    XCTAssertEqualObjects(hang[@"hang_recovered"], @NO);
+}
+
+#pragma mark - Hang In Progress When Something Else Ended The Run
+
+/** Stitches an unrecovered hang report whose run's lifecycle records the given ending. */
+static NSDictionary *stitchHangInRunThatEnded(NSString *dir, bool cleanExit, bool monitorHandlerRan)
+{
+    writeLifecycle(cleanExit, monitorHandlerRan);
+
+    KSHangSidecar sc = {
+        .magic = KSHANG_SIDECAR_MAGIC,
+        .version = KSHANG_SIDECAR_CURRENT_VERSION,
+        .endTimestamp = 2000,
+        .endRole = TASK_DEFAULT_APPLICATION,
+        .recovered = false,
+    };
+    NSString *path = writeSidecar(dir, sc);
+
+    NSDictionary *report = inTestRun(makeMinimalHangReport(1000, TASK_FOREGROUND_APPLICATION));
+    return (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+}
+
+static void assertHangStillInProgress(NSDictionary *result)
+{
+    NSDictionary *error = result[@"crash"][@"error"];
+    XCTAssertEqualObjects(error[@"type"], @"hang");
+    XCTAssertEqualObjects(error[@"is_fatal"], @NO);
+    XCTAssertNil(error[@"is_clean_exit"]);
+    XCTAssertNil(error[@"signal"]);
+    XCTAssertNil(error[@"mach"]);
+    XCTAssertNil(error[@"exit_reason"]);
+    XCTAssertEqualObjects(error[@"hang"][@"hang_recovered"], @NO);
+}
+
+- (void)testHangDuringCrashIsAHangNotTheCauseOfDeath
+{
+    assertHangStillInProgress(stitchHangInRunThatEnded(self.tempDir, false, true));
+}
+
+- (void)testHangDuringSIGTERMIsAHangNotTheCauseOfDeath
+{
+    assertHangStillInProgress(stitchHangInRunThatEnded(self.tempDir, true, true));
+}
+
+- (void)testHangDuringCleanShutdownIsAHangNotTheCauseOfDeath
+{
+    assertHangStillInProgress(stitchHangInRunThatEnded(self.tempDir, true, false));
+}
+
+- (void)testHangWithNothingElseEndingTheRunIsTheCauseOfDeath
+{
+    NSDictionary *result = stitchHangInRunThatEnded(self.tempDir, false, false);
+    NSDictionary *error = result[@"crash"][@"error"];
+    XCTAssertEqualObjects(error[@"is_fatal"], @YES);
+    XCTAssertEqualObjects(error[@"is_clean_exit"], @NO);
+    XCTAssertEqualObjects(error[@"signal"][@"name"], @"SIGKILL");
+    XCTAssertEqualObjects(error[@"exit_reason"][@"code"], @(0x8badf00d));
+}
+
+- (void)testNonWatchdogReportDuringHangKeepsItsOwnError
+{
+    // The crash that ended the run is still the crash, with the hang as context.
+    writeLifecycle(false, true);
+    KSHangSidecar sc = {
+        .magic = KSHANG_SIDECAR_MAGIC,
+        .version = KSHANG_SIDECAR_CURRENT_VERSION,
+        .endTimestamp = 2000,
+        .recovered = false,
+    };
+    NSString *path = writeSidecar(self.tempDir, sc);
+    NSDictionary *report = @{
+        @"report" : @ { @"monitor_id" : @"NSException", @"run_id" : kTestRunID },
+        @"crash" : @ { @"error" : @ { @"type" : @"nsexception", @"is_fatal" : @YES, @"is_clean_exit" : @NO } },
+    };
+
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    NSDictionary *error = result[@"crash"][@"error"];
+    XCTAssertEqualObjects(error[@"type"], @"nsexception");
+    XCTAssertEqualObjects(error[@"is_fatal"], @YES);
+    XCTAssertEqualObjects(error[@"hang"][@"hang_recovered"], @NO, @"the hang was still going when the run ended");
+}
+
+#pragma mark - No Readable Sidecar
+
+/** The final pass over a watchdog report of kTestRunID that no sidecar was stitched into. */
+static NSDictionary *finalPassOfUnstitchedHangReport(bool cleanExit, bool monitorHandlerRan)
+{
+    writeLifecycle(cleanExit, monitorHandlerRan);
+    NSMutableDictionary *report = [inTestRun(makeMinimalHangReport(1000, TASK_FOREGROUND_APPLICATION)) mutableCopy];
+    NSMutableDictionary *crash = [report[@"crash"] mutableCopy];
+    NSMutableDictionary *error = [crash[@"error"] mutableCopy];
+    [error removeObjectForKey:@"hang"];
+    crash[@"error"] = error;
+    report[@"crash"] = crash;
+    return (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport((__bridge CFDictionaryRef)report, NULL,
+                                                                                KSCrashSidecarScopeFinal, NULL);
+}
+
+- (void)testAWatchdogReportWithNoSidecarIsAHangWhenACrashEndedTheRun
+{
+    NSDictionary *error = finalPassOfUnstitchedHangReport(false, true)[@"crash"][@"error"];
+    XCTAssertEqualObjects(error[@"type"], @"hang");
+    XCTAssertEqualObjects(error[@"is_fatal"], @NO);
+    XCTAssertNil(error[@"signal"]);
+    XCTAssertNil(error[@"mach"]);
+    XCTAssertNil(error[@"exit_reason"]);
+}
+
+- (void)testAWatchdogReportWithNoSidecarIsAHangWhenTheRunExitedCleanly
+{
+    NSDictionary *error = finalPassOfUnstitchedHangReport(true, false)[@"crash"][@"error"];
+    XCTAssertEqualObjects(error[@"type"], @"hang");
+    XCTAssertEqualObjects(error[@"is_fatal"], @NO);
+}
+
+- (void)testAWatchdogReportWithNoSidecarIsADeathWhenNothingElseEndedTheRun
+{
+    NSDictionary *error = finalPassOfUnstitchedHangReport(false, false)[@"crash"][@"error"];
+    XCTAssertEqualObjects(error[@"is_fatal"], @YES);
+    XCTAssertEqualObjects(error[@"signal"][@"name"], @"SIGKILL");
+}
+
+- (void)testTheFinalPassLeavesAStitchedWatchdogReportAlone
+{
+    // The run pass already decided, from the sidecar: the hang recovered.
+    writeLifecycle(false, false);
+    NSDictionary *report = @{
+        @"report" : @ { @"monitor_id" : @"Watchdog", @"run_id" : kTestRunID },
+        @"crash" :
+            @ { @"error" : @ { @"type" : @"hang", @"is_fatal" : @NO, @"hang" : @ { @"hang_recovered" : @YES } } },
+    };
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_watchdog_createStitchedReport(
+        (__bridge CFDictionaryRef)report, NULL, KSCrashSidecarScopeFinal, NULL);
+    XCTAssertEqualObjects(result, report);
+}
+
+extern void kscrash_testcode_setRunID(const char *runID);
+
+- (void)testTheFinalPassLeavesALiveRunsWatchdogReportAlone
+{
+    // The live run has not ended, so there is no cause of death to decide yet.
+    const char *live = kscrash_getRunID();
+    char savedRunID[64] = { 0 };
+    if (live != NULL) {
+        strlcpy(savedRunID, live, sizeof(savedRunID));
+    }
+    kscrash_testcode_setRunID(kTestRunID.UTF8String);
+    NSDictionary *error = finalPassOfUnstitchedHangReport(false, true)[@"crash"][@"error"];
+    kscrash_testcode_setRunID(savedRunID[0] != '\0' ? savedRunID : NULL);
+    XCTAssertEqualObjects(error[@"type"], @"signal");
+    XCTAssertEqualObjects(error[@"is_fatal"], @YES);
 }
 
 #pragma mark - Recovered Hang

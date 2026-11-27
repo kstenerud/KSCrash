@@ -112,7 +112,7 @@ typedef struct {
                                 // experience (e.g. active, launching, or even tapping the icon
                                 // while still technically backgrounded)
     uint8_t hangActive;         // true while the watchdog is tracking an active hang;
-                                // if still true on next launch, the app was killed during a hang
+                                // if still true on next launch, the run ended during a hang
 
     // --- v2 additions ---
     //

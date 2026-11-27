@@ -1,8 +1,10 @@
 # Migration Guide: KSCrash 2.6 to 3.0
 
 KSCrash 3.0 replaces the Objective-C front end with a Swift API. The C recording
-core, the on-disk report contents, and the crash-time behavior are unchanged;
-what changed is how you install, configure, and talk to KSCrash at runtime.
+core, the on-disk report contents, and the crash-time behavior are unchanged,
+apart from how a hang still going when the app ends is reported and how that
+run is classified (see "Hangs as a stream" in What's New); what changed is how
+you install, configure, and talk to KSCrash at runtime.
 
 Unlike 2.6, **3.0 is source-breaking**: the ObjC facade (`KSCrash.h`,
 `KSCrashInstallConfiguration`, `KSCrashReportStore`) is gone, with no deprecated
@@ -161,6 +163,10 @@ at delivery. Custom monitors conform to
 | `userID` setter                              | `setUserID(_:)` (unchanged meaning: metadata key + session boundary) |
 | `systemInfo` dictionary                      | removed; the data is on every report's `system` section |
 
+`previousTerminationReason.isAbnormal` differs from `crashedLastLaunch` in one
+case: a run that exited normally or by SIGTERM while a hang was in progress is
+`.hang`, and so abnormal, where 2.6 called it a clean exit.
+
 `runID`, `previousRunID`, and `sessionID` remain, now typed
 (`RunSummary.ID`).
 
@@ -227,7 +233,9 @@ across: `durations.activeMs` and `durations.backgroundMs` are what
 
 The four `…SinceLastCrash` values are derived rather than stored. Every summary
 carries `outcome.terminationReason` and `sessions.records`, so walk the
-summaries back to the most recent crashed run and aggregate:
+summaries back to the most recent run whose `terminationReason.isAbnormal` is
+true and aggregate. A `.hang` reason covers a hang still in progress however
+the run ended, a normal exit or SIGTERM included:
 
 | 2.6 | derive from summaries |
 | ---------------------------------- | ------------------------------------------- |
@@ -287,7 +295,9 @@ Backtrace:
 | `quickSymbolicateAddress:`         | `Backtrace.quickSymbolicate(_:)`     |
 
 Hang observation: `addHangObserver:` becomes `KSCrash.shared.hangEvents`, an
-`AsyncStream<HangEvent>`.
+`AsyncStream<HangEvent>`. Its events have one more case than the observer's,
+`failed`, for a hang that was detected but could not be recorded: it comes in
+place of `started`, and nothing more follows for that hang.
 
 Report store, all replaced by the Swift `Store` and the async send:
 

@@ -66,6 +66,7 @@ extern NSString *const KSCrashNSExceptionStacktraceFuncName;
     __PROCESS_TRIGGER(signal, sigpipe, @"SIGPIPE")                                                     \
     __PROCESS_TRIGGER(user, nonfatal, @"Nonfatal")                                                     \
     __PROCESS_TRIGGER(user, fatal, @"Fatal")                                                           \
+    __PROCESS_TRIGGER(user, fatalWithoutThreads, @"Fatal (without other threads)")                     \
     __PROCESS_TRIGGER(user, swiftAsync, @"Fatal (from Swift async)")                                   \
     __PROCESS_TRIGGER(multiple, mach_mach, @"Mach + Mach")                                             \
     __PROCESS_TRIGGER(multiple, mach_signal, @"Mach + Signal")                                         \
@@ -98,7 +99,9 @@ extern NSString *const KSCrashNSExceptionStacktraceFuncName;
     __PROCESS_TRIGGER(other, watchdogTimeoutTermination, @"Watchdog Timeout")                          \
     __PROCESS_TRIGGER(other, watchdogTimeoutWithException, @"Watchdog Timeout + Exception")            \
     __PROCESS_TRIGGER(other, appHang, @"App Hang (Recovery)")                                          \
+    __PROCESS_TRIGGER(other, hangThenExit, @"App Hang, then a normal exit")                            \
     __PROCESS_TRIGGER(other, sigkill, @"SIGKILL")                                                      \
+    __PROCESS_TRIGGER(other, exit, @"Normal Exit")                                                     \
     __PROCESS_TRIGGER(metricKit, cpuSpin, @"CPU Exception (spin all cores 90s)")                       \
     __PROCESS_TRIGGER(metricKit, diskWrites, @"Disk Write Exception (5 GB)")                           \
     __PROCESS_TRIGGER(metricKit, slowNextLaunch, @"Slow Next Launch (exits)")

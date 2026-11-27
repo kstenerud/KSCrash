@@ -41,6 +41,7 @@ final class HangEventsTests: XCTestCase {
 
     override func tearDown() {
         hangtest_disarm()
+        XCTAssertFalse(hangtest_isArmed(), "a monitor left running reports every later main-thread stall")
         super.tearDown()
     }
 
@@ -67,6 +68,37 @@ final class HangEventsTests: XCTestCase {
         // cause. That an event arrives, with sane timestamps, is the contract.
         XCTAssertGreaterThan(first.startTimestamp, 0)
         XCTAssertGreaterThanOrEqual(first.endTimestamp, first.startTimestamp)
+    }
+
+    func test_hangEvents_followAHangFromStartedToEnded() async throws {
+        let events = KSCrash.shared.hangEvents
+        let blocker = Task { @MainActor in
+            let until = Date().addingTimeInterval(0.6)
+            while Date() < until {}
+        }
+        // Read until a hang this stream saw start has ended. A stall from before the
+        // stream was made can still be finishing, so an Ended without its Started is
+        // skipped rather than taken for the blocker's hang.
+        let followed = await withTimeout(seconds: 5) { () -> [HangEvent]? in
+            var seen: [HangEvent] = []
+            for await event in events {
+                seen.append(event)
+                let startedHere = seen.contains { $0.change == .started && $0.startTimestamp == event.startTimestamp }
+                if event.change == .ended, startedHere {
+                    return seen.filter { $0.startTimestamp == event.startTimestamp }
+                }
+            }
+            return nil
+        }
+        await blocker.value
+        guard let hang = try followed.value() else {
+            throw XCTSkip("hangs are not monitored in this environment, the stream finished")
+        }
+        XCTAssertEqual(hang.first?.change, .started)
+        XCTAssertEqual(hang.last?.change, .ended)
+        XCTAssertFalse(hang.contains { $0.change == .failed }, "a recorded hang does not fail")
+        XCTAssertTrue(hang.dropFirst().dropLast().allSatisfy { $0.change == .updated })
+        XCTAssertGreaterThan(hang.last!.endTimestamp, hang.first!.startTimestamp)
     }
 
     func test_hangEvents_streamsAreIndependent() async throws {

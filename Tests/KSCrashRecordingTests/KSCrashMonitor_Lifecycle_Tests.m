@@ -301,6 +301,30 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     XCTAssertTrue(state.backgroundDurationSinceLastCrash >= 2.0);
 }
 
+/** The launches since the last crash after a previous run that ended during a hang,
+ *  as that run's lifecycle recorded it. */
+- (int32_t)launchesAfterAHangThatEndedWithCleanExit:(bool)cleanExit monitorHandlerRan:(bool)handlerRan
+{
+    ksruncontext_testcode_setReason(KSTerminationReasonHang);
+    KSCrash_LifecycleData prev = [self makePreviousSidecarWithCleanShutdown:cleanExit
+                                                     launchesSinceLastCrash:3
+                                                     sessionsSinceLastCrash:7
+                                             activeDurationSinceLastCrashNs:1000000000ULL
+                                         backgroundDurationSinceLastCrashNs:2000000000ULL];
+    prev.monitorHandlerRan = handlerRan;
+    prev.hangActive = true;
+    [self simulateRelaunchWithPreviousSidecar:prev];
+    return kscrashstate_lifecycleAppState().launchesSinceLastCrash;
+}
+
+- (void)testAHangInProgressResetsTheCountersHoweverTheRunEnded
+{
+    // A run that ended with a hang in progress is abnormal, as its summary says.
+    XCTAssertEqual([self launchesAfterAHangThatEndedWithCleanExit:true monitorHandlerRan:false], 1, @"normal exit");
+    XCTAssertEqual([self launchesAfterAHangThatEndedWithCleanExit:true monitorHandlerRan:true], 1, @"SIGTERM");
+    XCTAssertEqual([self launchesAfterAHangThatEndedWithCleanExit:false monitorHandlerRan:false], 1, @"watchdog kill");
+}
+
 - (void)testRelaunchCrashThenClean
 {
     // First: crash relaunch
@@ -627,6 +651,43 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     KSCrash_LifecycleData data = { 0 };
     XCTAssertTrue(readCurrentSidecar(&data));
     XCTAssertFalse(data.cleanExit);
+}
+
+- (void)testAnExitAfterAFatalCrashKeepsTheCrash
+{
+    // A fatal user report ends the process with exit(), so the exit callback comes after
+    // the handler has recorded a crash.
+    [self enableMonitor];
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+
+    KSCrashMonitorAPI *api = kscm_lifecycle_getAPI();
+    KSCrash_MonitorContext eventContext = { 0 };
+    eventContext.requirements.isFatal = true;
+    eventContext.requirements.isCleanExit = false;
+    api->addContextualInfoToEvent(&eventContext, api->context);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateExiting);
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    XCTAssertTrue(data.monitorHandlerRan);
+    XCTAssertFalse(data.cleanExit);
+}
+
+- (void)testAnExitAfterAFatalCleanExitKeepsTheCleanExit
+{
+    [self enableMonitor];
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+
+    KSCrashMonitorAPI *api = kscm_lifecycle_getAPI();
+    KSCrash_MonitorContext eventContext = { 0 };
+    eventContext.requirements.isFatal = true;
+    eventContext.requirements.isCleanExit = true;
+    api->addContextualInfoToEvent(&eventContext, api->context);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateExiting);
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    XCTAssertTrue(data.cleanExit);
 }
 
 - (void)testActiveDurationAccumulates

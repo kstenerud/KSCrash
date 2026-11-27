@@ -166,6 +166,14 @@ static void trigger_user_nonfatal(void)
                                 "[\"trace line 1\",\"trace line 2\"]", true, false);
 }
 
+static void trigger_user_fatalWithoutThreads(void)
+{
+    // Without the other threads recorded, none are suspended, so the report ends the
+    // process through exit() and its exit callbacks run.
+    kscrash_reportUserException("User Exception", "My Reason", "My Language", "loc",
+                                "[\"trace line 1\",\"trace line 2\"]", false, true);
+}
+
 static void trigger_user_fatal(void)
 {
     kscrash_reportUserException("User Exception", "My Reason", "My Language", "loc",
@@ -393,6 +401,11 @@ static void trigger_user_swiftAsync(void) { integrationTestSwiftAsyncTrigger(); 
     trigger_user_nonfatal();
 }
 
++ (void)trigger_user_fatalWithoutThreads
+{
+    trigger_user_fatalWithoutThreads();
+}
+
 + (void)trigger_user_fatal
 {
     trigger_user_fatal();
@@ -473,6 +486,16 @@ static void trigger_user_swiftAsync(void) { integrationTestSwiftAsyncTrigger(); 
     [NSThread sleepForTimeInterval:100.0];
 }
 
++ (void)trigger_other_hangThenExit
+{
+    // Block the main thread past the watchdog's threshold, then exit normally without
+    // the run loop turning again, as a slow quit does: the hang is still in progress
+    // when the process ends. Long enough for a slow simulator to have written the
+    // hang's report: one still being written at exit is not removed.
+    [NSThread sleepForTimeInterval:3.0];
+    exit(0);
+}
+
 + (void)trigger_other_appHang
 {
     // Block the main thread long enough for the watchdog to detect a hang
@@ -487,13 +510,21 @@ static void trigger_user_swiftAsync(void) { integrationTestSwiftAsyncTrigger(); 
     kill(getpid(), SIGKILL);
 }
 
++ (void)trigger_other_exit
+{
+    exit(0);
+}
+
 + (void)trigger_other_watchdogTimeoutWithException
 {
     // Throw from a background thread well past the watchdog's 250ms
     // threshold, so the exception occurs while the main thread is
-    // definitely hanging. Timed rather than callback-driven: the hang
-    // event slot belongs to the framework's hang hub.
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)),
+    // definitely hanging, and after the hang's report has been written
+    // on a slow simulator too: the tests read that report, and a crash
+    // in the middle of writing it leaves a torn file. Timed rather than
+    // callback-driven: the hang event slot belongs to the framework's
+    // hang hub.
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)),
                    dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
                        NSException *exc = [NSException exceptionWithName:NSGenericException
                                                                   reason:@"Exception during hang"

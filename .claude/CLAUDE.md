@@ -29,6 +29,22 @@ efficiency or performance. Any path the host app drives while running
 Defer interpretation, normalization, and cleanup to read/send time, which
 happens later, off the hot path.
 
+## Diagnostics Principle
+
+KSCrash reports what happened. It never decides for the app which events
+matter: a hang still in progress when the app ended is reported as a hang,
+whatever ended the app, and each report says what it was (recovered or not,
+fatal or not) so the app can judge. What KSCrash does follow is the app's own
+configuration, such as turning off reports of hangs that did not end the app.
+
+## Event Settings Principle
+
+An event uses the settings from when it started. A change made while it is in
+progress (a setting flipped, its monitor disabled) applies to the next event,
+never to the one in flight: a hang that started with the watchdog enabled
+finishes as though it still were. An event captures what it needs at its start,
+so nothing has to record updated state at its end to work out what to do.
+
 ## Concurrency Primitives
 
 No Swift `actor`s or global actors in KSCrash. This is low-level code running

@@ -40,6 +40,30 @@ final class TerminationReasonTests: IntegrationTestBase {
         XCTAssertEqual(state.terminationReason, .firstLaunch)
     }
 
+    func testNormalExit() throws {
+        try launchAndCrash(.other_exit) { config in
+            config.isWatchdogEnabled = false
+        }
+
+        try launchAndInstall()
+        let state = try readState()
+        XCTAssertFalse(state.previousRunWasAbnormal)
+        XCTAssertEqual(state.terminationReason, .clean)
+    }
+
+    func testFatalUserReport() throws {
+        // A fatal user report that records no other threads ends the app with exit(),
+        // which runs the exit callbacks after the report's handler has recorded a crash.
+        try launchAndCrash(.user_fatalWithoutThreads) { config in
+            config.isWatchdogEnabled = false
+        }
+
+        try launchAndInstall()
+        let state = try readState()
+        XCTAssertTrue(state.previousRunWasAbnormal)
+        XCTAssertEqual(state.terminationReason, .crash)
+    }
+
     func testUnexplainedKill() throws {
         try launchAndSigkill()
 

@@ -55,11 +55,11 @@ enum
 
     // -- Definitive --
 
-    /** App exited normally through the standard lifecycle. */
+    /** The app exited normally. */
     KSTerminationReasonClean,
-    /** A crash handler ran (signal, Mach exception, etc.). */
+    /** The app crashed. */
     KSTerminationReasonCrash,
-    /** The watchdog detected a hang that was not recovered before the app was killed. */
+    /** A hang was in progress when the app ended. */
     KSTerminationReasonHang,
     /** No previous run exists. */
     KSTerminationReasonFirstLaunch,
