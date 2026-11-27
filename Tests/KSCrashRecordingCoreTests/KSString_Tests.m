@@ -178,6 +178,53 @@
     XCTAssertFalse(success, @"");
 }
 
+- (void)testIsNullTerminatedUTF8String_RejectsOverlongAndSurrogateAndOutOfRange
+{
+    // Overlong 2-byte sequences
+    XCTAssertFalse(ksstring_isNullTerminatedUTF8String("ab\xc0\xaf", 2, 100));
+    XCTAssertFalse(ksstring_isNullTerminatedUTF8String("ab\xc1\xbf", 2, 100));
+
+    // Overlong 3-byte sequence (U+07FF encoded in 3 bytes)
+    XCTAssertFalse(ksstring_isNullTerminatedUTF8String("ab\xe0\x9f\xbf", 2, 100));
+
+    // UTF-16 surrogates (U+D800 and U+DFFF)
+    XCTAssertFalse(ksstring_isNullTerminatedUTF8String("ab\xed\xa0\x80", 2, 100));
+    XCTAssertFalse(ksstring_isNullTerminatedUTF8String("ab\xed\xbf\xbf", 2, 100));
+
+    // Overlong 4-byte sequence (U+FFFF encoded in 4 bytes)
+    XCTAssertFalse(ksstring_isNullTerminatedUTF8String("ab\xf0\x8f\xbf\xbf", 2, 100));
+
+    // Above U+10FFFF
+    XCTAssertFalse(ksstring_isNullTerminatedUTF8String("ab\xf4\x90\x80\x80", 2, 100));
+    XCTAssertFalse(ksstring_isNullTerminatedUTF8String("ab\xf5\x80\x80\x80", 2, 100));
+
+    // Legacy 5-byte and 6-byte sequences
+    XCTAssertFalse(ksstring_isNullTerminatedUTF8String("ab\xf8\x88\x80\x80\x80", 2, 100));
+    XCTAssertFalse(ksstring_isNullTerminatedUTF8String("ab\xfc\x84\x80\x80\x80\x80", 2, 100));
+}
+
+- (void)testIsNullTerminatedUTF8String_AcceptsValidBoundaryCodePoints
+{
+    // U+0080, U+0800, U+D7FF, U+E000, U+10000, U+10FFFF
+    XCTAssertTrue(ksstring_isNullTerminatedUTF8String("ab\xc2\x80", 2, 100));
+    XCTAssertTrue(ksstring_isNullTerminatedUTF8String("ab\xe0\xa0\x80", 2, 100));
+    XCTAssertTrue(ksstring_isNullTerminatedUTF8String("ab\xed\x9f\xbf", 2, 100));
+    XCTAssertTrue(ksstring_isNullTerminatedUTF8String("ab\xee\x80\x80", 2, 100));
+    XCTAssertTrue(ksstring_isNullTerminatedUTF8String("ab\xf0\x90\x80\x80", 2, 100));
+    XCTAssertTrue(ksstring_isNullTerminatedUTF8String("ab\xf4\x8f\xbf\xbf", 2, 100));
+}
+
+- (void)testIsValidUTF8String_AllowsControlCharsLikeBackspaceAndFormFeed
+{
+    const char *string = "hello\bworld\f";
+    // Arbitrary-memory heuristic rejects non-printable control characters...
+    XCTAssertFalse(ksstring_isNullTerminatedUTF8String(string, 0, 100));
+    // ...but pure UTF-8 validation accepts them (for known NSString/NSURL contents).
+    XCTAssertTrue(ksstring_isValidUTF8String(string, 100));
+    // Invalid UTF-8 is still rejected.
+    XCTAssertFalse(ksstring_isValidUTF8String("hello\xed\xa0\x80", 100));
+}
+
 - (void)testSafeStrcmpBothStringsAreNull
 {
     const char *str1 = NULL;

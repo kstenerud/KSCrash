@@ -536,7 +536,8 @@ static void writeNSStringContents(const KSCrashReportWriter *const writer, const
 {
     const void *object = (const void *)objectAddress;
     char buffer[200];
-    if (ksobjc_copyStringContents(object, buffer, sizeof(buffer))) {
+    if (ksobjc_copyStringContents(object, buffer, sizeof(buffer)) &&
+        ksstring_isValidUTF8String(buffer, sizeof(buffer))) {
         writer->addStringElement(writer, key, buffer);
     }
 }
@@ -557,7 +558,8 @@ static void writeURLContents(const KSCrashReportWriter *const writer, const char
 {
     const void *object = (const void *)objectAddress;
     char buffer[200];
-    if (ksobjc_copyStringContents(object, buffer, sizeof(buffer))) {
+    if (ksobjc_copyStringContents(object, buffer, sizeof(buffer)) &&
+        ksstring_isValidUTF8String(buffer, sizeof(buffer))) {
         writer->addStringElement(writer, key, buffer);
     }
 }

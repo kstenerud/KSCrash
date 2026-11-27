@@ -47,6 +47,15 @@ extern "C" {
  */
 bool ksstring_isNullTerminatedUTF8String(const void *memory, int minLength, int maxLength);
 
+/** Check if a memory location contains a valid null-terminated RFC 3629 UTF-8 string
+ * without applying the printable control-character heuristic used for arbitrary memory.
+ *
+ * @param memory The memory location to test.
+ *
+ * @param maxLength The maximum length to scan (including the null terminator).
+ */
+bool ksstring_isValidUTF8String(const void *memory, int maxLength);
+
 /** Extract a hex value in the form "0x123456789abcdef" from a string.
  *
  * @param string The string to search.
