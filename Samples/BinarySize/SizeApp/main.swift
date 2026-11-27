@@ -31,6 +31,7 @@ import KSCrashCrashReportExtension
 import KSCrashDiskMonitor
 import KSCrashMonitors
 import KSCrashProfiler
+import KSCrashUIMonitor
 
 let extensionArea = CorpseReportingConfiguration(namespace: "BinarySize", container: .appGroup("group.BinarySize"))
 
@@ -40,6 +41,7 @@ configuration.plugins = [
     BootMonitor.plugin(),
     MetricKitMonitor.plugin(.init()),
     CrashReportExtensionMonitor.plugin(),
+    UIMonitor.plugin(),
 ]
 try KSCrash.shared.install(configuration)
 
