@@ -222,11 +222,6 @@ bool kslifecycle_getSnapshotForRunID(const char *runID, KSCrash_LifecycleData *o
  */
 bool kslifecycle_copyLastSessionIDForRunID(const char *runID, char *buf, size_t bufLen);
 
-/** Returns the most recently observed app transition state.
- *  Lock-free (atomic load). Safe to call from any thread.
- */
-KSCrashAppTransitionState kslifecycle_currentTransitionState(void);
-
 /** Records whether the main thread is currently hanging. Called by the hang
  * monitor on hang start and end; safe to call while the monitor is disabled.
  */

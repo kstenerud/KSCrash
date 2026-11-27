@@ -28,6 +28,7 @@
 #import <mach/task_policy.h>
 #import <stdatomic.h>
 
+#import "KSCrashAppState.h"
 #import "KSCrashHang.h"
 #import "KSCrashMonitorContext.h"
 #import "KSCrashMonitor_Watchdog.h"
@@ -957,6 +958,67 @@ extern bool kscm_watchdog_testcode_staleTickStartsHang(bool mainWokeAgain);
 
     XCTAssertTrue(stopWatchdog());
     g_notifyCalled = nil;
+}
+
+extern void ksapp_testcode_publishTransitionState(KSCrashAppTransitionState state);
+extern void ksapp_testcode_setHasBeenActive(bool hasBeenActive);
+
+/** Gives the app `state` for this test, and puts the real one back when it ends. */
+- (void)useAppState:(KSCrashAppTransitionState)state hasBeenActive:(bool)hasBeenActive
+{
+    KSCrashAppTransitionState realState = ksapp_currentTransitionState();
+    bool realHasBeenActive = ksapp_hasBeenActive();
+    [self addTeardownBlock:^{
+        ksapp_testcode_publishTransitionState(realState);
+        ksapp_testcode_setHasBeenActive(realHasBeenActive);
+    }];
+    ksapp_testcode_publishTransitionState(state);
+    ksapp_testcode_setHasBeenActive(hasBeenActive);
+}
+
+/** The sidecar of the hang the watchdog starts once enabled, read once it has started. */
+static KSHangSidecar sidecarOfTheHangStartedOnEnable(void)
+{
+    KSSempahore *waiter = [KSSempahore withValue:0];
+    HangCapture capture = { .waiter = waiter };
+    g_hangCapture = &capture;
+    KSHangEventCallback previous = kshang_setHangEventCallback(captureHangStart);
+    BOOL started = [waiter waitForTimeInterval:5];
+    kshang_setHangEventCallback(previous);
+    g_hangCapture = NULL;
+    return started ? sidecarOnDisk() : (KSHangSidecar) { 0 };
+}
+
+- (void)testAHangThatMakesTheAppActiveStartedDuringStartup
+{
+    // The main thread wakes before the app is first active, makes it active and keeps
+    // working past the threshold in the same turn, as a slow first DidBecomeActive does.
+    // The hang started during startup, in the state the app was in when it started.
+    [self useAppState:KSCrashAppTransitionStateLaunching hasBeenActive:false];
+    KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
+    KSCrash_ExceptionHandlerCallbacks callbacks = callbacksWithHandle(stubHandle);
+    api->init(&callbacks, NULL);
+    api->setEnabled(true, NULL);
+    ksapp_testcode_publishTransitionState(KSCrashAppTransitionStateActive);
+
+    KSHangSidecar sidecar = sidecarOfTheHangStartedOnEnable();
+    XCTAssertEqual(sidecar.magic, KSHANG_SIDECAR_MAGIC);
+    XCTAssertTrue(sidecar.duringStartup);
+    XCTAssertEqual(sidecar.startTransitionState, KSCrashAppTransitionStateLaunching);
+}
+
+- (void)testAHangInAnAppAlreadyActiveIsNotDuringStartup
+{
+    [self useAppState:KSCrashAppTransitionStateActive hasBeenActive:true];
+    KSCrashMonitorAPI *api = kscm_watchdog_getAPI();
+    KSCrash_ExceptionHandlerCallbacks callbacks = callbacksWithHandle(stubHandle);
+    api->init(&callbacks, NULL);
+    api->setEnabled(true, NULL);
+
+    KSHangSidecar sidecar = sidecarOfTheHangStartedOnEnable();
+    XCTAssertEqual(sidecar.magic, KSHANG_SIDECAR_MAGIC);
+    XCTAssertFalse(sidecar.duringStartup);
+    XCTAssertEqual(sidecar.startTransitionState, KSCrashAppTransitionStateActive);
 }
 
 - (void)testHangStartTimestampIsReasonable

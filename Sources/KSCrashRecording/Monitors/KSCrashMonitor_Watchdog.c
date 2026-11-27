@@ -41,6 +41,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "KSCrashAppState.h"
 #include "KSCrashMonitorContext.h"
 #include "KSCrashMonitorHelper.h"
 #include "KSCrashMonitor_Lifecycle.h"
@@ -206,6 +207,16 @@ typedef struct KSHangMonitor {
     // timing value with no publish/consume relationship to other fields.
     _Atomic uint64_t enterTime;
 
+    // The app's state when the main thread woke at enterTime: what a hang starting
+    // then started in. Read it later and a hang that began before the app was
+    // first active, then made it active, reads as one that began after. Taken by
+    // the main thread and published by mainIsIdle's release store. A tick reads
+    // them only under `lock`, after checking that the main thread has neither gone
+    // idle nor woken again: going idle takes `lock`, so the main thread cannot
+    // reach another wake while the tick holds it.
+    _Atomic uint8_t enterTransitionState;
+    _Atomic bool enterDuringStartup;
+
     // mmap'd, or NULL. Attached and detached under `lock`, and written under it:
     // the main thread marks an ended hang in it (mainRunLoopActivity), while only
     // the watchdog thread maps, unmaps and removes it.
@@ -268,6 +279,7 @@ static KSHangSidecar *sidecar_create(const char *path, const KSHangState *hang)
     sc->startTimestamp = hang->timestamp;
     sc->startRole = hang->role;
     sc->startTransitionState = hang->transitionState;
+    sc->duringStartup = hang->duringStartup;
     sc->endTimestamp = hang->endTimestamp;
     sc->endRole = hang->endRole;
     sc->endTransitionState = hang->endTransitionState;
@@ -513,11 +525,6 @@ static void writeUpdatedReport(KSHangMonitor *monitor)
 // sidecar goes either way.
 static void closeHangRecord(KSHangMonitor *monitor, const KSHangState *hang, bool reportsHangs)
 {
-    // Suppress non-fatal hangs that started during launch (Startup,
-    // StartupPrewarm, Launching). The report still existed on disk while
-    // active, so WatchdogStitch can detect fatal hangs during startup.
-    bool startedDuringStartup = hang->transitionState <= KSCrashAppTransitionStateLaunching;
-
     // Mark the hang ended before anything removes its record, and before the
     // finalize below: the hang is over, and whatever reads the record meanwhile
     // (the next launch after a SIGTERM now, a report written now) should see a
@@ -536,7 +543,7 @@ static void closeHangRecord(KSHangMonitor *monitor, const KSHangState *hang, boo
         return;
     }
 
-    if (!reportsHangs || startedDuringStartup) {
+    if (!reportsHangs) {
         // The report goes first: a process ending in between leaves a sidecar no
         // report points at, which the next send reclaims, rather than a report
         // with no sidecar to say its hang recovered.
@@ -661,7 +668,7 @@ static void watchdogTick(KSHangMonitor *monitor, uint64_t enter)
     }
 
     task_role_t currentRole = kstaskrole_current();
-    uint8_t currentTransition = kslifecycle_currentTransitionState();
+    uint8_t currentTransition = (uint8_t)ksapp_currentTransitionState();
 
     bool shouldStartNewHang = false;
     bool shouldUpdateHang = false;
@@ -680,10 +687,12 @@ static void watchdogTick(KSHangMonitor *monitor, uint64_t enter)
         return;
     }
     if (!monitor->hang.active) {
-        kshangstate_init(&monitor->hang, enter, currentRole, currentTransition);
+        kshangstate_init(&monitor->hang, enter, currentRole,
+                         atomic_load_explicit(&monitor->enterTransitionState, memory_order_relaxed));
         monitor->hangReportsHangs = atomic_load(&g_reportsHangs);
         monitor->hangFailed = false;
         monitor->hangEndPublished = false;
+        monitor->hang.duringStartup = atomic_load_explicit(&monitor->enterDuringStartup, memory_order_relaxed);
         monitor->hang.endTimestamp = now;
         monitor->hang.endRole = currentRole;
         monitor->hang.endTransitionState = currentTransition;
@@ -705,6 +714,9 @@ static void watchdogTick(KSHangMonitor *monitor, uint64_t enter)
 
 static void schedulePings(KSHangMonitor *monitor)
 {
+    atomic_store_explicit(&monitor->enterTransitionState, (uint8_t)ksapp_currentTransitionState(),
+                          memory_order_relaxed);
+    atomic_store_explicit(&monitor->enterDuringStartup, !ksapp_hasBeenActive(), memory_order_relaxed);
     atomic_store_explicit(&monitor->enterTime, ksdate_uptimeNanoseconds(), memory_order_relaxed);
     atomic_store_explicit(&monitor->mainIsIdle, false, memory_order_release);
 
@@ -750,7 +762,7 @@ static void mainRunLoopActivity(CFRunLoopObserverRef obs, CFRunLoopActivity acti
 
         uint64_t endTimestamp = ksdate_uptimeNanoseconds();
         task_role_t endRole = kstaskrole_current();
-        uint8_t endTransitionState = kslifecycle_currentTransitionState();
+        uint8_t endTransitionState = (uint8_t)ksapp_currentTransitionState();
 
         // Mark the record ended now, not when the watchdog thread gets to it: that
         // thread can still be writing the hang's report, or in a listener, and a

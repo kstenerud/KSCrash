@@ -307,26 +307,13 @@ class IntegrationTestBase: XCTestCase {
     }
 
     /// Whether the store holds a report `isReport` picks out. Checked once, without waiting:
-    /// call it after whatever would have written the report has finished. A poll passes
-    /// `attachingListing: false` and calls `attachReportListing()` once it is done, so the
-    /// results carry one listing rather than one per check.
-    func hasReport(attachingListing: Bool = true, where isReport: (Report) -> Bool) throws -> Bool {
+    /// call it after whatever would have written the report has finished.
+    func hasReport(where isReport: (Report) -> Bool) throws -> Bool {
         let reports = reportFiles(in: try reportsDirectoryUrl())
-        if attachingListing {
-            attachReportListing(reports)
-        }
-        return reports.contains { file in file.report.map { isRequested($0, isReport) } == true }
-    }
-
-    /// Attaches what the store holds right now to the test's results.
-    func attachReportListing() throws {
-        attachReportListing(reportFiles(in: try reportsDirectoryUrl()))
-    }
-
-    private func attachReportListing(_ reports: [ReportFile]) {
         if !reports.isEmpty {
             attach(reports.map(\.summary).joined(separator: "\n"), named: "Reports found")
         }
+        return reports.contains { file in file.report.map { isRequested($0, isReport) } == true }
     }
 
     /// The bytes of the delivered report `isReport` picks out, stitched as KSCrash delivers it.

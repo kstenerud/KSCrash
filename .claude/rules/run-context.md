@@ -10,7 +10,7 @@ paths:
 
 ## RunContext
 
-RunContext is the shared layer for cross-monitor state. Reads of another monitor's data from a past run go through RunContext (`ksruncontext_contextForRunID`, `ksruncontext_previousRunContext`), never that monitor's own readers. RunContext reads what a run's sidecars hold on disk, which is the whole record only once that run is over. So a live read or a write (the watchdog's `kslifecycle_currentTransitionState` and `kslifecycle_noteHangChange`) calls the other monitor directly.
+RunContext is the shared layer for cross-monitor state. Reads of another monitor's data from a past run go through RunContext (`ksruncontext_contextForRunID`, `ksruncontext_previousRunContext`), never that monitor's own readers. RunContext reads what a run's sidecars hold on disk, which is the whole record only once that run is over. So a live write (the watchdog's `kslifecycle_noteHangChange`) calls the other monitor directly. The app's live state is the shared app-state tracker's, read through `KSCrashAppState.h` (`ksapp_currentTransitionState`, `ksapp_hasBeenActive`), never through a monitor's copy of it.
 
 ### What It Does
 

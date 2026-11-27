@@ -248,6 +248,10 @@ non-fatal report of its own as well. Each report's `hangRecovered` says whether
 the hang had ended at that report's moment, so two reports of the same hang
 can differ.
 
+A hang that starts while the app is starting up, before it is first active, is
+reported like any other; 2.x dropped one that resolved. Its `duringStartup`
+(`during_startup`) is true.
+
 ## Reports are written one at a time
 
 An event can now declare that it would rather be dropped than have its report

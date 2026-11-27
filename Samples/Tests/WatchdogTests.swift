@@ -117,10 +117,14 @@ final class WatchdogTests: IntegrationTestBase {
 
         // The report file appears as soon as the hang is detected (before
         // recovery), so wait for the finalized report of this hang.
-        let reportData = try readRawCrashReportData(timeout: actionDelay + 20.0) { Self.isTriggeredHang($0) }
+        let reportData = try readRawCrashReportData(timeout: actionDelay + 20.0) {
+            Self.isTriggeredHang($0, duringStartup: false)
+        }
         let report = try decodeCrashReport(reportData: reportData)
 
         XCTAssertEqual(report.crash.error.type, .hang)
+        XCTAssertEqual(report.crash.error.hang?.duringStartup, false)
+        XCTAssertEqual(report.crash.error.hang?.hangStartTransitionState, .active)
         XCTAssertEqual(report.crash.error.isFatal, false)
         XCTAssertNil(report.crash.error.signal, "Recovered hang should not have signal info")
 
@@ -142,16 +146,15 @@ final class WatchdogTests: IntegrationTestBase {
     }
 
     // macOS sets Active during +load (before any observer registers), so
-    // there is no pre-Active startup phase for the suppression boundary to
-    // detect. This test is only meaningful on iOS/tvOS where the app
+    // there is no pre-Active startup phase to hang in. On iOS/tvOS the app
     // transitions through Launching -> Active via UIKit notifications.
-    func testStartupHangIsSuppressed() throws {
+    func testStartupHangIsReported() throws {
         try XCTSkipUnless(
             [.iOS, .tvOS].contains(TargetPlatform.current),
-            "Only iOS and tvOS have a pre-Active startup phase for the suppression boundary")
+            "Only iOS and tvOS have a pre-Active startup phase")
         // Trigger a hang during app init (before UIApplicationDidBecomeActive).
-        // The watchdog detects and writes a report, but since the hang started
-        // before Active, the report should be deleted on recovery.
+        // A hang there is reported like any other, and says it started during
+        // startup.
         var installConfig = InstallConfig(namespace: "IntegrationTests", basePath: installUrl.path)
         installConfig.isWatchdogEnabled = true
         installConfig.isHangReportingEnabled = true
@@ -162,30 +165,14 @@ final class WatchdogTests: IntegrationTestBase {
         )
         launchAppAndRunScript()
 
-        // The report must appear and then go: a watchdog that never noticed the hang would
-        // leave no report either. It exists for most of the two-second hang, so a tight poll
-        // sees it.
-        // A stall after launch on a loaded simulator is a real hang that hang reporting keeps,
-        // finalized and short, so the test watches only for a report still in progress or
-        // the finalized two-second trigger.
-        let isStartupHangReport: (Report) -> Bool = {
-            $0.report.monitorId == "Watchdog" && ($0.report.finalized != true || Self.isTriggeredHang($0))
+        let reportData = try readRawCrashReportData(timeout: appLaunchTimeout + 20.0) {
+            Self.isTriggeredHang($0, duringStartup: true)
         }
-        let deadline = Date().addingTimeInterval(appLaunchTimeout)
-        var sawReport = false
-        while !sawReport, Date() < deadline {
-            sawReport = try hasReport(attachingListing: false, where: isStartupHangReport)
-            if !sawReport { Thread.sleep(forTimeInterval: 0.02) }
-        }
-        if !sawReport { try attachReportListing() }
-        XCTAssertTrue(sawReport, "The watchdog never reported the startup hang")
+        let report = try decodeCrashReport(reportData: reportData)
 
-        // A startup hang report is created during detection but deleted on recovery.
-        let goneDeadline = Date().addingTimeInterval(10.0)
-        while try hasReport(attachingListing: false, where: isStartupHangReport), Date() < goneDeadline {
-            Thread.sleep(forTimeInterval: 0.1)
-        }
-        XCTAssertFalse(try hasReport(where: isStartupHangReport), "Startup hang should be suppressed")
+        XCTAssertEqual(report.crash.error.type, .hang)
+        XCTAssertEqual(report.crash.error.hang?.hangRecovered, true)
+        XCTAssertEqual(report.crash.error.hang?.duringStartup, true)
     }
 
     func testANormalExitDuringAHangLeavesNoReportWhenHangReportingIsOff() throws {
@@ -243,9 +230,11 @@ final class WatchdogTests: IntegrationTestBase {
     /// Whether `report` is the finalized report of the hang the test triggered. A loaded
     /// simulator can also hang at launch, and that report is real, so the test tells its own
     /// apart by length as well: the trigger blocks the main thread for two seconds, a launch
-    /// hang for well under one.
-    nonisolated private static func isTriggeredHang(_ report: Report) -> Bool {
-        guard report.report.finalized == true, let hang = report.crash.error.hang else { return false }
+    /// hang for well under one. A nil `duringStartup` matches a hang whenever it started.
+    nonisolated private static func isTriggeredHang(_ report: Report, duringStartup: Bool? = nil) -> Bool {
+        guard report.report.finalized == true, let hang = report.crash.error.hang,
+            duringStartup == nil || hang.duringStartup == duringStartup
+        else { return false }
         return hang.hangEndNanos > hang.hangStartNanos && hang.hangEndNanos - hang.hangStartNanos > 1_500_000_000
     }
 
