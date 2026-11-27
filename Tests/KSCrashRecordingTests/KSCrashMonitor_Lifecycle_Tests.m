@@ -653,6 +653,43 @@ static bool readCurrentSidecar(KSCrash_LifecycleData *outData)
     XCTAssertFalse(data.cleanExit);
 }
 
+- (void)testAnExitAfterAFatalCrashKeepsTheCrash
+{
+    // A fatal user report ends the process with exit(), so the exit callback comes after
+    // the handler has recorded a crash.
+    [self enableMonitor];
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+
+    KSCrashMonitorAPI *api = kscm_lifecycle_getAPI();
+    KSCrash_MonitorContext eventContext = { 0 };
+    eventContext.requirements.isFatal = true;
+    eventContext.requirements.isCleanExit = false;
+    api->addContextualInfoToEvent(&eventContext, api->context);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateExiting);
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    XCTAssertTrue(data.monitorHandlerRan);
+    XCTAssertFalse(data.cleanExit);
+}
+
+- (void)testAnExitAfterAFatalCleanExitKeepsTheCleanExit
+{
+    [self enableMonitor];
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateActive);
+
+    KSCrashMonitorAPI *api = kscm_lifecycle_getAPI();
+    KSCrash_MonitorContext eventContext = { 0 };
+    eventContext.requirements.isFatal = true;
+    eventContext.requirements.isCleanExit = true;
+    api->addContextualInfoToEvent(&eventContext, api->context);
+    kscm_lifecycle_testcode_transitionState(KSCrashAppTransitionStateExiting);
+
+    KSCrash_LifecycleData data = { 0 };
+    XCTAssertTrue(readCurrentSidecar(&data));
+    XCTAssertTrue(data.cleanExit);
+}
+
 - (void)testActiveDurationAccumulates
 {
     [self enableMonitor];

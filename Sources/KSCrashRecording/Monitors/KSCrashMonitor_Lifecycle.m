@@ -281,7 +281,12 @@ static void onTransitionState(KSCrashAppTransitionState transitionState)
         case KSCrashAppTransitionStateTerminating:
         case KSCrashAppTransitionStateExiting:
             updateSidecarDurations(sc);
-            sc->cleanExit = true;
+            // A fatal handler that already ran has said how the run ends. A fatal
+            // event can end the process through exit(), whose exit callback lands
+            // here after the handler, and is that same ending, not a clean one.
+            if (!sc->monitorHandlerRan) {
+                sc->cleanExit = true;
+            }
             break;
 
         default:

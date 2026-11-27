@@ -94,7 +94,7 @@ Rules: when `isFatal=true`, `isCleanExit` must be explicitly set. When `isFatal=
 | CPU exception (warning/critical) | Resource | false | — | unchanged |
 | Corpse capture (remote subject) | Corpse | true (for the subject) | false | unchanged (remote-subject exception) |
 | Recrash (crash-in-handler) | Monitor.c | true | false | false |
-| Normal exit (UIKit terminating) | Lifecycle observer | — | — | true |
+| Normal exit (UIKit terminating, `exit()`) | Lifecycle observer | — | — | true, unless a fatal handler already ran (a fatal user report ends through `exit()`) |
 
 ### Sidecar Usage
 

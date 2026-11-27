@@ -157,6 +157,14 @@ static void trigger_user_nonfatal(void)
                                 "[\"trace line 1\",\"trace line 2\"]", true, false);
 }
 
+static void trigger_user_fatalWithoutThreads(void)
+{
+    // Without the other threads recorded, none are suspended, so the report ends the
+    // process through exit() and its exit callbacks run.
+    kscrash_reportUserException("User Exception", "My Reason", "My Language", "loc",
+                                "[\"trace line 1\",\"trace line 2\"]", false, true);
+}
+
 static void trigger_user_fatal(void)
 {
     kscrash_reportUserException("User Exception", "My Reason", "My Language", "loc",
@@ -375,6 +383,11 @@ static void trigger_user_swiftAsync(void) { integrationTestSwiftAsyncTrigger(); 
 + (void)trigger_user_nonfatal
 {
     trigger_user_nonfatal();
+}
+
++ (void)trigger_user_fatalWithoutThreads
+{
+    trigger_user_fatalWithoutThreads();
 }
 
 + (void)trigger_user_fatal
