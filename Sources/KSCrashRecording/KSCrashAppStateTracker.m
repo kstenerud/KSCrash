@@ -25,10 +25,12 @@
 //
 #import "KSCrashAppStateTracker.h"
 
+#import "KSCrashAppState.h"
 #import "KSSystemCapabilities.h"
 
 #import <Foundation/Foundation.h>
 #import <os/lock.h>
+#import <stdatomic.h>
 
 #if KSCRASH_HAS_UIAPPLICATION
 #import <UIKit/UIKit.h>
@@ -84,6 +86,26 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
     }
 }
 
+// The shared tracker's state for C callers (KSCrashAppState.h). Written only by the shared
+// tracker, inside its lock as it sets its own state, so a reader is never behind it.
+static _Atomic uint8_t g_currentTransitionState = KSCrashAppTransitionStateStartup;
+static _Atomic bool g_hasBeenActive = false;
+
+static void publishTransitionState(KSCrashAppTransitionState state)
+{
+    atomic_store_explicit(&g_currentTransitionState, (uint8_t)state, memory_order_relaxed);
+    if (state == KSCrashAppTransitionStateActive) {
+        atomic_store_explicit(&g_hasBeenActive, true, memory_order_relaxed);
+    }
+}
+
+KSCrashAppTransitionState ksapp_currentTransitionState(void)
+{
+    return (KSCrashAppTransitionState)atomic_load_explicit(&g_currentTransitionState, memory_order_relaxed);
+}
+
+bool ksapp_hasBeenActive(void) { return atomic_load_explicit(&g_hasBeenActive, memory_order_relaxed); }
+
 @interface KSCrashAppStateTracker () {
     NSNotificationCenter *_center;
     NSArray<id<NSObject>> *_registrations;
@@ -91,6 +113,8 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
     // transition state and observers protected by the lock
     os_unfair_lock _lock;
     KSCrashAppTransitionState _transitionState;
+    // Set on the shared tracker alone, before it starts: only its state is the app's.
+    BOOL _publishesState;
 
     // weak objects are `KSCrashAppStateTrackerObserverBlock`'s
     NSPointerArray *_observers;
@@ -111,6 +135,8 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         sTracker = [[KSCrashAppStateTracker alloc] init];
+        sTracker->_publishesState = YES;
+        publishTransitionState(sTracker->_transitionState);
         [sTracker start];
     });
     return sTracker;
@@ -206,6 +232,9 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
         os_unfair_lock_lock(&_lock);
         if (_transitionState != transitionState) {
             _transitionState = transitionState;
+            if (_publishesState) {
+                publishTransitionState(transitionState);
+            }
             [_observers compact];
             observers = [_observers allObjects];
         }
@@ -299,3 +328,15 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
 }
 
 @end
+
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+void ksapp_testcode_publishTransitionState(KSCrashAppTransitionState state)
+{
+    publishTransitionState(state);
+}
+
+__attribute__((unused))  // For tests. Declared as extern in TestCase
+void ksapp_testcode_setHasBeenActive(bool hasBeenActive)
+{
+    atomic_store_explicit(&g_hasBeenActive, hasBeenActive, memory_order_relaxed);
+}
