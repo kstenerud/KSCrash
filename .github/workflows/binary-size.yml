@@ -10,6 +10,8 @@ on:
       - "Samples/Project.swift"
       - "Samples/BinarySize/**"
       - "Samples/Common/**"
+      - "Samples/Corpse/Reporter/**"
+      - "Samples/Corpse/Shared/**"
       - ".github/workflows/binary-size.yml"
       - ".github/scripts/binary_size.py"
 
@@ -32,11 +34,13 @@ jobs:
     runs-on: xcode-27
     steps:
       # Each checkout ends in KSCrash: Samples/Common names the package by its
-      # directory, and the package identity has to be "KSCrash".
+      # directory, and the package identity has to be "KSCrash". The two parent
+      # directories are the same length because the apps embed source paths,
+      # and a longer path would show up as a size change.
       - name: Checkout PR
         uses: actions/checkout@v7
         with:
-          path: pr/KSCrash
+          path: head/KSCrash
 
       - name: Checkout Base
         if: github.event_name == 'pull_request'
@@ -57,14 +61,14 @@ jobs:
         with:
           install: true
           cache: true
-          working_directory: pr/KSCrash
+          working_directory: head/KSCrash
         env:
           # Only trust the specific .mise.toml config files to reduce security risk.
           # See: https://mise.jdx.dev/docs/configuration/security
-          MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}/pr/KSCrash/.mise.toml:${{ github.workspace }}/base/KSCrash/.mise.toml
+          MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}/head/KSCrash/.mise.toml:${{ github.workspace }}/base/KSCrash/.mise.toml
 
       - name: Build PR (iOS Release)
-        working-directory: pr/KSCrash/Samples
+        working-directory: head/KSCrash/Samples
         run: |
           mise exec -- tuist generate --no-open
           xcodebuild build \
@@ -72,7 +76,7 @@ jobs:
             -scheme BinarySize \
             -destination 'generic/platform=iOS' \
             -configuration Release \
-            -derivedDataPath "$GITHUB_WORKSPACE/pr/DerivedData" \
+            -derivedDataPath "$GITHUB_WORKSPACE/head/DerivedData" \
             CODE_SIGNING_ALLOWED=NO \
             LD_GENERATE_MAP_FILE=YES \
             -quiet
@@ -100,15 +104,15 @@ jobs:
       - name: Measure Binary Sizes
         run: |
           if [ -d base/DerivedData ]; then
-            python3 pr/KSCrash/.github/scripts/binary_size.py \
-              --build-dir pr/DerivedData \
+            python3 head/KSCrash/.github/scripts/binary_size.py \
+              --build-dir head/DerivedData \
               --base-build-dir base/DerivedData \
-              --repo-root pr/KSCrash \
+              --repo-root head/KSCrash \
               --output binary_size.md
           else
-            python3 pr/KSCrash/.github/scripts/binary_size.py \
-              --build-dir pr/DerivedData \
-              --repo-root pr/KSCrash \
+            python3 head/KSCrash/.github/scripts/binary_size.py \
+              --build-dir head/DerivedData \
+              --repo-root head/KSCrash \
               --output binary_size.md
           fi
 

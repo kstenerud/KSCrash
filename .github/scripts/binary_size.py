@@ -49,14 +49,20 @@ def kscrash_modules(repo_root):
 
 
 def find_link_maps(build_dir):
-    """{target: path} for every BinarySize app's link map in a DerivedData directory."""
-    wanted = {name for name, _ in APPS}
+    """{target: path} for every BinarySize app's Release device link map in a DerivedData
+    directory. Only Release-iphoneos counts, since that is what the report says it measures,
+    and a second map for one app is an error rather than a guess at which one is current."""
     found = {}
-    pattern = os.path.join(build_dir, "Build", "Intermediates.noindex", "**", "*-LinkMap-normal-arm64.txt")
-    for path in glob.glob(pattern, recursive=True):
-        name = os.path.basename(path)[: -len("-LinkMap-normal-arm64.txt")]
-        if name in wanted:
-            found[name] = path
+    for name, _ in APPS:
+        pattern = os.path.join(build_dir, "Build", "Intermediates.noindex", "*", "Release-iphoneos",
+                               f"{name}.build", f"{name}-LinkMap-normal-arm64.txt")
+        paths = glob.glob(pattern)
+        if len(paths) > 1:
+            print(f"Error: more than one Release-iphoneos link map for {name}: {', '.join(paths)}",
+                  file=sys.stderr)
+            sys.exit(1)
+        if paths:
+            found[name] = paths[0]
     return found
 
 
@@ -142,13 +148,20 @@ def modules_of(symbols):
     return out
 
 
-def all_symbols(apps):
-    """Every KSCrash symbol either app links, at its size. A symbol is the same size in
-    every app that links it, so the largest one seen is that size."""
+def symbol_changes(current, base):
+    """{key: (change, is_new, is_removed)} across the apps. Each app is compared with
+    itself first: pooled rows such as C strings differ from app to app, so combining the
+    apps before comparing can hide one app's change behind the other's size. Where the
+    apps disagree, the larger change is the one shown."""
     out = {}
-    for symbols in apps.values():
-        for key, n in symbols.items():
-            out[key] = max(out.get(key, 0), n)
+    for name, now in current.items():
+        before = base.get(name)
+        if before is None:
+            continue
+        for key in set(now) | set(before):
+            d = now.get(key, 0) - before.get(key, 0)
+            if d and (key not in out or abs(d) > abs(out[key][0])):
+                out[key] = (d, key not in before, key not in now)
     return out
 
 
@@ -265,8 +278,8 @@ def generate_report(current, base, expected_modules):
         lines.append("")
 
     if has_base:
-        now, before = all_symbols(current), all_symbols(base)
-        changes = [(now.get(k, 0) - before.get(k, 0), k) for k in set(now) | set(before)]
+        changed = symbol_changes(current, base)
+        changes = [(d, k) for k, (d, _, _) in changed.items()]
         grew = sorted([c for c in changes if c[0] > 0], key=lambda c: -c[0])[:TOP_SYMBOLS]
         shrank = sorted([c for c in changes if c[0] < 0], key=lambda c: c[0])[:TOP_SYMBOLS]
         shown = grew + shrank
@@ -284,9 +297,10 @@ def generate_report(current, base, expected_modules):
                 change = ("+" if d > 0 else "−") + fmt_size(abs(d))
                 if static:
                     change += " static buffers"
-                if key not in before:
+                _, is_new, is_removed = changed[key]
+                if is_new:
                     change += " (new)"
-                elif key not in now:
+                elif is_removed:
                     change += " (removed)"
                 lines.append(f"| {md_name(readable[key])} | {module} | {change} |")
             lines.append("")
