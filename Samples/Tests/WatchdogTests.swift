@@ -206,6 +206,29 @@ final class WatchdogTests: IntegrationTestBase {
         XCTAssertTrue(state.previousRunWasAbnormal)
     }
 
+    func testANormalExitDuringAHangReportsTheHangWhenHangReportingIsOn() throws {
+        // The same slow quit with hang reporting on: the hang is reported as still in
+        // progress, not as what ended the app, since the app exited on its own.
+        try launchAndCrash(.other_hangThenExit) { config in
+            config.isWatchdogEnabled = true
+            config.isHangReportingEnabled = true
+        }
+
+        let hangData = try launchAndReportCrashRaw(where: {
+            $0.report.monitorId == "Watchdog" && $0.crash.error.hang?.hangRecovered == false
+        }) { config in
+            config.isWatchdogEnabled = true
+            config.isHangReportingEnabled = true
+        }
+        let hangReport = try decodeCrashReport(reportData: hangData)
+        XCTAssertEqual(hangReport.crash.error.type, .hang)
+        XCTAssertEqual(hangReport.crash.error.isFatal, false, "The app exited on its own, not by a watchdog kill")
+        XCTAssertNil(hangReport.crash.error.signal)
+
+        let state = try readState()
+        XCTAssertEqual(state.terminationReason, .hang)
+    }
+
     func testAHangThatRecoversLeavesNoReportWhenHangReportingIsOff() throws {
         // With hang reporting off, a hang that recovers has no report of its own: the report
         // written while it was in progress is deleted when it ends, not finalized. The trigger

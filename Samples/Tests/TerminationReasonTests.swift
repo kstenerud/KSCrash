@@ -40,6 +40,17 @@ final class TerminationReasonTests: IntegrationTestBase {
         XCTAssertEqual(state.terminationReason, .firstLaunch)
     }
 
+    func testNormalExit() throws {
+        try launchAndCrash(.other_exit) { config in
+            config.isWatchdogEnabled = false
+        }
+
+        try launchAndInstall()
+        let state = try readState()
+        XCTAssertFalse(state.previousRunWasAbnormal)
+        XCTAssertEqual(state.terminationReason, .clean)
+    }
+
     func testUnexplainedKill() throws {
         try launchAndSigkill()
 

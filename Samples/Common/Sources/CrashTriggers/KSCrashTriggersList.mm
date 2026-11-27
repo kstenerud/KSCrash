@@ -481,6 +481,11 @@ static void trigger_user_swiftAsync(void) { integrationTestSwiftAsyncTrigger(); 
     kill(getpid(), SIGKILL);
 }
 
++ (void)trigger_other_exit
+{
+    exit(0);
+}
+
 + (void)trigger_other_watchdogTimeoutWithException
 {
     // Throw from a background thread well past the watchdog's 250ms
