@@ -396,6 +396,16 @@ static void initialize(void)
                                                    (int)version.patchVersion];
     }
     safeNSStringCopy(sd->systemVersion, systemVersion, sizeof(sd->systemVersion));
+#if TARGET_OS_MACCATALYST
+    // The system is named iPadOS on Catalyst, so its version is the iOS release the Mac's UIKit
+    // corresponds to (macOS 15 is iOS 18), which is what UIDevice gives. The macOS version stays
+    // in its place when the kernel does not say.
+    char iOSVersion[sizeof(sd->systemVersion)];
+    stringSysctlInto("kern.iossupportversion", iOSVersion, sizeof(iOSVersion));
+    if (iOSVersion[0] != '\0') {
+        safeStrlcpy(sd->systemVersion, iOSVersion, sizeof(sd->systemVersion));
+    }
+#endif
     stringSysctlInto("kern.version", sd->kernelVersion, sizeof(sd->kernelVersion));
 
     if (isSimulatorBuild()) {
