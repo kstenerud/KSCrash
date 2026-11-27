@@ -116,13 +116,12 @@ The sample app demonstrates various crash types that KSCrash can detect:
 
 ## Binary Size Apps
 
-`BinarySize/` holds one iOS app per way of integrating KSCrash (`SizeRecording`, `SizeKSCrash`,
-and one per add-on, each `SizeKSCrash` plus that add-on). They are never run. The `BinarySize`
-scheme builds them, together with `CorpseReporter`, and `.github/workflows/binary-size.yml` links
-them with dead stripping and reads their link maps to report what KSCrash adds to an app, per
-module and per symbol. A new product needs an app here and a row in `APPS` in
-`.github/scripts/binary_size.py`, or the report lists its modules as not measured. Locally, from
-`Samples/` (in a checkout whose directory is named `KSCrash`):
+`SizeApp` (`BinarySize/SizeApp`) is a normal install with every product an app would use. It is
+never run. The `BinarySize` scheme builds it together with `CorpseReporter`, the extension, and
+`.github/workflows/binary-size.yml` links both with dead stripping and reads their link maps to
+report what KSCrash adds to each, by module and by symbol. A new product belongs in `SizeApp`, or
+the report lists its module as not measured. Locally, from `Samples/` (in a checkout whose
+directory is named `KSCrash`):
 ```bash
 mise exec -- tuist generate --no-open
 xcodebuild build -workspace KSCrashSamples.xcworkspace -scheme BinarySize -configuration Release \

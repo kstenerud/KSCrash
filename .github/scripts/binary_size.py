@@ -3,10 +3,9 @@
 Measure what KSCrash adds to an iOS app, from the link maps of the BinarySize apps in
 Samples/Project.swift, and write a markdown report.
 
-Each app integrates KSCrash one way and is linked with dead stripping, so its link map
-says which of KSCrash's bytes an app integrating that way ships, down to the symbol.
-Only KSCrash's own modules are counted: the app's own code, the system libraries and the
-Swift runtime are not KSCrash's cost.
+Each app is linked with dead stripping, so its link map says which of KSCrash's bytes an
+app integrating that way ships, down to the symbol. Only KSCrash's own modules are
+counted: the app's own code, the system libraries and the Swift runtime are not KSCrash's.
 
 Usage:
     python3 binary_size.py --build-dir DerivedData [--base-build-dir DerivedData] [--output binary_size.md]
@@ -20,23 +19,24 @@ import re
 import subprocess
 import sys
 
-# The apps, in report order. An add-on's app is SizeKSCrash plus that add-on, so its cost
-# is the difference between the two.
+# (target, label), in report order. The first is the one broken down by module.
 APPS = [
-    ("SizeRecording", "Recording (C install)", None),
-    ("SizeKSCrash", "KSCrash (Swift install and send)", None),
-    ("SizeDiskMonitor", "+ DiskMonitor", "SizeKSCrash"),
-    ("SizeBootMonitor", "+ BootMonitor", "SizeKSCrash"),
-    ("SizeMetricKit", "+ Monitors (MetricKit)", "SizeKSCrash"),
-    ("SizeProfiler", "+ Profiler", "SizeKSCrash"),
-    ("CorpseReporter", "Crash report extension", None),
+    ("SizeApp", "App"),
+    ("CorpseReporter", "Crash report extension"),
 ]
-HEADLINE_APP = "SizeKSCrash"
 
-# Sections that take memory at run time but no space in the download.
-ZERO_FILL = {"__bss", "__common", "__thread_bss"}
+# Sections the loader reserves and zero-fills: memory, but nothing in the download.
+STATIC_BUFFER_SECTIONS = {"__bss", "__common", "__thread_bss"}
 
 TOP_SYMBOLS = 15
+
+LEGEND = """\
+---
+**Download size**: what KSCrash adds to the app's binary (code, constants and strings), measured after the linker removes unused code.
+**Static buffers**: memory KSCrash reserves for fixed-size buffers. A page counts toward the app's memory footprint only once KSCrash writes to it, so this is the most it can add, not what it uses. It adds nothing to the download.
+**Change**: compared with the base branch. "=" means no change, "new" means it isn't in the base.
+**App**: a normal install with every product an app would use (`Samples/BinarySize/SizeApp`). **Crash report extension**: the extension's own install (`Samples/Corpse/Reporter`).
+"""
 
 
 def kscrash_modules(repo_root):
@@ -49,13 +49,14 @@ def kscrash_modules(repo_root):
 
 
 def find_link_maps(build_dir):
-    """{app: path} for every BinarySize app's link map in a DerivedData directory."""
+    """{target: path} for every BinarySize app's link map in a DerivedData directory."""
+    wanted = {name for name, _ in APPS}
     found = {}
     pattern = os.path.join(build_dir, "Build", "Intermediates.noindex", "**", "*-LinkMap-normal-arm64.txt")
     for path in glob.glob(pattern, recursive=True):
-        app = os.path.basename(path)[: -len("-LinkMap-normal-arm64.txt")]
-        if any(app == name for name, _, _ in APPS):
-            found[app] = path
+        name = os.path.basename(path)[: -len("-LinkMap-normal-arm64.txt")]
+        if name in wanted:
+            found[name] = path
     return found
 
 
@@ -72,9 +73,10 @@ def symbol_group(name, section):
 
 
 def parse_link_map(path):
-    """Return {(module, symbol, zero_fill): bytes} for the KSCrash modules in one link map."""
+    """{(module, symbol, is_static_buffer): bytes} for the KSCrash modules in one link map."""
     objects = {}
     sections = []  # (start, end, name)
+    starts = []
     sizes = {}
     mode = None
     with open(path, "rb") as f:
@@ -97,12 +99,9 @@ def parse_link_map(path):
                 continue
             if mode == "objects":
                 m = re.match(r"^\[\s*(\d+)\]\s+(.*)$", line)
-                if not m:
-                    continue
                 # Each KSCrash module is one prelinked object in the build's products.
-                obj = m.group(2)
-                if "/Build/Products/" in obj and obj.endswith(".o"):
-                    objects[int(m.group(1))] = os.path.basename(obj)[:-2]
+                if m and "/Build/Products/" in m.group(2) and m.group(2).endswith(".o"):
+                    objects[int(m.group(1))] = os.path.basename(m.group(2))[:-2]
             elif mode == "sections":
                 parts = line.split("\t")
                 if len(parts) >= 4:
@@ -118,45 +117,34 @@ def parse_link_map(path):
                 addr, size = int(m.group(1), 16), int(m.group(2), 16)
                 i = bisect.bisect_right(starts, addr) - 1
                 section = sections[i][2] if i >= 0 and addr < sections[i][1] else "?"
-                key = (module, symbol_group(m.group(4), section), section in ZERO_FILL)
+                key = (module, symbol_group(m.group(4), section), section in STATIC_BUFFER_SECTIONS)
                 sizes[key] = sizes.get(key, 0) + size
     return sizes
 
 
 def measure(build_dir):
-    """{app: {(module, symbol, zero_fill): bytes}} for every app found in a build."""
-    return {app: parse_link_map(path) for app, path in find_link_maps(build_dir).items()}
+    """{target: {(module, symbol, is_static_buffer): bytes}} for every app found in a build."""
+    return {name: parse_link_map(path) for name, path in find_link_maps(build_dir).items()}
 
 
 def totals(symbols):
-    """(download bytes, zero-fill bytes) of one app's KSCrash symbols."""
-    download = sum(n for (_, _, zf), n in symbols.items() if not zf)
-    zero = sum(n for (_, _, zf), n in symbols.items() if zf)
-    return download, zero
-
-
-def app_cost(apps, name, relative_to):
-    """An app's KSCrash bytes, or an add-on's: the app's minus the app it adds onto."""
-    download, zero = totals(apps[name])
-    if relative_to:
-        if relative_to not in apps:
-            return None
-        base_download, base_zero = totals(apps[relative_to])
-        download, zero = download - base_download, zero - base_zero
-    return download, zero
+    """(download bytes, static buffer bytes) of one app's KSCrash symbols."""
+    download = sum(n for (_, _, static), n in symbols.items() if not static)
+    static = sum(n for (_, _, is_static), n in symbols.items() if is_static)
+    return download, static
 
 
 def modules_of(symbols):
     out = {}
-    for (module, _, zf), n in symbols.items():
-        if not zf:
+    for (module, _, static), n in symbols.items():
+        if not static:
             out[module] = out.get(module, 0) + n
     return out
 
 
 def all_symbols(apps):
-    """Every KSCrash symbol any app links, at its size. A symbol is the same size in every
-    app that links it, so the largest one seen is that size."""
+    """Every KSCrash symbol either app links, at its size. A symbol is the same size in
+    every app that links it, so the largest one seen is that size."""
     out = {}
     for symbols in apps.values():
         for key, n in symbols.items():
@@ -190,11 +178,11 @@ def fmt_size(n):
 
 def fmt_delta(current, base):
     if base is None:
-        return "*new*"
+        return "new"
     d = current - base
     if d == 0:
         return "="
-    sign = "+" if d > 0 else "-"
+    sign = "+" if d > 0 else "−"
     pct = f" ({sign}{abs(d) / base * 100:.1f}%)" if base else ""
     return f"{sign}{fmt_size(abs(d))}{pct}"
 
@@ -206,75 +194,66 @@ def md_name(name):
 def generate_report(current, base, expected_modules):
     has_base = base is not None
     lines = []
-
-    headline = app_cost(current, HEADLINE_APP, None) if HEADLINE_APP in current else None
-    base_headline = app_cost(base, HEADLINE_APP, None) if has_base and HEADLINE_APP in base else None
+    main_app, main_label = APPS[0]
 
     indicator = "&#x2139;&#xFE0F;"
-    if headline and base_headline and base_headline[0]:
-        pct = (headline[0] - base_headline[0]) / base_headline[0] * 100
-        indicator = "&#x1F534;" if pct > 5 else "&#x1F7E1;" if pct > 1 else "&#x1F7E2;"
+    if has_base and main_app in current and main_app in base:
+        now, before = totals(current[main_app])[0], totals(base[main_app])[0]
+        if before:
+            pct = (now - before) / before * 100
+            indicator = "&#x1F534;" if pct > 5 else "&#x1F7E1;" if pct > 1 else "&#x1F7E2;"
 
     lines.append(f"# {indicator} Binary Size Report")
     lines.append("")
-    if headline:
-        summary = f"**KSCrash in an app: {fmt_size(headline[0])}**"
-        if base_headline:
-            summary += f" ({fmt_delta(headline[0], base_headline[0])})"
-        lines.append(summary + ", iOS arm64 Release, linked with dead stripping")
-    lines.append("")
-    lines.append("Each row is an app that integrates KSCrash one way. Sizes count KSCrash's own code "
-                 "and data in that app; an add-on's row is what it adds on top of the KSCrash app. "
-                 "Zero-fill is memory reserved at launch that takes no space in the download.")
+    lines.append("KSCrash's own code and data in each app, iOS arm64 Release, linked with dead stripping.")
 
     measured = set()
     for symbols in current.values():
         measured.update(modules_of(symbols))
     unmeasured = [m for m in expected_modules if m not in measured]
-    missing_apps = [label for name, label, _ in APPS if name not in current]
-    if missing_apps:
+    missing = [label for name, label in APPS if name not in current]
+    if missing:
         lines.append("")
-        lines.append(f"> **Warning:** no link map for: {', '.join(missing_apps)}.")
+        lines.append(f"> **Warning:** no link map for: {', '.join(missing)}.")
     if unmeasured:
         lines.append("")
-        lines.append(f"> **Not measured:** no app links {', '.join(unmeasured)}. "
-                     "Add one to the BinarySize apps in `Samples/Project.swift`.")
+        lines.append(f"> **Not measured:** neither app links {', '.join(unmeasured)}. "
+                     "Add it to `Samples/BinarySize/SizeApp`.")
     if not has_base:
         lines.append("")
-        lines.append("> No base measurement: the base branch has no BinarySize apps.")
+        lines.append("> No changes shown: the base branch has no BinarySize apps.")
     lines.append("")
 
-    # Per app
     if has_base:
-        lines.append("| App | Download | Delta | Zero-fill | Delta |")
-        lines.append("|-----|----------|-------|-----------|-------|")
+        lines.append("| App | Download size | Change | Static buffers | Change |")
+        lines.append("|---|---|---|---|---|")
     else:
-        lines.append("| App | Download | Zero-fill |")
-        lines.append("|-----|----------|-----------|")
-    for name, label, relative_to in APPS:
+        lines.append("| App | Download size | Static buffers |")
+        lines.append("|---|---|---|")
+    for name, label in APPS:
         if name not in current:
             continue
-        cost = app_cost(current, name, relative_to)
-        if cost is None:
-            continue
+        download, static = totals(current[name])
         if has_base:
-            base_cost = app_cost(base, name, relative_to) if name in base else None
-            lines.append(f"| {label} | {fmt_size(cost[0])} | "
-                         f"{fmt_delta(cost[0], base_cost[0] if base_cost else None)} | "
-                         f"{fmt_size(cost[1])} | {fmt_delta(cost[1], base_cost[1] if base_cost else None)} |")
+            before = totals(base[name]) if name in base else (None, None)
+            lines.append(f"| {label} | {fmt_size(download)} | {fmt_delta(download, before[0])} | "
+                         f"{fmt_size(static)} | {fmt_delta(static, before[1])} |")
         else:
-            lines.append(f"| {label} | {fmt_size(cost[0])} | {fmt_size(cost[1])} |")
+            lines.append(f"| {label} | {fmt_size(download)} | {fmt_size(static)} |")
     lines.append("")
 
-    # Per module, in the headline app
-    if HEADLINE_APP in current:
-        mods = modules_of(current[HEADLINE_APP])
-        base_mods = modules_of(base[HEADLINE_APP]) if has_base and HEADLINE_APP in base else {}
-        lines.append("<details>")
-        lines.append("<summary>By module, in the KSCrash app</summary>")
+    if main_app in current:
+        mods = modules_of(current[main_app])
+        base_mods = modules_of(base[main_app]) if has_base and main_app in base else {}
+        lines.append("<details open>")
+        lines.append(f"<summary>By module, in the {main_label}</summary>")
         lines.append("")
-        lines.append("| Module | Download | Delta |" if has_base else "| Module | Download |")
-        lines.append("|--------|----------|-------|" if has_base else "|--------|----------|")
+        if has_base:
+            lines.append("| Module | Download size | Change |")
+            lines.append("|---|---|---|")
+        else:
+            lines.append("| Module | Download size |")
+            lines.append("|---|---|")
         for module in sorted(set(mods) | set(base_mods), key=lambda m: -mods.get(m, 0)):
             size = mods.get(module, 0)
             if has_base:
@@ -285,38 +264,37 @@ def generate_report(current, base, expected_modules):
         lines.append("</details>")
         lines.append("")
 
-    # Per symbol, across every app
     if has_base:
         now, before = all_symbols(current), all_symbols(base)
         changes = [(now.get(k, 0) - before.get(k, 0), k) for k in set(now) | set(before)]
         grew = sorted([c for c in changes if c[0] > 0], key=lambda c: -c[0])[:TOP_SYMBOLS]
         shrank = sorted([c for c in changes if c[0] < 0], key=lambda c: c[0])[:TOP_SYMBOLS]
         shown = grew + shrank
-        if shown:
-            readable = dict(zip([k for _, k in shown], demangle([k[1] for _, k in shown])))
-            for title, rows in (("Largest symbol growth", grew), ("Largest symbol shrinkage", shrank)):
-                if not rows:
-                    continue
-                lines.append("<details>")
-                lines.append(f"<summary>{title}</summary>")
-                lines.append("")
-                lines.append("| Symbol | Module | Change |")
-                lines.append("|--------|--------|--------|")
-                for d, key in rows:
-                    module, _, zero_fill = key
-                    change = ("+" if d > 0 else "-") + fmt_size(abs(d))
-                    if zero_fill:
-                        change += " zero-fill"
-                    if key not in before:
-                        change += " (new)"
-                    elif key not in now:
-                        change += " (removed)"
-                    lines.append(f"| {md_name(readable[key])} | {module} | {change} |")
-                lines.append("")
-                lines.append("</details>")
-                lines.append("")
+        readable = dict(zip([k for _, k in shown], demangle([k[1] for _, k in shown]))) if shown else {}
+        for title, rows in (("Largest symbol growth", grew), ("Largest symbol shrinkage", shrank)):
+            if not rows:
+                continue
+            lines.append("<details open>")
+            lines.append(f"<summary>{title}</summary>")
+            lines.append("")
+            lines.append("| Symbol | Module | Change |")
+            lines.append("|---|---|---|")
+            for d, key in rows:
+                module, _, static = key
+                change = ("+" if d > 0 else "−") + fmt_size(abs(d))
+                if static:
+                    change += " static buffers"
+                if key not in before:
+                    change += " (new)"
+                elif key not in now:
+                    change += " (removed)"
+                lines.append(f"| {md_name(readable[key])} | {module} | {change} |")
+            lines.append("")
+            lines.append("</details>")
+            lines.append("")
 
-    return "\n".join(lines) + "\n"
+    lines.append(LEGEND)
+    return "\n".join(lines)
 
 
 def main():
@@ -336,7 +314,7 @@ def main():
     if args.base_build_dir:
         base = measure(args.base_build_dir) or None
         if base is None:
-            print("Warning: no BinarySize link maps in the base build, skipping deltas")
+            print("Warning: no BinarySize link maps in the base build, skipping changes")
 
     report = generate_report(current, base, kscrash_modules(args.repo_root))
     with open(args.output, "w") as f:

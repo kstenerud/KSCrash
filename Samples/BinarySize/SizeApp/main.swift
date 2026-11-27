@@ -22,19 +22,33 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-//
+
+// A normal install with every product an app would use, making the calls an app makes.
 
 import KSCrash
-// SizeKSCrash plus a profile written as a report.
+import KSCrashBootMonitor
+import KSCrashCrashReportExtension
+import KSCrashDiskMonitor
+import KSCrashMonitors
 import KSCrashProfiler
 
-var configuration = InstallConfiguration(namespace: "BinarySize")
+let extensionArea = CorpseReportingConfiguration(namespace: "BinarySize", container: .appGroup("group.BinarySize"))
 
+var configuration = InstallConfiguration(namespace: "BinarySize")
+configuration.plugins = [
+    DiskMonitor.plugin(),
+    BootMonitor.plugin(),
+    MetricKitMonitor.plugin(.init()),
+    CrashReportExtensionMonitor.plugin(),
+]
 try KSCrash.shared.install(configuration)
-Task {
-    _ = try await KSCrash.shared.sendReports(with: SendConfiguration())
-    _ = try await KSCrash.shared.sendRunSummaries(with: SendConfiguration())
-}
+
 let profiler = TimeProfiler.main
-let id = profiler.beginProfile(named: "BinarySize")
-_ = try profiler.endProfile(id: id)?.writeReport()
+let profile = profiler.beginProfile(named: "BinarySize")
+_ = try profiler.endProfile(id: profile)?.writeReport()
+
+_ = Task {
+    let send = SendConfiguration(reportSources: [extensionArea])
+    _ = try await KSCrash.shared.sendReports(with: send)
+    _ = try await KSCrash.shared.sendRunSummaries(with: send)
+}
