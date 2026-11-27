@@ -108,6 +108,7 @@ jobs:
               --build-dir head/DerivedData \
               --base-build-dir base/DerivedData \
               --repo-root head/KSCrash \
+              --base-repo-root base/KSCrash \
               --output binary_size.md
           else
             python3 head/KSCrash/.github/scripts/binary_size.py \

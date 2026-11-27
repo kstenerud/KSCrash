@@ -33,7 +33,7 @@ TOP_SYMBOLS = 15
 LEGEND = """\
 ---
 **Download size**: what KSCrash adds to the app's binary (code, constants and strings), measured after the linker removes unused code.
-**Static buffers**: memory KSCrash reserves for fixed-size buffers. A page counts toward the app's memory footprint only once KSCrash writes to it, so this is the most it can add, not what it uses. It adds nothing to the download.
+**Static buffers**: the zero-filled memory KSCrash reserves for fixed-size buffers, as linked. A page counts toward the app's memory footprint only once KSCrash writes to it, so most of it may never be used. Thread-local buffers are counted once, though each thread that uses one gets its own copy. It adds nothing to the download.
 **Change**: compared with the base branch. "=" means no change, "new" means it isn't in the base.
 **App**: a normal install with every product an app would use (`Samples/BinarySize/SizeApp`). **Crash report extension**: the extension's own install (`Samples/Corpse/Reporter`).
 """
@@ -78,8 +78,10 @@ def symbol_group(name, section):
     return re.sub(r"\.\d+$", "", name)
 
 
-def parse_link_map(path):
-    """{(module, symbol, is_static_buffer): bytes} for the KSCrash modules in one link map."""
+def parse_link_map(path, modules):
+    """{(module, symbol, is_static_buffer): bytes} for the KSCrash modules in one link map.
+    The build's products also hold the samples' own dependencies, so an object counts only
+    when it is one of `modules`, the revision's own."""
     objects = {}
     sections = []  # (start, end, name)
     starts = []
@@ -107,7 +109,9 @@ def parse_link_map(path):
                 m = re.match(r"^\[\s*(\d+)\]\s+(.*)$", line)
                 # Each KSCrash module is one prelinked object in the build's products.
                 if m and "/Build/Products/" in m.group(2) and m.group(2).endswith(".o"):
-                    objects[int(m.group(1))] = os.path.basename(m.group(2))[:-2]
+                    module = os.path.basename(m.group(2))[:-2]
+                    if module in modules:
+                        objects[int(m.group(1))] = module
             elif mode == "sections":
                 parts = line.split("\t")
                 if len(parts) >= 4:
@@ -128,9 +132,9 @@ def parse_link_map(path):
     return sizes
 
 
-def measure(build_dir):
+def measure(build_dir, modules):
     """{target: {(module, symbol, is_static_buffer): bytes}} for every app found in a build."""
-    return {name: parse_link_map(path) for name, path in find_link_maps(build_dir).items()}
+    return {name: parse_link_map(path, set(modules)) for name, path in find_link_maps(build_dir).items()}
 
 
 def totals(symbols):
@@ -149,20 +153,21 @@ def modules_of(symbols):
 
 
 def symbol_changes(current, base):
-    """{key: (change, is_new, is_removed)} across the apps. Each app is compared with
-    itself first: pooled rows such as C strings differ from app to app, so combining the
-    apps before comparing can hide one app's change behind the other's size. Where the
-    apps disagree, the larger change is the one shown."""
-    out = {}
-    for name, now in current.items():
-        before = base.get(name)
-        if before is None:
+    """[(change, key, is_new, is_removed, apps)]: each app compared with its own base. Pooled
+    rows such as C strings differ from app to app, and the same row can grow in one and
+    shrink in the other, so every app's change is its own row. The same change in both
+    apps, which is what a symbol they share shows, is one row naming both."""
+    by_change = {}
+    for name, label in APPS:
+        now, before = current.get(name), base.get(name)
+        if now is None or before is None:
             continue
         for key in set(now) | set(before):
             d = now.get(key, 0) - before.get(key, 0)
-            if d and (key not in out or abs(d) > abs(out[key][0])):
-                out[key] = (d, key not in before, key not in now)
-    return out
+            if d:
+                row = (d, key, key not in before, key not in now)
+                by_change.setdefault(row, []).append(label)
+    return [row + (apps,) for row, apps in by_change.items()]
 
 
 def demangle(names):
@@ -278,31 +283,31 @@ def generate_report(current, base, expected_modules):
         lines.append("")
 
     if has_base:
-        changed = symbol_changes(current, base)
-        changes = [(d, k) for k, (d, _, _) in changed.items()]
+        changes = symbol_changes(current, base)
         grew = sorted([c for c in changes if c[0] > 0], key=lambda c: -c[0])[:TOP_SYMBOLS]
         shrank = sorted([c for c in changes if c[0] < 0], key=lambda c: c[0])[:TOP_SYMBOLS]
         shown = grew + shrank
-        readable = dict(zip([k for _, k in shown], demangle([k[1] for _, k in shown]))) if shown else {}
+        keys = list({c[1]: None for c in shown})
+        readable = dict(zip(keys, demangle([k[1] for k in keys]))) if keys else {}
         for title, rows in (("Largest symbol growth", grew), ("Largest symbol shrinkage", shrank)):
             if not rows:
                 continue
             lines.append("<details open>")
             lines.append(f"<summary>{title}</summary>")
             lines.append("")
-            lines.append("| Symbol | Module | Change |")
-            lines.append("|---|---|---|")
-            for d, key in rows:
+            lines.append("| Symbol | Module | App | Change |")
+            lines.append("|---|---|---|---|")
+            for d, key, is_new, is_removed, apps in rows:
                 module, _, static = key
                 change = ("+" if d > 0 else "−") + fmt_size(abs(d))
                 if static:
                     change += " static buffers"
-                _, is_new, is_removed = changed[key]
                 if is_new:
                     change += " (new)"
                 elif is_removed:
                     change += " (removed)"
-                lines.append(f"| {md_name(readable[key])} | {module} | {change} |")
+                app = "Both" if len(apps) == len(APPS) else ", ".join(apps)
+                lines.append(f"| {md_name(readable[key])} | {module} | {app} | {change} |")
             lines.append("")
             lines.append("</details>")
             lines.append("")
@@ -316,21 +321,26 @@ def main():
     parser.add_argument("--build-dir", required=True, help="DerivedData of the BinarySize build")
     parser.add_argument("--base-build-dir", default=None, help="DerivedData of the base branch's build")
     parser.add_argument("--repo-root", default=os.path.join(os.path.dirname(__file__), "..", ".."),
-                        help="The checkout whose Sources/ lists the modules to cover")
+                        help="The checkout whose Sources/ lists the modules to measure")
+    parser.add_argument("--base-repo-root", default=None,
+                        help="The base checkout, whose Sources/ lists the modules it is measured by "
+                             "(the current checkout's when omitted)")
     parser.add_argument("--output", default="binary_size.md", help="Output markdown file")
     args = parser.parse_args()
 
-    current = measure(args.build_dir)
+    modules = kscrash_modules(args.repo_root)
+    current = measure(args.build_dir, modules)
     if not current:
         print("Error: no BinarySize link maps found", file=sys.stderr)
         sys.exit(1)
     base = None
     if args.base_build_dir:
-        base = measure(args.base_build_dir) or None
+        base_modules = kscrash_modules(args.base_repo_root) if args.base_repo_root else modules
+        base = measure(args.base_build_dir, base_modules) or None
         if base is None:
             print("Warning: no BinarySize link maps in the base build, skipping changes")
 
-    report = generate_report(current, base, kscrash_modules(args.repo_root))
+    report = generate_report(current, base, modules)
     with open(args.output, "w") as f:
         f.write(report)
     print(report)
