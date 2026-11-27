@@ -266,7 +266,9 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
 
     if (_applicationClass == Nil) {
         // Nothing in this process posts application transitions, so it is active for its whole run,
-        // which is what reports an OOM.
+        // which is what reports an OOM. It observes nothing, but it is started: nil would read as stopped,
+        // and the exit callback would drop every normal exit.
+        _registrations = @[];
         [self _setTransitionState:KSCrashAppTransitionStateActive];
         return;
     }

@@ -51,6 +51,11 @@ static KSFakeApplication *gSharedFakeApplication;
 }
 @end
 
+// What the tracker's atexit block calls.
+@interface KSCrashAppStateTracker (ExitForTesting)
+- (void)_exitCalled;
+@end
+
 @interface KSCrashAppMemory_Tests : XCTestCase
 @end
 
@@ -288,6 +293,27 @@ static KSFakeApplication *FakeApplication(KSCrashApplicationState state)
     XCTAssertEqual(tracker.transitionState, KSCrashAppTransitionStateActive);
 
     [center postNotificationName:@"UIApplicationDidEnterBackgroundNotification" object:nil];
+    XCTAssertEqual(tracker.transitionState, KSCrashAppTransitionStateActive);
+}
+
+- (void)testAppStateTrackerWithoutApplicationRecordsANormalExit
+{
+    NSNotificationCenter *center = [NSNotificationCenter new];
+    KSCrashAppStateTracker *tracker = AppTracker(center, nil);
+    tracker.applicationClass = Nil;
+    [tracker start];
+    [tracker _exitCalled];
+    XCTAssertEqual(tracker.transitionState, KSCrashAppTransitionStateExiting);
+}
+
+- (void)testAppStateTrackerWithoutApplicationStoppedIgnoresExit
+{
+    NSNotificationCenter *center = [NSNotificationCenter new];
+    KSCrashAppStateTracker *tracker = AppTracker(center, nil);
+    tracker.applicationClass = Nil;
+    [tracker start];
+    [tracker stop];
+    [tracker _exitCalled];
     XCTAssertEqual(tracker.transitionState, KSCrashAppTransitionStateActive);
 }
 
