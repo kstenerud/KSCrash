@@ -207,18 +207,18 @@ bool ksruncontext_contextForRunID(const char *runID, KSCrashSidecarRunPathForRun
     bool anyValid = false;
 
     if (pathForRunID("Lifecycle", runID, sidecarPath, sizeof(sidecarPath))) {
-        outContext->lifecycleValid = kslifecycle_readData(sidecarPath, &outContext->lifecycle);
+        outContext->lifecycleValid =
+            kssidecar_readLifecycle(sidecarPath, &outContext->lifecycle) == KSCrashSidecarReadOK;
         anyValid |= outContext->lifecycleValid;
     }
 
     if (pathForRunID("Resource", runID, sidecarPath, sizeof(sidecarPath))) {
-        outContext->resourceValid =
-            ksresource_readSnapshotFromPath(sidecarPath, &outContext->resource) == KSCrashSidecarReadOK;
+        outContext->resourceValid = kssidecar_readResource(sidecarPath, &outContext->resource) == KSCrashSidecarReadOK;
         anyValid |= outContext->resourceValid;
     }
 
     if (pathForRunID("System", runID, sidecarPath, sizeof(sidecarPath))) {
-        outContext->systemValid = kscm_system_getSystemDataForPath(sidecarPath, &outContext->system);
+        outContext->systemValid = kssidecar_readSystem(sidecarPath, &outContext->system) == KSCrashSidecarReadOK;
         anyValid |= outContext->systemValid;
     }
 

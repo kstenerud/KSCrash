@@ -111,9 +111,9 @@ public struct CorpseSnapshot: Codable, Sendable, Equatable {
 
         /// An EXC_RESOURCE bitfield: which resource was exceeded and how.
         public struct Resource: Codable, Sendable, Equatable {
-            public let type: ResourceType
-            public let flavor: ResourceFlavor
-            public let limitMB: UInt64?
+            public var type: ResourceType
+            public var flavor: ResourceFlavor
+            public var limitMB: UInt64?
 
             public init(
                 type: ResourceType,
@@ -138,23 +138,23 @@ public struct CorpseSnapshot: Codable, Sendable, Equatable {
 
             /// EXIT_REASON_CODESIGNING_INFO: where and why code signing killed the process.
             public struct CodeSigningInfo: Codable, Sendable, Equatable {
-                public let virtualAddress: UInt64
-                public let fileOffset: UInt64
-                public let pathname: String?
-                public let filename: String?
-                public let codesigModtimeSecs: UInt64
-                public let codesigModtimeNsecs: UInt64
-                public let pageModtimeSecs: UInt64
-                public let pageModtimeNsecs: UInt64
-                public let pathTruncated: Bool
-                public let objectCodesigned: Bool
-                public let pageCodesigValidated: Bool
-                public let pageCodesigTainted: Bool
-                public let pageCodesigNx: Bool
-                public let pageWpmapped: Bool
-                public let pageSlid: Bool
-                public let pageDirty: Bool
-                public let pageShadowDepth: UInt32
+                public var virtualAddress: UInt64
+                public var fileOffset: UInt64
+                public var pathname: String?
+                public var filename: String?
+                public var codesigModtimeSecs: UInt64
+                public var codesigModtimeNsecs: UInt64
+                public var pageModtimeSecs: UInt64
+                public var pageModtimeNsecs: UInt64
+                public var pathTruncated: Bool
+                public var objectCodesigned: Bool
+                public var pageCodesigValidated: Bool
+                public var pageCodesigTainted: Bool
+                public var pageCodesigNx: Bool
+                public var pageWpmapped: Bool
+                public var pageSlid: Bool
+                public var pageDirty: Bool
+                public var pageShadowDepth: UInt32
 
                 public init(
                     virtualAddress: UInt64,
@@ -556,9 +556,9 @@ public struct CorpseSnapshot: Codable, Sendable, Equatable {
 
         /// TASK_CRASHINFO_VOUCHER_INFO: the voucher origin of the crashed work.
         public struct Voucher: Codable, Sendable, Equatable {
-            public let threadID: UInt64
-            public let originatorPid: UInt32
-            public let proximatePid: UInt32
+            public var threadID: UInt64
+            public var originatorPid: UInt32
+            public var proximatePid: UInt32
 
             public init(
                 threadID: UInt64,
@@ -573,12 +573,12 @@ public struct CorpseSnapshot: Codable, Sendable, Equatable {
 
         /// TASK_CRASHINFO_EXTMODINFO (vm_extmod_statistics): who reached into this task.
         public struct ExternalModifications: Codable, Sendable, Equatable {
-            public let taskForPidCount: Int64
-            public let taskForPidCallerCount: Int64
-            public let threadCreationCount: Int64
-            public let threadCreationCallerCount: Int64
-            public let threadSetStateCount: Int64
-            public let threadSetStateCallerCount: Int64
+            public var taskForPidCount: Int64
+            public var taskForPidCallerCount: Int64
+            public var threadCreationCount: Int64
+            public var threadCreationCallerCount: Int64
+            public var threadSetStateCount: Int64
+            public var threadSetStateCallerCount: Int64
 
             public init(
                 taskForPidCount: Int64,
@@ -599,9 +599,9 @@ public struct CorpseSnapshot: Codable, Sendable, Equatable {
 
         /// TASK_CRASHINFO_TASKDYLD_INFO (task_dyld_info).
         public struct DyldInfo: Codable, Sendable, Equatable {
-            public let allImageInfoAddr: UInt64
-            public let allImageInfoSize: UInt64
-            public let allImageInfoFormat: Int32
+            public var allImageInfoAddr: UInt64
+            public var allImageInfoSize: UInt64
+            public var allImageInfoFormat: Int32
 
             public init(
                 allImageInfoAddr: UInt64,
@@ -616,8 +616,8 @@ public struct CorpseSnapshot: Codable, Sendable, Equatable {
 
         /// TASK_CRASHINFO_JIT_ADDRESS_RANGE.
         public struct JITAddressRange: Codable, Sendable, Equatable {
-            public let startAddress: UInt64
-            public let endAddress: UInt64
+            public var startAddress: UInt64
+            public var endAddress: UInt64
 
             public init(
                 startAddress: UInt64,
@@ -699,10 +699,10 @@ public struct CorpseSnapshot: Codable, Sendable, Equatable {
 
     /// TASK_CRASHINFO_WORKQUEUEINFO (proc_workqueueinfo).
     public struct Workqueue: Codable, Sendable, Equatable {
-        public let totalThreads: UInt32
-        public let runningThreads: UInt32
-        public let blockedThreads: UInt32
-        public let state: UInt32
+        public var totalThreads: UInt32
+        public var runningThreads: UInt32
+        public var blockedThreads: UInt32
+        public var state: UInt32
 
         public init(
             totalThreads: UInt32,
@@ -718,16 +718,16 @@ public struct CorpseSnapshot: Codable, Sendable, Equatable {
     }
 
     public struct VMInfo: Codable, Sendable, Equatable {
-        public let virtualSize: UInt64
-        public let residentSize: UInt64
-        public let residentSizePeak: UInt64
-        public let reusable: UInt64
-        public let compressed: UInt64
-        public let compressedPeak: UInt64
-        public let compressedLifetime: UInt64
+        public var virtualSize: UInt64
+        public var residentSize: UInt64
+        public var residentSizePeak: UInt64
+        public var reusable: UInt64
+        public var compressed: UInt64
+        public var compressedPeak: UInt64
+        public var compressedLifetime: UInt64
         /// Bytes left before the process hits its memory limit (-1 when unknown).
-        public let limitBytesRemaining: Int64
-        public let regionCount: Int32
+        public var limitBytesRemaining: Int64
+        public var regionCount: Int32
 
         public init(
             virtualSize: UInt64,
@@ -755,8 +755,8 @@ public struct CorpseSnapshot: Codable, Sendable, Equatable {
     /// Only the fields unique to this flavor: sizes are in `VMInfo` and everything else the
     /// task carries is in `Rusage`, so repeating them here would leave consumers picking a winner.
     public struct BasicInfo: Codable, Sendable, Equatable {
-        public let suspendCount: Int32
-        public let policy: Int32
+        public var suspendCount: Int32
+        public var policy: Int32
 
         public init(
             suspendCount: Int32,
@@ -768,13 +768,13 @@ public struct CorpseSnapshot: Codable, Sendable, Equatable {
     }
 
     public struct Events: Codable, Sendable, Equatable {
-        public let faults: Int32
-        public let cowFaults: Int32
-        public let messagesSent: Int32
-        public let messagesReceived: Int32
-        public let syscallsMach: Int32
-        public let syscallsUnix: Int32
-        public let contextSwitches: Int32
+        public var faults: Int32
+        public var cowFaults: Int32
+        public var messagesSent: Int32
+        public var messagesReceived: Int32
+        public var syscallsMach: Int32
+        public var syscallsUnix: Int32
+        public var contextSwitches: Int32
 
         public init(
             faults: Int32,
@@ -797,8 +797,8 @@ public struct CorpseSnapshot: Codable, Sendable, Equatable {
 
     /// Only the timer-wakeup bins: the other task_power_info fields duplicate `Rusage`.
     public struct Power: Codable, Sendable, Equatable {
-        public let timerWakeupsBin1: UInt64
-        public let timerWakeupsBin2: UInt64
+        public var timerWakeupsBin1: UInt64
+        public var timerWakeupsBin2: UInt64
 
         public init(
             timerWakeupsBin1: UInt64,
@@ -811,12 +811,12 @@ public struct CorpseSnapshot: Codable, Sendable, Equatable {
 
     /// One binary image of the crashed process (from CrashedProcess.binaryImages).
     public struct Image: Codable, Sendable, Equatable {
-        public let path: String
-        public let uuid: String?
-        public let baseAddress: UInt64
-        public let size: UInt64
-        public let cpuType: Int32
-        public let cpuSubType: Int32
+        public var path: String
+        public var uuid: String?
+        public var baseAddress: UInt64
+        public var size: UInt64
+        public var cpuType: Int32
+        public var cpuSubType: Int32
 
         public init(
             path: String,
