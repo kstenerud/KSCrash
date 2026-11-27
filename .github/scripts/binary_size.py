@@ -31,6 +31,18 @@ STATIC_BUFFER_SECTIONS = {"__bss", "__common", "__thread_bss"}
 
 TOP_SYMBOLS = 15
 
+# What the unnamed data pooled per section is, for the sections that hold most of it.
+POOLED_SECTION_LABELS = {
+    "__cstring": "C strings",
+    "__const": "constants",
+    "__cfstring": "NSString literals",
+    "__objc_methname": "Objective-C method names",
+    "__objc_classname": "Objective-C class names",
+    "__objc_methtype": "Objective-C type encodings",
+    "__text": "unnamed code",
+    "__gcc_except_tab": "exception tables",
+}
+
 LEGEND = """\
 ---
 **Download size**: what KSCrash adds to the app's binary (code, constants and strings), measured after the linker removes unused code.
@@ -74,9 +86,15 @@ def symbol_group(name, section):
         return "(C strings)"
     if re.match(r"^(l_|L|ltmp|lCPI|l\.|___unnamed|_?GCC_except_table|_*block_literal_global|_?anon$)", name) \
             or name.startswith("<"):
-        return f"({section})"
+        return f"({POOLED_SECTION_LABELS.get(section, section)})"
     # Blocks and outlined copies carry a counter that moves when an unrelated one is added.
-    return re.sub(r"\.\d+$", "", name)
+    name = re.sub(r"\.\d+$", "", name)
+    # A block is also numbered by its place in the function that holds it, so adding one
+    # renumbers the rest. They are pooled under that function, which is the name that stays put.
+    block = re.match(r"^_*\d*(.+?)_block_invoke(?:_\d+)?$", name)
+    if block:
+        return f"blocks in {block.group(1)}"
+    return name
 
 
 def parse_link_map(path, modules):
@@ -187,6 +205,26 @@ def demangle(names):
     return [n[1:] if n.startswith("_") and not n.startswith("_$") else n for n in names]
 
 
+def by_readable_name(*builds):
+    """The same builds keyed by readable names. Distinct symbols can read the same, such as
+    two specializations of one generic function, and a report naming both twice says nothing
+    about which is which, so they are summed under the name the reader sees."""
+    builds = [b for b in builds if b]
+    names = sorted({key[1] for b in builds for symbols in b.values() for key in symbols})
+    readable = dict(zip(names, demangle(names)))
+    out = []
+    for b in builds:
+        rekeyed = {}
+        for app, symbols in b.items():
+            merged = {}
+            for (module, name, static), n in symbols.items():
+                key = (module, readable[name], static)
+                merged[key] = merged.get(key, 0) + n
+            rekeyed[app] = merged
+        out.append(rekeyed)
+    return out
+
+
 def fmt_size(n):
     if abs(n) < 1024:
         return f"{n} B"
@@ -202,16 +240,26 @@ def fmt_delta(current, base):
     if d == 0:
         return "="
     sign = "+" if d > 0 else "−"
-    pct = f" ({sign}{abs(d) / base * 100:.1f}%)" if base else ""
+    pct = abs(d) / base * 100 if base else 0
+    # A change too small to show as a percentage is shown as bytes alone, not as "0.0%".
+    pct = f" ({sign}{pct:.1f}%)" if pct >= 0.05 else ""
     return f"{sign}{fmt_size(abs(d))}{pct}"
 
 
 def md_name(name):
-    return "`" + name.replace("`", "'").replace("|", "\\|") + "`"
+    """A symbol as code that can wrap. A browser never breaks inside a long name, which pushes
+    the table past the page, so a zero-width space follows each separator (GitHub strips
+    <wbr>, the tag meant for this)."""
+    name = re.sub(r"([.:,]|(?<=\w)\()", "\\1\u200b", name.replace("`", "'"))
+    return "`" + name.replace("|", "\\|") + "`"
 
 
 def generate_report(current, base, expected_modules):
     has_base = base is not None
+    if has_base:
+        current, base = by_readable_name(current, base)
+    else:
+        (current,) = by_readable_name(current)
     lines = []
     main_app, main_label = APPS[0]
 
@@ -243,20 +291,17 @@ def generate_report(current, base, expected_modules):
         lines.append("> No changes shown: the base branch has no BinarySize apps.")
     lines.append("")
 
-    if has_base:
-        lines.append("| App | Download size | Change | Static buffers | Change |")
-        lines.append("|---|---|---|---|---|")
-    else:
-        lines.append("| App | Download size | Static buffers |")
-        lines.append("|---|---|---|")
+    # Each change sits under its size, so the table stays three columns wide.
+    lines.append("| App | Download size | Static buffers |")
+    lines.append("|---|---|---|")
     for name, label in APPS:
         if name not in current:
             continue
         download, static = totals(current[name])
         if has_base:
             before = totals(base[name]) if name in base else (None, None)
-            lines.append(f"| {label} | {fmt_size(download)} | {fmt_delta(download, before[0])} | "
-                         f"{fmt_size(static)} | {fmt_delta(static, before[1])} |")
+            lines.append(f"| {label} | {fmt_size(download)}<br>{fmt_delta(download, before[0])} | "
+                         f"{fmt_size(static)}<br>{fmt_delta(static, before[1])} |")
         else:
             lines.append(f"| {label} | {fmt_size(download)} | {fmt_size(static)} |")
     lines.append("")
@@ -287,19 +332,16 @@ def generate_report(current, base, expected_modules):
         changes = symbol_changes(current, base)
         grew = sorted([c for c in changes if c[0] > 0], key=lambda c: -c[0])[:TOP_SYMBOLS]
         shrank = sorted([c for c in changes if c[0] < 0], key=lambda c: c[0])[:TOP_SYMBOLS]
-        shown = grew + shrank
-        keys = list({c[1]: None for c in shown})
-        readable = dict(zip(keys, demangle([k[1] for k in keys]))) if keys else {}
         for title, rows in (("Largest symbol growth", grew), ("Largest symbol shrinkage", shrank)):
             if not rows:
                 continue
             lines.append("<details open>")
             lines.append(f"<summary>{title}</summary>")
             lines.append("")
-            lines.append("| Symbol | Module | App | Change |")
-            lines.append("|---|---|---|---|")
+            lines.append("| Symbol | Module | Change |")
+            lines.append("|---|---|---|")
             for d, key, is_new, is_removed, apps in rows:
-                module, _, static = key
+                module, symbol, static = key
                 change = ("+" if d > 0 else "−") + fmt_size(abs(d))
                 if static:
                     change += " static buffers"
@@ -307,8 +349,9 @@ def generate_report(current, base, expected_modules):
                     change += " (new)"
                 elif is_removed:
                     change += " (removed)"
-                app = "Both" if len(apps) == len(APPS) else ", ".join(apps)
-                lines.append(f"| {md_name(readable[key])} | {module} | {app} | {change} |")
+                # A change seen in every app is the usual case and goes unmarked.
+                where = module if len(apps) == len(APPS) else f"{module}<br><sub>{', '.join(apps)} only</sub>"
+                lines.append(f"| {md_name(symbol)} | {where} | {change} |")
             lines.append("")
             lines.append("</details>")
             lines.append("")
