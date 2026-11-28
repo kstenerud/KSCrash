@@ -102,8 +102,8 @@ import os.log
             let timestamp = report.timeRange.end
             let timeRange = MetricKitTimeRange(begin: report.timeRange.start, end: report.timeRange.end)
             // System info comes from the diagnostic, never the skeleton report, which describes
-            // this session. The device hash, the one value every run of the app shares, comes from
-            // this run (see deviceAppHash).
+            // this session. The device ID, the one value every run of the app shares, comes from
+            // this run (see deviceID).
             let systemInfo: (Report) -> SystemInfo = { _ in makeSystemInfo(from: environment) }
 
             let reportID: Report.ID?
@@ -179,7 +179,7 @@ import os.log
             cfBundleShortVersionString: environment.applicationVersion,
             cfBundleVersion: environment.applicationBuildVersion,
             cpuArch: environment.platformArchitecture,
-            deviceAppHash: deviceAppHash(forDiagnosticBundleID: environment.bundleIdentifier),
+            deviceAppHash: deviceID(forDiagnosticBundleID: environment.bundleIdentifier),
             machine: environment.deviceType,
             osVersion: os.buildNumber,
             processID: environment.pid.map { Int($0) },

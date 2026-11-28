@@ -37,7 +37,10 @@ points and scheduling we neither see nor control. Guard shared state with
 `UnfairLock` and keep critical sections synchronous. When two callers
 contend for the same work, let the first one own it and have the other skip
 (the `ClaimSet` pattern) rather than queue it to wait. `async` functions
-and `@concurrent` are fine; actor types are not.
+and `@concurrent` are fine; actor types are not. `@MainActor` on code that
+must run on the main thread is fine when it is entered synchronously
+(`MainActor.assumeIsolated`, or the main queue), never through a `Task` or
+`await`.
 
 ## Build and Test Commands
 
@@ -99,7 +102,7 @@ KSCrash is a layered crash reporting framework:
 - **Sessions & Run Summaries**: Per-run `.sessions` log, `.run` telemetry, session_id stitching, and orphan reclaim (see `.claude/rules/sessions.md`)
 - **Metadata**: App data recorded live to a per-run key-value sidecar and read back at delivery into both the report and the run summary (see `.claude/rules/metadata-store.md`)
 
-Public modules (API surface): KSCrashRecording, KSCrashDiskMonitor, KSCrashBootMonitor, KSCrash (Swift umbrella, the async send), KSCrashMonitors (Swift), KSCrashMonitorPlugins (Swift, the plugin base), KSCrashReportModel (Swift), KSCrashProfiler (Swift), KSCrashCrashReportExtension (Swift, the iOS 27 crash extension support). Public headers: `Sources/[ModuleName]/include/*.h`.
+Public modules (API surface): KSCrashRecording, KSCrashDiskMonitor, KSCrashBootMonitor, KSCrashUIMonitor (Swift, UIKit lives here), KSCrash (Swift umbrella, the async send), KSCrashMonitors (Swift), KSCrashMonitorPlugins (Swift, the plugin base), KSCrashReportModel (Swift), KSCrashProfiler (Swift), KSCrashCrashReportExtension (Swift, the iOS 27 crash extension support). Public headers: `Sources/[ModuleName]/include/*.h`.
 
 ## Source-Breaking Changes
 

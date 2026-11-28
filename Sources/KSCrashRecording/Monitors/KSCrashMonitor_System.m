@@ -37,6 +37,8 @@
 
 #import "KSCrashMonitor_System.h"
 
+#import "KSCrashC.h"
+
 #import "KSCrashSystem.h"
 
 #import <sys/mount.h>
@@ -48,6 +50,7 @@
 #import "KSDebug.h"
 #import "KSFileUtils.h"
 #import "KSJailbreak.h"
+#import "KSMach-O.h"
 #import "KSSpinLock.h"
 #import "KSSysCtl.h"
 #import "KSSystemCapabilities.h"
@@ -55,21 +58,15 @@
 // #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
 
-#import <CommonCrypto/CommonDigest.h>
 #import <Foundation/Foundation.h>
-#if KSCRASH_HAS_UIKIT
-#import <UIKit/UIKit.h>
-#endif
 #include <fcntl.h>
+#include <mach-o/loader.h>
 #include <mach/mach.h>
 #include <stdatomic.h>
 #include <sys/stat.h>
 
 static KSCrash_SystemData *g_systemData = NULL;
 static KSSpinLock g_systemDataLock = KSSPINLOCK_INIT;
-// Written once, by getDeviceAppHash's dispatch_once, and read-only after that. It lives outside
-// g_systemData because disabling unmaps that, and kscm_system_getDeviceAppHash hands out a pointer.
-static char g_deviceAppHash[KSSYS_MAX_SHORT] = { 0 };
 static KSCrash_ExceptionHandlerCallbacks g_callbacks = { 0 };
 
 static atomic_bool g_isEnabled = false;
@@ -94,24 +91,6 @@ static void safeNSStringCopy(char *dst, NSString *src, size_t dstSize)
     } else {
         dst[0] = '\0';
     }
-}
-
-static NSString *nsstringSysctl(NSString *name)
-{
-    NSString *str = nil;
-    int size = (int)kssysctl_stringForName(name.UTF8String, NULL, 0);
-
-    if (size <= 0) {
-        return @"";
-    }
-
-    NSMutableData *value = [NSMutableData dataWithLength:(unsigned)size];
-
-    if (kssysctl_stringForName(name.UTF8String, value.mutableBytes, size) != 0) {
-        str = [NSString stringWithCString:value.mutableBytes encoding:NSUTF8StringEncoding];
-    }
-
-    return str;
 }
 
 static void stringSysctlInto(const char *name, char *dst, size_t dstSize)
@@ -301,53 +280,51 @@ static NSString *getReceiptUrlPath(void)
     return path;
 }
 
-/** Generate a 20 byte SHA1 hash that remains unique across a single device and
- * application. This is slightly different from the Apple crash report key,
- * which is unique to the device, regardless of the application.
+/** The name UIKit's `UIDevice.systemName` gives. UIKit asks MobileGestalt, which is private, so it is
+ *  rebuilt here: the platform the app was built for, from its LC_BUILD_VERSION, with iOS on an iPad
+ *  and Mac Catalyst called iPadOS, as UIKit calls them.
+ *
+ *  @param header The app's mach header, or NULL.
+ *  @param machine The device model identifier (iPhone18,1, iPad17,4).
+ *  @return The system name, or an empty string for a platform it does not know.
  */
-static void getDeviceAndAppHashInto(char *dst, size_t dstSize)
+static const char *systemNameForApp(const struct mach_header *header, const char *machine)
 {
-    NSMutableData *data = nil;
-
-#if KSCRASH_HAS_UIDEVICE
-    if ([[UIDevice currentDevice] respondsToSelector:@selector(identifierForVendor)]) {
-        data = [NSMutableData dataWithLength:16];
-        [[UIDevice currentDevice].identifierForVendor getUUIDBytes:data.mutableBytes];
-    } else
+#if TARGET_OS_MACCATALYST
+    // A Catalyst build only ever runs beside Catalyst UIKit, which says iPadOS whatever the main
+    // executable was built for. The test runner that hosts Catalyst test bundles is a macOS binary.
+    (void)header;
+    (void)machine;
+    return "iPadOS";
+#else
+    const struct build_version_command *build =
+        header == NULL ? NULL
+                       : (const struct build_version_command *)ksmacho_getCommandByTypeFromHeader(
+                             (const mach_header_t *)header, LC_BUILD_VERSION);
+    if (build == NULL) {
+        return "";
+    }
+    switch (build->platform) {
+        case PLATFORM_MACOS:
+            return "macOS";
+        case PLATFORM_IOS:
+        case PLATFORM_IOSSIMULATOR:
+            return strncmp(machine, "iPad", 4) == 0 ? "iPadOS" : "iOS";
+        case PLATFORM_MACCATALYST:
+            return "iPadOS";
+        case PLATFORM_TVOS:
+        case PLATFORM_TVOSSIMULATOR:
+            return "tvOS";
+        case PLATFORM_WATCHOS:
+        case PLATFORM_WATCHOSSIMULATOR:
+            return "watchOS";
+        case PLATFORM_VISIONOS:
+        case PLATFORM_VISIONOSSIMULATOR:
+            return "visionOS";
+        default:
+            return "";
+    }
 #endif
-    {
-        data = [NSMutableData dataWithLength:6];
-        kssysctl_getMacAddress("en0", [data mutableBytes]);
-    }
-
-    [data appendData:(NSData *_Nonnull)[nsstringSysctl(@"hw.machine") dataUsingEncoding:NSUTF8StringEncoding]];
-    [data appendData:(NSData *_Nonnull)[nsstringSysctl(@"hw.model") dataUsingEncoding:NSUTF8StringEncoding]];
-    const char *cpuArch = getCurrentCPUArch();
-    [data appendBytes:cpuArch length:strlen(cpuArch)];
-
-    NSData *bundleID = [[[NSBundle mainBundle] bundleIdentifier] dataUsingEncoding:NSUTF8StringEncoding];
-    if (bundleID != nil) {
-        [data appendData:bundleID];
-    }
-
-    uint8_t sha[CC_SHA1_DIGEST_LENGTH];
-    CC_SHA1([data bytes], (CC_LONG)[data length], sha);
-
-    NSMutableString *hash = [NSMutableString string];
-    for (unsigned i = 0; i < sizeof(sha); i++) {
-        [hash appendFormat:@"%02x", sha[i]];
-    }
-
-    safeNSStringCopy(dst, hash, dstSize);
-}
-
-static const char *getDeviceAppHash(void)
-{
-    static dispatch_once_t once;
-    dispatch_once(&once, ^{
-        getDeviceAndAppHashInto(g_deviceAppHash, sizeof(g_deviceAppHash));
-    });
-    return g_deviceAppHash;
 }
 
 static bool isTestBuild(void) { return [getReceiptUrlPath().lastPathComponent isEqualToString:@"sandboxReceipt"]; }
@@ -410,16 +387,6 @@ static void initialize(void)
     NSDictionary *infoDict = [mainBundle infoDictionary];
     const struct mach_header *header = ksbic_getAppHeader();
 
-#if KSCRASH_HAS_UIDEVICE
-    safeNSStringCopy(sd->systemName, [UIDevice currentDevice].systemName, sizeof(sd->systemName));
-    safeNSStringCopy(sd->systemVersion, [UIDevice currentDevice].systemVersion, sizeof(sd->systemVersion));
-#else
-#if KSCRASH_HOST_MAC
-    safeStrlcpy(sd->systemName, "macOS", sizeof(sd->systemName));
-#endif
-#if KSCRASH_HOST_WATCH
-    safeStrlcpy(sd->systemName, "watchOS", sizeof(sd->systemName));
-#endif
     NSOperatingSystemVersion version = [NSProcessInfo processInfo].operatingSystemVersion;
     NSString *systemVersion;
     if (version.patchVersion == 0) {
@@ -429,6 +396,15 @@ static void initialize(void)
                                                    (int)version.patchVersion];
     }
     safeNSStringCopy(sd->systemVersion, systemVersion, sizeof(sd->systemVersion));
+#if TARGET_OS_MACCATALYST
+    // The system is named iPadOS on Catalyst, so its version is the iOS release the Mac's UIKit
+    // corresponds to (macOS 15 is iOS 18), which is what UIDevice gives. The macOS version stays
+    // in its place when the kernel does not say.
+    char iOSVersion[sizeof(sd->systemVersion)];
+    stringSysctlInto("kern.iossupportversion", iOSVersion, sizeof(iOSVersion));
+    if (iOSVersion[0] != '\0') {
+        safeStrlcpy(sd->systemVersion, iOSVersion, sizeof(sd->systemVersion));
+    }
 #endif
     stringSysctlInto("kern.version", sd->kernelVersion, sizeof(sd->kernelVersion));
 
@@ -449,6 +425,7 @@ static void initialize(void)
 #endif
         stringSysctlInto("kern.osversion", sd->osVersion, sizeof(sd->osVersion));
     }
+    safeStrlcpy(sd->systemName, systemNameForApp(header, sd->machine), sizeof(sd->systemName));
     sd->isJailbroken = isJailbroken();
     sd->procTranslated = procTranslated();
     sd->isBeingDebugged = ksdebug_isBeingTraced();
@@ -476,7 +453,7 @@ static void initialize(void)
     safeNSStringCopy(sd->processName, [NSProcessInfo processInfo].processName, sizeof(sd->processName));
     sd->processID = [NSProcessInfo processInfo].processIdentifier;
     sd->parentProcessID = getppid();
-    safeStrlcpy(sd->deviceAppHash, getDeviceAppHash(), sizeof(sd->deviceAppHash));
+    safeStrlcpy(sd->deviceAppHash, kscrash_getDeviceID(), sizeof(sd->deviceAppHash));
     safeStrlcpy(sd->buildType, getBuildType(), sizeof(sd->buildType));
     sd->memorySize = kssysctl_uint64ForName("hw.memsize");
 
@@ -613,8 +590,6 @@ static void addContextualInfoToEvent(__unused KSCrash_MonitorContext *eventConte
     }
     ks_spinlock_unlock(&g_systemDataLock);
 }
-
-const char *kscm_system_getDeviceAppHash(void) { return getDeviceAppHash(); }
 
 bool kscm_system_getSystemData(KSCrash_SystemData *dst)
 {

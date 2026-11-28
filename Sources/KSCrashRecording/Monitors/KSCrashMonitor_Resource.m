@@ -32,7 +32,9 @@
 #import "KSCrashAppMemoryTracker.h"
 #import "KSCrashC.h"
 #import "KSCrashCPUTracker.h"
+#import "KSCrashHostKind.h"
 #import "KSCrashMonitorHelper.h"
+#import "KSCrashNotificationNames.h"
 #import "KSFileUtils.h"
 #import "KSMachineContext.h"
 #import "KSStackCursor_MachineContext.h"
@@ -59,10 +61,6 @@
 // #define KSLogger_LocalLevel TRACE
 #import "KSLogger.h"
 
-#if KSCRASH_HAS_UIAPPLICATION
-#import <UIKit/UIKit.h>
-#endif
-
 // ============================================================================
 #pragma mark - Globals -
 // ============================================================================
@@ -79,11 +77,6 @@ static id g_memoryObserver = nil;
 static id g_cpuObserver = nil;
 
 static id g_powerStateObserver = nil;
-
-#if KSCRASH_HOST_IOS
-static id g_batteryLevelObserver = nil;
-static id g_batteryStateObserver = nil;
-#endif
 
 #if KSCRASH_HAS_UIAPPLICATION
 static id g_thermalStateObserver = nil;
@@ -322,86 +315,32 @@ static void startMemoryObserver(void)
 static void stopMemoryObserver(void) { g_memoryObserver = nil; }
 
 // ============================================================================
-#pragma mark - Battery (iOS only) -
+#pragma mark - Battery and Protected Data (UI module) -
 // ============================================================================
 
-#if KSCRASH_HOST_IOS
-
-static void readBattery(uint8_t *outLevel, uint8_t *outState)
+void kscm_resource_setBattery(uint8_t levelPercent, KSCrashBatteryState state)
 {
-    UIDevice *device = UIDevice.currentDevice;
-    float level = device.batteryLevel;
-    *outLevel = (level < 0) ? 255 : (uint8_t)(level * 100.0f);
-
-    switch (device.batteryState) {
-        case UIDeviceBatteryStateUnplugged:
-            *outState = KSCrashBatteryStateUnplugged;
-            break;
-        case UIDeviceBatteryStateCharging:
-            *outState = KSCrashBatteryStateCharging;
-            break;
-        case UIDeviceBatteryStateFull:
-            *outState = KSCrashBatteryStateFull;
-            break;
-        default:
-            *outState = KSCrashBatteryStateUnknown;
-            break;
-    }
-}
-
-static void writeBattery(void)
-{
-    uint8_t level, state;
-    readBattery(&level, &state);
     uint64_t now = ksdate_continuousNanoseconds();
     resourceUpdate(^(KSCrash_ResourceData *res) {
-        res->batteryLevel = level;
-        res->batteryState = state;
+        res->batteryLevel = levelPercent;
+        res->batteryState = (uint8_t)state;
         res->batteryUpdatedAtNs = now;
     });
 }
 
-static void startBatteryObservers(void)
+static void writeDataProtectionActive(uint8_t active)
 {
-    UIDevice.currentDevice.batteryMonitoringEnabled = YES;
-
-    writeBattery();
-
-    NSNotificationCenter *nc = NSNotificationCenter.defaultCenter;
-
-    g_batteryLevelObserver = [nc addObserverForName:UIDeviceBatteryLevelDidChangeNotification
-                                             object:nil
-                                              queue:nil
-                                         usingBlock:^(__unused NSNotification *note) {
-                                             writeBattery();
-                                         }];
-
-    g_batteryStateObserver = [nc addObserverForName:UIDeviceBatteryStateDidChangeNotification
-                                             object:nil
-                                              queue:nil
-                                         usingBlock:^(__unused NSNotification *note) {
-                                             writeBattery();
-                                         }];
+    uint64_t now = ksdate_continuousNanoseconds();
+    resourceUpdate(^(KSCrash_ResourceData *res) {
+        res->dataProtectionActive = active;
+        res->dataProtectionUpdatedAtNs = now;
+    });
 }
 
-static void stopBatteryObservers(void)
-{
-    NSNotificationCenter *nc = NSNotificationCenter.defaultCenter;
-    if (g_batteryLevelObserver) {
-        [nc removeObserver:g_batteryLevelObserver];
-        g_batteryLevelObserver = nil;
-    }
-    if (g_batteryStateObserver) {
-        [nc removeObserver:g_batteryStateObserver];
-        g_batteryStateObserver = nil;
-    }
-    UIDevice.currentDevice.batteryMonitoringEnabled = NO;
-}
-
-#endif  // KSCRASH_HOST_IOS
+void kscm_resource_setProtectedDataAvailable(bool isAvailable) { writeDataProtectionActive(isAvailable ? 1 : 0); }
 
 // ============================================================================
-#pragma mark - Thermal / Data Protection (UIApplication) -
+#pragma mark - Thermal / Data Protection -
 // ============================================================================
 
 #if KSCRASH_HAS_UIAPPLICATION
@@ -453,38 +392,27 @@ static void stopThermalObserver(void)
     }
 }
 
+// The starting value comes from the UI module (kscm_resource_setProtectedDataAvailable), which can
+// read it from UIApplication. Only an app gets the change notifications.
 static void startDataProtectionObservers(void)
 {
-    uint8_t active = UIApplication.sharedApplication.isProtectedDataAvailable ? 1 : 0;
-    uint64_t now = ksdate_continuousNanoseconds();
-    resourceUpdate(^(KSCrash_ResourceData *res) {
-        res->dataProtectionActive = active;
-        res->dataProtectionUpdatedAtNs = now;
-    });
-
+    if (kshostkind_current() == KSCrashHostKindExtension || NSClassFromString(@"UIApplication") == Nil) {
+        return;
+    }
     NSNotificationCenter *nc = NSNotificationCenter.defaultCenter;
-
-    g_protectedDataAvailableObserver = [nc addObserverForName:UIApplicationProtectedDataDidBecomeAvailable
+    g_protectedDataAvailableObserver = [nc addObserverForName:KSApplicationProtectedDataDidBecomeAvailableNotification
                                                        object:nil
                                                         queue:nil
                                                    usingBlock:^(__unused NSNotification *note) {
-                                                       uint64_t ts = ksdate_continuousNanoseconds();
-                                                       resourceUpdate(^(KSCrash_ResourceData *res) {
-                                                           res->dataProtectionActive = 1;
-                                                           res->dataProtectionUpdatedAtNs = ts;
-                                                       });
+                                                       writeDataProtectionActive(1);
                                                    }];
-
-    g_protectedDataUnavailableObserver = [nc addObserverForName:UIApplicationProtectedDataWillBecomeUnavailable
-                                                         object:nil
-                                                          queue:nil
-                                                     usingBlock:^(__unused NSNotification *note) {
-                                                         uint64_t ts = ksdate_continuousNanoseconds();
-                                                         resourceUpdate(^(KSCrash_ResourceData *res) {
-                                                             res->dataProtectionActive = 0;
-                                                             res->dataProtectionUpdatedAtNs = ts;
-                                                         });
-                                                     }];
+    g_protectedDataUnavailableObserver =
+        [nc addObserverForName:KSApplicationProtectedDataWillBecomeUnavailableNotification
+                        object:nil
+                         queue:nil
+                    usingBlock:^(__unused NSNotification *note) {
+                        writeDataProtectionActive(0);
+                    }];
 }
 
 static void stopDataProtectionObservers(void)
@@ -659,18 +587,14 @@ static void setEnabled(bool isEnabled, __unused void *context)
             res->version = KSCrash_Resource_CurrentVersion;
             res->cpuCoreCount = coreCount;
 
-            // Defaults for platforms without battery / data protection
+            // Defaults for platforms without a battery
             res->batteryLevel = 255;
             res->batteryState = KSCrashBatteryStateUnknown;
-            res->dataProtectionActive = 1;
         });
 
         startMemoryObserver();
         startCPUObserver();
         startPowerObserver();
-#if KSCRASH_HOST_IOS
-        startBatteryObservers();
-#endif
 #if KSCRASH_HAS_UIAPPLICATION
         startThermalObserver();
         startDataProtectionObservers();
@@ -680,9 +604,6 @@ static void setEnabled(bool isEnabled, __unused void *context)
         stopMemoryObserver();
         stopCPUObserver();
         stopPowerObserver();
-#if KSCRASH_HOST_IOS
-        stopBatteryObservers();
-#endif
 #if KSCRASH_HAS_UIAPPLICATION
         stopThermalObserver();
         stopDataProtectionObservers();

@@ -133,7 +133,7 @@ the `Monitors.metricKit` singleton is gone. Optional monitors are plugin
 *instances*:
 
 ```swift
-config.plugins = [DiskMonitor.plugin(), BootMonitor.plugin(), MetricKitMonitor.plugin()]
+config.plugins = [UIMonitor.plugin(), DiskMonitor.plugin(), BootMonitor.plugin(), MetricKitMonitor.plugin()]
 // later:
 let metricKit = KSCrash.shared.installedPlugin(MetricKitMonitor.self)
 ```
@@ -144,6 +144,26 @@ KSCrashDiskMonitor` / `KSCrashBootMonitor`); both are pure Swift now, and
 at delivery. Custom monitors conform to
 `MonitorPlugin` (module `KSCrashMonitorPlugins`); a C monitor table wraps in
 `CMonitorPlugin(api:)`.
+
+KSCrash no longer links UIKit. The `UIMonitor` product (`import
+KSCrashUIMonitor`) holds what needs it: register `UIMonitor.plugin()` to have
+the battery level and state, and whether protected data is available at
+install, on reports. Linking it also starts the app-state tracker when the
+process loads, so the tracker sees the app's launch. Without it, a tracker
+started at install can label a launch in progress as Background or
+Deactivating until the next transition. We recommend it for apps. It is
+unavailable to app extensions, which work correctly without it.
+
+## Device ID
+
+`system.device_app_hash` on reports, and `device_id` on run summaries, are now
+a UUID KSCrash keeps in its own data directory, not a hash of the vendor
+identifier. The ID changes once, on the first launch after upgrading: reports
+and run summaries from before the upgrade carry the old one. A MetricKit report
+about a run from before the upgrade, delivered after it, carries the new ID and
+will not match that run's summary.
+The ID is left out of device backups, so a device restored from a backup
+starts a new one.
 
 ## Runtime surface
 

@@ -215,6 +215,7 @@ let project = Project(
                 .package(product: "Monitors", type: .runtime),
                 .package(product: "Profiler", type: .runtime),
                 .package(product: "CrashReportExtension", type: .runtime),
+                .package(product: "UIMonitor", type: .runtime),
             ]
         ),
     ],

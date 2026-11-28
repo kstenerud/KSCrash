@@ -24,19 +24,13 @@
 // THE SOFTWARE.
 //
 #import "KSCrashAppStateTracker.h"
+#import "KSCrashAppStateTracker+Private.h"
 
-#import "KSSystemCapabilities.h"
+#import "KSCrashHostKind.h"
+#import "KSCrashNotificationNames.h"
 
 #import <Foundation/Foundation.h>
 #import <os/lock.h>
-
-#if KSCRASH_HAS_UIAPPLICATION
-#import <UIKit/UIKit.h>
-#endif
-
-#if KSCRASH_HAS_NSEXTENSION
-#import <WatchKit/WatchKit.h>
-#endif
 
 const char *ksapp_transitionStateToString(KSCrashAppTransitionState state)
 {
@@ -99,12 +93,6 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
 
 @implementation KSCrashAppStateTracker
 
-+ (void)load
-{
-    // to work well, we need this to run as early as possible.
-    (void)[KSCrashAppStateTracker sharedInstance];
-}
-
 + (instancetype)sharedInstance
 {
     static KSCrashAppStateTracker *sTracker;
@@ -131,6 +119,10 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
 
         BOOL isPrewarm = [NSProcessInfo.processInfo.environment[@"ActivePrewarm"] boolValue];
         _transitionState = isPrewarm ? KSCrashAppTransitionStateStartupPrewarm : KSCrashAppTransitionStateStartup;
+        _isAppExtension = kshostkind_current() == KSCrashHostKindExtension;
+        // A watch app's application object is a UIApplication subclass posting the same
+        // notifications. A macOS process has none.
+        _applicationClass = (Class<KSCrashApplicationReading>)NSClassFromString(@"UIApplication");
     }
     return self;
 }
@@ -201,17 +193,38 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
 
 - (void)_setTransitionState:(KSCrashAppTransitionState)transitionState
 {
-    NSArray<KSCrashAppStateTrackerObserverBlock> *observers = nil;
-    {
-        os_unfair_lock_lock(&_lock);
-        if (_transitionState != transitionState) {
-            _transitionState = transitionState;
-            [_observers compact];
-            observers = [_observers allObjects];
-        }
-        os_unfair_lock_unlock(&_lock);
-    }
+    [self _moveToTransitionState:transitionState
+                            when:^BOOL(__unused KSCrashAppTransitionState current) {
+                                return YES;
+                            }];
+}
 
+// The state changes only when the current state is `expected`, checked under the same lock as the
+// change, so a value read earlier cannot overwrite a transition that arrived since.
+- (void)_setTransitionState:(KSCrashAppTransitionState)transitionState
+           ifCurrentStateIs:(KSCrashAppTransitionState)expected
+{
+    [self _moveToTransitionState:transitionState
+                            when:^BOOL(KSCrashAppTransitionState current) {
+                                return current == expected;
+                            }];
+}
+
+// The one place the state changes. `shouldMove` is asked under the lock, with the current state;
+// observers are called after the lock is released, and only when the state changed. `shouldMove`
+// must not reach back into the tracker: the lock is not recursive, and locking it again on the
+// thread that holds it terminates the process.
+- (void)_moveToTransitionState:(KSCrashAppTransitionState)transitionState
+                          when:(BOOL(NS_NOESCAPE ^)(KSCrashAppTransitionState current))shouldMove
+{
+    NSArray<KSCrashAppStateTrackerObserverBlock> *observers = nil;
+    os_unfair_lock_lock(&_lock);
+    if (_transitionState != transitionState && shouldMove(_transitionState)) {
+        _transitionState = transitionState;
+        [_observers compact];
+        observers = [_observers allObjects];
+    }
+    os_unfair_lock_unlock(&_lock);
     for (KSCrashAppStateTrackerObserverBlock obs in observers) {
         obs(transitionState);
     }
@@ -242,48 +255,171 @@ bool ksapp_transitionStateIsUserPerceptible(KSCrashAppTransitionState state)
         [weakMe _exitCalled];
     });
 
-#if KSCRASH_HAS_UIAPPLICATION
+    // An app extension follows its extension host, the process presenting it, which is what the
+    // user sees. One that nothing presents gets no host notifications at all, so an extension is
+    // active from the start, set before observing so a transition cannot be overwritten.
+    if (_isAppExtension) {
+        [self _setTransitionState:KSCrashAppTransitionStateActive];
+        _registrations = [self _observeExtensionHost];
+        return;
+    }
 
-    // register all normal lifecycle events
-    // in the future, we could also look at scene lifecycle
-    // events but in reality, we don't actually need to,
-    // it could just give us more granularity.
-    _registrations = @[
+    if (_applicationClass == Nil) {
+        // Nothing in this process posts application transitions, so it is active for its whole run,
+        // which is what reports an OOM. It observes nothing, but it is started: nil would read as stopped,
+        // and the exit callback would drop every normal exit.
+        _registrations = @[];
+        [self _setTransitionState:KSCrashAppTransitionStateActive];
+        return;
+    }
 
-        OBSERVE(_center, UIApplicationDidFinishLaunchingNotification,
-                { [weakMe _setTransitionState:KSCrashAppTransitionStateLaunching]; }),
-        OBSERVE(_center, UIApplicationWillEnterForegroundNotification,
+    _registrations = [self _observeApplication];
+    // Before UIApplicationMain there is no application object yet, and no launch notification has
+    // been posted for the observers to miss. Its state, read on the run loop's first turn, is
+    // background whatever the launch turns out to be, so it is not read at all.
+    if (NSThread.isMainThread && [_applicationClass sharedApplication] == nil) {
+        return;
+    }
+    [self _adoptApplicationStateFrom:self.transitionState afterACallout:NO];
+}
+
+- (NSArray<id<NSObject>> *)_observeApplication
+{
+    __weak typeof(self) weakMe = self;
+    return @[
+        OBSERVE(_center, KSApplicationDidFinishLaunchingNotification, { [weakMe _didFinishLaunching]; }),
+        OBSERVE(_center, KSApplicationWillEnterForegroundNotification,
                 { [weakMe _setTransitionState:KSCrashAppTransitionStateForegrounding]; }),
-        OBSERVE(_center, UIApplicationDidBecomeActiveNotification,
+        OBSERVE(_center, KSApplicationDidBecomeActiveNotification,
                 { [weakMe _setTransitionState:KSCrashAppTransitionStateActive]; }),
-        OBSERVE(_center, UIApplicationWillResignActiveNotification,
+        OBSERVE(_center, KSApplicationWillResignActiveNotification,
                 { [weakMe _setTransitionState:KSCrashAppTransitionStateDeactivating]; }),
-        OBSERVE(_center, UIApplicationDidEnterBackgroundNotification,
+        OBSERVE(_center, KSApplicationDidEnterBackgroundNotification,
                 { [weakMe _setTransitionState:KSCrashAppTransitionStateBackground]; }),
-        OBSERVE(_center, UIApplicationWillTerminateNotification,
+        OBSERVE(_center, KSApplicationWillTerminateNotification,
                 { [weakMe _setTransitionState:KSCrashAppTransitionStateTerminating]; }),
     ];
+}
 
-#elif KSCRASH_HAS_NSEXTENSION
+// A launch into the background (a location update, a fetch) never gets a foreground notification,
+// so without this it would stay Launching, which is user perceptible, for its whole run. Reading
+// the state at the launch notification cannot tell: a scene-based app reads background there on a
+// foreground launch too. By the main queue's next turn a foreground launch has had its scene enter
+// the foreground, moving the state on, and the guard drops the read; a background launch still
+// reads background (probed on iOS 27, both ways). If a foreground launch ever reached that turn
+// before its scene entered the foreground, it would show Background until the scene's
+// notification arrived.
+- (void)_didFinishLaunching
+{
+    [self _setTransitionState:KSCrashAppTransitionStateLaunching];
+    __weak typeof(self) weakMe = self;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        typeof(self) strongMe = weakMe;
+        // A stopped tracker no longer follows the application.
+        if (strongMe == nil || strongMe->_registrations == nil) {
+            return;
+        }
+        id<KSCrashApplicationReading> application = [strongMe->_applicationClass sharedApplication];
+        if (application.applicationState == KSCrashApplicationStateBackground) {
+            [strongMe _setTransitionState:KSCrashAppTransitionStateBackground
+                         ifCurrentStateIs:KSCrashAppTransitionStateLaunching];
+        }
+    });
+}
 
-    // watchOS extensions use NSExtensionHost* notifications for lifecycle.
-    // No Terminating equivalent exists — atexit_b above handles Exiting.
-    _registrations = @[
-        OBSERVE(_center, NSExtensionHostDidBecomeActiveNotification,
+- (NSArray<id<NSObject>> *)_observeExtensionHost
+{
+    __weak typeof(self) weakMe = self;
+    // No Terminating equivalent exists; atexit_b in start handles Exiting.
+    return @[
+        OBSERVE(_center, KSExtensionHostDidBecomeActiveNotification,
                 { [weakMe _setTransitionState:KSCrashAppTransitionStateActive]; }),
-        OBSERVE(_center, NSExtensionHostWillResignActiveNotification,
+        OBSERVE(_center, KSExtensionHostWillResignActiveNotification,
                 { [weakMe _setTransitionState:KSCrashAppTransitionStateDeactivating]; }),
-        OBSERVE(_center, NSExtensionHostDidEnterBackgroundNotification,
+        OBSERVE(_center, KSExtensionHostDidEnterBackgroundNotification,
                 { [weakMe _setTransitionState:KSCrashAppTransitionStateBackground]; }),
-        OBSERVE(_center, NSExtensionHostWillEnterForegroundNotification,
+        OBSERVE(_center, KSExtensionHostWillEnterForegroundNotification,
                 { [weakMe _setTransitionState:KSCrashAppTransitionStateForegrounding]; }),
     ];
+}
 
-#else
-    // on other platforms that don't have UIApplication
-    // we simply state that the app is active in order to report OOMs.
-    [self _setTransitionState:KSCrashAppTransitionStateActive];
-#endif
+// The tracker starts on first access, which is normally install, and an app can install after it
+// has launched, when the notifications that would have moved it on have already been posted. So
+// start takes the application's current state once, after observing, and only while the state is
+// still the one start saw: a notification that arrived in between wins.
+//
+// The read is made only on the main thread, from a running main run loop. `applicationState`
+// belongs to the main thread, and install can run on any thread. A scene-based app, and a watch app,
+// runs its whole launch, didFinishLaunching and UIApplicationDidFinishLaunchingNotification
+// included, before the main run loop starts, reading background on its way to the foreground. A
+// block performed on the main run loop waits for it to run, so the read made there comes after the
+// launch notifications have moved the state on, and the guard below drops it. Until the read is
+// made, readers see the starting state.
+- (void)_adoptApplicationStateFrom:(KSCrashAppTransitionState)startState afterACallout:(BOOL)afterACallout
+{
+    __weak typeof(self) weakMe = self;
+    CFRunLoopRef mainRunLoop = CFRunLoopGetMain();
+    CFStringRef performModes = kCFRunLoopCommonModes;
+
+    // A run loop that is not running has no current mode.
+    CFStringRef currentMode = CFRunLoopCopyCurrentMode(mainRunLoop);
+    bool mainRunLoopIsRunning = currentMode != NULL;
+    if (currentMode != NULL) {
+        CFRelease(currentMode);
+    }
+    if (!NSThread.isMainThread || !mainRunLoopIsRunning) {
+        CFRunLoopPerformBlock(mainRunLoop, performModes, ^{
+            [weakMe _adoptApplicationStateFrom:startState afterACallout:YES];
+        });
+        CFRunLoopWakeUp(mainRunLoop);
+        return;
+    }
+
+    id<KSCrashApplicationReading> application = [_applicationClass sharedApplication];
+    if (application == nil) {
+        // No application object: nothing has launched it, so the starting state is the truth.
+        return;
+    }
+    KSCrashApplicationState applicationState = application.applicationState;
+
+    // An app without scenes launches inside one callout of the running main run loop and reads
+    // inactive throughout, which looks the same as an interruption. UIKit posts
+    // UIApplicationDidFinishLaunchingNotification in that same callout, and a block performed on the
+    // main run loop runs only once the callout has returned. So an inactive read waits for the
+    // current callout once: in a launch, the notification has moved the state on by then and the
+    // guard below drops the read.
+    if (applicationState == KSCrashApplicationStateInactive && !afterACallout) {
+        CFRunLoopPerformBlock(mainRunLoop, performModes, ^{
+            [weakMe _adoptApplicationStateFrom:startState afterACallout:YES];
+        });
+        CFRunLoopWakeUp(mainRunLoop);
+        return;
+    }
+
+    KSCrashAppTransitionState adopted = ksapp_transitionStateForApplicationState(applicationState, startState);
+    [self _setTransitionState:adopted ifCurrentStateIs:startState];
+}
+
+KSCrashAppTransitionState ksapp_transitionStateForApplicationState(KSCrashApplicationState applicationState,
+                                                                   KSCrashAppTransitionState currentState)
+{
+    switch (applicationState) {
+        case KSCrashApplicationStateActive:
+            return KSCrashAppTransitionStateActive;
+
+        case KSCrashApplicationStateBackground:
+            return KSCrashAppTransitionStateBackground;
+
+        case KSCrashApplicationStateInactive:
+            // On screen but not active: either being interrupted (an alert, Control Center) or
+            // coming back from the background, and UIKit does not say which. Deactivating is the
+            // likelier one for an app found that way after launch. Both are user perceptible, and
+            // the next notification corrects the label.
+            return KSCrashAppTransitionStateDeactivating;
+
+        default:
+            return currentState;
+    }
 }
 
 - (void)stop

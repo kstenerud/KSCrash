@@ -80,6 +80,7 @@ static KSCrash_ResourceData makeValidResourceData(void)
     data.thermalState = 1;      // fair
     data.threadCount = 42;
     data.dataProtectionActive = 1;
+    data.dataProtectionUpdatedAtNs = 1000;
     return data;
 }
 
@@ -365,6 +366,21 @@ static KSCrash_ResourceData makeValidResourceData(void)
     XCTAssertTrue(result != nil);
 
     XCTAssertEqualObjects(result[KSCrashField_System][KSCrashField_DataProtectionActive], @NO);
+}
+
+- (void)testUnreadDataProtectionIsOmitted
+{
+    KSCrash_ResourceData data = makeValidResourceData();
+    data.dataProtectionActive = 1;
+    data.dataProtectionUpdatedAtNs = 0;
+    NSString *path = writeResourceSidecar(self.tempDir, data);
+    NSDictionary *report = @{};
+
+    NSDictionary *result = (__bridge_transfer NSDictionary *)kscm_resource_createStitchedReport(
+        (__bridge CFDictionaryRef)report, path.UTF8String, KSCrashSidecarScopeRun, NULL);
+    XCTAssertTrue(result != nil);
+
+    XCTAssertNil(result[KSCrashField_System][KSCrashField_DataProtectionActive]);
 }
 
 - (void)testLowPowerModeEnabled

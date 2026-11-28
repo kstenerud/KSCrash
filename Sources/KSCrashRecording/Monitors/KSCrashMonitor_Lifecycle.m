@@ -67,26 +67,6 @@ static dispatch_source_t g_taskRoleHeartbeatTimer = NULL;
 static atomic_bool g_isEnabled = false;
 static _Atomic KSCrashAppTransitionState g_transitionState = KSCrashAppTransitionStateStartup;
 
-// Maps the currently-running bundle to the matching host kind enum. Called
-// once at sidecar creation — the bundle doesn't change during a run, so we
-// capture the producer's host kind into the sidecar where it survives for
-// the next process to read. Different process types (app vs extension) that
-// share a KSCrash install dir then don't mislabel each other's summaries.
-static KSCrashRunSummaryHostKind hostKindForCurrentBundle(void)
-{
-    NSString *ext = [[NSBundle mainBundle] bundlePath].pathExtension.lowercaseString;
-    if ([ext isEqualToString:@"app"]) {
-        return KSCrashRunSummaryHostKindApp;
-    }
-    if ([ext isEqualToString:@"appex"]) {
-        return KSCrashRunSummaryHostKindExtension;
-    }
-    if ([ext isEqualToString:@"xctest"]) {
-        return KSCrashRunSummaryHostKindXCTest;
-    }
-    return KSCrashRunSummaryHostKindOther;
-}
-
 /** Write the current task role to the sidecar if it changed.
  *  Call under the sidecar lock.
  */
@@ -440,7 +420,7 @@ static KSCrash_LifecycleData *createSidecar(void)
     sc->sessionsSinceLaunch = 1;
 
     sc->taskRole = (int32_t)kstaskrole_current();
-    sc->hostKind = (uint8_t)hostKindForCurrentBundle();
+    sc->hostKind = (uint8_t)kshostkind_current();
     sc->magic = KSLIFECYCLE_MAGIC;
     sc->version = KSCrash_Lifecycle_CurrentVersion;
     return sc;

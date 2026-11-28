@@ -116,7 +116,10 @@ CFDictionaryRef kscm_resource_createStitchedReport(CFDictionaryRef reportDict, c
     }
     systemDict[KSCrashField_ThermalState] = @(data.thermalState);
     systemDict[KSCrashField_ThreadCount] = @(data.threadCount);
-    systemDict[KSCrashField_DataProtectionActive] = @((BOOL)data.dataProtectionActive);
+    // Only a run that read the value says anything about it.
+    if (data.dataProtectionUpdatedAtNs != 0) {
+        systemDict[KSCrashField_DataProtectionActive] = @((BOOL)data.dataProtectionActive);
+    }
 
     dict[KSCrashField_System] = systemDict;
 

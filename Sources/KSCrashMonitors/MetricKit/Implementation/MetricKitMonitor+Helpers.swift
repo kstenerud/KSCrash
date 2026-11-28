@@ -212,26 +212,26 @@ func diagnosticBundleIdentifier(fromJSON json: Data) -> String? {
 
 // MARK: - Device
 
-/// The device hash for a report about a diagnostic MetricKit delivered to this app, or nil when
+/// The device ID for a report about a diagnostic MetricKit delivered to this app, or nil when
 /// the diagnostic is another bundle's.
 ///
-/// The hash identifies the app on this device and is the same in every run, so this run's value
+/// The ID identifies the app on this device and is the same in every run, so this run's value
 /// is the one the diagnostic's own run recorded. MetricKit can deliver an app extension's
-/// diagnostic to its app, and the hash covers the bundle ID, so a diagnostic from any other bundle
-/// gets nil rather than the app's hash. A diagnostic that names no bundle is taken to be the app's
+/// diagnostic to its app, and the ID is the app's alone, so a diagnostic from any other bundle
+/// gets nil rather than the app's ID. A diagnostic that names no bundle is taken to be the app's
 /// own.
 ///
 /// - Parameters:
 ///   - diagnosticBundleID: The bundle ID the diagnostic names, when it names one.
 ///   - appBundleID: This app's bundle ID.
-///   - hash: This app's device hash.
-func deviceAppHash(
+///   - deviceID: This app's device ID.
+func deviceID(
     forDiagnosticBundleID diagnosticBundleID: String?,
     appBundleID: String? = Bundle.main.bundleIdentifier,
-    hash: String = String(cString: kscm_system_getDeviceAppHash())
+    deviceID: String = String(cString: kscrash_getDeviceID())
 ) -> String? {
     if let diagnosticBundleID, !diagnosticBundleID.isEmpty, diagnosticBundleID != appBundleID {
         return nil
     }
-    return hash
+    return deviceID
 }

@@ -183,7 +183,7 @@ static void populateContext(KSCrashRunContext *ctx)
 {
     KSCrashRunContext ctx;
     populateContext(&ctx);
-    ctx.lifecycle.hostKind = (uint8_t)KSCrashRunSummaryHostKindExtension;
+    ctx.lifecycle.hostKind = (uint8_t)KSCrashHostKindExtension;
 
     NSDictionary *summary = ksruncontext_testcode_buildSummary(&ctx, NULL);
 

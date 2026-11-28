@@ -191,6 +191,15 @@ bool ksfu_setDataProtection(int fd, KSFUDataProtection protection);
  */
 bool ksfu_setDataProtectionAtPath(const char *path, KSFUDataProtection protection);
 
+/** Keep a file or directory out of the device's backups, so a backup restored onto another
+ *  device does not carry it there.
+ *
+ * @param path The file or directory.
+ *
+ * @return true if it is excluded. false if the path does not exist or could not be excluded.
+ */
+bool ksfu_excludeFromBackupAtPath(const char *path);
+
 /** The data protection of an open file or directory.
  *
  * @param fd An open descriptor for the file or directory.

@@ -125,7 +125,7 @@ import XCTest
         }
     }
 
-    // Which MetricKit reports carry this app's device hash.
+    // Which MetricKit reports carry this app's device ID.
     final class MetricKitBundleIdentifierTests: XCTestCase {
 
         // The shape of a legacy diagnostic's JSON on iOS 18, where MXMetaData has no
@@ -145,28 +145,31 @@ import XCTest
         }
     }
 
-    final class MetricKitDeviceHashTests: XCTestCase {
+    final class MetricKitDeviceIDTests: XCTestCase {
 
-        private let appHash = "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+        private let appDeviceID = "0e5b6f3a-8c1d-4f2e-9a7b-3c4d5e6f7a8b"
 
-        func testDeviceHashGoesOnTheAppsOwnDiagnostics() {
+        func testDeviceIDGoesOnTheAppsOwnDiagnostics() {
             XCTAssertEqual(
-                deviceAppHash(forDiagnosticBundleID: "com.example.app", appBundleID: "com.example.app", hash: appHash),
-                appHash)
+                deviceID(
+                    forDiagnosticBundleID: "com.example.app", appBundleID: "com.example.app", deviceID: appDeviceID),
+                appDeviceID)
         }
 
-        func testDeviceHashStaysOffAnotherBundlesDiagnostic() {
-            // An app extension's diagnostic delivered to its app: the app's hash would name the wrong runs.
+        func testDeviceIDStaysOffAnotherBundlesDiagnostic() {
+            // An app extension's diagnostic delivered to its app: the app's device ID would name the wrong runs.
             XCTAssertNil(
-                deviceAppHash(
-                    forDiagnosticBundleID: "com.example.app.widget", appBundleID: "com.example.app", hash: appHash))
+                deviceID(
+                    forDiagnosticBundleID: "com.example.app.widget", appBundleID: "com.example.app",
+                    deviceID: appDeviceID))
         }
 
-        func testDeviceHashGoesOnADiagnosticThatNamesNoBundle() {
+        func testDeviceIDGoesOnADiagnosticThatNamesNoBundle() {
             XCTAssertEqual(
-                deviceAppHash(forDiagnosticBundleID: nil, appBundleID: "com.example.app", hash: appHash), appHash)
+                deviceID(forDiagnosticBundleID: nil, appBundleID: "com.example.app", deviceID: appDeviceID), appDeviceID
+            )
             XCTAssertEqual(
-                deviceAppHash(forDiagnosticBundleID: "", appBundleID: "com.example.app", hash: appHash), appHash)
+                deviceID(forDiagnosticBundleID: "", appBundleID: "com.example.app", deviceID: appDeviceID), appDeviceID)
         }
     }
 
