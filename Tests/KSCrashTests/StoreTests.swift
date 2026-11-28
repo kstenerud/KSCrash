@@ -925,6 +925,25 @@ final class StoreTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: staged.path))
     }
 
+    func test_reclaimOrphans_leavesTakeInCopiesAndRemovesAbandonedWrites() throws {
+        let (store, reportsDirectory, release) = try makeCStore(maxReportCount: 0)
+        defer { release() }
+        let staged = reportsDirectory.appendingPathComponent(
+            String(format: "%020d-%@.json.incoming", 1, testReportID(1).description))
+        try Data("half a report".utf8).write(to: staged)
+        let abandonedWrite = reportsDirectory.appendingPathComponent(
+            String(format: "%020d-%@.json.tmp", 2, testReportID(2).description))
+        try Data("half a report".utf8).write(to: abandonedWrite)
+
+        store.reclaimOrphans()
+
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: staged.path),
+            "only a take-in, under its claim, removes a take-in's copies")
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: abandonedWrite.path), "a report write is judged under the lock")
+    }
+
     func test_takeIn_aSelectiveSendDoesNotTakeIn() async throws {
         let source = MemoryReportSource([incoming(1)])
         _ = try await ReportSend.send(
@@ -955,6 +974,39 @@ final class StoreTests: XCTestCase {
         XCTAssertEqual(reports.ids, [testReportID(1), testReportID(2)])
         XCTAssertEqual(source.finished, [testReportID(1): .taken, testReportID(2): .taken])
         XCTAssertEqual(source.pendingIDs, [])
+    }
+
+    func test_takeIn_runsWhileAnotherSendReclaimsRunData() async throws {
+        // The reclaim never holds the take-in claim, so a take-in that runs
+        // while another send reclaims still takes its sources.
+        let reports = FakeReports([:])
+        let entered = expectation(description: "reclaim entered")
+        let proceed = DispatchSemaphore(value: 0)
+        // Released however the test ends, so a failure never leaves the
+        // reclaim's thread blocked for the rest of the run.
+        defer { proceed.signal() }
+        let store = Store(
+            runsDirectory: runsDirectory, runSidecarsDirectory: sidecarsDirectory, liveRunID: nil,
+            reports: ReportBridge(
+                list: { reports.ids },
+                takeIn: { file, id, _ in
+                    guard let data = try? Data(contentsOf: file) else { return .retryLater }
+                    _ = reports.insert(id, data)
+                    return .taken
+                },
+                read: { reports.data(for: $0) }, runID: { _ in nil }, remove: { reports.remove($0) }),
+            reclaim: {
+                entered.fulfill()
+                proceed.wait()
+            })
+        Thread { store.reclaimOrphans() }.start()
+        await fulfillment(of: [entered], timeout: 5)
+        let source = MemoryReportSource([incoming(1)])
+
+        await store.takeIn(from: [source], claims: ClaimSet())
+
+        XCTAssertEqual(reports.ids, [testReportID(1)])
+        XCTAssertEqual(source.finished, [testReportID(1): .taken])
     }
 
     func test_takeIn_answersTakenForAReportTheStoreAlreadyHolds() async throws {

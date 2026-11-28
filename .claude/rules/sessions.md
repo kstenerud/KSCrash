@@ -64,9 +64,13 @@ session/user counts on the summary; a consumer derives whatever it needs from
 
 ### Reclaim
 
-`kscrs_reclaimOrphanedRunData` (in `KSCrashReportStoreC.m`) runs under `g_mutex` at the
-end of both send flows. It computes the referenced run IDs once and removes run data
-nothing points at any more: run sidecars **and** `.sessions` are both kept while a
+`kscrs_reclaimAbandonedFiles` (in `KSCrashReportStoreC.m`) runs under `g_mutex` at the
+end of both send flows. It first removes the `.tmp` files of report writes a crash
+interrupted (every writer of one holds `g_mutex` for the file's whole life). It never touches
+a take-in's `.incoming` copies, which are written outside `g_mutex`: removing those would mean
+holding the take-in claim, and a take-in that finds the claim taken skips its sources. The next
+take-in removes them, under its own claim (`kscrs_removeAbandonedTakeIns`). Then it
+computes the referenced run IDs once and removes run data nothing points at any more: run sidecars **and** `.sessions` are both kept while a
 report or a `.run` summary references the run (a pending summary needs its `.sessions`
 for the record merge and its UserInfo run sidecar for the metadata stitch), and the
 live run is always kept. Run data nothing references any more is not deleted on sight
@@ -89,5 +93,5 @@ pending summaries keep their artifacts. See `monitor-sidecars.md` for the run-si
 - `KSCrashRunContext.m`: `buildSummary`, `ksruncontext_persistPreviousRunSummary`
 - `Sources/KSCrash/Store.swift` / `Store+Runs.swift`: the store, its run listing (`snapshotRuns()`), send-time merge and metadata stitch
 - `Sources/KSCrash/SendDriver.swift` / `RunSummarySend.swift`: the shared send loop and the run-summary send built on it
-- `KSCrashReportStoreC.m`: `kscrs_reclaimOrphanedRunData`
+- `KSCrashReportStoreC.m`: `kscrs_reclaimAbandonedFiles`, `kscrs_removeAbandonedTakeIns`
 - `KSCrashReportFields.h`: `KSCrashRunSummaryField_*` wire keys, `KSCrashField_SessionID`

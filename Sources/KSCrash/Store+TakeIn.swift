@@ -42,7 +42,9 @@ extension Store {
     /// rather than waiting, and its listing sends what the store already holds;
     /// its own sources, which may differ from the other send's, keep their
     /// reports for a later send. Every send builds its own `Store`, so the claim
-    /// is keyed by the directory rather than held by the value.
+    /// is keyed by the directory rather than held by the value. Only a take-in
+    /// holds the claim: anything else holding it would make a send skip
+    /// sources that nothing else is taking in.
     func takeIn(from sources: [any ReportSource], claims: ClaimSet<Report.ID>) async {
         guard !sources.isEmpty else { return }
         let directoryKey = reportsDirectory?.standardizedFileURL.path ?? "store:\(runsDirectory.path)"

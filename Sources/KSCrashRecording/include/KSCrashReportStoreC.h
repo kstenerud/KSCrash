@@ -233,16 +233,18 @@ bool kscrs_getReportSidecarFilePath(const char *monitorId, const char *name, con
                                     size_t pathBufferLength,
                                     const KSCrashReportStoreCConfiguration *const configuration);
 
-/** Remove on-disk run data (run sidecar directories and session sidecars) for
- * runs no longer referenced by any report or run summary.
+/** Remove what nothing will read again: on-disk run data (run sidecar
+ * directories and session sidecars) for runs no longer referenced by any
+ * report or run summary, and the partial files of report writes that a crash
+ * interrupted.
  *
  * Called automatically within the send flows. If you handle delivery yourself,
  * call this periodically or after sending. May block, so prefer a background
  * thread.
  *
- * @param configuration The store configuration.
+ * @param configuration The store configuration. NULL does nothing.
  */
-void kscrs_reclaimOrphanedRunData(const KSCrashReportStoreCConfiguration *const configuration);
+void kscrs_reclaimAbandonedFiles(const KSCrashReportStoreCConfiguration *const configuration);
 
 /** What happened to a report offered to the store. */
 typedef enum {
@@ -261,7 +263,7 @@ typedef enum {
  *
  * Call only while no take-in into this store is running.
  *
- * @param configuration The store configuration.
+ * @param configuration The store configuration. NULL does nothing.
  */
 void kscrs_removeAbandonedTakeIns(const KSCrashReportStoreCConfiguration *const configuration);
 

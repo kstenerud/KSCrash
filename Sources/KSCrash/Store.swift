@@ -102,7 +102,7 @@ struct Store: Sendable {
             // than deleted on sight: a report for that run can still arrive
             // later from a report source, and it needs the run's data to be
             // stitched. A run's data is a few kilobytes, bounded by the window.
-            reclaim: { kscrs_reclaimOrphanedRunData(config.pointer) }
+            reclaim: { kscrs_reclaimAbandonedFiles(config.pointer) }
         )
     }
 
@@ -296,8 +296,14 @@ struct Store: Sendable {
             + artifactOnly.sorted { $0.runID.description < $1.runID.description }
     }
 
-    /// Remove shared run data nothing references any more, once it is older
-    /// than the configured retention window.
+    /// Remove what nothing will read again: report writes a crash
+    /// interrupted, and shared run data nothing references any more, once it
+    /// is older than the configured retention window.
+    ///
+    /// Never takes the take-in claim: a take-in that finds it taken skips its
+    /// sources, so a reclaim holding it would cost a concurrent send its
+    /// take-in. The copies a crash left mid take-in are the next take-in's to
+    /// remove, under its own claim.
     func reclaimOrphans() {
         reclaim()
     }
