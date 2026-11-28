@@ -385,7 +385,9 @@ final class SimulatorDevice {
     /// the user domain is best effort, since tvOS and watchOS have none and some runtimes
     /// (tvOS 26.2) refuse every disable there. Stopping a job fails when it is not loaded in
     /// that domain, which is harmless once it is disabled. The calls run a few at a time
-    /// because each one is a separate spawn into the simulator.
+    /// because each one is a separate spawn into the simulator. They get the boot's time
+    /// allowance: the first spawns into a device that has just booted wait until it takes them,
+    /// which on a CI runner took up to 112 s, and later ones take seconds.
     private static func quiet(_ udid: String) throws {
         let domains = ["system", "user/\(getuid())"]
         let failures = Failures()
@@ -396,14 +398,16 @@ final class SimulatorDevice {
                 let label = "\(domain)/com.apple.\(job)"
                 queue.addOperation {
                     do {
-                        try xcrun(["simctl", "spawn", udid, "launchctl", "disable", label])
+                        try xcrun(["simctl", "spawn", udid, "launchctl", "disable", label], timeout: bootTimeout)
                     } catch {
                         if domain == "system" {
                             failures.append(String(describing: error))
                         }
                         return
                     }
-                    _ = try? xcrun(["simctl", "spawn", udid, "launchctl", "bootout", label], allowFailure: true)
+                    _ = try? xcrun(
+                        ["simctl", "spawn", udid, "launchctl", "bootout", label], allowFailure: true,
+                        timeout: bootTimeout)
                 }
             }
         }
