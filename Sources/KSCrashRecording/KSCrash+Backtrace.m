@@ -25,6 +25,10 @@
 //
 
 #import "KSCrash+Backtrace.h"
+#import "KSCrash+Private.h"
+
+// Link anchor, see KSCrash+Private.h.
+void kscrash_linkBacktraceCategory(void) {}
 
 @implementation KSCrash (Backtrace)
 

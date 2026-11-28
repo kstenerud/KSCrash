@@ -40,6 +40,22 @@ extern "C" {
 NSString *kscrash_getBundleName(void);
 NSString *_Nullable kscrash_getDefaultInstallPath(void);
 
+/** Link anchors, one per KSCrash category that lives in its own source file.
+ *
+ * A category defines no linker symbols, so a static linker only loads a
+ * category-only object file from an archive when the consumer passes -ObjC.
+ * Without it the category methods are missing at runtime and calling one
+ * raises "unrecognized selector".
+ *
+ * KSCrash.m references these anchors, so loading the KSCrash class also loads
+ * every category. A new category file must define an anchor and add it to the
+ * list in KSCrash.m.
+ */
+void kscrash_linkBacktraceCategory(void);
+void kscrash_linkHangCategory(void);
+void kscrash_linkNamespaceCategory(void);
+void kscrash_linkUserInfoCategory(void);
+
 #ifdef __cplusplus
 }
 #endif

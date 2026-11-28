@@ -25,6 +25,7 @@
 //
 
 #import "KSCrash+Hang.h"
+#import "KSCrash+Private.h"
 
 /** ObjC wrapper that ties a block observer to the C observer API.
  *  Calls kshang_removeHangObserver on dealloc for automatic cleanup.
@@ -66,6 +67,9 @@ static void hangObserverTrampoline(KSHangChangeType change, uint64_t start, uint
 }
 
 @end
+
+// Link anchor, see KSCrash+Private.h.
+void kscrash_linkHangCategory(void) {}
 
 @implementation KSCrash (Hang)
 
