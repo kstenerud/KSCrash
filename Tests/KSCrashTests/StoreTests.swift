@@ -471,24 +471,15 @@ final class StoreTests: XCTestCase {
         XCTAssertNil(try store.summary(of: after[0]))
     }
 
-    func test_reclaimOrphans_sweepsThenInvokesInjectedReclaim() {
-        let swept = expectation(description: "sweep")
+    func test_reclaimOrphans_invokesInjectedReclaim() {
         let called = expectation(description: "reclaim")
-        var bridge = ReportBridge.none
-        bridge.removeAbandonedWrites = { includingTakeIns in
-            XCTAssertTrue(includingTakeIns, "with no take-in holding the claim, the sweep holds it")
-            swept.fulfill()
-        }
         let store = Store(
             runsDirectory: runsDirectory,
             runSidecarsDirectory: sidecarsDirectory,
-            liveRunID: nil,
-            reports: bridge
-        ) {
-            called.fulfill()
-        }
+            liveRunID: nil
+        ) { called.fulfill() }
         store.reclaimOrphans()
-        wait(for: [swept, called], timeout: 1, enforceOrder: true)
+        wait(for: [called], timeout: 1)
     }
 
     // MARK: - Reports
@@ -889,19 +880,19 @@ final class StoreTests: XCTestCase {
             FileManager.default.fileExists(atPath: runData.path), "run data younger than the window survives a send")
     }
 
-    func test_reclaimOrphans_removesATakeInCopyACrashLeftBehind() throws {
+    func test_takeIn_removesACopyACrashLeftBehind() async throws {
         let (store, reportsDirectory, release) = try makeCStore(maxReportCount: 0)
         defer { release() }
         let staged = reportsDirectory.appendingPathComponent(
             String(format: "%020d-%@.json.incoming", 1, testReportID(1).description))
         try Data("half a report".utf8).write(to: staged)
 
-        store.reclaimOrphans()
+        await store.takeIn(from: [MemoryReportSource([])], claims: ClaimSet())
 
         XCTAssertFalse(FileManager.default.fileExists(atPath: staged.path))
     }
 
-    func test_reclaimOrphans_keepsTakeInCopiesWhileATakeInHoldsTheClaim() throws {
+    func test_reclaimOrphans_leavesTakeInCopiesAndRemovesAbandonedWrites() throws {
         let (store, reportsDirectory, release) = try makeCStore(maxReportCount: 0)
         defer { release() }
         let staged = reportsDirectory.appendingPathComponent(
@@ -911,12 +902,11 @@ final class StoreTests: XCTestCase {
             String(format: "%020d-%@.json.tmp", 2, testReportID(2).description))
         try Data("half a report".utf8).write(to: abandonedWrite)
 
-        XCTAssertTrue(Store.takeInClaims.claim(store.takeInClaimKey))
         store.reclaimOrphans()
-        Store.takeInClaims.release(store.takeInClaimKey)
 
         XCTAssertTrue(
-            FileManager.default.fileExists(atPath: staged.path), "a running take-in may still be writing the copy")
+            FileManager.default.fileExists(atPath: staged.path),
+            "only a take-in, under its claim, removes a take-in's copies")
         XCTAssertFalse(
             FileManager.default.fileExists(atPath: abandonedWrite.path), "a report write is judged under the lock")
     }
@@ -954,12 +944,14 @@ final class StoreTests: XCTestCase {
     }
 
     func test_takeIn_runsWhileAnotherSendReclaimsRunData() async throws {
-        // The reclaim holds the take-in claim only for its sweep of crashed
-        // copies, not through the run data pass, so a take-in in that pass
-        // still takes its sources.
+        // The reclaim never holds the take-in claim, so a take-in that runs
+        // while another send reclaims still takes its sources.
         let reports = FakeReports([:])
-        let entered = DispatchSemaphore(value: 0)
+        let entered = expectation(description: "reclaim entered")
         let proceed = DispatchSemaphore(value: 0)
+        // Released however the test ends, so a failure never leaves the
+        // reclaim's thread blocked for the rest of the run.
+        defer { proceed.signal() }
         let store = Store(
             runsDirectory: runsDirectory, runSidecarsDirectory: sidecarsDirectory, liveRunID: nil,
             reports: ReportBridge(
@@ -971,22 +963,18 @@ final class StoreTests: XCTestCase {
                 },
                 read: { reports.data(for: $0) }, runID: { _ in nil }, remove: { reports.remove($0) }),
             reclaim: {
-                entered.signal()
+                entered.fulfill()
                 proceed.wait()
             })
         Thread { store.reclaimOrphans() }.start()
-        Self.wait(entered)
+        await fulfillment(of: [entered], timeout: 5)
         let source = MemoryReportSource([incoming(1)])
 
         await store.takeIn(from: [source], claims: ClaimSet())
-        proceed.signal()
 
         XCTAssertEqual(reports.ids, [testReportID(1)])
         XCTAssertEqual(source.finished, [testReportID(1): .taken])
     }
-
-    /// Blocks outside the async context, where a semaphore wait is not allowed.
-    private static func wait(_ semaphore: DispatchSemaphore) { semaphore.wait() }
 
     func test_takeIn_answersTakenForAReportTheStoreAlreadyHolds() async throws {
         // What makes a crash between the store's write and the reader's finish
